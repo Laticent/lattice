@@ -23,7 +23,7 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: compare-table state-cells -->
+<!-- _class: table state-cells -->
 <!-- _focus: row 4 -->
 
 ## `_focus: row 4` — ring the deciding criterion.
@@ -38,7 +38,7 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: compare-table state-cells -->
+<!-- _class: table state-cells -->
 <!-- _focus: col 5 -->
 
 ## `_focus: col 5` — read one option, top to bottom.
@@ -53,7 +53,7 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: compare-table state-cells -->
+<!-- _class: table state-cells -->
 <!-- _focus: cell 4,5 -->
 
 ## `_focus: cell 4,5` — the single decisive cell.
@@ -119,7 +119,7 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: compare-table state-cells -->
+<!-- _class: table state-cells -->
 <!-- _focus: row 4 -->
 <!-- _focusStyle: pop -->
 

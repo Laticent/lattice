@@ -29,7 +29,7 @@ export const FAMILY_DEFS = [
 	{ key: 'numbers', label: 'Numbers & KPIs', members: ['kpi', 'stats'] },
 	{ key: 'lists', label: 'Lists & inventories', members: ['list', 'list-tabular', 'checklist', 'agenda', 'actors', 'glossary', 'list-steps', 'list-criteria', 'logo-wall', 'q-and-a'] },
 	{ key: 'cards', label: 'Cards', members: ['cards-grid', 'cards-stack'] },
-	{ key: 'compare', label: 'Compare', members: ['compare-prose', 'compare-table', 'decision', 'matrix-2x2', 'redline', 'verdict-grid', 'pricing'] },
+	{ key: 'compare', label: 'Compare', members: ['compare-prose', 'table', 'decision', 'matrix-2x2', 'redline', 'verdict-grid', 'pricing'] },
 	{ key: 'timelines', label: 'Timelines & roadmaps', members: ['timeline-list', 'roadmap'] },
 	{ key: 'charts', label: 'Charts & diagrams', members: ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'word-cloud', 'diagram', 'funnel', 'heatmap', 'map'] },
 	{ key: 'splits', label: 'Split layouts', members: ['split-panel', 'split-compare'] },

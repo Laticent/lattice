@@ -128,7 +128,7 @@ Its narration joins the option's label to its first fact, and no single element 
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- _focus: row 4 -->
 
 ## Where the deck declares focus, Guide names that row instead.

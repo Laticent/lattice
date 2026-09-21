@@ -65,7 +65,7 @@ test('statement quote: blockquote kept + attribution lifted to <cite>', () => {
 
 test('comparison table re-hosts the <table> intact (generic path)', () => {
 	const secs = sections(
-		`<section data-lattice-slide class="compare-table form"><div class="cell-stage">
+		`<section data-lattice-slide class="table form"><div class="cell-stage">
 			<table><thead><tr><th>Criterion</th><th>A</th></tr></thead><tbody><tr><td>Speed</td><td>✓</td></tr></tbody></table>
 		</div></section>`,
 	);
@@ -520,7 +520,7 @@ test('speech generic: nested "- Title / body" reads "Title: body", siblings coor
 
 test('speech table: header-bound row read, never pipe/dash glyphs', () => {
 	const secs = sections(
-		`<section data-lattice-slide data-class="compare-table" class="compare-table form"><div class="cell-stage"><div class="masthead-lede"><h2>Options</h2></div>
+		`<section data-lattice-slide data-class="table" class="table form"><div class="cell-stage"><div class="masthead-lede"><h2>Options</h2></div>
 			<table><thead><tr><th>Option</th><th>Cost</th></tr></thead><tbody><tr><td>Plan A</td><td>$10</td></tr><tr><td>Plan B</td><td>$20</td></tr></tbody></table>
 		</div></section>`,
 	);

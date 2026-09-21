@@ -99,7 +99,7 @@ describe('table round-trip — the reason table slides stop locking', () => {
 	// Each fixture is written in the serializer's canonical form, so a byte-exact round-trip
 	// IS the idempotence proof. Drawn from the real gallery / examples decks.
 	const canonical: Record<string, string> = {
-		'compare-table with an empty cell': ['| Capability | Ours | Theirs |', '| --- | --- | --- |', '| Speed | ✓ | ✗ |', '| Cost | Low |  |'].join('\n'),
+		'table with an empty cell': ['| Capability | Ours | Theirs |', '| --- | --- | --- |', '| Speed | ✓ | ✗ |', '| Cost | Low |  |'].join('\n'),
 		'obligation-matrix: centered marker columns, [-] marker': ['| Regime | Access | Erasure |', '| --- | :---: | :---: |', '| GDPR | [x] | [x] |', '| CCPA/CPRA | [x] | [-] |'].join('\n'),
 		'roadmap: marker + trailing text + inline-code header': ['| Workstream | Foundation `Q2` | Scale |', '| --- | --- | --- |', '| Framework | [x] Signal taxonomy | [ ] Weighting |', '| Tooling | [/] Dashboards | [ ] Exports |'].join('\n'),
 		'inline marks in cells + right alignment': ['| Metric | Value |', '| --- | ---: |', '| **Revenue** | $400M |', '| *Growth* | 12% |'].join('\n'),

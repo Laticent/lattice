@@ -137,7 +137,7 @@ export function setCellMarker(marker: string | null): Command {
  *  which reads exactly like "the button did nothing" and was misdiagnosed once as the engine
  *  dropping the table. A table you can SEE the moment you insert it is the whole fix: the header
  *  is the first thing an author overwrites anyway, and `Column` is the same placeholder the
- *  `compare-table` skeleton uses. Body cells stay empty — one visible row is enough to show the
+ *  `table` skeleton uses. Body cells stay empty — one visible row is enough to show the
  *  grid, and pre-filling every cell would be text to delete rather than text to replace. */
 export const insertStarterTable: Command = (state, dispatch) => {
 	const { $from } = state.selection;

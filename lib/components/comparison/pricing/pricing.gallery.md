@@ -177,7 +177,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 ## When NOT to reach for pricing.
 
 - More than four tiers
-  - Five-plus columns shrink below readability and the price comparison collapses. Curate to the tiers that matter, or use `compare-table` for a dense feature-by-plan matrix.
+  - Five-plus columns shrink below readability and the price comparison collapses. Curate to the tiers that matter, or use `table` for a dense feature-by-plan matrix.
 - Every tier marked popular
   - Elevate exactly one tier. Two ribbons cancel out and the eye has nowhere to land — the whole point of the marker is a single recommendation.
 - Features that drift between tiers
@@ -193,7 +193,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 `Related components`
 
-- `compare-table` — a dense feature-by-plan matrix with many rows, not a few highlighted features
+- `table` — a dense feature-by-plan matrix with many rows, not a few highlighted features
 - `verdict-grid` — options scored on shared criteria, not priced tiers
 - `cards-grid` — parallel items with no price and no shared feature checklist
 - `decision` — the slide recommends one option outright rather than presenting a price ladder

@@ -584,7 +584,7 @@ def demo_blocks() -> dict[str, str]:
         ('split', 'footer', '1/19'),
     ])
 
-    blocks['T22-compare-table'] = frame([
+    blocks['T22-table'] = frame([
         ('left', 'header'),
         ('left', 'LABEL'),
         ('left', 'Here are the numbers side by side.'),

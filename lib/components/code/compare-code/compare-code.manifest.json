@@ -85,7 +85,7 @@
     },
     {
       "title": "Three-way comparison",
-      "body": "compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`."
+      "body": "compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `table`."
     },
     {
       "title": "Lines wider than the pane",
@@ -106,7 +106,7 @@
       "when": "the change is in verbatim text or legal language"
     },
     {
-      "name": "compare-table",
+      "name": "table",
       "when": "three or more variants on shared dimensions"
     }
   ],

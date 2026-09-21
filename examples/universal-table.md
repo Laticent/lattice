@@ -12,7 +12,7 @@ meta: "Universal table · base layer"
 
 # Universal table
 
-A plain GFM pipe table used to render at raw browser defaults on every slide that was not one of the seven table-owning components. It now inherits a house treatment from the base layer — palette-blind, and standing off every component that styles its own table.
+A plain GFM pipe table used to render at raw browser defaults on every slide that was not one of the table-owning components. It now inherits a house treatment from the base layer — palette-blind, and standing off the six components that still style their own table.
 
 ---
 
@@ -80,13 +80,71 @@ Markdown's `:---`, `:---:` and `---:` alignment survives untouched — the treat
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
-`Standing off`
+`The first column`
 
-## A specialist is untouched
+## The row label is measured, not assumed
 
-A component that styles `<table>` owns its tables, and base stands off. Seven do — and two of them only under a variant, so a bare `math` or `statute-stack` slide still gets the default.
+The first column reads as a label — 600 weight, heading ink — when it actually is
+one. The engine decides per table from the header cell and the column itself.
+
+| Criterion | Option A | Option B |
+| --- | --- | --- |
+| Speed | Fast | Slow |
+| Cost | Low | High |
+
+*Measured ON: a named header over a textual column.*
+
+---
+
+<!-- _class: table -->
+
+`The first column`
+
+## A year column is not a set of labels
+
+The same slide class, a numeric first column, and the emphasis declines itself —
+no author opt-out needed. It also declines on an index header (`#`, `No.`,
+`Ref`), a column of bare state markers, and a single-column table.
+
+| Year | Revenue | Growth |
+| --- | --- | --- |
+| 2024 | $4.2M | +21% |
+| 2025 | $5.1M | +3% |
+
+*Measured OFF: every cell in column one is a number.*
+
+---
+
+<!-- _class: row-label -->
+
+`row-label`
+
+## `row-label` forces it on — even here
+
+A plain table, no component class, and the measurement would have declined this
+column. `row-label` overrules it. `no-row-label` overrules the other way, and
+wins if a slide somehow carries both.
+
+| Year | Revenue | Growth |
+| --- | --- | --- |
+| 2024 | $4.2M | +21% |
+| 2025 | $5.1M | +3% |
+
+*The author always has the last word.*
+
+---
+
+<!-- _class: table -->
+
+`Riding it`
+
+## The `table` component IS this treatment
+
+`table` styles no `<table>` element of its own — it rides the rules above and adds
+what only a manifest can declare: a row capacity, autosplit, the portrait card
+reshape, and the focus axes. That is why the switches reach it.
 
 | Dimension | Owned engine | Marp |
 | --- | --- | --- |
@@ -94,13 +152,15 @@ A component that styles `<table>` owns its tables, and base stands off. Seven do
 | Overflow | Fit Spine | none |
 | Themes | 32 | 3 |
 
-*Byte-identical to how this slide rendered before the change.*
+*Same rules as the un-classed slide above — plus a contract.*
 
 ---
 
 <!-- _class: glossary -->
 
-## Also untouched — `glossary`
+`Standing off`
+
+## A specialist IS untouched — `glossary`
 
 | Term | Meaning |
 | --- | --- |

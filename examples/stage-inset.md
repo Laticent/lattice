@@ -17,8 +17,8 @@ Chart and diagram paid the frame inset twice. Every figure after this slide is 1
 
 ---
 
-<!-- _class: compare-table -->
-<!-- _footer: "The rule · compare-table" -->
+<!-- _class: table -->
+<!-- _footer: "The rule · table" -->
 
 ## Six buckets, one rule, two that broke it.
 

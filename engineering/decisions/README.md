@@ -133,6 +133,7 @@ it is load-bearing.
 
 - ◐ [2026-09-20-gesture-audit.md](2026-09-20-gesture-audit.md) — The Guide points at slides by searching the live DOM for the sentence it hears.
 - ☐ [2026-09-20-heatmap-table-authoring-label-sets.md](2026-09-20-heatmap-table-authoring-label-sets.md) — A heatmap is a matrix, and a matrix's notation is a TABLE — so heatmap's nested-list authoring is retired in favor of a markdown table, and…
+- ◐ [2026-09-20-table-component.md](2026-09-20-table-component.md) — `compare-table` becomes `table` — a hard rename with no alias, matching every prior rename in this repo.
 - ☐ [2026-09-15-playground-asset-retention.md](2026-09-15-playground-asset-retention.md) — A docs-site deploy deletes every previous `playground/v/<hash>/` directory, so a page that was open when the deploy landed 404s on the…
 - ◐ [2026-09-13-export-survives-a-missing-image.md](2026-09-13-export-survives-a-missing-image.md) — One unreachable image failed the whole browser export — no PDF, no PowerPoint, no image set, only a message.
 - ◐ [2026-09-13-firefox-export-peak-rss.md](2026-09-13-firefox-export-peak-rss.md) — Firefox's peak RSS on an 18-page Studio export rose 257 MB when #2169 replaced the PDF encode, and nobody knew why.

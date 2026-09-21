@@ -1667,7 +1667,7 @@ function ComposeStyles() {
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
-				/* GFM TABLES — the editable grid, previewing the rendered compare-table: a label-voice header on an accent rail, hairline body rows, emphasized first column. Column alignment comes from each cell's inline text-align (the align attr). */
+				/* GFM TABLES — the editable grid, previewing the rendered table: a label-voice header on an accent rail, hairline body rows, emphasized first column. Column alignment comes from each cell's inline text-align (the align attr). */
 				.cs-host table{border-collapse:collapse;width:100%;table-layout:auto;margin:.5em 0;font-size:.92em}
 				.cs-host th,.cs-host td{position:relative;border:1px solid var(--border,#e4eaf2);padding:6px 10px;vertical-align:top;text-align:left}
 				.cs-host tr:first-child th,.cs-host thead th{font-family:var(--font-mono,ui-monospace,monospace);font-size:.72em;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--text-heading,#0a1628);background:var(--bg-alt,#f2f5fa);border-bottom:2px solid var(--accent,#006fa8)}

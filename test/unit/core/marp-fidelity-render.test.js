@@ -224,6 +224,76 @@ const PROBES = {
     probe: marked('td .state'),
   },
 
+  // The stamp that turns first-column row-label emphasis on. TWO tables, and only
+  // ONE of them earns it: the second is a year column, which lib/core/table-row-label.js
+  // refuses. A mirror that stamped every table it found would pass a one-table probe
+  // and fails this one, which is the whole reason the deck carries a second table.
+  tableRowLabels: {
+    min: 1,
+    section: 'table',
+    body: [
+      '## Two tables, one verdict each', '',
+      '| Criterion | A | B |', '|---|---|---|',
+      '| Speed | Fast | Slow |', '| Cost | Low | High |', '',
+      '| Year | Revenue |', '|---|---|',
+      '| 2024 | 4.2 |', '| 2025 | 5.1 |',
+    ].join('\n'),
+    probe: marked('table.lat-row-label'),
+  },
+
+  // A SECOND probe for the same row, on the shapes the first cannot reach — the
+  // exact inputs a checker found the two paths disagreeing on. The first probe
+  // is plain markdown tables with a named header, and both paths agreed on that
+  // shape from the start, which is precisely why it certified nothing.
+  //
+  // What diverged: the token walker read `token.content` (raw markdown SOURCE)
+  // while the mirror reads `textContent`, so a link cell was `[2024](…)` on one
+  // side and `2024` on the other, an image cell was a non-empty string on one
+  // side and `''` on the other, and an entity was `&mdash;` against `—`. Each
+  // one flips the kernel's numeric / empty / placeholder arms. The `table-fill`
+  // slide is the gate half: `\btable\b` matched inside `table-fill`, so the
+  // engine walked a slide the mirror's `section.table` selector never selects.
+  'tableRowLabels@shapes': {
+    row: 'tableRowLabels',
+    min: 1,
+    section: 'table',
+    body: [
+      '## Shapes the plain probe cannot reach', '',
+      '| Criterion | Note |', '|---|---|',
+      '| Speed | fast |', '| Cost | low |', '',
+      '| Year | Revenue |', '|---|---|',
+      '| [2024](https://example.test) | 4.2 |', '| [2025](https://example.test) | 5.1 |', '',
+      '| Logo | Vendor |', '|---|---|',
+      '| ![acme](a.png) | Acme |', '| ![beta](b.png) | Beta |', '',
+      '| Owner | Task |', '|---|---|',
+      '| &mdash; | Triage |', '| &mdash; | Review |',
+    ].join('\n'),
+    probe: marked('table.lat-row-label'),
+  },
+
+  // THE GATE HALF, which the shapes probe only claimed to cover. `table-fill`
+  // and `table-plain` are geometry/zebra switches that say nothing about column
+  // one; the token walker once matched them because `\btable\b` matches INSIDE
+  // `table-fill`, so the engine stamped a slide the mirror's `section.table`
+  // selector never selects. Reverting the gate to that regex turned NO test red
+  // until this probe existed — the commit that fixed it claimed otherwise.
+  //
+  // `min: 0` and an EMPTY expectation is the point: both paths must stamp
+  // nothing. The anti-vacuity floor other probes rely on cannot apply here, so
+  // the guard is the deepEqual against the engine, which the mutation breaks by
+  // producing a stamp on one side only.
+  'tableRowLabels@gate': {
+    row: 'tableRowLabels',
+    min: 0,
+    section: 'table-fill',
+    body: [
+      '## Switches say nothing about column one', '',
+      '| Workstream | Owner | Q3 |', '|---|---|---|',
+      '| Migration | Platform | Complete |', '| Attestation | Legal | In flight |',
+    ].join('\n'),
+    probe: marked('table.lat-row-label'),
+  },
+
   checklistItemStates: {
     min: 4,
     section: 'checklist',

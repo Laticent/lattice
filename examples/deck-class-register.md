@@ -32,7 +32,7 @@ slide, and by then that is gone.
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- _footer: "Three spellings, three scopes" -->
 
 ## The three spellings of `class:` are not interchangeable.

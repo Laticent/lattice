@@ -124,7 +124,7 @@
       "when": "the rows are a delegation lineage, not parallel jurisdictions"
     },
     {
-      "name": "compare-table",
+      "name": "table",
       "when": "the comparison is across criteria, not jurisdictions"
     }
   ],

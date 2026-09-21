@@ -397,7 +397,7 @@ gitGraph
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- _footer: "synergy · prefer the native component" -->
 
 `The chart handoff`

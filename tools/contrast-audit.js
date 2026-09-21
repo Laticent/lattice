@@ -233,7 +233,7 @@ const PAIRS = [
   // engine inks a lot of small text with it: the glossary term, the stats figure, every
   // decimal-leading-zero list counter (`list`, `list-tabular`, `list-criteria`,
   // `inventory`, `q-and-a`, `math`, `list principles`, `regulatory-update`), `big-number`,
-  // the `cards-grid` / `compare-table` bullet stars, `cycle`'s chevrons, `timeline-list`,
+  // the `cards-grid` / `table` bullet stars, `cycle`'s chevrons, `timeline-list`,
   // `split-compare`. Measured on the rendered gallery, ONE palette's `--accent` accounts
   // for 79 sub-threshold runs across fourteen component classes — 4.35:1 on the canvas and
   // 3.89:1 on the card — while every analytic gate reported that palette clean, because no

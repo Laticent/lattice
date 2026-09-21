@@ -379,8 +379,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: compare-table state-cells -->
-<!-- _footer: "Comparison table · compare-table" -->
+<!-- _class: table state-cells -->
+<!-- _footer: "Comparison table · table" -->
 
 ## The four tools side by side
 

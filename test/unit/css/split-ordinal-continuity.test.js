@@ -37,7 +37,7 @@
  *     galleries do not exercise. Their seeds are insurance, not a demonstrated fix.
  *   · A recipe-driven run receives NO `--lat-split-offset` at all today. `applyRails` computes it
  *     with `countAxis(inner, 'item')` whatever axis the run was cut on, so a `row`-axis run
- *     (`glossary`, `compare-table`) gets none and a `col`-axis one (`roadmap`) gets a count of the
+ *     (`glossary`, `table`) gets none and a `col`-axis one (`roadmap`) gets a count of the
  *     wrong thing. Until that is fixed, seeding a recipe-driven counter changes nothing at render
  *     time — which is exactly why those seeds cannot be read as evidence.
  *   · It reads only `<name>.styles.css`. A counter in `base.modifiers.css`, in a theme, or in a

@@ -200,7 +200,7 @@ section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"]
 
 **Variant tiers** — know which is which so you don't list the wrong ones:
 
-- **Tier 1 Universal (51)** — `dark`, `silent`, state markers, tone, insight labels, claim, table toggles (`table-plain`, `table-fill`, `state-cells`), `no-note`, `note-warn`, etc.
+- **Tier 1 Universal (53)** — `dark`, `silent`, state markers, tone, insight labels, claim, table toggles (`table-plain`, `table-fill`, `state-cells`, `row-label`, `no-row-label`), `no-note`, `note-warn`, etc.
   Added automatically; **manifests must NOT list them.**
 - **Tier 2 Semi-universal** — `compact`, `accent`, `claim-bleed`. Accepted by
   default; opt out via `excludes`.

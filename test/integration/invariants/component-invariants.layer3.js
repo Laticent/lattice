@@ -123,9 +123,9 @@ const LAYER3 = {
   },
 
   // ── comparison ──
-  'compare-table': {
+  'table': {
     'authored rows render as a table':
-      present('table tr', 2, 'compare-table did not render table rows'),
+      present('table tr', 2, 'table did not render table rows'),
   },
   'compare-prose': {
     'renders two labeled prose options (strong + nested point)':

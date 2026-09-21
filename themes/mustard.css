@@ -50,7 +50,7 @@
   /* ── Mustard brand axis ──────────────────────────────────────────── */
   /* Deepened from #8C6A18 (2026-08-23). That value was ink on BOTH plain canvases —
    * glossary terms, stats figures, every decimal-leading-zero list counter, big-number,
-   * the cards-grid / compare-table stars, cycle's chevrons, timeline-list, split-compare —
+   * the cards-grid / table stars, cycle's chevrons, timeline-list, split-compare —
    * and it cleared neither: 4.35:1 on --bg and 3.89:1 on --bg-alt against a 4.5 floor. It
    * measured as 79 sub-threshold runs across fourteen component classes on the rendered
    * gallery, the largest single defect in the palette matrix, while every analytic gate

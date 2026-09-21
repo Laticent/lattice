@@ -1,0 +1,125 @@
+/* table — the official table component.
+ *
+ * DELIBERATELY STYLES NO `<table>` ELEMENT. Every table rule this component
+ * renders with comes from the universal treatment in lib/base/base.elements.css
+ * (HARD RULE #1 — one source of truth). That is not an omission, it is the
+ * whole design: under its former name `compare-table` this component owned a
+ * near-duplicate of that block, and the engine had to exclude it from the
+ * universal treatment to stop the two fighting — which is why `table-plain`
+ * and `table-fill` were inert on the one component whose entire subject is a
+ * table.
+ *
+ * So this file holds exactly two things base cannot do:
+ *   1. SECTION-SUBJECT custom-property defaults (the geometry + the row-label
+ *      bet), which base reads. A `section` subject is not an ownership claim,
+ *      so `checkUniversalTableGuard` needs no deny entry for `table`.
+ *   2. The portrait card RESHAPE, whose subjects are `div`/`article`, not
+ *      table elements.
+ *
+ * See engineering/decisions/2026-09-20-table-component.md.
+ */
+
+/* ── geometry ──
+ * HUG, not fill: the table takes only the height its rows need, and the stage
+ * centers it.
+ *
+ * THERE IS DELIBERATELY NO `--table-grow: 0` HERE, and the omission is the
+ * point. Base already defaults it to 0 (`flex: var(--table-grow, 0) 1 auto`),
+ * so declaring it would buy nothing — and it would cost something real:
+ * `section.table` and `section.table-fill` are both (0,1,1), so which one won
+ * would come down to bundle source order, and `table-fill` would be one
+ * reordered file away from going inert on the very component this change exists
+ * to un-inert it on. Not declaring it means `table-fill` sets the property
+ * unopposed. (Measured on a real render: grow 1, valign middle, table height ==
+ * stage height.)
+ *
+ * What this replaces is the old `flex: 1` + `vertical-align: top` pairing: the
+ * table stretched but each cell's text stayed pinned to the top of its band, so
+ * a three-row table read as a line, a gap, a line, a gap. base.variants.css's
+ * own note on `table-fill` names that failure exactly, which is why the switch
+ * pairs the grow with `--table-valign: middle` and the hardcoded version did
+ * not. */
+/* The stage holds the table (and a below-note, when there is one); centering the
+ * CELL rather than the table keeps the group together. `justify-content`
+ * because the stage is a column flex — the same axis distinction the card
+ * reshape below makes. An explicit `align-top` / `align-bottom` / `align-middle`
+ * still wins: those are (0,3,1) on `section.form:is(…) > .cell-stage`, this is
+ * (0,2,1), so asking for an alignment beats the component's default. */
+section.table > .cell-stage { justify-content: center; }
+
+/* `no-form` HAS NO STAGE TO CENTER WITHIN, so it gets the filling geometry
+ * instead — and this rule exists because without it `no-form` regressed.
+ *
+ * On that path the table is a direct child of the `section`, whose flex column
+ * also holds the `h2`. Centering the SECTION would center the heading with it,
+ * which is wrong — the heading belongs at the top. There is no box that
+ * contains the table alone, so hug-and-center is not expressible here.
+ *
+ * Filling is, and it is what this component did on every path before the
+ * rename, so a `no-form` deck's table keeps its footprint. The half that was
+ * missing is the one `table-fill` supplies everywhere else: cells centered in
+ * their bands, so a stretched row reads as a band rather than as a gap. Both
+ * stay overridable — `--table-grow` and `--table-valign` are read, not set.
+ *
+ * Set on the SECTION, never on the `<table>`. A rule whose subject is a table
+ * element and whose selector names a component is an ownership CLAIM to
+ * `checkUniversalTableGuard`, so writing this the obvious way
+ * (`section.table:not(.form) > table { flex: … }`) would demand a deny entry
+ * and cut the component back out of the treatment it now rides. Setting the two
+ * custom properties that base already reads does the same job and claims
+ * nothing. See engineering/decisions/2026-09-20-table-component.md. */
+section.table:not(.form) { --table-grow: 1; --table-valign: middle; }
+
+/* The row-label bet is NOT set here. It is resolved per TABLE, not per slide —
+ * a slide may hold two tables whose first columns are not the same kind of
+ * thing — so the stamp lands on the `<table>` (lib/core/table-row-label.js
+ * decides; the two render paths stamp) and the properties are set in
+ * base.variants.css beside the other three table switches. */
+
+/* ── portrait RESHAPE — card-per-row (carousel.js cover-cards) ──
+ * In a portrait box a wide read-across table can't paginate out of HORIZONTAL
+ * overflow, so each ROW becomes a card and the column headers become labeled
+ * fields. The card carries the native table's language so a reshaped split
+ * reads as the same deck: mono/label field names (the thead look), the
+ * --spectrum strip (the thead rule, now per-card), hairline rules (the row
+ * borders), first-cell emphasis as the card title. Palette-blind (HARD #3).
+ * See engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md. */
+section.table.lat-split-cards .ct-cards { display:flex; flex-direction:column; gap:var(--sp-sm); flex:1; justify-content:center; }
+section.table.lat-split-cards .ct-card { border:1px solid var(--border); border-radius:var(--radius-sm); padding:var(--sp-sm) var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); }
+section.table.lat-split-cards .ct-card-title { font-size:var(--fs-emphasis); font-weight:600; color:var(--text-heading); padding-bottom:var(--sp-xs); background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
+section.table.lat-split-cards .ct-card-fields { display:grid; grid-template-columns:max-content 1fr; gap:0.4em var(--sp-md); margin:0; }
+section.table.lat-split-cards .ct-field { display:contents; }
+/* The transposed COLUMN HEADER becomes this row's label (first column). It stays a label —
+   label font, uppercase, tracked, mirroring the native thead — but one rung up from the
+   table's --fs-meta, so it is legible beside a --fs-body value instead of 1.6x smaller.
+   Still clearly subordinate to the value it labels (37px vs 43.5px at portrait). */
+section.table.lat-split-cards .ct-field dt { font-family:var(--font-label); font-size:var(--fs-body-compact); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); }
+/* The value reads at CARD body size, not the native table's dense-cell size. `--fs-body-compact`
+   is documented for "dense reference cells — packs many cells in a fixed box" (engineering/
+   typography.md), which is exactly right for a `td` and exactly WRONG here: the reshape's
+   output is a CARD, and the same doc's anti-pattern list says "ordinary cards and lists read
+   --fs-body" / "never shrink prose to fit". The compact size was inherited from the table
+   context and carried into the card context — and with one card per page (split.perPage:1)
+   there is no fixed box to pack, so the value gets the ideal size and the row WRAPS instead
+   (below) rather than the type shrinking to fit. Portrait: 4.35cqi, up from 3.7. */
+section.table.lat-split-cards .ct-field dd { margin:0; font-size:var(--fs-body); color:var(--text-body); }
+/* Shared runhead register (base.tokens.css); `--text-label` and the 0.85 are this card
+   grid's own — the runhead sits over a field of cards, not under a rule. */
+section.table.lat-split-cards .split-runhead { font-family:var(--runhead-face); font-size:var(--fs-meta); letter-spacing:var(--runhead-ls); text-transform:var(--runhead-case); color:var(--text-label); padding-bottom:var(--sp-sm); opacity:0.85; }
+/* A card ALONE on its page FILLS the page — the reshape paces one transposed row per page
+   (`split.perPage: 1`), so this is every cover-cards page. The universal split rule for this
+   (base.modifiers.css § "a member ALONE on its page FILLS the page") is scoped to the
+   plain-axis DOM — `.lat-split-native > .cell-stage > :is(ul,ol) > li:only-child` — and cannot
+   reach this shape, whose body is `<div class="ct-cards"> > <article class="ct-card">` with no
+   `.cell-stage` and no list. It lives HERE rather than in base.modifiers.css because `.ct-card`
+   is a table-component-owned class; the base layer must not reach into it.
+   `.ct-cards` already fills the stage and centers its children, so without this the lone card
+   renders as a small box stranded in two-thirds of white — the same defect the owner caught on
+   the plain path (IMG_3222 / §0b's "one card per slide means the card IS the page"). `.ct-card`
+   is a COLUMN flex, so its content centers with `justify-content` (the plain path's cards are
+   wrap-flex rows, hence `align-content` there — same intent, different axis).
+   `:only-child`-guarded, so a future cover-cards component pacing >1 per page is untouched. */
+section.table.lat-split-cards .ct-card:only-child {
+  flex: 1 1 auto;
+  justify-content: center;
+}

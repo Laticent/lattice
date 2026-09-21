@@ -50,7 +50,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 
 ---
 
-<!-- _class: compare-table state-cells -->
+<!-- _class: table state-cells -->
 
 ## `state-cells` — status in any table's cells.
 
@@ -94,7 +94,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 ## The linter coaches. It does not refuse.
 
 ```text
-⚠ deck.md · slide 3 · typed-shape-glyph [compare-table]
+⚠ deck.md · slide 3 · typed-shape-glyph [table]
     ✓ ✗ in a table cell (and 3 more lines on this slide) — typed, not
     drawn, so each machine sets it in whatever font it can find for it,
     next to type set in yours

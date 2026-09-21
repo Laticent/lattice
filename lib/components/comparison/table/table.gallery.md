@@ -2,21 +2,21 @@
 marp: true
 theme: indaco
 paginate: true
-header: "Lattice · compare-table"
+header: "Lattice · table"
 ---
 
 <!-- _class: title silent -->
 
-# compare-table
+# table
 
 `Comparison · Ledger · Prose`
 
-Multi-row comparison table with consistent columns.
+The table component — a GFM pipe table with a row capacity, autosplit, and the portrait card reshape.
 
 ---
 
-<!-- _class: compare-table -->
-<!-- _footer: "Default · compare-table" -->
+<!-- _class: table -->
+<!-- _footer: "Default · table" -->
 
 ## The table compares rows on consistent columns.
 
@@ -29,9 +29,9 @@ Multi-row comparison table with consistent columns.
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · compare-table — Eight rows — the hard ceiling." -->
+<!-- _footer: "Stress test · table — Eight rows — the hard ceiling." -->
 
 ## Eight rows is the table's hard ceiling.
 
@@ -49,8 +49,8 @@ Multi-row comparison table with consistent columns.
 
 ---
 
-<!-- _class: compare-table dark -->
-<!-- _footer: "Composition: dark · compare-table dark" -->
+<!-- _class: table dark -->
+<!-- _footer: "Composition: dark · table dark" -->
 
 ## The table compares rows on consistent columns.
 
@@ -63,8 +63,8 @@ Multi-row comparison table with consistent columns.
 
 ---
 
-<!-- _class: compare-table compact -->
-<!-- _footer: "Composition: compact · compare-table compact" -->
+<!-- _class: table compact -->
+<!-- _footer: "Composition: compact · table compact" -->
 
 ## The table compares rows on consistent columns.
 
@@ -77,8 +77,8 @@ Multi-row comparison table with consistent columns.
 
 ---
 
-<!-- _class: compare-table accent -->
-<!-- _footer: "Composition: accent · compare-table accent" -->
+<!-- _class: table accent -->
+<!-- _footer: "Composition: accent · table accent" -->
 
 ## The table compares rows on consistent columns.
 
@@ -92,16 +92,18 @@ Multi-row comparison table with consistent columns.
 ---
 
 <!-- _class: cards-stack compact -->
-<!-- _footer: "Anti-patterns · compare-table" -->
+<!-- _footer: "Anti-patterns · table" -->
 
-## When NOT to reach for compare-table.
+## When NOT to reach for table.
 
 - Cells full of prose
-  - Long sentences in a table cell wrap awkwardly and force the column wider. Move to `verdict-grid` for criteria with body text, or `cards-stack` for full prose rows.
+  - Long sentences in a cell wrap awkwardly and force the column wider. Move to `verdict-grid` for criteria with body text, or `cards-stack` for full prose rows.
 - More than 6 rows
-  - Past 6 rows the table density crowds the slide. Split into two slides or summarize the rows that don't differentiate.
-- State-marker rows
-  - When most cells are pass/fail/partial badges, the right layout is `obligation-matrix` or `verdict-grid`. compare-table is for textual values.
+  - Past 6 rows the table crowds the slide. Split across two slides or summarize the rows that don't differentiate.
+- A table that only supports the prose around it
+  - Then it does not need this class at all — write the pipe table on a `content` or un-classed slide and the universal treatment styles it. The component is for a table that owns the slide.
+- Reaching for it when a specialist fits better
+  - Mostly pass/fail badges is `obligation-matrix` or `verdict-grid`; term/definition pairs are `glossary`; a dated plan is `roadmap`.
 
 ---
 

@@ -25,7 +25,7 @@
     "soft": 4,
     "hard": 4,
     "escalateTo": [
-      "compare-table",
+      "table",
       "split across slides"
     ],
     "note": "two tiers read as a binary and four is the widest row that holds; past four the tiers narrow until a feature label wraps to three lines. A split run paces ONE tier per page and carries a derived “Option N of M · comparing …” signal, so the pages still read as one comparison (§0b connected members)."
@@ -35,7 +35,7 @@
     "axis": "item",
     "perPage": 1,
     "intro": "The renewal structures",
-    "note": "READ-ACROSS that splits anyway, by the owner's ruling of 2026-09-06: \"pricing is no different than compare components. we accept the splitting.\" Cutting a comparison to one member per page costs the cross-reading, and that cost is accepted because NOT splitting measured worse — at portrait the un-split slide showed one of three tiers with text cut mid-word and ~65% of the canvas blank (2026-09-05-auto-split-catalog-audit). `cover-paginate` rather than compare-table's `cover-cards`: cover-cards transposes a wide TABLE into cards, and pricing's tiers are already cards in a top-level <ul>, so there is nothing to transpose. The accent cover leads in, then the component's own tier cards flow one per page. lib/core/carousel.js cover-paginate."
+    "note": "READ-ACROSS that splits anyway, by the owner's ruling of 2026-09-06: \"pricing is no different than compare components. we accept the splitting.\" Cutting a comparison to one member per page costs the cross-reading, and that cost is accepted because NOT splitting measured worse — at portrait the un-split slide showed one of three tiers with text cut mid-word and ~65% of the canvas blank (2026-09-05-auto-split-catalog-audit). `cover-paginate` rather than table's `cover-cards`: cover-cards transposes a wide TABLE into cards, and pricing's tiers are already cards in a top-level <ul>, so there is nothing to transpose. The accent cover leads in, then the component's own tier cards flow one per page. lib/core/carousel.js cover-paginate."
   },
   "function": "comparison",
   "form": "grid",
@@ -100,7 +100,7 @@
   "antiPatterns": [
     {
       "title": "More than four tiers",
-      "body": "Five-plus columns shrink below readability and the price comparison collapses. Curate to the tiers that matter, or use `compare-table` for a dense feature-by-plan matrix."
+      "body": "Five-plus columns shrink below readability and the price comparison collapses. Curate to the tiers that matter, or use `table` for a dense feature-by-plan matrix."
     },
     {
       "title": "Every tier marked popular",
@@ -117,7 +117,7 @@
   ],
   "related": [
     {
-      "name": "compare-table",
+      "name": "table",
       "when": "a dense feature-by-plan matrix with many rows, not a few highlighted features"
     },
     {

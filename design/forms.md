@@ -578,7 +578,7 @@ from the slide edge to the body box, before #1598 closed it:
 
 | bucket | body element | insets | body box | painted content |
 |---|---|---|---|---|
-| prose (`compare-table`) | `p` | stage only | 64 | 64 ✅ |
+| prose (`table`) | `p` | stage only | 64 | 64 ✅ |
 | code | `pre` | stage + the block's own padding | 64 | 88 ✅ |
 | masthead (band) | — | stage inset; `padding-bottom` only | 64 | 64 ✅ |
 | footer (band) | — | positional, no padding | 30 | 30 ✅ |

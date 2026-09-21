@@ -91,7 +91,7 @@ The three unfunded programs are listed in the appendix, not here.
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 ## Build versus buy versus delay
 

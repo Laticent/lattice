@@ -234,7 +234,7 @@ const TABLE_UNSUITED = new Set([
  * layout), the open list-flow layouts a table can legitimately join (list, list-tabular,
  * list-criteria, list-steps, agenda, actors, checklist, inventory, q-and-a,
  * policy-recommendation, regulatory-update), and the four components whose table IS the
- * content (compare-table, matrix-grid, obligation-matrix, roadmap).
+ * content (table, matrix-grid, obligation-matrix, roadmap).
  */
 export function slideTakesTable(directives: string[]): boolean {
 	let declared: boolean | undefined;

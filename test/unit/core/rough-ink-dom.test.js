@@ -65,17 +65,17 @@ function mount(html) {
 }
 
 const INK = '--rough-ink-stroke: rgb(20,20,20); --rough-ink-width: 2';
-const SECTION = 'class="sketch compare-table" data-geom="0,0,1000,600"';
+const SECTION = 'class="sketch table" data-geom="0,0,1000,600"';
 
 describe('measureRoughInk — enrollment', () => {
   test('a matching structure with no --rough-ink-stroke is skipped', () => {
     mount(`<section ${SECTION}><table data-geom="0,0,800,400"><tr data-geom="0,0,800,100"><td>a</td></tr></table></section>`);
-    assert.deepEqual(measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.compare-table table' }]), []);
+    assert.deepEqual(measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }]), []);
   });
 
   test('a structure the cascade enrolled is measured', () => {
     mount(`<section ${SECTION}><table style="${INK}" data-geom="0,0,800,400"><tr data-geom="0,0,800,100"><td>a</td></tr></table></section>`);
-    const [plan] = measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.compare-table table' }]);
+    const [plan] = measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }]);
     assert.equal(plan.stroke, 'rgb(20,20,20)');
     assert.equal(plan.strokeWidth, 2);
     assert.equal(plan.kind, 'grid');
@@ -142,7 +142,7 @@ describe('measureRoughInk — boundaries per kind', () => {
       '<tr data-geom="100,150,800,100"><td data-geom="100,150,400,100">c</td><td data-geom="500,150,400,100">d</td></tr>' +
       '<tr data-geom="100,250,800,200"><td data-geom="100,250,400,200">e</td><td data-geom="500,250,400,200">f</td></tr>',
     ));
-    const [plan] = measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.compare-table table' }]);
+    const [plan] = measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }]);
     // Two boundaries for three rows, in table-relative coordinates.
     assert.deepEqual(plan.hLines, [100, 200]);
     assert.deepEqual(plan.vLines, []);
@@ -156,13 +156,13 @@ describe('measureRoughInk — boundaries per kind', () => {
       '<tr data-geom="100,150,800,100"><td data-geom="100,150,400,100">c</td><td data-geom="500,150,400,100">d</td></tr>';
     mount(table(rows));
     assert.deepEqual(
-      measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.compare-table table' }])[0].vLines,
+      measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }])[0].vLines,
       [],
     );
 
     mount(`<section ${SECTION}><table style="${INK}; --rough-ink-cols: 1" data-geom="100,50,800,400">${rows}</table></section>`);
     assert.deepEqual(
-      measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.compare-table table' }])[0].vLines,
+      measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }])[0].vLines,
       [400],
     );
   });
@@ -173,7 +173,7 @@ describe('measureRoughInk — boundaries per kind', () => {
       '<tr data-geom="0,100,900,100"><td data-geom="0,100,300,100">a</td><td data-geom="300,100,300,100">b</td><td data-geom="600,100,300,100">c</td></tr>' +
       '</table></section>');
     assert.deepEqual(
-      measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.compare-table table' }])[0].vLines,
+      measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }])[0].vLines,
       [300, 600],
     );
   });
@@ -209,12 +209,12 @@ describe('measureRoughInk — the preview scale transform', () => {
     // getBoundingClientRect reports scaled pixels while the overlay — a child
     // of the section — is laid out unscaled. Half scale here: the rects are
     // half size, the plan must come back full size.
-    mount('<section class="sketch compare-table" data-geom="0,0,500,300" data-offset-w="1000" data-offset-h="600">' +
+    mount('<section class="sketch table" data-geom="0,0,500,300" data-offset-w="1000" data-offset-h="600">' +
       `<table style="${INK}" data-geom="50,25,400,200">` +
       '<tr data-geom="50,25,400,100"><td data-geom="50,25,400,100">a</td></tr>' +
       '<tr data-geom="50,125,400,100"><td data-geom="50,125,400,100">b</td></tr>' +
       '</table></section>');
-    const [plan] = measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.compare-table table' }]);
+    const [plan] = measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }]);
     assert.deepEqual([plan.x, plan.y, plan.w, plan.h], [100, 50, 800, 400]);
     assert.deepEqual(plan.hLines, [200]);
   });

@@ -228,7 +228,7 @@ flowchart LR
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 ## Every way of being stuck has a step to go back to.
 

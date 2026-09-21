@@ -4706,7 +4706,7 @@ function checkAdaptDeclarations(manifests, errors) {
     // A carousel RESHAPE recipe is the fourth mechanism, and it is box-conditional by
     // construction: auto-split is skipped outright on a landscape @size
     // (lattice-emulator.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
-    // square/tall/strip. `compare-table` is the case — a wide read-across table cannot
+    // square/tall/strip. `table` is the case — a wide read-across table cannot
     // paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a
     // card with the column headers as labeled fields. That is "the box is
     // restructured, not just scaled" as squarely as any CSS rule; it simply keys on the
@@ -9263,7 +9263,7 @@ function checkCssSyntax(errors) {
 // part, and specificity does NOT make it optional — a component rule (0,1,N)
 // beats the base element rules (0,0,N) only for the properties it DECLARES, so a
 // universal zebra or cell border lands unopposed on a specialist that never
-// declared one (compare-table and statute-stack.lane declare no zebra;
+// declared one (table and statute-stack.lane declare no zebra;
 // math.derivation borders `tbody tr`, not `td`). A NEW table component that
 // forgets the deny entry therefore ships silently double-styled.
 //

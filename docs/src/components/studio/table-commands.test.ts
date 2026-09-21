@@ -13,7 +13,7 @@ import { currentCellMarker, currentColumnAlign, insertStarterTable, setCellMarke
 // These are the behaviors the round-trip fixtures don't exercise — the adversarial trio flagged
 // them as uncovered.
 
-const TABLE = '<!-- _class: compare-table -->\n\n## T\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+const TABLE = '<!-- _class: table -->\n\n## T\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
 
 function harness(src: string) {
 	let state = EditorState.create({ doc: deckToDoc(src), schema: deckSchema });

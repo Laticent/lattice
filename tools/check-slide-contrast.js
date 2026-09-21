@@ -456,7 +456,7 @@ const PROBE = () => {
    * flagged any non-`none` background-image, and a review measured what that actually
    * caught: 205 of 1518 runs on the gallery (13.5%), because this engine paints RULES
    * with two-stop same-color `linear-gradient`s — a `glossary` row, `divider`, `code`,
-   * `compare-table`. An exemption keyed on that flag stopped meaning "over a photograph"
+   * `table`. An exemption keyed on that flag stopped meaning "over a photograph"
    * and started meaning "one run in eight", wide enough to swallow an injected 1.11:1
    * regression on `glossary th` and a 1.2:1 one on twelve `divider` headlines while the
    * gate stayed green. A gradient is at least COMPOSED of colors this tool could in

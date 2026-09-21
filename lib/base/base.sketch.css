@@ -414,9 +414,8 @@ section.sketch.compare-prose:not(.banner-tag) .compare-prose-inner .card > stron
  * but switching back to `collapse` would merge the table's border with its
  * cells' and move every measured row boundary — a geometry change for no
  * gain. `border-spacing: 0` keeps the rows tight. */
-section.sketch.compare-table table,
-section.sketch.glossary table,
-section.sketch.obligation-matrix table,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table,
 section.sketch.list-tabular > ol,
 section.sketch.list-tabular > .cell-stage > ol {
   border: 2px solid var(--sketch-ink);
@@ -428,9 +427,8 @@ section.sketch.list-tabular > .cell-stage > ol {
   --rough-ink-stroke: var(--sketch-ink);
   --rough-ink-width: 2;
 }
-section.sketch.compare-table table,
-section.sketch.glossary table,
-section.sketch.obligation-matrix table {
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -443,13 +441,49 @@ section.sketch.list.principles > .cell-stage > ol {
   --rough-ink-width: 2;
 }
 
-/* Interior rules become hand-drawn wavy strokes, not straight hairlines — the
+/* WHY THESE NAME NO COMPONENT. Sketch is CROSS-CUTTING DECORATION over whatever
+ * table it lands on, not a competing owner of one — the same category
+ * base.elements.css's guard header deliberately leaves out of
+ * `checkUniversalTableGuard`'s scope ("it decorates whatever table it lands on
+ * and claims no ownership"). Naming components made it look like an owner to
+ * that gate the moment `table` became a component name, and the fix is to stop
+ * naming them rather than to add a deny entry that would cut the `table`
+ * component out of the universal treatment it now rides.
+ *
+ * The guard FOLLOWS base.elements.css's shape without copying its set. Same
+ * CHILD combinators (`> table`, `> :where(.cell-stage) > table`), but base
+ * excludes SIX components and this excludes four: `glossary` and
+ * `obligation-matrix` are deliberately kept IN, because both drew the sketch
+ * frame before and still should. Do not "align" the two lists. The child path
+ * is not cosmetic: it is what keeps a chart's `<figure>`-wrapped table and a
+ * table in a side frame (split-panel, split-compare, compare-code, image) out,
+ * exactly as base.docs.md promises. A descendant combinator here reached both,
+ * and enrolled a split-panel's table in the rough.js painter — a new SVG overlay
+ * on a slide that never had one.
+ *
+ * TWO guards, not one, and the difference is `glossary`. It takes the FRAME (it
+ * always did) but NOT the interior `td` / `td::after` wave, because
+ * glossary.styles.css sets `border-bottom: none` and separates its rows with a
+ * zebra wash instead. Painting a wave strip there would invent a line the deck
+ * does not draw — which this finish's own rule forbids. The pre-rename
+ * selectors encoded that split by naming components; collapsing them to one
+ * guard silently added glossary to the interior rules.
+ *
+ * A plain markdown table DOES now get the drawn frame, which it never did — it
+ * previously took the hand TYPE with no frame or wave.
+ *
+ * NOTHING GATES THIS COPY. `checkUniversalTableGuard` reads base.elements.css
+ * only, so if that guard gains an entry this one does not, the two drift
+ * silently. Re-read both together when you touch either.
+ * See engineering/decisions/2026-09-20-table-component.md.
+ *
+ * Interior rules become hand-drawn wavy strokes, not straight hairlines — the
  * line-shaped version of the boxes' wobble. The straight border is hidden and
  * a masked --sketch-wave strip is laid over where it sat (a ::after pinned to
  * the row/cell bottom). The frame owns the ledger's outer edge, so the
  * first/last row's own rule is dropped to avoid doubling it. */
-section.sketch.compare-table td,
-section.sketch.obligation-matrix td,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td,
 section.sketch.list-tabular > ol > li,
 section.sketch.list-tabular > .cell-stage > ol > li,
 section.sketch.list.principles > ol > li,
@@ -459,8 +493,8 @@ section.sketch.list.principles > .cell-stage > ol > li {
 }
 section.sketch.list-tabular > ol > li:first-child,
 section.sketch.list-tabular > .cell-stage > ol > li:first-child { border-top-color: transparent; }
-section.sketch.compare-table td::after,
-section.sketch.obligation-matrix td::after,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td::after,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td::after,
 section.sketch.list-tabular > ol > li::after,
 section.sketch.list-tabular > .cell-stage > ol > li::after,
 section.sketch.list.principles > ol > li:not(:last-child)::after,
@@ -487,8 +521,8 @@ section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display:
    draws no rule" false on this one surface. Scoped to the table's last row GROUP for the
    `<tfoot>` / multi-`<tbody>` reason given in base.elements.css, and skipping the two
    obligation-matrix variants whose cell border is structure, not a separator. */
-section.sketch.compare-table table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
-section.sketch.compare-table table > tfoot > tr:last-child > td::after,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):not(.obligation-matrix) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):not(.obligation-matrix) table > tfoot > tr:last-child > td::after,
 section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
 section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:last-child > td::after { display: none; }
 
@@ -520,25 +554,22 @@ section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:
  *     model, and dropping their width would resize the very structure whose
  *     measurements the overlay was built from. Re-measuring after the switch
  *     would then find a different box, repaint, and shift it again. */
-section.sketch.compare-table:has(> svg[data-lattice-rough-ink]) td::after,
-section.sketch.obligation-matrix:has(> svg[data-lattice-rough-ink]) td::after,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):has(> svg[data-lattice-rough-ink]) td::after,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol > li::after,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after,
 section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > ol > li::after,
 section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after {
   display: none;
 }
-section.sketch.compare-table:has(> svg[data-lattice-rough-ink]) table,
-section.sketch.glossary:has(> svg[data-lattice-rough-ink]) table,
-section.sketch.obligation-matrix:has(> svg[data-lattice-rough-ink]) table,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) table,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol {
   border-color: transparent;
 }
 /* NOTE — there is deliberately NO rule here clearing cells' LEFT/RIGHT
  * borders, and the ink draws no column rules to replace them. An earlier
- * draft did both, and it was wrong twice over. First, neither compare-table
- * nor glossary declares a vertical border at all, so "roughening the column
+ * draft did both, and it was wrong twice over. First, neither the universal
+ * table treatment nor glossary declares a vertical border at all, so "roughening the column
  * rule" meant INVENTING one — and a full ink grid turns a horizontally-ruled
  * comparison table into a spreadsheet. Second, the one vertical border that
  * does exist in this family is obligation-matrix's `6px double var(--accent)`
@@ -559,9 +590,7 @@ section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > o
  * the same ink as every other rule in the table. That is the point — a person
  * ruling a table by hand uses ONE pen, and the header row stays distinct
  * through its label-voice type, not through a second color of line. */
-section.sketch.compare-table:has(> svg[data-lattice-rough-ink]) thead tr,
-section.sketch.glossary:has(> svg[data-lattice-rough-ink]) thead tr,
-section.sketch.obligation-matrix:has(> svg[data-lattice-rough-ink]) thead tr {
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) thead tr {
   background-image: none;
 }
 

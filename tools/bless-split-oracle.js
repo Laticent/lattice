@@ -65,7 +65,7 @@ const ORACLE = path.join(ROOT, 'test', 'oracle', 'split-oracle.json');
  */
 const GRANDFATHERED = Object.freeze([
   'actors', 'agenda', 'authority-chain', 'cards-grid', 'cards-stack', 'checklist',
-  'compare-code', 'compare-prose', 'compare-table', 'cycle', 'decision', 'glossary',
+  'compare-code', 'compare-prose', 'table', 'cycle', 'decision', 'glossary',
   'inventory', 'kanban', 'kpi', 'list', 'list-steps', 'list-tabular',
   'policy-recommendation', 'premise', 'q-and-a', 'redline', 'regulatory-update',
   'roadmap', 'split-panel', 'stats', 'statute-stack', 'verdict-grid',

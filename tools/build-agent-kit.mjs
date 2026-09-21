@@ -1277,7 +1277,7 @@ const EXAMPLES = 'examples';
 const SOLO_LAYOUTS = [
   'title', 'closing', 'divider', 'content', 'list', 'cards-grid', 'stats', 'kpi',
   'big-number', 'quote', 'list-steps', 'list-criteria', 'list-tabular',
-  'timeline-list', 'checklist', 'compare-table', 'decision', 'matrix-2x2',
+  'timeline-list', 'checklist', 'table', 'decision', 'matrix-2x2',
   'split-panel', 'agenda',
 ];
 
@@ -1298,7 +1298,7 @@ const SOLO_INTENT = {
   'list-tabular': 'a name plus a value, per row',
   'timeline-list': 'dated milestones in order',
   checklist: 'done / partly done / not started',
-  'compare-table': '2-3 options scored on the same criteria',
+  'table': '2-3 options scored on the same criteria',
   decision: 'the option chosen and the ones rejected',
   'matrix-2x2': 'items sorted into four quadrants',
   'split-panel': 'one claim plus the points that back it',
@@ -1886,7 +1886,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: compare-table -->',
+    '<!-- _class: table -->',
     '',
     '## March costs less and carries less risk than June.',
     '',

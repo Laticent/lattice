@@ -171,7 +171,7 @@
       "when": "the comparison is one option's metrics, not multi-option"
     },
     {
-      "name": "compare-table",
+      "name": "table",
       "when": "a precise tabular comparison reads better than a shape"
     },
     {

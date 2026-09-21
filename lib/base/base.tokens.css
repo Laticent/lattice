@@ -1555,7 +1555,7 @@ section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-even
  * base.modifiers.css — seven rules that had drifted to five different settings while all
  * meaning the same thing. These four tokens are that setting; a component that WANTS to
  * diverge overrides the property directly (compare-code paints its runhead `--accent` and
- * compare-table `--text-label`, both deliberately, and both keep doing so).
+ * table `--text-label`, both deliberately, and both keep doing so).
  *
  * THE SETTING CHANGED 2026-09-02, on owner review of real social-size renders. It was
  * `--fs-meta` + `text-transform: uppercase` + `0.2em` tracking + `--text-muted`, in whatever
