@@ -161,7 +161,12 @@ test('the CORPUS is discriminating — it spans inputs where the moved terms mat
   // that could not tell those apart would make cell 1 vacuous whatever it called.
   // Cell 1 is what tests the kernel, and it kills every kernel mutation thrown at it.
   const rows = corpus();
-  const naive = (r) => {
+  // `(r, fmt)`, matching `originalDesc`'s signature rather than closing over `fmt`:
+  // the two are compared against each other on the next-but-one line, and a probe
+  // that takes its formatter implicitly while its reference takes it explicitly is
+  // not obviously comparing like with like. (`github-code-quality` flagged the
+  // superfluous argument at the call site; this is the other end of the same fix.)
+  const naive = (r, fmt) => {
     const head = r.measureRaw ? `${r.label} ${fmt(r.measure)}` : r.label;
     if (!Number.isFinite(r.target) || !Number.isFinite(r.measure) || r.target <= r.floor) return head;
     const pct = Math.round((r.measure / r.target) * 100); // the floor term dropped
