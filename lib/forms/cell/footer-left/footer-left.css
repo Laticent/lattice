@@ -5,7 +5,7 @@
  * movement bounded only by kind-fit + the box guarantee, not a whitelist). The
  * default is the authored bottom-left. Scoped to a chrome-hosting `section.form`;
  * everything else keeps the legacy base footer (lib/base/base.modifiers.css). */
-section.form:not(.frame-sovereign) > footer {
+section.form:where(:not(.frame-sovereign)) > footer {
   /* inset: top right bottom left — default anchors bottom-left. A Frame override
    * (e.g. relocate to the right, or vertically center) just sets this one token. */
   inset: var(--footerleft-inset, auto auto var(--frame-inset-y) var(--frame-inset-x));
