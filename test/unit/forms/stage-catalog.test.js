@@ -3,7 +3,7 @@
  * engineering/decisions/2026-07-14-one-frame-model.md).
  *
  * The masthead kernel used to carry three HAND-MAINTAINED Sets
- * (STAGE_MIGRATED / STAGE_DEFERRED inline, plus the sovereign FORM_TOGGLE_SKIP
+ * (STAGE_MIGRATED / STAGE_DEFERRED inline, plus the sovereign SOVEREIGN_FRAMES
  * in plugins.js). Those are now DERIVED from a single generated catalog
  * (lib/forms/cell/masthead/stage-catalog.generated.js), composed from each
  * component manifest's `stage: "flow" | "canvas"` field + the sovereign frames'
@@ -76,7 +76,7 @@ describe('stage-catalog — the single stage-cell classification', () => {
       'ALL_LAYOUTS != flow ⊎ canvas ⊎ sovereign');
   });
 
-  test('the catalog sovereign set equals the frame-manifest-derived FORM_TOGGLE_SKIP', () => {
+  test('the catalog sovereign set equals the frame-manifest-derived SOVEREIGN_FRAMES', () => {
     // The two data sources (component `stage` field + frame `exemptFromChrome`)
     // must agree on who is sovereign — the generator composes them, this pins it.
     assert.deepEqual(withStage('sovereign'), [...frameToggleSkip()].sort(),

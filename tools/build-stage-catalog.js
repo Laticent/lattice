@@ -4,11 +4,11 @@
  * map (component name → "flow" | "canvas" | "sovereign") for EVERY layout,
  * bundled into dist/lattice-runtime.js so the masthead kernel can decide the
  * stage-cell treatment WITHOUT shipping the whole manifest catalog to the
- * browser (the same constraint that forces plugins.js's FORM_TOGGLE_SKIP to
+ * browser (the same constraint that forces plugins.js's SOVEREIGN_FRAMES to
  * carry a baked fallback — the runtime bundle can't fs-load manifests).
  *
  * This is the SINGLE source of the stage-cell classification the three
- * hand-maintained Sets (STAGE_MIGRATED / STAGE_DEFERRED / FORM_TOGGLE_SKIP)
+ * hand-maintained Sets (STAGE_MIGRATED / STAGE_DEFERRED / SOVEREIGN_FRAMES)
  * used to encode imperatively. It composes two declarative inputs:
  *   · a component manifest's `stage: "flow" | "canvas"` field
  *     (flow → wrapped in `.cell-stage`; canvas → self-sizing direct-child body)

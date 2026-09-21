@@ -8,7 +8,7 @@
  *   (b) referential integrity — Tile.fits → real Cell; every Cell.accepts kind
  *       is satisfied by ≥1 real Tile (or a Frame for 'frame'); Frame.cells /
  *       Frame.suppresses → real Cells;
- *   (c) the manifest-derived FORM_TOGGLE_SKIP equals the historical set;
+ *   (c) the manifest-derived SOVEREIGN_FRAMES equals the historical set;
  *   (d) dist/docs/forms.json is fresh (regenerating produces no diff) —
  *       mirrors the components.json freshness gate.
  */

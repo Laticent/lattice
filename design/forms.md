@@ -958,7 +958,7 @@ sit unclassified):
   a single sized canvas, not flowing prose that can overstuff, so the stage clip buys
   nothing — and an over-large canvas is still caught at the section level by the
   overflow probe.
-- **chrome-exempt sovereign frames** (`FORM_TOGGLE_SKIP`) — `title`, `closing`,
+- **chrome-exempt sovereign frames** (`SOVEREIGN_FRAMES`) — `title`, `closing`,
   `divider`, `image`, `premise`, `scene`, `split-panel`, `split-compare`, `compare-code`
   get **no** band at all (they own their whole frame, incl. split frames' own bounded
   `.panel-right` / `.compare-right` clip cells).
