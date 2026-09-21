@@ -114,6 +114,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `runtime:watch` | Rebuild the runtime bundle on change. |
 | `snippets:build` | Generate .vscode/lattice.code-snippets from component manifests. |
 | `snippets:check` | Freshness gate for the VS Code snippets. |
+| `speech-projection:build` | Bundle the caption SPEECH PROJECTION (dompurify + lib/core/sanitize-slide-html.mjs + lib/transformers/prose-projection.mjs) as an injectable IIFE string, for the CLI export to evaluate inside the Chromium it already has open. Replaces three jsdom windows per `--captions` run; jsdom is a devDependency, so that path threw in a published install. |
+| `speech-projection:check` | Freshness gate for the speech-projection bundle. |
 | `split:treatments` | Render §0c's split-treatment table (which of the 11 treatments each component gets) into the split decision note from TREATMENTS in lib/core/split-facts.js — the prose used to be a second, unchecked copy of that map. |
 | `split:treatments:check` | Freshness gate for §0c's generated split-treatment table (stale vs lib/core/split-facts.js). |
 | `stage-catalog:build` | Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest's `stage` field + the sovereign frames' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (stage-cell classification, step A). |
@@ -414,6 +416,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
 | `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
+| `tools/build-speech-projection-bundle.js` | Bundle the caption SPEECH PROJECTION into one self-contained IIFE string, for |
 | `tools/build-split-treatments.js` | build-split-treatments.js — regenerate §0c's treatment table in |
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |

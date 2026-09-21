@@ -207,6 +207,13 @@ const cliDatasets = [
     out: 'out.zip',
     args: ['--svg-background', 'dark', '--no-thumbnails'],
   },
+  // THE CAPTION-PROJECTION ROW, and the only dataset here that reaches it. `--captions`
+  // parses the whole rendered document, sanitizes every slide section and projects each
+  // to narration; until 2026-09-20 it did all three in jsdom, three windows per export,
+  // one of them per slide. No other row passes the flag, so a regression on that path —
+  // or a return to jsdom — would show up nowhere else in this file (HARD RULE #19(c)).
+  // Mermaid-free like the three rows above, for the same reason: mmdc would swamp it.
+  { name: 'cli · captions (deck projection)', deck: 'examples/read-along-captions.md', args: ['--captions'] },
 ];
 
 function overflowingDeck(slides) {

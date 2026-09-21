@@ -110,6 +110,11 @@ const STEPS = [
   // nothing caught it, because dist/ is gitignored and `build:check
   // --exclude-uncommitted` skips the emulator by design.
   { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
+  // Ahead of the emulator bundle for the same reason as the two above: the emulator
+  // dynamic-imports lib/export/speech-projection-bundle.generated.mjs (the caption
+  // projection it evaluates inside its own Chromium page), so esbuild inlines it at
+  // bundle time and a stale file would be baked into dist/lattice-emulator.js.
+  { label: 'speech-projection bundle (engine export)', script: 'build-speech-projection-bundle.js' },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },

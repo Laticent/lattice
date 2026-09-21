@@ -4038,6 +4038,19 @@ async function renderBody(browser, g, closeBrowser) {
   // pale-notch artifact — the corner LOOKS clipped but ships white. Scoped to rounded
   // decks so a square deck's bytes do not move.
   const OMIT_BG = CORNER_SURVIVES && roundedSlides > 0 && OUT_FORMAT !== 'html';
+  // CAPTION PROJECTION — here, and the position is the whole point. It needs a live
+  // Chromium (see projectDeckSpeechFromHtml), and every branch below closes the browser
+  // the moment it has its pixels: the vector PDF closes right after `page.pdf()`, the
+  // raster PDF after its screenshots, image-set after reading the slide titles, .html
+  // after the page count, PNG/PPTX after their loop. `writeCaptionsSidecar`, at the tail
+  // of this function, runs after ALL of them — which is why the projection is hoisted to
+  // the last point where all five branches still have a browser rather than left at its
+  // consumer. It is also ahead of the SVG rasterization below, so the scratch page it
+  // opens is not competing with the 2x raster twins for /dev/shm.
+  // `cleanDocHtml` is final here: the Fit-Spine split and the rails pass both rewrite it,
+  // and both have run by this line.
+  const captionScript = CAPTIONS ? await projectDeckSpeechFromHtml(cleanDocHtml, browser, g) : [];
+
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
   // clipped/cropped placements Chromium prints for them emit shading-pattern /
   // transparency-group constructs that iOS Quartz viewers partially render or
@@ -4782,7 +4795,7 @@ async function renderBody(browser, g, closeBrowser) {
     // the front-matter captions with it) rather than misalign. One index space fixes all
     // three channels at once.
     const pageNotesForCaptions = notesPerRenderedPage(cleanDocHtml, materializedNotes);
-    await writeCaptionsSidecar(outFile, pageNotesForCaptions.length, cleanDocHtml, slideCaptions);
+    await writeCaptionsSidecar(outFile, pageNotesForCaptions.length, slideCaptions, captionScript);
   }
 }
 
@@ -5479,26 +5492,104 @@ async function buildReadingArticleDocument(docHtml) {
  * Component-aware DOM speech projection for the export (2026-07-11-manifest-speech
  * -contract §6 Phase 2). Parses the sanitized-render HTML, sanitizes each slide
  * section (HARD RULE #22 — the caller-sanitizes contract prose-projection requires),
- * and projects each to natural narration DISPLAY text. Returns [] (never throws) on
- * any failure — the notes-only path below still narrates. `docHtml` is the emulator's
- * cleanDocHtml. Async: the projection + sanitizer are ESM (dynamic import).
+ * and projects each to natural narration DISPLAY text. Returns [] on a projection
+ * failure — there is no fallback behind it, so the deck then gets no caption track.
+ * It THROWS in exactly one case: the browser itself is gone, which is not a caption
+ * failure but an export that cannot continue (see the catch). `docHtml` is the
+ * emulator's cleanDocHtml.
+ *
+ * IT RUNS IN THE BROWSER WE ALREADY HAVE OPEN. This used to build three jsdom
+ * windows — one to host DOMPurify, one for the whole document, and one more per
+ * slide — a few lines away from a live puppeteer page. Two things were wrong with
+ * that. It was slow: measured on `examples/read-along-captions.md`, whose render is
+ * 2.9 MB of self-contained HTML, medians of five fresh processes — 536ms to
+ * `require('jsdom')` cold + 122ms + 1715ms + 124ms = 2529ms, against 323ms for the
+ * same work inside the page, scratch page opened and closed included. And it was BROKEN
+ * for anyone but us: jsdom is a devDependency, so the `require` threw in a published
+ * install and the catch below turned `--captions` into a warning and no `.vtt`.
+ *
+ * The projection kernel is untouched and still single-source (HARD RULE #1) — the
+ * bundle evaluated here holds the same `prose-projection.mjs` the Studio's Present
+ * path runs in a browser, and the same `createSlideSanitizer` seam with the page's
+ * own `window` in place of a jsdom one. See
+ * engineering/decisions/2026-09-20-dom-library-bakeoff.md § "Chromium — already
+ * running, fastest of all".
+ *
+ * ONE round-trip for the whole deck. An empty CDP call costs ~0.5ms, so the parse,
+ * the sanitize and the projection all happen inside a single `evaluate` and only the
+ * finished script crosses the boundary — paying the floor once rather than per slide.
+ *
+ * A SCRATCH `about:blank` PAGE, not the render page. Three reasons, in order: deck
+ * script runs in the render page and could have shadowed `DOMParser` or patched
+ * `Object.prototype` under us, where jsdom always handed the projection a clean
+ * realm; injecting a global into the page that produced the deliverable is a
+ * side effect on an artifact-bearing surface; and a scratch page is what this file
+ * already does for the SVG raster and look-diagram passes. It is ~30ms and it is
+ * closed in a `finally`.
+ *
+ * WHAT THE SCRATCH PAGE COSTS, stated because it is a side effect too and the three
+ * reasons above read like it has none. Opening a second page BACKGROUNDS the render
+ * page for as long as this runs — measured on the repo's own Chromium 131:
+ * `document.visibilityState` flips to `hidden`, `document.hidden` to `true`,
+ * `hasFocus()` to `false`, and a `requestAnimationFrame` callback registered on the
+ * render page does not fire. The vector-PDF path already did this to itself
+ * (`rasterizeSvgImagesInPage` opens a scratch page before `page.pdf()`); with
+ * `--captions` it now happens on `.html`, `--player`, PNG, PPTX and image-set too.
+ * It is awaited, so the page is visible again before any pixel is taken, and it moves
+ * no bytes: `.pdf`, `.html`, every PNG of the set and every member of the `.zip` are
+ * identical with and without `--captions`. Recorded rather than argued away, because
+ * a deck listening on `visibilitychange` would see a hide/show cycle that is ours.
+ *
+ * @param {string} docHtml   the emulator's cleanDocHtml
+ * @param {import('puppeteer').Browser} browser  the render browser (page still open)
+ * @param {(op: () => Promise<any>, label: string) => Promise<any>} g  the CDP watchdog guard
  */
-async function projectDeckSpeechFromHtml(docHtml) {
+async function projectDeckSpeechFromHtml(docHtml, browser, g) {
   if (!docHtml || typeof docHtml !== 'string') return [];
+  // `g` is the render loop's CDP watchdog (crash + wedge). Hoisted out of the `try` so
+  // the `finally` can close through it too — a `try/catch` answers a REJECTED promise
+  // and does nothing for one that never settles, which is the whole reason `guard`
+  // exists (#502, lib/engine/render-guard.js). Fall back to a bare call only so a
+  // caller without a guard still works; the export always passes one.
+  const run = g || ((op) => op());
+  let scratch = null;
+  // Held separately from `scratch` because `guard` RACES rather than cancels: if the
+  // watchdog wins, `scratch` stays null while the real `newPage()` resolves later into
+  // a page nothing would ever close, holding its /dev/shm share for the rest of the
+  // run. The `finally` closes that late arrival.
+  let pagePromise = null;
   try {
-    const { JSDOM } = require('jsdom');
-    const DOMPurify = require('dompurify');
-    const { createSlideSanitizer } = await import('./lib/core/sanitize-slide-html.mjs');
-    const { projectDeckToScript } = await import('./lib/transformers/prose-projection.mjs');
-    const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
-    const doc = new JSDOM(docHtml).window.document;
-    const raw = [...doc.querySelectorAll('section[data-lattice-slide]')];
-    // Sanitize each section in isolation, then project the clean nodes.
-    const clean = raw
-      .map((s) => new JSDOM(sanitize(s.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
-      .filter(Boolean);
-    return projectDeckToScript(clean);
+    if (!browser) throw new Error('no browser available for the caption projection');
+    const { SPEECH_PROJECTION_JS } = await import('./lib/export/speech-projection-bundle.generated.mjs');
+    pagePromise = browser.newPage();
+    scratch = await run(() => pagePromise, 'speech projection page');
+    await run(() => scratch.evaluate(SPEECH_PROJECTION_JS), 'install speech projection');
+    return await run(
+      () => scratch.evaluate((h) => window.__latticeSpeechProjection.projectDeckSpeech(h), docHtml),
+      'project deck speech',
+    );
   } catch (e) {
+    // A DEAD BROWSER IS NOT A CAPTION FAILURE — rethrow, so the export routes to the
+    // hardened retry the way every other CDP call on this path does. Swallowing it was
+    // wrong on exactly one family of branches and silently: after `.html` / `--player` /
+    // `--fluid` take their page count, the only remaining CDP call sits in a bare
+    // swallowing `try` and `closeBrowser` swallows too, so a browser this projection
+    // killed would have exited 0 with no `.vtt`, a wrong page count, and no retry.
+    //
+    // TEST THE BROWSER, NOT THE ERROR — and the first version of this line tested the
+    // error, which was worse than the bug it fixed. `isTargetGone(e)` is true for any
+    // `wedged` error, and a SCRATCH PAGE that dies on its own is measurably that: crash
+    // only the scratch target and its `evaluate` never rejects with a target-gone
+    // message at all, it hangs, so the 90s watchdog always wins and always sets
+    // `wedged: true` — while `browser.connected` is still true and the render page still
+    // prints the deck. `isTargetGone` therefore said "browser gone" for a browser that
+    // was fine, throwing away a finished deliverable and re-rendering it; a
+    // content-deterministic failure would fail the retry the same way and exit 1 with the
+    // `.html` unlinked. `isTargetGone` also matches on message SUBSTRING, so any
+    // projection error merely containing "Protocol error" would have done the same.
+    // `browser.connected` asks the question this line means to ask, and it is the one
+    // signal that separates "the export cannot continue" from "the captions failed".
+    if (browser && browser.connected === false) throw e;
     // SURFACE THE FAILURE, and say what actually happens now. This used to read
     // "falling back to speaker notes only" — true of the old ladder, false since the
     // note rung was removed: there is no fallback left, so the deck gets NO caption
@@ -5510,6 +5601,24 @@ async function projectDeckSpeechFromHtml(docHtml) {
     // which is a silently missing deliverable, not chatter.
     console.warn(`  warning: caption projection failed (${e?.message}); no caption track will be written for this deck.`);
     return [];
+  } finally {
+    if (scratch) {
+      // Through the watchdog: a wedged-but-connected Chrome leaves this await unresolved
+      // and would hang the export to the outer CI timeout.
+      try { await run(() => scratch.close(), 'close speech projection page'); } catch (_e) { /* already torn down */ }
+    } else if (pagePromise) {
+      // The watchdog-lost case above. Do NOT await it — that reinstates the hang this
+      // branch exists to avoid; just close it whenever it turns up, THROUGH the watchdog.
+      // The guard matters precisely here: the only way to reach this branch is a Chrome
+      // slow or wedged enough to lose the race, which is exactly the Chrome whose
+      // `close()` can hang forever and leave the page this branch exists to reclaim.
+      // (While the rethrow above was unnarrowed this branch was dead — every path into it
+      // carried `wedged`, so it rethrew and `closeBrowser` tore the browser down anyway.
+      // Narrowing the rethrow to a genuinely dead browser makes it live again.)
+      pagePromise
+        .then((p) => run(() => p.close(), 'close late speech projection page'))
+        .catch(() => { /* never arrived, or already gone */ });
+    }
   }
 }
 
@@ -5525,7 +5634,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
 // sidecar; see changelog.d/1810-notes-are-not-captions.fixed.md.)
 // `--strip-notes` does not touch this path — it scrubs the note channel, and captions
 // narrate content, so the two flags are independent.
-async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = []) {
+async function writeCaptionsSidecar(outPath, slideCount, captions = [], script = []) {
   const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
@@ -5551,7 +5660,10 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // A caption is generated from the slide's own CONTENT — which is on the slide, in front of
   // the room — so it carries nothing `--strip-notes` is protecting, and emptying it was the
   // last place a note still decided what a caption said.
-  const script = await projectDeckSpeechFromHtml(docHtml);
+  // `script` was projected UPSTREAM, while the browser was still open — see the call
+  // site. Every output branch closes Chromium as soon as it has its pixels, hundreds of
+  // lines before this runs, so projecting here would find nothing to project on. That is
+  // also why `docHtml` is no longer a parameter: the projection was its only reader.
   // `projected` stays a plain string[] so the length check, the narrateChart substitution and
   // mergeNarration below are all untouched; the emphasis rides alongside, keyed by the same index.
   const projected = script.map((x) => x.text);

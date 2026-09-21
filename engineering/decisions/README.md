@@ -310,6 +310,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-20-chromium-caption-projection.md](2026-09-20-chromium-caption-projection.md) — The CLI's `--captions` projection now runs in the Chromium the export already launched, not in three jsdom windows.
 - ☑ [2026-09-20-dom-library-bakeoff.md](2026-09-20-dom-library-bakeoff.md) — jsdom is slow and we keep it — on the paths we have.
 - ☑ [2026-09-20-issue-queue-triage.md](2026-09-20-issue-queue-triage.md) — 317 open cards, and the axis that decides what to work next is not on any of them.
 - ☑ [2026-09-20-reader-mode-text-extraction.md](2026-09-20-reader-mode-text-extraction.md) — Reader-mode tools ("summarize this page", Firefox Reader View, Safari Reader, the Edge/Chrome reading modes) could not see a Lattice deck…

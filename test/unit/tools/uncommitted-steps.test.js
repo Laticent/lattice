@@ -86,6 +86,9 @@ const EXPECTED_PR_OWNED = new Set([
   'build-landing-tokens.js', // docs/src/styles
   'build-spec-docs.js', // docs/src/content/docs/spec
   'build-anima-player.js', // lib/export
+  // Measured 2026-09-20 against a timestamped tree: its whole write set is
+  // lib/export/speech-projection-bundle.generated.mjs, which git tracks.
+  'build-speech-projection-bundle.js', // lib/export
   'derive-cat-ink.js', // themes/*.css
   'derive-chart-cat-ink.js', // themes/*.css
   'build-capabilities.js', // engineering/capabilities.md

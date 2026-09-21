@@ -23,7 +23,9 @@ summary: >
   per process, and `node --test` forks one process per file. So the shipped fix changes no
   library. 136 docs test files touch no DOM and were paying for a jsdom window they never used;
   pinning them to `environment: 'node'` cuts the docs suite from 233.3s to 214.0s (-8.3%) with
-  all 313 files and 4,483 tests still green. Rejected: every parser swap, a jsdom 30 upgrade
+  all 313 files and 4,483 tests still green — re-run on a SECOND sandbox with the arms
+  alternating over four rounds, 202.82s to 188.25s (-7.2%), the `environment` line nearly
+  halving on both boxes. Rejected: every parser swap, a jsdom 30 upgrade
   (faster at parse+serialize, slower at mutate, identical cold load — and cold load is what
   dominates here), and `--experimental-test-isolation=none`, which is 11% SLOWER.
   TWO independent checks ran. The second found a FOURTH false PASS in this harness and it is
@@ -231,11 +233,23 @@ exact shape this repo's model policy warns about, and it is why a 4.7x win is no
 
 ### Chromium — already running, fastest of all, and structurally blocked
 
+> **SHIPPED, and this section's premise was wrong.** The emulator's three jsdom windows
+> moved into the page on 2026-09-20 —
+> `2026-09-20-chromium-caption-projection.md`. Read that note for the corrected
+> facts: the browser is **already closed** by the time the caption path runs (every output
+> branch calls `closeBrowser()` as soon as it has its pixels), so the projection had to be
+> hoisted rather than simply rewritten; the real input is 2.9 MB rather than the 321 KB
+> fixture below, which makes jsdom's share ~2.5s rather than ~202ms; and jsdom is a
+> devDependency, so this path threw in every published install and `--captions` silently
+> wrote no narration. The section is kept as written because its ARGUMENT held — it is the
+> facts either side of it that did not.
+
 `dom-provider.js` gives the browser branch the native `DOMParser` because it is "fast AND
 correct", and treats that as a property of the browser environment. But the CLI export
 runs a real Chromium too, and **`lattice-emulator.js:5311-5316` builds three jsdom windows
 while a puppeteer page is open in the same process.** The fastest correct parser in the
-repo may already be running, unused, next to the slowest one.
+repo may already be running, unused, next to the slowest one. *(That last sentence is the
+false one: measured after this note shipped, the page has exited by then.)*
 
 Measured with the page warm (`npm run dom:bakeoff:chromium`), against jsdom on the same op:
 
@@ -261,6 +275,12 @@ in a `.map`, paying a fresh jsdom per slide. The 0.71ms CDP floor says how to do
 the sections into one `evaluate` and pay the floor once, rather than per section. That is a
 change to the export path, which is HARD RULE #9 / export-sign-off territory and needs its
 own before-and-after on real exported bytes. Filed as follow-up, not smuggled in here.
+
+**Done, one PR later.** The batching advice was right and is what shipped. 99 artifacts
+across nine decks are byte-identical between the two arms, and a `--captions` export of
+those nine fell from 47.99s to 27.36s, measured with the arms alternating over four
+rounds. `withDom` is untouched, as this section says it must
+be. See `2026-09-20-chromium-caption-projection.md`.
 
 ## What the independent checks found
 
@@ -406,14 +426,57 @@ the reason the honest headline is a mean of four rather than a tidy pair of two.
 Test counts are identical before and after, which is the check that matters: an
 environment switch that silently skipped a file would also have looked like a speedup.
 
+### Re-measured on a second box (2026-09-20)
+
+The headline above stood on one sandbox, and both independent checks declined to re-time
+it because their hardware differed materially — so the verdict was twice-verified and the
+number was not. It has been re-run.
+
+**Say what this second box is, because "a second machine" promises more than it is.** A
+different sandbox container, with the **same hardware fingerprint** — 4 cores, Node
+22.22.2, 15 GB, `Intel(R) Xeon(R) @ 2.10GHz`. Different container, different neighbors,
+different scheduling; not different hardware. It tests whether the number survives a fresh
+box, not whether it survives a different class of machine.
+
+**Method, which the first measurement did not have.** Four rounds, **the two arms
+alternating inside each round** so drift lands on both. The "before" arm is this tree with
+the 136 `// @vitest-environment node` markers stripped by `sed` and restored with `git
+checkout` between runs; the "after" arm is the tree as committed.
+
+| | before (unpinned) | after (pinned) | Δ |
+|---|---:|---:|---:|
+| Wall clock, mean of 4 | 202.82s | **188.25s** | **-7.2%** |
+| …run range | 201.9–204.3 | 186.8–190.1 | |
+| vitest `Duration`, mean of 4 | 202.09s | **187.52s** | **-7.2%** |
+| **…of which `environment`** | **116.88s** | **65.83s** | **-43.7%** |
+| Test files / tests passing | 313 / 4,483 | 313 / 4,483 | — |
+
+**-7.2% here against -8.3% there, and the mechanism is the same shape.** The `environment`
+line — the one that says what this change actually does — nearly halves on both boxes:
+180.57s → 90.22s on the first (-50%), 116.88s → 65.83s on this one (-43.7%). The absolute
+seconds do not transfer and were never claimed to; the second box is simply faster overall
+(a 202.8s "before" against 233.3s). **What reproduces is the ratio and the mechanism.**
+
+The run-to-run spread is also much tighter than the first measurement's — under 2.5s
+within each arm, against the 13s spread that forced the mean-of-four caveat above. That is
+the alternating method, not a quieter box: contention that would have hit one arm in a
+block now lands on both.
+
+Two smaller things worth recording. The strip step leaves **one** residual `grep` hit for
+`@vitest-environment node` in the unpinned arm — it is a prose mention inside a comment in
+`docs/src/lib/deck-corner.test.ts:28`, not a pragma; all 136 line-1 markers were removed,
+counted directly. And the test counts are identical across all eight runs, which is the
+check that matters for the same reason it did the first time.
+
 ## Rejected
 
 - **domino**, despite 3.8-4.5x. DOMPurify deletes all markup on it, and its
   non-iterable NodeList meets `withDom`'s fail-closed catch to make 130 transform
   sites silently no-op. See § "The two that nearly won".
 - **Chromium as a general DOM provider.** Fastest measured and correct by
-  construction, but CDP is async and `withDom` is sync. Scoped follow-up for the
-  export path only, where the code already runs inside the page.
+  construction, but CDP is async and `withDom` is sync. Still rejected as a GENERAL
+  provider, and `dom-provider.js` is untouched. The scoped follow-up it names has since
+  shipped for the caption projection — `2026-09-20-chromium-caption-projection.md`.
 - **Upgrading jsdom 29 to 30.** Same correctness (34/34), no speed win, same cold
   load. There may be other reasons to take it; performance is not one.
 - **Swapping the parser anywhere.** Correctness, as above. jsdom stays in
@@ -444,7 +507,10 @@ mount at 90-205ms and found no waste to remove.
 **It does not claim these timings reproduce elsewhere.** They are one sandbox, 4 cores,
 two runs per arm. The ratios are the durable part; the absolute numbers are not, and
 `2026-08-03-performance-guard.md` already settled that wall clock on a shared runner
-cannot gate a merge. Nothing here is wired into `bench:check` for that reason —
+cannot gate a merge. **The headline has since been re-run on a second box** — see
+§ "Re-measured on a second box": -7.2% against -8.3%, with the `environment` line nearly
+halving on both. That widens the claim by one container of the same class; it still does
+not extend it to different hardware. Nothing here is wired into `bench:check` for that reason —
 `npm run bench` measures the engine, and this is test-harness cost, which it has never
 covered.
 

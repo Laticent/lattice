@@ -15,6 +15,10 @@
       "class": "generated"
     },
     {
+      "path": "lib/export/speech-projection-bundle.generated.mjs",
+      "class": "generated"
+    },
+    {
       "path": "mermaid-v11.min.js",
       "class": "vendor"
     },
