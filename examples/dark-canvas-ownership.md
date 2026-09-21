@@ -13,7 +13,7 @@ header: "Dark canvas ownership"
 
 # The dark deck stopped repainting its own frames
 
-Nine frames paint a canvas of their own. Under dark, the deck ground was painting over all of them.
+Nine of them lost the canvas they paint for themselves, because the deck-wide one was declared later and won.
 
 ---
 

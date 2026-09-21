@@ -3,15 +3,38 @@
  * those frames, which lives in a CSS selector, must not rot.
  *
  * `section.dark` paints the deck-wide canvas at (0,1,1). A frame that paints its
- * OWN section canvas does so at the same specificity, and every component
- * stylesheet is bundled BEFORE base.modifiers.css — so without an exemption the
- * deck-wide canvas wins and the frame loses the surface it drew for itself. That
- * shipped: under `color-mode: dark`, `divider` lost its vertical spectrum rail
- * and `title`/`closing` lost `--surface-inverse`.
+ * OWN section canvas does so at the same specificity, so at equal specificity the
+ * CASCADE FALLS BACK TO SOURCE ORDER and whichever is declared later wins. Every
+ * component stylesheet is bundled BEFORE base.modifiers.css — so without an
+ * exemption the deck-wide canvas wins and the frame loses the surface it drew for
+ * itself. That shipped: under `color-mode: dark`, `divider` lost its vertical
+ * spectrum rail and `title`/`closing` lost `--surface-inverse`.
  *
- * The exemption is a hand-written list inside the selector, because CSS cannot
- * ask "does this component paint its own canvas?". This test asks it instead, so
- * the list is checked against the tree on every run rather than trusted.
+ * THE INVARIANT IS ABOUT ORDER, NOT ABOUT PAINTING. "Paints its own canvas" is
+ * necessary but not sufficient, and the difference is a real frame in this tree:
+ * `section.lat-split-cover` (base.modifiers.css) paints `var(--accent)` at the
+ * same (0,1,1) and is deliberately NOT in the list, because it is declared ~2,200
+ * lines AFTER the dark rule in the same file and therefore already wins. The rule
+ * this file enforces is:
+ *
+ *     a frame that paints a non-`--bg` section canvas at (0,1,1) needs the
+ *     exemption IF AND ONLY IF it is declared BEFORE the dark-canvas rule.
+ *
+ * An earlier revision said "the list is the frames that paint a canvas of their
+ * own" and checked exactly that, which is why `lat-split-cover` read as a missing
+ * entry rather than a correct omission.
+ *
+ * IT READS THE BUILT BUNDLE, not the source tree, and that is the point. Source
+ * order is a property of `dist/lattice.css` — no source file knows where it lands
+ * relative to another — so a gate that walks `lib/**` cannot ask the question
+ * above at all. Reading the bundle also removes four blind spots the source walk
+ * had, each of which certified a frame it should have rejected: a rule in a file
+ * whose name does not end `.styles.css` (`_chart-family/chart-family.css`), a
+ * root nobody listed (`lib/shared/shared.styles.css` carries a section canvas
+ * today), a `background-image`-only painter — which is the EXACT shape of the
+ * `divider` defect this rule exists to fix — and a comma list whose last selector
+ * happened to be exempt already. `npm run build` writes the bundle, and the CI
+ * `unit` job builds before it tests; sibling palette tests read it the same way.
  *
  * WHY NOT KEY ON SOVEREIGNTY. The obvious mechanical answer is the `form` class
  * the engine stamps on every non-sovereign section, which needs no list at all.
@@ -25,74 +48,130 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const csstree = require('css-tree');
 
-const LIB = path.join(__dirname, '..', '..', '..', 'lib');
-const MODIFIERS = path.join(LIB, 'base', 'base.modifiers.css');
+const ROOT = path.join(__dirname, '..', '..', '..');
+const BUNDLE = path.join(ROOT, 'dist', 'lattice.css');
 
-const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+/**
+ * A background value that paints no NEW surface, so the deck-wide canvas taking
+ * it over costs nothing:
+ *   `var(--bg)`  — the deck ground itself, which is what `section.dark` paints.
+ *                  `image`, `scene`, `print` and `chart-frame` do exactly this.
+ *   `none`       — a REMOVAL (`finish-none`, `backdrop-none` clear a texture).
+ *                  Treating it as a painter would demand an exemption that, by
+ *                  keeping the rule off those frames, would leave them with the
+ *                  deck-wide spectrum hairline they are not trying to drop.
+ */
+const paintsNothingNew = (value) => /^var\(\s*--bg\s*[,)]/.test(value) || value.trim() === 'none';
 
-/** The class names the dark-canvas rule exempts. */
-function exemptedClasses() {
-  const css = stripComments(fs.readFileSync(MODIFIERS, 'utf8'));
-  const m = css.match(/section\.dark:not\(:where\(([^)]*)\)\)\s*\{/);
-  assert.ok(m, 'could not find the `section.dark:not(:where(...))` canvas rule');
-  return m[1].split(',').map((s) => s.trim().replace(/^\./, '')).filter(Boolean).sort();
+/** One parse of the built bundle, shared by every assertion below. */
+function readBundle() {
+  assert.ok(
+    fs.existsSync(BUNDLE),
+    `${path.relative(ROOT, BUNDLE)} is missing — run \`npm run build\` first`,
+  );
+  const ast = csstree.parse(fs.readFileSync(BUNDLE, 'utf8'), { positions: true });
+
+  let darkRule = null; // { offset, exempt: Set<string> }
+  /** class name -> byte offset of the FIRST rule that paints it */
+  const painters = new Map();
+
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      const offset = node.loc.start.offset;
+
+      if (darkRule === null) {
+        const sel = csstree.generate(node.prelude);
+        const m = sel.match(/^section\.dark:not\(:where\((.*)\)\)$/);
+        if (m) {
+          darkRule = {
+            offset,
+            exempt: new Set(m[1].split(',').map((s) => s.trim().replace(/^\./, '')).filter(Boolean)),
+          };
+        }
+      }
+
+      if (node.prelude.type !== 'SelectorList') return;
+
+      // The rule's OWN declarations only. A `csstree.walk` would descend into a
+      // nested rule's block, so `section.foo { & .chip { background: red } }`
+      // would read as the SECTION painting a canvas. Nothing in the tree nests
+      // today; the shallow read is what keeps that true when something does.
+      const painted = [];
+      for (const d of node.block.children) {
+        if (d.type !== 'Declaration') continue;
+        if (!/^background(-color|-image)?$/.test(d.property)) continue;
+        const value = csstree.generate(d.value).trim();
+        if (!paintsNothingNew(value)) painted.push(value);
+      }
+      if (!painted.length) return;
+
+      // EACH selector in a comma list is judged on its own. The earlier regex
+      // read only the last one, so `section.newcover, section.decision-cover`
+      // certified a brand-new painter because the name it happened to see was
+      // already exempt.
+      for (const selector of node.prelude.children) {
+        // `section.<class>`, plus any number of trailing `:where(…)`, and
+        // nothing else — the frame's own base canvas at exactly (0,1,1).
+        // `:where()` contributes ZERO specificity, so `section.foo:where(.a,.b)`
+        // is still (0,1,1) and still loses to the dark canvas declared later;
+        // requiring a bare two-part compound let that shape through. A further
+        // class, a combinator or any other pseudo-class makes it a different
+        // (higher) specificity that this rule does not govern.
+        const parts = [...selector.children];
+        if (parts.length < 2) continue;
+        if (parts[0].type !== 'TypeSelector' || parts[0].name !== 'section') continue;
+        if (parts[1].type !== 'ClassSelector') continue;
+        if (!parts.slice(2).every((p) => p.type === 'PseudoClassSelector' && p.name === 'where')) continue;
+        if (!painters.has(parts[1].name)) painters.set(parts[1].name, offset);
+      }
+    },
+  });
+
+  assert.ok(darkRule, 'could not find the `section.dark:not(:where(...))` canvas rule in the bundle');
+  return { darkRule, painters };
 }
 
-/** Every frame whose own stylesheet paints a SECTION-LEVEL canvas. */
-function canvasPainters() {
-  const found = new Set();
-  const roots = [path.join(LIB, 'components'), path.join(LIB, 'base')];
-  const walk = (dir) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.styles.css')) scan(p);
-    }
-  };
-  const scan = (file) => {
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
-    // `section.<name> {` with no further compound — the frame's own base canvas.
-    for (const m of css.matchAll(/section\.([a-z][a-z0-9-]*)\s*\{([^}]*)\}/g)) {
-      const [, name, body] = m;
-      const paint = body.match(/(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)/);
-      if (!paint) continue;
-      // A frame painting `var(--bg)` is painting the DECK GROUND — the same
-      // surface `section.dark` would paint, so the cascade taking it over costs
-      // nothing and exempting it would be noise. `image` and `scene` do exactly
-      // this. What matters is a frame painting a DIFFERENT surface: an accent
-      // cover, an inverse field. Those are the ones the deck-wide canvas erases.
-      if (/var\(\s*--bg\s*[,)]/.test(paint[1])) continue;
-      found.add(name);
-    }
-  };
-  for (const r of roots) if (fs.existsSync(r)) walk(r);
-  return found;
-}
-
-test('every frame that paints its own dark canvas is exempted from the deck-wide one', () => {
-  const exempt = new Set(exemptedClasses());
-  const painters = canvasPainters();
-  const missing = [...painters].filter((p) => !exempt.has(p)).sort();
+test('every frame that paints its own canvas BEFORE the dark rule is exempted from it', () => {
+  const { darkRule, painters } = readBundle();
+  const missing = [...painters]
+    .filter(([name, offset]) => offset < darkRule.offset && !darkRule.exempt.has(name))
+    .map(([name]) => name)
+    .sort();
   assert.deepEqual(
     missing, [],
-    'these paint a section-level canvas but are NOT exempted in base.modifiers.css, '
-    + 'so `color-mode: dark` will repaint over them: ' + missing.join(', '),
+    'these paint a section-level canvas and are declared BEFORE the dark-canvas rule, '
+    + 'but are NOT exempted in base.modifiers.css — so `color-mode: dark` repaints over '
+    + `them: ${missing.join(', ')}`,
   );
 });
 
-test('the exemption list carries no component that stopped painting', () => {
-  // A name with no component at all is fine — `topic` is listed ahead of its own
-  // branch landing, and a class that matches nothing costs nothing. What is NOT
-  // fine is a component that still exists and no longer paints: that is a stale
-  // entry, and the list has to stay readable as "these paint their own canvas".
-  const painters = canvasPainters();
-  const exists = (name) => {
-    const buckets = fs.readdirSync(path.join(LIB, 'components'), { withFileTypes: true })
-      .filter((e) => e.isDirectory());
-    return buckets.some((b) =>
-      fs.existsSync(path.join(LIB, 'components', b.name, name, `${name}.styles.css`)));
-  };
-  const stale = exemptedClasses().filter((n) => exists(n) && !painters.has(n));
-  assert.deepEqual(stale, [], `stale exemption(s) — these no longer paint: ${stale.join(', ')}`);
+test('the exemption list carries no class that stopped painting', () => {
+  // A stale entry is not merely untidy: the list is the only statement anywhere
+  // of WHICH frames own their canvas, and a reader who cannot trust it has to
+  // re-derive it. The previous revision checked staleness by looking for
+  // `lib/components/<bucket>/<name>/<name>.styles.css`, which no cover has — all
+  // five are declared inside their PARENT component's sheet — so five of the nine
+  // entries, the majority, sat outside the check that was advertised as covering
+  // both directions. Reading the bundle, every entry is visible.
+  const { darkRule, painters } = readBundle();
+  const stale = [...darkRule.exempt].filter((name) => !painters.has(name)).sort();
+  assert.deepEqual(stale, [], `stale exemption(s) — these no longer paint a canvas: ${stale.join(', ')}`);
+});
+
+test('a painter declared AFTER the dark rule is correct to omit, and `lat-split-cover` is the one', () => {
+  // Pinned by name because it is the entry a reader will read as an omission.
+  // It is not: at equal specificity the later declaration wins, so it keeps its
+  // accent with no exemption — measured, `rgb(130,200,229)` under dark on both
+  // `main` and this branch. If it ever moves ahead of the dark rule the test
+  // above turns red, which is the failure that matters; this one documents why
+  // it is absent while it stays behind.
+  const { darkRule, painters } = readBundle();
+  const after = [...painters]
+    .filter(([name, offset]) => offset > darkRule.offset && !darkRule.exempt.has(name))
+    .map(([name]) => name)
+    .sort();
+  assert.deepEqual(after, ['lat-split-cover']);
 });

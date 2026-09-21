@@ -589,25 +589,48 @@ section.dark {
  * These declarations used to sit on bare section.dark, at the same (0,1,1)
  * specificity as a canvas-owning frame own rule and LATER in the bundle, so
  * under color-mode: dark that frame lost the canvas it paints for itself and
- * took the deck-wide one. Measured in Chromium:
+ * took the deck-wide one. Measured in Chromium 131 on indaco, at the default
+ * 16:9 export (a 1280px section):
  *
- *     divider  background-size   3.75px 100%   ->  100% 1px
+ *     divider  background-size   6px 100%      ->  100% 1px
  *              (the spectrum RAIL collapsed to the deck-wide hairline)
  *     title    background-color  rgb(0,61,102) ->  rgb(0,29,51)
  *     closing  background-color  rgb(0,61,102) ->  rgb(0,29,51)
  *
+ * The rail width is proportional -- calc(--_sec-1cqi * 0.46875) -- so it is 6px
+ * at that export and 5.06px on a portrait page. Naming the surface matters: an
+ * earlier draft of this comment quoted 3.75px, which is an 800px section and no
+ * export path we ship.
+ *
  * It had been shipping that way: divider.gallery.dark.pdf shows the rail gone.
  *
- * THE LIST IS THE FRAMES THAT PAINT A CANVAS OF THEIR OWN, which is not the same
- * set as the sovereign frames and is not a set anyone guessed correctly. It was
- * found by the gate, not by reading: five COVER variants paint an accent panel
- * and were losing it to the deck ground under dark, the same defect as the
- * anchors and a louder one -- measured, rgb(0,111,168) -> rgb(0,29,51).
+ * THE LIST IS THE FRAMES THAT PAINT A NON---bg CANVAS **AND ARE DECLARED BEFORE
+ * THIS RULE**, and the second half is load-bearing rather than pedantry. At equal
+ * specificity the cascade falls back to source order, so a painter declared after
+ * this rule already wins and needs no entry. One exists: section.lat-split-cover
+ * (~2,200 lines below, the shared split cover every plain-pagination layout gets)
+ * paints var(--accent) at the same (0,1,1) and is correctly absent. An earlier
+ * draft of this comment said "the frames that paint a canvas of their own", which
+ * makes that frame read as a missing entry instead of a correct omission.
+ *
+ * The set was found by the gate, not by reading: five COVER variants paint an
+ * accent panel and were losing it to the deck ground under dark. That was the
+ * ACCESSIBILITY half of the bug, not just the cosmetic one -- a cover keeps
+ * color: var(--on-accent), which under dark is the theme's inverse surface, so
+ * losing the accent ground left dark ink on a dark ground. Measured on a real
+ * render, indaco dark, decision-cover and split-panel-cover alike:
+ *
+ *     background  rgb(0,29,51) -> rgb(130,200,229)   (contrast 1.52:1 -> 6.10:1)
+ *
+ * rgb(130,200,229) is --accent under color-scheme: dark; an earlier draft quoted
+ * rgb(0,111,168), which is the LIGHT side of the same light-dark() pair.
  *
  * Painting var(--bg) does NOT count, and that distinction matters: image and
  * scene declare a background, but it is the deck ground -- the same surface this
  * rule would paint -- so the cascade taking it over costs nothing. Only a frame
- * painting a DIFFERENT surface is erased.
+ * painting a DIFFERENT surface is erased. Nor does `none`: finish-none and
+ * backdrop-none CLEAR a texture, and exempting them would hand them back a
+ * spectrum hairline they are not asking to drop.
  *
  * Keying on sovereignty instead (via the .form class the engine stamps on every
  * non-sovereign section) needs no list at all, and is the wrong set twice over:
@@ -616,20 +639,42 @@ section.dark {
  * split-compare and split-panel, which own their layout but no canvas and still
  * want it.
  *
- * The list cannot rot: dark-canvas-ownership.test.js reads every frame CSS,
- * finds the ones with a section-level background, and fails if that set and this
- * selector disagree. Add a component here only when the test tells you to.
+ * The list cannot rot: dark-canvas-ownership.test.js parses the BUILT BUNDLE with
+ * css-tree -- source order is a property of dist/lattice.css and no source file
+ * knows it -- and fails on a painter declared ahead of this rule without an entry,
+ * on an entry that no longer paints, and on lat-split-cover moving ahead of here.
+ * Six mutants covering the shapes a source-tree regex missed all die. Add a class
+ * here only when the test tells you to.
  *
  * :not(:where(...)), not :not(...). :where() contributes zero specificity, so
  * this rule stays exactly (0,1,1) -- it narrows what the rule MATCHES without
- * raising what it BEATS. The plain form is (0,4,1); measured across 102 class
- * combinations that changes 9 of them, all `print dark`, where it starts winning
- * against section.print canvas reset and a printed slide keeps a stray
- * background-size slot it should not have.
+ * raising what it BEATS. The plain form is (0,2,1), not (0,4,1) as an earlier
+ * draft said: per Selectors-4 a :not() takes the specificity of its MOST SPECIFIC
+ * argument, and nine class arguments are still one class. Probed in Chromium 131,
+ * the plain form loses to an earlier (0,3,1) and beats an earlier (0,2,1).
+ *
+ * That is not a rounding error in the write-up, because (0,2,1) beats a frame's
+ * own (0,1,1) REGARDLESS OF ORDER. The plain form would therefore have taken
+ * lat-split-cover's accent -- the 1.52:1 defect above, on the most common cover
+ * in the catalog -- and stripped the background-image from finish-none and
+ * backdrop-none. An earlier draft described the alternative as a stray
+ * background-size slot on paper, which is the wrong risk signal entirely.
+ *
+ * ONE VISIBLE SIDE EFFECT, deliberate. This block also carries border-top: none,
+ * which used to suppress the section's spectrum border deck-wide under dark. The
+ * four anchors declare their own border-top: none and are unaffected; the five
+ * covers do not, so a dark split cover now draws the spectrum bar. That is what
+ * the same cover already does in LIGHT mode, so the change brings dark into line
+ * rather than inventing a treatment.
  *
  * Only .dark needed this. .light sets no canvas, and .print works by remapping
  * the consumed tokens rather than painting over them, so a canvas-owning frame
- * already resolved correctly in both. */
+ * already resolved correctly in both. The `spectrum:` register is a separate,
+ * PRE-EXISTING instance of this same defect and is NOT fixed here: section.dark
+ * .spectrum-off (0,2,1) and section.dark:is(.spectrum-edge-*) (0,3,1) in
+ * base.variants.css both out-specify a frame's own canvas, so under
+ * `spectrum: off` a dark title/closing/topic still flattens. divider alone was
+ * given a hand-written carve-out there. Tracked as #2291. */
 section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover)) {
   background-color: var(--bg);
   background-image: var(--spectrum);
