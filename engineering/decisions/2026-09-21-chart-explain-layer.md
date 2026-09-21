@@ -437,6 +437,29 @@ MUTUALLY redundant PAIR — dropping either alone changes nothing, dropping both
 changes 120. That last one is the useful result: a mutation test on either reports
 it dead, and neither may be deleted.
 
+### Blast radius, measured rather than reasoned about
+
+The parse changes land in `parseDataRows`, which every chart narrator calls — so
+"it only affects `bullet`" is a claim that needed an artifact. Narrating every
+slide in the tree with the pre-round build and the current one:
+
+```
+34 of 499 narrated slides changed (3442 slides scanned across 1108 files)
+0 non-word-cloud slides changed
+```
+
+All 34 are the word cloud losing its census. **Not one deck in the repo uses either
+divergent bullet shape**, which is the same fact from the other side: the defect was
+invisible because nothing we ship walks into it, and a fuzz found it in 91 of 356
+generated decks because a generator does not write the shapes an author has learned
+to avoid.
+
+One latent crash was found by re-reading the diff rather than by a checker: the
+three-level bail returned `{ rows, consumed }` without the new `dropped` key, so a
+caller reading it would have hit `undefined.some`. `narrateBullet` returns null
+before that point today, so it was a shape guarantee rather than a live fix — but a
+bail that hands the next caller a crash is not a bail.
+
 ### What this says about the next round
 
 It should be expected to find more. What changed in this one is that each fix
