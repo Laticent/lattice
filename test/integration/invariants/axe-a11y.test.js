@@ -103,8 +103,8 @@ const AXE_RUN_OPTIONS = {
   rules: { 'color-contrast': { enabled: false } }, // owned by tools/check-slide-contrast.js — see header
 };
 
-/** Exceed-only, seeded at the measured truth. Both shells are clean; zero is honest. */
-const VIOLATION_BUDGET = { 'export shell': 0, 'html player': 0 };
+/** Exceed-only, seeded at the measured truth. */
+const VIOLATION_BUDGET = { 'export shell': 0, 'html player': 0, 'read article': 0 };
 
 /**
  * `incomplete` rules we have looked at and decided ARE defects on these surfaces, so
@@ -153,6 +153,12 @@ describe('axe — the WCAG rule set, on every shipped shell (G10)', () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-axe-'));
     shells['export shell'] = render(path.join(dir, 'export.pdf'));
     shells['html player'] = render(path.join(dir, 'player.pdf'), ['--player']);
+    // THE THIRD SHIPPED SHELL, and it was the only one failing. `--read` writes a document
+    // with its own structure — the slide stack replaced by one article — so it is neither of
+    // the two above, and it had no axe coverage at all. Measured before the fix: 4
+    // violations, three of them landmark rules caused by nesting the article's `<main>`
+    // inside `main#deck`.
+    shells['read article'] = render(path.join(dir, 'read.pdf'), ['--read']);
     browser = await puppeteer.launch({
       executablePath: resolveChrome(),
       args: ['--no-sandbox', '--allow-file-access-from-files'],

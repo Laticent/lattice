@@ -1180,7 +1180,21 @@ test('team-profile: a <pre> block survives into Read·Article', () => {
 	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n```\nrun the thing\n```\n', 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
-	assert.match(articleHtml, /<pre>[\s\S]*run the thing/);
+	assert.match(articleHtml, /<pre[^>]*>[\s\S]*run the thing/);
+});
+
+// All three article hosts scroll a <pre> sideways rather than break the column
+// (`#lp-article pre`, `#lat-read pre`, `.st-read-article pre` all set `overflow:auto`).
+// A region that scrolls and cannot be focused cannot be scrolled from the keyboard at
+// all — axe's `scrollable-region-focusable`, serious, and a real defect rather than a
+// fussy rule: the content is simply unreachable without a pointer. Pinned here as well as
+// in `axe-a11y.test.js`, because the integration gate can only see the `--read` document
+// (the player ships its article `hidden`) and this is a property of the shared markup.
+test('a code block in the article is reachable from the keyboard', () => {
+	const { articleHtml } = project(
+		sections('<section data-lattice-slide><h2>T</h2><pre><code>run the thing</code></pre></section>'),
+	);
+	assert.match(articleHtml, /<pre[^>]*\stabindex="0"/, 'a scrollable <pre> must be focusable');
 });
 
 test('team-profile: neither projection mutates the DOM it is handed', () => {

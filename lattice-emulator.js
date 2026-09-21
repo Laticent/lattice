@@ -5433,9 +5433,25 @@ async function buildReadingArticleDocument(docHtml) {
     const dom = new JSDOM(docHtml);
     const doc = dom.window.document;
 
+    // SCOPED, and the scope is the whole of the second defect below. An unscoped
+    // `section[data-lattice-slide]` also matches a `<section data-lattice-slide>` an AUTHOR
+    // wrote in their own markdown — the engine passes raw HTML through unescaped, so it
+    // parses as a section NESTED inside the real slide. Measured on a deck that teaches
+    // slide markup by pasting one: 3 matches for a 2-slide deck, so the pasted example was
+    // projected once as part of its parent slide and again as a phantom "Slide 2", with a
+    // phantom table-of-contents row and every later slide's number shifted. Two copies of
+    // the deck's text is the one outcome this flag exists to prevent.
+    //
+    // `#deck > …, body > …` rather than a bare `#deck > …`, because a slide is not always
+    // inside the container: a deck that merely WRITES a closing main tag ends `main#deck`
+    // where it sits, and the parser then hangs the remaining slides outside it as body-level
+    // siblings. Both fixtures are pinned in `read-export.test.js`. This is the same scope
+    // `measureOverflow` uses, ~950 lines up, for the same reason.
+    const SLIDE_SEL = '#deck > section[data-lattice-slide], body > section[data-lattice-slide]';
+
     // Sanitize each section in isolation, then project the clean nodes — the
     // caller-sanitizes contract prose-projection states in its own header (HARD RULE #22).
-    const clean = [...doc.querySelectorAll('section[data-lattice-slide]')]
+    const clean = [...doc.querySelectorAll(SLIDE_SEL)]
       .map((sec) => new JSDOM(sanitize(sec.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
       .filter(Boolean);
     if (!clean.length) return '';
@@ -5453,10 +5469,10 @@ async function buildReadingArticleDocument(docHtml) {
     // document TWICE: exactly the double copy this flag exists to prevent, on the deck
     // most likely to carry the trigger.
     //
-    // So the transform removes every slide section WHEREVER the parse put it, and drops
-    // the container only if it is left empty. That holds however badly the document was
-    // split, because the thing being counted is the thing that must not survive.
-    const sections = [...doc.querySelectorAll('section[data-lattice-slide]')];
+    // So the transform removes every slide section WHEREVER the parse put it, and the
+    // article TAKES THE CONTAINER'S PLACE. That holds however badly the document was split,
+    // because the thing being counted is the thing that must not survive.
+    const sections = [...doc.querySelectorAll(SLIDE_SEL)];
     if (!sections.length) return '';
     const main = doc.createElement('main');
     main.id = 'lat-read-main';
@@ -5465,10 +5481,39 @@ async function buildReadingArticleDocument(docHtml) {
     article.setAttribute('aria-label', 'Reading version');
     article.innerHTML = articleHtml;
     main.appendChild(article);
-    sections[0].parentNode?.insertBefore(main, sections[0]);
+
+    // REPLACE `main#deck`, never nest inside it — and the ORDER here is the fix. This used
+    // to insert the new main as a SIBLING OF THE FIRST SLIDE, i.e. inside `main#deck`, and
+    // then ask whether the container was empty enough to drop. By that point the container
+    // held the whole article, so `deck.textContent` was never blank, the drop could not
+    // fire, and the shipped document carried a `<main>` inside a `<main>`. Measured with
+    // axe-core on a plain `--read` export: 3 landmark violations
+    // (`landmark-main-is-top-level`, `landmark-no-duplicate-main`, `landmark-unique`)
+    // against 0 for the same deck exported plain. The old comment described an outcome its
+    // own code could not reach.
+    //
+    // Anything still INSIDE the container once the slides are gone was never part of a
+    // slide. It is kept — deleting an author's content to satisfy a landmark rule is the
+    // wrong trade — but it cannot keep a `<main>` around it, or the second landmark comes
+    // straight back. Measured on all three fixtures (plain, the closing-main-tag deck, the
+    // nested-section deck) the container is EMPTY here and this branch adds nothing; it
+    // exists so the guarantee is structural rather than a property of today's engine.
+    const anchor = doc.createComment('lattice-read');
+    sections[0].parentNode?.insertBefore(anchor, sections[0]);
     for (const sec of sections) sec.remove();
     const deck = doc.querySelector('main#deck');
-    if (deck && !deck.textContent.trim() && !deck.querySelector('img, svg, video, canvas')) deck.remove();
+    if (deck) {
+      const orphans = doc.createElement('div');
+      orphans.setAttribute('data-lattice-unprojected', '');
+      while (deck.firstChild) orphans.appendChild(deck.firstChild);
+      deck.replaceWith(main);
+      if (orphans.textContent.trim() || orphans.querySelector('img, svg, video, canvas')) main.after(orphans);
+    } else if (anchor.parentNode) {
+      anchor.replaceWith(main);
+    } else {
+      doc.body.appendChild(main);
+    }
+    anchor.remove();
 
     // A "Skip to the slides" link aimed at a main#deck that no longer exists is a dead
     // anchor, so it goes with the slides.
