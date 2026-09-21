@@ -76,9 +76,21 @@ test decks cleared the eligibility check, and wrapping the stack in an
 **Instead of, not beside** — a page carrying both copies feeds a summarizer the
 same deck twice (measured: 2123 extracted words for a 1080-word deck). All three
 flags run *after* the raster, so the PDF/PPTX/PNG bytes are identical either way,
-pinned by `test/integration/invariants/read-export.test.js`. `--player` wins over
-`--read`: it already carries a Read · Article view and switches to it. Why, and
-what was measured: `engineering/decisions/2026-09-20-reader-mode-text-extraction.md`.
+pinned by `test/integration/invariants/read-export.test.js`.
+
+**Precedence, when more than one is asked for.** `--player` wins over both: it already
+carries a Read · Article view and switches to it rather than shipping a second copy.
+Between `--fluid` and `--read` the rule is **direction-dependent, because an explicit
+flag beats a front-matter key** — `--read` wins over a deck's `fluid: true`, `--fluid`
+wins over a deck's `read: true`, and when both come from the same kind of source
+(two flags, or two keys) `--fluid` wins. Whichever loses is named on stderr; none of
+them is dropped silently, which they were until #2271.
+
+**The reading article follows the deck's `color-mode:`**, which the slide sections
+carry and `--read` removes with them: `dark`/`light` as declared, `print` as a light
+canvas (a B&W handout is one), `system` as `light dark` so the reader's OS decides, and
+`inherited` left alone so it inherits the theme. Why, and what was measured:
+`engineering/decisions/2026-09-20-reader-mode-text-extraction.md`.
 
 `.html` is a **full browser render minus the PDF encode**, not a browser-free
 path: the overflow/legibility passes measure laid-out DOM, and the written file

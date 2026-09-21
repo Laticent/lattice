@@ -226,6 +226,13 @@ OPTIONS
                           The PDF/PPTX/PNG bytes are unchanged (this runs after the
                           raster, like --fluid). --player wins if both are set, since
                           it already carries a Read Article view and switches to it.
+                          Against --fluid the rule is direction-dependent: an explicit
+                          flag beats a front-matter key, so --read wins over a deck's
+                          'fluid: true' and --fluid wins over a deck's 'read: true';
+                          with both as flags, or both as keys, --fluid wins. Whichever
+                          loses is named on stderr rather than dropped silently.
+                          The article follows the deck's 'color-mode:' — 'print' reads
+                          as a light canvas and 'system' defers to the reader's OS.
                           Can also be enabled with a 'read: true' front-matter key.
       --present           Mark the PDF to open directly in full-screen
                           presentation mode (Adobe Acrobat/Reader and most desktop
@@ -758,7 +765,7 @@ const mdRaw = readFileOrDie(mdFile, 'source markdown');
 // is testable as behavior and so the permutation gate can drive this axis exactly
 // as the CLI does.
 const {
-  withPrintColorMode, deckColorModeToken, classTokens,
+  withPrintColorMode, deckColorModeToken, classTokens, readFrontMatterColorMode,
 } = require('./lib/core/resolve-color-mode');
 const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { PALETTE_END_MARK } = require('./lib/core/export-shell-marks');
@@ -2039,9 +2046,37 @@ const PLAYER = !!flags.player || readRenderTargetKey(fm, 'player');
 // Like --fluid and --player it only affects the written .html, after raster: the PDF /
 // PPTX / PNG bytes are identical either way. --player wins if both are set — it already
 // carries a Read · Article view, and it switches rather than duplicating.
-const READ_VIEW = !!flags.read || readRenderTargetKey(fm, 'read');
+const READ_VIEW_FLAG = !!flags.read;
+const READ_VIEW = READ_VIEW_FLAG || readRenderTargetKey(fm, 'read');
 if (PLAYER && READ_VIEW) {
   console.warn('  ⚠ --player and --read both set — using the player, which already carries a Read · Article view and switches to it rather than shipping a second copy of the deck.');
+}
+// `--fluid` and `--read` ask for opposite documents — a viewer for the SLIDES, and the
+// slides REPLACED by prose — so one has to win. Until now the loser was silent: the write
+// is an `else if` chain (player → fluid → read) and only the player arm warned, so
+// `--read --fluid` produced a fluid viewer with no article in it and said nothing. The
+// READ arm even carries a "Never silent: the operator asked for an article" comment,
+// unreachable in that composition.
+//
+// AN EXPLICIT FLAG BEATS A DECK KEY, in both directions. The sharper half of the defect was
+// that `fluid: true` in a deck's front matter silently beat `--read` typed on the command
+// line — a file default overriding what the operator just asked for. When both come from
+// the same kind of source, `--fluid` keeps winning, which is the order the chain below
+// already had; either way it is now said out loud.
+const FLUID_BEATS_READ = !(READ_VIEW_FLAG && !flags.fluid);
+if (FLUID_VIEW && READ_VIEW && !PLAYER) {
+  // NAME WHAT THE OPERATOR ACTUALLY TYPED. A deck can set both `fluid:` and `read:` in front
+  // matter and be rendered with no flags at all; saying "--fluid and --read both set" then
+  // sends the author grepping an invocation that carries neither, with no pointer to the two
+  // keys that really caused it.
+  const bothFromDeck = !flags.fluid && !READ_VIEW_FLAG;
+  console.warn(
+    !FLUID_BEATS_READ
+      ? '  ⚠ --read was asked for explicitly and this deck sets `fluid: true` — using the reading article, and the fluid viewer is NOT in this file.'
+      : bothFromDeck
+        ? '  ⚠ this deck sets both `fluid: true` and `read: true` — using the fluid viewer, which shows the slides; the reading article is NOT in this file.'
+        : '  ⚠ --fluid and --read both set — using the fluid viewer, which shows the slides; the reading article is NOT in this file.',
+  );
 }
 const PLAYER_VERSION = '1';
 const ENGINE_BUILD = pkgVersion() ?? '';
@@ -3659,7 +3694,16 @@ async function renderBody(browser, g, closeBrowser) {
   // problem 6 argues against for export-to-Marp — a trim running in the recipient's
   // browser, at their window size, with no author present. `--fluid` is that opt-in,
   // deliberately (2026-09-07-overflow-guards-trim.md, open problem 10).
-  const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_VIEW && !PLAYER);
+  // `FLUID_VIEW && FLUID_BEATS_READ`, not `FLUID_VIEW` — the question is which arm of the
+  // write chain actually WINS, and an explicit `--read` now beats a deck's `fluid: true`.
+  // Keying on `FLUID_VIEW` alone made a `fluid: true` + `--read` deck claim its trim reached
+  // the deliverable: the deliverable is the reading article, projected from a Node-side
+  // string built before the page rendered, so the trim reaches nothing. Measured on a
+  // `guards: strict` deck — the console printed "✂ TRIMMED … pages 1" naming a cut present in
+  // no artifact (the extracted prose is character-identical either way) AND suppressed the
+  // honest "NOT APPLIED" line. That is the exact failure this constant was introduced to end.
+  const FLUID_WINS = FLUID_VIEW && FLUID_BEATS_READ;
+  const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_WINS && !PLAYER);
   const trimmed = TRIM_REACHES_DELIVERABLE
     ? await applyGuardsTrim()
     : { slides: 0, pages: [], reverted: [], detail: [] };
@@ -3688,7 +3732,7 @@ async function renderBody(browser, g, closeBrowser) {
     // one export contradicting each other is the defect class engineering/gotchas/overflow.md
     // already catalogues for the marker; it is named here rather than fixed, because
     // re-serializing the export HTML from the live DOM is an owner call under the Quality Bar.
-    if (OUT_FORMAT !== 'html' && !FLUID_VIEW && !PLAYER) {
+    if (OUT_FORMAT !== 'html' && !FLUID_WINS && !PLAYER) {
       console.warn(`    The .html sidecar does NOT carry the trim \u2014 it is written before the page renders, so page${trimmed.slides > 1 ? 's' : ''} ${pages} clip${trimmed.slides > 1 ? '' : 's'} there. --fluid or --player make it agree.`);
     }
   }
@@ -4741,7 +4785,7 @@ async function renderBody(browser, g, closeBrowser) {
     } catch (err) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
     }
-  } else if (FLUID_VIEW) {
+  } else if (FLUID_VIEW && FLUID_BEATS_READ) {
     // The fluid viewer runs the BUNDLED RUNTIME, which resolves the overflow level
     // from an export-settings block and otherwise falls back to `reader`. Without
     // the block the flag was silently ignored here: `--overflow-marker=off` still
@@ -4773,7 +4817,15 @@ async function renderBody(browser, g, closeBrowser) {
     // SVG carries every label in a `<foreignObject>` that this function's own sanitizer
     // removes. Falls back to the static render whenever the capture did not happen, which is
     // the article that shipped before.
-    const articleDoc = await buildReadingArticleDocument(inflatedDocHtml || cleanDocHtml);
+    //
+    // The scheme is `readFrontMatterColorMode` rather than the palette-derived one: this is the
+    // DECK's declared intent, which is what the slide sections carry and what the player honors.
+    // See the mapping at the call — `print` resolves to a light canvas, `system` defers to the
+    // reader's OS, and anything unrecognized falls through to the document's default.
+    const articleDoc = await buildReadingArticleDocument(
+      inflatedDocHtml || cleanDocHtml,
+      (readFrontMatterColorMode(md) || '').trim().toLowerCase()
+    );
     if (articleDoc) {
       fs.writeFileSync(outHtml, articleDoc);
       if (!QUIET) console.log(`Reading article: ${outHtml}`);
@@ -5464,7 +5516,7 @@ html,body{background:var(--bg,#fff)}
  * Returns '' (never throws): a projection failure must not sink a render that succeeded,
  * and the caller keeps the clean slide render in that case.
  */
-async function buildReadingArticleDocument(docHtml) {
+async function buildReadingArticleDocument(docHtml, deckScheme) {
   if (!docHtml || typeof docHtml !== 'string') return '';
   try {
     const { JSDOM } = require('jsdom');
@@ -5578,6 +5630,47 @@ async function buildReadingArticleDocument(docHtml) {
     // A "Skip to the slides" link aimed at a main#deck that no longer exists is a dead
     // anchor, so it goes with the slides.
     doc.querySelector('a.lat-skip-link')?.remove();
+
+    // THE DECK'S DECLARED SCHEME, on the root. A deck that says `color-mode: dark` handed
+    // `--read` a WHITE page: the engine sets dark as a `dark` CLASS on the slide SECTION and
+    // every rule for it is section-scoped, so with the sections gone nothing carried the
+    // scheme and the palette's `light-dark()` tokens all resolved to their light branch. The
+    // player does not have this — it derives the deck's scheme for its own shell — so the
+    // same deck read dark there and white here.
+    //
+    // One declaration is the whole fix, measured: `color-scheme: dark` on `<html>` takes the
+    // body background from rgb(255,255,255) to rgb(0,29,51) and the article ink from
+    // rgb(30,58,95) to rgb(203,217,232) — the same values the player's Read · Article shows
+    // for that deck. It goes on the ROOT rather than the article so the page's own
+    // background follows; an article on a white page in a dark deck is the same defect
+    // one element smaller.
+    // THE WHOLE REGISTER, not just the two obvious rows. `color-mode:` has five values and
+    // each already has a defined `color-scheme` on the SLIDE SECTION (`lib/base/base.modifiers.css`
+    // § the color registers); `--read` deletes the sections, so this is where they have to be
+    // re-stated for the article.
+    //
+    //   dark / light  — as declared.
+    //   print         — a CANVAS treatment, B&W-safe ink for paper, and `color-scheme` has no
+    //                   print branch. A handout is a light canvas, so it resolves to `light`.
+    //                   This is NOT a no-op, and an earlier draft of this comment claimed it
+    //                   was: 14 shipped themes set `:root { color-scheme: dark }`, and an
+    //                   inline declaration on `<html>` beats that. Measured on
+    //                   `ardesia-dark` + `color-mode: print`: body rgb(15,15,15) → rgb(250,250,249),
+    //                   ink rgb(200,200,197) → rgb(42,42,42) — which is what the player's
+    //                   Read · Article already showed for that deck, so it closes a divergence.
+    //   system        — `light dark`, exactly what `.color-system` sets, so the RECEIVER's OS
+    //                   decides. Left out of the first cut and it was not an "unknown value":
+    //                   it is a first-class shipped register, and without it a `color-mode: system`
+    //                   deck read light in the article while the player read dark on a
+    //                   dark-mode machine — the very divergence this change exists to close.
+    //   inherited     — deliberately absent. `.color-inherited` is `color-scheme: inherit`, and
+    //                   with the sections gone there is nothing between the article and the
+    //                   theme's own `:root` to inherit FROM. Leaving the root alone inherits the
+    //                   theme, which is what the register asks for; writing `inherit` on the
+    //                   root would be a no-op at best.
+    const SCHEME_BY_COLOR_MODE = { dark: 'dark', light: 'light', print: 'light', system: 'light dark' };
+    const scheme = SCHEME_BY_COLOR_MODE[deckScheme];
+    if (scheme) doc.documentElement.style.setProperty('color-scheme', scheme);
 
     const style = doc.createElement('style');
     // textContent, never innerHTML: a closing style tag inside the sheet would otherwise
