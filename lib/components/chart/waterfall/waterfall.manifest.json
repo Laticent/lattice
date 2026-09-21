@@ -18,6 +18,7 @@
     ]
   },
   "projection": {
+    "frame": "each bar starts where the last one ended, bridging one total to another",
     "figure": "svg",
     "data": true
   },

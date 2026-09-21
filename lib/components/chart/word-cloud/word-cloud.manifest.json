@@ -26,6 +26,7 @@
     ]
   },
   "projection": {
+    "frame": "sized by how often each came up",
     "figure": "spatial",
     "data": true
   },

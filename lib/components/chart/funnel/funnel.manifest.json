@@ -26,6 +26,7 @@
     ]
   },
   "projection": {
+    "frame": "each stage is narrower than the one above it by the share that dropped out",
     "figure": "svg",
     "data": true
   },

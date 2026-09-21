@@ -45,6 +45,7 @@
     ]
   },
   "projection": {
+    "frame": "each region is filled by the value beside it",
     "figure": "svg",
     "data": true
   },

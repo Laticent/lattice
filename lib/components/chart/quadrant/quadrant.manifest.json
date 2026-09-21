@@ -76,6 +76,7 @@
     ]
   },
   "projection": {
+    "frame": "each item sits at its two scores, so which quadrant it lands in is the read",
     "figure": "svg",
     "data": true
   },

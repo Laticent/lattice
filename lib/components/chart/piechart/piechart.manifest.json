@@ -33,6 +33,7 @@
     ]
   },
   "projection": {
+    "frame": "each wedge is that item's share of the whole",
     "figure": "svg",
     "data": true
   },

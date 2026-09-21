@@ -24,6 +24,7 @@
     ]
   },
   "projection": {
+    "frame": "each bar is a category total, split into the parts that make it up",
     "figure": "svg",
     "data": true
   },

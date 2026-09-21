@@ -7,6 +7,7 @@
   "bucket": "chart",
   "anatomyBlock": "line",
   "projection": {
+    "frame": "each line tracks one measure across the axis, so the movement is the read",
     "figure": "svg",
     "data": true
   },

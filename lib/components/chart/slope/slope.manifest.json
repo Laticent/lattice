@@ -48,6 +48,7 @@
     ]
   },
   "projection": {
+    "frame": "each line joins one entity's before and after, so a crossing is a change in rank",
     "figure": "svg",
     "data": true
   },

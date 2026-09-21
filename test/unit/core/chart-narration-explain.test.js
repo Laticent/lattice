@@ -350,6 +350,38 @@ test('state-chart — does not say the start twice', () => {
   assert.ok(!untagged.includes('This flow starts at'), untagged);
 });
 
+// ── the declared frame ───────────────────────────────────────────────────────
+
+test('every picture-bound data chart DECLARES what its encoding means', () => {
+  // The roster is derived from the manifests, and so is the frame, so this cell
+  // cannot be satisfied by editing a list here — a new SVG chart joins the roster
+  // the day its manifest declares `data: true`, and this goes red until the same
+  // manifest says what its picture means. That is the whole reason the frame lives
+  // in the manifest rather than in a table in chart-narration.js:
+  // `2026-09-13-projected-rosters.md` records nine hand-kept rosters here, four
+  // holding the same twelve names, not one of which went red on omission.
+  const { PROJECTION } = require('../../../lib/core/projection-catalog.generated.mjs');
+  const roster = Object.entries(PROJECTION)
+    .filter(([, p]) => p.data === true && (p.figure === 'svg' || p.figure === 'spatial'))
+    .map(([name]) => name)
+    .sort();
+  assert.ok(roster.length >= 14, `the roster collapsed to ${roster.length} — the filter, not the manifests`);
+  const missing = roster.filter((n) => !PROJECTION[n].frame);
+  assert.deepEqual(missing, [], `these charts narrate their numbers and never say what they measure: ${missing.join(', ')}`);
+});
+
+test('a declared frame is a lowercase clause the caller composes', () => {
+  // The manifest validator enforces this, and this is the cell that proves the
+  // validator is wired rather than merely written: a leading capital or a trailing
+  // period lands mid-track as "Nine terms, Sized by how often each came up. ."
+  const { PROJECTION } = require('../../../lib/core/projection-catalog.generated.mjs');
+  for (const [name, p] of Object.entries(PROJECTION)) {
+    if (!p.frame) continue;
+    assert.ok(!/^[A-Z]/.test(p.frame), `${name}: frame must not start capitalized — ${p.frame}`);
+    assert.ok(!/[.!?]$/.test(p.frame.trim()), `${name}: frame must not be terminated — ${p.frame}`);
+  }
+});
+
 // ── dispatch ─────────────────────────────────────────────────────────────────
 
 test('the pilots win over the generic floor for their own components', () => {

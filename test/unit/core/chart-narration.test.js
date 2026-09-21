@@ -339,17 +339,17 @@ test('narrateRadar: does not treat a per-axis detail sublist line as an axis, bu
 
 test('narrateRadar: tolerates ordinary indentation variance between sibling axis lines', () => {
   const md = ['<!-- _class: radar -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '   - Pricing `95`'].join('\n');
-  assert.equal(narrateRadar(md), 'How we stack up. On a scale of zero to one hundred. Lattice: Performance, nine; Pricing, ninety-five.');
+  assert.equal(narrateRadar(md), 'How we stack up. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to one hundred. Lattice: Performance, nine; Pricing, ninety-five.');
 });
 
 test('narrateRadar: tolerates trailing non-numeric text on an axis value pill', () => {
   const md = ['<!-- _class: radar -->', '', '## X.', '', '- Lattice', '  - Performance `9 pts`'].join('\n');
-  assert.equal(narrateRadar(md), 'X. On a scale of zero to ten. Lattice: Performance, nine.');
+  assert.equal(narrateRadar(md), 'X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice: Performance, nine.');
 });
 
 test('narrateRadar: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
   const md = ['<!-- _class: radar -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
-  assert.equal(narrateRadar(md), 'Buying criteria. X. On a scale of zero to ten. Lattice: Performance, nine.');
+  assert.equal(narrateRadar(md), 'Buying criteria. X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice: Performance, nine.');
 });
 
 // ── narrateQuadrant ───────────────────────────────────────────────────────────
@@ -492,13 +492,13 @@ test('narrateQuadrant: tolerates ordinary indentation variance between sibling i
   ].join('\n');
   assert.equal(
     narrateQuadrant(md),
-    'Where to invest. The horizontal axis runs zero to ten. The vertical axis runs zero to one hundred. Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at seven, eighty-five.',
+    'Where to invest. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis runs zero to ten. The vertical axis runs zero to one hundred. Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at seven, eighty-five.',
   );
 });
 
 test('narrateQuadrant: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
   const md = ['<!-- _class: quadrant -->', '', '`Effort 0–10`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
-  assert.equal(narrateQuadrant(md), 'Effort 0–10. X. The vertical axis runs zero to one hundred. Group: Item at five, eighty-five.');
+  assert.equal(narrateQuadrant(md), 'Effort 0–10. X. Each item sits at its two scores, so which quadrant it lands in is the read. The vertical axis runs zero to one hundred. Group: Item at five, eighty-five.');
 });
 
 test('narrateQuadrant: mirrors parseCoordPill leading-digit quirk (`.5` does not count as a coordinate)', () => {
