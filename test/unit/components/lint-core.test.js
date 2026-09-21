@@ -1193,6 +1193,17 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.match(f.message, /one label/);
   });
 
+  test('flags `_track` on `topic fact` — it draws nothing AND costs the siblings', () => {
+    // `fact` is one flat canvas and its CSS drops the track, so the directive
+    // renders nothing — while still opting the slide out of derivation, which
+    // removes this topic's name from every sibling's scale. Silent both ways.
+    const src = `${FM}<!-- _class: topic fact -->\n<!-- _track: A | [B] -->\n\n## Alpha\n\nA claim.\n`;
+    const f = rule(src, 'track-directive');
+    assert.ok(f, 'expected a finding');
+    assert.match(f.message, /draws nothing on `topic fact`/);
+    assert.match(f.fix, /Drop the directive/);
+  });
+
   test('flags `_track` on a slide that is not a topic anchor', () => {
     const src = `${FM}<!-- _class: content -->\n<!-- _track: A | [B] -->\n\n## A heading.\n\nText.\n`;
     const f = rule(src, 'track-directive');
@@ -1212,6 +1223,40 @@ describe("lint-core: the topic anchor's `_track` override", () => {
 
   test('a fenced list is not a list — the rule reads past code blocks', () => {
     const src = `${FM}<!-- _class: topic -->\n\n## Payback\n\n\`\`\`text\n- Cost to win\n\`\`\`\n`;
+    assert.equal(rule(src, 'track-list'), undefined);
+  });
+
+  /* ── what the two rules must READ ──────────────────────────────────────────
+   * Each of these shipped a finding that was FALSE about what the renderer did,
+   * which trains an author to ignore the rule. They are pinned by the behavior a
+   * reader would see, not by the matcher that produces it.
+   */
+  test('the LIVE directive is the last one — the engine resolves last-wins', () => {
+    // Measured: `render()` stamps data-track="B | [C]" here. Reading the first
+    // warned "a scale of one … NO track is drawn" about a slide that drew one.
+    const src = topic('<!-- _track: A -->', '<!-- _track: B | [C] -->');
+    assert.equal(rule(src, 'track-directive'), undefined);
+  });
+
+  test('a directive inside a FENCE is an example, not a directive', () => {
+    const src = `${FM}<!-- _class: topic -->\n\n## B\n\n\`\`\`\n<!-- _track: A -->\n\`\`\`\n`;
+    assert.equal(rule(src, 'track-directive'), undefined);
+  });
+
+  test('a label carrying `>` is still read — both silent failures stay catchable', () => {
+    // `[^>]*?` could not cross a `>`, so the rule simply did not match, and the
+    // two arms it exists to catch went unreported on exactly the labels most
+    // likely to be malformed.
+    assert.match(rule(topic('<!-- _track: a > b -->'), 'track-directive').message, /one label/);
+    assert.match(rule(topic('<!-- _track: a > b | c -->'), 'track-directive').message,
+      /no current topic/);
+    assert.equal(rule(topic('<!-- _track: a > b | [C] -->'), 'track-directive'), undefined);
+  });
+
+  test('bullets inside a speaker-note comment are not a list', () => {
+    // markdown-it emits no list for them, so "it renders as content" was false
+    // and the fix told the author to delete prose no reader ever sees.
+    const src = `${FM}<!-- _class: topic -->\n\n## A\n\nx\n\n<!--\n- speaker point one\n- speaker point two\n-->\n`;
     assert.equal(rule(src, 'track-list'), undefined);
   });
 });

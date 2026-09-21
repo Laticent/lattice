@@ -157,6 +157,26 @@ test('a tile-track quoted inside a COMMENT does not cost the section its names',
   );
 });
 
+test('the engine RECOGNIZES ITS OWN OUTPUT — the track is never the last element', () => {
+  // The pipeline appends a pagination span and the berth divs AFTER the track,
+  // so a tail-anchored idempotence test (`</ul>\s*$`) never matches real output.
+  // Measured before this was fixed: a second pass over the rendered
+  // `examples/topic.md` turned 6 tracks into 12 on the string arm while the DOM
+  // arm's `:scope > ul.tile-track` was unmoved — a HARD RULE #1 split. Every
+  // deck in this file is synthetic and ends at its track, which is the one shape
+  // that cannot fail, so the shape below is the one the engine really emits.
+  const emitted = '<h2>Beta</h2><p>x</p>'
+    + '<ul class="tile-track" aria-hidden="true"><li class="on">Beta</li><li>z</li></ul>'
+    + '<span class="lat-pagination">3</span>'
+    + '<div class="marker-rail" data-lattice-berth aria-hidden="true"></div>';
+  const deck = S('divider', '<h2>S</h2>') + topic('Alpha') + S('topic', emitted) + topic('Gamma');
+  const once = tt.applyToHtml(deck);
+  assert.equal((once.match(/<ul class="tile-track"/g) || []).length, 3,
+    'the pre-tracked slide keeps ONE track, not two');
+  assert.equal(tt.applyToHtml(once), once, 'and a further pass changes nothing');
+  bothAgree(deck);
+});
+
 test('a slide that already carries a track does not cost its SIBLINGS theirs', () => {
   // `hasTrack` returned before `ti += 1` while `collectSections` still pushed a
   // slot, so the counter and the name array fell out of register and every later
@@ -345,6 +365,23 @@ test('a heading start tag closes an open heading, and never nests', () => {
  * DIRECTIVE, which is what an author writes, and is the only arm that fails if
  * the registration is dropped from lib/engine/directives.js.
  */
+test('idempotent against the REAL pipeline, end to end', () => {
+  // The guard on the guard: run the engine over the shipped demo deck and hand
+  // its output straight back to the transform. Anything that makes the kernel
+  // stop recognizing its own emitted track shows up here as a doubled band,
+  // whatever the synthetic decks above say.
+  const { render } = require('../../../lib/engine');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '../../../examples/topic.md'), 'utf8');
+  const out = render(src, {});
+  const html = typeof out === 'string' ? out : out.html;
+  const bands = (h) => (h.match(/<ul class="tile-track"/g) || []).length;
+  assert.ok(bands(html) > 0, 'the demo deck draws tracks at all');
+  assert.equal(bands(tt.applyToHtml(html)), bands(html), 'a second pass appends none');
+  assert.equal(tt.applyToHtml(html), html, 'and changes nothing at all');
+});
+
 test('the `_track` directive reaches the slide, and its comment does not', () => {
   const { render } = require('../../../lib/engine');
   const md = [

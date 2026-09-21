@@ -80,6 +80,7 @@ Four points of retention is $2.1m of ARR, and it compounds into next year.
 ---
 
 <!-- _class: topic -->
+<!-- _track: Renewal | [Retention] | Pricing -->
 
 ## Logo retention
 
@@ -88,7 +89,7 @@ Four points of retention is $2.1m of ARR, and it compounds into next year.
 ---
 
 <!-- _class: topic -->
-<!-- _track: Renewal curve | Logo retention | [Pricing floor] -->
+<!-- _track: Renewal | Retention | [Pricing] -->
 
 ## Pricing floor
 
