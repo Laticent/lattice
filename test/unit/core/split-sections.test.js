@@ -227,12 +227,12 @@ describe('applyFormToHtml — the stamp the derailed walk skipped', () => {
   });
 
   // The rewrite has to land on the class ATTRIBUTE. Matching a regex over the
-  // whole tag rewrote inside a neighbouring value instead, which both tore that
+  // whole tag rewrote inside a neighboring value instead, which both tore that
   // value open into bogus attributes AND left the real class without `form`, so
   // the slide silently lost its chrome.
   test("a ` class='…'` inside another attribute's value is left alone", () => {
     const out = applyFormToHtml(`<section data-tip="write class='x' here" class="lattice"><h1>A</h1></section>`);
-    assert.match(out, /data-tip="write class='x' here"/, 'the neighbouring value was rewritten');
+    assert.match(out, /data-tip="write class='x' here"/, 'the neighboring value was rewritten');
     assert.match(out, /\sclass="lattice form"/, 'the real class never got `form`');
   });
 
@@ -245,6 +245,17 @@ describe('applyFormToHtml — the stamp the derailed walk skipped', () => {
     assert.match(out, /data-frame="standard"/, 'no Frame identity');
     assert.match(out, /class="form"/, 'no chrome class');
     assert.match(out, /^<SECTION /, "the author's own spelling was rewritten");
+  });
+
+  // The strip that clears a prior stamp must be as case-insensitive as the stamp
+  // itself. It was not, so a forged UPPERCASE `DATA-FORM=` survived the strip and
+  // the tag came out carrying the attribute twice — the duplicate-attribute
+  // hazard the strip exists to close, reopened by making the stamp case-blind.
+  test('a forged UPPERCASE data-form is stripped, not duplicated', () => {
+    const out = applyFormToHtml('<SECTION DATA-FORM="spatial" DATA-FRAME="evil" class="content">x</SECTION>');
+    assert.equal((out.match(/data-form=/gi) || []).length, 1, 'duplicate data-form');
+    assert.equal((out.match(/data-frame=/gi) || []).length, 1, 'duplicate data-frame');
+    assert.match(out, /data-frame="standard"/, 'the forged value survived');
   });
 
   // `String.replace` with a replacement STRING gives `$&` its special meaning,
