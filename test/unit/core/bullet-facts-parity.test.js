@@ -147,12 +147,19 @@ test('bullet-facts is byte-identical to the arithmetic it was extracted from', (
   );
 });
 
-test('the reference implementation is not vacuous — it disagrees with a BROKEN kernel', () => {
-  // Without this cell the test above would pass just as happily if `zoneCuts` and
-  // `attainment` were never called. It proves the instrument can register a
-  // difference, by feeding the same corpus through the two mistakes the extraction
-  // could plausibly have made: measuring attainment as a raw ratio, and measuring
-  // the derived cuts from zero instead of from the floor.
+test('the CORPUS is discriminating — it spans inputs where the moved terms matter', () => {
+  // WHAT THIS CELL DOES AND DOES NOT DO. It does NOT exercise the kernel — a
+  // checker caught the earlier name ("it disagrees with a BROKEN kernel") claiming
+  // it did, and demonstrated three kernel mutations that kill cell 1 and leave this
+  // one green. In a file whose whole purpose is closing a false verification claim,
+  // a false claim about the verification was worth fixing rather than explaining.
+  //
+  // What it DOES prove is that cell 1's "zero divergence" is not a degenerate-corpus
+  // artifact: run the same rows through the two mistakes the extraction could
+  // plausibly have made — a raw-ratio attainment, and cuts measured from zero rather
+  // than from the floor — and the corpus registers hundreds of differences. A corpus
+  // that could not tell those apart would make cell 1 vacuous whatever it called.
+  // Cell 1 is what tests the kernel, and it kills every kernel mutation thrown at it.
   const rows = corpus();
   const naive = (r) => {
     const head = r.measureRaw ? `${r.label} ${fmt(r.measure)}` : r.label;
@@ -173,6 +180,6 @@ test('the reference implementation is not vacuous — it disagrees with a BROKEN
   };
   const descDiffs = rows.filter((r) => naive(r, fmt) !== originalDesc(r, fmt)).length;
   const cutDiffs = rows.filter((r) => JSON.stringify(fromZero(r)) !== JSON.stringify(originalCutsFor(r))).length;
-  assert.ok(descDiffs > 100, `the attainment probe registered only ${descDiffs} differences — it is not discriminating`);
-  assert.ok(cutDiffs > 100, `the cut probe registered only ${cutDiffs} differences — it is not discriminating`);
+  assert.ok(descDiffs > 100, `the attainment probe registered only ${descDiffs} differences — the corpus is not discriminating`);
+  assert.ok(cutDiffs > 100, `the cut probe registered only ${cutDiffs} differences — the corpus is not discriminating`);
 });

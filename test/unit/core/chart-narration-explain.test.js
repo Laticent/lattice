@@ -508,6 +508,82 @@ test('CHECKER 8 — a missing frame is never spoken as the word "null"', () => {
   }
 });
 
+// ── the SECOND checker's findings ────────────────────────────────────────────
+
+test('CHECKER2 — the tally is not suppressed by a heading that states it WITHOUT "cleared"', () => {
+  // A regression I introduced fixing the first checker's finding 5: requiring a
+  // clearing VERB made 7 of 12 realistic verdict headings speak the tally twice.
+  // Two distinct numbers ARE the tally, whatever verb carries them.
+  const d = ['## H.', '', '- A `4.2M` `5.0M`', '- B `3.6M` `3.0M`', '- C `2.8M` `2.6M`',
+    '- D `1.1M` `1.8M`', '- E `0.9M` `1.4M`'].join('\n');
+  for (const h of ['Two of five exceeded plan.', 'Two of five passed their target.', 'Two of five came in over target.']) {
+    const out = narrateBullet(slide('bullet', d.replace('## H.', `## ${h}`)));
+    assert.ok(!out.includes('cleared the plan line'), `${h} -> ${out}`);
+  }
+  // …and a heading that names neither still gets it.
+  assert.ok(narrateBullet(slide('bullet', d)).includes('Two of five cleared the plan line'));
+});
+
+test('CHECKER2 — an all-clear verdict survives a heading that merely counts', () => {
+  // The verb test now applies ONLY where the two numbers are the same and cannot
+  // distinguish. Bare `short`, `hit` and `behind` were in the list once and matched
+  // "short-form", "hit products" and "three months behind us".
+  const d = ['## H.', '', '- A `5.2M` `5.0M`', '- B `3.6M` `3.0M`', '- C `2.8M` `2.6M`'].join('\n');
+  for (const h of ['Three regions, one plan.', 'Three short-form metrics.', 'Three hit products this quarter.', 'Three months behind us.']) {
+    const out = narrateBullet(slide('bullet', d.replace('## H.', `## ${h}`)));
+    assert.ok(out.includes('All three cleared their target'), `${h} -> ${out}`);
+  }
+  // But a heading that really does report it is still not doubled.
+  const stated = narrateBullet(slide('bullet', d.replace('## H.', '## All three cleared their target.')));
+  assert.equal(stated.match(/cleared their target/g).length, 1, stated);
+});
+
+test('CHECKER2 — a count states what the PICTURE draws, not what the parser kept', () => {
+  // `parseDataRows` drops a row with no pill, and one whose whole label sits inside
+  // its code span. The chart draws both. "Two terms" over a picture showing three is
+  // the confidently-wrong-number class this work exists to remove.
+  assert.ok(narrateWordCloud(slide('word-cloud', '## X.\n\n- security `5`\n- pricing\n- onboarding `2`')).includes('Three terms'));
+  assert.ok(narrateWordCloud(slide('word-cloud', '## X.\n\n- `residency` `1`\n- security `5`\n- onboarding `2`')).includes('Three terms'));
+});
+
+test('CHECKER2 — no bullet tally at all when a drawn row could not be scored', () => {
+  // Better to say nothing than "one of two cleared the plan line" over a three-row
+  // chart whose `<desc>` scores all three. The per-row readings stay, and the row the
+  // parser could not read is still spoken by the leftover pass.
+  const out = narrateBullet(slide('bullet', '## Y.\n\n- `residency` `1` `2`\n- A `5` `4`\n- B `2` `4`'));
+  assert.ok(!/cleared the plan line/.test(out), out);
+  assert.ok(out.includes('A, five against a four target'), out);
+  assert.ok(out.includes('residency'), 'and the unparsed row is not deleted');
+  // A chart whose rows ALL parse still gets its tally.
+  assert.ok(narrateBullet(slide('bullet', '## Y.\n\n- A `5` `4`\n- B `2` `4`')).includes('One of two cleared the plan line'));
+});
+
+test('CHECKER2 — an AUTHORED band is voiced as a position, not silently swallowed', () => {
+  // This narrator absorbs `Band` lines so they are not read back as rendering
+  // inputs — and then never voiced them, so an authored range reached no surface at
+  // all. A checker found `Band 70%` / `Band 85%` missing from the shipped stress
+  // slide's exported VTT. A position is not a grade and does not pretend to be one.
+  const out = narrateBullet(slide('bullet', [
+    '## Z.', '', '- Coverage `86%` `90%`', '  - Band `70%`', '  - Band `85%`', '- Win `112%` `100%`',
+  ].join('\n')));
+  assert.ok(out.includes('in band three of three'), out);
+  assert.ok(!/\bBand 70\b/.test(out), 'and it is still not read back as a raw input');
+  // AND THE TALLY SURVIVES. The drawn-row count that gates it must count TOP-LEVEL
+  // bullets only — counting the nested `Band` lines too makes every banded chart
+  // look partly-parsed and silently drops its verdict. Nothing covered that until a
+  // mutation walked straight through the arms above.
+  assert.ok(out.includes('One of two cleared the plan line'), out);
+});
+
+test('CHECKER2 — a SELF-LOOP-only machine claims no path', () => {
+  // `!edgeCount` closed the no-edge case and left it one self-loop away: "A two-state
+  // machine from Draft to Filed; Draft loops on itself; Draft has no way out but to
+  // stay; nothing leads to Filed" asserts a route its own next clauses deny.
+  const out = narrateStateChart(slide('state-chart', '## Hold.\n\n1. Draft\n   - `hold => self`\n2. Filed'));
+  assert.ok(!out.includes('from Draft to Filed'), out);
+  assert.ok(!out.includes('straight chain'), out);
+});
+
 // ── the declared frame ───────────────────────────────────────────────────────
 
 test('every picture-bound data chart DECLARES what its encoding means', () => {
