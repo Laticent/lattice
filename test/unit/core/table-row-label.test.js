@@ -9,6 +9,7 @@ const {
   firstColumnIsRowLabel,
   resolveRowLabel,
   cellText,
+  applyToDom,
 } = require('../../../lib/core/table-row-label.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -24,8 +25,12 @@ test('a named label header over a textual column is a row label', () => {
 });
 
 test('an EMPTY first header cell is still a row label', () => {
-  // 22 of the repo's 224 tables are this shape — the row-label column is real,
-  // it just has no column name. An empty header must not read as "no label".
+  // A real and common shape in the corpus — the row-label column is there, it just
+  // has no column name. An empty header must not read as "no label". (The count
+  // that used to sit in this sentence is gone on purpose: it was the rotted 224
+  // that lib/core/table-row-label.js's own docblock names as a cautionary tale,
+  // left behind by the commit that corrected it everywhere else. The live tuple is
+  // the diagnostic the corpus test below prints.)
   assert.equal(firstColumnIsRowLabel({
     headers: ['', 'Option A', 'Option B'],
     firstColumn: ['Cost', 'Speed'],
@@ -172,7 +177,7 @@ const EXPECTED_OFF = Object.freeze([
   'examples/universal-table.md: | Year | Revenue | Growth |',
 ]);
 
-test('every table in every shipped deck resolves as the design says', () => {
+test('every table in every shipped deck resolves as the design says', (t) => {
   // The measurement the design rests on, re-run rather than quoted, over the
   // four roots the docblock names — `examples/`, `exemplars/`,
   // `test/integration/baseline-decks/` and `lib/components/`. Widen the scope
@@ -192,6 +197,8 @@ test('every table in every shipped deck resolves as the design says', () => {
   const cells = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
   const offenders = [];
   let seen = 0;
+  let named = 0;
+  let empty = 0;
 
   for (const f of files) {
     const lines = readFileSync(path.join(ROOT, f), 'utf8').split('\n');
@@ -204,7 +211,8 @@ test('every table in every shipped deck resolves as the design says', () => {
         seen++;
         if (!firstColumnIsRowLabel({ headers, firstColumn: body.map((r) => r[0] ?? '') })) {
           offenders.push(`${f}: | ${headers.join(' | ')} |`);
-        }
+        } else if ((headers[0] ?? '').trim() === '') empty++;
+        else named++;
       }
       run = [];
     };
@@ -217,6 +225,12 @@ test('every table in every shipped deck resolves as the design says', () => {
     flush();
   }
 
+  // PRINTED, not asserted. The docblock in lib/core/table-row-label.js quotes this
+  // tuple, and it has been wrong twice — 224, then 227 — both times because a human
+  // retyped it instead of re-running the walk. A diagnostic makes re-deriving it one
+  // command. It is still not asserted: decks come and go, and pinning the total
+  // would make this a chore rather than a guard (the OFF SET below is the guard).
+  t.diagnostic(`corpus: ${seen} tables — ${named} named / ${empty} empty / ${offenders.length} OFF`);
   assert.ok(seen > 100, `expected a real corpus, walked ${seen} tables`);
   // SORTED both sides: `offenders` is built in `find(1)` order, which is not
   // stable across machines the moment a second file legitimately resolves OFF.
@@ -239,4 +253,84 @@ test('the stamped class name is the one the CSS selects', () => {
   const elements = readFileSync(path.join(ROOT, 'lib/base/base.elements.css'), 'utf8');
   assert.match(elements, /td:first-child[^}]*--table-label-weight/s,
     'base.elements.css must READ the property the variant sets');
+});
+
+// ── the DOM extractor ─────────────────────────────────────────────────────────
+// `applyToDom` is the half the browser runtime runs, and the half a future engine
+// HTML-stage caller would run (see the decision record's § "The raw-HTML
+// regression"). It used to live inline in lib/runtime/index.js, where nothing
+// could reach it without booting the whole runtime — so the extractor that
+// decides what the kernel SEES went untested while the kernel itself had 20
+// tests. These pin the reading, not the verdict.
+
+const { JSDOM } = require('jsdom');
+
+/** Parse a slide, run the extractor, and report which tables came back stamped. */
+function stamp(html) {
+  const dom = new JSDOM(`<body>${html}</body>`);
+  applyToDom(dom.window.document);
+  return [...dom.window.document.querySelectorAll('table')]
+    .map((t) => t.classList.contains(ROW_LABEL_CLASS));
+}
+
+const LABEL_TABLE = `<table><thead><tr><th>Region</th><th>Revenue</th></tr></thead>`
+  + `<tbody><tr><td>North</td><td>4.2</td></tr><tr><td>South</td><td>3.1</td></tr></tbody></table>`;
+
+test('applyToDom stamps a row-label table on a table slide', () => {
+  assert.deepEqual(stamp(`<section class="table">${LABEL_TABLE}</section>`), [true]);
+});
+
+test('applyToDom leaves a table alone on a slide that did not opt in', () => {
+  assert.deepEqual(stamp(`<section class="content">${LABEL_TABLE}</section>`), [false]);
+});
+
+test('applyToDom reads a header row of `th` with no thead', () => {
+  // A table built by a transform does not always carry a `thead`; the extractor
+  // falls back to the first row containing a `th`, and losing that fallback would
+  // leave `headers` empty — which the kernel reads as a single-column table and
+  // turns OFF.
+  const noThead = '<table><tr><th>Region</th><th>Revenue</th></tr>'
+    + '<tr><td>North</td><td>4.2</td></tr></table>';
+  assert.deepEqual(stamp(`<section class="table">${noThead}</section>`), [true]);
+});
+
+test('applyToDom judges each table on a slide separately', () => {
+  // A year column resolves OFF beside a label column that resolves ON — the same
+  // slide, two verdicts. A per-SLIDE stamp would report one of them wrongly.
+  const years = '<table><thead><tr><th>Year</th><th>Revenue</th></tr></thead>'
+    + '<tbody><tr><td>2024</td><td>4.2</td></tr><tr><td>2025</td><td>3.1</td></tr></tbody></table>';
+  assert.deepEqual(stamp(`<section class="table">${LABEL_TABLE}${years}</section>`), [true, false]);
+});
+
+test('applyToDom honors no-row-label, and it beats row-label', () => {
+  assert.deepEqual(stamp(`<section class="no-row-label">${LABEL_TABLE}</section>`), [false]);
+  assert.deepEqual(stamp(`<section class="row-label no-row-label">${LABEL_TABLE}</section>`), [false]);
+});
+
+test('applyToDom is idempotent and never unstamps', () => {
+  // The engine path would run this AFTER the token walker has already stamped the
+  // markdown tables, so re-running must be a no-op rather than a re-decision.
+  const dom = new JSDOM(`<body><section class="table">${LABEL_TABLE}</section></body>`);
+  applyToDom(dom.window.document);
+  applyToDom(dom.window.document);
+  const table = dom.window.document.querySelector('table');
+  assert.equal(table.classList.contains(ROW_LABEL_CLASS), true);
+  assert.equal([...table.classList].filter((c) => c === ROW_LABEL_CLASS).length, 1);
+});
+
+test('applyToDom reaches a root that IS the slide', () => {
+  // A CONTRACT test for the parameter type, not a pin on any caller's path — no
+  // caller passes a section today, and an earlier version of this comment wrongly
+  // said `withDom` does (it hands back `doc.body`). `applyToDom` takes any root,
+  // and `querySelectorAll` never matches its own root, so without the guard a
+  // caller handing us one section would silently do nothing.
+  const dom = new JSDOM(`<body><section class="table">${LABEL_TABLE}</section></body>`);
+  applyToDom(dom.window.document.querySelector('section'));
+  assert.equal(dom.window.document.querySelector('table').classList.contains(ROW_LABEL_CLASS), true);
+});
+
+test('applyToDom tolerates a root with no query interface', () => {
+  // Fail-closed: the callers are renders, and an un-stamped table still renders.
+  assert.doesNotThrow(() => applyToDom(null));
+  assert.doesNotThrow(() => applyToDom({}));
 });

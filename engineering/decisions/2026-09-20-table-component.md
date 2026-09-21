@@ -268,10 +268,33 @@ no comments, no nesting, no `<template>`, every cell closed and no `>` in an
 attribute — a parser, in a plugin, for a shape no shipped deck uses, which had
 already cost two CodeQL alerts.
 
-What remains is a single documented gap: a raw-HTML table reads plain in the PDF
-and emphasized in the HTML export. That is worse than agreement and better than
-a reader that is wrong eight ways, and it errs toward UNDER-stamping rather than
-stamping the wrong column.
+What remains is a single documented gap: a raw-HTML table is never judged on the
+engine path, because markdown-it hands raw HTML through as an opaque block and its
+rows never reach the kernel. That is better than a reader that is wrong eight ways,
+and it errs toward UNDER-stamping rather than stamping the wrong column.
+
+**An earlier draft of this paragraph said the gap was a SPLIT — "plain in the PDF
+and emphasized in the HTML export". That was asserted from reading the code and it
+is false on the artifact it named.** Driven in a real browser (puppeteer over the
+`file://` export, computed `font-weight` read off the first body cell), the CLI's
+`.html` export leaves the raw table at weight 400: the runtime does not boot there
+at all — `window.Lattice` is undefined and no berths or backdrops are injected — so
+the DOM pass never runs. `applyToDom` WOULD stamp such a table, since a raw table
+and a pipe table are the same element by then; the surfaces where it runs are the
+VS Code Marp preview and a Marp render of an exported bundle, which is what the
+fidelity ledger's `mirrored` row means. Whether the split shows up THERE is
+**UNVERIFIED** — driving it needs the marp-cli tier in
+test/integration/export/marp-kit-render.test.js, which was not run for this claim
+(HARD RULE #23). What is measured is the regression below, on the PDF.
+
+**And it is a REGRESSION, not merely a gap — which the paragraph above missed.**
+`compare-table` styled `td:first-child` unconditionally in component CSS, so it
+caught a raw `<table>` for free. The renamed component stops owning table CSS and
+drives the emphasis from a stamp instead, and the stamp never reaches raw HTML on
+the engine path. Measured on a two-slide probe (a markdown table and the same data
+as raw HTML, both on the component's slide), rendered through the real emulator on
+this branch and on `origin/main`: main bolds the raw table's first column, this
+branch does not. By HARD RULE #18 that is a window this change created.
 
 The same round also removed a `stripTagsToFixedPoint` helper whose justification
 did not survive checking: `<[^>]*>` matches leftmost-first from a `<` to the next
@@ -288,3 +311,82 @@ commit message was wrong. It was a no-op with a test that could not fail.
   emulator — not CI (HARD RULE #23).
 - The six long-running galleries graduate in a separate post-review commit
   (HARD RULE #8).
+
+## The raw-HTML regression: both fixes are architectural, so neither was taken
+
+Two routes close it. Each was built and measured rather than argued about, and
+each is blocked by something bigger than this PR.
+
+**CSS — restore the unconditional emphasis for a table the stamp could not judge.**
+It needs a rule scoped to the component, and `checkUniversalTableGuard` refuses
+exactly that: a `section.table > table … td:first-child` rule in
+`lib/base/base.variants.css` registers an ownership claim, and the gate's remedy is
+to "add `:not(.table)` to each guard in the UNIVERSAL TABLE block" — which would cut
+the component back out of the universal treatment and undo the whole change. The
+gate is right and the route is closed by design, not by accident.
+
+**Engine HTML stage — parse the assembled document and run the DOM extractor.**
+Wiring `withDom` from `lib/core/dom-provider.js` into `renderHtml` stamped both
+tables; the rendered PDF of the markdown control was pixel-identical, and so was
+every one of the 16 pages of `examples/sketch.md` (rasterized at 100dpi and
+compared page by page — the surface is the PDF, not the HTML, and the distinction
+matters because a `withDom` round-trip is NOT byte-identical at the HTML level:
+jsdom normalizes bare attributes, `data-lattice-berth` becoming
+`data-lattice-berth=""`, four times per slide). `examples/universal-table.md` kept
+its verdicts: 9 tables in the deck, 3 stamped; of the 4 that sit on an opted-in
+slide, 3 stamped and 1 — the year-column demo — correctly not. (An earlier draft
+of this line said "3 ON / 4 OFF, unchanged". That came from a crude regex over the
+markdown rather than the rendered DOM and was simply wrong; the numbers here are
+read out of a real browser.)
+
+It then broke the build: `lib/engine` is bundled for the BROWSER, esbuild
+statically resolves `require('jsdom')` inside the provider's Node branch, and the
+playground bundle fails on `path` / `url` / `fs`. Reproduced independently with the
+playground's exact esbuild options. So `withDom` cannot be called from `lib/engine`
+without a bundler stub (the `katex` alias in `tools/build-playground.js` is the
+precedent).
+**A NODE-ONLY SEAM DOES EXIST, and an earlier draft of this record said it did
+not.** `lattice-emulator.js` is the CLI, built `platform: 'node'` with
+`packages: 'external'` (`tools/build-emulator.js`), and `engineSlides()` is the
+single call site every CLI export goes through — a string post-pass there is
+reachable without touching a browser bundle at all. A checker built it and it
+stamps correctly.
+
+**But the obvious version of it is barred, and the bar is already written down.**
+That seam would `require('jsdom')`, and **jsdom is a devDependency**. This exact
+mistake has been made here before: `lattice-emulator.js` used to build jsdom
+windows for caption projection, and the note at its `speechProjection` block
+records that it was "BROKEN for anyone but us: jsdom is a devDependency, so the
+`require` threw in a published install" and silently degraded `--captions` to a
+warning. A checker's route-3 demo passed only because our own tree has jsdom
+installed. Re-adding it would reintroduce a defect this repo already paid for
+(`engineering/decisions/2026-09-20-dom-library-bakeoff.md`).
+
+**The route that survives that objection is the one the same note prescribes: do
+the DOM work in the Chromium the export already has open.** `applyToDom` is plain
+DOM code, the PDF path already drives a real browser, and that is how caption
+projection was fixed — faster than jsdom and correct in a published install. It
+would also avoid the attribute-normalization byte churn above, since it mutates a
+live DOM rather than round-tripping a string.
+
+**That is an EXPORT-PIPELINE change, so it stops here by rule, not by difficulty.**
+CLAUDE.md's QUALITY BAR makes a change that alters the bytes of an exported
+artifact the one exception to acting unasked: it needs a representative deck
+rendered in dark and light and signed off. So the recommendation is to take this
+route with that sign-off — not to ship the regression, and not to land an export
+change unattended.
+
+The kernel half every route needs is landed and behavior-identical: the DOM
+extractor moved out of `lib/runtime/index.js` into `applyToDom` in
+`lib/core/table-row-label.js`, so the runtime and a future second caller share one
+implementation instead of two. A fourth route — a string extractor for the
+`html_block` token, needing no DOM at all — is the one this PR already built and
+removed for being wrong on eight shapes; that judgment is unchanged, but it is a
+different argument from "no route exists", which is what this section used to say.
+
+**Scope of the live defect, so the decision can be sized:** a table an author wrote
+as raw `<table>` HTML, on a slide carrying `table` / `row-label` / `no-row-label`,
+loses the first-column emphasis `compare-table` gave it. Measured on the PDF and on
+the CLI `.html` export; the Marp-preview surface is unverified, per the correction
+above. No deck in `examples/`, `exemplars/`, `test/integration/baseline-decks/` or
+`lib/components/` has that shape.
