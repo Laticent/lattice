@@ -1473,7 +1473,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         // And the VALUE axis: the directive under test is degenerate half the time,
         // so the single-directive arm still exercises a real warning. Adding the
         // `first` axis without this silently emptied that arm — `deg1` went to 0.
-        for (const value of ['A | B', 'A | [B]']) {
+        for (const value of ['A | B', 'A | [B]', '']) {
         const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${first}${a}\n${pre}<!-- _track: ${value} -->\n${below}\n`;
         const out = render(src, {});
         const html = typeof out === 'string' ? out : out.html;
@@ -1500,8 +1500,16 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // And the arm that keeps the SUBSET honest. A rule that went quiet everywhere
     // would also pass "no false warnings"; it would not pass this. The counts move
     // with the alphabet, so they are a reviewed diff rather than a discovery.
-    assert.equal(degenerate, 11670, 'shapes the engine applies degenerately');
-    assert.equal(silent, 10218, 'of those, the ones the subset rule declines');
+    assert.equal(degenerate, 14774, 'shapes the engine applies degenerately');
+    assert.equal(silent, 13226, 'of those, the ones the subset rule declines');
+    // Split by directive count. Almost all the silence is the multi-directive
+    // half, where a declined later directive makes last-wins unknowable and the
+    // rule voids the slide. The one-directive half is the ordinary deck, and it
+    // is 1002 / 582 — unchanged by the last two rounds of fixes, which is the
+    // evidence that neither the voiding nor the empty-value clearing cost
+    // anything a real author would notice.
+    assert.equal(deg1, 1002, 'one-directive shapes the engine applies degenerately');
+    assert.equal(sil1, 582, 'of those, the ones the subset rule declines');
     // SPLIT BY DIRECTIVE COUNT, because the aggregate hides the case that matters.
     // Almost all the silence is the multi-directive half, where a poisoned later
     // directive makes last-wins unknowable and the rule voids the slide rather
@@ -1509,14 +1517,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // deck, and a checker caught an earlier version of this rule voiding 38% more
     // of it than it needed to — only a skipped line that would ITSELF have been
     // applied can supersede, so only that one blinds.
-    assert.equal(deg1, 1002, 'one-directive shapes the engine applies degenerately');
-    assert.equal(sil1, 582, 'of those, the ones the subset rule declines');
-    // SPLIT BY DIRECTIVE COUNT, because the aggregate hides the thing worth
-    // watching. Almost all the silence above is the two-directive family, where a
-    // poisoned SECOND directive makes last-wins unknowable and the rule voids the
-    // slide rather than falling back to the first. The ordinary one-directive case
-    // is unchanged by that rule: 413 / 245 here is exactly what it was before the
-    // `first` axis existed, which is the evidence that voiding cost nothing real.
+
 
   });
 
@@ -1592,6 +1593,73 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     core.lintTextWith(src, { names: new Set(['topic']), modifiers: new Set() });
     const ms = Date.now() - started;
     assert.ok(ms < 2000, `195 KB must not take ${ms}ms — the old regex took 33,000`);
+  });
+
+  /* An EMPTY `_track` is a directive, not a non-directive — and the difference is a
+   * false warning. It parses with `value: ''`, the engine APPLIES it, it supersedes
+   * every `_track` above it, and the slide then draws no authored track — so any
+   * warning about an earlier directive is wrong. Three sites tested the value's
+   * truthiness instead of "is this a directive" and promoted the earlier one.
+   */
+  test('an empty `_track` clears the answer rather than being ignored', () => {
+    const { render } = require('../../../lib/engine');
+    const applied = (src) => {
+      const out = render(src, {});
+      const html = typeof out === 'string' ? out : out.html;
+      return (html.match(/data-track="([^"]*)"/) || [])[1];
+    };
+    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+    const shapes = {
+      'plain, after a degenerate one': T('<!-- _track: A | B -->', '<!-- _track: -->'),
+      'across a markup line': T('<!-- _track: A | B -->', '<b>n</b>', '<!-- _track: -->'),
+      'clearing a MULTI-LINE one': T('<!--', '_track: A | B -->', '<!-- _track: -->'),
+      'itself multi-line': T('<!-- _track: A | B -->', '<!--', '_track: -->'),
+      'quoted empty value': T('<!-- _track: A | B -->', '<!-- _track: "" -->'),
+    };
+    for (const [what, src] of Object.entries(shapes)) {
+      assert.equal(applied(src), undefined, `${what}: the engine draws no track`);
+      assert.equal(rule(src, 'track-directive'), undefined, `${what}: so the rule is silent`);
+    }
+  });
+
+  /* BOTH HALVES of the multi-line block's `markup` fork. A checker mutated each
+   * direction away and both survived the whole file — the branch was doing real
+   * work that nothing asserted.
+   */
+  test('a multi-line directive is read, or voids, depending on what is above it', () => {
+    const { render } = require('../../../lib/engine');
+    const applied = (src) => {
+      const out = render(src, {});
+      const html = typeof out === 'string' ? out : out.html;
+      return (html.match(/data-track="([^"]*)"/) || [])[1];
+    };
+    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+
+    // NO markup above: the block is READ, and a well-formed one supersedes the
+    // degenerate directive before it. Dropping the read warns about the first.
+    const read = T('<!-- _track: A | B -->', '<!--', '_track: C | [D] -->');
+    assert.match(applied(read), /C \| \[D\]/, 'the engine applies the later block');
+    assert.equal(rule(read, 'track-directive'), undefined, 'so there is nothing to warn about');
+
+    // MARKUP above: the block is not this rule's to read, so it VOIDS rather than
+    // letting the earlier directive answer. Dropping the void warns about the first.
+    const voided = T('<!-- _track: A | B -->', '<b>x</b>', '', '<!--', '_track: C | [D] -->');
+    assert.match(applied(voided), /C \| \[D\]/, 'the engine still applies the later block');
+    assert.equal(rule(voided, 'track-directive'), undefined, 'so the rule must not warn');
+
+    // And the other half of the fork, which needs a shape where the markup above
+    // means the engine does NOT read the block: a type-6 or type-1 block swallows
+    // it, so nothing is applied. Reading it anyway invents a degenerate directive
+    // out of a code sample — collapsing the fork to always-read passes every other
+    // row in this file, so these three are the only thing holding it.
+    for (const inside of [
+      T('<div>', '<!--', '_track: A | B -->', '</div>'),
+      T('<pre>', '<!--', '_track: A | B -->', '</pre>'),
+      T('- <div>', '  <!--', '  _track: A | B -->'),
+    ]) {
+      assert.equal(applied(inside), undefined, 'the engine reads no directive');
+      assert.equal(rule(inside, 'track-directive'), undefined, 'so the rule is silent');
+    }
   });
 
   test('KNOWN RESIDUAL: a raw-text block closed by a DIFFERENT tag', () => {
