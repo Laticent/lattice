@@ -69,16 +69,16 @@ We deliver the highest-volume permit types first, run them in parallel with the 
 
 - Discovery & design
   - Process mapping `2027 Q3..2027 Q4` `done`
-  - Solution design `2027 Q4..2028 Q1` `live`
+  - Solution design `2028 Q1..2028 Q1` `live`
 - Core platform
   - Residential permits `2028 Q1..2028 Q2` `live`
-  - Commercial permits `2028 Q2..2028 Q3` `at-risk`
-  - Inspections module `2028 Q3..2028 Q4`
+  - Commercial permits `2028 Q3..2028 Q3` `at-risk`
+  - Inspections module `2028 Q4..2028 Q4`
 - Migration & cutover
   - Parallel run `2028 Q2..2028 Q4`
   - Legacy retirement `2028 Q4` `milestone`
 - Enablement
-  - Staff training `2028 Q1..2028 Q3`
+  - Staff training `2028 Q1..2028 Q2`
   - Public launch `2028 Q3..2028 Q4`
 
 ---

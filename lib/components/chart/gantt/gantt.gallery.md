@@ -20,15 +20,15 @@ Gantt chart — task bars across a date axis.
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## The gantt lays the work against the calendar.
+## A gantt lays overlapping work against a shared calendar.
 
-Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
+Bars are spans, diamonds are moments, color is status, and tasks that run at the same time stack rather than hide each other.
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
   - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+    - Two teams contest the weighting; the Q3 review decides it.
   - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
-    - Two teams contest the weighting; the Q3 review decides it, and the rollout waits on the outcome.
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
   - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
@@ -40,28 +40,22 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 <!-- _class: gantt -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · gantt — A full quarter of overlapping tracks." -->
+<!-- _footer: "Stress test · gantt — Twelve months, every lane overlapping." -->
 
-`2026 Q1 .. 2026 Q4`
+`2026 Jan .. 2026 Dec`
 
-## Stress test — four workstreams, twelve tasks, one recalibration bar nobody wants to own.
+## Every lane overlaps, at the row budget.
 
 - Signal Intake
-  - Connector v1 `Q1..Q2` `done`
-  - Multi-source dedupe `Q2..Q3` `live`
-  - Anomaly auto-routing `Q3..Q4` `at-risk`
+  - Connector v1 `Jan..Apr` `done`
+  - Multi-source dedupe and replay `Mar..Aug` `live`
 - Scoring
-  - Equal-weights model `Q1..Q2` `done`
-  - Per-team calibration `Q2..Q3` `live`
-  - Weight rollback tooling `Q3..Q4` `blocked`
-- Decision Log
-  - Append-only schema `Q1..Q3` `done`
-  - Outcome auto-pairing `Q2..Q4` `live`
-  - Auditor evidence pack `Q3..Q4`
+  - Equal-weights model `Jan..May` `done`
+  - Weight rollback tooling `Jun..Dec` `blocked`
 - Adoption
-  - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide enablement `Q2..Q4` `at-risk`
-  - Per-decision profiles `Q3..Q4`
+  - Pilot onboarding `Jan..Jun` `done`
+  - Org-wide enablement `Apr..Nov` `at-risk`
+  - GA `Dec` `milestone`
 
 
 ---
@@ -71,15 +65,15 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## The gantt lays the work against the calendar.
+## A gantt lays overlapping work against a shared calendar.
 
-Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
+Bars are spans, diamonds are moments, color is status, and tasks that run at the same time stack rather than hide each other.
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
   - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+    - Two teams contest the weighting; the Q3 review decides it.
   - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
-    - Two teams contest the weighting; the Q3 review decides it, and the rollout waits on the outcome.
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
   - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
@@ -94,15 +88,15 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## The gantt lays the work against the calendar.
+## A gantt lays overlapping work against a shared calendar.
 
-Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
+Bars are spans, diamonds are moments, color is status, and tasks that run at the same time stack rather than hide each other.
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
   - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+    - Two teams contest the weighting; the Q3 review decides it.
   - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
-    - Two teams contest the weighting; the Q3 review decides it, and the rollout waits on the outcome.
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
   - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
@@ -117,15 +111,15 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## The gantt lays the work against the calendar.
+## A gantt lays overlapping work against a shared calendar.
 
-Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
+Bars are spans, diamonds are moments, color is status, and tasks that run at the same time stack rather than hide each other.
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
   - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+    - Two teams contest the weighting; the Q3 review decides it.
   - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
-    - Two teams contest the weighting; the Q3 review decides it, and the rollout waits on the outcome.
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
   - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
@@ -142,8 +136,8 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 - Single workstream
   - One lane of bars is a timeline, not a gantt. Use `timeline` or `list-steps` when there is no parallel work to coordinate.
-- More than five lanes
-  - Past five workstreams the bars compress and the labels crowd. Group lanes (collapse 'SDK' subdomains into 'SDK') or split into two slides.
+- More rows than the stage holds
+  - Count ROWS, not lanes: overlapping tasks stack, and inclusive spans overlap more than they look (`Q1..Q2` then `Q2..Q3` share Q2). With a status key, four one-row lanes fit an ordinary slide and five overflow. The chart does not shrink to absorb them — the bars keep their size, the chart grows taller, and past the budget it overflows and the render says so. Group lanes (collapse 'SDK' subdomains into 'SDK'), make genuinely sequential phases non-overlapping, or split into two slides.
 - No spans at all
   - A gantt mixes bars with the odd milestone — but if every task is a point-in-time event with no durations, use `timeline` or `roadmap milestones`. gantt earns its chrome only when bars carry meaningful length.
 

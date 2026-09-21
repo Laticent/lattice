@@ -83,14 +83,12 @@ On `a11y-achromatopsia` these were engine green and amber — one gray to the re
 Nine of these tokens used to resolve two ways in one render — the baked SVG from the palette, the CSS around it from the engine.
 
 - Cascade
-  - Measure it `Q1..Q2` `done`
-  - Sweep it `Q2..Q3` `done` `after: Measure it`
+  - Measure it `Q1..Q1` `done`
+  - Sweep it `Q2..Q2` `done` `after: Measure it`
   - Flip it `Q3..Q4` `live` `after: Sweep it`
 - Palette
-  - Respace `Q3..Q4` `at-risk`
+  - Respace `Q1..Q3` `at-risk`
   - Concrete `Q4` `milestone` `after: Respace`
-- Prober
-  - Per-fragment underlays `Q3..Q4` `done`
 
 ---
 

@@ -23,7 +23,9 @@ const engine = require('../../../lib/components/chart/_chart-family/chart-family
 const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 const core = require('../../../lib/authoring/lint-core');
 
-const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL } = ganttKernel;
+const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter } = ganttKernel;
+const { LINE_HEIGHT } = require('../../../lib/components/chart/_chart-family/svg-label.js');
+const { resetRenderIds } = require('../../../lib/core/render-ids');
 const { extractFirstList } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
 
@@ -35,8 +37,11 @@ const inner = (ul) => extractFirstList(ul).inner;
 // keeps the tests honest if the geometry is ever retuned.
 const PLOT_X0 = GANTT_GEOM.laneW + GANTT_GEOM.gutter;
 const PLOT_W = GANTT_GEOM.vbW - GANTT_GEOM.padRight - PLOT_X0;
-// Bars carry a thin inter-bar gutter (±1.5u) so adjacent spans don't touch.
-const BAR_INSET = 1.5;
+// Bars carry a thin inter-bar gutter so adjacent spans don't touch. DERIVED, not
+// restated: a literal here went stale the moment the gutter was retuned (1.5 ->
+// 2.5, to open a real gap between two tasks that abut on the axis), and a stale
+// literal makes these axis assertions silently wrong rather than loudly red.
+const BAR_INSET = ganttGutter(GANTT_GEOM);
 const pctOfPlot = (x) => ((x - PLOT_X0) / PLOT_W) * 100;
 
 const attrNum = (html, re) => {
@@ -485,3 +490,372 @@ describe('gantt — the sketch token reaches the builder', () => {
     assert.equal(tickCount('gantt sketch-clean-body'), tickCount('gantt'));
   });
 });
+
+// ── Sub-row packing ─────────────────────────────────────────────────────────
+// A lane used to draw every one of its tasks at ONE y, so two overlapping spans
+// could not both be seen: the later bar painted over the earlier one and the
+// pair read as two abutting segments of a relay. That is the failure mode these
+// lock — a gantt whose whole job is "make concurrency visible at a glance"
+// (gantt.docs.md) was rendering the opposite of its data.
+// Attribute reads below go tag-first rather than through one regex spanning a
+// whole tag. A pattern like /class="gantt-bar"[^>]*\sy="…"/ lets `[^>]*` and
+// `\s` match the same characters, so a tag that never carries the attribute
+// backtracks over every split — polynomial, and 11 CodeQL js/polynomial-redos
+// alerts on #2250. Slicing the tag out first, then reading its attributes from
+// a bounded string, keeps both steps linear. `[^<>]` rather than `[^>]` is the
+// linear half: excluding `<` stops a run of unclosed `<` rescanning to the end
+// of the input from every one of them, which is the 12th alert CodeQL raised.
+const tagsWith = (html, needle) =>
+  (html.match(/<[^<>]+>/g) || []).filter((t) => t.includes(needle));
+const attrsOf = (tag) => {
+  const out = {};
+  for (const m of (tag || '').matchAll(/\s([\w:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
+  return out;
+};
+const attrsWith = (html, needle) => tagsWith(html, needle).map(attrsOf);
+const firstAttrs = (html, needle) => attrsWith(html, needle)[0] || {};
+const BAR = 'class="gantt-bar"';
+
+const barYs = (html) => attrsWith(html, BAR).map((a) => Number(a.y));
+const barXW = (html) => attrsWith(html, BAR).map((a) => ({ x: Number(a.x), w: Number(a.width) }));
+const WIN = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+
+describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
+  test('two OVERLAPPING tasks in one lane land on different rows', () => {
+    // Q1..Q2 runs to the END of Q2; Q2..Q3 starts at the START of Q2 — so they
+    // genuinely share a quarter. On one row the second hid half the first.
+    const ul = `<ul><li>L<ul>
+      <li>A <code>Q1..Q2</code></li>
+      <li>B <code>Q2..Q3</code></li>
+    </ul></li></ul>`;
+    const ys = barYs(buildGanttChart(inner(ul), WIN));
+    assert.equal(ys.length, 2);
+    assert.notEqual(ys[0], ys[1], 'overlapping spans must not share a row');
+  });
+
+  test('two NON-overlapping tasks in one lane still share a row', () => {
+    // The ordinary sequential lane. Packing must not cost height it does not owe.
+    const ul = `<ul><li>L<ul>
+      <li>A <code>Q1..Q2</code></li>
+      <li>B <code>Q3..Q4</code></li>
+    </ul></li></ul>`;
+    const ys = barYs(buildGanttChart(inner(ul), WIN));
+    assert.equal(ys.length, 2);
+    assert.equal(ys[0], ys[1], 'spans that clear each other belong on one row');
+  });
+
+  test('a bar is never hidden: no two marks on one row overlap in x', () => {
+    const ul = `<ul><li>L<ul>
+      <li>A <code>Q1..Q3</code></li>
+      <li>B <code>Q2..Q4</code></li>
+      <li>C <code>Q3..Q4</code></li>
+    </ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const ys = barYs(out), xw = barXW(out);
+    const byRow = new Map();
+    ys.forEach((y, i) => { if (!byRow.has(y)) byRow.set(y, []); byRow.get(y).push(xw[i]); });
+    for (const [y, marks] of byRow) {
+      marks.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < marks.length; i++) {
+        assert.ok(marks[i].x >= marks[i - 1].x + marks[i - 1].w,
+          `row y=${y}: mark at ${marks[i].x} overlaps the one ending at ${marks[i - 1].x + marks[i - 1].w}`);
+      }
+    }
+    // All three mutually overlap, so this lane owes three rows.
+    assert.equal(byRow.size, 3);
+  });
+
+  test('a milestone inside a bar\'s span gets its own row', () => {
+    // GA sat ON the Org-wide rollout bar on the committed gallery page — same y,
+    // and in dark mode both resolved to the `mute` fill, so the diamond vanished.
+    const ul = `<ul><li>L<ul>
+      <li>Rollout <code>Q3..Q4</code></li>
+      <li>GA <code>Q4</code> <code>milestone</code></li>
+    </ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const barY = Number(firstAttrs(out, BAR).y);
+    // points are "cx,top cx+r,mid cx,bottom cx-r,mid" — the first pair's y is the top.
+    const dY = Number(firstAttrs(out, 'class="gantt-milestone"').points.split(' ')[0].split(',')[1]);
+    assert.ok(Math.abs((dY + GANTT_GEOM.barH * 0.42) - (barY + GANTT_GEOM.barH / 2)) > 1,
+      'a milestone within a bar\'s span must not be drawn on top of it');
+  });
+
+  test('one task per lane keeps the pre-packing band exactly', () => {
+    // The invariant that lets every simple chart through unchanged: a single-row
+    // lane measures barH + 2*lanePadY, the band a flat `laneH` used to give.
+    const ul = `<ul>
+      <li>One<ul><li>A <code>Q1..Q2</code></li></ul></li>
+      <li>Two<ul><li>B <code>Q1..Q2</code></li></ul></li>
+    </ul>`;
+    // DERIVED from the band, not restated. A literal 26 lived here to pin the
+    // pre-packing lane height, and it went stale the moment the band was retuned —
+    // the third stale literal in this component's tests. The property worth pinning
+    // is that a one-row lane costs exactly one bar plus its padding, whatever the
+    // band happens to be.
+    const ys = barYs(buildGanttChart(inner(ul), WIN));
+    const pitch = GANTT_GEOM.barH + 2 * GANTT_GEOM.lanePadY;
+    assert.equal(ys[1] - ys[0], pitch,
+      `a single-row lane should cost barH + 2*lanePadY (${pitch}u)`);
+  });
+});
+
+describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
+  // The component owns a BUDGET (stated in its docs — gantt deliberately declares
+  // no machine-readable `capacity` block, because the schema's required `axis`
+  // would enroll it in an auto-split it provably does not do). It does not
+  // absorb an oversized plan by drawing it smaller. An earlier cut made barH a
+  // ceiling and compressed the band as the row count rose, so a busy chart drew
+  // thinner bars — the engine quietly covering for a slide carrying too much,
+  // with nobody told. These pin that the geometry does not move with the data.
+  const barHeightsOf = (html) =>
+    attrsWith(html, BAR).map((a) => Number(a.height));
+
+  const chartOf = (lanes, tasksPerLane, overlapping, keyed = false) => {
+    const st = keyed ? ' <code>done</code>' : '';
+    const body = Array.from({ length: lanes }, (_, i) =>
+      `<li>L${i}<ul>` + Array.from({ length: tasksPerLane }, (_, j) =>
+        `<li>T${i}${j} <code>Q${overlapping ? 1 : (j % 4) + 1}..Q${overlapping ? 4 : (j % 4) + 1}</code>${st}</li>`)
+        .join('') + '</ul></li>').join('');
+    return buildGanttChart(inner(`<ul>${body}</ul>`), WIN);
+  };
+
+  test('a bar is the same height however many rows the chart carries', () => {
+    const small = barHeightsOf(chartOf(1, 1, false));
+    const huge = barHeightsOf(chartOf(6, 4, true));
+    assert.ok(huge.length > small.length, 'the big chart should carry more bars');
+    for (const h of [...small, ...huge]) {
+      assert.equal(h, GANTT_GEOM.barH, 'every bar draws at the declared band height');
+    }
+  });
+
+  // THE BAND HAS A FLOOR, and until these it did not. Every other assertion in
+  // this suite re-derives its expectation from the same constants it polices, so
+  // they catch a band that DRIFTS and none catches one that is simply too small.
+  // Two checker passes proved it twice: 8 / 2 / 2 drew a caption taller than its
+  // own bar, and 12 / 1 / 1 collapsed the lane rules onto the bars — both green
+  // across the whole suite. So these pin MAGNITUDE against the thing being
+  // separated, not just the spacings against each other, which is the mistake
+  // the first version of this block made: `lanePadY >= rowGap` is a ratio two
+  // one-unit spacings satisfy perfectly while the chart falls apart.
+  for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
+    test(`${name}: a caption fits inside the bar it labels`, () => {
+      // DERIVED, not restated: `LINE_HEIGHT` is the leading svg-label.js actually
+      // lays a line out with, so `fsBar * LINE_HEIGHT` is the caption's real line
+      // box. A bar shorter than its own caption's line box crops the text it
+      // exists to carry. (An earlier version of this line said 1.25 — a number
+      // nothing in the engine holds, and wrong by 8%.)
+      const lineBox = G.fsBar * LINE_HEIGHT;
+      assert.ok(G.barH >= lineBox,
+        `${name}: barH ${G.barH}u cannot carry a ${G.fsBar}u caption (line box ${lineBox.toFixed(2)}u)`);
+    });
+
+    // A gap has to be WIDE ENOUGH TO SEE, and the bars' own edges are what eat
+    // it: at the gallery's 2.4px/unit a 1u gap is 2.4px, and the two
+    // `--chart-edge` hairlines bounding it take 2px of that, leaving 0.4px of
+    // background — two bars that read as one object with a seam. A quarter of a
+    // bar's height is the floor: 3u = 7.2px at that scale, comfortably clear of
+    // the strokes.
+    const minGap = () => G.barH / 4;
+    test(`${name}: sub-rows inside a lane are visibly apart`, () => {
+      assert.ok(G.rowGap >= minGap(),
+        `${name}: rowGap ${G.rowGap}u is under the ${minGap()}u floor (barH/4) — adjacent bars close up`);
+    });
+
+    test(`${name}: a lane band holds its bars off the lane rule`, () => {
+      assert.ok(G.lanePadY >= minGap(),
+        `${name}: lanePadY ${G.lanePadY}u is under the ${minGap()}u floor (barH/4) — bars touch the lane rule`);
+    });
+
+  }
+
+  // A LANE NAME CAN TAKE TWO LINES (landscape emits it `maxLines: 2`), and the
+  // band shrink cut its clearance from ~1.75u a side to ~0.3u — measured as not
+  // colliding, and guarded by nothing until this. A future retune that takes a
+  // unit off `barH` would push a two-line name through its own lane rule with
+  // every other test still green, which is the same hole the band floor above
+  // exists to close.
+  test('landscape: a two-line lane name fits inside a one-row lane band', () => {
+    const band = GANTT_GEOM.barH + 2 * GANTT_GEOM.lanePadY;
+    const twoLines = 2 * GANTT_GEOM.fsLane * LINE_HEIGHT;
+    assert.ok(band >= twoLines,
+      `a one-row lane band is ${band}u but a two-line name needs ${twoLines.toFixed(2)}u`);
+  });
+
+  // Portrait sets the name on its OWN band above the bars, one line only.
+  test('portrait: the lane-name band carries its one line', () => {
+    const oneLine = GANTT_GEOM_TALL.fsLane * LINE_HEIGHT;
+    assert.ok(GANTT_GEOM_TALL.laneNameH >= oneLine,
+      `laneNameH ${GANTT_GEOM_TALL.laneNameH}u cannot carry a ${oneLine.toFixed(2)}u line`);
+  });
+
+  for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
+    test(`${name}: a lane reads as one group against its neighbors`, () => {
+      // Sub-rows inside a lane must sit CLOSER than the lanes themselves are
+      // apart, or the grouping inverts and a two-row lane reads as two lanes.
+      // The assertion is `lanePadY >= rowGap` (the lane's two pads bound the
+      // inter-lane gap, one rowGap bounds the intra-lane one); the message used
+      // to print the doubled figures, so a failure read as a true statement.
+      assert.ok(G.lanePadY >= G.rowGap,
+        `${name}: lanePadY ${G.lanePadY}u must be >= rowGap ${G.rowGap}u, ` +
+        `or a lane's own rows sit further apart than the lanes do`);
+    });
+  }
+
+  test('the chart grows TALLER with rows — it does not scale down', () => {
+    const h = (l, t, o) => +chartOf(l, t, o).match(/viewBox="0 0 480 (\d+)"/)[1];
+    const one = h(1, 1, false);
+    const many = h(4, 3, true);
+    assert.ok(many > one * 2, `viewBox height should grow with rows (${one} -> ${many})`);
+    // …and the growth is exactly the rows, at the fixed pitch.
+    assert.equal(h(2, 1, false) - h(1, 1, false), GANTT_GEOM.barH + 2 * GANTT_GEOM.lanePadY);
+  });
+
+  test('a chart inside its budget fits the stage it is handed', () => {
+    // The budget in the component's docs, re-derived here so the two cannot drift.
+    // Measured at the fixed band on a 1152x335 chart body (a heading plus a
+    // two-line lede): four one-row lanes must clear it at full width WITH a status
+    // key, which is what every real gantt carries — the key costs 21 viewBox units,
+    // about as much as one more lane, and an earlier version of this test built its
+    // chart without statuses and so certified the easier case.
+    const REF = { w: 1152, h: 335 };
+    const drawnFor = (html) =>
+      (REF.w * +html.match(/viewBox="0 0 480 (\d+)"/)[1]) / GANTT_GEOM.vbW;
+    // WITH a status key — the case every shipped gantt is, and the one the earlier
+    // version of this test missed by building its chart without statuses.
+    const keyed = drawnFor(chartOf(4, 1, false, true));
+    assert.ok(keyed <= REF.h,
+      `four keyed lanes draw ${keyed.toFixed(0)}px tall in a ${REF.h}px body`);
+    // And with real headroom, not by a pixel. The canonical gallery shape sat at
+    // -3px for a while and nothing reported it, because the overflow was eating
+    // padBottom. So the floor is DERIVED from padBottom rather than picked: once
+    // headroom drops below the bottom pad, the chart is paying for its overflow
+    // out of design padding and the next two-line heading shears the key off.
+    const padPx = (GANTT_GEOM.padBottom * REF.w) / GANTT_GEOM.vbW;
+    assert.ok(REF.h - keyed >= padPx,
+      `${(REF.h - keyed).toFixed(0)}px of headroom is under the ${padPx.toFixed(0)}px bottom pad — ` +
+      'the budget is eating its own padding');
+  });
+});
+
+describe('gantt — mark chrome', () => {
+  test('the leading accent is clipped to its own bar', () => {
+    // Unclipped, the accent carried a SMALLER corner radius than the bar (0.83
+    // against 3), so across the bar's rounded corner its square-ish corners stood
+    // outside the bar's silhouette and the bar's stroke ran between the two as a
+    // seam — three vertical bands at the left edge instead of one.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const accent = tagsWith(out, 'class="gantt-bar-accent"')[0];
+    const clipId = (attrsOf(accent)['clip-path'] || '').match(/^url\(#(.+)\)$/);
+    assert.ok(clipId, 'the accent must be clipped to its bar');
+    assert.doesNotMatch(accent, /\srx=/, 'a clipped accent must not carry a competing radius');
+    const clip = out.match(new RegExp(`<clipPath id="${clipId[1]}">(.*?)</clipPath>`))[1];
+    assert.match(clip, new RegExp(`rx="${GANTT_GEOM.barRx}"`),
+      'the clip must use the BAR\'s radius, not the accent\'s');
+  });
+
+  test('the today rule is painted BEHIND the marks', () => {
+    // A reference line, not a mark. Drawn last it printed a full-strength stripe
+    // across every bar it crossed. SVG has no z-index — document order is paint
+    // order — so this is an ordering assertion, not a style one.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
+    assert.ok(out.indexOf('gantt-today') < out.indexOf('class="gantt-bar"'),
+      'the today rule must be emitted before the bars');
+  });
+
+  test('a key swatch is centered on the label it keys', () => {
+    // The label is emitted `dominant-baseline="central"` at `ly`, so its optical
+    // middle IS `ly`. The swatch used to sit at `ly - swatch*0.8` — its center 30%
+    // of its own height above the text, which measured 15px out at 200dpi.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>at-risk</code></li></ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const sw = firstAttrs(out, 'class="gantt-legend-swatch"');
+    const swatchMid = Number(sw.y) + Number(sw.width) / 2;
+    // The label's own y lives on the tspan the text element wraps — take the
+    // first tspan after the label tag rather than scanning across the pair.
+    const afterLabel = out.slice(out.indexOf('class="gantt-legend-label"'));
+    const labelY = Number(firstAttrs(afterLabel, '<tspan').y);
+    assert.ok(Math.abs(swatchMid - labelY) < 0.01,
+      `swatch center ${swatchMid} should match the label's optical middle ${labelY}`);
+  });
+});
+
+
+describe('gantt — non-row chrome is a tax on the whole drawing', () => {
+  // vbW is fixed and vbH grows with the row count, so every unit of NON-ROW
+  // chrome (the tick row, the key, the bottom pad) is a unit of height the chart
+  // spends without drawing a bar — and height is the scarce axis now that the
+  // svg is width-driven and the band is fixed. Measured in Chromium on the
+  // committed default gallery page, whose chart body is 1152x335: the svg paints
+  // the full 1152px either way (`flex-shrink: 0`), with 28.8px bars, so the trim
+  // buys none of its room back in width. 14 / 16 / 6 is 36 units against 25 for
+  // 9 / 12 / 4 — 11 units, 26.4px at 2.4px/unit, about one more bar row.
+  //
+  // The fit assertion that used to live here is gone on purpose — but NOT for the
+  // reason this comment used to give. It asserted the canonical two-lane shape
+  // came in under 335px, and at the band of the day that shape drew 338px, so the
+  // test was stricter than the engine's own verdict and invited shaving real
+  // padding to satisfy it. At today's band the same shape draws 295.2px into a
+  // 335.4px body, so that assertion would now pass with 40.2px to spare: it is
+  // not stricter than anything any more, it is simply redundant with the budget
+  // assertion below, which states the same property in rows rather than pixels. A test that is harsher than the thing it models invites shaving
+  // real padding to satisfy it. The budget — four one-row lanes with a status key
+  // fit a 1152x335 body — is asserted in the FIXED-BAND suite above, against a
+  // headroom figure re-derived from the geometry rather than restated.
+  test('the key block stays tight enough to be worth its room', () => {
+    assert.ok(GANTT_GEOM.legendGap + GANTT_GEOM.legendH + GANTT_GEOM.padBottom <= 25,
+      'landscape non-row chrome below the plot has grown past its measured budget');
+  });
+});
+
+describe('gantt — checker findings', () => {
+  test('a long CAPTION never buys a sub-row (packing reads the mark)', () => {
+    // A sub-row is how this chart says "these run at the same time". Folding the
+    // caption into the packing extent let a long NAME claim one, so a strictly
+    // sequential lane rendered as two rows and a reader saw concurrency that was
+    // not in the plan — the same misreading sub-rows exist to remove, backwards.
+    const lane = (mid) => `<ul><li>Lane<ul>
+      <li>Discovery <code>Q1..Q1</code></li>
+      <li>${mid} <code>Q2..Q2</code></li>
+      <li>Rollout <code>Q3..Q3</code></li>
+    </ul></li></ul>`;
+    const rows = (mid) => new Set(barYs(buildGanttChart(inner(lane(mid)), WIN))).size;
+    assert.equal(rows('Build'), 1);
+    assert.equal(rows('Enterprise data modernization wave two'), 1,
+      'a long name must not split a lane whose spans never overlap');
+  });
+
+  test('the clip id family key IS the id stem, so the squat guard can see it', () => {
+    // lib/core/render-ids.js matches its FAMILIES pattern against the DECK
+    // SOURCE. A key of `gantt-clip` against a stem of `gantt-barclip` leaves the
+    // hole open even with the pattern updated, because a deck squatting
+    // `gantt-barclip-1-0` contains no substring `gantt-clip`.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
+    const squat = '<clipPath id="gantt-barclip-1-0"><rect width="0" height="0"/></clipPath>';
+    resetRenderIds(squat, 0);
+    const out = buildGanttChart(inner(ul), WIN);
+    const id = attrsOf(tagsWith(out, 'clip-path="url(#')[0])['clip-path']
+      .match(/^url\(#(.+)\)$/)[1];
+    assert.notEqual(id, 'gantt-barclip-1-0',
+      'a deck squatting the clip id must not capture the accent\'s clip');
+    assert.match(id, /^.+gantt-barclip-/, 'the minted id should be namespace-prefixed');
+    resetRenderIds('', 0);
+  });
+
+  test('a clip rect paints nothing, explicitly', () => {
+    // `rect` is a paintable tag to tools/check-viz-render.js, which reads every
+    // one's computed fill; an omitted fill computes to BLACK and trips the
+    // scoped-CSS dropped-color guard (#956) from an element that is never
+    // painted. Two of these failed the integration tier.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
+    const built = buildGanttChart(inner(ul), WIN);
+    // Bounded to the clipPath's OWN body — `the first <rect> after <clipPath`
+    // would keep passing if the clip lost its rect and the next bar supplied one.
+    const body = built.slice(built.indexOf('<clipPath'), built.indexOf('</clipPath>'));
+    const clip = tagsWith(body, '<rect')[0];
+    assert.match(clip, /fill="none"/, 'a clip rect must declare that it paints nothing');
+  });
+
+});
+
