@@ -18,6 +18,7 @@ import '../styles/components.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ComponentNav from '../components/ComponentNav.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import ArticleSchema from '../components/site/ArticleSchema.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
@@ -26,6 +27,9 @@ const { title, description, palettes = [], catalog = [], lenses = [], navGroups 
 
 const base = import.meta.env.BASE_URL;
 const url = (p) => joinBase(base, p);
+// Absent when the build has no `site` (a bare `astro dev` with SITE_URL unset), in which
+// case both the og:url tag and the record's url are simply omitted rather than guessed.
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
 ---
 
 <!doctype html>
@@ -40,6 +44,15 @@ const url = (p) => joinBase(base, p);
 		<RuntimeWarm />
 		<title>{title}</title>
 		<meta name="description" content={description} />
+		{/* Reading-mode signals. A component page is real prose — a description, a
+		    slots/variants/anti-patterns write-up, a live specimen — and it carried NEITHER
+		    of the two things Chrome and Edge's distiller reads, where a Starlight docs page
+		    already carried `og:type`. See site/ArticleSchema.astro. */}
+		<meta property="og:type" content="article" />
+		<meta property="og:title" content={title} />
+		{description && <meta property="og:description" content={description} />}
+		{canonical && <meta property="og:url" content={canonical} />}
+		<ArticleSchema title={title} description={description} url={canonical} />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<!-- Set palette/mode before first paint to avoid a flash. Shares the
 		     landing/playground localStorage keys so a choice carries across. -->

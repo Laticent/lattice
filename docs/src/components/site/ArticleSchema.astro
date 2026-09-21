@@ -1,0 +1,61 @@
+---
+// A schema.org `Article` record for one content page, as `application/ld+json`.
+//
+// WHY. Chrome and Edge's reading modes run the DOM Distiller, which reads BOTH `og:type`
+// and schema.org `Article` markup when deciding whether a page is an article. Firefox's
+// Reader View — and the shake-to-summarize built on it — reads NEITHER: it runs
+// Readability, which counts paragraphs. So this buys the Blink-side reading modes and
+// nothing else, which is the cheap half left open by
+// `engineering/decisions/2026-09-20-reader-mode-text-extraction.md`.
+//
+// Two hosts render it and they had different gaps, measured on the served site rather
+// than read off their source: a Starlight docs page already carried `og:type=article` and
+// no JSON-LD, and a component page carried neither. `og:type` therefore lives with each
+// host (Starlight emits its own; `ComponentsLayout` now emits one) and the record lives
+// here, so there is one place that decides what a Lattice content page claims to be.
+//
+// NOT FOR AN APP SHELL. The landing page, /features, /studio, /playground, the Vetrina and
+// proto routes are deliberately left with no article signal: a shell that claims to be an
+// Article invites a reading mode onto a page with no prose in it, which is the same
+// "an icon that promises a summary and delivers half the deck" mistake the decision note
+// argues against, one level up.
+//
+// NOTHING HERE IS INVENTED. Every field is a value the page already carries. No author, no
+// publish date, no image — a fabricated field in a machine-readable record is worse than
+// an absent one, because a consumer cannot tell it apart from a real one.
+interface Props {
+	title: string;
+	description?: string;
+	/** The page's canonical URL. Absent is fine; the record then carries no url. */
+	url?: string;
+	dateModified?: Date;
+	lang?: string;
+	siteName?: string;
+}
+const { title, description, url, dateModified, lang = 'en', siteName = 'Lattice' } = Astro.props;
+
+const article = {
+	'@context': 'https://schema.org',
+	// `Article`, not the more precise `TechArticle`. The distiller matches on a fixed list
+	// of schema.org types, and Chromium's list could not be read from this sandbox to
+	// confirm `TechArticle` is on it; `Article` is the base type every consumer of this
+	// vocabulary knows. An unverified refinement that silently costs the whole signal is a
+	// bad trade for a word.
+	'@type': 'Article',
+	headline: title,
+	...(description ? { description } : {}),
+	...(url ? { url, mainEntityOfPage: { '@type': 'WebPage', '@id': url } } : {}),
+	...(dateModified ? { dateModified: dateModified.toISOString() } : {}),
+	inLanguage: lang,
+	isPartOf: { '@type': 'WebSite', name: siteName },
+};
+
+// `</script>` inside a JSON string value would end this element and hand the rest to the
+// HTML parser as markup — the RAWTEXT trap HARD RULE #22's stylesheet channel is about, in
+// the other element that has it. A title or description here is repo content rather than
+// untrusted input, but the escape is structural and costs nothing, and `JSON.stringify`
+// does not do it: escaping `<` as `<` is valid JSON and parses back identically.
+const json = JSON.stringify(article).replace(/</g, '\\u003c');
+---
+
+<script type="application/ld+json" is:inline set:html={json} />

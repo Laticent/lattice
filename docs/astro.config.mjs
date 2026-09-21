@@ -164,6 +164,11 @@ export default defineConfig({
 				// mobile-only "Site" nav group so the hamburger never dead-ends at
 				// the logo; MobileMenuFooter is emptied to leave one control surface.
 				Header: './src/components/Header.astro',
+				// Head adds a schema.org Article record beside Starlight's own tags — the
+				// half of the Blink reading-mode signal the site was missing (it already
+				// emits `og:type=article`). See the component for scope and why the
+				// standalone routes are deliberately not in it.
+				Head: './src/components/DocsHead.astro',
 				ThemeProvider: './src/components/ThemeProvider.astro',
 				Sidebar: './src/components/Sidebar.astro',
 				MobileMenuFooter: './src/components/MobileMenuFooter.astro',
