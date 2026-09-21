@@ -1439,6 +1439,10 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       // it, and no alphabet entry could say so.
       '- <div>', '* <figure>', '+ <table>', '1. <pre>', '> <div>', '- <!-- note',
       '  <div>', '- <p>x</p>',
+      // Phantom-block openers: a `<!--` that markdown-it never turns into an
+      // `html_block`, because it is indented into a list continuation or sits
+      // under something that already opened a block.
+      '   <!--', '1. x\n   <!--', '- <!--', '\t<!--',
     ];
     const warned = [];
     let degenerate = 0;
@@ -1469,7 +1473,8 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         // MULTI-LINE directives are an axis of their own: the engine reads a
         // comment block, this rule reads lines, and a directive split across two
         // lines missed 91 times out of 91 before round ten.
-        for (const first of ['', '<!-- _track: A | B -->\n', '<!--\n_track: A | B -->\n']) {
+        for (const first of ['', '<!-- _track: A | B -->\n', '<!--\n_track: A | B -->\n',
+          '<!-- track: A | B -->\n', '<!-- track: -->\n']) {
         // And the VALUE axis: the directive under test is degenerate half the time,
         // so the single-directive arm still exercises a real warning. Adding the
         // `first` axis without this silently emptied that arm — `deg1` went to 0.
@@ -1487,7 +1492,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         const fired = Boolean(rule(src, 'track-directive'));
         if (fired && !should) {
           warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)} + ${JSON.stringify(below)}`
-            + ` + first=${first ? 'yes' : 'no'}: engine applied nothing degenerate, linter WARNED`);
+            + ` + first=${JSON.stringify(first)} value=${JSON.stringify(value)}: engine applied nothing degenerate, linter WARNED`);
         }
         if (should) { degenerate += 1; if (!fired) silent += 1; if (!first) { deg1 += 1; if (!fired) sil1 += 1; } }
         }
@@ -1500,16 +1505,22 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // And the arm that keeps the SUBSET honest. A rule that went quiet everywhere
     // would also pass "no false warnings"; it would not pass this. The counts move
     // with the alphabet, so they are a reviewed diff rather than a discovery.
-    assert.equal(degenerate, 14774, 'shapes the engine applies degenerately');
-    assert.equal(silent, 13226, 'of those, the ones the subset rule declines');
+    assert.equal(degenerate, 23955, 'shapes the engine applies degenerately');
+    assert.equal(silent, 21423, 'of those, the ones the subset rule declines');
+    // Split by directive count. Almost all the silence is the multi-directive
+    // half, where a declined later directive makes the answer unknowable and the
+    // rule voids the slide. The one-directive half is the ordinary deck: 1077 /
+    // 657, which moved from 1002 / 582 only because the bare deck-wide forms are
+    // now generated as a  value and count as one-directive shapes too.
+    assert.equal(deg1, 1077, 'one-directive shapes the engine applies degenerately');
+    assert.equal(sil1, 657, 'of those, the ones the subset rule declines');
     // Split by directive count. Almost all the silence is the multi-directive
     // half, where a declined later directive makes last-wins unknowable and the
     // rule voids the slide. The one-directive half is the ordinary deck, and it
     // is 1002 / 582 — unchanged by the last two rounds of fixes, which is the
     // evidence that neither the voiding nor the empty-value clearing cost
     // anything a real author would notice.
-    assert.equal(deg1, 1002, 'one-directive shapes the engine applies degenerately');
-    assert.equal(sil1, 582, 'of those, the ones the subset rule declines');
+
     // SPLIT BY DIRECTIVE COUNT, because the aggregate hides the case that matters.
     // Almost all the silence is the multi-directive half, where a poisoned later
     // directive makes last-wins unknowable and the rule voids the slide rather
@@ -1659,6 +1670,65 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     ]) {
       assert.equal(applied(inside), undefined, 'the engine reads no directive');
       assert.equal(rule(inside, 'track-directive'), undefined, 'so the rule is silent');
+    }
+  });
+
+  /* TWO CHANNELS. `lib/engine/slides.js` merges `{ ...runningGlobal, ...slideLocal }`,
+   * so a SPOT `_track` beats a bare deck-wide `track:` on its own slide whatever the
+   * line order. Modelling one "last directive" lost a real warning and invented a
+   * false one, in opposite directions.
+   */
+  test('a spot directive beats a deck-wide one, whatever the order', () => {
+    const { render } = require('../../../lib/engine');
+    const applied = (src) => {
+      const out = render(src, {});
+      const html = typeof out === 'string' ? out : out.html;
+      return (html.match(/data-track="([^"]*)"/) || [])[1];
+    };
+    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+
+    // An empty BARE directive clears only the deck-wide channel, so the spot
+    // directive above it still answers — and it is degenerate, so it still warns.
+    const bareEmpty = T('<!-- _track: A -->', '<!-- track: -->');
+    assert.match(applied(bareEmpty), /^A$/, 'the engine still applies the spot directive');
+    assert.ok(rule(bareEmpty, 'track-directive'), 'so the rule must still warn');
+
+    // And the deck-wide finding must NOT fire where a spot directive on the same
+    // slide already overrides it — both halves of "it overrides this slide and
+    // every one after it" are false there.
+    const bothOnOne = T('<!-- _track: A | [B] -->', '<!-- track: C | [D] -->');
+    assert.match(applied(bothOnOne), /A \| \[B\]/, 'the spot directive wins');
+    assert.equal(rule(bothOnOne, 'track-directive'), undefined, 'so nothing is wrong here');
+  });
+
+  /* A PHANTOM BLOCK IS NOT A BLOCK. A `<!--` at a list-continuation indent, or one
+   * under a fence or a tag, opens no `html_block` in markdown-it — so the engine
+   * never reads a comment there. Collecting lines into a block anyway swallowed a
+   * live directive unread and, worse, fabricated a warning from a slide that has
+   * no applied directive at all.
+   */
+  test('an indented or poisoned `<!--` opens no block', () => {
+    const { render } = require('../../../lib/engine');
+    const applied = (src) => {
+      const out = render(src, {});
+      const html = typeof out === 'string' ? out : out.html;
+      return (html.match(/data-track="([^"]*)"/) || [])[1];
+    };
+    // Fabricated from nothing: no directive is applied anywhere on this slide.
+    const fabricated = `${FM}<!-- _class: topic -->\n\n## Cost to win\n\n1. Pipeline\n   <!--\n_track: Cost to win -->\n\nA claim.\n`;
+    assert.equal(applied(fabricated), undefined, 'the engine reads no directive');
+    assert.equal(rule(fabricated, 'track-directive'), undefined, 'so the rule must be silent');
+
+    // And the promote direction: a phantom block under a fence or raw text
+    // swallowed the well-formed directive after it, leaving the degenerate one.
+    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+    for (const poisoned of [
+      T('<!-- _track: A -->', '```', '<!--', '```', '<!-- _track: X | [Y] -->'),
+      T('<!-- _track: A -->', '<pre>', '<!--', '</pre>', '<!-- _track: X | [Y] -->'),
+      T('<!-- _track: A -->', '<script>', '<!--', '</script>', '<!-- _track: X | [Y] -->'),
+    ]) {
+      assert.match(applied(poisoned), /X \| \[Y\]/, 'the engine applies the later directive');
+      assert.equal(rule(poisoned, 'track-directive'), undefined, 'so the rule must not warn');
     }
   });
 
