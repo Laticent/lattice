@@ -25,7 +25,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   loadCatalog,
-  frameToggleSkip,
+  sovereignFrames,
   checkManifestCssRefs,
   checkCellCssPresence,
   checkSuppressIntegrity,
@@ -209,7 +209,7 @@ function renderJson() {
     modelHref: 'https://github.com/Laticent/lattice/blob/main/design/forms.md',
     counts: { frames: frames.length, cells: cells.length, tiles: tiles.length },
     // The engine's chrome-skip set, derived from the frame manifests.
-    formToggleSkip: frameToggleSkip(frames),
+    sovereignFrames: sovereignFrames(frames),
     frames,
     cells,
     tiles,

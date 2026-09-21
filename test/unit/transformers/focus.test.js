@@ -142,7 +142,7 @@ describe('focus — DOM kernel (applyToDom) agrees with the HTML kernel', () => 
   });
 
   // 2026-07-10: split-panel (a sovereign Frame, exempt from Form's .cell-stage
-  // per lib/forms' frameToggleSkip()) puts its list under `.panel-right` — a
+  // per lib/forms' sovereignFrames()) puts its list under `.panel-right` — a
   // DIFFERENT clip-cell class the masthead-lift fallback above didn't cover.
   // The strict `.cell-stage`-only fallback silently found nothing, the same
   // failure mode the 2026-07-09 fix addressed for a different cell class —

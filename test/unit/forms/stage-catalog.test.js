@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const kernel = require('../../../lib/forms/cell/masthead/masthead.transform.js');
 const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
 const conformanceCatalog = require('../../../lib/forms/cell/masthead/conformance-catalog.generated.js');
-const { frameToggleSkip } = require('../../../lib/forms');
+const { sovereignFrames } = require('../../../lib/forms');
 const { loadAll } = require('../../../lib/components');
 
 // The classification as it stood when the three inline Sets were retired
@@ -79,8 +79,8 @@ describe('stage-catalog — the single stage-cell classification', () => {
   test('the catalog sovereign set equals the frame-manifest-derived SOVEREIGN_FRAMES', () => {
     // The two data sources (component `stage` field + frame `exemptFromChrome`)
     // must agree on who is sovereign — the generator composes them, this pins it.
-    assert.deepEqual(withStage('sovereign'), [...frameToggleSkip()].sort(),
-      'catalog sovereign set diverged from frameToggleSkip()');
+    assert.deepEqual(withStage('sovereign'), [...sovereignFrames()].sort(),
+      'catalog sovereign set diverged from sovereignFrames()');
   });
 
   // The sibling conformance catalog (build-stage-catalog.js also generates it) —
