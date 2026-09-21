@@ -1265,46 +1265,87 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     const { render } = require('../../../lib/engine');
     const { parseTrackSpec, MIN_TRACK_LABELS: MIN } = require('../../../lib/core/track-spec');
     const D = '<!-- _class: topic -->\n';
+    const H = '\n## T\n\n';
+    // Every row measured through the real engine. Four review rounds each found a
+    // shape this rule got wrong — in BOTH directions — so the contract is data:
+    // the linter must warn exactly when the engine applies a DEGENERATE `_track`.
     const SHAPES = {
       'line start': `${D}<!-- _track: A -->\n\n## T\n`,
-      // Live: a comment inside a blockquote or a list item is still its own
-      // `html_block`, and the engine walks the flat block stream.
-      blockquote: `${D}\n## T\n\n> <!-- _track: A -->\n`,
-      'nested blockquote': `${D}\n## T\n\n> > <!-- _track: A -->\n`,
-      'bullet item': `${D}\n## T\n\n- <!-- _track: A -->\n`,
-      'ordered item': `${D}\n## T\n\n1. <!-- _track: A -->\n`,
-      // Inert: inline tokens live in an `inline` token's children, which the
-      // engine's walk does not descend into.
-      'in a paragraph': `${D}\n## T\n\nSome text <!-- _track: A -->\n`,
-      'indented four': `${D}\n## T\n\n    <!-- _track: A -->\n`,
-      'inline code': `${D}\n## T\n\n\`<!-- _track: A -->\`\n`,
+      'three-space indent': `${D}${H}   <!-- _track: A -->\n`,
+      'four-space indent (code)': `${D}${H}    <!-- _track: A -->\n`,
+      // A comment in a blockquote or list item is still its own `html_block`.
+      blockquote: `${D}${H}> <!-- _track: A -->\n`,
+      'blockquote, four spaces': `${D}${H}>    <!-- _track: A -->\n`,
+      'blockquote, five spaces (code)': `${D}${H}>     <!-- _track: A -->\n`,
+      'nested blockquote': `${D}${H}> > <!-- _track: A -->\n`,
+      'nested blockquote, wide': `${D}${H}> >    <!-- _track: A -->\n`,
+      bullet: `${D}${H}- <!-- _track: A -->\n`,
+      'bullet, four spaces': `${D}${H}-    <!-- _track: A -->\n`,
+      'bullet, five spaces (code)': `${D}${H}-     <!-- _track: A -->\n`,
+      'star bullet': `${D}${H}* <!-- _track: A -->\n`,
+      'plus bullet': `${D}${H}+ <!-- _track: A -->\n`,
+      'ordered item': `${D}${H}1. <!-- _track: A -->\n`,
+      'blockquote then bullet': `${D}${H}> - <!-- _track: A -->\n`,
+      'bare tab (code)': `${D}${H}\t<!-- _track: A -->\n`,
+      'bullet then tab': `${D}${H}-\t<!-- _track: A -->\n`,
+      // An `html_block` runs to the END OF ITS LINE, so trailing prose makes the
+      // token something `readDirectiveComment` rejects.
+      'trailing text': `${D}${H}<!-- _track: A --> tail\n`,
+      'trailing text, two labels': `${D}${H}<!-- _track: A | B --> tail\n`,
+      'an arrow inside a label': `${D}${H}<!-- _track: a --> b | [C] -->\n`,
+      // A type-6 block runs to a blank line; the comment inside is its content.
+      'inside a div block': `${D}${H}<div>\n<!-- _track: A -->\n</div>\n`,
+      'after a p block': `${D}${H}<p>x</p>\n<!-- _track: A -->\n`,
+      // An empty value is skipped by the engine, so the DERIVED track still draws.
+      'empty value': `${D}${H}<!-- _track: -->\n`,
+      'in a paragraph': `${D}${H}Some text <!-- _track: A -->\n`,
+      'inline code': `${D}${H}\`<!-- _track: A -->\`\n`,
       'nested in another comment': `${D}<!-- outer <!-- _track: A --> tail -->\n\n## T\n`,
-      'after an unclosed comment': `${D}\n## T\n\n<!-- oops\n\n<!-- _track: A -->\n`,
-      'fenced example': `${D}\n## B\n\n\`\`\`\n<!-- _track: A -->\n\`\`\`\n`,
-      // …but a fence INSIDE a comment closes nothing, so the directive after it lives.
-      'fence inside a comment': `${D}\n## B\n\n<!--\n\`\`\`\nnote\n-->\n\n<!-- _track: A -->\n`,
-      // The vocabulary is case-SENSITIVE, so this is not a directive at all.
+      'after an unclosed comment': `${D}${H}<!-- oops\n\n<!-- _track: A -->\n`,
+      'fenced example': `${D}${H}\`\`\`\n<!-- _track: A -->\n\`\`\`\n`,
+      'fence inside a comment': `${D}${H}<!--\n\`\`\`\nnote\n-->\n\n<!-- _track: A -->\n`,
       'uppercase _TRACK': `${D}<!-- _TRACK: A -->\n\n## T\n`,
       'no spaces at all': `${D}<!--_track:A-->\n\n## T\n`,
       'two directives, last wins': `${D}<!-- _track: A -->\n<!-- _track: B | [C] -->\n\n## T\n`,
+      // Consecutive comment lines each open their own token — this must NOT be
+      // mistaken for "inside an open HTML block".
+      'after another directive': `${D}<!-- _footer: "x" -->\n<!-- _track: A -->\n\n## T\n`,
+      'CRLF throughout': `${D.replace(/\n/g, '\r\n')}<!-- _track: A -->\r\n\r\n## T\r\n`,
     };
     const misses = [];
     for (const [what, body] of Object.entries(SHAPES)) {
       const out = render(FM + body, {});
       const html = typeof out === 'string' ? out : out.html;
-      const applied = (html.match(/data-track="([^"]*)"/) || [])[1];
+      const attr = (html.match(/data-track="([^"]*)"/) || [])[1];
       let shouldWarn = false;
-      if (applied !== undefined) {
-        const { labels, current } = parseTrackSpec(applied);
+      if (attr !== undefined) {
+        // The attribute is HTML-escaped; the rule reads raw source.
+        const raw = attr.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+        const { labels, current } = parseTrackSpec(raw);
         shouldWarn = labels.length < MIN || current === -1;
       }
       const fired = Boolean(rule(FM + body, 'track-directive'));
       if (fired !== shouldWarn) {
-        misses.push(`${what}: engine ${applied === undefined ? 'inert' : JSON.stringify(applied)},`
+        misses.push(`${what}: engine ${attr === undefined ? 'inert' : JSON.stringify(attr)},`
           + ` should warn ${shouldWarn}, linter ${fired}`);
       }
     }
     assert.deepEqual(misses, []);
+  });
+
+  test('KNOWN RESIDUAL: a directive in list continuation is not seen', () => {
+    // Recorded rather than fixed. `withoutCodeBlocks` blanks any four-space
+    // indented line, and inside a list item four spaces is CONTINUATION, not
+    // code — so the engine applies this and the rule stays silent. The helper is
+    // shared by several rules, so correcting it means changing what all of them
+    // see; that is its own change. Silence is the safe direction for an advisory
+    // rule, and pinning it here means a future fix will notice this test.
+    const { render } = require('../../../lib/engine');
+    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n- item\n\n    <!-- _track: A -->\n`;
+    const out = render(src, {});
+    const html = typeof out === 'string' ? out : out.html;
+    assert.match(html, /data-track="A"/, 'the engine really does apply it');
+    assert.equal(rule(src, 'track-directive'), undefined, 'and the rule really is silent');
   });
 
   test('a bare `track:` is reported as the DECK-WIDE form it is', () => {
