@@ -2838,7 +2838,7 @@ ${ENGINE_SCRIPT_OPEN}
 // re-draws. The `fonts.ready` one is a promise continuation no navigation wait ever
 // covered; what keeps it correct is NOT registration order — see the invariant written
 // beside the Node-side force-load below, which is the accurate account. The function body
-// is the canonical installStateChartLayout from the kernel, serialised so
+// is the canonical installStateChartLayout from the kernel, serialized so
 // the emulator and lattice-runtime share one implementation.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
 // Whether any machine on any slide would actually be RE-RANKED. Kept separate
@@ -2855,7 +2855,7 @@ let stateChartScript = '';
 if (hasStateChart) {
   try {
     const { STATE_CHART_BROWSER_JS } = require('./lib/components/chart/state-chart/state-chart.transform');
-    // The pass is serialised through `.toString()`, so it carries no imports and
+    // The pass is serialized through `.toString()`, so it carries no imports and
     // can only reach a layout engine through a global that already exists in the
     // document. This IIFE installs `globalThis.__latticeDagre` ahead of it.
     // Prepended HERE rather than inside the transform because the runtime bundle
@@ -3866,8 +3866,10 @@ async function renderBody(browser, g, closeBrowser) {
   // #2252 found a real one at 10.2px, and a sweep of all 335 shipped decks found 18
   // slides across 12 decks losing BODY content IN THIS BAND with nothing said. (The
   // corpus-wide figure is larger and is a different claim: 27 silent cuts across 20
-  // decks, 26 of them body — most of those sit below this advisory's floor, so it
-  // names 18 of them and nine stay silent. Do not merge the two numbers.)
+  // decks, 26 of them body. 18 of those 27 sit at or above this advisory's floor, so
+  // it names them; the other nine sit below it and stay silent. Do not merge the two
+  // numbers — and note the first draft of this very sentence said "most of those sit
+  // below the floor", which inverts the ratio it is standing next to.)
   //
   // This is an ADVISORY, not a verdict: no class is stamped, no marker is drawn, the
   // exit code does not move, and `overflow:check`'s ratchet is untouched. The gate

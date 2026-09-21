@@ -95,6 +95,27 @@ describe('the near-miss advisory (#2252)', () => {
       'the advisory text must not be re-inlined in lattice-emulator.js');
   });
 
+  test('and prints NOTHING ELSE from that block', () => {
+    // THE COVERAGE THIS TEST LOST WHEN IT MOVED TO THE KERNEL, restored. The previous
+    // cut scoped itself to the whole `if (nearMiss.length)` block and joined every
+    // `console.warn` in it; reading the formatter's return value instead is strictly
+    // better on the rendering axis and strictly worse on this one — a SECOND warn added
+    // beside the loop prints into the same buffer and no assertion above can see it.
+    //
+    // A checker mutation-proved that: adding
+    //   console.warn(`    OVERFLOW-adjacent detail for pages ${…}.`)
+    // one line below the loop shipped 6/6 green, and `check-overflow-corpus.js`'s own
+    // line-bounded regex harvests it (it captures "3, 5"). The old test reddened on it.
+    //
+    // So the block is pinned as a whole: exactly one call, and it is the loop.
+    const start = SRC.indexOf('if (nearMiss.length)');
+    assert.notEqual(start, -1, 'the #2252 advisory block must still be in lattice-emulator.js');
+    const block = SRC.slice(start, SRC.indexOf('\n  }\n', start));
+    const warns = [...block.matchAll(/console\.warn\(/g)];
+    assert.equal(warns.length, 1,
+      `the advisory block must print through the kernel formatter and nothing else — found ${warns.length} console.warn calls`);
+  });
+
   test('all three harvesters still key on the literals this guards', () => {
     // If a harvest ever keys on something else, the assertions above guard a literal
     // nobody reads any more — a test that passes for the wrong reason.

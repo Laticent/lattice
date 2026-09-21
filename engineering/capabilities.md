@@ -12,7 +12,7 @@ means try another word, not that nothing exists.
 
 It is generated from `package.json` scripts and the `tools/` headers (so it
 can't drift) and is gated by `capabilities:check` (so a new **script or tool**
-can't land uncatalogued). The live source lists never lie either: `npm run`
+can't land uncataloged). The live source lists never lie either: `npm run`
 prints every script, `ls tools/` every tool.
 
 To add: a new npm script → describe it in `SCRIPT_META` in

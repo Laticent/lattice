@@ -216,6 +216,39 @@ describe('gantt renderer — continuous time scale', () => {
         'a key already at the viewBox edge must not gain another chip');
     });
 
+    // ── The POSITIVE boundary, both orientations ────────────────────────────
+    // The two tests below pin that the chip FITS at eight (landscape) and five
+    // (portrait) — the numbers `gantt.manifest.json` and `changelog.d/2255-*` both
+    // state. Until a checker asked, only the negative side was pinned: nine and ten
+    // drop it, landscape only. So a 1-unit retune of `fsLegend`, `legendSwatch` or
+    // `vbW` could silently falsify both documents with nothing going red, and the
+    // portrait margin is 1.00 unit out of 292 — 0.34% — which is exactly the size of
+    // gap that gets retuned without anyone thinking about the key.
+    const statusLi = (list) => '<ul><li>L<ul>'
+      + list.map((st, i) => `<li>T${i} <code>Q${(i % 4) + 1}</code> <code>${st}</code></li>`).join('')
+      + '<li>Z <code>Q1..Q4</code></li>'
+      + '</ul></li></ul>';
+
+    test('EIGHT declared statuses still leave room for the chip (landscape)', () => {
+      const eight = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot'];
+      const got = chips(buildGanttChart(inner(statusLi(eight)), eyebrow));
+      assert.equal(got.includes('no status'), true,
+        `eight statuses must still fit the neutral chip, got ${got.join(', ')}`);
+    });
+
+    test('FIVE declared statuses still leave room for the chip (portrait)', () => {
+      // Portrait is a narrower frame (vbW 300 against 480) and a smaller legend type,
+      // so its boundary sits at five. Nothing covered this orientation at all before.
+      const five = ['on-track', 'done', 'live', 'at-risk', 'warn'];
+      const fits = chips(buildGanttChart(inner(statusLi(five)), eyebrow, 'portrait'));
+      assert.equal(fits.includes('no status'), true,
+        `five statuses must still fit the neutral chip at portrait, got ${fits.join(', ')}`);
+      const six = [...five, 'blocked'];
+      const drops = chips(buildGanttChart(inner(statusLi(six)), eyebrow, 'portrait'));
+      assert.equal(drops.includes('no status'), false,
+        'six must drop it at portrait — the row would run past the frame');
+    });
+
     test('nine declared statuses is already enough to drop it', () => {
       // The tighter boundary. Pinned so a later width tweak cannot quietly move the
       // drop point without a test noticing.

@@ -18,7 +18,7 @@
  *
  * Mandatory-description gate: a script with no SCRIPT_META entry, or a tool
  * whose header has no description line, renders a visible **TODO** — which
- * makes --check fail as drift. So a new capability cannot land uncatalogued:
+ * makes --check fail as drift. So a new capability cannot land uncataloged:
  * either describe it here / in the tool header, or the gate blocks the commit.
  * This mirrors tools/build-dist-readme.js.
  *
@@ -485,7 +485,7 @@ means try another word, not that nothing exists.
 
 It is generated from \`package.json\` scripts and the \`tools/\` headers (so it
 can't drift) and is gated by \`capabilities:check\` (so a new **script or tool**
-can't land uncatalogued). The live source lists never lie either: \`npm run\`
+can't land uncataloged). The live source lists never lie either: \`npm run\`
 prints every script, \`ls tools/\` every tool.
 
 To add: a new npm script → describe it in \`SCRIPT_META\` in

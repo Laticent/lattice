@@ -170,8 +170,10 @@ Three things make lowering it a change of its own rather than a constant edit:
    constant decides which slides AUTOSPLIT. Lowering it re-decides that across the corpus, which
    moves committed PDFs and the page-count assertions the integration tier asserts.
 2. **It adds 34 slides to `overflow:check`'s ratchet**, none of them fixed. Banking them is
-   precisely the move `2026-09-08` refused for a smaller number, and fixing them is an 18-deck
-   remediation with no relation to whatever branch happens to be touching the constant.
+   precisely the move `2026-09-08` refused for a smaller number, and fixing them is a **21-deck**
+   remediation — 20 of those decks are not reported at all today — with no relation to whatever
+   branch happens to be touching the constant. (An earlier draft said "18-deck"; 18 is the SLIDE
+   count of the band's real cuts, carried into a deck slot.)
 3. **The 27 are pre-existing and off-path** for the branch that found them (HARD RULE #18), so
    they are logged here rather than pulled into a diff about gantt geometry.
 
@@ -217,9 +219,25 @@ generated from there.
 `/OVERFLOW[^\n]*?pages? ([\d,\s]+)/` and its `CONTENT CLIPPED` twin over the whole output buffer
 and taking the FIRST hit. The advisory prints page numbers too, so if it ever carried either
 literal it would hijack the ratchet's page list corpus-wide.
-`test/unit/export/near-miss-advisory.test.js` pins both halves: the advisory carries neither
-literal, AND the ratchet still greps for exactly those two (so the first assertion cannot pass by
-guarding a literal nobody reads any more).
+**THREE tools harvest that buffer, not one**, and they do not agree on strictness:
+`check-overflow-corpus.js` is line-bounded and case-SENSITIVE, `check-family-tiers.js` crosses
+newlines, and `tools/lib/calibrate-core.js` crosses newlines AND ignores case. So a reword to a
+lowercase "overflow" or to `page 3` instead of `p3` — both entirely natural — is harvestable even
+though the corpus tool would miss it.
+
+`test/unit/export/near-miss-advisory.test.js` pins all of it: the advisory carries none of the
+tokens any of the three can key on, the three still grep for exactly what the test assumes (so the
+first assertion cannot pass by guarding a literal nobody reads), the advisory still SAYS its thing
+(every other assertion is negative, so silence would pass them all), and the export prints the
+kernel's text rather than a copy.
+
+**The TEXT lives in `lib/core/overflow-probe.js` (`formatNearMissAdvisory`), not in the export**,
+and that relocation is what makes the test possible rather than a tidiness move. Two earlier cuts
+failed: the first asserted only the case-sensitive literals; the second tried to render the
+export's inline template literal by substituting every `${…}` for a digit, but the page marker sat
+inside a NESTED literal, so the substitution swallowed the word beside it and `page ${o.slide}`
+walked through a guard whose entire job was to stop it. A test that reads a format string cannot
+see what the string renders to.
 
 ## Open
 
