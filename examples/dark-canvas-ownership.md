@@ -3,6 +3,7 @@ marp: true
 size: portrait
 theme: indaco
 color-mode: dark
+finish: atrium
 paginate: true
 header: "Dark canvas ownership"
 ---

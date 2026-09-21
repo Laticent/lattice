@@ -51,18 +51,19 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   for (const bookend of ['.title', '.closing', '.divider']) {
     assert.ok(selector.includes(bookend), `${bookend} paints --surface-inverse, so its finish canvas must follow it`);
   }
-  // `print` must be carved out ON EVERY SELECTOR IN THE LIST: it REMAPS every consumed
-  // token to the print band rather than exempting anything, so a printed bookend takes
-  // `--print-surface-inverse` and a finish mixing toward the screen inverse would flood
-  // the page.
+  // EVERY SELECTOR IN THE LIST MUST EXCLUDE `print`, and the bookends must also exclude
+  // the registers that repaint the surface out from under them. The exclusion may be
+  // spelled `:not(.print)` or folded into a `:not(:where(…))` group — the second form is
+  // what the file uses, because seven chained `:not()` would add (0,7,0) and change what
+  // these rules beat, while `:where()` contributes zero.
   //
   // PER SELECTOR, not over the joined string. `selector.includes(':not(.print)')` is
   // true as long as ONE of the comma-separated selectors carries it — measured: dropping
   // the exclusion from the `title, closing` line passes that check because the `divider`
   // line still has it. The original loop here had the same hole.
-  // Split on TOP-LEVEL commas only — `section:is(.title, .closing):not(.print)` carries
-  // one inside `:is()`, and a naive `split(',')` cuts it into `section:is(.title` and
-  // `.closing):not(.print)`, which fails on a selector that is perfectly correct.
+  // Split on TOP-LEVEL commas only — `section:is(.title, .closing):not(…)` carries one
+  // inside `:is()`, and a naive `split(',')` cuts it into `section:is(.title` and
+  // `.closing):not(…)`, which fails a selector that is perfectly correct.
   const topLevel = (list) => {
     const out = [];
     let depth = 0;
@@ -80,9 +81,31 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
     if (buf.trim()) out.push(buf.trim());
     return out.filter(Boolean);
   };
+  // Latent, noted rather than fixed: depth tracks PARENS only, so an attribute value
+  // containing a comma — `section[data-class~="a,b"]` — would split wrongly and fail a
+  // correct selector. No such selector exists in this file today; if one lands, this
+  // splitter needs to skip quoted strings and bracket depth too.
+  const excludes = (sel, cls) =>
+    sel.includes(`:not(.${cls})`) || new RegExp(`:not\\(:where\\([^)]*\\.${cls}\\b`).test(sel);
   for (const one of topLevel(selector)) {
-    assert.ok(one.includes(':not(.print)'), `\`${one}\` must not apply to a print slide`);
+    assert.ok(excludes(one, 'print'), `\`${one}\` must not apply to a print slide`);
   }
+  // The four registers that OUT-SPECIFY a frame's own (0,1,1) canvas and repaint it to
+  // `var(--bg)`: `section.dark.spectrum-off` (0,2,1), `section.dark:is(.spectrum-edge-…)`
+  // (0,3,1) and `section.accent.dark` (0,2,1). Re-pointing `--fin-canvas` across them
+  // sends the finish at a color the slide does not paint — measured, 60 mismatches
+  // against main's 14 over an 11x11 cross, and a `spectrum: off` deck exported a dark
+  // title as an inverse-panel flood. `divider` is exempt from this row: base.variants.css
+  // gives it carve-outs that KEEP its canvas under every spectrum value, so it excludes
+  // only `print` and `accent`.
+  const REGISTERS = ['accent', 'spectrum-off', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
+  for (const one of topLevel(selector)) {
+    const needed = one.includes('.divider') ? ['accent'] : REGISTERS;
+    for (const reg of needed) {
+      assert.ok(excludes(one, reg), `\`${one}\` must not apply to a .${reg} slide — it repaints the surface`);
+    }
+  }
+
   // `.dark` MUST NOT BE CARVED OUT, and this assertion is the inverse of the one that
   // used to stand here. The carve-out was correct while `section.dark` repainted a
   // bookend with `var(--bg)` — on `title dark` the modifier won and the surface really
@@ -103,6 +126,17 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   assert.ok(coverRule, 'expected a rule setting `--fin-canvas: var(--accent)` for the accent covers');
   const coverSelector = coverRule[1];
   assert.ok(coverSelector.includes('.dark'), 'the accent-cover re-point is scoped to dark (see #2294)');
+  assert.ok(
+    !/:not\([^)]*\.dark/.test(coverSelector),
+    'scoped TO dark, not away from it — `includes(".dark")` alone is satisfied by `:not(.dark)`',
+  );
+  // The cover rule owes the SAME exclusions as the bookends. It shipped without them and
+  // a printed dark cover exported as a full-page rgb(26,26,26) flood — 354,175 pixels
+  // against main on a real PDF. The bookend rule two lines up had carried `:not(.print)`
+  // since #1656; the asymmetry is exactly what let it through.
+  for (const reg of ['print', ...REGISTERS]) {
+    assert.ok(excludes(coverSelector, reg), `the accent-cover re-point must not apply to a .${reg} slide`);
+  }
   for (const cover of [
     '.decision-cover',
     '.compare-code-cover',

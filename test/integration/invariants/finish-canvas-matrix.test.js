@@ -109,41 +109,78 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
 });
 
 /**
- * THE DARK HALF, on every frame `section.dark:not(:where(...))` exempts.
+ * THE DARK HALF — AND THE SECOND MODIFIER, which is the half that bit.
  *
- * The matrix above covers {title, closing, divider, content} because #1656 was about
- * three inverse bookends. `base.modifiers.css` now exempts NINE frames from the dark
- * canvas -- those three plus `topic` and the five accent covers -- and each of them
- * paints a surface that is not `var(--bg)` under dark. Every one is a `--fin-canvas`
- * obligation, and five of them are classes the matrix above has never named.
+ * The matrix above covers {title, closing, divider, content} x one modifier at a time,
+ * because #1656 was about three inverse bookends. Two things are outside it, and the
+ * second one shipped a regression on this very branch before this arm existed.
  *
- * SEPARATE FROM THE MATRIX, on purpose. The same frames are ALSO wrong outside dark:
- * a cover paints `var(--accent)` in every mode and `topic` paints `--surface-inverse`
- * in every mode, while `--fin-canvas` stays `var(--bg)` -- 32 combinations, measured,
- * present identically on `main` and tracked as #2294. Widening the matrix's COMPONENTS
- * list would fail on those 32 immediately, so this arm asserts the half that is
- * actually true today and #2294 carries the rest. When it lands, this whole file
- * collapses into one matrix over ten frames and this block goes away.
+ * FIRST: `base.modifiers.css` now exempts NINE frames from the dark canvas -- those
+ * three plus `topic` and the five accent covers -- so each paints a non-`--bg` surface
+ * under dark and owes `--fin-canvas`. Five of them are classes the matrix never names.
  *
- * `lat-split-cover` is deliberately absent: it paints `var(--accent)` but is declared
- * AFTER the dark rule, so it needs no exemption there -- and its `--fin-canvas` is
- * wrong in every mode including dark, which puts it wholly in #2294.
+ * SECOND, AND THE REASON THIS ARM IS A CROSS: a slide carries more than one class. A
+ * matrix that puts ONE modifier on a section cannot see a rule that out-specifies the
+ * dark exemption and repaints the surface anyway --  `section.dark.spectrum-off`
+ * (0,2,1), `section.dark:is(.spectrum-edge-…):not(.divider)` (0,3,1),
+ * `section.accent.dark` (0,2,1), and the whole `print` remap. An unconditional `.dark`
+ * re-point of `--fin-canvas` therefore pointed those rows at a color the slide does not
+ * paint: measured over 11 frames x dark x 11 second modifiers, indaco, main has 14
+ * mismatches and the unconditional form had 60. A `finish:` deck with `spectrum: off`
+ * exported a dark title as an inverse-panel flood, and the screen and the PDF disagreed
+ * -- which `main` does not do. Caught by a checker, not by either gate.
+ *
+ * SO THE ASSERTION IS A PINNED SET, not "no mismatches". Twelve rows are wrong today
+ * and were wrong on `main`: `topic` in every mode and `lat-split-cover` in most, both
+ * because they paint a non-`--bg` surface in EVERY mode while `--fin-canvas` stays
+ * `var(--bg)`. Closing them changes light rendering, which is a different defect, and
+ * it is tracked as #2294. Pinning the set rather than the count means a NEW mismatch
+ * fails, and so does a pinned row that quietly starts passing -- when #2294 lands, this
+ * list shrinks and the test tells you which rows moved.
+ *
+ * SECTIONS ARE BUILT THE WAY THE ENGINE EMITS THEM, carrying `data-theme` and the
+ * `form` class. A bare `<section class="…">` is not the shape the renderer produces,
+ * and a rule keyed on an attribute the probe omits would pass here and fail on every
+ * real deck.
  */
-describe('--fin-canvas follows the dark canvas exemption, on every frame it names', () => {
-  // The nine classes in `section.dark:not(:where(...))`, with the surface each paints.
-  const EXEMPTED = [
-    ['title', '--surface-inverse'],
-    ['closing', '--surface-inverse'],
-    ['divider', '--surface-inverse'],
-    ['decision-cover', '--accent'],
-    ['compare-code-cover', '--accent'],
-    ['compare-split-cover', '--accent'],
-    ['list-tabular-cover', '--accent'],
-    ['split-panel-cover', '--accent'],
+describe('--fin-canvas follows the painted surface across dark x a second modifier', () => {
+  // Every frame that paints a non-`--bg` section canvas, plus a plain content control.
+  const FRAMES = [
+    'title', 'closing', 'divider', 'topic',
+    'decision-cover', 'compare-code-cover', 'compare-split-cover',
+    'list-tabular-cover', 'split-panel-cover',
+    'lat-split-cover', 'content',
+  ];
+  // `''` is dark alone; the rest are the canvas/register modifiers a deck can stamp
+  // alongside it. The four `spectrum-edge-*` values and `accent` are the ones that
+  // out-specify a frame's own canvas — they are why this is a cross and not a list.
+  const SECOND = [
+    '', 'print', 'spectrum-off',
+    'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off',
+    'accent', 'light', 'color-light', 'color-system',
+  ];
+
+  // The rows that mismatch TODAY and mismatched identically on `main` — #2294.
+  // Sorted; the assertion is a set equality, so an addition and a removal both fail.
+  const KNOWN_PRE_EXISTING = [
+    'lat-split-cover dark',
+    'lat-split-cover dark color-light',
+    'lat-split-cover dark color-system',
+    'lat-split-cover dark light',
+    'lat-split-cover dark print',
+    'topic dark',
+    'topic dark accent',
+    'topic dark color-light',
+    'topic dark color-system',
+    'topic dark light',
+    'topic dark print',
+    'topic dark spectrum-off',
   ];
 
   let darkBrowser;
   let darkPage;
+  const cases = [];
+  for (const f of FRAMES) for (const m of SECOND) cases.push(m ? `${f} dark ${m}` : `${f} dark`);
 
   before(async () => {
     darkBrowser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
@@ -152,15 +189,14 @@ describe('--fin-canvas follows the dark canvas exemption, on every frame it name
     const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
     const html =
       `<style>${theme}\n${bundle}</style><article class="lattice">` +
-      EXEMPTED.map(
-        ([cls], i) =>
-          `<section id="d${i}" class="${cls} dark finish finish-atrium"><div class="backdrop"></div>` +
-          `<span id="q${i}" style="background-color:var(--fin-canvas);display:block;width:4px;height:4px"></span></section>`,
-      ).join('') +
-      // A plain dark content slide, to prove the assertion is not passing because
-      // everything resolved to the deck canvas.
-      '<section id="ctl" class="content dark finish finish-atrium"><div class="backdrop"></div>' +
-      '<span id="qctl" style="background-color:var(--fin-canvas);display:block;width:4px;height:4px"></span></section>' +
+      cases
+        .map(
+          (cls, i) =>
+            `<section id="d${i}" data-theme="indaco" data-lattice-slide="${i + 1}" style="--theme:indaco"` +
+            ` class="${cls} form finish finish-atrium"><div class="backdrop"></div>` +
+            `<span id="q${i}" style="background-color:var(--fin-canvas);display:block;width:4px;height:4px"></span></section>`,
+        )
+        .join('') +
       '</article>';
     await darkPage.setContent(html);
   });
@@ -169,36 +205,94 @@ describe('--fin-canvas follows the dark canvas exemption, on every frame it name
     await darkBrowser?.close();
   });
 
-  test('a dark frame that keeps its own canvas composites against that canvas', async () => {
+  test('the set of surface/--fin-canvas mismatches is exactly the pre-existing one', async () => {
     const rows = await darkPage.evaluate(
-      (n) =>
-        Array.from({ length: n }, (_, i) => ({
+      (cs) =>
+        cs.map((cls, i) => ({
+          cls,
           surface: getComputedStyle(document.getElementById(`d${i}`)).backgroundColor,
           canvas: getComputedStyle(document.getElementById(`q${i}`)).backgroundColor,
         })),
-      EXEMPTED.length,
+      cases,
     );
-    const mismatches = rows
-      .map((r, i) => ({ cls: `${EXEMPTED[i][0]} dark`, expected: EXEMPTED[i][1], ...r }))
-      .filter((r) => r.surface !== r.canvas);
+    assert.equal(rows.length, FRAMES.length * SECOND.length, 'every case rendered');
+    const mismatched = rows.filter((r) => r.surface !== r.canvas);
+    const names = mismatched.map((r) => r.cls).sort();
+    const added = names.filter((n) => !KNOWN_PRE_EXISTING.includes(n));
+    const fixed = KNOWN_PRE_EXISTING.filter((n) => !names.includes(n));
+    const detail = (list) =>
+      list
+        .map((n) => {
+          const r = mismatched.find((x) => x.cls === n);
+          return r ? `  ${n}: surface ${r.surface} vs --fin-canvas ${r.canvas}` : `  ${n}`;
+        })
+        .join('\n');
     assert.deepEqual(
-      mismatches,
+      added,
       [],
-      'a finish would composite against a color the dark slide does not paint:\n' +
-        mismatches
-          .map((r) => `  ${r.cls}: surface ${r.surface} vs --fin-canvas ${r.canvas} (should be ${r.expected})`)
-          .join('\n'),
+      'these compose a finish against a color the slide does not paint, and did NOT on '
+        + `main — a regression, not a pre-existing gap:\n${detail(added)}`,
+    );
+    assert.deepEqual(
+      fixed,
+      [],
+      'these are pinned as pre-existing (#2294) but now resolve correctly — good news, '
+        + `remove them from KNOWN_PRE_EXISTING:\n${fixed.join('\n  ')}`,
     );
   });
 
-  test('the control proves it is not passing by everything resolving to the deck canvas', async () => {
-    const out = await darkPage.evaluate(() => ({
-      deck: getComputedStyle(document.getElementById('qctl')).backgroundColor,
-      first: getComputedStyle(document.getElementById('q0')).backgroundColor,
-      cover: getComputedStyle(document.getElementById('q3')).backgroundColor,
-    }));
-    assert.notEqual(out.first, out.deck, 'a dark title must NOT composite against the deck canvas');
-    assert.notEqual(out.cover, out.deck, 'a dark accent cover must NOT composite against the deck canvas');
-    assert.notEqual(out.first, out.cover, 'the inverse panel and the accent panel are different surfaces');
+  test('every exempted frame composites against its OWN surface, not the deck canvas', async () => {
+    // The set assertion above passes vacuously if every row resolves to `var(--bg)`.
+    // This names the surface each frame must actually reach, per frame, so a mutant
+    // that makes surface and canvas equally wrong still fails.
+    const EXPECT = {
+      title: '--surface-inverse',
+      closing: '--surface-inverse',
+      divider: '--surface-inverse',
+      'decision-cover': '--accent',
+      'compare-code-cover': '--accent',
+      'compare-split-cover': '--accent',
+      'list-tabular-cover': '--accent',
+      'split-panel-cover': '--accent',
+    };
+    // RESOLVE THE TOKEN BY PAINTING IT, not by reading it. `getPropertyValue('--accent')`
+    // returns the unresolved token stream — `light-dark(#006FA8, #82C8E5)` — because a
+    // custom property's value is substituted at use site, not computed at declaration.
+    // Painting a span `background-color: var(--accent)` inside a dark section is what
+    // turns it into the `rgb()` the section's own background can be compared against.
+    const out = await darkPage.evaluate(
+      (names) => {
+        const probe = document.createElement('section');
+        probe.className = 'content dark';
+        document.querySelector('article').appendChild(probe);
+        const resolved = {};
+        for (const n of names) {
+          const swatch = document.createElement('span');
+          swatch.style.backgroundColor = `var(${n})`;
+          probe.appendChild(swatch);
+          resolved[n] = getComputedStyle(swatch).backgroundColor;
+        }
+        probe.remove();
+        return { resolved };
+      },
+      ['--surface-inverse', '--accent', '--bg'],
+    );
+    const rows = await darkPage.evaluate(
+      (cs) => cs.map((cls, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`q${i}`)).backgroundColor })),
+      cases,
+    );
+    const wrong = [];
+    for (const [frame, token] of Object.entries(EXPECT)) {
+      const row = rows.find((r) => r.cls === `${frame} dark`);
+      assert.ok(row, `${frame} dark must be in the cross`);
+      // The token's own computed value, read off a dark section, is what the frame's
+      // `--fin-canvas` has to equal — and it must differ from the deck canvas, or the
+      // assertion proves nothing.
+      assert.notEqual(out.resolved[token], out.resolved['--bg'], `${token} must differ from --bg under dark`);
+      if (row.canvas !== out.resolved[token]) {
+        wrong.push(`  ${frame} dark: --fin-canvas ${row.canvas}, expected ${token} (${out.resolved[token]})`);
+      }
+    }
+    assert.deepEqual(wrong, [], `a frame composites against the wrong token:\n${wrong.join('\n')}`);
   });
 });

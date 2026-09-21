@@ -321,8 +321,36 @@ section {
  * `var(--bg)`, which is why `divider` alone carries the `:not(.light)` it always had.
  * Excluding `.light` from all three was the first cut of this fix and broke `title
  * light`; the matrix caught it. */
-section:is(.title, .closing):not(.print),
-section.divider:not(.light):not(.print) {
+/* THE EXCLUSION LIST IS "WHAT REPAINTS THE SURFACE ANYWAY", and every entry is a rule
+ * that out-specifies a frame's own (0,1,1) canvas or remaps the token under it:
+ *
+ *     .print                  base.modifiers.css remaps every consumed token to the
+ *                             print band, so a printed bookend takes
+ *                             --print-surface-inverse and a finish mixing toward the
+ *                             SCREEN inverse floods the page.
+ *     .accent                 shared.styles.css `section.accent.dark` (0,2,1) paints
+ *                             var(--bg).
+ *     .spectrum-off           base.variants.css:237 `section.dark.spectrum-off` (0,2,1)
+ *     .spectrum-edge-*        base.variants.css:262 `section.dark:is(.spectrum-edge-…)`
+ *                             :not(.divider) (0,3,1)
+ *
+ * `divider` excludes only .print and .accent: base.variants.css:238 and :266 give it
+ * hand-written carve-outs that KEEP --surface-inverse under spectrum-off and
+ * spectrum-edge-off, and the edge rule excludes it by name, so it holds its canvas
+ * under every spectrum value. Measured: this is the one frame where the exclusions
+ * differ, and getting it wrong costs `divider dark spectrum-off` — which this change
+ * actually FIXES relative to main.
+ *
+ * :not(:where(…)), not a chain of :not(). Seven chained :not() would add (0,7,0) and
+ * change what these rules beat; :where() contributes zero, so the exclusions narrow
+ * what MATCHES and leave the specificity exactly where it was. Same reasoning as the
+ * dark-canvas rule in base.modifiers.css.
+ *
+ * WITHOUT THIS LIST the fix below inverts its own bug one register over. Measured over
+ * 11 frames x {dark} x 11 second modifiers, indaco: main has 14 mismatches, and an
+ * unconditional `.dark` re-point has 60. */
+section:is(.title, .closing):not(:where(.print, .accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off)),
+section.divider:not(.light):not(:where(.print, .accent)) {
   --fin-canvas: var(--surface-inverse);
 }
 
@@ -349,7 +377,7 @@ section.divider:not(.light):not(.print) {
  * different defect from the one this change caused. Tracked as #2294; the dark
  * rows are here because they are the ones this change broke. */
 section.dark:is(.decision-cover, .compare-code-cover, .compare-split-cover,
-                .list-tabular-cover, .split-panel-cover) {
+                .list-tabular-cover, .split-panel-cover):not(:where(.print, .accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off)) {
   --fin-canvas: var(--accent);
 }
 
