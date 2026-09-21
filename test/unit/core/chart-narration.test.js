@@ -1962,3 +1962,37 @@ test('narrateDataSeries: a delimiter row needs a DASH — colons alone are not a
     /Jan: A, one; B, two\./,
   );
 });
+
+// ── a state-chart event's authored line break ─────────────────────────────────
+// The last item the 2026-09-20 audit logged rather than fixed: it was pre-existing and off
+// that branch's path. `state-chart.docs.md`'s `transitions` slot documents BOTH break forms
+// as honored, and the render draws both — so the voice was reading markup the audience sees
+// as a line break. Fixtures are the real deck's own line, not a model of it.
+test('narrateStateChart: an authored <br/> in an event label is a break, not words', () => {
+  const md = (evt) => `<!-- _class: state-chart lr -->\n\n## A label can break.\n\n1. Submitted \`start\`\n   - \`${evt} => 2\`\n2. Second review \`end\``;
+  // examples/state-chart-branching.md:126, verbatim.
+  const br = narrateStateChart(md('needs<br/>second review'));
+  assert.match(br, /needs second review goes to Second review/);
+  assert.doesNotMatch(br, /<br|br slash|&lt;/);
+  // The other documented form: a literal backslash-n.
+  assert.match(narrateStateChart(md('needs\\nsecond review')), /needs second review goes to Second review/);
+  // `<br>` without the slash, and mixed case, are the same break.
+  assert.match(narrateStateChart(md('needs<BR>second review')), /needs second review goes to Second review/);
+});
+
+test('narrateStateChart: the break reads as a SPACE, not a comma', () => {
+  // A state-chart event break is there to FIT the rank gap, so the label is one phrase split
+  // across two lines. A comma would add a pause the author did not write. (A Mermaid node
+  // label keeps its comma — `scrubLabel` — because that break usually separates two things.)
+  const out = narrateStateChart('<!-- _class: state-chart -->\n\n## M.\n\n1. Draft `start`\n   - `needs<br/>second review => 2`\n2. Done `end`');
+  assert.match(out, /needs second review/);
+  assert.doesNotMatch(out, /needs, second/);
+});
+
+test('scrubLabel keeps its comma for a Mermaid label — the two breaks mean different things', () => {
+  // Pinning the ASYMMETRY, so "consistency" does not quietly collapse it. examples/
+  // mermaid-sketch-labels.md authors `Booking received<br/>(EDI 204 / portal)`, where the
+  // break separates a name from its qualifier.
+  const md = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A["Booking received<br/>(EDI 204 / portal)"] --> B["Hold"]', '```'].join('\n');
+  assert.match(narrateDiagram(md), /Booking received, \(EDI 204/);
+});
