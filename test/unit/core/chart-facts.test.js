@@ -418,6 +418,32 @@ test('spoken value — the sign rides in FRONT of a currency prefix', () => {
   assert.equal(say('-$0.8M'), 'down eight hundred thousand dollars');
   assert.equal(say('(1.2M)'), 'down one point two million');
   assert.equal(say('\u22121.2M'), 'down one point two million', 'U+2212, what a spreadsheet paste gives');
+  // AND WRITTEN INSIDE THE PREFIX, which is the second place an author puts it and
+  // the one the first fix missed: stripping the sign only from the front left
+  // `$-0.8M` rebuilding as "-$-800k" — two signs, one of them mid-token — and the
+  // speech layer passed the whole thing through as glyphs.
+  assert.equal(say('$-0.8M'), 'down eight hundred thousand dollars');
+  assert.equal(say('$-0.8M'), say('-$0.8M'), 'the two spellings are one quantity');
+  // THE VOICE FOLLOWS THE PARSER, WHICH IS WHAT THE PICTURE PLOTS. `parseValue` reads
+  // a U+2212 in FRONT of a currency symbol and not behind it, so `$\u22120.8M` plots
+  // POSITIVE and is spoken positive. That asymmetry is the parser's and it is shared
+  // with every chart in the family, so it is filed rather than fixed from here — but
+  // it is pinned, because the one thing that must never drift is the voice saying
+  // "down" over a bar the chart drew up.
+  assert.equal(parseValue('$\u22120.8M') > 0, true);
+  assert.equal(say('$\u22120.8M'), 'eight hundred thousand dollars');
+});
+
+test('spoken value — under the smallest magnitude the LETTER goes, not the rewrite', () => {
+  // `0.5k` is five hundred. Handing the pill back untouched read it as "zero point
+  // five thousand" — the exact shape this function exists to remove, surviving
+  // because the magnitude table starts at a thousand and 500 is under it.
+  assert.equal(say('0.5k'), 'five hundred');
+  assert.equal(say('0.5k'), say('500'), 'and it agrees with the plain spelling');
+  assert.equal(say('0.05M'), 'fifty thousand');
+  // Zero used to take an early return and say "zero million".
+  assert.equal(say('0M'), 'zero');
+  assert.equal(say('0k'), 'zero');
 });
 
 test('spoken value — a non-value pill is handed straight through', () => {
