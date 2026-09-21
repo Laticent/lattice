@@ -666,6 +666,29 @@ describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
         `${name}: lanePadY ${G.lanePadY}u is under the ${minGap()}u floor (barH/4) — bars touch the lane rule`);
     });
 
+  }
+
+  // A LANE NAME CAN TAKE TWO LINES (landscape emits it `maxLines: 2`), and the
+  // band shrink cut its clearance from ~1.75u a side to ~0.3u — measured as not
+  // colliding, and guarded by nothing until this. A future retune that takes a
+  // unit off `barH` would push a two-line name through its own lane rule with
+  // every other test still green, which is the same hole the band floor above
+  // exists to close.
+  test('landscape: a two-line lane name fits inside a one-row lane band', () => {
+    const band = GANTT_GEOM.barH + 2 * GANTT_GEOM.lanePadY;
+    const twoLines = 2 * GANTT_GEOM.fsLane * LINE_HEIGHT;
+    assert.ok(band >= twoLines,
+      `a one-row lane band is ${band}u but a two-line name needs ${twoLines.toFixed(2)}u`);
+  });
+
+  // Portrait sets the name on its OWN band above the bars, one line only.
+  test('portrait: the lane-name band carries its one line', () => {
+    const oneLine = GANTT_GEOM_TALL.fsLane * LINE_HEIGHT;
+    assert.ok(GANTT_GEOM_TALL.laneNameH >= oneLine,
+      `laneNameH ${GANTT_GEOM_TALL.laneNameH}u cannot carry a ${oneLine.toFixed(2)}u line`);
+  });
+
+  for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
     test(`${name}: a lane reads as one group against its neighbors`, () => {
       // Sub-rows inside a lane must sit CLOSER than the lanes themselves are
       // apart, or the grouping inverts and a two-row lane reads as two lanes.
