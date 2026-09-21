@@ -40,6 +40,10 @@
  */
 
 import fs from 'node:fs';
+// The fixed-point tag stripper every kernel here uses — see `spokenText` below.
+import { createRequire } from 'node:module';
+
+const { stripTags } = createRequire(import.meta.url)('../lib/core/plain-text.js');
 
 /** `00:01:02.345` → milliseconds. */
 function ms(stamp) {
@@ -55,13 +59,18 @@ function ms(stamp) {
  * any measurement that counts or greps the raw body is measuring the tags too. This
  * exact mistake already produced a true conclusion by an unsound route once in this
  * repo's history; it is worth a helper rather than a comment.
+ *
+ * IT USES THE SHARED `stripTags`, and the first draft of this file did not — it
+ * carried two local one-pass regexes, which CodeQL flagged high
+ * (js/incomplete-multi-character-sanitization) within minutes of the push. Correct,
+ * and the rule is not academic: removing a tag can splice a NEW one together out of
+ * the text either side of it, so one pass is not a fixed point. `lib/core/plain-text.js`
+ * loops until stable and has done since it was written; reaching for it is HARD
+ * RULE #15, and writing a local copy of a kernel this repo already documents as the
+ * answer is exactly what that rule is for.
  */
 function spokenText(body) {
-  return body
-    .replace(/<[0-9:.]*>/g, '')
-    .replace(/<\/?c[^>]*>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return stripTags(body).replace(/\s+/g, ' ').trim();
 }
 
 function readCues(file) {
