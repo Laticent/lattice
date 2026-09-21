@@ -165,7 +165,7 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { byComponent: {}, marked: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { byComponent: {}, marked: 0, parted: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	const comps = componentNames();
 	if (!comps.length) console.error('  note: dist/docs/components.json is missing — per-component attribution will report everything as (none). Run `npm run build`.');
@@ -275,12 +275,18 @@ async function main() {
 							// too, so the proxy now books every mark hit as piecewise and voids that row's
 							// wrong-element ratio (a mark has no text, so the ratio reads 0).
 							const marked = G.resetMarkHit() > 0;
-							const partial = spanned && !marked ? G.resetSpanPartial() > 0 : false;
-							const ratio = spanned && !marked && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
+							// AND THE SAME AGAIN FOR THE DECLARED-PART TIER. It answers cues no block holds
+							// too, so without its own counter every one of its hits lands in the piecewise
+							// row — the exact mis-attribution the mark tier had to fix. A tier the instrument
+							// cannot tell apart cannot be measured.
+							const parted = G.resetPartHit?.() > 0;
+							const piecewise = spanned && !marked && !parted;
+							const partial = piecewise ? G.resetSpanPartial() > 0 : false;
+							const ratio = piecewise && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes
 							// dark", which is the question a component owner actually has.
-							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: spanned && !marked, marked, partial, ratio } : { comp, miss: true });
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: piecewise, marked, parted, partial, ratio } : { comp, miss: true });
 						}
 						out.push({ slideDone: true, any, comp });
 					}
@@ -320,6 +326,7 @@ async function main() {
 				tally.byKind[row.kind] = (tally.byKind[row.kind] ?? 0) + 1;
 				tally.byRole[row.role] = (tally.byRole[row.role] ?? 0) + 1;
 				if (row.marked) tally.marked += 1;
+				if (row.parted) tally.parted += 1;
 				if (row.spanned) {
 					tally.spanned += 1;
 					if (row.partial) tally.spanPartial += 1;
@@ -353,6 +360,7 @@ async function main() {
 	const ratios = tally.spanRatio.slice().sort((a, b) => a - b);
 	const q = (f) => (ratios.length ? ratios[Math.min(ratios.length - 1, Math.floor(f * ratios.length))].toFixed(2) : 'n/a');
 	console.log(`  answered by a MARK (data-label / data-value)   ${tally.marked} (${pct(tally.marked, tally.resolved)})`);
+	console.log(`  answered by a DECLARED PART (manifest \`handles\`)     ${tally.parted} (${pct(tally.parted, tally.resolved)})`);
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
 	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);
@@ -391,6 +399,27 @@ async function main() {
 		console.log(`    ${r.name.padEnd(22)} ${String(r.cues).padStart(5)} ${pct(r.resolved, r.cues).padStart(9)}   ${handles || '—'}`);
 	}
 	if (unseen.length) console.log(`\n    never cued by the corpus (no gesture evidence at all): ${unseen.join(', ')}`);
+
+	// ── THE HANDLE ROSTER ────────────────────────────────────────────────────────
+	// A component every one of whose cues lands on `body` never gets a HANDLE: the ink is on the
+	// element's own words, so the "name the handle, not the container" model never fires for it.
+	// That roster is what #2251 is measured against, and the worst-15 table above cannot show it —
+	// a component can resolve 100% of its cues and still never once point at a part.
+	//
+	// IT IS NOT A DEFECT LIST, and reading it as one is the mistake this comment exists to stop.
+	// `body` is the RIGHT answer for two whole classes of target: a chart mark carries no text, so
+	// the mark IS the handle; and an `<h2>` or a `<p>` is just words, so its own words are the
+	// handle. The `textless` column separates the first; the second is why a component whose only
+	// cues are its chart header sits here permanently and correctly.
+	const bodyOnly = compRows.filter((r) => r.resolved > 0 && (r.byRole.body ?? 0) === r.resolved).sort((a, b) => b.cues - a.cues);
+	console.log(`\n  HANDLE ROSTER — ${bodyOnly.length} components resolve every cue to \`body\` (never a handle):`);
+	console.log(`    ${bodyOnly.map((r) => `${r.name}(${r.cues})`).join(' · ') || '—'}`);
+	const withHandle = compRows.filter((r) => r.resolved > 0 && (r.byRole.body ?? 0) < r.resolved);
+	console.log(`    ${withHandle.length} do get one. Handle mix for the components carrying a declared part:`);
+	for (const r of withHandle.filter((x) => x.byRole.part).sort((a, b) => b.byRole.part - a.byRole.part)) {
+		const mix = Object.entries(r.byRole).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${pct(v, r.resolved)}`).join(' · ');
+		console.log(`      ${r.name.padEnd(22)} ${String(r.cues).padStart(5)} cues   ${mix}`);
+	}
 
 	if (jsonAt) fs.writeFileSync(jsonAt, `${JSON.stringify({ tally, perDeck }, null, 2)}\n`);
 }

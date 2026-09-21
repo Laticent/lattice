@@ -1,3 +1,4 @@
+import { GUIDE_HANDLES } from '@/components/studio/guide-handles.generated.js';
 import { toSpokenText } from '@/lib/cadenza';
 import { type Gesture, gestureRest, type RectSource } from '@/lib/vetrina';
 import { frameGeom, innerRectToParent } from '@/playground/frame-geom.js';
@@ -128,7 +129,7 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
  * (`findSpanningTarget`), which is how a label joined to its body finds the thing it names.
  */
 export function findCueTarget(frameDoc: Document | Element | null, text: string): Element | null {
-	return findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text) ?? findMarkTarget(frameDoc, text);
+	return findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text) ?? findMarkTarget(frameDoc, text) ?? findNamedTarget(frameDoc, text);
 }
 
 /**
@@ -272,6 +273,63 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 	return top.el;
 }
 
+/**
+ * THE DECLARED-PART TIER — a cue whose sentence is on the slide, in a token nothing can find.
+ *
+ * `findCueTargetIn` searches `BLOCK_SELECTOR`, one hardcoded element list for all 71 components.
+ * A transform that renders its parts as spans is invisible to it: team-profile's roster is
+ * `<li class="person">` holding a photo and three `<span>`s, so "Marcus Vale, Program Director:
+ * Runs the weekly cadence." matched no block, no piecewise part and no `data-label`, and the
+ * pointer hid — 47 of 86 cues on the component's own gallery.
+ *
+ * The manifest is where that anatomy is already written down, so this tier asks it: a component
+ * declares `handles: [{ part, names }]`, and a cue LED by a part's own name resolves to that
+ * part. `tools/build-guide-handles.js` projects the declarations into
+ * `guide-handles.generated.ts`; the Guide reads a generated catalog rather than holding one,
+ * which is the same arrangement `density.domSelector` already has with the Fix-Me overlay.
+ *
+ * ONE GUARD, AND IT IS THE MARK TIER'S. The name must LEAD the sentence as WHOLE WORDS. The
+ * projection emits "<name>: <body>" or "<name>, <role>: <body>", so the name opens the sentence;
+ * a name that merely recurs later is not what the cue is about, and a character prefix would let
+ * a person called `Al` lead "Already shipped." There is no second guard here: unlike a chart mark
+ * this token declares no value to corroborate, so the lead rule and the ambiguity refusal are the
+ * whole defense — which is why the lead is strict and the longest name wins.
+ *
+ * Ambiguity resolves to NOTHING. Two parts whose names both lead the cue is the one case this
+ * tier could point somewhere wrong, and hiding is what the feature already does when it cannot
+ * place a cue.
+ *
+ * Runs LAST, after the mark tier, so it only ever answers cues every existing tier dropped. It
+ * cannot change an existing resolution, which is what makes its effect measurable as a pure
+ * addition rather than a trade.
+ */
+export function findNamedTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const needle = loose(text);
+	// The same floor the other tiers carry: a needle of pure separators matches whatever holds as
+	// many of them, which is not a match.
+	if (needle.length < 3 || !/[\p{L}\p{N}]/u.test(needle)) return null;
+	const passed: { el: Element; nameLen: number }[] = [];
+	for (const row of GUIDE_HANDLES) {
+		for (const part of root.querySelectorAll(row.part)) {
+			const name = loose(part.querySelector(row.names)?.textContent ?? '');
+			// A one-character name identifies nothing and would lead half the cues on the slide.
+			if (name.length < 2 || !leadsWord(needle, name)) continue;
+			passed.push({ el: part, nameLen: name.length });
+		}
+	}
+	if (!passed.length) return null;
+	// THE LONGER NAME WINS. Every candidate already leads the same sentence, so the longest is the
+	// most of it any declared part accounts for — "Ada Okafor" over an "Ada" elsewhere on the slide.
+	passed.sort((a, b) => b.nameLen - a.nameLen);
+	const [top, next] = passed;
+	// Equal length means the names are the same text (both lead the same needle), so checking the
+	// runner-up alone is complete rather than a shortcut — the same argument as the mark tier's.
+	if (next && next.nameLen === top.nameLen) return null;
+	partHit += 1;
+	return top.el;
+}
+
 /** Where the projection joins a label to what it labels. Not a general sentence splitter — a
  *  colon or semicolon FOLLOWED BY A SPACE, which is what the join emits and what prose rarely
  *  carries inside a clause worth splitting on. */
@@ -389,6 +447,21 @@ export let markHit = 0;
 export const resetMarkHit = (): number => {
 	const n = markHit;
 	markHit = 0;
+	return n;
+};
+
+/**
+ * Did the DECLARED-PART tier answer the last cue? Same shape and same reason as `markHit`.
+ *
+ * Without it every declared-part hit is booked to the piecewise row — it has no containing block
+ * either — which is the exact mis-attribution the mark tier already had to fix once (§7 of the
+ * gesture audit). A tier that cannot be told apart in the instrument cannot be measured, and an
+ * addition nobody can measure is indistinguishable from a trade.
+ */
+export let partHit = 0;
+export const resetPartHit = (): number => {
+	const n = partHit;
+	partHit = 0;
 	return n;
 };
 
@@ -640,7 +713,7 @@ export function aimTarget(block: Element, text = ''): { el: Element; notable: bo
 // show WHICH part), then the MARKER, then the HEADER, then the element's own words.
 
 /** What kind of thing the ink is on — the semantic half of the gesture choice. */
-export type AnchorRole = 'phrase' | 'marker' | 'header' | 'body';
+export type AnchorRole = 'phrase' | 'marker' | 'part' | 'header' | 'body';
 
 export type GuideAnchor = {
 	role: AnchorRole;
@@ -843,6 +916,32 @@ export function headerRange(el: Element): Range | null {
 	}
 }
 
+/**
+ * The range of the token this element's own component says NAMES it, or null.
+ *
+ * `headerRange` above answers the same question by heuristic — "everything before the first
+ * nested block" — and that heuristic has a blind spot with a name: a part built out of `<span>`s
+ * has no nested block, so the cut never happens and the whole part becomes the handle. A card
+ * gets a `bracket` drawn around a border it already had, which is the redundant-boundary defect
+ * the handle model exists to stop.
+ *
+ * So a component may DECLARE the token instead (`handles` in its manifest). Between the marker
+ * and the header deliberately: a `::marker` is a real glyph the element renders, while
+ * "everything before the first nested block" is a guess — and a declaration beats a guess.
+ */
+function declaredHandle(el: Element): Range | null {
+	for (const row of GUIDE_HANDLES) {
+		if (!el.matches(row.part)) continue;
+		const token = el.querySelector(row.names);
+		// A declared token that renders empty is not a handle. Fall through rather than hand back a
+		// zero-width range: the next rule down is the one that would have run anyway.
+		if (!token || !(token.textContent ?? '').trim()) continue;
+		const r = contentRange(token);
+		if (r) return r;
+	}
+	return null;
+}
+
 /** The handle for one cue: what the ink goes on, and what kind of thing that is.
  *
  *  `sentence` is the cue's own range inside `el` when it could be located; `coverage` is how much
@@ -868,6 +967,9 @@ export function anchorFor(el: Element, sentence: Range | null, coverage: number)
 			markerOffset: { dx: marker.left - r.left, dy: marker.top - r.top, width: marker.width, height: marker.height },
 		};
 	}
+	const part = declaredHandle(el);
+	const partRects = rectsOf(part);
+	if (part && partRects) return { role: 'part', box: hull(partRects), rects: partRects, range: part, markerOffset: null };
 	const header = headerRange(el);
 	const headRects = rectsOf(header);
 	if (header && headRects) return { role: 'header', box: hull(headRects), rects: headRects, range: header, markerOffset: null };
