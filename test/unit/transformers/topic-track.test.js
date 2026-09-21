@@ -462,7 +462,13 @@ test('the `_track` directive reaches the slide, and its comment does not', () =>
  * real parser says the `class` is, and — where it matters — that both arms still
  * agree end to end.
  */
-test('the attribute reader agrees with jsdom about what carries `class`', () => {
+// THIS TEST VALIDATES THE TABLE, NOT THE READER — a checker caught the title
+// claiming otherwise. It asserts that jsdom agrees with how the two lists below
+// are split, so the next test's expectations are grounded in a real parser rather
+// than in my reading of the spec. The READER's own pin is the next test, which
+// drives every shape through both arms; that is the one the `ATTR_PAIR` mutant
+// fails.
+test('jsdom agrees with how the tag table below is split', () => {
   const OURS = [
     // The shape a minifier emits: after a QUOTED value, any character re-enters
     // the before-attribute-name state. The anchored walker missed this one.

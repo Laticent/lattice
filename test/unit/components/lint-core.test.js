@@ -1253,15 +1253,23 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.equal(rule(topic('<!-- _track: a > b | [C] -->'), 'track-directive'), undefined);
   });
 
-  /* ── THE PARITY TABLE ────────────────────────────────────────────────────────
-   * The rule's only job is to agree with the renderer, and three review rounds
-   * each found a shape where it did not — in both directions. So the contract is
-   * DATA, checked against `render()` itself rather than against anyone's model of
-   * markdown-it: for every shape below, the linter must warn exactly when the
-   * engine applies a DEGENERATE `_track`. A new shape is a new row, not a new
-   * round.
+  /* ── THE SUBSET TABLE ────────────────────────────────────────────────────────
+   * THE CONTRACT IS ONE-SIDED, and that is the point. Six review rounds each
+   * found a shape where a rule written to AGREE with the renderer did not —
+   * in both directions, every time. The rule is now a deliberate SUBSET of the
+   * engine (see `liveTrackDirective`), so the assertion is one-sided too:
+   *
+   *   · NEVER a false positive — every shape the linter warns about is one the
+   *     engine really applies, and really applies degenerately. This is the arm
+   *     that bites, and it is checked against `render()` itself rather than
+   *     against anyone's model of markdown-it.
+   *   · Silence is allowed. The shapes where the engine applies and the rule says
+   *     nothing are listed by name below, so the cost is a written-down list
+   *     rather than a surprise, and adding to it is a visible diff.
+   *
+   * A new shape is a new row, not a new round.
    */
-  test('the linter agrees with the ENGINE on every directive shape', () => {
+  test('the linter never warns about a directive the ENGINE did not apply', () => {
     const { render } = require('../../../lib/engine');
     const { parseTrackSpec, MIN_TRACK_LABELS: MIN } = require('../../../lib/core/track-spec');
     const D = '<!-- _class: topic -->\n';
@@ -1342,7 +1350,22 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       'two spaces then tab (code)': `${D}${H}  \t<!-- _track: A -->\n`,
       'three spaces then tab (code)': `${D}${H}   \t<!-- _track: A -->\n`,
     };
+    // The written-down cost of being a subset. Two families, both deliberate:
+    //   · a directive inside a CONTAINER (blockquote, list item) is a live
+    //     `html_block` the rule declines, because reading it means re-deriving
+    //     CommonMark's container-indent and tab-expansion rules — which is the
+    //     exact machinery six rounds of checkers falsified;
+    //   · a directive after a block that CLOSED above it — `<pre>x</pre>`, a
+    //     `<div>` ended by a blank line — is declined because the rule never
+    //     tries to work out whether a block closed, only that one opened.
+    const EXPECTED_QUIET = [
+      'blockquote', 'blockquote, four spaces', 'nested blockquote',
+      'nested blockquote, wide', 'bullet', 'bullet, four spaces', 'star bullet',
+      'plus bullet', 'ordered item', 'blockquote then bullet', 'bullet then tab',
+      'after a closed <pre>', 'after a div, spaces-only line between',
+    ];
     const misses = [];
+    const quiet = [];
     for (const [what, body] of Object.entries(SHAPES)) {
       const out = render(FM + body, {});
       const html = typeof out === 'string' ? out : out.html;
@@ -1355,12 +1378,20 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         shouldWarn = labels.length < MIN || current === -1;
       }
       const fired = Boolean(rule(FM + body, 'track-directive'));
-      if (fired !== shouldWarn) {
+      if (fired && !shouldWarn) {
         misses.push(`${what}: engine ${attr === undefined ? 'inert' : JSON.stringify(attr)},`
-          + ` should warn ${shouldWarn}, linter ${fired}`);
+          + ` but the linter WARNED`);
       }
+      if (!fired && shouldWarn) quiet.push(what);
     }
+    // The arm that bites: not one false warning, on any shape in the table.
     assert.deepEqual(misses, []);
+    // And the cost, written down. Every name here is a shape the engine applies
+    // degenerately and the rule declines to warn about, because proving it would
+    // mean modelling a block type — a container marker, raw text, a tag line, a
+    // processing instruction. Silence is the safe direction; the list is the
+    // price, and it is reviewed as a diff rather than discovered by a fuzz.
+    assert.deepEqual(quiet.sort(), [...EXPECTED_QUIET].sort());
   });
 
   test('KNOWN RESIDUAL: a directive in list continuation is not seen', () => {
@@ -1382,14 +1413,55 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.equal(rule(src, 'track-directive'), undefined, 'and the rule really is silent');
   });
 
-  test('KNOWN RESIDUAL: inline html with trailing prose reads as a block', () => {
-    // `<b>bold</b> text` is a PARAGRAPH to markdown-it — type 7 wants the tag
-    // alone on the line, and `b` is not one of the 62 type-6 tags — so a comment
-    // on the next line really is its own token. Telling that apart from
-    // `<div>x</div> text`, which IS type 6, needs that tag list: ~250 bytes gz on
-    // a route carrying 358 bytes of headroom. So this reads it as a block and
-    // stays silent. A false NEGATIVE, which is the safe direction, and pinned
-    // here so it is a known cost rather than a surprise.
+  /* A GENERATED fuzz, not a curated list — the curated table is what six rounds of
+   * checkers kept walking around. Every line shape a deck can carry is crossed with
+   * every other and rendered through the real engine; the rule must not warn about
+   * a single one the engine leaves inert. The full cross (44 x 44 x 3 = 5,808) runs
+   * in `.scratch`; this is the one-context slice, which is fast enough to stand in
+   * the suite and still covers every shape by itself.
+   */
+  test('FUZZ: not one false warning across every generated line shape', () => {
+    const { render } = require('../../../lib/engine');
+    const { parseTrackSpec, MIN_TRACK_LABELS: MIN } = require('../../../lib/core/track-spec');
+    const LINES = [
+      '', '   ', '\t', 'prose', '## H', '> quote', '- item', '1. item',
+      '<div>', '</div>', '<div class="x">', '<p>x</p>', '<b>b</b> text', '<3 you', '<',
+      '<pre>', '</pre>', '</pre nope', '<pre></pre nope', '<pre-x>', '</pre-x>',
+      '<script>', '</script>', 'var s = "</scriptx";', '<style>', '</style>', '<textarea>',
+      '<?php', '?>', '<![CDATA[', ']]>', '<!A', '<!DOCTYPE html>',
+      '<!--->', '<!-- n -->', '<!--', '-->', '--> trailing', '<!-- a --> b',
+      '`code`', '    indented', '```', '~~~', '<!-- _footer: "x" -->',
+    ];
+    const warned = [];
+    for (const a of LINES) {
+      for (const pre of ['', '> ', '- ']) {
+        const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${a}\n${pre}<!-- _track: A -->\n`;
+        const out = render(src, {});
+        const html = typeof out === 'string' ? out : out.html;
+        const attr = (html.match(/data-track="([^"]*)"/) || [])[1];
+        let should = false;
+        if (attr !== undefined) {
+          const raw = attr.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+          const spec = parseTrackSpec(raw);
+          should = spec.labels.length < MIN || spec.current === -1;
+        }
+        if (rule(src, 'track-directive') && !should) {
+          warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)}: engine inert, linter WARNED`);
+        }
+      }
+    }
+    assert.deepEqual(warned, []);
+  });
+
+  test('KNOWN RESIDUAL: a markup line above a directive silences the rest', () => {
+    // NOT A BUG — the subset rule's headline cost, pinned so it is a written-down
+    // price rather than a discovery. `<b>bold</b> text` is a PARAGRAPH to
+    // markdown-it (type 7 wants the tag alone on the line, and `b` is not a type-6
+    // name), so the comment under it really is its own token and really is applied.
+    // The rule declines anyway, because it does not try to work out WHICH kind of
+    // block a markup line opened or whether it closed — that judgement is exactly
+    // what six rounds of checkers falsified. A false NEGATIVE, which is the safe
+    // direction for an advisory rule.
     const { render } = require('../../../lib/engine');
     const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<b>bold</b> text\n<!-- _track: A -->\n`;
     const out = render(src, {});
