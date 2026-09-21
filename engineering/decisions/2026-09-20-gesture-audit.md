@@ -367,14 +367,27 @@ is what makes the table above a pure addition rather than a trade.
 
 ## 8. What is left
 
-- **The non-chart handle failure is untouched.** `team-profile`, `kanban`, `timeline-list`,
-  `progress`, `contact`, `video`, `matrix-grid`, `logo-wall` render classes nothing declares. Fixing
-  them means a RENDERED handle declaration in the manifest — the same shape as `density.domSelector`,
-  which exists for exactly this reason and which only 4 components use. That is a new manifest field
-  plus a writing task across ~9 components, and it is the natural next slice.
-- **The prose joins are untouched.** `journey`, `compare-table`, `kpi`, `team-profile` lose cues to
-  sentences composed across elements (`Ada Okafor, Executive Sponsor: Clears blockers`), which no
-  mark declares and the piecewise matcher cannot split on a comma. Route A — an anchor token from the
-  projection — is still the answer there, and still changes a shared kernel contract.
-- **How it FEELS is still unverified**, which the semantics record named as the gate that matters
-  most. This measures reach, not quality. It needs a person, a deck and two minutes.
+- **The non-chart handle failure — TAKEN, and this paragraph had it half wrong.**
+  `2026-09-21-manifest-handles.md` shipped the new field (`handles`, `{ part, names }`) and a
+  generated catalog the Guide reads. Two things it corrects here. The list above is not a list of
+  handle failures: `kanban`, `timeline-list`, `progress` and `map` get no narrator at all
+  (`chart-narration.js`), so every cue they have is the slide heading, where `body` is the right
+  answer and a declaration could never fire — which is also why `density.domSelector`, the field
+  this paragraph pointed at, would have moved nothing. And the shape is not "~9 components":
+  across all 71, **nine** render a part with a name inside it, and the wins are concentrated in
+  the ones this note did not name — `table` (this note's `compare-table`) 60.9% -> 97.8%,
+  `matrix-grid` 30.4% -> 100%. Corpus 87.2% -> 89.3% at `47d0f4e`, one corpus, both runs back to
+  back, nothing lost.
+- **The prose joins — PARTLY taken, by a route this paragraph did not consider.** It is right
+  that no MARK declares those sentences and that route A changes a shared kernel contract. It is
+  wrong that route A is the only way to reach them: a declared part's own name token reaches any
+  composed sentence the name LEADS, with no kernel change, which is where `team-profile`'s +33,
+  `table`'s +120 and `matrix-grid`'s +32 come from. What is genuinely left is the joins no
+  rendered token leads — `kpi`, `pricing`, `verdict-grid`. Route A is still the answer for
+  those.
+- **How it FEELS — verified for what SHIPPED HERE, on 2026-09-21**, and the qualifier is
+  load-bearing. The maintainer watched the gestures this note's §6 landed, on a real deck, and
+  judged them good (recorded on #2244). That closes the question for the chart mark tier and the
+  showcase; it does not close it for anything built after, which is why this line says what was
+  watched and when rather than carrying an absolute. `2026-09-21-manifest-handles.md` re-opens it
+  for the 381 cues whose handle it moves, and carries its own verification.
