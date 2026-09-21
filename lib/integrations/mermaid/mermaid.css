@@ -45,42 +45,52 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * The prose projection lifts the bare `<svg>` out of the slide into a `<figure>`, so none
  * of the three selectors above reach it. That looks like a missing arm. It is not one, and
  * this comment is here so the next session does not add it back — that arm was written,
- * measured, and reverted.
+ * measured, and reverted. This paragraph is the ONE long form; the three article hosts
+ * carry the rule and a pointer here, and `engineering/mermaid.md` §"How big the re-hosted
+ * diagram is" is the doc-side summary.
  *
- * WHAT MERMAID WRITES, and why it is an asset here: its own natural size, on the svg root.
- * On the mmdc path that is an INLINE `style="max-width: <intrinsic>px"` matching the viewBox
- * width (measured on all five families — flowchart, sequence, state, pie, class); on the
- * browser path it is `width`/`height` ATTRIBUTES in px and no inline cap. On the SLIDE
- * either form is a nuisance: the slide gives the diagram a fixed box and wants it to fill,
- * so the rule above has to beat the inline cap with `!important`. In an ARTICLE it is
- * exactly the statement we want — "this is my natural size" — and the host arm
- * (`width:auto; max-width:100%`, plus the host's own `height:auto`) reads either form as an
- * `<img>`: scale DOWN to the column, never UP past natural, aspect kept by the viewBox.
+ * WHAT THE ARM DID WRONG: it maximized the diagram. `width:100% !important` in the 1100px
+ * article band drew a 2-node flowchart whose natural size is 238x67 at 1100x310, and a
+ * 141x572 state chart at 1100x702 — labels several times the size of the body text beside
+ * them, one diagram per screen. Filling the box is right on a SLIDE, which hands the
+ * diagram a fixed box; in prose the diagram is a figure, and at natural size its labels
+ * set at the prose size.
  *
- * OVERRIDING IT MAXIMIZES EVERY DIAGRAM, which is the wrong answer in prose. Measured in
- * the 1100px article band with `width:100% !important`: a 2-node flowchart whose natural
- * size is 238x67 was drawn into a 1100x310 box, and a 141x572 state chart into 1100x702 —
- * labels several times the size of the body text beside them, one diagram per screen. At
- * natural size those same diagrams set their labels at 16-17px, i.e. the prose size, which
- * is the point: the diagram is a figure in an article, not a slide.
+ * WHAT THE HOSTS DO INSTEAD — the `<img>` contract, one line each:
+ *   figure svg[aria-roledescription] { width:auto; max-width:100% }
+ * `width:auto` takes the diagram's own size, `max-width:100%` scales it DOWN to the column
+ * and never up, and the host's `height:auto` + `max-height` do the same on the other axis.
+ *
+ * `width:auto` AND NOT `width:100%`, because a Mermaid svg root states its natural size in
+ * two shapes and `auto` reads both. The split is not CLI-vs-browser, which an earlier
+ * version of this note claimed: it is FLOWCHART-IN-THE-PREVIEW against everything else.
+ * `lib/runtime/index.js` sets `useMaxWidth:false` in `PREVIEW_ONLY_FLOWCHART` only, so a
+ * browser-rendered flowchart ships `width`/`height` ATTRIBUTES in px and no inline cap
+ * (measured in the Studio pane: 923.671875 x 67, style carries no max-width). Every other
+ * family on that path, and every family on the mmdc path, keeps mermaid's default
+ * `useMaxWidth:true`: `width="100%"` plus an inline `style="max-width:<natural>px"`
+ * (measured: pie 563.344px, sequence 650px in the pane; flowchart 896.438px from mmdc).
  *
  * THE VIEWBOX IS THE UNIVERSAL DIMENSION, so no per-family rule is needed. A wide LR
- * flowchart (aspect 13.4) binds on the column width; a tall TB one (aspect 0.25) binds on
- * the host's `max-height` and shrinks proportionally (measured: 141x976 draws at 113x780);
- * a square pie binds on whichever is scarcer. The host sets both caps and
- * `margin-inline:auto`; Mermaid supplies the natural size; `preserveAspectRatio` does the
- * rest. Nothing here has to know which family it is looking at.
+ * flowchart binds on the column width (the widest in `.scratch/matrix.md` measures aspect
+ * 13.8 in the pane, 8.4 from mmdc — the two paths lay out at different font metrics); a
+ * tall TB one binds on the host's `max-height` and shrinks proportionally (measured:
+ * 141x976 draws at 113x780); a square pie binds on whichever is scarcer.
+ * `preserveAspectRatio` does the rest. Nothing here has to know which family it is looking
+ * at.
  *
- * WHERE THE ARM ACTUALLY LIVES: one line in each of the three article hosts —
- * `svg[aria-roledescription]{width:auto;max-width:100%}` under `#lp-article`
- * (`lib/export/player-core.mjs`), `#lat-read` (`lattice-emulator.js`) and
- * `.st-read-article` (`docs/src/components/studio/ReadArticle.tsx`). Not here, for two
- * measured reasons: each host's generic figure rule is id-scoped (1,1,1) and a rule here
- * reaching the same element is (0,1,2), so it loses — that is what the reverted arm's
- * `!important` was paying for; and the Studio's pane ships no `lattice.css`, so nothing
- * written here reaches it at all. `width:auto` rather than `width:100%` because mermaid
- * states its natural size two ways: mmdc writes `width="100%"` + the inline cap, the
- * browser path writes `width`/`height` ATTRIBUTES in px and no cap. `auto` reads both. */
+ * WHY THE RULE IS NOT HERE. The Studio's pane ships no `lattice.css` at all, so nothing
+ * written in this file reaches it — that alone forces a per-host line. Specificity settles
+ * the other two: a rule here reaching the same element as `figure>svg[aria-roledescription]`
+ * is (0,1,2), and it loses to `#lp-article .lp-figure svg` (1,1,1) and to `#lat-read figure
+ * svg` (1,0,2). That is what the reverted arm's `!important` was paying for. (Against the
+ * Studio's own `.st-read-article figure svg`, (0,1,2), it would have TIED and source order
+ * would have decided — moot, since it never arrives.)
+ *
+ * KEYED ON `aria-roledescription`, which every Mermaid family writes on the svg root and
+ * none of our chart SVGs carry — a chart is token-driven and must keep filling its band.
+ * `class` is not usable (null on sequence and pie) and neither is the svg id (`lattice-mmd-N`
+ * from the CLI, `lattice-mermaid-N` from the browser). */
 
 /* Visibility states keyed off `data-mermaid-state` on the <pre>.
  *

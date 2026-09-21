@@ -5493,16 +5493,19 @@ html,body{background:var(--bg,#fff)}
    letterboxes inside the capped box, no distortion), margin-inline:auto to center it.
    A mermaid diagram opts out of the fill on the next line. */
 #lat-read figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
-/* MERMAID SIZES ITSELF, and the two shapes it ships in are why this is width:auto and not
-   width:100%. mmdc writes width="100%" + an inline max-width:<natural>px; the browser
-   path writes width/height ATTRIBUTES in px and no inline cap (measured, same deck, same
-   five families). width:auto reads both as an <img> would — natural size, from the viewBox —
-   and max-width:100% scales it DOWN to the column when it does not fit. It never scales UP:
-   forcing the band on a 238x67 flowchart drew it at 1100x310 with labels 4x the body text
-   beside it. Scoped by aria-roledescription, which every Mermaid family carries and our own
-   chart SVGs carry none of — a chart is token-driven and must keep filling its band.
-   lib/integrations/mermaid/mermaid.css (THE RE-HOSTED FIGURE) has the long form. */
+/* MERMAID SIZES ITSELF: width:auto takes the diagram's own viewBox size and
+   max-width:100% scales it DOWN to the column, never up — forcing the band on a 238x67
+   flowchart drew it at 1100x310, with labels 4x the body text beside it. NOT width:100%:
+   a browser-rendered flowchart states its size as px ATTRIBUTES while every other family
+   states it as an inline max-width, and auto reads both. Scoped by aria-roledescription
+   so it cannot reach a chart, which is token-driven and must keep filling its band.
+   The long form, with the measurements and why the rule is not in the kernel:
+   lib/integrations/mermaid/mermaid.css § THE RE-HOSTED FIGURE. */
 #lat-read figure svg[aria-roledescription]{width:auto;max-width:100%}
+/* display:block + margin-inline:auto on the image, text-align:center on the caption:
+   parity with the player's article and the Studio's pane, which both centered a figure
+   image and its caption while this one left them ragged against the band's left edge.
+   Visible in a --read export of any deck with an image figure or a caption. */
 #lat-read figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
 #lat-read figcaption{font-size:.82rem;color:var(--text-muted,#777);padding:.5em 0 0;text-align:center}
 #lat-read .lp-figure-note{border:1px dashed var(--border,#ccc);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt,#f7f7f7)}
