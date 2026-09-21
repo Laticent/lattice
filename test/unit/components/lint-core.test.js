@@ -1452,7 +1452,13 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // turns the directive into a table header before `html_block` ever runs).
     for (const a of LINES) {
       for (const pre of ['', '> ', '- ', ' ', '  ', '   ']) {
-        for (const below of ['', '| --- | --- |', 'prose']) {
+        // BELOW IS AN AXIS TOO, and round ten found two families in it. A
+        // delimiter row with trailing blanks is a real table the scanner
+        // rejected; a markup line plus a COMMENT below a directive was voiding
+        // the answer it had already read. Two lines, and one of them a comment.
+        for (const below of ['', '| --- | --- |', '| --- | --- | ', '| :-- | --: |',
+          '> | --- | --- |', 'prose', '<div>x</div>\n<!-- note -->',
+          '<!-- note -->', '<!--\n_track: A | [B] -->']) {
         // THE DIRECTIVE COUNT IS AN AXIS, and it is the one round nine was
         // missing. With ONE directive, declining it IS silence, so "poison can
         // only make it quieter" holds vacuously. With TWO, declining the LATER
@@ -1460,7 +1466,10 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         // later is not, silence becomes a false warning. That is why a skipped
         // comment line now voids the whole slide's answer rather than falling
         // back; this loop is what proves it.
-        for (const first of ['', '<!-- _track: A | B -->\n']) {
+        // MULTI-LINE directives are an axis of their own: the engine reads a
+        // comment block, this rule reads lines, and a directive split across two
+        // lines missed 91 times out of 91 before round ten.
+        for (const first of ['', '<!-- _track: A | B -->\n', '<!--\n_track: A | B -->\n']) {
         // And the VALUE axis: the directive under test is degenerate half the time,
         // so the single-directive arm still exercises a real warning. Adding the
         // `first` axis without this silently emptied that arm — `deg1` went to 0.
@@ -1491,16 +1500,24 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // And the arm that keeps the SUBSET honest. A rule that went quiet everywhere
     // would also pass "no false warnings"; it would not pass this. The counts move
     // with the alphabet, so they are a reviewed diff rather than a discovery.
-    assert.equal(degenerate, 2268, 'shapes the engine applies degenerately');
-    assert.equal(silent, 1896, 'of those, the ones the subset rule declines');
+    assert.equal(degenerate, 11670, 'shapes the engine applies degenerately');
+    assert.equal(silent, 10218, 'of those, the ones the subset rule declines');
+    // SPLIT BY DIRECTIVE COUNT, because the aggregate hides the case that matters.
+    // Almost all the silence is the multi-directive half, where a poisoned later
+    // directive makes last-wins unknowable and the rule voids the slide rather
+    // than falling back to an earlier one. The one-directive half is the ordinary
+    // deck, and a checker caught an earlier version of this rule voiding 38% more
+    // of it than it needed to — only a skipped line that would ITSELF have been
+    // applied can supersede, so only that one blinds.
+    assert.equal(deg1, 1002, 'one-directive shapes the engine applies degenerately');
+    assert.equal(sil1, 582, 'of those, the ones the subset rule declines');
     // SPLIT BY DIRECTIVE COUNT, because the aggregate hides the thing worth
     // watching. Almost all the silence above is the two-directive family, where a
     // poisoned SECOND directive makes last-wins unknowable and the rule voids the
     // slide rather than falling back to the first. The ordinary one-directive case
     // is unchanged by that rule: 413 / 245 here is exactly what it was before the
     // `first` axis existed, which is the evidence that voiding cost nothing real.
-    assert.equal(deg1, 413, 'one-directive shapes the engine applies degenerately');
-    assert.equal(sil1, 245, 'of those, the ones the subset rule declines');
+
   });
 
   /* The delimiter scanner's own pins. A checker mutated it to `/-/` and to a form
@@ -1536,12 +1553,32 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.match(applied(single), /^A$/, 'the engine applies it');
     assert.ok(rule(single, 'track-directive'), 'so the rule must still warn');
 
-    // END OF SLIDE: no line below at all. Every generated fixture ends in a
-    // newline, so `lines[i + 1]` is `''` there and never `undefined` — this is
-    // the only row that reaches the fallback.
+    // END OF SLIDE: no line below at all. A checker showed the `?? ''` fallback is
+    // a no-op — `String(undefined)` is `'undefined'`, which the scanner rejects
+    // exactly as it rejects `''` — so this row does NOT pin that expression. It
+    // pins the outcome: a deck whose last line is the directive still warns.
     const last = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- _track: A | B -->`;
     assert.match(applied(last), /A \| B/, 'the engine applies it');
     assert.ok(rule(last, 'track-directive'), 'so the rule must still warn');
+
+    // ALIGNMENT COLONS were entirely unpinned — two mutants that dropped them
+    // survived the whole file, and each turns a real table into a false warning.
+    const aligned = T('<!-- _track: A | B -->', '| :--- | ---: |', '| a | b |');
+    assert.equal(applied(aligned), undefined, 'the engine reads no directive');
+    assert.equal(rule(aligned, 'track-directive'), undefined, 'so the rule is silent');
+
+    // A CLOSING PIPE MAY BE FOLLOWED BY BLANKS. markdown-it splits the row on `|`
+    // and skips an empty last cell, so this is a real table; rejecting it was 532
+    // false positives over 11,610 generated rows, and invisible in any editor.
+    const trailing = T('<!-- _track: A | B -->', '| --- | --- | ', '| a | b |');
+    assert.equal(applied(trailing), undefined, 'the engine reads no directive');
+    assert.equal(rule(trailing, 'track-directive'), undefined, 'so the rule is silent');
+
+    // A BLOCKQUOTED delimiter row is a blockquote, not a table — the engine
+    // applies the directive, so accepting `>` here silenced a real warning.
+    const quoted = T('<!-- _track: A | B -->', '> | --- | --- |');
+    assert.match(applied(quoted), /A \| B/, 'the engine applies it');
+    assert.ok(rule(quoted, 'track-directive'), 'so the rule must still warn');
   });
 
   test('a pipe-carrying comment over a long blank line does not hang', () => {
