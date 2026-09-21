@@ -178,13 +178,18 @@ const CLOUD_GALLERY = [
 
 test('word-cloud — names the encoding, then reads RANK rather than reciting counts', () => {
   const out = narrateWordCloud(slide('word-cloud', CLOUD_GALLERY));
-  assert.ok(out.includes('Nine terms, sized by how often each came up'), out);
+  assert.ok(out.includes('Sized by how often each came up'), out);
+  // AND NO CENSUS. The frame sentence opened on a term count until a checker found
+  // it wrong on a shipped deck: the packer seats words on a spiral and drops the
+  // ones it cannot fit, so the source lists thirteen where the canvas draws twelve.
+  // Narration runs on markdown and cannot see which. See the arm below.
+  assert.ok(!/[Nn]ine terms/.test(out), out);
   assert.ok(out.includes('Time-to-value is the biggest at five, one clear of security and onboarding at four each'), out);
   // The old floor reading was nine flat sentences of counts. None may survive.
   assert.ok(!/pricing, three\./.test(out), 'the flat count list must be gone');
 });
 
-test('word-cloud — past the cap it COUNTS the remainder instead of reading a wall', () => {
+test('word-cloud — past the cap it NAMES the remainder instead of reading a wall', () => {
   // The gallery's stress slide is twenty terms. It used to read twenty numbers
   // aloud; the docs call eight to twenty the working range, so this is the NORMAL
   // case for this component rather than an edge one.
@@ -198,10 +203,13 @@ test('word-cloud — past the cap it COUNTS the remainder instead of reading a w
     }),
   ).join('\n');
   const out = narrateWordCloud(slide('word-cloud', twenty));
-  assert.ok(out.includes('Twenty terms'), out);
   assert.ok(out.includes('Component is the biggest at five hundred twelve'), out);
-  // The remainder is NAMED as a count, so nothing is silently truncated (§7).
-  assert.ok(out.includes('Eighteen more follow'), out);
+  // The remainder is NAMED as a remainder, so nothing is silently truncated (§7) —
+  // but NOT counted. `f.count` counts what the SOURCE lists and the canvas can hold
+  // fewer (see the census note in `narrateWordCloud`), so "eighteen more follow" is
+  // the same checkable-and-wrong number the opening census was.
+  assert.ok(out.includes('The rest follow'), out);
+  assert.ok(!/\bmore follow\b/.test(out), out);
   assert.ok(out.includes('down to watermark at five'), out);
   assert.ok(!out.includes('scaffolder'), 'a mid-tail term must not be enumerated past the cap');
 });
@@ -413,15 +421,17 @@ test('CHECKER 5 — an all-clear tally is not suppressed by a heading that only 
   assert.equal(reported.match(/cleared their target/g).length, 1, reported);
 });
 
-test('CHECKER 6 — the term count is every word the picture DRAWS', () => {
+test('CHECKER 6 — a word with an unreadable weight is NAMED, not dropped', () => {
   // A non-finite weight is sized to the middle of the scale, not dropped, so the
-  // word is on the slide. Counting only the priced ones said "two terms" over a
-  // picture showing three — and then named the third one sentence later.
+  // word is on the slide. This arm was written against the term COUNT — "two terms"
+  // over a picture showing three — and the count is gone (see the census note in
+  // `narrateWordCloud`). What it was really protecting is the property asserted
+  // here, and the stronger one: the word reaches the listener by NAME.
   const out = narrateWordCloud(slide('word-cloud', [
     '## Typo.', '', '- velocity `12`', '- ownership `9`', '- handoffs `sevn`',
   ].join('\n')));
-  assert.ok(out.includes('Three terms'), out);
   assert.ok(out.includes('Handoffs carries no readable weight'), out);
+  assert.ok(out.includes('Velocity is the biggest at twelve'), out);
 });
 
 test('CHECKER 7 — the echo branch does not stutter its verdict', () => {
@@ -502,7 +512,10 @@ test('CHECKER 8 — a missing frame is never spoken as the word "null"', () => {
     delete PROJECTION['word-cloud'].frame;
     const out = CN.narrateWordCloud(slide('word-cloud', '## X.\n\n- a `5`\n- b `4`\n- c `1`'));
     assert.ok(!/\bnull\b/.test(out), out);
-    assert.ok(out.includes('Three terms'), 'and the sentence still carries its count');
+    // The frame sentence is now the frame and nothing else, so a missing frame
+    // means NO sentence rather than a sentence with a hole in it.
+    assert.ok(!/sized by/i.test(out), out);
+    assert.ok(out.includes('A is the biggest at five'), 'and the rest of the read is untouched');
   } finally {
     PROJECTION['word-cloud'].frame = saved;
   }
@@ -538,12 +551,15 @@ test('CHECKER2 — an all-clear verdict survives a heading that merely counts', 
   assert.equal(stated.match(/cleared their target/g).length, 1, stated);
 });
 
-test('CHECKER2 — a count states what the PICTURE draws, not what the parser kept', () => {
+test('CHECKER2 — a row the PARSER drops is still spoken, because the picture draws it', () => {
   // `parseDataRows` drops a row with no pill, and one whose whole label sits inside
-  // its code span. The chart draws both. "Two terms" over a picture showing three is
-  // the confidently-wrong-number class this work exists to remove.
-  assert.ok(narrateWordCloud(slide('word-cloud', '## X.\n\n- security `5`\n- pricing\n- onboarding `2`')).includes('Three terms'));
-  assert.ok(narrateWordCloud(slide('word-cloud', '## X.\n\n- `residency` `1`\n- security `5`\n- onboarding `2`')).includes('Three terms'));
+  // its code span. The chart draws both. This arm asserted the term COUNT saw them;
+  // the count is gone (see the census note in `narrateWordCloud`), so it asserts the
+  // thing the count was standing in for — the word is not silently deleted.
+  const noPill = narrateWordCloud(slide('word-cloud', '## X.\n\n- security `5`\n- pricing\n- onboarding `2`'));
+  assert.ok(/pricing/i.test(noPill), noPill);
+  const codeSpan = narrateWordCloud(slide('word-cloud', '## X.\n\n- `residency` `1`\n- security `5`\n- onboarding `2`'));
+  assert.ok(/residency/i.test(codeSpan), codeSpan);
 });
 
 test('CHECKER2 — no bullet tally at all when a drawn row could not be scored', () => {
@@ -629,7 +645,7 @@ test('every picture-bound data chart DECLARES what its encoding means', () => {
 test('a declared frame is a lowercase clause the caller composes', () => {
   // The manifest validator enforces this, and this is the cell that proves the
   // validator is wired rather than merely written: a leading capital or a trailing
-  // period lands mid-track as "Nine terms, Sized by how often each came up. ."
+  // period lands mid-track as "Sized by how often each came up. ."
   const { PROJECTION } = require('../../../lib/core/projection-catalog.generated.mjs');
   for (const [name, p] of Object.entries(PROJECTION)) {
     if (!p.frame) continue;
@@ -644,5 +660,5 @@ test('the pilots win over the generic floor for their own components', () => {
   // NARRATORS is first-match-wins and the floor is last, so a pilot must be the one
   // that answers. If the order regressed, the floor's flat reading would come back.
   assert.ok(narrateChart(slide('bullet', BULLET_GALLERY)).includes('Each row shows where we landed'));
-  assert.ok(narrateChart(slide('word-cloud', CLOUD_GALLERY)).includes('sized by how often each came up'));
+  assert.ok(narrateChart(slide('word-cloud', CLOUD_GALLERY)).includes('Sized by how often each came up'));
 });
