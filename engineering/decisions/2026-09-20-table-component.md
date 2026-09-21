@@ -205,6 +205,50 @@ enrollment selector is duplicated between `base.sketch.css` and
 `lib/core/rough-ink.js` and nothing gates the pair; both carry a comment saying
 so.)*
 
+## What the checker found
+
+The change earned maker-checker under HARD RULE #25 and self-reviewed at first.
+Running the checker afterwards was the right call: it found a defect already
+baked into a committed PDF, and three more the gates could not see.
+
+- **The gate was a regex, and `\btable\b` matches inside `table-fill`.** `-` is
+  a non-word character, so a slide carrying only the geometry or zebra switch was
+  walked and stamped — including `examples/universal-table.md`'s own
+  two-switches slide, whose entire subject is those switches. It also split the
+  two render paths, since the DOM mirror matches the class exactly. Now token
+  equality; any future `table-*` modifier would have inherited the bug.
+- **The two paths read cell text from different places.** The token walker used
+  `token.content` — raw markdown SOURCE — while the mirror reads `textContent`.
+  `[2024](…)` is not numeric as source but `2024` is once rendered; an image cell
+  is a non-empty string as source and empty in the DOM. The walker now derives a
+  textContent-equivalent from the inline token's children.
+- **A raw-HTML table reached only the mirror.** markdown-it hands it through as
+  an `html_block`, so the engine never saw its rows while the runtime saw an
+  ordinary `<table>` — one deck, two renderings, which is the HARD RULE #1 break
+  this design exists to avoid. The engine now reads that shape too.
+- **The sketch guard was not the mirror of base's that its comment claimed.**
+  Base uses CHILD combinators; the rewrite used a descendant one, which enrolled
+  a side-frame table in the rough.js painter — a new SVG overlay on a slide that
+  never had one. And collapsing the pre-rename selectors into ONE guard added
+  `glossary` to the interior wave rules it had always been excluded from, which
+  would have invented a row line on a component that draws none. Two guards now,
+  with child combinators.
+- **The migration line was false.** The changelog claimed `lint:deck` suggests
+  the new name; it did not, and could not — the suggester scores edit distance.
+  A `RENAMED_CLASSES` map now names the replacement outright.
+
+Three probes back these rather than prose: the original plain-table one plus
+`@shapes` (links, images, entities, the `table-fill` gate) and `@rawhtml`. Each
+was mutation-tested — reverting the fix turns the matching probe red — because a
+probe that passes against the broken code certifies nothing, which was the
+checker's finding about the first one.
+
+The checker also reported the 224-table corpus count as unreproducible. It is
+not: it re-derives exactly under the four roots the corpus test walks
+(`examples/`, `exemplars/`, `test/integration/baseline-decks/`,
+`lib/components/`). The fair half of that finding was that the docblock said
+"every deck in the repo" without naming them, so it now names them.
+
 ## Verification
 
 - `npm run lint` · `npm test` · `npm run build:check` · `npm run test:integration`.

@@ -162,10 +162,26 @@ test('cellText normalizes emphasis, code fences and whitespace', () => {
 
 // ── the corpus ────────────────────────────────────────────────────────────────
 
-test('every table in every shipped deck resolves to a row label', () => {
-  // The measurement the design rests on, re-run rather than quoted. It is a
-  // RECALL check and says so: the corpus contains no negative cases, so a
-  // regression that made the rule fire OFF too eagerly is what this catches.
+// The two tables that are SUPPOSED to resolve OFF: the demonstration slides in
+// examples/universal-table.md, where a year column shows the rule declining and
+// `row-label` then forces it back on over the same data. They are the corpus's
+// only negative cases, and they exist because a rule with no negative case can
+// only be tested for recall.
+const EXPECTED_OFF = Object.freeze([
+  'examples/universal-table.md: | Year | Revenue | Growth |',
+  'examples/universal-table.md: | Year | Revenue | Growth |',
+]);
+
+test('every table in every shipped deck resolves as the design says', () => {
+  // The measurement the design rests on, re-run rather than quoted, over the
+  // four roots the docblock names — `examples/`, `exemplars/`,
+  // `test/integration/baseline-decks/` and `lib/components/`. Widen the scope
+  // and the totals move, which is why the scope is part of the claim.
+  //
+  // Both arms are asserted. Every table resolves ON except the two demo tables
+  // above, so this catches a rule that fired OFF too eagerly AND one that
+  // stopped firing OFF at all — the second is the arm that would have let the
+  // `table-fill` gate bug back in.
   // It deliberately does NOT assert a total — decks come and go, and pinning
   // the count would make this test a chore rather than a guard.
   const files = execSync(
@@ -202,7 +218,11 @@ test('every table in every shipped deck resolves to a row label', () => {
   }
 
   assert.ok(seen > 100, `expected a real corpus, walked ${seen} tables`);
-  assert.deepEqual(offenders, [], `tables that lost their row label:\n${offenders.join('\n')}`);
+  assert.deepEqual(
+    offenders,
+    [...EXPECTED_OFF],
+    `the set of tables resolving OFF changed.\ngot:\n${offenders.join('\n')}`,
+  );
 });
 
 test('the stamped class name is the one the CSS selects', () => {

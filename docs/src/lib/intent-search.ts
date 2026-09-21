@@ -225,7 +225,9 @@ function queryTerms(query: string, index: IntentIndex): QueryTerm[] {
  * far better at that than this module is: measured over every single-character deletion
  * of every component name (n=520), putting the intent pass first scored 82.1% top-1
  * against the fuzzy pass's 96.0% — `tabel` returned `compare-code` instead of
- * `table`, 73 names regressed. BM25 happily matches one mangled token against
+ * `compare-table`, 73 names regressed. (Measured pre-rename, against the name
+ * list of the time; the n=520 figures are not re-derivable against the current
+ * list, and are kept as the record of why the passes are ordered this way.) BM25 happily matches one mangled token against
  * some unrelated component's prose; Levenshtein over the name list does not.
  */
 export function looksLikeIntent(query: string): boolean {

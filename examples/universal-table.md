@@ -82,6 +82,62 @@ Markdown's `:---`, `:---:` and `---:` alignment survives untouched — the treat
 
 <!-- _class: table -->
 
+`The first column`
+
+## The row label is measured, not assumed
+
+The first column reads as a label — 600 weight, heading ink — when it actually is
+one. The engine decides per table from the header cell and the column itself.
+
+| Criterion | Option A | Option B |
+| --- | --- | --- |
+| Speed | Fast | Slow |
+| Cost | Low | High |
+
+*Measured ON: a named header over a textual column.*
+
+---
+
+<!-- _class: table -->
+
+`The first column`
+
+## A year column is not a set of labels
+
+The same slide class, a numeric first column, and the emphasis declines itself —
+no author opt-out needed. It also declines on an index header (`#`, `No.`,
+`Ref`), a column of bare state markers, and a single-column table.
+
+| Year | Revenue | Growth |
+| --- | --- | --- |
+| 2024 | $4.2M | +21% |
+| 2025 | $5.1M | +3% |
+
+*Measured OFF: every cell in column one is a number.*
+
+---
+
+<!-- _class: row-label -->
+
+`row-label`
+
+## `row-label` forces it on — even here
+
+A plain table, no component class, and the measurement would have declined this
+column. `row-label` overrules it. `no-row-label` overrules the other way, and
+wins if a slide somehow carries both.
+
+| Year | Revenue | Growth |
+| --- | --- | --- |
+| 2024 | $4.2M | +21% |
+| 2025 | $5.1M | +3% |
+
+*The author always has the last word.*
+
+---
+
+<!-- _class: table -->
+
 `Riding it`
 
 ## The `table` component IS this treatment

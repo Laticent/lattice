@@ -241,6 +241,71 @@ const PROBES = {
     probe: marked('table.lat-row-label'),
   },
 
+  // A SECOND probe for the same row, on the shapes the first cannot reach — the
+  // exact inputs a checker found the two paths disagreeing on. The first probe
+  // is plain markdown tables with a named header, and both paths agreed on that
+  // shape from the start, which is precisely why it certified nothing.
+  //
+  // What diverged: the token walker read `token.content` (raw markdown SOURCE)
+  // while the mirror reads `textContent`, so a link cell was `[2024](…)` on one
+  // side and `2024` on the other, an image cell was a non-empty string on one
+  // side and `''` on the other, and an entity was `&mdash;` against `—`. Each
+  // one flips the kernel's numeric / empty / placeholder arms. The `table-fill`
+  // slide is the gate half: `\btable\b` matched inside `table-fill`, so the
+  // engine walked a slide the mirror's `section.table` selector never selects.
+  'tableRowLabels@shapes': {
+    row: 'tableRowLabels',
+    min: 1,
+    section: 'table',
+    body: [
+      '## Shapes the plain probe cannot reach', '',
+      '| Criterion | Note |', '|---|---|',
+      '| Speed | fast |', '| Cost | low |', '',
+      '| Year | Revenue |', '|---|---|',
+      '| [2024](https://example.test) | 4.2 |', '| [2025](https://example.test) | 5.1 |', '',
+      '| Logo | Vendor |', '|---|---|',
+      '| ![acme](a.png) | Acme |', '| ![beta](b.png) | Beta |', '',
+      '| Owner | Task |', '|---|---|',
+      '| &mdash; | Triage |', '| &mdash; | Review |',
+    ].join('\n'),
+    probe: marked('table.lat-row-label'),
+  },
+
+  // A THIRD probe: a table the author wrote as RAW HTML. markdown-it hands it
+  // through as an `html_block`, so the token walker never saw its rows while the
+  // DOM mirror saw an ordinary `<table>` — the engine left it unstamped and the
+  // runtime stamped it, which made the PDF and the HTML export of ONE deck
+  // disagree. Two tables again, so a path that stamps every raw table fails.
+  'tableRowLabels@rawhtml': {
+    row: 'tableRowLabels',
+    min: 1,
+    section: 'table',
+    body: [
+      '## Raw HTML tables', '',
+      // ONE LINE per table, deliberately. Split across source lines, markdown-it
+      // keeps the newline inside the `html_block`, and `marked` collapses
+      // whitespace in the HOST text but not in the element's own `textContent`
+      // — so the two sides differ by a `\n` and the probe reports a fidelity
+      // failure that is really the harness's own serialization divergence. The
+      // verdict agreed either way; only the string did not.
+      '<table><thead><tr><th>Metric</th><th>Q1</th></tr></thead><tbody><tr><td>Revenue</td><td>4.2</td></tr><tr><td>Churn</td><td>2%</td></tr></tbody></table>', '',
+      '<table><thead><tr><th>Year</th><th>Q1</th></tr></thead><tbody><tr><td>2024</td><td>4.2</td></tr><tr><td>2025</td><td>5.1</td></tr></tbody></table>',
+    ].join('\n'),
+    // The harness's bare `new MarkdownIt()` runs with `html: false`, so it would
+    // ESCAPE these tables and hand the runtime no `<table>` at all — the probe
+    // would be testing the harness. Marp runs with HTML enabled, so the markup
+    // the runtime really receives is the tables themselves; supply it directly,
+    // which is what this field is for.
+    markup:
+      '<section class="table"><h2>Raw HTML tables</h2>' +
+      '<table><thead><tr><th>Metric</th><th>Q1</th></tr></thead>' +
+      '<tbody><tr><td>Revenue</td><td>4.2</td></tr><tr><td>Churn</td><td>2%</td></tr></tbody></table>\n' +
+      '<table><thead><tr><th>Year</th><th>Q1</th></tr></thead>' +
+      '<tbody><tr><td>2024</td><td>4.2</td></tr><tr><td>2025</td><td>5.1</td></tr></tbody></table>' +
+      '</section>',
+    probe: marked('table.lat-row-label'),
+  },
+
   checklistItemStates: {
     min: 4,
     section: 'checklist',

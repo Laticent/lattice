@@ -241,7 +241,7 @@ describe('intent search — the scoring primitives', () => {
 		// vendors against criteria, so a comparison layout has to surface — but which one is
 		// a judgment call between table / compare-prose / split-compare / pricing,
 		// and pinning one makes the test a hostage to re-tuning rather than a guard on
-		// behavior. (My first cut pinned `table` and failed: the real top five leads
+		// behavior. (My first cut pinned `compare-table` (the name at the time) and failed: the real top five leads
 		// with policy-recommendation, then q-and-a, pricing, split-compare, compare-prose.)
 		expect(hits.slice(0, 5).map((h) => h.item.function)).toContain('comparison');
 	});
