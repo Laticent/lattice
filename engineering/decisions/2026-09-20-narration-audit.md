@@ -442,11 +442,14 @@ remaining nine token passthroughs (a slash means four different things; guessing
 reading the glyph), and recommendation 8 — which is now decided in principle (a generic
 data-series narrator first) but not built.
 
-**The component count moved under this record.** The coverage table measured the 70 components
-that existed on 2026-09-20; `anchor/topic` landed on `main` the next day and is not in it. The
-table is a dated measurement, not a live count — re-run `node tools/measure-narration-coverage.mjs`
-to see where a new component falls, and expect Finding 1 to predict it from where that component
-keeps its substance.
+**The component count moved under this record, and Finding 1 predicted the new one.** The
+coverage table measured the 70 components that existed on 2026-09-20; `anchor/topic` landed on
+`main` the next day. Re-running the script on the rebased tree reproduces every number above and
+scores the newcomer at **0.79 across 71 components** (mean 0.673) — an HTML-substance component
+landing in the healthy tier, which is what Finding 1 says to expect from where a component keeps
+its substance. That is the finding used as a prediction rather than a description, on a component
+it was not derived from. The table stays a dated measurement, not a live count: re-run
+`node tools/measure-narration-coverage.mjs`.
 
 ## What is NOT verified
 
