@@ -67,7 +67,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - contracts `1`
 - residency `1`
 
-<!-- Nine terms is past the enumeration cap, so the caption names the leader and its margin, then counts the rest. Before, it read nine counts in a row. -->
+<!-- Nine terms is past the enumeration cap, so the caption names the encoding, then the leader and its margin, then the tail it is standing in for. Before, it read nine counts in a row. It states no TERM COUNT: the packer drops a word it cannot seat, so the source list and the canvas can disagree, and narration runs on markdown. -->
 
 ---
 
@@ -96,7 +96,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - eyebrow `7`
 - watermark `5`
 
-<!-- This slide used to read twenty numbers aloud, in order, with no shape. It is now one sentence: the size of the corpus, the biggest term and how far clear it is, the count of the rest, and where the tail bottoms out. -->
+<!-- This slide used to read twenty numbers aloud, in order, with no shape. It is now three: what size encodes, the biggest term and how far clear it is, and where the tail bottoms out. The heading still names twenty because the AUTHOR counted them; the caption does not, for the reason the previous slide's note gives. -->
 
 ---
 

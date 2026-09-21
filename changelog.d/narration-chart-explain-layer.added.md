@@ -16,7 +16,10 @@
   precise data viz; narration recited every weight anyway, twenty numbers deep on a
   large cloud. It now names the encoding, the biggest term and its margin, the tiers
   under it and the quiet tail — enumerating only clouds small enough to hold, and
-  counting the remainder on the rest so nothing is silently dropped.
+  naming the remainder on the rest so nothing is silently dropped. It states no TERM
+  COUNT, deliberately: the packer drops a word it cannot seat, so a source list and
+  the drawn canvas can disagree (2 of the 34 word-cloud slides in this repo), and
+  narration runs on markdown before any render.
 - **Added: `state-chart` narration opens with the machine's shape.** Every edge was
   read in authored order and the topology was not, so a listener rebuilt the graph
   from a serial list. Slides now open with the size, the endpoints, where the machine
@@ -41,3 +44,29 @@
   becomes one caption cue — and one TTS clip — the hazards slide produced a 39-word
   utterance a listener cannot scrub back into. It is two sentences now: longest cue
   13.2s → 10.1s, p90 7.6s → 6.9s.
+- **Fixed: a `bullet` chart's spoken tally no longer contradicts the chart.** A row
+  whose key is written as a code span (`- \`Target\` \`80%\``) was invisible to
+  narration and fully scored by the chart, and one with a note nested under it was
+  the reverse — so the caption said "none cleared its target" over a chart drawing a
+  cleared bar. Measured over 400 generated decks: 91 of 356 that spoke a tally spoke
+  one the render contradicts, now 0 of 351.
+- **Fixed: a `bullet` row that CLEARED its target no longer swallows its `Band`
+  lines.** Narration absorbs them so they are not read back as prose, and the clause
+  that voices them sat below the cleared branch — so on a cleared row they reached no
+  surface at all.
+- **Fixed: a rounded attainment no longer argues with its verdict.** 99.1 against a
+  99.5 target is 99.6%, which rounds to "one hundred percent of plan" on a row that
+  MISSED. It reads "just short of plan" now, and "just above plan" on the mirror case.
+- **Fixed: a heading carrying any two numbers no longer deletes the tally.** "Three
+  pilots, five weeks in." reports nothing and suppressed the one summary fact a
+  five-row chart has. The tally SHAPE (*"two of five…"*) is what states it; anything
+  else needs a verb, and `over target` and `against plan` join that list. A trailing
+  prose bullet did the same and no longer does.
+- **Fixed: a `state-chart` no longer claims a route to a state it cannot reach.** "A
+  three-state machine from Draft to Draft and Filed. … Nothing leads to Filed" asserted
+  a route and denied it two sentences later. Endpoints are now the terminals the start
+  can actually get to — which also catches an ISLAND of states pointing at each other
+  and cut off from the machine, invisible to the in-degree test it replaces.
+- **Fixed: `$-0.8M` and `0.5k` are spoken.** The first rebuilt as the literal
+  `-$-800k` and reached the voice as glyphs; the second read as *"zero point five
+  thousand"* rather than *"five hundred"*.

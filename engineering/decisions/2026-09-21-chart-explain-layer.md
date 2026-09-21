@@ -351,6 +351,88 @@ track can score perfectly on shape and timing while saying something false, and 
 only check for that is a person who knows the deck listening to it. The caveat is
 narrower, not gone.
 
+## The fourth round — nine more, and what the pattern was (2026-09-21)
+
+Four adversarial rounds have found 5, 8, 8 and 9 defects, and the rate is not
+falling. The fourth round is worth writing down because its findings share a
+shape the first three did not: **three rounds each fixed the instance and left
+the class.**
+
+| Round | Fixed | Left standing |
+|---|---|---|
+| 1 | eight defects in the first output | the parse each one came through |
+| 2 | eight more, including a guard a docs-only commit had deleted | why no test could see it |
+| 3 | the numbers, the pacing | the claims the comments made about both |
+| 4 | the class in each case | — |
+
+**A count narration cannot check.** `narrateWordCloud` opened on "Thirteen terms"
+over a canvas drawing twelve. Rendering every deck in the tree with a word-cloud
+slide and comparing `data-count` against the slide's top-level bullets puts it at
+2 of 34 slides, both `examples/seq-ramp-canvas-aware.md`. There is no better
+count: the packer seats words on a spiral and drops what will not fit, and which
+word that is depends on glyph widths, the pack box and the rung
+`packPortraitLadder` settles on — none of which exist until the transform runs,
+and narration runs on markdown on every call path in the tree. So the census goes,
+and so does its twin ("eighteen more follow"), because removing one and keeping
+the other four sentences later leaves the rule for which counts are allowed
+impossible to state. A word cloud is the only chart in the family whose picture
+can hold fewer things than its source lists; `noteLabelDrop(…, 'pack')` is the
+only DATUM-level drop the family reports.
+
+**A guard that compared two reads of the same scanner.** `tally.total ===
+drawnRowCount(md)` was meant to say "every drawn row was scored", and both sides
+came from one line scanner — so it saw a row the narrator could not PARSE and was
+blind to one the narrator parsed DIFFERENTLY from the transform. 91 of 356
+generated decks that spoke a tally spoke one the rendered chart contradicts.
+
+The guard was not the defect. `parseBulletRow` was, and it is now the transform's
+own rule rather than an approximation: the value is the LAST pill and the key
+swallows the rest (so `- \`Target\` \`80%\`` is structural, which it was not), and
+nothing may sit inside the item after the value (so `- Target \`4\`` over
+`  - note` is detail, which it was not). `test/unit/core/bullet-narration-parity.test.js`
+compares the tally the VOICE speaks against the tally the RENDERED chart states in
+its own `<desc>` — nothing internal on either side — and 0 of 351 diverge.
+
+**An endpoint claim that denied itself two sentences later.** "A three-state
+machine from Draft to Draft and Filed. … Nothing leads to Filed." Both halves read
+true facts. "from X to Y" is a claim about a ROUTE, so `summarizeGraph` computes
+the forward closure from the start and the clause names only terminals in it.
+`unreachable` moves onto the same closure and gets stronger for free: in-degree
+cannot see an ISLAND, two states pointing at each other and cut off from the start.
+
+**Four ways the voice said less than the picture.** A row that CLEARED never
+reached the band clause, so the `Band` lines this narrator absorbs reached no
+surface at all. A rounded percentage read "one hundred percent of plan" on a row
+that missed (99.1 against 99.5 is 99.6%) — the `<desc>` gets away with that by
+printing "below plan" beside the number and the voice named no verdict. A heading
+carrying any two numbers suppressed the tally, so "Three pilots, five weeks in."
+deleted it; the tally SHAPE ("N of M") is what states it. And one trailing prose
+bullet did the same, because the guard counted rows rather than asking whether a
+DROPPED row carried a value.
+
+**Two spellings `spokenValue` still read wrong.** `$-0.8M` puts the sign inside
+the prefix and rebuilt as the literal "-$-800k"; `0.5k` fell under the smallest
+magnitude and came back as "zero point five thousand", the exact shape the
+function exists to remove.
+
+**And the comments were measured instead of argued.** `isChain`'s comment asserted
+in prose that three of its four guards were "provably redundant". Enumerating every
+machine up to four states — every edge subset, in both edge orders, because `next`
+keeps the LAST edge out of a state — says otherwise: `states.length < 2` is
+LOAD-BEARING (a single state with a self-loop reads as a straight chain without
+it), the back-edge test carries 408 of 132132, and out-degree and in-degree are a
+MUTUALLY redundant PAIR — dropping either alone changes nothing, dropping both
+changes 120. That last one is the useful result: a mutation test on either reports
+it dead, and neither may be deleted.
+
+### What this says about the next round
+
+It should be expected to find more. What changed in this one is that each fix
+closes a CLASS — a parse rule rather than a shape, a reachability closure rather
+than a bail, a measured mutation table rather than a claim — so the next round's
+findings should be new ground rather than the same ground in a new costume. That
+is a prediction, not a result.
+
 ## Known limits
 
 - **Nobody has judged the sound.** The track's SHAPE and TIMING are now measured
@@ -372,6 +454,19 @@ narrower, not gone.
 - **`lint:deck` coaches on speaker-note prose that never narrates** — tracked as
   #2277, 161 spurious wall-of-text flags across 187 decks. Found here, off this
   change's path, so logged rather than pulled into the diff (HARD RULE #18).
+- **A word cloud can silently lose a word, and two shipped slides do** — tracked as
+  #2286. `examples/seq-ramp-canvas-aware.md` lists thirteen terms and the packer
+  seats twelve. That is the deck's defect, not narration's, and `noteLabelDrop` already
+  reports it — off this change's path, so filed rather than fixed here.
+- **`parseValue` reads a U+2212 in front of a currency symbol and not behind it** —
+  tracked as #2287. `$−0.8M` plots POSITIVE while `$-0.8M` plots negative. It is the shared
+  parser every chart in the family uses, so fixing it moves rendered bytes; filed,
+  and pinned in `chart-facts.test.js` so the voice can never disagree with the bar.
+- **A state chart still reads its metadata tokens aloud** — tracked as #2288.
+  "Draft start. In Review at-risk. Published end." is the state list reaching the flatten with `start`,
+  `end` and the status keywords in it — a closed vocabulary the chart draws as a
+  disc, a ring and a status color. Pre-existing on `main` (verified by running its
+  `narrateChart` against this deck), so filed.
 - **Only the CLI export path was driven.** Present and the browser read-along run the
   same kernel; both narrators were added to `tools/build-read-along-core.js`'s
   re-export list, which is still hand-kept and still has no gate.
