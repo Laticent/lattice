@@ -39,6 +39,17 @@
 			"trailing-paragraph"
 		]
 	},
+  "labelSet": {
+    "aria": "Band key",
+    "members": [
+      { "key": "1" },
+      { "key": "2" },
+      { "key": "3" },
+      { "key": "4" },
+      { "key": "5" }
+    ],
+    "derivedLabels": "the range of values each band actually covers, formatted with the matrix's own affix"
+  },
 	"tags": [
 		"metric",
 		"percentage",

@@ -640,9 +640,7 @@
       "| ---------- | :--: | :--: | :-: |",
       "| Advanced   | [ ]  | [-]  | [x] Lead |",
       "| Proficient | [-]  | [x] Senior | [-] |",
-      "| Beginner   | [x] Junior | [-]  | [ ]  |",
-      "",
-      "**Your position** · *reachable*"
+      "| Beginner   | [x] Junior | [-]  | [ ]  |"
     ],
     "description": "Two ordered axes as an N×M chart-family grid — each cell marks a position (filled / reachable / not applicable), colored by its row's category from the theme's chart palette."
   },
@@ -658,8 +656,7 @@
       "| Regime 1   | [x]          | [x]          | [-]          |",
       "| Regime 2   | [x]          | [-]          | [x]          |",
       "| Regime 3   | [x]          | [ ]          | [x]          |",
-      "",
-      "Filled = applies, half = partial, empty = exempt."
+      ""
     ],
     "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance."
   },

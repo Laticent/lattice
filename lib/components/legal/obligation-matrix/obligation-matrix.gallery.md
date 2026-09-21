@@ -29,7 +29,7 @@ Regulation × obligation grid — state-marker cells encode applies / partial / 
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
+Neutral ink — data first.
 
 
 ---
@@ -48,7 +48,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Red = applies (exposure). Exempt cells stay neutral — heat marks burden, not relief.
+Heat marks burden, not relief — exempt cells stay neutral.
 
 
 ---
@@ -139,7 +139,7 @@ Each lane stripe signals that the row is its own regime, not a rank.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
+Neutral ink — data first.
 
 
 ---
@@ -158,7 +158,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
+Neutral ink — data first.
 
 
 ---
@@ -177,7 +177,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
+Neutral ink — data first.
 
 
 ---
@@ -191,8 +191,8 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
   - Past one row vs another the grid loses its purpose. Use `compare-prose` or `table` for two-regime comparisons.
 - Mixed cell content
   - Don't mix state markers with prose values in the same matrix — the cell width has to grow to fit prose and the marker grid collapses. Pick one cell type.
-- Missing legend
-  - The trailing paragraph naming filled/half/empty is what onboards a first-time reader. Skipping it forces the audience to guess the mapping.
+- Restating the key in prose
+  - The grid now draws its own key — one named marker per state the cells actually carry — so a trailing sentence repeating 'filled = applies, half = partial' costs a line and can go stale against the markers on the slide. Rename the words with a label set instead; keep the paragraph for what the key cannot say.
 
 ---
 

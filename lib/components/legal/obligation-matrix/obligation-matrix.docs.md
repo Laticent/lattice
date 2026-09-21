@@ -16,7 +16,8 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 |---|---|---|---|
 | `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
 | `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
-| `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
+| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the marker key: `[{[x], In force}, {[ ], Not subject}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing above the grid. |
+| `legend` | `p` | no | Optional trailing paragraph — what to take from the matrix, or a caveat about the placements. It no longer has to explain the markers: the key under the grid names them, derived from the ones the cells actually carry. |
 
 ### Variant decision rule
 
@@ -28,19 +29,21 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 ### Common mistakes
 
+- **Keying a label set on the marker's NAME rather than the marker.** `[{applies, In force}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it.
 - **Explicitly left-aligning table columns (`:---`) instead of leaving alignment unspecified or writing `:---:`.** The matrix unconditionally centers every cell, so a plain column with no alignment markers still centers state-marker glyphs fine. Only an EXPLICIT `:---` left-align syntax breaks it — that emits an inline left-align style, which (being inline) overrides the component's own centering rule regardless of specificity.
 
 ## When to use
 
 - **Many regimes, shared obligations.** Three or more regulations or jurisdictions compared across the same set of duties. The grid lets the reader scan a row to know a regime and a column to know an obligation.
 - **State markers, not values.** Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `table`.
+- **The key's words are a DEFAULT, not a fixed vocabulary.** 'Applies' and 'Exempt' suit a compliance matrix; a licensing or diligence grid wants other words. Write a label set above the grid — `[{[x], In force}, {[ ], Not subject}]` — and those markers are renamed; the ones you do not name keep theirs. The defaults are declared in this manifest's `labelSet`, which is also what `lint:deck` checks your keys against.
 - **Risk axis with heat.** The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[ ]`) cells resolve to the neutral state and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage.
 
 ## When NOT to use
 
 - **Two regimes only.** Past one row vs another the grid loses its purpose. Use `compare-prose` or `table` for two-regime comparisons.
 - **Mixed cell content.** Don't mix state markers with prose values in the same matrix — the cell width has to grow to fit prose and the marker grid collapses. Pick one cell type.
-- **Missing legend.** The trailing paragraph naming filled/half/empty is what onboards a first-time reader. Skipping it forces the audience to guess the mapping.
+- **Restating the key in prose.** The grid now draws its own key — one named marker per state the cells actually carry — so a trailing sentence repeating 'filled = applies, half = partial' costs a line and can go stale against the markers on the slide. Rename the words with a label set instead; keep the paragraph for what the key cannot say.
 
 ## Authoring
 
@@ -55,7 +58,6 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 | Regime 2   | [x]          | [-]          | [x]          |
 | Regime 3   | [x]          | [ ]          | [x]          |
 
-Filled = applies, half = partial, empty = exempt.
 ```
 
 ## Anatomy
@@ -96,7 +98,7 @@ Cells shaded by burden.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Red = applies (exposure). Exempt cells stay neutral — heat marks burden, not relief.
+Heat marks burden, not relief — exempt cells stay neutral.
 ```
 
 ### `asymmetric` — asymmetric

@@ -33,7 +33,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 | Understand | [x] Mid | [-] | [ ] | [ ] |
 | Remember   | [x] Junior | [-] | [ ] | [ ] |
 
-**Your level** · *where you can operate when called for* — illustrative, placements vary by company.
+Illustrative — placements vary by company.
 
 
 ---
@@ -76,7 +76,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 | Understand | [x] Mid | [-] | [ ] | [ ] |
 | Remember   | [x] Junior | [-] | [ ] | [ ] |
 
-**Your level** · *where you can operate when called for* — illustrative, placements vary by company.
+Illustrative — placements vary by company.
 
 
 ---
@@ -99,7 +99,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 | Understand | [x] Mid | [-] | [ ] | [ ] |
 | Remember   | [x] Junior | [-] | [ ] | [ ] |
 
-**Your level** · *where you can operate when called for* — illustrative, placements vary by company.
+Illustrative — placements vary by company.
 
 
 ---
@@ -122,7 +122,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 | Understand | [x] Mid | [-] | [ ] | [ ] |
 | Remember   | [x] Junior | [-] | [ ] | [ ] |
 
-**Your level** · *where you can operate when called for* — illustrative, placements vary by company.
+Illustrative — placements vary by company.
 
 
 ---

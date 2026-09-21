@@ -77,6 +77,18 @@
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
+  "labelSet": {
+    "aria": "Mood scale",
+    "members": [
+      { "key": "1", "label": "Pain" },
+      { "key": "5", "label": "Delight" }
+    ],
+    "unkeyed": [
+      { "key": "2", "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself" },
+      { "key": "3", "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself" },
+      { "key": "4", "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself" }
+    ]
+  },
   "orientation": [
     "landscape",
     "portrait"
@@ -98,6 +110,11 @@
     "claim-bleed"
   ],
   "slots": {
+    "key": {
+      "selector": "p > code:only-child",
+      "required": false,
+      "description": "OPTIONAL label set renaming the mood scale's two POLES: `[{1, Friction}, {5, Flow}]`, one inline-code span alone in its paragraph, outside the journey list. Only `1` and `5` are keyable — the steps between them show their number, which is the scale itself. The defaults `Pain` and `Delight` are declared in this manifest's `labelSet`; naming one pole leaves the other on its default. The rename reaches the key's accessible name too, so a screen reader and the slide cannot disagree."
+    },
     "heading": {
       "selector": "h1, h2",
       "required": true,
@@ -120,6 +137,10 @@
     {
       "title": "Affect is part of the story",
       "body": "When a process matters not just for its steps but for how each step feels. The 1-5 mood score makes the emotional contour part of the chart instead of buried in narration."
+    },
+    {
+      "title": "The poles are a DEFAULT, not an assertion",
+      "body": "`Pain` and `Delight` are right for a customer journey and wrong for an ops, cost or risk one — a scale's polarity is not something the engine can derive. Write a label set outside the list — `[{1, Friction}, {5, Flow}]` — and the poles are renamed, on the slide and in the key's accessible name. Only the two poles take words; the steps between carry their number."
     },
     {
       "title": "Actors share the trail",
@@ -181,6 +202,10 @@
     }
   },
   "commonMistakes": [
+    {
+      "mistake": "Keying a middle step in a label set, e.g. `[{3, Neutral}]`.",
+      "fix": "Only the two POLES are keyable — `1` and `5`. The steps between show their number, which IS the scale; a word on step 3 would compete with the number beside it. `lint:deck` says so, quoting the manifest's own reason."
+    },
     {
       "mistake": "Treating the mood scale as if 1 were best instead of worst.",
       "fix": "The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction."

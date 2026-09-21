@@ -16,6 +16,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
+| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the mood scale's two POLES: `[{1, Friction}, {5, Flow}]`, one inline-code span alone in its paragraph, outside the journey list. Only `1` and `5` are keyable — the steps between them show their number, which is the scale itself. The defaults `Pain` and `Delight` are declared in this manifest's `labelSet`; naming one pole leaves the other on its default. The rename reaches the key's accessible name too, so a screen reader and the slide cannot disagree. |
 | `heading` | `h1, h2` | yes | Slide heading naming the journey or process. |
 | `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries inline-code tokens: `@actor` (one or more), `:N` mood 1-5, optional `+N` volume (used by .weighted). |
 
@@ -29,12 +30,14 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 ### Common mistakes
 
+- **Keying a middle step in a label set, e.g. `[{3, Neutral}]`.** Only the two POLES are keyable — `1` and `5`. The steps between show their number, which IS the scale; a word on step 3 would compete with the number beside it. `lint:deck` says so, quoting the manifest's own reason.
 - **Treating the mood scale as if 1 were best instead of worst.** The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction.
 - **Assuming an omitted `:N` mood token leaves the task unplotted.** Omitting `:N` silently defaults the task to a neutral mood of 3 — it still plots normally under every variant, just without a deliberate score. Always give an explicit `:N` so the chart reflects real affect instead of a silent default.
 
 ## When to use
 
 - **Affect is part of the story.** When a process matters not just for its steps but for how each step feels. The 1-5 mood score makes the emotional contour part of the chart instead of buried in narration.
+- **The poles are a DEFAULT, not an assertion.** `Pain` and `Delight` are right for a customer journey and wrong for an ops, cost or risk one — a scale's polarity is not something the engine can derive. Write a label set outside the list — `[{1, Friction}, {5, Flow}]` — and the poles are renamed, on the slide and in the key's accessible name. Only the two poles take words; the steps between carry their number.
 - **Actors share the trail.** Use when multiple actors hand off through the sequence — customer, sales, onboarding, support. The `@actor` tokens make the handoff visible on every task chip.
 - **One source, five lenses.** Author the journey once and re-render under any variant. Heatmap for fastest scan, curve for trend, swimlane for actor load, weighted for traffic-mix — same data, different argument.
 

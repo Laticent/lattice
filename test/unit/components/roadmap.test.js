@@ -214,3 +214,121 @@ describe('roadmap', () => {
     assert.match(out, /\[x\] Scoring policy/);
   });
 });
+
+// ── The status key's WORDS are a default, not a vocabulary ──────────────────
+//
+// `STATE_LABEL` used to be a constant here, so a legislative roadmap read
+// "Shipped" and no deck could say otherwise. The words now come from the
+// manifest and an author overrides any of them with an inline label set. These
+// arms hold the three properties that make that safe: the merge is PARTIAL, the
+// spelling is the marker an author already types, and the derived behaviors
+// roadmap always had (present-only, canonical order, nothing when nothing is
+// marked) survive the move into the kernel.
+
+describe('the status key label set', () => {
+  const {
+    transformSection, STATE_LABEL,
+  } = require('../../../lib/components/chart/roadmap/roadmap.transform');
+
+  // A minimal rendered roadmap carrying all four markers.
+  const GRID = '<h2>Plan</h2><table><thead><tr><th></th><th>Q1</th></tr></thead>'
+    + '<tbody>'
+    + '<tr><td>A</td><td>[x] Done</td></tr>'
+    + '<tr><td>B</td><td>[-] Doing</td></tr>'
+    + '<tr><td>C</td><td>[ ] Next</td></tr>'
+    + '<tr><td>D</td><td>[/] Cut</td></tr>'
+    + '</tbody></table>';
+  const CTX = { cls: 'roadmap', classTokens: ['roadmap'], orientation: 'landscape' };
+  const setPara = (t) => `<p><code>${t}</code></p>`;
+  const labels = (html) => [...html.matchAll(/roadmap-legend-label">([^<]*)</g)].map((m) => m[1]);
+
+  test('with nothing authored, the manifest supplies the words', () => {
+    const out = transformSection(GRID, { ...CTX });
+    assert.deepEqual(labels(out.html),
+      ['Shipped', 'In flight', 'Planned', 'Out of scope']);
+    // And those ARE the exported constant, so the runtime mirror cannot drift.
+    assert.deepEqual(labels(out.html), [
+      STATE_LABEL['state-shipped'], STATE_LABEL['state-wip'],
+      STATE_LABEL['state-planned'], STATE_LABEL['state-skipped'],
+    ]);
+  });
+
+  test('naming a SUBSET leaves the rest on their defaults', () => {
+    // The whole point of the construct: a legislative roadmap renames the two
+    // states whose product words are wrong and says nothing about the others.
+    const out = transformSection(
+      setPara('[{[x], Enacted}, {[-], In committee}]') + GRID, { ...CTX });
+    assert.deepEqual(labels(out.html),
+      ['Enacted', 'In committee', 'Planned', 'Out of scope']);
+  });
+
+  test('the [ ] marker is addressable — the brackets protect its space', () => {
+    // A bare ` ` key collapses to empty under the parser's tidy and would take
+    // this row with it. If this arm goes red the docs are wrong, not the test.
+    const out = transformSection(setPara('[{[ ], Not started}]') + GRID, { ...CTX });
+    assert.deepEqual(labels(out.html),
+      ['Shipped', 'In flight', 'Not started', 'Out of scope']);
+  });
+
+  test('the set paragraph is consumed, not printed above the grid', () => {
+    const out = transformSection(setPara('[{[x], Enacted}]') + GRID, { ...CTX });
+    assert.ok(!out.html.includes('Enacted}'), 'the raw set must not survive in the body');
+    assert.ok(!/<code>\[\{/.test(out.html), 'no leftover set code span');
+  });
+
+  test('an ordinary eyebrow in the same shape survives untouched', () => {
+    // matrix-grid's reader documents the trap from the other side; here the
+    // pass-through is what keeps a code-only eyebrow from being eaten.
+    const out = transformSection(
+      setPara('Delivery · FY26') + setPara('[{[x], Enacted}]') + GRID, { ...CTX });
+    assert.match(out.html, /Delivery · FY26/);
+    assert.deepEqual(labels(out.html)[0], 'Enacted');
+  });
+
+  test('order comes from the manifest, never from the author', () => {
+    // The declaration order is a lifecycle. An author listing states backwards
+    // is naming them, not re-ordering the key.
+    const out = transformSection(
+      setPara('[{[/], D}, {[ ], C}, {[-], B}, {[x], A}]') + GRID, { ...CTX });
+    assert.deepEqual(labels(out.html), ['A', 'B', 'C', 'D']);
+  });
+
+  test('only the markers the grid actually carries get a row', () => {
+    const thin = '<h2>Plan</h2><table><tbody><tr><td>A</td><td>[x] Done</td></tr></tbody></table>';
+    const out = transformSection(thin, { ...CTX });
+    assert.deepEqual(labels(out.html), ['Shipped']);
+  });
+
+  test('a key for a state the grid does not carry is dropped', () => {
+    // A chip beside no cell is a row a reader cannot find on the slide.
+    const thin = '<h2>Plan</h2><table><tbody><tr><td>A</td><td>[x] Done</td></tr></tbody></table>';
+    const out = transformSection(setPara('[{[/], Dropped}]') + thin, { ...CTX });
+    assert.deepEqual(labels(out.html), ['Shipped']);
+  });
+
+  test('no markers at all means no key element, not an empty one', () => {
+    const bare = '<h2>Plan</h2><table><tbody><tr><td>A</td><td>Just text</td></tr></tbody></table>';
+    const out = transformSection(bare, { ...CTX });
+    assert.ok(!out.html.includes('roadmap-legend'), 'a roadmap with no markers needs no key');
+  });
+
+  test('the `status` variant still suppresses the key, authored set or not', () => {
+    const out = transformSection(setPara('[{[x], Enacted}]') + GRID,
+      { ...CTX, cls: 'roadmap status', classTokens: ['roadmap', 'status'] });
+    assert.ok(!out.html.includes('roadmap-legend'),
+      'status labels every cell, so the key is redundant');
+  });
+
+  test('an authored label lands as text, never as markup', () => {
+    // Fed as markdown-it really emits it: a code span's content arrives
+    // ENTITY-ESCAPED. The lift decodes it to read the set, and the key builder
+    // escapes it again on the way out — so the round trip has to end as text.
+    // (Hand-writing a raw `<img>` here would test a string the engine never
+    // produces, and would fail for the wrong reason: the label parses empty,
+    // the set is rejected, and the paragraph survives with its raw tag.)
+    const out = transformSection(
+      setPara('[{[x], &lt;img src=x onerror=alert(1)&gt;}]') + GRID, { ...CTX });
+    assert.ok(!out.html.includes('<img'), 'the label must not become a live element');
+    assert.match(out.html, /roadmap-legend-label">&lt;img src=x onerror=alert\(1\)&gt;</);
+  });
+});

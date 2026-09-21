@@ -126,3 +126,110 @@ describe('resolving the author against the chart', () => {
     assert.equal(resolveLabelSet(derived, [{ key: ' 2 ', label: 'Warm' }])[1].label, 'Warm');
   });
 });
+
+describe('the marker literal as a key', () => {
+  // The four state markers are the vocabulary an author already types in a
+  // cell, so they are what a label set addresses a member BY. That works only
+  // because the brackets protect the space: `tidy` collapses whitespace and
+  // trims, so a bare ` ` key would come out empty and be dropped, taking the
+  // "not met / exempt / planned" row with it. This arm is the pin.
+  test('[ ] survives the whitespace tidy because the brackets hold it', () => {
+    assert.deepEqual(
+      parseInlineSet('[{[x], Applies}, {[-], Partial}, {[ ], Exempt}, {[/], Out of scope}]'),
+      [
+        { key: '[x]', label: 'Applies' },
+        { key: '[-]', label: 'Partial' },
+        { key: '[ ]', label: 'Exempt' },
+        { key: '[/]', label: 'Out of scope' },
+      ],
+    );
+  });
+
+  test('a BARE space key is still dropped — which is why the brackets are the spelling', () => {
+    // Stated as a test rather than a comment: if this ever starts working, the
+    // bracket spelling stops being load-bearing and the docs are wrong.
+    assert.equal(parseInlineSet('[{ , Exempt}]'), null);
+  });
+
+  test('padding around a bracketed key does not change which member it names', () => {
+    assert.deepEqual(parseInlineSet('[{ [x] , Applies }]'), [{ key: '[x]', label: 'Applies' }]);
+  });
+});
+
+describe('lifting the set out of a section', () => {
+  const { liftLabelSet } = require('../../../lib/core/lift-label-set');
+
+  test('takes the set and removes only its paragraph', () => {
+    const html = '<p><code>[{1, Cold}, {5, Hot}]</code></p><table>x</table>';
+    const out = liftLabelSet(html);
+    assert.deepEqual(out.set, [{ key: '1', label: 'Cold' }, { key: '5', label: 'Hot' }]);
+    assert.equal(out.html, '<table>x</table>');
+  });
+
+  test('EVERY one-code paragraph is a candidate, not just the first', () => {
+    // The bug this function exists to keep fixed: a slide carries an eyebrow in
+    // exactly the label set's shape and it sets ABOVE the set. Testing only the
+    // first match found the eyebrow, failed to parse it, and gave up — so the
+    // set rendered as a subtitle and the key never appeared.
+    const html = '<p><code>Retention · 2026 cohorts</code></p>'
+      + '<p><code>[{1, Cold}]</code></p><table>x</table>';
+    const out = liftLabelSet(html);
+    assert.deepEqual(out.set, [{ key: '1', label: 'Cold' }]);
+    assert.equal(out.html, '<p><code>Retention · 2026 cohorts</code></p><table>x</table>',
+      'the eyebrow must survive untouched');
+  });
+
+  test('a section with no set is returned unchanged', () => {
+    // The pass-through is load-bearing, not defensive: matrix-grid discriminates
+    // its axis eyebrow by holding TWO code spans, so a ONE-code paragraph there
+    // is an ordinary eyebrow that must survive this scan.
+    const html = '<p><code>just an eyebrow</code></p><table>x</table>';
+    const out = liftLabelSet(html);
+    assert.equal(out.set, null);
+    assert.equal(out.html, html);
+  });
+
+  test('two charts on one slide each get their own scan', () => {
+    // A module-level /g regex carries lastIndex between calls, so the second
+    // chart would start wherever the first stopped. The regex is per-call.
+    const html = '<p><code>[{1, A}]</code></p>';
+    assert.deepEqual(liftLabelSet(html).set, [{ key: '1', label: 'A' }]);
+    assert.deepEqual(liftLabelSet(html).set, [{ key: '1', label: 'A' }]);
+  });
+
+  test('entities in the span are decoded before parsing', () => {
+    // markdown-it writes `&amp;`; a label reading "R&D" must not arrive as "R&amp;D".
+    assert.deepEqual(liftLabelSet('<p><code>[{1, R&amp;D}]</code></p>').set,
+      [{ key: '1', label: 'R&D' }]);
+  });
+});
+
+describe('the declared catalog — one source for the render and the lint', () => {
+  const { labelSetFor, derivedFrom } = require('../../../lib/core/label-set');
+
+  test('a component that declares no set answers null, never a guess', () => {
+    // The honest answer is what stops the lint inventing a vocabulary for a
+    // component that never had one.
+    assert.equal(labelSetFor('quote'), null);
+    assert.equal(labelSetFor(''), null);
+    assert.equal(labelSetFor(undefined), null);
+    assert.deepEqual(derivedFrom('quote', ['[x]']), []);
+  });
+
+  test('derivedFrom keeps DECLARATION order, not the order keys were seen', () => {
+    const set = labelSetFor('roadmap');
+    assert.ok(set, 'roadmap must declare a label set');
+    const order = set.members.map((m) => m.key);
+    const shuffled = [...order].reverse();
+    assert.deepEqual(derivedFrom('roadmap', shuffled).map((m) => m.key), order,
+      'the declaration order is a lifecycle; reading order must not depend on the data');
+  });
+
+  test('derivedFrom returns only the members actually present', () => {
+    const set = labelSetFor('roadmap');
+    const first = set.members[0].key;
+    assert.deepEqual(derivedFrom('roadmap', [first]).map((m) => m.key), [first]);
+    assert.deepEqual(derivedFrom('roadmap', []), [],
+      'no member present means no key at all');
+  });
+});

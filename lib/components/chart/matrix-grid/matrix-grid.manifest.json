@@ -27,6 +27,19 @@
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
+  "labelSet": {
+    "aria": "Cell key",
+    "members": [
+      { "key": "[-]", "label": "reachable" },
+      { "key": "[ ]", "label": "not applicable" }
+    ],
+    "unkeyed": [
+      {
+        "key": "[x]",
+        "why": "a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name — a key row saying 'filled' would repeat on every slide what the cell already says better"
+      }
+    ]
+  },
   "render": "html",
   "renderNote": "HTML/CSS all the way down, no `<svg>` anywhere: a real `<table>` whose cells carry the positional grammar (filled/outlined/empty spans), colored via CSS custom properties per row. Nothing is positioned by numeric value — the grid is text and color in a semantic table, same reasoning as roadmap.",
   "kernel": {
@@ -84,15 +97,20 @@
       "required": true,
       "description": "Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label."
     },
+    "key": {
+      "selector": "p > code:only-child",
+      "required": false,
+      "description": "OPTIONAL label set renaming the cell key: `[{[-], within reach}, {[ ], out of band}]`, one inline-code span alone in its paragraph. TWO shapes are keyable — `[-]` and `[ ]`. `[x]` is deliberately NOT: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a row reading 'filled' would repeat on every slide what the cell already says better. Naming a subset is the normal case; the rest keep the defaults declared in this manifest's `labelSet`. Do not confuse this with the AXIS eyebrow, which is TWO code spans in one paragraph — that is the discriminator, and a one-code paragraph that is not a label set is left alone."
+    },
     "legend": {
       "selector": "p:last-of-type",
       "required": false,
-      "description": "Optional single trailing paragraph, doubling as the chart caption — what the three cell states mean, plus any caveat about the placements. A leading `**bold**` run renders as a filled swatch + label, a leading `*italic*` run as an outlined swatch + label; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption)."
+      "description": "Optional single trailing paragraph, doubling as the chart caption. It no longer has to say what the cell shapes mean — the key under the grid names them — so use it for the caveat the key cannot carry (how the placements were derived, what they are illustrative of). A leading `**bold**` run still renders as a filled swatch + label and a leading `*italic*` run as an outlined swatch + label, for a caption that wants to point at a specific cell; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption)."
     }
   },
-  "skeleton": "<!-- _class: matrix-grid -->\n\n## Where each level sits on two axes.\n\nYour position is the diagonal — depth and reach meet at one cell.\n\n`Wider reach`  `Deeper cognition`\n\n| Depth | Self | Team | Org |\n| ---------- | :--: | :--: | :-: |\n| Advanced   | [ ]  | [-]  | [x] Lead |\n| Proficient | [-]  | [x] Senior | [-] |\n| Beginner   | [x] Junior | [-]  | [ ]  |\n\n**Your position** · *reachable*\n",
+  "skeleton": "<!-- _class: matrix-grid -->\n\n## Where each level sits on two axes.\n\nYour position is the diagonal — depth and reach meet at one cell.\n\n`Wider reach`  `Deeper cognition`\n\n| Depth | Self | Team | Org |\n| ---------- | :--: | :--: | :-: |\n| Advanced   | [ ]  | [-]  | [x] Lead |\n| Proficient | [-]  | [x] Senior | [-] |\n| Beginner   | [x] Junior | [-]  | [ ]  |\n",
   "anatomyBlock": "matrix-grid",
-  "sample": "<!-- _class: matrix-grid -->\n\n## Your level is a cell, not a rung.\n\nYour title is the diagonal — the same verb at a wider reach is a different level.\n\n`Wider reach`  `Deeper cognition`\n\n| Verb | Self | Team | Org | Field |\n| ---------- | :--: | :--: | :--: | :---: |\n| Create     | [ ]  | [-]  | [-]  | [x] Distinguished |\n| Evaluate   | [ ]  | [-]  | [x] Principal | [-] |\n| Analyze    | [ ]  | [-]  | [x] Staff | [-] |\n| Apply      | [-]  | [x] Senior | [-] | [ ] |\n| Understand | [x] Mid | [-] | [ ] | [ ] |\n| Remember   | [x] Junior | [-] | [ ] | [ ] |\n\n**Your level** · *where you can operate when called for* — illustrative, placements vary by company.\n",
+  "sample": "<!-- _class: matrix-grid -->\n\n## Your level is a cell, not a rung.\n\nYour title is the diagonal — the same verb at a wider reach is a different level.\n\n`Wider reach`  `Deeper cognition`\n\n| Verb | Self | Team | Org | Field |\n| ---------- | :--: | :--: | :--: | :---: |\n| Create     | [ ]  | [-]  | [-]  | [x] Distinguished |\n| Evaluate   | [ ]  | [-]  | [x] Principal | [-] |\n| Analyze    | [ ]  | [-]  | [x] Staff | [-] |\n| Apply      | [-]  | [x] Senior | [-] | [ ] |\n| Understand | [x] Mid | [-] | [ ] | [ ] |\n| Remember   | [x] Junior | [-] | [ ] | [ ] |\n\nIllustrative — placements vary by company.\n",
   "stressDoc": {
     "summary": "Six categories by five scope columns.",
     "sample": "<!-- _class: matrix-grid -->\n\n## Six categories by five columns is the grid's practical ceiling.\n\n`Wider reach`  `Deeper cognition`\n\n| Discipline | Self | Pair | Team | Org | Field |\n| --- | :--: | :--: | :--: | :--: | :--: |\n| Vision    | [ ] | [ ] | [-] | [-] | [x] Chief |\n| Strategy  | [ ] | [-] | [-] | [x] VP | [-] |\n| Execution | [ ] | [-] | [x] Director | [-] | [ ] |\n| Delivery  | [-] | [x] Manager | [-] | [ ] | [ ] |\n| Craft     | [x] Senior | [-] | [ ] | [ ] | [ ] |\n| Basics    | [x] Associate | [ ] | [ ] | [ ] | [ ] |\n"
@@ -105,6 +123,10 @@
     {
       "title": "One position, not a status report",
       "body": "The grid exists to show where a single subject sits — a role, a maturity level, a capability — not to track many items' pass/fail state. For that, `obligation-matrix` (regulation × obligation) or `roadmap` (phase × workstream) fit better."
+    },
+    {
+      "title": "The key's words are a DEFAULT, not a fixed vocabulary",
+      "body": "'reachable' and 'not applicable' suit a capability rubric; a coverage or eligibility grid wants other words. Write a label set — `[{[-], within reach}, {[ ], out of band}]` — and those shapes are renamed. Only `[-]` and `[ ]` are keyable: a filled cell's own trailing text is its label, so `[x]` has no general name to give it."
     },
     {
       "title": "Row category carries the color",
@@ -149,8 +171,12 @@
       "fix": "A filled cell's text IS the row's title at that reach — `[x] Senior`, not a bare marker. An unlabeled filled cell renders as an empty colored box."
     },
     {
-      "mistake": "Skipping the legend paragraph.",
-      "fix": "A first-time reader can't infer filled/half/empty from color alone (deliberately — the row hue carries category, not state). One trailing sentence naming the three states is what makes the grid legible without a caption underneath every cell."
+      "mistake": "Keying `[x]` in a label set.",
+      "fix": "`[x]` is deliberately not keyable: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a key row reading 'filled' would repeat on every slide what the cell already says better. Key `[-]` and `[ ]`, the two shapes a reader genuinely cannot infer. `lint:deck` says this back to you, quoting the manifest's own reason."
+    },
+    {
+      "mistake": "Writing the label set as TWO code spans in one paragraph.",
+      "fix": "Two code spans in one paragraph is the AXIS EYEBROW — `` `Wider reach`  `Deeper cognition` `` — and it will be read as the axis names. A label set is ONE code span alone in its paragraph."
     }
   ],
   "dataShapeGuidance": [

@@ -20,12 +20,14 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 | `eyebrow` | `p > code` | no | OPTIONAL axis labels: TWO inline-code spans in one paragraph, placed with the slide's framing text — `` `Wider reach`  `Deeper cognition` ``. The first names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph with only ONE code span is an ordinary eyebrow/subtitle and is left alone. |
 | `subtitle` | `h2 + p` | no | One supporting sentence under the heading, framing how to read the grid. |
 | `matrix` | `table` | yes | Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label. |
-| `legend` | `p:last-of-type` | no | Optional single trailing paragraph, doubling as the chart caption — what the three cell states mean, plus any caveat about the placements. A leading `**bold**` run renders as a filled swatch + label, a leading `*italic*` run as an outlined swatch + label; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption). |
+| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the cell key: `[{[-], within reach}, {[ ], out of band}]`, one inline-code span alone in its paragraph. TWO shapes are keyable — `[-]` and `[ ]`. `[x]` is deliberately NOT: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a row reading 'filled' would repeat on every slide what the cell already says better. Naming a subset is the normal case; the rest keep the defaults declared in this manifest's `labelSet`. Do not confuse this with the AXIS eyebrow, which is TWO code spans in one paragraph — that is the discriminator, and a one-code paragraph that is not a label set is left alone. |
+| `legend` | `p:last-of-type` | no | Optional single trailing paragraph, doubling as the chart caption. It no longer has to say what the cell shapes mean — the key under the grid names them — so use it for the caveat the key cannot carry (how the placements were derived, what they are illustrative of). A leading `**bold**` run still renders as a filled swatch + label and a leading `*italic*` run as an outlined swatch + label, for a caption that wants to point at a specific cell; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption). |
 
 ### Common mistakes
 
 - **Authoring `[x]` with no trailing label, e.g. `| [x] |` alone.** A filled cell's text IS the row's title at that reach — `[x] Senior`, not a bare marker. An unlabeled filled cell renders as an empty colored box.
-- **Skipping the legend paragraph.** A first-time reader can't infer filled/half/empty from color alone (deliberately — the row hue carries category, not state). One trailing sentence naming the three states is what makes the grid legible without a caption underneath every cell.
+- **Keying `[x]` in a label set.** `[x]` is deliberately not keyable: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a key row reading 'filled' would repeat on every slide what the cell already says better. Key `[-]` and `[ ]`, the two shapes a reader genuinely cannot infer. `lint:deck` says this back to you, quoting the manifest's own reason.
+- **Writing the label set as TWO code spans in one paragraph.** Two code spans in one paragraph is the AXIS EYEBROW — `` `Wider reach`  `Deeper cognition` `` — and it will be read as the axis names. A label set is ONE code span alone in its paragraph.
 
 ### Data shape
 
@@ -38,6 +40,7 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 
 - **Both axes are ordered categories.** A depth ladder (skill, seniority, maturity) crossed with a reach or scope ladder (self, team, org, field). If either axis is a free, unordered label, reach for `matrix-2x2` (two axes, four cells) instead.
 - **One position, not a status report.** The grid exists to show where a single subject sits — a role, a maturity level, a capability — not to track many items' pass/fail state. For that, `obligation-matrix` (regulation × obligation) or `roadmap` (phase × workstream) fit better.
+- **The key's words are a DEFAULT, not a fixed vocabulary.** 'reachable' and 'not applicable' suit a capability rubric; a coverage or eligibility grid wants other words. Write a label set — `[{[-], within reach}, {[ ], out of band}]` — and those shapes are renamed. Only `[-]` and `[ ]` are keyable: a filled cell's own trailing text is its label, so `[x]` has no general name to give it.
 - **Row category carries the color.** Each row is colored by its own hue from the chart family's categorical palette, not a status palette — there's no universal 'good' or 'bad' cell here, only which row and how far it reaches.
 
 ## When NOT to use
@@ -62,8 +65,6 @@ Your position is the diagonal — depth and reach meet at one cell.
 | Advanced   | [ ]  | [-]  | [x] Lead |
 | Proficient | [-]  | [x] Senior | [-] |
 | Beginner   | [x] Junior | [-]  | [ ]  |
-
-**Your position** · *reachable*
 ```
 
 ## Anatomy
