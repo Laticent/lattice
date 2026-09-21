@@ -134,7 +134,11 @@ function readStamps(page, sectionSelector) {
       // Both frames: the legacy `> footer` and the Form migration's `.cell-footer > footer`.
       const footer = s.querySelector(':scope > footer, :scope > .cell-footer > footer');
       return {
-        cls: [...s.classList].filter((c) => c !== 'form').join(' '),
+        // `form` and `frame-sovereign` are ENGINE SCAFFOLDING, not part of the slide's
+        // identity: every slide carries `form`, and a sovereign Frame also carries
+        // `frame-sovereign` (2026-09-20). Neither says anything about the numbered
+        // bookend this suite is pinning, so both are filtered out of the comparison.
+        cls: [...s.classList].filter((c) => c !== 'form' && c !== 'frame-sovereign').join(' '),
         content: heading ? getComputedStyle(heading, '::after').content : '<no heading>',
         header: header ? getComputedStyle(header).display : '<no header>',
         footer: footer ? getComputedStyle(footer).display : '<no footer>',
