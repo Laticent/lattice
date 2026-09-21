@@ -501,9 +501,11 @@ describe('gantt — the sketch token reaches the builder', () => {
 // `\s` match the same characters, so a tag that never carries the attribute
 // backtracks over every split — polynomial, and 11 CodeQL js/polynomial-redos
 // alerts on #2250. Slicing the tag out first, then reading its attributes from
-// a bounded string, keeps both steps linear.
+// a bounded string, keeps both steps linear. `[^<>]` rather than `[^>]` is the
+// linear half: excluding `<` stops a run of unclosed `<` rescanning to the end
+// of the input from every one of them, which is the 12th alert CodeQL raised.
 const tagsWith = (html, needle) =>
-  (html.match(/<[^>]+>/g) || []).filter((t) => t.includes(needle));
+  (html.match(/<[^<>]+>/g) || []).filter((t) => t.includes(needle));
 const attrsOf = (tag) => {
   const out = {};
   for (const m of (tag || '').matchAll(/\s([\w:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
