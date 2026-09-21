@@ -51,12 +51,66 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   for (const bookend of ['.title', '.closing', '.divider']) {
     assert.ok(selector.includes(bookend), `${bookend} paints --surface-inverse, so its finish canvas must follow it`);
   }
-  // The CANVAS MODIFIERS must be carved out. `dark` and `print` repaint the section
-  // themselves from base.modifiers.css, which the bundle loads after the component
-  // sheets — so on `title dark` the modifier wins and the surface is `--bg`. Excluding
-  // them is what keeps the fix from inverting its own bug (red-team finding).
-  for (const mod of [':not(.dark)', ':not(.print)']) {
-    assert.ok(selector.includes(mod), `the override must not apply to a ${mod.slice(5, -1)} slide`);
+  // `print` must be carved out ON EVERY SELECTOR IN THE LIST: it REMAPS every consumed
+  // token to the print band rather than exempting anything, so a printed bookend takes
+  // `--print-surface-inverse` and a finish mixing toward the screen inverse would flood
+  // the page.
+  //
+  // PER SELECTOR, not over the joined string. `selector.includes(':not(.print)')` is
+  // true as long as ONE of the comma-separated selectors carries it — measured: dropping
+  // the exclusion from the `title, closing` line passes that check because the `divider`
+  // line still has it. The original loop here had the same hole.
+  // Split on TOP-LEVEL commas only — `section:is(.title, .closing):not(.print)` carries
+  // one inside `:is()`, and a naive `split(',')` cuts it into `section:is(.title` and
+  // `.closing):not(.print)`, which fails on a selector that is perfectly correct.
+  const topLevel = (list) => {
+    const out = [];
+    let depth = 0;
+    let buf = '';
+    for (const ch of list) {
+      if (ch === '(') depth += 1;
+      else if (ch === ')') depth -= 1;
+      if (ch === ',' && depth === 0) {
+        out.push(buf.trim());
+        buf = '';
+        continue;
+      }
+      buf += ch;
+    }
+    if (buf.trim()) out.push(buf.trim());
+    return out.filter(Boolean);
+  };
+  for (const one of topLevel(selector)) {
+    assert.ok(one.includes(':not(.print)'), `\`${one}\` must not apply to a print slide`);
+  }
+  // `.dark` MUST NOT BE CARVED OUT, and this assertion is the inverse of the one that
+  // used to stand here. The carve-out was correct while `section.dark` repainted a
+  // bookend with `var(--bg)` — on `title dark` the modifier won and the surface really
+  // was the deck canvas. `section.dark:not(:where(…))` in base.modifiers.css ended that:
+  // a bookend keeps `--surface-inverse` under dark, so excluding `.dark` here would
+  // point the finish at a color the slide no longer paints — the very inversion the
+  // original carve-out existed to prevent, one modifier over.
+  assert.ok(
+    !selector.includes(':not(.dark)'),
+    'a dark bookend keeps its own canvas now (base.modifiers.css), so the override MUST apply to it',
+  );
+
+  // THE FIVE ACCENT COVERS are exempted from the dark canvas by the same rule and paint
+  // `var(--accent)`, so they owe the same re-point. Scoped to `.dark` on purpose: a cover
+  // paints the accent in every mode, and the plain/light/print rows are a pre-existing
+  // miss tracked as #2294 whose fix changes light rendering.
+  const coverRule = css.match(/([^{}]*)\{\s*--fin-canvas:\s*var\(--accent\)/);
+  assert.ok(coverRule, 'expected a rule setting `--fin-canvas: var(--accent)` for the accent covers');
+  const coverSelector = coverRule[1];
+  assert.ok(coverSelector.includes('.dark'), 'the accent-cover re-point is scoped to dark (see #2294)');
+  for (const cover of [
+    '.decision-cover',
+    '.compare-code-cover',
+    '.compare-split-cover',
+    '.list-tabular-cover',
+    '.split-panel-cover',
+  ]) {
+    assert.ok(coverSelector.includes(cover), `${cover} paints var(--accent) under dark, so its finish canvas must follow it`);
   }
   // …but `light` is carved out for the DIVIDER ONLY: `section.light` paints nothing, so
   // a `title light` keeps its inverse panel while `divider.light` takes the deck canvas.
