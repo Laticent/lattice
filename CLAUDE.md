@@ -12,6 +12,12 @@ This file is an **index, not a manual**: it orients you and points to the
 canonical doc for each topic. Each rule is one line + a pointer; the rationale
 lives in the pointed-to doc. **Read that doc before non-trivial work in its
 area — don't work from memory of it.**
+**Six of them are too big to open whole** — `workflow.md` (29.5k tokens), `mermaid.md`
+(19.8k), `design/forms.md` (17.7k), `development.md` (17.5k), `jank.md` (16.3k),
+`design/design-system.md` (14.9k). For those, open the SECTION, not the file:
+`grep -n '^## ' <doc>` then `sed -n 'A,Bp' <doc>`. A pre-merge card needs 1.2k of
+`workflow.md`, not 29.5k of it — and every token read stays in context, billed, for
+the rest of the session (`engineering/development.md` §Context cost).
 
 ---
 

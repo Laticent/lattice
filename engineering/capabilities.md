@@ -288,6 +288,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
+| `test:tap` | **TODO: describe `test:tap` in tools/build-capabilities.js (SCRIPT_META).** |
 
 ## Tools — `tools/`
 
