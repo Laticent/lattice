@@ -908,7 +908,17 @@ class CodeBlockView {
 	private chip: HTMLButtonElement;
 	private ac = new AbortController();
 	private node: PMNode;
-	constructor(node: PMNode, view: EditorView, onChip: (el: HTMLElement) => void) {
+	constructor(
+		node: PMNode,
+		private view: EditorView,
+		onChip: (el: HTMLElement) => void,
+		// TAKEN IN THE CONSTRUCTOR, not assigned after it. `syncChip` reads the ancestor
+		// slide's `locked` through this, and with the field assigned by the factory
+		// afterwards it was `undefined` on the first paint — so the chip rendered ENABLED
+		// on a locked slide until the first reconcile, which is exactly when a reader is
+		// most likely to click a control they have just seen appear.
+		public getPos: () => number | undefined,
+	) {
 		this.node = node;
 		const pre = document.createElement('pre');
 		pre.className = 'cs-code';
@@ -932,26 +942,53 @@ class CodeBlockView {
 			e.preventDefault();
 			// Put the caret in the fence FIRST. The picker reads the caret block — it is the
 			// same `setFenceTag` command the pill drives — so opening it from a chip on a
-			// block the caret is not in would otherwise retarget the wrong fence, or no fence
-			// at all. `getPos` can be undefined mid-transaction; then the chip simply does
-			// nothing rather than throwing inside a listener.
-			const pos = typeof this.getPos === 'function' ? this.getPos() : undefined;
-			if (typeof pos === 'number') {
-				const inside = Math.min(pos + 1, view.state.doc.content.size);
-				view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(inside))));
-			}
-			onChip(chip);
+			// block the caret is not in would otherwise retarget the wrong fence.
+			// `getPos` returns undefined for a position ProseMirror cannot resolve mid-
+			// transaction. Then the picker still opens on the caret's own fence, which is
+			// the same thing the pill-hosted twin does — not a no-op, as an earlier note
+			// here wrongly said.
+			const pos = this.getPos();
+			if (typeof pos !== 'number') return onChip(chip);
+			const inside = Math.min(pos + 1, view.state.doc.content.size);
+			view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(inside))));
+			// THE DISPATCH ABOVE REBUILDS THIS NODE VIEW, so `chip` — the element the
+			// click arrived on — is already detached by the time we get here. Measured on
+			// the real Studio: after the dispatch the clicked button reported
+			// `isConnected: false` and was no longer the one in the document, so a popover
+			// anchored to it rendered nothing at all. Re-acquire the live chip from the
+			// block's current DOM; fall back to the clicked one if the position no longer
+			// resolves, which is no worse than before.
+			const dom = view.nodeDOM(pos) as HTMLElement | null;
+			onChip((dom?.querySelector?.('.cs-code-chip') as HTMLElement | null) ?? chip);
 		}, { signal: this.ac.signal });
 	}
-	// Assigned by the nodeViews factory; ProseMirror hands it in, and it may return
-	// undefined while a transaction is in flight.
-	getPos: (() => number | undefined) | undefined;
 	private syncChip() {
 		const tag = leadingTag((this.node.attrs.params as string) || '');
 		this.chip.textContent = tag || 'plain';
-		this.chip.title = `Fence language: ${tag || 'none'} — click to change`;
-		this.chip.setAttribute('aria-label', `Fence language: ${tag || 'none'} — change`);
 		this.dom.dataset.lang = tag;
+		// A LOCKED slide takes no edits — `structuralGuard` rejects every doc change that
+		// touches one — so a chip that opened a 192-row picker there would offer choices
+		// and then silently do nothing. That is the register footgun HARD RULE #18 names,
+		// and the pill islands already stand down for it (`syncFormat`'s `!this.locked`).
+		// The chip stays VISIBLE, because knowing the language is still worth having; it
+		// just stops being a control and says why.
+		const locked = this.slideLocked();
+		this.chip.disabled = locked;
+		this.chip.classList.toggle('cs-code-chip-locked', locked);
+		this.chip.title = locked ? `Fence language: ${tag || 'none'} — this slide is edited in Markdown` : `Fence language: ${tag || 'none'} — click to change`;
+		this.chip.setAttribute('aria-label', this.chip.title);
+	}
+	/** Is this fence on a slide Compose holds read-only? Read from the document rather
+	 *  than cached: a slide's `locked` attr is recomputed on every resync. */
+	private slideLocked(): boolean {
+		const pos = this.getPos();
+		if (typeof pos !== 'number') return false;
+		try {
+			const $pos = this.view.state.doc.resolve(pos);
+			return $pos.depth >= 1 && !!$pos.node(1).attrs.locked;
+		} catch {
+			return false; // a position mid-transaction is not worth throwing over
+		}
 	}
 	update(node: PMNode) {
 		if (node.type !== this.node.type) return false;
@@ -959,10 +996,18 @@ class CodeBlockView {
 		this.syncChip();
 		return true;
 	}
-	// The chip is ours; ProseMirror must not read our own rewrite of it as an external
-	// DOM mutation and re-parse the block (which would cost the block its params).
+	// Everything outside `contentDOM` is ours — the chip's own rewrites included — so
+	// ProseMirror never re-reads this node's DOM over chrome it does not own. The
+	// standard shape for a node view with extra furniture, and wider than the "is this
+	// the chip?" test it replaced.
+	//
+	// It is NOT what makes the chip's anchor stable, and the distinction cost an hour:
+	// this node view is rebuilt on every caret move into or out of the fence whatever
+	// this returns (measured both ways on the real Studio), so the click handler
+	// re-acquires the live chip after its dispatch rather than trusting the element it
+	// was called on.
 	ignoreMutation(m: MutationRecord | { target: Node }) {
-		return this.chip.contains(m.target as Node) || m.target === this.chip;
+		return !this.contentDOM.contains(m.target as Node);
 	}
 	stopEvent(e: Event) {
 		return this.chip.contains(e.target as Node);
@@ -1425,20 +1470,26 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// block's chip was clicked (the NodeView reports the element; Radix anchors to it
 	// through `virtualRef`). A React root per fence would be the obvious shape and the
 	// wrong one: a deck of 40 mermaid slides would carry 40 popovers that are shut.
-	const [chip, setChip] = React.useState<HTMLElement | null>(null);
+	// WHERE the last-clicked chip was, not WHICH element it is. The node view holding it
+	// is rebuilt on a caret move and again on blur — which opening the picker causes —
+	// so an element anchor is detached before the popover can paint. A rect is not.
+	const [chipAnchor, setChipAnchor] = React.useState<DOMRect | null>(null);
+	const openChipRef = React.useRef<HTMLElement | null>(null);
 	const onChipClick = React.useCallback((el: HTMLElement) => {
-		setChip((cur) => (cur === el ? null : el)); // clicking the open chip closes it
+		// Clicking the OPEN chip closes it. Identity is compared on the element we were
+		// handed, which is enough: two chips never occupy the same rect.
+		if (openChipRef.current === el) {
+			openChipRef.current = null;
+			setChipAnchor(null);
+			return;
+		}
+		openChipRef.current = el;
+		setChipAnchor(el.getBoundingClientRect());
 	}, []);
 	// Ref-backed for the same reason the settings handler is: the NodeView factory is
 	// built once per deck and must keep calling the CURRENT handler.
 	const onChipRef = React.useRef(onChipClick);
 	onChipRef.current = onChipClick;
-	// A chip whose block was deleted (or whose whole slide was) is a popover anchored to
-	// a detached element — it would hang in the corner of the viewport with nothing under
-	// it. Closing on disconnect is cheaper and more honest than trying to re-anchor.
-	React.useEffect(() => {
-		if (chip && !chip.isConnected) setChip(null);
-	});
 
 	// THE ENGINE ARRIVES LATE, and the plugin cannot see it happen.
 	//
@@ -1460,26 +1511,35 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		if (failed) return;
 		let ticks = 0;
 		const MAX_TICKS = 30; // ~12s at 400ms — past that the engine is not coming
-		const settled = () => {
+		// What the picture looks like right now: the engine's presence plus the set of tags
+		// it still cannot color. Two identical readings in a row means nothing more is
+		// arriving — which is the honest stop, and it stops on a tag NO grammar will ever
+		// have (```anima, a typo, a language highlight.js does not carry) instead of
+		// spinning out the full cap waiting for something that is not coming.
+		const snapshot = () => {
 			const pg = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
-			if (!pg?.highlightSpans) return false;
+			if (!pg?.highlightSpans) return null;
 			const v = viewRef.current;
-			if (!v) return false;
-			let ready = true;
+			if (!v) return null;
+			const missing: string[] = [];
 			v.state.doc.descendants((node) => {
-				if (node.type.name !== 'code_block' || !ready) return true;
+				if (node.type.name !== 'code_block') return true;
 				const tag = leadingTag((node.attrs.params as string) || '');
-				if (tag && !isEngineFence(tag) && pg.languages?.has && !pg.languages.has(tag)) ready = false;
+				if (tag && !isEngineFence(tag) && pg.languages?.has && !pg.languages.has(tag)) missing.push(tag);
 				return false;
 			});
-			return ready;
+			return missing.sort().join(',');
 		};
+		let last: string | null = null;
 		const timer = setInterval(() => {
 			const v = viewRef.current;
-			// Nudge FIRST, then decide whether to stop: the tick that observes the engine
-			// as ready is also the tick whose repaint the author is waiting for.
-			if (v) v.dispatch(v.state.tr.setMeta(codeHighlightKey, true));
-			if (++ticks >= MAX_TICKS || settled()) clearInterval(timer);
+			// Never dispatch mid-composition: a transaction during IME composition is a
+			// documented way to lose a half-typed character, and nothing here is urgent.
+			if (v && !v.composing) v.dispatch(v.state.tr.setMeta(codeHighlightKey, true));
+			const now = snapshot();
+			const stable = now !== null && now === last;
+			last = now;
+			if (++ticks >= MAX_TICKS || stable) clearInterval(timer);
 		}, 400);
 		return () => clearInterval(timer);
 	}, [resetKey, failed]);
@@ -1680,11 +1740,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					slide: (node, nodeView, getPos, decorations) =>
 						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
-					code_block: (node, nodeView, getPos) => {
-						const cv = new CodeBlockView(node, nodeView, (el) => onChipRef.current(el));
-						cv.getPos = getPos as () => number | undefined;
-						return cv;
-					},
+					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el) => onChipRef.current(el), getPos as () => number | undefined),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.
@@ -1857,7 +1913,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
 			    React does not own. Rendered only while a chip is open, so a deck of forty
 			    fences carries one popover rather than forty. */}
-			{chip && viewRef.current && <FencePicker view={viewRef.current} source={source} anchor={chip} open onOpenChange={(o) => { if (!o) setChip(null); }} align="start" />}
+			{chipAnchor && viewRef.current && <FencePicker view={viewRef.current} source={source} anchorRect={chipAnchor} open onOpenChange={(o) => { if (!o) { openChipRef.current = null; setChipAnchor(null); } }} align="start" />}
 		</div>
 	);
 });
@@ -2005,16 +2061,25 @@ function ComposeStyles() {
 			   graph LR in its own bordered chip, then each arrow line in another. The
 			   :where reset costs no specificity and cannot be what a later rule fights. */
 			.cs-host pre.cs-code :where(code){background:none;border:none;padding:0;border-radius:0;font-size:inherit;color:inherit;white-space:pre}
-			.cs-host pre.cs-code{position:relative;margin:.6em 0;padding:26px 14px 12px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-left:2px solid color-mix(in oklab,var(--accent,#006fa8) 55%,var(--border,#e4eaf2));border-radius:0 8px 8px 0;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;line-height:1.58;color:var(--text-body,#2b3a4f);overflow-x:auto;tab-size:2}
+			.cs-host pre.cs-code{position:relative;margin:.6em 0;padding:26px 14px 12px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-left:2px solid color-mix(in oklab,var(--accent,#006fa8) 55%,var(--border,#e4eaf2));border-radius:0 8px 8px 0;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;line-height:1.58;color:var(--text-body,#2b3a4f);tab-size:2}
 			/* A long line SCROLLS rather than wrapping: a wrapped code line reads as two
 			   statements, and the rendered slide does not wrap it either (the component's
-			   own 14-line wall is about height, not width). */
-			.cs-host pre.cs-code :where(code){display:block;min-width:0}
+			   own 14-line wall is about height, not width).
+			   THE SCROLLER IS THE INNER CODE, NOT THE PANEL, and that placement is the
+			   whole reason this rule is two rules. An absolutely-positioned child scrolls
+			   WITH its scroll container, so with overflow on the pre the language chip slid
+			   out of view the moment a line was wider than the panel — the one piece of
+			   chrome that says what the fence is, gone on exactly the fences most likely to
+			   need it. Scrolling the code leaves the chip anchored to the panel. */
+			.cs-host pre.cs-code :where(code){display:block;min-width:0;overflow-x:auto}
 			/* THE CHIP — the fence's language, legible without the caret, and the picker's
 			   trigger. Top-right, the same corner and the same quiet mono voice as the
 			   locked-slide badge, so the two read as one family of block-level labels. */
 			.cs-code-chip{position:absolute;top:5px;right:6px;z-index:1;display:inline-flex;align-items:center;min-height:17px;padding:1px 7px;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
-			.cs-code-chip:hover{color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-code-chip:hover:not(:disabled){color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			/* On a locked slide the chip is a LABEL, not a control — it still names the
+			   language, it just cannot change it (the slide is edited in Markdown). */
+			.cs-code-chip:disabled{cursor:default;opacity:.75}
 			/* An engine sub-language is RENDERED, not colored — the chip says which register
 			   the fence is in before the author reads a token of it. */
 			.cs-host pre.cs-code[data-lang=mermaid] > .cs-code-chip,.cs-host pre.cs-code[data-lang=anima] > .cs-code-chip,.cs-host pre.cs-code[data-lang=functionplot] > .cs-code-chip,.cs-host pre.cs-code[data-lang=latticeplot] > .cs-code-chip{border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}

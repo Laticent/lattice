@@ -1,8 +1,9 @@
 import type { Node as PMNode, ResolvedPos } from 'prosemirror-model';
 import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
+import { normalizeInfo } from '../../../../lib/core/fence-languages.js';
 import { deckSchema } from './deck-doc';
-import { CLASS_RE } from './deck-source';
 import { isEngineFence, PLAIN_FENCE } from './fence-catalog';
+import { classTokens } from './registers';
 
 // Pure fenced-code commands for Compose — no DOM, no React. Shared by the editor's
 // keymap (ComposeView), the divider-bar insert door and the language picker, so none
@@ -31,9 +32,29 @@ export function currentFenceTag(state: EditorState): string {
 	return leadingTag((block.node.attrs.params as string) || '');
 }
 
-/** The leading word of an info string — the language. markdown-it reads only this,
- *  and marp-core attribute syntax (```js {1,3}) lives in the remainder. */
+/**
+ * The leading word of an info string — the language. markdown-it reads only this, and
+ * marp-core attribute syntax (```js {1,3}) lives in the remainder.
+ *
+ * DELEGATES to the engine's own `normalizeInfo` rather than carrying a second split
+ * (HARD RULE #15): that kernel defines what markdown-it takes, down to the `{` and `,`
+ * separators, and a private copy here would be a second answer to the same question.
+ * It also lowercases, which this used not to do — so a ```JS fence set `data-lang="JS"`,
+ * missed the case-sensitive `[data-lang=mermaid]` selectors, and never lit the picker's
+ * checkmark even though `resolveFenceTag` resolved it correctly.
+ *
+ * LOWERCASING CAN CHANGE LENGTH, so this is not the value to slice with — `'İ'` (U+0130)
+ * lowercases to two code units, and slicing the remainder by the normalized length cut a
+ * character off it. `rawLeadingTag` below is what `setFenceTag` slices by.
+ */
 export function leadingTag(params: string): string {
+	return normalizeInfo(params);
+}
+
+/** The leading token exactly as the author wrote it — same split as `normalizeInfo`,
+ *  no case fold. Only `setFenceTag` needs it, and only to measure how much of the info
+ *  string the tag occupies. */
+function rawLeadingTag(params: string): string {
 	return (params.trim().split(/[\s{,]/)[0] || '').trim();
 }
 
@@ -51,7 +72,12 @@ export function setFenceTag(tag: string): Command {
 		const block = codeBlockAt(state);
 		if (!block) return false;
 		const params = (block.node.attrs.params as string) || '';
-		const rest = params.trim().slice(leadingTag(params).length);
+		const rest = params.trim().slice(rawLeadingTag(params).length);
+		// A tag with whitespace in it would forge a fence boundary or a directive line when
+		// `composeSlideChunk` joins the slide back together. No live path can produce one —
+		// every tag comes from build data or a `normalizeInfo`-normalized value — so this is
+		// hardening at the one place author-shaped text could ever reach the info string.
+		if (/\s/.test(tag)) return false;
 		const next = `${tag}${rest}`.trim();
 		if (next === params.trim()) return false;
 		if (dispatch) dispatch(state.tr.setNodeMarkup(block.pos, undefined, { ...block.node.attrs, params: next }));
@@ -73,22 +99,38 @@ export function insertFence(tag: string): Command {
 	return (state, dispatch) => {
 		if (isInCode(state)) return false;
 		const { $from } = state.selection;
-		if (!$from.parent.type.spec.code && !canHoldBlock($from)) return false;
+		if (!canHoldBlock($from)) return false;
+		// The slide's top-level block the caret sits in. The fence goes AFTER it, never
+		// through it: `replaceSelectionWith` at a mid-paragraph caret SPLITS the paragraph
+		// and drops the fence into the gap, so "Some prose here." with the caret at
+		// character 5 became "Some " / an empty fence / "prose here." — and because the
+		// caret then landed in the tail, the author's next keystroke went into prose and
+		// the fence they asked for stayed empty. That is the exact defect the door exists
+		// to avoid, and it survived because the unit fixture and the e2e both happened to
+		// click where it works (end of paragraph, and Playwright's centered click).
+		const depth = blockDepth($from);
+		if (depth === null) return false;
+		const after = $from.after(depth);
 		const node = deckSchema.nodes.code_block.create({ params: tag || PLAIN_FENCE.tag });
 		if (dispatch) {
-			const tr = state.tr.replaceSelectionWith(node);
-			// Park the caret INSIDE the new fence rather than after it. `replaceSelectionWith`
-			// leaves the selection past the inserted node, so without this the author's next
-			// keystroke lands in the following paragraph and the fence they asked for stays
-			// empty — measured on the table door's sibling path.
-			const pos = tr.mapping.map(state.selection.from);
-			const $inside = tr.doc.resolve(Math.min(pos, tr.doc.content.size));
-			const found = findCodeBlockNear($inside);
-			if (found !== null) tr.setSelection(TextSelection.create(tr.doc, found));
+			const tr = state.tr.insert(after, node);
+			// +1 enters the block we just inserted at `after`. Its position is known, so
+			// there is nothing to search for and nothing to map.
+			tr.setSelection(TextSelection.create(tr.doc, after + 1));
 			dispatch(tr.scrollIntoView());
 		}
 		return true;
 	};
+}
+
+/** The depth of the caret's top-level block inside its slide (doc → slide → block), or
+ *  null when the selection has no single such block — a cross-slide or doc-edge
+ *  selection, which callers treat as a no-op. */
+function blockDepth($pos: ResolvedPos): number | null {
+	for (let d = $pos.depth; d > 0; d--) {
+		if ($pos.node(d - 1).type.name === 'slide') return d;
+	}
+	return null;
 }
 
 /** Can a block node be placed at this position at all? (False inside a GFM cell.) */
@@ -98,15 +140,6 @@ function canHoldBlock($pos: ResolvedPos): boolean {
 		if (name === 'table_cell' || name === 'table_header') return false;
 	}
 	return true;
-}
-
-/** The inside-start position of the code block at or just before `$pos`. */
-function findCodeBlockNear($pos: ResolvedPos): number | null {
-	const before = $pos.nodeBefore;
-	if (before?.type === deckSchema.nodes.code_block) return $pos.pos - before.nodeSize + 1;
-	const after = $pos.nodeAfter;
-	if (after?.type === deckSchema.nodes.code_block) return $pos.pos + 1;
-	return null;
 }
 
 const INDENT = '  ';
@@ -136,7 +169,10 @@ export function indentInCode(outdent = false): Command {
 		// touched region shifts, and the selection is not replaced by a space run.
 		const relFrom = Math.max(0, from - start);
 		const relTo = Math.max(relFrom, to - start);
-		const lineStart = text.lastIndexOf('\n', relFrom - 1) + 1;
+		// `lastIndexOf(s, -1)` CLAMPS to 0 rather than searching nothing, so at offset 0 of a
+		// body whose first character is a newline it matched that newline and shifted the
+		// whole operation onto the second line. Guard the zero case explicitly.
+		const lineStart = relFrom === 0 ? 0 : text.lastIndexOf('\n', relFrom - 1) + 1;
 		const lineEnd = text.indexOf('\n', relTo) === -1 ? text.length : text.indexOf('\n', relTo);
 		const slice = text.slice(lineStart, lineEnd);
 		const next = slice
@@ -146,6 +182,11 @@ export function indentInCode(outdent = false): Command {
 		if (next === slice) return true; // nothing to outdent — still swallow Tab, never leak focus
 		if (dispatch) {
 			const tr = state.tr.insertText(next, start + lineStart, start + lineEnd);
+			// KEEP THE LINES SELECTED. `insertText` replaces the range the selection lives in,
+			// and the transaction's own mapping then collapses it to a caret — so a second Tab
+			// fell into the empty-caret branch above and inserted a literal space run into the
+			// author's selection, which is exactly what the line-wise path exists to avoid.
+			tr.setSelection(TextSelection.create(tr.doc, start + lineStart, start + lineStart + next.length));
 			dispatch(tr.scrollIntoView());
 		}
 		return true;
@@ -217,20 +258,9 @@ const CODE_UNSUITED = new Set([
 	'logo-wall',
 ]);
 
-/** The whole `_class:` payload — every token, matching the running-global spelling too. */
-const CLASS_PAYLOAD_RE = /<!--\s*_?class:\s*([^>]*?)\s*-->/;
-
 /** Does this slide's layout get the insert-fence door? */
 export function slideTakesCode(directives: string[]): boolean {
-	let declared: boolean | undefined;
-	for (const d of directives) {
-		const m = d.match(CLASS_PAYLOAD_RE);
-		if (!m) continue;
-		for (const token of m[1].trim().split(/\s+/)) {
-			if (token && CODE_UNSUITED.has(token)) declared = false;
-		}
-	}
-	return declared ?? true;
+	return !classTokens(directives).some((t) => CODE_UNSUITED.has(t));
 }
 
 /** The unsuited names, exported so a test can fail when a component is renamed or
@@ -254,14 +284,10 @@ export type SlideFences = Record<string, string>;
 
 export function defaultFenceTag(directives: string[], fences: SlideFences | undefined, deckTags: string[]): string {
 	if (fences) {
-		for (const d of directives) {
-			const m = d.match(CLASS_PAYLOAD_RE);
-			if (!m) continue;
-			for (const token of m[1].trim().split(/\s+/)) {
-				// `Object.hasOwn` keeps a slide naming `constructor` off the prototype chain —
-				// the same guard `rendersBlock` carries, for the same reason.
-				if (token && Object.hasOwn(fences, token) && typeof fences[token] === 'string') return fences[token];
-			}
+		for (const token of classTokens(directives)) {
+			// `Object.hasOwn` keeps a slide naming `constructor` off the prototype chain —
+			// the same guard `rendersBlock` carries, for the same reason.
+			if (Object.hasOwn(fences, token) && typeof fences[token] === 'string') return fences[token];
 		}
 	}
 	// The deck's habit: its most-used tag, engine sub-languages included — a deck of
@@ -279,14 +305,18 @@ export function defaultFenceTag(directives: string[], fences: SlideFences | unde
 	return best || PLAIN_FENCE.tag;
 }
 
-/** The leading `_class` token of a slide's directives — re-exported shape used by the
- *  chip's "pairs with" hint, so the picker can say when a tag and a layout disagree. */
-export function slideClassToken(directives: string[]): string {
-	for (const d of directives) {
-		const m = d.match(CLASS_RE);
-		if (m) return m[1];
+/** The component token of a slide's directives — the one the fence hint names. Reads
+ *  EVERY token against the known set, never just the leading one: `<!-- _class: dark
+ *  diagram -->` is ordinary authoring, and taking the first token told an author their
+ *  correctly-placed mermaid fence belonged on a `dark` slide. Falls back to the leading
+ *  token, then to `content`, so an unrecognized class still names itself. */
+export function slideClassToken(directives: string[], known?: Iterable<string>): string {
+	const tokens = classTokens(directives);
+	if (known) {
+		const set = known instanceof Set ? known : new Set(known);
+		for (const t of tokens) if (set.has(t)) return t;
 	}
-	return 'content';
+	return tokens[0] || 'content';
 }
 
 /** The layout an engine fence belongs on, for the one-line mismatch hint. */
@@ -301,6 +331,8 @@ export function fenceClassHint(tag: string, directives: string[]): string | null
 	if (!isEngineFence(tag)) return null;
 	const want = ENGINE_FENCE_CLASS[leadingTag(tag)];
 	if (!want) return null;
-	const have = slideClassToken(directives);
-	return have === want ? null : `\`${tag}\` usually sits on a \`_class: ${want}\` slide — this one is \`${have}\`.`;
+	// Any token matching is agreement — the hint must not fire on `dark diagram`.
+	if (classTokens(directives).includes(want)) return null;
+	const have = slideClassToken(directives, Object.values(ENGINE_FENCE_CLASS));
+	return `\`${tag}\` usually sits on a \`_class: ${want}\` slide — this one is \`${have}\`.`;
 }

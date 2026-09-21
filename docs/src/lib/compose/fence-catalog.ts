@@ -1,4 +1,4 @@
-import { looksLikeShellScript, normalizeInfo, SCRIPT_TAGS, SESSION_TAGS, scanFences } from '../../../../lib/core/fence-languages.js';
+import { fenceLanguages, looksLikeShellScript, normalizeInfo, SCRIPT_TAGS, SESSION_TAGS } from '../../../../lib/core/fence-languages.js';
 
 // The Compose language picker's CATALOG — pure, DOM-free, framework-free, so the
 // grouping and the coaching can be tested without an editor (Cadenza-shaped, like
@@ -119,9 +119,18 @@ export function resolveFenceTag(tag: string, manifest: HljsManifest | null | und
 	if (lattice) return lattice;
 	if (t === PLAIN_FENCE.tag) return PLAIN_FENCE;
 	if (!manifest) return null;
-	const canonical = manifest.aliases?.[t] || t;
-	if (manifest.languages?.[canonical]) return { tag: canonical, aliases: aliasesOfCommon(manifest, canonical) };
-	if (manifest.common?.[canonical]) return { tag: canonical, aliases: manifest.common[canonical] };
+	// `Object.hasOwn` throughout: `t` is a fence INFO STRING, i.e. author text, and a
+	// ```constructor fence resolves truthy against any plain object's prototype. The
+	// shipped manifest happens to be safe, but the type permits one without `aliases`,
+	// and this is the same footgun `ensure-hljs-language.ts` already paid for once.
+	// Written out per map rather than through a helper, because a predicate FUNCTION
+	// does not narrow the optional away for the reader or the compiler.
+	const aliases = manifest.aliases;
+	const languages = manifest.languages;
+	const common = manifest.common;
+	const canonical = aliases && Object.hasOwn(aliases, t) ? aliases[t] : t;
+	if (languages && Object.hasOwn(languages, canonical)) return { tag: canonical, aliases: aliasesOfCommon(manifest, canonical) };
+	if (common && Object.hasOwn(common, canonical)) return { tag: canonical, aliases: common[canonical] };
 	// A `common` grammar's alias is not in `manifest.aliases` (that map exists to point
 	// a spelling at a FILE to fetch), so it is resolved by scanning the common half.
 	for (const [name, aliases] of Object.entries(manifest.common || {})) {
@@ -138,16 +147,13 @@ function aliasesOfCommon(manifest: HljsManifest, canonical: string): string[] | 
 	return out.length ? out : undefined;
 }
 
-/** The distinct tags this deck's fences already use, in first-appearance order. */
+/** The distinct tags this deck's fences already use, in first-appearance order.
+ *  A thin re-export of the engine's own `fenceLanguages` — this used to re-implement
+ *  its dedupe loop over `scanFences`, which is a second answer to a question the
+ *  kernel beside it already answers (HARD RULE #1). Kept as a named export because the
+ *  callers here read better for the deck-shaped name. */
 export function deckFenceTags(source: string): string[] {
-	const seen = new Set<string>();
-	const out: string[] = [];
-	for (const f of scanFences(source) as { lang: string }[]) {
-		if (!f.lang || seen.has(f.lang)) continue;
-		seen.add(f.lang);
-		out.push(f.lang);
-	}
-	return out;
+	return fenceLanguages(source) as string[];
 }
 
 /**

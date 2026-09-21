@@ -9,7 +9,14 @@ summary: Make fenced code a first-class thing in Compose — today a fence rende
 > as three forks and all three recommendations were taken: **A2** (ProseMirror
 > block + the engine's highlight.js), **B3** (chip and toolbar, one picker), and
 > **one fence door** covering the engine DSLs. The axes and the rejected
-> candidates are kept as written, because the reasoning is the record. Sibling precedent:
+> candidates are kept as written, because the reasoning is the record.
+>
+> A maker-checker pass (CLAUDE.md § MAKER-CHECKER, for the `lib/engine` touch) found
+> two defects worth naming here because they change what the notes above claim: the
+> insert door SPLIT the paragraph the caret sat in — it survived because both the unit
+> fixture and the e2e happened to click where it works — and the e2e's "never a bare
+> fence" assertion could not fail. Both are fixed, with the instruments that would have
+> caught them. Sibling precedent:
 > `2026-07-19-compose-table-editing.md`, which took the same surface from
 > "locked, edit in Markdown" to editable. Parent:
 > `2026-07-18-compose-prosemirror.md`.
@@ -279,9 +286,17 @@ plugin, and the one engine read API behind maker-checker.
   `normalizeInfo` already discards for language purposes; Compose preserves the
   full info string on the node and edits only the leading tag.
 - **No new lock.** Fences never locked a slide and still do not.
-- **No new `~~~` support in the door.** markdown-it renders tilde fences
-  identically and Compose round-trips a parsed one; the insert door writes
-  backticks, as every shipped deck does.
+- **No new `~~~` support in the door.** The insert door writes backticks, as every
+  shipped deck but one does.
+  **A tilde fence does NOT round-trip byte-exact, and an earlier draft of this line
+  claimed it did.** Measured over every fence we ship: 215 fences, tag and body exact
+  in all of them, and the one tilde file — `examples/mermaid-tilde-fences.md` — comes
+  back as ```` ```mermaid ````. prosemirror-markdown's serializer emits backticks for
+  every code block; there is no per-node marker to preserve. The engine renders both
+  identically and `emitDeck`'s identity baseline keeps an untouched slide's exact
+  bytes, so this surfaces only on a slide the author actually edits — but this change
+  ships a one-click way to touch such a slide, so it is recorded rather than claimed
+  away. `fence-round-trip.test.ts` asserts the real behavior, including this.
 - **No engine or export change.** `highlightSpans` is a read-only view onto the
   highlighter the engine already runs.
 
@@ -299,13 +314,25 @@ Put as one round on 2026-09-21; all three recommendations taken.
 
 Per HARD RULE #23, every claim below names its surface:
 
-- **Round-trip** — fixture tests over the real shipped fences (all 214, from the
-  census above): parse → serialize is byte-exact, and a language change edits
-  only the info string.
+- **Round-trip** — `fence-round-trip.test.ts` walks every fence in `examples/`,
+  `test/integration/baseline-decks/` and the component galleries and asserts tag and
+  body come back character for character. Scoped to the FENCES, not whole decks:
+  `docToDeck` re-serializes every slide including the `locked` ones Compose never lets
+  an author touch, while the editor's hot path is `emitDeck`, which re-emits an
+  untouched slide's exact bytes. It carries an anti-vacuity arm (the corpus is found,
+  and it is the size the census says).
 - **The catalog and the coaching** — pure unit tests on the kernel, no DOM.
-- **The surface** — the real Studio in a real browser, not jsdom: insert, type,
-  switch language, `Tab`, exit from a trailing fence, and the same on a real
-  touch device for the phone the report came from. `tools/screenshot.js` at
-  1440 / 820 / 390, both modes.
-- **The slide** — a demo deck under `examples/` with its committed PDF, because
-  the change alters a surface a human sees (HARD RULE #9).
+- **The surface** — the real Studio in a real browser, not jsdom:
+  `docs/e2e/compose-fenced-code.spec.ts` drives insert, the chip, the picker, `Tab`,
+  the blank-line exit and the 390px arm. This is the tier that earns its keep here —
+  it caught two defects nothing else could see (a constructor that read `this.dom`
+  before assignment, which dropped Compose to its textarea fallback on any deck with a
+  fence; and a node view rebuilt on every caret move, which detached the chip the
+  popover was anchored to). Plus `tools/screenshot.js` at 1440 / 820 / 390, both modes.
+- **NOT a demo deck.** HARD RULE #9's trigger is the rendered surface, and this change
+  renders none: the engine, the themes, the layouts and the exported bytes are
+  untouched, and everything here is editor chrome. An earlier draft of this section
+  promised `examples/<slug>.md` + a PDF anyway, which would have been a deck that
+  demonstrates nothing about the change. The evidence #9 asks for in that case is the
+  before/after on the surface a human sees — the screenshots above, and the e2e that
+  can fail.

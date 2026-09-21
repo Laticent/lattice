@@ -120,6 +120,19 @@ describe('changing the language', () => {
 		expect(run(caretInProse(stateFor()), setFenceTag('python')).ok).toBe(false);
 		expect(run(caretInFence(stateFor()), setFenceTag('mermaid')).ok).toBe(false);
 	});
+
+	it('refuses a tag carrying whitespace, which could forge a fence boundary', () => {
+		// No live path produces one — every tag is build data or a normalized value — so
+		// this pins the hardening at the one place author-shaped text could reach the
+		// info string, rather than asserting a reachable bug.
+		expect(run(caretInFence(stateFor()), setFenceTag('js\n```\n## injected')).ok).toBe(false);
+		expect(docToDeck(caretInFence(stateFor()).doc)).toContain('```mermaid');
+	});
+
+	it('normalizes the tag it reports, so a ```JS fence reads as javascript-cased', () => {
+		const src = DECK.replace('```mermaid', '```JS');
+		expect(currentFenceTag(caretInFence(stateFor(src)))).toBe('js');
+	});
 });
 
 describe('inserting a fence', () => {
@@ -135,6 +148,47 @@ describe('inserting a fence', () => {
 	it('never produces a bare fence — an untagged one renders as undifferentiated mono', () => {
 		const { state } = run(caretInProse(stateFor()), insertFence(''));
 		expect(docToDeck(state.doc)).toContain('```text\n\n```');
+	});
+
+	it('inserts AFTER the caret block — never splitting the paragraph it sits in', () => {
+		// The defect a maker-checker pass found, and the reason it survived: the fixture
+		// below used to put the caret at the paragraph's END, which is the one offset the
+		// old `replaceSelectionWith` handled. Mid-paragraph it split "Some prose." in two,
+		// dropped the fence into the gap and left the caret in the TAIL — so the author's
+		// next keystroke went into prose and the fence stayed empty.
+		const state = stateFor();
+		let pos = -1;
+		state.doc.descendants((node, p) => {
+			if (node.type.name === 'paragraph' && node.textContent === 'A paragraph.') pos = p + 1 + 4; // mid-word
+		});
+		const mid = state.apply(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+		const { ok, state: next } = run(mid, insertFence('python'));
+		expect(ok).toBe(true);
+		const src = docToDeck(next.doc);
+		expect(src).toContain('A paragraph.'); // intact, not cut in two
+		expect(src).toContain('A paragraph.\n\n```python');
+		expect(isInCode(next), 'the caret must land INSIDE the new fence').toBe(true);
+	});
+
+	it('inserts after a heading, a list item and a blockquote without splitting them', () => {
+		for (const [label, body, marker] of [
+			['heading', '## Prose', '## Prose'],
+			['list item', '- one\n- two', '- two'],
+			['blockquote', '> quoted', '> quoted'],
+		] as const) {
+			const deck = ['<!-- _class: content -->', '', body, ''].join('\n');
+			const state = stateFor(deck);
+			// Caret one character into the last text block.
+			let pos = -1;
+			state.doc.descendants((node, p) => {
+				if (node.isTextblock && node.textContent) pos = p + 1 + 1;
+			});
+			const at = state.apply(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+			const { ok, state: next } = run(at, insertFence('js'));
+			expect(ok, label).toBe(true);
+			expect(docToDeck(next.doc), label).toContain(marker);
+			expect(isInCode(next), label).toBe(true);
+		}
 	});
 
 	it('refuses to nest inside an existing fence', () => {
@@ -175,6 +229,40 @@ describe('Tab inside a fence', () => {
 	it('swallows Tab even when there is nothing to outdent', () => {
 		// Returning false here would hand Tab back to the browser, which is the trap.
 		expect(run(caretInFence(stateFor()), indentInCode(true)).ok).toBe(true);
+	});
+
+	it('keeps the lines SELECTED after a range indent, so a second Tab indents again', () => {
+		// Collapsing to a caret sent the next Tab into the empty-caret branch, which
+		// inserts a literal space run into the author's selection — the exact thing the
+		// line-wise path exists to avoid.
+		const src = DECK.replace('graph LR\n  A[Markdown source] --> B[Engine render]', 'one\ntwo');
+		const state = stateFor(src);
+		let start = -1;
+		state.doc.descendants((node, p) => {
+			if (start === -1 && node.type.name === 'code_block') start = p + 1;
+		});
+		const range = state.apply(state.tr.setSelection(TextSelection.create(state.doc, start, start + 'one\ntwo'.length)));
+		const first = run(range, indentInCode());
+		expect(first.ok).toBe(true);
+		expect(first.state.selection.empty, 'the selection must survive the indent').toBe(false);
+		const second = run(first.state, indentInCode());
+		expect(docToDeck(second.state.doc)).toContain('```mermaid\n    one\n    two\n```');
+	});
+
+	it('indents the FIRST line when the fence body opens with a blank one', () => {
+		// `lastIndexOf(s, -1)` clamps to 0 rather than searching nothing, so at offset 0 it
+		// matched the leading newline and shifted the whole operation onto line two.
+		const src = DECK.replace('```mermaid\ngraph LR', '```mermaid\n\n  indented');
+		const state = stateFor(src);
+		let start = -1;
+		state.doc.descendants((node, p) => {
+			if (start === -1 && node.type.name === 'code_block') start = p + 1;
+		});
+		const at = state.apply(state.tr.setSelection(TextSelection.create(state.doc, start, start + 1)));
+		const { state: next } = run(at, indentInCode());
+		// The blank FIRST line is indented (it was skipped entirely before), and so is the
+		// second, because a 0–1 selection reaches into it — which is correct line-wise.
+		expect(docToDeck(next.doc)).toContain('```mermaid\n  \n    indented');
 	});
 
 	it('does nothing outside a fence, so lists and tables keep their Tab', () => {
@@ -275,5 +363,14 @@ describe('the layout hint', () => {
 	it('stays quiet when they agree, and for an ordinary language', () => {
 		expect(fenceClassHint('mermaid', ['<!-- _class: diagram -->'])).toBeNull();
 		expect(fenceClassHint('js', ['<!-- _class: content -->'])).toBeNull();
+	});
+
+	it('reads EVERY class token, so a modifier before the component does not misfire', () => {
+		// `<!-- _class: dark diagram -->` is ordinary authoring. Reading only the leading
+		// token told the author their correctly-placed mermaid fence belonged on a `dark`
+		// slide — coaching that is worse than none.
+		expect(fenceClassHint('mermaid', ['<!-- _class: dark diagram -->'])).toBeNull();
+		expect(fenceClassHint('mermaid', ['<!-- class: diagram -->'])).toBeNull(); // running-global spelling
+		expect(fenceClassHint('mermaid', ['<!-- _class: dark quote -->'])).toMatch(/_class: diagram/);
 	});
 });

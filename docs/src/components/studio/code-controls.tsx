@@ -62,7 +62,7 @@ export function FencePicker({
 	view,
 	source,
 	trigger,
-	anchor,
+	anchorRect,
 	open: openProp,
 	onOpenChange,
 	align = 'center',
@@ -73,15 +73,20 @@ export function FencePicker({
 	/** Pill mode: the button the popover hangs off. Mutually exclusive with `anchor`. */
 	trigger?: React.ReactNode;
 	/**
-	 * Chip mode: the live chip element to hang off, with `open` driven by the caller.
+	 * Chip mode: WHERE the clicked chip was, with `open` driven by the caller.
 	 *
-	 * The chip lives in a ProseMirror NodeView — vanilla DOM that React does not own and
-	 * must not — so the picker anchors to it through Radix's `virtualRef` (any object
-	 * with `getBoundingClientRect`, which an element trivially is) rather than being
-	 * rendered around it. ONE picker for the whole document, moved to whichever chip was
-	 * clicked, instead of a React root per fence.
+	 * A RECT, deliberately, not the element. The chip lives in a ProseMirror NodeView,
+	 * and that node view is rebuilt whenever the caret moves into or out of the fence
+	 * and again when the editor blurs — which the picker's own search field causes the
+	 * instant it opens. Measured on the real Studio: anchored to the element, the button
+	 * was detached before the popover could paint and nothing ever appeared. A rect
+	 * captured at click time cannot be detached, and the document does not move
+	 * underneath an open popover.
+	 *
+	 * ONE picker for the whole document, moved to wherever the last chip was clicked,
+	 * rather than a React root per fence.
 	 */
-	anchor?: HTMLElement | null;
+	anchorRect?: DOMRect | null;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	align?: 'start' | 'center' | 'end';
@@ -100,8 +105,12 @@ export function FencePicker({
 	const manifest = useHljsManifest(open);
 	const current = currentFenceTag(view.state);
 	const groups = React.useMemo(() => fenceGroups({ source, manifest, query }), [source, manifest, query]);
-	const anchorRef = React.useRef<HTMLElement | null>(null);
-	anchorRef.current = anchor ?? null;
+	// A STABLE Measurable whose rect is read at position time — Radix keeps the ref
+	// object, so it must not be rebuilt each render, and the live rect rides in a second
+	// ref beside it.
+	const rectRef = React.useRef<DOMRect | null>(anchorRect ?? null);
+	rectRef.current = anchorRect ?? null;
+	const anchorRef = React.useRef({ getBoundingClientRect: () => rectRef.current ?? new DOMRect(0, 0, 0, 0) });
 
 	const block = codeBlockAt(view.state);
 	const body = block?.node.textContent || '';
@@ -126,7 +135,7 @@ export function FencePicker({
 					{trigger}
 				</PopoverTrigger>
 			) : (
-				<PopoverAnchor virtualRef={anchorRef as React.RefObject<HTMLElement>} />
+				<PopoverAnchor virtualRef={anchorRef} />
 			)}
 			<PopoverContent align={align} className="w-[19rem] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
 				<Command shouldFilter={false}>
