@@ -1678,7 +1678,12 @@ test('narrateDataSeries: reads a flat one-pill series — the audit\'s own bar c
   assert.match(out, /North America, four point two million dollars\./);
   assert.match(out, /EMEA, three point one million dollars\./);
   assert.match(out, /APAC, one point eight million dollars\./);
-  assert.match(out, /LATAM, zero point six million dollars\./);
+  // "SIX HUNDRED THOUSAND", not "zero point six million" — the deck authors this row
+  // as `$0.6M` and narration now reads the VALUE rather than the spelling, so it says
+  // it the way a person would. The same row typed `$600k` reads identically, which is
+  // the whole point: the author's choice of unit is not a fact about the number.
+  assert.match(out, /LATAM, six hundred thousand dollars\./);
+  assert.ok(!out.includes('zero point six million'), out);
 });
 
 test('narrateDataSeries: reads a nested two-level series, each value bound to its group', () => {

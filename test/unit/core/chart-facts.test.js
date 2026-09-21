@@ -318,3 +318,86 @@ test('word-cloud — an empty cloud degrades to nulls rather than throwing', () 
   assert.equal(f.headShare, null);
   assert.deepEqual(f.tiers, []);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+const { toSpokenText } = require('@laticent/cadenza');
+const { spokenValue, parseValue } = require('../../../lib/core/chart-values.js');
+const say = (raw) => spokenValue(raw, toSpokenText);
+
+test('spoken value — the SAME QUANTITY reads the same way however it was spelled', () => {
+  // This is the whole reason the function exists. Narration used to hand the
+  // author's raw pill to the speech layer, so it was reading a SPELLING and two
+  // decks with identical data narrated differently.
+  for (const group of [
+    ['900k', '0.9M'],
+    ['1.2M', '1200k'],
+    ['12k', '0.012M'],
+    ['$4.2M', '$4200k'],
+  ]) {
+    const spoken = group.map(say);
+    assert.equal(new Set(spoken).size, 1, `${group.join(' vs ')} -> ${JSON.stringify(spoken)}`);
+    // …and the parser agrees they ARE the same quantity, so the test is not just
+    // asserting that two strings map to one arbitrary output.
+    assert.equal(new Set(group.map(parseValue)).size, 1, group.join(' vs '));
+  }
+});
+
+test('spoken value — a EUROPEAN separator is not read a hundred times too big', () => {
+  // THE SERIOUS ONE. `1,25M` is what a deck pasted out of a French, German, Italian
+  // or Swedish spreadsheet contains. The PICTURE parses it correctly and draws
+  // 1.25M; the voice read the comma as a thousands separator and said "one hundred
+  // twenty-five million" over that chart. `normalizeSeparators` exists because this
+  // repo has had those decks.
+  assert.equal(parseValue('1,25M'), 1250000);
+  assert.equal(say('1,25M'), 'one point two five million');
+  assert.ok(!say('1,25M').includes('one hundred twenty-five'));
+});
+
+test('spoken value — it says it the way a person would', () => {
+  assert.equal(say('0.9M'), 'nine hundred thousand', 'not "zero point nine million"');
+  assert.equal(say('1200k'), 'one point two million', 'not "one thousand two hundred thousand"');
+  assert.equal(say('$0.6M'), 'six hundred thousand dollars');
+});
+
+test('spoken value — a BARE number is never re-scaled', () => {
+  // The narrowing that matters, and it is here because the first draft got it wrong:
+  // a bare `2024` — which the pill grammar documents as legitimate data ("Closed
+  // `2024` plots at 2024") — came out as "two point zero two four thousand". A YEAR.
+  // A bare number has only one spelling, so there is nothing to canonicalize.
+  assert.equal(say('2024'), 'two thousand twenty-four');
+  assert.equal(say('0.6'), 'zero point six');
+  assert.equal(say('900000'), toSpokenText('900000'), 'left exactly as the speech layer reads it');
+});
+
+test('spoken value — a UNIT suffix is not a magnitude, and is left alone', () => {
+  // `150 ms` carries a unit the author wrote, not a scale this function may rewrite.
+  assert.equal(say('150 ms'), toSpokenText('150 ms'));
+  assert.equal(say('99.4%'), 'ninety-nine point four percent');
+});
+
+test('spoken value — the sign rides in FRONT of a currency prefix', () => {
+  // Rebuilding it after the prefix produced the literal string "$-800k", which the
+  // speech layer cannot read and passed through as glyphs. All four spellings of
+  // "down" that `parseValue` accepts have to survive.
+  assert.equal(say('-$0.8M'), 'down eight hundred thousand dollars');
+  assert.equal(say('(1.2M)'), 'down one point two million');
+  assert.equal(say('\u22121.2M'), 'down one point two million', 'U+2212, what a spreadsheet paste gives');
+});
+
+test('spoken value — a non-value pill is handed straight through', () => {
+  // `at-risk` is a status pill, `PROJ-42` is a ticket id. Neither is a number, and
+  // `parseValue` would read the second as -42.
+  for (const p of ['at-risk', 'PROJ-42', 'on-track', '']) {
+    assert.equal(say(p), toSpokenText(p), p);
+  }
+  // PROSE WITH A NUMBER AND A MAGNITUDE LETTER is the arm that actually tests the
+  // guard, and it took two tries to find one. The four above bail at the magnitude
+  // check whether or not `isValuePill` runs, so they certified nothing; `v1.2M`
+  // certified nothing either, because the rebuild happens to reconstruct the
+  // identical string. Ungarded, `rev 1.5M` loses the space to the rebuild and comes
+  // out as the unreadable literal "rev1.5M".
+  assert.equal(say('rev 1.5M'), toSpokenText('rev 1.5M'));
+  assert.equal(say('rev 1.5M'), 'rev one point five million');
+  assert.equal(say('up 0.9M'), toSpokenText('up 0.9M'));
+});
