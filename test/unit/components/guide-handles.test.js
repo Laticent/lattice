@@ -30,6 +30,16 @@
  * only under a MODIFIER none of them names is invisible to it. It also only recognizes two
  * shapes (a span-composite box and a multi-row table body); a third shape would need a
  * third arm.
+ *
+ * AND WHAT ARM 1 CANNOT SEE, which is the sharper hole. Its oracle is "the part renders and
+ * its token has text" — NOT "this row can ever answer a cue". `journey` declares
+ * `.journey-actor` and `.journey-lane`, whose tokens carry the SAME actor names on the same
+ * slide; they tie on length, the ambiguity rule refuses both, and neither can ever win
+ * `findNamedTarget`. Arm 1 certifies them anyway, and correctly so — they still do the
+ * HANDLE half of the job, moving 36 already-resolved cues off the container. The manifest
+ * `note` is where that distinction is recorded, because a gate cannot tell a row that is
+ * handle-only from one that is broken. That is the `slots` failure with a narrower blast
+ * radius, and it is open.
  */
 
 const fs = require('node:fs');
@@ -73,7 +83,7 @@ const NESTED_BLOCK = new Set(['UL', 'OL', 'P', 'DL', 'BLOCKQUOTE', 'TABLE', 'DIV
  * into decoration.
  */
 const SANCTIONED_NO_HANDLE = {
-	math: "the composite boxes are KaTeX's own typesetting internals (`.base`, `.vlist-r`, `.mord`) — third-party spans that carry no name a sentence could lead with, and that change shape with the formula",
+	math: "BOTH shapes, and the row used to name only the first: the composite boxes are KaTeX's own typesetting internals (`.base`, `.vlist-r`, `.mord`), and its own surfaces also render 8 `tbody > tr` rows. Both are third-party markup that carries no name a sentence could lead with, and both change shape with the formula",
 	wifi: 'its credential rows are `.qr-row` + `.qr-mono`, and no cue ever names one: all 6 of its corpus cues are the slide heading and the call to action',
 };
 

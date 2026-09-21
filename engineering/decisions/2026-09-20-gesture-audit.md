@@ -390,4 +390,6 @@ is what makes the table above a pure addition rather than a trade.
   judged them good (recorded on #2244). That closes the question for the chart mark tier and the
   showcase; it does not close it for anything built after, which is why this line says what was
   watched and when rather than carrying an absolute. `2026-09-21-manifest-handles.md` re-opens it
-  for the 381 cues whose handle it moves, and carries its own verification.
+  for the **191** cues whose handle it moves (and the 464 that get a different VERB as a result),
+  and its §6b says what was driven on the real surface and what was not — including that nobody
+  has yet presented a full deck with the new handles and judged the cadence.

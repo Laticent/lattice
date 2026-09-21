@@ -16,7 +16,7 @@ export const GUIDE_HANDLES: readonly GuideHandle[] = [
 	{
 		"component": "glossary",
 		"part": "section.glossary tbody > tr",
-		"names": "td:first-child, th:first-child"
+		"names": ":scope > td:first-child, :scope > th:first-child"
 	},
 	{
 		"component": "journey",
@@ -41,17 +41,17 @@ export const GUIDE_HANDLES: readonly GuideHandle[] = [
 	{
 		"component": "matrix-grid",
 		"part": "section.matrix-grid tbody > tr",
-		"names": "td:first-child, th:first-child"
+		"names": ":scope > td:first-child, :scope > th:first-child"
 	},
 	{
 		"component": "obligation-matrix",
 		"part": "section.obligation-matrix tbody > tr",
-		"names": "td:first-child, th:first-child"
+		"names": ":scope > td:first-child, :scope > th:first-child"
 	},
 	{
 		"component": "roadmap",
 		"part": "section.roadmap tbody > tr",
-		"names": "td:first-child, th:first-child"
+		"names": ":scope > td:first-child, :scope > th:first-child"
 	},
 	{
 		"component": "state-chart",
@@ -66,12 +66,12 @@ export const GUIDE_HANDLES: readonly GuideHandle[] = [
 	{
 		"component": "statute-stack",
 		"part": "section.statute-stack tbody > tr",
-		"names": "td:first-child, th:first-child"
+		"names": ":scope > td:first-child, :scope > th:first-child"
 	},
 	{
 		"component": "table",
 		"part": "section.table tbody > tr",
-		"names": "td:first-child, th:first-child"
+		"names": ":scope > td:first-child, :scope > th:first-child"
 	},
 	{
 		"component": "team-profile",

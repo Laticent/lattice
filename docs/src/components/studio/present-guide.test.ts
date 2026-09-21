@@ -1388,8 +1388,12 @@ describe('findNamedTarget — a cue the projection composed out of a part’s ow
 	});
 
 	it('tells the people apart', () => {
+		// Asserted against `findNamedTarget`, not `findCueTarget`: mutation-testing showed this test
+		// survives the tier being replaced with `return null`, because `findSpanningTarget`'s partial
+		// branch hands back the same `li.person` (share 0.55 clears LONGEST_SHARE). A test that passes
+		// with the feature removed is pinning the other tier.
 		const d = roster();
-		expect(findCueTarget(d, 'Ada Okafor, Executive Sponsor: Clears blockers above the program.')?.querySelector('.person-name')?.textContent).toBe('Ada Okafor');
+		expect(findNamedTarget(d, 'Ada Okafor, Executive Sponsor: Clears blockers above the program.')?.querySelector('.person-name')?.textContent).toBe('Ada Okafor');
 	});
 
 	it('refuses a name that merely RECURS in the sentence', () => {
@@ -1436,19 +1440,56 @@ describe('findNamedTarget — a cue the projection composed out of a part’s ow
 		expect(findCueTarget(d, 'Marcus Vale, Program Director: Runs the weekly cadence.')?.tagName).toBe('P');
 	});
 
-	it('answers a TABLE ROW by the cell that labels it', () => {
-		// The second shape the catalog declares. The projection reads a row as
-		// "<label>: <cell>; <cell>." and no element holds that, so the cue hid.
-		const d = new DOMParser().parseFromString(
-			`<html><body><section class="lattice compare-table"><table><tbody>
+	// THE SECOND SHAPE THE CATALOG DECLARES, and the class name is load-bearing. This test read
+	// `class="lattice compare-table"` until an independent check caught it: `compare-table` was
+	// renamed to `table` by this branch's own BASE commit, so no catalog row matched the section
+	// and `findSpanningTarget` was quietly answering instead. Both assertions passed either way,
+	// which is why it is asserted against `findNamedTarget` directly below — this shape produces
+	// 6 of the 13 catalog rows and the two largest measured wins, and it had no real coverage.
+	const TABLE = (cls: string): Document =>
+		new DOMParser().parseFromString(
+			`<html><body><section class="lattice ${cls}"><table><tbody>
 				<tr><td>A label</td><td>One cell per column</td><td>Twelve words</td></tr>
 				<tr><td>Every row</td><td>The same column set</td><td>Twelve words</td></tr>
 			</tbody></table></section></body></html>`,
 			'text/html',
 		);
-		const el = findCueTarget(d, 'A label: One cell per column; Twelve words.');
+
+	it('answers a TABLE ROW by the cell that labels it', () => {
+		const el = findNamedTarget(TABLE('table'), 'A label: One cell per column; Twelve words.');
 		expect(el?.tagName).toBe('TR');
 		expect(el?.querySelector('td')?.textContent).toBe('A label');
+	});
+
+	it('is the tier that answers it — not the piecewise matcher wearing its clothes', () => {
+		// The regression the rename caused, pinned. A section no catalog row names must get NOTHING
+		// from this tier, however well some other tier would cope.
+		expect(findNamedTarget(TABLE('cards-grid'), 'A label: One cell per column; Twelve words.')).toBeNull();
+	});
+
+	it('will not take a name from a NESTED table', () => {
+		// `td:first-child` matches the outer row's first cell, whose textContent swallows an inner
+		// table — so an unscoped selector handed back the whole nested table as the "name", and the
+		// handle would be drawn around it. `:scope >` is what the manifests declare, and this is why.
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice table"><table><tbody>
+				<tr><td><table><tbody><tr><td>Inner label</td><td>inner cell</td></tr></tbody></table></td><td>outer</td></tr>
+			</tbody></table></section></body></html>`,
+			'text/html',
+		);
+		const el = findNamedTarget(d, 'Inner label: inner cell.');
+		// The INNER row may legitimately answer for its own text; the OUTER row must not.
+		expect(el === null || el.closest('table') !== d.querySelector('section > table')).toBe(true);
+	});
+
+	it('refuses a one-character name outright', () => {
+		// The `length < 2` floor, which had no test: the `Al` case above is killed by `leadsWord`,
+		// so removing the floor left all 132 tests green.
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice team-profile"><ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">A</span></span></li></ul></section></body></html>`,
+			'text/html',
+		);
+		expect(findNamedTarget(d, 'A label that starts with one letter.')).toBeNull();
 	});
 });
 

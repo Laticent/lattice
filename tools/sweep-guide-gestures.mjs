@@ -281,7 +281,14 @@ async function main() {
 							// cannot tell apart cannot be measured.
 							const parted = G.resetPartHit?.() > 0;
 							const piecewise = spanned && !marked && !parted;
-							const partial = piecewise ? G.resetSpanPartial() > 0 : false;
+							// RESET UNCONDITIONALLY, READ CONDITIONALLY. `findSpanningTarget` bumps
+							// `spanPartial` on every entry to its partial branch — including the ones that
+							// return null and fall through to a later tier — so reading it only on a
+							// piecewise cue leaves the flag set and books it against the NEXT piecewise cue.
+							// Measured: 190 true partials reported as 193. The counter is per-cue state, so
+							// draining it per cue is what makes it mean what its name says.
+							const spanPartialHit = G.resetSpanPartial() > 0;
+							const partial = piecewise && spanPartialHit;
 							const ratio = piecewise && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes

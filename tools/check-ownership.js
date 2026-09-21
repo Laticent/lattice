@@ -5121,7 +5121,7 @@ function checkGuideHandles(manifests, errors) {
  * thousand", and `toSpokenText` joins them. That took `funnel` from 15.8% of its cues resolving
  * to 89.1%.
  *
- * It rests entirely on a CONVENTION. Fourteen transforms emit the attributes, a handful of
+ * It rests entirely on a CONVENTION. Twelve component transforms emit the attributes, a handful of
  * per-component unit tests assert them, and nothing cross-cutting checks that the set holds — so
  * a transform that drops `data-label` in a refactor degrades every gesture on that chart and no
  * test goes red. A silent degradation is the failure mode this repo spends its gates on.
@@ -5131,18 +5131,29 @@ function checkGuideHandles(manifests, errors) {
  * is pinned, and it fails three ways — a listed file that stopped writing the attribute, a file
  * that started writing one without being listed, and a listed file that no longer exists. The
  * third is what keeps the list from rotting into decoration.
+ *
+ * WHAT IT CANNOT SEE, stated so the coverage claim is not read wider than it is. `writesMarkIdentity`
+ * knows two spellings — the attribute inside a string literal, and `dataset.label` — so a transform
+ * that builds the attribute name by concatenation, or stamps it through a helper that takes the key
+ * as an argument, is invisible to it. It is also a per-FILE census: it cannot say the attribute
+ * lands on a mark rather than on furniture. The render-side half of that question is
+ * `checkChartMarks` and the per-component tests, not this.
  */
 const SANCTIONED_MARK_IDENTITY = [
-  // path under lib/, does it write data-label, does it write data-value
-  ['components/chart/_chart-family/chart-family.js', true, false],
-  ['components/chart/_chart-family/label-drops.js', true, false],
-  ['components/chart/_chart-family/svg-label.js', true, false],
+  // path under lib/, does it write data-label, does it write data-value.
+  //
+  // DERIVED FROM WHAT THE CODE WRITES, not from what it mentions. The first cut of this list was
+  // built with a raw substring search and carried three rows that were COMMENTS —
+  // `_chart-family/label-drops.js`, `_chart-family/svg-label.js` and `word-cloud.transform.js`
+  // each merely name `data-label` in prose. Two more named a DIFFERENT attribute whose name starts
+  // the same way — `_chart-family/chart-family.js` writes `data-label-drops`, `journey.transform.js`
+  // writes `data-label-len`. All five are out; `writesMarkIdentity` strips comments and bounds the
+  // attribute name, so none can come back. Thirteen files write a mark identity, not eighteen.
   ['components/chart/bar/bar.transform.js', true, true],
   ['components/chart/bullet/bullet.transform.js', true, true],
   ['components/chart/funnel/funnel.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
-  ['components/chart/journey/journey.transform.js', true, false],
   ['components/chart/map/map.transform.js', true, true],
   ['components/chart/quadrant/quadrant.transform.js', true, false],
   ['components/chart/scatter/scatter.transform.js', true, false],
@@ -5150,11 +5161,35 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
   ['components/chart/state-chart/state-chart.transform.js', true, true],
   ['components/chart/waterfall/waterfall.transform.js', true, true],
-  ['components/chart/word-cloud/word-cloud.transform.js', true, false],
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
 ];
+
+/**
+ * Does this source actually WRITE the attribute, as opposed to mentioning it?
+ *
+ * A raw `src.includes('data-label')` was the first cut and it fired on a COMMENT — a docblock
+ * under lib/ that merely names the attribute reddened `build:check` with a message that was
+ * factually false, and a gate that cries wolf is one somebody switches off. So this strips
+ * comments the way `writesClass` does, and looks in the two places the attribute can be written:
+ * a string literal (`data-label="…"`, the markup path every transform takes) and the DOM property
+ * form (`dataset.label`), which the substring test missed entirely.
+ */
+function writesMarkIdentity(src, key) {
+  // COMMENTS STRIPPED, THEN A PLAIN SEARCH OF THE CODE — deliberately not `writesClass`'s
+  // literal-scoped match. A transform writes the attribute inside a NESTED template
+  // (bar.transform.js:576 puts `data-value` in a `${…}` arm of an outer template), and a regex
+  // that pairs backticks cannot see inside one, so literal-scoping reported four real emitters as
+  // silent. Stripping comments removes the false positive that mattered — a docblock that merely
+  // NAMES the attribute reddening the build — and nothing else here needs the narrower match.
+  const code = src.replace(COMMENTS, ' ');
+  // BOUNDED, because `data-label` is a PREFIX of `data-label-drops` — a different attribute that
+  // label-drops.js really does write, and an unbounded search would book it as a mark identity.
+  if (new RegExp(`data-${key}(?![-\\w])`).test(code)) return true;
+  // The DOM-property spelling, which a substring search for the attribute never sees.
+  return new RegExp(`\\bdataset\\s*\\.\\s*${key}\\b|\\bdataset\\s*\\[\\s*['"\`]${key}['"\`]`).test(code);
+}
 
 function checkMarkIdentity(errors) {
   const listed = new Map(SANCTIONED_MARK_IDENTITY.map(([rel, label, value]) => [rel, { label, value }]));
@@ -5162,7 +5197,7 @@ function checkMarkIdentity(errors) {
   for (const abs of libSources()) {
     const rel = path.relative(path.join(ROOT, 'lib'), abs).split(path.sep).join('/');
     const src = fs.readFileSync(abs, 'utf8');
-    const writes = { label: src.includes('data-label'), value: src.includes('data-value') };
+    const writes = { label: writesMarkIdentity(src, 'label'), value: writesMarkIdentity(src, 'value') };
     if (!writes.label && !writes.value) continue;
     seen.add(rel);
     const row = listed.get(rel);

@@ -94,9 +94,13 @@ test('the Guide inks a person’s NAME, not the card around it', async ({ page }
 		const w = window as unknown as { __ink: { kind: string; box: DOMRect }[] };
 		const onName: string[] = [];
 		const roundCard: string[] = [];
+		// WATCH THE WHOLE WINDOW, not up to the first hit. Stopping at the first stroke that lands on
+		// a name checks the second assertion over a PREFIX of the presentation only: a build that
+		// inks Ada's name and then brackets Marcus's whole card would pass. An independent check
+		// caught that; the loop now runs the full window and both tallies see every stroke.
 		const deadline = Date.now() + 60_000;
 		const overlaps = (a: DOMRect, b: { l: number; t: number; r: number; b: number }) => a.left < b.r && a.right > b.l && a.top < b.b && a.bottom > b.t;
-		while (Date.now() < deadline && !onName.length) {
+		while (Date.now() < deadline) {
 			const frame = document.querySelector('[role="dialog"] [aria-label="Presented slide"] iframe.live') as HTMLIFrameElement | null;
 			const doc = frame?.contentDocument;
 			if (frame && doc) {
@@ -121,8 +125,10 @@ test('the Guide inks a person’s NAME, not the card around it', async ({ page }
 						// times wider, which is what this has to tell apart.
 						if (overlaps(box, nb) && box.width <= (nb.r - nb.l) * 1.6) onName.push(label);
 						// ROUND THE CARD: as wide as the card itself. That is the whole-container
-						// handle, whatever verb drew it.
-						else if (overlaps(box, pb) && box.width >= (pb.r - pb.l) * 0.9) roundCard.push(label);
+						// handle, whatever verb drew it. Tallied INDEPENDENTLY of the first test — as an
+						// `else if` a stroke counted on a name was never checked for wrapping, so the
+						// two conditions could never both be reported for the same stroke.
+						if (overlaps(box, pb) && box.width >= (pb.r - pb.l) * 0.9) roundCard.push(label);
 					}
 				}
 			}

@@ -145,10 +145,22 @@ touches nothing that renders, so "the same corpus" is by construction, not by cl
 | `statute-stack` | 79 | 74.7% | **78.5%** |
 | `state-chart` | 357 | 63.9% | 63.9% (handle mix `body` 99.6% -> `part` 62.7%) |
 
-`state-chart` is the row that shows the two halves apart: it gains no resolution and 224 of its
-cues move from "a wash over the whole node" to "a tap on the node's label". `header` moved 679 ->
-676 — three `journey` cues traded an inferred header for a declared one, which is the priority
-above working as intended rather than a loss.
+`state-chart` is the row that shows the two halves apart: it gains no resolution and **143** of
+its cues move from "a wash over the whole node" to "a tap on the node's label". `header` moved
+679 -> 676 — three `journey` cues traded an inferred header for a declared one, which is the
+priority above working as intended rather than a loss.
+
+**The 421 is two different things and the split matters:** 191 cues whose handle MOVED (188 from
+`body`, 3 from `header`) plus 230 cues that were not resolving at all. An earlier draft of this
+section said `state-chart` moved 224, from multiplying 62.7% by its 357 CUES instead of its 228
+RESOLVED — the table two rows up contradicts it twice over, and an independent check caught it
+rather than a reader.
+
+**What the table does not show is that 464 cues get a different VERB.** The handle moving to a
+small token changes which gesture fits it: `tap` 801 -> 1,088, `wash` 3,473 -> 3,361, `underline`
+3,210 -> 3,262, `circle` 577 -> 585, `bracket` 1,366 -> 1,361, and `fellBack` (the rest position
+had to be searched for) 1,987 -> 2,120. That is the intended effect — a name is a small thing and
+gets a small verb — but it is the number a reviewer weighing "how it feels" should have.
 
 **This reaches the prose joins the issue scoped out, by a different route.** Route A — an anchor
 token threaded out of `projectDeckSpeech` — changes a shared kernel contract the CLI export also
@@ -208,8 +220,9 @@ Three arms, because one text matcher cannot answer all three questions.
   third arm.
 
 **`checkMarkIdentity`** closes the standing fragility the issue named separately. The mark tier
-#2244 shipped rests entirely on a convention: fourteen transforms emit `data-label` /
-`data-value`, a handful of per-component tests assert them, and nothing cross-cutting checked
+#2244 shipped rests entirely on a convention: **twelve** component transforms emit `data-label` /
+`data-value` (the issue said fourteen, from the same loose count that put five non-emitters in
+the first ledger), a handful of per-component tests assert them, and nothing cross-cutting checked
 that the set holds — so a refactor dropping the attribute would degrade every gesture on that
 chart with no test going red. It is a CENSUS rather than a rule, because whether a chart's marks
 can carry a label is a property of the chart, not something a gate can derive. It fails three
@@ -218,6 +231,46 @@ and a stale row.
 
 Both gates were verified able to fail: renaming `.person-name` to `.person-nayme` reddens the
 first, and rewriting `data-label` to `data-lbl` in `funnel.transform.js` reddens the census.
+
+**The census's matcher had to be fixed before its ledger meant anything, and the fix shrank the
+ledger from 18 rows to 13.** The first cut asked `src.includes('data-label')` over whole files,
+which fired on a COMMENT — a docblock under `lib/` that merely names the attribute reddened
+`build:check` with a message that was false, and a gate that cries wolf is one somebody switches
+off. Worse, the ledger had been BUILT with that matcher, so five of its rows were never emitters:
+three name the attribute only in prose (`_chart-family/label-drops.js`, `_chart-family/svg-label.js`,
+`word-cloud.transform.js`) and two write a DIFFERENT attribute that starts the same way
+(`chart-family.js` writes `data-label-drops`, `journey.transform.js` writes `data-label-len`). The
+matcher now strips comments, bounds the attribute name, and also sees the `dataset.label` spelling
+a substring search misses entirely — each arm fault-injected.
+
+## 6b. What was actually watched, and what was not
+
+The audit's §8 points here for verification, so this section has to carry it rather than gesture
+at it.
+
+**Driven on the real Present surface**: `docs/e2e/present-guide-handles.spec.ts` opens the
+Studio, sets a roster deck, turns Guide on, plays it, and asserts a Vetrina stroke lands on a
+`.person-name` while none wraps the `.person` card. It passes, and it was **verified able to
+fail** by disabling `declaredHandle` and rebuilding — it reddens with "no Guide stroke ever
+landed on a `.person-name`". It watches the WHOLE playback rather than stopping at the first hit,
+because stopping there checks the second assertion over a prefix only.
+
+**Looked at, not just asserted**: the live pointer ringing "Ada Okafor" and then moving to
+"Marcus Vale" as the narration advances, captured at 1440, 820 and 390. The gesture the handle
+picks for a name is `tap` — a ripple centered on it — with `underline` on the longer names.
+
+**NOT watched, and these are real gaps.** The e2e oracle is geometric: it can say the ink is on
+the name and not around the card, and it cannot say the result is GOOD. Nobody has presented a
+full deck with Guide on and judged the new cadence end to end, which is the gate the semantics
+record calls the one that matters most. Touch is untested — Present on a real phone or tablet is
+**UNVERIFIED** from here. And the deployed preview could not be driven from this sandbox at all:
+the egress proxy re-terminates TLS with a CA the headless browser rejects, and the documented
+remedies do not take, so every real-surface claim here is from a local build of the same source.
+
+**The spec does not gate this PR.** It carries no `@smoke` tag, so the per-PR e2e job skips it and
+the nightly runs it — the same arrangement `present-guide.spec.ts` already has. That is a
+convention rather than a regression, but it means this PR's strongest artifact is not re-run
+before a merge.
 
 ## 7. What is still open
 
