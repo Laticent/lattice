@@ -527,7 +527,8 @@ test('THE COMMITTED CORPUS IS CLEAN — every tracked deck, through the shipped 
 });
 
 // ---------------------------------------------------------------------------
-// The seam: three surfaces have to agree the family has three members. None can
+// The seam: three surfaces have to agree on the family's members — four of them since
+// `read:` joined in #2246. None can
 // import the others (the emulator is a CLI, the editor is TypeScript behind an
 // `@/` alias), so this is the pin instead — the same shape pace-names.test.js
 // uses for its own three-way split.

@@ -758,7 +758,7 @@ const mdRaw = readFileOrDie(mdFile, 'source markdown');
 // is testable as behavior and so the permutation gate can drive this axis exactly
 // as the CLI does.
 const {
-  withPrintColorMode, deckColorModeToken, classTokens,
+  withPrintColorMode, deckColorModeToken, classTokens, readFrontMatterColorMode,
 } = require('./lib/core/resolve-color-mode');
 const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { PALETTE_END_MARK } = require('./lib/core/export-shell-marks');
@@ -2039,9 +2039,30 @@ const PLAYER = !!flags.player || readRenderTargetKey(fm, 'player');
 // Like --fluid and --player it only affects the written .html, after raster: the PDF /
 // PPTX / PNG bytes are identical either way. --player wins if both are set — it already
 // carries a Read · Article view, and it switches rather than duplicating.
-const READ_VIEW = !!flags.read || readRenderTargetKey(fm, 'read');
+const READ_VIEW_FLAG = !!flags.read;
+const READ_VIEW = READ_VIEW_FLAG || readRenderTargetKey(fm, 'read');
 if (PLAYER && READ_VIEW) {
   console.warn('  ⚠ --player and --read both set — using the player, which already carries a Read · Article view and switches to it rather than shipping a second copy of the deck.');
+}
+// `--fluid` and `--read` ask for opposite documents — a viewer for the SLIDES, and the
+// slides REPLACED by prose — so one has to win. Until now the loser was silent: the write
+// is an `else if` chain (player → fluid → read) and only the player arm warned, so
+// `--read --fluid` produced a fluid viewer with no article in it and said nothing. The
+// READ arm even carries a "Never silent: the operator asked for an article" comment,
+// unreachable in that composition.
+//
+// AN EXPLICIT FLAG BEATS A DECK KEY, in both directions. The sharper half of the defect was
+// that `fluid: true` in a deck's front matter silently beat `--read` typed on the command
+// line — a file default overriding what the operator just asked for. When both come from
+// the same kind of source, `--fluid` keeps winning, which is the order the chain below
+// already had; either way it is now said out loud.
+const FLUID_BEATS_READ = !(READ_VIEW_FLAG && !flags.fluid);
+if (FLUID_VIEW && READ_VIEW && !PLAYER) {
+  console.warn(
+    FLUID_BEATS_READ
+      ? '  ⚠ --fluid and --read both set — using the fluid viewer, which shows the slides; the reading article is NOT in this file.'
+      : '  ⚠ --read was asked for explicitly and this deck sets `fluid: true` — using the reading article, and the fluid viewer is NOT in this file.',
+  );
 }
 const PLAYER_VERSION = '1';
 const ENGINE_BUILD = pkgVersion() ?? '';
@@ -4741,7 +4762,7 @@ async function renderBody(browser, g, closeBrowser) {
     } catch (err) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
     }
-  } else if (FLUID_VIEW) {
+  } else if (FLUID_VIEW && FLUID_BEATS_READ) {
     // The fluid viewer runs the BUNDLED RUNTIME, which resolves the overflow level
     // from an export-settings block and otherwise falls back to `reader`. Without
     // the block the flag was silently ignored here: `--overflow-marker=off` still
@@ -4773,7 +4794,13 @@ async function renderBody(browser, g, closeBrowser) {
     // SVG carries every label in a `<foreignObject>` that this function's own sanitizer
     // removes. Falls back to the static render whenever the capture did not happen, which is
     // the article that shipped before.
-    const articleDoc = await buildReadingArticleDocument(inflatedDocHtml || cleanDocHtml);
+    //
+    // The scheme is `readFrontMatterColorMode` rather than the palette-derived one: this is the
+    // DECK's declared intent, which is what the slide sections carry and what the player honors.
+    const articleDoc = await buildReadingArticleDocument(
+      inflatedDocHtml || cleanDocHtml,
+      (readFrontMatterColorMode(md) || '').trim().toLowerCase()
+    );
     if (articleDoc) {
       fs.writeFileSync(outHtml, articleDoc);
       if (!QUIET) console.log(`Reading article: ${outHtml}`);
@@ -5464,7 +5491,7 @@ html,body{background:var(--bg,#fff)}
  * Returns '' (never throws): a projection failure must not sink a render that succeeded,
  * and the caller keeps the clean slide render in that case.
  */
-async function buildReadingArticleDocument(docHtml) {
+async function buildReadingArticleDocument(docHtml, deckScheme) {
   if (!docHtml || typeof docHtml !== 'string') return '';
   try {
     const { JSDOM } = require('jsdom');
@@ -5578,6 +5605,23 @@ async function buildReadingArticleDocument(docHtml) {
     // A "Skip to the slides" link aimed at a main#deck that no longer exists is a dead
     // anchor, so it goes with the slides.
     doc.querySelector('a.lat-skip-link')?.remove();
+
+    // THE DECK'S DECLARED SCHEME, on the root. A deck that says `color-mode: dark` handed
+    // `--read` a WHITE page: the engine sets dark as a `dark` CLASS on the slide SECTION and
+    // every rule for it is section-scoped, so with the sections gone nothing carried the
+    // scheme and the palette's `light-dark()` tokens all resolved to their light branch. The
+    // player does not have this — it derives the deck's scheme for its own shell — so the
+    // same deck read dark there and white here.
+    //
+    // One declaration is the whole fix, measured: `color-scheme: dark` on `<html>` takes the
+    // body background from rgb(255,255,255) to rgb(0,29,51) and the article ink from
+    // rgb(30,58,95) to rgb(203,217,232) — the same values the player's Read · Article shows
+    // for that deck. It goes on the ROOT rather than the article so the page's own
+    // background follows; an article on a white page in a dark deck is the same defect
+    // one element smaller.
+    if (deckScheme === 'dark' || deckScheme === 'light') {
+      doc.documentElement.style.setProperty('color-scheme', deckScheme);
+    }
 
     const style = doc.createElement('style');
     // textContent, never innerHTML: a closing style tag inside the sheet would otherwise

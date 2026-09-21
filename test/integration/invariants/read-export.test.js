@@ -281,6 +281,68 @@ describe('--read — the deck as prose, and nothing else moves', () => {
     }
   });
 
+  // REGRESSION, from the same checker pass. `--fluid` and `--read` ask for opposite
+  // documents and the write is an `else if` chain, so one loses — silently. Only the
+  // `--player` clash warned; `--read --fluid` produced a fluid viewer with no article in it
+  // and said nothing, and the READ arm's own "Never silent: the operator asked for an
+  // article" comment was unreachable in that composition. The sharper half was that a
+  // deck's `fluid: true` beat a `--read` typed on the command line — a file default
+  // overriding what the operator just asked for.
+  test('an explicit --read beats a deck that sets fluid, and neither clash is silent', { timeout: 900000 }, () => {
+    const dir6 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-fluid-'));
+    try {
+      // (a) BOTH ON THE COMMAND LINE — fluid keeps winning, which is the chain's order, but
+      // the operator is told the article is not in the file.
+      fs.writeFileSync(path.join(dir6, 'deck.md'), DECK_SOURCE);
+      const bothFlags = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir6, 'deck.md'), path.join(dir6, 'both.html'), 'indaco', '--read', '--fluid'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
+      assert.equal(bothFlags.status, 0, bothFlags.stderr);
+      assert.match(`${bothFlags.stdout}${bothFlags.stderr}`, /--fluid and --read both set/, 'the losing flag must not be silent');
+      assert.doesNotMatch(fs.readFileSync(path.join(dir6, 'both.html'), 'utf8'), /id="lat-read"/, 'fluid wins when both are flags');
+
+      // (b) THE DECK SAYS FLUID, THE OPERATOR SAYS READ — the explicit flag wins.
+      fs.writeFileSync(path.join(dir6, 'fm.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\nfluid: true'));
+      const deckKey = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir6, 'fm.md'), path.join(dir6, 'fm.html'), 'indaco', '--read'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
+      assert.equal(deckKey.status, 0, deckKey.stderr);
+      assert.match(fs.readFileSync(path.join(dir6, 'fm.html'), 'utf8'), /id="lat-read"/, "a deck's fluid: must not override an explicit --read");
+    } finally {
+      fs.rmSync(dir6, { recursive: true, force: true });
+    }
+  });
+
+  // REGRESSION, same pass. A deck declaring `color-mode: dark` handed its reader a WHITE
+  // page. The engine carries dark as a `dark` CLASS on the slide SECTION and every rule for
+  // it is section-scoped, so once `--read` removes the sections nothing carries the scheme
+  // and the palette's `light-dark()` tokens all resolve to their light branch. The player
+  // does not have this — it derives the deck's scheme for its own shell — so the same deck
+  // read dark there and white here.
+  test('a --read export honors the deck color-mode', { timeout: 900000 }, () => {
+    const dir7 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-mode-'));
+    try {
+      fs.writeFileSync(path.join(dir7, 'deck.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\ncolor-mode: dark'));
+      const out = render(dir7, path.join(dir7, 'read.html'), ['--read']);
+      const { JSDOM } = require('jsdom');
+      const doc = new JSDOM(fs.readFileSync(out, 'utf8')).window.document;
+      assert.match(
+        doc.documentElement.getAttribute('style') || '', /color-scheme:\s*dark/,
+        "a dark deck's reading article must carry the scheme, or every light-dark() token resolves light",
+      );
+      // And a deck that says nothing is left alone rather than pinned to a scheme it never
+      // asked for. A SECOND DIRECTORY, because `render` always reads `<dir>/deck.md` — the
+      // first cut of this arm wrote a `plain.md` the helper ignored, so it re-rendered the
+      // dark deck and failed against correct output.
+      const dir7b = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-mode-plain-'));
+      try {
+        const plain = render(dir7b, path.join(dir7b, 'read.html'), ['--read']);
+        const pdoc = new JSDOM(fs.readFileSync(plain, 'utf8')).window.document;
+        assert.doesNotMatch(pdoc.documentElement.getAttribute('style') || '', /color-scheme/, 'an undeclared deck keeps the document default');
+      } finally {
+        fs.rmSync(dir7b, { recursive: true, force: true });
+      }
+    } finally {
+      fs.rmSync(dir7, { recursive: true, force: true });
+    }
+  });
+
 	test('--read does not move a single byte of the PDF', { timeout: 900000 }, () => {
 		const plain = render(dir, path.join(dir, 'plain.pdf'));
 		const withRead = render(dir, path.join(dir, 'read.pdf'), ['--read']);

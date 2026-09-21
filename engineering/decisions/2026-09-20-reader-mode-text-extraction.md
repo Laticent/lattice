@@ -85,6 +85,15 @@ and the no-JS floor still lays out every slide). Verified in Chromium across all
 views — extraction drops to one copy, the gate still passes in every view, screenshots
 pixel-identical.
 
+> **This paragraph describes the design that shipped FIRST, and the second half of it was
+> falsified before merge. Read § "The two paths" below before relying on it.** "Set only
+> from JS" held on the live-DOM path and did nothing on the re-fetch path, where the player
+> still handed a reader both copies. What is in the tree is `#lp-doc` shipping `hidden` in
+> the markup, with `setView` maintaining it. The paragraph is kept rather than rewritten
+> because the claim and its falsification are the whole lesson of this note — but a reader
+> who came here for *what is in the tree* was getting the wrong answer from the section
+> named "What shipped", which is the one section that should never need a caveat.
+
 A detail worth keeping: the gate and the extractor **disagree** about `hidden`.
 `isProbablyReaderable` checks nodes individually, so hiding a container does not hide the
 candidates inside it; `Readability.parse()` drops the hidden subtree. That asymmetry is
