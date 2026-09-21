@@ -1395,16 +1395,14 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   });
 
   test('KNOWN RESIDUAL: a directive in list continuation is not seen', () => {
-    // Recorded rather than fixed, and TWO things hold it silent — a checker found
-    // that naming only the first made this test's promise untrue, because deleting
-    // that cause alone leaves the test passing:
-    //   · `withoutCodeBlocks` blanks any four-space indented line, and inside a
-    //     list item four spaces is CONTINUATION, not code;
-    //   · `blockMarkerEnd` independently reads four columns of leading indent as
-    //     an indented code block, so the prefix test declines it too.
-    // Both are shared by other rules, so correcting either means changing what
-    // those rules see; that is its own change. Silence is the safe direction for
-    // an advisory rule. A future fix must remove BOTH to make this test fail.
+    // Recorded rather than fixed. The cause has been RESTATED twice as the rule
+    // was rewritten under it, and a checker caught the second statement naming two
+    // functions this branch had already deleted — an instruction a future fix
+    // could not follow. Today it is silent for one reason only: `COMMENT_LINE`
+    // requires the comment to open its own line at most three spaces in, and a
+    // list continuation is indented four. That is the subset rule working as
+    // designed, not a defect to remove; the test pins the behaviour, and any
+    // future widening of that bound will notice it.
     const { render } = require('../../../lib/engine');
     const src = `${FM}<!-- _class: topic -->\n\n## T\n\n- item\n\n    <!-- _track: A -->\n`;
     const out = render(src, {});
@@ -1431,8 +1429,15 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       '<?php', '?>', '<![CDATA[', ']]>', '<!A', '<!DOCTYPE html>',
       '<!--->', '<!-- n -->', '<!--', '-->', '--> trailing', '<!-- a --> b',
       '`code`', '    indented', '```', '~~~', '<!-- _footer: "x" -->',
+      // The nine shapes round seven used to refute the previous fence handling.
+      // A curated alphabet is still curation; these are here because their
+      // absence is what let a fence bug through a 5,808-shape cross.
+      '~~~ see `docs`', '~~~ run `npm`', '``` js', '- ```', '* ```', '+ ~~~',
+      '1. ```', '\t```', '> ```', '~~~~', '``````',
     ];
     const warned = [];
+    let degenerate = 0;
+    let silent = 0;
     for (const a of LINES) {
       for (const pre of ['', '> ', '- ']) {
         const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${a}\n${pre}<!-- _track: A -->\n`;
@@ -1445,12 +1450,37 @@ describe("lint-core: the topic anchor's `_track` override", () => {
           const spec = parseTrackSpec(raw);
           should = spec.labels.length < MIN || spec.current === -1;
         }
-        if (rule(src, 'track-directive') && !should) {
+        const fired = Boolean(rule(src, 'track-directive'));
+        if (fired && !should) {
           warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)}: engine inert, linter WARNED`);
         }
+        if (should) { degenerate += 1; if (!fired) silent += 1; }
       }
     }
+    // The arm that bites.
     assert.deepEqual(warned, []);
+    // And the arm that keeps the SUBSET honest. The curated table names its
+    // thirteen quiet shapes; this one cannot name 68, so it pins the count —
+    // a checker found the earlier version asserting nothing at all about
+    // silence while the commit claimed the cost was written down. A rule that
+    // went quiet everywhere would also pass "no false warnings"; it would not
+    // pass this. Both numbers move with the alphabet, so they are a diff.
+    assert.equal(degenerate, 89, 'shapes the engine applies degenerately');
+    assert.equal(silent, 68, 'of those, the ones the subset rule declines');
+  });
+
+  test('KNOWN RESIDUAL: a raw-text block closed by a DIFFERENT tag', () => {
+    // CommonMark ends a type-1 block on `</pre>`, `</script>`, `</style>` OR
+    // `</textarea>` — whichever comes first — so the engine really does read the
+    // directive here. The rule never tries to work out whether a block closed, so
+    // it stays silent. Pinned because an earlier commit CLAIMED this shape was
+    // pinned when nothing in the tree recorded it; a checker caught the claim.
+    const { render } = require('../../../lib/engine');
+    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<script>\n</style>\n<!-- _track: A -->\n`;
+    const out = render(src, {});
+    const html = typeof out === 'string' ? out : out.html;
+    assert.match(html, /data-track="A"/, 'the engine really does apply it');
+    assert.equal(rule(src, 'track-directive'), undefined, 'and the rule really is silent');
   });
 
   test('KNOWN RESIDUAL: a markup line above a directive silences the rest', () => {
