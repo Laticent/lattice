@@ -107,6 +107,23 @@ const MUTS = [
 	['guide', '\treturn colors.every((c) => {', '\treturn [colors[0]].every((c) => {', 'only the first color of a shadow list is read'],
 	['guide', '\twhile (node && !STOP_CLIMB.has(node.tagName) && node !== root) {', '\twhile (node && node !== root) {', 'the climb can reach the slide itself'],
 	['guide', '\treturn share >= LONGEST_SHARE ? longest : null;', '\treturn longest;', 'a partial answer is taken however little it holds'],
+	// ── the MARK tier (findMarkTarget) — a cue whose words are not on the slide at all
+	// Every guard here earns its arm the hard way: an independent check of the first version
+	// found the lead rule was a CHARACTER prefix (`AI` led "Airlines"), corroboration was a bare
+	// substring (`8` -> "eight" satisfied "eighteen", and `N/A` -> "na" satisfied "analysis"),
+	// and BOTH sort keys could be deleted with the whole suite green.
+	['guide', '\t\tif (label.length < 2 || !leadsWord(needle, label)) continue;', '\t\tif (label.length < 2 || !needle.startsWith(label)) continue;', 'a label leads on characters, not words'],
+	['guide', '\t\tif (label.length < 2 || !leadsWord(needle, label)) continue;', '\t\tif (label.length < 1 || !leadsWord(needle, label)) continue;', 'a one-character label is allowed to lead'],
+	['guide', '\t\t\tcorroborated = containsWord(needle, spoken) || containsWord(needle, digits);', '\t\t\tcorroborated = needle.includes(spoken) || needle.includes(digits);', 'a value corroborates on a substring'],
+	['guide', '\t\t\tif (!corroborated) continue;', '', 'a mark whose value the cue never says is taken'],
+	['guide', '\tpassed.sort((a, b) => b.labelLen - a.labelLen || Number(b.corroborated) - Number(a.corroborated));', '\tpassed.sort((a, b) => b.labelLen - a.labelLen);', 'corroboration stops breaking a label-length tie'],
+	['guide', '\tpassed.sort((a, b) => b.labelLen - a.labelLen || Number(b.corroborated) - Number(a.corroborated));', '\tpassed.sort((a, b) => Number(b.corroborated) - Number(a.corroborated));', 'a short corroborated mark outranks the exact one'],
+	['guide', '\tif (next && next.labelLen === top.labelLen && next.corroborated === top.corroborated) return null;', '', 'an ambiguous pair is guessed at rather than refused'],
+	['guide', "\treturn findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text) ?? findMarkTarget(frameDoc, text);", "\treturn findMarkTarget(frameDoc, text) ?? findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text);", 'the mark tier outranks a real block'],
+	// ── a mark is geometry, not words
+	['guide', "\tif (textless) return box.width <= RING_WIDTH * slideW ? 'circle' : 'tap';", '', 'a textless mark is underlined along its bounding box'],
+	['guide', "\t\tif (fill && fill !== 'none' && !isTransparent(fill)) return true;", '', 'a filled SVG mark reports no boundary'],
+	['guide', "\t\tif (fill && fill !== 'none' && !isTransparent(fill)) return true;", '\t\tif (fill) return true;', 'fill:none reads as a boundary'],
 	['stage', '\t\t\tawait tweenTo(b.left + b.width, y, Math.max(300, Math.min(900, Math.abs(b.width) * 1.15)) * pace, signal);', '\t\t\tif (i < bands.length - 1) await tweenTo(b.left + b.width, y, 300 * pace, signal);', 'the last band is never swept'],
 	['stage', '\t\t\tconst settleHand = () => {\n\t\t\t\tcx += hx;\n\t\t\t\tcy += hy;', '\t\t\tconst settleHand = () => {\n\t\t\t\tcx += 0;\n\t\t\t\tcy += 0;', 'an aborted glide snaps the cursor back'],
 	['stage', '\tif (!(amount > 0) || !Number.isFinite(dist) || !Number.isFinite(t) || !Number.isFinite(phase)) return { along: 0, across: 0 };', '\tif (!(amount > 0)) return { along: 0, across: 0 };', 'a non-finite input emits NaN'],

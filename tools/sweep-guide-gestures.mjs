@@ -65,6 +65,27 @@ const decks = () => [
 ];
 
 /**
+ * THE COMPONENT NAMES, from the generated catalog.
+ *
+ * A slide's `<!-- _class: X -->` lands as classes on its `<section>`, mixed in with every
+ * modifier (`accent`, `dark`, `insight-verdict`, a form name). Only the catalog can say which
+ * of those tokens is a COMPONENT, so the attribution below intersects the section's classList
+ * with this set rather than guessing at the first class or a naming convention.
+ *
+ * Read from `dist/` deliberately: that is the same machine surface the picker and every
+ * exported deck consume, so a component this sweep cannot name is one the catalog does not
+ * ship, which is itself worth reporting.
+ */
+const componentNames = () => {
+	try {
+		const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist', 'docs', 'components.json'), 'utf8'));
+		return (raw.components ?? []).map((c) => c.name).filter(Boolean);
+	} catch {
+		return [];
+	}
+};
+
+/**
  * One VTT cue payload reduced to the words Present speaks.
  *
  * A cue line carries word-level timestamps (`<00:00:01.234>`) and voice/class spans
@@ -144,8 +165,10 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { byComponent: {}, marked: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
+	const comps = componentNames();
+	if (!comps.length) console.error('  note: dist/docs/components.json is missing — per-component attribution will report everything as (none). Run `npm run build`.');
 	try {
 		for (const md of decks().slice(0, limit)) {
 			const stem = path.basename(md, '.md').replace(/[^\w.-]/g, '_');
@@ -188,8 +211,15 @@ async function main() {
 				continue;
 			}
 			const rows = await page.evaluate(
-				(cueEntries, halfParent, presentWidth) => {
+				(cueEntries, halfParent, presentWidth, compNames) => {
 					const G = window.LatticeGuide;
+					const known = new Set(compNames);
+					// WHICH COMPONENT IS THIS SLIDE? The `_class:` directive lands as classes on the
+					// section alongside every modifier and form name, so the only sound answer is the
+					// intersection with the catalog. A slide that names none (a plain Markdown slide
+					// with no directive) is attributed to `(none)` rather than dropped — those slides
+					// are cues too, and a component sweep that hides them flatters itself.
+					const compOf = (sec) => [...sec.classList].find((c) => known.has(c)) ?? '(none)';
 					// Did this cue need the piecewise (label + body) matcher? Asked by checking
 					// whether any single BLOCK contains it, which is the condition that fallback
 					// exists for — not by re-implementing the matcher.
@@ -220,6 +250,7 @@ async function main() {
 						const sec = sections[n - 1];
 						if (!sec) continue;
 						const r = sec.getBoundingClientRect();
+						const comp = compOf(sec);
 						const frame = { left: r.left, top: r.top, width: r.width, height: r.height };
 						const half = halfParent / (presentWidth / (r.width || presentWidth));
 						let any = false;
@@ -238,37 +269,57 @@ async function main() {
 							// change. This branch relaxes the matcher, so it owes the same number: how much of
 							// the spoken sentence the resolved element actually holds, and how often the climb
 							// gave up and handed back a partial answer.
-							const partial = spanned ? G.resetSpanPartial() > 0 : false;
-							const ratio = spanned && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
-							out.push(d ? { kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned, partial, ratio } : null);
+							// WHICH TIER ANSWERED, asked rather than inferred. `spanned` is "no single block
+							// holds this cue", which was a sound proxy for the piecewise matcher while it
+							// was the only tier that could answer such a cue. The MARK tier answers them
+							// too, so the proxy now books every mark hit as piecewise and voids that row's
+							// wrong-element ratio (a mark has no text, so the ratio reads 0).
+							const marked = G.resetMarkHit() > 0;
+							const partial = spanned && !marked ? G.resetSpanPartial() > 0 : false;
+							const ratio = spanned && !marked && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
+							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
+							// "how often does the corpus resolve"; it cannot answer "which component goes
+							// dark", which is the question a component owner actually has.
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: spanned && !marked, marked, partial, ratio } : { comp, miss: true });
 						}
-						out.push({ slideDone: true, any });
+						out.push({ slideDone: true, any, comp });
 					}
 					return out;
 				},
 				[...cuesBySlide.entries()],
 				HALF_PARENT,
 				PRESENT_WIDTH,
+				comps,
 			);
 			await page.close();
 
 			const deckRow = { deck: path.relative(ROOT, md), cues: 0, resolved: 0, byKind: {} };
+			// One bucket per component, created on first sight so a component absent from the
+			// corpus stays absent from the table rather than showing a flattering 0/0.
+			const comp = (name) => (tally.byComponent[name] ??= { cues: 0, resolved: 0, slides: 0, byKind: {}, byRole: {} });
 			for (const row of rows) {
 				if (row?.slideDone) {
 					tally.slidesWithNarration += 1;
+					comp(row.comp).slides += 1;
 					if (!row.any) tally.slidesNoCue += 1;
 					continue;
 				}
 				tally.cues += 1;
 				deckRow.cues += 1;
-				if (!row) {
+				const c = comp(row.comp);
+				c.cues += 1;
+				if (row.miss) {
 					tally.hides += 1;
 					continue;
 				}
+				c.resolved += 1;
+				c.byKind[row.kind] = (c.byKind[row.kind] ?? 0) + 1;
+				c.byRole[row.role] = (c.byRole[row.role] ?? 0) + 1;
 				tally.resolved += 1;
 				deckRow.resolved += 1;
 				tally.byKind[row.kind] = (tally.byKind[row.kind] ?? 0) + 1;
 				tally.byRole[row.role] = (tally.byRole[row.role] ?? 0) + 1;
+				if (row.marked) tally.marked += 1;
 				if (row.spanned) {
 					tally.spanned += 1;
 					if (row.partial) tally.spanPartial += 1;
@@ -301,6 +352,7 @@ async function main() {
 	console.log(`  rest fell back to the search  ${tally.fellBack} (${pct(tally.fellBack, tally.resolved)})`);
 	const ratios = tally.spanRatio.slice().sort((a, b) => a - b);
 	const q = (f) => (ratios.length ? ratios[Math.min(ratios.length - 1, Math.floor(f * ratios.length))].toFixed(2) : 'n/a');
+	console.log(`  answered by a MARK (data-label / data-value)   ${tally.marked} (${pct(tally.marked, tally.resolved)})`);
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
 	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);
@@ -315,6 +367,31 @@ async function main() {
 		const g = tally.byGesture[k] ?? 0;
 		console.log(`    ${k.padEnd(10)} ${String(c).padStart(5)} ${pct(c, tally.resolved).padStart(7)}     ${String(g).padStart(5)} ${pct(g, tally.gestures).padStart(7)}`);
 	}
+	// ── PER COMPONENT ────────────────────────────────────────────────────────────
+	// The deck rows above answer "does the corpus resolve"; this answers the question a
+	// component owner has, which is "does MY component self-present". They are not the same
+	// question and the deck view cannot be reduced to this one: a deck mixes components, so a
+	// deck at 90% can hide one component at 0%.
+	//
+	// MIN_CUES exists because a resolve rate over four cues is noise. Components below it are
+	// reported as a count, not ranked, so a thin sample cannot top the table.
+	const MIN_CUES = 12;
+	const compRows = Object.entries(tally.byComponent).map(([name, c]) => ({ name, ...c, rate: c.cues ? c.resolved / c.cues : 0 }));
+	const ranked = compRows.filter((r) => r.cues >= MIN_CUES).sort((a, b) => a.rate - b.rate);
+	const thin = compRows.filter((r) => r.cues > 0 && r.cues < MIN_CUES);
+	const unseen = comps.filter((n) => !(tally.byComponent[n]?.cues > 0));
+	console.log(`\n  PER COMPONENT — ${compRows.length} seen, ${ranked.length} with >=${MIN_CUES} cues, ${thin.length} thinner, ${unseen.length} of ${comps.length} never cued`);
+	console.log('    worst 15 by resolve rate:');
+	console.log(`    ${'component'.padEnd(22)} ${'cues'.padStart(5)} ${'resolved'.padStart(9)}   handle mix`);
+	for (const r of ranked.slice(0, 15)) {
+		const handles = Object.entries(r.byRole)
+			.sort((a, b) => b[1] - a[1])
+			.map(([k, v]) => `${k} ${pct(v, r.resolved)}`)
+			.join(' · ');
+		console.log(`    ${r.name.padEnd(22)} ${String(r.cues).padStart(5)} ${pct(r.resolved, r.cues).padStart(9)}   ${handles || '—'}`);
+	}
+	if (unseen.length) console.log(`\n    never cued by the corpus (no gesture evidence at all): ${unseen.join(', ')}`);
+
 	if (jsonAt) fs.writeFileSync(jsonAt, `${JSON.stringify({ tally, perDeck }, null, 2)}\n`);
 }
 
