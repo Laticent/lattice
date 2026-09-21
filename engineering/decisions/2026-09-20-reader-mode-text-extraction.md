@@ -276,9 +276,20 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   …` (HARD RULE #5's nested form) projects to `<li>0<ul><li>boxes to drag…` , which reads
   as a stray "0". Pre-existing behavior of the shared projection, visible in the player's
   Read view too; logged here rather than fixed, per HARD RULE #18's off-path rule.
-- **The Studio's render is not baked.** `buildDeckRender`'s static output leaves a
-  mermaid fence as a raw `<pre><code>`; the export path bakes those through a capture
-  frame first. The Read view shows fence source where the player shows a drawing.
+- ~~**The Studio's render is not baked.**~~ **Resolved 2026-09-21.** `buildDeckRender`'s
+  static output leaves a mermaid fence as a raw `<pre><code>`, so the Read view showed fence
+  source where the player shows a drawing. `article-projection.ts` now runs the same
+  `bakeDeckSections` the webpage export runs, gated on the render actually carrying
+  runtime-drawn content (the fence class, `data-sc-transitions`, `data-fp-config`) — the bake
+  costs ~1.5 s and a deck without diagrams would pay all of it for a byte-identical result.
+  Measured on `examples/mermaid-diagram-surface.md`: 4 raw fences and 0 SVGs become 0 fences
+  and 4 SVGs carrying 19 native `<text>` labels; time from the palette row to a rendered
+  article goes 480-678 ms to 2009-2320 ms, and a diagram-free deck stays at 485-687 ms.
+  It needed one thing the export path does not: **`freezeTokens`**. The bake deliberately
+  leaves a scheme-varying paint as `var(--token)` so a host shipping the deck CSS can
+  re-theme it, and this pane ships none — every node, connector and label rendered BLACK.
+  So the Studio caller opts into `applyCollectedTokens`, the same fix and the same shape as
+  `flattenChartSvgs`; the export paths keep the reference and their toggle.
 - **No JSON-LD or `og:type` anywhere on the docs site.** Chrome's DOM Distiller reads
   both. Adding them is a separate, cheap win that was not taken here.
 - **The 15 non-eligible built pages** were left alone. The app shells should not be
