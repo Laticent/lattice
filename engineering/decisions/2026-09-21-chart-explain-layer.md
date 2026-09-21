@@ -547,6 +547,84 @@ caller reading it would have hit `undefined.some`. `narrateBullet` returns null
 before that point today, so it was a shape guarantee rather than a live fix — but a
 bail that hands the next caller a crash is not a bail.
 
+## The sixth round — the answer stops being another rule (2026-09-21)
+
+The fifth round's fixes went to a sixth checker, and it found **three more
+regressions of the same class**. The new content-column `hasDeeper` rule fixed the
+five shapes it was shown and broke a wider set: a **tab** (markdown-it expands it
+to a four-column stop; every length in the scanner counts characters), a **marker
+gap over one space** (it moves the content column, and past four the content
+becomes an indented code block), and a **one-space indent** (markdown-it makes it a
+SIBLING, not a child). Measured over an indentation grid: 159 cells where the
+pre-round code agreed with the render and the fix did not.
+
+**Four rounds, four times the same answer: model one more of markdown-it's list
+rules.** That is the finding, and it is about the approach rather than the code.
+CommonMark list nesting is tab stops, marker width, a content-column cap at five
+spaces, a four-column code rule, lazy continuation and a one-space sibling — and a
+line scanner cannot carry it. `parseBullet` has no such problem because it reads
+markdown-it's OUTPUT; narration runs on Markdown, before any render, on every call
+path in the tree.
+
+**So the sixth answer is a WHITELIST and a REFUSAL, not a seventh rule.** A nested
+line's structure is read only in the shape that can be proved — spaces only, one
+space after the marker, an indent that is exactly a parent content column. Anything
+else marks the ROW ambiguous, and then:
+
+- `parseBulletRow` reads it as a bare bar, with **no target, no floor, no bands**.
+  Refusing only the children was the first cut and was not enough: a child can carry
+  a `Target` or `Floor` that decides whether the chart scores the row at all
+  (`- Row0 \`2\` \`2\`` over `- Target \`4\`` / `- Floor \`80%\`` renders UNSCORED,
+  because the floor lands above the target — narration dropped the children, kept
+  the row's own second pill, and said "exactly at plan" over a bar with no plan line);
+- `narrateBullet` speaks **no tally** for the whole chart.
+
+It fails toward silence, which is the one direction that is safe against a shape
+nobody has thought of yet.
+
+**THE COST, STATED.** On the generated corpus, 343 of 400 decks spoke a tally
+before and 141 after. On the SHIPPED corpus the cost is zero: one slide in the tree
+carries an indent this refuses, a `docs/public/components.md` fragment with no
+tally to lose.
+
+**A guard was written, shipped and inert for one iteration.** `parseBulletRow`
+returns a NEW object and did not carry `structurallyAmbiguous` over, so
+`narrateBullet` read the flag off the mapped rows and it was always false. The fuzz
+still showed 45 of 317 diverging until the guard read `raw` instead. A guard nobody
+can see fail is the same defect as a measurement nobody can re-derive.
+
+### And the test's own projection was too narrow
+
+The parity fuzz compared `{cleared, scored}` from the tally sentence and nothing
+else. Two blind spots, both measured: **121 of 341** decks took the "none cleared
+its target" branch, where the denominator is never compared at all; and the
+**per-row readings were never compared**, so an invented target was invisible
+whenever it sat above the measure — both sides then report `cleared: 0`.
+
+There is a row-level cell now, and the ambiguity axis is in the generator. The pair
+discriminates: against the pre-guard narrator, **95 invented rows of 400 and 105
+tally divergences of 343**; after, **0 and 0**.
+
+*The round-five lesson was "0 divergences names the corpus, not the narrator". The
+round-six lesson is that it also names the PROJECTION.*
+
+### Two more the same eyes found
+
+**A dead-end sentence the picture contradicted**, found by rasterizing the demo
+deck rather than reading the caption track. "Parked stops without being marked an
+ending" — and the slide draws Parked into the same final marker Done converges
+into, because the runtime router takes `isTerminal || !hasOut` while the node
+styling follows `inferRoles`, where one `end` tag suppresses inference everywhere.
+Two rules, one slide, opposite answers. The clause says "nothing leads out of X"
+now, which both rules support; the disagreement is the transform's and pre-existing,
+filed as #2290.
+
+**A self-loop is an arrow.** `incoming` excludes self-loops — right for `isChain`,
+wrong for a sentence about arrows — so a state whose only inbound arrow was its own
+loop read as "Orphan loops on itself … nothing leads to Orphan". `incomingAll`
+counts it, and a state stranded on both sides gets one clause rather than two true
+ones back to back.
+
 ### What this says about the next round
 
 It should be expected to find more. What changed in this one is that each fix

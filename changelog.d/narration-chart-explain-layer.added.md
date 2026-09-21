@@ -79,3 +79,16 @@
   dollars"* — positive. That is what the chart plots for that pill (`parseValue`
   reads a U+2212 in front of the symbol and not behind it), so the voice and the bar
   agree; the parser asymmetry itself is tracked as #2287.
+- **Fixed: a `bullet` row whose nested structure cannot be read from the Markdown no
+  longer claims a relationship.** A tab, a marker gap wider than one space, or a
+  one-space indent each make markdown-it nest differently from anything a line
+  scanner can compute — and narration runs on Markdown, before any render. Such a row
+  is now read as a bare bar and the slide speaks no tally; the lines are still read
+  aloud, exactly as before. The cost is real and measured: on a generated corpus 343
+  of 400 decks spoke a tally before and 141 after. On the decks in this repo it is
+  zero.
+- **Fixed: a `state-chart` no longer says a state "stops without being marked an
+  ending" over a slide that draws it into the finish marker.** It reads *"nothing
+  leads out of X"* — true of both rules the chart uses to decide that. A state
+  stranded on both sides gets one clause rather than two, and a state whose only
+  inbound arrow is its own self-loop is no longer told that nothing leads to it.

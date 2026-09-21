@@ -333,7 +333,10 @@ test('state-chart — names an UNREACHABLE state', () => {
   const out = narrateStateChart(slide('state-chart', [
     '## Orphan.', '', '1. A `start`', '   - `go => 2`', '2. B `end`', '3. Forgotten',
   ].join('\n')));
-  assert.ok(out.includes('Nothing leads to Forgotten'), out);
+  // "TO OR OUT OF", because Forgotten is stranded on BOTH sides and the picture shows
+  // one fact — a box with no arrows either way. Two true sentences back to back read
+  // as a stutter; see CHECKER4 below.
+  assert.ok(out.includes('Nothing leads to or out of Forgotten'), out);
 });
 
 test('state-chart — names a state that STOPS but was not marked an ending', () => {
@@ -347,7 +350,11 @@ test('state-chart — names a state that STOPS but was not marked an ending', ()
     '2. Closed `end`',
     '3. Parked',
   ].join('\n')));
-  assert.ok(out.includes('Parked stops without being marked an ending'), out);
+  // "NOTHING LEADS OUT OF", not "stops without being marked an ending". The slide
+  // draws Parked into the same final marker Done converges into, so the old wording
+  // was contradicted by the picture — found by rasterizing the demo deck. See
+  // CHECKER4 below and #2290.
+  assert.ok(out.includes('Nothing leads out of Parked'), out);
 });
 
 test('state-chart — does not say the start twice', () => {
@@ -607,8 +614,8 @@ test('the shape is one sentence per FACT, and the hazards stay one list', () => 
   assert.ok(out.includes('Running is where it decides, with two ways out.'), out);
   // …and the hazards arrive as ONE sentence, semicolon-joined.
   assert.ok(
-    out.includes('Stuck has no way out but to stay; Nothing leads to Parked; Parked stops without being marked an ending.')
-    || out.includes('Stuck has no way out but to stay; nothing leads to Parked; Parked stops without being marked an ending.'),
+    out.includes('Stuck has no way out but to stay; Nothing leads to or out of Parked.')
+    || out.includes('Stuck has no way out but to stay; nothing leads to or out of Parked.'),
     out,
   );
 });
@@ -720,6 +727,60 @@ test('CHECKER3 — one trailing prose bullet does not delete the tally', () => {
   const hidden = narrateBullet(slide('bullet', '## Y.\n\n- `residency` `1` `2`\n- A `5` `4`\n- B `2` `4`'));
   assert.ok(!/cleared the plan line/.test(hidden), hidden);
   assert.ok(/residency/.test(hidden), 'and it is not deleted either');
+});
+
+test('CHECKER4 — a stranded state gets one clause, and no clause the picture denies', () => {
+  // FOUND BY LOOKING AT THE RENDERED DECK, not the caption track. The old wording was
+  // "Parked stops without being marked an ending", and the slide draws Parked into the
+  // same final marker Done converges into — the runtime router takes `isTerminal ||
+  // !hasOut`, while the node styling follows `inferRoles`, where one `end` tag
+  // suppresses inference for every other state. Two rules, one slide, opposite answers
+  // (the disagreement itself is the transform's and pre-existing — #2290).
+  const out = narrateStateChart(slide('state-chart', [
+    '## Three hazards nothing else names.', '',
+    '1. Running `start`', '   - `fail => 2`', '   - `finish => 4`',
+    '2. Stuck', '   - `retry => self`', '3. Parked', '4. Done `end`',
+  ].join('\n')));
+  assert.ok(!/marked an ending/.test(out), out);
+  // …and ONE clause, not two true ones read back to back.
+  assert.ok(/nothing leads to or out of Parked/.test(out), out);
+  assert.ok(!/nothing leads to Parked; nothing leads out of Parked/.test(out), out);
+});
+
+test('CHECKER4 — a self-loop is an arrow, so "nothing leads to" does not fire on it', () => {
+  // `incoming` excludes self-loops, which is right for `isChain` and wrong for a
+  // sentence about arrows: a state whose only inbound arrow is its own loop read as
+  // "Orphan loops on itself … nothing leads to Orphan" — the same contradiction the
+  // unreachable/cutOff split removed, one door over. `incomingAll` counts the loop.
+  const out = narrateStateChart(slide('state-chart', [
+    '## Orphan.', '', '1. Draft `start`', '   - `go => 2`', '2. Live',
+    '3. Orphan', '   - `retry => self`',
+  ].join('\n')));
+  assert.ok(/[Tt]he machine never reaches Orphan/.test(out), out);
+  assert.ok(!/nothing leads to Orphan/.test(out), out);
+  assert.ok(/Orphan loops on itself/.test(out), 'and the loop is still named');
+});
+
+test('CHECKER4 — a row whose nested structure a line scanner cannot read claims no relationship', () => {
+  // The sixth round of one defect class. A tab, a wide marker gap and a one-space
+  // indent each make markdown-it nest differently from anything a line scanner can
+  // compute, and each shipped a tally the render contradicts. The answer is a
+  // whitelist and a refusal, not another rule — see `parseDataRows`.
+  const bar = (body) => narrateBullet(slide('bullet', `## H.\n\n${body}`));
+  const ambiguous = [
+    '- Uptime `5`\n\t- Target `4`\n\t\t- note\n- Latency `2` `4`',
+    '- Uptime `5`\n  -     Target `4`\n    - note\n- Latency `2` `4`',
+    '- Uptime `5`\n - Target `4`\n  - note\n- Latency `2` `4`',
+  ];
+  for (const body of ambiguous) {
+    const out = bar(body);
+    assert.ok(!/cleared the plan line/.test(out), `tally spoken for: ${JSON.stringify(body)}`);
+    assert.ok(!/Uptime, five against/.test(out), `relationship claimed for: ${JSON.stringify(body)}`);
+    assert.ok(/Target 4/.test(out), `and the line is still read: ${JSON.stringify(body)}`);
+  }
+  // …while the shapes it CAN read are untouched.
+  assert.ok(/One of two cleared the plan line/.test(bar('- Uptime `5`\n  - Target `4`\n- Latency `2` `4`')));
+  assert.ok(/One of two cleared the plan line/.test(bar('- Uptime `5`\n   - Target `4`\n- Latency `2` `4`')));
 });
 
 // ── the declared frame ───────────────────────────────────────────────────────
