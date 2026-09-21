@@ -7,14 +7,14 @@
   unchanged.
 - **Changed: the track's marker is read from the directive, so nothing infers it from markup.**
   Bold no longer marks an item, and neither does a label matching the slide's heading. The
-  bracketed label is lit; marking none draws the scale with no column lit, and `lint:deck` says
-  so (`track-directive`) — as it does for a `_track` naming fewer than two labels, one on a
-  slide that is not `topic`, and one on `topic fact`, where the variant's flat canvas drops the
-  track AND the slide still stops contributing its name to its siblings' scales. The engine emits every track it draws, override or derived, so the
-  string and DOM render arms read one `data-track` string instead of two readings of one `<ul>` —
-  which is where half the defects in the component's review history came from.
+  bracketed label is lit; marking none draws the scale with no column lit. The engine emits every
+  track it draws, override or derived, so the string and DOM render arms read one `data-track`
+  string instead of two readings of one `<ul>` — which is where half the defects in this
+  component's review history came from.
 - **Changed: `_track` on `topic fact` is now documented and linted.** The variant's flat canvas
-  drops the track, so the directive draws nothing there — and it still stops the slide
-  contributing its heading, which quietly shortens every sibling's scale.
+  drops the track, so the directive draws nothing there — and the slide still stops contributing
+  its heading, which quietly shortens every sibling's scale. `lint:deck` warns, as it does for a
+  `_track` naming fewer than two labels, one that marks no current topic, and one on a slide that
+  is not `topic`.
 - **Changed: the track's CSS is scoped to `ul.tile-track`.** A stray list on a `topic` slide is no
   longer styled as a scale it is not.
