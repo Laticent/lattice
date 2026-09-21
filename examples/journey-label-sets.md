@@ -62,7 +62,7 @@ decision record had already argued exactly that, about a different chart.
 - Request
   - Submit the form `@ops` `:2`
   - Wait for approval `@ops` `:1`
-- Fulfil
+- Fulfill
   - Provision access `@ops` `:4`
   - Confirm with the requester `@ops` `:5`
 

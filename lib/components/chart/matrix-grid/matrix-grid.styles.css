@@ -520,7 +520,16 @@ section.matrix-grid:where([data-family="square"], [data-family="tall"], [data-fa
   background: none;
   border: var(--chart-edge) solid var(--accent);
 }
+/* DASHED, and the dash is the point rather than decoration. Solid-vs-solid left
+ * the two swatches separated by hue and hairline weight alone, and desaturated
+ * off the committed gallery PDF they read as the same box — so the key was less
+ * legible in grayscale than the grid it decodes, whose filled cells keep a tint
+ * the outlined ones do not. A dash survives grayscale, print and every a11y
+ * palette, and it says the right thing about the shape it names: `not
+ * applicable` is the absence of a placement. The CELLS stay solid — a cell's
+ * meaning comes from its row's hue and its fill, and this is the key's own
+ * channel for a distinction the cells carry another way. */
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-key-item.cell-empty .matrix-grid-key-mark {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px dashed var(--border);
 }

@@ -37,7 +37,7 @@ The key is derived: the states these cells use, in lifecycle order.
 
 `[{[x], Enacted}, {[-], In committee}]`
 
-## The same grid, for a legislative programme.
+## The same grid, for a legislative program.
 
 | Workstream | Q1 | Q2 | Q3 |
 | --- | --- | --- | --- |
