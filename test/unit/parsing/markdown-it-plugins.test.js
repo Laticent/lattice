@@ -557,10 +557,46 @@ describe('markdown-it-plugins', () => {
       // `lint:deck` told the author the token was inert. The Frame decides alone.
       assert.equal(plugins.formToggleClass(`${sov} form`), sov, `${sov} refuses an authored form token`);
       assert.equal(plugins.formToggleClass(` ${sov}  form `), sov, 'whitespace does not smuggle it through');
+      // ...UNLESS THE ENGINE PUT IT THERE. `authored: false` is how the split envelope's
+      // re-authored pages say "this is my own composition, not a reader's mistake" — they
+      // keep the layout class for styling and take real chrome Cells, and stripping would
+      // pull that chrome back off. The option exists so BOTH twins ask one kernel: the
+      // rule used to live as a `data-split-role` check inside the DOM twin, which the
+      // engine twin structurally could not mirror (it is handed a class string, not a
+      // node), so the two paths agreed only because auto-split happens to run later.
+      assert.equal(plugins.formToggleClass(`${sov} form`, { authored: false }), `${sov} form`,
+        `${sov} keeps a form class the ENGINE composed`);
+      // `authored: false` MEANS "DO NOT STRIP", NOT "TREAT AS NON-SOVEREIGN". Conflating
+      // the two adds a `form` class to every native-slice page of a sovereign run — a
+      // `premise lat-split-native` body page carries `data-split-role` and NO `form`, and
+      // giving it one is the chrome geometry that moved `split-horizontal` and
+      // `autosplit-coverage` when the abandoned cut made the class universal.
+      assert.equal(plugins.formToggleClass(`${sov} lat-split-native`, { authored: false }), `${sov} lat-split-native`,
+        `a native-slice ${sov} page is not handed a chrome hook it never had`);
     }
     assert.ok(plugins.SOVEREIGN_FRAMES.includes('topic'), 'topic is a sovereign Frame');
     assert.equal(plugins.hostsChromeCells('content'), true, 'the standard Frame hosts chrome Cells');
     assert.equal(plugins.frameIdFor('content'), 'standard');
+    // THE `form` CLASS WINS OVER A SOVEREIGN TOKEN — the one branch of `frameIdFor` that
+    // no export-based test can reach, and it went in claimed as "mutation-proved" when it
+    // was not. `roleOpenTag` overwrites `data-frame` on exactly the pages where the two
+    // rules differ, so `frameIdFor`'s answer never reaches a rendered artifact; deleting
+    // this rule leaves the unit suite, the integration tier, the golden decks and
+    // `check:chart-fit` all green. Its only consumer that could differ is the DOM twin,
+    // on a future surface that runs after a split — which is precisely why the kernel has
+    // to be right rather than merely unobserved. Found by the red-team and checker lenses
+    // independently, both by deleting the line and watching nothing go red.
+    //
+    // The shape is real: `compareOptionSections` re-authors a `split-compare` slide into
+    // body pages that keep the layout class for its `.compare-left` / `.compare-right`
+    // styling AND take a real `cell-footer`. Those pages compose under the chrome-hosting
+    // Frame, and `examples/split-decision.md` ships four of them.
+    assert.equal(plugins.frameIdFor('split-compare form'), 'standard',
+      'a split body page keeps the layout class for styling but composes as `standard`');
+    assert.equal(plugins.frameIdFor('split-compare'), 'split-compare',
+      'unsplit, the same component is sovereign');
+    assert.equal(plugins.frameIdFor('content lat-split-cover form split-cover-premise'), 'standard',
+      'a re-authored cover names the Frame it composes as, not the one it was authored as');
     // `math` IS NOT SOVEREIGN. It left its sovereign frame in 2026-09 — every
     // variant takes `form` and renders with the masthead, the footer, the rail and
     // `meta:` like any other component. Asserted per variant, from the COMPONENT
