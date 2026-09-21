@@ -37,6 +37,8 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
   });
 
   test('a sovereign frame composes as Form too, and says which Frame it is', () => {
+    // Stated on the ATTRIBUTES, which every slide carries; the `form` CLASS is the
+    // chrome-hosting Frame's CSS hook and a sovereign Frame does not take it.
     // Mirrors SOVEREIGN_FRAMES_FALLBACK — the engine and this path must agree.
     // EVERY slide carries `form` since 2026-09-20; a sovereign one also carries
     // `frame-sovereign`, which is what the chrome injectors and the handful of
@@ -48,7 +50,9 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
       const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
       applyFormDefaultToDom(d);
       const sec = d.querySelector('section');
-      assert.equal(sec.className, `${cls} frame-sovereign form`, `${cls} composes as Form, sovereign Frame`);
+      assert.equal(sec.className, cls, `${cls} takes no chrome hook`);
+      assert.equal(sec.getAttribute('data-form'), '2d', `${cls} composes as Form`);
+      assert.equal(sec.getAttribute('data-frame'), cls.split(/\s+/)[0], `${cls} names its Frame`);
       // still marked as a slide, so slide-scoped features can see it
       assert.equal(sec.getAttribute('data-lattice-slide'), '1');
     }

@@ -42,16 +42,19 @@ function runRuntimePass(html) {
 describe('runtime Form wiring — raw Marp deck composes as Form', () => {
   test('the full chrome layer materializes on eligible slides only', () => {
     const doc = runRuntimePass(RAW);
-    // EVERY slide composes as Form — all five carry the class.
-    assert.equal(doc.querySelectorAll('section.form').length, 5);
-    // The three sovereign Frames say so POSITIVELY, and host no chrome Cells.
+    // EVERY slide composes as Form — stated on the attributes, which all five carry.
+    assert.equal(doc.querySelectorAll('section[data-form="2d"]').length, 5);
+    // The three sovereign Frames name themselves POSITIVELY and host no chrome Cells,
+    // so they take no chrome hook.
     for (const cls of ['title', 'divider', 'closing']) {
       const sec = doc.querySelector(`section.${cls}`);
-      assert.equal(sec.classList.contains('form'), true, `${cls} composes as Form`);
-      assert.equal(sec.classList.contains('frame-sovereign'), true, `${cls} is a sovereign Frame`);
+      assert.equal(sec.getAttribute('data-form'), '2d', `${cls} composes as Form`);
+      assert.equal(sec.getAttribute('data-frame'), cls, `${cls} names its Frame`);
+      assert.equal(sec.classList.contains('form'), false, `${cls} takes no chrome hook`);
     }
-    // ...so the chrome layer still lands on the two chrome-hosting slides only.
-    assert.equal(doc.querySelectorAll('section.form:not(.frame-sovereign)').length, 2);
+    // ...so the chrome layer lands on the two chrome-hosting slides only.
+    assert.equal(doc.querySelectorAll('section.form').length, 2);
+    assert.equal(doc.querySelectorAll('section[data-frame="standard"]').length, 2);
     // masthead bands built by masthead-lift on the chrome-hosting slides.
     assert.equal(doc.querySelectorAll('.cell-masthead').length, 2);
     // progress rail docked on the chrome-hosting slides within a divider section.
@@ -71,7 +74,7 @@ describe('runtime Form wiring — raw Marp deck composes as Form', () => {
     const doc = runRuntimePass(optedOut);
     const clean = runRuntimePass(RAW);
     assert.equal(doc.querySelectorAll('section.form').length, clean.querySelectorAll('section.form').length);
-    assert.ok(doc.querySelectorAll('section.form').length > 0, 'the deck still composes as Form');
+    assert.equal(doc.querySelectorAll('section[data-form="2d"]').length, 5, 'every slide still composes as Form');
     assert.equal(doc.querySelectorAll('.cell-masthead').length, clean.querySelectorAll('.cell-masthead').length);
   });
 

@@ -1,12 +1,16 @@
-- **Changed: every slide now carries the `form` class, including a sovereign one.**
-  Sovereignty was spelled as an ABSENT class — a slide with no chrome got no `form`,
-  so "which Frame composes this slide" read as "is this Form at all". It is now
-  stated positively: every slide gets `form`, and the nine sovereign Frames (title,
-  divider, closing, image, premise, scene, split-panel, split-compare, compare-code)
-  also get `frame-sovereign`, meaning one `stage` Cell and no chrome Cells.
-- **Changed: the chrome injectors gate on the FRAME, not on `form`.** The masthead
-  band, the footer Cell, the progress rail and the watermark ask
-  `hostsChromeCells()` — both the HTML-string path and its DOM twin. Two universal
-  CSS rules (`section.form`'s chrome geometry, `section.form::after`'s page number)
-  carry the same guard. Verified pixel-neutral across all 84 component galleries in
-  both moods.
+- **Changed: every slide now states the Form model in the DOM.** The engine, the
+  emulator and the browser runtime stamp `data-form="2d"` (this slide composes as
+  Form, in the 2D medium) and `data-frame="<id>"` (which Frame carves it —
+  `standard`, or one of the nine sovereign ids) on every top-level slide.
+  Sovereignty used to be spelled as an ABSENT `form` class, which made "which Frame
+  composes this slide" indistinguishable from "is this Form at all"; a reader now
+  asks `data-frame` and gets a name.
+- **Unchanged on purpose: the `form` CSS class.** It is the chrome-hosting Frame's
+  selector hook — what the engine rules that paint the masthead band, the bay, the
+  footer Cell and the rail select on — so a sovereign Frame still does not carry it.
+  Nothing about any rendered deck changes: every deck golden and every component
+  gallery is byte-identical.
+- **Changed: the chrome injectors gate on the FRAME.** The masthead band, the footer
+  Cell, the progress rail and the watermark ask `hostsChromeCells()`;
+  `FORM_TOGGLE_SKIP` is now `SOVEREIGN_FRAMES`, because it is no longer a toggle's
+  skip-list.

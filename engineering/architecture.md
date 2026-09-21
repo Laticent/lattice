@@ -241,7 +241,7 @@ exercised by the unit suite:
 | Post-process | What it does | Why not CSS | Home (kernel → adapter) |
 |---|---|---|---|
 | masthead lift | moves eyebrow + title into `.cell-masthead` | re-parent | `lib/forms/cell/masthead/masthead.transform.js` (kernel, co-located with the Cell) → `lib/transformers/masthead-lift.js` (registry adapter + DOM mirror) — self-contained Cell (#356) |
-| universal `form` class | stamps `form` on every top-level slide, plus `frame-sovereign` on the nine sovereign Frames | tag classes | `lib/integrations/markdown-it/plugins.js` (`applyFormToHtml`, `formToggleClass`, `deriveSovereignFrames`) + `lib/forms/form-default.js` (the DOM twin) |
+| Form model + chrome hook | stamps `data-form="2d"` + `data-frame="<id>"` on EVERY top-level slide, and the `form` class on the chrome-hosting ones | tag attributes + classes | `lib/integrations/markdown-it/plugins.js` (`applyFormToHtml`, `stampFormAttrs`, `formToggleClass`, `deriveSovereignFrames`) + `lib/forms/form-default.js` (the DOM twin) |
 | meta Tile | inserts `meta:` into the masthead bay | front-matter text | `lib/forms/tile/meta/meta.transform.js` (`applyToHtml` + `applyToDom` + `readFrontMatter`) — self-contained Tile (#356) |
 | logo Tile | inserts the `logo:` image | front-matter image | `plugins.js` `applyDeckLogoToHtml` |
 | progress Tile | counts `divider` sections → dot-rail + `has-progress` | derive from deck structure | `lib/forms/tile/progress/progress.transform.js` (`applyToHtml` + `applyToDom`) — self-contained Tile (#356) |

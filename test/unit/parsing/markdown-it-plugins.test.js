@@ -536,19 +536,21 @@ describe('markdown-it-plugins', () => {
     assert.equal(plugins.applyFormToggleToHtml, undefined);
   });
 
-  test('formToggleClass: adds form to EVERY slide, and marks the sovereign Frames', () => {
+  test('formToggleClass: the `form` class is the CHROME-HOSTING Frame hook', () => {
     assert.equal(plugins.formToggleClass('content'), 'content form');
     assert.equal(plugins.formToggleClass('cards-grid compact'), 'cards-grid compact form');
     assert.equal(plugins.formToggleClass(''), 'form'); // bare slide
-    // A sovereign Frame composes as Form too — it just declares one Cell and no
-    // chrome Cells, which `frame-sovereign` states positively. Withholding `form`
-    // was the old spelling and it made "which Frame" read as "is this Form".
+    // A sovereign Frame composes as Form too — it declares one Cell and no chrome
+    // Cells, so it takes no chrome hook. That it IS Form is said on the attributes
+    // (asserted in the applyFormToHtml arm below), never by the absence of a class.
     for (const sov of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image', 'premise', 'scene', 'split-compare']) {
-      assert.equal(plugins.formToggleClass(sov), `${sov} frame-sovereign form`, `${sov} is a sovereign Frame`);
-      assert.equal(plugins.hostsChromeCells(plugins.formToggleClass(sov)), false, `${sov} hosts no chrome Cells`);
+      assert.equal(plugins.formToggleClass(sov), sov, `${sov} takes no chrome hook`);
+      assert.equal(plugins.hostsChromeCells(sov), false, `${sov} hosts no chrome Cells`);
       assert.equal(plugins.isSovereignFrame(sov), true);
+      assert.equal(plugins.frameIdFor(sov), sov, `${sov} names its own Frame`);
     }
-    assert.equal(plugins.hostsChromeCells('content form'), true, 'the standard Frame hosts chrome Cells');
+    assert.equal(plugins.hostsChromeCells('content'), true, 'the standard Frame hosts chrome Cells');
+    assert.equal(plugins.frameIdFor('content'), 'standard');
     // `math` IS NOT SOVEREIGN. It left its sovereign frame in 2026-09 — every
     // variant takes `form` and renders with the masthead, the footer, the rail and
     // `meta:` like any other component. Asserted per variant, from the COMPONENT
@@ -583,9 +585,14 @@ describe('markdown-it-plugins', () => {
       '<section class="divider" data-lattice-slide="2"></section>' +
       '<section data-lattice-slide="3"></section>';
     const out = plugins.applyFormToHtml(html);
-    assert.match(out, /<section class="content form" data-lattice-slide="1">/);
-    assert.match(out, /<section class="divider frame-sovereign form" data-lattice-slide="2">/, 'sovereign divider marked, not skipped');
-    assert.match(out, /<section class="form" data-lattice-slide="3">/, 'bare slide gets a class attr');
+    // EVERY section — sovereign or not — says it composes as Form, in the 2D medium,
+    // and names its Frame. This is the statement that replaced the absent class.
+    assert.equal(out.match(/data-form="2d"/g).length, 3);
+    assert.match(out, /<section data-frame="standard" data-form="2d" class="content form"/);
+    assert.match(out, /<section data-frame="divider" data-form="2d" class="divider"/,
+      'the sovereign divider names its Frame and takes no chrome hook');
+    assert.match(out, /<section data-frame="standard" data-form="2d" class="form"/,
+      'a bare slide composes under the standard Frame and gets the chrome hook');
     // It takes no deck source, so there is nothing a front-matter key can change:
     // the same HTML in gives the same HTML out, whatever the deck said.
     assert.equal(plugins.applyFormToHtml(html), out);

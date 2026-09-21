@@ -33,10 +33,21 @@ answer that ever varies:
 
 **A sovereign Frame is not "Form off."** It is a Frame that declares **one** Cell —
 `cells: ["stage"]` — against `standard`'s nine. One Frame, one Cell, the whole
-canvas. In the DOM every slide carries `form`; a sovereign one also carries
-`frame-sovereign`, which is what the chrome injectors gate on. Until 2026-09-20
-sovereignty was spelled as an *absent* `form` class, and that is precisely how
-"which Frame" came to read as "is this Form at all".
+canvas. In the DOM every slide says so on two attributes — `data-form="2d"` and
+`data-frame="<id>"` — so a reader asks which Frame and gets a NAME. Until
+2026-09-20 there was nothing to ask: sovereignty was spelled as an *absent* `form`
+class, and that is precisely how "which Frame" came to read as "is this Form at
+all".
+
+> **`section.form` is a CSS hook, not the model.** The class marks the
+> chrome-hosting Frame — it is what the ~245 engine rules that paint the masthead
+> band, the bay, the footer Cell and the rail select on — so a sovereign Frame does
+> not carry it. We tried making it universal and marking sovereignty with a second
+> class; it says the same thing, but the class is load-bearing for a decade of CSS
+> and for the split envelope, and universalising it moved real decks three separate
+> times. The attributes state the model and move nothing. See
+> `engineering/decisions/2026-09-20-form-is-not-configurable.md` § "Why the class
+> did not become universal".
 
 > **"Medium" is used in two senses in this repo, and this is the one that is NOT
 > the coupling rung.** `engineering/decisions/2026-06-16-form-manifest-medium-independent-contract.md`
@@ -887,12 +898,13 @@ renderer-comparison gate also existed at the time of the sweep; both were retire
 in P4 — `engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md`.)
 
 What ships **today** is the masthead lift, the `meta` / `progress` / `watermark`
-injectors, and **the universal `form` class**: the engine, the emulator and the
-browser runtime each stamp it on every top-level slide, with no key and no opt-out.
-Sovereignty is no longer a withheld class — a sovereign Frame is stamped like every
-other slide and differs only in the Cells it declares (§0, §8), carrying
-`frame-sovereign` so the chrome injectors know not to build a band, a footer Cell
-or a rail for it. Chart-frame components compose with the band (the eyebrow + title
+injectors, and **the Form attributes**: the engine, the emulator and the browser
+runtime each stamp `data-form="2d"` and `data-frame="<id>"` on every top-level
+slide, with no key and no opt-out. Sovereignty is no longer inferred from a withheld
+class — a sovereign slide NAMES its Frame, and differs from a chrome-hosting one
+only in the Cells that Frame declares (§0, §8). The `form` CLASS remains what it has
+always been: the chrome-hosting Frame's selector hook, which a sovereign Frame does
+not take because it builds no chrome Cells. Chart-frame components compose with the band (the eyebrow + title
 lift into the masthead Cell; the chart's own subtitle/caption and body are untouched
 — see the chart-family in-form rules).
 

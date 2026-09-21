@@ -23,7 +23,7 @@
     },
     "exemptFromChrome": {
       "type": "boolean",
-      "description": "True for sovereign Frames — the ones that declare a single `stage` Cell and no chrome Cells. The set of Frames with exemptFromChrome:true IS the engine's SOVEREIGN_FRAMES set (derived in lib/integrations/markdown-it/plugins.js), which is what `hostsChromeCells()` answers from and what stamps `frame-sovereign` on the section. It is NOT 'Form off': every slide carries the `form` class, and this decides which Cells its Frame builds."
+      "description": "True for sovereign Frames — the ones that declare a single `stage` Cell and no chrome Cells. The set of Frames with exemptFromChrome:true IS the engine's SOVEREIGN_FRAMES set (derived in lib/integrations/markdown-it/plugins.js), which is what `hostsChromeCells()` answers from and what `data-frame` names on the section. It is NOT 'Form off': every slide carries `data-form=\"2d\"` and names its Frame, and this decides which Cells that Frame builds — a sovereign one declares `stage` alone, so it takes no `form` CSS hook."
     },
     "description": { "type": "string", "minLength": 1, "description": "One-sentence human description." },
     "admits": {

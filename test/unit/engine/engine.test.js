@@ -69,13 +69,14 @@ describe('lattice-engine: contract', () => {
   test('applies `_class:` to the section and `class:` deck-wide (deckClassPropagate)', () => {
     const md = '---\nclass: dark\n---\n\n# A\n\n---\n\n<!-- _class: title -->\n\n# B\n';
     const secs = profile(makeEngine().render(md, 'lattice').html);
-    // EVERY slide composes as Form, so both pick up `form`; the `title` bookend is a
-    // SOVEREIGN Frame, so it also carries `frame-sovereign` — one Cell, no chrome
-    // Cells. Slide A names no component, so it takes the catch-all `content` layout
-    // (#1292) — `dark` is a modifier, not a layout, and a slide is never
+    // `form` is the CHROME-HOSTING Frame's CSS hook, so the `title` bookend — a
+    // SOVEREIGN Frame, one Cell and no chrome Cells — does not carry it. That both
+    // slides compose as Form is stated on `data-form` / `data-frame`, asserted in
+    // the arm below. Slide A names no component, so it takes the catch-all `content`
+    // layout (#1292) — `dark` is a modifier, not a layout, and a slide is never
     // layout-less. Slide B named `title`, a real component.
     assert.equal(secs[0].cls, 'content dark form');
-    assert.equal(secs[1].cls, 'dark form frame-sovereign title');
+    assert.equal(secs[1].cls, 'dark title');
   });
 
   test('per-slide color mode wins over the deck-wide one (light slide in a dark deck)', () => {

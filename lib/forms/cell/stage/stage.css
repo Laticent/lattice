@@ -47,30 +47,12 @@
  *                     slide edge.
  *   · per-Cell       — the masthead + bay clip their own overflow, so a long
  *                     title or meta line is cut at its Cell, never bled. */
-/* THE SPLIT ENVELOPE IS AN EXCEPTION, and it is a deliberate one.
- * A split page composes in the ENVELOPE's chrome — a `content` cover, body pages
- * carrying the run's rail and its "Option N of M" mark, a closing page — even when
- * the layout it came from is sovereign, which is why a `split-compare` body page
- * keeps `form`. Before sovereignty was stamped positively (2026-09-20) that fell out
- * for free: the marker did not exist, so those pages took this geometry like any
- * other. `[data-split-role]` restores exactly that set and nothing wider.
- * Measured without it, on `examples/social-grid` (`size: story`): the two
- * `split-compare` body pages lost the masthead band's inset — it went full-bleed —
- * and the "Option 1 of 2" pill overprinted the progress rail.
- *
- * BOTH ARMS SIT IN `:where()` SO THE SPECIFICITY IS UNCHANGED — still (0,1,1),
- * exactly what the bare `section.form` was. A plain `:not()` raises it to (0,2,1),
- * which silently WINS contests this rule used to lose. That is not hypothetical:
- * the unwrapped form alone moved three pages of `themes/palette-audit` — a
- * `blank content form` slide with no sovereign frame anywhere near it — by giving
- * them a stage inset they never had. Both decks are byte-identical now. */
-section.form:where(:not(.frame-sovereign)),
-section.form:where([data-split-role]) {
+section.form {
   /* THE ROOT CHROME FRAME — masthead Cell · stage Cell · footer Cell.
-   * `:not(.frame-sovereign)` because EVERY slide carries `form` since 2026-09-20:
-   * Form is the composition model, and which FRAME a slide composes under is the
-   * separate fact this guard reads. A sovereign Frame declares one Cell and no
-   * chrome Cells, so none of the chrome geometry below is its to reserve.
+   * `section.form` is the CHROME-HOSTING Frame's hook, not "this slide is Form":
+   * every slide composes as Form and says so on `data-form` / `data-frame`. A
+   * sovereign Frame declares one Cell and no chrome Cells, so none of the geometry
+   * below is its to reserve — and it simply does not carry this class.
    * The masthead Cell is an IN-FLOW band sized to its own content (so the
    * hairline sits directly under the title — no dead space), then the STAGE Cell
    * is the flex content region below it. The footer Cell is an absolutely-

@@ -5,9 +5,9 @@ summary: >-
   front-matter key, the per-slide `form` / `no-form` tokens, `readFormMode`, `FORM_MODES`, the
   mode argument threaded through all three render paths, the Studio's "Deck chrome" toggle and
   the Playground's "Form" select are all removed. Sovereignty stops being spelled as an ABSENT
-  class: every slide carries `form`, and the nine sovereign Frames also carry `frame-sovereign`,
-  so the chrome injectors gate on which FRAME a slide composes under rather than on whether it is
-  Form at all. Three levels replace the toggle — Form (unconditional) over Medium (`2d` today, a
+  class: every slide now carries `data-form="2d"` and `data-frame="<id>"`, so a reader asks which
+  FRAME a slide composes under and gets a name instead of inferring it from a missing class. The
+  `form` CLASS stays what it always was — the chrome-hosting Frame's CSS hook. Three levels replace the toggle — Form (unconditional) over Medium (`2d` today, a
   renderer's choice) over Frame (the component's choice). Verified pixel-neutral across 84
   component galleries in both moods; all 40 deck-golden drifts reproduce on a clean tree and are
   pre-existing. Two conformance findings fall out: `list bullet` lost its clip cell to a
@@ -67,16 +67,35 @@ confusion this record removes, not a hedge against it.
 
 ## What sovereignty is now
 
-Every slide carries `form`. The nine sovereign Frames — `title`, `divider`, `closing`, `image`,
-`premise`, `scene`, `split-panel`, `split-compare`, `compare-code` — also carry
-`frame-sovereign`. Two kernel predicates, `isSovereignFrame` and `hostsChromeCells`, are what the
-chrome injectors ask; they used to ask "does it carry `form`?", which only worked because of the
-withholding. `FORM_TOGGLE_SKIP` is `SOVEREIGN_FRAMES`, because it is no longer a toggle's
-skip-list — it is the chrome-exempt half of the Frame catalog.
+Every slide carries `data-form="2d"` — it composes as Form, in the 2D medium — and
+`data-frame="<id>"`, naming the Frame that carves it: `standard`, or one of the nine sovereign
+ids (`title`, `divider`, `closing`, `image`, `premise`, `scene`, `split-panel`, `split-compare`,
+`compare-code`). That is the statement that replaced the absent class. Two kernel predicates,
+`isSovereignFrame` and `hostsChromeCells`, are what the chrome injectors ask.
+`FORM_TOGGLE_SKIP` is `SOVEREIGN_FRAMES`, because it is no longer a toggle's skip-list — it is
+the chrome-exempt half of the Frame catalog.
 
-Gated on the Frame, in both twins of each transform (HARD RULE #1): the masthead band and footer
-Cell, the progress rail, the watermark Tile, `section.form`'s chrome geometry and
-`section.form::after`'s page number.
+### Why the class did not become universal
+
+The first cut made the `form` CLASS universal and marked sovereignty with a second class,
+`frame-sovereign`. It expresses the same fact and it was reverted, because the class is not a
+label — it is load-bearing for ~245 engine CSS rules and for the split envelope, and making it
+universal moved real decks three separate times:
+
+| Deck | What moved | Cause |
+|---|---|---|
+| `examples/social-grid` | masthead band went full-bleed; the "Option 1 of 2" pill overprinted the rail | a split page inherits the marker, and the guards then strip geometry the envelope's chrome needs |
+| `themes/palette-audit` | three pages gained a stage inset they never had | `:not(.frame-sovereign)` is specificity (0,2,1) where bare `section.form` is (0,1,1), so the guarded rule won contests it used to lose |
+| `examples/split-horizontal`, `examples/autosplit-coverage` | content lost its horizontal inset | `premise` split pages carry no `form` on main, so universalising it handed them chrome geometry |
+
+Each was found by a golden, and each needed its own guard or escape. A design that needs a new
+escape hatch per discovery is not one to ship. The attributes say exactly the same thing about
+the model, are queryable by name rather than by absence, and move nothing: every deck golden and
+every component gallery is byte-identical.
+
+The lesson generalises past this change. **A CSS class that a decade of rules select on is an
+interface, not a description.** Restating the model is worth doing; restating it by redefining
+that interface is not.
 
 ## What it cost to verify
 
