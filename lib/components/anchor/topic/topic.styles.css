@@ -157,8 +157,13 @@ section.topic > h2 + p {
   padding-top: var(--sp-sm);
 }
 
-/* ── the derived track ────────────────────────────────────────────────────── */
-section.topic > ul {
+/* ── the track ────────────────────────────────────────────────────────────────
+ * `ul.tile-track`, never a bare `> ul`. The kernel WRITES every track — derived
+ * or authored through `<!-- _track: … -->` — so the class is always there, and
+ * naming it is what stops a stray list on a topic slide being styled as a scale
+ * it is not. The bare form was load-bearing while an authored `<ul>` WAS the
+ * override; it is a liability now that one never is. */
+section.topic > ul.tile-track {
   position: absolute;
   left: var(--_gutter);
   right: var(--_gutter);
@@ -171,7 +176,7 @@ section.topic > ul {
   max-width: none;
   padding: 0;
 }
-section.topic > ul > li {
+section.topic > ul.tile-track > li {
   flex: 1 1 0;
   /* `min-width: 0`, or the flex base is min-content and a column cannot shrink
    * below its longest word — the track silently stops being equal-width and
@@ -188,13 +193,13 @@ section.topic > ul > li {
    * depends on every other label, so adding one topic re-wraps them all and the
    * track visibly reflows between consecutive slides of one section. */
 }
-section.topic > ul > li::marker { content: none; }
+section.topic > ul.tile-track > li::marker { content: none; }
 
 /* HERE — the seam thickens under this column. Double-coded deliberately: the
  * accent carries it on a color palette, the 3x WEIGHT carries it where
  * `--accent` collapses onto `--border` (onyx, a11y-achromatopsia, a11y-base,
  * concrete), and the label's own ink carries it a third time. Never hue alone. */
-/* `.on` is the ONLY marker selector, and that is the whole fix.
+/* `.on` is the ONLY marker selector, and there is nothing else for CSS to read.
  *
  * An earlier revision tried to read an AUTHORED mark here, with
  * `li:has(> strong:only-child)`. It reads like "the item is nothing but bold"
@@ -205,10 +210,11 @@ section.topic > ul > li::marker { content: none; }
  * two columns, which is the "an author who marks two gets two" failure the
  * derivation exists to remove.
  *
- * CSS cannot ask the question, so it no longer tries: `topic-track.js` decides
- * the marker where the text is readable and stamps `class="on"` on the one item
- * it picks, on the derived track and the authored one alike. */
-section.topic > ul > li.on {
+ * The author's mark is no longer markup at all: it is the bracketed label in
+ * `<!-- _track: … | [Payback] | … -->`, read by lib/core/track-spec.js, and
+ * `topic-track.js` writes `class="on"` on the item it names. Every track this
+ * rule sees was emitted by that kernel. */
+section.topic > ul.tile-track > li.on {
   border-top-color: var(--accent);
   color: var(--text-heading);
   font-weight: 600;
@@ -219,8 +225,8 @@ section.topic > ul > li.on {
  * is the sweet spot, six is comfortable, past nine split the section"), NOT a
  * `capacity` block: the ceiling is a property of the SECTION, so this component
  * is on SANCTIONED_DENSITY_EXEMPT and has no soft/hard to match. */
-section.topic > ul:has(> li:nth-child(7)) > li { font-size: var(--fs-body-compact); }
-section.topic > ul:has(> li:nth-child(9)) > li { font-size: var(--fs-meta); }
+section.topic > ul.tile-track:has(> li:nth-child(7)) > li { font-size: var(--fs-body-compact); }
+section.topic > ul.tile-track:has(> li:nth-child(9)) > li { font-size: var(--fs-meta); }
 
 /* ── fact ─────────────────────────────────────────────────────────────────────
  * One flat canvas, and the type hierarchy inverts: the NAME becomes a label on
@@ -243,7 +249,7 @@ section.topic.fact {
 /* The derived track is suppressed rather than hidden at the kernel: a deck that
  * mixes both forms keeps ONE derivation, so a `fact` slide still contributes its
  * name to its siblings' tracks. */
-section.topic.fact > ul { display: none; }
+section.topic.fact > ul.tile-track { display: none; }
 
 section.topic.fact > h2 {
   display: flex;
@@ -324,13 +330,15 @@ section.topic.fact > p:not(:has(> code:only-child)):last-of-type { align-content
  * tell it. Dropping all three — band, seam, reserve — leaves the eyebrow, name
  * and claim on a single dark canvas, which is the `divider`-family composition
  * the rest of the anchor bucket already uses. */
-section.topic:not(:has(> ul)) {
+section.topic:not(:has(> ul.tile-track)) {
   /* RESTATE the field, do not inherit it from `section.topic`.
    *
    * Dropping this line looked free — the rule above sets the same value — and it
-   * was not. This selector is (0,1,2); `section.topic` is (0,1,1), and so are
-   * `section.dark`, `section.print` and `section.chart-frame`, all of which sit
-   * LATER in the bundle. So leaning on the base rule handed a trackless `topic`
+   * was not. This selector is (0,2,2) — `:not()` and `:has()` each take their
+   * most specific argument, so `> ul.tile-track` is counted twice over; it was
+   * (0,1,2) while the argument was a bare `ul`. `section.topic` is (0,1,1), and
+   * so are `section.dark`, `section.print` and `section.chart-frame`, all of
+   * which sit LATER in the bundle. So leaning on the base rule handed a trackless `topic`
    * to whichever modifier came last, and the commit that did it claimed "both
    * orders paint identical pixels". Measured in Chromium, they do not:
    *
@@ -340,8 +348,8 @@ section.topic:not(:has(> ul)) {
    *
    * `color-mode: print` is as reachable as `color-mode: dark`, and under print
    * that change also split the two forms apart: a trackless `topic` went white
-   * while `topic fact` stayed `--print-bg`. Restating the value at (0,1,2) puts
-   * both back and makes the claim true. */
+   * while `topic fact` stayed `--print-bg`. Restating the value here puts both
+   * back and makes the claim true. */
   background-color: var(--surface-inverse);
   background-image: none;
   padding-bottom: var(--sp-xl);

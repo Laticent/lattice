@@ -40,14 +40,10 @@ One heading, an eyebrow, one line of context — centered, chrome-free, quickly 
 
 <!-- _class: topic -->
 <!-- _footer: "topic · anchor survey" -->
+<!-- _track: Cost to win | Lifetime value | [Payback] | The assumptions -->
 
 `Section 02 · Unit economics`
 
 ## Payback
 
 Fourteen months blended, against a nine-month plan.
-
-- Cost to win
-- Lifetime value
-- **Payback**
-- The assumptions

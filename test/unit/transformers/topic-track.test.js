@@ -1,22 +1,28 @@
 /**
- * topic-track — the derived sibling track.
+ * topic-track — the derived sibling track, and the `_track` override.
  *
  * The behaviours pinned here are the ones whose failure is SILENT: a track that
- * marks the wrong item, a track that leaks across a section boundary, an
- * authored list that gets overwritten, and a second run that appends a second
- * track. None of them throws; each produces a plausible slide that lies.
+ * lights the wrong column, a track that leaks across a section boundary, an
+ * override that is ignored, and a second run that appends a second track. None
+ * of them throws; each produces a plausible slide that lies.
+ *
+ * TWO ARMS, ALWAYS. Every case that can run on both runs on both (`bothAgree`),
+ * because a divergence is the failure mode that ships a deck rendering one way
+ * in the PDF and another in the runtime (HARD RULE #1).
  */
 const test = require('node:test');
 const assert = require('node:assert');
 const tt = require('../../../lib/transformers/topic-track');
 const { readTopLevelH2Text: readH2 } = require('../../../lib/core/top-level-h2');
-// The kernel's own readers, not hand-rolled regexes. `/<[^>]+>/g` ends a tag at
-// the first `>`, including one inside a quoted attribute — which is the defect
+// The kernel's own reader, not a hand-rolled regex. `/<[^>]+>/g` ends a tag at
+// the first `>`, including one inside a quoted attribute — the defect family
 // this suite exists to catch, so a test helper must not contain it. CodeQL flags
 // the shape as incomplete sanitization for the same reason.
-const { maskInert, stripTags } = require('../../../lib/core/top-level-h2');
+const { maskInert } = require('../../../lib/core/top-level-h2');
 
 const S = (cls, inner) => `<section class="${cls}">${inner}</section>`;
+/** A section that declares an override, the way the engine stamps it. */
+const SD = (cls, spec, inner) => `<section class="${cls}" data-track="${spec}">${inner}</section>`;
 const topic = (name) => S('topic', `<h2>${name}</h2><p>A claim.</p>`);
 // Comments are stripped first: a `<ul class="tile-track">` quoted inside one is
 // not a track, and `querySelectorAll` on the DOM arm cannot see it either — so
@@ -59,16 +65,6 @@ test('idempotent — a second pass appends no second track', () => {
   assert.equal(tt.applyToHtml(once), once);
 });
 
-test('an authored list is an override: left intact, and withheld from siblings', () => {
-  const deck = S('divider', '<h2>One</h2>') +
-    S('topic', '<h2>Alpha</h2><ul><li>mine</li></ul>') + topic('Beta') + topic('Gamma');
-  const out = tt.applyToHtml(deck);
-  assert.ok(out.includes('<li>mine</li>'), 'the authored list survives');
-  const t = tracks(out);
-  assert.ok(t.every((x) => !x.some((i) => i.name === 'Alpha')),
-    'an overridden slide contributes no name, or siblings would list a topic whose own slide disagrees');
-});
-
 test('a section with one topic gets no track — a scale of one is not a scale', () => {
   assert.equal(tracks(tt.applyToHtml(S('divider', '<h2>One</h2>') + topic('Alpha'))).length, 0);
 });
@@ -86,22 +82,6 @@ test('the heading reader is depth-aware — a nested h2 is not the slide title',
   assert.ok(t[0].some((i) => i.name === 'Real'));
 });
 
-test('a list nested in a blockquote is NOT an override — both adapters agree', () => {
-  // The string arm used a bare /<ul[\s>]/, which matched a `> - source note`
-  // blockquote list; the DOM arm's `:scope > ul` did not. The two paths then
-  // disagreed about whether the slide was overridden, and the string path
-  // silently dropped the slide's track AND withheld its name from its siblings,
-  // so the surviving tracks asserted a two-topic section that had three.
-  const deck = S('divider', '<h2>One</h2>') +
-    S('topic', '<h2>Alpha</h2><p>A claim.</p><blockquote><ul><li>Source: v9</li></ul></blockquote>') +
-    topic('Beta') + topic('Gamma');
-  const t = tracks(tt.applyToHtml(deck));
-  assert.equal(t.length, 3, 'the blockquote slide still gets its own track');
-  assert.deepEqual(t[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
-    'and every track lists all three topics');
-  assert.equal(t[0].findIndex((i) => i.on), 0);
-});
-
 test('a topic slide with no heading gets no track, rather than lighting a sibling', () => {
   // It contributed '' to the section, which `shown` dropped — but the slide
   // still got a track whose `on` landed on the NEXT topic, so two consecutive
@@ -114,25 +94,17 @@ test('a topic slide with no heading gets no track, rather than lighting a siblin
     'and each lights itself, not its neighbor');
 });
 
-// ── the DOM arm ───────────────────────────────────────────────────────────────
-// HARD RULE #1 says the two adapters must agree, and until now only one of them
-// was tested. Every case below runs BOTH and asserts they match, because a
-// divergence is the failure mode that ships a deck rendering one way in the PDF
-// and another in Marp.
+// ── the two arms ──────────────────────────────────────────────────────────────
 const { JSDOM } = require('jsdom');
 
 /**
- * Read EVERY `topic` slide's own list — derived or authored — with its marker,
- * using a real parser on both sides.
+ * Read EVERY `topic` slide's own list — the emitted track, or a stray author
+ * list — with its marker, using a real parser on both sides.
  *
- * The previous helper compared `ul.tile-track` only. An authored list carries no
- * such class, so on every authored-marker test it compared two EMPTY arrays and
- * asserted nothing: the sub-bullet deck that pins round four's blocking fix
- * passed `bothAgree` while the two arms genuinely disagreed. That is why a
- * fuzzer found the implied-`</li>` split and this green suite did not.
- *
- * Both sides go through jsdom so the comparison is about what the TRANSFORM
- * produced, not about whose string-walk is right.
+ * `:scope > ul`, not `ul.tile-track`: a helper that reads only our own class
+ * compares two EMPTY arrays on any slide whose list we did not write, and
+ * asserts nothing. That is exactly how a green suite passed while the two arms
+ * genuinely disagreed about an authored list (round four of #2245).
  */
 function readTopics(html) {
   const dom = new JSDOM(`<body>${html}</body>`);
@@ -146,7 +118,7 @@ function readTopics(html) {
 }
 
 const asSlides = (deckHtml) =>
-  deckHtml.replace(/<section class="([^"]*)">/g, (_m, c) => `<section data-lattice-slide class="${c}">`);
+  deckHtml.replace(/<section class="([^"]*)"/g, (_m, c) => `<section data-lattice-slide class="${c}"`);
 
 const bothAgree = (deck) => {
   const stringArm = readTopics(tt.applyToHtml(asSlides(deck)));
@@ -164,125 +136,88 @@ test('DOM arm: both adapters agree on the ordinary deck', () => {
   ]);
 });
 
-test('DOM arm: both agree that a blockquote list is not an override', () => {
-  bothAgree(S('divider', '<h2>One</h2>') +
-    S('topic', '<h2>Alpha</h2><blockquote><ul><li>note</li></ul></blockquote>') +
-    topic('Beta') + topic('Gamma'));
-});
-
-test('both agree that a COMMENTED-OUT list is not an override', () => {
+test('both agree that a COMMENTED-OUT track is not a track', () => {
   // The string arm counted tag-like text inside `<!-- -->` as real markup while
-  // `:scope > ul` never could, so a commented-out draft list made the engine and
-  // the runtime disagree about the whole section — the engine dropped the
-  // slide's track AND withheld its name from its siblings.
+  // `:scope > ul.tile-track` never could, so a commented-out draft made the
+  // engine and the runtime disagree about the whole section — the engine
+  // treated the slide as done and withheld its name from its siblings.
   const got = bothAgree(S('divider', '<h2>One</h2>') +
-    S('topic', '<h2>Alpha</h2><p>x</p><!-- draft: <ul><li>d</li></ul> -->') +
+    S('topic', '<h2>Alpha</h2><p>x</p><!-- <ul class="tile-track"><li>d</li></ul> -->') +
     topic('Beta') + topic('Gamma'));
   assert.deepEqual(got[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
     'the commented slide keeps its own name in the scale');
 });
 
-test('both agree when a section mixes an override and a headingless slide', () => {
-  bothAgree(S('divider', '<h2>One</h2>') +
-    S('topic', '<h2>Over</h2><ul><li>mine</li></ul>') +
-    S('topic', '<p>no heading</p>') + topic('Gamma') + topic('Delta'));
-});
-
-/* ── THE AUTHORED MARKER ─────────────────────────────────────────────────────
- *
- * These pin the fix for a track that LIT THE WRONG COLUMN on a rendered slide.
- * The marker used to be read in CSS by `li:has(> strong:only-child)`, which
- * looks like "the item is nothing but bold" and is not: `:only-child` counts
- * ELEMENT siblings, so the text node in `- Cost to **win**` is invisible to it
- * and that item lit. Every gate was green while a `topic` headed "Overridden"
- * drew its accent under the column reading "Cost to win", because nothing in
- * `test/` pinned any selector behavior for this component.
- */
-const authored = (heading, items) =>
-  S('topic', `<h2>${heading}</h2><ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>`);
-const lit = (html) =>
-  [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)]
-    .filter((m) => /<li[^>]*\sclass="[^"]*\bon\b/.test(m[0]))
-    .map((m) => stripTags(m[1]));
-
-test('emphasis INSIDE a label is not a marker', () => {
-  const deck = S('divider', '<h2>S</h2>') +
-    authored('Overridden', ['Cost to <strong>win</strong>', 'Payback', 'Overridden']);
-  // Lights the heading match, NOT the partly-emphasized label.
-  assert.deepEqual(lit(tt.applyToHtml(deck)), ['Overridden']);
-});
-
-test('a WHOLLY bold item is the marker, and marking two still lights one', () => {
-  const one = S('divider', '<h2>S</h2>') + authored('X', ['<strong>A</strong>', 'B']);
-  assert.deepEqual(lit(tt.applyToHtml(one)), ['A']);
-  const two = S('divider', '<h2>S</h2>') +
-    authored('X', ['<strong>A</strong>', '<strong>B</strong>']);
-  assert.deepEqual(lit(tt.applyToHtml(two)), ['A']);
-});
-
-test('a LOOSE authored list marks through its <p> wrapper', () => {
-  const deck = S('divider', '<h2>S</h2>') +
-    authored('X', ['<p>A</p>', '<p><strong>B</strong></p>']);
-  assert.deepEqual(lit(tt.applyToHtml(deck)), ['B']);
-});
-
-test('an author who marks nothing gets the item matching this slide heading', () => {
-  const deck = S('divider', '<h2>S</h2>') + authored('Payback', ['Cost to win', 'Payback']);
-  assert.deepEqual(lit(tt.applyToHtml(deck)), ['Payback']);
-});
-
-test('the marker is stamped with NO divider in the deck — this is the gallery', () => {
-  // `applyToHtml` used to return early when the deck had no sections at all, so
-  // every gallery sample rendered a scale with nothing lit.
-  const gallery = authored('Payback', ['Cost to win', '<strong>Payback</strong>']);
-  assert.deepEqual(lit(tt.applyToHtml(gallery)), ['Payback']);
-});
-
-test('marking is idempotent and both adapters pick the same item', () => {
-  const deck = S('divider', '<h2>S</h2>') +
-    authored('Overridden', ['Cost to <strong>win</strong>', '<strong>Payback</strong>', 'Overridden']);
-  const once = tt.applyToHtml(deck);
-  assert.equal(tt.applyToHtml(once), once);
-  assert.deepEqual(lit(once), ['Payback']);
-
-  const dom = new JSDOM(`<body>${deck.replace(/<section /g, '<section data-lattice-slide ')}</body>`);
-  tt.applyToDom(dom.window.document.body);
-  const domLit = [...dom.window.document.querySelectorAll('li.on')].map((li) => li.textContent);
-  assert.deepEqual(domLit, ['Payback']);
-});
-
-test('a tile-track quoted inside a COMMENT is not our track — both adapters agree', () => {
-  // The idempotence sentinel used to be a raw `inner.includes('class="tile-track"')`
-  // over the whole section, so a commented-out track made the engine treat the
-  // slide as overridden and withhold its name from every sibling, while the DOM
-  // arm's `:scope > ul.tile-track` was unmoved.
+test('a tile-track quoted inside a COMMENT does not cost the section its names', () => {
   const deck = S('divider', '<h2>S</h2>') + topic('Alpha') +
     S('topic', '<h2>Beta</h2><!-- <ul class="tile-track"><li>x</li></ul> -->') + topic('Gamma');
   assert.deepEqual(
     tracks(tt.applyToHtml(deck)).map((t) => t.map((i) => i.name)),
     [['Alpha', 'Beta', 'Gamma'], ['Alpha', 'Beta', 'Gamma'], ['Alpha', 'Beta', 'Gamma']],
   );
-  assert.ok(bothAgree(deck));
 });
 
-/* ── THE SHAPES ROUND FOUR FOUND ─────────────────────────────────────────────
- *
- * Every one of these produced a visibly wrong slide or an engine↔runtime split
- * while the whole gate suite was green, so each is pinned by the behavior a
- * reader would see rather than by the internals that produce it.
- */
-test('a SUB-BULLET is never the marker — the nested li CSS cannot reach', () => {
-  // The mark used to land on the nested `<li>`, which `section.topic > ul > li.on`
-  // never matches. The pick was spent, so the heading fallback never ran either
-  // and the slide lit NOTHING — strictly worse than having no marker rule.
-  const inner = '<h2>Other</h2><ul>'
-    + '<li>Cost<ul><li>detail</li><li><strong>Payback</strong></li></ul></li>'
-    + '<li>Other</li></ul>';
-  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
-  const marked = [...out.matchAll(/<li[^>]*\sclass="[^"]*\bon\b[^"]*"[^>]*>([\s\S]*?)<\/li>/g)]
-    .map((m) => stripTags(m[1]).trim());
-  assert.deepEqual(marked, ['Other']);
-  assert.ok(bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner)) !== undefined);
+test('the engine RECOGNIZES ITS OWN OUTPUT — the track is never the last element', () => {
+  // The pipeline appends a pagination span and the berth divs AFTER the track,
+  // so a tail-anchored idempotence test (`</ul>\s*$`) never matches real output.
+  // Measured before this was fixed: a second pass over the rendered
+  // `examples/topic.md` turned 6 tracks into 12 on the string arm while the DOM
+  // arm's `:scope > ul.tile-track` was unmoved — a HARD RULE #1 split. Every
+  // deck in this file is synthetic and ends at its track, which is the one shape
+  // that cannot fail, so the shape below is the one the engine really emits.
+  const emitted = '<h2>Beta</h2><p>x</p>'
+    + '<ul class="tile-track" aria-hidden="true"><li class="on">Beta</li><li>z</li></ul>'
+    + '<span class="lat-pagination">3</span>'
+    + '<div class="marker-rail" data-lattice-berth aria-hidden="true"></div>';
+  const deck = S('divider', '<h2>S</h2>') + topic('Alpha') + S('topic', emitted) + topic('Gamma');
+  const once = tt.applyToHtml(deck);
+  assert.equal((once.match(/<ul class="tile-track"/g) || []).length, 3,
+    'the pre-tracked slide keeps ONE track, not two');
+  assert.equal(tt.applyToHtml(once), once, 'and a further pass changes nothing');
+  bothAgree(deck);
+});
+
+test('a `tile-track` quoted inside ANOTHER attribute is not our track', () => {
+  // `section-walk`'s `readAttr` is quote-blind — `(?:^|\s)class="([^"]*)"` also
+  // matches inside another attribute's VALUE — so an ordinary author list whose
+  // tag carried ` class="tile-track"` in a `data-` attribute read as an emitted
+  // track on the string arm: the slide lost its band AND its name left every
+  // sibling's scale, while `:scope > ul.tile-track` was unmoved.
+  const inner = '<h2>Alpha</h2><ul data-note=\' class="tile-track"\'><li>x</li></ul>';
+  const deck = S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[1].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
+    "the quoted class must not cost Alpha its place in its siblings' scale");
+});
+
+test("the SECTION's own data-track is read the same guarded way", () => {
+  // The other `tagAttr` call site, which nothing pinned: a quote-blind reader
+  // finds `data-track` inside ANOTHER attribute's value, so a slide that declared
+  // no override is treated as having one — it draws that phantom scale and stops
+  // contributing its heading to its siblings.
+  const decoy = '<section class="topic" data-note=\' data-track="X | [Y]"\'><h2>Alpha</h2></section>';
+  const deck = S('divider', '<h2>S</h2>') + decoy + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
+    'the decoy must not be read as an override');
+});
+
+test('an attribute NAME outside the plain charset cannot forge a class', () => {
+  // `@class`, `9class`, `[class]` — a name the walker cannot match must not let
+  // the `class` tail inside it match as an attribute of its own.
+  for (const tag of ['<ul @class="tile-track">', '<ul 9class="tile-track">', '<ul [class]="tile-track">']) {
+    const inner = `<h2>Alpha</h2>${tag}<li>x</li></ul>`;
+    const deck = S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta') + topic('Gamma');
+    const got = bothAgree(deck);
+    assert.deepEqual(got[1].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'], tag);
+  }
+});
+
+test('a class that merely CONTAINS the token is not our track', () => {
+  const inner = '<h2>Alpha</h2><ul class="tile-tracker"><li>x</li></ul>';
+  const deck = S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[1].map((i) => i.name), ['Alpha', 'Beta', 'Gamma']);
 });
 
 test('a slide that already carries a track does not cost its SIBLINGS theirs', () => {
@@ -294,104 +229,137 @@ test('a slide that already carries a track does not cost its SIBLINGS theirs', (
   const deck = S('divider', '<h2>Sec</h2>') + topic('Alpha') + S('topic', pre) + topic('Gamma');
   const got = tracks(tt.applyToHtml(deck)).map((t) => t.map((i) => i.name));
   assert.deepEqual(got, [['Alpha', 'Gamma'], ['Beta', 'z'], ['Alpha', 'Gamma']]);
+  bothAgree(deck);
 });
 
-test('a commented-out track followed by a real list is not our track', () => {
-  // The tail regex is greedy and comment-blind, so a quoted track plus ANY later
-  // `</ul>` matched and the engine skipped a slide the DOM arm marked.
-  const inner = '<h2>Alpha</h2><!-- <ul class="tile-track"><li>old</li></ul> -->'
-    + '<ul><li>Alpha</li><li>Beta</li></ul>';
-  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
-  assert.match(out, /<li class="on">Alpha<\/li>/);
-  bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
+/* ── THE `_track` OVERRIDE ────────────────────────────────────────────────────
+ *
+ * The override used to be a bare markdown `<ul>` on the slide, which made one
+ * piece of markup answer two questions the engine had to INFER — is this list
+ * the track, and which item is current — and roughly half the defects five
+ * review rounds found on #2245 were one of those two answered differently by
+ * the two arms. It is now a directive the engine stamps as `data-track`, read
+ * once by `lib/core/track-spec.js`, with the track EMITTED by this kernel
+ * exactly as a derived one is. These pin that the substitution is complete: the
+ * override still draws, still withholds the slide from its siblings, and the
+ * marker is the bracket rather than anything about the markup.
+ */
+test('an override draws its own labels and lights the bracketed one', () => {
+  const deck = S('divider', '<h2>One</h2>') +
+    SD('topic', 'Cost | Lifetime | [Payback]', '<h2>Payback</h2><p>A claim.</p>') +
+    topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[0], [
+    { name: 'Cost', on: false }, { name: 'Lifetime', on: false }, { name: 'Payback', on: true },
+  ]);
 });
 
-test('an existing class on an item is extended, never duplicated', () => {
-  // A second `class` attribute is ignored by HTML — first one wins — so the mark
-  // silently never applied on `class='x'` or `class=x`.
-  for (const attr of ['class="x"', "class='x'", 'class=x']) {
-    const inner = `<h2>H</h2><ul><li ${attr}><strong>A</strong></li><li>B</li></ul>`;
-    const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
-    const li = out.match(/<li[^>]*><strong>A<\/strong><\/li>/)[0];
-    assert.equal((li.match(/class\s*=/g) || []).length, 1, li);
-    assert.match(li, /class="x on"/);
-  }
+test('an overridden slide contributes no name to its siblings', () => {
+  // Otherwise the siblings' derived tracks would list a topic whose own slide
+  // shows a different set.
+  const deck = S('divider', '<h2>One</h2>') +
+    SD('topic', 'mine | yours', '<h2>Alpha</h2><p>A claim.</p>') + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[1].map((i) => i.name), ['Beta', 'Gamma']);
+  assert.deepEqual(got[2].map((i) => i.name), ['Beta', 'Gamma']);
 });
 
-test('an unrelated class containing "on" does not read as the marker', () => {
-  const inner = '<h2>H</h2><ul><li class="on-hold">X</li><li><strong>Y</strong></li></ul>';
-  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
-  assert.match(out, /<li class="on"><strong>Y<\/strong><\/li>/);
+test('marking two lights the first, and neither label keeps its brackets', () => {
+  const deck = S('divider', '<h2>S</h2>') +
+    SD('topic', '[A] | [B] | C', '<h2>H</h2>');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[0], [
+    { name: 'A', on: true }, { name: 'B', on: false }, { name: 'C', on: false },
+  ]);
 });
 
-test('a comment inside an item does not hide its marker from the string arm', () => {
-  const inner = '<h2>H</h2><ul><li>A</li><li><!-- keep --><strong>G</strong></li></ul>';
-  bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
-  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
-  assert.match(out, /class="on"><!-- keep --><strong>G<\/strong>/);
+test('marking nothing draws the scale with nothing lit — never a guessed column', () => {
+  // The authored-list shape inferred a marker from the slide's own heading when
+  // the author marked none. An unmarked directive is now exactly what it says:
+  // the columns, none of them current. `lint:deck` says so (`topic-track-spec`).
+  const got = bothAgree(S('divider', '<h2>S</h2>') + SD('topic', 'A | B | C', '<h2>B</h2>'));
+  assert.deepEqual(got[0].filter((i) => i.on), []);
 });
 
-test('an unmatched inline end tag in the list does not abandon the slide', () => {
-  // `topLevelUlRange` used a naive depth counter, went negative on `</b>` and
-  // returned null, so the whole list was skipped without a mark.
-  const inner = '<h2>H</h2><ul><li>a</b></li><li><strong>B</strong></li></ul>';
-  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
-  assert.match(out, /<li class="on"><strong>B<\/strong><\/li>/);
+test('an override draws with NO divider in the deck — this is the gallery', () => {
+  // The kernel used to return early when the deck had no sections at all, so
+  // every gallery sample rendered with no band.
+  const got = bothAgree(SD('topic', 'Cost to win | [Payback]', '<h2>Payback</h2>'));
+  assert.deepEqual(got[0].map((i) => i.name), ['Cost to win', 'Payback']);
+  assert.equal(got[0].findIndex((i) => i.on), 1);
 });
 
+test('an override is idempotent — a second pass appends no second track', () => {
+  const deck = S('divider', '<h2>S</h2>') + SD('topic', 'A | [B]', '<h2>H</h2>') + topic('Beta');
+  const once = tt.applyToHtml(deck);
+  assert.equal(tt.applyToHtml(once), once);
+});
+
+test('a DEGENERATE override draws nothing, rather than falling back to the derived scale', () => {
+  // Declaring `_track` is what opts the slide out of derivation. A single label
+  // is not a scale, so the slide composes as one canvas — showing the author a
+  // derived track they did not write would be worse, because it looks correct.
+  const deck = S('divider', '<h2>S</h2>') +
+    SD('topic', 'Only one', '<h2>Alpha</h2>') + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.equal(got[0], null, 'the degenerate slide gets no list at all');
+  assert.deepEqual(got[1].map((i) => i.name), ['Beta', 'Gamma'], 'and contributes no name');
+});
+
+test('a STRAY list on a topic slide is content, not a track — both arms agree', () => {
+  // The contract the directive bought: a `<ul>` is never the track, so the slide
+  // derives like any other and the list is left exactly where the author put it.
+  // `lint:deck` names it (`topic-track-list`).
+  const deck = S('divider', '<h2>One</h2>') +
+    S('topic', '<h2>Alpha</h2><ul><li>mine</li></ul>') + topic('Beta') + topic('Gamma');
+  const out = tt.applyToHtml(deck);
+  assert.ok(out.includes('<li>mine</li>'), 'the stray list is untouched');
+  const t = tracks(out);
+  assert.equal(t.length, 3, 'every slide, including that one, gets a derived track');
+  assert.deepEqual(t[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma']);
+  assert.equal(t[0].findIndex((i) => i.on), 0);
+  bothAgree(deck);
+});
+
+test('a list nested in a blockquote changes nothing either', () => {
+  // The string arm used a bare /<ul[\s>]/ for the old override test, which
+  // matched a `> - source note` blockquote list while `:scope > ul` did not —
+  // the slide lost its track AND its name on one arm only. Nothing reads a
+  // `<ul>` now, so the shape is inert; pinned because it was not.
+  const deck = S('divider', '<h2>One</h2>') +
+    S('topic', '<h2>Alpha</h2><p>A claim.</p><blockquote><ul><li>Source: v9</li></ul></blockquote>') +
+    topic('Beta') + topic('Gamma');
+  const t = tracks(tt.applyToHtml(deck));
+  assert.equal(t.length, 3);
+  assert.deepEqual(t[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma']);
+});
+
+test('an override label carrying an entity reads the same on both arms', () => {
+  // The string arm reads `data-track` still ENCODED (it is an attribute value in
+  // rendered HTML) and re-emits it; the DOM arm reads it decoded and writes
+  // textContent. Both must land on the same rendered text — a double-escape
+  // would show `&amp;` on the slide.
+  const deck = S('divider', '<h2>S</h2>') + SD('topic', 'R&amp;D | [Payback]', '<h2>H</h2>');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[0].map((i) => i.name), ['R&D', 'Payback']);
+});
+
+test('an empty directive is no override — the slide derives', () => {
+  // `<!-- _track: -->` emits no attribute at all (slides.js skips an empty
+  // value), and a hand-written `data-track=""` must read the same way rather
+  // than opting the slide out of a scale it can still be part of.
+  const deck = S('divider', '<h2>S</h2>') + SD('topic', '', '<h2>Alpha</h2>') + topic('Beta');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[0].map((i) => i.name), ['Alpha', 'Beta']);
+});
+
+/* ── THE SHAPES THE STRING ARM ALONE CAN HIT ─────────────────────────────────── */
 test('a heading carrying raw HTML with a `>` in an attribute keeps clean labels', () => {
   const deck = S('divider', '<h2>S</h2>')
     + S('topic', '<h2>Alpha <span title="a > b">x</span></h2><p>c</p>')
     + topic('Beta');
   const names = tracks(tt.applyToHtml(deck))[0].map((i) => i.name);
   assert.deepEqual(names, ['Alpha x', 'Beta']);
-});
-
-test('markdown-it\'s inline-list shape reads the same on both arms', () => {
-  // `<p>text <ul>…</ul></p>` is what markdown-it emits for an inline list, and a
-  // browser closes the paragraph so the list IS a direct child. A walk that kept
-  // the `<p>` open derived a track here and honored an override there.
-  const inner = '<h2>Alpha</h2><p>A claim: <ul><li>inline</li></ul></p>';
-  bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta'));
-});
-
-/* ── THE SHAPES ROUND FIVE FOUND ─────────────────────────────────────────────
- *
- * Round four's tests passed on the sub-bullet deck while the two arms genuinely
- * disagreed, because `bothAgree` compared `ul.tile-track` only and an authored
- * list has no such class — two empty arrays. These use the repaired helper,
- * which reads EVERY topic slide's list through a real parser, and each one
- * asserts the comparison was not vacuous.
- */
-test('an implied `</li>` is two items, not one — the arms agreed at NOTHING before', () => {
-  // `</li>` is optional in HTML. The walk counted only same-name tags, so
-  // `<li>Cost<li><strong>Payback</strong>` read as ONE item "CostPayback":
-  // nothing wholly bold, nothing matching the heading, so the string arm marked
-  // nothing while the DOM arm saw two children and marked the second.
-  const inner = '<h2>Beta</h2><ul><li>Cost<li><strong>Payback</strong></ul>';
-  const got = bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
-  assert.deepEqual(got, [[{ name: 'Cost', on: false }, { name: 'Payback', on: true }]]);
-});
-
-test('the parity helper is not vacuous on an authored track', () => {
-  // The guard on the guard: if this ever compares empty arrays again, the
-  // marker tests around it stop asserting anything.
-  const inner = '<h2>Other</h2><ul>'
-    + '<li>Cost<ul><li>detail</li><li><strong>Payback</strong></li></ul></li>'
-    + '<li>Other</li></ul>';
-  const got = bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
-  assert.equal(got.length, 1);
-  assert.ok(got[0] && got[0].length >= 2, 'expected a real list to compare');
-  assert.deepEqual(got[0].filter((i) => i.on).map((i) => i.name), ['Other']);
-});
-
-test('`class=` inside ANOTHER attribute value is not a class', () => {
-  // `<li data-x="a class=on b">` read as already-marked, so the string arm
-  // marked nothing and the DOM arm marked — the `#1358` family, reached from
-  // the value side rather than the name side.
-  const inner = '<h2>H</h2><ul><li data-x="a class=on b">Cost</li><li><strong>P</strong></li></ul>';
-  const got = bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
-  assert.deepEqual(got[0].filter((i) => i.on).map((i) => i.name), ['P']);
 });
 
 test('an unclosed raw <h2> still contributes its NAME to every sibling', () => {
@@ -418,6 +386,12 @@ test('an unclosed raw <h2> still contributes its NAME to every sibling', () => {
   assert.ok(!firstTopic.includes('tile-track'), 'no track inside the open heading');
 });
 
+test('an override declines the same way inside an unclosed element', () => {
+  const deck = S('divider', '<h2>S</h2>') + SD('topic', 'A | [B]', '<h2>Raw heading');
+  assert.ok(!tt.applyToHtml(deck).includes('tile-track'),
+    'the string arm declines rather than parse the track inside the heading');
+});
+
 test('a heading start tag closes an open heading, and never nests', () => {
   assert.equal(readH2('<h2>Outer<h2>Inner</h2></h2>'), 'Outer');
   assert.equal(readH2('<h2>A</h3><p>b</p>'), 'A');
@@ -425,4 +399,137 @@ test('a heading start tag closes an open heading, and never nests', () => {
   // attribute value holding `</h2>` does not end it early.
   assert.equal(readH2('<h2>A<!-- </h2> -->B</h2>'), 'AB');
   assert.equal(readH2('<h2><span title="</h2>">A</span></h2>'), 'A');
+});
+
+/* ── END TO END, THROUGH THE REAL ENGINE ─────────────────────────────────────
+ *
+ * The transformer tests above hand it `data-track` directly, so every one of
+ * them passes whether or not `track` is a registered directive. This renders the
+ * DIRECTIVE, which is what an author writes, and is the only arm that fails if
+ * the registration is dropped from lib/engine/directives.js.
+ */
+test('idempotent against the REAL pipeline, end to end', () => {
+  // The guard on the guard: run the engine over the shipped demo deck and hand
+  // its output straight back to the transform. Anything that makes the kernel
+  // stop recognizing its own emitted track shows up here as a doubled band,
+  // whatever the synthetic decks above say.
+  const { render } = require('../../../lib/engine');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '../../../examples/topic.md'), 'utf8');
+  const out = render(src, {});
+  const html = typeof out === 'string' ? out : out.html;
+  const bands = (h) => (h.match(/<ul class="tile-track"/g) || []).length;
+  assert.ok(bands(html) > 0, 'the demo deck draws tracks at all');
+  assert.equal(bands(tt.applyToHtml(html)), bands(html), 'a second pass appends none');
+  assert.equal(tt.applyToHtml(html), html, 'and changes nothing at all');
+});
+
+test('the `_track` directive reaches the slide, and its comment does not', () => {
+  const { render } = require('../../../lib/engine');
+  const md = [
+    '<!-- _class: divider -->', '', '## Section', '', '---', '',
+    '<!-- _class: topic -->',
+    '<!-- _track: Cost to win | Lifetime value | [Payback] -->', '',
+    '## Payback', '', 'A claim.', '', '---', '',
+    '<!-- _class: topic -->', '', '## Cost to win', '', 'A claim.', '', '---', '',
+    '<!-- _class: topic -->', '', '## Lifetime value', '', 'A claim.', '',
+  ].join('\n');
+  const out = render(md, {});
+  const html = typeof out === 'string' ? out : out.html;
+
+  const t = tracks(html);
+  assert.deepEqual(t[0].map((i) => i.name), ['Cost to win', 'Lifetime value', 'Payback']);
+  assert.equal(t[0].findIndex((i) => i.on), 2);
+  assert.ok(!html.includes('_track:'),
+    'the directive is consumed, not left in the body as a comment to leak into an export');
+  // The siblings derive from their own headings, and list neither the
+  // overridden slide nor its labels.
+  assert.deepEqual(t[1].map((i) => i.name), ['Cost to win', 'Lifetime value']);
+  assert.equal(t[1].findIndex((i) => i.on), 0);
+  assert.equal(t[2].findIndex((i) => i.on), 1);
+});
+
+/* ── THE ATTRIBUTE READER, AGAINST A REAL PARSER ─────────────────────────────
+ * `tagAttr` decides whether a `<ul>` on a topic slide is OUR emitted track or the
+ * author's own list, and three successive versions of it — a quote-blind regex, a
+ * pair walker, an anchored pair walker — each split the two render arms on a
+ * different tag shape. The loop that replaced them shipped with NO test: reverting
+ * it to the regex passed this whole file, and its own comment claimed a pin that
+ * did not exist.
+ *
+ * So the pin is data, and jsdom is the authority. For each tag below: what the
+ * real parser says the `class` is, and — where it matters — that both arms still
+ * agree end to end.
+ */
+// THIS TEST VALIDATES THE TABLE, NOT THE READER — a checker caught the title
+// claiming otherwise. It asserts that jsdom agrees with how the two lists below
+// are split, so the next test's expectations are grounded in a real parser rather
+// than in my reading of the spec. The READER's own pin is the next test, which
+// drives every shape through both arms; that is the one the `ATTR_PAIR` mutant
+// fails.
+test('jsdom agrees with how the tag table below is split', () => {
+  const OURS = [
+    // The shape a minifier emits: after a QUOTED value, any character re-enters
+    // the before-attribute-name state. The anchored walker missed this one.
+    '<ul data-x="a"class="tile-track">',
+    '<ul class="tile-track">',
+    "<ul class='tile-track'>",
+    '<ul class=tile-track>',
+    '<ul  class = "tile-track" >',
+    '<ul id="x" class="tile-track" data-y="z">',
+    '<ul class="tile-track extra">',
+    '<ul\nclass="tile-track">',
+    '<ul data-q="a>b" class="tile-track">',
+    '<ul/class="tile-track">',
+  ];
+  const NOT_OURS = [
+    // Quote-blind readers matched the text INSIDE this value.
+    '<ul data-note=\' class="tile-track"\'>',
+    // A name carrying an out-of-charset character: the un-anchored walker
+    // resynced mid-name and matched the `class` tail on its own.
+    '<ul @class="tile-track">',
+    '<ul 9class="tile-track">',
+    '<ul [class]="tile-track">',
+    '<ul data-class="tile-track">',
+    '<ul classy="tile-track">',
+    '<ul class="tile-trackish">',
+    '<ul>',
+    '<ul class="">',
+    '<ul class=>',
+  ];
+  for (const tag of [...OURS, ...NOT_OURS]) {
+    const want = OURS.includes(tag);
+    const el = new JSDOM(`<body>${tag}<li>x</li></ul></body>`).window.document.querySelector('ul');
+    const cls = el?.getAttribute('class') || '';
+    const isOurs = /(?:^|\s)tile-track(?:\s|$)/.test(cls);
+    assert.equal(isOurs, want,
+      `jsdom disagrees about ${tag} — the table, not the code, is wrong`);
+  }
+});
+
+test('and both arms read every one of those shapes the same way', () => {
+  // End to end, because `tagAttr`'s answer only matters through `hasTrack`: a tag
+  // the string arm calls ours is a slide that keeps its band and withholds its
+  // name from every sibling, and a DOM arm that disagrees renders a different
+  // deck from the same markdown.
+  const TAGS = [
+    '<ul data-x="a"class="tile-track">',
+    '<ul class="tile-track">',
+    "<ul class='tile-track'>",
+    '<ul class=tile-track>',
+    '<ul data-q="a>b" class="tile-track">',
+    '<ul data-note=\' class="tile-track"\'>',
+    '<ul @class="tile-track">',
+    '<ul 9class="tile-track">',
+    '<ul [class]="tile-track">',
+    '<ul data-class="tile-track">',
+    '<ul class="tile-trackish">',
+    '<ul>',
+  ];
+  for (const tag of TAGS) {
+    bothAgree(S('divider', '<h2>One</h2>') +
+      S('topic', `<h2>Alpha</h2><p>x</p>${tag}<li>d</li></ul>`) +
+      topic('Beta') + topic('Gamma'));
+  }
 });

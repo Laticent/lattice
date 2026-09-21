@@ -80,10 +80,20 @@ Four points of retention is $2.1m of ARR, and it compounds into next year.
 ---
 
 <!-- _class: topic -->
+<!-- _track: Renewal | [Retention] | Pricing -->
 
 ## Logo retention
 
 84% for two quarters running, against 88% in the plan.
+
+---
+
+<!-- _class: topic -->
+<!-- _track: Renewal | Retention | [Pricing] -->
+
+## Pricing floor
+
+Two of the three at-risk accounts renewed below the floor, and both name the same competitor.
 
 ---
 

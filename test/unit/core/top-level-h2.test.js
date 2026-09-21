@@ -167,6 +167,17 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
     '<template><ul><li>x</li></ul></template>',
     // Scope barriers.
     '<button><div></button><h2>Real</h2>',
+    // A SIBLING start tag closes the one it follows — the rule CLOSED_BY_SIBLING
+    // models. The heading rows are the load-bearing ones: without them
+    // `<h3>a<h2>Real</h2>` reports no top-level heading at all, which is the
+    // masthead's whole band. The list / table / definition rows change no answer
+    // here (an explicit end tag pops the stack to its match anyway) and are kept
+    // because the walk is a parser model, not a list of today's questions.
+    '<h3>a<h2>Real</h2>',
+    '<h2>Outer<h2>Inner</h2>',
+    '<ul><li>a<li>b</ul><h2>Real</h2>',
+    '<dl><dt>a<dd>b</dl><h2>Real</h2>',
+    '<table><tr><td>a<td>b</table><h2>Real</h2>',
     // Case.
     '<H2>Deco</H2><h2>Real</h2>',
     '<H2>Up</H2>',
