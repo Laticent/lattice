@@ -24,6 +24,7 @@ const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform
 const core = require('../../../lib/authoring/lint-core');
 
 const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter } = ganttKernel;
+const { LINE_HEIGHT } = require('../../../lib/components/chart/_chart-family/svg-label.js');
 const { resetRenderIds } = require('../../../lib/core/render-ids');
 const { extractFirstList } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
@@ -627,26 +628,53 @@ describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
     }
   });
 
-  // THE BAND HAS A FLOOR, and until this test it did not. Every other assertion
-  // in this suite re-derives its expectation from the same constants it polices,
-  // so they catch a band that DRIFTS and none of them catches a band that is
-  // simply too small: a checker pass mutated the band to 8 / 2 / 2 — a 19.2px
-  // bar carrying a 20.4px caption, text taller than the thing it sits in — and
-  // all 55 tests stayed green. These two pin the relations a reader actually
-  // sees, in both orientations, so the magnitude is no longer held by eye alone.
+  // THE BAND HAS A FLOOR, and until these it did not. Every other assertion in
+  // this suite re-derives its expectation from the same constants it polices, so
+  // they catch a band that DRIFTS and none catches one that is simply too small.
+  // Two checker passes proved it twice: 8 / 2 / 2 drew a caption taller than its
+  // own bar, and 12 / 1 / 1 collapsed the lane rules onto the bars — both green
+  // across the whole suite. So these pin MAGNITUDE against the thing being
+  // separated, not just the spacings against each other, which is the mistake
+  // the first version of this block made: `lanePadY >= rowGap` is a ratio two
+  // one-unit spacings satisfy perfectly while the chart falls apart.
   for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
     test(`${name}: a caption fits inside the bar it labels`, () => {
-      // 1.25x the type size is the leading a single line needs; below that the
-      // caption's ink crosses its own bar's edge.
-      assert.ok(G.barH >= G.fsBar * 1.25,
-        `${name} barH ${G.barH} cannot carry a ${G.fsBar}u caption (needs ${(G.fsBar * 1.25).toFixed(2)}u)`);
+      // DERIVED, not restated: `LINE_HEIGHT` is the leading svg-label.js actually
+      // lays a line out with, so `fsBar * LINE_HEIGHT` is the caption's real line
+      // box. A bar shorter than its own caption's line box crops the text it
+      // exists to carry. (An earlier version of this line said 1.25 — a number
+      // nothing in the engine holds, and wrong by 8%.)
+      const lineBox = G.fsBar * LINE_HEIGHT;
+      assert.ok(G.barH >= lineBox,
+        `${name}: barH ${G.barH}u cannot carry a ${G.fsBar}u caption (line box ${lineBox.toFixed(2)}u)`);
+    });
+
+    // A gap has to be WIDE ENOUGH TO SEE, and the bars' own edges are what eat
+    // it: at the gallery's 2.4px/unit a 1u gap is 2.4px, and the two
+    // `--chart-edge` hairlines bounding it take 2px of that, leaving 0.4px of
+    // background — two bars that read as one object with a seam. A quarter of a
+    // bar's height is the floor: 3u = 7.2px at that scale, comfortably clear of
+    // the strokes.
+    const minGap = () => G.barH / 4;
+    test(`${name}: sub-rows inside a lane are visibly apart`, () => {
+      assert.ok(G.rowGap >= minGap(),
+        `${name}: rowGap ${G.rowGap}u is under the ${minGap()}u floor (barH/4) — adjacent bars close up`);
+    });
+
+    test(`${name}: a lane band holds its bars off the lane rule`, () => {
+      assert.ok(G.lanePadY >= minGap(),
+        `${name}: lanePadY ${G.lanePadY}u is under the ${minGap()}u floor (barH/4) — bars touch the lane rule`);
     });
 
     test(`${name}: a lane reads as one group against its neighbors`, () => {
       // Sub-rows inside a lane must sit CLOSER than the lanes themselves are
       // apart, or the grouping inverts and a two-row lane reads as two lanes.
-      assert.ok(2 * G.lanePadY >= G.rowGap * 2,
-        `${name}: inter-lane ${2 * G.lanePadY}u must beat intra-lane ${G.rowGap}u`);
+      // The assertion is `lanePadY >= rowGap` (the lane's two pads bound the
+      // inter-lane gap, one rowGap bounds the intra-lane one); the message used
+      // to print the doubled figures, so a failure read as a true statement.
+      assert.ok(G.lanePadY >= G.rowGap,
+        `${name}: lanePadY ${G.lanePadY}u must be >= rowGap ${G.rowGap}u, ` +
+        `or a lane's own rows sit further apart than the lanes do`);
     });
   }
 
@@ -741,10 +769,14 @@ describe('gantt — non-row chrome is a tax on the whole drawing', () => {
   // buys none of its room back in width. 14 / 16 / 6 is 36 units against 25 for
   // 9 / 12 / 4 — 11 units, 26.4px at 2.4px/unit, about one more bar row.
   //
-  // The fit assertion that used to live here is gone on purpose: it asserted the
-  // canonical two-lane shape came in under 335px, which is STRICTER than the
-  // engine's own verdict (that shape draws 295.2px into a 335.4px body, 40.2px
-  // of headroom, and the render raises no clip warning). A test that is harsher than the thing it models invites shaving
+  // The fit assertion that used to live here is gone on purpose — but NOT for the
+  // reason this comment used to give. It asserted the canonical two-lane shape
+  // came in under 335px, and at the band of the day that shape drew 338px, so the
+  // test was stricter than the engine's own verdict and invited shaving real
+  // padding to satisfy it. At today's band the same shape draws 295.2px into a
+  // 335.4px body, so that assertion would now pass with 40.2px to spare: it is
+  // not stricter than anything any more, it is simply redundant with the budget
+  // assertion below, which states the same property in rows rather than pixels. A test that is harsher than the thing it models invites shaving
   // real padding to satisfy it. The budget — four one-row lanes with a status key
   // fit a 1152x335 body — is asserted in the FIXED-BAND suite above, against a
   // headroom figure re-derived from the geometry rather than restated.
@@ -795,7 +827,10 @@ describe('gantt — checker findings', () => {
     // painted. Two of these failed the integration tier.
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
     const built = buildGanttChart(inner(ul), WIN);
-    const clip = tagsWith(built.slice(built.indexOf('<clipPath')), '<rect')[0];
+    // Bounded to the clipPath's OWN body — `the first <rect> after <clipPath`
+    // would keep passing if the clip lost its rect and the next bar supplied one.
+    const body = built.slice(built.indexOf('<clipPath'), built.indexOf('</clipPath>'));
+    const clip = tagsWith(body, '<rect')[0];
     assert.match(clip, /fill="none"/, 'a clip rect must declare that it paints nothing');
   });
 

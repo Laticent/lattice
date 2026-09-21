@@ -64,8 +64,15 @@
   most broadly visible line here and the earlier draft of this fragment did not
   state it. Landscape bars go 36px to 28.8px on a 1152px chart body (the band
   went 15/5/5.5 to 12/4/4.5 viewBox units); portrait goes 20/6/8.5 to 16/5/7.
-  Nothing an author writes changes — a deck that fit before still fits, with
-  more room — but a committed PDF re-renders slightly tighter.
+  Nothing an author WRITES changes, and every committed PDF re-renders slightly
+  tighter. **But "it fit before" is not a promise this release keeps**, and the
+  cause is the letterbox, not the band: a height-capped chart used to "fit" by
+  shrinking itself, so a deck could be over its budget and never say so. With
+  the cap gone a chart draws at its natural height, and two shipped decks that
+  had been fitting that way now overflow and had to be rewritten — measured on
+  `examples/palette-cascade-flip.md`, which cleared its stage by 4.2px before
+  and misses by 10.2px after. That is the silent shrink being withdrawn, which
+  is the point of the change, but it is a real migration cost.
 - **gantt: a portrait chart is no longer cut at the bottom.** Both bands were
   sized against the `max-height` cap that used to letterbox an oversized chart
   down until it fit. Deleting the cap re-derived the landscape band and missed
