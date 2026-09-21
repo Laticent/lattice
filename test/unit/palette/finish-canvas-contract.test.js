@@ -87,7 +87,22 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   // splitter needs to skip quoted strings and bracket depth too.
   const excludes = (sel, cls) =>
     sel.includes(`:not(.${cls})`) || new RegExp(`:not\\(:where\\([^)]*\\.${cls}\\b`).test(sel);
+  // `print` must be excluded BY EVERY SELECTOR THAT LOSES ITS CANVAS TO IT — which is
+  // not all of them. `section.print` resets the surface to white and the token remap
+  // sends --surface-inverse to the print band, so a printed `title` really is white
+  // (measured: rgb(255,255,255)) and a finish mixing toward the inverse would flood the
+  // page. `topic` is the exception: it KEEPS its canvas under print (measured:
+  // rgb(236,236,236), the print band's inverse), so excluding print there would demote
+  // --fin-canvas to var(--print-bg) and reintroduce the same mismatch one frame over.
+  const KEEPS_CANVAS_UNDER_PRINT = ['.topic'];
   for (const one of topLevel(selector)) {
+    if (KEEPS_CANVAS_UNDER_PRINT.some((f) => one.includes(f))) {
+      assert.ok(
+        !excludes(one, 'print'),
+        `\`${one}\` keeps its canvas under print, so it must NOT exclude print`,
+      );
+      continue;
+    }
     assert.ok(excludes(one, 'print'), `\`${one}\` must not apply to a print slide`);
   }
   // The four registers that OUT-SPECIFY a frame's own (0,1,1) canvas and repaint it to
@@ -98,11 +113,31 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   // title as an inverse-panel flood. `divider` is exempt from this row: base.variants.css
   // gives it carve-outs that KEEP its canvas under every spectrum value, so it excludes
   // only `print` and `accent`.
+  // Per frame, because the four frames genuinely differ — each row measured, not assumed.
   const REGISTERS = ['accent', 'spectrum-off', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
+  const NEEDED = (one) => {
+    if (one.includes('.divider')) return ['accent'];   // spectrum carve-outs keep its canvas
+    if (one.includes('.topic')) return ['spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
+    return REGISTERS;
+  };
   for (const one of topLevel(selector)) {
-    const needed = one.includes('.divider') ? ['accent'] : REGISTERS;
-    for (const reg of needed) {
+    for (const reg of NEEDED(one)) {
       assert.ok(excludes(one, reg), `\`${one}\` must not apply to a .${reg} slide — it repaints the surface`);
+    }
+  }
+  // AND THE EXCLUSIONS MUST BE MODE-SCOPED. Every repainter but `print` requires
+  // `.dark`; excluding them unconditionally demotes --fin-canvas on light decks where
+  // nothing repaints, which is #1656's defect on the default path (measured: 9 -> 22
+  // mismatches over a no-dark cross). So a register exclusion has to carry `.dark`.
+  for (const one of topLevel(selector)) {
+    for (const reg of NEEDED(one)) {
+      const group = one.match(new RegExp(`:not\\(:where\\(([^)]*\\.${reg}\\b[^)]*)`));
+      if (!group) continue;
+      assert.match(
+        one,
+        /:not\(:where\(\.dark/,
+        `\`${one}\` excludes .${reg} unconditionally — it must be scoped to .dark, which is what makes the exclusion true`,
+      );
     }
   }
 
