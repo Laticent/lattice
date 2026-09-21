@@ -436,98 +436,39 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   *(gated — `checkMarginDiscipline` in `tools/check-ownership.js`, via `build:check`;
   layout budget 0 + allowlist; `engineering/gotchas.md`,
   `engineering/decisions/2026-06-27-stage-flow-no-margins.md`.)*
-- **#21 — US English is the house dialect — American spellings only.** Everywhere a
-  human reads words — docs, comments, manifest text, UI copy, hyphenated
-  identifiers/classes/tokens — use the US form: `-or` not `-our`, `-ize` not `-ise`,
-  `-er` not `-re`; `gray`, `license`, `defense`, `catalog`, `while`. **"Everywhere"
-  includes the surfaces no gate can reach** — a chat reply, an issue body, a PR
-  description, a review comment, a commit message.
-  **The backlog is swept and the ratchet that got it there is gone.** 1285 spellings
-  across 406 files went in one mechanical pass (2026-08-30), and `checkUsEnglish` — a
-  repo-wide scan on every build, carrying a budget, a self-exempt list and a ledger of
-  its own revisions — was deleted with it. A gate needing 1285 standing exceptions to
-  stay green was more machinery than the problem it policed, and from a swept tree a
-  regression is one visible word in a diff rather than a needle in a 1285-hit haystack.
-  **"Swept" is not "zero", and the difference matters.** 71 British spellings remained in
-  living prose when this rule was written, and they were not a backlog: ~39 were the
-  `progress-centre` Form cell, 15 are DATA we must keep accepting, 4 sit in a lockfile,
-  3 cite a dated `engineering/decisions/` filename, and the rest are deliberate mentions
-  in tests and in this rule. **The Form cell is now `progress-center`** — issue #578
-  renamed it, so the largest cluster is gone. The total is deliberately not restated:
-  `checkUsEnglish`, the tool that measured 71, was deleted with the ratchet, so a fresh
-  number would be a different measurement wearing the old one's clothes. **A US-English pass must never touch an EXTERNAL string**: GitHub's
-  `cancelled` conclusion enum, the OECD's real legal name, a third-party language
-  keyword, a synonym key an author might type, a pre-registered benchmark fixture. A
-  sweep that rewrote three of those shipped a dead CI allowlist, an unresolvable map
-  region and a tautological test — all three caught by review, none by a gate.
-  *(discipline, with one cheap backstop — `tools/check-commit-msg.sh` WARNS on British
-  spellings from `tools/us-english.js` and never blocks, because a message may quote
-  British-spelled text and #14 forbids `--no-verify` as the escape. It covers the one
-  surface with measured drift: 21 British spellings in 300 commit messages. Two test-tier
-  arms joined it in `test/unit/tools/us-english-stem-audit.test.js`, which is why the
-  `camelCase` identifier no longer "rides on review": it stems every word in the tree and
-  fails on one landing in a British family the map does not carry, and it fails on any
-  identifier segment the map DOES carry. Both are narrow by construction and say what they
-  cannot see — the map and its own tests are excluded, `engineering/decisions/**` is not
-  walked, and `-hood`/`-less` derivations do not stem. Neither reinstates the deleted
-  repo-wide ratchet: they carry two allowlist entries between them, not 1285.)*
-- **#22 — Untrusted content reaches a preview frame ONLY through a sanitizer, and the
-  frame has TWO channels: markup and stylesheet.** The docs-site Studio renders untrusted
-  markdown (shared / AI-generated decks + component skeletons) into a SAME-ORIGIN,
-  un-sandboxed `srcdoc` iframe; un-sanitized engine output there is XSS → OpenRouter-key
-  theft (`engineering/decisions/2026-06-29-component-transformer-threat-model.md` §5.1,
-  #616). Every preview-frame BUILDER — any `docs/src` module that assembles a live preview
-  document, marked by the split runtime-`<script>` injection idiom — owes **both**:
-  - **markup** → `sanitizeSlideHtml` (`docs/src/lib/sanitize-slide-html.js`, DOMPurify);
-  - **stylesheet** → `sanitizeStyleText` (`lib/core/sanitize-style-text.mjs`), owed by any
-    builder that embeds a `<style>` element. A `<style>`'s content is HTML **RAWTEXT**,
-    which ends at the first `</style` and knows nothing about CSS comments or strings — so
-    a `</style>` carried in theme or author CSS ends the element and the remainder is
-    parsed as markup in the live frame, *however well the HTML beside it was sanitized*.
-    The rule and the gate were markup-only until 2026-08-17, and a builder passed while
-    concatenating unsanitized theme CSS two lines above the sanitized HTML (#1709).
-  Add a new builder to the allowlist with its justification; the gate fails on an un-listed
-  builder, a builder that drops **either** call it owes, AND a stale entry.
-  **The stylesheet channel is NOT a docs-site rule — it follows the document, wherever it is
-  built.** Its scope is `DOC_STYLE_SINK_ROOTS`: the docs site **and the CLI export pipeline**
-  (`lattice-emulator.js`, `lib/export/**`). Two things follow that the "preview frame" framing
-  above does not tell you. First, the **harm is different off the docs site**: in a downloaded
-  `.html` / `--player` export there is no OpenRouter key to steal — the payload is a beacon
-  baked into every copy the *recipient* opens, and a stylesheet silently truncated mid-rule.
-  Second, the **discovery rule is different**: a preview builder is found by the runtime-`<script>`
-  idiom, a stylesheet sink by assembling a whole document (`<!doctype html`) — and neither finds
-  the third shape, a module that assembles nothing but takes CSS back OUT of a document, prunes
-  it, and re-wraps it. **Any CSS SERIALIZER normalizes `<\/style` back into a live terminator**
-  — css-tree (`prunePlayerCss`) and the browser's own CSSOM `cssText` are both measured doing
-  it — so **a re-wrap owes the call itself** no matter what guarded the document upstream. That
-  one is gated per `<style>` ELEMENT, by text match, with its evasion envelope written into the
-  check's docblock; the durable pin for the guard call sites themselves is the CENSUS in
-  `test/unit/export/style-guard-census.test.js`, because all three gates are text matchers and
-  none of them can see a guard that quietly disappears from a file that still calls it
-  elsewhere.
-  **A FOURTH shape is the one all three miss by construction: markup injected INSIDE the frame,
-  AFTER the builder sanitized.** `lib/runtime` runs in the preview document and writes more
-  markup into it — so the sanitizer ran one step too early, and the gate cannot see it because
-  `checkPreviewHtmlSinks` asks only whether the BUILDER called `sanitizeSlideHtml`, and it did
-  (#1246). The dangerous instance takes SVG back from a third-party renderer (Mermaid), which is
-  why this arm is a CENSUS OF PROVENANCE rather than a demand for a guard call: re-sanitizing
-  that SVG is not available — DOMPurify deletes `<foreignObject>` and `<style>`, i.e. every node
-  label and all diagram styling (measured). What contains it is Mermaid's own behavior, and the
-  split is worth knowing: `sanitizeText` runs DOMPurify on labels UNCONDITIONALLY, while
-  `securityLevel: 'strict'` gates a WHOLE-SVG DOMPurify pass plus URL handling and click
-  callbacks — so a label payload has two nets and a `click … javascript:` payload has one, all
-  of them third-party, all pinned behaviorally in `docs/e2e/mermaid-post-sanitize.spec.ts`
-  against the CDN's real Mermaid rather than the pinned `node_modules` copy. Every markup sink in
-  `lib/runtime` therefore declares WHERE ITS MARKUP COMES FROM, and the count is pinned per
-  sink — the file-scoped shape the other three arms use would certify a SECOND injection point
-  hiding behind an already-legitimate one, which is not hypothetical: #1246 named one Mermaid
-  site and there are two (the render and the cache replay). *(gated —
-  `checkPreviewHtmlSinks` + `SANCTIONED_PREVIEW_BUILDERS`, `checkDocumentStyleSinks` +
-  `DOC_STYLE_SINK_ROOTS` + `SANCTIONED_STYLE_SINK_EXEMPT`, `checkCssTreeRewrapSinks`, and
-  `checkRuntimeMarkupSinks` + `SANCTIONED_RUNTIME_MARKUP_SINKS`, all in
-  `tools/check-ownership.js` via `build:check`; `engineering/gotchas.md`,
-  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9,
-  `engineering/decisions/2026-08-18-post-sanitize-injection-queue.md`.)*
+- **#21 — US English is the house dialect — American spellings only.** Every surface a
+  human reads, and that includes the ones no gate can reach: a chat reply, an issue body, a
+  PR description, a review comment, a commit message. **Never rewrite an EXTERNAL string** —
+  GitHub's `cancelled` conclusion enum, a real legal name, a third-party keyword, a synonym
+  key an author might type, a pre-registered benchmark fixture. A sweep that rewrote three
+  of those shipped a dead CI allowlist, an unresolvable map region and a tautological test;
+  all three were caught by review and none by a gate. The tree is swept and the repo-wide
+  ratchet is retired with it. The contract, the spellings that legitimately remain, and the
+  enforcement table are `engineering/house-style.md` §1 — **read it there, it is more
+  current than any summary of it.** *(discipline, plus one warn-only commit-msg check and
+  two blocking arms in `test/unit/tools/us-english-stem-audit.test.js`.)*
+
+- **#22 — Untrusted content reaches a rendered document ONLY through a sanitizer, and the
+  document has TWO channels: markup AND stylesheet.** Markup goes through
+  `sanitizeSlideHtml` (`docs/src/lib/sanitize-slide-html.js`); every `<style>` goes through
+  `sanitizeStyleText` (`lib/core/sanitize-style-text.mjs`), because a `</style>` carried in
+  theme or author CSS ends the element as HTML RAWTEXT and the rest parses as markup —
+  however well the HTML beside it was sanitized. **Four shapes owe a guard and each is
+  gated separately**, because no one discovery rule finds all four: a preview-frame
+  BUILDER; a whole-document STYLE SINK (the docs site **and** the CLI export pipeline,
+  where the harm is a beacon in every copy the recipient opens, not a stolen key); a CSS
+  RE-WRAP (every serializer normalizes `<\/style` back into a live terminator, so the
+  re-wrap owes the call itself whatever guarded the document upstream); and MARKUP INJECTED
+  INSIDE the frame AFTER the builder sanitized (`lib/runtime`, where re-sanitizing is not
+  available — DOMPurify deletes `<foreignObject>` and `<style>`, i.e. every Mermaid node
+  label and all diagram styling — so the pin is a census of provenance instead).
+  **Read the threat model before touching any of them:**
+  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9, and
+  `2026-08-18-post-sanitize-injection-queue.md`. *(gated — `checkPreviewHtmlSinks`,
+  `checkDocumentStyleSinks`, `checkCssTreeRewrapSinks` and `checkRuntimeMarkupSinks`, with
+  their allowlists, in `tools/check-ownership.js` via `build:check`; every allowlist fails
+  on a stale entry. `engineering/gotchas.md`.)*
+
 - **#23 — A verification claim names its surface and carries an artifact from it.**
   "Verified" / "works" / "done" is a claim about a specific running surface — the
   real Playground, the real export, the actual device — and it needs proof from
@@ -611,122 +552,61 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `sonnet`/`haiku`/`fable` are rejected by name. Committed files only; an ad-hoc
   `Agent()` call rides on the policy above, and harness built-ins need nothing
   passed. `engineering/decisions/2026-07-28-model-tiering-retirement.md`.)*
-- **#28 — A merge ask carries a conforming pre-merge card, and the card lands on
-  the PR, not only in chat.** The card is the *only* thing standing between "CI is
-  green" and a human decision, and green CI is not evidence of much (#23) — so the
-  card's shape is binding, not a suggestion. The contract is
-  `engineering/workflow.md` §Pre-merge card and **must be read there, not from a
-  summary**; CLAUDE.md's DEFAULT-OP-MODE row is an index entry, not the spec. Four
-  things are load-bearing and each has been got wrong:
-  - **The confidence level is DERIVED, and there are exactly four.** `low` ·
-    `medium` · `high` · `very high`. **The lowest qualifying axis wins** — evidence,
-    blast radius, reversibility, unknowns, independent eyes. A fifth level
-    (`medium-high`) is not a finer reading, it is the "high with a caveat" hedge the
-    contract exists to ban.
-  - **ONE level for the change, not one per issue.** Confidence is a chain. Splitting
-    it per closed issue reports the *best* link and buries the floor, which is the
-    same evasion in another costume.
-  - **Name the AXIS that set the floor**, not a reason. "mutation-proved" is a
-    reason; `evidence` / `blast radius` / `unknowns` is an axis, and only the axis
-    tells the reader which lever to pull.
-  - **Carry the `raise it by:` line.** The contract calls it the most useful line in
-    the card: it turns "are you sure?" into a decision — merge anyway, or spend ten
-    more minutes. "nothing outstanding" is a legitimate answer; omitting it is not.
-  **Where it goes:** in the merge ask AND as a comment on the PR. A card that lives
-  only in a chat transcript is invisible to whoever opens the PR — including me, and
-  including a future session — so the evidence has to sit next to the diff it is
-  about. Same wording both places.
-  *(discipline — no automated gate, and that is a known hole: nothing in the tree can
-  tell a conforming card from a plausible-looking one, so the test is whether the
-  card on the PR carries all four levers above. Born from PR #1834, where a card was
-  written from this file's own one-line summary instead of the workflow.md contract
-  and shipped an invented `medium-high`, three per-issue levels, no axis, no raise
-  path — in a PR whose entire subject was claims nobody re-derives.)*
-- **#29 — A typed glyph never reaches a rendered surface; we draw the shape.**
-  A "shape glyph" is a character doing the job of a DRAWING — `✓` `✗` `→` `❯` `●`
-  `⚠`. The deck's own type family carries almost none of them, so the renderer
-  falls back to whatever font THAT machine has (a different weight, a different
-  baseline), or to a color emoji (which Marp Core rewrites to `<img class="emoji">`,
-  so it stops taking the element's color and blows a palette-blind layout open), or
-  to a hollow `.notdef` box. One deck therefore renders three ways across the three
-  surfaces it reaches. The `--mark-*` and `--shape-*` SVG mask tokens exist precisely
-  so the shape is ours: **color comes from the element, the shape from us** (#3).
-  The curated table, its deliberate exclusions, and the per-glyph advice live in ONE
-  kernel — `lib/core/shape-glyphs.js` (#1) — shared by the gate and the linter.
-  **Two surfaces, two postures, and the split is the whole rule:**
-  - **OUR CSS — budget 0.** We own the declaration and the token is right there, so a
-    typed shape in engine CSS is a defect with a named fix. The allowlist is
-    `SANCTIONED_GLYPH_CHROME`, it takes a MEASUREMENT rather than an opinion, and the
-    gate fails on a stale entry. Two files are on it, both for the same reason: the
-    a11y and print **grayscale shape channel** is not a naive re-implementation of
-    `--mark-check`, and a mask cannot carry it. `content: <string> / <alt>` with an
-    empty alt is the only mechanism measured (over CDP `Accessibility.getFullAXTree`)
-    to keep the shape out of the a11y tree — `speak: never` and `speak: none` both do
-    nothing; the glyph keeps sized with the type, which a fixed box does not; and each
-    declaration is DOUBLED as a cross-engine pair, because an engine that cannot parse
-    the alt form drops the whole declaration and the shape vanishes for exactly the
-    readers it exists for. Do not "simplify" those.
-  - **DECKS — an exceed-only ratchet, and coaching everywhere else.** The gate holds
-    the line on the decks WE ship (the reference for how to write one); every other
-    deck gets `lint:deck`, which **warns and never blocks**. That asymmetry is the
-    policy, not an oversight: *"authors can do whatever they want… when there are
-    better alternatives we should present a warning and suggest fixes and help them
-    fix it. Even better, give them more modifiers. We warn, we coach."* A rule that
-    refuses an author's deck buys consistency by spending the flexibility, and the
-    warning already names what the glyph will look like on another machine, the
-    modifier that does it properly, and the concrete fix.
-  **Two scope lines, both deliberate.** A glyph inside a ``` fence is QUOTED material
-  — two shipped decks quote the CLI's own `⚠` overflow warning verbatim, and the CLI
-  really does print it (terminal text is not a rendered surface). INLINE code stays in
-  scope, because a backticked eyebrow is set on the slide. And a `*.docs.md` is prose
-  ABOUT a component, never projected, so it is out of scope — as is
-  `engineering/decisions/**`, a dated archive.
-  **Engine JS is NOT gated, on purpose — and the rule's first sentence is an
-  OBJECTIVE, not yet a description of the tree.** Telling a DOM string from a
-  `console.warn`, a `--help` banner or an AI prompt needs to parse the module, and the
-  heuristic that could not tell them apart flagged a `Symbol()` sentinel's trailing
-  comment. A gate that cries wolf is one somebody switches off. So two modules DO still
-  type a shape onto a rendered surface today — `matrix-grid.transform.js`'s axis
-  arrows and `state-chart`'s transition chips, both writing into an HTML attribute or a
-  text node, where drawing them needs a markup change across three render paths. They
-  are pinned BY CONTENT in `test/unit/core/shape-glyphs.test.js` so a third cannot
-  appear quietly, and named in the decision record's § "What is still typed".
-  **And "zero" means zero of the CURATED table**, not zero typed shapes: a character the
-  table does not carry is invisible to both the gate and the linter, so add the row
-  first.
-  *(gated — `checkTypedGlyphs` + `TYPED_GLYPH_BUDGET` + `SANCTIONED_GLYPH_DECKS` +
-  `SANCTIONED_GLYPH_CHROME` in `tools/check-ownership.js`, via `build:check`: engine CSS
-  budget 0, decks exceed-only toward 0, and BOTH allowlists fail on a stale entry.
-  `engineering/decisions/2026-08-25-typed-glyphs.md`.)*
-- **#30 — House voice: active, plain, and short enough that a junior engineer can
-  act on it.** Every surface where we write ABOUT the work — a chat reply, an issue, a
-  PR body, a commit message, a `changelog.d/` fragment, an `engineering/`/`design/`
-  doc, a code comment. Four rules, and the contract is
-  `engineering/house-style.md` — **read it there**, this is an index entry:
-  - **Active voice, named actor.** "`build-css.js` resolves the token", not "the token
-    is resolved". Passive earns its place only when the actor is genuinely unknown or
-    irrelevant; "it was decided" never qualifies.
-  - **Plain words; a term of art is defined on first use.** Write for someone who
-    joined last week. `use` over `leverage`, `to` over `in order to`, `fast` over
-    `performant`. Our own vocabulary is worth spending — pay for it once, then use it
-    freely. "Robust" and "seamless" both hide the claim: say what survives what.
-  - **Lead with the answer.** First sentence answers; the rest supports. Cut the
-    preamble, the restatement of the question, the summary of what you just said, and
-    the options you did not take.
-  - **US English** — that is #21, and it binds here too, on exactly the un-gated
-    surfaces #21 now names.
-  **There is deliberately NO word budget.** A number gets a real design explanation
-  amputated to hit it, or split across three replies to dodge it. The test is not
-  length, it is whether a sentence is load-bearing: point at a paragraph and ask what
-  deleting it would cost. "Nothing" means it should not have shipped.
-  **This does NOT license under-answering.** Cutting the filler is not cutting the
-  work — a complete answer with its evidence is the deliverable, and "concise" is never
-  a reason to skip a gate, a caveat, or the thing that was not verified (#23).
-  *(discipline — no automated gate for voice or length, and there is unlikely to be a
-  good one: nothing in the tree can tell a load-bearing sentence from a plausible
-  filler one. Spelling has one cheap arm — the advisory commit-msg warning (#21); the
-  repo-wide ratchet was retired once the tree hit zero.
-  `engineering/house-style.md`; the on-demand auditor is the `prose-checker` agent.)*
+- **#28 — A merge ask carries a conforming pre-merge card, and the card lands on the PR,
+  not only in chat.** Green CI is not evidence of much (#23), so the card is the only thing
+  between it and a human decision — which makes the card's shape binding. **Build it from
+  `engineering/workflow.md` §Pre-merge card, read there and never from a summary**: that
+  substitution is the exact failure this rule exists to stop (PR #1834 shipped an invented
+  confidence level, three per-issue levels, no axis and no raise path, written from a
+  one-line index entry). The DEFAULT OPERATING MODE table above names the four levers the
+  card must carry; the section defines them. **Same wording in the ask and on the PR** — a
+  card that lives only in a chat transcript is invisible to whoever opens the PR, including
+  a future session. *(discipline — no automated gate, and that is a known hole: nothing in
+  the tree can tell a conforming card from a plausible-looking one.)*
+
+- **#29 — A typed glyph never reaches a rendered surface; we draw the shape.** A character
+  doing the job of a DRAWING — `✓` `✗` `→` `❯` `●` `⚠` — is not in the deck's type family,
+  so one deck renders three ways across the three surfaces it reaches: a fallback font at a
+  different weight and baseline, a color emoji (which Marp Core rewrites to
+  `<img class="emoji">`, so it stops taking the element's color and blows a palette-blind
+  layout open), or a hollow `.notdef` box. The `--mark-*` / `--shape-*` SVG mask tokens
+  exist so the shape is ours: **color from the element, shape from us** (#3). The curated
+  table, its deliberate exclusions and the per-glyph advice live in ONE kernel,
+  `lib/core/shape-glyphs.js` (#1), shared by the gate and the linter. **Two surfaces, two
+  postures, and the split IS the rule:** OUR CSS is **budget 0** with a measured
+  `SANCTIONED_GLYPH_CHROME` allowlist (two files, both for the a11y/print grayscale shape
+  channel — do not "simplify" those declarations); **DECKS** are an exceed-only ratchet on
+  the ones we ship, and every other deck gets `lint:deck`, which **warns and never blocks**
+  — we coach authors and give them modifiers, we do not refuse their decks. Fenced code is
+  QUOTED material and out of scope, inline code is not, and a `*.docs.md` is prose about a
+  component rather than a slide. "Zero" means zero of the CURATED table, so add the row
+  first. Why, what is still typed in engine JS, and why that is deliberately not gated:
+  `engineering/decisions/2026-08-25-typed-glyphs.md`. *(gated — `checkTypedGlyphs` +
+  `TYPED_GLYPH_BUDGET` + `SANCTIONED_GLYPH_DECKS` + `SANCTIONED_GLYPH_CHROME` in
+  `tools/check-ownership.js` via `build:check`; both allowlists fail on a stale entry.)*
+
+- **#30 — House voice: active, plain, and short enough that a junior engineer can act on
+  it.** Every surface where we write ABOUT the work — a chat reply, an issue, a PR body, a
+  commit message, a `changelog.d/` fragment, an `engineering/`/`design/` doc, a code
+  comment. Four rules: **active voice with a named actor** ("`build-css.js` resolves the
+  token", not "the token is resolved"); **plain words, and a term of art defined on first
+  use**; **lead with the answer**, cutting the preamble, the restatement and the options you
+  did not take; and **US English**, which is #21. The contract is
+  `engineering/house-style.md` — **read it there**, and note that it is more current than
+  any summary of it.
+  **Length is set by AUDIENCE, not by a word count.** A chat reply is read once: lead with
+  the answer and stop. A doc, a decision note, a PR body or a commit message is read many
+  times by people who were not here, and runs as long as it needs to. There is deliberately
+  **NO word budget** on either — a number gets a real design explanation amputated to hit
+  it, or split across three replies to dodge it. The test is whether a sentence is
+  load-bearing: point at a paragraph and ask what deleting it would cost. "Nothing" means it
+  should not have shipped.
+  **This does NOT license under-answering.** Cutting the filler is not cutting the work, and
+  "concise" is never a reason to skip a gate, a caveat, or the thing that was not verified
+  (#23). *(discipline — no automated gate for voice or length, and there is unlikely to be a
+  good one. `engineering/house-style.md`; the on-demand auditor is the `prose-checker`
+  agent.)*
+
 
 ---
 

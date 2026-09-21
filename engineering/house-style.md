@@ -136,6 +136,21 @@ design explanation would get amputated to hit a number, or split across three
 replies to dodge it. The test is not length. It is whether every sentence is
 load-bearing.
 
+**Length is set by audience.** A chat reply is read once, by someone who is already
+here and already has the context: lead with the answer and stop. A doc, a decision
+note, a PR body or a commit message is read many times, by people who were not here
+and never will be — it runs as long as it needs to, and trimming it to look tidy
+costs a future reader the reconstruction. The same four rules govern both; only the
+stopping point moves.
+
+There is a cost argument underneath, and it points the same way. A reply's tokens
+are billed at roughly the weight of the context they displace, and every token in
+the conversation is re-sent on every turn that follows it — so padding a chat reply
+is paid again and again for the rest of the session, while a doc is paid once by
+whoever opens it. That is a reason to cut filler from a reply, never a reason to
+under-answer: a gate you skipped, a caveat you dropped, or a surface you did not
+verify (HARD RULE #23) is not concision, it is an omission.
+
 ---
 
 ## Per-surface contracts
