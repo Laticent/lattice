@@ -234,6 +234,13 @@ budget rather than a PR's — but the case for blocking now has numbers instead 
     third artifact shape (a pair from one deck, outside `lib/`) that neither scope handles.
     Found by the HARD RULE #25 checker; filed rather than fixed here, because supporting it
     means teaching the deck scope about light/dark pairs and `injectDark`.
+
+    **Narrowed 2026-09-21 (#2253), not closed.** `build:showcase-galleries:check` now asks
+    `tools/lib/render-inputs.js` whether a render input changed without the PDFs being
+    rebuilt, so it is no longer a pure existence check — the same question the component and
+    bucket gallery gates already asked. What is still open is the half this note names: the
+    golden-diff deck scope still drops the pair, because the sibling-`.md` rule wants
+    `data-viz-gallery.light.md`. Nothing yet opens those bytes.
 - The `PDF_OWNERSHIP` `watcher:` column is now true for the five rules that named
   `overflow:check` alone. It was overstated before, and that is corrected in the same
   change rather than filed.

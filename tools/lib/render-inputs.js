@@ -54,6 +54,12 @@ const ROOT = path.join(__dirname, '..', '..');
 // `dist/lattice.css` is built from AND the transform kernel that shapes the DOM (a
 // change in `lib/core` or `lib/transformers` moves the render with no CSS diff at all);
 // `themes` carries the palettes.
+//
+// `dist/` IS UNREACHABLE TODAY and is kept anyway: it is gitignored, and `git status
+// --porcelain` never lists an ignored path, so no `dist/` file reaches this classifier.
+// The entry is correct again the day `dist/` is tracked, and the blind spot it leaves
+// is the stale-bundle case `npm run build:check` already covers. What must not happen
+// is prose claiming the coverage is live.
 const INPUT_DIRS = ['lib/', 'themes/', 'dist/'];
 const INPUT_FILES = ['lattice-emulator.js'];
 const INPUT_EXT = new Set(['.css', '.js', '.mjs', '.cjs']);
@@ -61,6 +67,18 @@ const INPUT_EXT = new Set(['.css', '.js', '.mjs', '.cjs']);
 // A component's own gallery deck is not a shared input — the caller compares it
 // directly, and counting it here would mark every OTHER gallery stale alongside it.
 const isGalleryDeck = (p) => p.endsWith('.gallery.md');
+
+// INPUT_DIRS/INPUT_FILES classify a changed path (`isRenderInput`); they do NOT scope
+// the git query. They used to do both, and that quietly broke the third arm of
+// `stalenessAgainstInputs` for any caller whose artifact lives outside them: the
+// showcase gallery renders to `examples/`, so its PDF could never appear in `paths`,
+// the "already rebuilt in this tree" escape could never fire, and the gate would have
+// reported stale forever — a red no rebuild could clear. The query is the whole tree
+// now and the classifier is the only filter. Measured cost of dropping the pathspec on
+// this repo, 25 interleaved reps after a warm-up: p50 13.1ms -> 17.8ms for one `git
+// status`, memoized once per process — about 5ms. (An earlier version of this comment
+// said 35ms -> 106ms. That was one unwarmed `time` call per side, so it was mostly
+// process start-up; a checker could not reproduce it and was right not to.)
 
 function isRenderInput(rel) {
   if (isGalleryDeck(rel)) return false;
@@ -72,9 +90,11 @@ function isRenderInput(rel) {
 let memo = null;
 
 /**
- * Everything under the render-input roots that differs from HEAD — modified, staged, or
- * untracked. ONE git call for the whole run, no per-artifact filtering here: callers need
- * to ask about their own deck and their own PDF too, and both live under these roots.
+ * Everything in the working tree that differs from HEAD — modified, staged, or untracked.
+ * ONE git call for the whole run and NO pathspec: callers ask about their own deck and
+ * their own PDF as well as the shared inputs, and those artifacts do not all live under
+ * `INPUT_DIRS` (see the note above the constants). Filtering to render inputs is
+ * `changedRenderInputs`' job, not this one's.
  *
  * @returns {{ paths: Set<string>, available: boolean }} `available: false` when git cannot
  *          answer (no repo, no git binary — e.g. an installed copy of the package). The
@@ -85,7 +105,7 @@ function changedPaths() {
   if (memo) return memo;
   let out;
   try {
-    out = execFileSync('git', ['status', '--porcelain', '-z', '--', ...INPUT_DIRS, ...INPUT_FILES], {
+    out = execFileSync('git', ['status', '--porcelain', '-z'], {
       cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
     });
   } catch {
@@ -127,10 +147,32 @@ function stalenessAgainstInputs(pdfPath, deckPath) {
   if (!fs.existsSync(pdfPath)) return { stale: true, reason: 'missing' };
 
   const { paths, available } = changedPaths();
-  if (!available) return { stale: false };
+  if (!available) return { stale: false, reason: 'git cannot answer — not checked' };
 
   // A dirty PDF means a rebuild already happened in this working tree — whatever else
   // changed, this artifact has been regenerated against it.
+  //
+  // THIS ARM HAS A KNOWN FALSE-GREEN and it is older than any caller: it infers
+  // freshness from the artifact being DIRTY, which only holds if nothing changed AFTER
+  // the rebuild. So edit → build → edit again answers `fresh` while the artifact shows
+  // the first edit. A HARD RULE #25 checker reproduced that loop on the showcase gallery,
+  // and it is reachable for the component and bucket gates too, where their PDFs have
+  // always been inside the query's reach.
+  //
+  // AN MTIME COMPARISON WAS TRIED HERE AND REVERTED, because it is unsound in both
+  // directions — measured, not argued:
+  //   · `git stash pop` (and `rebase --autostash`, which HARD RULE #16's own flow uses)
+  //     restores the dirty inputs AND the dirty artifact together, so their relative
+  //     mtimes become checkout ORDER. Zero content change, verdict `stale`. That is
+  //     exactly the false-stale this file's header rejects mtimes for; the guard above
+  //     does NOT exclude it, which is what the attempt assumed. Run for real on a
+  //     scratch tree — a 3MB PDF and 200 `lib/*.css` files, `git stash` then
+  //     `git stash pop` — the last CSS file stamped 0.074s AFTER the artifact.
+  //   · a DELETED input stats as absent, sorts oldest, and reads `fresh` — the largest
+  //     possible content change, missed.
+  // The honest fix is content-addressed: have the builder write the hash of the inputs
+  // it consumed beside the artifact, and compare that. It is its own change; nothing
+  // here should guess at it a third time.
   if (paths.has(relOf(pdfPath))) return { stale: false };
 
   // The deck is checked the same way as every other input, deliberately. An earlier cut

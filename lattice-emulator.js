@@ -495,7 +495,7 @@ let scrubBoundaryMeasured = false;
 // line-aware they meet through BLANK-LINE ACCOUNTING, and a checker measured 350 of 13,122
 // (source × cut) pairs disagreeing on order — a note comment directly above a caption comment
 // shipping the 1-byte residue this flag pair exists to remove. The kernel judges every comment
-// against the source's own neighbours, so there is no order left to get wrong.
+// against the source's own neighbors, so there is no order left to get wrong.
 // The composition carries no reporting — the pure half, so `strippedSlidesOrAuthored` can call
 // it once per candidate cut without warning the author twice about the same deck.
 function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
@@ -847,7 +847,7 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // from the engine's OWN boundaries rather than a scan of everything before the fence
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
-const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
 // This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
@@ -2430,7 +2430,7 @@ function strippedSlidesOrAuthored() {
   // above a `---` needs an empty line left in its place (delete the line and the `---` becomes
   // a setext underline, so the export gains a slide), while a note indented inside a LIST item
   // needs the line simply gone (an empty line turns a tight list loose, which is a visible
-  // change to a deck that did nothing unusual). Same neighbours, opposite right answers — so
+  // change to a deck that did nothing unusual). Same neighbors, opposite right answers — so
   // this renders each and keeps the one that reproduces the deck the author wrote. The CANDIDATE
   // LIST is the kernel's (#1): the Studio's `stripNotesCut` reads the same one, so neither path
   // can quietly gain a cut or reorder them without the other.
@@ -2619,7 +2619,7 @@ aside.lattice-notes { display: none !important; }
 // ── Self-hosted fonts (offline PDF embedding) ────────────────────────────────
 // The engine CSS now carries a self-hosted `@font-face` block (url('fonts/…'))
 // instead of a Google `@import`, but the emulator can't rely on a relative
-// `fonts/` URL resolving against the right base during PDF rasterisation, so it
+// `fonts/` URL resolving against the right base during PDF rasterization, so it
 // base64-inlines the SAME woff2 (assets/fonts/) into an inline @font-face block.
 // These local faces embed the real type into the printed PDF with zero network —
 // the whole point of the library carrying its own fonts. The face list is the
@@ -2838,7 +2838,7 @@ ${ENGINE_SCRIPT_OPEN}
 // re-draws. The `fonts.ready` one is a promise continuation no navigation wait ever
 // covered; what keeps it correct is NOT registration order — see the invariant written
 // beside the Node-side force-load below, which is the accurate account. The function body
-// is the canonical installStateChartLayout from the kernel, serialised so
+// is the canonical installStateChartLayout from the kernel, serialized so
 // the emulator and lattice-runtime share one implementation.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
 // Whether any machine on any slide would actually be RE-RANKED. Kept separate
@@ -2855,7 +2855,7 @@ let stateChartScript = '';
 if (hasStateChart) {
   try {
     const { STATE_CHART_BROWSER_JS } = require('./lib/components/chart/state-chart/state-chart.transform');
-    // The pass is serialised through `.toString()`, so it carries no imports and
+    // The pass is serialized through `.toString()`, so it carries no imports and
     // can only reach a layout engine through a global that already exists in the
     // document. This IIFE installs `globalThis.__latticeDagre` ahead of it.
     // Prepended HERE rather than inside the transform because the runtime bundle
@@ -3001,7 +3001,7 @@ ${ENGINE_SCRIPT_OPEN}
    frame with class "overflow" so lattice.css can draw the red warning ring.
    Mirrors the watcher in lattice-runtime.js (used by the VS Code preview). */
 (function(){
-  var TOL = 12;
+  var TOL = ${FRAME_TOLERANCE};
   var CLIP_CELL_SELECTOR = ${JSON.stringify(CLIP_CELL_SELECTOR)};
   // Clip boxes that are never evidence of lost content — decorative bleeds, invisible
   // a11y mirrors, our own marker chrome. Both probes take it; see overflow-probe.js.
@@ -3495,8 +3495,8 @@ async function renderBody(browser, g, closeBrowser) {
   // clientHeight) — the signal both the author warning and the measured auto-split
   // pass below read. Scope to real slide sections only — `<section>` literals inside
   // code blocks parse as nested DOM and would pollute the indices.
-  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, ignoreSel, probeSrc, legibilitySrc, verdictSrc, floorRatio }) => {
-    const TOL = 12; // filter sub-pixel rounding; see lattice-runtime.js
+  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, ignoreSel, probeSrc, legibilitySrc, verdictSrc, floorRatio, tol }) => {
+    const TOL = tol; // the shared noise budget; lib/core/overflow-probe.js § FRAME_TOLERANCE
     // Three functions, injected verbatim, all owned by lib/core (HARD RULE #1):
     //   · probeSectionOverflow — cell-aware EXTENT. A bounded content cell that
     //     clips hides its overflow from section.scrollHeight, so the cell's
@@ -3518,7 +3518,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (v) out.push({ slide: i + 1, ...v });
     });
     return out;
-  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, verdictSrc: SPLIT_VERDICT_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
+  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, verdictSrc: SPLIT_VERDICT_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO, tol: FRAME_TOLERANCE }), 'measure overflow');
   /**
    * Measure in the page, DECIDE in Node, apply in the page.
    *
@@ -3527,7 +3527,7 @@ async function renderBody(browser, g, closeBrowser) {
    * and `golden-diff` stays green.
    */
   const applyGuardsTrim = () => g(async () => {
-    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel, enabledSrc }) => {
+    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel, enabledSrc, tol }) => {
       // `measureTrim` calls `trimRoleOf` by name. Under `require` that is module
       // scope; injected through `new Function` it is not, so the role classifier is
       // bound globally FIRST. Inlining it into the measurer instead would put the
@@ -3543,11 +3543,11 @@ async function renderBody(browser, g, closeBrowser) {
         clearTrim(s);
         // A PER-SLIDE id namespace, matching the runtime. The export bakes one
         // document too, and an id only has to be unique where it is resolved.
-        const model = measureTrim(s, clipSel, 12, 's' + i + 'tb');
+        const model = measureTrim(s, clipSel, tol, 's' + i + 'tb');
         if (model.boxes.length) out.push({ index: i, model });
       });
       return out;
-    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC });
+    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC, tol: FRAME_TOLERANCE });
 
     const pages = [];
     const reverted = [];
@@ -3587,7 +3587,7 @@ async function renderBody(browser, g, closeBrowser) {
       }, { i: index, p: plan, eps: TRIM_FIT_EPSILON, applySrc: TRIM_APPLY_SRC, measureSrc: TRIM_MEASURE_SRC,
            clearSrc: TRIM_CLEAR_SRC, roleSrc: TRIM_ROLE_SRC, findSrc: TRIM_FIND_SRC,
            clearBoxesSrc: TRIM_CLEAR_BOXES_SRC, verifySrc: TRIM_VERIFY_SRC, clipSel: CLIP_CELL_SELECTOR,
-           ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, tol: 12 });
+           ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, tol: FRAME_TOLERANCE });
       const ok = fitted.fits && fitted.kept;
       (ok ? pages : reverted).push(index + 1);
       // The RECORD, actually used rather than imported and voided to silence lint.
@@ -3730,7 +3730,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Node-side string before the page loads (see TRIM_REACHES_DELIVERABLE above), so the
     // `.html` beside the raster still clips the pages the raster fits. Two deliverables of
     // one export contradicting each other is the defect class engineering/gotchas/overflow.md
-    // already catalogues for the marker; it is named here rather than fixed, because
+    // already catalogs for the marker; it is named here rather than fixed, because
     // re-serializing the export HTML from the live DOM is an owner call under the Quality Bar.
     if (OUT_FORMAT !== 'html' && !FLUID_WINS && !PLAYER) {
       console.warn(`    The .html sidecar does NOT carry the trim \u2014 it is written before the page renders, so page${trimmed.slides > 1 ? 's' : ''} ${pages} clip${trimmed.slides > 1 ? '' : 's'} there. --fluid or --player make it agree.`);
@@ -3821,26 +3821,76 @@ async function renderBody(browser, g, closeBrowser) {
   // could fix it was the only person not informed. `overflow:check` reads this line
   // too, so the corpus ratchet counts them (HARD RULE #23 — a channel nothing reads is
   // not a channel).
-  const contentOnly = await g(() => page.evaluate(({ ignoreSel, bearerSel, ccSrc, probeSrc, clipSel }) => {
-    const TOL = 12;
+  const { cuts: contentOnly, nearMiss } = await g(() => page.evaluate(({ ignoreSel, bearerSel, ccSrc, probeSrc, clipSel, tol, floor }) => {
+    const TOL = tol;
     const probeContentClipped = new Function('return (' + ccSrc + ')')();
     const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
     const out = [];
+    const near = [];
     document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
       const p = probeSectionOverflow(s, clipSel, TOL, ignoreSel);
-      if (p.over) return;                       // already on the OVERFLOW line above
+      // HOW FAR past the frame, read off the SAME call rather than a second one at zero
+      // tolerance. `scrollH` and `clientH` are not gated by TOL — the probe folds a
+      // clipped cell's own overflow and the discovered boxes' spill into `scrollH`
+      // whenever they are positive, and TOL only decides `over`, `overCells` and
+      // `clipSuspect`. So the raw vertical excess is already in hand, and probing twice
+      // per section on every export bought nothing.
+      //
+      // VERTICAL ONLY, and that is the honest scope: the width pair is not returned, so
+      // a slide that spills sideways inside the budget is not named here. The axis that
+      // cuts a chart off its stage is the one measured.
+      const excess = p.scrollH - p.clientH;
+      if (excess > floor && excess <= TOL) near.push({ slide: i + 1, px: Math.round(excess * 10) / 10 });
+      if (p.over) return;                       // already on the frame line above
       if (!p.clipSuspect) return;               // nothing clips anything — skip the walk
       const c = probeContentClipped(s, ignoreSel, TOL, bearerSel);
       if (c.cut) out.push({ slide: i + 1, first: c.first });
     });
-    return out;
-  }, { ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR }), 'measure content cuts');
+    return { cuts: out, nearMiss: near };
+  }, { ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR, tol: FRAME_TOLERANCE, floor: NEAR_MISS_FLOOR }), 'measure content cuts');
   if (contentOnly.length) {
     const n = contentOnly.length;
     console.warn(`  ⚠ CONTENT CLIPPED — ${n} slide${n > 1 ? 's' : ''} lose${n > 1 ? '' : 's'} content inside a box that clips, without exceeding the frame: page${n > 1 ? 's' : ''} ${contentOnly.map((o) => o.slide).join(', ')}.`);
     console.warn(`    First cut on each: ${contentOnly.map((o) => `p${o.slide} "${o.first}"`).join(', ')}.`);
     console.warn('    An ellipsis, a line-clamp or a sheared panel head loses text with no box overflow to see,');
     console.warn('    so the frame check above cannot report it. Shorten the copy or give that box more room.');
+  }
+  // …and the band the two lines above CANNOT see, said out loud rather than left
+  // silent (#2252, HARD RULE #23 — "not measured" is an honest answer, a quiet pass
+  // is not; the same argument as the TYPE FLOOR line further up).
+  //
+  // Both verdicts are read against a noise budget of FRAME_TOLERANCE layout px, so a
+  // slide that paints up to that far outside a box passes every channel while the box
+  // — `.cell-stage` is `overflow: clip` — genuinely cuts it. Measured on a probe deck:
+  // a gantt forced 12px past its stage prints nothing, 13px prints the frame warning.
+  // #2252 found a real one at 10.2px, and a sweep of all 335 shipped decks found 18
+  // slides across 12 decks losing BODY content IN THIS BAND with nothing said. (The
+  // corpus-wide figure is larger and is a different claim: 27 silent cuts across 20
+  // decks, 26 of them body. 18 of those 27 sit at or above this advisory's floor, so
+  // it names them; the other nine sit below it and stay silent. Do not merge the two
+  // numbers — and note the first draft of this very sentence said "most of those sit
+  // below the floor", which inverts the ratio it is standing next to.)
+  //
+  // This is an ADVISORY, not a verdict: no class is stamped, no marker is drawn, the
+  // exit code does not move, and `overflow:check`'s ratchet is untouched. The gate
+  // that DOES adjudicate this band is `check:chart-fit`, which compares painted boxes
+  // against the stage with 1.5px of slack instead of asking the export.
+  //
+  // WORDING IS LOAD-BEARING: `tools/check-overflow-corpus.js` harvests pages with
+  // /OVERFLOW[^\n]*?pages? ([\d,\s]+)/ and the CONTENT CLIPPED twin, matching the
+  // FIRST hit anywhere in the buffer. Neither literal may appear on the page line
+  // below or this advisory would hijack the ratchet's page list.
+  // `test/unit/export/near-miss-advisory.test.js` pins that.
+  if (nearMiss.length) {
+    const reported = new Set([...overflowing, ...contentOnly.map((o) => o.slide)]);
+    const quiet = nearMiss.filter((o) => !reported.has(o.slide));
+    if (quiet.length) {
+      // The TEXT lives in the kernel (`formatNearMissAdvisory`), not here. A guard on
+      // an inline template literal cannot see what the literal renders to — proved by
+      // mutation, see that function's docblock — so the wording that three harvesters
+      // key on has to be something a test can call and read.
+      for (const line of formatNearMissAdvisory(quiet)) console.warn(line);
+    }
   }
   // …and the CHART LABELS the family declined to paint. A third question again: the
   // box fits, nothing is clipped, and the name was never emitted — so neither probe

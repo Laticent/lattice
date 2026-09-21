@@ -191,7 +191,7 @@
  * There used to be a second, parallel table below for `.gantt-legend-swatch`,
  * and the two drifted the first time one of them moved: re-pointing `live` from
  * pass to info here left the chip's EDGE green while the kernel filled its body
- * blue, so the key showed a two-colour chip for a one-colour status. One table
+ * blue, so the key showed a two-color chip for a one-color status. One table
  * cannot disagree with itself. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="on-track"],
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
@@ -207,9 +207,10 @@
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
 
 /* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
- * ink. It takes the same mute ramp a status-LESS bar takes, so on colour alone
- * "pushed to next quarter" and "nobody said" are the same bar — and an unstated
- * bar emits no legend chip, so no key can tell them apart. Dropping the fill to
+ * ink. It takes the same mute ramp a status-LESS bar takes, so on color alone
+ * "pushed to next quarter" and "nobody said" are the same bar — and until #2255 an
+ * unstated bar emitted no legend chip, so no key could tell them apart (it emits a
+ * `no status` chip now, when the chart already draws a key). Dropping the fill to
  * a wash while keeping the full-strength edge draws it as an outline, which is
  * what a deferred item looks like in every schedule a reader has seen. The
  * earlier arrangement put the collision on `pilot` instead of `deferred`; this
@@ -221,14 +222,42 @@
    * canvas. */
   --fill-ink: var(--text-secondary);
 }
-/* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading
- * cue; at 18% it disappears, and then a deferred bar has nothing marking where
- * it starts. Its INK is shared with the bar above — which is what the defect
- * was about — and only the body goes to a wash. */
+/* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading cue; at
+ * 18% it disappears, and then a deferred bar has nothing marking where it starts. Its
+ * INK is shared with the bar above, and only the body goes to a wash.
+ *
+ * THE DASH IS THE SECOND CUE (#2255). `deferred` and an unstated task take the same
+ * mute ramp, so what separated them was an 18% wash plus the leading accent — which
+ * the rule at the foot of this file hides on an unstated bar and keeps on `deferred`.
+ * Both are thin. A dash runs the bar's whole length, and it is what a schedule uses
+ * for "planned, not committed".
+ *
+ * IT IS A SEMANTIC CUE, NOT AN ACCESSIBILITY CHANNEL. The engine has three of those
+ * (texture tiles, `stroke-dasharray` ladders, a shape glyph on `.chart-status`), all
+ * under `section.print` and the a11y themes — `engineering/textures.md`. Gantt reaches
+ * none of them, because its statuses are bar FILLS carrying neither text nor a
+ * `data-hue` slot; that is #2274, and this dash does not close it. What the dash DOES
+ * answer is the one distinction no ramp-keyed channel can, texture included: `deferred`
+ * and an unstated task resolve to the same ramp and differ only in `data-s`.
+ *
+ * THE DASH IS IN CSS PIXELS, NOT USER UNITS, which is not obvious from the line below.
+ * Every gantt mark joins the family rule setting `vector-effect: non-scaling-stroke`,
+ * which re-scopes the dash ARRAY as well as the width — so `4 2.5` is 4px on and 2.5px
+ * off at every viewBox and orientation. Get this backwards and the arithmetic invents
+ * defects: a previous cut halved the pattern for milestones to fix "chipped corners"
+ * that only existed in user units. `heatmap.styles.css` documents the same surprise.
+ *
+ * Measured on a real landscape render of `examples/gantt-status-key.md` (svg 1152px over
+ * a 480-unit viewBox, 2.4px/unit): all three marks report `stroke-dasharray: 4px, 2.5px`
+ * and `vector-effect: non-scaling-stroke`, and one measure — the path's own length —
+ * gives 134.5 cycles of the 6.5px pattern around the bar, 11.6 around the 9x9 swatch and
+ * 10.5 around the diamond, the last being ~2.6 dashes a side. A trim of this comment
+ * once deleted those numbers and pointed at a decision note that does not hold them;
+ * they live here because this is where they are used. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
   fill-opacity: 0.18;
+  stroke-dasharray: 4 2.5;
 }
-
 /* Unparseable / missing span — a muted full-width placeholder so the task stays
  * visible (lint-core flags the cause); never a silent drop. */
 :is(section.gantt, figure.gantt) .gantt-bar--unscaled {
@@ -324,7 +353,7 @@
 :is(section.gantt, figure.gantt) .gantt-bar-accent {
   /* THE INK ONLY — never the bar's outline. The accent is a solid fill; adding
    * it to the bars' rule handed it their `stroke` too, which outlined a 4px
-   * sliver in its own colour and pushed it under the 3:1 floor on four themes. */
+   * sliver in its own color and pushed it under the 3:1 floor on four themes. */
   fill: var(--fill-ink);
 }
 

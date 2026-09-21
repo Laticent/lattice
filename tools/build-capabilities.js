@@ -18,7 +18,7 @@
  *
  * Mandatory-description gate: a script with no SCRIPT_META entry, or a tool
  * whose header has no description line, renders a visible **TODO** — which
- * makes --check fail as drift. So a new capability cannot land uncatalogued:
+ * makes --check fail as drift. So a new capability cannot land uncataloged:
  * either describe it here / in the tool header, or the gate blocks the commit.
  * This mirrors tools/build-dist-readme.js.
  *
@@ -158,7 +158,7 @@ const SCRIPT_META = {
   'build:bucket-galleries':   ['Galleries & preview', 'Rebuild per-bucket survey gallery PDFs (light + dark).'],
   'build:bucket-galleries:check':['Galleries & preview', 'On-demand: flags bucket survey PDFs whose render inputs changed but were not rebuilt. Not wired to CI or a hook — golden-diff is the CI gate.'],
   'build:showcase-galleries': ['Galleries & preview', 'Rebuild the consolidated cross-bucket showcase decks (data-viz = chart + math) from the live manifest set, light + dark.'],
-  'build:showcase-galleries:check':['Galleries & preview', 'Freshness gate for the consolidated showcase decks (content drift vs the manifests).'],
+  'build:showcase-galleries:check':['Galleries & preview', 'Freshness gate for the consolidated showcase decks: the deck against the live manifests, AND the committed PDFs against the render inputs (engine CSS, chart transforms, the palettes, the emulator) via tools/lib/render-inputs.js. One git status, no Chromium. `--dry-run` on the build tool reports the same verdict without rendering.'],
   'build:gallery-jargon':     ['Galleries & preview', 'Rebuild the jargon showcase gallery PDF.'],
   'build:exemplar-pdfs':      ['Galleries & preview', 'Bulk-regenerate committed PDFs for the worked exemplar decks (on-demand, like bless; not in build). `-- --only <stem>` for one.'],
   'preview':                  ['Galleries & preview', 'Fast visual-iteration loop: scope-detect from git diff, rebuild affected, pixel-diff vs last commit.'],
@@ -485,7 +485,7 @@ means try another word, not that nothing exists.
 
 It is generated from \`package.json\` scripts and the \`tools/\` headers (so it
 can't drift) and is gated by \`capabilities:check\` (so a new **script or tool**
-can't land uncatalogued). The live source lists never lie either: \`npm run\`
+can't land uncataloged). The live source lists never lie either: \`npm run\`
 prints every script, \`ls tools/\` every tool.
 
 To add: a new npm script → describe it in \`SCRIPT_META\` in

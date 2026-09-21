@@ -125,6 +125,144 @@ describe('gantt renderer — continuous time scale', () => {
     assert.match(out, /gantt-legend-swatch"[^>]*data-s="at-risk"/);
   });
 
+  // #2255 — the key names the NEUTRAL too. A bar with no status and a `deferred`
+  // bar both take the mute ramp, and only one of them was ever named, so the key
+  // explained every bar on the slide except the two a reader cannot tell apart.
+  describe('the key names the neutral (#2255)', () => {
+    // The label is a <tspan> inside the <text>, so read the tspan (wrapSvgLabel).
+    //
+    // STRING SPLITS, NOT A REGEX, and CodeQL is right to have asked. The first cut
+    // was `/class="gantt-legend-label"[\s\S]*?<tspan[^>]*>([^<]*)</g`, whose lazy
+    // `[\s\S]*?` between two literals re-scans from every failed start position —
+    // polynomial in the length of the markup, which is exactly the shape
+    // `js/polynomial-redos` names. The input here is our own engine output, so the
+    // practical risk was nil; the fix is smaller than the argument for keeping it.
+    // `indexOf`/`slice` cannot backtrack at all.
+    const chips = (out) => out.split('class="gantt-legend-label"').slice(1).map((seg) => {
+      const open = seg.indexOf('<tspan');
+      const gt = open < 0 ? -1 : seg.indexOf('>', open);
+      if (gt < 0) return '';
+      const end = seg.indexOf('<', gt + 1);
+      return end < 0 ? seg.slice(gt + 1) : seg.slice(gt + 1, end);
+    });
+    /** Each legend swatch's attribute text, by the same linear split. */
+    const swatchAttrs = (out) => out.split('<rect class="gantt-legend-swatch"').slice(1)
+      .map((seg) => seg.slice(0, seg.indexOf('>')));
+    const eyebrow = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+
+    test('an unstated task adds a "no status" chip, carrying no data-s', () => {
+      const ul = '<ul><li>L<ul>'
+        + '<li>A <code>Q1..Q2</code> <code>at-risk</code></li>'
+        + '<li>B <code>Q3..Q4</code></li>'
+        + '</ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      assert.deepEqual(chips(out), ['at-risk', 'no status']);
+      // The neutral chip must NOT carry a status, or it would take that status's
+      // ink and paint an unstated bar as a declared one.
+      assert.equal(/class="gantt-legend-swatch" data-s="no status"/.test(out), false);
+      const swatches = swatchAttrs(out);
+      assert.equal(swatches.length, 2);
+      assert.match(swatches[0], /data-s="at-risk"/);
+      assert.equal(/data-s=/.test(swatches[1]), false, 'the neutral chip declares no status');
+    });
+
+    test('no unstated task means no extra chip', () => {
+      const ul = '<ul><li>L<ul>'
+        + '<li>A <code>Q1..Q2</code> <code>at-risk</code></li>'
+        + '<li>B <code>Q3..Q4</code> <code>done</code></li>'
+        + '</ul></li></ul>';
+      assert.deepEqual(chips(buildGanttChart(inner(ul), eyebrow)), ['done', 'at-risk']);
+    });
+
+    test('no declared status at all means no key — there is nothing to disambiguate', () => {
+      const ul = '<ul><li>L<ul><li>A <code>Q1..Q2</code></li></ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      assert.equal(/gantt-legend/.test(out), false);
+    });
+
+    test('an unparseable span is not "no status" — it is its own placeholder', () => {
+      // `unscaled` is the bar drawn for a task the axis could not place. It already
+      // carries its own class and `lint:deck` names the cause, so keying it as the
+      // neutral would put two meanings on one chip.
+      const ul = '<ul><li>L<ul>'
+        + '<li>A <code>Q1..Q2</code> <code>at-risk</code></li>'
+        + '<li>B <code>done</code></li>'
+        + '</ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      assert.match(out, /gantt-bar--unscaled/);
+      assert.equal(chips(out).includes('no status'), false);
+    });
+
+    test('the chip is dropped rather than pushing the key past the viewBox', () => {
+      // The key is one centered row with no wrap, so a chart carrying many statuses
+      // can already run its chips off the edge. Adding one unconditionally would make
+      // this change the cause of that on charts it has nothing to do with.
+      // Every word in the ramp. The chip is dropped once the key is wide enough, and
+      // NINE declared statuses already do it — a checker measured that, against an
+      // earlier comment here that cited "the last label starts at 426.8" for seven and
+      // concluded the full ten was required. 426.8 is real but describes one of the four
+      // WIDEST seven-subsets, not the canonical seven. Ten is used because it is the
+      // whole vocabulary and cannot drift; nine is the tighter boundary and is asserted
+      // separately below.
+      const many = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision', 'deferred'];
+      const ul = '<ul><li>L<ul>'
+        + many.map((st, i) => `<li>T${i} <code>Q${(i % 4) + 1}</code> <code>${st}</code></li>`).join('')
+        + '<li>Z <code>Q1..Q4</code></li>'
+        + '</ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      const got = chips(out);
+      assert.ok(got.length >= many.length, `expected every declared status, got ${got.join(', ')}`);
+      assert.equal(got.includes('no status'), false,
+        'a key already at the viewBox edge must not gain another chip');
+    });
+
+    // ── The POSITIVE boundary, both orientations ────────────────────────────
+    // The two tests below pin that the chip FITS at eight (landscape) and five
+    // (portrait) — the numbers `gantt.manifest.json` and `changelog.d/2255-*` both
+    // state. Until a checker asked, only the negative side was pinned: nine and ten
+    // drop it, landscape only. So a 1-unit retune of `fsLegend`, `legendSwatch` or
+    // `vbW` could silently falsify both documents with nothing going red, and the
+    // portrait margin is 1.00 unit out of 292 — 0.34% — which is exactly the size of
+    // gap that gets retuned without anyone thinking about the key.
+    const statusLi = (list) => '<ul><li>L<ul>'
+      + list.map((st, i) => `<li>T${i} <code>Q${(i % 4) + 1}</code> <code>${st}</code></li>`).join('')
+      + '<li>Z <code>Q1..Q4</code></li>'
+      + '</ul></li></ul>';
+
+    test('EIGHT declared statuses still leave room for the chip (landscape)', () => {
+      const eight = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot'];
+      const got = chips(buildGanttChart(inner(statusLi(eight)), eyebrow));
+      assert.equal(got.includes('no status'), true,
+        `eight statuses must still fit the neutral chip, got ${got.join(', ')}`);
+    });
+
+    test('FIVE declared statuses still leave room for the chip (portrait)', () => {
+      // Portrait is a narrower frame (vbW 300 against 480) and a smaller legend type,
+      // so its boundary sits at five. Nothing covered this orientation at all before.
+      const five = ['on-track', 'done', 'live', 'at-risk', 'warn'];
+      const fits = chips(buildGanttChart(inner(statusLi(five)), eyebrow, 'portrait'));
+      assert.equal(fits.includes('no status'), true,
+        `five statuses must still fit the neutral chip at portrait, got ${fits.join(', ')}`);
+      const six = [...five, 'blocked'];
+      const drops = chips(buildGanttChart(inner(statusLi(six)), eyebrow, 'portrait'));
+      assert.equal(drops.includes('no status'), false,
+        'six must drop it at portrait — the row would run past the frame');
+    });
+
+    test('nine declared statuses is already enough to drop it', () => {
+      // The tighter boundary. Pinned so a later width tweak cannot quietly move the
+      // drop point without a test noticing.
+      const nine = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision'];
+      const ul = '<ul><li>L<ul>'
+        + nine.map((st, i) => `<li>T${i} <code>Q${(i % 4) + 1}</code> <code>${st}</code></li>`).join('')
+        + '<li>Z <code>Q1..Q4</code></li>'
+        + '</ul></li></ul>';
+      const got = chips(buildGanttChart(inner(ul), eyebrow));
+      assert.equal(got.includes('no status'), false, 'nine statuses already fills the key');
+      assert.ok(got.length >= nine.length, `every declared status should still be keyed, got ${got.join(', ')}`);
+    });
+  });
+
   // S1 regression — a solitary date milestone used to land at left:513175% (axis
   // fell back to 0..4 in ordinal units against an epoch-day value).
   test('regression(S1): a lone date milestone stays on-screen', () => {
