@@ -1067,3 +1067,20 @@ section.journey .journey-vmood .journey-face {
   background: var(--bg);
   border-radius: 50%;
 }
+
+/* ── The board's own text alternative — visually hidden, never hidden from AT.
+ * Same shape as matrix-grid's `.cell-sr-label`, and deliberately NOT the shell-level
+ * `.lattice-description`: that class is styled sr-only by the player and export shells,
+ * not by the engine CSS, so borrowing it here would print the sentence onto the slide in
+ * the Studio preview and in every raster. `clip-path` rather than `display:none` or
+ * `hidden`, because both of those also take it out of the accessibility tree, which is the
+ * one reader it exists for. Built in journey.transform.js (`journeyDesc`). */
+:is(section.journey, figure.journey) .journey-board .journey-desc {
+  position: absolute;
+  width: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  height: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

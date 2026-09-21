@@ -14,3 +14,10 @@
   It read "best seen in the Present or Read · Slides view", which is true in the player
   and false in a `--read` export — that document has neither, and its slide stack was
   deliberately removed.
+- **Added: the journey board says what it is.** Every other spatial chart already
+  describes itself — `state-chart` in its own transform, the keyed charts through
+  `svg-legend.js` — and the journey board said nothing anywhere, so a screen-reader user
+  got actor initials and a run of bare digits. It now carries a visually-hidden summary
+  ("Actors — prospect, user. Discover — Search (prospect), mood 4 of 5; …"), which also
+  gives the reading article its content. No pixel moves: verified identical across all
+  eight slides of a journey deck.

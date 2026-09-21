@@ -457,6 +457,10 @@ test('a visual-layout slide contributes the description the visual already carri
 });
 
 test('a visual-layout slide that describes itself nowhere gets the note alone, not an invention', () => {
+	// A placeholder component with NO description channel of any kind. `journey` used to be
+	// this case and no longer is (it builds one in its own transform now), so the fixture is
+	// deliberately a bare board with nothing to recover — the point is that the projection
+	// invents nothing, not that any particular component is mute.
 	const secs = sections(
 		`<section data-lattice-slide data-class="journey" class="journey"><div class="cell-stage">
 			<div class="masthead-lede"><h2>Onboarding</h2></div>
@@ -465,8 +469,39 @@ test('a visual-layout slide that describes itself nowhere gets the note alone, n
 	);
 	const { articleHtml } = project(secs);
 	assert.match(articleHtml, /lp-visual-note/, 'the note stands in');
-	assert.doesNotMatch(articleHtml, /<p>[^<]/, 'nothing is synthesized — journey describes itself nowhere, and inventing a description is worse than admitting there is none');
+	assert.doesNotMatch(articleHtml, /<p>[^<]/, 'nothing is synthesized — inventing a description is worse than admitting there is none');
 	assert.doesNotMatch(articleHtml, /Pprospect/, 'and the welded legend is not projected as a substitute');
+});
+
+// The COMPONENT channel. `journey` builds its own text alternative in its transform and
+// tags it `data-lattice-desc`; the kernel reads that hook rather than a list of component
+// class names, so a component learning to describe itself needs no edit here.
+test("a visual-layout slide contributes a component's own text alternative", () => {
+	const secs = sections(
+		`<section data-lattice-slide data-class="journey" class="journey"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<div class="journey-board"><p class="journey-desc" data-lattice-desc>Actors — prospect, user. Discover — Search (prospect), mood 4 of 5.</p><ol class="journey-legend"><li class="journey-actor"><span class="journey-actor-dot">P</span><span class="journey-actor-name">prospect</span></li></ol></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /<p>Actors — prospect, user\. Discover — Search \(prospect\), mood 4 of 5\.<\/p>/, 'the board\'s own sentence reaches the article as a paragraph');
+	assert.match(articleHtml, /lp-visual-note/, 'and the note still says the board itself is on the slide');
+});
+
+// THE AUTHOR'S CHANNEL WINS, and it is read off the SECTION rather than the stage. A
+// `describe:` pragma is injected just inside <section>, OUTSIDE `.cell-stage` — so a
+// stage-scoped lookup could never find it, and that channel was dead on arrival. Document
+// order then gives the priority for free.
+test("an author's describe: beats the component's own description", () => {
+	const secs = sections(
+		`<section data-lattice-slide data-class="journey" class="journey"><p class="lattice-description" id="lat-desc-1">The onboarding path, as the sales team tells it.</p><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<div class="journey-board"><p class="journey-desc" data-lattice-desc>Actors — prospect, user.</p></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /<p>The onboarding path, as the sales team tells it\.<\/p>/, "the author's description is what the reader gets");
+	assert.doesNotMatch(articleHtml, /<p>Actors — prospect, user\.<\/p>/, 'not both — one description per slide');
 });
 
 test('divider is an h2 sub-entry, not an h1 competing with the cover (§A2)', () => {
