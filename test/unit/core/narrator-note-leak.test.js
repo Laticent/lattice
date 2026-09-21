@@ -55,6 +55,11 @@ const FIXTURES = {
 	narrateRadarBeta: ['diagram', `${F}mermaid\nradar-beta\n  axis a, b\n  curve x{1,2}\n${F}`],
 	narrateXychart: ['diagram', `${F}mermaid\nxychart-beta\n  title "Rev"\n  x-axis [a, b]\n  bar [3, 5]\n${F}`],
 	narrateDiagram: ['diagram', `${F}mermaid\nflowchart LR\n  A["One"] --> B["Two"]\n${F}`],
+	// The generic floor. `bar` is a roster member with no hand-written narrator, so this body
+	// engages narrateDataSeries specifically rather than riding on another one; two rows is its
+	// documented minimum. It reaches `speakLeftover` like every narrator above, which is the
+	// path the leak came through.
+	narrateDataSeries: ['bar', '- North America `4.2`\n- EMEA `3.1`'],
 };
 
 const NARRATORS = Object.keys(CN).filter((k) => k.startsWith('narrate') && k !== 'narrateChart');

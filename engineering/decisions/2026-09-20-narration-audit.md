@@ -442,11 +442,30 @@ remaining nine token passthroughs (a slash means four different things; guessing
 reading the glyph), and recommendation 8 — which is now decided in principle (a generic
 data-series narrator first) but not built.
 
-> **Since (2026-09-21).** The abbreviation over-split is fixed, together with the
-> under-split it mirrors — see `./2026-09-21-narration-segmentation.md`, which also
-> records the two regressions the first draft of that fix introduced onto shipped decks
-> and how a whole-corpus scan found them. This record's Finding 3 stands as the
-> measurement; it is no longer the current state.
+> **Since (2026-09-21).** Four of the items above moved, and this record is now a dated
+> measurement rather than the current state:
+>
+> - **The abbreviation over-split is fixed**, with the under-split it mirrors —
+>   `./2026-09-21-narration-segmentation.md`, which also records the two regressions the
+>   first draft of that fix put onto shipped decks and how a whole-corpus scan found them.
+> - **Recommendation 8 is built**: a generic data-series narrator now covers every component
+>   whose manifest declares data plus an `svg`/`spatial` figure —
+>   `./2026-09-21-generic-data-series-narration.md`. Finding 1's coverage table is
+>   superseded; mean coverage is 0.839 across 71 components, and the silent tier this record
+>   names is gone except for the `flow` components, whose low scores have a different cause.
+> - **The nine token passthroughs are decided**: no rule, a coach —
+>   `./2026-09-21-token-passthrough-coaching.md`. That note also commits the token corpus
+>   this record's "19 raw of 52 → 9 of 59" came from, which was a scratch script, and
+>   corrects the magnitude row below (`bn`, `MM`, `pp` and `k` are all handled).
+> - **`validateTrack()` and `voiceLanguageMismatch()` have callers.** Worth correcting one
+>   claim in Finding 3 while doing it: a non-finite time does NOT serialize as
+>   `NaN:NaN:NaN.NaN` any more — `formatTimestamp` was hardened in this record's own PR. The
+>   real failure is quieter and worse, and is measured in
+>   `./2026-09-21-narration-track-validation.md`.
+> - **Still logged, now fixed**: the state label carrying an authored line break.
+>
+> What has NOT moved: nobody has listened. Every number added since is still the spoken
+> STRING or the emitted bytes.
 
 **The component count moved under this record, and Finding 1 predicted the new one.** The
 coverage table measured the 70 components that existed on 2026-09-20; `anchor/topic` landed on

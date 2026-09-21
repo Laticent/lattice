@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   narrateChart,
+  narrateDataSeries,
   narrateDiagram,
   narrateFunnel,
   narrateJourneyMood,
@@ -1622,4 +1623,342 @@ test('narrateStateChart: a state LABEL loses its tint but the author’s prose k
   assert.ok(out.includes(':::token names a theme token'), `ate the author's prose: ${out}`);
   // The eyebrow still leads — the tint strip is a map, so original line indices are preserved.
   assert.ok(out.startsWith('Legend.'), out);
+});
+
+// ── narrateDataSeries (the generic floor) ─────────────────────────────────────
+// Every fixture below is the component's OWN canonical `sample` from its manifest,
+// pasted verbatim — not a fixture built from a model of the grammar. That is the habit
+// two checker passes on #2243 flagged twice, and the audit this narrator answers
+// (2026-09-20-narration-audit.md) is about narration stating what the slide does not.
+// `manifestSample(name)` re-reads the manifest at test time, so a component that
+// rewrites its sample fails HERE rather than shipping an unread narration.
+const fs = require('node:fs');
+const path = require('node:path');
+const COMPONENTS = path.join(__dirname, '../../../lib/components');
+function manifestSample(name) {
+  for (const bucket of fs.readdirSync(COMPONENTS)) {
+    const file = path.join(COMPONENTS, bucket, name, `${name}.manifest.json`);
+    if (!fs.existsSync(file)) continue;
+    const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return String(m.sample || m.skeleton || '').trim();
+  }
+  throw new Error(`no manifest for ${name}`);
+}
+
+test('narrateDataSeries: returns null for a component that is not picture-bound data', () => {
+  // `list` keeps its substance in HTML, so the speech walker already reads it and a
+  // full-replacement narrator here would only take that away.
+  assert.equal(narrateDataSeries('<!-- _class: list -->\n\n## Heading\n\n- A `1`\n- B `2`'), null);
+  assert.equal(narrateDataSeries('<!-- _class: roadmap -->\n\n## Heading\n\n- A `1`\n- B `2`'), null);
+  assert.equal(narrateDataSeries('## No class directive at all\n\n- A `1`\n- B `2`'), null);
+});
+
+test('narrateDataSeries: returns null when the roster component carries no data rows', () => {
+  assert.equal(narrateDataSeries('<!-- _class: bar -->\n\n## Just a heading.'), null);
+  // One row is not a series — the same floor narrateFunnel holds.
+  assert.equal(narrateDataSeries('<!-- _class: bar -->\n\n## One.\n\n- North America `$4.2M`'), null);
+});
+
+test('narrateDataSeries: reads a flat one-pill series — the audit\'s own bar counter-example', () => {
+  const out = narrateDataSeries(manifestSample('bar'));
+  // Finding 1 quotes what `bar` said BEFORE: the heading and the eyebrow, then silence.
+  assert.match(out, /Revenue · FY26\. Growth is concentrated in two regions\./);
+  // All four regions and all four values now reach the voice.
+  assert.match(out, /North America, four point two million dollars\./);
+  assert.match(out, /EMEA, three point one million dollars\./);
+  assert.match(out, /APAC, one point eight million dollars\./);
+  assert.match(out, /LATAM, zero point six million dollars\./);
+});
+
+test('narrateDataSeries: reads a nested two-level series, each value bound to its group', () => {
+  const out = narrateDataSeries(manifestSample('line'));
+  assert.match(out, /Q1 2025: Enterprise, four point one; Mid-market, two point six; Services, one point two\./);
+  assert.match(out, /Q2 2026: Enterprise, three point five; Mid-market, four point six; Services, five point two\./);
+});
+
+test('narrateDataSeries: binds each value to its AXIS when the eyebrow is a multi-pill legend', () => {
+  const out = narrateDataSeries(manifestSample('scatter'));
+  assert.match(out, /Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent\./);
+  // The legend is NOT also spoken as a sentence — its words arrive bound to their values.
+  assert.doesNotMatch(out, /^Annual cost\./);
+  assert.doesNotMatch(out, /Annual cost\. Teams adopting\./);
+});
+
+test('narrateDataSeries: a ONE-pill eyebrow is a caption, spoken first, never an axis name', () => {
+  // The distinction matters: pairing a one-pill caption with a one-pill row would say
+  // "North America: Revenue · FY26, four point two million dollars."
+  const out = narrateDataSeries(manifestSample('bar'));
+  assert.ok(out.startsWith('Revenue · FY26.'), out.slice(0, 60));
+  assert.doesNotMatch(out, /North America: Revenue/);
+});
+
+test('narrateDataSeries: reads a markdown table as a grid, naming each column', () => {
+  const out = narrateDataSeries(manifestSample('heatmap'));
+  assert.match(out, /Jan 2026: M0, one hundred; M1, sixty-two; M2, forty-eight; M3, forty-four\./);
+  // An EMPTY cell is a fact the slide shows — say so, rather than emit a short row a
+  // listener cannot align. heatmap's own sample leaves Apr/M3 blank.
+  assert.match(out, /Apr 2026: M0, one hundred; M1, sixty-nine; M2, fifty-seven; M3, no data\./);
+});
+
+test('narrateDataSeries: keeps a row-level pill with its row, then its nested values', () => {
+  // slope authors a status pill on the GROUP line and two endpoints under it.
+  const out = narrateDataSeries(manifestSample('slope'));
+  assert.match(out, /Northwind, fail: 2023, thirty-one percent; 2026, twenty-four percent\./);
+  assert.match(out, /Vantage: 2023, nineteen percent; 2026, twenty-one percent\./);
+});
+
+test('narrateDataSeries: reads two unnamed pills in authored order and claims nothing about them', () => {
+  // bullet's pills are a measure and a target, but NOTHING in the Markdown says which is
+  // which — so the floor reads them in order. Inventing "sixteen percent below plan"
+  // from pill position is the defect class the audit is about; a future narrateBullet
+  // can say it properly from the manifest's declared grammar.
+  const out = narrateDataSeries(manifestSample('bullet'));
+  assert.match(out, /New ARR, four point two million, five million\./);
+  // Scoped to the DATA sentences: "cleared the plan line" is the author's own heading,
+  // which the narrator speaks faithfully. What must not appear is an invented relation
+  // between the two pills.
+  const data = out.slice(out.indexOf('New ARR'));
+  assert.doesNotMatch(data, /target|plan|below|above|behind|versus|of the/i);
+});
+
+test('narrateDataSeries: speaks a per-row detail sublist instead of ingesting it as data', () => {
+  const out = narrateDataSeries(manifestSample('scatter'));
+  // A pill-less nested line is authored prose. It must not become a phantom data point…
+  assert.doesNotMatch(out, /Renewal lands in March,/);
+  // …and it must not be dropped either — a full-replacement narrator that loses it
+  // reads worse than the flatten it replaced.
+  assert.match(out, /Renewal lands in March/);
+  assert.match(out, /Two teams asked to drop it/);
+});
+
+test('narrateDataSeries: does not read a DEEPER detail line that ends in a number as data', () => {
+  // The confidently-wrong-number failure class classifyDepth exists for: a detail line
+  // ending in a year would otherwise become a phantom row.
+  const md = [
+    '<!-- _class: bar -->',
+    '',
+    '## Growth.',
+    '',
+    '- North America `4.2`',
+    '  - Verified in cycle `2024`',
+    '- EMEA `3.1`',
+  ].join('\n');
+  const out = narrateDataSeries(md);
+  assert.match(out, /North America, four point two\./);
+  assert.match(out, /EMEA, three point one\./);
+  assert.doesNotMatch(out, /Verified in cycle, two thousand twenty-four/);
+  assert.match(out, /Verified in cycle/); // still spoken, as leftover prose
+});
+
+test('narrateDataSeries: ignores a fenced doc example of its own syntax', () => {
+  const md = [
+    '<!-- _class: bar -->',
+    '',
+    '## How to author a bar chart.',
+    '',
+    '```markdown',
+    '- North America `$4.2M`',
+    '- EMEA `$3.1M`',
+    '```',
+  ].join('\n');
+  assert.equal(narrateDataSeries(md), null);
+});
+
+test('narrateDataSeries: recognizes a roster component combined with a base modifier', () => {
+  const md = '<!-- _class: bar dark -->\n\n## Growth.\n\n- A `1`\n- B `2`';
+  assert.match(narrateDataSeries(md), /A, one\. B, two\./);
+  // …and does NOT match a hyphenated class that merely contains the token.
+  assert.equal(narrateDataSeries('<!-- _class: bar-detail -->\n\n## X.\n\n- A `1`\n- B `2`'), null);
+});
+
+test('narrateChart: the generic floor is actually WIRED to the dispatcher', () => {
+  // Mutation-checked, and it is the reason this test exists: deleting narrateDataSeries from
+  // NARRATORS entirely left the whole suite green. `bar` has no hand-written narrator, so it
+  // can only be the floor answering — and nothing else in this file notices if it stops.
+  const bar = manifestSample('bar');
+  assert.equal(narrateChart(bar), narrateDataSeries(bar));
+  assert.match(narrateChart(bar), /North America, four point two million dollars\./);
+});
+
+test('narrateChart: the generic floor never shadows a hand-written narrator', () => {
+  // NARRATORS is first-match-wins and narrateDataSeries is LAST, so a pilot keeps its
+  // COMPUTED fact. funnel's conversion % is the tell — the floor computes nothing and could
+  // not produce it.
+  assert.match(narrateChart(manifestSample('funnel')), /percent of the prior stage/);
+  assert.equal(narrateChart(manifestSample('funnel')), narrateFunnel(manifestSample('funnel')));
+  assert.equal(narrateChart(manifestSample('quadrant')), narrateQuadrant(manifestSample('quadrant')));
+  // radar is deliberately NOT asserted through narrateChart here: the floor's output for the
+  // radar sample is byte-identical to the pilot's, so that arm passes even with the floor
+  // moved to the FRONT of NARRATORS — it certifies nothing. funnel and quadrant differ, so
+  // they are the ones that can detect a reordering.
+  assert.notEqual(narrateDataSeries(manifestSample('funnel')), narrateFunnel(manifestSample('funnel')));
+  assert.notEqual(narrateDataSeries(manifestSample('quadrant')), narrateQuadrant(manifestSample('quadrant')));
+});
+
+test('narrateDataSeries: speaks every row EXACTLY once — nothing consumed is also flattened', () => {
+  // The `consumed` set is what keeps `speakLeftover` from reading a line the narrator already
+  // spoke. Four separate deletions of a `consumed.add(…)` survived the first version of this
+  // suite, each one making the slide say everything twice.
+  const once = (text, needle) => text.split(needle).length - 1;
+  const bar = narrateDataSeries(manifestSample('bar'));
+  assert.equal(once(bar, 'North America'), 1);
+  assert.equal(once(bar, 'Revenue · FY26'), 1); // the eyebrow, too
+  assert.equal(once(bar, '$4.2M'), 0, 'the raw pill must not survive alongside its spoken form');
+  const line = narrateDataSeries(manifestSample('line'));
+  assert.equal(once(line, 'Q1 2025'), 1);
+  assert.equal(once(line, 'Enterprise'), 6); // once per period, never twice per period
+  const heat = narrateDataSeries(manifestSample('heatmap'));
+  assert.equal(once(heat, 'Jan 2026'), 1);
+  assert.equal(once(heat, '| 100 |'), 0, 'the raw table row must not survive');
+});
+
+test('narrateDataSeries: an axis legend binds only when EVERY row matches its pill count', () => {
+  // `>=` instead of `===` would bind a two-name legend to a three-pill row and silently
+  // mislabel the third value.
+  const md = (rows) => `<!-- _class: scatter -->\n\n\`Cost\` \`Reach\`\n\n## H.\n\n${rows}`;
+  assert.match(narrateDataSeries(md('- A `1` `2`\n- B `3` `4`')), /A: Cost, one; Reach, two\./);
+  // Three pills against two names: the legend cannot bind, so it is spoken as a caption and
+  // the values read in order rather than being labeled wrongly.
+  const wide = narrateDataSeries(md('- A `1` `2` `3`\n- B `4` `5` `6`'));
+  assert.match(wide, /Cost, Reach\./);
+  assert.match(wide, /A, one, two, three\./);
+  assert.doesNotMatch(wide, /A: Cost/);
+});
+
+test('narrateDataSeries: an eyebrow is never deleted, whether or not it is a legend', () => {
+  // examples/proposal-charts-expansion.md authors BOTH a caption and an axis legend. Measured
+  // on the real --captions export: "Tooling spend review" was on the slide and in no .vtt,
+  // because one regex spanned both lines and consumed only the first.
+  const out = narrateDataSeries(
+    '<!-- _class: scatter -->\n\n`Tooling spend review`\n\n`Annual cost` `Teams adopting`\n\n## H.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`',
+  );
+  assert.match(out, /^Tooling spend review\./, out.slice(0, 80));
+  assert.match(out, /Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent\./);
+  // A legend that binds is not ALSO read as a sentence — that is the duplication radar dropped.
+  assert.equal(out.split('Annual cost').length - 1, 2, 'once per row, never as its own sentence');
+  // And a legend that does NOT bind is spoken rather than swallowed.
+  assert.match(narrateDataSeries('<!-- _class: bar -->\n\n`Plan` `Actual`\n\n## H.\n\n- A `1`\n- B `2`'), /^Plan, Actual\./);
+});
+
+test('narrateDataSeries: a row whose label is inside the code span is not deleted', () => {
+  // `stripTrailingPills` peels BOTH spans, leaving an empty label. Consuming the line and then
+  // filtering the row dropped the author's words outright.
+  const out = narrateDataSeries('<!-- _class: word-cloud -->\n\n## Weight is meaning.\n\n- time-to-value `5`\n- `residency` `1`\n- security `4`');
+  assert.match(out, /time-to-value, five\./);
+  assert.match(out, /security, four\./);
+  assert.match(out, /residency/, 'left to the flattener rather than deleted');
+});
+
+test('narrateDataSeries: bails on a three-level list rather than flattening the middle level', () => {
+  // radar's `quadrant` variant is group > sub-group > axis. narrateRadar refuses it in exactly
+  // these terms; the floor used to read it as "G: Axis, nine. H: Axis, seven. Sub. Sub.",
+  // tearing every sub-group name off its data.
+  assert.equal(
+    narrateDataSeries('<!-- _class: radar -->\n\n## R.\n\n- G\n  - Sub\n    - Axis `9`\n- H\n  - Sub\n    - Axis `7`'),
+    null,
+  );
+  // …while a two-level list with an ordinary pill-less DETAIL line under it still narrates.
+  assert.match(
+    narrateDataSeries('<!-- _class: scatter -->\n\n## S.\n\n- Atlas `$420k`\n  - Renewal lands in March\n- Borealis `$310k`'),
+    /Atlas, four hundred twenty thousand dollars\./,
+  );
+});
+
+test('narrateDataSeries: the class gate reads the COMPONENT, not a modifier that shares its name', () => {
+  // Three shipped shapes put a roster name in a modifier slot. Firing there replaced the
+  // walker on a component this narrator does not model.
+  assert.equal(narrateDataSeries('<!-- _class: list principles bullet -->\n\n## W.\n\n- Latency `p95`\n  - Down from 400 ms.\n- Cost `-12%`\n  - From storage.'), null);
+  assert.equal(narrateDataSeries('<!-- _class: journey heatmap -->\n\n## J.\n\n- Evaluate\n  - Read case study `+5`\n  - Book demo `+2`'), null);
+  assert.equal(narrateDataSeries('<!-- _class: radar quadrant -->\n\n## R.\n\n- G\n  - Sub\n    - Axis `9`\n- H\n  - Sub\n    - Axis `7`'), null);
+  // …and the ordinary "component then modifiers" form still fires.
+  assert.match(narrateDataSeries('<!-- _class: bar dark -->\n\n## G.\n\n- A `1`\n- B `2`'), /A, one\./);
+});
+
+test('narrateDataSeries: the table reader narrates the grid markdown-it BUILDS', () => {
+  const t = (rows, header = '| | M0 | M1 |\n| --- | --: | --: |') => narrateDataSeries(`<!-- _class: heatmap -->\n\n## H.\n\n${header}\n${rows}`);
+  // A cell PAST the header count is dropped by markdown-it, so the chart never draws it.
+  // Narrating it announced a value, under an invented column name, that is not on the slide.
+  const extra = t('| Jan | 1 | 2 | 3 |');
+  assert.match(extra, /Jan: M0, one; M1, two\./);
+  assert.doesNotMatch(extra, /column|three/);
+  // A SHORT row is padded by markdown-it, and the chart paints the pad as unmeasured — so it
+  // reads the same as an author's explicit empty cell, not as silence.
+  assert.match(t('| Feb | 4 |'), /Feb: M0, four; M1, no data\./);
+  // A one-column table names no columns to read values against.
+  assert.equal(t('| Jan |', '| Region |\n| --- |'), null);
+  // A cell annotation is the chart's NOTE, not part of the value — and not dropped either.
+  assert.match(t('| Jan | 100 | 62 `# rollout paused` |'), /M1, sixty-two \(rollout paused\)\./);
+});
+
+test('narrateDataSeries: a nested line with no pill is prose, not a value-less item', () => {
+  const out = narrateDataSeries('<!-- _class: line -->\n\n## L.\n\n- Q1\n  - Enterprise `4.1`\n  - A note with no value\n- Q2\n  - Enterprise `4.4`');
+  assert.match(out, /Q1: Enterprise, four point one\./);
+  assert.doesNotMatch(out, /A note with no value,/, 'not read as an item');
+  assert.match(out, /A note with no value/, 'but still spoken');
+});
+
+test('narrateDataSeries: strips the markdown a label carries rather than reading it aloud', () => {
+  const out = narrateDataSeries('<!-- _class: bar -->\n\n## G.\n\n- **North** America `1`\n- [EMEA](https://x.test) `2`');
+  assert.match(out, /North America, one\./);
+  assert.match(out, /EMEA, two\./);
+  assert.doesNotMatch(out, /\*\*|https/);
+});
+
+// THE ROSTER, as a SNAPSHOT of what the derivation currently yields.
+//
+// It is written out rather than recomputed on purpose. The first version of this test looped
+// the catalog and built its `expected` with the SAME predicate the implementation uses, so
+// widening the filter changed both sides together and the test could not fail — the exact
+// unfalsifiable shape the rest of this suite was rewritten to avoid. The derivation is still
+// the mechanism (2026-09-13-projected-rosters.md records what a hand-kept roster costs); this
+// is the tripwire that says when its OUTPUT moves, which is the thing a reviewer needs to see
+// in a diff.
+const PICTURE_DATA_ROSTER = [
+  'bar', 'bullet', 'funnel', 'heatmap', 'line', 'map', 'piechart',
+  'quadrant', 'radar', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'word-cloud',
+];
+
+test('narrateDataSeries: exactly the declared picture-data components narrate, and no others', () => {
+  const { PROJECTION } = require('../../../lib/core/projection-catalog.generated.mjs');
+  const rows = '\n\n## Heading.\n\n- A `1`\n- B `2`';
+  const fires = Object.keys(PROJECTION).filter((n) => narrateDataSeries(`<!-- _class: ${n} -->${rows}`) !== null);
+  assert.deepEqual(fires.sort(), [...PICTURE_DATA_ROSTER].sort());
+  // Every member really does declare BOTH halves — so the snapshot above is the derivation's
+  // output and not a list someone typed.
+  for (const name of PICTURE_DATA_ROSTER) {
+    assert.equal(PROJECTION[name]?.data, true, `${name} must declare data`);
+    assert.ok(['svg', 'spatial'].includes(PROJECTION[name]?.figure), `${name} must declare an svg/spatial figure`);
+  }
+});
+
+test('narrateDataSeries: the roster needs data:true, not merely a declared projection', () => {
+  // A KNOWN EQUIVALENT MUTANT, recorded rather than papered over. Relaxing the implementation's
+  // `p.data === true` to `p.data !== undefined` changes nothing today, because no component in
+  // the catalog declares an svg/spatial figure WITHOUT data — measured: 14 svg/spatial
+  // components, all 14 `data: true`. So this cannot be a behavioral test yet; it pins the
+  // premise instead, and fails the day a component breaks it, which is the day the distinction
+  // starts to matter.
+  const { PROJECTION } = require('../../../lib/core/projection-catalog.generated.mjs');
+  const svgish = Object.entries(PROJECTION).filter(([, p]) => p.figure === 'svg' || p.figure === 'spatial');
+  assert.deepEqual(
+    svgish.filter(([, p]) => p.data !== true).map(([n]) => n),
+    [],
+    'a picture component with no declared data — decide whether it should narrate',
+  );
+  // What IS falsifiable today: a component with a figure and no data never narrates.
+  const rows = '\n\n## Heading.\n\n- A `1`\n- B `2`';
+  for (const [name, p] of Object.entries(PROJECTION)) {
+    if (p.data === true || !p.figure) continue;
+    assert.equal(narrateDataSeries(`<!-- _class: ${name} -->${rows}`), null, `${name} declares no data`);
+  }
+});
+
+test('narrateDataSeries: a delimiter row needs a DASH — colons alone are not a table', () => {
+  // `| : | : |` is not a markdown table and markdown-it renders no table for it. Treating it as
+  // one would narrate a prose line's pipes as a data grid.
+  assert.equal(narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| A | B |\n| : | : |\n| 1 | 2 |'), null);
+  assert.match(
+    narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| | A | B |\n| --- | --- | --- |\n| Jan | 1 | 2 |'),
+    /Jan: A, one; B, two\./,
+  );
 });
