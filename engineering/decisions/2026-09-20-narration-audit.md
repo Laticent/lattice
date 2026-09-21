@@ -48,10 +48,10 @@ from a clean checkout with `node tools/measure-narration-coverage.mjs` — which
 scratch script during the audit, and is committed because that sentence was not true
 while it wasn't.
 
-**Not verified:** how any of it SOUNDS. There is no TTS in the sandbox, so every claim
-here is about the spoken STRING, never the audio (HARD RULE #23). The one claim that
-needs a human ear — whether the segmentation gaps below are audible — is marked
-UNVERIFIED and stays that way until someone listens.
+**Not verified:** how any of it SOUNDS. The audit's own measurements are all about the
+spoken STRING (HARD RULE #23). Real synthesis ran later, on the real Studio — see
+§ "What is NOT verified" — but nobody has listened, so the one claim that needs a human
+ear, whether the segmentation gaps below are audible, stays UNVERIFIED.
 
 ## Finding 1 — the narration cliff
 
@@ -444,9 +444,26 @@ data-series narrator first) but not built.
 
 ## What is NOT verified
 
-No audio was synthesized. There is no TTS, no browser and no `AudioContext` in this
-sandbox, so every claim above is about the spoken STRING, the emitted `.vtt` bytes, or a
-value computed inside Cadenza — never about how any of it sounds (HARD RULE #23).
+**Nobody has listened.** The audit itself was measured with no browser at all — every
+number above is the spoken STRING, the emitted `.vtt` bytes, or a value computed inside
+Cadenza. The fixes were then driven on the REAL Studio, built and served locally and
+opened in real Chromium, with real synthesis on the bring-your-own-key path the
+Playground uses (`lattice-db-or-key`; the repo's own `OPEN_ROUTER_KEY` never entered
+`docs/**`, a file or a test — HARD RULE #24). That drive is what confirms three things a
+string can't: the voice pin holds when the pref is flipped mid-read (per-read trace,
+three reproductions, `af_heart` held across all four of slide 1's sentences while slide 2
+re-pinned to `if_sara`), the caption cursor advances and is never dark
+(`caption advanced: PASS (4 cues)`, and the silent cadence marked lines `[0,1,2,3]` with
+the spend guard confirming zero requests), and the Stage window's `<html lang>` reads
+`en` on the real document.
+
+What that drive still does NOT cover is how any of it SOUNDS — timbre, prosody, whether a
+sentence lands. Synthesis ran and the audio decoded; no human ear was applied (HARD RULE
+#23). Two smaller gaps go with it: the dev-only `speechSynthesis` rung's `utterance.lang`
+never ran, because the drive exercised `openrouter-tts`; and the debug overlay's `timing`
+rows did not scrape, so the clocked `align()` path is evidenced indirectly, by
+`ctx running` plus spoken/cue counts that match.
+
 Specifically unverified: whether Kokoro's own front-end normalizer rescues any of the raw
 passthroughs (`99th`, `12:30` and `1st` are plausible wins; `$1.2-1.4B`, `ID-4471` and
 `(API)` are not); whether the segmentation gaps are audible; and whether the out-of-order
