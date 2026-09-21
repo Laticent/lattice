@@ -20,7 +20,8 @@
   could never appear in the changed set, so the helper's "this PDF was already
   rebuilt in this tree" arm could not fire for the showcase gallery, whose PDFs
   live in `examples/`. `isRenderInput` still decides what counts as an input.
-  Measured cost: about 5ms on one memoized `git status`.
+  Measured cost: about 6ms on one memoized `git status` — 18.1ms whole-tree against
+  11.9ms scoped, median of seven runs after a warmup.
 - **Known limit, now written down and pinned by a test: a dirty PDF still reads
   fresh.** That arm answers "already rebuilt in this tree" from the artifact being
   dirty, which only holds if nothing changed *after* the rebuild — so edit → build →

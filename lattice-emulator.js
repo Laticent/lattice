@@ -847,7 +847,7 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // from the engine's OWN boundaries rather than a scan of everything before the fence
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
-const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
 // This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
@@ -3863,8 +3863,11 @@ async function renderBody(browser, g, closeBrowser) {
   // slide that paints up to that far outside a box passes every channel while the box
   // — `.cell-stage` is `overflow: clip` — genuinely cuts it. Measured on a probe deck:
   // a gantt forced 12px past its stage prints nothing, 13px prints the frame warning.
-  // #2252 found a real one at 10.2px, and a sweep of all 335 shipped decks found 27
-  // slides across 21 decks losing BODY content in this band with nothing said.
+  // #2252 found a real one at 10.2px, and a sweep of all 335 shipped decks found 18
+  // slides across 12 decks losing BODY content IN THIS BAND with nothing said. (The
+  // corpus-wide figure is larger and is a different claim: 27 silent cuts across 20
+  // decks, 26 of them body — most of those sit below this advisory's floor, so it
+  // names 18 of them and nine stay silent. Do not merge the two numbers.)
   //
   // This is an ADVISORY, not a verdict: no class is stamped, no marker is drawn, the
   // exit code does not move, and `overflow:check`'s ratchet is untouched. The gate
@@ -3880,12 +3883,11 @@ async function renderBody(browser, g, closeBrowser) {
     const reported = new Set([...overflowing, ...contentOnly.map((o) => o.slide)]);
     const quiet = nearMiss.filter((o) => !reported.has(o.slide));
     if (quiet.length) {
-      console.warn(`  ⓘ INSIDE THE FIT TOLERANCE — ${quiet.length} slide${quiet.length > 1 ? 's' : ''} ${quiet.length > 1 ? 'paint' : 'paints'} past a box that crops ` +
-        `by less than the ${FRAME_TOLERANCE}px budget every check above is read against, so nothing reports ` +
-        `${quiet.length > 1 ? 'them' : 'it'}: ${quiet.map((o) => `p${o.slide} (${o.px}px)`).join(', ')}.`);
-      console.warn('    That box clips, so the pixels are gone from the export either way. Check those slides by eye,');
-      console.warn('    or run `npm run check:chart-fit -- <deck>` — it measures the painted box against the stage');
-      console.warn('    rather than asking this report, and its slack is 1.5px.');
+      // The TEXT lives in the kernel (`formatNearMissAdvisory`), not here. A guard on
+      // an inline template literal cannot see what the literal renders to — proved by
+      // mutation, see that function's docblock — so the wording that three harvesters
+      // key on has to be something a test can call and read.
+      for (const line of formatNearMissAdvisory(quiet)) console.warn(line);
     }
   }
   // …and the CHART LABELS the family declined to paint. A third question again: the

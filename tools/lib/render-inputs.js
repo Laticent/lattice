@@ -132,7 +132,6 @@ function _resetCache() { memo = null; }
 
 const relOf = (p) => path.relative(ROOT, p).split(path.sep).join('/');
 
-
 /**
  * @param {string} pdfPath   the artifact
  * @param {string} deckPath  its own deck source
@@ -160,7 +159,9 @@ function stalenessAgainstInputs(pdfPath, deckPath) {
   //     restores the dirty inputs AND the dirty artifact together, so their relative
   //     mtimes become checkout ORDER. Zero content change, verdict `stale`. That is
   //     exactly the false-stale this file's header rejects mtimes for; the guard above
-  //     does NOT exclude it, which is what the attempt assumed.
+  //     does NOT exclude it, which is what the attempt assumed. Run for real on a
+  //     scratch tree — a 3MB PDF and 200 `lib/*.css` files, `git stash` then
+  //     `git stash pop` — the last CSS file stamped 0.074s AFTER the artifact.
   //   · a DELETED input stats as absent, sorts oldest, and reads `fresh` — the largest
   //     possible content change, missed.
   // The honest fix is content-addressed: have the builder write the hash of the inputs

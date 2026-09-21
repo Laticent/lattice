@@ -3,8 +3,8 @@ status: in-progress
 summary: >-
   Every fit verdict in the engine is read against a 12px noise budget, so a slide that paints up
   to 12px outside a box that CROPS passes every channel while the pixels are gone. Measured on a
-  probe deck: 12px prints nothing, 13px prints the frame warning. A sweep of all 334 shipped decks
-  (4026 slides, real Chromium, each rendered as authored) says the window is not theoretical — 34
+  probe deck: 12px prints nothing, 13px prints the frame warning. A sweep of all 335 shipped decks
+  (4043 slides, real Chromium, each rendered as authored) says the window is not theoretical — 34
   slides across 21 decks sit in it, and 18 of those 34 are ones the truthful content probe calls a
   cut at zero tolerance. Across the whole corpus that probe finds 27 silent cuts, 26 of them BODY
   content rather than caption-footer chrome; this change names 18 and nine stay silent. The tolerance is NOT changed
@@ -44,13 +44,13 @@ The boundary is exactly the tolerance: **12px silent, 13px reported**. That matc
 independent finding (`-18.6px` reported, `-10.2px` not) and its live instance — a gantt painting
 10.2px outside a stage that is `overflow: clip`.
 
-**The window, across the shipped corpus.** Every deck the `overflow:check` glob covers — 334
-decks, 4026 slides — real Chromium, each slide probed at tolerances 0 · 1 · 2 · 3 · 4 · 6 · 8 · 12
-in one render. Of the 3996 slides the export says nothing about today:
+**The window, across the shipped corpus.** Every deck the `overflow:check` glob covers — 335
+decks, 4043 slides — real Chromium, each slide probed at tolerances 0 · 1 · 2 · 3 · 4 · 6 · 8 · 12
+in one render. Of the 4013 slides the export says nothing about today:
 
 | excess past the frame | slides |
 |---|---|
-| 0 | 3938 |
+| 0 | 3955 |
 | (0, 1] | 6 |
 | (1, 2] | 16 |
 | (2, 3] | 2 |
@@ -63,7 +63,10 @@ in one render. Of the 3996 slides the export says nothing about today:
 The `(0, 2]` band is mostly phantom, and it is worth naming why, because it is what the tolerance is
 genuinely for: **14 of the 16 slides in `(1, 2]` are the same `split-panel metric` slide**, all at
 exactly 2px — 13 of them the same page 8 across the `token-contrast` decks, the 14th that layout's
-own gallery page. `probeContentClipped` answers `cut: false` on 19 of the 22 slides in `(0, 2]`.
+own gallery page. `probeContentClipped` answers `cut: false` on 19 of the 22 slides in `(0, 2]` — which is *not*
+the same as "no ink outside a box", and the difference is the next paragraph's whole point: 5 of
+those 19 do paint outside `.cell-stage` (up to 1.75px on `examples/marker-corner.md` p2) without
+losing a bearer across the edge.
 Above 3, the measured ink tracks the number: excess 4 → 4.02px of a `<strong>` outside its box,
 6 → 5.58, 11 → 10.64, and 18 of the 34 come back `cut: true`.
 
@@ -120,10 +123,14 @@ because it is the same failure the note is about. Its buckets were computed as
 alone — so the histogram did not sum to its own total and the phantom band read 26 instead of 22.
 The advisory reads the vertical excess only, so that is the measure the whole table uses now.
 
-**Two decks entered after the sweep ran.** `#2249` renamed `compare-table` to `table` and added
-`examples/table-component.md` while this branch was open. Both were swept separately and are
-entirely clean — 0 reported, 0 in the band, 0 cuts — as was the deck the rename replaced, so no
-count above moves; only the zero-excess bucket grows.
+**Two decks entered after the sweep ran, AND THE TABLE ABOVE ALREADY FOLDS THEM IN.** `#2249`
+renamed `compare-table` to `table` and added `examples/table-component.md` while this branch was
+open. Both were swept separately and are entirely clean — 0 reported, 0 in the band, 0 cuts — as
+were the 8 slides of the deck the rename replaced. So no bucket but the first one moves: the raw
+sweep covered 334 decks / 4026 slides with 3938 at zero, and 334 − 1 + 2 = 335 decks,
+4026 − 8 + 8 + 17 = 4043 slides, 3938 − 8 + 8 + 17 = 3955 at zero. **Quote the folded numbers or
+the swept ones, never one of each** — a later pass "corrected" the table back to the raw sweep and
+left it contradicting this paragraph four screens below.
 
 **MEASURE THE DECK AS AUTHORED.** The first version of this sweep normalized every deck's front
 matter to a landscape frame, which strips a deck's own `size:` and `autosplit:` — a different
@@ -133,8 +140,8 @@ the same probe on the real export render, is what settled it: the two agree to t
 the deck is left alone. Any re-measurement has to render decks unmodified.
 
 **How much of it is real loss.** Asking the truthful probe (`probeContentClipped` at zero
-tolerance) which of the silent slides actually lose a bearer across a box edge: **28 slides across
-21 decks, and 27 of them are author body content** — only one is the caption-footer chrome that
+tolerance) which of the silent slides actually lose a bearer across a box edge: **27 slides across
+20 decks, and 26 of them are author body content** — only one is the caption-footer chrome that
 `2026-09-08-overflow-corpus-caption-footer.md` is about. A sample, with what the probe names as
 the first thing cut:
 
@@ -149,7 +156,7 @@ the first thing cut:
 
 This is the opposite shape from the one `2026-09-08-overflow-corpus-caption-footer.md` found. That
 note's 19 slides were all `chromeOnly: true` — the designed ellipsis on a running footer, nothing
-an author wrote. These are 27 body cuts against 1 chrome one.
+an author wrote. These are 26 body cuts against 1 chrome one.
 
 ## Why the tolerance is not changed here
 
@@ -190,7 +197,7 @@ holds; recorded because asserting it early is the failure this note is about.) I
 NOT MEASURED` precedent — "not measured" is an honest answer, a quiet pass is not (HARD RULE #23).
 
 **`NEAR_MISS_FLOOR = 3` is taken from the distribution above**, not from taste. It costs an
-advisory on 34 slides across 21 of 334 decks — 6.3% of the corpus. The advisory reads the
+advisory on 34 slides across 21 of 335 decks — 6.3% of the corpus. The advisory reads the
 VERTICAL excess (`scrollH - clientH`) off the probe call the export already makes, so it adds no
 measurement: `scrollH` and `clientH` are not gated by the tolerance, which only decides `over`,
 `overCells` and `clipSuspect`. An earlier cut probed a second time at zero tolerance and bought

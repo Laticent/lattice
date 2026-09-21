@@ -241,9 +241,18 @@
  * off at every viewBox and every orientation, exactly like `--gantt-accent`. The heatmap
  * member documents the same surprise on its own dotted edge; this is that fact again.
  *
- * Measured on the real render: a two-quarter bar takes ~64 cycles of the 6.5px pattern,
- * the 9x9 legend swatch ~13, and a milestone diamond ~10.5 — about 2.6 dashes a side,
- * which reads. One pattern serves all three because the pattern is physical.
+ * Measured on a real landscape render of `examples/gantt-status-key.md` (svg 1152px over a
+ * 480-unit viewBox, so 2.4px/unit), reading `getComputedStyle` and `getTotalLength` off the
+ * marks themselves. All three report `stroke-dasharray: 4px, 2.5px` and
+ * `vector-effect: non-scaling-stroke`, which is the claim above, measured rather than argued.
+ *
+ * ONE MEASURE FOR ALL THREE — the path's own length, because a bar, a square and a diamond
+ * have nothing else in common. Cycles of the 6.5px pattern around the outline: a two-quarter
+ * bar 134.5, the 9x9 legend swatch 11.6, a milestone diamond 10.5 — the last being about 2.6
+ * dashes a side, which reads. (The bar's TOP EDGE alone is 63.9, if that is the number you
+ * want; it is the edge a reader actually scans.) An earlier draft gave three numbers with no
+ * measure attached and mixed an edge with two perimeters, which is how a reader concludes a
+ * bar is five times a swatch when along the same measure it is twelve.
  *
  * THIS COMMENT PREVIOUSLY ARGUED THE OPPOSITE — that the numbers were user units and so
  * "scaled with the bar", with a 9.6px/13.0px landscape-vs-portrait table — and a
