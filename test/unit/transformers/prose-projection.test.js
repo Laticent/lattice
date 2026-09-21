@@ -1192,3 +1192,57 @@ test('team-profile: neither projection mutates the DOM it is handed', () => {
 	speak(secs); project(secs); speak(secs);
 	assert.equal(dom.window.document.body.innerHTML, before, 'projection must be read-only');
 });
+
+// ── Element boundaries — 2026-09-20-narration-audit.md Finding 5 ────────────────────
+//
+// `speechText` read bare `textContent`, which concatenates with NOTHING. A layout that
+// sets a label and its value as adjacent spans therefore welded them into one word.
+test('two adjacent element siblings are separated, not welded together', () => {
+	// The shipped roadmap cell, verbatim. Was: "ShippedSignal taxonomy", nine times on one slide.
+	const secs = sections(
+		'<section data-lattice-slide class="roadmap form" data-class="roadmap"><div class="cell-stage">' +
+			'<div class="masthead-lede"><h2>The roadmap grids workstreams against phases.</h2></div>' +
+			'<p><span class="cell-state-label">Shipped</span><span class="cell-state-text">Signal taxonomy</span></p>' +
+			'</div></section>',
+	);
+	const text = speak(secs)[0];
+	assert.ok(text.includes('Shipped Signal taxonomy'), `welded label and value: ${text}`);
+	assert.ok(!text.includes('ShippedSignal'), `still welded: ${text}`);
+});
+
+test('an element that FOLLOWS TEXT gets no separator, so a mid-word wrapper does not split', () => {
+	// THE FIXTURE MATTERS, and the first one here was worthless. `<span>Sig</span>nal` puts the
+	// span FIRST, so `prevWasElement` is false and the trailing trim hides the difference — a
+	// mutant that inserts a space before EVERY element passed it. The span has to come AFTER
+	// text for the rule to be under test at all. (Mutation-checked: this fails as "Sig nal"
+	// against that mutant.)
+	const secs = sections(
+		'<section data-lattice-slide class="content form" data-class="content"><div class="cell-stage">' +
+			'<div class="masthead-lede"><h2>Heading.</h2></div><p>Sig<span>nal</span> taxonomy.</p>' +
+			'</div></section>',
+	);
+	const text = speak(secs)[0];
+	assert.ok(text.includes('Signal taxonomy'), text);
+	assert.ok(!text.includes('Sig nal'), `split a word: ${text}`);
+});
+
+// ── KaTeX's TeX round-trip is not a reading — #2121 ─────────────────────────────────
+test('a math slide narrates its equation once, not once in MathML and again in raw TeX', () => {
+	// KaTeX emits BOTH: a `.katex-html` visual span (correctly `aria-hidden`) and a
+	// `.katex-mathml` accessible span — which contains the MathML token run AND an
+	// `<annotation encoding="application/x-tex">` carrying the source for copy-paste.
+	// The annotation is not hidden, because its PARENT is the accessible representation,
+	// so the walker read the equation and then read it again as backslashes.
+	const secs = sections(
+		'<section data-lattice-slide class="math form" data-class="math"><div class="cell-stage">' +
+			'<div class="masthead-lede"><h2>One equation.</h2></div>' +
+			'<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>y</mi></mrow>' +
+			'<annotation encoding="application/x-tex">\\hat\\beta = (X^\\top X)^{-1}</annotation>' +
+			'</semantics></math></span><span class="katex-html" aria-hidden="true">yy</span></span></p>' +
+			'</div></section>',
+	);
+	const text = speak(secs)[0];
+	assert.ok(!text.includes('\\hat'), `raw TeX reached the voice: ${text}`);
+	assert.ok(!text.includes('^'), `TeX superscript reached the voice: ${text}`);
+	assert.ok(text.includes('y'), `the MathML reading was lost too: ${text}`);
+});

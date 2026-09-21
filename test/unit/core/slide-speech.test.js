@@ -99,3 +99,45 @@ test('blankHtmlComments preserves the LINE COUNT — speakLeftover indexes by li
   assert.equal(blankHtmlComments(src).includes('PRIVATE'), false);
   assert.ok(blankHtmlComments(src).includes('- item two'), 'real content is untouched');
 });
+
+// ── Markers are stripped per LINE — 2026-09-20-narration-audit.md Finding 5 ─────────
+//
+// The marker strips used to run on the JOINED text, where "start of line" had become
+// "anywhere after a space". Combined with the synthetic terminator this file appends to a
+// structural line, that silently deleted every bare-integer chart value on a slide.
+test('a chart bullet keeps its whole-integer value', () => {
+  const { slideToSpeech } = require('../../../lib/core/slide-speech.js');
+  // Was: "Which is biggest. First Second Third 31." — the synthetic period turned `120`
+  // into `120.`, which the ordered-marker strip then ate as a list number. Only the last
+  // value survived, because it had no trailing space to match.
+  assert.equal(
+    slideToSpeech('## Which is biggest.\n\n- First `120`\n- Second `95`\n- Third `31`\n'),
+    'Which is biggest. First 120. Second 95. Third 31.',
+  );
+});
+
+test('decimals, percents and signed values were never affected, and still are not', () => {
+  const { slideToSpeech } = require('../../../lib/core/slide-speech.js');
+  assert.equal(slideToSpeech('- A `4.2`\n- B `2.1`'), 'A 4.2. B 2.1.');
+  assert.equal(slideToSpeech('- A `40%`\n- B `22%`'), 'A 40%. B 22%.');
+  assert.equal(slideToSpeech('- A `+18`\n- B `-7`'), 'A +18. B -7.');
+});
+
+test('a real ordered list still loses its numbers, which ARE markers', () => {
+  const { slideToSpeech } = require('../../../lib/core/slide-speech.js');
+  assert.equal(slideToSpeech('1. First step\n2. Second step'), 'First step. Second step.');
+});
+
+test('a mid-sentence dash or angle bracket is no longer mistaken for a marker', () => {
+  const { slideToSpeech } = require('../../../lib/core/slide-speech.js');
+  // The joined-text strips could not tell these from a bullet or a blockquote marker.
+  assert.equal(slideToSpeech('Revenue - cost = margin.'), 'Revenue - cost = margin.');
+  assert.equal(slideToSpeech('We need 5 > 3 here.'), 'We need 5 > 3 here.');
+});
+
+test('headings, blockquotes and nested bullets still shed their markers', () => {
+  const { slideToSpeech } = require('../../../lib/core/slide-speech.js');
+  assert.equal(slideToSpeech('# Title\n\n## Sub\n\nBody text.'), 'Title. Sub. Body text.');
+  assert.equal(slideToSpeech('> A quoted claim\n\nAnd prose.'), 'A quoted claim. And prose.');
+  assert.equal(slideToSpeech('- Meridian\n  - Performance `9`\n    - A note'), 'Meridian. Performance 9. A note.');
+});

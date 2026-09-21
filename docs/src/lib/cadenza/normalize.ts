@@ -34,9 +34,41 @@ const ONES = [
   'seventeen', 'eighteen', 'nineteen',
 ];
 const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-const SCALES = ['', ' thousand', ' million', ' billion', ' trillion'];
+// Through QUADRILLION, which covers every integer JavaScript can represent exactly
+// (`Number.MAX_SAFE_INTEGER` is ~9.007e15). The list used to stop at trillion while the
+// group loop indexed past its end and string-concatenated `undefined` — see `integerToWords`.
+const SCALES = ['', ' thousand', ' million', ' billion', ' trillion', ' quadrillion', ' quintillion'];
 
-const MAGNITUDE: Record<string, string> = { k: 'thousand', m: 'million', b: 'billion', t: 'trillion' };
+// Single-letter magnitudes, plus the two multi-letter spellings finance actually writes.
+// `bn` is the standard UK/EU form and `mm` the US banking one, and both were passing through
+// raw — `$4.2bn` reached the voice as "$4.2bn" while `$4.2B` read correctly.
+const MAGNITUDE: Record<string, string> = {
+  k: 'thousand', m: 'million', b: 'billion', t: 'trillion',
+  bn: 'billion', mm: 'million', tn: 'trillion',
+};
+/** The magnitude suffixes, longest-first, as a regex alternation — so `bn` wins over `b`. */
+const MAG_RE = 'bn|mm|tn|[kmbt]';
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const ORDINAL_ONES = [
+  'zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth',
+  'ninth', 'tenth', 'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth',
+  'sixteenth', 'seventeenth', 'eighteenth', 'nineteenth',
+];
+const ORDINAL_TENS = ['', '', 'twentieth', 'thirtieth', 'fortieth', 'fiftieth', 'sixtieth', 'seventieth', 'eightieth', 'ninetieth'];
+
+/** Read 0..99 as an ORDINAL ("21st" → "twenty-first"). Beyond that, the cardinal plus "th"
+ *  is worse than just reading the cardinal, so the caller falls back. */
+function ordinalWords(n: number): string {
+  if (!Number.isInteger(n) || n < 0 || n > 99) return '';
+  if (n < 20) return ORDINAL_ONES[n];
+  const tens = Math.floor(n / 10);
+  const ones = n % 10;
+  return ones === 0 ? ORDINAL_TENS[tens] : `${TENS[tens]}-${ORDINAL_ONES[ones]}`;
+}
 
 /** Read an integer 0..999 as words. */
 function tripletToWords(n: number): string {
@@ -55,7 +87,20 @@ function tripletToWords(n: number): string {
   return out;
 }
 
-/** Read a non-negative integer as words (up to trillions). */
+/**
+ * Read a non-negative integer as words (up to trillions).
+ *
+ * NAMED THROUGH QUINTILLION, which covers every integer JavaScript represents exactly
+ * (`Number.MAX_SAFE_INTEGER` is ~9.007e15, a quadrillion). `SCALES` used to stop at trillion
+ * while the group loop indexed PAST its end and string-concatenated `undefined`:
+ * `1000000000000000` spoke as "oneundefined" and `9007199254740991` as "nineundefined seven
+ * trillion …". `Number.isFinite` passed all of them, so the literal word "undefined" reached
+ * the voice.
+ *
+ * Past the last named scale the digits are read one at a time — a value that large is far more
+ * often an id, a hash or a timestamp that wandered into a number slot than a quantity a deck
+ * means to say aloud.
+ */
 export function integerToWords(n: number): string {
   if (!Number.isFinite(n) || n < 0) return String(n);
   if (n === 0) return 'zero';
@@ -64,6 +109,12 @@ export function integerToWords(n: number): string {
   while (x > 0) {
     groups.push(x % 1000);
     x = Math.floor(x / 1000);
+  }
+  if (groups.length > SCALES.length) {
+    return String(Math.floor(n))
+      .split('')
+      .map((d) => ONES[Number(d)] ?? d)
+      .join(' ');
   }
   const parts: string[] = [];
   for (let i = groups.length - 1; i >= 0; i--) {
@@ -78,7 +129,27 @@ export function numberToWords(value: number): string {
   if (!Number.isFinite(value)) return String(value);
   const neg = value < 0;
   const abs = Math.abs(value);
-  const [intPart, decPart] = String(abs).split('.');
+  // `String(abs)` switches to EXPONENTIAL notation outside roughly 1e-7..1e21, and the
+  // split below then found no '.' and handed `integerToWords` a value its loop exited
+  // immediately on — so the whole number came back as the empty string and `toSpokenText`'s
+  // `.filter(Boolean)` dropped it from the utterance entirely. Measured: "Rate is 0.0000001
+  // today." narrated as "Rate is  today." — the caption showed the number, the voice never
+  // said it, and the word occupied 0 ms. Silent content loss is the worst failure this file
+  // can have, so an exponential value falls back to its own digits rather than vanishing.
+  let asString = String(abs);
+  if (asString.includes('e') || asString.includes('E')) {
+    // A SMALL value expands cleanly to its decimal digits, which is what a person says.
+    // `toFixed` caps at 100 places and is exact enough for anything a deck writes.
+    if (abs < 1 && abs > 0) asString = abs.toFixed(20).replace(/0+$/, '');
+    // A value too LARGE for exact representation has no honest word form; its own digits
+    // are the least-wrong reading, and never the literal string "1e+21".
+    // `toFixed(0)` is itself exponential at or above 1e21 (ECMA-262), so it fed the fallback
+    // "1e+21" and the digit map spoke the exponent's LETTERS: "one e + two one". BigInt renders
+    // the integer in full, which is the thing being read out.
+    // Every double at or above 1e21 is integer-valued, so `BigInt` is total here — no guard.
+    else return (neg ? 'negative ' : '') + BigInt(abs).toString().split('').map((d) => ONES[Number(d)] ?? d).join(' ');
+  }
+  const [intPart, decPart] = asString.split('.');
   let out = integerToWords(Number(intPart));
   if (decPart) {
     out += ' point ' + decPart.split('').map((d) => ONES[Number(d)]).join(' ');
@@ -251,6 +322,39 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
     return spoken ? spoken + spokenPunct : '';
   }
 
+  // BRACKETING punctuation is VISUAL — the display word keeps it, the voice does not say it.
+  // Peel it and re-run the whole pipeline on the value inside, so `($4.2M)` normalizes exactly
+  // as `$4.2M` does. This runs AFTER both author registries so a deck can still override the
+  // wrapped form verbatim (`lexicon: {"(12)": "negative twelve"}`), and before the symbol
+  // commons so the operand inside is expanded rather than the brackets being glyph-spoken.
+  //
+  // NOTE ON `(12)`: peeling makes this "twelve", not "negative twelve". The accounting-negative
+  // convention is real but domain-specific — the same shape is a footnote marker in prose — so
+  // this does not guess. Reading it as a number beats reading it as glyphs; a deck that means
+  // the accounting sense says so with `lexicon:`, and a `finance` domain pack is the right home
+  // for making it automatic. See 2026-09-20-narration-audit.md Finding 3.
+  const unwrapped = peelWrappers(core);
+  if (unwrapped !== core) {
+    if (!unwrapped) return ''; // brackets and nothing else — silence, like a dropped glyph
+    const spoken = toSpoken(unwrapped, opts);
+    return spoken ? spoken + spokenPunct : '';
+  }
+
+  // A TRAILING `×` on a bare number is a MULTIPLIER, not the multiplication operator, so hand it
+  // to `spokenCore`'s multiplier rule as the ASCII form that rule can still see. `resolveSymbols`
+  // below rewrites every `×` to the literal word "times" before `spokenCore` runs, which made the
+  // `×` alternative in that rule's own character class dead code — and cost it the singular
+  // agreement it exists to provide: `1x` read "one time" while `1×` read "one times", two
+  // spellings an author treats as identical reading two different ways.
+  // Also normalizes a RANGE's trailing `×` ("2-3×"), for the same reason and with the same
+  // consequence if missed: `resolveSymbols` rewrites the glyph to the word "times" before
+  // `spokenCore` runs, so the range rule's `×` alternative is dead code too, and `2-3x` read as
+  // a range while `2-3×` did not — two spellings an author treats as identical, reading two ways.
+  const multCore = core
+    .replace(/^([\d,]+(?:\.\d+)?)\s*×$/, '$1x')
+    .replace(/^([\d,]+(?:\.\d+)?\s*[–—-]\s*[\d,]+(?:\.\d+)?)\s*×$/, '$1x');
+  if (multCore !== core) return spokenCore(multCore, domains, acronyms, english) + spokenPunct;
+
   // Speech Symbol Commons — arrows, math operators, typographic marks, emoji. One glyph pass
   // handles standalone ("→"), embedded ("red↔green"), and mixed ("3×4"): each known glyph becomes
   // a spoken word (SPEAK), a silence (DROP / decorative emoji), or the author's lexicon override;
@@ -348,17 +452,134 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
   }
 
   // Money: optional currency symbol, grouped number, optional magnitude suffix.
-  const money = core.match(/^([$£€])([\d,]+(?:\.\d+)?)([kmbt])?$/i);
+  const money = core.match(new RegExp(`^([$£€])([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?$`, 'i'));
   if (money) {
-    const unit = money[1] === '$' ? 'dollars' : money[1] === '£' ? 'pounds' : 'euros';
-    const num = numberToWords(Number(money[2].replace(/,/g, '')));
+    const value = Number(money[2].replace(/,/g, ''));
+    // Agreement, like `unitWords` does for `1pp` / `1d` / `1bps`. Money was the one value path
+    // that skipped it, so `$1` read "one dollars". A MAGNITUDE always pluralizes ("one million
+    // dollars"), because the unit then agrees with the magnitude, not with the bare digit.
+    const plural = money[3] ? true : value !== 1;
+    const unit = money[1] === '$' ? 'dollar' : money[1] === '£' ? 'pound' : 'euro';
+    const num = numberToWords(value);
     const mag = money[3] ? ` ${MAGNITUDE[money[3].toLowerCase()]}` : '';
-    return `${num}${mag} ${unit}`;
+    return `${num}${mag} ${unit}${plural ? 's' : ''}`;
   }
 
   // Percent.
   const pct = core.match(/^([\d,]+(?:\.\d+)?)%$/);
   if (pct) return `${numberToWords(Number(pct[1].replace(/,/g, '')))} percent`;
+
+  // RANGES — "$1.2–1.4B", "50-60%", "2-3x", "12–15". The single most common shape in guidance,
+  // and it used to pass through WHOLE, brackets and all, even though each side on its own
+  // normalized perfectly: `$4.2M` worked, `$1.2–1.4B` did not.
+  //
+  // A BARE HYPHEN BETWEEN BARE NUMBERS IS NOT A RANGE, and the first cut of this rule got that
+  // wrong in the worst available way: `§22-1201` — a real citation on six shipped decks —
+  // narrated as "section twenty-two to one thousand two hundred one", a section number the slide
+  // does not show. `2026-09`, `555-1234` and `9-5` went the same way. A hyphen joins compounds,
+  // ids, dates and phone numbers far more often than it spans a range, so it is admitted only
+  // when the token carries a UNIT that settles the reading — a currency, a magnitude, a percent
+  // or a multiplier. An EN or EM DASH is admitted on its own, because that is the mark authors
+  // reach for when they mean "through".
+  //
+  // This also restores `citationNumber`'s invariant eleven lines up ("NOT routed through
+  // `numberToWords`/`Number()`, which would drop digits and speak a different, wrong section") —
+  // the section parser recurses into `spokenCore`, so a rule added here reaches citations too.
+  //
+  // A magnitude or unit written once, on the right, applies to the whole range — that is what
+  // the notation means and how a person reads it aloud: "$1.2–1.4B" is "one point two to one
+  // point four billion dollars", not "one point two dollars to one point four billion".
+  const range = core.match(new RegExp(`^([$\u00a3\u20ac]?)([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?\\s*([\u2013\u2014-])\\s*([$\u00a3\u20ac]?)([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?([%]|[\u00d7x])?$`, 'i'));
+  // Groups: 1 curL · 2 numL · 3 magL · 4 separator · 5 curR · 6 numR · 7 magR · 8 suffix.
+  // The unit test is on 1/3/5/7/8 — NOT 6, which is the right-hand NUMBER and always present,
+  // so including it made this condition unconditionally true and the guard a no-op.
+  const rangeHasUnit = range && Boolean(range[1] || range[3] || range[5] || range[7] || range[8]);
+  if (range && (range[4] !== '-' || rangeHasUnit)) {
+    const [, curL, numL, magL, , curR, numR, magR, suffix] = range;
+    const cur = curL || curR;
+    const lo = numberToWords(Number(numL.replace(/,/g, '')));
+    const hi = numberToWords(Number(numR.replace(/,/g, '')));
+    const magWord = (m?: string) => (m ? ` ${MAGNITUDE[m.toLowerCase()]}` : '');
+    let tail = '';
+    if (suffix === '%') tail = ' percent';
+    else if (suffix) tail = ' times';
+    else if (cur) tail = cur === '$' ? ' dollars' : cur === '£' ? ' pounds' : ' euros';
+    // The left side names its own magnitude only when it HAS one and it differs from the right's.
+    const loMag = magL && magL.toLowerCase() !== (magR || '').toLowerCase() ? magWord(magL) : '';
+    return `${lo}${loMag} to ${hi}${magWord(magR || magL)}${tail}`;
+  }
+
+  // ISO date — "2026-09-20" → "September twentieth, two thousand twenty-six". Read as a DATE rather
+  // than as three numbers, which is what the digits alone would have given if anything had
+  // claimed them; nothing did, so the whole string reached the voice raw.
+  const iso = core.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    const month = MONTHS[Number(iso[2]) - 1];
+    const day = ordinalWords(Number(iso[3]));
+    if (month && day) return `${month} ${day}, ${yearWords(iso[1])}`;
+  }
+
+  // Clock time — "12:30" → "twelve thirty"; ":00" reads "o'clock". A mid-token colon is NOT
+  // softened to a comma upstream (only a trailing one is), so this is reached intact.
+  const time = core.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (time) {
+    const h = integerToWords(Number(time[1]));
+    const m = Number(time[2]);
+    if (m === 0) return `${h} o'clock`;
+    return `${h} ${m < 10 ? `oh ${integerToWords(m)}` : integerToWords(m)}`;
+  }
+
+  // Rank — "#1" → "number one". A `#` before a bare number is a rank or an issue reference in
+  // most registers a deck uses — but NOT all of them, and the exception is shipped: an all-digit
+  // HEX COLOR. `#000000` narrated as "number zero" on examples/per-slide-diagram-band.md, and
+  // `#123456` as "number one hundred twenty-three thousand four hundred fifty-six". It took two
+  // changes in one PR to surface: slide-speech.js stopped stripping a mid-sentence `#` (correctly
+  // — it was eating real text), and this rule then claimed what arrived. So the two hex LENGTHS
+  // is refused. SIX digits, and only six: a census of every all-digit `#` token in this tree
+  // (examples/, baseline decks, every component gallery) splits perfectly by length — the
+  // 6-digit ones are all colors (`#000000`, `#037829`, on two decks), the 3-digit ones are all
+  // ISSUE REFERENCES (`#690`, `#681`, `#527`), none of them colors. A first cut refused both
+  // lengths on the assumption that `#123` reads as a color more often than a rank; the tree
+  // says the opposite, so the 3-digit arm was removed rather than kept on an assertion.
+  // (A hex with letters never matched this rule at all — `^#([\d,]+)$` is digits only.)
+  const rank = core.match(/^#([\d,]+)$/);
+  if (rank) {
+    const digits = rank[1].replace(/,/g, '');
+    if (digits.length !== 6) return `number ${numberToWords(Number(digits))}`;
+  }
+
+  // Version — "v2.1" → "version two point one". The `v` prefix is what disambiguates it from a
+  // plain decimal, so this never fires on a bare number.
+  const version = core.match(/^v(\d+(?:\.\d+)*)$/);
+  if (version) {
+    const parts = version[1].split('.').map((p) => integerToWords(Number(p)));
+    return `version ${parts.join(' point ')}`;
+  }
+
+  // DELIBERATELY NOT HANDLED: `A/B`, `24/7`, `3.5/5`, `9/20`. A slash carries four unrelated
+  // meanings a token cannot distinguish — a pairing, an idiom, an out-of score, a date — and
+  // guessing wrong is worse than reading the glyph. A deck that needs one says so with
+  // `lexicon:`. Same for `ID-4471`: an identifier's reading is house-specific.
+
+  // Ordinals — "1st", "22nd", "99th". Only 0..99, where the word form is natural.
+  const ord = core.match(/^(\d{1,2})(st|nd|rd|th)$/i);
+  if (ord) {
+    const word = ordinalWords(Number(ord[1]));
+    if (word) return word;
+  }
+
+  // Decades — "1990s" → "nineteen nineties", "90s" → "nineties". `yearWords` already reads the
+  // year; the plural is the decade. Deliberately AFTER the fiscal-period rules so `1H26` and
+  // friends keep their meaning.
+  const decade = core.match(/^(\d{2}|\d{4})s$/);
+  if (decade) {
+    const n = Number(decade[1].slice(-2));
+    if (n % 10 === 0 && n >= 20) {
+      const tensWord = TENS[n / 10];
+      const spoken = `${tensWord.replace(/y$/, 'ies')}`;
+      return decade[1].length === 4 ? `${yearWords(decade[1].slice(0, 2))} ${spoken}` : spoken;
+    }
+  }
 
   // Percentage points / basis points (finance deltas: 2pp, 25bps). Singular when
   // the value is exactly 1 ("1pp" → "one percentage point").
@@ -378,7 +599,7 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
   if (dur) return unitWords(dur[1], 'day');
 
   // Bare number with a magnitude suffix (4.2M → "four point two million").
-  const magNum = core.match(/^([\d,]+(?:\.\d+)?)([kmbt])$/i);
+  const magNum = core.match(new RegExp(`^([\\d,]+(?:\\.\\d+)?)(${MAG_RE})$`, 'i'));
   if (magNum) {
     return `${numberToWords(Number(magNum[1].replace(/,/g, '')))} ${MAGNITUDE[magNum[2].toLowerCase()]}`;
   }
@@ -398,9 +619,44 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
  * parsing; this gives it Cadenza's instead. `opts.domains` opts in domain lexicon
  * packs. Pure.
  */
+/**
+ * Drop a direction word the sentence ALREADY said.
+ *
+ * A leading `+`/`−` on a delta-bearing value reads as "up"/"down" — right on its own, and
+ * doubled in the most common phrasing a commercial deck uses, because `toSpoken` sees one
+ * token and cannot look left:
+ *
+ *   "We are up +18% YoY."          → "We are up UP eighteen percent year over year."
+ *   "Churn is down -9% this quarter." → "Churn is down DOWN nine percent this quarter."
+ *
+ * The test is deliberately the strictest one available: the previous DISPLAY word must be
+ * the very same word the sign is about to produce. That makes this a dedup, not an
+ * inference — "Costs fell −12%" still reads "fell down twelve percent", because guessing
+ * which verbs imply a direction is a different and much less safe problem.
+ *
+ * A SENTENCE BOUNDARY ENDS THE DEDUP. "We are up. +18% YoY." is two sentences, and the second
+ * one's `+` is not a duplicate of anything — it is the only direction that sentence states. The
+ * two producers segment differently before calling this (`buildTrack` per cue, `toSpokenText`
+ * over the whole text), so without this test they disagreed on exactly that input and the
+ * claim below was false.
+ *
+ * Lives here, and is called by every producer of a spoken sequence, so the rule cannot
+ * drift between the caption track and a plain text render.
+ */
+export function dedupeDirection(prevDisplay: string | undefined, spoken: string): string {
+  if (!prevDisplay || !spoken) return spoken;
+  if (/[.!?…]["'\u201d\u2019)\]]*$/.test(prevDisplay)) return spoken; // previous word ended the sentence
+  const prev = prevDisplay.toLowerCase().replace(/[^a-z]/g, '');
+  if (prev !== 'up' && prev !== 'down') return spoken;
+  const m = spoken.match(/^(up|down)\s+([\s\S]*)$/i);
+  if (!m || m[1].toLowerCase() !== prev) return spoken;
+  return m[2];
+}
+
 export function toSpokenText(text: string, opts: SpokenOpts = {}): string {
-  return splitWords(text)
-    .map((w) => toSpoken(w, opts))
+  const words = splitWords(text);
+  return words
+    .map((w, i) => dedupeDirection(words[i - 1], toSpoken(w, opts)))
     .filter(Boolean) // a DROPPED symbol (decorative emoji) contributes nothing — no double space
     .join(' ');
 }
@@ -424,6 +680,67 @@ export function spokenWordCount(spoken: string): number {
  */
 const isAlphaNum = (c: string): boolean =>
   (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+
+// Wrapping punctuation — the marks that DELIMIT a token and are never part of its value.
+// Deliberately NOT the same set as `edgeTrim`'s "anything non-alphanumeric": `$`, `€`, `§`,
+// `+`, `−`, `#`, `~`, `≥` all LEAD a value and carry meaning the parsers below depend on, so
+// peeling them would break money, sections and signed deltas. These only ever bracket.
+const WRAP_PAIRS: Record<string, string> = {
+  '(': ')',
+  '[': ']',
+  '{': '}',
+  '"': '"',
+  "'": "'",
+  '“': '”', // “ ”
+  '‘': '’', // ‘ ’
+  '«': '»', // « »
+  '*': '*', // markdown emphasis that survived an upstream strip
+  _: '_',
+};
+const WRAP_CLOSERS = new Set(Object.values(WRAP_PAIRS));
+
+/**
+ * Peel BRACKETING punctuation off a token so the rules below see the value inside it.
+ *
+ * Without this, any wrapped token skipped every rule the library has and reached the voice as
+ * raw glyphs — `($4.2M)`, `"ARR"`, `[CEO]`, `(§5)`, `(12)` — while the BARE forms all normalized
+ * correctly. The peel was already written (`edgeTrim`) and called only by `unmatchedAcronyms`,
+ * the lint's discovery signal, so the lint trimmed the token, found it resolvable and reported
+ * nothing, on exactly the tokens the voice would mangle.
+ *
+ * Two rules keep it from eating a value's own punctuation:
+ *  • An opener is peeled only when the token CLOSES with its partner (`(12)`) or contains no
+ *    partner at all (`(Reason` — a parenthetical broken across words). So `§1798.140(o)` keeps
+ *    its `(o)`: it neither starts with `(` nor lacks a `)`.
+ *  • A closer is peeled only when the token contains no matching opener, which is what lets
+ *    `ARR)` through while `§1798.140(o)` is left alone.
+ *
+ * Loops rather than recursing so `((ARR))` resolves in one call, and each pass strips at least
+ * one character, so it terminates. Linear index work only — no anchored `+` quantifier, for the
+ * same ReDoS reason `edgeTrim` documents.
+ */
+function peelWrappers(raw: string): string {
+  let s = raw;
+  for (;;) {
+    if (s.length < 2) return s;
+    const first = s[0];
+    const last = s[s.length - 1];
+    const partner = WRAP_PAIRS[first];
+    if (partner !== undefined && (last === partner || !s.includes(partner, 1))) {
+      s = last === partner ? s.slice(1, -1) : s.slice(1);
+      continue;
+    }
+    // A bare closer: peel only when its opener is genuinely absent from the token.
+    if (WRAP_CLOSERS.has(last)) {
+      const opener = Object.keys(WRAP_PAIRS).find((k) => WRAP_PAIRS[k] === last);
+      if (opener !== undefined && !s.slice(0, -1).includes(opener)) {
+        s = s.slice(0, -1);
+        continue;
+      }
+    }
+    return s;
+  }
+}
 
 /** Trim leading/trailing non-alphanumerics via linear index scans — NOT a `[^…]+$`-anchored
  *  regex, whose `+`-quantifier backtracks polynomially on a run of many non-alphanumerics

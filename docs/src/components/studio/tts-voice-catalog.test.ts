@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { cachedSampleUrl, countryName, engineForModel, featuredVoiceIds, flagSrc, groupVoices, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceMeta, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { cachedSampleUrl, countryName, engineForModel, featuredVoiceIds, flagSrc, groupVoices, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceLanguageMismatch, voiceMeta, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
@@ -300,5 +300,33 @@ describe('flagSrc / countryName — the row flag', () => {
 	it('names a country for the flag aria-label, falling back to the raw code', () => {
 		expect(countryName('BR')).toBe('Brazil');
 		expect(countryName('ZZ')).toBe('ZZ');
+	});
+});
+
+// ── Deck language vs voice language — 2026-09-20-narration-audit.md Finding 4 ────────
+describe('voiceLanguageMismatch', () => {
+	it('reports a deck read in a language it did not ask for', () => {
+		const msg = voiceLanguageMismatch('hexgrad/kokoro-82m', 'af_heart', 'es');
+		expect(msg).toContain('US English');
+		expect(msg).toContain('lang: es');
+	});
+
+	it('stays quiet when they agree, including across a regional variant', () => {
+		expect(voiceLanguageMismatch('hexgrad/kokoro-82m', 'af_heart', 'en')).toBeNull();
+		expect(voiceLanguageMismatch('hexgrad/kokoro-82m', 'af_heart', 'en-GB')).toBeNull();
+		// A UK voice also satisfies a bare `en` — the deck made the broader claim.
+		expect(voiceLanguageMismatch('hexgrad/kokoro-82m', 'bf_emma', 'en')).toBeNull();
+	});
+
+	it('stays quiet when there is nothing to compare', () => {
+		expect(voiceLanguageMismatch('hexgrad/kokoro-82m', 'af_heart', undefined)).toBeNull(); // no deck lang
+		expect(voiceLanguageMismatch('hexgrad/kokoro-82m', 'af_heart', '  ')).toBeNull();
+		// A voice id that encodes no language: we cannot tell, so we do not guess.
+		expect(voiceLanguageMismatch('some/other-model', 'nova', 'es')).toBeNull();
+	});
+
+	it('names the Italian voice behind the reported symptom', () => {
+		// The measured case: a rung flip put `if_sara` in front of an English deck.
+		expect(voiceLanguageMismatch('hexgrad/kokoro-82m', 'if_sara', 'en')).toContain('Italian');
 	});
 });

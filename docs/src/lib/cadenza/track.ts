@@ -6,7 +6,7 @@
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
 import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type Pace, pauseAfter } from './cadence';
-import { type AcronymRegistry, toSpoken } from './normalize';
+import { type AcronymRegistry, dedupeDirection, toSpoken } from './normalize';
 import { splitParagraphs, splitWords } from './segment';
 import type { LexiconMap } from './symbols';
 
@@ -169,7 +169,9 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
 
-      const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon });
+      // `dedupeDirection` needs the word BEFORE this one, which only this loop can see —
+      // `toSpoken` is per-token and cannot look left. See its docblock for the doubling.
+      const spoken = dedupeDirection(displays[i - 1], toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon }));
       const pause = pauseAfter(display);
       // Phrase-final lengthening: a word before a boundary (it carries trailing punctuation)
       // stretches, so its highlight holds a beat longer instead of the cursor running ahead.
@@ -219,4 +221,48 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
   }
 
   return { cues, durationMs: cues.length ? cues[cues.length - 1].endMs : 0 };
+}
+
+/**
+ * Check a track's TIMELINE INVARIANTS and report what is wrong, as plain sentences.
+ *
+ * `buildTrack` cannot produce an invalid track. `cursor.align` can be handed one — it takes
+ * numbers a player measured, and a failed decode or a backwards seek used to corrupt the
+ * timeline silently, in three different ways (see `cursor.align`'s preconditions). Those are
+ * refused at the door now; this is the assertion that says so, for a consumer assembling a
+ * track by other means, for a test, and for anyone debugging a caption file that a player
+ * rejected without saying why.
+ *
+ * Returns [] for a valid track, so `if (validateTrack(t).length)` reads naturally. It never
+ * throws and never mutates — a diagnostic, not a gate. The three invariants, in the order a
+ * defect tends to appear:
+ *
+ *  1. every time is FINITE — the one that produces `NaN:NaN:NaN.NaN` in a .vtt;
+ *  2. every span is FORWARD (`start <= end`) and non-negative;
+ *  3. cue starts are MONOTONIC — the sort `makeCursor`'s binary search depends on, and whose
+ *     violation makes the cursor return null at every probe rather than fail loudly.
+ */
+export function validateTrack(track: CaptionTrack): string[] {
+	const problems: string[] = [];
+	if (!track || !Array.isArray(track.cues)) return ['track has no cues array'];
+	if (!Number.isFinite(track.durationMs)) problems.push(`track durationMs is not finite (${track.durationMs})`);
+	let prevStart = Number.NEGATIVE_INFINITY;
+	track.cues.forEach((cue, i) => {
+		if (!Number.isFinite(cue.startMs) || !Number.isFinite(cue.endMs)) {
+			problems.push(`cue ${i} has a non-finite span (${cue.startMs} to ${cue.endMs})`);
+			return; // the comparisons below are meaningless against NaN — report once, move on
+		}
+		if (cue.startMs < 0) problems.push(`cue ${i} starts before zero (${cue.startMs}ms)`);
+		if (cue.endMs < cue.startMs) problems.push(`cue ${i} ends before it starts (${cue.startMs} to ${cue.endMs})`);
+		if (cue.startMs < prevStart) problems.push(`cue ${i} starts at ${cue.startMs}ms, before cue ${i - 1} at ${prevStart}ms — the cursor cannot binary-search a track whose cues are out of order`);
+		prevStart = cue.startMs;
+		cue.words.forEach((w, j) => {
+			if (!Number.isFinite(w.startMs) || !Number.isFinite(w.endMs)) {
+				problems.push(`cue ${i} word ${j} ("${w.display}") has a non-finite span`);
+			} else if (w.endMs < w.startMs) {
+				problems.push(`cue ${i} word ${j} ("${w.display}") ends before it starts`);
+			}
+		});
+	});
+	return problems;
 }

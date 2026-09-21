@@ -37,6 +37,9 @@ const FIXTURES = {
 	// narrator, rather than from guesswork — a guessed body that fails to engage makes the
 	// cell vacuous, which is the exact defect this file exists to prevent.
 	narrateJourneyWeighted: ['journey weighted', '- Discover\n  - Search `@prospect` `:4` `+45`\n  - Referral `@prospect` `:5` `+18`\n- Convert\n  - Pricing page `@prospect` `:3` `+12`'],
+	// PLAIN journey (no `weighted`): the mood narrator reads `@actor` / `:N`, where the
+	// weighted one reads `+N` volume and gates itself out. Same source shape, different token.
+	narrateJourneyMood: ['journey', '- Discover\n  - Search `@prospect` `:4`\n  - Referral `@prospect` `:5`\n- Convert\n  - Pricing page `@prospect` `:3`'],
 	narrateRadar: ['radar', '- Lattice\n  - Performance `9`\n  - Pricing `7`\n- Rival North\n  - Performance `7`\n  - Pricing `8`'],
 	narrateQuadrant: ['quadrant', '`Effort 0–10`\n\n- Group\n  - Item `5, 85`'],
 	// No `end` marker on the last state ON PURPOSE: with both start AND end explicit the

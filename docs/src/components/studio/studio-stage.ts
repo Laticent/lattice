@@ -10,6 +10,7 @@ import { resolveTokenColor, stageChromeDecls } from '@/components/studio/present
 import { buildStageDoc } from '@/components/studio/present/stage-window.js';
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
 import { A11Y_DEFS } from '@/playground/deck-preview.js';
+import { getFrontMatter } from './front-matter';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
 /** `#rrggbb` → [r,g,b]. The letterbox is ours and always a literal, so this is all it needs. */
@@ -36,6 +37,10 @@ export async function buildStageDocument(options: SingleSlideOptions, source: st
 	// not against the app's background (`paintStageTokens`).
 	const bg = mode === 'dark' ? '#0c0c0c' : '#15110d';
 	const doc = buildStageDoc({
+		// The deck's declared language, like every other surface that builds a document from
+		// this source. The Stage is what an AUDIENCE looks at, so it is the last place that
+		// should ship without one.
+		lang: getFrontMatter(source, 'lang') || 'en',
 		html: render.html,
 		width: render.geom.w,
 		height: render.geom.h,

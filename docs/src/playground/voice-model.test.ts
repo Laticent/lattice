@@ -956,3 +956,62 @@ describe('listOpenRouterVoiceCatalog — silence is not an empty answer', () => 
     await expect(m.listOpenRouterVoiceModels()).resolves.toEqual([]);
   });
 });
+
+// ── The read's voice identity — 2026-09-20-narration-audit.md Finding 4 ──────────────
+//
+// The audited symptom was "a slide read in English and then in another language". It was
+// not the model. `synthOne` re-resolved BOTH the rung and the voice pref on every
+// sentence, and the two rungs read different prefs, which may hold different languages.
+// These pin the fix: a caller's pinned identity survives anything that changes underneath
+// it mid-read, and the cache key can never disagree with the voice that was actually sent.
+describe('a pinned voice identity survives a mid-read change (narration audit, Finding 4)', () => {
+  /** A rung that records the voice it was asked to speak with, and answers with bytes. */
+  const recordingRung = (name: string, seen: (string | undefined)[]) => ({
+    name,
+    ready: () => true,
+    synth: async ({ voice }: { voice?: string }) => {
+      seen.push(voice);
+      return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+    },
+  });
+
+  it('sends the caller’s pinned voice, not whatever the pref says at request time', async () => {
+    const seen: (string | undefined)[] = [];
+    const model = createVoiceModel({ keyPrefix: 'pin-a' });
+    model.__setRung(recordingRung('mock', seen));
+    model.setOrVoice('af_heart');
+    await model.synthOne({ text: 'One.', voice: 'af_heart' });
+    // The pref flips mid-read — a second tab, an expiring key, the settings panel.
+    model.setOrVoice('if_sara');
+    await model.synthOne({ text: 'Two.', voice: 'af_heart' });
+    expect(seen).toEqual(['af_heart', 'af_heart']);
+  });
+
+  it('sends the SAME voice the cache key was built from, with no pin at all', async () => {
+    // The TOCTOU: the key froze one read of the pref and the request took another. A bare
+    // `voice` reaching the rung is what let those two disagree, so the wire voice and the
+    // key must now agree even when the caller pins nothing.
+    const seen: (string | undefined)[] = [];
+    const model = createVoiceModel({ keyPrefix: 'pin-b' });
+    // Named for the REAL cloud rung, because that name is what makes `orVoice()` the
+    // pref `effVoice` falls back to — a rung with any other name has no pref to read.
+    model.__setRung(recordingRung('openrouter-tts', seen));
+    model.setOrVoice('af_heart');
+    const res = await model.synthOne({ text: 'One.' });
+    expect(seen).toEqual(['af_heart']);
+    expect(res?.key).toContain('af_heart');
+  });
+
+  it('honors a pinned RUNG so a rung becoming ready mid-read cannot switch the voice', async () => {
+    const seen: (string | undefined)[] = [];
+    const model = createVoiceModel({ keyPrefix: 'pin-c' });
+    model.__setRung(recordingRung('mock', seen));
+    // `silent` is always resolvable by name, so pinning it must beat the injected rung.
+    const silent = await model.synthOne({ text: 'One.', rung: 'silent' });
+    expect(silent?.rung).toBe('silent');
+    expect(seen).toEqual([]); // nothing was synthesized on the silent rung
+    // An UNKNOWN pin falls back to the ladder rather than going silent.
+    const fell = await model.synthOne({ text: 'Two.', rung: 'no-such-rung' });
+    expect(fell?.rung).toBe('mock');
+  });
+});

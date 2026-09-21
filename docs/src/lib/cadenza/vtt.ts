@@ -24,9 +24,19 @@ function escapeCueText(s: string): string {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** ms → "HH:MM:SS.mmm" (VTT) or "HH:MM:SS,mmm" (SRT, comma decimal). */
+/**
+ * ms → "HH:MM:SS.mmm" (VTT) or "HH:MM:SS,mmm" (SRT, comma decimal).
+ *
+ * A non-finite input becomes 0, not "NaN:NaN:NaN.NaN". `Math.max(0, x)` clamps a negative
+ * but passes NaN and Infinity straight through, and every arithmetic step below preserves
+ * them — so one bad timestamp anywhere upstream used to produce a STRUCTURALLY INVALID
+ * caption file rather than a wrong one, which a player rejects wholesale. `cursor.align`
+ * now refuses the values that got here (see its preconditions), but this is a serializer
+ * writing bytes a stranger will open: it is the last place to be certain, and being certain
+ * costs one check.
+ */
 export function formatTimestamp(ms: number, comma = false): string {
-  const clamped = Math.max(0, Math.round(ms));
+  const clamped = Number.isFinite(ms) ? Math.max(0, Math.round(ms)) : 0;
   const h = Math.floor(clamped / 3600000);
   const m = Math.floor((clamped % 3600000) / 60000);
   const s = Math.floor((clamped % 60000) / 1000);

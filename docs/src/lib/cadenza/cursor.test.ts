@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { clipTrailingMs } from './cadence';
 import { makeCursor } from './cursor';
-import { buildTrack } from './track';
+import { buildTrack, validateTrack } from './track';
 
 const NOTE = 'Revenue grew to $4.2M. We beat plan by eight points.';
 
@@ -82,5 +82,76 @@ describe('cursor.align (hybrid re-anchor)', () => {
     const cursor = makeCursor(buildTrack(NOTE));
     cursor.align(0, 10_000, 4_000);
     expect(cursor.at(10_050)).toEqual({ cueIndex: 0, wordIndex: 0 });
+  });
+});
+
+// ── align preconditions — 2026-09-20-narration-audit.md Finding 3 ────────────────────
+//
+// `align` takes numbers a PLAYER measured, and used to accept all of them. Each bad value
+// corrupted the timeline silently and differently. These pin the refusal — and, just as
+// importantly, that a refused align leaves the cue's ESTIMATE intact rather than wrecking it.
+describe('align refuses a measurement it cannot use, and keeps the estimate', () => {
+  const threeCues = () => buildTrack('Aaa bbb ccc. Ddd eee fff. Ggg hhh iii.');
+
+  it('refuses a NaN duration instead of poisoning the whole timeline', () => {
+    const c = makeCursor(threeCues());
+    const before = c.track().durationMs;
+    c.align(0, 0, Number.NaN);
+    expect(c.track().durationMs).toBe(before);
+    expect(validateTrack(c.track())).toEqual([]);
+    expect(c.at(100)).toEqual({ cueIndex: 0, wordIndex: 0 }); // still readable
+  });
+
+  it('refuses a zero duration — reachable from a failed decode, not theoretical', () => {
+    // suono's stage computes `(buffer.duration || 0) * 1000`, so 0 arrives here for real.
+    const c = makeCursor(threeCues());
+    const before = c.track().cues[1].endMs - c.track().cues[1].startMs;
+    c.align(1, 1200, 0);
+    expect(c.track().cues[1].endMs - c.track().cues[1].startMs).toBe(before);
+    expect(validateTrack(c.track())).toEqual([]);
+  });
+
+  it('refuses an onset that would put a cue before the one ahead of it', () => {
+    // This is the sort-breaker: `at()` binary-searches by startMs, so an out-of-order
+    // anchor made it return null at EVERY probe — a permanently dark read-along.
+    const c = makeCursor(threeCues());
+    c.align(0, 5000, 1000);
+    c.align(1, 100, 500); // before cue 0 — refused
+    expect(validateTrack(c.track())).toEqual([]);
+    expect(c.at(5100)).toEqual({ cueIndex: 0, wordIndex: 0 });
+  });
+
+  it('still accepts a normal measurement, including one overlapping the previous cue’s end', () => {
+    const c = makeCursor(threeCues());
+    c.align(0, 0, 1000);
+    c.align(1, 900, 1200); // starts before cue 0 ENDS, which is ordinary and allowed
+    expect(c.track().cues[0].startMs).toBe(0);
+    expect(c.track().cues[1].startMs).toBe(900);
+    expect(validateTrack(c.track())).toEqual([]);
+  });
+
+  it('refuses a negative onset', () => {
+    const c = makeCursor(threeCues());
+    const before = c.track().cues[0].startMs;
+    c.align(0, -5000, 1000);
+    expect(c.track().cues[0].startMs).toBe(before);
+  });
+});
+
+describe('validateTrack reports what a corrupt timeline would do', () => {
+  it('passes a freshly built track', () => {
+    expect(validateTrack(buildTrack('One two. Three four.'))).toEqual([]);
+  });
+
+  it('names a non-finite span, an inverted span, and an out-of-order cue', () => {
+    const t = buildTrack('One two. Three four. Five six.');
+    t.cues[0].endMs = Number.NaN;
+    expect(validateTrack(t).join(' ')).toContain('non-finite');
+    const u = buildTrack('One two. Three four.');
+    u.cues[1].endMs = u.cues[1].startMs - 10;
+    expect(validateTrack(u).join(' ')).toContain('ends before it starts');
+    const v = buildTrack('One two. Three four.');
+    v.cues[1].startMs = -1;
+    expect(validateTrack(v).join(' ')).toContain('out of order');
   });
 });

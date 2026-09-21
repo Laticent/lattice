@@ -31,6 +31,24 @@ export const SYMBOL_SPEAK: Record<string, string> = {
   '×': 'times', '÷': 'divided by', '±': 'plus or minus', '≈': 'approximately',
   '≠': 'not equal to', '≤': 'less than or equal to', '≥': 'greater than or equal to',
   '√': 'square root of', '°': 'degrees', '∞': 'infinity', '∑': 'sum of', 'µ': 'micro',
+  // Status marks — "yes"/"no", not "check mark"/"ballot x". These are DRAWINGS doing the job of
+  // a word (HARD RULE #29), and in a deck that word is a verdict: they appear in comparison rows
+  // and readiness lists, where the engine's own state markers already narrate pass as "yes" and
+  // fail as "no" (prose-projection's verdict-grid map). Matching that wording keeps a typed glyph
+  // and the drawn marker saying the same thing.
+  //
+  // ALL SIX ARE LISTED because the table was accidentally inconsistent: `✔` and `☑` are
+  // `Extended_Pictographic`, so `resolveSymbols` silenced them, while the visually
+  // interchangeable `✓` and `☒` are not, so they reached the voice as raw glyphs. An author
+  // cannot see that distinction — it is a Unicode classification, not a decision — and the
+  // three different readings it produced were nobody's intent. An explicit SPEAK entry wins
+  // over the pictographic drop, so listing them here is what makes the six agree.
+  //
+  // This does not bless typing them: `lint:deck` still coaches `[x]`/`[ ]`, which carry the
+  // meaning properly and let the engine DRAW the shape. It only stops a deck that typed one
+  // from being read three different ways depending on which code point the author picked.
+  '✓': 'yes', '✔': 'yes', '☑': 'yes',
+  '✗': 'no', '✘': 'no', '☒': 'no',
   // Typographic marks. NOTE: "§" is deliberately NOT here — it begins a structured legal citation
   // ("§1798.140(o)" → "section … subsection o") that normalize.ts's spokenCore parses specially and
   // must own; that parser already reads a bare/leading "§" as "section". The commons is a fallback
