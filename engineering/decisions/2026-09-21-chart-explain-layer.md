@@ -120,11 +120,16 @@ where it declares how it PROJECTS, and the generator copies the whole block, so 
 needed no change.
 
 The contract is a **lowercase clause, unterminated**, because callers compose it:
-the floor speaks it as its own sentence, `word-cloud` builds *"Nine terms, sized by
-how often each came up"* around it. The manifest validator rejects a leading capital
-and a trailing period — both land mid-track as *"Nine terms, Sized by how often each
-came up. ."* — and rejects a frame on a component with no `data`, which would have
-nothing to frame.
+the floor speaks it as its own sentence, and `bullet` builds *"Each row shows where
+we landed against where we planned"* around it. The manifest validator rejects a
+leading capital and a trailing period — both land mid-track as *"Sized by how often
+each came up. ."* — and rejects a frame on a component with no `data`, which would
+have nothing to frame.
+
+*(`word-cloud` composed a count around it too — *"Nine terms, sized by …"* — until
+the fourth round below removed the count. It now speaks the clause alone, which is
+why the capitalization rule still matters for it: `openSentence` capitalizes what
+the manifest must not.)*
 
 ## Three refusals, each load-bearing
 
@@ -152,19 +157,25 @@ deliberately unnamed and the percentage carries that case alone.
 ## What it reads now
 
 ```
-bullet       Each row shows where we landed against where we planned. New ARR, four
-             point two million against a five million target — eighty-four percent
-             of plan, closing on plan. Expansion ARR, three point six million
-             against a three million target — one hundred twenty percent of plan. …
+bullet       Each row shows where we landed against where we planned. Two of five
+             cleared the plan line. New ARR, four point two million against a five
+             million target — eighty-four percent of plan, closing on plan.
+             Expansion ARR, three point six million against a three million target
+             — one hundred twenty percent of plan. …
 
-word-cloud   Nine terms, sized by how often each came up. Time-to-value is the
-             biggest at five, one clear of security and onboarding at four each.
-             Six more follow, down to contracts and residency at one each.
+word-cloud   Sized by how often each came up. Time-to-value is the biggest at five,
+             one clear of security and onboarding at four each. The rest follow,
+             down to contracts and residency at one each.
 
-state-chart  A five-state machine from Draft to Published; In Review is where it
-             decides, with two ways out; one transition steps back and In Review
-             loops on itself. From Draft, submit goes to Submitted. …
+state-chart  A three-state machine from Draft to Published. In Review is where it
+             decides, with two ways out. One transition steps back and In Review
+             loops on itself. From Draft, submit goes to In Review. …
 ```
+
+*(This block is the CURRENT reading, captured off `examples/chart-explain-narration.md`
+after the fourth round. Two things moved since the first cut and both are recorded
+below: `word-cloud` no longer states a term count, and the state-chart's shape facts
+are separate sentences rather than one semicolon chain.)*
 
 ## Six defects in the first output, all found by READING it
 
@@ -212,6 +223,7 @@ An independent checker pass **blocked** this diff. All eight reproduced first ti
 | 4 | a **two-pill** nested line absorbed as a band the chart never drew | no fixture had two pills on one nested line |
 | 5 | `headingStatesTally` suppressed the tally on an **all-clear** slide whose heading merely counted rows | `cleared === scored` makes both probes read one token |
 | 6 | **"two terms" over a picture drawing three** — the count excluded a word the packer still draws | the branch's own fixture asserted the wrong number |
+| | *(superseded: the term count is gone entirely — see the fourth round. What this finding was really protecting, that such a word is NAMED, is what its arm asserts now.)* | |
 | 7 | *"short of plan, well short of plan"* on a shipped gallery row | nothing asserted the echo branch's wording |
 | 8 | an unguarded frame interpolation speaks the literal word **"null"** | today's roster gate covers it only inside `PICTURE_DATA_LAYOUTS` |
 
