@@ -883,6 +883,18 @@ is a prediction, not a result.
   #2286. `examples/seq-ramp-canvas-aware.md` lists thirteen terms and the packer
   seats twelve. That is the deck's defect, not narration's, and `noteLabelDrop` already
   reports it — off this change's path, so filed rather than fixed here.
+- **And dropping the census did not drop narration's exposure to that.** The voice
+  names the leader, the runner-up and the smallest term, and below nine terms it names
+  EVERY term, so a word the packer cannot seat can still be spoken over a picture that
+  does not draw it. Narration runs on Markdown and the drop does not exist until the
+  transform runs, so this cannot be closed from the narration side — what can be done
+  is measure it, and `tools/measure-word-cloud-drop.mjs` now reports it as a second
+  number: **0 of 34 slides name an undrawn word**. On the two that lose one, `leverage`
+  sits at weight 4 in a thirteen-term list — past the enumerate cap of 8 and neither the
+  leader nor the tail, so the voice never reaches it. That is a measurement, not a
+  property: a smaller cloud that loses a word would be spoken. The detector is not
+  vacuous — on the same slide it matches the four terms the voice does name (`execution`,
+  `discipline`, `risk`, `drag`).
 - **`parseValue` reads a U+2212 in front of a currency symbol and not behind it** —
   tracked as #2287. `$−0.8M` plots POSITIVE while `$-0.8M` plots negative. It is the shared
   parser every chart in the family uses, so fixing it moves rendered bytes; filed,

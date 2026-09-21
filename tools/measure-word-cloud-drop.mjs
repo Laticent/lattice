@@ -24,6 +24,20 @@
  * real render. Not `data-count` alone: the count says how many were seated and
  * says nothing about which, and the whole point of a drop report is the name.
  *
+ * ── AND WHAT THE VOICE DOES WITH THE LOST WORD ───────────────────────────────
+ *
+ * Removing the census did not remove narration's exposure to a drop, and saying
+ * it had would be the same mistake in a smaller costume. `narrateWordCloud` names
+ * the leader, the runner-up and the smallest term, and below nine terms it names
+ * EVERY term. Any of those the packer cannot seat is a word the voice speaks and
+ * the picture does not draw.
+ *
+ * Narration runs on Markdown, so it cannot be fixed from that side — the drop does
+ * not exist until the transform runs. What can be done is MEASURE it, which is why
+ * this script reports a second number: how many slides name an undrawn word. It is
+ * 0 today, and 0 is a measurement here rather than a property, so re-run this
+ * before trusting it.
+ *
  * Usage:
  *   node tools/measure-word-cloud-drop.mjs                 # every deck in the tree
  *   node tools/measure-word-cloud-drop.mjs examples/x.md   # named decks
@@ -37,6 +51,7 @@ import { createRequire } from 'node:module';
 
 const require_ = createRequire(import.meta.url);
 const { render } = require_('../lib/engine/index.js');
+const { narrateChart } = require_('../lib/core/chart-narration.js');
 
 /**
  * THE ROOTS, SPELLED OUT, because "every deck in the tree" is not a measurement
@@ -76,6 +91,7 @@ const sameWord = (a) =>
 
 let slides = 0;
 let short = 0;
+let ghosts = 0;
 for (const file of decks(process.argv.slice(2))) {
   let src;
   try { src = fs.readFileSync(file, 'utf8'); } catch { continue; }
@@ -95,8 +111,22 @@ for (const file of decks(process.argv.slice(2))) {
       short++;
       console.log(`${file} slide ${i + 1}: drew ${drawn.length} of ${listed.length} — lost ${missing.join(', ')}`);
     }
+    // DOES THE VOICE NAME ONE OF THE LOST WORDS? Word-boundary matched against the
+    // narration string, not against a model of which words it chose to name — the
+    // whole point is to catch a clause nobody thought to check.
+    const said = missing.length ? narrateChart(sections[i]) : null;
+    for (const w of said ? missing : []) {
+      const needle = sameWord(w).toLowerCase();
+      if (!needle) continue;
+      const re = new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`);
+      if (re.test(sameWord(said).toLowerCase())) {
+        ghosts++;
+        console.log(`${file} slide ${i + 1}: THE VOICE NAMES "${w}", which the picture does not draw`);
+      }
+    }
   }
 }
 console.log(`\n${short} of ${slides} word-cloud slides draw fewer words than they list`);
+console.log(`${ghosts} of ${slides} name a word the picture does not draw`);
 console.log(`roots: ${ROOTS.join(' ')}`);
 process.exit(short ? 1 : 0);
