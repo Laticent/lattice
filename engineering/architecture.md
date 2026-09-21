@@ -279,7 +279,7 @@ Two consequences worth keeping in mind:
   and each Cell/Tile sheet are hand-authored, co-located files (`lib/forms/cell/<id>/<id>.css`).
   So "adding a Tile is a folder" is real; "adding a new spatial Frame type" is not —
   the composition-axis `form` enum — the manifest FIELD, twelve values, not the
-  eleven-Frame catalog — is still closed at twelve (mirrored in `lib/forms/index.js`,
+  twelve-Frame catalog — is still closed at twelve (mirrored in `lib/forms/index.js`,
   `lib/components/index.js`, and `lib/components/manifest.schema.json`), so a thirteenth
   axis value is a multi-file change.
 

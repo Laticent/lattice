@@ -413,6 +413,79 @@ describe('deck linter', () => {
       0, 'no-progress is a different register and stays');
   });
 
+  test('every migration shape is coached, and each points at the right slide', () => {
+    // FOUR live shapes carried a deck out of Form on main, and the first cut of these
+    // rules saw only two of them. Each arm below is one that shipped silent.
+
+    // (a) THE SLIDE NUMBER. Every finding reported `slide: 0`, which is not cosmetic:
+    // the editor anchors a diagnostic inside the chunk for that slide, so slide 0 is the
+    // FRONT MATTER and every warning collapsed onto the deck's opening `---`.
+    const two = lintText(
+      '---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## One.\n\n---\n\n<!-- _class: table form -->\n\n## Two.\n',
+      { vocab },
+    ).filter((x) => x.rule === 'retired-form-token');
+    assert.deepEqual(two.map((x) => x.slide), [1, 2], 'each finding names its own slide');
+
+    // (b) THE MULTI-LINE DIRECTIVE. Marpit accepts it across lines and the engine honors
+    // it; a line-wise scan saw none of them.
+    const multiline = lintText(
+      '---\ntheme: indaco\n---\n\n<!--\n_class: content no-form\n-->\n\n## H.\n', { vocab },
+    ).filter((x) => x.rule === 'retired-form-token');
+    assert.equal(multiline.length, 1, 'a directive split across lines still warns');
+    assert.equal(multiline[0].classToken, 'no-form');
+
+    // (c) THE DECK-WIDE `class:`. This opted EVERY slide out on main — the deck class
+    // propagates onto each section — so it deserves the loudest message, not silence.
+    const deckWide = lintText(
+      '---\ntheme: indaco\nclass: no-form\n---\n\n## H.\n', { vocab },
+    ).filter((x) => x.rule === 'retired-form-token');
+    assert.equal(deckWide.length, 1, 'a deck-wide `class: no-form` warns');
+    assert.match(deckWide[0].message, /EVERY slide/);
+
+    // (d) A TRAILING YAML COMMENT. `form: off  # legacy` read as the literal value
+    // `off  # legacy`, so the one deck whose render actually changes was told the key
+    // was inert. Only an unquoted `#` opens a YAML comment, so a quoted value is whole.
+    const commented = lintText(
+      '---\ntheme: indaco\nform: off  # legacy deck\n---\n\n## H.\n', { vocab },
+    ).find((x) => x.rule === 'retired-form-key');
+    assert.match(commented.message, /cannot be disabled/, 'the comment does not hide the value');
+  });
+
+  test('a token quoted inside a fence is not warned on', () => {
+    // A deck DOCUMENTING this migration quotes the token to show what to delete.
+    // Warning on the example is the rule failing at the deck most likely to carry it.
+    const fenced = lintText(
+      '---\ntheme: indaco\n---\n\n## Migrating.\n\n```markdown\n<!-- _class: content no-form -->\n```\n',
+      { vocab },
+    ).filter((x) => x.rule === 'retired-form-token');
+    assert.equal(fenced.length, 0, 'quoted material is not authored material');
+  });
+
+  test('a retired token draws ONE warning, not two', () => {
+    // `form` left UNIVERSAL_GROUPS.chrome, so the generic `unknown-class` rule started
+    // firing on it too — telling the author to "check the spelling" of a token that is
+    // spelled perfectly and is never coming back. `retired-form-token` owns these.
+    const all = lintText('---\ntheme: indaco\n---\n\n<!-- _class: table form -->\n\n## H.\n', { vocab });
+    assert.equal(all.filter((x) => x.rule === 'retired-form-token').length, 1);
+    assert.equal(
+      all.filter((x) => x.rule === 'unknown-class' && x.classToken === 'form').length,
+      0, 'no second, misleading warning about spelling');
+  });
+
+  test('the sovereign list in the coaching is DERIVED, so it cannot drift', () => {
+    // The repo has drifted this list twice while carrying its own warning not to write
+    // it by hand. An omitted Frame here is an answer the author is told does not exist —
+    // `topic` was missing, which is exactly the Frame someone wanting an in-section
+    // anchor with no chrome would reach for.
+    const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
+    const sovereign = Object.keys(catalog).filter((k) => catalog[k] === 'sovereign');
+    const found = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## H.\n', { vocab })
+      .find((x) => x.rule === 'retired-form-token');
+    for (const id of sovereign) {
+      assert.match(found.fix, new RegExp(`\\\`${id}\\\``), `the coaching names \`${id}\``);
+    }
+  });
+
 
   test('the stress-slide marker is the SPECIMEN opt-out — quiet at every band', () => {
     // `<!-- stress-slide -->` means "this slide EXISTS to show the upper limit". It has

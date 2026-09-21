@@ -29,7 +29,7 @@ answer that ever varies:
 |---|---|---|---|
 | **Form** | is this slide composed? | nobody — it is unconditional | always on; no key, class or flag selects it |
 | **Medium** *(rendering medium)* | what does it compose *into*? | the renderer, never the deck | `2d` (CSS). A WebXR / CSS-3D renderer would be a second medium; none is scheduled |
-| **Frame** | which Frame carves this slide into Cells? | the **component**, via the `_class` token an author writes | 11 Frames: 2 chrome-hosting (`standard` · `minimal`) + 9 sovereign |
+| **Frame** | which Frame carves this slide into Cells? | the **component**, via the `_class` token an author writes | 12 Frames: 2 chrome-hosting (`standard` · `minimal`) + 10 sovereign |
 
 **A sovereign Frame is not "Form off."** It is a Frame that declares **one** Cell —
 `cells: ["stage"]` — against `standard`'s nine. One Frame, one Cell, the whole
@@ -44,7 +44,7 @@ all".
 > band, the bay, the footer Cell and the rail select on — so a sovereign Frame does
 > not carry it. We tried making it universal and marking sovereignty with a second
 > class; it says the same thing, but the class is load-bearing for a decade of CSS
-> and for the split envelope, and universalising it moved real decks three separate
+> and for the split envelope, and universalizing it moved real decks three separate
 > times. The attributes state the model and move nothing. See
 > `engineering/decisions/2026-09-20-form-is-not-configurable.md` § "Why the class
 > did not become universal".
@@ -791,9 +791,10 @@ lift already followed).
 
 ## 8. The Frame and Tile catalogs (today)
 
-**Frames** are the **11 folders under `lib/forms/frame/`** — two chrome-hosting
-(`standard`, `minimal`) and nine sovereign (`title`, `divider`, `closing`,
-`image`, `premise`, `scene`, `split-panel`, `split-compare`, `compare-code`).
+**Frames** are the **12 folders under `lib/forms/frame/`** — two chrome-hosting
+(`standard`, `minimal`) and ten sovereign (`title`, `divider`, `closing`,
+`image`, `premise`, `scene`, `split-panel`, `split-compare`, `compare-code`,
+`topic`).
 
 > **Do not confuse a Frame with a composition-axis value.** This paragraph used to
 > say "Frames are the twelve Form values" and list `bookend` / `grid` / `ledger` /
@@ -801,7 +802,7 @@ lift already followed).
 > §4) — a different thing wearing the same word. The two do not line up: only four
 > of the twelve axis values are realized by any Frame at all. It also named
 > `image-full`, which is not a Frame id (the Frame is `image`), and listed three of
-> the nine sovereign Frames. The Frame catalog is the folder listing above; the
+> the ten sovereign Frames. The Frame catalog is the folder listing above; the
 > composition axis is the manifest field, and it stays exactly as it is.
 
 **Tiles** are the fourteen leaves across the four z-planes (the registry in the
@@ -958,7 +959,7 @@ sit unclassified):
   a single sized canvas, not flowing prose that can overstuff, so the stage clip buys
   nothing — and an over-large canvas is still caught at the section level by the
   overflow probe.
-- **chrome-exempt sovereign frames** (`SOVEREIGN_FRAMES`) — `title`, `closing`,
+- **chrome-exempt sovereign frames** (`SOVEREIGN_FRAMES`) — `title`, `closing`, `topic`,
   `divider`, `image`, `premise`, `scene`, `split-panel`, `split-compare`, `compare-code`
   get **no** band at all (they own their whole frame, incl. split frames' own bounded
   `.panel-right` / `.compare-right` clip cells).

@@ -64,7 +64,7 @@ There is no `form:` key and no per-slide token. Every slide carries the model, s
 
 ## A bookend is not Form switched off. It is a Frame with one Cell.
 
-The chrome-hosting `standard` Frame declares nine Cells. Each of the nine sovereign Frames — title, divider, closing, image, premise, scene, split-panel, split-compare, compare-code — declares exactly one, the stage. They carry no band and no rail because their Frame has nowhere to put one, which is a fact about the component, not a flag on the deck.
+The chrome-hosting `standard` Frame declares nine Cells — masthead, lede, bay, stage, footer, footer-left, rail, pagination and overlay. Every sovereign Frame declares exactly one, the stage. They carry no band and no rail because their Frame has nowhere to put one, which is a fact about the component, not a flag on the deck.
 
 ---
 

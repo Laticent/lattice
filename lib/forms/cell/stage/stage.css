@@ -387,7 +387,7 @@ section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
  * KEYED ON THE ELEMENT, not on the frame kind — and that is the whole of #2206's
  * fix at the CSS end. It used to read `section.form:has(> .cell-footer)`, i.e. "a
  * chrome-hosting frame", which made the page number TWO marks: the real span on
- * `minimal`/`standard`, the pseudo on the nine sovereign frames, with different box
+ * `minimal`/`standard`, the pseudo on the ten sovereign frames, with different box
  * models and different styling surfaces and nothing telling the author which. The
  * pagination Tile (lib/forms/tile/pagination) now mints the real element on every
  * paginated frame, so the condition can be the thing it actually cares about.

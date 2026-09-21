@@ -218,11 +218,22 @@ async function measure(page, slack, vbSlack) {
       // Block axis is deliberately NOT asserted: a pinned list body (`flex: 0 0
       // auto`) is centered at its natural height and legitimately does not fill the
       // cell, and an overstuffed one MUST spill it so overflow-probe.js can see it.
-      // The HOLDER is the stage under the Form and the SECTION on the `no-form`
-      // path — the rule is about which box owns the inset, not about a class name,
-      // and `no-form` / `form: off` are supported opt-outs. Keying on `.cell-stage`
-      // alone left this assertion silent on exactly the path where the first cut of
-      // #1598 regressed, so it falls back to the section instead of skipping.
+      // The HOLDER is the stage when the Frame builds one and the SECTION when it does
+      // not — the rule is about which box owns the inset, not about a class name.
+      // Keying on `.cell-stage` alone left this assertion silent on a stage-less
+      // section, which is exactly where the first cut of #1598 regressed, so it falls
+      // back to the section instead of skipping.
+      //
+      // NOTHING IN THIS FIXTURE REACHES THE FALLBACK TODAY, and that is worth stating
+      // rather than leaving as a silent zero. It used to be reached by `no-form`, which
+      // is retired (2026-09-20) along with `form: off` — a slide cannot opt out of Form.
+      // The remaining stage-less Frames are the SOVEREIGN ones, and no chart is
+      // sovereign: every chart carries `chart-frame`, which forces the wrap. The
+      // fixture's one `no-form` slide went with the token; it was there for this branch
+      // and nothing else, and keeping it without the token merely gave it a stage it
+      // overflowed by 342px at portrait — a clip this gate correctly reported.
+      // The fallback stays because the rule it states is about boxes, not classes, and
+      // a future sovereign Frame holding a measured body would land on it.
       const holder = stage || sec;
       {
         const body = holder.querySelector(':scope > .chart-body, :scope > .mermaid-svg, :scope > .mermaid, :scope > pre, :scope > marp-pre');
@@ -267,7 +278,7 @@ async function measure(page, slack, vbSlack) {
             || Math.abs(pad[1] - panelX) > SLACK_ || Math.abs(pad[3] - panelX) > SLACK_);
           insets.push({
             slide: +sec.id || insets.length + 1,
-            component: stage ? component : `${component} (no-form)`,
+            component: stage ? component : `${component} (no stage)`,
             // `getAttribute`, not `.className`: on an SVG element that property is an
             // SVGAnimatedString and stringifies to `[object SVGAnimatedString]`.
             body: body.getAttribute('class') || body.tagName,

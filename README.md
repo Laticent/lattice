@@ -317,7 +317,7 @@ It also composes every slide as **Form** — the masthead band, bay, progress ra
 and section watermarks — matching the engine, so a deck dropped into a Marp tool
 gets the full layout with no per-slide tagging. Form is unconditional: there is no
 front-matter key and no per-slide opt-out, on any render path. What varies is which
-**Frame** a slide composes as, and its component decides that: nine sovereign Frames
+**Frame** a slide composes as, and its component decides that: ten sovereign Frames
 (`title`, `divider`, `closing`, `image`, `premise`, `scene`, `split-panel`,
 `split-compare`, `compare-code`) declare a single Cell and carry no chrome, while
 everything else composes as the chrome-hosting `standard` Frame. See

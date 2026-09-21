@@ -63,7 +63,7 @@ engine owns — `> .cell-stage h2` matches nothing.
 [Component anatomy](/craft/components/anatomy/).
 
 **Your rule works, but only on some slides.**
-Nine layouts compose as a sovereign Frame and have no `.cell-stage` element. If
+Ten layouts compose as a sovereign Frame and have no `.cell-stage` element. If
 you are styling one of `title`, `closing`, `divider`, `image`, `scene`, `premise`,
 `compare-code`, `split-compare` or `split-panel`, anchor on `section.<name>`
 instead.

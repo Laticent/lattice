@@ -8,9 +8,9 @@ summary: >-
   class: every slide now carries `data-form="2d"` and `data-frame="<id>"`, so a reader asks which
   FRAME a slide composes under and gets a name instead of inferring it from a missing class. The
   `form` CLASS stays what it always was — the chrome-hosting Frame's CSS hook. Three levels replace the toggle — Form (unconditional) over Medium (`2d` today, a
-  renderer's choice) over Frame (the component's choice). Verified pixel-neutral across 84
-  component galleries in both moods; all 40 deck-golden drifts reproduce on a clean tree and are
-  pre-existing. Two conformance findings fall out: `list bullet` lost its clip cell to a
+  renderer's choice) over Frame (the component's choice). The ATTRIBUTES move nothing; the one
+  deliberate repaint in the same work is the `list bullet` fix below, and the branch's deck-golden
+  drift list is a strict subset of `origin/main`'s. Two conformance findings fall out: `list bullet` lost its clip cell to a
   variant/component name collision (fixed, one of 273 combinations changes), and `video` cannot
   reach conformance by flag alone (recorded, not forced).
 builds-on: 2026-06-16-form-manifest-medium-independent-contract.md, 2026-07-08-runtime-form-default.md, 2026-07-15-model-driven-frame-render.md
@@ -51,7 +51,7 @@ says `cells: ["stage"]`.
 |---|---|---|---|
 | **Form** | is this slide composed? | nobody — it is unconditional | always on; no key, class or flag selects it |
 | **Medium** *(rendering medium)* | what does it compose *into*? | the renderer, never the deck | `2d` (CSS) |
-| **Frame** | which Frame carves this slide into Cells? | the **component**, via its `_class` token | 11 Frames: 2 chrome-hosting + 9 sovereign |
+| **Frame** | which Frame carves this slide into Cells? | the **component**, via its `_class` token | 12 Frames: 2 chrome-hosting + 10 sovereign |
 
 **"Medium" is overloaded and this is not the coupling rung.**
 `2026-06-16-form-manifest-medium-independent-contract.md` uses *Medium/Heavy* for how tightly the
@@ -68,7 +68,7 @@ confusion this record removes, not a hedge against it.
 ## What sovereignty is now
 
 Every slide carries `data-form="2d"` — it composes as Form, in the 2D medium — and
-`data-frame="<id>"`, naming the Frame that carves it: `standard`, or one of the nine sovereign
+`data-frame="<id>"`, naming the Frame that carves it: `standard`, or one of the ten sovereign
 ids (`title`, `divider`, `closing`, `image`, `premise`, `scene`, `split-panel`, `split-compare`,
 `compare-code`). That is the statement that replaced the absent class. Two kernel predicates,
 `isSovereignFrame` and `hostsChromeCells`, are what the chrome injectors ask.
@@ -86,12 +86,15 @@ universal moved real decks three separate times:
 |---|---|---|
 | `examples/social-grid` | masthead band went full-bleed; the "Option 1 of 2" pill overprinted the rail | a split page inherits the marker, and the guards then strip geometry the envelope's chrome needs |
 | `themes/palette-audit` | three pages gained a stage inset they never had | `:not(.frame-sovereign)` is specificity (0,2,1) where bare `section.form` is (0,1,1), so the guarded rule won contests it used to lose |
-| `examples/split-horizontal`, `examples/autosplit-coverage` | content lost its horizontal inset | `premise` split pages carry no `form` on main, so universalising it handed them chrome geometry |
+| `examples/split-horizontal`, `examples/autosplit-coverage` | content lost its horizontal inset | `premise` split pages carry no `form` on main, so universalizing it handed them chrome geometry |
 
 Each was found by a golden, and each needed its own guard or escape. A design that needs a new
 escape hatch per discovery is not one to ship. The attributes say exactly the same thing about
-the model, are queryable by name rather than by absence, and move nothing: every deck golden and
-every component gallery is byte-identical.
+the model, are queryable by name rather than by absence, and move nothing: no golden changes
+because of them. (Read that as scoped to the attributes, which is all it claims. The PR as a
+whole DOES repaint `list.gallery.{dark,light}.pdf` — the `list bullet` fix, deliberate and
+visible. An earlier draft said "every deck golden and every component gallery is byte-identical"
+without that scope, which read as a claim about what ships, and was false.)
 
 The lesson generalises past this change. **A CSS class that a decade of rules select on is an
 interface, not a description.** Restating the model is worth doing; restating it by redefining
@@ -103,8 +106,8 @@ that interface is not.
 |---|---|
 | The corpus barely used it | one file repo-wide carried `form: off`; one slide carried `no-form`; ten decks carried a redundant `form: standard` |
 | Sovereign Frames must stay chrome-free | rendered a `divider` wearing `form` before the gating landed: it picked up a hairline, a progress rail and an accent bar it is designed to refuse |
-| The change moves no pixels | 84 component galleries × 2 moods; one drift (`logo`), reproduced on a stashed tree with `dist/` rebuilt |
-| No deck golden regressed | 241 deck goldens, 40 drifted — the clean-tree run produced a byte-identical 40-name list, so every one is pre-existing |
+| The ATTRIBUTES move no pixels | 84 component galleries × 2 moods; one drift (`logo`), reproduced on `origin/main` with `dist/` rebuilt. The `list` gallery's two moods repaint deliberately — that is the `list bullet` fix, not this |
+| No deck golden regressed | the branch's drift list is a strict SUBSET of `origin/main`'s, by running the full deck scope on each tree and diffing the names. Measured by checking out `origin/main` and rebuilding `dist/` — an earlier attempt used `git stash`, which removes only UNCOMMITTED work, so every commit on the branch was still in the tree and it never compared against main at all |
 
 ## Two conformance findings
 

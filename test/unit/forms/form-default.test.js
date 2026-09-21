@@ -40,10 +40,12 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
     // Stated on the ATTRIBUTES, which every slide carries; the `form` CLASS is the
     // chrome-hosting Frame's CSS hook and a sovereign Frame does not take it.
     // Mirrors SOVEREIGN_FRAMES_FALLBACK — the engine and this path must agree.
-    // EVERY slide carries `form` since 2026-09-20; a sovereign one also carries
-    // `frame-sovereign`, which is what the chrome injectors and the handful of
-    // universal `section.form` CSS rules gate on. Sovereignty is a property of the
-    // FRAME (one Cell, no chrome Cells), not an absence of Form.
+    // Sovereignty is a property of the FRAME (one Cell, no chrome Cells), not an
+    // absence of Form. These lines used to describe a `frame-sovereign` class as the
+    // thing the chrome injectors gate on; that was the FIRST cut of this change and it
+    // was reverted (it moved three real decks), so the class exists nowhere in the tree
+    // — while the assertion below, which is what actually runs, always checked the
+    // opposite. A comment describing a design that did not ship is worse than none.
     // `math` is NOT sovereign: it left its frame in 2026-09. Its own test below
     // asserts that per variant, and is what fails if the frame is ever put back.
     for (const cls of ['title', 'divider', 'closing', 'image', 'compare-code', 'split-panel', 'split-compare']) {

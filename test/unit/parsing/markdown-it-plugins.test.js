@@ -526,7 +526,7 @@ describe('markdown-it-plugins', () => {
   // ── Form — the composition model, applied to every slide ─────────────────
   // There is no toggle. `readFormMode`, `FORM_MODES` and the `form:` key are
   // retired, as are the per-slide `form` / `no-form` opt-outs. What survives is
-  // the FRAME choice: the nine sovereign Frames carry no chrome Cells.
+  // the FRAME choice: the sovereign Frames carry no chrome Cells.
 
   test('the deck-wide toggle is gone — no reader, no mode vocabulary', () => {
     // Asserted, not merely deleted: re-exporting either symbol would quietly
@@ -543,12 +543,22 @@ describe('markdown-it-plugins', () => {
     // A sovereign Frame composes as Form too — it declares one Cell and no chrome
     // Cells, so it takes no chrome hook. That it IS Form is said on the attributes
     // (asserted in the applyFormToHtml arm below), never by the absence of a class.
-    for (const sov of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image', 'premise', 'scene', 'split-compare']) {
+    // Iterated from SOVEREIGN_FRAMES, not a literal list: the hand-written copy of this
+    // set has drifted twice in this repo, and a test that carries its own stale copy
+    // certifies the drift instead of catching it. `topic` was the one it missed.
+    for (const sov of plugins.SOVEREIGN_FRAMES) {
       assert.equal(plugins.formToggleClass(sov), sov, `${sov} takes no chrome hook`);
       assert.equal(plugins.hostsChromeCells(sov), false, `${sov} hosts no chrome Cells`);
       assert.equal(plugins.isSovereignFrame(sov), true);
       assert.equal(plugins.frameIdFor(sov), sov, `${sov} names its own Frame`);
+      // AND AN AUTHORED `form` TOKEN IS STRIPPED. This is the one case where the
+      // retired token was still live: the class survived, the slide picked up
+      // `section.form`'s chrome geometry, and its ink moved 16px at 2560x1440 — while
+      // `lint:deck` told the author the token was inert. The Frame decides alone.
+      assert.equal(plugins.formToggleClass(`${sov} form`), sov, `${sov} refuses an authored form token`);
+      assert.equal(plugins.formToggleClass(` ${sov}  form `), sov, 'whitespace does not smuggle it through');
     }
+    assert.ok(plugins.SOVEREIGN_FRAMES.includes('topic'), 'topic is a sovereign Frame');
     assert.equal(plugins.hostsChromeCells('content'), true, 'the standard Frame hosts chrome Cells');
     assert.equal(plugins.frameIdFor('content'), 'standard');
     // `math` IS NOT SOVEREIGN. It left its sovereign frame in 2026-09 — every

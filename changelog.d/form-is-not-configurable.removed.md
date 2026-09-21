@@ -6,7 +6,7 @@
   the consequence rather than refusing the deck, and the specific chrome controls
   (`class: no-progress`, `no-header`, `no-footer`, `no-paginate`) are unaffected.
 - **Changed: sovereignty is a property of a Frame, not the absence of Form.**
-  `FORM_TOGGLE_SKIP` is now `SOVEREIGN_FRAMES` — the nine Frames that declare one
+  `FORM_TOGGLE_SKIP` is now `SOVEREIGN_FRAMES` — the ten Frames that declare one
   Cell instead of the chrome-hosting Frame's nine. `applyFormToggleToHtml` is
   `applyFormToHtml` and takes no deck source, because there is nothing left to read.
 - **Changed: `form` is engine scaffolding, not an author modifier.** It leaves the
