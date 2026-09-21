@@ -7,3 +7,6 @@
   that ships no deck stylesheet. A deck with no runtime-drawn content skips the
   bake entirely and is unchanged; a bake that cannot run still renders the
   article, with the fence source it showed before.
+  The spent Mermaid source block is hidden in the reading pane the way the engine hides it
+  on a slide — without that, a fence on a plain content slide showed its source and the
+  drawing, one under the other.

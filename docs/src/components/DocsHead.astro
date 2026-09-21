@@ -15,14 +15,22 @@ const route = Astro.locals.starlightRoute;
 // derivation of the same URL is a second thing to keep in step. Absent when the site has
 // no `site` configured, in which case the record simply carries no url.
 const canonical = route.head.find((t) => t.tag === 'link' && t.attrs?.rel === 'canonical')?.attrs?.href;
+
+// `template: splash` is Starlight's own flag for "this page is a landing surface, not a
+// document" — no sidebar, no table of contents, no article furniture. Today the only one is
+// `404.md`, which was emitting a record asserting `mainEntityOfPage: /404/`: a soft-404
+// signal, and a page with no prose in it claiming to be an Article, which is exactly what
+// `ArticleSchema`'s own header says this must not do. Keyed on the template rather than on
+// the slug, so a future landing page is excluded by declaring what it is.
+const isArticle = route.entry.data.template !== 'splash';
 ---
 
 <Default><slot /></Default>
-<ArticleSchema
+{isArticle && <ArticleSchema
 	title={route.entry.data.title}
 	description={route.entry.data.description}
 	url={typeof canonical === 'string' ? canonical : undefined}
 	dateModified={route.lastUpdated}
 	lang={Astro.currentLocale ?? 'en'}
 	siteName={route.siteTitle}
-/>
+/>}

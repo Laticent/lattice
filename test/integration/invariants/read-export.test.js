@@ -426,6 +426,13 @@ describe('--read — the deck as prose, and nothing else moves', () => {
 		try {
 			render(a, path.join(a, 'deck.png'));
 			render(b, path.join(b, 'deck.png'), ['--read']);
+			// THE FLAG DID SOMETHING. Byte-identity alone stays green if `--read` silently became
+			// a no-op for raster targets, which is the one way this arm could pass while the
+			// feature was broken. The PDF arm already guards this; these two did not.
+			assert.match(
+				fs.readFileSync(path.join(b, 'deck.html'), 'utf8'), /<article id="lat-read"/,
+				'the --read run must actually have produced the article, or equality proves nothing',
+			);
 			const pngs = (d) => fs.readdirSync(d).filter((f) => f.endsWith('.png')).sort();
 			const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 			// A .png render emits one numbered file per slide, so an empty set would make every
@@ -460,6 +467,10 @@ describe('--read — the deck as prose, and nothing else moves', () => {
 				}
 				return out;
 			};
+			assert.match(
+				fs.readFileSync(path.join(b, 'deck.html'), 'utf8'), /<article id="lat-read"/,
+				'the --read run must actually have produced the article, or equality proves nothing',
+			);
 			const [ea, eb] = [await entries(path.join(a, 'deck.pptx')), await entries(path.join(b, 'deck.pptx'))];
 			assert.ok(ea.size > 0, 'the .pptx should hold entries');
 			assert.deepEqual([...eb.keys()].sort(), [...ea.keys()].sort(), '--read must not add or drop a .pptx part');

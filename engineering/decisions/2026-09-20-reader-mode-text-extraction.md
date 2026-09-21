@@ -301,7 +301,11 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   carried neither signal despite being ordinary prose. One `ArticleSchema.astro` now emits
   the record, rendered from a Starlight `Head` override, from `ComponentsLayout`, and from
   `/comparison`; `ComponentsLayout` and `/comparison` also emit the `og:` tags they lacked.
-  **111 of 128 built pages** now carry both, against 110 carrying only `og:type` before.
+  **110 of 128 built pages** now carry both, against 110 carrying only `og:type` before. The
+  one page that carries `og:type` without the record is `/404`, deliberately: Starlight flags it
+  `template: splash`, and a page with no prose in it asserting `mainEntityOfPage: /404/` is a
+  soft-404 signal. Its `og:type` is Starlight's own default and stays; only the stronger signal
+  is withheld.
   The 17 without are app shells, redirects, the two proto routes, the marketing landing and
   `/features`, and the four library pages — deliberately, because a shell that claims to be
   an Article invites a reading mode onto a page with no prose in it. The probe is what

@@ -7,3 +7,5 @@
   the marketing pages are deliberately left out: a shell that claims to be an Article
   invites a reading mode onto a page with no prose in it. Firefox's Reader View reads
   neither signal, so this changes nothing for shake-to-summarize.
+  A Starlight `template: splash` page — today only `/404` — is excluded: a page with no
+  prose asserting `mainEntityOfPage` for itself is a soft-404 signal.

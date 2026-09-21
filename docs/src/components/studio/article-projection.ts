@@ -42,15 +42,29 @@ export type DeckArticle = { articleHtml: string; toc: ArticleToc[] };
  * iframe by `lib/runtime`, which this view never loads. Unbaked, the article showed the
  * author a wall of Mermaid source where the player's Read view shows the drawing.
  *
- * The test is a string match on the three markers the runtime itself keys on
- * (`lib/runtime/index.js`: the fence class, `.state-chart-figure[data-sc-transitions]`,
- * `div.functionplot[data-fp-config]`) because the bake is NOT free and most decks earn
- * nothing from it: `bakeDeckSections` builds a capture frame, waits for the srcdoc load,
- * for `fonts.ready` and for a paint — several hundred ms against a projection that runs
- * in 3.5-11.8 ms. A deck with no runtime content would pay all of it for a byte-identical
- * result.
+ * TWO markers, not three, and the two omissions are deliberate.
+ *
+ * `data-sc-transitions` (state-chart) is NOT here. A state-chart is in
+ * `SPATIAL_PLACEHOLDER_COMPONENTS`, and `projectDeckToProse` takes that branch first — so the
+ * slide projects to its placeholder (plus the description the transform already wrote into
+ * the static render) whether or not anything was baked. Gating on it bought a byte-identical
+ * article for the full bake cost, on 8 of the shipped example decks. An independent checker
+ * found it; the gate's own rationale below is the argument against it.
+ *
+ * The Mermaid arm matches the FENCE MARKUP rather than the bare string `language-mermaid`,
+ * because a deck that merely writes that class name in prose or in an inline code span — and
+ * one shipped deck does, `examples/mermaid-tilde-fences.md` — would otherwise pay the bake
+ * for a deck with no diagram in it at all.
+ *
+ * The gate exists because the bake is NOT free and most decks earn nothing from it:
+ * `bakeDeckSections` builds a capture frame, waits for the srcdoc load, for `fonts.ready` and
+ * for a paint — several hundred ms against a projection that runs in 3.5-11.8 ms. A deck with
+ * no runtime-drawn content would pay all of it for a byte-identical result.
  */
-const RUNTIME_DRAWN = /language-mermaid|data-sc-transitions|data-fp-config/;
+// The leading `\s` is required, not cosmetic: a bare `class="` also matches `data-class="`,
+// which carries the author's RAW `_class:` payload rather than the resolved list (#1358), and
+// `check-ownership.js` rejects the unguarded form.
+const RUNTIME_DRAWN = /<code[^>]*\sclass="[^"]*language-mermaid|data-fp-config/;
 
 /**
  * Bake the runtime-drawn content into the render's own markup, or return null to say
@@ -74,10 +88,14 @@ const RUNTIME_DRAWN = /language-mermaid|data-sc-transitions|data-fp-config/;
  * drop that slide's prose AND its table-of-contents row, and a reader has no way to tell a
  * deck that never said something from one whose article ate it.
  */
-async function bakeArticleSections(render: DeckRender, staticSections: string[]): Promise<string[] | null> {
+async function bakeArticleSections(render: DeckRender, staticSections: string[], isStale?: () => boolean): Promise<string[] | null> {
 	if (!RUNTIME_DRAWN.test(render.html)) return null;
 	try {
 		const { bakeDeckSections } = await import('./export/deck-export.js');
+		// A view switch or a palette toggle while the bake is in flight makes this render
+		// obsolete before it finishes. Checked HERE, after the dynamic import and before the
+		// capture frame, which is the last point where abandoning costs nothing.
+		if (isStale?.()) return null;
 		// `freezeTokens` — this pane ships no deck stylesheet, so a paint the bake leaves as
 		// `var(--token)` resolves to nothing here and falls to the SVG initial, BLACK. Measured
 		// on `examples/mermaid-diagram-surface.md`: every node and every connector black, with
@@ -137,15 +155,24 @@ export async function projectDeckArticle(
 	extraTheme?: ExtraTheme,
 	extraCss?: string,
 	modeOverride?: 'light' | 'dark',
+	isStale?: () => boolean,
 ): Promise<DeckArticle> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
 	const render = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
-	const { splitSections } = (await import('@/playground/deck-preview.js')) as unknown as {
-		splitSections: (h: string) => string[];
+	// THE DEPTH-AWARE SPLITTER, which is what the export twin uses (`share-export.ts` →
+	// `slideChannelRecord`). `splitSections` is a flat "scan to the next `</section>`", so a
+	// slide holding a hand-authored `<section>` counts as two — and this count is only used as
+	// the bake's parity denominator, so a miscount silently DISCARDS a good bake and hands the
+	// reader the un-baked article. `deck-export.js` documents the same trap at its own call.
+	const { splitSectionsCore } = (await import('@/playground/authoring-core.generated.js')) as unknown as {
+		splitSectionsCore: (h: string) => { type: string; openTag: string; inner: string }[];
 	};
-	const staticSections = splitSections(render.html);
-	const baked = await bakeArticleSections(render, staticSections);
+	const staticSections = splitSectionsCore(render.html)
+		.filter((p) => p.type === 'section')
+		.map((p) => `${p.openTag}${p.inner}</section>`);
+	if (!staticSections.length) return { articleHtml: '', toc: [] };
+	const baked = await bakeArticleSections(render, staticSections, isStale);
 	return projectSectionsToArticle(baked ?? staticSections);
 }
 

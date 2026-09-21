@@ -94,6 +94,17 @@ const READ_ARTICLE_CSS = `
 .st-read-article th,.st-read-article td{border:1px solid var(--border);padding:.4em .7em;text-align:left}
 .st-read-article th{background:var(--bg-alt);font-weight:600}
 .st-read-article pre{background:var(--bg-alt);padding:1em;border-radius:8px;overflow:auto;font-size:.85em}
+/* HIDE THE SPENT MERMAID SOURCE. The bake leaves the source <pre> in the section on purpose
+   — mermaid.css and highlight-js.css style the drawing with ADJACENT-SIBLING selectors on it,
+   so removing it would unstyle the very diagram the bake exists to ship — and the engine
+   hides it with this same rule. That rule travels with the deck stylesheet, which the player
+   ships and this pane does not, so before the bake existed there was nothing to hide and
+   after it there was: a fence on a slide whose component is not one of the MEDIA_COMPONENTS
+   (a plain content slide, say) projects through the generic walk, which emits the <pre> AND
+   the figure. The reader got a wall of mermaid source immediately followed by the drawing —
+   the bug this view set out to remove, now shipped beside its own fix. Kept in step with
+   lib/components/diagram/mermaid/... by intent, not by a gate. */
+.st-read-article pre[data-mermaid-state]:not([data-mermaid-state="error"]):not([data-mermaid-state="unavailable"]){display:none}
 /* Un-trim, exactly as the player's Read view does: a slide's guards:strict clamp rides
    in on the cloned DOM, and this column scrolls, so the clamp is pure content loss for a
    reader who opened this view to get the full text. display:revert, not display:block —
@@ -115,7 +126,7 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 	React.useEffect(() => {
 		let canceled = false;
 		setState('loading');
-		projectDeckArticle(options, source, palette, extraTheme, extraCss, mode)
+		projectDeckArticle(options, source, palette, extraTheme, extraCss, mode, () => canceled)
 			.then((a) => {
 				if (canceled) return;
 				setHtml(a.articleHtml);
