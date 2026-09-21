@@ -36,16 +36,28 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
     assert.equal(d.querySelector('section').className, 'form');
   });
 
-  test('skips every sovereign frame (the render-time skip set)', () => {
-    // Mirrors FORM_TOGGLE_SKIP_FALLBACK — the engine and this path must agree.
-    // `math` is NOT in this list any more: it left its sovereign frame in 2026-09 and
-    // takes `form` like any other component. Its own test below asserts that, per
-    // variant, and is the thing that would fail if the frame were ever put back.
-    for (const cls of ['title', 'divider', 'closing', 'image', 'compare-code', 'split-panel', 'split-compare']) {
+  test('a sovereign frame composes as Form too, and says which Frame it is', () => {
+    // Stated on the ATTRIBUTES, which every slide carries; the `form` CLASS is the
+    // chrome-hosting Frame's CSS hook and a sovereign Frame does not take it.
+    // Mirrors SOVEREIGN_FRAMES_FALLBACK — the engine and this path must agree.
+    // Sovereignty is a property of the FRAME (one Cell, no chrome Cells), not an
+    // absence of Form. These lines used to describe a `frame-sovereign` class as the
+    // thing the chrome injectors gate on; that was the FIRST cut of this change and it
+    // was reverted (it moved three real decks), so the class exists nowhere in the tree
+    // — while the assertion below, which is what actually runs, always checked the
+    // opposite. A comment describing a design that did not ship is worse than none.
+    // `math` is NOT sovereign: it left its frame in 2026-09. Its own test below
+    // asserts that per variant, and is what fails if the frame is ever put back.
+    // Iterated from SOVEREIGN_FRAMES, not a literal: a test carrying its own stale copy
+    // of this set certifies the drift instead of catching it, and this copy was already
+    // short by three (`premise`, `scene`, `topic`).
+    for (const cls of require('../../../lib/integrations/markdown-it/plugins').SOVEREIGN_FRAMES) {
       const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
       applyFormDefaultToDom(d);
       const sec = d.querySelector('section');
-      assert.equal(sec.className, cls, `${cls} must not gain form`);
+      assert.equal(sec.className, cls, `${cls} takes no chrome hook`);
+      assert.equal(sec.getAttribute('data-form'), '2d', `${cls} composes as Form`);
+      assert.equal(sec.getAttribute('data-frame'), cls.split(/\s+/)[0], `${cls} names its Frame`);
       // still marked as a slide, so slide-scoped features can see it
       assert.equal(sec.getAttribute('data-lattice-slide'), '1');
     }
@@ -84,10 +96,13 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
     assert.equal(bare.querySelector('section').className, 'math form');
   });
 
-  test('respects an explicit `no-form` opt-out (unchanged)', () => {
+  test('a legacy `no-form` token no longer opts a slide out', () => {
+    // `no-form` is retired — Form is not optional. A deck still carrying the token
+    // composes as Form anyway; the token survives on the class list as the inert
+    // leftover it is, and `lint:deck` tells the author to delete it.
     const d = doc('<section class="content no-form"><h2>T</h2></section>');
     applyFormDefaultToDom(d);
-    assert.equal(d.querySelector('section').className, 'content no-form');
+    assert.equal(d.querySelector('section').className, 'content no-form form');
   });
 
   test('leaves an already-`form` slide unchanged (idempotent class)', () => {

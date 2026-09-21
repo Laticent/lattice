@@ -22,7 +22,7 @@ Everything a reader sees sits on a plane the CSS names out loud.
 
 ---
 
-<!-- _class: cards-stack form watermark finish-savile -->
+<!-- _class: cards-stack watermark finish-savile -->
 
 `THE TWO THAT SINK`
 

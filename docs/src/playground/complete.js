@@ -19,7 +19,7 @@
 
 import { autocompletion } from '@codemirror/autocomplete';
 import { dataSources } from './data-sources.js';
-import { DIRECTIVE_NAMES, FENCE_LANGS, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, FORM_VALUES, MERMAID_KEYWORDS, PAGINATE_VALUES, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
+import { DIRECTIVE_NAMES, FENCE_LANGS, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, MERMAID_KEYWORDS, PAGINATE_VALUES, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
 import {
 	backdropAxisPosition,
 	blankBodyPartial,
@@ -30,7 +30,6 @@ import {
 	finishValuePosition,
 	focusAxisPosition,
 	focusStyleValuePosition,
-	formValuePosition,
 	identifierBefore,
 	inFencedLang,
 	inFrontMatter,
@@ -50,7 +49,6 @@ const DIRECTIVE_TOKEN = /^_?[\w-]*$/;
 // Static option lists (built once) for the line-local Tier-2 sources.
 const DIRECTIVE_OPTIONS = DIRECTIVE_NAMES.map((d) => ({ label: d, type: 'keyword', detail: 'directive' }));
 const PAGINATE_OPTIONS = PAGINATE_VALUES.map((v) => ({ label: v, type: 'constant' }));
-const FORM_OPTIONS = FORM_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'form' }));
 const SPLIT_OPTIONS = SPLIT_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'split' }));
 const SIZE_OPTIONS = SIZE_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'size' }));
 const FOCUS_STYLE_OPTIONS = FOCUS_STYLE_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'focus style' }));
@@ -259,7 +257,6 @@ export function latticeAutocomplete({ vocab, catalog, themes, finishes } = {}) {
 			lineLocalSource(paginateValuePosition, PAGINATE_OPTIONS),
 			lineLocalSource(focusStyleValuePosition, FOCUS_STYLE_OPTIONS),
 			focusAxisSource(catalog),
-			lineLocalSource(formValuePosition, FORM_OPTIONS),
 			lineLocalSource(splitValuePosition, SPLIT_OPTIONS),
 			lineLocalSource(sizeValuePosition, SIZE_OPTIONS),
 			lineLocalSource(fenceLangAt, FENCE_OPTIONS),

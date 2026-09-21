@@ -187,7 +187,13 @@ const VARIANT_DECL_IGNORE = new Map([
 // stamped on every section when a deck is exported in print; a `section.print.<component>`
 // rule (e.g. journey's print ramp re-resolution) is print-mode chrome, not an author
 // variant of that component — exactly like a `section.dark.<component>` override would be.
-const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native', 'print']);
+// `form` is the composition model, stamped by the engine on every non-sovereign section.
+// It JOINED this set on 2026-09-20, when `form` / `no-form` left the author vocabulary:
+// until then it was an author-selectable chrome modifier, and nine components carry
+// `section.<name>.form` rules that the variant-declaration gate would otherwise read as
+// nine undeclared variants. It is scaffolding on the same footing as `chart-frame` — an
+// author cannot select it, and cannot refuse it.
+const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native', 'print', 'form']);
 
 // Search tags that legitimately apply to exactly ONE component — a
 // genuinely-unique idiom or material with no sibling that shares it

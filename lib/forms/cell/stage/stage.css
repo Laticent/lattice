@@ -49,6 +49,10 @@
  *                     title or meta line is cut at its Cell, never bled. */
 section.form {
   /* THE ROOT CHROME FRAME — masthead Cell · stage Cell · footer Cell.
+   * `section.form` is the CHROME-HOSTING Frame's hook, not "this slide is Form":
+   * every slide composes as Form and says so on `data-form` / `data-frame`. A
+   * sovereign Frame declares one Cell and no chrome Cells, so none of the geometry
+   * below is its to reserve — and it simply does not carry this class.
    * The masthead Cell is an IN-FLOW band sized to its own content (so the
    * hairline sits directly under the title — no dead space), then the STAGE Cell
    * is the flex content region below it. The footer Cell is an absolutely-
@@ -383,7 +387,7 @@ section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
  * KEYED ON THE ELEMENT, not on the frame kind — and that is the whole of #2206's
  * fix at the CSS end. It used to read `section.form:has(> .cell-footer)`, i.e. "a
  * chrome-hosting frame", which made the page number TWO marks: the real span on
- * `minimal`/`standard`, the pseudo on the nine sovereign frames, with different box
+ * `minimal`/`standard`, the pseudo on the ten sovereign frames, with different box
  * models and different styling surfaces and nothing telling the author which. The
  * pagination Tile (lib/forms/tile/pagination) now mints the real element on every
  * paginated frame, so the condition can be the thing it actually cares about.

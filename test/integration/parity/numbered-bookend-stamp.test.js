@@ -134,6 +134,13 @@ function readStamps(page, sectionSelector) {
       // Both frames: the legacy `> footer` and the Form migration's `.cell-footer > footer`.
       const footer = s.querySelector(':scope > footer, :scope > .cell-footer > footer');
       return {
+        // `form` is ENGINE SCAFFOLDING, not part of the slide's identity: it is the
+        // chrome-hosting Frame's CSS hook, and it says nothing about the numbered
+        // bookend this suite is pinning — so it is filtered out of the comparison.
+        // It used to be filtered alongside a `frame-sovereign` class, from the first,
+        // REVERTED cut of the 2026-09-20 Form change. That class ships nowhere, so
+        // the filter was inert — and worse than inert: had anyone reintroduced it,
+        // this suite would have accepted it silently instead of reporting the change.
         cls: [...s.classList].filter((c) => c !== 'form').join(' '),
         content: heading ? getComputedStyle(heading, '::after').content : '<no heading>',
         header: header ? getComputedStyle(header).display : '<no header>',

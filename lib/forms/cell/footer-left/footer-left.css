@@ -13,8 +13,8 @@ section.form > footer {
    * no longer dodges a centered rail with a magic-number calc; it is simply
    * width-bounded on its own side.
    * THIS RULE IS THE LEGACY PATH ONLY. It matches a footer that is a DIRECT child of
-   * `section.form` — the un-migrated / sovereign frames that have no `.cell-footer`. Every frame
-   * that has one routes through `section.form > .cell-footer > footer` in stage.css, where the
+   * `section.form` — an un-migrated frame with no `.cell-footer`. Every frame that has one
+   * routes through `section.form > .cell-footer > footer` in stage.css, where the
    * band's allocation policy lives: the footer is a flex item taking whatever the wayfinding marks
    * do not need, and no budget applies. That policy is settled, not open
    * (engineering/decisions/2026-07-27-footer-band-allocation.md).
@@ -22,6 +22,14 @@ section.form > footer {
    * without telling it what the rail is doing, so if both strings are long they overprint —
    * 105.2px of real INK overlap on p78 of the shipped gallery, measured by rasterizing the band.
    * (Comparing the two BOXES says 233–301px, which is not the truth: an absolute footer's box is
-   * its 52cqi budget, not its text.) */
+   * its 52cqi budget, not its text.)
+   *
+   * IT DOES NOT REACH A SOVEREIGN FRAME, and the comment above used to claim it did.
+   * A sovereign slide carries no `form` class — that is what the class means — so this
+   * rule has never matched one. Giving sovereign Frames a footer budget may well be
+   * right; they do carry a page number to collide with. But it is a LAYOUT decision
+   * owed its own evidence: measured, simply letting this rule reach them wraps the
+   * running footer onto a second line on compare-code p3 and premise p3, on slides
+   * where nothing was overprinting. */
   max-width: var(--footerleft-w, 52cqi);
 }

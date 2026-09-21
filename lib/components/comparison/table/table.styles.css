@@ -47,8 +47,10 @@
  * (0,2,1), so asking for an alignment beats the component's default. */
 section.table > .cell-stage { justify-content: center; }
 
-/* `no-form` HAS NO STAGE TO CENTER WITHIN, so it gets the filling geometry
- * instead — and this rule exists because without it `no-form` regressed.
+/* AN UNWRAPPED SLIDE HAS NO STAGE TO CENTER WITHIN, so it gets the filling geometry
+ * instead — and this rule exists because without it that path regressed. It used to say
+ * `no-form`, the retired per-slide opt-out; the shape it describes is now reached by a
+ * sovereign Frame, which builds no `.cell-stage` either.
  *
  * On that path the table is a direct child of the `section`, whose flex column
  * also holds the `h2`. Centering the SECTION would center the heading with it,
@@ -56,7 +58,7 @@ section.table > .cell-stage { justify-content: center; }
  * contains the table alone, so hug-and-center is not expressible here.
  *
  * Filling is, and it is what this component did on every path before the
- * rename, so a `no-form` deck's table keeps its footprint. The half that was
+ * rename, so an unwrapped table keeps its footprint. The half that was
  * missing is the one `table-fill` supplies everywhere else: cells centered in
  * their bands, so a stretched row reads as a band rather than as a gap. Both
  * stay overridable — `--table-grow` and `--table-valign` are read, not set.

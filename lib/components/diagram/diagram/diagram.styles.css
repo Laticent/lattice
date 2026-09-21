@@ -13,8 +13,10 @@
  * an optional leading dek `<p>`, and a trailing Key Insight `<blockquote>` — into
  * the frame's declared `.cell-stage` cell. Every body selector therefore carries
  * a `> .cell-stage >` arm beside the bare `section.diagram > …` arm: the wrapped
- * (Form) arm styles the hoisted body; the direct-child arm preserves the `no-form`
- * slide (no masthead lift, no wrap), so a `no-form` diagram is untouched.
+ * (Form) arm styles the hoisted body; the direct-child arm preserves the UNWRAPPED
+ * slide (no masthead lift, no wrap), so an unwrapped diagram is untouched. That path
+ * is no longer reached by a `no-form` token — the token is retired and Form is
+ * unconditional — but a sovereign Frame still reaches it.
  *
  * See lib/components/diagram/diagram.manifest.json for the component contract.
  */
@@ -70,7 +72,7 @@ section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
    real render: the diagram was the only thing on the slide out of line with the
    title. `width: 100%` fills the box that already carries the inset — the
    `.cell-stage` content box under the Form, the section content box on the
-   `no-form` path — so the mermaid box now shares one left edge with the title, the
+   unwrapped path — so the mermaid box now shares one left edge with the title, the
    dek and the Key Insight. Neither box needs stage padding: unlike a chart, a
    diagram is a single self-scaling figure with prose siblings, and insetting it
    further is what put it out of line.

@@ -2,7 +2,6 @@
 size: portrait
 theme: indaco
 paginate: true
-form: standard
 header: "Lattice · Cover-paginate"
 footer: "Cover-paginate"
 ---

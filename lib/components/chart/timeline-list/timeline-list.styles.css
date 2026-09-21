@@ -10,7 +10,7 @@
  * `.chart-body` to the family's inset TOKENS (chart-family.css), values moved
  * verbatim. A parent's padding cannot be overridden by a child, so the tuning has
  * to travel with the inset it tunes; as a token it reaches BOTH holders
- * (`.cell-stage` under the Form, the section on the `no-form` path) from one
+ * (`.cell-stage` under the Form, the section on the unwrapped path) from one
  * declaration.
  *
  * THE FRAME INSET IS NOW 0 ON BOTH AXES and this component's tuning of it is

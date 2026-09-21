@@ -2,7 +2,6 @@
 size: portrait
 theme: indaco
 paginate: true
-form: standard
 header: "Lattice · Read-across carousel"
 footer: "Read-across carousel"
 ---

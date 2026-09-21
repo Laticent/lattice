@@ -26,14 +26,6 @@ export const FOCUS_AXIS_VALUES = ['item', 'row', 'col', 'cell', 'line'];
 // colors — not completable.
 export const PAGINATE_VALUES = ['true', 'false', 'skip', 'hold'];
 
-// Value vocabulary for the deck-level `form:` front-matter toggle — the Form
-// composition model. 'standard' = masthead band + bay + progress rail (the
-// DEFAULT, so an absent `form:` key composes as standard); 'off' = disabled (the
-// opt-out). Mirrors FORM_MODES in lib/integrations/markdown-it/plugins.js.
-// (`minimal` retired 2026-07-03 — its "form, no rail" look is now the deck-wide
-// `class: no-progress` chrome control.)
-export const FORM_VALUES = ['off', 'standard'];
-
 
 // Value vocabulary for the Lattice `split:` front-matter directive, which picks
 // how the body divides into slides: `rule` (split on `---`, the default) or

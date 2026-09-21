@@ -1063,7 +1063,7 @@ describe('component-manifest', () => {
         'treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette',
         'tint-edge at-right', 'mark-threads', // decoration
         'with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl', // typography
-        'silent', 'no-header', 'no-footer', 'no-paginate', 'form', 'no-form', 'no-progress', // chrome
+        'silent', 'no-header', 'no-footer', 'no-paginate', 'no-progress', // chrome
         'no-note', 'note-warn', // note
         'safe', // social
         'table-plain', 'table-fill', 'state-cells', 'row-label', 'no-row-label', // table
@@ -1142,9 +1142,12 @@ describe('component-manifest', () => {
       ]);
     });
 
-    test('chrome group has silent + the surgicals + form/no-form/no-progress', () => {
+    test('chrome group has silent + the surgicals + no-progress — and NOT form/no-form', () => {
+      // `form` / `no-form` left the vocabulary on 2026-09-20: Form is the composition
+      // model, not a chrome control an author toggles. The retired-form lint rules
+      // coach a deck still carrying either token; the vocabulary no longer blesses it.
       assert.deepEqual([...UNIVERSAL_GROUPS.chrome].sort(), [
-        'form', 'no-footer', 'no-form', 'no-header', 'no-paginate', 'no-progress', 'silent',
+        'no-footer', 'no-header', 'no-paginate', 'no-progress', 'silent',
       ]);
     });
   });

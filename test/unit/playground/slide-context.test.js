@@ -313,18 +313,13 @@ describe('finishValuePosition — the finish: register slot (Tier 1)', () => {
 	});
 });
 
-describe('formValuePosition — the form: composition slot (Tier 1)', () => {
-	test('captures the partial after `form:`', async () => {
-		const { formValuePosition } = await load();
-		assert.deepEqual(formValuePosition('form: st'), { from: 'form: '.length, typed: 'st' });
-		assert.deepEqual(formValuePosition('form: '), { from: 'form: '.length, typed: '' });
-		assert.deepEqual(formValuePosition('form: minimal'), { from: 'form: '.length, typed: 'minimal' });
-	});
-
-	test('null on non-form lines (and not confused by no-form / format)', async () => {
-		const { formValuePosition } = await load();
-		assert.equal(formValuePosition('theme: indaco'), null);
-		assert.equal(formValuePosition('paginate: true'), null);
+describe('the retired form: slot offers no completion', () => {
+	test('formValuePosition is gone — Form is not a configurable register', async () => {
+		// Form is the composition model, always on. Nothing completes on a `form:`
+		// line because the key means nothing. Asserted rather than merely deleted so a
+		// re-added detector has to come back through a test that says why it should not.
+		const mod = await load();
+		assert.equal(mod.formValuePosition, undefined);
 	});
 });
 
@@ -489,7 +484,8 @@ describe('typeaheadContext — proactive popup entry classification', () => {
 		const lines = ['---', 'theme: ', 'finish: ', 'form: ', 'split: ', 'autosplit: '];
 		assert.equal(typeaheadContext(getter(lines), 2, 'theme: '), 'theme');
 		assert.equal(typeaheadContext(getter(lines), 3, 'finish: '), 'finish');
-		assert.equal(typeaheadContext(getter(lines), 4, 'form: '), 'form');
+		// `form:` is retired and classifies as nothing — no popup opens on it.
+		assert.equal(typeaheadContext(getter(lines), 4, 'form: '), null);
 		assert.equal(typeaheadContext(getter(lines), 5, 'split: '), 'split');
 		// `autosplit:` must not be mis-read as `split:` — the split detector is
 		// anchored at ^, so the `auto` prefix keeps the two distinct.

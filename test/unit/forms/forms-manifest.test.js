@@ -8,7 +8,7 @@
  *   (b) referential integrity — Tile.fits → real Cell; every Cell.accepts kind
  *       is satisfied by ≥1 real Tile (or a Frame for 'frame'); Frame.cells /
  *       Frame.suppresses → real Cells;
- *   (c) the manifest-derived FORM_TOGGLE_SKIP equals the historical set;
+ *   (c) the manifest-derived SOVEREIGN_FRAMES equals the historical set;
  *   (d) dist/docs/forms.json is fresh (regenerating produces no diff) —
  *       mirrors the components.json freshness gate.
  */
@@ -96,21 +96,24 @@ test('(b) checkIntegrity catches a Cell accepting a kind no Tile satisfies', () 
   assert.ok(errors.some((e) => /accepts "review"/.test(e)), errors.join('; '));
 });
 
-test('(c) manifest-derived skip set equals the historical FORM_TOGGLE_SKIP', () => {
+test('(c) manifest-derived sovereign set equals the historical set', () => {
   const derived = forms.frameToggleSkip();
   assert.deepEqual([...derived].sort(), [...HISTORICAL_SKIP].sort());
 });
 
-test('(c) the browser-baked FORM_TOGGLE_SKIP_FALLBACK matches the manifest-derived set', () => {
+test('(c) the browser-baked SOVEREIGN_FRAMES_FALLBACK matches the manifest-derived set', () => {
   // The fallback literal is what the fs-free browser bundle uses; it must never
   // drift from the manifests (the Node-derived set). This guards that claim.
-  assert.deepEqual([...plugins.FORM_TOGGLE_SKIP_FALLBACK].sort(), [...forms.frameToggleSkip()].sort());
-  assert.deepEqual([...plugins.FORM_TOGGLE_SKIP].sort(), [...forms.frameToggleSkip()].sort());
+  assert.deepEqual([...plugins.SOVEREIGN_FRAMES_FALLBACK].sort(), [...forms.frameToggleSkip()].sort());
+  assert.deepEqual([...plugins.SOVEREIGN_FRAMES].sort(), [...forms.frameToggleSkip()].sort());
 });
 
-test('(c) plugins.formToggleClass skips every historical sovereign Frame', () => {
+test('(c) plugins.formToggleClass marks every historical sovereign Frame as one', () => {
+  // A sovereign Frame takes no chrome hook, and names itself on `data-frame`.
   for (const skip of HISTORICAL_SKIP) {
-    assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
+    assert.equal(plugins.formToggleClass(skip), skip, `${skip} takes no chrome hook`);
+    assert.equal(plugins.hostsChromeCells(skip), false, `${skip} hosts no chrome Cells`);
+    assert.equal(plugins.frameIdFor(skip), skip, `${skip} names its own Frame`);
   }
   // AND MATH IS NOT ONE OF THEM, at any variant. Asserted from the COMPONENT manifest
   // rather than a second hardcoded list, so a ninth variant is covered the day it is
@@ -118,7 +121,7 @@ test('(c) plugins.formToggleClass skips every historical sovereign Frame', () =>
   const MATH = require('../../../lib/components/math/math/math.manifest.json');
   for (const variant of MATH.variants) {
     const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
-    assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+    assert.equal(plugins.formToggleClass(cls), `${cls} form`,
       `math ${variant} must take the form class`);
   }
   assert.ok(!forms.frameToggleSkip().includes('math'),

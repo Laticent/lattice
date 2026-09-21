@@ -42,15 +42,22 @@ function runRuntimePass(html) {
 describe('runtime Form wiring — raw Marp deck composes as Form', () => {
   test('the full chrome layer materializes on eligible slides only', () => {
     const doc = runRuntimePass(RAW);
-    // form on the two eligible content slides; sovereign frames skipped.
-    assert.equal(doc.querySelectorAll('section.form').length, 2);
+    // EVERY slide composes as Form — stated on the attributes, which all five carry.
+    assert.equal(doc.querySelectorAll('section[data-form="2d"]').length, 5);
+    // The three sovereign Frames name themselves POSITIVELY and host no chrome Cells,
+    // so they take no chrome hook.
     for (const cls of ['title', 'divider', 'closing']) {
-      assert.equal(doc.querySelector(`section.${cls}`).classList.contains('form'), false,
-        `${cls} must stay Form-free`);
+      const sec = doc.querySelector(`section.${cls}`);
+      assert.equal(sec.getAttribute('data-form'), '2d', `${cls} composes as Form`);
+      assert.equal(sec.getAttribute('data-frame'), cls, `${cls} names its Frame`);
+      assert.equal(sec.classList.contains('form'), false, `${cls} takes no chrome hook`);
     }
-    // masthead bands built by masthead-lift on the formed slides.
+    // ...so the chrome layer lands on the two chrome-hosting slides only.
+    assert.equal(doc.querySelectorAll('section.form').length, 2);
+    assert.equal(doc.querySelectorAll('section[data-frame="standard"]').length, 2);
+    // masthead bands built by masthead-lift on the chrome-hosting slides.
     assert.equal(doc.querySelectorAll('.cell-masthead').length, 2);
-    // progress rail docked on the form slides within a divider section.
+    // progress rail docked on the chrome-hosting slides within a divider section.
     assert.equal(doc.querySelectorAll('.tile-progress').length, 2);
     // watermark glyph on the single `watermark` form slide.
     assert.equal(doc.querySelectorAll('.tile-watermark').length, 1);
@@ -58,14 +65,17 @@ describe('runtime Form wiring — raw Marp deck composes as Form', () => {
     assert.equal(doc.querySelectorAll('section[data-lattice-slide]').length, 5);
   });
 
-  test('a deck-wide `no-form` (Marpit global class) opts the whole deck out', () => {
-    // Marpit propagates a global `class:` to every section; simulate that.
+  test('a deck-wide `no-form` no longer opts the deck out — Form is not optional', () => {
+    // Marpit propagates a global `class:` to every section; simulate that. The token
+    // is retired, so a deck carrying it composes exactly as it would without it.
     const optedOut = RAW.replace(/class="(?!.*\bsilent\b)/g, 'class="no-form ')
       .replace(/class="title silent"/, 'class="title silent no-form"')
       .replace(/class="closing silent"/, 'class="closing silent no-form"');
     const doc = runRuntimePass(optedOut);
-    assert.equal(doc.querySelectorAll('section.form').length, 0);
-    assert.equal(doc.querySelectorAll('.cell-masthead').length, 0);
+    const clean = runRuntimePass(RAW);
+    assert.equal(doc.querySelectorAll('section.form').length, clean.querySelectorAll('section.form').length);
+    assert.equal(doc.querySelectorAll('section[data-form="2d"]').length, 5, 'every slide still composes as Form');
+    assert.equal(doc.querySelectorAll('.cell-masthead').length, clean.querySelectorAll('.cell-masthead').length);
   });
 
   test('idempotent — a second full pass adds nothing', () => {

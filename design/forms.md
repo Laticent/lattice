@@ -1,16 +1,62 @@
 # Form — how a slide is composed
 
-**Status:** vocabulary ratified 2026-06-14; **Form is the default composition
-model as of 2026-06-26** — every deck renders with the masthead band, bay, and
-progress rail unless it opts out with `form: off` (or drops just the rail with the `no-progress` chrome control).
-The `form:` toggle and per-slide `form` / `no-form` tokens still select per
-deck/slide; only the *default* moved from off to `standard`. Supersedes the
-*Islands* working name and the `berth` / `island` / `island-group` terms in
-`engineering/decisions/2026-06-11-islands.md`. The **model** below is canonical, and
-the **CSS-identifier rename has shipped** — `--frame-*` / `.cell-*` / `.tile-*` are the
-live names and zero `--isl-*` / `.isl-*` / `.m-bay` remain in code (see §10). The only
-residue is `island` / `berth` wording in code comments and manifest prose, a tracked
-cosmetic cleanup. Where this doc shows a retired identifier it is flagged as such.
+**Status:** vocabulary ratified 2026-06-14; **Form is the composition model —
+always on, and not expressible.** Every slide composes as Form. There is no
+`form:` front-matter key, no per-slide `form` / `no-form` token, and no way to
+switch it off: composition is what a slide *is*, not a feature it opts into. What
+varies is **which Frame** a slide composes as, and the component chooses that,
+never an author toggle. Supersedes the *Islands* working name and the `berth` /
+`island` / `island-group` terms in `engineering/decisions/2026-06-11-islands.md`.
+The **model** below is canonical, and the **CSS-identifier rename has shipped** —
+`--frame-*` / `.cell-*` / `.tile-*` are the live names and zero `--isl-*` /
+`.isl-*` / `.m-bay` remain in code (see §10). The only residue is `island` /
+`berth` wording in code comments and manifest prose, a tracked cosmetic cleanup.
+Where this doc shows a retired identifier it is flagged as such.
+
+> **Retired 2026-09-20:** the `form:` key (`off` / `standard`, and the earlier
+> `minimal`) and the per-slide `form` / `no-form` tokens. A deck still carrying one
+> renders exactly as if it did not, and `lint:deck` says so. Dated records under
+> `engineering/decisions/` describe the toggle as it was and are left as written —
+> they are an archive, not a manual. Record:
+> `engineering/decisions/2026-09-20-form-is-not-configurable.md`.
+
+## 0. The three levels
+
+Three questions get asked about a slide's composition, and only the third has an
+answer that ever varies:
+
+| Level | The question | Who can express it | Today |
+|---|---|---|---|
+| **Form** | is this slide composed? | nobody — it is unconditional | always on; no key, class or flag selects it |
+| **Medium** *(rendering medium)* | what does it compose *into*? | the renderer, never the deck | `2d` (CSS). A WebXR / CSS-3D renderer would be a second medium; none is scheduled |
+| **Frame** | which Frame carves this slide into Cells? | the **component**, via the `_class` token an author writes | 12 Frames: 2 chrome-hosting (`standard` · `minimal`) + 10 sovereign |
+
+**A sovereign Frame is not "Form off."** It is a Frame that declares **one** Cell —
+`cells: ["stage"]` — against `standard`'s nine. One Frame, one Cell, the whole
+canvas. In the DOM every slide says so on two attributes — `data-form="2d"` and
+`data-frame="<id>"` — so a reader asks which Frame and gets a NAME. Until
+2026-09-20 there was nothing to ask: sovereignty was spelled as an *absent* `form`
+class, and that is precisely how "which Frame" came to read as "is this Form at
+all".
+
+> **`section.form` is a CSS hook, not the model.** The class marks the
+> chrome-hosting Frame — it is what the ~245 engine rules that paint the masthead
+> band, the bay, the footer Cell and the rail select on — so a sovereign Frame does
+> not carry it. We tried making it universal and marking sovereignty with a second
+> class; it says the same thing, but the class is load-bearing for a decade of CSS
+> and for the split envelope, and universalizing it moved real decks three separate
+> times. The attributes state the model and move nothing. See
+> `engineering/decisions/2026-09-20-form-is-not-configurable.md` § "Why the class
+> did not become universal".
+
+> **"Medium" is used in two senses in this repo, and this is the one that is NOT
+> the coupling rung.** `engineering/decisions/2026-06-16-form-manifest-medium-independent-contract.md`
+> uses *Medium/Heavy* for how tightly the manifest drives the CSS (§2 "we
+> deliberately do not jump to Medium/Heavy"); that is a coupling decision, and
+> Lattice sits on the *light* rung. The **rendering medium** above is what a Frame
+> renders INTO. The same ADR is the one that fixed this direction — 2D CSS as the
+> first renderer, a spatial renderer as the thought experiment that shaped the
+> manifest and was explicitly not scheduled ("Not building VR").
 
 This is the canonical doc for the composition axis. Read it before working on
 slide-level layout, chrome, the masthead/footer bands, the resolution contract,
@@ -565,7 +611,7 @@ they keep:
 
 This is HARD RULE #20's idiom extended by one level. #20 fixes *what* to space
 with (`padding` and `gap`, never `margin`); this fixes *which box* the outer inset
-belongs to. Where there is no stage — a `no-form` slide, a Read·Article `figure`
+belongs to. Where there is no stage — a sovereign Frame, a Read·Article `figure`
 re-host — the box that HOLDS the body plays the stage's part; the rule is about
 ownership, not about a class name.
 
@@ -685,8 +731,8 @@ other's failures:
   stated at the gate rather than implied.
 - the **inset assertion** in `tools/check-chart-fit.js` — a real render at
   landscape/portrait/square asserting the body's border box coincides with its
-  HOLDER's content box on the inline axis (the stage under the Form, the section on
-  the `no-form` path), and that the body carries no padding of its own unless it
+  HOLDER's content box on the inline axis (the stage where a Frame builds one, the
+  section where it does not), and that the body carries no padding of its own unless it
   **paints its own surface**. That exemption is measured too — a non-transparent
   background, a background image, or a real border — rather than keyed on a class
   list, which would have to be kept in sync with every future body that paints. The
@@ -725,10 +771,13 @@ designer-owned **structure** bundle an author selects. Same contract, orthogonal
 axis. Lattice ships default Frames; designers add more; authors pick one and fill
 its Cells.
 
-> **What ships vs. what's proposed:** author *selection* of a Frame exists today
-> (the `form:` toggle — §10, **default-on since 2026-06-26**). The designer-facing
-> A **Frame studio** in the Studio's Fabricate tab and **AI-assisted Frame generation** are future work,
-> not built.
+> **What ships vs. what's proposed:** Frame *selection* ships today, but the author
+> never reaches it directly — the component's `_class` token names the Frame. A
+> `title` slide composes as the `title` Frame; anything with no Frame of its own
+> composes as `standard`. (The `form:` toggle this paragraph used to cite never
+> selected a Frame at all: it took `off` / `standard`, not a Frame id, and it is
+> retired — see the note at the top.) A **Frame studio** in the Studio's Fabricate
+> tab and **AI-assisted Frame generation** are future work, not built.
 
 **The containment contract is the guardrail that makes this safe.** Because
 Frames can be *generated*, something must stop a footer Tile from being wired into
@@ -742,11 +791,19 @@ lift already followed).
 
 ## 8. The Frame and Tile catalogs (today)
 
-**Frames** are the twelve Form values (`design/design-system.md` §4): `bookend`,
-`divider`, `canvas`, `grid`, `stack`, `ledger`, `panel`, `matrix`, `scatter`,
-`spatial`, `timeline`, `split` — plus the **root** chrome Frame (the masthead /
-stage / footer bands) and sovereign Frames (`split-panel`, `title`,
-`image-full`).
+**Frames** are the **12 folders under `lib/forms/frame/`** — two chrome-hosting
+(`standard`, `minimal`) and ten sovereign (`title`, `divider`, `closing`,
+`image`, `premise`, `scene`, `split-panel`, `split-compare`, `compare-code`,
+`topic`).
+
+> **Do not confuse a Frame with a composition-axis value.** This paragraph used to
+> say "Frames are the twelve Form values" and list `bookend` / `grid` / `ledger` /
+> …, which is the **`form` field in a component manifest** (`design/design-system.md`
+> §4) — a different thing wearing the same word. The two do not line up: only four
+> of the twelve axis values are realized by any Frame at all. It also named
+> `image-full`, which is not a Frame id (the Frame is `image`), and listed three of
+> the ten sovereign Frames. The Frame catalog is the folder listing above; the
+> composition axis is the manifest field, and it stays exactly as it is.
 
 **Tiles** are the fourteen leaves across the four z-planes (the registry in the
 superseded ADR): the surfaces `canvas` · `rule` · `atmosphere` · `watermark`;
@@ -829,7 +886,7 @@ a functional rename). The map, now a **retired → shipped** record:
 | Leaf filler | `island` | **Tile** |
 | CSS tokens | `--isl-inset-x/-y`, `--isl-page-reserve` | `--frame-inset-x/-y`, `--frame-page-reserve` |
 | CSS classes | `.isl-masthead`, `.m-stage`, `.m-bay` | `.cell-masthead`, `.cell-stage`, `.masthead-bay` |
-| Deck/section toggle | `islands: on / off / minimal` | **`form: <frame>`** (author selects a Frame) |
+| Deck/section toggle | `islands: on / off / minimal` | **none — Form is unconditional** (the `form:` key and the `form` / `no-form` tokens that briefly replaced `islands:` were removed 2026-09-20; `form: <frame>` never existed — the key took `off`/`standard`, never a Frame id) |
 | Transform | (inline `transformMastheadSection`) | `lib/forms/cell/masthead/masthead.transform.js` (kernel, co-located) + `lib/transformers/masthead-lift.js` (adapter) |
 
 Two cautions that governed the sweep (left as a record): (1) **`form` is a substring of
@@ -842,26 +899,32 @@ renderer-comparison gate also existed at the time of the sweep; both were retire
 in P4 — `engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md`.)
 
 What ships **today** is the masthead lift, the `meta` / `progress` / `watermark`
-injectors, and the `form:` toggle with its skip-list — **now on by default**
-(2026-06-26): an absent `form:` key resolves to `standard`, so every eligible
-section composes as Form unless it opts out (`form: off`, or a
-per-slide `no-form`). Chart-frame components compose with the band (the eyebrow +
-title lift into the masthead Cell; the chart's own subtitle/caption and body are
-untouched — see the chart-family in-form rules). The engine + emulator apply the
-default at render time via `applyFormToggleToHtml` (`readFormMode` → `formToggleClass`);
-the browser **runtime** — which consumes an already-rendered DOM that Marp built
-without our render-time toggle — reproduces the same default on the live DOM via
-`lib/forms/form-default.js`, reusing the shared `formToggleClass` so the skip set +
-`form`/`no-form` opt-outs stay single-sourced (HARD RULE 1). This is what lets a
-raw Marp deck (`lattice.css` + `lattice-runtime.js` + a theme) compose as Form
-by default. The deck-wide `form: off` opt-out is applied only on Lattice's own
-engine render paths; a Marp-rendered surface (the marp-vscode preview, or an
-export-to-Marp bundle rendered by the user's `marp`) doesn't run the toggle at all,
-so the runtime composes Form there regardless — a per-slide `no-form` still opts a
-slide out, since it is DOM-visible. See
-`engineering/decisions/2026-07-08-runtime-form-default.md`. The per-component
-galleries hold because page counts are section-count-stable. (They used to be
-backed by a renderer-comparison gate too; it was retired in P4.)
+injectors, and **the Form attributes**: the engine, the emulator and the browser
+runtime each stamp `data-form="2d"` and `data-frame="<id>"` on every top-level
+slide, with no key and no opt-out. Sovereignty is no longer inferred from a withheld
+class — a sovereign slide NAMES its Frame, and differs from a chrome-hosting one
+only in the Cells that Frame declares (§0, §8). The `form` CLASS remains what it has
+always been: the chrome-hosting Frame's selector hook, which a sovereign Frame does
+not take because it builds no chrome Cells. Chart-frame components compose with the band (the eyebrow + title
+lift into the masthead Cell; the chart's own subtitle/caption and body are untouched
+— see the chart-family in-form rules).
+
+The engine + emulator apply it at render time via `applyFormToHtml` →
+`formToggleClass`; the browser **runtime** — which consumes an already-rendered DOM
+that Marp built without our render-time pass — reproduces the same result on the
+live DOM via `lib/forms/form-default.js`, reusing that same `formToggleClass` so
+the sovereign set stays single-sourced (HARD RULE 1). This is what lets a raw Marp
+deck (`lattice.css` + `lattice-runtime.js` + a theme) compose as Form at all.
+
+> **This passage used to describe an opt-out, and described it wrongly even then.**
+> It said `form: off` applied only on Lattice's own engine paths "so the runtime
+> composes Form there regardless" — which stopped being true once the export began
+> baking the front matter into the document and the runtime started reading it
+> (`engineering/decisions/2026-07-08-runtime-form-default.md`). Both halves are moot
+> now: there is no key to read on any path. The dated record is left as written.
+
+The per-component galleries hold because page counts are section-count-stable.
+(They used to be backed by a renderer-comparison gate too; it was retired in P4.)
 
 ### How bodies are bounded: the flex cell-tree (grid was retired; flex reopened `.cell-stage`)
 
@@ -896,7 +959,7 @@ sit unclassified):
   a single sized canvas, not flowing prose that can overstuff, so the stage clip buys
   nothing — and an over-large canvas is still caught at the section level by the
   overflow probe.
-- **chrome-exempt sovereign frames** (`FORM_TOGGLE_SKIP`) — `title`, `closing`,
+- **chrome-exempt sovereign frames** (`SOVEREIGN_FRAMES`) — `title`, `closing`, `topic`,
   `divider`, `image`, `premise`, `scene`, `split-panel`, `split-compare`, `compare-code`
   get **no** band at all (they own their whole frame, incl. split frames' own bounded
   `.panel-right` / `.compare-right` clip cells).

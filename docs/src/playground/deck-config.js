@@ -83,12 +83,6 @@ const FIELD_DEFAULTS = {
   header: '',
   footer: '',
   class: '',
-  // `form` is the deck-wide Form composition model: 'standard' (masthead band +
-  // bay + progress rail) is the DEFAULT — so it's the omitted value, and a deck
-  // at standard carries no `form:` key. 'minimal' (band + bay, no rail) and 'off'
-  // (the opt-out) are the explicit values written into the block. `on`/`true`/`yes`
-  // read as standard; `false`/`no` read as off. Mirrors readFormMode in plugins.js.
-  form: 'standard',
   // `validate` governs the editor's INLINE validation — the deck-grammar lint
   // findings (the same the Architect lists) drawn as underlines + hover fixes. On
   // is the default (so it's the omitted value); a deck opts OUT with `validate: off`
@@ -133,7 +127,7 @@ const COLOR_MODE_OPTIONS = [
 
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'validate', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
 //   author  — every field, `theme` included. `null` means "no allow-list", which is
@@ -157,7 +151,7 @@ const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'g
 //             suite MOCKS this module, so its `theme`-specific assertion cannot see a
 //             change here at all; what it catches is a sheet-side regression, the host
 //             inlining its own list or reading a key that no longer exists.
-//   preview — the render registers only (finish/size/paginate/form, no deck chrome and
+//   preview — the render registers only (finish/size/paginate, no deck chrome and
 //             no theme). Its host was the Workbench, deleted in the same 2026-07-03
 //             studio succession.
 // The `fields` MECHANISM is unaffected and still covered: the suite exercises it with
@@ -168,17 +162,6 @@ export const CONFIG_PROFILES = Object.freeze({
 
 const TRUEY = /^(true|yes|on|1)$/i;
 const FALSEY = /^(false|no|off|0)$/i;
-
-// Canonicalise a `form:` value to a mode. Mirrors readFormMode in
-// lib/integrations/markdown-it/plugins.js: 'standard' is the DEFAULT, so an
-// absent/empty value (and any `on`/`true`/`yes`) resolves to standard; only the
-// explicit `off`/`false`/`no` opts out. (`minimal` retired 2026-07-03 → resolves
-// to standard; its "no rail" look is now `class: no-progress`.)
-function formMode(raw) {
-  const v = (raw == null ? '' : String(raw)).trim().toLowerCase();
-  if (/^(off|false|no)$/.test(v)) return 'off';
-  return 'standard';
-}
 
 function stripQuotes(v) {
   const t = (v || '').trim();
@@ -248,9 +231,6 @@ export function readFrontMatter(source) {
     header: map.header || '',
     footer: map.footer || '',
     class: map.class || '',
-    // Absent `form:` → 'standard' (the default), so the drawer reflects that Form
-    // is on out of the box; an explicit `form: off` pre-fills as typed.
-    form: formMode(map.form),
     // `validate` is binary, default ON — surfaced as a boolean (like paginate) for
     // the switch. On unless the deck explicitly opts out with a falsey value.
     validate: !FALSEY.test((map.validate || '').trim()),
@@ -272,9 +252,6 @@ function isDefault(key, value) {
   // `validate` is binary, default ON — so on (any non-falsey) is the omitted
   // default; only an explicit `validate: off` is written into the block.
   if (key === 'validate') return !FALSEY.test(String(value).trim());
-  // `form` defaults to 'standard' (on) — that's the omitted value; only `off`
-  // is written into the block.
-  if (key === 'form') return formMode(value) === 'standard';
   // 'none' is the named backdrop baseline — the same no-class result as omitting
   // finish, so it's treated as the default and dropped from the block.
   if (key === 'finish') { const f = (value == null ? '' : String(value)).trim().toLowerCase(); return f === '' || f === 'none'; }
@@ -301,8 +278,6 @@ function normalize(key, value) {
   // the canonical `off`. The switch passes a boolean (checked = validation on).
   if (key === 'validate') return value === false || FALSEY.test(String(value).trim()) ? 'off' : null;
   const v = (value == null ? '' : String(value)).trim();
-  // `form`: standard (the default) omits the key; only `off` is written.
-  if (key === 'form') { const m = formMode(v); return m === 'standard' ? null : m; }
   // none = backdrop baseline → omit (same no-class render as no key at all).
   if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === 'none' ? null : f; }
   // boardroom = style (mode) baseline → omit.
@@ -593,8 +568,9 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     // Auto-split — opt the deck into the Fit Ladder's SPLIT move: an over-capacity
     // slide is divided across extra pages. A portrait/square-family behavior, so the
     // hint names the gate (lint warns on a landscape deck). It's a build-time pass
-    // (lattice-emulator.js) — UNLIKE form (a live CSS class), it shows only on
-    // EXPORT, never in this live preview. The hint says so, so the toggle doesn't
+    // (lattice-emulator.js) — UNLIKE the Form composition (a live CSS class the
+    // engine stamps on every slide), it shows only on EXPORT, never in this live
+    // preview. The hint says so, so the toggle doesn't
     // read as broken when the preview doesn't visibly change.
 
     // Auto-glossary — generate a reference-appendix slide from the acronym registry's
@@ -623,17 +599,6 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     if (show('paginate')) host.append(switchRow('paginate', 'Page numbers', 'Show pagination on every slide', fm.paginate));
     if (show('header')) host.append(textField('header', 'Header', 'Running header text on every slide', fm.header, 'e.g. Lattice · Q3 Board Review'));
     if (show('footer')) host.append(textField('footer', 'Footer', 'Running footer text on every slide', fm.footer, 'e.g. Confidential'));
-
-    // Form — the deck-wide composition model (masthead band + bay + rail). On by
-    // default, so 'standard' leads and carries the "(default)" cue; pick 'off' to
-    // opt out. (To drop just the rail, use the Section-rail chrome control —
-    // `class: no-progress`; the old `form: minimal` was retired 2026-07-03.)
-    if (show('form')) {
-      host.append(selectRow('form', 'Form', 'Masthead band, meta/status bay & progress rail, deck-wide', [
-        ['standard', 'Standard — band, bay & rail (default)'],
-        ['off', 'Off — no deck chrome'],
-      ], fm.form));
-    }
 
     // Inline validation — the editor's live deck-grammar check (the same findings
     // the Architect lists), drawn as underlines + hover fixes. On by default; a

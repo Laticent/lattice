@@ -988,19 +988,33 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await waitFor(() => expect(source()).not.toMatch(/meta:/));
 	});
 
-	it('New slide on / Deck chrome / Auto-glossary write their registers', async () => {
+	it('New slide on / Auto-glossary write their registers', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'General');
 		await pick(user, 'Choose how slides split', /dividers only/);
 		await waitFor(() => expect(source()).toMatch(/split: rule/));
 
-		// `form:` is inverted — standard is the default, so only the OFF state writes.
-		await user.click(await screen.findByRole('switch', { name: 'Deck chrome' }));
-		await waitFor(() => expect(source()).toMatch(/form: off/));
-
 		// `glossary:` writes the canonical `auto`, not `on`/`true`.
 		await user.click(await screen.findByRole('switch', { name: 'Auto-glossary' }));
 		await waitFor(() => expect(source()).toMatch(/glossary: auto/));
+	});
+
+	it('the Deck chrome toggle is gone — Form is not configurable', async () => {
+		// Form is the composition model, always on. There is no deck-level control for
+		// it, so the Inspector must not offer one. Asserted rather than merely deleted:
+		// the old arm would have passed again the moment anyone re-added the switch.
+		const user = await setup();
+		await openDeckTab(user, 'General');
+		expect(screen.queryByRole('switch', { name: 'Deck chrome' })).toBeNull();
+	});
+
+	it('the Section rail toggle survives — it is a different register', async () => {
+		// `no-progress` is the rail control that replaced the retired `form: minimal`.
+		// It has nothing to do with `form:`, so deleting the Form toggle must not have
+		// taken it with it.
+		const user = await setup();
+		await openDeckTab(user, 'Chrome');
+		expect(await screen.findByRole('switch', { name: 'Section rail' })).toBeTruthy();
 	});
 
 	it('the Default slide class field never shows or eats the Section rail token', async () => {

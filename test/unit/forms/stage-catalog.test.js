@@ -3,7 +3,7 @@
  * engineering/decisions/2026-07-14-one-frame-model.md).
  *
  * The masthead kernel used to carry three HAND-MAINTAINED Sets
- * (STAGE_MIGRATED / STAGE_DEFERRED inline, plus the sovereign FORM_TOGGLE_SKIP
+ * (STAGE_MIGRATED / STAGE_DEFERRED inline, plus the sovereign SOVEREIGN_FRAMES
  * in plugins.js). Those are now DERIVED from a single generated catalog
  * (lib/forms/cell/masthead/stage-catalog.generated.js), composed from each
  * component manifest's `stage: "flow" | "canvas"` field + the sovereign frames'
@@ -76,7 +76,7 @@ describe('stage-catalog — the single stage-cell classification', () => {
       'ALL_LAYOUTS != flow ⊎ canvas ⊎ sovereign');
   });
 
-  test('the catalog sovereign set equals the frame-manifest-derived FORM_TOGGLE_SKIP', () => {
+  test('the catalog sovereign set equals the frame-manifest-derived SOVEREIGN_FRAMES', () => {
     // The two data sources (component `stage` field + frame `exemptFromChrome`)
     // must agree on who is sovereign — the generator composes them, this pins it.
     assert.deepEqual(withStage('sovereign'), [...frameToggleSkip()].sort(),
@@ -107,7 +107,24 @@ describe('stage-catalog — the single stage-cell classification', () => {
     assert.equal(kernel.wrapsStageBody('contact form'), true, 'strict canvas contact must wrap');
     assert.equal(kernel.wrapsStageBody('wifi form'), true, 'strict canvas wifi must wrap');
     assert.equal(kernel.wrapsStageBody('diagram form'), true, 'strict canvas diagram must wrap');
-    assert.equal(kernel.wrapsStageBody('video form'), false, 'non-strict canvas video must NOT wrap');
+    // `video` is the ONE non-sovereign component still in Form with no Cell, and this
+    // line pins a KNOWN GAP rather than a design choice — measured 2026-09-20 by
+    // rendering all 70 components x 273 declared variant combinations.
+    //
+    // Flipping its `conformance:"strict"` flag is NOT enough, and the attempt is worth
+    // recording because the flag alone looks like it works. video REBUILDS its section
+    // (renderSection returns a fresh `.video-lead` + `.video-embed`) and sits BELOW
+    // mastheadLift in the registry, so the stage cell the flag makes mastheadLift build
+    // is discarded moments later. Moving video above mastheadLift — the documented fix,
+    // the one contact and wifi use — does produce the cell, and REGRESSES the layout:
+    // the masthead lift yanks the h2 and lead paragraph out of the `.video-lead` pair,
+    // collapsing the `companion` composition from side-by-side to stacked and clipping
+    // the caption (7 of 10 gallery pages moved; the engine's own overflow marker fires).
+    //
+    // Closing it means teaching video's transform to keep its title in-card the way
+    // wifi does with `.qr-head > h2` (which is why wifi needed findTopLevelH2). That is
+    // its own change with its own rendered evidence, not a flag flip.
+    assert.equal(kernel.wrapsStageBody('video form'), false, 'video is a known conformance gap — see above');
   });
 
   test('stageSizingFor is the single classifier the wrap decision reads', () => {
@@ -120,5 +137,30 @@ describe('stage-catalog — the single stage-cell classification', () => {
     assert.equal(kernel.wrapsStageBody('form'), true);
     assert.equal(kernel.wrapsStageBody('funnel form'), false);
     assert.equal(kernel.wrapsStageBody('split-panel'), false);
+  });
+
+  test('THE layout token decides — a variant that shares a component name cannot veto the wrap', () => {
+    // The layout-name namespace and the variant-modifier namespace are shared, so a
+    // variant token can also name a component. Five such collisions exist today; this
+    // asserts the wrap decision follows the COMPONENT (the first layout token), not
+    // whichever colliding token happens to appear.
+    //
+    // `list bullet` is the one that actually broke. `bullet` is the chart component,
+    // classified `canvas`, and under the old any-token veto it stripped the
+    // `.cell-stage` clip cell from a `list` slide — so that one variant lost the
+    // bounded box the overflow probe walls, while its six siblings kept it.
+    assert.equal(kernel.stageSizingFor('bullet'), 'canvas', 'precondition: `bullet` names a canvas component');
+    assert.equal(kernel.wrapsStageBody('list bullet form'), true, 'list+bullet must wrap as the LIST it is');
+    for (const v of ['takeaway', 'principles', 'numbered', 'lettered', 'roman', 'bullet']) {
+      assert.equal(kernel.wrapsStageBody(`list ${v} form`), true, `list ${v} must wrap like every other list variant`);
+    }
+    // The other four collisions resolve the same under both rules — pinned so a future
+    // change to the resolution has to look at them too.
+    assert.equal(kernel.wrapsStageBody('compare-prose decision form'), true);
+    assert.equal(kernel.wrapsStageBody('math stats form'), true);
+    assert.equal(kernel.wrapsStageBody('journey heatmap form chart-frame'), true);
+    assert.equal(kernel.wrapsStageBody('radar quadrant form chart-frame'), true);
+    // A sovereign first token still refuses, even followed by a flow variant.
+    assert.equal(kernel.wrapsStageBody('split-panel steps form'), false);
   });
 });

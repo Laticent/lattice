@@ -68,11 +68,11 @@ section.chart-frame {
   /* ── THE CHART'S OUTER INSET, declared ONCE as tokens (design/forms.md §6.1,
    * #1598). The stage owns the inset; a body owns only the spacing between its
    * own elements. But a chart has TWO possible holders — `.cell-stage` under the
-   * Form, the SECTION on the `no-form` path — and a per-chart tuning has to reach
+   * Form, the SECTION on the unwrapped path — and a per-chart tuning has to reach
    * both. Spelled as PADDING on each holder that would be two rules per tuning,
    * ten rules for five tunings, with nothing checking that a pair stayed a pair;
    * the first cut of this change proved the hazard by shipping the family arms and
-   * silently dropping timeline-list's and state-chart's on the no-form path.
+   * silently dropping timeline-list's and state-chart's on the unwrapped path.
    *
    * So the TUNING is a token on the section (one declaration, inherited), and the
    * two holders are its only CONSUMERS. Overriding an inset now means overriding
@@ -154,7 +154,7 @@ section.chart-frame {
    * means both seams; a pair means top then bottom. */
   --chart-panel-y: var(--sp-lg);
 }
-/* CONSUMER 2 of the inset tokens — the `no-form` path.
+/* CONSUMER 2 of the inset tokens — the unwrapped path.
  * Scoped `:not(.form)` deliberately. This block used to carry an UNSCOPED
  * `padding: 0 0 calc(4.375 * --_sec-1cqi)` and read as if the chart section had
  * no side inset — on a Form slide it does not: `section.form`'s
@@ -163,11 +163,13 @@ section.chart-frame {
  * despite the rule saying 0. A rule that reads as if it were in force and is not
  * is worse than no rule, so the declaration now names the ONE path it governs.
  *
- * It is NOT dead, which is why it is scoped rather than deleted: `no-form` (per
- * slide) and `form: off` (per deck) are supported opt-outs, and on that path there
- * is no `.cell-stage` and no `section.form` — the SECTION is the box that holds
- * the body, so the section owns the inset the stage owns under the Form. Measured:
- * deleting it outright moves a `no-form` chart's body box and its footer band.
+ * It is NOT dead, which is why it is scoped rather than deleted. The opt-outs it
+ * used to name (`no-form` per slide, `form: off` per deck) are retired — Form is
+ * unconditional — but the UNWRAPPED path they reached is still real: a sovereign
+ * Frame, and any non-strict `canvas` component, builds no `.cell-stage`. There the
+ * SECTION is the box that holds the body, so the section owns the inset the stage
+ * owns elsewhere. Measured: deleting it outright moves an unwrapped chart's body
+ * box and its footer band.
  *
  * The INLINE inset lands as padding — exactly what the retired `.chart-body` width
  * calc contributed on this path, so the body box lands where it always did
@@ -223,10 +225,10 @@ section.chart-frame {
  * everywhere the two do not conflict, alignment wins.
  *
  * `.form` ONLY, for the same reason and one layer down. Every `--frame-x` retune
- * in stage.css is scoped `section.form`, so a `no-form` slide never bleeds no
+ * in stage.css is scoped `section.form`, so an unwrapped slide never bleeds no
  * matter which claim it carries — and an unscoped floor there stacks on the
  * hand-copied frame inset instead of flooring anything: measured, a
- * `kanban no-form claim-bleed` sat at 94 against a plain `no-form`'s 64. Same
+ * `kanban claim-bleed` on the unwrapped path sat at 94 against a plain unwrapped 64. Same
  * shape of mistake as the `claim-hero` one, one layer down, caught by measuring
  * the intersection the red team named as unexplored. A floor is only a floor
  * against zero — so check the zero is reachable on the path you scope to. */
@@ -240,7 +242,7 @@ section.chart-frame:not(.form) {
    * is the 64px safe margin and `--chart-inset-x` is only what a chart adds ON TOP
    * of it. There is no `section.form` here, so this declaration is the whole inset
    * — and reading `--chart-inset-x` alone meant that taking the chart's extra to 0
-   * took the SAFE MARGIN with it: measured, a `no-form` chart's body and heading
+   * took the SAFE MARGIN with it: measured, an unwrapped chart's body and heading
    * both ran 0..1280, to the literal slide edge, worse than before any of this
    * work. `--frame-x` is declared on `section.form`, so it cannot be read here;
    * `5 × --_sec-1cqi` is that token's own definition, kept in step by hand.
@@ -782,7 +784,7 @@ section.chart-frame .chart-body {
    * the stage by `--frame-x`, so a chart's figure paid 64 (frame) + 64 (calc) +
    * 64 (this box's own padding) = 192px per side while prose paid 64. The outer
    * inset now lives once, on the box that holds this one — `.cell-stage` under the
-   * Form, the section on the `no-form` path (both above/below) — and this box
+   * Form, the section on the unwrapped path (both above/below) — and this box
    * fills it exactly. design/forms.md §6.1.
    *
    * The calc's stated justification was that "VS Code Marp preview's webview can
@@ -953,7 +955,7 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
  * box and now has its own token. Re-homed from `.chart-body` to TOKENS because a
  * parent's padding cannot be overridden by a child, so a tuning has to move with
  * the inset it tunes — and spelled once for both holders (stage and, on
- * `no-form`, the section). */
+ * unwrapped, the section). */
 section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
   /* The PANEL's inset still tightens on a narrow box — that half of the tuning is
    * about the glass card's internal berth and is unaffected by the frame inset

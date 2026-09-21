@@ -523,80 +523,165 @@ describe('markdown-it-plugins', () => {
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.
 
-  // ── Form deck-wide toggle (`form: off | standard`) ─────────────────────
+  // ── Form — the composition model, applied to every slide ─────────────────
+  // There is no toggle. `readFormMode`, `FORM_MODES` and the `form:` key are
+  // retired, as are the per-slide `form` / `no-form` opt-outs. What survives is
+  // the FRAME choice: the sovereign Frames carry no chrome Cells.
 
-  test('readFormMode: Form is ON BY DEFAULT — absent form: key → standard; off / false / no opt out', () => {
-    for (const v of ['standard', 'true', 'on', 'yes', 'ON', '"standard"']) {
-      assert.equal(plugins.readFormMode(`---\nform: ${v}\n---\n`), 'standard', v);
-    }
-    // `form: minimal` was retired (2026-07-03) → resolves to standard now.
-    assert.equal(plugins.readFormMode('---\nform: minimal\n---\n'), 'standard');
-    // Explicit opt-out — the only way to disable now.
-    for (const v of ['false', 'off', 'no']) {
-      assert.equal(plugins.readFormMode(`---\nform: ${v}\n---\n`), 'off', v);
-    }
-    // Default-on: a deck with no `form:` key (or no front matter block) composes
-    // as Form. Only a degenerate empty source stays off.
-    assert.equal(plugins.readFormMode('---\ntheme: cuoio\n---\n'), 'standard');
-    assert.equal(plugins.readFormMode('# just a heading, no front matter\n'), 'standard');
-    assert.equal(plugins.readFormMode(''), 'off');
-    assert.equal(plugins.readFormMode(null), 'off');
+  test('the deck-wide toggle is gone — no reader, no mode vocabulary', () => {
+    // Asserted, not merely deleted: re-exporting either symbol would quietly
+    // reinstate a configurable Form, which is the thing being removed.
+    assert.equal(plugins.readFormMode, undefined);
+    assert.equal(plugins.FORM_MODES, undefined);
+    assert.equal(plugins.applyFormToggleToHtml, undefined);
   });
 
-  test('formToggleClass: `standard` adds form to content; skips bookends / sovereign / incompatible', () => {
-    assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
-    assert.equal(plugins.formToggleClass('cards-grid compact', 'standard'), 'cards-grid compact form');
-    assert.equal(plugins.formToggleClass('', 'standard'), 'form'); // bare slide
-    for (const skip of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image']) {
-      assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
+  test('formToggleClass: the `form` class is the CHROME-HOSTING Frame hook', () => {
+    assert.equal(plugins.formToggleClass('content'), 'content form');
+    assert.equal(plugins.formToggleClass('cards-grid compact'), 'cards-grid compact form');
+    assert.equal(plugins.formToggleClass(''), 'form'); // bare slide
+    // A sovereign Frame composes as Form too — it declares one Cell and no chrome
+    // Cells, so it takes no chrome hook. That it IS Form is said on the attributes
+    // (asserted in the applyFormToHtml arm below), never by the absence of a class.
+    // Iterated from SOVEREIGN_FRAMES, not a literal list: the hand-written copy of this
+    // set has drifted twice in this repo, and a test that carries its own stale copy
+    // certifies the drift instead of catching it. `topic` was the one it missed.
+    for (const sov of plugins.SOVEREIGN_FRAMES) {
+      assert.equal(plugins.formToggleClass(sov), sov, `${sov} takes no chrome hook`);
+      assert.equal(plugins.hostsChromeCells(sov), false, `${sov} hosts no chrome Cells`);
+      assert.equal(plugins.isSovereignFrame(sov), true);
+      assert.equal(plugins.frameIdFor(sov), sov, `${sov} names its own Frame`);
+      // AND AN AUTHORED `form` TOKEN IS STRIPPED. This is the one case where the
+      // retired token was still live: the class survived, the slide picked up
+      // `section.form`'s chrome geometry, and its ink moved 16px at 2560x1440 — while
+      // `lint:deck` told the author the token was inert. The Frame decides alone.
+      assert.equal(plugins.formToggleClass(`${sov} form`), sov, `${sov} refuses an authored form token`);
+      assert.equal(plugins.formToggleClass(` ${sov}  form `), sov, 'whitespace does not smuggle it through');
+      // ...UNLESS THE ENGINE PUT IT THERE. `authored: false` is how the split envelope's
+      // re-authored pages say "this is my own composition, not a reader's mistake" — they
+      // keep the layout class for styling and take real chrome Cells, and stripping would
+      // pull that chrome back off. The option exists so BOTH twins ask one kernel: the
+      // rule used to live as a `data-split-role` check inside the DOM twin, which the
+      // engine twin structurally could not mirror (it is handed a class string, not a
+      // node), so the two paths agreed only because auto-split happens to run later.
+      assert.equal(plugins.formToggleClass(`${sov} form`, { authored: false }), `${sov} form`,
+        `${sov} keeps a form class the ENGINE composed`);
+      // `authored: false` MEANS "DO NOT STRIP", NOT "TREAT AS NON-SOVEREIGN". Conflating
+      // the two adds a `form` class to every native-slice page of a sovereign run — a
+      // `premise lat-split-native` body page carries `data-split-role` and NO `form`, and
+      // giving it one is the chrome geometry that moved `split-horizontal` and
+      // `autosplit-coverage` when the abandoned cut made the class universal.
+      assert.equal(plugins.formToggleClass(`${sov} lat-split-native`, { authored: false }), `${sov} lat-split-native`,
+        `a native-slice ${sov} page is not handed a chrome hook it never had`);
     }
-    // `math` IS NOT IN THAT SKIP LIST. It left its sovereign frame in 2026-09 —
-    // every variant takes `form` and renders with the masthead, the footer, the rail
-    // and `meta:` like any other component. Asserted per variant, from the COMPONENT
-    // MANIFEST rather than a hardcoded list, so a ninth variant is covered the day it
-    // is declared rather than the day someone remembers this file.
+    assert.ok(plugins.SOVEREIGN_FRAMES.includes('topic'), 'topic is a sovereign Frame');
+    assert.equal(plugins.hostsChromeCells('content'), true, 'the standard Frame hosts chrome Cells');
+    assert.equal(plugins.frameIdFor('content'), 'standard');
+    // THE `form` CLASS WINS OVER A SOVEREIGN TOKEN — the one branch of `frameIdFor` that
+    // no export-based test can reach, and it went in claimed as "mutation-proved" when it
+    // was not. `roleOpenTag` overwrites `data-frame` on exactly the pages where the two
+    // rules differ, so `frameIdFor`'s answer never reaches a rendered artifact; deleting
+    // this rule leaves the unit suite, the integration tier, the golden decks and
+    // `check:chart-fit` all green. Its only consumer that could differ is the DOM twin,
+    // on a future surface that runs after a split — which is precisely why the kernel has
+    // to be right rather than merely unobserved. Found by the red-team and checker lenses
+    // independently, both by deleting the line and watching nothing go red.
+    //
+    // The shape is real: `compareOptionSections` re-authors a `split-compare` slide into
+    // body pages that keep the layout class for its `.compare-left` / `.compare-right`
+    // styling AND take a real `cell-footer`. Those pages compose under the chrome-hosting
+    // Frame, and `examples/split-decision.md` ships four of them.
+    assert.equal(plugins.frameIdFor('split-compare form'), 'standard',
+      'a split body page keeps the layout class for styling but composes as `standard`');
+    assert.equal(plugins.frameIdFor('split-compare'), 'split-compare',
+      'unsplit, the same component is sovereign');
+    assert.equal(plugins.frameIdFor('content lat-split-cover form split-cover-premise'), 'standard',
+      'a re-authored cover names the Frame it composes as, not the one it was authored as');
+    // `math` IS NOT SOVEREIGN. It left its sovereign frame in 2026-09 — every
+    // variant takes `form` and renders with the masthead, the footer, the rail and
+    // `meta:` like any other component. Asserted per variant, from the COMPONENT
+    // MANIFEST rather than a hardcoded list, so a ninth variant is covered the day
+    // it is declared rather than the day someone remembers this file.
     const MANIFEST = require('../../../lib/components/math/math/math.manifest.json');
     for (const variant of MANIFEST.variants) {
       // `decompose` is authored as the compound `math matrix decompose`.
       const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
-      assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+      assert.equal(plugins.formToggleClass(cls), `${cls} form`,
         `math ${variant} must take the form class — math has no sovereign frame`);
     }
     // A BARE `math` slide follows `feature` — math.docs.md: "the bare layout
     // defaults to it" — so it must never diverge from the variants above.
-    assert.equal(plugins.formToggleClass('math', 'standard'), 'math form',
+    assert.equal(plugins.formToggleClass('math'), 'math form',
       'bare math must track the feature variant');
   });
 
-  test('formToggleClass: `off` is a no-op; retired `minimal` no longer stamps no-progress', () => {
-    assert.equal(plugins.formToggleClass('content', 'off'), 'content');
-    // `form: minimal` is retired: a deck that still carries it resolves to standard
-    // (readFormMode above), so the toggle stamps only `form` — no auto `no-progress`.
-    // The "form, no rail" look is now the explicit `class: no-progress` chrome control.
-    const mode = plugins.readFormMode('---\nform: minimal\n---\n'); // → 'standard'
-    assert.equal(plugins.formToggleClass('content', mode), 'content form');
+  test('formToggleClass: a retired `no-form` token no longer opts out; idempotent', () => {
+    // Idempotent on a slide that already carries the class.
+    assert.equal(plugins.formToggleClass('content form'), 'content form');
+    assert.equal(plugins.formToggleClass(plugins.formToggleClass('content')), 'content form');
+    // A deck still carrying `no-form` composes as Form anyway. The dead token stays
+    // on the class list — the engine does not rewrite an author's source — and
+    // `lint:deck` is what tells them to delete it.
+    assert.equal(plugins.formToggleClass('content no-form'), 'content no-form form');
   });
 
-  test('formToggleClass: respects explicit form / no-form; idempotent', () => {
-    assert.equal(plugins.formToggleClass('content form', 'standard'), 'content form');
-    assert.equal(plugins.formToggleClass('content no-form', 'standard'), 'content no-form');
-    assert.equal(plugins.formToggleClass(plugins.formToggleClass('content', 'standard'), 'standard'), 'content form');
-  });
-
-  test('applyFormToggleToHtml: off no-ops; standard rewrites eligible sections', () => {
+  test('applyFormToHtml: every section composes as Form; the Frame is stated positively', () => {
     const html =
       '<section class="content" data-lattice-slide="1"></section>' +
       '<section class="divider" data-lattice-slide="2"></section>' +
       '<section data-lattice-slide="3"></section>';
-    assert.equal(plugins.applyFormToggleToHtml(html, '---\nform: off\n---\n'), html, 'no-op when off');
-    const std = plugins.applyFormToggleToHtml(html, '---\nform: standard\n---\n');
-    assert.match(std, /<section class="content form" data-lattice-slide="1">/);
-    assert.match(std, /<section class="divider" data-lattice-slide="2">/, 'divider skipped');
-    assert.match(std, /<section class="form" data-lattice-slide="3">/, 'bare slide gets a class attr');
-    // Retired `form: minimal` resolves to standard — no auto `no-progress` stamp.
-    const min = plugins.applyFormToggleToHtml(html, '---\nform: minimal\n---\n');
-    assert.match(min, /<section class="content form" data-lattice-slide="1">/);
-    assert.doesNotMatch(min, /no-progress/);
+    const out = plugins.applyFormToHtml(html);
+    // EVERY section — sovereign or not — says it composes as Form, in the 2D medium,
+    // and names its Frame. This is the statement that replaced the absent class.
+    assert.equal(out.match(/data-form="2d"/g).length, 3);
+    // Asserted per SECTION, by field, not as one literal string. Attribute ORDER is
+    // semantically nothing in HTML, and pinning it made this arm fail for a change that
+    // altered no behavior at all — which is a test reporting on its own implementation
+    // rather than on the contract.
+    const sections = [...out.matchAll(/<section\b[^>]*>/g)].map((m) => ({
+      frame: (m[0].match(/(?<!-)\bdata-frame="([^"]*)"/) || [])[1],
+      medium: (m[0].match(/(?<!-)\bdata-form="([^"]*)"/) || [])[1],
+      classes: ((m[0].match(/(?<![-\w])class="([^"]*)"/) || ['', ''])[1]).split(/\s+/).filter(Boolean),
+    }));
+    assert.deepEqual(sections, [
+      { frame: 'standard', medium: '2d', classes: ['content', 'form'] },
+      // the sovereign divider names its Frame and takes no chrome hook
+      { frame: 'divider', medium: '2d', classes: ['divider'] },
+      // a bare slide composes under the standard Frame and gets the chrome hook
+      { frame: 'standard', medium: '2d', classes: ['form'] },
+    ]);
+    // It takes no deck source, so there is nothing a front-matter key can change:
+    // the same HTML in gives the same HTML out, whatever the deck said.
+    assert.equal(plugins.applyFormToHtml(html), out);
+    // Idempotent across a second pass.
+    assert.equal(plugins.applyFormToHtml(out), out);
+    // AUTHORITATIVE: a forged value is replaced, not respected. Both values are the
+    // ENGINE's statement about the Frame — a value an author typed cannot also be that.
+    const forged = plugins.applyFormToHtml('<section class="title" data-form="spatial" data-frame="evil"></section>');
+    assert.match(forged, /data-form="2d"/);
+    assert.match(forged, /data-frame="title"/);
+    assert.doesNotMatch(forged, /spatial|evil/);
+    // EVERY SPELLING THE HTML GRAMMAR ADMITS, not just the double-quoted one. A
+    // single-quoted or unquoted forgery used to survive as a DUPLICATE attribute — the
+    // engine's value still won (HTML5 keeps the first), so nothing rendered wrong, but
+    // the document was invalid and the docblock's "replaced, not respected" was false
+    // for two thirds of the grammar.
+    for (const spelling of ['data-form=\'spatial\'', 'data-form=spatial', 'data-form="spatial"']) {
+      const out = plugins.applyFormToHtml(`<section class="content" ${spelling}></section>`);
+      assert.equal((out.match(/data-form=/g) || []).length, 1, `one data-form for ${spelling}`);
+      assert.match(out, /data-form="2d"/);
+    }
+    // A PREFIXED SIBLING IS NOT OURS TO TOUCH, and the strip must stay idempotent while
+    // leaving it alone. Both were got wrong at once: a lookbehind added to guard the
+    // sibling was inert (the pattern needs whitespace before `data-frame=`, which a
+    // prefixed name has none of) AND broke idempotency, because once `data-form` is
+    // stripped `data-frame` follows `<section` directly and the lookbehind skipped it —
+    // so a second pass emitted the attribute twice.
+    const sibling = '<section class="content" data-lattice-data-frame="keep" data-form=spatial></section>';
+    const once = plugins.applyFormToHtml(sibling);
+    assert.equal(plugins.applyFormToHtml(once), once, 'idempotent with a prefixed sibling present');
+    assert.match(once, /data-lattice-data-frame="keep"/, 'a prefixed sibling attribute is left alone');
+    assert.equal((once.match(/(?<!-)data-frame=/g) || []).length, 1, 'exactly one data-frame');
   });
 
   // ── applyDeckLogoToHtml ────────────────────────────────────────────────

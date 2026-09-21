@@ -48,7 +48,7 @@ describe('chart-family', () => {
     const html = getHtml();
     assert.match(html, /<div class="progress-bars">/);
     // Five rows in the first progress slide
-    const firstProgress = html.match(/<section[^>]*class="progress chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const firstProgress = html.match(/<section[^>]*class="progress form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(firstProgress, 'first progress section not found');
     const rows = (firstProgress[0].match(/<div class="progress-row">/g) || []).length;
     assert.equal(rows, 5, `expected 5 progress-row, got ${rows}`);
@@ -62,13 +62,13 @@ describe('chart-family', () => {
   test('progress dark + minimal modifiers compose with chart-frame', { timeout: 180000 }, () => {
     const html = getHtml();
     // The combo slide: progress + dark + minimal + chart-frame all present
-    assert.match(html, /class="progress dark minimal chart-frame"/);
+    assert.match(html, /class="progress dark minimal form chart-frame"/);
   });
 
   test('timeline-list emits a spine with date pills + status pills + body', { timeout: 180000 }, () => {
     const html = getHtml();
     assert.match(html, /<div class="timeline-spine">/);
-    const tl = html.match(/<section[^>]*class="timeline-list chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const tl = html.match(/<section[^>]*class="timeline-list form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(tl, 'timeline-list section not found');
     const items = (tl[0].match(/<div class="timeline-item">/g) || []).length;
     assert.equal(items, 4, `expected 4 timeline-item, got ${items}`);
@@ -84,7 +84,7 @@ describe('chart-family', () => {
 
   test('piechart donut emits an SVG donut with proportional wedges and a legend', { timeout: 180000 }, () => {
     const html = getHtml();
-    const pc = html.match(/<section[^>]*class="piechart donut chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const pc = html.match(/<section[^>]*class="piechart donut form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(pc, 'piechart donut section not found');
     assert.match(pc[0], /<div class="piechart-figure">/);
     // SVG-native legend (2026-06-13-svg-native-legend.md): diagram + spine + key
@@ -108,20 +108,23 @@ describe('chart-family', () => {
 
   test('chrome/body/caption skeleton extracts eyebrow, subtitle, italic caption', { timeout: 180000 }, () => {
     const html = getHtml();
-    const firstProgress = html.match(/<section[^>]*class="progress chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const firstProgress = html.match(/<section[^>]*class="progress form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(firstProgress);
     // Under the .viz-frame model (2026-07-15-viz-frame-merge) the chrome is
-    // emitted flat — no .chart-header wrapper. Eyebrow, h2, and subtitle sit
-    // top-level in section order; with Form on they hoist into .masthead-lede,
-    // but this fixture pins form: off so they stay flat. Eyebrow is the leading
-    // <p><code>...</code></p>, ahead of the h2.
+    // emitted flat — no .chart-header wrapper. Eyebrow, h2 and subtitle keep that
+    // ORDER wherever they land, and since Form is unconditional (2026-09-20) they
+    // land hoisted into `.masthead-lede`. This fixture used to pin `form: off` to
+    // keep them flat; there is no such key any more, so it asserts the composition
+    // every real deck gets. Eyebrow is still the leading <p><code>…</code></p>,
+    // ahead of the h2 — which is the contract, not where the trio sits.
     assert.match(firstProgress[0], /<p class="chart-eyebrow"><code>H1 2026 · Phase 1 readiness<\/code><\/p>\s*<h2>/);
     // Subtitle is the first paragraph after h2
     assert.match(firstProgress[0], /<p class="chart-subtitle">Snapshot taken at 14:00 UTC[^<]*<\/p>/);
     // Body wraps the chart payload; caption trails it, stripped of the <em> wrapper.
-    // This fixture pins `form: off`, so NO stage cell is built — and therefore no
-    // <figure>, so the caption correctly stays a <p>. The <figcaption> retag happens
-    // only inside `buildStageCell`, which is what keeps the pair from ever splitting.
+    // Both now sit INSIDE the stage cell (Form is unconditional), and the caption is
+    // still a <p>: the <figcaption> retag rides on a <figure>, which a chart-frame
+    // body does not build. What this pins is that the pair never splits — body then
+    // caption, adjacent, whichever box holds them.
     assert.match(firstProgress[0], /<div class="chart-body">[\s\S]*<\/div><p class="chart-caption">Source: Linear · refreshed 2026-05-07<\/p>/);
   });
 });

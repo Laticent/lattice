@@ -456,25 +456,6 @@ flowchart LR
 
 ---
 
-<!-- _class: timeline-list no-form -->
-
-## A chart with no Form still has a holder.
-
-`no-form` (per slide) and `form: off` (per deck) are supported opt-outs, and on
-that path there is no `.cell-stage` — the SECTION holds the body, so the section
-owns the inset. This slide is here because the inset assertion used to skip a
-stage-less section entirely, and that is the exact path #1598's first cut
-regressed on.
-
-1. `Q1` The first milestone
-   - One clause says what changed here.
-2. `Q2` The second, marked `decision`
-   - A tag names the milestone's kind.
-3. `Q3` The third milestone
-   - Sixteen words is each entry's budget.
-
----
-
 <!-- _class: kanban claim-bleed -->
 
 ## A bleeding chart still has a floor.

@@ -1768,10 +1768,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// editor/preview divider), and shadowing it silently breaks every layout read below.
 	const slideSplit = getFrontMatter(source, 'split') || 'headings';
 	const setSlideSplit = (value: string) => settingsWrite(`Slide splitting → ${value}`, (s) => writeFrontMatterLine(s, 'split', value === 'headings' ? null : value));
-	// Deck form (`form:`) — the masthead band + bay + rail composition. Mirrors
-	// readFormMode in plugins.js: standard is the default and ONLY off/false/no opts out.
-	const formOn = !/^(off|false|no)$/i.test((getFrontMatter(source, 'form') || '').trim());
-	const toggleForm = () => settingsWrite(formOn ? 'Deck chrome off' : 'Deck chrome on', (s) => writeFrontMatterLine(s, 'form', formOn ? 'off' : null));
 	// Auto-glossary (`glossary:`) — an appendix slide built from the acronym registry's
 	// definitions. lib/core/glossary-auto.mjs; the canonical written value is `auto`.
 	// Inline pills + marks (`inline-code: literal`) — whether the inline directive grammar
@@ -1780,7 +1776,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// inert (the kernel maps anything but `literal` to the running default) — which is what
 	// `unknown-inline-code` warns an author about, so the Inspector must not do it either.
 	//
-	// KNOWN DIVERGENCE, shared with `formOn` / `glossaryOn` above and not introduced here:
+	// KNOWN DIVERGENCE, shared with `glossaryOn` above and not introduced here:
 	// `getFrontMatter` does not strip a trailing YAML comment, where the kernel's
 	// `frontMatterName` does. So `inline-code: literal  # deck from Acme` reads as ON in
 	// this switch while the engine renders it literal — the Inspector shows a toggle on
@@ -3894,7 +3890,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="New slide on" desc="Headings, or --- dividers." find="split divider break" help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
 					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
 				</Field>
-				<Field label="Deck chrome" desc="The masthead band and status bay." find="form masthead bay" help={<>The Form composition model — the masthead band, the meta/status bay and the progress rail. On for every deck by default; turning it off strips all three, leaving bare slides.</>}><Toggle label="Deck chrome" on={formOn} onClick={toggleForm} /></Field>
 				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE}:c2`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
 				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>no-note</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle owns its own token in this key and isn't shown here.</>} value={deckClass} placeholder="e.g. no-note" onCommit={setDeckClass} />

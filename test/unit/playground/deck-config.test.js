@@ -53,20 +53,19 @@ describe('readFrontMatter', () => {
     assert.equal(fm.configured, false, 'theme is ubiquitous under full sync — not a bespoke-setup signal');
   });
 
-  test('form toggle: canonicalises standard/on/off; retired minimal → standard; absent = default, not configured', async () => {
-    const { readFrontMatter } = await import(MOD);
-    assert.equal(readFrontMatter('---\nmarp: true\nform: standard\n---\n').form, 'standard');
-    assert.equal(readFrontMatter('---\nmarp: true\nform: on\n---\n').form, 'standard');
-    assert.equal(readFrontMatter('---\nmarp: true\nform: true\n---\n').form, 'standard');
-    // `form: minimal` retired (2026-07-03) → resolves to standard (the default).
-    assert.equal(readFrontMatter('---\nmarp: true\nform: minimal\n---\n').form, 'standard');
-    assert.equal(readFrontMatter('---\nmarp: true\nform: off\n---\n').form, 'off');
-    // Form is ON by default — an absent key reads as standard and is NOT bespoke config.
-    assert.equal(readFrontMatter(CLEAN).form, 'standard');
-    assert.equal(readFrontMatter(CLEAN).configured, false);
-    // Only the explicit opt-out (off) is bespoke config; retired minimal reads as the default.
-    assert.equal(readFrontMatter('---\nmarp: true\nform: off\n---\n').configured, true);
-    assert.equal(readFrontMatter('---\nmarp: true\nform: minimal\n---\n').configured, false);
+  test('form is NOT a managed key — the panel neither reads nor writes it', async () => {
+    // Form is the composition model, always on. It is not configurable, so the
+    // Deck-settings panel offers no control and treats `form:` like any other key
+    // it does not own. Asserted rather than merely deleted: a silently re-added
+    // entry would otherwise resurrect a control we removed on purpose.
+    const { readFrontMatter, writeFrontMatter } = await import(MOD);
+    assert.equal(readFrontMatter('---\nmarp: true\nform: off\n---\n').form, undefined);
+    // An author's leftover `form:` line is PRESERVED verbatim, not rewritten or dropped —
+    // the same treatment the retired `math:` key gets.
+    const src = writeFrontMatter('---\nmarp: true\nform: off\n---\n', 'class', 'dark');
+    assert.ok(src.includes('form: off'), 'a leftover form: line must survive a panel write');
+    // ...and it does not light the "this deck carries bespoke config" cue.
+    assert.equal(readFrontMatter('---\nmarp: true\nform: off\n---\n').configured, false);
   });
 
 
@@ -126,21 +125,6 @@ describe('writeFrontMatter', () => {
     assert.equal(block, '---\nmarp: true\nsize: 4K\npaginate: true\nfooter: Confidential');
   });
 
-  test('form: writes off in canonical slot; standard (default) + retired minimal omit it', async () => {
-    const { writeFrontMatter } = await import(MOD);
-    const off = writeFrontMatter(CLEAN, 'form', 'off');
-    assert.ok(/^---\nmarp: true\nform: off\n---\n/.test(off));
-    // Retired `minimal` canonicalises to standard (the default) → the key is omitted.
-    const min = writeFrontMatter(CLEAN, 'form', 'minimal');
-    assert.ok(!min.includes('form:'));
-    // `class` precedes `form` in the canonical order
-    let src = writeFrontMatter(CLEAN, 'form', 'off');
-    src = writeFrontMatter(src, 'class', 'dark');
-    const block = src.slice(0, src.indexOf('\n---\n'));
-    assert.equal(block, '---\nmarp: true\nclass: dark\nform: off');
-    // standard (the default) clears it back out
-    assert.ok(!writeFrontMatter(off, 'form', 'standard').includes('form:'));
-  });
 
 
   test('glossary (#920): writes the canonical auto; a falsy value omits it; sits after split', async () => {
@@ -186,11 +170,11 @@ describe('writeFrontMatter', () => {
     // Opt out — boolean false or a falsey string — writes `validate: off`.
     assert.ok(writeFrontMatter(CLEAN, 'validate', false).includes('validate: off\n'));
     assert.ok(writeFrontMatter(CLEAN, 'validate', 'off').includes('validate: off\n'));
-    // canonical slot: after form, and last in the block on a deck that sets nothing else.
-    let src = writeFrontMatter(CLEAN, 'form', 'off');
+    // canonical slot: after class, and last in the block on a deck that sets nothing else.
+    let src = writeFrontMatter(CLEAN, 'class', 'dark');
     src = writeFrontMatter(src, 'validate', false);
     const block = src.slice(0, src.indexOf('\n---\n'));
-    assert.equal(block, '---\nmarp: true\nform: off\nvalidate: off');
+    assert.equal(block, '---\nmarp: true\nclass: dark\nvalidate: off');
     // round-trips, and switching it back on clears the key.
     assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'validate', false)).validate, false);
     assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'validate', false), 'validate', true).includes('validate'));
@@ -552,10 +536,13 @@ describe('createConfigPanel (DOM)', () => {
   // onto a named profile. It matters more now, not less: `author` is null, so no caller
   // passes an array and `fields` has no production exercise left at all.
   test('an explicit fields array EXCLUDES every key it omits', async () => {
-    const { panel, host } = await mountProfile(CLEAN, ['finish', 'size', 'paginate', 'form']);
+    // `glossary` stands in for the retired `form` entry here: this arm needs THREE
+    // listed keys to prove the allow-list includes and excludes, and `form` left the
+    // panel with the Form toggle (Form is the composition model, not a setting).
+    const { panel, host } = await mountProfile(CLEAN, ['finish', 'size', 'paginate', 'glossary']);
     panel.render();
     const labels = [...host.querySelectorAll('.db-pref-label')].map((n) => n.textContent);
-    assert.ok(labels.includes('Finish') && labels.includes('Slide size') && labels.includes('Form'), 'the listed keys draw');
+    assert.ok(labels.includes('Finish') && labels.includes('Slide size') && labels.includes('Auto-glossary'), 'the listed keys draw');
     assert.ok(!labels.includes('Theme'), 'theme excluded — it is not in the list');
     assert.ok(!labels.includes('Header') && !labels.includes('Footer'), 'deck chrome excluded');
     assert.ok(!labels.includes('Default slide class'), 'class excluded');

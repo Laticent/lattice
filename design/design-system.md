@@ -437,7 +437,7 @@ categories:
 | Mood (1) | `dark` |
 | Decoration (6) | `treatment-none`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
 | Typography (5) | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
-| Chrome (7) | `silent`, `no-header`, `no-footer`, `no-paginate`, `form`, `no-form`, `no-progress` |
+| Chrome (5) | `silent`, `no-header`, `no-footer`, `no-paginate`, `no-progress` |
 | Social (1) | `safe` |
 | State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
 | Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
