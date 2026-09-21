@@ -1517,3 +1517,22 @@ never turn "passed in headless" into "works on iOS."
   `NO CARD` of nine); an independent run that instead injected an `!important`
   counter-rule at runtime saw the third survive. Treat arms 1 and 3 as the rule's
   dependable mutation proof.
+
+## A CSS comment in ComposeView's stylesheet breaks the whole file, with errors 130 lines away
+
+- **Symptom** — edit `ComposeView.tsx`'s `<style>{`…`}</style>` block, and `tsc`
+  reports `JSX element 'style' has no corresponding closing tag` plus a cascade of
+  `'}' expected` and `Unexpected token` errors in *unrelated* markup far below. The
+  CSS you added looks fine, and the reported line is nowhere near it.
+- **Cause** — the stylesheet is a **template literal**, and a backtick inside it ends
+  the literal. Prose comments in this repo quote identifiers in backticks by habit
+  (HARD RULE #30's house voice), so a CSS comment written the way every other comment
+  in the file is written — ``/* the `pre` rule */`` — terminates the string and the
+  rest of the file is parsed as expressions.
+- **Fix** — no backticks anywhere inside a `<style>{`…`}</style>` block. Name the
+  selector in plain text: `/* the pre rule */`. The existing comments in that block
+  already do this; it reads as a stylistic accident and is a hard constraint.
+- **The general shape** — the first error's LINE NUMBER is where the parser finally
+  choked, not where the string ended. When a template-literal file reports a torrent of
+  syntax errors, `grep -c '`'` the section: an odd count is the answer, and `${` in CSS
+  content (`content: "${"`) is the same trap wearing a different hat.

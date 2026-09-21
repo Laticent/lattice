@@ -39,6 +39,10 @@ const manifests = new Map<string, Promise<Manifest | null>>();
 interface Manifest {
 	languages: Record<string, { file: string; bytes: number }>;
 	aliases: Record<string, string>;
+	/** The `common` build's own grammars, name → aliases. Never fetched (they ship
+	 *  inside the engine bundle); recorded so the manifest is a COMPLETE answer to
+	 *  "what can this renderer color", which is what the language picker needs. */
+	common?: Record<string, string[]>;
 }
 
 /**
@@ -205,6 +209,22 @@ export async function ensureFenceLanguages(markdown: string, base?: string | nul
 	} catch {
 		return [];
 	}
+}
+
+/**
+ * The grammar manifest itself, for a caller that needs the CATALOG rather than a
+ * load — today the Compose language picker, which reads it to offer every grammar
+ * this renderer can apply (the 156 lazy ones, the 36 in `common`, and every alias).
+ *
+ * Shares this module's per-base memo, so the picker and the renderer make ONE
+ * request between them, and returns null rather than throwing when the engine
+ * bundle is not on the page yet: the picker then shows its Lattice and deck groups
+ * and fills the rest in when the manifest lands.
+ */
+export async function loadHljsManifest(base?: string | null): Promise<Manifest | null> {
+	const dir = base ?? deriveHljsBase();
+	if (!dir) return null;
+	return loadManifest(dir);
 }
 
 /** Test seam — drop the memoized fetches so a spec can re-exercise the path. */

@@ -37,11 +37,16 @@ export interface LatticePlaygroundEngine {
 	missingLanguages?: (markdown: string) => string[];
 	/** Register everything queued on `window.__latticeHljs`; returns what took. */
 	drainLanguages?: () => string[];
+	/** Tokenize one fence body → each token's range in `code`. For a surface that
+	 *  cannot take HTML — the Compose editor's ProseMirror `code_block`. Optional,
+	 *  because an engine bundle older than this feature does not carry it. */
+	highlightSpans?: (code: string, lang: string) => Array<{ from: number; to: number; cls: string }>;
 	languages?: {
 		has: (name: string) => boolean;
 		list: () => string[];
 		needed: (markdown: string) => string[];
 		missing: (markdown: string) => string[];
+		spans?: (code: string, name: string) => Array<{ from: number; to: number; cls: string }>;
 	};
 }
 

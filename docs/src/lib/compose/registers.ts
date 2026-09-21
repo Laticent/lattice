@@ -258,6 +258,26 @@ export const TABLE_UNSUITED_NAMES: readonly string[] = [...TABLE_UNSUITED];
 const CLASS_PAYLOAD_RE = /<!--\s*_?class:\s*([^>]*?)\s*-->/;
 
 /**
+ * Every `_class` token a slide's directives carry, in directive order.
+ *
+ * Exported because `code-commands.ts` needs exactly this and had copied the regex
+ * plus the two-level loop verbatim (HARD RULE #15). Reading EVERY token rather than
+ * the leading one is the part worth sharing: `<!-- _class: dark quote -->` is ordinary
+ * authoring, and matching only the first token resolved it to `dark`, found no entry,
+ * and fell through to permissive — which on the register gate meant offering a
+ * blockquote unwrap that destroyed a quote slide's content.
+ */
+export function classTokens(directives: string[]): string[] {
+	const out: string[] = [];
+	for (const d of directives) {
+		const m = d.match(CLASS_PAYLOAD_RE);
+		if (!m) continue;
+		for (const token of m[1].trim().split(/\s+/)) if (token) out.push(token);
+	}
+	return out;
+}
+
+/**
  * Does the caret's slide render the block behind this register?
  *
  * PERMISSIVE BY DEFAULT, on exactly the same three guards `headingKeysFor` carries:

@@ -9,14 +9,17 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, insertFence, isInCode, leadingTag, type SlideFences, slideTakesCode } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
+import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { CodeControls, FencePicker } from './code-controls';
 import { getFrontMatter } from './front-matter';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
@@ -387,10 +390,20 @@ const LUCIDE_PATHS: Record<string, string> = {
 	x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 	'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
 	'grid-2x2-plus': '<path d="M12 3v17a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1H3"/><path d="M16 19h6"/><path d="M19 22v-6"/>',
+	// The insert-fence door and the language chip. `square-code` reads as "a block of
+	// code" where a bare `code` (the angle brackets) reads as an inline span — the
+	// distinction the door is actually making.
+	'square-code': '<path d="m10 9-3 3 3 3"/><path d="m14 15 3-3-3-3"/><rect x="3" y="3" width="18" height="18" rx="2"/>',
+	'chevron-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
 }
+
+/** Which React island the divider pill's Format group is hosting. The group swaps
+ *  between three modes — the register buttons (plain DOM), the table controls, and the
+ *  fence language picker — and only one can be mounted at a time. */
+type FormatIsland = 'table' | 'code';
 
 // A per-slide NodeView — the slide's ONE control bar, on its top divider line, full-width and
 // grouped: [collapse toggle] · [context-sensitive Format registers] · [insert · settings] · [delete].
@@ -455,7 +468,10 @@ class SlideView {
 	// `directives` to decide whether this layout gets the table door.
 	private node: PMNode;
 	private stateful: boolean; // slide is a stateful table component (obligation-matrix / roadmap) → offer the marker picker
-	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
+	// Which React island this slide's Format group currently hosts, if any. One field
+	// rather than one flag per kind: the group hosts AT MOST one island, and a second
+	// boolean would make "both true" representable when it never is.
+	private hosted: FormatIsland | null = null;
 	constructor(
 		node: PMNode,
 		public view: EditorView,
@@ -464,10 +480,14 @@ class SlideView {
 		onSettings?: (index: number) => void,
 		private getHeadings?: () => SlideHeadings | undefined,
 		onInsertBelow?: (index: number) => void,
-		private mountTable?: (slot: HTMLElement | null, owner: SlideView, stateful: boolean) => void,
+		private mountIsland?: (slot: HTMLElement | null, owner: SlideView, kind: FormatIsland, stateful: boolean) => void,
 		// Read LAZILY like getHeadings — the map arrives as a prop and a SlideView outlives
 		// a prop change, so a getter keeps the gutter current without recreating node views.
 		private getBlocks?: () => SlideBlocks | undefined,
+		// The per-class fence map and the live deck source, both lazy for the same reason:
+		// the door's default tag is computed at CLICK time, not at construction.
+		private getFences?: () => SlideFences | undefined,
+		private getSource?: () => string,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -522,6 +542,21 @@ class SlideView {
 		// Insert a starter table into THIS slide at the caret (distinct from the add-slide `+` and the
 		// in-table edit dropdown). insertStarterTable is a no-op inside an existing table / a locked slide.
 		actions.append(this.btn('Insert table', 'grid-2x2-plus', () => { insertStarterTable(this.view.state, this.view.dispatch); this.view.focus(); }, 'cs-pill-btn cs-insert-table'));
+		// Insert a fence into THIS slide at the caret — the twin of the table door, and
+		// ONE door for every fence: the tag decides whether the engine draws a diagram, a
+		// scene or a plot, or highlight.js colors code, so a second "insert diagram" door
+		// would be a second door onto the same construct (design § Axis E).
+		//
+		// TAGGED, never bare. The tag comes from the caret slide's own layout when its
+		// grammar declares one (`diagram` → mermaid, `code` → js), else from the tag this
+		// deck already uses most, else plain text — so the door never opens a modal to ask
+		// a question the layout has already answered.
+		actions.append(this.btn('Insert code', 'square-code', () => {
+			const directives = (this.node.attrs.directives as string[]) || [];
+			const tag = defaultFenceTag(directives, this.getFences?.(), deckFenceTags(this.getSource?.() ?? ''));
+			insertFence(tag)(this.view.state, this.view.dispatch);
+			this.view.focus();
+		}, 'cs-pill-btn cs-insert-code'));
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
 		pill.append(this.fmtGroup, div, actions);
 
@@ -564,16 +599,27 @@ class SlideView {
 		// table slide is read-only (the guard eats every command), so it gets the register path, not
 		// the controls (the register footgun, HARD RULE #18).
 		const inTable = active && !this.locked && isInTable(this.view.state);
+		// Caret inside a FENCE → the same slot hosts the language picker instead. Same locked-slide
+		// reasoning, and the two are mutually exclusive: a GFM cell is `inline*` and cannot hold a
+		// code block, so the caret is never in both.
+		const inCode = active && !this.locked && !inTable && isInCode(this.view.state);
 		// Hide the "insert table" action while the caret is in a table — there it's a no-op, and the
 		// table-edit dropdown already shows a table icon (avoid the doubled glyph).
 		this.dom.classList.toggle('cs-caret-in-table', inTable);
+		// Same for the fence door: inside a fence it is a no-op (`insertFence` refuses to nest),
+		// and the picker beside it already carries the code glyph.
+		this.dom.classList.toggle('cs-caret-in-code', inCode);
 		// WITHHOLD the table door where a table is editorially wrong for the layout — a title, a
 		// quote, a picture slide. Not because the engine cannot render one there (it can, and
 		// beautifully — that was the false premise of an earlier version of this gate) but because
 		// offering it produces a mis-set slide. Typing or pasting a table still works; only the
 		// button stands down. Permissive for an unclassed or unrecognized slide.
 		this.dom.classList.toggle('cs-no-table', !slideTakesTable((this.node.attrs.directives as string[]) || []));
-		if (!inTable) this.clearTableHost(); // leaving the table unmounts the React controls
+		// The fence door's own gate, on the same posture and a deliberately SHORTER list:
+		// on four layouts the fence IS the figure, so the door is withheld only where the
+		// slide has no body flow to hold a block at all (see `CODE_UNSUITED`).
+		this.dom.classList.toggle('cs-no-code', !slideTakesCode((this.node.attrs.directives as string[]) || []));
+		if (!inTable && !inCode) this.clearIsland(); // caret left the construct — unmount the island
 		if (!active) {
 			if (this.fmtGroup.childElementCount) {
 				this.fmtGroup.replaceChildren();
@@ -581,14 +627,20 @@ class SlideView {
 			}
 			return;
 		}
-		if (inTable) {
-			if (this.fmtGroup.dataset.sig === 'tbl') return; // already hosting — leave the slot mounted
-			this.fmtGroup.dataset.sig = 'tbl';
+		if (inTable || inCode) {
+			const kind: FormatIsland = inTable ? 'table' : 'code';
+			const sig = `island:${kind}`;
+			if (this.fmtGroup.dataset.sig === sig) return; // already hosting — leave the slot mounted
+			// Swapping BETWEEN islands has to unmount the old one first, or the previous
+			// owner's late null would tear down the new host (the owner-keyed guard reads
+			// identity, and here both hosts are this same SlideView).
+			if (this.hosted && this.hosted !== kind) this.clearIsland();
+			this.fmtGroup.dataset.sig = sig;
 			const slot = document.createElement('span');
 			slot.className = 'cs-tblc-slot';
 			this.fmtGroup.replaceChildren(slot);
-			this.tableHosted = true;
-			this.mountTable?.(slot, this, this.stateful);
+			this.hosted = kind;
+			this.mountIsland?.(slot, this, kind, this.stateful);
 			return;
 		}
 		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.(), this.getBlocks?.());
@@ -617,10 +669,11 @@ class SlideView {
 	// Unmount the React TableControls this slide was hosting (caret left the table / slide went
 	// inactive / view destroyed). Owner-keyed on the ComposeView side, so a late null from the
 	// previous host can't clobber the new host.
-	private clearTableHost() {
-		if (!this.tableHosted) return;
-		this.tableHosted = false;
-		this.mountTable?.(null, this, false);
+	private clearIsland() {
+		if (!this.hosted) return;
+		const kind = this.hosted;
+		this.hosted = null;
+		this.mountIsland?.(null, this, kind, false);
 	}
 	private applyDecos(decorations: readonly Decoration[]) {
 		const has = (k: 'collapsed' | 'active') => decorations.some((d) => (d.spec as Record<string, boolean> | undefined)?.[k]);
@@ -755,8 +808,215 @@ class SlideView {
 	destroy() {
 		clearTimeout(this.confirmTimer);
 		this.ac.abort(); // remove ALL button listeners in one shot (structural + format group)
-		this.clearTableHost();
+		this.clearIsland();
 		liveSlideViews.delete(this);
+	}
+}
+
+// ── Fenced code: highlighting ────────────────────────────────────────────────
+//
+// Inline decorations carrying hljs token classes, tokenized by the ENGINE's own
+// highlight.js through `highlightSpans` — the same instance, with Lattice's mermaid
+// and augmented-shell grammars registered, that the export runs. So a fence's colors
+// in Compose are the fence's colors on the slide, by construction rather than by a
+// map somebody has to keep in sync (design § Axis A).
+//
+// Three things are deliberate:
+//
+//  · AN ENGINE SUB-LANGUAGE IS COLORED TOO, through its BODY grammar
+//    (`highlightLanguageFor`): mermaid by Lattice's own hljs grammar, anima and
+//    functionplot as the JSON they are. An earlier cut skipped all three, reading
+//    `highlight-js.css`'s mermaid suppression as a blanket rule; it is scoped to the
+//    transient source `<pre>` on a diagram SLIDE, where the fence is a placeholder for
+//    a picture. In an editor the fence is source, and `mermaid.hljs.js` exists to color
+//    exactly that. Two thirds of the fences we ship are mermaid, so this is most of
+//    them.
+//  · IT DEGRADES TO PLAIN MONO. The engine bundle is loaded by the preview, not by
+//    this editor, so on the first frames (or with no engine at all) there is nothing
+//    to ask. Decorations are then empty and the fence is honest monospace.
+//  · IT IS RECOMPUTED PER CHANGED BLOCK, not per keystroke over the document. The
+//    `code` component's own wall is fourteen lines, so a fence is small; the work is
+//    bounded by the number of fences on screen, and a memo keyed on (text, tag)
+//    means typing in prose re-tokenizes nothing.
+const codeHighlightKey = new PluginKey('codeHighlight');
+
+/** `hljs.highlight` results, keyed by the exact body + tag they came from. Bounded:
+ *  a deck is a few dozen fences, and a stale key is dropped on the next sweep. */
+type SpanList = { from: number; to: number; cls: string }[];
+
+function highlightFences(doc: PMNode, cache: Map<string, SpanList>): DecorationSet {
+	const pg = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
+	if (!pg?.highlightSpans) return DecorationSet.empty;
+	const decos: Decoration[] = [];
+	const live = new Map<string, SpanList>();
+	doc.descendants((node, pos) => {
+		if (node.type.name !== 'code_block') return true;
+		const tag = leadingTag((node.attrs.params as string) || '');
+		const lang = highlightLanguageFor(tag);
+		if (!lang) return false;
+		const text = node.textContent;
+		if (!text) return false;
+		const key = `${lang}\u0000${text}`;
+		let spans = cache.get(key);
+		if (!spans) {
+			try {
+				spans = pg.highlightSpans?.(text, lang) ?? [];
+			} catch {
+				spans = []; // a grammar that throws costs one fence its color
+			}
+		}
+		live.set(key, spans);
+		// +1 for the code_block's own opening token: the text starts one position in.
+		const start = pos + 1;
+		for (const sp of spans) decos.push(Decoration.inline(start + sp.from, start + sp.to, { class: sp.cls }));
+		return false; // a code block has no children worth walking
+	});
+	cache.clear();
+	for (const [k, v] of live) cache.set(k, v);
+	return decos.length ? DecorationSet.create(doc, decos) : DecorationSet.empty;
+}
+
+function codeHighlightPlugin() {
+	const cache = new Map<string, SpanList>();
+	return new Plugin({
+		key: codeHighlightKey,
+		state: {
+			init: (_c, state) => highlightFences(state.doc, cache),
+			apply(tr, value) {
+				// A pure selection move cannot change a token, and the engine landing
+				// LATER is announced by an explicit meta rather than guessed at.
+				if (!tr.docChanged && !tr.getMeta(codeHighlightKey)) return value;
+				return highlightFences(tr.doc, cache);
+			},
+		},
+		props: { decorations: (state) => codeHighlightKey.getState(state) as DecorationSet },
+	});
+}
+
+// ── Fenced code: the language chip ───────────────────────────────────────────
+//
+// A NodeView over `code_block` whose only addition is the CHIP — the fence's language,
+// legible without the caret, and the picker's trigger (design § Axis B). Everything
+// else about the block stays exactly what ProseMirror's own `toDOM` produces
+// (`pre > code`, `contentDOM` the `code`), because the block IS a native textblock:
+// no nested editor, so the structural guard, `emitDeck`'s identity baseline and the
+// clipboard bridge all keep working with nothing said to them (design § Axis A).
+//
+// The chip is `contenteditable=false` and its mousedown is swallowed, so clicking it
+// neither moves the caret into the chip nor lets ProseMirror read the click as a
+// selection change — the same two lines every control in this file carries.
+class CodeBlockView {
+	dom: HTMLElement;
+	contentDOM: HTMLElement;
+	private chip: HTMLButtonElement;
+	private ac = new AbortController();
+	private node: PMNode;
+	constructor(
+		node: PMNode,
+		private view: EditorView,
+		onChip: (el: HTMLElement) => void,
+		// TAKEN IN THE CONSTRUCTOR, not assigned after it. `syncChip` reads the ancestor
+		// slide's `locked` through this, and with the field assigned by the factory
+		// afterwards it was `undefined` on the first paint — so the chip rendered ENABLED
+		// on a locked slide until the first reconcile, which is exactly when a reader is
+		// most likely to click a control they have just seen appear.
+		public getPos: () => number | undefined,
+	) {
+		this.node = node;
+		const pre = document.createElement('pre');
+		pre.className = 'cs-code';
+		const code = document.createElement('code');
+		const chip = document.createElement('button');
+		chip.type = 'button';
+		chip.className = 'cs-code-chip';
+		chip.contentEditable = 'false';
+		this.chip = chip;
+		// `dom` and `contentDOM` are assigned BEFORE syncChip, not after: syncChip writes
+		// `this.dom.dataset.lang`, and reading it off an unassigned field threw inside the
+		// NodeView constructor — which ProseMirror surfaces as a failed EditorState, so
+		// Compose fell back to its plain textarea and the whole rich editor silently
+		// disappeared on any deck with a fence. Caught only by driving the real Studio.
+		pre.append(chip, code);
+		this.dom = pre;
+		this.contentDOM = code;
+		this.syncChip();
+		chip.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
+		chip.addEventListener('click', (e) => {
+			e.preventDefault();
+			// Put the caret in the fence FIRST. The picker reads the caret block — it is the
+			// same `setFenceTag` command the pill drives — so opening it from a chip on a
+			// block the caret is not in would otherwise retarget the wrong fence.
+			// `getPos` returns undefined for a position ProseMirror cannot resolve mid-
+			// transaction. Then the picker still opens on the caret's own fence, which is
+			// the same thing the pill-hosted twin does — not a no-op, as an earlier note
+			// here wrongly said.
+			const pos = this.getPos();
+			if (typeof pos !== 'number') return onChip(chip);
+			const inside = Math.min(pos + 1, view.state.doc.content.size);
+			view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(inside))));
+			// THE DISPATCH ABOVE REBUILDS THIS NODE VIEW, so `chip` — the element the
+			// click arrived on — is already detached by the time we get here. Measured on
+			// the real Studio: after the dispatch the clicked button reported
+			// `isConnected: false` and was no longer the one in the document, so a popover
+			// anchored to it rendered nothing at all. Re-acquire the live chip from the
+			// block's current DOM; fall back to the clicked one if the position no longer
+			// resolves, which is no worse than before.
+			const dom = view.nodeDOM(pos) as HTMLElement | null;
+			onChip((dom?.querySelector?.('.cs-code-chip') as HTMLElement | null) ?? chip);
+		}, { signal: this.ac.signal });
+	}
+	private syncChip() {
+		const tag = leadingTag((this.node.attrs.params as string) || '');
+		this.chip.textContent = tag || 'plain';
+		this.dom.dataset.lang = tag;
+		// A LOCKED slide takes no edits — `structuralGuard` rejects every doc change that
+		// touches one — so a chip that opened a 192-row picker there would offer choices
+		// and then silently do nothing. That is the register footgun HARD RULE #18 names,
+		// and the pill islands already stand down for it (`syncFormat`'s `!this.locked`).
+		// The chip stays VISIBLE, because knowing the language is still worth having; it
+		// just stops being a control and says why.
+		const locked = this.slideLocked();
+		this.chip.disabled = locked;
+		this.chip.classList.toggle('cs-code-chip-locked', locked);
+		this.chip.title = locked ? `Fence language: ${tag || 'none'} — this slide is edited in Markdown` : `Fence language: ${tag || 'none'} — click to change`;
+		this.chip.setAttribute('aria-label', this.chip.title);
+	}
+	/** Is this fence on a slide Compose holds read-only? Read from the document rather
+	 *  than cached: a slide's `locked` attr is recomputed on every resync. */
+	private slideLocked(): boolean {
+		const pos = this.getPos();
+		if (typeof pos !== 'number') return false;
+		try {
+			const $pos = this.view.state.doc.resolve(pos);
+			return $pos.depth >= 1 && !!$pos.node(1).attrs.locked;
+		} catch {
+			return false; // a position mid-transaction is not worth throwing over
+		}
+	}
+	update(node: PMNode) {
+		if (node.type !== this.node.type) return false;
+		this.node = node;
+		this.syncChip();
+		return true;
+	}
+	// Everything outside `contentDOM` is ours — the chip's own rewrites included — so
+	// ProseMirror never re-reads this node's DOM over chrome it does not own. The
+	// standard shape for a node view with extra furniture, and wider than the "is this
+	// the chip?" test it replaced.
+	//
+	// It is NOT what makes the chip's anchor stable, and the distinction cost an hour:
+	// this node view is rebuilt on every caret move into or out of the fence whatever
+	// this returns (measured both ways on the real Studio), so the click handler
+	// re-acquires the live chip after its dispatch rather than trusting the element it
+	// was called on.
+	ignoreMutation(m: MutationRecord | { target: Node }) {
+		return !this.contentDOM.contains(m.target as Node);
+	}
+	stopEvent(e: Event) {
+		return this.chip.contains(e.target as Node);
+	}
+	destroy() {
+		this.ac.abort();
 	}
 }
 
@@ -1082,13 +1342,14 @@ export class CommentView {
 	}
 }
 
-function buildPlugins() {
+function buildPlugins(getDefaultTag: () => string) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
 		collapsePlugin(),
 		activeSlidePlugin(),
 		stateMarkerPlugin(),
+		codeHighlightPlugin(),
 		formatSyncPlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
@@ -1098,6 +1359,19 @@ function buildPlugins() {
 		// single-line, and the default splitBlock would fracture the cell (cells are `inline*`
 		// textblocks) — corrupting the grid.
 		keymap({ Tab: tabToNextCellOrAddRow, 'Shift-Tab': goToNextCell(-1), Enter: (state) => isInTable(state) }),
+		// FENCED CODE, and all three bindings close a trap rather than adding a nicety.
+		//
+		// `Tab` was bound by the table and list keymaps, both of which return false outside
+		// their own context, and `baseKeymap` does not bind it at all — so a Tab pressed
+		// inside a code sample fell through to the BROWSER and moved focus out of the
+		// editor. `indentInCode` swallows it even when there is nothing to outdent, because
+		// leaking focus is the failure, not the no-op.
+		//
+		// `Enter` on a blank last line leaves the fence. The only way out used to be
+		// `Mod-Enter` (`exitCode`, from `baseKeymap`), which is undiscoverable on a desktop
+		// and UNREACHABLE on a phone — the device this was reported from. Mod-Enter still
+		// works; this is the exit a touch keyboard can actually press.
+		keymap({ Tab: indentInCode(), 'Shift-Tab': indentInCode(true), Enter: exitCodeOnBlankLine }),
 		keymap({
 			Enter: splitListItem(deckSchema.nodes.list_item),
 			Tab: sinkListItem(deckSchema.nodes.list_item),
@@ -1118,6 +1392,15 @@ function buildPlugins() {
 				wrappingInputRule(/^(\d+)\.\s$/, deckSchema.nodes.ordered_list, (m) => ({ order: +m[1] }), (m, node) => node.childCount + (node.attrs.order as number) === +m[1]),
 				wrappingInputRule(/^\s*>\s$/, deckSchema.nodes.blockquote),
 				textblockTypeInputRule(/^(#{1,6})\s$/, deckSchema.nodes.heading, (m) => ({ level: m[1].length })),
+				// ``` opens a fence, TAGGED with what this slide's layout asks for — the same
+				// default the toolbar door writes, so the two doors agree and neither can
+				// produce the bare fence `code.docs.md` warns about three times. The tag is
+				// read at RULE TIME (a function, not a captured value) because it depends on
+				// the caret's slide, which is exactly what has just changed.
+				//
+				// prosemirror-inputrules disables every rule inside a `code` block, so this
+				// cannot fire again from inside the fence it just opened.
+				textblockTypeInputRule(/^```$/, deckSchema.nodes.code_block, () => ({ params: getDefaultTag() })),
 			],
 		}),
 	];
@@ -1147,7 +1430,7 @@ export type ComposeHandle = {
 	revealTail: () => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, onInsertBelow, onCursorSlide }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -1170,19 +1453,114 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// structural belt-and-suspenders rather than a reproduced bug: if this pane goes inactive,
 	// the bar can never legitimately still apply to a live selection.
 	React.useEffect(() => { if (!visible) setSelBar(null); }, [visible]);
-	// The pill slot (a DOM node owned by the ACTIVE table slide's divider bar) into which the React
-	// `TableControls` island is portaled. null = the caret isn't in an editable table. The mount is
-	// owner-keyed (tableHostRef) so a late unmount from the previous host can't clobber the new one.
-	const [tableMount, setTableMount] = React.useState<{ slot: HTMLElement; stateful: boolean } | null>(null);
-	const tableHostRef = React.useRef<object | null>(null);
-	const mountTable = React.useCallback((slot: HTMLElement | null, owner: object, stateful: boolean) => {
+	// The pill slot (a DOM node owned by the ACTIVE slide's divider bar) into which a React
+	// island is portaled — `TableControls` when the caret is in a table, the fence language
+	// picker when it is in a code block. null = neither. The mount is owner-keyed
+	// (islandHostRef) so a late unmount from the previous host can't clobber the new one.
+	const [island, setIsland] = React.useState<{ slot: HTMLElement; kind: FormatIsland; stateful: boolean } | null>(null);
+	const islandHostRef = React.useRef<object | null>(null);
+	const mountIsland = React.useCallback((slot: HTMLElement | null, owner: object, kind: FormatIsland, stateful: boolean) => {
 		if (slot) {
-			tableHostRef.current = owner;
-			setTableMount({ slot, stateful });
-		} else if (tableHostRef.current === owner) {
-			tableHostRef.current = null;
-			setTableMount(null);
+			islandHostRef.current = owner;
+			setIsland({ slot, kind, stateful });
+		} else if (islandHostRef.current === owner) {
+			islandHostRef.current = null;
+			setIsland(null);
 		}
+	}, []);
+
+	// THE CHIP'S PICKER — one instance for the whole document, moved to whichever code
+	// block's chip was clicked (the NodeView reports the element; Radix anchors to it
+	// through `virtualRef`). A React root per fence would be the obvious shape and the
+	// wrong one: a deck of 40 mermaid slides would carry 40 popovers that are shut.
+	// WHERE the last-clicked chip was, not WHICH element it is. The node view holding it
+	// is rebuilt on a caret move and again on blur — which opening the picker causes —
+	// so an element anchor is detached before the popover can paint. A rect is not.
+	const [chipAnchor, setChipAnchor] = React.useState<DOMRect | null>(null);
+	const openChipRef = React.useRef<HTMLElement | null>(null);
+	const onChipClick = React.useCallback((el: HTMLElement) => {
+		// Clicking the OPEN chip closes it. Identity is compared on the element we were
+		// handed, which is enough: two chips never occupy the same rect.
+		if (openChipRef.current === el) {
+			openChipRef.current = null;
+			setChipAnchor(null);
+			return;
+		}
+		openChipRef.current = el;
+		setChipAnchor(el.getBoundingClientRect());
+	}, []);
+	// Ref-backed for the same reason the settings handler is: the NodeView factory is
+	// built once per deck and must keep calling the CURRENT handler.
+	const onChipRef = React.useRef(onChipClick);
+	onChipRef.current = onChipClick;
+
+	// THE ENGINE ARRIVES LATE, and the plugin cannot see it happen.
+	//
+	// `highlightFences` asks `window.LatticePlayground` for tokens, but the engine is a
+	// classic script the PREVIEW loads, not this editor — so on the first frames there
+	// is nothing to ask, and a deck opened and never typed into would stay plain forever
+	// because the plugin only recomputes on `docChanged`. The same applies a second time
+	// to a LAZY grammar: `ensureFenceLanguages` fetches `powershell` on the preview's
+	// render, and until it lands `languages.has('powershell')` is false and that fence
+	// tokenizes to nothing.
+	//
+	// So: a BOUNDED poll that nudges the plugin until the picture stops changing. It ends
+	// on the first settled tick (the engine is there and every visible fence has its
+	// grammar) or at the cap, whichever comes first — never an open-ended interval. The
+	// recompute is cheap and memoized per (tag, text), so a redundant tick costs a map
+	// lookup per fence.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-armed per deck; the poll reads the live view through the ref.
+	React.useEffect(() => {
+		if (failed) return;
+		let ticks = 0;
+		const MAX_TICKS = 30; // ~12s at 400ms — past that the engine is not coming
+		// What the picture looks like right now: the engine's presence plus the set of tags
+		// it still cannot color. Two identical readings in a row means nothing more is
+		// arriving — which is the honest stop, and it stops on a tag NO grammar will ever
+		// have (```anima, a typo, a language highlight.js does not carry) instead of
+		// spinning out the full cap waiting for something that is not coming.
+		const snapshot = () => {
+			const pg = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
+			if (!pg?.highlightSpans) return null;
+			const v = viewRef.current;
+			if (!v) return null;
+			const missing: string[] = [];
+			v.state.doc.descendants((node) => {
+				if (node.type.name !== 'code_block') return true;
+				// Ask about the grammar that will actually COLOR it — `mermaid` registers into
+				// the engine's hljs on its first render, so the poll has to wait for that too.
+				const lang = highlightLanguageFor(leadingTag((node.attrs.params as string) || ''));
+				if (lang && pg.languages?.has && !pg.languages.has(lang)) missing.push(lang);
+				return false;
+			});
+			return missing.sort().join(',');
+		};
+		let last: string | null = null;
+		const timer = setInterval(() => {
+			const v = viewRef.current;
+			// Never dispatch mid-composition: a transaction during IME composition is a
+			// documented way to lose a half-typed character, and nothing here is urgent.
+			if (v && !v.composing) v.dispatch(v.state.tr.setMeta(codeHighlightKey, true));
+			const now = snapshot();
+			const stable = now !== null && now === last;
+			last = now;
+			if (++ticks >= MAX_TICKS || stable) clearInterval(timer);
+		}, 400);
+		return () => clearInterval(timer);
+	}, [resetKey, failed]);
+
+	/**
+	 * The tag the ``` input rule writes — the caret slide's own grammar default, i.e.
+	 * exactly what the toolbar door writes, so the two doors cannot disagree.
+	 *
+	 * Read at RULE TIME rather than captured: it depends on the caret's slide, which is
+	 * precisely what has just changed by the time the rule fires.
+	 */
+	const defaultTagAtCaret = React.useCallback(() => {
+		const v = viewRef.current;
+		const $from = v?.state.selection.$from;
+		const directives = ($from && $from.depth >= 1 ? ($from.node(1).attrs.directives as string[]) : []) || [];
+		return defaultFenceTag(directives, slideFencesRef.current, deckFenceTags(sourceRef.current));
 	}, []);
 
 	// The shell's handle onto this editor. `revealSlide` is the mirror of the markdown
@@ -1286,6 +1664,17 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	slideHeadingsRef.current = slideHeadings;
 	const slideBlocksRef = React.useRef(slideBlocks);
 	slideBlocksRef.current = slideBlocks;
+	// The per-class FENCE map — a `_class` name → the fence language its own grammar
+	// skeleton writes (`diagram` → mermaid, `code` → js). Same build-static route and
+	// same lazy read as the two maps above, so the insert door and the ``` input rule
+	// both default to the tag the layout already asks for rather than opening a modal.
+	const slideFencesRef = React.useRef(slideFences);
+	slideFencesRef.current = slideFences;
+	// The live source, for the door's fallback (the tag this deck already uses most) and
+	// for the picker's "In this deck" group. A ref, not a dep: the NodeView factory is
+	// constructed once per deck and must not be rebuilt on every keystroke.
+	const sourceRef = React.useRef(source);
+	sourceRef.current = source;
 	const onInsertBelowRef = React.useRef(onInsertBelow);
 	onInsertBelowRef.current = onInsertBelow;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
@@ -1351,11 +1740,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
-				state: EditorState.create({ doc, plugins: buildPlugins() }),
+				state: EditorState.create({ doc, plugins: buildPlugins(() => defaultTagAtCaret()) }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable, () => slideBlocksRef.current),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
+					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el) => onChipRef.current(el), getPos as () => number | undefined),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.
@@ -1523,7 +1913,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					</div>,
 					document.body,
 				)}
-			{tableMount && createPortal(<TableControls view={viewRef.current as EditorView} stateful={tableMount.stateful} />, tableMount.slot)}
+			{island?.kind === 'table' && createPortal(<TableControls view={viewRef.current as EditorView} stateful={island.stateful} />, island.slot)}
+			{island?.kind === 'code' && createPortal(<CodeControls view={viewRef.current as EditorView} source={source} />, island.slot)}
+			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
+			    React does not own. Rendered only while a chip is open, so a deck of forty
+			    fences carries one popover rather than forty. */}
+			{chipAnchor && viewRef.current && <FencePicker view={viewRef.current} source={source} anchorRect={chipAnchor} open onOpenChange={(o) => { if (!o) { openChipRef.current = null; setChipAnchor(null); } }} align="start" />}
 		</div>
 	);
 });
@@ -1663,6 +2058,62 @@ function ComposeStyles() {
 			.cs-host ol > li::before{content:counter(cs-ol) ".";position:absolute;left:-1.6em;color:var(--text-muted,#6b7280);font-variant-numeric:tabular-nums}
 			.cs-host li ul,.cs-host li ol{margin:.15em 0 .1em}
 			.cs-host code{font-family:var(--font-mono,ui-monospace,monospace);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:.03em .32em;border-radius:4px;font-size:.85em}
+			/* FENCED CODE — a mono PANEL, and the reset above it is the whole bug report.
+			   Compose had no pre rule at all, so the INLINE-code chip (the rule above:
+			   background, 1px border, padding, radius) applied to the <code> inside a
+			   <pre>. An inline box that spans several lines FRAGMENTS, one box per line —
+			   which is precisely what a mermaid fence looked like on the reported phone:
+			   graph LR in its own bordered chip, then each arrow line in another. The
+			   :where reset costs no specificity and cannot be what a later rule fights. */
+			.cs-host pre.cs-code :where(code){background:none;border:none;padding:0;border-radius:0;font-size:inherit;color:inherit;white-space:pre}
+			.cs-host pre.cs-code{position:relative;margin:.6em 0;padding:26px 14px 12px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-left:2px solid color-mix(in oklab,var(--accent,#006fa8) 55%,var(--border,#e4eaf2));border-radius:0 8px 8px 0;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;line-height:1.58;color:var(--text-body,#2b3a4f);tab-size:2}
+			/* A long line SCROLLS rather than wrapping: a wrapped code line reads as two
+			   statements, and the rendered slide does not wrap it either (the component's
+			   own 14-line wall is about height, not width).
+			   THE SCROLLER IS THE INNER CODE, NOT THE PANEL, and that placement is the
+			   whole reason this rule is two rules. An absolutely-positioned child scrolls
+			   WITH its scroll container, so with overflow on the pre the language chip slid
+			   out of view the moment a line was wider than the panel — the one piece of
+			   chrome that says what the fence is, gone on exactly the fences most likely to
+			   need it. Scrolling the code leaves the chip anchored to the panel. */
+			.cs-host pre.cs-code :where(code){display:block;min-width:0;overflow-x:auto}
+			/* THE CHIP — the fence's language, legible without the caret, and the picker's
+			   trigger. Top-right, the same corner and the same quiet mono voice as the
+			   locked-slide badge, so the two read as one family of block-level labels. */
+			.cs-code-chip{position:absolute;top:5px;right:6px;z-index:1;display:inline-flex;align-items:center;min-height:17px;padding:1px 7px;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
+			.cs-code-chip:hover:not(:disabled){color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			/* On a locked slide the chip is a LABEL, not a control — it still names the
+			   language, it just cannot change it (the slide is edited in Markdown). */
+			.cs-code-chip:disabled{cursor:default;opacity:.75}
+			/* An engine sub-language is RENDERED, not colored — the chip says which register
+			   the fence is in before the author reads a token of it. */
+			.cs-host pre.cs-code[data-lang=mermaid] > .cs-code-chip,.cs-host pre.cs-code[data-lang=anima] > .cs-code-chip,.cs-host pre.cs-code[data-lang=functionplot] > .cs-code-chip,.cs-host pre.cs-code[data-lang=latticeplot] > .cs-code-chip{border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
+			/* HIGHLIGHTING — hljs token classes, painted by the decoration plugin from the
+			   ENGINE's own highlighter, so these are the slide's tokens and not a second
+			   opinion about what a keyword is.
+			   THE PALETTE IS THE STUDIO'S THREE SYNTAX INKS, not the render's fuller
+			   --hljs-* tier. That tier is theme CSS and the docs site does not emit it
+			   (lattice-tokens.generated.css carries keyword / string / number and no
+			   more), and the three-ink reading is the deliberate one for a WRITING surface
+			   — it is what the deck editor and the chat code blocks already use, and
+			   syntax-highlight-parity.test.ts pins all three surfaces to the same
+			   role → token map so they cannot drift apart again (#1688). Every row here is
+			   one of five tokens: the three inks, plus --text-heading and --text-muted,
+			   which are AA against the canvas by contract. --accent is NOT among them — it
+			   bottoms out at 3.89:1. */
+			.cs-host pre.cs-code .hljs-keyword,.cs-host pre.cs-code .hljs-selector-tag,.cs-host pre.cs-code .hljs-built_in,.cs-host pre.cs-code .hljs-section,.cs-host pre.cs-code .hljs-name,.cs-host pre.cs-code .hljs-tag,.cs-host pre.cs-code .hljs-type,.cs-host pre.cs-code .hljs-doctag{color:var(--syntax-keyword-ink)}
+			.cs-host pre.cs-code .hljs-string,.cs-host pre.cs-code .hljs-regexp,.cs-host pre.cs-code .hljs-quote,.cs-host pre.cs-code .hljs-symbol,.cs-host pre.cs-code .hljs-link,.cs-host pre.cs-code .hljs-addition{color:var(--syntax-string-ink)}
+			.cs-host pre.cs-code .hljs-number,.cs-host pre.cs-code .hljs-literal,.cs-host pre.cs-code .hljs-bullet,.cs-host pre.cs-code .hljs-deletion{color:var(--syntax-number-ink)}
+			.cs-host pre.cs-code .hljs-comment,.cs-host pre.cs-code .hljs-meta,.cs-host pre.cs-code .hljs-punctuation,.cs-host pre.cs-code .hljs-operator{color:var(--text-muted)}
+			.cs-host pre.cs-code .hljs-title,.cs-host pre.cs-code .hljs-attr,.cs-host pre.cs-code .hljs-attribute,.cs-host pre.cs-code .hljs-variable,.cs-host pre.cs-code .hljs-params,.cs-host pre.cs-code .hljs-property{color:var(--text-heading)}
+			.cs-host pre.cs-code .hljs-emphasis{font-style:italic}
+			.cs-host pre.cs-code .hljs-strong{font-weight:700}
+			/* the pill-hosted twin of the chip — the Format group's third mode */
+			.cs-codec{display:inline-flex}
+			.cs-codec-trigger{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.04em;line-height:1;cursor:pointer;transition:color .12s,background .12s}
+			.cs-codec-trigger svg{display:block;width:13px;height:13px}
+			.cs-codec-tag{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+			.cs-codec-trigger:hover,.cs-codec-trigger[data-state=open]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			.cs-host strong{font-weight:700;color:var(--text-heading,#14243a)}
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
@@ -1703,6 +2154,11 @@ function ComposeStyles() {
 				   than dimmed, matching how the Format group drops a register the class won't
 				   render — no-ops are hidden, not disabled. */
 				.cs-no-table .cs-insert-table{display:none}
+				.cs-caret-in-code .cs-insert-code{display:none}
+				/* A layout with no body flow to hold a block gets no fence door — the same
+				   posture as the table gate, on a deliberately shorter list (on four layouts
+				   the fence IS the figure). Hidden, not dimmed, like every other no-op here. */
+				.cs-no-code .cs-insert-code{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
@@ -1729,6 +2185,11 @@ function ComposeStyles() {
 				.cs-host .cs-comment svg{width:13px;height:13px}
 				.cs-host .cs-comment-body{font-size:12px}
 				.cs-host .cs-comment-remove{min-height:28px;font-size:10px}
+				/* the chip is a tap target here, not just a label */
+				.cs-code-chip{top:4px;right:5px;min-height:24px;padding:2px 10px;font-size:10px}
+				.cs-host pre.cs-code{padding-top:32px;font-size:13px}
+				.cs-codec-trigger{height:28px;padding:0 9px;font-size:11px}
+				.cs-codec-trigger svg{width:15px;height:15px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */
