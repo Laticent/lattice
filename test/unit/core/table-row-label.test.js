@@ -238,3 +238,40 @@ test('the stamped class name is the one the CSS selects', () => {
   assert.match(elements, /td:first-child[^}]*--table-label-weight/s,
     'base.elements.css must READ the property the variant sets');
 });
+
+// ── the raw-HTML reader's sanitization shape ─────────────────────────────────
+// Two CodeQL high-severity alerts on this PR, both about the PATTERN rather
+// than a reachable exploit: the text these produce is only ever classified
+// (numeric / marker / placeholder) and never inserted into a document. Pinned
+// anyway, because the defects are invisible on ordinary input and the next
+// person to reuse a helper called "strip tags" will not read its docblock.
+
+const { stripTagsToFixedPoint, rawHtmlTableCells } = require('../../../lib/integrations/markdown-it/plugins.js');
+
+test('tag stripping runs to a fixed point, so nesting cannot reassemble a tag', () => {
+  // One pass removes the inner `<script>` and lets the halves close up into a
+  // live one — "incomplete multi-character sanitization".
+  assert.doesNotMatch(stripTagsToFixedPoint('<<script>script>alert(1)'), /<script/i);
+  assert.doesNotMatch(stripTagsToFixedPoint('<<div>div>text'), /<div/i);
+  assert.equal(stripTagsToFixedPoint('<b>Revenue</b>'), 'Revenue');
+  assert.equal(stripTagsToFixedPoint('plain'), 'plain');
+});
+
+test('entities decode in ONE pass, so an escaped entity is not double-unescaped', () => {
+  // Sequenced replaces turn `&amp;lt;` into `&lt;` and then into `<`. A single
+  // regex resumes scanning after each match, so it cannot.
+  const t = (cell) => rawHtmlTableCells(`<table><tr><th>${cell}</th><th>B</th></tr><tr><td>x</td><td>y</td></tr></table>`).headers[0];
+  assert.equal(t('&amp;lt;'), '&lt;');
+  assert.equal(t('&amp;amp;'), '&amp;');
+  assert.equal(t('&lt;'), '<');
+  assert.equal(t('A &amp; B'), 'A & B');
+  assert.equal(t('&nbsp;x'), 'x');
+});
+
+test('rawHtmlTableCells declines what it cannot read confidently', () => {
+  // Declining leaves the table unstamped, which is the pre-existing behavior —
+  // the safe direction for a reader that is deliberately not an HTML parser.
+  assert.equal(rawHtmlTableCells('no table here'), null);
+  assert.equal(rawHtmlTableCells('<table><tr><th>A</th></tr>'), null, 'unterminated table');
+  assert.equal(rawHtmlTableCells('<table></table>'), null, 'no rows');
+});
