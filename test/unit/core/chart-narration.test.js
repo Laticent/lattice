@@ -1596,3 +1596,30 @@ test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot stat
   assert.ok(out.includes('Half, user, two out of five'), out);
   assert.ok(!out.includes(', ,'), `an empty actor left a double comma: ${out}`);
 });
+
+test('narrateStateChart: a state LABEL loses its tint but the author’s prose keeps it', () => {
+  // `:::state-pass-hue` after a state's pills is a style hook, not a name. It sits AFTER the
+  // pill's closing backtick, so `stripTrailingPills` never saw a trailing pill and the whole
+  // string became the label — "Accepted `done`:::state-pass-hue" reached the voice. That was
+  // already true on main in the terminal sentence; it became this branch's to fix when
+  // `narrateStateTransitions` started reading the same labels into every "goes to X".
+  //
+  // Found by rendering examples/state-chart-tint.md through the real CLI and reading the .vtt,
+  // not by a unit test — the two checker passes both caught me asserting from a fixture
+  // instead of from shipped bytes.
+  const md = [
+    '<!-- _class: state-chart -->', '', '`Legend`', '', '## F.', '',
+    '`:::token` names a theme token, never a color.', '',
+    '1. Intake `start`', '   - `triage => 2`',
+    '2. Accepted `done`:::state-pass-hue',
+    '3. Refused `end`:::state-fail-hue/surface-raised',
+  ].join('\n');
+  const out = narrateStateChart(md);
+  assert.ok(out.includes('triage goes to Accepted.'), `dirty label in a transition: ${out}`);
+  assert.ok(out.includes('Accepted done.'), `dirty label in the flatten: ${out}`);
+  assert.ok(out.includes('Refused end.'), `two-slot tint survived: ${out}`);
+  // The author's own prose ABOUT the syntax is slide text and must survive untouched.
+  assert.ok(out.includes(':::token names a theme token'), `ate the author's prose: ${out}`);
+  // The eyebrow still leads — the tint strip is a map, so original line indices are preserved.
+  assert.ok(out.startsWith('Legend.'), out);
+});

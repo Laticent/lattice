@@ -417,16 +417,25 @@ also mutation-proved two of my own tests unfalsifiable, and found four comments 
 changelog lines asserting things the code did not do. All fixed; the record of what it caught
 is in the PR.
 
-**Found while fixing the transitions, NOT fixed here — a state-chart's LABELS leak their pills.**
-The transition pills are clean now; the state labels beside them are not. On
-`examples/state-chart-tint.md` the terminal sentence reads *"It ends at Accepted `done`:::state-pass-hue
-and Refused `end`:::state-fail-hue"*, and a label carrying an authored line break reads
-*"needs<br/>second review"*. Both are on `main` — `parseStateLead` and
-`narrateStateChartInference` are untouched by this branch, verified against the diff — so this is
-a pre-existing defect found off the path of the change, which #18 says to log rather than pull
-into the diff. It is the same class as everything else here: a pill that is a style hook, or
-markup, reaching the voice as glyphs. Worth noting that the fix above makes it *more* audible,
-because the transitions around it are now clean.
+**A state-chart's LABELS leaked their tint, and that one turned out to be mine.** On `main` the
+dirty label reached the voice only through the terminal-state sentence. This branch made
+`narrateStateTransitions` read the same labels, so every *"goes to X"* carried it too — a
+pre-existing defect my change propagated into new output, which #18 makes a window to close
+rather than a finding to log. `:::state-pass-hue` sits AFTER the pill's closing backtick, so
+`stripTrailingPills` never saw a trailing pill and returned the whole string as the name. Fixed
+at the parser, and on the flatten's reading of a state line — scoped to numbered state lines
+only, because this very deck explains the `:::token` syntax in ordinary prose and that text is
+the author's.
+
+**Found by rendering, not by testing.** Two checker passes both caught the same habit: asserting
+from a fixture built out of my own mental model instead of from the deck the finding named. The
+label leak surfaced only when the five affected decks went through the real `--captions` export
+and the emitted bytes were scanned. That scan is now clean for tint hooks, arrow pills, markup,
+the renumbered citation, the hex-as-rank and raw TeX across all five.
+
+**Still logged, not fixed:** a state label carrying an authored line break reads
+*"needs<br/>second review"*. That one is on `main`, is untouched by this branch, and is off the
+path of the change.
 
 **Still open, and deliberately:** the abbreviation over-split in `segment.ts` (Finding 3), the
 remaining nine token passthroughs (a slash means four different things; guessing is worse than
