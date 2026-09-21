@@ -2619,7 +2619,7 @@ aside.lattice-notes { display: none !important; }
 // ── Self-hosted fonts (offline PDF embedding) ────────────────────────────────
 // The engine CSS now carries a self-hosted `@font-face` block (url('fonts/…'))
 // instead of a Google `@import`, but the emulator can't rely on a relative
-// `fonts/` URL resolving against the right base during PDF rasterisation, so it
+// `fonts/` URL resolving against the right base during PDF rasterization, so it
 // base64-inlines the SAME woff2 (assets/fonts/) into an inline @font-face block.
 // These local faces embed the real type into the printed PDF with zero network —
 // the whole point of the library carrying its own fonts. The face list is the

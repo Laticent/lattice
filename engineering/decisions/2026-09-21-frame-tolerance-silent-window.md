@@ -241,7 +241,7 @@ see what the string renders to.
 
 ## Open
 
-- **Lower `FRAME_TOLERANCE` to 4?** The distribution says yes; the 30-slide ratchet and the
+- **Lower `FRAME_TOLERANCE` to 4?** The distribution says yes; the 34-slide ratchet and the
   autosplit re-decision say it needs its own change. Owner's call.
 - **The 27 real silent body cuts.** Logged above, unfixed, off-path.
 - **The `(2, 3]` two.** Borderline: `guide-gestures.md` p2 measures 2.55px of ink outside its box

@@ -34,9 +34,18 @@
   fix is content-addressed — have the builder write the hash of the inputs it consumed
   beside the artifact — and is its own change.
 - **Changed: `build:showcase-galleries:check` is red more often, on purpose.** Any
-  uncommitted `.css`/`.js` under `lib/`, `themes/` or `dist/` now makes the
-  showcase PDFs stale — the same posture the component and bucket gates already
-  have. It is on-demand and the pre-commit rebuild, so no CI tax.
+  uncommitted `.css`/`.js` under `lib/` or `themes/` now makes the showcase PDFs
+  stale — the same posture the component and bucket gates already have. It is
+  on-demand and the pre-commit rebuild, so no CI tax.
+  **Two scope limits, both measured rather than assumed.** `dist/` is in the
+  classifier's prefix list and is unreachable through it: `.gitignore` carries a bare
+  `dist/`, and `git status --porcelain` never lists an ignored path, so appending to
+  `dist/lattice.css` leaves the check green. And the tool has **no automatic trigger for
+  this case** — it is invoked only by `tools/build-staged-pdfs.js`, whose `classify()`
+  returns `null` for every `.css`/`.js` render input, under a pre-commit job whose glob
+  is markdown-only by design ("component CSS / shared CSS / engine changes affect many
+  decks at once and stay in CI"). So the fix makes the tool answer correctly **when it
+  runs**; it does not make it run on a CSS-only commit.
 - **Fixed: `--check` and the build could disagree.** `--check` had no size floor, so
   a truncated PDF passed the gate and failed the build. And "git cannot answer" no
   longer reports as "everything matches" — it says it was not checked.

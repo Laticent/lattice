@@ -1,7 +1,10 @@
 - **Changed: a `deferred` gantt bar is drawn dashed, and the key names the neutral.**
-  `deferred` and a task with no status both take the family's mute ramp, and the only
-  thing separating them was body opacity — 18% of a ramp that is already a pale tint.
-  A reader met two pale bars and could not tell "we pushed this" from "nobody said".
+  `deferred` and a task with no status both take the family's mute ramp. What separated
+  them was 18% body opacity plus the leading accent, which is hidden on an unstated bar
+  and kept on `deferred` — two cues, both thin: a wash on an already-pale tint, and a
+  1.67-unit sliver at the bar's left edge. (An earlier draft of this entry said opacity
+  was "the only thing"; a checker measured the accent.) A reader met two pale bars and
+  could not tell "we pushed this" from "nobody said".
   `deferred` now keeps the hollow body and gains a dashed edge, and the status key
   gains a `no status` chip whenever a chart carries an unstated task and already draws
   a key.
@@ -12,9 +15,13 @@
   a11y themes (`engineering/textures.md`). What the dash answers instead is the one
   distinction no RAMP-keyed channel can make, texture included: `deferred` and an
   unstated task resolve to the same mute ramp, so a tile chosen by ramp paints them
-  identically; they differ only in `data-s`. Gantt is wired into neither of those two
-  stylesheets, which is a real gap — #2274, which also names the four other
-  status-carrying charts in the same position — and is not closed here.
+  identically; they differ only in `data-s`. Gantt reaches none of the engine's three
+  redundant channels — texture, dash ladders, and a shape glyph on `.chart-status` —
+  because its statuses are bar FILLS carrying neither text nor glyph. That gap is
+  **#2274**, and it is narrower than a first draft of this entry claimed: `kanban`,
+  `progress` and `timeline-list` do emit `.chart-status` and so take the glyph channel
+  in both files, and `state-chart` labels every dot in its legend. Gantt is the one
+  chart with nothing. Not closed here.
   **One pattern serves bar, diamond and swatch alike**, because every gantt mark
   inherits `vector-effect: non-scaling-stroke`, which re-scopes the dash *array* as
   well as the stroke width: `4 2.5` is 4px on and 2.5px off at every viewBox and every

@@ -73,7 +73,7 @@ Five ramps carry ten status words, so some share. A status and the absence of on
 
 ## Side by side in one lane is where the old cue failed.
 
-Two bars on the same row, both neutral, one declared and one not. Opacity alone had to carry that; now the edge does.
+Two bars on the same row, both neutral, one declared and one not. An 18% wash and a 1.67-unit accent sliver had to carry that; now the edge does.
 
 - Decision Log
   - Calibration cadence `Q1..Q2` `deferred`
@@ -91,7 +91,7 @@ Two bars on the same row, both neutral, one declared and one not. Opacity alone 
 `deferred` and an unstated task resolve to the *same* mute ramp. Any channel chosen by ramp — hue, or a texture tile — paints them identically. They differ only in `data-s`, so that is what the cue has to key on.
 
 - Not the accessibility channel
-  - The engine already textures filled marks and dashes stroked ones, under `section.print` and the a11y themes. Gantt is wired into neither, and this dash does not close that — see `engineering/textures.md`.
+  - Under `section.print` and the a11y themes the engine textures filled marks, dashes stroked ones, and puts a shape glyph on any `.chart-status`. Gantt's statuses are bar fills carrying neither text nor glyph, so they reach none of the three — `#2274`, not this dash.
 - Why the numbers are CSS pixels
   - Every gantt mark inherits `vector-effect: non-scaling-stroke`, which re-scopes the dash *array* as well as the stroke width. So `4 2.5` is 4px on and 2.5px off on a 480-unit landscape viewBox and a 300-unit portrait one alike — one physical pattern, not two.
 

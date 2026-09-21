@@ -54,6 +54,17 @@ const ROOT = path.join(__dirname, '..', '..');
 // `dist/lattice.css` is built from AND the transform kernel that shapes the DOM (a
 // change in `lib/core` or `lib/transformers` moves the render with no CSS diff at all);
 // `themes` carries the palettes.
+//
+// `dist/` IS CURRENTLY UNREACHABLE, and it is kept deliberately rather than deleted.
+// `.gitignore` carries a bare `dist/` ("Generated bundles: BUILT, not committed",
+// 2026-08-17) and `git status --porcelain` never lists an ignored path, so no `dist/`
+// file can ever appear in the changed set this classifies. A red-team pass demonstrated
+// it: appending a line to `dist/lattice.css` leaves `build-showcase-galleries --check`
+// green. The entry stays because the day `dist/` is tracked again it is correct, and a
+// silent deletion would be a change nobody could see coming; what must NOT happen is
+// prose claiming the coverage is live. The practical blind spot is narrow — `lib/**` is
+// the SOURCE of `dist/lattice.css`, so the two agree except in the stale-bundle case
+// `npm run build:check` exists to catch, and that gate is the one that covers it.
 const INPUT_DIRS = ['lib/', 'themes/', 'dist/'];
 const INPUT_FILES = ['lattice-emulator.js'];
 const INPUT_EXT = new Set(['.css', '.js', '.mjs', '.cjs']);

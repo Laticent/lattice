@@ -208,8 +208,9 @@
 
 /* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
  * ink. It takes the same mute ramp a status-LESS bar takes, so on color alone
- * "pushed to next quarter" and "nobody said" are the same bar — and an unstated
- * bar emits no legend chip, so no key can tell them apart. Dropping the fill to
+ * "pushed to next quarter" and "nobody said" are the same bar — and until #2255 an
+ * unstated bar emitted no legend chip, so no key could tell them apart (it emits a
+ * `no status` chip now, when the chart already draws a key). Dropping the fill to
  * a wash while keeping the full-strength edge draws it as an outline, which is
  * what a deferred item looks like in every schedule a reader has seen. The
  * earlier arrangement put the collision on `pilot` instead of `deferred`; this
@@ -227,24 +228,40 @@
  * was about — and only the body goes to a wash.
  *
  * AND THE EDGE IS DASHED, which is the half the wash could not carry (#2255). An
- * unstated bar takes the same neutral ink and the same mute ramp; the only thing
- * telling it from `deferred` was body opacity, and 18% of a ramp that is already a
- * pale tint is a difference a reader has to hunt for. A dash is the cue every
- * schedule a reader has seen uses for "planned, not committed".
+ * unstated bar takes the same neutral ink and the same mute ramp, and what separated
+ * them was 18% body opacity plus the leading accent — which the rule at the foot of
+ * this file hides on an unstated bar and keeps on `deferred`. TWO cues, not one, and
+ * an earlier draft of this comment said "the only thing … was body opacity" on three
+ * surfaces. Both are thin: 18% of a ramp that is already a pale tint, and a 1.67-unit
+ * sliver at the bar's left edge that a reader has to know to look for. A dash runs the
+ * bar's whole length and is the cue every schedule a reader has seen uses for
+ * "planned, not committed".
  *
  * THIS IS A SEMANTIC CUE, NOT THE ACCESSIBILITY CHANNEL, and an earlier draft of this
  * comment sold it as the second thing. The engine already answers "tell marks apart
- * when hue cannot" twice over, both scoped to `section.print` and the a11y themes:
- * TEXTURE tiles for filled marks and `stroke-dasharray` LADDERS for stroked ones, in
- * `lib/base/base.print-textures.css` and `themes/a11y-base.css`
- * (`engineering/textures.md` is the contract). Claiming an unconditional dash as the
- * a11y/print answer both re-solves that and hides the fact that GANTT IS WIRED INTO
- * NEITHER — this file has no texture reference and gantt appears in neither of those
- * two stylesheets, so on achromatopsia or `.print` its five status ramps collapse
- * toward gray with nothing redundant behind them, while a `waterfall` on the next
- * slide takes three tiles keyed on its own `data-s`. That gap is real and is tracked
- * as #2274, with the four other status-carrying charts in the same position; do not
- * read this dash as covering it.
+ * when hue cannot" THREE ways, all in `lib/base/base.print-textures.css` and
+ * `themes/a11y-base.css` (`engineering/textures.md` is the contract): TEXTURE tiles for
+ * filled marks, `stroke-dasharray` LADDERS for stroked ones, and a SHAPE GLYPH keyed on
+ * `.chart-status[data-s]` — ✓ for on-track/done/live, ! for at-risk/warn, ✗ for
+ * blocked/fail, ◆ for pilot/decision, – for deferred.
+ *
+ * GANTT REACHES NONE OF THEM, and the third is why the gap is narrower than an earlier
+ * draft of this comment claimed. It said four other status-carrying charts were "in the
+ * same position"; a checker measured otherwise. `kanban`, `progress` and `timeline-list`
+ * all emit `<span class="chart-status" data-s="…">`, so they take that glyph channel in
+ * BOTH files and print the status WORD beside it. `state-chart` takes no glyph but
+ * labels every dot in its own legend. Gantt is the one chart whose statuses are SVG bar
+ * FILLS carrying neither text nor glyph — no text span for the glyph rule to reach, no
+ * `data-hue` slot for a texture rule — so on achromatopsia four of its five ramps
+ * resolve to stepped grays (`done` 77, `deferred` and unstated 89, `at-risk` 110,
+ * `blocked` 45) and only `info`/`live` keeps a blue. Tracked as #2274, scoped to gantt.
+ *
+ * AND THE GAP IS ARGUABLE AT FIVE SLOTS, which is worth knowing before anyone "fixes"
+ * it: `base.print-textures.css`'s own header sets the contract as stepped gray + border
+ * for up to about five slots, texture past that. Gantt has exactly five. What is NOT
+ * arguable is the pair this rule is about — `deferred` and unstated land on the SAME
+ * step, 89, so no amount of gray stepping separates them. Do not read this dash as
+ * closing #2274, and do not read #2274 as making the dash redundant.
  *
  * WHAT THE DASH DOES ANSWER is the one distinction no RAMP-keyed channel can, texture
  * included: `deferred` and an unstated task resolve to the SAME mute ramp, so a tile
