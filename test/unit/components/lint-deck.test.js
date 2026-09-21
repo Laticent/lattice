@@ -390,6 +390,37 @@ describe('deck linter', () => {
       0, 'a clean deck is not nagged');
   });
 
+  // The RENDER path repeats a retired Form shape on stderr only when the deck
+  // actually moved, and it decides that from this flag rather than by matching the
+  // message prose (lattice-emulator.js). An inert value marked shape-changing would
+  // nag a deck that renders identically; a shape-changing one marked inert would let
+  // a breaking change through in silence. Both directions are pinned.
+  test('`shapeChange` marks exactly the retired Form shapes that move a deck', () => {
+    const keyOf = (v) => lintText(`---\ntheme: indaco\nform: ${v}\n---\n\n## H.\n`, { vocab })
+      .find((x) => x.rule === 'retired-form-key');
+    assert.equal(keyOf('off').shapeChange, true, '`form: off` suppressed chrome — the deck moves');
+    for (const v of ['standard', 'minimal', 'on']) {
+      assert.equal(keyOf(v).shapeChange, false, `form: ${v} is inert — the deck does not move`);
+    }
+
+    const tokens = (src) => lintText(src, { vocab }).filter((x) => x.rule === 'retired-form-token');
+    // Deck-wide: `no-form` propagated to every slide, so the whole deck moves.
+    const deckWide = tokens('---\ntheme: indaco\nclass: no-form\n---\n\n## H.\n');
+    assert.equal(deckWide.length, 1);
+    assert.equal(deckWide[0].shapeChange, true);
+    assert.equal(
+      tokens('---\ntheme: indaco\nclass: form\n---\n\n## H.\n')[0].shapeChange, false,
+      'a deck-wide `form` token was always redundant');
+
+    // Per slide.
+    const perSlide = tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- _class: content no-form -->\n\n## H.\n');
+    assert.equal(perSlide.length, 1);
+    assert.equal(perSlide[0].shapeChange, true);
+    assert.equal(
+      tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- _class: content form -->\n\n## H.\n')[0].shapeChange,
+      false, 'a per-slide `form` token was always redundant');
+  });
+
   test('warns that a per-slide `form` / `no-form` token is retired', () => {
     // `no-form` no longer opts a slide out and `form` no longer opts one in. A slide
     // that carries no chrome does so because its FRAME is sovereign, which is a

@@ -139,7 +139,14 @@ way wifi does with `.qr-head > h2` — its own change, with its own evidence.
 `lint:deck` warns and never blocks (HARD RULE #29's posture). `retired-form-key` flags any
 `form:` value and, for `off` alone, names what will change about the render. `retired-form-token`
 flags a `form` / `no-form` slide token and points at a sovereign component as the real way to get
-a slide with no chrome. `form` also left `UNIVERSAL_GROUPS.chrome`, so neither editor offers it,
+a slide with no chrome. **The RENDER path warns too, as of 2026-09-21** — for the three shapes that actually moved a
+deck (`form: off`, a deck-wide `class: no-form`, a slide's `no-form`), and only those. The
+linter is the right place for the inert ones, but the person whose deck changed shape is
+rendering it, not linting it, and the change otherwise lands with a successful exit code and
+no other sign. The CLI reads the linter's own findings through a `shapeChange` flag rather
+than re-deciding which values matter (HARD RULE #7), so the two surfaces cannot drift.
+
+`form` also left `UNIVERSAL_GROUPS.chrome`, so neither editor offers it,
 and joined `STRUCTURAL_ROOT_CLASSES` in the ownership gate beside `chart-frame` — engine
 scaffolding an author can neither select nor refuse.
 
