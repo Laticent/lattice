@@ -173,8 +173,11 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 					    that `projectSectionsToArticle` sanitized with `sanitizeSlideHtml` BEFORE projecting,
 					    and adds no sink of its own — the caller-sanitizes contract `prose-projection.mjs`
 					    states in its own header, and the same division the player export relies on.
-					    Sanitizing the OUTPUT again instead would strip the `<foreignObject>` and `<style>`
-					    carrying every Mermaid node label and all diagram styling (measured; CLAUDE.md #22). */}
+					    A second pass is skipped because it would find nothing, NOT — as this comment used
+					    to say — because it would strip the `<foreignObject>` and `<style>` carrying
+					    Mermaid's node labels. Measured against `createSlideSanitizer`: the FIRST pass
+					    already removes both, and on the baked path the labels are native `<text>` by then
+					    (CLAUDE.md #22). */}
 					<article className="st-read-article px-6 py-8" dangerouslySetInnerHTML={{ __html: html }} />
 				</div>
 			)}

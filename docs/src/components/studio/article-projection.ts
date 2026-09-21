@@ -113,9 +113,18 @@ async function bakeArticleSections(render: DeckRender, staticSections: string[])
  * neither (both are text matchers, so spelling those markers out here would trip the gate
  * on a comment). The
  * discipline is the guard. The projection RE-EMITS already-sanitized markup and adds no
- * sink of its own, so its output is not sanitized a second time — doing so would strip
- * the foreignObject and style elements that carry every Mermaid node label and all
- * diagram styling, which is the same measured reason the player does not re-sanitize.
+ * sink of its own, so its output is not sanitized a second time: a second pass has nothing
+ * left to find.
+ *
+ * THE OLD REASON GIVEN HERE WAS FALSE, and it is worth saying so rather than quietly
+ * deleting it, because it is the sentence a future reader would lean on when deciding
+ * whether a new sink owes a guard. It claimed a second pass would strip the
+ * `<foreignObject>` and `<style>` carrying every Mermaid node label. Measured directly
+ * against `createSlideSanitizer`: the FIRST pass — the one above, on the input — already
+ * removes both, label text and all. And on the baked path they are not there to remove,
+ * because the bake replaced them with native `<text>`. Either way, nothing is being
+ * preserved by skipping the second pass; it is skipped because it buys nothing, which is a
+ * different claim and the true one.
  *
  * Unlike the narration twin there is no index alignment to preserve, so a section that
  * fails to parse is SKIPPED rather than yielding an empty slot — an empty slot would mint
