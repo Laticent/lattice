@@ -613,6 +613,31 @@ test('the shape is one sentence per FACT, and the hazards stay one list', () => 
   );
 });
 
+test('CHECKER3 — an endpoint claim names only a terminal the machine can REACH', () => {
+  // The two bails above (no edges, only self-loops) both turn on whether any edge
+  // goes anywhere. A third shape has real edges and still contradicts itself: the
+  // machine narrated "A three-state machine from Draft to Draft and Filed. … Nothing
+  // leads to Filed and Closed" — a route asserted and denied two sentences later.
+  // Both halves were reading true facts. "from X to Y" is a claim about a ROUTE, so
+  // the terminals it may name are the ones the start can get to.
+  const out = narrateStateChart(slide('state-chart', [
+    '## Flow.', '', '1. Draft', '2. Filed', '3. Closed', '   - `reopen => 1`',
+  ].join('\n')));
+  assert.ok(out.includes('A three-state machine from Draft.'), out);
+  assert.ok(!/from Draft to/.test(out), out);
+  // The hazard clause still names them — it is the half a listener can act on.
+  assert.ok(/[Nn]othing leads to Filed and Closed/.test(out), out);
+
+  // AND THE ISLAND IN-DEGREE COULD NOT SEE. Alpha and Beta point at each other, so
+  // the old in-degree test called both reachable and said nothing.
+  const island = narrateStateChart(slide('state-chart', [
+    '## Island.', '', '1. Draft', '   - `go => 2`', '2. Done',
+    '3. Alpha', '   - `x => 4`', '4. Beta', '   - `y => 3`',
+  ].join('\n')));
+  assert.ok(island.includes('A four-state machine from Draft to Done.'), island);
+  assert.ok(/[Nn]othing leads to Alpha and Beta/.test(island), island);
+});
+
 test('CHECKER2 — a SELF-LOOP-only machine claims no path', () => {
   // `!edgeCount` closed the no-edge case and left it one self-loop away: "A two-state
   // machine from Draft to Filed; Draft loops on itself; Draft has no way out but to

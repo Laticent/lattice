@@ -235,6 +235,41 @@ test('state-graph — unreachable states and true dead ends', () => {
   );
 });
 
+test('state-graph — reachability, not in-degree, decides what is cut off', () => {
+  // THE ISLAND IN-DEGREE CANNOT SEE. Alpha and Beta point at each other, so both
+  // have an incoming edge and the old test called them reachable. Nothing gets to
+  // either from the start, and no surface said so.
+  const island = graph.summarizeGraph({
+    states: [st(1, 'Draft'), st(2, 'Done'), st(3, 'Alpha'), st(4, 'Beta')],
+    transitions: [{ from: 1, to: 2 }, { from: 3, to: 4 }, { from: 4, to: 3 }],
+  });
+  assert.deepEqual(island.unreachable.map((s) => s.label), ['Alpha', 'Beta']);
+
+  // AND A TERMINAL THE MACHINE CANNOT ARRIVE AT IS NOT AN ENDPOINT. `terminals`
+  // stays the honest "has no way out" set — a hazard clause wants it whole — and
+  // `reachableTerminals` is what an endpoint claim may name. Reading the first as
+  // the second made a narrator say "from Draft to Draft and Filed" and then
+  // "nothing leads to Filed", asserting a route and denying it two sentences later.
+  const cutOff = graph.summarizeGraph({
+    states: [st(1, 'Draft'), st(2, 'Filed'), st(3, 'Closed')],
+    transitions: [{ from: 3, to: 1 }],
+  });
+  assert.deepEqual(cutOff.terminals.map((s) => s.label), ['Draft', 'Filed']);
+  assert.deepEqual(cutOff.reachableTerminals.map((s) => s.label), []);
+
+  // LENGTH AT LEAST ONE: standing on the start does not reach it. A cycle back to
+  // it does, and then it IS somewhere the machine arrives.
+  const loop = graph.summarizeGraph({
+    states: [st(1, 'A'), st(2, 'B')],
+    transitions: [{ from: 1, to: 2 }, { from: 2, to: 1 }],
+  });
+  assert.ok(loop.reachable.has(1) && loop.reachable.has(2));
+  assert.equal(
+    graph.summarizeGraph({ states: [st(1, 'A'), st(2, 'B')], transitions: [{ from: 1, to: 2 }] }).reachable.has(1),
+    false,
+  );
+});
+
 test('state-graph — `target` and `to` are both accepted, and `self` resolves either way', () => {
   // The transform writes `to`; chart-narration.js's own parse writes `target` and
   // leaves the literal 'self' unresolved. One kernel, both dialects.
