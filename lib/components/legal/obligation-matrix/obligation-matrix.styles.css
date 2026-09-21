@@ -94,7 +94,8 @@ section.obligation-matrix tbody tr:nth-child(odd) td:not(:first-child) {
  * risk axis (applies = alarm red, exempt = relief green). This layout
  * additionally adds heat-aware cell-tint chrome below. */
 section.obligation-matrix td .state,
-section.obligation-matrix .ct-card dd .state {
+section.obligation-matrix .ct-card dd .state,
+section.obligation-matrix .label-set-key-mark {
   position:relative;
   display:inline-block;
   width:calc(1.4em * var(--state-disc-scale)); height:calc(1.4em * var(--state-disc-scale));
@@ -118,13 +119,17 @@ section.obligation-matrix .ct-card dd .state {
     inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
 }
 section.obligation-matrix td .state.pass,
-section.obligation-matrix .ct-card dd .state.pass { --state-color:var(--pass); }
+section.obligation-matrix .ct-card dd .state.pass,
+section.obligation-matrix .label-set-key-mark.pass { --state-color:var(--pass); }
 section.obligation-matrix td .state.warn,
-section.obligation-matrix .ct-card dd .state.warn { --state-color:var(--warn); }
+section.obligation-matrix .ct-card dd .state.warn,
+section.obligation-matrix .label-set-key-mark.warn { --state-color:var(--warn); }
 section.obligation-matrix td .state.fail,
-section.obligation-matrix .ct-card dd .state.fail { --state-color:var(--fail); }
+section.obligation-matrix .ct-card dd .state.fail,
+section.obligation-matrix .label-set-key-mark.fail { --state-color:var(--fail); }
 section.obligation-matrix td .state.skip,
-section.obligation-matrix .ct-card dd .state.skip { --state-color:var(--muted-mark); }
+section.obligation-matrix .ct-card dd .state.skip,
+section.obligation-matrix .label-set-key-mark.skip { --state-color:var(--muted-mark); }
 /* exempt — `[ ]` is "not subject to this obligation", a NEUTRAL state (not a
  * gap): a true hollow ring (empty center; see `.state.todo` in base.modifiers).
  * --muted-mark, not --text-label (#1821): the latter is accent-hued EMPHASIS
@@ -132,11 +137,13 @@ section.obligation-matrix .ct-card dd .state.skip { --state-color:var(--muted-ma
  * palettes that hue it from the accent. Same tier as `skip` above by ink, and
  * still unmistakable by shape — this ring has no inner mark at all. */
 section.obligation-matrix td .state.todo,
-section.obligation-matrix .ct-card dd .state.todo { --state-color:var(--muted-mark); }
+section.obligation-matrix .ct-card dd .state.todo,
+section.obligation-matrix .label-set-key-mark.todo { --state-color:var(--muted-mark); }
 /* Mark overlay — masked symbol (check / dash / x / slash) on the disc.
  * Mark color from --state-mark-pct (0% = knockout to --bg). */
 section.obligation-matrix td .state::after,
-section.obligation-matrix .ct-card dd .state::after {
+section.obligation-matrix .ct-card dd .state::after,
+section.obligation-matrix .label-set-key-mark::after {
   content:'';
   position:absolute; inset:0;
   background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
@@ -244,3 +251,48 @@ section.obligation-matrix.lat-split-cards .ct-card-fields {
 }
 section.obligation-matrix.lat-split-cards .ct-field { display: contents; }
 section.obligation-matrix.lat-split-cards .ct-field > dd { margin: 0; }
+
+/* ── The label-set key ───────────────────────────────────────────────────────
+ * The row of named markers under the grid. Its swatch carries the CELL's own
+ * `state {sem} {shape}` classes and is added to the disc selectors above rather
+ * than given a second recipe — a key painted by a different rule than the cells
+ * it names is the worst kind of stale legend, because it stays plausible.
+ *
+ * Laid out like roadmap's status key, and for the same reason: the grid is wide,
+ * so the key centers under it rather than taking a side rail. Spaced with
+ * `padding` and `gap`, never `margin` (HARD RULE #20). */
+section.obligation-matrix .label-set-key {
+  /* `flex:0 0 auto` is load-bearing, not tidiness: the table above is `flex:1`
+   * and the stage is a flex column, so without this the key would be asked to
+   * shrink — and a key that shrinks is a key that clips, which is the one
+   * failure mode worse than not drawing it at all. The table yields the space
+   * instead, which it can because its own rows are what `flex:1` distributes. */
+  flex:0 0 auto;
+  align-self:center;
+  /* Separation from the grid only. The caption band below already provides the
+   * trailing space, and `padding` rather than `margin` keeps the height
+   * measurable to the fit probe (HARD RULE #20). */
+  padding:var(--sp-sm) 0 0;
+  list-style:none;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  gap:var(--sp-3xs) var(--sp-lg);
+  font-size:var(--fs-meta);
+}
+section.obligation-matrix .label-set-key-item {
+  display:inline-flex;
+  align-items:center;
+  gap:var(--sp-sm);
+  color:var(--text-secondary);
+}
+/* The swatch is a disc in its own right here, not a cell that hides a trailing
+ * label, so it overrides the cell recipe's text-indent trick — there is no text
+ * inside it to push out of view. */
+section.obligation-matrix .label-set-key-mark {
+  flex:0 0 auto;
+  text-indent:0;
+  width:0.95em;
+  height:0.95em;
+}

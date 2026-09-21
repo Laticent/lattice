@@ -220,6 +220,7 @@ function buildLabelSets() {
     }
     catalog[m.name] = {
       aria: ls.aria || 'Key',
+      ...(ls.keyedBy === 'transformer' ? { keyedBy: 'transformer' } : {}),
       // Member order is the RENDER ORDER and the spine an override merges onto,
       // so it is preserved verbatim — never sorted, unlike the name keys below.
       members: ls.members.map((mem) => ({

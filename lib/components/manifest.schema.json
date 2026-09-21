@@ -209,6 +209,10 @@
           "type": "string",
           "description": "The key's accessible name, e.g. 'Status key'. Defaults to 'Key'."
         },
+        "keyedBy": {
+          "enum": ["component", "transformer"],
+          "description": "WHO DRAWS THE KEY. `component` (the default \u2014 omit it) means the component's own section transform builds it, which is what a component with a figure builder should do: it already knows which members its cells carry and where the key belongs relative to its figure. `transformer` means the shared post-pass (lib/transformers/label-set-key.js) draws it, for a component that has NO transform of its own \u2014 obligation-matrix is a stylesheet plus a markdown-it cell rule, so before this there was nowhere for a key to be built. Declared rather than kept as a list inside the transformer, because a hand-maintained list of which components it serves is the exact shape this whole construct replaced."
+        },
         "members": {
           "type": "array",
           "minItems": 1,

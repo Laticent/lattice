@@ -658,8 +658,7 @@
       "| Regime 1   | [x]          | [x]          | [-]          |",
       "| Regime 2   | [x]          | [-]          | [x]          |",
       "| Regime 3   | [x]          | [ ]          | [x]          |",
-      "",
-      "Filled = applies, half = partial, empty = exempt."
+      ""
     ],
     "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance."
   },

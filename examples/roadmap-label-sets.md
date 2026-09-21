@@ -103,11 +103,8 @@ without an authored label set.
 
 ## What the label set changed here.
 
-- Words are a default, not a vocabulary
-  - The manifest declares them, and the deck lint checks your keys against it
-- The merge is partial and by key
-  - Rename one state; the rest keep theirs
-- Order stays the lifecycle's
-  - Never the order you happened to list them in
-- Everything the key already did, it still does
-  - One chip per state present, and none at all when nothing is marked
+- The words are a default the manifest declares, not a fixed vocabulary
+- The merge is partial: rename one state, the rest keep theirs
+- Order stays the lifecycle's, never the order you listed them in
+- One chip per state present, and none at all when nothing is marked
+- `lint:deck` checks your keys against the same rows the chart renders from
