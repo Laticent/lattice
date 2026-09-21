@@ -101,6 +101,13 @@ for (const file of decks(process.argv.slice(2))) {
   const html = typeof out === 'string' ? out : out.html;
   // One canvas per word-cloud section, in source order.
   const canvases = [...html.matchAll(/<div class="word-cloud-canvas"[\s\S]*?<\/svg>/g)].map((m) => m[0]);
+  // ZIPPED BY POSITION, so a mismatch is announced rather than silently comparing the
+  // wrong pair. Today the only mismatches are the two docs pages, which carry
+  // word-cloud PROSE and zero canvases; a file with a prose section BEFORE a real
+  // slide would misalign every pair after it.
+  if (sections.length !== canvases.length && canvases.length) {
+    console.log(`${file}: ${sections.length} word-cloud sections but ${canvases.length} canvases — pairs may be misaligned`);
+  }
   for (let i = 0; i < Math.min(sections.length, canvases.length); i++) {
     slides++;
     const listed = sections[i].split('\n').filter(isTopBullet).map(labelOf);
@@ -114,7 +121,14 @@ for (const file of decks(process.argv.slice(2))) {
     // DOES THE VOICE NAME ONE OF THE LOST WORDS? Word-boundary matched against the
     // narration string, not against a model of which words it chose to name — the
     // whole point is to catch a clause nobody thought to check.
+    //
+    // A SILENT SLIDE IS REPORTED, NOT COUNTED AS CLEAN. If `narrateChart` returned
+    // null here the ghost count would stay 0 with nothing to show for it, which is
+    // the "zero because the probe never ran" failure this whole swimlane is about.
     const said = missing.length ? narrateChart(sections[i]) : null;
+    if (missing.length && !said) {
+      console.log(`${file} slide ${i + 1}: NOT NARRATED — the voice cannot name a lost word here, and this slide proves nothing`);
+    }
     for (const w of said ? missing : []) {
       const needle = sameWord(w).toLowerCase();
       if (!needle) continue;

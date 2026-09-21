@@ -794,8 +794,17 @@ narration's four structural fields against `parseBullet`'s — the transform's o
 reader, on the same slide, from the same list HTML markdown-it hands it. Nothing
 internal on either side, and no projection in between.
 
-**It found 88 disagreements in 134 comparable decks, and 87 of them were the
+**It put most comparable decks in disagreement, and every disagreement was the
 MEASURE.** Not one was visible to any previous test.
+
+The counts that first made this case are deliberately not quoted here. They were
+measured against a generator that shipped in the same commit as the fix, so nothing
+in the tree reproduces them — an independent checker reconstructed the round-eight
+narrator twice and got two different totals with the same conclusion. That is the
+fourth un-re-derivable number in this document, and the rule it teaches is now
+written down rather than re-learned: a number measured against a corpus that changes
+in the same commit is not a measurement, it is a memory. The durable form is the
+committed test.
 
 ### The contract it enforces is not equality
 
@@ -857,6 +866,125 @@ closes a CLASS — a parse rule rather than a shape, a reachability closure rath
 than a bail, a measured mutation table rather than a claim — so the next round's
 findings should be new ground rather than the same ground in a new costume. That
 is a prediction, not a result.
+
+## The tenth round — the defect the row-for-row oracle could not have (2026-09-21)
+
+The ninth round built an exact oracle and reported zero. An independent checker then
+found a defect on **ordinary authoring**, proved it on the real `--captions` export,
+and the oracle could not have seen it — not because its corpus was narrow this time,
+but because of what it compares.
+
+### The defect: a second list the picture does not draw
+
+```markdown
+<!-- _class: bullet -->
+
+## Are we on plan.
+
+- Uptime  `99.9%` `99.5%`
+- Latency `180ms` `200ms`
+
+Measured at quarter end.
+
+- Churn   `2%` `3%`
+```
+
+The blank plus the column-0 paragraph ends the list, so `Churn` starts a second one.
+Every chart in the family is built from **one** list — `bullet.transform.js` calls
+`extractFirstList` (`lib/core/html-lists.js`) and never sees the rest — so the slide
+draws two bars and renders `Churn` as a plain bullet. The voice said:
+
+> One of **three** cleared the plan line. … Churn, two percent against a three
+> percent target — sixty-seven percent of plan, closing on plan.
+
+A whole-chart tally over a count the picture contradicts, plus a plan-line
+relationship for a row that has no bar. That is the exact class the swimlane exists
+to close, arriving through the one door nine rounds of row-level work left open.
+
+### Why every previous check was blind to it
+
+**The oracle compares row for row, and this defect is a row the comparison never
+had.** Worse, the harness fed `parseBullet` a greedy match to the last `</ul>` — so
+it handed the transform's parser BOTH lists and then agreed with narration about
+them. 33 of its own 500 decks were fed something the transform never receives.
+Swapping that one regex for `extractFirstList` — the function the transform actually
+calls — turned the committed `diverged: 0` into a real divergence.
+
+**An oracle that re-implements its subject proves only that the code agrees with
+itself.** That is the same sentence the ninth round wrote about the `<desc>`, one
+level further in.
+
+### The fix is a boundary, not another rule
+
+Deciding where a CommonMark list ends needs the block rules this file has been wrong
+about five times (#2295). So the scanner does not decide: **once a row has been seen,
+the first column-0 line that is not another row ends the scan, and everything after
+it stays unconsumed** for `speakLeftover` to read verbatim. Blank-then-indented
+*prose* ends it too, because `-  Row2` puts its content at column 3 and a following
+two-space paragraph is inside neither the item nor the list.
+
+It is quieter than markdown-it in two shapes it need not be — a lazy continuation
+keeps one list open, and so does a column-0 line that merely interrupts a paragraph.
+Quieter is the direction this parser fails in.
+
+### And the widened corpus found a second one, pre-existing
+
+Adding the interruption axis reseeded the generator, which surfaced a shape the old
+corpus never produced and which reproduces byte-identically on the previous head:
+
+```markdown
+- Row2 `80%` `1`
+  - `Floor` `5`
+    - note
+    - `Target` `4.2M`
+```
+
+`Target` is a grandchild — a child of `Floor` — so the chart reads Row2's target off
+its own pills (`1`). Narration said `4.2M`. The cause was that the enclosure was ONE
+SLOT: `note` overwrote `Floor`, and when `Target` came back out to `note`'s level
+there was nothing left to compare against, so the line looked like a direct child.
+**It is a stack now**, popped per line, and the shape is seen for what it is: a third
+level, which this narrator refuses.
+
+### Measured
+
+Five rules, five mutants, each applied at load time to the production file and each
+turning the oracle red:
+
+```
+unmutated                         pass 3  fail 0
+tab-in-indent rule deleted        pass 2  fail 1
+list-boundary stop deleted        pass 2  fail 1
+blank-then-prose rule deleted     pass 2  fail 1
+enclosure stack flattened         pass 2  fail 1
+row refusal deleted               pass 2  fail 1
+```
+
+The tab rule is worth naming: it had been shipping for two rounds and **no test
+anywhere killed it**, because the corpus emitted `'\t'` as a single indent
+character — one column, already refused by the one-space-sibling rule, so the tab
+clause never decided anything. `'\t\t'` and `'  \t'` reach it. A rule with no killer
+is a rule nobody can safely change.
+
+Cost on the shipped tree, narration string by narration string against the previous
+head:
+
+```
+slides carrying a _class:   3725
+narration identical          501
+both silent                 3224
+CHANGED                        0
+```
+
+### What this says about the next round
+
+The ninth round predicted that its findings would be new ground rather than the same
+ground in a new costume. That held: this round's defect is a different SHAPE of
+comparison, not another parse rule. The prediction to make now is narrower and less
+comfortable — **every oracle here has been wrong in the permissive direction exactly
+once, and each time the next one found it.** The `<desc>` was too lossy; the row-for-row
+feed was too wide. There is no reason to believe the current one is the first to be
+exactly right.
 
 ## Known limits
 

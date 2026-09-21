@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { parseBullet } = require('../../../lib/components/chart/bullet/bullet.transform.js');
+const { extractFirstList } = require('../../../lib/core/html-lists.js');
 const { __parseBulletRowsForTest, narrateBullet } = require('../../../lib/core/chart-narration.js');
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,12 +45,24 @@ const md = new MarkdownIt({ html: true });
 function transformRows(source) {
   const body = source.replace(/^<!--[\s\S]*?-->\n*/, '').replace(/^##[^\n]*\n*/m, '');
   const html = md.render(body);
-  // GREEDY to the LAST `</ul>`, so a nested list does not truncate the item that
-  // contains it. `parseBullet` is handed the whole section's list inner.
-  const m = html.match(/<ul>([\s\S]*)<\/ul>/);
-  if (!m) return null;
+  // `extractFirstList`, WHICH IS WHAT THE TRANSFORM ACTUALLY CALLS — not a regex.
+  //
+  // This harness used to take a GREEDY match to the last `</ul>`, reasoning that a
+  // lazy one would truncate an item carrying a nested list. True, and it also
+  // swallowed every SIBLING list on the slide, so `parseBullet` was handed rows the
+  // transform would never receive. That hid a whole defect class: narration reading
+  // a second top-level list the chart does not draw. Measured on this generator's own
+  // corpus, 33 of 500 decks were fed something the transform never sees, and swapping
+  // this one call surfaced a divergence the committed run reported as 0.
+  //
+  // `extractFirstList` is depth-aware, so it handles the nested case the greedy match
+  // was reaching for, and it is the same function `bullet.transform.js` uses. An
+  // oracle that re-implements the thing it is checking proves only that the code
+  // agrees with itself.
+  const first = extractFirstList(html);
+  if (!first) return null;
   let model;
-  try { model = parseBullet(m[1]); } catch { return null; }
+  try { model = parseBullet(first.inner); } catch { return null; }
   if (!model) return null;
   return model.rows.map((r) => ({
     measure: r.measureRaw ?? null,
@@ -92,7 +105,13 @@ const MARKERS = ['-', '-', '-', '-', '*', '+'];
 // was refused, and only 6 of 500 decks reached the exact-match floor below. A
 // corpus that is mostly malformed measures the generator, not the narrator.
 const GAPS = [' ', ' ', ' ', ' ', ' ', ' ', '  ', '   ', '     '];
-const INDENTS = ['  ', '  ', '  ', '  ', '   ', '    ', '      ', ' ', '\t'];
+// A SINGLE TAB IS NOT A TAB TEST, and it took a mutation to find that out. `'\t'`
+// is one character, so the one-space-sibling rule (`indentNow < 2`) refuses it
+// before the tab clause is ever consulted — delete the tab rule from the narrator
+// and this corpus stayed green across all 10,384 unit tests. `'\t\t'` and `'  \t'`
+// are the shapes that actually reach it, and they are here so the rule has a
+// killer. Two more `'  '` entries hold the normal-authoring weight where it was.
+const INDENTS = ['  ', '  ', '  ', '  ', '  ', '  ', '   ', '    ', '      ', ' ', '\t', '\t\t', '  \t'];
 const KEYS = ['Target', 'Floor', 'Band', 'Actual', 'Plan', '`Target`', '`Floor`'];
 const VALUES = ['1', '4', '5', '80%', '4.2M', '99.4%'];
 // SAME WEIGHTING AS THE OTHER AXES, and for the third time the reason is the same:
@@ -100,6 +119,15 @@ const VALUES = ['1', '4', '5', '80%', '4.2M', '99.4%'];
 // author writes. At equal odds they dominate, the refusal fires on nearly every
 // deck, and the exact-match floor below stops measuring the narrator.
 const TAILS = ['', '', '', '', '', '\n    - note', '\n  a continuation', '\n    1. ordered', '\n\n  after a blank'];
+// WHAT ENDS THE LIST, which is a WHOLE-CHART axis and not a row one. The transform
+// draws one list (`extractFirstList`); a block between two rows can close it and
+// open a second, and the voice then tallies rows the picture never draws. Nine
+// rounds of this work could not produce that deck: every axis above varies a row or
+// a child, and none of them interrupts. The defect was found by hand and reproduced
+// on the real `--captions` export. Weighted low for the same reason as every other
+// odd axis — at equal odds the interruption lands on most decks and the corpus stops
+// measuring the narrator.
+const BREAKS = ['', '', '', '', '', '', '', '', 'Measured at quarter end.', '\nMeasured at quarter end.\n', '\n  after a blank\n'];
 
 function corpus(count, startSeed = 20260921) {
   let seed = startSeed;
@@ -121,6 +149,11 @@ function corpus(count, startSeed = 20260921) {
       const kids = Math.floor(rnd() * 3);
       for (let k = 0; k < kids; k++) {
         lines.push(`${pick(INDENTS)}${marker} ${pick(KEYS)} \`${pick(VALUES)}\`${pick(TAILS)}`);
+      }
+      // Between rows only — a break after the last row ends nothing.
+      if (i < rows - 1) {
+        const br = pick(BREAKS);
+        if (br) lines.push(br);
       }
     }
     decks.push(`<!-- _class: bullet -->\n\n## H.\n\n${lines.join('\n')}`);
@@ -221,7 +254,9 @@ test('the corpus reaches every axis a checker has found a defect on', () => {
   // fuzz reported zero. Counted so that can never be true silently again.
   const decks = corpus(500);
   const axes = {
-    'tab child': /\n\t/,
+    'tab-only child': /\n\t[-*+] /,
+    'multi-tab child': /\n\t\t[-*+] /,
+    'mixed space-tab child': /\n {2}\t[-*+] /,
     'one-space child': /\n [-*+] /,
     'three-space child': /\n {3}[-*+] /,
     'four-column child': /\n {6}[-*+] /,
@@ -232,6 +267,9 @@ test('the corpus reaches every axis a checker has found a defect on', () => {
     'ordered sublist': /\n {4}1\. ordered/,
     'blank then content': /\n\n {2}after a blank/,
     'code-spanned key': /`(?:Target|Floor)` `/,
+    'lazy break between rows': /\n[-*+][^\n]*\nMeasured at quarter end\.\n[-*+]/,
+    'blank + column-0 break': /\n\nMeasured at quarter end\.\n\n/,
+    'blank + indented break': /\n\n {2}after a blank\n\n/,
   };
   for (const [name, re] of Object.entries(axes)) {
     const n = decks.filter((d) => re.test(d)).length;

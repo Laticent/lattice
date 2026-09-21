@@ -80,25 +80,29 @@
   reads a U+2212 in front of the symbol and not behind it), so the voice and the bar
   agree; the parser asymmetry itself is tracked as #2287.
 - **Fixed: a `bullet` row whose nested structure cannot be read from the Markdown is
-  no longer narrated at all — and its line is read aloud verbatim instead.** A
-  checker comparing narration's measure, target, floor and bands against the
-  transform's own reader — rather than against the SVG `<desc>`, which every earlier
-  check went through — found 88 disagreements in 134 decks, 87 of them the MEASURE.
-  A child `Actual` overrides the row's own first pill and a malformed row line voids
-  it, so the measure is exactly as derived as the target. The listener now loses the
-  sentence, not the numbers. On the decks in this repo it costs nothing: 16 bullet
-  slides, 14 narrate, none reads differently than before.
-- **Fixed: a `bullet` row whose nested structure cannot be read from the Markdown no
-  longer claims a relationship.** A tab, a marker gap wider than one space, or a
-  one-space indent each make markdown-it nest differently from anything a line
-  scanner can compute — and narration runs on Markdown, before any render. Such a row
-  refuses what its children could have changed and no more — where a nested line
-  carries a VALUE the whole relationship goes, where the children are prose the row's
-  own numbers stand, and the slide speaks no tally either way. The lines are still
-  read aloud. The refusal is keyed on what markdown-it can fold into the row's own
-  paragraph, not on whether the children look like prose. The cost is real and
-  measured, and it moves with how malformed the corpus is: on the decks in this
-  repo it is exactly zero — all 16 bullet slides narrate identically.
+  no longer narrated at all — and its line is read aloud verbatim instead.** A tab, a
+  marker gap wider than one space, a one-space indent, an indent four columns past
+  its parent, or prose after a blank line each make markdown-it nest differently from
+  anything a line scanner can compute — and narration runs on Markdown, before any
+  render. The rule is one rule: if the structure cannot be proved, the row is not
+  narrated and its line is left for the flattener, so the listener loses the SENTENCE
+  and not the numbers. The slide speaks no tally either way.
+  Earlier drafts of this refused only what a row's children could have changed, and
+  kept the row's own pills. That was never safe: the measure is exactly as derived as
+  the target, because a child `Actual` overrides the row's own first pill and a
+  malformed row line voids it. What settled it was changing the ORACLE — comparing
+  narration's measure, target, floor and bands against `parseBullet`, the transform's
+  own reader, rather than against the SVG `<desc>` that every earlier check went
+  through. On the decks in this repo the refusal costs exactly zero: 3,725 slides
+  carry a `_class:`, 501 narrate, and not one reads differently than before.
+- **Fixed: a `bullet` slide with a SECOND top-level list no longer tallies rows the
+  chart does not draw.** Every chart in the family is built from one list, so a block
+  that interrupts the bullets — a note paragraph, a change of bullet character, an
+  indented line after a blank — ends what the picture shows and starts something it
+  leaves as plain text. Narration read straight through it and said *"one of three
+  cleared the plan line"* over a two-bar chart, with a plan-line reading for a row
+  drawn as an ordinary bullet. It now stops where the list does, and everything after
+  is read aloud verbatim.
 - **Fixed: a `state-chart` no longer says a state "stops without being marked an
   ending" over a slide that draws it into the finish marker.** It reads *"nothing
   leads out of X"* — true of both rules the chart uses to decide that. A state
