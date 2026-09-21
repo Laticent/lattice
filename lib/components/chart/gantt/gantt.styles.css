@@ -191,7 +191,7 @@
  * There used to be a second, parallel table below for `.gantt-legend-swatch`,
  * and the two drifted the first time one of them moved: re-pointing `live` from
  * pass to info here left the chip's EDGE green while the kernel filled its body
- * blue, so the key showed a two-colour chip for a one-colour status. One table
+ * blue, so the key showed a two-color chip for a one-color status. One table
  * cannot disagree with itself. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="on-track"],
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
@@ -207,7 +207,7 @@
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
 
 /* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
- * ink. It takes the same mute ramp a status-LESS bar takes, so on colour alone
+ * ink. It takes the same mute ramp a status-LESS bar takes, so on color alone
  * "pushed to next quarter" and "nobody said" are the same bar — and an unstated
  * bar emits no legend chip, so no key can tell them apart. Dropping the fill to
  * a wash while keeping the full-strength edge draws it as an outline, which is
@@ -361,7 +361,7 @@
 :is(section.gantt, figure.gantt) .gantt-bar-accent {
   /* THE INK ONLY — never the bar's outline. The accent is a solid fill; adding
    * it to the bars' rule handed it their `stroke` too, which outlined a 4px
-   * sliver in its own colour and pushed it under the 3:1 floor on four themes. */
+   * sliver in its own color and pushed it under the 3:1 floor on four themes. */
   fill: var(--fill-ink);
 }
 

@@ -495,7 +495,7 @@ let scrubBoundaryMeasured = false;
 // line-aware they meet through BLANK-LINE ACCOUNTING, and a checker measured 350 of 13,122
 // (source × cut) pairs disagreeing on order — a note comment directly above a caption comment
 // shipping the 1-byte residue this flag pair exists to remove. The kernel judges every comment
-// against the source's own neighbours, so there is no order left to get wrong.
+// against the source's own neighbors, so there is no order left to get wrong.
 // The composition carries no reporting — the pure half, so `strippedSlidesOrAuthored` can call
 // it once per candidate cut without warning the author twice about the same deck.
 function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
@@ -2430,7 +2430,7 @@ function strippedSlidesOrAuthored() {
   // above a `---` needs an empty line left in its place (delete the line and the `---` becomes
   // a setext underline, so the export gains a slide), while a note indented inside a LIST item
   // needs the line simply gone (an empty line turns a tight list loose, which is a visible
-  // change to a deck that did nothing unusual). Same neighbours, opposite right answers — so
+  // change to a deck that did nothing unusual). Same neighbors, opposite right answers — so
   // this renders each and keeps the one that reproduces the deck the author wrote. The CANDIDATE
   // LIST is the kernel's (#1): the Studio's `stripNotesCut` reads the same one, so neither path
   // can quietly gain a cut or reorder them without the other.
@@ -3730,7 +3730,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Node-side string before the page loads (see TRIM_REACHES_DELIVERABLE above), so the
     // `.html` beside the raster still clips the pages the raster fits. Two deliverables of
     // one export contradicting each other is the defect class engineering/gotchas/overflow.md
-    // already catalogues for the marker; it is named here rather than fixed, because
+    // already catalogs for the marker; it is named here rather than fixed, because
     // re-serializing the export HTML from the live DOM is an owner call under the Quality Bar.
     if (OUT_FORMAT !== 'html' && !FLUID_WINS && !PLAYER) {
       console.warn(`    The .html sidecar does NOT carry the trim \u2014 it is written before the page renders, so page${trimmed.slides > 1 ? 's' : ''} ${pages} clip${trimmed.slides > 1 ? '' : 's'} there. --fluid or --player make it agree.`);
