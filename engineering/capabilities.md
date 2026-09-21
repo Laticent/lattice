@@ -212,6 +212,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:playground` | Unit scope: the playground bundle/core. |
 | `test:release` | Unit scope: the release tooling. |
 | `test:runtime` | Unit scope: lib/runtime/* — the pure decisions behind the in-page runtime (fluid-view policy, the diagram queue, per-slide mermaid bands, the axis DOM catalog). |
+| `test:tap` | The unit suite as a TAP stream, for anything that parses test output rather than reading the exit code. `npm test` reports as dots (557x cheaper to capture); reach for this when you need per-test records. |
 | `test:theme` | Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet). |
 | `test:tokens` | Unit scope: the universal token system. |
 | `test:tools` | Unit scope: author tools (export-marp, …). |

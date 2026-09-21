@@ -168,6 +168,7 @@ const SCRIPT_META = {
   // Test & verify
   'test':                     ['Test & verify', 'Full unit suite (node:test). The inner loop.'],
   'test:watch':               ['Test & verify', 'Re-run the unit suite on file change.'],
+  'test:tap':                 ['Test & verify', 'The unit suite as a TAP stream, for anything that parses test output rather than reading the exit code. `npm test` reports as dots (557x cheaper to capture); reach for this when you need per-test records.'],
   'test:all':                 ['Test & verify', 'Unit + integration umbrella.'],
   'test:coverage':            ['Test & verify', 'c8 coverage over the unit suite (→ .scratch/coverage/).'],
   'test:coverage:all':        ['Test & verify', 'c8 coverage over unit + integration.'],

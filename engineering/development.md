@@ -567,6 +567,78 @@ that runs `build:check` when some file appears will happily run it three hours
 later against a tree that has moved on. Run the job, or wait for it; not both.
 
 
+## Context cost — what a turn actually bills
+
+Measured on a real session's own transcript (`~/.claude/projects/**/*.jsonl` records a
+`usage` block per assistant message), not estimated.
+
+**The charge tracks what ENTERS the conversation, not how long the session runs.**
+Correlating the budget counter against real usage across 23 turns, the charge came to
+roughly `0.7 x (new tokens + output tokens)`. The cached prefix — 150,087 tokens by turn
+23, re-sent on every single turn — added almost nothing. Cache reads are close to free.
+New context is not, and output bills at about the same weight as new context.
+
+Two consequences, and they are the whole of the discipline:
+
+1. **Every token you pull into context is paid once, at roughly full weight.** A read is
+   not amortized away by caching. It is a purchase.
+2. **A verbose tool is a purchase you did not choose.** `npm test` used to print 657,806
+   tokens of TAP to report 256 lines' worth of facts.
+
+### The numbers worth knowing
+
+| | tokens | note |
+|---|---:|---|
+| Session baseline, before any work | 86,790 | tool schemas ~36,700 · `CLAUDE.md` ~13,400 · harness prompt ~7,400 · skill/agent/MCP listings ~5,900. Read off one session's `prompt_snapshot`; the parts sum to ~85% of the measured total, so treat them as a breakdown rather than an audit. |
+| Subagent baseline | 30,074 | 35% of the main thread — it gets ~3k of tool schemas, not ~36,700. `CLAUDE.md` is 44% of it, so the router is paid again per agent. |
+| `npm test`, TAP (the old default) | 657,806 | 70,172 lines of TAP bookkeeping; the other 256 are mostly runtime debug dumps, and only 8 are the counters that say whether it passed |
+| `npm test`, dot reporter | 1,182 | 1,371 with one seeded failure — diff, stack and exit 1 intact |
+| `npm run lint:deck -- examples/*.md` | 72,422 | 190 files — use `--json`, or one file |
+| `npm run build` | 1,848 | |
+| `npm run build:check` | 544 | |
+| `npm run lint` | 34 | |
+| `engineering/workflow.md`, whole | 29,507 | its §Pre-merge card alone is 1,204 |
+
+### What to do about it
+
+- **Read sections, not files.** `grep -n '^## ' <doc>` then `sed -n 'A,Bp'`. Ten documents
+  reachable from `CLAUDE.md`'s routing table are 14k tokens or more — the largest being
+  `engineering/decisions/README.md` (36k), `engineering/workflow.md` (29.5k) and
+  `lib/base/base.docs.md` (21.6k), and that last is a HARD RULE #6 mandated read carrying no
+  "don't open it whole" guidance anywhere. Don't work from a list of names; measure, or just
+  open the section.
+- **Delegate any read over ~10k tokens.** A subagent's context never enters yours — only
+  its report does. Measured: a probe agent captured a 2.4 MB test log across 20 tool calls
+  for 55,951 subagent tokens and handed back ~1,200. In-thread that is 657,806 tokens, and
+  they stay for the rest of the session.
+- **Batch independent tool calls into one message.** Each turn re-bills its own overhead;
+  two greps in one message cost one turn's worth, not two.
+- **Let `microcompact` run.** It drops stale tool results in place and is on by default.
+  `DISABLE_MICROCOMPACT` turns it off, which you do not want. Full auto-compaction is a
+  context-WINDOW tool rather than a budget one: under this billing the re-reads it saves
+  were nearly free, while the summary it writes is not.
+- **`/context`** prints the live breakdown when you want to know where a session went.
+- **Cap thinking on routine turns.** Thinking is output and bills like output.
+  `MAX_THINKING_TOKENS` sets a ceiling. Deliberately NOT set repo-wide: one cap would
+  apply equally to the hard reasoning we want, so it is a lever a human pulls for a
+  session, not a default anyone inherits.
+- **Do not leave a big session idle past the prompt-cache TTL.** When the prefix expires,
+  the next turn re-enters at full input price instead of the cached rate. It is the same
+  reason `tools/wait-for.sh` bounds every wait under an hour (§Waiting for a slow job).
+
+### Re-measuring
+
+Counts come from `gpt-tokenizer/encoding/o200k_base`, already a dependency — the router
+budget gate uses it:
+
+```bash
+node -e 'const{encode}=require("gpt-tokenizer/encoding/o200k_base");const fs=require("fs");
+  console.log(encode(fs.readFileSync(process.argv[1],"utf8")).length)' <file>
+```
+
+For a command, capture stdout and stderr together and count the capture. Every figure here
+moves with the tree, so quote the commit when you publish one.
+
 ## Editor setup
 
 `jsconfig.json` gives VS Code / JetBrains / Neovim project-wide

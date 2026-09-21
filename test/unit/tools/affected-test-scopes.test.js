@@ -44,7 +44,7 @@ test('every test/unit/<scope> directory has a matching `test:<scope>` npm script
     `these test/unit/ directories have tests but no test:<scope> script, so a commit staging only ` +
       `files in one of them dies in pre-commit with \`Missing script\` (tools/affected-tests.js). ` +
       `Add to package.json:\n` +
-      missing.map((s) => `    "test:${s}": "node --test 'test/unit/${s}/*.test.js'",`).join('\n') +
+      missing.map((s) => `    "test:${s}": "node --test --test-reporter=dot 'test/unit/${s}/*.test.js'",`).join('\n') +
       `\nand a SCRIPT_META entry in tools/build-capabilities.js (the HARD RULE #15 capabilities ` +
       `gate fails build:check on an undescribed script), then run \`npm run capabilities:build\`.`,
   );
@@ -60,7 +60,16 @@ test('every `test:<scope>` script points at a directory that exists', () => {
     .filter(Boolean)
     .map((m) => m[1])
     // Only the ones whose command really is the `test/unit/<scope>` shape.
-    .filter((s) => scripts[`test:${s}`] === `node --test 'test/unit/${s}/*.test.js'`)
+    //
+    // MATCH THE SHAPE, NEVER THE WHOLE STRING. This was an exact `===` until a PR added
+    // `--test-reporter=dot` to all 39 `node --test` scripts at once: every script stopped
+    // matching, the filter returned [], and this test went on passing as `deepEqual([], [])`
+    // while checking nothing. A gate that silently empties is worse than no gate, and an
+    // equality test against a command line empties on any flag anyone ever adds.
+    .filter((s) => {
+      const cmd = scripts[`test:${s}`];
+      return cmd.startsWith('node --test') && cmd.endsWith(`'test/unit/${s}/*.test.js'`);
+    })
     .filter((s) => !fs.existsSync(path.join(UNIT_DIR, s)));
   assert.deepEqual(stale, [], `test:<scope> scripts whose test/unit/<scope> directory is gone: ${stale.join(', ')}`);
 });
