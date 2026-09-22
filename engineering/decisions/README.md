@@ -314,6 +314,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-22-thinking-is-a-third-of-output.md](2026-09-22-thinking-is-a-third-of-output.md) — Thinking is 33.6% of output tokens and 5.6% of the billable total, measured over 77 turns across a main thread and two subagents.
 - ☑ [2026-09-21-manifest-handles.md](2026-09-21-manifest-handles.md) — The Guide could not point at a part nothing declares.
 - ☑ [2026-09-21-what-a-turn-bills.md](2026-09-21-what-a-turn-bills.md) — A session's budget is spent on what ENTERS the conversation, not on how long it runs.
 - ☑ [2026-09-20-chromium-caption-projection.md](2026-09-20-chromium-caption-projection.md) — The CLI's `--captions` projection now runs in the Chromium the export already launched, not in three jsdom windows.
