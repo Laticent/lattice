@@ -158,6 +158,11 @@ const REGISTERS = [
   'print', 'accent', 'spectrum-off',
   'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off',
 ];
+// The canvas modifiers a deck can be IN, for the attribute axis below. `print` is in
+// REGISTERS too (it is both a mode and a repainter), so the attribute cross pairs these
+// with the registers MINUS print rather than crossing print with itself.
+const CANVAS_MODES = ['', 'dark', 'light', 'print', 'color-light', 'color-system'];
+const REGISTERS_NO_PRINT = REGISTERS.filter((r) => r !== 'print');
 
 /**
  * Every class the bundle uses in a SECTION-SUBJECT rule that paints a background,
@@ -405,6 +410,153 @@ function deriveVariants(css) {
 }
 
 /**
+ * The SUBJECT ATTRIBUTES a canvas rule gates on — the axis every derivation in this file
+ * was blind to, and the reason #2294 had a third family nobody had measured.
+ *
+ * `deriveModifiers`, `deriveShapes` and `deriveVariants` all walk `ClassSelector` nodes.
+ * A canvas rule keyed on an ATTRIBUTE is therefore invisible to the whole cross, and
+ * three of them are in the bundle today:
+ *
+ *     section.print[data-split-role="cover"]            -> var(--surface-inverse)
+ *     section.split-panel-cover:is([data-split-mods~="cat-N"])  -> var(--panel-fill)
+ *     section.image[data-img-composition="gallery"]     -> var(--img-matte)
+ *     section.scene[data-img-composition="gallery"|"spotlight"|"statement"]
+ *
+ * The first is the one that matters most, because it is BARE — no frame class — so it
+ * repaints any frame carrying the stamp, and `split-envelope.js` `withRole` stamps it on
+ * every cover the splitter emits. Measured before this axis existed: all six covers under
+ * print paint rgb(236,236,236) and `--fin-canvas` was white, on every palette, in the
+ * export only. The class-only cross could not see a single one of those rows, and neither
+ * could the 40 imagery rows beside them.
+ *
+ * SCOPED TO MODE x REGISTER, NOT TO ALL 219 MODIFIERS, for the same reason the register
+ * pairs above are: the interaction these selectors reason about is "an attribute-gated
+ * painter against the canvas modifier that would otherwise repaint it". Thirty
+ * attribute-variants across the eighteen frames x six modes x seven register slots is
+ * ~1,260 rows; crossing them against every modifier instead would add ~46k and buy
+ * nothing the selectors are written about.
+ *
+ * `class`-VALUED ATTRIBUTE SELECTORS ARE SKIPPED, and proved covered rather than assumed:
+ * `section:where([class*="tint-"], [class*="mark-"], [class~="backdrop-none"])` is a
+ * painting rule, but writing `class="tint-"` onto the probe would clobber the frame class
+ * the row is about. Those values are reached by the CLASS axis instead — `tint-corner`,
+ * `mark-micro` and `backdrop-none` are all in `deriveModifiers`'s list — and
+ * `assertClassGuardsCovered` fails if one ever is not.
+ */
+function deriveSubjectAttributes(css) {
+  const csstree = require('css-tree');
+  const ast = csstree.parse(css);
+  const frames = new Set(ALL_FRAMES);
+  /** frame name (or '*' for a bare `section` rule) -> Set of probe markup, `name="value"` */
+  const byFrame = new Map();
+  const unbuildable = [];
+  /** probe markup -> the attribute selector it came from, so `before()` can prove it matches */
+  const forms = new Map();
+  /** `[class…]` selectors deferred to the class axis, as [matcher, value] */
+  const classGuards = [];
+
+  // One attribute selector -> one `name="value"` the probe can carry. `=`, `~=`, `^=`,
+  // `$=`, `*=` and `|=` are all satisfied by the bare value, and `[name]` with no value by
+  // an empty string — but none of that is trusted: every built attribute is asserted in
+  // the browser against the selector it came from, exactly as the `:has()` probes are.
+  const build = (node) => {
+    if (node.name.type !== 'Identifier') return null; // a namespaced attribute
+    const name = node.name.name;
+    if (!node.value) return `${name}=""`;
+    const v = node.value.type === 'String' ? node.value.value : node.value.name;
+    if (typeof v !== 'string' || /["\\]/.test(v)) return null;
+    return `${name}="${v}"`;
+  };
+
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      let paints = false;
+      for (const d of node.block.children) {
+        if (d.type !== 'Declaration') continue;
+        if (/^background(-color|-image)?$/.test(d.property) || d.property === '--fin-canvas') paints = true;
+      }
+      if (!paints) return;
+      for (const sel of node.prelude.children) {
+        const parts = [...sel.children];
+        if (parts[0].type !== 'TypeSelector' || parts[0].name !== 'section') continue;
+        // A rule with a combinator paints a DESCENDANT, not the section, so an attribute in
+        // its subject compound cannot move the section's own canvas. `deriveModifiers` draws
+        // the line in the same place and for the same reason.
+        if (parts.some((x) => x.type === 'Combinator')) continue;
+        if (parts.some((x) => x.type === 'PseudoElementSelector')) continue;
+        const classes = parts.filter((x) => x.type === 'ClassSelector').map((x) => x.name);
+        const targets = classes.filter((c) => frames.has(c));
+        const keys = targets.length ? targets : ['*'];
+        const stack = [...parts];
+        while (stack.length) {
+          const q = stack.pop();
+          if (q.type === 'AttributeSelector') {
+            if (q.name.type === 'Identifier' && q.name.name === 'class') {
+              const v = q.value ? (q.value.type === 'String' ? q.value.value : q.value.name) : null;
+              if (typeof v === 'string') classGuards.push([q.matcher, v]);
+              continue;
+            }
+            const markup = build(q);
+            if (markup === null) { unbuildable.push(csstree.generate(q)); continue; }
+            forms.set(markup, csstree.generate(q));
+            for (const k of keys) {
+              if (!byFrame.has(k)) byFrame.set(k, new Set());
+              byFrame.get(k).add(markup);
+            }
+            continue;
+          }
+          // A `:has()` describes a CHILD — `deriveShapes` owns that axis.
+          if (q.type === 'PseudoClassSelector' && q.name === 'has') continue;
+          if (q.children) for (const c of q.children) stack.push(c);
+        }
+      }
+    },
+  });
+  return { byFrame, unbuildable, forms, classGuards };
+}
+
+/** `name="value"` back into the pair `setAttribute` takes. */
+function splitAttr(markup) {
+  const eq = markup.indexOf('=');
+  return { name: markup.slice(0, eq), value: markup.slice(eq + 2, -1) };
+}
+
+/** Every subject attribute that frame's canvas rules — or a bare `section` rule — gate on. */
+function attrsFor(frame, census) {
+  return [...(census.byFrame.get(frame) || []), ...(census.byFrame.get('*') || [])];
+}
+
+/**
+ * A `[class…]` selector we declined to build is only safe to skip while the CLASS axis
+ * reaches the same values. Asserted, not assumed — a future `[class*="layout-"]` canvas
+ * rule with no `layout-*` class anywhere in a section-subject rule would otherwise leave a
+ * painter uncrossed and this file none the wiser.
+ */
+function assertClassGuardsCovered(guards, mods) {
+  const SATISFIES = {
+    '=': (m, v) => m === v,
+    '~=': (m, v) => m === v,
+    '^=': (m, v) => m.startsWith(v),
+    '$=': (m, v) => m.endsWith(v),
+    '*=': (m, v) => m.includes(v),
+    '|=': (m, v) => m === v || m.startsWith(`${v}-`),
+  };
+  const uncovered = guards
+    .filter(([matcher, v]) => {
+      const ok = SATISFIES[matcher];
+      return !ok || !mods.some((m) => ok(m, v));
+    })
+    .map(([matcher, v]) => `[class${matcher}"${v}"]`);
+  assert.deepEqual(
+    [...new Set(uncovered)], [],
+    'a canvas rule is gated on a `class` attribute selector that no class in the modifier '
+      + `axis satisfies, so that painter is never crossed: ${[...new Set(uncovered)].join(', ')}`,
+  );
+}
+
+/**
  * A short, stable name for a probe shape, so a failure says WHICH shape broke.
  * Computed in Node and passed in: doing it in the page as
  * `child.match(/class="([a-z-]+)"/)[1]` threw on the first shape with no class at all
@@ -454,6 +606,28 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       (variants.get('topic') || new Set()).has('fact'),
       'topic.fact vanished from the variant list — it is the pair this axis was added for',
     );
+    // THE ATTRIBUTE AXIS GETS THE SAME THREE GUARDS THE OTHERS HAVE, because it was added
+    // to close a hole the others could not see and a silently empty derivation would
+    // reopen it: refuse what it cannot build, name the two pairs it exists for, and prove
+    // the `class` selectors it declines are reached by the class axis instead.
+    const attrs = deriveSubjectAttributes(bundle);
+    assert.deepEqual(
+      attrs.unbuildable, [],
+      'a canvas rule gates on an attribute selector this cross cannot turn into a probe '
+        + `attribute, so that painter would go untested: ${attrs.unbuildable.join(', ')}`,
+    );
+    assert.ok(
+      attrsFor('title', attrs).includes('data-split-role="cover"'),
+      'the bare `section.print[data-split-role="cover"]` painter vanished from the attribute '
+        + 'derivation — it carries no frame class, so it repaints EVERY frame that carries '
+        + 'the stamp, and it is the rule this axis was added for',
+    );
+    assert.ok(
+      attrsFor('split-panel-cover', attrs).some((a) => a.startsWith('data-split-mods=')),
+      "split-panel-cover's category tint vanished from the attribute derivation — it is the "
+        + 'frame-scoped half of the same axis',
+    );
+    assertClassGuardsCovered(attrs.classGuards, mods);
     // Both halves: a modifier alone, and the same modifier with `dark`. (3) above was
     // invisible to a dark-only cross and (2) to a single-class one.
     // EVERY FRAME IS BUILT IN EVERY DOM SHAPE ITS OWN CSS DISTINGUISHES. A canvas rule
@@ -501,6 +675,23 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
             cases.push({ cls: `${f} dark ${v} ${r}`, child });
           }
         }
+        // SUBJECT ATTRIBUTE x MODE x REGISTER — see `deriveSubjectAttributes`. The axis
+        // that hid `section.print[data-split-role="cover"]` and the two imagery mattes
+        // from every previous revision of this file, because all three other derivations
+        // walk `ClassSelector` nodes and an attribute is not one.
+        for (const attr of attrsFor(f, attrs)) {
+          for (const m of CANVAS_MODES) {
+            for (const r of ['', ...REGISTERS_NO_PRINT]) {
+              cases.push({ cls: [f, m, r].filter(Boolean).join(' '), child, attr });
+              // WITH `dark` AS WELL, for the reason regression (3) above records: every
+              // repainter but print needs `.dark`, so an axis that never sets it sees
+              // only half of what an exclusion does. `print dark accent` with the role
+              // stamp is exactly that row — the surface is the dark deck ground, not the
+              // print de-flood, and the de-flood's own arm had to learn it.
+              if (m !== 'dark') cases.push({ cls: [f, 'dark', m, r].filter(Boolean).join(' '), child, attr });
+            }
+          }
+        }
       }
     }
     xBrowser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
@@ -533,7 +724,13 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     );
 
     await xPage.setContent('<article class="lattice"></article>');
-    const mismatched = await xPage.evaluate((pairs) => {
+    // The attribute probes get the identical proof, and they need it MORE than the shapes
+    // do: `build` turns `~=`, `^=`, `$=`, `*=` and `|=` into the same bare `name="value"`
+    // on the reasoning that the bare value satisfies all of them. That reasoning is not
+    // trusted here — it is checked against the real selector engine, one attribute at a
+    // time, so an operator it gets wrong fails loudly instead of measuring a section the
+    // painter never matches.
+    const mismatched = await xPage.evaluate((pairs, attrPairs) => {
       const host = document.querySelector('article');
       const bad = [];
       for (const [html, form] of pairs) {
@@ -544,8 +741,16 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
         if (!probe.matches(`section${form}`)) bad.push(`${form}  built:  ${html}`);
         probe.remove();
       }
+      for (const { markup, form } of attrPairs) {
+        const probe = document.createElement('section');
+        probe.className = 'probe';
+        probe.setAttribute(markup.name, markup.value);
+        host.appendChild(probe);
+        if (!probe.matches(`section${form}`)) bad.push(`${form}  built:  ${markup.name}="${markup.value}"`);
+        probe.remove();
+      }
       return bad;
-    }, [...census.forms]);
+    }, [...census.forms], [...attrs.forms].map(([m, form]) => ({ markup: splitAttr(m), form })));
     assert.deepEqual(
       mismatched,
       [],
@@ -557,8 +762,9 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       `<style>${theme}\n${bundle}</style><article class="lattice">` +
         cases
           .map(
-            ({ cls, child }, i) =>
-              `<section id="x${i}" class="${cls} finish finish-atrium"><div class="backdrop"></div>${child}` +
+            ({ cls, child, attr }, i) =>
+              `<section id="x${i}" class="${cls} finish finish-atrium"${attr ? ` ${attr}` : ''}>` +
+              `<div class="backdrop"></div>${child}` +
               `<span id="y${i}" style="background-color:var(--fin-canvas);display:block;width:4px;height:4px"></span></section>`,
           )
           .join('') +
@@ -570,10 +776,15 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     await xBrowser?.close();
   });
 
-  test('no frame composites against a color it does not paint, beyond the pinned set', async () => {
+  test('no frame composites against a color it does not paint', async () => {
     // The shape is part of the identity: `topic` and `topic + tile-track` are two
     // different cascade outcomes and a failure must name which one.
-    const ids = cases.map(({ cls, child }) => (child ? `${cls} [${shapeLabel(child)}]` : cls));
+    // The attribute is part of the identity for the same reason the shape is: `topic` and
+    // `topic[data-split-role="cover"]` are two cascade outcomes and a failure must name
+    // which. Appended only when present, so the shape-only ids keep the spelling the
+    // anti-vacuity check below looks them up by.
+    const ids = cases.map(({ cls, child, attr }) =>
+      `${cls}${attr ? ` {${attr}}` : ''}${child ? ` [${shapeLabel(child)}]` : ''}`);
     const rows = await xPage.evaluate(
       (cs) =>
         cs.map((cls, i) => ({
@@ -584,42 +795,24 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       ids,
     );
     assert.equal(rows.length, cases.length, 'every case rendered');
-    // TWO FAMILIES ARE KNOWN-WRONG AND DELIBERATELY NOT FIXED HERE (#2294), and they
-    // are expressed as a PREDICATE rather than ~300 pinned strings, because the strings
-    // would be noise a reader cannot audit:
-    //
-    //   - the five accent covers OUTSIDE `dark`. A cover paints `var(--accent)` in every
-    //     mode; the re-point is scoped to `.dark` because widening it changes what a
-    //     LIGHT deck's finish composites against, which is a different change.
-    //   - `lat-split-cover`, in every mode. It paints `var(--accent)` too and is never
-    //     re-pointed at all.
-    //
-    // Both are identical on `main`. Everything else must match, and RESIDUE is the
-    // measured proof of that: `main` leaves 89 rows outside these two families, this
-    // tree leaves 0. A single new string here is a regression, not a housekeeping edit.
-    const COVERS = new Set([
-      'decision-cover', 'compare-code-cover', 'compare-split-cover',
-      'list-tabular-cover', 'split-panel-cover',
-    ]);
-    const known2294 = (cls) => {
-      const [frame] = cls.split(' ');
-      if (frame === 'lat-split-cover') return true;
-      return COVERS.has(frame) && !cls.split(' ').includes('dark');
-    };
+    // NOTHING IS PINNED ANY MORE (#2294 closed the two families #2293 left). The predicate
+    // that used to stand here exempted the five accent covers outside `dark` and
+    // `lat-split-cover` in every mode; both are fixed in `base.finish.css`, so RESIDUE is
+    // empty and every row must match. A pin is a certificate, and the only honest number
+    // of them is zero — measured, indaco: this cross leaves 0 mismatches out of 11,178.
     const RESIDUE = [];
 
     const key = (r) => `${r.cls} | ${r.surface} | ${r.canvas}`;
     const found = rows
       .filter((r) => r.surface !== r.canvas)
-      .filter((r) => !known2294(r.cls))
       .map(key)
       .sort();
     const added = found.filter((k) => !RESIDUE.includes(k));
     const gone = RESIDUE.filter((k) => !found.includes(k));
     assert.deepEqual(
       added, [],
-      'a finish would composite against a color the slide does not paint, outside the '
-        + `two known #2294 families — a regression:\n  ${added.join('\n  ')}`,
+      'a finish would composite against a color the slide does not paint — a regression:'
+        + `\n  ${added.join('\n  ')}`,
     );
     assert.deepEqual(
       gone, [],
@@ -658,7 +851,10 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // matched the FIRST row carrying that class — and since the shape set starts with
     // `''`, that is the TRACKLESS topic. The shape that actually ships was never
     // inspected by the one assertion standing between a vacuous pass and a green gate.
-    const ids = cases.map(({ cls, child }) => (child ? `${cls} [${shapeLabel(child)}]` : cls));
+    // The attribute joins it for the same reason, and both are appended only when present
+    // so the shape-only spellings this lookup uses stay exact.
+    const ids = cases.map(({ cls, child, attr }) =>
+      `${cls}${attr ? ` {${attr}}` : ''}${child ? ` [${shapeLabel(child)}]` : ''}`);
     const rows = await xPage.evaluate(
       (cs) => cs.map((cls, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor })),
       ids,

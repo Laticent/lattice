@@ -171,7 +171,26 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     );
   }
 
+  // ONE ARM IS THE PRINT FACE ITSELF, and it is recognised by keying ON `.print` rather
+  // than by name. `section.print[data-split-role="cover"]` is the de-flood in
+  // base.modifiers.css: a split cover's accent field would print as a page of near-black
+  // toner, so print repaints it with the bookends' framed panel. Its `--fin-canvas` has
+  // to follow, which means applying under print, not excluding it. Keyed on the shape so
+  // a second print-face rule is covered without an edit here.
+  const IS_PRINT_FACE = (sel) => /^section\.print\b/.test(sel.trim());
   for (const one of topLevel(selector)) {
+    if (IS_PRINT_FACE(one)) {
+      assert.ok(
+        !excludes(one, 'print'),
+        `\`${one}\` IS the print face — it must apply under print, not exclude it`,
+      );
+      assert.match(
+        one, /\[data-split-role="cover"\]/,
+        `\`${one}\` keys on print with no role stamp — the de-flood it mirrors is keyed on `
+          + 'the role, so an unstamped print slide would take the inverse panel it does not paint',
+      );
+      continue;
+    }
     if (KEEPS_CANVAS_UNDER_PRINT(one)) {
       assert.ok(
         !excludes(one, 'print'),
@@ -247,34 +266,88 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     'a dark bookend keeps its own canvas now (base.modifiers.css), so the override MUST apply to it',
   );
 
-  // THE FIVE ACCENT COVERS are exempted from the dark canvas by the same rule and paint
-  // `var(--accent)`, so they owe the same re-point. Scoped to `.dark` on purpose: a cover
-  // paints the accent in every mode, and the plain/light/print rows are a pre-existing
-  // miss tracked as #2294 whose fix changes light rendering.
-  const coverRule = css.match(/([^{}]*)\{\s*--fin-canvas:\s*var\(--accent\)/);
-  assert.ok(coverRule, 'expected a rule setting `--fin-canvas: var(--accent)` for the accent covers');
-  const coverSelector = coverRule[1];
-  assert.ok(coverSelector.includes('.dark'), 'the accent-cover re-point is scoped to dark (see #2294)');
-  assert.ok(
-    !/:not\([^)]*\.dark/.test(coverSelector),
-    'scoped TO dark, not away from it — `includes(".dark")` alone is satisfied by `:not(.dark)`',
-  );
-  // The cover rule owes the SAME exclusions as the bookends. It shipped without them and
-  // a printed dark cover exported as a full-page rgb(26,26,26) flood — 354,175 pixels
-  // against main on a real PDF. The bookend rule two lines up had carried `:not(.print)`
-  // since #1656; the asymmetry is exactly what let it through.
-  for (const reg of ['print', ...REGISTERS]) {
-    assert.ok(excludes(coverSelector, reg), `the accent-cover re-point must not apply to a .${reg} slide`);
-  }
+  // ── THE SIX ACCENT COVERS, IN EVERY MODE (#2294) ─────────────────────────────────
+  // A cover paints `var(--accent)` in every mode, so the re-point is no longer scoped to
+  // `.dark`. It shipped that way with #2293 because that is the mode #2293 broke, and the
+  // light, `color-light`, `color-system` and print rows carried the same mismatch — pinned
+  // by name in the cross, which is a certificate, not a fix.
+  //
+  // TWO ARMS, AND THE SPLIT IS THE PRINT ANSWER. `section.print` (0,1,1) is bundled after
+  // the five component sheets and takes their accent field, so a printed cover is the deck
+  // ground; `section.lat-split-cover` is bundled after `section.print` and keeps its field
+  // at the same specificity. Measured, indaco, unstamped: `decision-cover print` is
+  // rgb(255,255,255) and `lat-split-cover print` is rgb(26,26,26).
+  const accentRules = [...css.matchAll(/([^{}]*)\{\s*--fin-canvas:\s*var\(--accent\)/g)].map((m) => m[1]);
+  assert.ok(accentRules.length, 'expected a rule setting `--fin-canvas: var(--accent)` for the accent covers');
+  const accentArms = accentRules.flatMap(topLevel);
+  const coverSelector = accentArms.join(',');
   for (const cover of [
     '.decision-cover',
     '.compare-code-cover',
     '.compare-split-cover',
     '.list-tabular-cover',
     '.split-panel-cover',
+    '.lat-split-cover',
   ]) {
-    assert.ok(coverSelector.includes(cover), `${cover} paints var(--accent) under dark, so its finish canvas must follow it`);
+    assert.ok(coverSelector.includes(cover), `${cover} paints var(--accent), so its finish canvas must follow it`);
   }
+  // NOT SCOPED TO `.dark` ANY MORE — asserted on the SUBJECT, with the exclusion groups
+  // stripped first, because every arm still mentions `.dark` inside `:not(:where(.dark…))`
+  // and that mention is the mode-scoping of the exclusion, the opposite of a `.dark` scope
+  // on the rule. `includes('.dark')` over the raw string cannot tell the two apart.
+  for (const one of accentArms) {
+    const subject = one.replace(/:not\((?:[^()]|\([^()]*(?:\([^()]*\)[^()]*)*\))*\)/g, '');
+    assert.ok(
+      !/\.dark\b/.test(subject),
+      `\`${one}\` still scopes the accent re-point to .dark — a cover paints var(--accent) in `
+        + 'EVERY mode, and the light half of that is #2294',
+    );
+  }
+  // The exclusions the bookends owe, per arm. The cover rule shipped without them once and
+  // a printed dark cover exported as a full-page rgb(26,26,26) flood — 354,175 pixels
+  // against main on a real PDF.
+  for (const one of accentArms) {
+    for (const reg of REGISTERS) {
+      assert.ok(excludes(one, reg), `\`${one}\` must not apply to a .${reg} slide — it repaints the surface`);
+    }
+    assert.match(
+      one, /:not\(:where\(\.dark/,
+      `\`${one}\` excludes the registers unconditionally — every one of them needs .dark to fire, `
+        + 'so an unconditional exclusion demotes --fin-canvas on light decks (#1656, on the default path)',
+    );
+    // `print` per arm, and the two arms genuinely differ — see the paragraph above.
+    if (one.includes('.lat-split-cover')) {
+      assert.ok(
+        !excludes(one, 'print'),
+        `\`${one}\` is declared after section.print in the bundle, so it KEEPS its accent field `
+          + 'under print — excluding print there sends --fin-canvas to white over rgb(26,26,26)',
+      );
+    } else {
+      assert.ok(excludes(one, 'print'), `\`${one}\` must not apply to a print slide`);
+    }
+  }
+
+  // ── THE TWO OTHER CANVASES A FRAME CAN OWN ───────────────────────────────────────
+  // Both are gated on an ATTRIBUTE, which is why neither was in this file before: every
+  // derivation in the cross walked `ClassSelector` nodes, so `section.split-panel-cover:is(
+  // [data-split-mods~="cat-N"])` and the imagery mattes were invisible to it.
+  const canvasFor = (token) =>
+    [...css.matchAll(new RegExp(`([^{}]*)\\{\\s*--fin-canvas:\\s*var\\(${token}\\)`, 'g'))].map((m) => m[1]);
+  const panelFill = canvasFor('--panel-fill');
+  assert.strictEqual(panelFill.length, 1, 'split-panel\'s cover paints var(--panel-fill) when the run carries a category');
+  assert.match(panelFill[0], /\[data-split-mods~="cat-1"\]/, 'the category tint is keyed on the split mods stamp');
+  // NO `:not(.print)`, and that is the mirror of its painter's specificity: at (0,2,1) the
+  // tint out-specifies `section.print` (0,1,1) and survives print. Measured, unstamped:
+  // `split-panel-cover cat-1 print` paints the tint, not the print ground.
+  assert.ok(!excludes(panelFill[0], 'print'), 'the category tint out-specifies section.print, so it must not exclude print');
+  for (const matte of ['--img-matte', '--scene-matte']) {
+    const rule = canvasFor(matte);
+    assert.strictEqual(rule.length, 1, `expected one rule pointing --fin-canvas at var(${matte})`);
+    assert.match(rule[0], /\[data-img-composition="gallery"\]/, `the ${matte} re-point is keyed on the composition stamp`);
+    assert.ok(!excludes(rule[0], 'print'), `${matte} is (0,2,1) and out-specifies section.print, so it must not exclude print`);
+    assert.match(rule[0], /:not\(:where\(\.dark/, `${matte}'s register exclusions must be scoped to .dark`);
+  }
+
   // …but `light` is carved out for the DIVIDER ONLY: `section.light` paints nothing, so
   // a `title light` keeps its inverse panel while `divider.light` takes the deck canvas.
   assert.match(selector, /section\.divider:not\(\.light\)/, 'divider must exclude .light');
