@@ -275,6 +275,7 @@ const SCRIPT_META = {
   'release:prepare':          ['Release', 'Release phase 1 — cut the release commit (bump, changelog roll, dist rebuild) on a branch, for a PR through the merge queue. No tag, no push.'],
   'release:publish':          ['Release', 'Release phase 2 — on the merged main commit: tag it, rebuild the zip, rederive the notes, push the tag.'],
   'release:zip':              ['Release', 'Assemble the curated GitHub release zip.'],
+  'followups':                ['Meta', 'List followups.d/ — every pending item with no issue, one line each (contract: followups.d/README.md).'],
   'changelog:bump':           ['Release', 'Roll CHANGELOG.md ## Unreleased → a versioned section (semver from the entries).'],
 
   // Project queue

@@ -123,6 +123,7 @@ const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-c
 const { oklabDistance } = require('../lib/theme/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 // changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
 const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
+const { followupProblems } = require('./followups');
 // #1595: the contrast floor a token's value must meet, read off its role-based name.
 // One source — the floors live there, not here (reused, not reinvented).
 const { contractDrop, contractOf, SANCTIONED_TOKEN_CONTRACTS } = require('../lib/tokens/contracts');
@@ -11024,6 +11025,17 @@ function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
 }
 
+/**
+ * Pending work with no issue lives in `followups.d/`, one file per item, not only in a
+ * continuation brief on a PR comment (engineering/workflow.md §The continuation brief).
+ * The format is defined once, in tools/followups.js; this gate only surfaces it. It checks
+ * the SHAPE of each item. It cannot see a brief in chat, so it cannot catch an item that
+ * was never written down.
+ */
+function checkFollowups(errors) {
+  for (const problem of followupProblems()) errors.push(problem);
+}
+
 // ─── dist/ verbatim copies ────────────────────────────────────────────────────
 // A file that dist/ COPIES from a committed source must still equal it. A copy is the one
 // class of generated artifact with a second, silently drifting original: everything else in
@@ -12015,6 +12027,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkFollowups(errors);
   checkVerbatimDistCopies(errors);
   checkLockfileOptionalPeers(errors);
   checkDanglingTokenReads(errors);
@@ -12091,6 +12104,7 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkFollowups,
   checkVerbatimDistCopies,
   verbatimCopyProblems,
   DIST_VERBATIM_COPIES,

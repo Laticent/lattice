@@ -287,6 +287,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
+| `followups` | List followups.d/ — every pending item with no issue, one line each (contract: followups.d/README.md). |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -465,6 +466,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/export-marp.js` | export-marp — produce a portable, self-contained bundle of a Lattice deck for |
 | `tools/fetch-emoji-font.js` | Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier. |
 | `tools/fetch-video-oembed.js` | fetch-video-oembed.js — the BUILD-TIME (authoring-time) half of the `video` |
+| `tools/followups.js` | List and validate followups.d/ — the in-repo ledger of pending work that has no issue. |
 | `tools/gen-chart-finish-css.py` | Generates the prototype's finish rule block: every ENCODING and every REGISTER |
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
