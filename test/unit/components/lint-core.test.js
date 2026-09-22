@@ -1042,6 +1042,43 @@ describe('lint-core: author-script-defers (#1792)', () => {
     const src = deckWith('<script type="application/lattice+json">{"then":"(not code)"}</script>');
     assert.equal(ruleFor(src, 'author-script-defers'), undefined, 'a JSON data block never executes');
   });
+
+  // The rule used to match the whole element with one `<script …>…</script>` span, so the
+  // end tag had a single spelling and every other spelling the HTML parser accepts walked
+  // straight past it — a deck that ships empty and a rule that says nothing. These are the
+  // spellings, and each one FAILED to flag before the span was replaced by a search.
+  for (const [label, close] of [
+    ['a space before the bracket', '</script >'],
+    ['a newline before the bracket', '</script\n>'],
+    ['a solidus, which the parser ignores', '</script/>'],
+    ['a tab and an attribute the parser drops', '</script\tfoo>'],
+  ]) {
+    test(`an end tag with ${label} still closes the script, and the timer is still flagged`, () => {
+      const f = ruleFor(deckWith(`<script>\nsetTimeout(fn, 400);\n${close}`), 'author-script-defers');
+      assert.ok(f, `\`${close}\` ends a script element; the rule must read the body before it`);
+      assert.match(f.line, /setTimeout/);
+    });
+  }
+
+  test('`</scriptish>` is not an end tag, so the body runs on and is still read', () => {
+    const f = ruleFor(deckWith('<script>\nsetTimeout(fn, 400);\n</scriptish>\n</script>'), 'author-script-defers');
+    assert.ok(f, 'the terminator is `</script` followed by whitespace, `/` or `>` — nothing else');
+  });
+
+  test('an unclosed script is read to the end of the slide, not skipped', () => {
+    const f = ruleFor(deckWith('<script>\nsetTimeout(fn, 400);'), 'author-script-defers');
+    assert.ok(f, 'a browser executes an unclosed script; so does this rule');
+  });
+
+  // The span form advanced past the whole element for free. The search form has to set
+  // lastIndex itself, and getting that wrong re-enters the body it just read, so one
+  // element reports twice. (The quoted `<script>` is NOT a second element: in RAWTEXT only
+  // `</script` ends the first one, which is why the deck below is one script, one finding.)
+  test('an opening tag quoted inside a script body reports once, not twice', () => {
+    const src = deckWith('<script>\ndocument.title = "<script>";\nsetTimeout(fn, 400);\n</script>');
+    const found = core.lintTextWith(src, vocab).filter((f) => f.rule === 'author-script-defers');
+    assert.equal(found.length, 1, 'the scan resumes after the element, not inside it');
+  });
 });
 
 describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
