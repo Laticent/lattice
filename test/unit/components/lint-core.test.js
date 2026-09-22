@@ -1062,12 +1062,44 @@ describe('lint-core: author-script-defers (#1792)', () => {
 
   test('`</scriptish>` is not an end tag, so the body runs on and is still read', () => {
     const f = ruleFor(deckWith('<script>\nsetTimeout(fn, 400);\n</scriptish>\n</script>'), 'author-script-defers');
-    assert.ok(f, 'the terminator is `</script` followed by whitespace, `/` or `>` — nothing else');
+    assert.ok(f, 'the terminator is `</script` followed by HTML whitespace, `/` or `>` — nothing else');
   });
 
-  test('an unclosed script is read to the end of the slide, not skipped', () => {
-    const f = ruleFor(deckWith('<script>\nsetTimeout(fn, 400);'), 'author-script-defers');
-    assert.ok(f, 'a browser executes an unclosed script; so does this rule');
+  // HTML whitespace is TAB/LF/FF/SPACE (and CR, folded to LF before the tokenizer sees it).
+  // JavaScript's `\s` is a much larger set, so a character class of `[\s/>]` ends the body
+  // on runs a browser keeps inside it — truncating before the real code and saying nothing.
+  // An NBSP is the one that matters: it is what survives a paste out of a document.
+  for (const [label, ch] of [
+    ['a non-breaking space', '\u00a0'],
+    ['a vertical tab', '\u000b'],
+    ['an en space', '\u2002'],
+    ['a zero-width no-break space', '\ufeff'],
+    ['a line separator', '\u2028'],
+  ]) {
+    test(`\`</script\` followed by ${label} is NOT an end tag, so the timer after it is still read`, () => {
+      const src = deckWith(`<script>\nvar t = "</script${ch}>";\nsetTimeout(fn, 400);\n</script>`);
+      const f = ruleFor(src, 'author-script-defers');
+      assert.ok(f, 'the body runs past that run to the real end tag');
+      assert.match(f.line, /setTimeout/);
+    });
+  }
+
+  // An end tag may carry attributes, which the parser drops — and an attribute value may
+  // contain an opening tag. Resuming the scan at the `<` of `</script` re-read that value
+  // as a second element and flagged the prose after it.
+  test('an opening tag inside the END tag\'s attributes does not open a phantom element', () => {
+    const src = deckWith('<script>\nvar a=1;\n</script x="<script>">\nsetTimeout(fn, 400);');
+    assert.equal(ruleFor(src, 'author-script-defers'), undefined,
+      'setTimeout here is prose outside every script element');
+  });
+
+  // The rule reads MARKDOWN, and DEFERRAL_API_RE matches bare English words. Reading an
+  // unclosed script to the end of the chunk — faithful to the parser — made ordinary deck
+  // copy after a missing `</script>` report a `Worker` call the deck never made.
+  test('an unclosed script does not turn the prose after it into a deferral finding', () => {
+    const src = `${FM}# Deck\n\n---\n\n## Q3 headcount\n\n<script>\nconsole.log(1);\n\n- Worker productivity rose 12%\n- We await board sign-off\n`;
+    assert.equal(ruleFor(src, 'author-script-defers'), undefined,
+      'a rule that fires on legitimate prose is a rule authors learn to ignore');
   });
 
   // The span form advanced past the whole element for free. The search form has to set
