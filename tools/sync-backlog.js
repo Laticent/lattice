@@ -147,6 +147,8 @@ function renderBacklog(issues) {
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in \`engineering/decisions/\`; this tracks
 only *status*. **${open.length} open** item${open.length === 1 ? '' : 's'}.
+Pending work that has no issue is not here: it lives in [\`followups.d/\`](followups.d/README.md)
+(\`npm run followups\` lists it).
 
 ${triageBanner}${definitionBanner}${sections.join('\n').trimEnd()}\n`;
 }

@@ -1449,11 +1449,14 @@ Six rules make it work:
    memory of this session — only the repo and `CLAUDE.md`. Anything you know
    that they need (a half-applied change, a dead end already tried, a file you
    were about to touch) is *only* in your head until you write it into the card.
-2. **Ticketed and unticketed items both appear**, tagged `[#1234]` or
-   `[no ticket]`. An unticketed item does **not** need a card filed first — the
-   brief *is* its spec, which is why every item carries `where` / `done when` /
-   `evidence`. File a real card only for an item you are deferring *past* the
-   next session, so it can't be lost.
+2. **Ticketed and unticketed items both appear**, and **no item lives only in
+   the brief.** Tag an item `[#1234]` when it has an issue. Otherwise write it to
+   `followups.d/<origin-pr>-p<n>-<slug>.md` in the same PR and tag it
+   `[followups.d/<file>]`. The brief lives in a PR comment and a chat transcript,
+   which no session reads by default: 79 `[no ticket]` items piled up that way in
+   two months. The file needs no issue, carries the same five fields and is
+   deleted by the PR that finishes it. Contract: `followups.d/README.md`; the
+   shape is gated by `checkFollowups`.
 3. **Prioritized by downstream impact**, P1 first, and each item says in one
    phrase what it unblocks. Order is an instruction, not a suggestion: the next
    session works the list top-down.
@@ -1546,7 +1549,9 @@ nowhere to put the brief at all. The handoff issue closes that gap: it is the
 continuation brief as a real card on the board, so the next session pulls it from
 the queue instead of being handed it by you.
 
-File one when anything is pending at the end of a session. It is **one issue, not
+File one when anything is pending at the end of a session. It sits **on top of**
+`followups.d/`, not instead of it: each unticketed item still gets its file (brief
+rule 2), and the handoff issue is the claimable card that orders them. It is **one issue, not
 one per item** — the brief is a single line of work, and splitting it loses the
 ordering that makes it work.
 

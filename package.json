@@ -166,6 +166,7 @@
     "release:publish": "node tools/release.js --publish --push",
     "release:zip": "node tools/build-release-zip.js",
     "changelog:bump": "node tools/changelog.js --bump",
+    "followups": "node tools/followups.js",
     "docs:components": "node tools/build-component-docs.js",
     "docs:components:check": "node tools/build-component-docs.js --check",
     "docs:portal": "node tools/build-docs-portal.js",
