@@ -210,7 +210,40 @@ section.form > .cell-stage:not(:has(> *)) { flex: 0 0 auto; }
  * POSITION: by DEFAULT the band HUGS the bottom edge (bottom: --frame-inset-y,
  * mirroring the header). The `.footer-inset` universal modifier lifts it into the
  * frame. Hug is the default because a board footer conventionally sits at the edge. */
-section.form > .cell-footer {
+/* ── A SPLIT RUN'S PAGES GET THE FOOTER CELL, WHATEVER THEIR FRAME ─────────────
+ * A sovereign Frame suppresses the footer Cell because a STANDALONE slide is one
+ * statement and needs no furniture. A split RUN is not standalone: it is multi-page
+ * and unreadable without wayfinding, and every piece of that wayfinding docks into
+ * this Cell (`footer-dock.js` the forward pointer, `progress.transform.js` the rail,
+ * `repaginate` the page number). Without it all three degrade to section level — on
+ * `split-panel`, whose section IS the panel flex row, the pointer became a THIRD
+ * COLUMN and squeezed `.panel-right` from 450.9px to 252.7px at `square`.
+ *
+ * The markup half is `ensureRunFooterCell` (lib/core/auto-split.js), which builds the
+ * Cell with the kernel's own `buildFooterCell`. This is the token half: a non-Form
+ * section has none of the footer tokens, so the Cell would have no height and no
+ * reserve.
+ *
+ * `:not(.form)` is what carries the specificity — (0,2,1) against a component's own
+ * `section.split-panel { padding: 0 }` at (0,1,1) — and it also keeps this from
+ * double-applying to Form sections, which already have all of it.
+ *
+ * THE RESERVE IS ON THE SECTION, NOT INSIDE THE CONTENT BOX, and that distinction is
+ * the whole reason this replaces the hand-rolled band two earlier attempts shipped and
+ * reverted. Reserved here, the content cell's box genuinely ENDS above the band, so
+ * content that exceeds it is real overflow the probe already measures. Reserved with
+ * `padding-bottom` INSIDE the panel, as those attempts did, content grew into the
+ * panel's own padding and every register compared against its border box — blind by
+ * exactly the height of the reserve.
+ * engineering/decisions/2026-09-14-a-reserved-band-is-not-an-overflow-allowance.md */
+section[data-split-run]:not(.form) {
+  --footer-h: calc(var(--_sec-1cqi, 1cqi) * 5);
+  --footer-reserve: calc(var(--frame-inset-y) + var(--footer-h) + var(--sp-sm));
+  padding-bottom: var(--footer-reserve);
+}
+
+section.form > .cell-footer,
+section[data-split-run]:not(.form) > .cell-footer {
   /* CHROME plane — the Cell's declared `"z": 3` (footer.cell.json), matching the
    * masthead band at the other edge. base.tokens.css § depth axis. */
   z-index: var(--z-chrome);
@@ -256,7 +289,14 @@ section.form.footer-inset:has(> .cell-footer) {
  * The cost this DOES carry, accepted deliberately: a footer longer than the band no longer
  * wraps to a second line, it ellipsises — so the tail is absent from the exported text layer,
  * not merely off-screen. engineering/decisions/2026-07-27-footer-band-allocation.md */
-section.form > .cell-footer > footer {
+/* The split-run arm rides along for the same reason the band geometry and the marks'
+ * rigidity do: a run's pages get the Cell whatever their Frame, so the caption inside it
+ * has to become a flex ITEM there too. Without this arm the caption stayed `position:
+ * absolute` after `ensureRunFooterCell` moved it in, and the forward-pointer pill printed
+ * straight over it — measured 305.0x38.5px of overprint on `split-panel.gallery.md` p9 at
+ * `square`, on a shipped deck. */
+section.form > .cell-footer > footer,
+section[data-split-run]:not(.form) > .cell-footer > footer {
   position: static;
   inset: auto;
   /* `block`, not the band's `flex`: `text-overflow: ellipsis` never applies to a flex
@@ -308,7 +348,8 @@ section.form.silent > .cell-footer > footer {
 }
 /* The page number as a real element — mono, --fs-meta, vertically centered with the
  * footer text + rail, matching the retired pseudo's appearance. */
-section.form > .cell-footer > .lat-pagination {
+section.form > .cell-footer > .lat-pagination,
+section[data-split-run]:not(.form) > .cell-footer > .lat-pagination {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   color: var(--marp-slide-footer-color, var(--text-muted));
@@ -378,9 +419,17 @@ section.form > .cell-footer > .tile-progress {
  * claimed to be redundant, and is not to be removed on the argument that it is. */
 .tile-progress .dot,
 .lat-split-rail .seg { flex: 0 0 auto; }
-/* Ranks 1 and 2 again, at the item level: neither wayfinding mark bids for or yields width. */
+/* Ranks 1 and 2 again, at the item level: neither wayfinding mark bids for or yields width.
+ * The split-run arms carry this for the same reason the band geometry above does — a run's
+ * pages get the Cell whatever their Frame, so they get its rigidity too. Without them the
+ * marks computed `0 1 auto` in the new band (measured on `premise lat-split-native`, against
+ * `0 0 auto` on the same run's Form cover), and a rail allowed to SHRINK does not clip its
+ * dots: it spills them leftward over the author's words, which is the fail-green overprint
+ * the docblock above this rule was written for. */
 section.form > .cell-footer > .lat-pagination,
-section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
+section.form > .cell-footer > .lat-split-rail,
+section[data-split-run]:not(.form) > .cell-footer > .lat-pagination,
+section[data-split-run]:not(.form) > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched).
  *

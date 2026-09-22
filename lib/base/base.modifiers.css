@@ -2878,7 +2878,8 @@ section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress)
    the section rail): de-absolute so the footer row lays the marks out in flow —
    footer text · section rail · k-of-N · page number. Same rule shape as
    `section.form > .cell-footer > .tile-progress` in the stage Cell. */
-section.form > .cell-footer > .lat-split-rail {
+section.form > .cell-footer > .lat-split-rail,
+section[data-split-run]:not(.form) > .cell-footer > .lat-split-rail {
   position: static; inset: auto;
 }
 /* RANK 3 of the band's allocation policy (stage.css states the whole order): the author's
