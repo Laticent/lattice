@@ -31,7 +31,7 @@ function requireGeneratedConfig(src) {
   }
 }
 const {
-  STATIC_ASSETS, AGENT_ASSETS, RUNTIME_SCRIPTS, MARP_CONFIG_CJS, withRuntimeScripts,
+  STATIC_ASSETS, AGENT_ASSETS, RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_CONFIG_CJS, withRuntimeScripts,
   safeName, packageJson, vscodeSettings, readme, agentsMd, fontAssetsFor, marpScopableCss,
 } = require('../../../lib/core/marp-bundle');
 
@@ -41,10 +41,39 @@ describe('marp-bundle spec', () => {
     // lattice.css at the bundle root (minified) — it is the Marp themeSet base.
     assert.equal(byTo['lattice.css'], 'dist/lattice.min.css');
     assert.equal(byTo['lattice-runtime.min.js'], 'dist/lattice-runtime.min.js');
+    // The dagre layout engine, split OUT of the runtime bundle. It has to travel with
+    // the runtime: an exported deck opens from `file://`, so the only place the browser
+    // can find the engine is beside the script that reads it.
+    assert.equal(byTo['lattice-dagre.min.js'], 'dist/lattice-dagre.min.js');
     assert.equal(byTo['mermaid-v11.min.js'], 'mermaid-v11.min.js');
     // The bundle is Marp-native: no emulator is shipped.
     assert.ok(!STATIC_ASSETS.some((a) => /emulator/.test(a.from) || /emulator/.test(a.to)));
     assert.equal(byTo['dist/lattice.css'], undefined);
+  });
+
+  // The two lists that have to agree, and the only thing that checks they do.
+  //
+  // RUNTIME_SCRIPT_SRCS names what the baked deck REFERENCES; STATIC_ASSETS names what
+  // the producers COPY. Nothing in the module ties them together — the tag block is
+  // derived from the first, the bundle is filled from the second — so a fourth engine
+  // added to one and not the other ships a deck pointing at a file that never travels
+  // with it. The deck still renders: an exported deck is opened from `file://`, the
+  // missing src 404s silently, and the layout that engine drives paints as its
+  // fallback. That is the same failure the dagre split already caused once.
+  //
+  // Asserted as SET EQUALITY over the JavaScript assets, so it catches both directions,
+  // but the two directions are not the same defect. A src with no asset is the 404
+  // above. An asset with no src is a dead file in every bundle — cheap, but it is also
+  // exactly what a lazily-fetched engine would look like, and we do not ship one today.
+  // The day we do, that asset earns a named exception here rather than a quiet deletion
+  // of this assertion.
+  test('every runtime <script src> is an asset the producers actually copy', () => {
+    const shipped = STATIC_ASSETS.map((a) => a.to).filter((to) => to.endsWith('.js'));
+    assert.deepEqual(
+      [...RUNTIME_SCRIPT_SRCS].sort(),
+      [...shipped].sort(),
+      'RUNTIME_SCRIPT_SRCS and the .js entries of STATIC_ASSETS must name the same files: '
+      + 'a src with no asset 404s under file://, an asset with no src is dead weight');
   });
 
   test('safeName slugs a deck title', () => {
