@@ -193,8 +193,21 @@ function baselineRules(css) {
   const rules = [];
   // Comments carry example selectors; strip them before matching.
   const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  for (const m of body.matchAll(/([^{}]+)\{([^{}]*dominant-baseline[^{}]*)\}/g)) {
-    const sel = m[1].trim();
+  // Split on braces rather than matching rules with a regex. `([^{}]+)\{…\}` is
+  // quadratic — the unbounded selector match is retried at every offset, so a long
+  // brace-free stretch costs O(n^2) (measured 0.5s at 2k repetitions, 500s at 64k).
+  // CodeQL flags this exact shape as high severity wherever it can trace the input
+  // to something untrusted; it is the same defect where it cannot. A split is
+  // linear and keeps the `[^{}]` semantics: a selector is the run of text since the
+  // last brace of either kind.
+  const chunks = body.split(/([{}])/);
+  for (let k = 1; k < chunks.length; k += 2) {
+    // `{` followed by text and then `}` is a rule. `{` followed by another `{` is
+    // a nested block (`@media`), whose inner rules are visited on their own turn.
+    if (chunks[k] !== '{' || chunks[k + 2] !== '}') continue;
+    const decls = chunks[k + 1];
+    if (!decls.includes('dominant-baseline')) continue;
+    const sel = chunks[k - 1].trim();
     const parts = compounds(sel);
     const onTspan = parts.at(-1) === 'tspan';
     // The SUBJECT compound — what the rule actually selects. For a tspan rule
@@ -208,7 +221,7 @@ function baselineRules(css) {
       sel,
       subject,
       classes: [...subject.matchAll(/\.([\w-]+)/g)].map((c) => c[1]),
-      value: (m[2].match(/dominant-baseline:\s*([\w-]+)/) || [])[1] || null,
+      value: (decls.match(/dominant-baseline:\s*([\w-]+)/) || [])[1] || null,
       onTspan,
     });
   }

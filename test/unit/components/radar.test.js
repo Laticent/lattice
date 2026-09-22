@@ -348,7 +348,7 @@ describe('radar', () => {
     // for the same reason — an unbounded `[^>]*` run is what backtracks, so
     // `<tspan[^>]*>` is flagged even though it ends at a bare `<`.
     const TEXT_EL = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
-    const TSPAN = /<tspan x="([-\d.]+)" y="([-\d.]+)"[^>]*>([^<]*)</g;
+    const TSPAN = /<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)</g;
     const labels = (cls) => [...transformChartSection(inner, cls).html.matchAll(TEXT_EL)]
       .filter((m) => ((m[1].match(/class="([^"]*)"/) || [])[1] || '')
         .split(/\s+/).includes('radar-sector-label'))
