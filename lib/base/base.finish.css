@@ -340,7 +340,7 @@ section {
  * and an unconditional exclusion demotes --fin-canvas for no reason -- which is #1656's
  * original defect, on light decks. Measured over {title,closing,divider,topic,content}
  * x 9 registers with NO dark, indaco: main 9 mismatches, the unconditional form 22,
- * this form 1. Only .print is mode-independent, because print remaps in every mode.
+ * this form 0. Only .print is mode-independent, because print remaps in every mode.
  *
  * THE FOUR FRAMES DIFFER, and each difference was measured rather than assumed:
  *
@@ -351,12 +351,23 @@ section {
  *                   It excludes .print and a bare .dark.accent -- and NOT .accent when
  *                   a spectrum carve-out is also present, because that carve-out
  *                   (0,3,1) out-specifies accent (0,2,1).
- *   topic           keeps its canvas under EVERYTHING except the spectrum EDGES,
- *                   including print (measured: `topic print` surface is
- *                   rgb(236,236,236), the print band inverse, not white). So it takes
- *                   no .print exclusion and only the four edge values.
+ *   topic           SPLITS BY DOM SHAPE, and this is the one that is not guessable
+ *                   from the class list. topic.styles.css paints its canvas twice:
+ *                   `section.topic` at (0,1,1) and
+ *                   `section.topic:not(:has(> ul.tile-track))` restating it at (0,2,2)
+ *                   -- that restatement exists precisely because the bare form loses
+ *                   to later modifiers. So a TRACKLESS topic holds its canvas under
+ *                   print, accent and spectrum-off (measured: `topic print` surface is
+ *                   rgb(236,236,236), the print band inverse, not white) and needs only
+ *                   the four edge values, while a topic CARRYING its track is back at
+ *                   (0,1,1) and loses it exactly as title does. Two arms, and the
+ *                   tracked one is the shape that ships: topic-track.js writes
+ *                   `<ul class="tile-track">` on both the derived and the `_track:`
+ *                   path, so a probe built from an empty <section> measures the shape
+ *                   the engine never emits. A version of this rule with one topic arm
+ *                   passed a childless gate while breaking five tracked rows.
  *
- * Adding topic here at all fixed 85 rows that were wrong on main: it paints
+ * Adding topic here at all fixed 434 rows that were wrong on main: it paints
  * --surface-inverse in every mode and had never been named in this file.
  *
  * :not(.print) stays a PLAIN :not(); only the mode-scoped group is wrapped in
@@ -370,11 +381,14 @@ section {
  *
  * WITHOUT THESE EXCLUSIONS the fix below inverts its own bug one register over.
  * Measured over 18 frames x {plain, dark} x 219 modifier classes (every class the
- * bundle uses in a section-subject rule), indaco: outside the two #2294 families,
- * main leaves 89 rows wrong and this leaves 0. */
+ * bundle uses in a section-subject rule) x every register PAIR x both DOM shapes --
+ * 9,918 cells, indaco. Outside the two #2294 families, main leaves 759 rows wrong and
+ * this leaves 0. Repeated on all 33 palettes (main 26-759, head 0 on every one) and in
+ * Firefox and WebKit, which agree with Chromium 131 cell for cell. */
 section:is(.title, .closing):not(.print):not(:where(.dark:is(.accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))),
-section.divider:not(.light):not(.print):not(:where(.dark.accent:not(.spectrum-off):not(.spectrum-edge-off))),
-section.topic:not(:where(.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))) {
+section.divider:not(.light):not(:where(.print:not(.spectrum-off):not(.spectrum-edge-off), .dark.accent:not(.spectrum-off):not(.spectrum-edge-off))),
+section.topic:not(:has(> ul.tile-track)):not(:where(.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))),
+section.topic:has(> ul.tile-track):not(.print):not(:where(.dark:is(.accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))) {
   --fin-canvas: var(--surface-inverse);
 }
 

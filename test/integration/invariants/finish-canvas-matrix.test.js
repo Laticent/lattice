@@ -150,6 +150,14 @@ const EXEMPTED_FRAMES = [
 // Painters that need no exemption (declared after the dark rule) plus a plain control.
 const OTHER_FRAMES = ['lat-split-cover', 'content', 'image', 'scene', 'chart-frame', 'premise', 'compare-code', 'split-compare', 'split-panel'];
 const ALL_FRAMES = [...EXEMPTED_FRAMES, ...OTHER_FRAMES];
+// The deck registers that can REPAINT a frame's canvas out from under it. These are
+// the classes the `--fin-canvas` selectors reason about, and the only ones whose
+// PAIRWISE interaction changes an outcome (a carve-out at (0,3,1) beating a repainter
+// at (0,2,1) needs both present at once).
+const REGISTERS = [
+  'print', 'accent', 'spectrum-off',
+  'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off',
+];
 
 /**
  * Every class the bundle uses in a SECTION-SUBJECT rule that paints a background,
@@ -189,6 +197,19 @@ function deriveModifiers(css) {
   return [...mods].sort();
 }
 
+/**
+ * The child shapes a frame's own CSS distinguishes, read out of the bundle. A rule
+ * like `section.topic:not(:has(> ul.tile-track))` means a topic with that child and a
+ * topic without are two different cascade outcomes, so the cross must build both.
+ * Returns `['']` for a frame whose canvas no `:has()` gates.
+ */
+function shapesFor(frame, css) {
+  const found = new Set(['']);
+  const re = new RegExp(`section\\.${frame}[^{,]*:has\\(\\s*>\\s*([a-z]+)\\.([a-z-]+)`, 'g');
+  for (const m of css.matchAll(re)) found.add(`<${m[1]} class="${m[2]}"><li>x</li></${m[1]}>`);
+  return [...found];
+}
+
 describe('--fin-canvas follows the painted surface across every modifier the bundle knows', () => {
   let xBrowser;
   let xPage;
@@ -201,13 +222,43 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     assert.ok(mods.length > 20, `expected the bundle to yield a real modifier list, got ${mods.length}`);
     // Both halves: a modifier alone, and the same modifier with `dark`. (3) above was
     // invisible to a dark-only cross and (2) to a single-class one.
+    // EVERY FRAME IS BUILT IN EVERY DOM SHAPE ITS OWN CSS DISTINGUISHES. A canvas rule
+    // may be gated on a CHILD — `section.topic:not(:has(> ul.tile-track))` restates
+    // topic's canvas at (0,2,2) precisely because the bare (0,1,1) form loses to later
+    // modifiers — so a topic WITH a track and one WITHOUT resolve differently under
+    // print, accent and spectrum-off. An empty `<section>` probe sees only the
+    // trackless shape, which is the shape the engine never emits: `topic-track.js`
+    // writes `<ul class="tile-track">` on both the derived and the `_track:` arm.
+    // Measured: a version of this file with childless probes passed 4/4 while five
+    // tracked-topic rows composited against a colour the slide does not paint.
+    //
+    // SHAPES is derived from the bundle the same way the modifier list is: any
+    // `:has(> X)` in a section-subject rule is a shape this cross has to build.
     for (const f of ALL_FRAMES) {
-      cases.push(f);
-      cases.push(`${f} dark`);
-      for (const m of mods) {
-        if (m === 'dark') continue;
-        cases.push(`${f} ${m}`);
-        cases.push(`${f} dark ${m}`);
+      for (const child of shapesFor(f, bundle)) {
+        cases.push({ cls: f, child });
+        cases.push({ cls: `${f} dark`, child });
+        for (const m of mods) {
+          if (m === 'dark') continue;
+          cases.push({ cls: `${f} ${m}`, child });
+          cases.push({ cls: `${f} dark ${m}`, child });
+        }
+        // DEPTH THREE, FOR THE REGISTERS ONLY. The pairwise cross above cannot reach
+        // `divider dark accent spectrum-off`, and that row is the whole reason the
+        // divider arm excludes `.accent` CONDITIONALLY: its (0,3,1) spectrum carve-out
+        // out-specifies `section.accent.dark` (0,2,1), so the frame keeps its canvas
+        // there and must not be excluded. Measured: a version of this cross without
+        // these pairs passed while a mutant collapsing that condition broke two real
+        // rows. A full depth-3 cross over 219 modifiers is ~48k cells per frame; the
+        // registers are seven, so their pairs cost 42 rows per frame and buy the one
+        // interaction the selectors actually reason about.
+        for (const a of REGISTERS) {
+          for (const b of REGISTERS) {
+            if (a === b) continue;
+            cases.push({ cls: `${f} ${a} ${b}`, child });
+            cases.push({ cls: `${f} dark ${a} ${b}`, child });
+          }
+        }
       }
     }
     xBrowser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
@@ -216,8 +267,8 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       `<style>${theme}\n${bundle}</style><article class="lattice">` +
         cases
           .map(
-            (cls, i) =>
-              `<section id="x${i}" class="${cls} finish finish-atrium"><div class="backdrop"></div>` +
+            ({ cls, child }, i) =>
+              `<section id="x${i}" class="${cls} finish finish-atrium"><div class="backdrop"></div>${child}` +
               `<span id="y${i}" style="background-color:var(--fin-canvas);display:block;width:4px;height:4px"></span></section>`,
           )
           .join('') +
@@ -232,8 +283,10 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
   test('no frame composites against a colour it does not paint, beyond the pinned set', async () => {
     const rows = await xPage.evaluate(
       (cs) =>
-        cs.map((cls, i) => ({
-          cls,
+        cs.map(({ cls, child }, i) => ({
+          // the shape is part of the identity: `topic` and `topic + tile-track` are
+          // two different cascade outcomes and a failure must name which one.
+          cls: child ? `${cls} [${child.match(/class="([a-z-]+)"/)[1]}]` : cls,
           surface: getComputedStyle(document.getElementById(`x${i}`)).backgroundColor,
           canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor,
         })),
@@ -310,7 +363,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       ),
     ]);
     const rows = await xPage.evaluate(
-      (cs) => cs.map((cls, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor })),
+      (cs) => cs.map(({ cls }, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor })),
       cases,
     );
     const wrong = [];

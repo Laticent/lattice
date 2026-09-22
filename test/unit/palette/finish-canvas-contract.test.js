@@ -37,7 +37,7 @@ test('base.finish.css routes every layer through --fin-canvas, never a bare --bg
   assert.match(css, /--fin-canvas:\s*var\(--bg\)/, '--fin-canvas must default to the deck canvas');
 });
 
-test('the three inverse bookends re-point --fin-canvas at their own surface', () => {
+test('every frame that paints an inverse panel re-points --fin-canvas at it', () => {
   const css = code(FINISH_CSS);
   // `[^{}]*` — ONE unnested quantifier. The obvious form here is a repeated
   // selector group, `(?:section[^{}]*,\s*)*section[^{}]*`, and CodeQL is right to
@@ -85,8 +85,30 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   // containing a comma — `section[data-class~="a,b"]` — would split wrongly and fail a
   // correct selector. No such selector exists in this file today; if one lands, this
   // splitter needs to skip quoted strings and bracket depth too.
+  // Extract each `:not(…)` group with PAREN BALANCING. A regex with `[^)]*` stops at the
+  // first `)`, so it cannot see a class inside a nested condition — and the divider arm
+  // now has exactly that shape: `:not(:where(.print:not(.spectrum-off)…, .dark.accent…))`.
+  // Measured: the regex form reported the accent exclusion missing when it was present.
+  const notGroups = (sel) => {
+    const out = [];
+    let i = 0;
+    while ((i = sel.indexOf(':not(', i)) !== -1) {
+      let depth = 0;
+      let j = i + 4;
+      for (; j < sel.length; j += 1) {
+        if (sel[j] === '(') depth += 1;
+        else if (sel[j] === ')') {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      out.push(sel.slice(i + 5, j));
+      i = j + 1;
+    }
+    return out;
+  };
   const excludes = (sel, cls) =>
-    sel.includes(`:not(.${cls})`) || new RegExp(`:not\\(:where\\([^)]*\\.${cls}\\b`).test(sel);
+    notGroups(sel).some((g) => new RegExp(`\\.${cls}\\b`).test(g));
   // `print` must be excluded BY EVERY SELECTOR THAT LOSES ITS CANVAS TO IT — which is
   // not all of them. `section.print` resets the surface to white and the token remap
   // sends --surface-inverse to the print band, so a printed `title` really is white
@@ -94,9 +116,13 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   // page. `topic` is the exception: it KEEPS its canvas under print (measured:
   // rgb(236,236,236), the print band's inverse), so excluding print there would demote
   // --fin-canvas to var(--print-bg) and reintroduce the same mismatch one frame over.
-  const KEEPS_CANVAS_UNDER_PRINT = ['.topic'];
+  // Keyed on the SHAPE, not the frame. `section.topic:not(:has(> ul.tile-track))`
+  // restates topic's canvas at (0,2,2) and so survives section.print (0,1,1); the
+  // tracked shape is back at (0,1,1) and does not. Measured: trackless `topic print`
+  // is rgb(236,236,236) (the print band inverse), tracked is rgb(255,255,255).
+  const KEEPS_CANVAS_UNDER_PRINT = (sel) => sel.includes('.topic') && sel.includes(':not(:has(> ul.tile-track))');
   for (const one of topLevel(selector)) {
-    if (KEEPS_CANVAS_UNDER_PRINT.some((f) => one.includes(f))) {
+    if (KEEPS_CANVAS_UNDER_PRINT(one)) {
       assert.ok(
         !excludes(one, 'print'),
         `\`${one}\` keeps its canvas under print, so it must NOT exclude print`,
@@ -113,11 +139,24 @@ test('the three inverse bookends re-point --fin-canvas at their own surface', ()
   // title as an inverse-panel flood. `divider` is exempt from this row: base.variants.css
   // gives it carve-outs that KEEP its canvas under every spectrum value, so it excludes
   // only `print` and `accent`.
-  // Per frame, because the four frames genuinely differ — each row measured, not assumed.
+  // Per frame, because the frames genuinely differ — each row measured, not assumed.
+  // `divider`: base.variants.css gives it (0,3,1) carve-outs that keep --surface-inverse
+  // under spectrum-off and spectrum-edge-off, which out-specify BOTH section.accent.dark
+  // (0,2,1) and section.print (0,1,1) — so its accent and print exclusions are
+  // conditional on no carve-out applying, not blanket.
+  // `topic`: two DOM shapes. Trackless it restates at (0,2,2) and holds its canvas under
+  // everything but the spectrum edges; carrying `ul.tile-track` it is (0,1,1) and loses
+  // it exactly as title does.
   const REGISTERS = ['accent', 'spectrum-off', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
   const NEEDED = (one) => {
     if (one.includes('.divider')) return ['accent'];   // spectrum carve-outs keep its canvas
-    if (one.includes('.topic')) return ['spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
+    if (one.includes('.topic')) {
+      // trackless topic (0,2,2) loses only to the edges; tracked topic (0,1,1) loses
+      // to everything, exactly as title/closing do.
+      return one.includes(':not(:has(> ul.tile-track))')
+        ? ['spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off']
+        : REGISTERS;
+    }
     return REGISTERS;
   };
   for (const one of topLevel(selector)) {
