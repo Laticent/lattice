@@ -45,11 +45,23 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   // exponentially on input like `section,section,section…`. A single negated class
   // cannot cross a `}`, so it stops at the previous rule's brace on its own and
   // matches the whole selector list in linear time.
-  const rule = css.match(/([^{}]*)\{\s*--fin-canvas:\s*var\(--surface-inverse\)/);
-  assert.ok(rule, 'expected a rule setting `--fin-canvas: var(--surface-inverse)` for the inverse bookends');
-  const selector = rule[1];
-  for (const bookend of ['.title', '.closing', '.divider']) {
-    assert.ok(selector.includes(bookend), `${bookend} paints --surface-inverse, so its finish canvas must follow it`);
+  // EVERY such rule, not the first one. The inverse frames are declared in TWO blocks:
+  // the bookends in one, and `topic` in its own because topic's arms are the only ones
+  // needing `:has()`, and Selectors-4 invalidates a whole selector list on one
+  // unparsable complex selector — so while they shared a list, a renderer without
+  // `:has()` dropped the declaration for title, closing and divider too. A `match()`
+  // that stopped at the first block would have gone on asserting about the bookends
+  // while topic drifted unchecked, which is how `.topic` came to be missing from the
+  // list below in the first place.
+  const rules = [...css.matchAll(/([^{}]*)\{\s*--fin-canvas:\s*var\(--surface-inverse\)/g)];
+  assert.ok(rules.length, 'expected a rule setting `--fin-canvas: var(--surface-inverse)` for the inverse frames');
+  const selector = rules.map((r) => r[1]).join(',');
+  // `.topic` is here because it paints `--surface-inverse` in EVERY mode. It was left
+  // out when this test was renamed from "the three inverse bookends" to "every frame
+  // that paints an inverse panel" — the name grew, the list did not, and a mutant
+  // deleting both topic arms passed this file 4/4.
+  for (const frame of ['.title', '.closing', '.divider', '.topic']) {
+    assert.ok(selector.includes(frame), `${frame} paints --surface-inverse, so its finish canvas must follow it`);
   }
   // EVERY SELECTOR IN THE LIST MUST EXCLUDE `print`, and the bookends must also exclude
   // the registers that repaint the surface out from under them. The exclusion may be
@@ -116,11 +128,24 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   // page. `topic` is the exception: it KEEPS its canvas under print (measured:
   // rgb(236,236,236), the print band's inverse), so excluding print there would demote
   // --fin-canvas to var(--print-bg) and reintroduce the same mismatch one frame over.
-  // Keyed on the SHAPE, not the frame. `section.topic:not(:has(> ul.tile-track))`
-  // restates topic's canvas at (0,2,2) and so survives section.print (0,1,1); the
-  // tracked shape is back at (0,1,1) and does not. Measured: trackless `topic print`
-  // is rgb(236,236,236) (the print band inverse), tracked is rgb(255,255,255).
-  const KEEPS_CANVAS_UNDER_PRINT = (sel) => sel.includes('.topic') && sel.includes(':not(:has(> ul.tile-track))');
+  // Keyed on the SHAPE and the VARIANT, not the frame — two ways topic out-specifies
+  // `section.print` (0,1,1) and keeps its panel, and both are measured:
+  //
+  //   :not(:has(> ul.tile-track))  the TRACKLESS shape restates the canvas at (0,2,2).
+  //                               Measured: `topic print` trackless is rgb(236,236,236),
+  //                               the print band inverse; tracked is rgb(255,255,255).
+  //   .fact                       `section.topic.fact` (0,2,1) restates it too, so a
+  //                               fact slide keeps the panel EVEN WHEN TRACKED.
+  //                               Measured: `topic fact print` with the track is
+  //                               rgb(236,236,236) while the plain tracked arm's
+  //                               `:not(.print)` was sending --fin-canvas to white.
+  //
+  // The second one is why this predicate is not simply the shape. A blanket
+  // `:not(.print)` on the tracked arm shipped that mismatch on every one of the 33
+  // palettes, visible only in the export, and four review rounds went past it — the
+  // cross had no axis putting a variant and a register on the same section.
+  const KEEPS_CANVAS_UNDER_PRINT = (sel) =>
+    sel.includes('.topic') && (sel.includes(':not(:has(> ul.tile-track))') || sel.includes('.fact'));
   for (const one of topLevel(selector)) {
     if (KEEPS_CANVAS_UNDER_PRINT(one)) {
       assert.ok(
@@ -144,9 +169,14 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   // under spectrum-off and spectrum-edge-off, which out-specify BOTH section.accent.dark
   // (0,2,1) and section.print (0,1,1) — so its accent and print exclusions are
   // conditional on no carve-out applying, not blanket.
-  // `topic`: two DOM shapes. Trackless it restates at (0,2,2) and holds its canvas under
-  // everything but the spectrum edges; carrying `ul.tile-track` it is (0,1,1) and loses
-  // it exactly as title does.
+  // `topic`: two DOM shapes AND a variant. Trackless it restates at (0,2,2) and holds
+  // its canvas under everything but the spectrum edges; carrying `ul.tile-track` it is
+  // (0,1,1) and loses it as title does — EXCEPT as `.fact`, which restates the canvas at
+  // `section.topic.fact` (0,2,1) and so out-specifies `section.print` (0,1,1) and keeps
+  // its inverse panel under print. Measured across all seven registers, tracked, plain
+  // and dark: fact keeps the panel under print, accent, spectrum-off and all four edges,
+  // and loses it only under `.dark` plus one of those six. Hence a third arm carrying
+  // the mode-scoped group and no `:not(.print)`.
   const REGISTERS = ['accent', 'spectrum-off', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
   const NEEDED = (one) => {
     if (one.includes('.divider')) return ['accent'];   // spectrum carve-outs keep its canvas

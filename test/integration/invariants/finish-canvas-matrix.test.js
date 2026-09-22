@@ -198,16 +198,219 @@ function deriveModifiers(css) {
 }
 
 /**
- * The child shapes a frame's own CSS distinguishes, read out of the bundle. A rule
- * like `section.topic:not(:has(> ul.tile-track))` means a topic with that child and a
- * topic without are two different cascade outcomes, so the cross must build both.
- * Returns `['']` for a frame whose canvas no `:has()` gates.
+ * The child shapes a frame's own CSS distinguishes, read out of the bundle with
+ * css-tree rather than a regex — and the swap is the point.
+ *
+ * A child can only move the SECTION's canvas through a rule that (a) has the section
+ * as its subject, (b) gates on `:has()` inside that subject compound, and (c) declares
+ * one of the two things this gate compares. That is exactly the set this walks.
+ * Shapes are filtered to painting rules on purpose and modifiers deliberately are NOT
+ * (see `deriveModifiers`): a class the engine can stamp matters whether or not it
+ * paints, but a child gating no painting rule cannot move the canvas at all.
+ *
+ * WHY NOT THE REGEX IT REPLACES. `section\.<frame>[^{,]*:has\(\s*>\s*([a-z]+)\.([a-z-]+)`
+ * demanded tag DOT class. Every other form returned nothing — or, worse, a WRONG class,
+ * silently: a bare `:has(> .cls)`, a descendant `:has(ul.cls)`, an attribute
+ * `:has(> ul[data-x])`, an uppercase tag, and a digit or underscore in the class name
+ * (`tile-track2` built `class="tile-track"`). It also keyed on `section.<frame>`, so a
+ * BARE `section:has(…)` rule — a shape EVERY frame can be in — was invisible for all 18
+ * of them. Nine such rules are in the bundle today; measured, none moves either side of
+ * the comparison, which is why this was a latent hole and not a live defect.
+ *
+ * AN UNBUILDABLE SHAPE FAILS LOUDLY. If a canvas rule ever gates on a `:has()` this
+ * cannot turn into a probe element, it lands in `unbuildable` and the self-check in
+ * `before()` turns red. Quietly returning the shapes it did understand is precisely how
+ * a derivation stops covering the thing it was written for — which is the failure this
+ * gate exists to prevent, one level up.
  */
-function shapesFor(frame, css) {
-  const found = new Set(['']);
-  const re = new RegExp(`section\\.${frame}[^{,]*:has\\(\\s*>\\s*([a-z]+)\\.([a-z-]+)`, 'g');
-  for (const m of css.matchAll(re)) found.add(`<${m[1]} class="${m[2]}"><li>x</li></${m[1]}>`);
-  return [...found];
+function deriveShapes(css) {
+  const csstree = require('css-tree');
+  const ast = csstree.parse(css);
+  const frames = new Set(ALL_FRAMES);
+  /** frame name (or '*' for a bare `section`) -> Set of probe-element HTML */
+  const byFrame = new Map();
+  const unbuildable = [];
+
+  // One `:has()` branch -> one probe element. Supported, because all of it is in the
+  // bundle today: `>` chains (`> .cell-stage > p` nests), a descendant with no
+  // combinator (built as a direct child, which still matches), and tag / class /
+  // attribute in any compound. Refused — and therefore REPORTED — is anything carrying
+  // a pseudo-class or pseudo-element, a `~`/`+` sibling, or an empty compound: those
+  // cannot be expressed as one child element, and a shape built WRONG is worse than a
+  // shape known missing.
+  const one = (sel) => {
+    const compounds = [[]];
+    for (const x of sel.children) {
+      if (x.type === 'Combinator') {
+        if (x.name !== '>' && x.name !== ' ') return null;
+        compounds.push([]);
+      } else compounds[compounds.length - 1].push(x);
+    }
+    const open = [];
+    const close = [];
+    for (const compound of compounds) {
+      if (!compound.length) continue;
+      let tag = null;
+      const classes = [];
+      const attrs = [];
+      for (const x of compound) {
+        if (x.type === 'TypeSelector') tag = x.name;
+        else if (x.type === 'ClassSelector') classes.push(x.name);
+        else if (x.type === 'AttributeSelector') {
+          attrs.push(`${x.name.name}="${x.value ? (x.value.value ?? x.value.name) : ''}"`);
+        } else return null;
+      }
+      if (!tag && !classes.length && !attrs.length) return null;
+      tag = tag || 'div';
+      const cls = classes.length ? ` class="${classes.join(' ')}"` : '';
+      const at = attrs.length ? ` ${attrs.join(' ')}` : '';
+      open.push(`<${tag}${cls}${at}>`);
+      close.unshift(`</${tag}>`);
+    }
+    if (!open.length) return null;
+    return `${open.join('')}<li>x</li>${close.join('')}`;
+  };
+
+  const build = (hasNode) => {
+    const list = hasNode.children?.first;
+    if (!list || list.type !== 'SelectorList') return null;
+    const out = [];
+    for (const sel of list.children) {
+      if (sel.type !== 'Selector') return null;
+      const html = one(sel);
+      if (html === null) return null;
+      out.push(html);
+    }
+    return out.length ? out : null;
+  };
+
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      // EXACTLY THE TWO SIDES THIS GATE COMPARES: the section's own background, and
+      // `--fin-canvas`. A child shape can only change the verdict by moving one of
+      // them. Widening this to "any custom property" was measured and is wrong in the
+      // expensive direction: it pulls in the nine bare `section:has(…)` layout rules
+      // (`--coda-host-gap`, `--cards-align`), which move neither side, and because they
+      // are bare they attach to all 18 frames — a 10x cross that ran 6.5 minutes and
+      // then died on a CDP timeout. Redefining a token BOTH sides consume
+      // (`--surface-inverse`) cancels out and cannot break the comparison, which is why
+      // it is not listed.
+      let paints = false;
+      for (const d of node.block.children) {
+        if (d.type !== 'Declaration') continue;
+        if (/^background(-color|-image)?$/.test(d.property) || d.property === '--fin-canvas') paints = true;
+      }
+      if (!paints) return;
+      for (const sel of node.prelude.children) {
+        const parts = [...sel.children];
+        if (parts[0].type !== 'TypeSelector' || parts[0].name !== 'section') continue;
+        // Subject compound only: past a combinator the `:has()` belongs to a DESCENDANT,
+        // not to the section, so it cannot gate the section's canvas.
+        // `section.title h1 + p:has(> code:only-child)` is that shape and there are
+        // several — counting them would have multiplied this cross for nothing.
+        const compound = [];
+        for (const x of parts) {
+          if (x.type === 'Combinator') break;
+          compound.push(x);
+        }
+        const classes = compound.filter((x) => x.type === 'ClassSelector').map((x) => x.name);
+        const targets = classes.filter((c) => frames.has(c));
+        const keys = targets.length ? targets : ['*'];
+        // `:has()` reached through `:not()` / `:is()` / `:where()` counts — the topic
+        // arms wrap theirs in exactly that way.
+        const stack = [...compound];
+        while (stack.length) {
+          const q = stack.pop();
+          if (q.type === 'PseudoClassSelector' && q.name === 'has' && q.children) {
+            const html = build(q);
+            if (html === null) unbuildable.push(csstree.generate(q));
+            else
+              for (const k of keys) {
+                if (!byFrame.has(k)) byFrame.set(k, new Set());
+                for (const h of html) byFrame.get(k).add(h);
+              }
+            continue;
+          }
+          if (q.children) for (const c of q.children) stack.push(c);
+        }
+      }
+    },
+  });
+  return { byFrame, unbuildable };
+}
+
+/** `['']` plus every shape that frame's canvas rules — or a bare `section` rule — gate on. */
+function shapesFor(frame, census) {
+  return ['', ...(census.byFrame.get(frame) || []), ...(census.byFrame.get('*') || [])];
+}
+
+/**
+ * The VARIANT classes a frame's own sheet pairs with it in a painting rule —
+ * `section.topic.fact`, `section.split-panel.metric`, `section.divider.light`.
+ *
+ * These are not modifiers, and the difference is what round five found. A modifier is
+ * stamped by a register and sits beside the frame; a VARIANT is part of the component's
+ * own canvas statement and RESTATES it at a specificity a register cannot reach.
+ * `section.topic.fact` (0,2,1) out-specifies `section.print` (0,1,1), so a fact slide
+ * KEEPS its inverse canvas under print while plain topic correctly gives it up — and an
+ * arm written for plain topic sent `--fin-canvas` to white over a surface still painting
+ * rgb(236,236,236). On every one of the 33 palettes, and only in the export.
+ *
+ * Neither existing axis could see it: the pairwise cross puts ONE class beside the
+ * frame, and the depth-3 cross pairs REGISTERS with each other. Nothing put a variant
+ * and a register on the same section. Crossing this list with the registers is the
+ * cheap targeted version — sixteen pairs, not 211 modifiers, so it costs hundreds of
+ * cells instead of the ~46k a full modifier x register cross would add.
+ */
+function deriveVariants(css) {
+  const csstree = require('css-tree');
+  const ast = csstree.parse(css);
+  const frames = new Set(ALL_FRAMES);
+  const out = new Map();
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      let paints = false;
+      for (const d of node.block.children) {
+        if (d.type !== 'Declaration') continue;
+        if (/^background(-color|-image)?$/.test(d.property) || d.property === '--fin-canvas') paints = true;
+      }
+      if (!paints) return;
+      for (const sel of node.prelude.children) {
+        const parts = [...sel.children];
+        if (parts[0].type !== 'TypeSelector' || parts[0].name !== 'section') continue;
+        const compound = [];
+        for (const x of parts) {
+          if (x.type === 'Combinator') break;
+          compound.push(x);
+        }
+        const classes = compound.filter((x) => x.type === 'ClassSelector').map((x) => x.name);
+        const fr = classes.filter((c) => frames.has(c));
+        const rest = classes.filter((c) => !frames.has(c));
+        if (fr.length !== 1 || !rest.length) continue;
+        if (!out.has(fr[0])) out.set(fr[0], new Set());
+        for (const r of rest) out.get(fr[0]).add(r);
+      }
+    },
+  });
+  return out;
+}
+
+/**
+ * A short, stable name for a probe shape, so a failure says WHICH shape broke.
+ * Computed in Node and passed in: doing it in the page as
+ * `child.match(/class="([a-z-]+)"/)[1]` threw on the first shape with no class at all
+ * (`<svg data-lattice-rough-ink>`), taking the whole assertion down with a TypeError
+ * instead of a diff.
+ */
+function shapeLabel(child) {
+  const cls = child.match(/class="([^"]+)"/);
+  if (cls) return cls[1].split(' ')[0];
+  const tag = child.match(/^<([a-z]+)/i);
+  return tag ? tag[1] : 'shape';
 }
 
 describe('--fin-canvas follows the painted surface across every modifier the bundle knows', () => {
@@ -220,6 +423,32 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
     const mods = deriveModifiers(bundle);
     assert.ok(mods.length > 20, `expected the bundle to yield a real modifier list, got ${mods.length}`);
+
+    // THE DERIVATIONS GET THE SAME GUARD THE MODIFIER LIST HAS, and they did not before.
+    // `shapesFor` was the single point of failure for the whole tracked-topic fix and
+    // nothing asserted it had found anything. Demonstrated: with the topic split
+    // collapsed back to one arm this gate names the bad rows, but collapse the split AND
+    // neuter the derivation to `['']` and it passes — green, blind, and reopening exactly
+    // the hole the split was written to close.
+    const census = deriveShapes(bundle);
+    assert.deepEqual(
+      census.unbuildable,
+      [],
+      'a canvas rule gates on a `:has()` this cross cannot turn into a probe element, so '
+        + 'that shape would go untested — teach the builder the form, or the cross is '
+        + `silently narrower than it claims: ${census.unbuildable.join(', ')}`,
+    );
+    assert.ok(
+      shapesFor('topic', census).some((h) => h.includes('tile-track')),
+      'the tracked-topic shape vanished from the derivation — `topic-track.js` writes '
+        + '`<ul class="tile-track">` on both the derived and the `_track:` path, so a cross '
+        + 'without it measures a shape the engine never emits',
+    );
+    const variants = deriveVariants(bundle);
+    assert.ok(
+      (variants.get('topic') || new Set()).has('fact'),
+      'topic.fact vanished from the variant list — it is the pair this axis was added for',
+    );
     // Both halves: a modifier alone, and the same modifier with `dark`. (3) above was
     // invisible to a dark-only cross and (2) to a single-class one.
     // EVERY FRAME IS BUILT IN EVERY DOM SHAPE ITS OWN CSS DISTINGUISHES. A canvas rule
@@ -235,7 +464,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // SHAPES is derived from the bundle the same way the modifier list is: any
     // `:has(> X)` in a section-subject rule is a shape this cross has to build.
     for (const f of ALL_FRAMES) {
-      for (const child of shapesFor(f, bundle)) {
+      for (const child of shapesFor(f, census)) {
         cases.push({ cls: f, child });
         cases.push({ cls: `${f} dark`, child });
         for (const m of mods) {
@@ -257,6 +486,14 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
             if (a === b) continue;
             cases.push({ cls: `${f} ${a} ${b}`, child });
             cases.push({ cls: `${f} dark ${a} ${b}`, child });
+          }
+        }
+        // VARIANT x REGISTER — see `deriveVariants`. This is the axis that hid the
+        // tracked `topic fact print` defect from four review rounds and both gates.
+        for (const v of variants.get(f) || []) {
+          for (const r of REGISTERS) {
+            cases.push({ cls: `${f} ${v} ${r}`, child });
+            cases.push({ cls: `${f} dark ${v} ${r}`, child });
           }
         }
       }
@@ -281,16 +518,17 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
   });
 
   test('no frame composites against a color it does not paint, beyond the pinned set', async () => {
+    // The shape is part of the identity: `topic` and `topic + tile-track` are two
+    // different cascade outcomes and a failure must name which one.
+    const ids = cases.map(({ cls, child }) => (child ? `${cls} [${shapeLabel(child)}]` : cls));
     const rows = await xPage.evaluate(
       (cs) =>
-        cs.map(({ cls, child }, i) => ({
-          // the shape is part of the identity: `topic` and `topic + tile-track` are
-          // two different cascade outcomes and a failure must name which one.
-          cls: child ? `${cls} [${child.match(/class="([a-z-]+)"/)[1]}]` : cls,
+        cs.map((cls, i) => ({
+          cls,
           surface: getComputedStyle(document.getElementById(`x${i}`)).backgroundColor,
           canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor,
         })),
-      cases,
+      ids,
     );
     assert.equal(rows.length, cases.length, 'every case rendered');
     // TWO FAMILIES ARE KNOWN-WRONG AND DELIBERATELY NOT FIXED HERE (#2294), and they
@@ -362,16 +600,25 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
         (f) => [f, '--accent'],
       ),
     ]);
+    // THE SHAPE BELONGS IN THIS IDENTITY TOO, and leaving it out made this check look at
+    // the wrong row. It destructured `{ cls }` only, so `find(r => r.cls === 'topic dark')`
+    // matched the FIRST row carrying that class — and since the shape set starts with
+    // `''`, that is the TRACKLESS topic. The shape that actually ships was never
+    // inspected by the one assertion standing between a vacuous pass and a green gate.
+    const ids = cases.map(({ cls, child }) => (child ? `${cls} [${shapeLabel(child)}]` : cls));
     const rows = await xPage.evaluate(
-      (cs) => cs.map(({ cls }, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor })),
-      cases,
+      (cs) => cs.map((cls, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor })),
+      ids,
     );
     const wrong = [];
     for (const [frame, token] of Object.entries(EXPECT)) {
-      const row = rows.find((r) => r.cls === `${frame} dark`);
-      assert.ok(row, `${frame} dark must be in the cross`);
+      // `topic` is asserted on the TRACKED shape specifically: that is what the engine
+      // emits, and it is the arm whose exclusions this file keeps getting wrong.
+      const want = frame === 'topic' ? 'topic dark [tile-track]' : `${frame} dark`;
+      const row = rows.find((r) => r.cls === want);
+      assert.ok(row, `${want} must be in the cross`);
       if (row.canvas !== out[token]) {
-        wrong.push(`  ${frame} dark: --fin-canvas ${row.canvas}, expected ${token} (${out[token]})`);
+        wrong.push(`  ${want}: --fin-canvas ${row.canvas}, expected ${token} (${out[token]})`);
       }
     }
     assert.deepEqual(wrong, [], `a frame composites against the wrong token:\n${wrong.join('\n')}`);

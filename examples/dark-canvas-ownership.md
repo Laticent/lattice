@@ -63,6 +63,26 @@ An accent cover under dark had kept its accent ink and lost its accent ground.
 
 ---
 
+<!-- _class: topic fact -->
+
+`Section 02 · The third arm`
+
+## The third arm
+
+A fact slide keeps its panel when the register takes the page.
+
+`section.topic.fact (0,2,1) beats section.print (0,1,1) · 33 palettes`
+
+---
+
+<!-- _class: divider spectrum-off -->
+
+`Section 02`
+
+## The panel survives, even when the rail is switched off.
+
+---
+
 <!-- _class: closing -->
 
 ## The list cannot rot — a gate reads the stylesheets and fails if it drifts.
