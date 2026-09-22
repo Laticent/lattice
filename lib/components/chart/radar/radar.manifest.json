@@ -88,6 +88,7 @@
     ]
   },
   "projection": {
+    "frame": "each spoke is one axis, and a rating further from the center is higher",
     "figure": "svg",
     "data": true
   },

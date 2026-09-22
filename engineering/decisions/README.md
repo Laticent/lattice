@@ -315,7 +315,12 @@ it is load-bearing.
 ### Shipped — the work landed; the note stays as the record
 
 - ☑ [2026-09-22-thinking-is-a-third-of-output.md](2026-09-22-thinking-is-a-third-of-output.md) — Thinking is 37% of output tokens and about 6% of the billable total, measured over 69 usable turns across a main thread and two subagents.
+- ☑ [2026-09-21-chart-explain-layer.md](2026-09-21-chart-explain-layer.md) — Narration read three charts aloud and never said what they meant — bullet spoke two bare numbers with nothing naming the plan, word-cloud…
+- ☑ [2026-09-21-generic-data-series-narration.md](2026-09-21-generic-data-series-narration.md) — Recommendation 8 of the 2026-09-20 narration audit, built.
 - ☑ [2026-09-21-manifest-handles.md](2026-09-21-manifest-handles.md) — The Guide could not point at a part nothing declares.
+- ☑ [2026-09-21-narration-segmentation.md](2026-09-21-narration-segmentation.md) — The abbreviation over-split from the 2026-09-20 audit's Finding 3, fixed, plus the under-split it mirrors.
+- ☑ [2026-09-21-narration-track-validation.md](2026-09-21-narration-track-validation.md) — validateTrack() and voiceLanguageMismatch() shipped in #2243 with no callers.
+- ☑ [2026-09-21-token-passthrough-coaching.md](2026-09-21-token-passthrough-coaching.md) — The nine token passthroughs the 2026-09-20 audit left open get a COACH, not a rule, and the reason is that a slash means at least four…
 - ☑ [2026-09-21-what-a-turn-bills.md](2026-09-21-what-a-turn-bills.md) — A session's budget is spent on what ENTERS the conversation, not on how long it runs.
 - ☑ [2026-09-20-chromium-caption-projection.md](2026-09-20-chromium-caption-projection.md) — The CLI's `--captions` projection now runs in the Chromium the export already launched, not in three jsdom windows.
 - ☑ [2026-09-20-dom-library-bakeoff.md](2026-09-20-dom-library-bakeoff.md) — jsdom is slow and we keep it — on the paths we have.

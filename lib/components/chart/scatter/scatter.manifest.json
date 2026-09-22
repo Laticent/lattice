@@ -46,6 +46,7 @@
     ]
   },
   "projection": {
+    "frame": "each dot is one entity, placed at its two measures",
     "figure": "svg",
     "data": true
   },

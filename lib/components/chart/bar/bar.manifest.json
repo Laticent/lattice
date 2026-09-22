@@ -24,6 +24,7 @@
     ]
   },
   "projection": {
+    "frame": "each bar's length is its value, measured from zero",
     "figure": "svg",
     "data": true
   },

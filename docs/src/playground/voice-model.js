@@ -197,25 +197,20 @@ export async function detectKokoroCached() {
   } catch { return false; }
 }
 
-// ── Sentence segmentation ─────────────────────────────────────────────────────
-// Narration is spoken sentence-by-sentence so we get low time-to-first-audio,
-// can abort mid-note the instant the user navigates, and (later) insert
-// pause-beat silences between sentences. Pure + deterministic → unit-tested.
+// ── Sentence segmentation ── NOT HERE ANYMORE ───────────────────────
+// This file used to carry a local `splitSentences`, a deliberate byte-identical copy of
+// Cadenza's canonical one (docs/src/lib/cadenza/segment.ts) with a parity test pinning
+// the two. It is gone, and the reason is that it had NO production caller: voice-model is
+// a BYTE SOURCE now (synthOne / synthSample) and no longer owns `speak()`, so the caller
+// hands it one already-segmented sentence — read-aloud.ts builds its spoken sentences from
+// `track.cues`, i.e. from Cadenza. The only importers of the copy were its own two tests.
 //
-// This MIRRORS Cadenza's canonical splitSentences (docs/src/lib/cadenza/segment.ts)
-// exactly — a deliberate LOCAL COPY, not an import, because this module must stay
-// node-loadable (no `@/` alias / TS import; see the file header). A cross-check test
-// pins the two byte-identical so they can't drift. Break AFTER a terminator (.!?…)
-// followed by whitespace (lookbehind), so a mid-token dot ($4.2M, 3.5x) never splits.
-//
-// A caller that must keep the spoken sentences in lockstep with a caption engine's
-// cues can still pass that engine's own split via speak({ sentences }); with the two
-// splitters identical it's belt-and-suspenders, not a correctness requirement.
-export function splitSentences(text) {
-  const s = String(text ?? '').replace(/\s+/g, ' ').trim();
-  if (!s) return [];
-  return s.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
-}
+// Keeping it would have meant duplicating the abbreviation tables segment.ts grew when the
+// over-split was fixed (2026-09-21), doubling a drift surface to serve nobody.
+// 2026-07-08-library-shape-cadenza-vetrina.md:119 called this shot in advance: once Cadenza
+// is the one source of truth, "the hand-copied splitters become deletable — parity tests
+// retired." Segment through `@laticent/cadenza`'s `splitSentences`; a browser caller that
+// cannot reach it should pass its own sentences, not re-derive them here.
 
 // ── Audio cache (skip a re-synth when replaying an unchanged sentence — e.g.
 // navigating back to a slide already read aloud this session, or re-sampling a

@@ -1,10 +1,12 @@
 // Unit coverage for the VoiceModel adapter (the read-aloud voice ladder). Like
 // architect-model.test.js, this exercises the ladder + byte source with a scripted
 // rung and no real audio device or model — the parts that must be correct without
-// hardware: sentence segmentation, WAV framing, rung selection, and that the byte
-// source (synthOne / synthSample) always resolves (the silent floor) and drives
-// synth() with the right request. voice-model no longer plays audio (the Suono
-// consumer owns playback), so there is nothing to drive an AudioContext here.
+// hardware: WAV framing, rung selection, and that the byte source (synthOne /
+// synthSample) always resolves (the silent floor) and drives synth() with the
+// right request. Sentence segmentation is NOT here: it is Cadenza's, and this
+// file's local copy of it was deleted as uncalled (2026-09-21). voice-model no
+// longer plays audio (the Suono consumer owns playback) either, so there is
+// nothing to drive an AudioContext here.
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -34,15 +36,6 @@ test('PCM_ONLY_MODELS stays in sync with tts-voice-catalog.json\'s audioFormat:"
       .map((def) => def.modelId),
   );
   assert.deepEqual(new Set(PCM_ONLY_MODELS), wavModelIds);
-});
-
-test('splitSentences: segments on terminators, collapses whitespace, drops empties', async () => {
-  const { splitSentences } = await load();
-  assert.deepEqual(splitSentences('Hello world. Foo bar! Done?'), ['Hello world.', 'Foo bar!', 'Done?']);
-  assert.deepEqual(splitSentences('  one\n\n  two  '), ['one two']); // no terminator → one chunk
-  assert.deepEqual(splitSentences(''), []);
-  assert.deepEqual(splitSentences(null), []);
-  assert.deepEqual(splitSentences('Trailing no punct'), ['Trailing no punct']);
 });
 
 test('wavBlob: writes a valid 16-bit PCM WAV header', async () => {

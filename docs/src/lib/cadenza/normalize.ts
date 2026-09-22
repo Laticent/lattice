@@ -753,6 +753,55 @@ function edgeTrim(raw: string): string {
   return raw.slice(a, b);
 }
 
+/**
+ * The VALUE-SHAPED tokens a text will speak as raw glyphs — the sibling of
+ * `unmatchedAcronyms`, for the shapes that are not acronyms. `lint:deck` turns these into
+ * a coaching hint pointing at the deck's own `lexicon:`.
+ *
+ * WHY THIS IS A COACH AND NOT A RULE. The shapes it finds are overwhelmingly slashes and
+ * identifiers — `A/B`, `P/E`, `24/7`, `9/20`, `3.5/5`, `ID-4471` — and a slash means at
+ * least four unrelated things: a ratio ("P to E"), a rate ("twenty-four seven"), a date
+ * ("September twentieth"), and an alternative ("A or B"). Nothing in the token says which,
+ * so a normalizer that guesses is wrong roughly as often as it is right, and being wrong
+ * here means the voice states a fact the slide does not show — the exact defect class the
+ * 2026-09-20 narration audit is about. Reading the glyph is the honest failure. The AUTHOR
+ * knows which one they meant, so the fix belongs with them, and `lexicon:` already delivers
+ * it; what was missing was anyone telling them the token would read as glyphs.
+ * See engineering/decisions/2026-09-21-token-passthrough-coaching.md.
+ *
+ * IT REPORTS ONLY THE SHAPES IT CAN COACH, and that is a deliberate narrowing rather than a
+ * first cut. A test of "value-shaped and unchanged" reported 467 distinct tokens across the
+ * 186 shipped decks, nearly all of it inline SVG attributes (`stroke-width="9"/><polygon`),
+ * markdown image targets and LaTeX — none of which an author can act on, and a coach that
+ * cries wolf is one somebody switches off (the same lesson HARD RULE #29 records for the
+ * typed-glyph gate). So each pattern below is ANCHORED, names a shape a deck really writes,
+ * and has an answer the author can give.
+ */
+const COACHABLE_SHAPES: RegExp[] = [
+  // A slash pair: `A/B`, `P/E`, `24/7`, `9/20`, `3.5/5`, `win/loss`, `CCPA/CPRA`.
+  /^[A-Za-z0-9.]{1,12}\/[A-Za-z0-9.]{1,12}$/,
+  // A colon pair, which is a ratio OR a clock time and reads differently either way:
+  // `3:1`, `4.5:1`, `16:9`, `9:19.5`. (A token the clock parser DOES claim never gets here —
+  // it is not a passthrough.)
+  /^\d{1,3}(?:\.\d+)?:\d{1,3}(?:\.\d+)?$/,
+  // A prefixed identifier: `ID-4471`, `RFC-2119`. The prefix is UPPERCASE on purpose —
+  // `[A-Za-z]` also matched `under-13` and `over-16`, which are compound adjectives that
+  // any TTS front end reads correctly, so coaching them would be noise.
+  /^[A-Z]{2,6}-\d{2,}$/,
+];
+
+export function unspokenTokens(text: string, opts: SpokenOpts = {}): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of splitWords(text)) {
+    const tok = edgeTrim(raw); // strip wrapping punctuation the same way the acronym pass does
+    if (seen.has(tok) || !COACHABLE_SHAPES.some((re) => re.test(tok))) continue;
+    seen.add(tok);
+    if (toSpoken(tok, opts) === tok) out.push(tok); // passthrough ⇒ expanded by nothing
+  }
+  return out;
+}
+
 export function unmatchedAcronyms(text: string, opts: SpokenOpts = {}): string[] {
   const seen = new Set<string>();
   const out: string[] = [];

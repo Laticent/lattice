@@ -149,10 +149,12 @@ async function main(argv) {
   // cadenza's normalizer (Node layer can require the built package; lint-core cannot).
   const doDiscover = !flags.has('--all');
   let acronymSpokenMap = null;
+  let lexiconMap = null;
   let unmatchedAcronyms = null;
+  let unspokenTokens = null;
   if (doDiscover) {
-    ({ acronymSpokenMap } = await import('../lib/core/resolve-captions.mjs'));
-    ({ unmatchedAcronyms } = require('@laticent/cadenza'));
+    ({ acronymSpokenMap, lexiconMap } = await import('../lib/core/resolve-captions.mjs'));
+    ({ unmatchedAcronyms, unspokenTokens } = require('@laticent/cadenza'));
   }
 
   const report = [];
@@ -209,6 +211,22 @@ async function main(argv) {
           rule: 'narration-acronyms',
           message: `${unknown.length} all-caps token(s) will read letter-by-letter in narration: ${unknown.join(', ')}.`,
           fix: `Register any you want spoken as words in the deck's acronyms: front matter, e.g.\nacronyms:\n  ${unknown[0]}: <spoken expansion>`,
+        });
+      }
+      // The SIBLING discovery pass (§P3): slash, ratio and identifier shapes that reach the
+      // voice as glyphs because the normalizer deliberately has no rule for them — a slash
+      // means a ratio, a rate, a date OR an alternative, and guessing reads worse than the
+      // glyph. The author knows which one they meant, so this coaches rather than decides.
+      // Advisory, like the acronym pass beside it, and off under --all for the same reason.
+      // See engineering/decisions/2026-09-21-token-passthrough-coaching.md.
+      const unspoken = unspokenTokens(narrationText(source), { lexicon: lexiconMap(source) });
+      if (unspoken.length) {
+        suggestions.push({
+          file,
+          slide: 0, // deck-level (front-matter registry), not a single slide
+          rule: 'narration-passthrough',
+          message: `${unspoken.length} token(s) will read as glyphs in narration, because a slash or a colon means several different things and the normalizer will not guess: ${unspoken.join(', ')}.`,
+          fix: `Say how you want each one read, in the deck's lexicon: front matter, e.g.\nlexicon:\n  ${unspoken[0]}: <spoken form>\nA ratio reads "x to y", a rate reads "x per y", an alternative reads "x or y" — only you know which.`,
         });
       }
     }

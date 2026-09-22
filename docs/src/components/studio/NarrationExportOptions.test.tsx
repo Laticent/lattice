@@ -343,3 +343,92 @@ describe('a fully-rehearsed deck states its wait', () => {
 		expect(copy, 'no wait, so no line about one').not.toMatch(/Takes about/i);
 	});
 });
+
+// ── the voice IS the language control ─────────────────────────────────────────
+// Neither speech engine takes a language parameter, so a deck's `lang:` only reaches the
+// voice through WHICH VOICE is picked — and nothing said so when they disagreed. This is
+// `voiceLanguageMismatch`'s first real caller (2026-09-20-narration-audit.md Finding 4).
+// Per this file's own rule, these assert on what the AUTHOR CAN READ, not on what mounted.
+describe('when the chosen voice does not speak the deck’s language', () => {
+	// `vi.clearAllMocks()` in the outer beforeEach wipes resolved values, and this file's
+	// convention is that each test states the catalog it wants. A reachable Kokoro roster is
+	// the ordinary case for every test here except the unreachable-catalog one.
+	beforeEach(() => {
+		listTtsCatalog.mockResolvedValue({
+			models: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', promptPerM: 0.62, completionPerM: null, voices: ['af_heart', 'am_michael'] }],
+			reachable: true,
+		});
+	});
+
+	/** The nodes carrying the warning, split into the one the author READS and the sr-only
+	 *  mirror. Asserting on the visible one specifically is what stops a test passing on the
+	 *  <Announce> node alone — mutation-checked: removing the visible warning left the
+	 *  announcement behind, and a `length > 0` assertion survived it. */
+	const warningNodes = () => {
+		const all = screen.queryAllByText(/This deck declares lang/i);
+		return {
+			visible: all.filter((n) => !n.classList.contains('sr-only')),
+			announced: all.filter((n) => n.getAttribute('aria-live') === 'polite'),
+		};
+	};
+
+	/** The same panel, with the deck declaring a language in its front matter. */
+	const panelWithLang = (lang: string, choice = CHOICE) =>
+		render(
+			<NarrationExportOptions
+				source={`---\ntheme: indaco\nlang: ${lang}\n---\n\n# One\n\nA sentence.\n`}
+				project={async () => ['A sentence.']}
+				value={choice}
+				onChange={() => {}}
+			/>,
+		);
+
+	it('says so, names both languages, and explains why the voice is the control', async () => {
+		panelWithLang('es'); // VOICE is af_heart — US English
+		await screen.findAllByText(/This deck declares lang: es/i);
+		// Two nodes on purpose: the one the author READS and the sr-only <Announce> mirror. A
+		// warning a sighted author sees and a screen-reader user does not would be a poor fix
+		// for an accessibility-shaped defect.
+		const { visible, announced } = warningNodes();
+		expect(visible, 'the author can read it').toHaveLength(1);
+		expect(announced, 'and a screen reader says it').toHaveLength(1);
+		expect(visible[0].textContent).toMatch(/US English/);
+		expect(visible[0].textContent, 'the author needs to know WHY picking a voice is the fix')
+			.toMatch(/neither speech engine takes a language parameter/i);
+	});
+
+	it('renders the sentence as prose — no stray markdown backticks in the UI', async () => {
+		panelWithLang('es');
+		await screen.findAllByText(/This deck declares lang: es/i);
+		expect(warningNodes().visible[0].textContent).not.toMatch(/`/);
+	});
+
+	it('stays quiet when the voice and the deck agree', async () => {
+		panelWithLang('en'); // af_heart IS US English
+		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByText(/This deck declares lang/i)).toBeNull();
+	});
+
+	it('stays quiet when the deck declares no language at all', async () => {
+		// The "unset, as before" half — the half a regression would break silently, because a
+		// warning on every deck that never said anything about language is worse than none.
+		panel(); // the default fixture carries no `lang:`
+		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByText(/This deck declares lang/i)).toBeNull();
+	});
+
+	it('stays quiet for a REGIONAL variant of the same language', async () => {
+		// `en-GB` against a US English voice is a narrower claim than either side is making;
+		// warning there would train the author to dismiss the warning that matters.
+		panelWithLang('en-GB');
+		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByText(/This deck declares lang/i)).toBeNull();
+	});
+
+	it('warns even when the catalog is unreachable — that branch renders no picker but still bakes a voice', async () => {
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
+		panelWithLang('es');
+		await waitFor(() => expect(screen.getByText(/Couldn't reach the voice catalog/i)).toBeTruthy());
+		expect(warningNodes().visible, 'READABLE, not just announced').toHaveLength(1);
+	});
+});

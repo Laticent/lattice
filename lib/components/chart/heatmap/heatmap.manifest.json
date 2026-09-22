@@ -161,6 +161,7 @@
 	],
 	"specimenVoice": true,
 	"projection": {
+    "frame": "each cell is shaded by its value, so the darkest cells are where it concentrates",
 		"figure": "svg",
 		"data": true
 	},

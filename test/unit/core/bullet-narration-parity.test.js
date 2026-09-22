@@ -1,0 +1,345 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { render } = require('../../../lib/engine/index.js');
+const { narrateBullet } = require('../../../lib/core/chart-narration.js');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ARTIFACT-LEVEL DIFFERENTIAL — the tally the VOICE speaks against the tally the
+// RENDERED chart's own `<desc>` states.
+//
+// WHY THIS EXISTS. `narrateBullet` USED to guard its tally with
+// `tally.total === drawnRowCount(md)` — "say nothing unless every drawn row was
+// scored". A checker pointed out that both sides of that comparison come from the
+// SAME line scanner, so it can see a row the narrator failed to PARSE and is blind
+// to one the narrator parsed DIFFERENTLY from the transform. It then fuzzed the
+// difference and found a third of decks carrying a tally stating one the chart
+// contradicts. `drawnRowCount` is gone with that guard — the test named above is
+// history, not the code — and the guard is now `!dropped.some(r => r.pills.some(isValuePill))`.
+//
+// So nothing internal is compared here. One side is the caption track a listener
+// hears; the other is the `<desc>` in the real render, which is what a screen
+// reader is told and what the picture is drawn from. If those two disagree, the
+// slide says two different things about itself.
+//
+// MEASURED ACROSS THIS FIX: 91 of 356 decks diverged before it and 0 of 351 after
+// (seed 20260921, 400 generated decks). Re-derive with
+//   node --test test/unit/core/bullet-narration-parity.test.js
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A deterministic generator over every CHILD shape the component admits. The two
+ * that mattered are the last three entries: a key written as a code span, which
+ * `plainText` resolves for the transform, and a structural line with something
+ * nested under it, which markdown-it puts INSIDE the same `<li>` so the code span
+ * stops being last and the transform files the item as detail.
+ */
+const CHILD = [
+  (n) => `  - Target \`${n()}\``,
+  (n) => `  - \`Target\` \`${n()}\``,
+  (n) => `  - Plan \`${n()}\``,
+  (n) => `  - Band \`${n()}\` \`${n()}\``,
+  (n) => `  - Floor \`${n()}\``,
+  (n) => `  - \`Floor\` \`${n()}\``,
+  (n) => `  - Actual \`${n()}\``,
+  (n) => `  - Organic \`${n()}\``,
+  () => '  - a plain note',
+  (n) => `  - Target \`${n()}\`\n    - note`,
+  (n) => `  - \`Target\` \`${n()}\`\n    - note`,
+  // ── THE INDENTATION AXIS, AND IT IS HERE BECAUSE ITS ABSENCE HID THREE DEFECTS ──
+  //
+  // Every entry above indents its children by exactly two spaces, and the only
+  // four-space line is glued to its own `Target`. So the generator could not
+  // produce a prose child followed by a deeper line, and never produced a
+  // three-space child at all — which is this repo's own house style in places.
+  // The first cut of the `hasDeeper` rule compared a bare `>` against the previous
+  // KEPT child's marker indent, and all three shapes below narrated a tally the
+  // rendered chart contradicts while the fuzz reported 0 of 351. A checker found
+  // them by hand.
+  //
+  // markdown-it closes an item when a line drops below its CONTENT column — marker
+  // indent plus marker width — so 1, 2 and 3 are each outside the `Target` above
+  // them and 4 and 5 are inside it.
+  (n) => `  - Target \`${n()}\`\n  - a plain note\n    - deeper note`,   // 1
+  (n) => `  - Target \`${n()}\`\n   - Floor \`${n()}\``,                 // 2
+  (n) => `   - Target \`${n()}\`\n    - Band \`${n()}\``,                // 3
+  (n) => `  - Target \`${n()}\`\n    continuation`,                     // 4 (lazy)
+  (n) => `  - Target \`${n()}\`\n    1. note`,                           // 5 (ordered)
+  (n) => `   - Target \`${n()}\``,
+  (n) => `   - \`Target\` \`${n()}\``,
+];
+
+/**
+ * THE AMBIGUITY AXIS — shapes a LINE SCANNER cannot resolve into markdown-it's
+ * nesting, kept in their OWN list and drawn less often than the clean ones.
+ *
+ * Weighting matters, and getting it wrong is visible in the floor below. When these
+ * sat in `CHILD` at equal odds, roughly half of every generated deck was malformed
+ * and only 21 of 400 spoke a tally at all — which says nothing about whether the
+ * narrator goes quiet on decks an author would actually write. They are drawn at
+ * about one child in five now: common enough that every shape is reached (the cell
+ * below counts each one), rare enough that the tally floor still means something.
+ */
+const AMBIGUOUS_CHILD = [
+  // ── THE AMBIGUITY AXIS ───────────────────────────────────────────────────────
+  //
+  // Shapes a LINE SCANNER cannot resolve into markdown-it's nesting, and which the
+  // sixth round's whitelist therefore refuses to read. They are here because the
+  // round-five generator had none of them and three regressions rode through it, and
+  // because the row-level cell below reports ZERO on a corpus without them — which
+  // says nothing about the narrator, exactly as "0 of 351" did.
+  //
+  // A tab: markdown-it expands it to the next four-column stop, and every length in
+  // the scanner counts characters.
+  (n) => `\t- Target \`${n()}\`\n\t\t- note`,
+  (n) => `\t- \`Target\` \`${n()}\``,
+  // A wide marker gap: moves the content column, and past four the content becomes
+  // an indented CODE BLOCK rather than a value.
+  (n) => `  -     Target \`${n()}\`\n    - note`,
+  (n) => `  -   Target \`${n()}\``,
+  // A one-space indent is a SIBLING to markdown-it, not a child at all.
+  (n) => ` - Target \`${n()}\`\n  - note`,
+  (n) => ` - \`Target\` \`${n()}\``,
+  // FOUR COLUMNS PAST THE PARENT'S CONTENT COLUMN is an indented CODE BLOCK, not
+  // markup. The sixth round's whitelist named this rule as a reason a line scanner
+  // cannot do the job and did not implement it; the corpus emitted no child deeper
+  // than four spaces, so it reported zero divergences throughout.
+  (n) => `      - Target \`${n()}\``,
+  (n) => `        - Target \`${n()}\``,
+  (n) => `      - \`Target\` \`${n()}\``,
+  // ── PROSE-ONLY AMBIGUITY, WHICH IS THE AXIS THE NARROWING TURNS ON ───────────
+  //
+  // Every ambiguity entry above carries a `Target` or `Floor`, so `nestedHasValue`
+  // was ALWAYS true and the prose/value narrowing — the round-seven headline change —
+  // never changed an outcome on a single deck in this corpus. A checker measured it:
+  // "restores a spoken target on 0 rows across 0 decks". A fix with no coverage in
+  // the corpus that ships with it is a fix nobody has tested.
+  //
+  // These also carry the claim the narrowing was built on ("prose children can
+  // override nothing"), which is FALSE: markdown-it folds an ambiguous non-bullet
+  // line into the ROW's own lead, the pills stop being trailing, and the transform
+  // drops the row entirely.
+  () => '\t- a plain note',
+  () => '\tmore text',
+  () => '      - a plain note',
+  () => ' - a plain note',
+  () => '  -     a plain note',
+  () => '  continuation',
+];
+
+function corpus(count, startSeed = 20260921) {
+  let seed = startSeed;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const num = () => pick(['1', '2', '4', '5', '80%', '99.4%', '99.9%', '4.2M', '0']);
+  const decks = [];
+  for (let d = 0; d < count; d++) {
+    const lines = [];
+    const rows = 2 + Math.floor(rnd() * 4);
+    for (let i = 0; i < rows; i++) {
+      // MIXED CASE, because `rowTargets` used to anchor on a capital and nothing in
+      // the corpus could show it. A lowercase label is ordinary in a real deck.
+      const name = rnd() < 0.5 ? `Row${i}` : `row${i}`;
+      // THE ROW'S OWN MARKER GAP VARIES, because `rowLineAmbiguous` keys on it and
+      // every row this generator emitted had exactly one space — so that branch, too,
+      // was uncovered. Two to four spaces still render a normal scored row; five or
+      // more makes the row's own content an indented code block.
+      const gap = rnd() < 0.9 ? ' ' : ' '.repeat(2 + Math.floor(rnd() * 5));
+      lines.push(`-${gap}${name}` + (rnd() < 0.5 ? ` \`${num()}\`` : ` \`${num()}\` \`${num()}\``));
+      const kids = Math.floor(rnd() * 3);
+      for (let k = 0; k < kids; k++) lines.push(pick(rnd() < 0.2 ? AMBIGUOUS_CHILD : CHILD)(num));
+    }
+    decks.push(`<!-- _class: bullet -->\n\n## H.\n\n${lines.join('\n')}`);
+  }
+  return decks;
+}
+
+const WORD = { none: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
+
+/** The tally the VOICE states, as `{ cleared, scored }` — null when it states none. */
+function spokenTally(text) {
+  let m = text.match(/\b(\w+) of (\w+) cleared the plan line/i);
+  if (m) return { cleared: WORD[m[1].toLowerCase()], scored: WORD[m[2].toLowerCase()] };
+  m = text.match(/\ball (\w+) cleared their target/i);
+  if (m) return { cleared: WORD[m[1].toLowerCase()], scored: WORD[m[1].toLowerCase()] };
+  // "none cleared its target" names no denominator, so only the numerator is checked.
+  if (/\bnone cleared its target/i.test(text)) return { cleared: 0, scored: null };
+  return null;
+}
+
+/** The tally the PICTURE states, read off the `<desc>` in the real render. */
+function drawnTally(source) {
+  const out = render(source, {});
+  const html = typeof out === 'string' ? out : out.html;
+  const m = html.match(/<desc[^>]*>([\s\S]*?)<\/desc>/);
+  if (!m) return null;
+  const clauses = m[1].split(';');
+  const scored = clauses.filter((c) => /% of the .* target/.test(c));
+  return {
+    cleared: scored.filter((c) => /at or above plan/.test(c)).length,
+    scored: scored.length,
+    // WHICH ROWS carry a plan line, by label. The tally alone is too coarse a
+    // projection — see `rowTargets` below.
+    // WHITESPACE-NORMALIZED, and that is the difference between this cell seeing the
+    // defect class and reporting zero. When a nested line is absorbed into the ROW's
+    // own lead, the `<desc>` clause it produces CONTAINS A NEWLINE (`Uptime 5 4\nmore
+    // text`) — the un-normalized regex failed on it, `.filter(Boolean)` dropped the
+    // row, and `surveyRows`'s "skip rows the <desc> does not name" rule then skipped
+    // exactly the rows the defect produces. Measured: 0 invented rows before this
+    // one-line change and 60 after, on the same corpus and the same narrator.
+    scoredRows: new Set(scored.map((c) => c.replace(/\s+/g, ' ').trim().match(/^(.*?)\s+\S+,\s+−?\d/)).filter(Boolean).map((x) => x[1])),
+    allRows: new Set(clauses.map((c) => c.replace(/\s+/g, ' ').trim().match(/^(\w[\w -]*?)(?:\s+[\d−$(].*)?$/)).filter(Boolean).map((x) => x[1].trim())),
+  };
+}
+
+/**
+ * WHICH ROWS THE VOICE GIVES A TARGET — the projection the tally cannot see.
+ *
+ * A checker demonstrated why this arm exists: comparing only `{cleared, scored}`
+ * makes an INVENTED target invisible whenever it sits above the measure, because
+ * both sides then report `cleared: 0`. `- Uptime \`4\`` with a tab-indented
+ * `Target \`9\`` narrated "Uptime, four against a nine target" over a chart drawing
+ * no plan line at all, and the test passed. It also showed that 121 of 341 decks
+ * take the `none cleared its target` branch, where the denominator is never
+ * compared — so more than a third of the passing population was checking one
+ * number against nothing.
+ */
+function rowTargets(text) {
+  // `[\w]`, NOT `[A-Z]`. The first cut anchored on a capital, and the generator only
+  // ever emits `Row0…Row5` — so a deck with lowercase labels contributed ZERO rows to
+  // this cell, silently. That is the same "the projection is as narrow as the corpus"
+  // failure the round above says it learned, one level further in.
+  return new Set(
+    [...String(text).matchAll(/(?:^|[.!?] )([\w][\w -]*?), [^.]*? against an? /g)].map((m) => m[1].trim()),
+  );
+}
+
+function survey(decks) {
+  const out = { spoke: 0, silent: 0, diverged: [] };
+  for (const src of decks) {
+    const drawn = drawnTally(src);
+    if (!drawn) continue;
+    const spoken = spokenTally(narrateBullet(src) || '');
+    if (!spoken) { out.silent++; continue; }
+    out.spoke++;
+    const scoredOk = spoken.scored == null ? drawn.cleared === 0 : spoken.scored === drawn.scored;
+    if (!scoredOk || spoken.cleared !== drawn.cleared) out.diverged.push({ src, drawn, spoken });
+  }
+  return out;
+}
+
+/** Every deck, comparing WHICH rows the voice gives a target against which the
+ *  chart scores — independent of whether a tally sentence was spoken at all. */
+function surveyRows(decks) {
+  const out = { checked: 0, invented: [] };
+  for (const src of decks) {
+    const drawn = drawnTally(src);
+    if (!drawn) continue;
+    out.checked++;
+    const spokenTargets = rowTargets(narrateBullet(src) || '');
+    for (const label of spokenTargets) {
+      // The voice claims a plan line for this row; the chart must score it. Rows the
+      // `<desc>` does not name at all are skipped — the label parse is a heuristic
+      // over prose and a miss there is not a narration defect.
+      if (drawn.allRows.has(label) && !drawn.scoredRows.has(label)) out.invented.push({ src, label, drawn });
+    }
+  }
+  return out;
+}
+
+test('the voice never gives a row a plan line the chart does not draw', () => {
+  // THE PROJECTION THE TALLY CANNOT SEE. Comparing only `{cleared, scored}` makes an
+  // invented target invisible whenever it sits ABOVE the measure, because both sides
+  // then report `cleared: 0` — a checker found exactly that, on a deck whose
+  // structural line the scanner had mis-resolved.
+  const r = surveyRows(corpus(400));
+  assert.ok(r.checked > 300, `only ${r.checked} decks rendered a <desc>`);
+  assert.deepEqual(
+    r.invented.slice(0, 2).map((x) => ({ label: x.label, src: x.src })),
+    [],
+    `${r.invented.length} rows are spoken with a target the chart does not draw`,
+  );
+});
+
+test('a spoken bullet tally never contradicts the tally the rendered chart states', () => {
+  const r = survey(corpus(400));
+  // The floor is here so the cell cannot pass by speaking no tally at all — the
+  // whole failure mode this replaces was a tally that should not have been spoken.
+  //
+  // THE FLOOR MOVES WITH THE CORPUS, and both numbers are the cost of the refusal
+  // stated rather than hidden: a deck whose nested structure a line scanner cannot
+  // resolve gets no tally at all.
+  //
+  //   · before the ambiguity axis existed   343 of 400 spoke a tally
+  //   · with it at EQUAL odds                21 of 400  <- a corpus half malformed
+  //   · with it at one child in five         ~85 of 400 <- what is asserted here
+  //
+  // On the SHIPPED corpus the cost is exactly ZERO: all 16 bullet slides in the tree
+  // narrate identically before and after, and the refusal fires on none of them.
+  //
+  // The middle row is why the weighting is part of the test rather than an
+  // afterthought. A floor is only meaningful against a corpus that resembles what an
+  // author writes; against one that is mostly malformed it measures the generator.
+  assert.ok(r.spoke > 70, `only ${r.spoke} decks spoke a tally — the corpus stopped exercising it`);
+  assert.deepEqual(
+    r.diverged.slice(0, 2),
+    [],
+    `${r.diverged.length} of ${r.spoke} decks speak a tally the chart contradicts`,
+  );
+});
+
+test('the CORPUS reaches both shapes that used to diverge', () => {
+  // A zero-divergence result means nothing if the generator stopped emitting the
+  // two shapes. Counted rather than assumed.
+  const decks = corpus(400);
+  const codeKey = decks.filter((d) => /^ {2,3}- `(?:Target|Floor)` `/m.test(d)).length;
+  const nestedUnder = decks.filter((d) => /`\n {4}- note/.test(d)).length;
+  assert.ok(codeKey > 60, `only ${codeKey} decks carry a code-spanned key`);
+  assert.ok(nestedUnder > 20, `only ${nestedUnder} decks carry a structural line with a child`);
+
+  // THE INDENTATION AXIS, counted separately, because its absence is what let three
+  // `hasDeeper` defects through a fuzz reporting zero divergence.
+  const proseBetween = decks.filter((d) => /- a plain note\n {4}- deeper note/.test(d)).length;
+  const overIndentedSibling = decks.filter((d) => /`\n {3}- Floor `/.test(d)).length;
+  const threeSpace = decks.filter((d) => /^ {3}- /m.test(d)).length;
+  const lazy = decks.filter((d) => /`\n {4}continuation/.test(d)).length;
+  const ordered = decks.filter((d) => /`\n {4}1\. note/.test(d)).length;
+  for (const [name, n] of [['prose child then deeper', proseBetween], ['over-indented sibling', overIndentedSibling],
+    ['three-space child', threeSpace], ['lazy continuation', lazy], ['ordered sublist', ordered]]) {
+    assert.ok(n > 10, `only ${n} decks carry a ${name}`);
+  }
+
+  // AND THE AMBIGUITY AXIS, counted separately. The row-level cell above reports
+  // zero on a corpus that has none of these, which is a statement about the corpus.
+  const tab = decks.filter((d) => /\n\t- /.test(d)).length;
+  const wideGap = decks.filter((d) => /\n {2}- {3,}/.test(d)).length;
+  const oneSpace = decks.filter((d) => /\n - /.test(d)).length;
+  const deepCode = decks.filter((d) => /\n {6,}- /.test(d)).length;
+  const lower = decks.filter((d) => /\n- row\d/.test(d)).length;
+  for (const [name, n] of [['tab indent', tab], ['wide marker gap', wideGap], ['one-space indent', oneSpace],
+    ['four-column code child', deepCode], ['lowercase row label', lower]]) {
+    assert.ok(n > 10, `only ${n} decks carry a ${name}`);
+  }
+});
+
+test('the three named shapes, each against its own rendered <desc>', () => {
+  // The fuzz says the population agrees; these say WHICH rule each shape follows,
+  // so a future edit that trades one divergence for another cannot pass by luck.
+  const cases = [
+    // A code-spanned key IS structural — `plainText` resolves it for the transform.
+    ['- Uptime `99.9%`\n  - `Target` `99.4%`\n- Latency `2` `4`', { cleared: 1, scored: 2 }],
+    // A structural line with a child is NOT — markdown-it nests the child inside the
+    // same `<li>`, so the code span is no longer last and the item becomes detail.
+    ['- Uptime `5`\n  - Target `4`\n    - note\n- Latency `2` `4`', { cleared: 0, scored: 1 }],
+    // The value is the LAST pill and the key swallows the rest, so `Band 99.5%`
+    // matches no keyword and the line stays detail.
+    ['- Uptime `99.4%`\n  - Band `99.5%` `99.7%`\n  - Target `99.9%`\n- Latency `2` `4`', { cleared: 0, scored: 2 }],
+  ];
+  for (const [body, expected] of cases) {
+    const src = `<!-- _class: bullet -->\n\n## H.\n\n${body}`;
+    const { cleared, scored } = drawnTally(src);
+    assert.deepEqual({ cleared, scored }, expected, `the RENDER moved for: ${body}`);
+    const spoken = spokenTally(narrateBullet(src) || '');
+    if (expected.cleared === 0) assert.equal(spoken.cleared, 0, `${body} -> ${JSON.stringify(spoken)}`);
+    else assert.deepEqual(spoken, expected, `${body} -> ${JSON.stringify(spoken)}`);
+  }
+});

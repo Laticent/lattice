@@ -1,37 +1,18 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { splitSentences as cadenzaSplit } from '@/lib/cadenza';
-import { createVoiceModel, splitSentences as voiceSplit } from './voice-model.js';
+import { createVoiceModel } from './voice-model.js';
 
 // voice-model is now a BYTE SOURCE only — it synthesizes audio bytes (synthOne /
 // synthSample) and NEVER plays them (the Suono library, a Studio/cadenza consumer,
 // owns playback). So these tests exercise rung selection, the shared byte cache +
 // in-flight dedup, warm() prefetch, and speechSynthesis-only stop/pause/resume —
 // there is no WebAudio context to fake anymore.
-
-describe('splitSentences mirrors Cadenza exactly (node-loadable local copy, HARD RULE #15)', () => {
-  // voice-model can't import the TS caption engine (it must load under plain node),
-  // so it keeps a local copy. This pins the copy byte-identical to Cadenza's so the
-  // sentence a voice SPEAKS never diverges from the cue a caption HIGHLIGHTS.
-  const corpus = [
-    'Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is our best.',
-    'We shipped 3.5x faster. Margins held at 30%.',
-    'Acme Inc. beat plan. Done?',
-    'One\n\ntwo three',
-    'Trailing no punct',
-    'A finished one. And an unfinished one',
-    '',
-    '   ',
-  ];
-  for (const text of corpus) {
-    it(`agrees on: ${JSON.stringify(text).slice(0, 40)}`, () => {
-      expect(voiceSplit(text)).toEqual(cadenzaSplit(text));
-    });
-  }
-  it('keeps a mid-token decimal intact (the bug the old regex had)', () => {
-    expect(voiceSplit('Revenue grew to $4.2M.')).toEqual(['Revenue grew to $4.2M.']);
-  });
-});
+//
+// Sentence segmentation is no longer among them. This file used to pin voice-model's
+// local `splitSentences` byte-identical to Cadenza's; that copy had no production
+// caller and was deleted (2026-09-21), so the parity test retired with it — the shape
+// 2026-07-08-library-shape-cadenza-vetrina.md:119 planned. The behavior it guarded is
+// asserted directly, on the one remaining implementation, in lib/cadenza/segment.test.ts.
 
 describe('keyPrefix isolation (2026-07-09-studio-cloud-ondevice-config-split.md)', () => {
   it('two instances with different keyPrefix never share voice/speed prefs', () => {

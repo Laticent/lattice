@@ -45,9 +45,16 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 		expect(narrateQuadrant(md)).toContain('The vertical axis runs zero to one hundred');
 	});
 
-	it('narrateStateChart infers start/terminal states', () => {
+	it('narrateStateChart opens with the machine SHAPE, which names both endpoints', () => {
+		// The shape sentence replaced "This flow starts at Draft. It ends at Done." and
+		// carries strictly more: the same endpoints PLUS the size and the topology. It
+		// also runs on EVERY machine, where the inference sentence spoke only when the
+		// author had left the roles untagged — the rarer case, and not one any shipped
+		// sample hits.
 		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Done'].join('\n');
-		expect(narrateStateChart(md)).toContain('This flow starts at Draft.');
+		const out = narrateStateChart(md);
+		expect(out).toContain('A two-state machine from Draft to Done');
+		expect(out).not.toContain('This flow starts at');
 	});
 
 	it('narrateDiagram speaks a flowchart, sequence, class, and pie diagram, bails on not-yet-supported types', () => {

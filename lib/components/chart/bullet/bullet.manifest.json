@@ -15,6 +15,7 @@
   "substance": "series",
   "bucket": "chart",
   "projection": {
+    "frame": "each row shows where we landed against where we planned",
     "figure": "svg",
     "data": true
   },
