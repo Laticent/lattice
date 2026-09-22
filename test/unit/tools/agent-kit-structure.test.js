@@ -618,6 +618,15 @@ test('agent kit structure', { skip }, async (t) => {
 	 * heading with no text, a skill naming a file it does not carry, a paste text
 	 * contradicting the kit around it.
 	 */
+	/**
+	 * Both tolerate whitespace before the `>` of the end tag. `</script >` is valid
+	 * HTML, and a regex that cannot match it is what CodeQL's bad-HTML-filtering
+	 * query flags — our generated tags never carry it, but these run over every
+	 * markdown file in the kit, including the ones copied verbatim from the repo.
+	 */
+	const SCRIPT_TAG_RE = /<script src="([^"]+)"><\/script\s*>/g;
+	const SCRIPT_SRC_RE = /<script[^>]+src="([^"]+)"[^>]*>/g;
+
 	const readKit = (rel) => fs.readFileSync(path.join(KIT, rel), 'utf8');
 	const kitMarkdown = () => {
 		const out = [];
@@ -777,10 +786,24 @@ test('agent kit structure', { skip }, async (t) => {
 	 * it must never appear in one — here or in any deck the kit ships.
 	 */
 	await t.test('no generated file loads a script from the raw host', () => {
+		// Match on the parsed HOST, never on a substring of the URL: `includes(RAW_HOST)`
+		// also matches a URL that merely mentions it in a path or query
+		// (`https://evil.example/?r=raw.githubusercontent.com`), which is the shape CodeQL's
+		// incomplete-URL-sanitization query flags. Same treatment as the CDN host check in
+		// tools/bench-preview-diagrams.mjs. A relative src has no host and is not this arm's
+		// business, so it parses to '' and falls through.
+		const RAW_HOST = 'raw.githubusercontent.com';
+		const hostOf = (u) => {
+			try {
+				return new URL(u).hostname;
+			} catch {
+				return '';
+			}
+		};
 		const offenders = [];
 		for (const rel of kitMarkdown()) {
-			for (const m of readKit(rel).matchAll(/<script[^>]+src="([^"]+)"/g)) {
-				if (m[1].includes('raw.githubusercontent.com')) offenders.push(`${rel}: ${m[1]}`);
+			for (const m of readKit(rel).matchAll(SCRIPT_SRC_RE)) {
+				if (hostOf(m[1]) === RAW_HOST) offenders.push(`${rel}: ${m[1]}`);
 			}
 		}
 		assert.deepEqual(
@@ -800,7 +823,7 @@ test('agent kit structure', { skip }, async (t) => {
 	 */
 	await t.test('every stated runtime-script count matches the real tag list', () => {
 		const { RUNTIME_SCRIPTS } = require('../../../lib/core/marp-bundle.js');
-		const names = [...RUNTIME_SCRIPTS.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+		const names = [...RUNTIME_SCRIPTS.matchAll(SCRIPT_TAG_RE)].map((m) => m[1]);
 		const word = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'][names.length];
 		assert.ok(word, `${names.length} runtime scripts — extend the word list`);
 
@@ -823,10 +846,10 @@ test('agent kit structure', { skip }, async (t) => {
 	 */
 	await t.test('every kit deck carries the runtime tags in execution order', () => {
 		const { RUNTIME_SCRIPTS } = require('../../../lib/core/marp-bundle.js');
-		const names = [...RUNTIME_SCRIPTS.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+		const names = [...RUNTIME_SCRIPTS.matchAll(SCRIPT_TAG_RE)].map((m) => m[1]);
 		const bad = [];
 		for (const f of fs.readdirSync(path.join(KIT, 'examples'))) {
-			const got = [...readKit(`examples/${f}`).matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+			const got = [...readKit(`examples/${f}`).matchAll(SCRIPT_TAG_RE)].map((m) => m[1]);
 			if (got.length && got.join(',') !== names.join(',')) bad.push(`examples/${f}: ${got.join(', ')}`);
 		}
 		assert.deepEqual(bad, [], `a shipped deck's runtime tags differ from ${names.join(', ')}`);

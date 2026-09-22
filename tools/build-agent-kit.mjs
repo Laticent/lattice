@@ -1974,7 +1974,9 @@ const RUNTIME_TAGS = RUNTIME_SCRIPTS.trim().split('\n');
  * added by hand.
  */
 const RUNTIME_SCRIPT_NAMES = RUNTIME_TAGS.flatMap((t) => {
-  const m = /<script src="([^"]+)"><\/script>/.exec(t);
+  // `\\s*` before the `>`: `</script >` is valid HTML, and a regex that cannot match
+  // it is what CodeQL's bad-HTML-filtering-regexp query flags.
+  const m = /<script src="([^"]+)"><\/script\s*>/.exec(t);
   return m ? [m[1]] : [];
 });
 
