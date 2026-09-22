@@ -819,8 +819,8 @@ test('agent kit structure', { skip }, async (t) => {
 	 * The README said "the two runtime `<script>` tags" while every deck in the kit
 	 * emitted three — the count was typed once and the list grew under it when
 	 * dagre was split out of the runtime bundle. Both numbers now derive from
-	 * `RUNTIME_SCRIPTS` in lib/core/marp-bundle.js, so a fourth engine cannot
-	 * desynchronise them; this arm is what says so.
+	 * `RUNTIME_SCRIPT_SRCS` in lib/core/marp-bundle.js, which the tag block is generated
+	 * from as well, so a fourth engine cannot desynchronise them; this arm says so.
 	 */
 	await t.test('every stated runtime-script count matches the real tag list', () => {
 		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
@@ -843,6 +843,10 @@ test('agent kit structure', { skip }, async (t) => {
 	 * document order, and the runtime reads the dagre global synchronously on its
 	 * first draw. The kit's own decks are what a reader copies, so the order has to
 	 * hold in each of them.
+	 *
+	 * Checks ORDER, not well-formedness: `SCRIPT_SRC_RE` matches the opening tag alone,
+	 * so a deck carrying an unclosed `<script src="x">` would pass here. Unreachable
+	 * while the decks are generated from `RUNTIME_TAGS`, which always closes.
 	 */
 	await t.test('every kit deck carries the runtime tags in execution order', () => {
 		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
