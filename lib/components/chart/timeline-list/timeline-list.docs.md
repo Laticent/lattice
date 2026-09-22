@@ -19,7 +19,7 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the timeline. |
-| `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary: decision / live / at-risk / blocked / done / on-track / deferred. |
+| `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Matching is exact: lowercase and hyphenated, with no case or space normalization. |
 
 ### Common mistakes
 
@@ -35,7 +35,7 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 
 - **Date-less steps.** No calendar dates? You have a sequence, not a timeline. Use `list-steps` for an ordered list or `journey` for stage-by-stage progress.
 - **Date-range bars.** If each milestone needs a start and end on a shared axis, it's a Gantt chart. Use `gantt` — bar geometry conveys the durations a pill cannot.
-- **Status pills as decoration.** The status pill is a verdict — `decision`, `live`, `at-risk`, `blocked`, `done`. Don't invent freeform tags; the engine tints only the known vocabulary.
+- **Status pills as decoration.** The status pill is a verdict — one of the shared ten (`on-track`, `done`, `live`, `at-risk`, `warn`, `blocked`, `fail`, `pilot`, `decision`, `deferred`). Don't invent freeform tags: an unrecognized word still renders a pill, tinted with the default info hue, so it reads as a deliberate `pilot`/`decision` rather than as a mistake. Nothing lints it here.
 
 ## Authoring
 

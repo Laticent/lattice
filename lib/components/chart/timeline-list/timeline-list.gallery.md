@@ -133,7 +133,7 @@ Four milestones show the shape; the date chips carry the when.
 - Date-range bars
   - If each milestone needs a start and end on a shared axis, it's a Gantt chart. Use `gantt` — bar geometry conveys the durations a pill cannot.
 - Status pills as decoration
-  - The status pill is a verdict — `decision`, `live`, `at-risk`, `blocked`, `done`. Don't invent freeform tags; the engine tints only the known vocabulary.
+  - The status pill is a verdict — one of the shared ten (`on-track`, `done`, `live`, `at-risk`, `warn`, `blocked`, `fail`, `pilot`, `decision`, `deferred`). Don't invent freeform tags: an unrecognized word still renders a pill, tinted with the default info hue, so it reads as a deliberate `pilot`/`decision` rather than as a mistake. Nothing lints it here.
 
 ---
 

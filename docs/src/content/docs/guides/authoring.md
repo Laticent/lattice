@@ -360,6 +360,8 @@ header · Hide footer · Hide page number · Hide rail).
 
 ## Where to go next
 
+- [Pills and marks](/guides/pills/) — the `{LABEL}` status chips and the
+  `[x]` state marks you can write anywhere inline code goes.
 - [Themes & palettes](/guides/themes/) — choose or author a palette.
 - [Component reference](/components/) — every component's
   authoring contract.
