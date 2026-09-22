@@ -71,7 +71,7 @@
       "description": "Slide heading — name the relationship the dots show, not the chart type."
     },
     "axes": {
-      "selector": "p > code + code",
+      "selector": "p > code",
       "required": true,
       "description": "The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional, single or double, and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
     },

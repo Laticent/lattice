@@ -185,7 +185,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -310,7 +310,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: scatter -->
 <!-- _footer: "scatter · chart survey" -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## The tools we pay most for are the ones nobody adopts.
 

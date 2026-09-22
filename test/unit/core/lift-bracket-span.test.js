@@ -107,3 +107,57 @@ describe('no body means no slots', () => {
     assert.equal(bodyIndex('<p>nothing here</p>'), -1);
   });
 });
+
+describe('a span the caller cannot use is never lost', () => {
+  const { parseInlineSet } = require('../../../lib/core/label-set');
+
+  // The lift used to gate on `parseBracketList` while matrix-grid READ the slot
+  // with `parseInlineSet`, a stricter grammar. Anything the first accepted and
+  // the second rejected was cut out of the html and then dropped on the floor —
+  // a trailing caption rendered before this construct and vanished after it.
+  test('a bracketed caption the acceptor rejects stays on the slide', () => {
+    const html = TABLE + p('[Source: finance, FY26]');
+    const r = liftBracketSpans(html, { acceptBelow: parseInlineSet });
+    assert.equal(r.below, null, 'parseInlineSet rejects it, so it is not a key');
+    assert.ok(r.html.includes('Source: finance'), 'and it must still render');
+    assert.equal(r.html, html, 'nothing was cut at all');
+  });
+
+  test('a real label set with the same acceptor is still lifted', () => {
+    const r = liftBracketSpans(TABLE + p('[{[x], Done}]'), { acceptBelow: parseInlineSet });
+    assert.equal(r.below, '[{[x], Done}]');
+  });
+});
+
+describe('the caller declares its body tag', () => {
+  // A GRID's body is its table. Taking the earliest of ul/ol/table for everyone
+  // let a framing bullet list above the axis line move the boundary in front of
+  // it — the axis then read as a key and was lost.
+  test('a framing list above a grid does not steal the boundary', () => {
+    const html = '<ul><li>framing</li></ul>\n' + p('[Wider reach, Deeper cognition]') + TABLE;
+    assert.equal(liftBracketSpans(html, { bodyTags: ['<table'] }).above, '[Wider reach, Deeper cognition]');
+    // …and with the default tags it is misread, which is why the option exists.
+    assert.equal(liftBracketSpans(html).above, null);
+  });
+});
+
+describe('a fenced code block cannot swallow the axis', () => {
+  // `<p[^>]*>` matches `<pre>`; the lazy run then skips past the fence's own
+  // `</code>` to the axis span's, consuming both as one non-list candidate.
+  // That is a silent loss AND a polynomial shape (200 fences 1.34ms, 800
+  // 21.22ms) — the CodeQL js/polynomial-redos class this repo has been flagged
+  // for twice.
+  test('an html fence above the axis leaves both intact', () => {
+    const fence = '<pre><code class="language-html">FENCE</code></pre>\n';
+    const r = liftBracketSpans(fence + p('[Wider reach, Deeper cognition]') + TABLE, { bodyTags: ['<table'] });
+    assert.equal(r.above, '[Wider reach, Deeper cognition]');
+    assert.ok(r.html.includes('FENCE'), 'the fence survives untouched');
+  });
+
+  test('many fences stay linear rather than quadratic', () => {
+    const many = (n) => '<pre><code>x</code></pre>\n'.repeat(n) + p('[A, B]') + TABLE;
+    const run = (n) => { const t = process.hrtime.bigint(); liftBracketSpans(many(n), { bodyTags: ['<table'] }); return Number(process.hrtime.bigint() - t) / 1e6; };
+    run(200);
+    assert.ok(run(800) < run(200) * 12, 'growth must not square');
+  });
+});

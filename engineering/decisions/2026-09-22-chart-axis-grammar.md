@@ -24,7 +24,7 @@ summary: >
 
 # One grammar for a chart axis, and position decides what a span means
 
-**Date:** 2026-09-22 · **Status:** decided, landing
+**Date:** 2026-09-22 · **Status:** in progress — kernel and two components landed
 **Refs:** #2258 (the label-set epic this is the sibling of), #2272 (label sets
 rolled out to four components)
 
@@ -76,7 +76,7 @@ also a typed glyph (HARD RULE #29) and goes ambiguous on a negative domain:
 `today` pills are "both optional; the axis derives from the data without them."
 
 
-**Per-axis thresholds are a modelling fix, not a respelling.** `· targets 5, 50`
+**Per-axis thresholds are a modeling fix, not a respelling.** `· targets 5, 50`
 is a trailing blob detached from the axes it constrains, so a reader counts
 positions to learn which `5` belongs to which axis. A threshold belongs to its
 axis and now sits in it.
@@ -135,8 +135,21 @@ which is exactly the placeholder this rule rejects, and it is replaced.
 as a pair of indices, so a character is read once and a string is allocated only
 for a part that survives. Arity is the CALLER's (`maxParts`): an axis wants
 three parts, a label set two, because a label is prose and
-`{1, Good, better, best}` keeps its commas. A test pins that, capped at two, the
-scanner reproduces `parseInlineSet` member-for-member on the shipped strings.
+`{1, Good, better, best}` keeps its commas.
+
+**What actually shipped is TWO readers, and the note should not pretend
+otherwise.** A label set is still parsed by `parseInlineSet`; `maxParts` has no
+production caller. That is deliberate — `parseInlineSet` is what `lint:deck`
+validates against and what the browser bundle carries, so replacing it is a
+change to that gate rather than a rider on an axis feature. A test pins that at
+`maxParts: 2` the scanner reproduces `parseInlineSet` member-for-member on the
+shipped strings, which makes the convergence a demonstrated path rather than a
+claim. Until someone walks it, one grammar is served by two parsers.
+
+**The range and threshold parts are parsed and DISCARDED.** `matrix-grid` and
+`scatter` read `parts[0]` only, so `[{Effort, 0..10, 5}]` renders exactly as
+`[Effort]`. The grammar admits them so quadrant's domain and targets have
+somewhere to go; nothing honors them yet.
 
 Nothing backtracks, so the super-linear blowup that bit `label-set.js` (3000
 characters, 10.9s, reachable from the browser linter under HARD RULE #22) is not
