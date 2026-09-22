@@ -115,7 +115,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 - More than eight rows
   - Past eight workstreams the bars compress and the labels truncate. Split the view by owner or workstream group; the audience can't scan twelve bars at once anyway.
 - Decorative status pills
-  - Don't invent new status words for tone. The shared ten (`on-track`, `done`, `live`, `at-risk`, `warn`, `blocked`, `fail`, `pilot`, `decision`, `deferred`) are what the engine recognizes; everything else still renders a pill, tinted with the default info hue rather than left plain, so a typo reads as a deliberate blue verdict and breaks the at-a-glance read. Nothing lints it here.
+  - Don't invent status words for tone. Only the shared ten tint the bar; anything else still draws a pill in the info color, so a typo reads as deliberate.
 
 ---
 

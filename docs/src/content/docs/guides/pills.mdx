@@ -242,7 +242,7 @@ Ten words, grouped into five meanings:
 | `on-track` · `done` · `live` | Good | The palette's positive color |
 | `at-risk` · `warn` | Careful | The caution color |
 | `blocked` · `fail` | Bad | The alarm color |
-| `pilot` · `decision` | Noted, in flight | The informational color |
+| `pilot` · `decision` | Noted, in flight | The informational color — also the fallback |
 | `deferred` | Parked | A gray, deliberately quiet |
 
 Color is not the only channel. In the print and accessibility palettes each
@@ -273,10 +273,10 @@ chart mark instead.
 and neither is caught for you.
 
 **A word Lattice does not know still draws a pill.** In `progress` and
-`timeline-list` it comes out blue — the default — so a typo looks exactly like a
-deliberate `pilot` or `decision` pill, and a reviewer reads it as one. Only
-`gantt` warns about an unknown token. On the others, check each status word
-against the ten above before you ship the deck.
+`timeline-list` it falls back to the informational color — the same one `pilot`
+and `decision` use — so a typo looks like a deliberate verdict, and a reviewer
+reads it as one. Only `gantt` warns about an unknown token. On the others, check
+each status word against the ten above before you ship the deck.
 
 ### What the status vocabulary cannot do
 

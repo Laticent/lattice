@@ -36,7 +36,7 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 
 - **Comparing unrelated metrics.** Revenue % of target, latency vs SLO, and headcount fill aren't comparable on a shared bar scale. Use `kpi` for value/target/status tiles or `stats` for an independent metric row.
 - **More than eight rows.** Past eight workstreams the bars compress and the labels truncate. Split the view by owner or workstream group; the audience can't scan twelve bars at once anyway.
-- **Decorative status pills.** Don't invent new status words for tone. The shared ten (`on-track`, `done`, `live`, `at-risk`, `warn`, `blocked`, `fail`, `pilot`, `decision`, `deferred`) are what the engine recognizes; everything else still renders a pill, tinted with the default info hue rather than left plain, so a typo reads as a deliberate blue verdict and breaks the at-a-glance read. Nothing lints it here.
+- **Decorative status pills.** Don't invent status words for tone. Only the shared ten tint the bar; anything else still draws a pill in the info color, so a typo reads as deliberate.
 
 ## Authoring
 

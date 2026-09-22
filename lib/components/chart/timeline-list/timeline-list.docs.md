@@ -35,7 +35,7 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 
 - **Date-less steps.** No calendar dates? You have a sequence, not a timeline. Use `list-steps` for an ordered list or `journey` for stage-by-stage progress.
 - **Date-range bars.** If each milestone needs a start and end on a shared axis, it's a Gantt chart. Use `gantt` — bar geometry conveys the durations a pill cannot.
-- **Status pills as decoration.** The status pill is a verdict — one of the shared ten (`on-track`, `done`, `live`, `at-risk`, `warn`, `blocked`, `fail`, `pilot`, `decision`, `deferred`). Don't invent freeform tags: an unrecognized word still renders a pill, tinted with the default info hue, so it reads as a deliberate `pilot`/`decision` rather than as a mistake. Nothing lints it here.
+- **Status pills as decoration.** A status pill is a verdict; only the shared ten count. Anything else draws one in the info color, and reads as deliberate.
 
 ## Authoring
 
