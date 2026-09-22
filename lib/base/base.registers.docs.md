@@ -304,7 +304,7 @@ theme's `--accent` to their brand.
 | `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
 | `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
 | `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
-| `off` | `spectrum-off` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline). |
+| `off` | `spectrum-off` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
 
 **`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
 ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a

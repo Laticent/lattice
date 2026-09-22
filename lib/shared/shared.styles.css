@@ -59,8 +59,23 @@ section.accent.dark {
    * — so this is reachable for any theme the generator's contract does not cover.
    * Verified in Chromium 131: with --accent undefined, the old form computed
    * `background-color: rgba(0,0,0,0)`, this one keeps the canvas and drops the stripe.
-   * section-OWN cqi (the accent strip height): route through --_sec-1cqi */
-  background-color: var(--bg);
+   * section-OWN cqi (the accent strip height): route through --_sec-1cqi
+   *
+   * AND IT DECLARES NO CANVAS AT ALL ANY MORE (#2291). It used to carry
+   * `background-color: var(--bg)`, which is what `section.dark` declares one file over —
+   * restated here only because this rule replaced that one wholesale. On an ordinary dark
+   * slide the restatement was a no-op; on a frame that paints its OWN canvas this (0,2,1)
+   * rule out-specified the frame's and flattened it to the deck ground, to draw a STRIPE.
+   * Two kinds of frame survive `section.dark` two different ways and this rule beat BOTH:
+   * a title or a cover is on `section.dark`'s exemption LIST and wins on source order at
+   * (0,1,1), while an `image`/`scene` matte composition is NOT on that list and wins on
+   * SPECIFICITY at (0,2,1) — which is the mechanism the next editor needs, and an earlier
+   * draft of this line called them all exempt. That is #2293's defect on the `accent` register, and it is the reason
+   * `--fin-canvas` used to carry a `.dark.accent` exclusion. Measured, indaco, before:
+   * `title dark accent` rgb(0,29,51) against the rgb(0,61,102) it paints for itself.
+   * Dropping the line loses nothing: `section.dark` supplies the canvas for every slide
+   * this rule can land on that does not supply its own, and `section` itself is the floor
+   * under both. */
   background-image: linear-gradient(to right, var(--accent), var(--accent));
   background-position: top;
   background-size: 100% calc(0.3125 * var(--_sec-1cqi, 1cqi));

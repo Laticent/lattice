@@ -426,8 +426,10 @@ section.split-panel-cover .split-feat-wm {
   position: absolute; right: -0.08em; bottom: -0.28em; line-height: 0.8;
   font-size: 20em; font-weight: 800; opacity: 0.13; pointer-events: none;
 }
+/* No `opacity` here -- 0.85 measured 4.40:1 on a light accent (#2292); the demotion is
+   size + tracking, per base.tokens.css. See base.modifiers.css `.lat-split-cover .split-feat-eye`. */
 section.split-panel-cover .split-feat-eye {
-  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.85;
+  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase;
 }
 section.split-panel-cover .split-feat-h {
   /* h1, not hero — a split-panel heading can be a full sentence, and hero overflows

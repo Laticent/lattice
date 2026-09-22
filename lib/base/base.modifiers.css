@@ -669,12 +669,22 @@ section.dark {
  *
  * Only .dark needed this. .light sets no canvas, and .print works by remapping
  * the consumed tokens rather than painting over them, so a canvas-owning frame
- * already resolved correctly in both. The `spectrum:` register is a separate,
- * PRE-EXISTING instance of this same defect and is NOT fixed here: section.dark
- * .spectrum-off (0,2,1) and section.dark:is(.spectrum-edge-*) (0,3,1) in
- * base.variants.css both out-specify a frame's own canvas, so under
- * `spectrum: off` a dark title/closing/topic still flattens. divider alone was
- * given a hand-written carve-out there. Tracked as #2291. */
+ * already resolved correctly in both.
+ *
+ * THE `spectrum:` AND `accent:` REGISTERS WERE THE SAME DEFECT IN THREE MORE RULES,
+ * and they are fixed now (#2291) -- this paragraph used to say they were not.
+ * section.dark.spectrum-off (0,2,1), section.dark:is(.spectrum-edge-*) (0,3,1) and
+ * section.accent.dark (0,2,1) all out-specified a frame's own canvas, so unlike this
+ * rule no exemption list could have saved the frame: they won on SPECIFICITY, not on
+ * order, and a dark title/closing/topic/cover flattened under `spectrum: off`.
+ *
+ * None of the three was trying to paint a canvas. Each draws or removes a BAR -- this
+ * rule's top hairline, the divider's left rail, the accent stripe -- and restated the
+ * color while doing it, two through the `background:` shorthand and one by copying
+ * `background-color: var(--bg)` out of the rule it replaced. They declare only what
+ * they mean now (`background-image`), which is why the fix needed neither a
+ * specificity change nor a carve-out list. divider's two hand-written carve-outs are
+ * ordinary members of the set rather than the exception they used to be. */
 section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover)) {
   background-color: var(--bg);
   background-image: var(--spectrum);
@@ -997,8 +1007,29 @@ section.split-panel.metric .panel-right code,
  * these rails are DESCENDANTS, and the ink tokens they inherit were already resolved at the
  * `section` under the section's scheme, so flipping a descendant's scheme cannot move them.
  * That asymmetry is why sections take the scheme and rails take an explicit ink. */
-section.split-compare .compare-left code {
+section.split-compare .compare-left code,
+/* `topic` paints --surface-inverse in every mode and was simply missing from this list, the
+ * same way it was missing from base.finish.css until #2294. Measured on the `--player`
+ * export's light toggle, indaco: an inline chip on a topic slide read 1.79:1 --
+ * rgb(0,101,153) on rgb(0,61,102), the brand accent on the inverse panel. */
+section.topic code {
   --code-inline-fg: var(--on-dark-primary);
+}
+/* ── THE ACCENT COVERS ARE A DARK ISLAND TOO, and their ink is --on-accent, not
+ * --on-dark-primary (#2292). A cover floods `var(--accent)`, which is a HUE rather than a
+ * dark neutral, and every theme curates --on-accent for AAA against its own accent in both
+ * modes -- that is the whole point of the token. The chip's default ink is `var(--accent)`,
+ * so on a cover it was the accent ON the accent: measured, indaco, 1.16:1 as exported and
+ * 1.00:1 after the player's dark toggle, i.e. invisible. Reached through the split
+ * envelope, which hoists an authored masthead onto the cover verbatim -- inline code
+ * included -- so this is not an exotic shape.
+ *
+ * KEYED ON THE SIX CLASSES, not on `[data-split-role="cover"]`: the role stamp also lands
+ * on the PRINT de-flood's framed panel, where the ink is the print band's text tiers and
+ * --on-accent would be wrong. The classes name the accent field exactly. */
+section:is(.decision-cover, .compare-code-cover, .compare-split-cover,
+           .list-tabular-cover, .split-panel-cover, .lat-split-cover) code {
+  --code-inline-fg: var(--on-accent);
 }
 /* divider.light is the bright-canvas variant — keep the brand-accent ink. */
 section.divider.light code {
@@ -2902,8 +2933,14 @@ section.lat-split-cover {
   background: var(--accent); color: var(--on-accent);
   display: flex; flex-direction: column; justify-content: center; position: relative;
 }
+/* NO `opacity` ON THE EYEBROW (#2292). At 0.85 over `--on-accent` it measured 4.40:1 on a
+   light accent -- under AA, and the `--player` export's light toggle is where a reader meets it.
+   `--on-accent-secondary` is worse, not better (70%), and base.tokens.css says why: the muted
+   tiers are sub-AA on seven of the palettes it measured, so "if you need a quieter label here,
+   spend size or weight, not alpha". This label already spends both -- `--fs-meta`, uppercase,
+   0.2em tracked. See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
 section.lat-split-cover .split-feat-eye {
-  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.85;
+  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase;
 }
 section.lat-split-cover .split-feat-h {
   font-size: var(--fs-h1); font-weight: 800; line-height: var(--lh-tight);

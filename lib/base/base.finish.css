@@ -296,106 +296,94 @@ section.finish {
 section {
   --fin-canvas: var(--bg);
 }
-/* …but NOT when the slide also carries a canvas modifier. `dark`, `light`, and `print`
- * re-establish `var(--bg)` as the painted surface — they set `background` themselves at
- * equal (0,1,1) specificity from `base.modifiers.css`, which the bundle loads AFTER the
- * component sheets, so on `title dark` it is the MODIFIER that wins and the bookend's
- * `--surface-inverse` never paints. Measured in Chromium against the real bundle:
- * `title dark` is rgb(0,29,51) (the dark `--bg`), not rgb(0,61,102).
- *
- * Without these three exclusions the fix inverted its own bug — an opaque
- * `--surface-inverse` wash over a darker `dark` slide, and on `print` a full-page
- * `--print-surface-inverse` gray flood across a white page, which is exactly what that
- * token's own comment ("light framed, not a toner-heavy flood") exists to prevent. Four
- * correct cases traded for one. Caught by the red-team pass before merge, and now gated
- * by a COMPUTED-VALUE matrix in real Chromium —
- * `test/integration/invariants/finish-canvas-matrix.test.js` — over
- * {title, closing, divider, content} × {plain, dark, light, print, color-light,
- * color-system}. The source-shape assertions in
- * `test/unit/palette/finish-canvas-contract.test.js` are structurally unable to see this
- * class of failure: the CSS is valid whichever color it resolves to.
- *
- * `light` is NOT a blanket exclusion, because the three bookends do not treat it alike:
- * `section.light` sets `color-scheme` ONLY and paints nothing, so a `title light` keeps
- * its inverse panel — while `section.divider.light` DOES replace the canvas with
- * `var(--bg)`, which is why `divider` alone carries the `:not(.light)` it always had.
- * Excluding `.light` from all three was the first cut of this fix and broke `title
- * light`; the matrix caught it. */
-/* THE EXCLUSIONS ARE "WHAT REPAINTS THE SURFACE ANYWAY", AND EACH ONE IS SCOPED TO
- * THE MODE THAT MAKES IT TRUE. Every entry names a rule that out-specifies a frame's
- * own (0,1,1) canvas or remaps the token under it:
+/* ONE EXCLUSION IS LEFT, AND IT IS `print` (#2291). Four rules used to out-specify a
+ * frame's own (0,1,1) canvas and repaint it, so every arm in this file carried a
+ * mode-scoped group naming six register classes:
  *
  *     .print                 base.modifiers.css remaps every consumed token to the
  *                            print band AND section.print resets the surface to white,
  *                            so a printed title takes var(--print-bg) while a finish
  *                            mixing toward the inverse would flood the page. Measured:
  *                            `title print` surface is rgb(255,255,255).
- *     .dark.accent           shared.styles.css `section.accent.dark` (0,2,1)
- *     .dark.spectrum-off     base.variants.css:237 (0,2,1)
- *     .dark.spectrum-edge-*  base.variants.css:262, `:not(.divider)` (0,3,1)
+ *     .dark.accent           shared.styles.css `section.accent.dark` (0,2,1)      FIXED
+ *     .dark.spectrum-off     base.variants.css `section.dark.spectrum-off` (0,2,1) FIXED
+ *     .dark.spectrum-edge-*  base.variants.css, `:not(.divider)` (0,3,1)           FIXED
  *
- * THE `.dark` IN THREE OF THOSE FOUR IS LOAD-BEARING, and leaving it out is a
- * regression on the DEFAULT path, not a tidiness question. All three repainters
- * require `.dark`; without it nothing repaints, the bookend keeps --surface-inverse,
- * and an unconditional exclusion demotes --fin-canvas for no reason -- which is #1656's
- * original defect, on light decks. Measured over {title,closing,divider,topic,content}
- * x 9 registers with NO dark, indaco: main 9 mismatches, the unconditional form 22,
- * this form 0. Only .print is mode-independent, because print remaps in every mode.
+ * THE THREE MARKED FIXED WERE NOT TRYING TO PAINT A CANVAS. Each draws or removes a
+ * BAR -- the dark canvas's top hairline, the divider's left rail, the accent stripe --
+ * and restated the color while doing it, two through the `background:` shorthand
+ * (which resets every longhand, and that is why it was chosen) and one by copying
+ * `background-color: var(--bg)` out of the rule it replaced. They declare only what
+ * they mean now, `background-image`, so a frame keeps the canvas it painted and these
+ * arms have nothing left to exclude. That is why the divider arm is no longer a
+ * special case and the trackless topic arm carries no condition at all.
  *
- * THE FOUR FRAMES DIFFER, and each difference was measured rather than assumed:
+ * WHAT THAT REPLACED, so the next reader does not reinvent it: the exclusions were
+ * mode-scoped (`:not(:where(.dark:is(.accent, .spectrum-off, …)))`) because every one
+ * of those repainters needed `.dark` to fire, and an unconditional exclusion demoted
+ * --fin-canvas on light decks where nothing repaints -- #1656's original defect on the
+ * default path. If a register is ever given a canvas of its own, that is the shape to
+ * bring back, and `finish-canvas-contract.test.js`'s empty `REGISTERS` list is where
+ * it starts.
  *
- *   title, closing  lose their canvas to all four, so they exclude all four.
- *   divider         base.variants.css:238 and :266 give it carve-outs that KEEP
- *                   --surface-inverse under spectrum-off and spectrum-edge-off, and
- *                   :262 excludes it by name, so no spectrum value takes its canvas.
- *                   It excludes .print and a bare .dark.accent -- and NOT .accent when
- *                   a spectrum carve-out is also present, because that carve-out
- *                   (0,3,1) out-specifies accent (0,2,1).
+ * `print` STAYS, and it is genuinely different from the three: it REMAPS the tokens
+ * every arm consumes rather than painting over anything, so no amount of longhand
+ * discipline in `section.print` would change what a printed frame resolves to.
+ *
+ * `light` is NOT an exclusion either, because the bookends do not treat it alike:
+ * `section.light` sets `color-scheme` ONLY and paints nothing, so a `title light` keeps
+ * its inverse panel -- while `section.divider.light` DOES replace the canvas with
+ * `var(--bg)`, which is why `divider` alone carries the `:not(.light)` it always had.
+ * Excluding `.light` from all three was the first cut of the #1656 fix and broke
+ * `title light`; the matrix caught it.
+ *
+ * THE FRAMES STILL DIFFER ON `print`, and each difference is measured:
+ *
+ *   title, closing  lose the surface to section.print, so they exclude it.
+ *   divider         the same, and unconditionally now. Its print exclusion used to be
+ *                   `.print:not(.spectrum-off):not(.spectrum-edge-off)`, because the
+ *                   spectrum carve-outs restated --surface-inverse and so survived
+ *                   print. They restate nothing now, so a printed divider is the print
+ *                   ground whatever the spectrum register says -- which is what a
+ *                   printed title and closing already were. One fewer disagreement.
  *   topic           SPLITS BY DOM SHAPE, and this is the one that is not guessable
  *                   from the class list. topic.styles.css paints its canvas twice:
  *                   `section.topic` at (0,1,1) and
  *                   `section.topic:not(:has(> ul.tile-track))` restating it at (0,2,2)
  *                   -- that restatement exists precisely because the bare form loses
  *                   to later modifiers. So a TRACKLESS topic holds its canvas under
- *                   print, accent and spectrum-off (measured: `topic print` surface is
- *                   rgb(236,236,236), the print band inverse, not white) and needs only
- *                   the four edge values, while a topic CARRYING its track is back at
- *                   (0,1,1) and loses it as title does -- EXCEPT as `.fact`, which is
- *                   the third arm. THREE arms, and the tracked one is the shape that
- *                   ships: topic-track.js writes `<ul class="tile-track">` on both the
- *                   derived and the `_track:` path, so a probe built from an empty
- *                   <section> measures the shape the engine never emits. A version of
- *                   this rule with one topic arm passed a childless gate while breaking
- *                   five tracked rows, and a version with two shipped the `.fact`
- *                   mismatch past four review rounds -- see the block below.
+ *                   print too (measured: `topic print` surface is rgb(236,236,236),
+ *                   the print band inverse, not white) and needs no condition at all,
+ *                   while a topic CARRYING its track is back at (0,1,1) and loses it
+ *                   as title does -- EXCEPT as `.fact`, which is the third arm. THREE
+ *                   arms, and the tracked one is the shape that ships: topic-track.js
+ *                   writes `<ul class="tile-track">` on both the derived and the
+ *                   `_track:` path, so a probe built from an empty <section> measures
+ *                   the shape the engine never emits. A version of this rule with one
+ *                   topic arm passed a childless gate while breaking five tracked rows,
+ *                   and a version with two shipped the `.fact` mismatch past four
+ *                   review rounds -- see the block below.
  *
  * Adding topic here at all fixed 434 rows that were wrong on main: it paints
  * --surface-inverse in every mode and had never been named in this file.
  *
- * :not(.print) stays a PLAIN :not() WHERE THE EXCLUSION IS UNCONDITIONAL -- the
- * bookend arm and the plain tracked-topic arm. Folding .print into the :where() drops
- * a rule from (0,2,1)/(0,3,1) to (0,1,1)/(0,2,1); that is inert today, since the
- * bundle holds exactly four --fin-canvas setters and no later rule sits between them,
- * but it silently changes what they beat, so it is not done for free.
+ * THE COVER RULES BELOW are at (0,2,1) and (0,1,1) and the order among them is
+ * load-bearing rather than inert -- the category tint and the print face both have to
+ * beat the accent field at equal specificity, which only source order gives them. The
+ * block below says which rule beats which and why.
  *
- * THE DIVIDER ARM IS THE EXCEPTION AND IT IS DELIBERATE: its print exclusion is
- * CONDITIONAL (`.print:not(.spectrum-off):not(.spectrum-edge-off)`), because its
- * spectrum carve-outs keep the canvas under those two values, and a conditional
- * exclusion cannot be spelled as a plain :not() -- so it lives in the :where() group
- * and the arm is (0,2,1) rather than (0,3,1). An earlier revision of this paragraph
- * claimed every arm kept a plain :not(.print), which stopped being true in the same
- * commit that rewrote the divider arm. The cover rule below rises from (0,2,1) to
- * (0,3,1) for the same reason and is likewise inert: it is declared after the bookend
- * rule and no section carries both a bookend and a cover class.
+ * MEASURED: over all 33 palettes, main leaves 3,976-12,628 rows per palette compositing
+ * against a color the slide does not paint, and this tree leaves 0 on every one.
  *
- * WITHOUT THESE EXCLUSIONS the fix below inverts its own bug one register over.
- * Measured over 18 frames x {plain, dark} x 219 modifier classes (every class the
- * bundle uses in a section-subject rule) x every register PAIR x both DOM shapes --
- * 9,918 cells, indaco. Outside the two #2294 families, main leaves 759 rows wrong and
- * this leaves 0. Repeated on all 33 palettes (main 26-759, head 0 on every one) and in
- * Firefox and WebKit, which agree with Chromium 131 cell for cell. */
-section:is(.title, .closing):not(.print):not(:where(.dark:is(.accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))),
-section.divider:not(.light):not(:where(.print:not(.spectrum-off):not(.spectrum-edge-off), .dark.accent:not(.spectrum-off):not(.spectrum-edge-off))) {
+ * GATED BY A COMPUTED-VALUE MATRIX IN REAL CHROMIUM,
+ * `test/integration/invariants/finish-canvas-matrix.test.js`: 18 frames x 219 modifier
+ * classes (every class the bundle uses in a section-subject rule) x every register
+ * PAIR x every subject ATTRIBUTE x both DOM shapes, 60,263 cells per palette. The
+ * source-shape assertions in `test/unit/palette/finish-canvas-contract.test.js` are
+ * structurally unable to see this class of failure: the CSS is valid whichever color
+ * it resolves to. */
+section:is(.title, .closing):not(.print),
+section.divider:not(.light):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
 
@@ -422,15 +410,14 @@ section.divider:not(.light):not(:where(.print:not(.spectrum-off):not(.spectrum-e
  * really emits -- `fact` hides the track with `display: none` but the `<ul>` is
  * still in the DOM, so `:has(> ul.tile-track)` matches it.
  *
- * THE FACT ARM'S EXCLUSIONS WERE MEASURED, NOT COPIED from the arm beside it.
- * Across all seven registers, tracked, plain and dark: `topic fact` keeps
- * `--surface-inverse` under print, accent, spectrum-off AND all four edge values,
- * and loses it only under `.dark` plus one of those six. So it carries the
- * mode-scoped group and NO `:not(.print)` -- the one difference from the plain
- * tracked arm, and the whole reason it is a separate arm. */
-section.topic:not(:has(> ul.tile-track)):not(:where(.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))),
-section.topic.fact:has(> ul.tile-track):not(:where(.dark:is(.accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))),
-section.topic:has(> ul.tile-track):not(.print):not(:where(.dark:is(.accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off))) {
+ * THE FACT ARM CARRIES NO `:not(.print)`, and that is its one difference from the
+ * plain tracked arm beside it -- the whole reason it is a separate arm. It used to
+ * carry a mode-scoped register group as well; every register in that group stopped
+ * repainting anything when the three bar rules learned to say `background-image`
+ * (#2291), so what is left is the print asymmetry the paragraph above measures. */
+section.topic:not(:has(> ul.tile-track)),
+section.topic.fact:has(> ul.tile-track),
+section.topic:has(> ul.tile-track):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
 
@@ -445,20 +432,110 @@ section.topic:has(> ul.tile-track):not(.print):not(:where(.dark:is(.accent, .spe
  * panel. `:not(.print)` stays: print REMAPS the consumed tokens rather than
  * exempting anything, so a printed bookend still takes the print band.
  *
- * THE FIVE ACCENT COVERS ARE THE SAME EXEMPTION and were never named here,
- * because until that change they were repainted too. Under dark they now keep
- * `var(--accent)`, so a finish on one has to mix toward the accent panel.
+ * ── THE ACCENT COVERS, IN EVERY MODE (#2294) ─────────────────────────────────
+ * The block that shipped with #2293 was scoped to `.dark`, because that is the
+ * mode #2293 broke. A cover paints `var(--accent)` in EVERY mode, so the light,
+ * `color-light`, `color-system` and print rows carried the same mismatch all
+ * along, and the gate PINNED them by name -- load-bearing debt, since a pin
+ * certifies what it names. They are closed here and the pin is gone.
  *
- * SCOPED TO `.dark` DELIBERATELY, which is the one asymmetry in this block. A
- * cover paints `var(--accent)` in EVERY mode, so plain/light/print covers have
- * carried this same mismatch all along -- measured on `main`, 32 combinations
- * across the covers, `topic`, and `lat-split-cover`. Widening the rule would fix
- * them and change what a LIGHT deck's finish composites against, which is a
- * different defect from the one this change caused. Tracked as #2294; the dark
- * rows are here because they are the ones this change broke. */
-section.dark:is(.decision-cover, .compare-code-cover, .compare-split-cover,
-                .list-tabular-cover, .split-panel-cover):not(.print):not(:where(.accent, .spectrum-off, .spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off)) {
+ * `lat-split-cover` JOINS THE LIST. It was absent from #2293 for a reason that
+ * does not transfer: it needs no entry in base.modifiers.css's dark exemption,
+ * because it is declared ~2,200 lines AFTER that rule and already wins at equal
+ * specificity. Nothing about source order makes `--fin-canvas` follow it, so it
+ * was wrong in all six modes, dark included.
+ *
+ * FOUR RULES, BECAUSE THE PAINTERS ARE FOUR. Each mirrors one, and the census
+ * behind them is every section-subject background rule in the bundle that can
+ * match a cover -- 17 of them, read with css-tree rather than by eye:
+ *
+ *   A1  the five splitter covers    section.<cover> (0,1,1), component sheets
+ *   A2  section.lat-split-cover     (0,1,1) but declared after section.print
+ *   B   the category tint           section.split-panel-cover:is([cat-N]) (0,2,1)
+ *   D   print's de-flood            section.print[data-split-role="cover"] (0,2,1)
+ *
+ * A1 CARRIES `:not(.print)` AND A2 DOES NOT, and that asymmetry is the whole
+ * reason they are two rules. `section.print` (0,1,1) sits later in the bundle
+ * than the five component sheets, so it takes their accent field and a printed
+ * cover is the deck ground; `section.lat-split-cover` sits later than
+ * `section.print`, so it keeps its field. Measured, indaco, unstamped:
+ * `decision-cover print` surface is rgb(255,255,255) and `lat-split-cover print`
+ * is rgb(26,26,26) -- `--accent` remapped to the print band's ink.
+ *
+ * B NEEDS NO `:not(.print)` for the same reason read the other way: its painter
+ * is (0,2,1), so it out-specifies `section.print` and the tint survives. It sits
+ * after A1 because both are (0,2,1) and source order is what separates them.
+ *
+ * D IS KEYED ON THE ROLE, NOT ON A FRAME CLASS, exactly as its painter is -- and
+ * that is load-bearing rather than shorthand. `section.print[data-split-role="cover"]`
+ * carries no frame class, so it repaints ANY frame that carries the stamp, and a
+ * frame-scoped mirror would have missed every one of them. It is declared last so
+ * that it beats A2, B and the imagery block below on order at (0,2,1), which is
+ * what the painter does to their painters. Measured, stamped: every cover under
+ * print is rgb(236,236,236), the print band inverse, against a `--fin-canvas` of
+ * white before this change.
+ *
+ * THE STAMPED AND UNSTAMPED SHAPES BOTH SHIP AS CSS, and only the stamped one is
+ * emitted by the engine (`split-envelope.js` `withRole`). They are both written
+ * out because the cascade genuinely resolves them differently -- the same reason
+ * topic's arms split by DOM shape above -- and because `dist/marp-kit/lattice.css`
+ * hands these class names to third-party renderers we do not control. */
+section:is(.decision-cover, .compare-code-cover, .compare-split-cover,
+           .list-tabular-cover, .split-panel-cover):not(.print) {
   --fin-canvas: var(--accent);
+}
+section.lat-split-cover {
+  --fin-canvas: var(--accent);
+}
+section.split-panel-cover:is([data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"], [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) {
+  --fin-canvas: var(--panel-fill);
+}
+
+/* ── THE IMAGERY MATTE IS A THIRD CANVAS, and the same defect sat on it ───────
+ * `image` and `scene` paint the deck ground on their base rule -- which is why
+ * #2293's exemption list correctly leaves them out -- but three of their
+ * compositions repaint the section with the matte, `var(--bg-alt)` through the
+ * component's own `--img-matte` / `--scene-matte` alias:
+ *
+ *     section.image[data-img-composition="gallery"]                  (0,2,1)
+ *     section.scene[data-img-composition="gallery"|"spotlight"|"statement"]
+ *
+ * At (0,2,1) they out-specify `section.print` (0,1,1) AND the dark canvas rule,
+ * so the matte survives every mode -- which is why NEITHER rule below carries
+ * `:not(.print)`. Measured, indaco: `image gallery` is rgb(242,245,250) on a
+ * light deck, rgb(0,40,71) under dark and rgb(245,245,245) under print, against
+ * a `--fin-canvas` of white, white and white.
+ *
+ * FOUND BY THE ATTRIBUTE AXIS THIS CHANGE ADDS TO THE CROSS, not by reading.
+ * These canvases are gated on an ATTRIBUTE, and every derivation in that gate
+ * walked `ClassSelector` nodes only -- so `data-img-composition` and
+ * `data-split-role` were invisible to it, and 40 of these rows had never been
+ * measured by anything. They are named here rather than deferred because the
+ * gate that now sees them has no allowlist left to park them in.
+ *
+ * NAMED THROUGH THE COMPONENT'S OWN ALIAS rather than `var(--bg-alt)` directly:
+ * the invariant is "`--fin-canvas` is the token the painter names", and a theme
+ * that re-points `--img-matte` has to move both sides together. */
+section.image[data-img-composition="gallery"] {
+  --fin-canvas: var(--img-matte);
+}
+section.scene:is([data-img-composition="gallery"], [data-img-composition="spotlight"], [data-img-composition="statement"]) {
+  --fin-canvas: var(--scene-matte);
+}
+
+/* D, DECLARED LAST ON PURPOSE -- see the print paragraph above. It needs no exclusion
+ * group at all, and the history is worth one line because it was written with an
+ * intricate one. `print` and `dark` are not exclusive, so a stamped cover carrying both
+ * plus a register used to hand the surface to `section.dark.spectrum-off` (0,2,1) or
+ * `section.dark:is(.spectrum-edge-*)` (0,3,1) -- and since the second of those excludes
+ * `.divider` by name, this arm had to mirror that `:not(.divider)` too or
+ * `divider dark print spectrum-edge-left` composited a white ellipse over a surface
+ * painting rgb(236,236,236). All of it went when those rules stopped restating the
+ * canvas (#2291). The lesson is the one that block records: an exclusion group here is a
+ * COPY of somebody else's rule, and copies rot -- the fix is to stop the other rule
+ * painting what it never meant to paint. */
+section.print[data-split-role="cover"] {
+  --fin-canvas: var(--surface-inverse);
 }
 
 /* ── WHAT USED TO BE HERE, and what removed it ────────────────────────────────

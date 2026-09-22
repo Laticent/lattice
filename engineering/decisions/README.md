@@ -314,6 +314,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-22-canvas-ownership-declare-what-you-mean.md](2026-09-22-canvas-ownership-declare-what-you-mean.md) — Four rules in three files had been flattening a frame's own section canvas, and three of them were never trying to paint one.
 - ☑ [2026-09-22-thinking-is-a-third-of-output.md](2026-09-22-thinking-is-a-third-of-output.md) — Thinking is 37% of output tokens and about 6% of the billable total, measured over 69 usable turns across a main thread and two subagents.
 - ☑ [2026-09-22-webkit-tspan-baseline.md](2026-09-22-webkit-tspan-baseline.md) — Every SVG chart label we wrap paints a third to three quarters of a font-size too high in Safari, on iOS, and in any WebKit surface — a…
 - ☑ [2026-09-21-chart-explain-layer.md](2026-09-21-chart-explain-layer.md) — Narration read three charts aloud and never said what they meant — bullet spoke two bare numbers with nothing naming the plan, word-cloud…

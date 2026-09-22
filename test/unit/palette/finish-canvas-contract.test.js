@@ -18,6 +18,7 @@ const path = require('node:path');
 // way, it just paints the wrong color.
 
 const FINISH_CSS = path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.finish.css');
+const BUNDLE = path.join(__dirname, '..', '..', '..', 'dist', 'lattice.css');
 const GENERATOR = path.join(__dirname, '..', '..', '..', 'docs', 'src', 'components', 'studio', 'finish-generate.ts');
 
 /** Strip /* … *​/ comments so prose mentioning a token is not mistaken for code. */
@@ -171,7 +172,26 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     );
   }
 
+  // ONE ARM IS THE PRINT FACE ITSELF, and it is recognized by keying ON `.print` rather
+  // than by name. `section.print[data-split-role="cover"]` is the de-flood in
+  // base.modifiers.css: a split cover's accent field would print as a page of near-black
+  // toner, so print repaints it with the bookends' framed panel. Its `--fin-canvas` has
+  // to follow, which means applying under print, not excluding it. Keyed on the shape so
+  // a second print-face rule is covered without an edit here.
+  const IS_PRINT_FACE = (sel) => /^section\.print\b/.test(sel.trim());
   for (const one of topLevel(selector)) {
+    if (IS_PRINT_FACE(one)) {
+      assert.ok(
+        !excludes(one, 'print'),
+        `\`${one}\` IS the print face — it must apply under print, not exclude it`,
+      );
+      assert.match(
+        one, /\[data-split-role="cover"\]/,
+        `\`${one}\` keys on print with no role stamp — the de-flood it mirrors is keyed on `
+          + 'the role, so an unstamped print slide would take the inverse panel it does not paint',
+      );
+      continue;
+    }
     if (KEEPS_CANVAS_UNDER_PRINT(one)) {
       assert.ok(
         !excludes(one, 'print'),
@@ -181,39 +201,24 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     }
     assert.ok(excludes(one, 'print'), `\`${one}\` must not apply to a print slide`);
   }
-  // The four registers that OUT-SPECIFY a frame's own (0,1,1) canvas and repaint it to
-  // `var(--bg)`: `section.dark.spectrum-off` (0,2,1), `section.dark:is(.spectrum-edge-…)`
-  // (0,3,1) and `section.accent.dark` (0,2,1). Re-pointing `--fin-canvas` across them
-  // sends the finish at a color the slide does not paint — measured, 60 mismatches
-  // against main's 14 over an 11x11 cross, and a `spectrum: off` deck exported a dark
-  // title as an inverse-panel flood. `divider` is exempt from this row: base.variants.css
-  // gives it carve-outs that KEEP its canvas under every spectrum value, so it excludes
-  // only `print` and `accent`.
-  // Per frame, because the frames genuinely differ — each row measured, not assumed.
-  // `divider`: base.variants.css gives it (0,3,1) carve-outs that keep --surface-inverse
-  // under spectrum-off and spectrum-edge-off, which out-specify BOTH section.accent.dark
-  // (0,2,1) and section.print (0,1,1) — so its accent and print exclusions are
-  // conditional on no carve-out applying, not blanket.
-  // `topic`: two DOM shapes AND a variant. Trackless it restates at (0,2,2) and holds
-  // its canvas under everything but the spectrum edges; carrying `ul.tile-track` it is
-  // (0,1,1) and loses it as title does — EXCEPT as `.fact`, which restates the canvas at
-  // `section.topic.fact` (0,2,1) and so out-specifies `section.print` (0,1,1) and keeps
-  // its inverse panel under print. Measured across all seven registers, tracked, plain
-  // and dark: fact keeps the panel under print, accent, spectrum-off and all four edges,
-  // and loses it only under `.dark` plus one of those six. Hence a third arm carrying
-  // the mode-scoped group and no `:not(.print)`.
-  const REGISTERS = ['accent', 'spectrum-off', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
-  const NEEDED = (one) => {
-    if (one.includes('.divider')) return ['accent'];   // spectrum carve-outs keep its canvas
-    if (one.includes('.topic')) {
-      // trackless topic (0,2,2) loses only to the edges; tracked topic (0,1,1) loses
-      // to everything, exactly as title/closing do.
-      return one.includes(':not(:has(> ul.tile-track))')
-        ? ['spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off']
-        : REGISTERS;
-    }
-    return REGISTERS;
-  };
+  // NO REGISTER REPAINTS A FRAME'S OWN CANVAS ANY MORE (#2291), and this list being empty
+  // is the assertion. Four rules used to: `section.dark.spectrum-off` (0,2,1),
+  // `section.dark:is(.spectrum-edge-*)` (0,3,1) and `section.accent.dark` (0,2,1) all
+  // out-specified a frame's (0,1,1) canvas, so `--fin-canvas` had to give way to them and
+  // every arm below carried a mode-scoped exclusion group naming all six register classes.
+  //
+  // NONE OF THEM WAS TRYING TO PAINT A CANVAS. Each one draws or removes a BAR — the dark
+  // canvas's top hairline, the divider's left rail, the accent stripe — and each restated
+  // the color while doing it, one through the `background:` shorthand and one by copying
+  // `background-color: var(--bg)` out of the rule it replaced. They declare only what they
+  // mean now (`background-image`), so a frame keeps the canvas it paints and the exclusions
+  // are gone with them. `:not(.print)` is all that is left, and only where print takes over.
+  //
+  // If a register is ever given a genuine canvas of its own, this list grows again and the
+  // arms below grow a `:not(:where(.dark.<register>))` group with it — mode-scoped, because
+  // every repainter of that kind has needed `.dark` to fire.
+  const REGISTERS = [];
+  const NEEDED = () => REGISTERS;
   for (const one of topLevel(selector)) {
     for (const reg of NEEDED(one)) {
       assert.ok(excludes(one, reg), `\`${one}\` must not apply to a .${reg} slide — it repaints the surface`);
@@ -247,34 +252,94 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     'a dark bookend keeps its own canvas now (base.modifiers.css), so the override MUST apply to it',
   );
 
-  // THE FIVE ACCENT COVERS are exempted from the dark canvas by the same rule and paint
-  // `var(--accent)`, so they owe the same re-point. Scoped to `.dark` on purpose: a cover
-  // paints the accent in every mode, and the plain/light/print rows are a pre-existing
-  // miss tracked as #2294 whose fix changes light rendering.
-  const coverRule = css.match(/([^{}]*)\{\s*--fin-canvas:\s*var\(--accent\)/);
-  assert.ok(coverRule, 'expected a rule setting `--fin-canvas: var(--accent)` for the accent covers');
-  const coverSelector = coverRule[1];
-  assert.ok(coverSelector.includes('.dark'), 'the accent-cover re-point is scoped to dark (see #2294)');
-  assert.ok(
-    !/:not\([^)]*\.dark/.test(coverSelector),
-    'scoped TO dark, not away from it — `includes(".dark")` alone is satisfied by `:not(.dark)`',
-  );
-  // The cover rule owes the SAME exclusions as the bookends. It shipped without them and
-  // a printed dark cover exported as a full-page rgb(26,26,26) flood — 354,175 pixels
-  // against main on a real PDF. The bookend rule two lines up had carried `:not(.print)`
-  // since #1656; the asymmetry is exactly what let it through.
-  for (const reg of ['print', ...REGISTERS]) {
-    assert.ok(excludes(coverSelector, reg), `the accent-cover re-point must not apply to a .${reg} slide`);
-  }
+  // ── THE SIX ACCENT COVERS, IN EVERY MODE (#2294) ─────────────────────────────────
+  // A cover paints `var(--accent)` in every mode, so the re-point is no longer scoped to
+  // `.dark`. It shipped that way with #2293 because that is the mode #2293 broke, and the
+  // light, `color-light`, `color-system` and print rows carried the same mismatch — pinned
+  // by name in the cross, which is a certificate, not a fix.
+  //
+  // TWO ARMS, AND THE SPLIT IS THE PRINT ANSWER. `section.print` (0,1,1) is bundled after
+  // the five component sheets and takes their accent field, so a printed cover is the deck
+  // ground; `section.lat-split-cover` is bundled after `section.print` and keeps its field
+  // at the same specificity. Measured, indaco, unstamped: `decision-cover print` is
+  // rgb(255,255,255) and `lat-split-cover print` is rgb(26,26,26).
+  const accentRules = [...css.matchAll(/([^{}]*)\{\s*--fin-canvas:\s*var\(--accent\)/g)].map((m) => m[1]);
+  assert.ok(accentRules.length, 'expected a rule setting `--fin-canvas: var(--accent)` for the accent covers');
+  const accentArms = accentRules.flatMap(topLevel);
+  const coverSelector = accentArms.join(',');
   for (const cover of [
     '.decision-cover',
     '.compare-code-cover',
     '.compare-split-cover',
     '.list-tabular-cover',
     '.split-panel-cover',
+    '.lat-split-cover',
   ]) {
-    assert.ok(coverSelector.includes(cover), `${cover} paints var(--accent) under dark, so its finish canvas must follow it`);
+    assert.ok(coverSelector.includes(cover), `${cover} paints var(--accent), so its finish canvas must follow it`);
   }
+  // NOT SCOPED TO `.dark` ANY MORE — asserted on the SUBJECT, with the exclusion groups
+  // stripped first, because every arm still mentions `.dark` inside `:not(:where(.dark…))`
+  // and that mention is the mode-scoping of the exclusion, the opposite of a `.dark` scope
+  // on the rule. `includes('.dark')` over the raw string cannot tell the two apart.
+  for (const one of accentArms) {
+    const subject = one.replace(/:not\((?:[^()]|\([^()]*(?:\([^()]*\)[^()]*)*\))*\)/g, '');
+    assert.ok(
+      !/\.dark\b/.test(subject),
+      `\`${one}\` still scopes the accent re-point to .dark — a cover paints var(--accent) in `
+        + 'EVERY mode, and the light half of that is #2294',
+    );
+  }
+  // The exclusions the bookends owe, per arm. The cover rule shipped without them once and
+  // a printed dark cover exported as a full-page rgb(26,26,26) flood — 354,175 pixels
+  // against main on a real PDF.
+  for (const one of accentArms) {
+    for (const reg of REGISTERS) {
+      assert.ok(excludes(one, reg), `\`${one}\` must not apply to a .${reg} slide — it repaints the surface`);
+      assert.match(
+        one, /:not\(:where\(\.dark/,
+        `\`${one}\` excludes .${reg} unconditionally — a repainter of that kind needs .dark to fire, `
+          + 'so an unconditional exclusion demotes --fin-canvas on light decks (#1656, on the default path)',
+      );
+    }
+    // `print` per arm, and the two arms genuinely differ — see the paragraph above.
+    if (one.includes('.lat-split-cover')) {
+      assert.ok(
+        !excludes(one, 'print'),
+        `\`${one}\` is declared after section.print in the bundle, so it KEEPS its accent field `
+          + 'under print — excluding print there sends --fin-canvas to white over rgb(26,26,26)',
+      );
+    } else {
+      assert.ok(excludes(one, 'print'), `\`${one}\` must not apply to a print slide`);
+    }
+  }
+
+  // ── THE TWO OTHER CANVASES A FRAME CAN OWN ───────────────────────────────────────
+  // Both are gated on an ATTRIBUTE, which is why neither was in this file before: every
+  // derivation in the cross walked `ClassSelector` nodes, so `section.split-panel-cover:is(
+  // [data-split-mods~="cat-N"])` and the imagery mattes were invisible to it.
+  const canvasFor = (token) =>
+    [...css.matchAll(new RegExp(`([^{}]*)\\{\\s*--fin-canvas:\\s*var\\(${token}\\)`, 'g'))].map((m) => m[1]);
+  const panelFill = canvasFor('--panel-fill');
+  assert.strictEqual(panelFill.length, 1, 'split-panel\'s cover paints var(--panel-fill) when the run carries a category');
+  assert.match(panelFill[0], /\[data-split-mods~="cat-1"\]/, 'the category tint is keyed on the split mods stamp');
+  // NO `:not(.print)`, and that is the mirror of its painter's specificity: at (0,2,1) the
+  // tint out-specifies `section.print` (0,1,1) and survives print. Measured, unstamped:
+  // `split-panel-cover cat-1 print` paints the tint, not the print ground.
+  assert.ok(!excludes(panelFill[0], 'print'), 'the category tint out-specifies section.print, so it must not exclude print');
+  for (const reg of REGISTERS) {
+    assert.ok(excludes(panelFill[0], reg), `the category tint must not apply to a .${reg} slide`);
+  }
+  for (const matte of ['--img-matte', '--scene-matte']) {
+    const rule = canvasFor(matte);
+    assert.strictEqual(rule.length, 1, `expected one rule pointing --fin-canvas at var(${matte})`);
+    assert.match(rule[0], /\[data-img-composition="gallery"\]/, `the ${matte} re-point is keyed on the composition stamp`);
+    assert.ok(!excludes(rule[0], 'print'), `${matte} is (0,2,1) and out-specifies section.print, so it must not exclude print`);
+    for (const reg of REGISTERS) {
+      assert.ok(excludes(rule[0], reg), `${matte} must not apply to a .${reg} slide — it repaints the surface`);
+      assert.match(rule[0], /:not\(:where\(\.dark/, `${matte}'s .${reg} exclusion must be scoped to .dark`);
+    }
+  }
+
   // …but `light` is carved out for the DIVIDER ONLY: `section.light` paints nothing, so
   // a `title light` keeps its inverse panel while `divider.light` takes the deck canvas.
   assert.match(selector, /section\.divider:not\(\.light\)/, 'divider must exclude .light');
@@ -291,6 +356,79 @@ test('--fin-canvas is declared on `section`, so it is never undefined under a fi
   // and may be applied before the `.finish` class lands.
   assert.match(css, /(^|\n)section\s*\{\s*--fin-canvas:/, '--fin-canvas must be declared on `section`, not only on `section.finish`');
 });
+
+/**
+ * THE SOURCE ORDER OF THE COVER ARMS IS LOAD-BEARING, and nothing checked it.
+ *
+ * Three arms sit at (0,2,1) and two of them have to BEAT the one before them on order
+ * alone: the category tint over the accent field, and print's de-flood over both. Move
+ * `D` above `B` and a printed categorical split cover — `<section data-split-role="cover"
+ * data-split-mods="cat-3" class="content split-panel-split split-panel-cover form print">`,
+ * which `roleOpenTag` stamps in exactly that shape — paints rgb(236,236,236) while
+ * `--fin-canvas` resolves to the panel tint. Measured by the HARD RULE #25 checker against
+ * a bundle with that one swap: the computed-value cross passed 4/4 and this file passed
+ * 4/4, because the cross puts at most ONE attribute on a probe and so never builds the
+ * shape where the two rules collide.
+ *
+ * Asserted on SOURCE POSITION rather than on the cross, because that is where the fact
+ * lives — a declaration's position in `base.finish.css` is not a computed value, and the
+ * cross cannot reach the collision without a second attribute on the probe.
+ */
+test('the cover arms stay in the order their specificities require', () => {
+  // BOTH the source and the BUILT BUNDLE, because they answer different questions. The
+  // source is where an editor moves a rule; the bundle is where the cascade reads it, and
+  // `dark-canvas-ownership.test.js` exists because a build step can fold or reorder rules
+  // in a way no source-level check can see. All four arms live in one file today, so the
+  // two orders agree — asserting only one of them would stop being true the moment they
+  // did not.
+  for (const [where, file] of [['base.finish.css', FINISH_CSS], ['dist/lattice.css', BUNDLE]]) {
+    assertCoverArmOrder(fs.readFileSync(file, 'utf8'), where);
+  }
+});
+
+/**
+ * Ordered by the POSITION OF THE `--fin-canvas` DECLARATION, read with css-tree, not by
+ * searching for selector text. In the bundle every one of these selectors also appears as
+ * a PAINTER in `base.modifiers.css` hundreds of thousands of characters earlier — and as
+ * prose, since this file's comments ship with it — so a text scan reports an order that is
+ * not the cascade's. Measured: a first cut of this check read `indexOf('section.print
+ * [data-split-role="cover"]')` and found the painter at 556,303 while the arm is at
+ * 613,000-something, i.e. it failed a bundle whose order was correct.
+ */
+function assertCoverArmOrder(css, where) {
+  const csstree = require('css-tree');
+  const ast = csstree.parse(css, { positions: true });
+  const arms = [];
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      const sets = [...node.block.children].some((d) => d.type === 'Declaration' && d.property === '--fin-canvas');
+      if (!sets) return;
+      arms.push({ at: node.loc.start.offset, sel: csstree.generate(node.prelude) });
+    },
+  });
+  const find = (pred, what) => {
+    const hit = arms.find((a) => pred(a.sel));
+    assert.ok(hit, `${where}: could not find ${what} among the --fin-canvas rules`);
+    return hit.at;
+  };
+  const accentField = find((x) => x.includes('.list-tabular-cover') && x.includes(':not(.print)'), 'the accent-field arm (A1)');
+  const latSplit = find((x) => x === 'section.lat-split-cover', 'the lat-split-cover arm (A2)');
+  const categoryTint = find((x) => x.includes('data-split-mods~="cat-1"'), 'the category-tint arm (B)');
+  const printFace = find((x) => x.startsWith('section.print[data-split-role="cover"]'), "print's de-flood arm (D)");
+  assert.ok(
+    categoryTint > accentField,
+    `${where}: the category tint (0,2,1) must be declared AFTER the accent field (0,2,1) — they `
+      + 'are equal on specificity, so only source order makes the tint win on a split-panel cover '
+      + 'carrying cat-N',
+  );
+  assert.ok(
+    printFace > categoryTint && printFace > latSplit,
+    `${where}: print's de-flood must be declared LAST — it is (0,2,1) like the tint and higher `
+      + "than lat-split-cover's (0,1,1), and it has to beat both on a stamped cover under print",
+  );
+}
 
 test('the Studio finish generator emits the same token as the base layer', () => {
   const gen = fs.readFileSync(GENERATOR, 'utf8');

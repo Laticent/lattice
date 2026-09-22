@@ -394,7 +394,18 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
     const rule = block.match(/section\.spectrum-off\s*\{[^}]*\}/)[0];
     assert.doesNotMatch(rule, /--spectrum\s*:/, 'off must NOT redefine --spectrum (structural accents keep their style — the white-label baseline)');
     assert.match(rule, /border-top:\s*none/);
-    assert.match(block, /section\.divider:not\(\.light\)\.spectrum-off\s*\{\s*background:\s*var\(--surface-inverse\)/);
+    // AND IT DROPS THE BAR WITHOUT REPAINTING THE CANVAS (#2291). This used to assert
+    // `background: var(--surface-inverse)` — the shorthand, which resets every longhand at
+    // once and so clears the divider's rail, but also RESTATES the color at (0,3,1) and
+    // takes the canvas of any frame that paints its own. `background-image: none` says only
+    // the part that was meant. The assertion is now the negative one as well, because the
+    // shorthand is what the fix removed.
+    assert.match(block, /section\.divider:not\(\.light\)\.spectrum-off\s*\{\s*background-image:\s*none/);
+    assert.doesNotMatch(
+      block, /section\.(dark|divider[^{]*)\.spectrum-off\s*\{\s*background:\s/,
+      'a spectrum-off rule must not use the `background:` shorthand — it restates the color '
+        + "and takes a frame's own canvas with the bar (#2291)",
+    );
     // explicit styles restore a full-thickness bar on bookends/dark, gated off when an edge is set.
     assert.match(block, /section:is\(\.spectrum-solid, \.spectrum-duo, \.spectrum-mono\):not\(\.divider\):not\(\[class\*="spectrum-edge-"\]\)/);
   });
