@@ -192,6 +192,7 @@ test('no `--fin-canvas` rule in the BUNDLE mixes a `:has()` arm with a non-`:has
   const css = fs.readFileSync(BUNDLE, 'utf8');
   const ast = csstree.parse(css);
   const mixed = [];
+  let seen = 0;
   csstree.walk(ast, {
     visit: 'Rule',
     enter(node) {
@@ -200,11 +201,19 @@ test('no `--fin-canvas` rule in the BUNDLE mixes a `:has()` arm with a non-`:has
         (d) => d.type === 'Declaration' && d.property === '--fin-canvas',
       );
       if (!sets) return;
+      seen += 1;
       const arms = [...node.prelude.children].map((sel) => csstree.generate(sel));
       const withHas = arms.filter((a) => a.includes(':has('));
       if (withHas.length && withHas.length !== arms.length) mixed.push(arms.join(',\n    '));
     },
   });
+  // NON-VACUITY, which the source-side twin has (`assert.ok(rules.length)`) and this did
+  // not: with no `--fin-canvas` rule in the bundle at all, `mixed` is empty and this
+  // passes. Measured — renaming every `--fin-canvas` in the bundle to `--zzz-canvas` left
+  // this file 8/8 green, certifying a bundle in which the token does not exist. A build
+  // step that DROPS the declaration is the same class of event as one that merges the
+  // rules, which is what this test was written for.
+  assert.ok(seen, 'expected the bundle to carry `--fin-canvas` rules at all — none found');
   assert.deepEqual(
     mixed,
     [],

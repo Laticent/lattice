@@ -516,6 +516,22 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // the bundle, both gates passed 4/4 and the entire subject of this commit shipped
     // green. A refusal path catches forms it cannot PARSE; only this catches a form it
     // parses and builds WRONG.
+    // AND THE POPULATION IT GUARDS MUST BE THE POPULATION THE CROSS MEASURES. The loop
+    // below is over `forms`; the cross is built from `byFrame`. They are filled in two
+    // different statements, so their being equal is incidental, not asserted — and a
+    // loop over an EMPTY map passes. Measured: with `forms` left unpopulated, the
+    // classless-`<div>` probe AND the `topic.fact` arm deleted from the bundle went
+    // green again, 4/4 exit 0. That is the same vacuity this file closed in rounds four,
+    // five and six, shipped a fourth time inside the guard written to close it — so the
+    // guard now names its own population instead of trusting it.
+    const measured = [...new Set([...census.byFrame.values()].flatMap((set) => [...set]))].sort();
+    assert.deepEqual(
+      [...census.forms.keys()].sort(),
+      measured,
+      'the probe-match check and the cross are looking at different shape sets, so a shape '
+        + 'can be measured without ever being proved to match the selector it came from',
+    );
+
     await xPage.setContent('<article class="lattice"></article>');
     const mismatched = await xPage.evaluate((pairs) => {
       const host = document.querySelector('article');
