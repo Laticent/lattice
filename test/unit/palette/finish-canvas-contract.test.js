@@ -18,6 +18,7 @@ const path = require('node:path');
 // way, it just paints the wrong color.
 
 const FINISH_CSS = path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.finish.css');
+const BUNDLE = path.join(__dirname, '..', '..', '..', 'dist', 'lattice.css');
 const GENERATOR = path.join(__dirname, '..', '..', '..', 'docs', 'src', 'components', 'studio', 'finish-generate.ts');
 
 /** Strip /* … *​/ comments so prose mentioning a token is not mistaken for code. */
@@ -171,7 +172,7 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     );
   }
 
-  // ONE ARM IS THE PRINT FACE ITSELF, and it is recognised by keying ON `.print` rather
+  // ONE ARM IS THE PRINT FACE ITSELF, and it is recognized by keying ON `.print` rather
   // than by name. `section.print[data-split-role="cover"]` is the de-flood in
   // base.modifiers.css: a split cover's accent field would print as a page of near-black
   // toner, so print repaints it with the bookends' framed panel. Its `--fin-canvas` has
@@ -355,6 +356,79 @@ test('--fin-canvas is declared on `section`, so it is never undefined under a fi
   // and may be applied before the `.finish` class lands.
   assert.match(css, /(^|\n)section\s*\{\s*--fin-canvas:/, '--fin-canvas must be declared on `section`, not only on `section.finish`');
 });
+
+/**
+ * THE SOURCE ORDER OF THE COVER ARMS IS LOAD-BEARING, and nothing checked it.
+ *
+ * Three arms sit at (0,2,1) and two of them have to BEAT the one before them on order
+ * alone: the category tint over the accent field, and print's de-flood over both. Move
+ * `D` above `B` and a printed categorical split cover — `<section data-split-role="cover"
+ * data-split-mods="cat-3" class="content split-panel-split split-panel-cover form print">`,
+ * which `roleOpenTag` stamps in exactly that shape — paints rgb(236,236,236) while
+ * `--fin-canvas` resolves to the panel tint. Measured by the HARD RULE #25 checker against
+ * a bundle with that one swap: the computed-value cross passed 4/4 and this file passed
+ * 4/4, because the cross puts at most ONE attribute on a probe and so never builds the
+ * shape where the two rules collide.
+ *
+ * Asserted on SOURCE POSITION rather than on the cross, because that is where the fact
+ * lives — a declaration's position in `base.finish.css` is not a computed value, and the
+ * cross cannot reach the collision without a second attribute on the probe.
+ */
+test('the cover arms stay in the order their specificities require', () => {
+  // BOTH the source and the BUILT BUNDLE, because they answer different questions. The
+  // source is where an editor moves a rule; the bundle is where the cascade reads it, and
+  // `dark-canvas-ownership.test.js` exists because a build step can fold or reorder rules
+  // in a way no source-level check can see. All four arms live in one file today, so the
+  // two orders agree — asserting only one of them would stop being true the moment they
+  // did not.
+  for (const [where, file] of [['base.finish.css', FINISH_CSS], ['dist/lattice.css', BUNDLE]]) {
+    assertCoverArmOrder(fs.readFileSync(file, 'utf8'), where);
+  }
+});
+
+/**
+ * Ordered by the POSITION OF THE `--fin-canvas` DECLARATION, read with css-tree, not by
+ * searching for selector text. In the bundle every one of these selectors also appears as
+ * a PAINTER in `base.modifiers.css` hundreds of thousands of characters earlier — and as
+ * prose, since this file's comments ship with it — so a text scan reports an order that is
+ * not the cascade's. Measured: a first cut of this check read `indexOf('section.print
+ * [data-split-role="cover"]')` and found the painter at 556,303 while the arm is at
+ * 613,000-something, i.e. it failed a bundle whose order was correct.
+ */
+function assertCoverArmOrder(css, where) {
+  const csstree = require('css-tree');
+  const ast = csstree.parse(css, { positions: true });
+  const arms = [];
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      const sets = [...node.block.children].some((d) => d.type === 'Declaration' && d.property === '--fin-canvas');
+      if (!sets) return;
+      arms.push({ at: node.loc.start.offset, sel: csstree.generate(node.prelude) });
+    },
+  });
+  const find = (pred, what) => {
+    const hit = arms.find((a) => pred(a.sel));
+    assert.ok(hit, `${where}: could not find ${what} among the --fin-canvas rules`);
+    return hit.at;
+  };
+  const accentField = find((x) => x.includes('.list-tabular-cover') && x.includes(':not(.print)'), 'the accent-field arm (A1)');
+  const latSplit = find((x) => x === 'section.lat-split-cover', 'the lat-split-cover arm (A2)');
+  const categoryTint = find((x) => x.includes('data-split-mods~="cat-1"'), 'the category-tint arm (B)');
+  const printFace = find((x) => x.startsWith('section.print[data-split-role="cover"]'), "print's de-flood arm (D)");
+  assert.ok(
+    categoryTint > accentField,
+    `${where}: the category tint (0,2,1) must be declared AFTER the accent field (0,2,1) — they `
+      + 'are equal on specificity, so only source order makes the tint win on a split-panel cover '
+      + 'carrying cat-N',
+  );
+  assert.ok(
+    printFace > categoryTint && printFace > latSplit,
+    `${where}: print's de-flood must be declared LAST — it is (0,2,1) like the tint and higher `
+      + "than lat-split-cover's (0,1,1), and it has to beat both on a stamped cover under print",
+  );
+}
 
 test('the Studio finish generator emits the same token as the base layer', () => {
   const gen = fs.readFileSync(GENERATOR, 'utf8');

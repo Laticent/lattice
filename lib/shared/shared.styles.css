@@ -64,10 +64,13 @@ section.accent.dark {
    * AND IT DECLARES NO CANVAS AT ALL ANY MORE (#2291). It used to carry
    * `background-color: var(--bg)`, which is what `section.dark` declares one file over —
    * restated here only because this rule replaced that one wholesale. On an ordinary dark
-   * slide the restatement was a no-op; on a frame EXEMPT from `section.dark` because it
-   * paints its OWN canvas — a title, a cover, an imagery matte — this (0,2,1) rule
-   * out-specified the frame's (0,1,1) and flattened it to the deck ground, to draw a
-   * STRIPE. That is #2293's defect on the `accent` register, and it is the reason
+   * slide the restatement was a no-op; on a frame that paints its OWN canvas this (0,2,1)
+   * rule out-specified the frame's and flattened it to the deck ground, to draw a STRIPE.
+   * Two kinds of frame survive `section.dark` two different ways and this rule beat BOTH:
+   * a title or a cover is on `section.dark`'s exemption LIST and wins on source order at
+   * (0,1,1), while an `image`/`scene` matte composition is NOT on that list and wins on
+   * SPECIFICITY at (0,2,1) — which is the mechanism the next editor needs, and an earlier
+   * draft of this line called them all exempt. That is #2293's defect on the `accent` register, and it is the reason
    * `--fin-canvas` used to carry a `.dark.accent` exclusion. Measured, indaco, before:
    * `title dark accent` rgb(0,29,51) against the rgb(0,61,102) it paints for itself.
    * Dropping the line loses nothing: `section.dark` supplies the canvas for every slide

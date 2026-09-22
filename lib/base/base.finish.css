@@ -372,6 +372,9 @@ section {
  * beat the accent field at equal specificity, which only source order gives them. The
  * block below says which rule beats which and why.
  *
+ * MEASURED: over all 33 palettes, main leaves 3,976-12,628 rows per palette compositing
+ * against a color the slide does not paint, and this tree leaves 0 on every one.
+ *
  * GATED BY A COMPUTED-VALUE MATRIX IN REAL CHROMIUM,
  * `test/integration/invariants/finish-canvas-matrix.test.js`: 18 frames x 219 modifier
  * classes (every class the bundle uses in a section-subject rule) x every register

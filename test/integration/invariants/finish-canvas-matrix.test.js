@@ -431,10 +431,10 @@ function deriveVariants(css) {
  *
  * SCOPED TO MODE x REGISTER, NOT TO ALL 219 MODIFIERS, for the same reason the register
  * pairs above are: the interaction these selectors reason about is "an attribute-gated
- * painter against the canvas modifier that would otherwise repaint it". Thirty
- * attribute-variants across the eighteen frames x six modes x seven register slots is
- * ~1,260 rows; crossing them against every modifier instead would add ~46k and buy
- * nothing the selectors are written about.
+ * painter against the canvas modifier that would otherwise repaint it". Measured, the axis
+ * takes the cross from 48,636 cells to 60,263 -- 11,627 rows, +24%, +1.7s; crossing the
+ * attributes against every modifier instead would add roughly four times the whole cross
+ * and buy nothing the selectors are written about.
  *
  * `class`-VALUED ATTRIBUTE SELECTORS ARE SKIPPED, and proved covered rather than assumed:
  * `section:where([class*="tint-"], [class*="mark-"], [class~="backdrop-none"])` is a
@@ -515,6 +515,116 @@ function deriveSubjectAttributes(css) {
     },
   });
   return { byFrame, unbuildable, forms, classGuards };
+}
+
+/**
+ * THE CLASSES THAT DEFINE THE TOKEN AN ARM POINTS AT, which is a different question from
+ * "what modifies a frame" and the reason a whole family of rows passed VACUOUSLY.
+ *
+ * `--fin-canvas: var(--panel-fill)` on `section.split-panel-cover:is([data-split-mods~=
+ * "cat-N"])` is only meaningful where `--panel-fill` is DEFINED, and it is defined one
+ * component over, on `section.split-panel-split[data-split-mods~="cat-N"]` — a class the
+ * splitter stamps on the same section (`content split-panel-split split-panel-cover form`)
+ * and that none of the other derivations here has any reason to find. Without it both
+ * sides of the comparison are an unresolved `var()`, so the surface is `rgba(0,0,0,0)`,
+ * `--fin-canvas` is `rgba(0,0,0,0)`, and every one of those rows passed by matching
+ * nothing against nothing. Found by the HARD RULE #25 checker.
+ *
+ * So: read the token each `--fin-canvas` arm names, find the section-subject rules that
+ * DECLARE that token, and carry their classes onto the probe. `--surface-inverse` and
+ * `--accent` yield nothing — they are theme-level, declared at `:root` — which is exactly
+ * right: only a token defined by a CLASS needs the class to be present.
+ */
+function deriveTokenCarriers(css) {
+  const csstree = require('css-tree');
+  const ast = csstree.parse(css);
+  const frames = new Set(ALL_FRAMES);
+  /** frame -> Set of custom-property names its `--fin-canvas` arms point at */
+  const tokensByFrame = new Map();
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      const toks = [];
+      for (const d of node.block.children) {
+        if (d.type !== 'Declaration' || d.property !== '--fin-canvas') continue;
+        // css-tree parses a CUSTOM PROPERTY's value as `Raw`, not as a Function tree, so
+        // walking it for `var()` nodes finds nothing — which is how a first cut of this
+        // derivation returned an empty map and the guard below caught it. Read the text.
+        for (const m of csstree.generate(d.value).matchAll(/var\(\s*(--[\w-]+)/g)) toks.push(m[1]);
+      }
+      if (!toks.length) return;
+      for (const sel of node.prelude.children) {
+        csstree.walk(sel, {
+          visit: 'ClassSelector',
+          enter(c) {
+            if (!frames.has(c.name)) return;
+            if (!tokensByFrame.has(c.name)) tokensByFrame.set(c.name, new Set());
+            for (const t of toks) tokensByFrame.get(c.name).add(t);
+          },
+        });
+      }
+    },
+  });
+
+  const wanted = new Set([...tokensByFrame.values()].flatMap((s) => [...s]));
+  // A TOKEN WITH A GLOBAL DEFINITION NEEDS NO CARRIER, and dropping this filter made the
+  // derivation worse than useless: `--surface-inverse` is declared at `:root` by every
+  // theme AND remapped by `section.print`, so a naive version handed back `print` as a
+  // "carrier" for all nine inverse frames — which would have forced print mode onto every
+  // attribute row in the cross. What matters is a token NOTHING global defines, so the
+  // probe resolves it only when the class is present. `--panel-fill` is the one.
+  const globallyDefined = new Set();
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      const bare = [...node.prelude.children].some((sel) => {
+        const parts = [...sel.children];
+        if (parts.some((x) => x.type === 'Combinator')) return false;
+        if (parts.some((x) => x.type === 'ClassSelector' || x.type === 'AttributeSelector')) return false;
+        return true; // `:root`, `*`, a bare `section`, `html` …
+      });
+      if (!bare) return;
+      for (const d of node.block.children) {
+        if (d.type === 'Declaration' && wanted.has(d.property)) globallyDefined.add(d.property);
+      }
+    },
+  });
+  /** token -> Set of non-frame subject classes whose rule declares it */
+  const carriersByToken = new Map();
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      const declared = [...node.block.children]
+        .filter((d) => d.type === 'Declaration' && wanted.has(d.property) && !globallyDefined.has(d.property))
+        .map((d) => d.property);
+      if (!declared.length) return;
+      for (const sel of node.prelude.children) {
+        const parts = [...sel.children];
+        if (parts[0].type !== 'TypeSelector' || parts[0].name !== 'section') continue;
+        if (parts.some((x) => x.type === 'Combinator')) continue;
+        const classes = parts
+          .filter((x) => x.type === 'ClassSelector')
+          .map((x) => x.name)
+          .filter((c) => !frames.has(c));
+        if (!classes.length) continue;
+        for (const t of declared) {
+          if (!carriersByToken.has(t)) carriersByToken.set(t, new Set());
+          for (const c of classes) carriersByToken.get(t).add(c);
+        }
+      }
+    },
+  });
+
+  const out = new Map();
+  for (const [frame, toks] of tokensByFrame) {
+    const set = new Set();
+    for (const t of toks) for (const c of carriersByToken.get(t) || []) set.add(c);
+    if (set.size) out.set(frame, set);
+  }
+  return out;
 }
 
 /** `name="value"` back into the pair `setAttribute` takes. */
@@ -628,6 +738,44 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
         + 'frame-scoped half of the same axis',
     );
     assertClassGuardsCovered(attrs.classGuards, mods);
+    // THE SAME POPULATION GUARD THE SHAPE AXIS HAS, and for the same reason it has it:
+    // `attrs.forms` (what the probe-match loop proves) and `attrs.byFrame` (what the cross
+    // measures) are filled in two different statements, so their being equal is incidental.
+    // A derivation that built an attribute WRONG and skipped `forms.set` for it would go
+    // unproved and silently measure a section the painter never matches. Measured by the
+    // HARD RULE #25 checker on exactly that mutant: green, 4/4, with the 40 imagery rows
+    // this axis exists for measuring nothing.
+    const measuredAttrs = [...new Set([...attrs.byFrame.values()].flatMap((set) => [...set]))].sort();
+    assert.deepEqual(
+      [...attrs.forms.keys()].sort(), measuredAttrs,
+      'the attribute probe-match check and the cross are looking at different attribute sets, '
+        + 'so an attribute can be measured without ever being proved to match the selector it came from',
+    );
+    // THEME FIRST, because "is this token defined globally?" is a question about the
+    // stylesheet the PAGE loads, and `--surface-inverse` / `--accent` are declared at
+    // `:root` by the THEME, not by the bundle. Passing the bundle alone made every inverse
+    // frame carry `print` (the print band remaps `--surface-inverse`), which would have
+    // forced print mode onto every attribute row in the cross.
+    const carriers = deriveTokenCarriers(`${theme}\n${bundle}`);
+    // A CANVAS MODE IS NEVER A CARRIER, and this guard is what keeps the `globallyDefined`
+    // filter above honest across 33 palettes. `section.print` REMAPS `--surface-inverse`,
+    // so a theme that failed to declare that token at `:root` would hand `print` back as a
+    // "carrier" and force print mode onto every attribute row in the cross — silently
+    // measuring a different question than the one this file asks.
+    const modeClasses = CANVAS_MODES.filter(Boolean);
+    const badCarriers = [...carriers].flatMap(([frame, set]) =>
+      [...set].filter((c) => modeClasses.includes(c)).map((c) => `${frame} <- ${c}`));
+    assert.deepEqual(
+      badCarriers, [],
+      'a canvas MODE came back as a token carrier, which would pin every attribute row for '
+        + `that frame into one mode: ${badCarriers.join(', ')}`,
+    );
+    assert.ok(
+      (carriers.get('split-panel-cover') || new Set()).has('split-panel-split'),
+      "the class that DEFINES --panel-fill vanished from the carrier derivation — without it "
+        + "both sides of every cat-N row are an unresolved var() and the comparison is "
+        + 'rgba(0,0,0,0) against rgba(0,0,0,0)',
+    );
     // Both halves: a modifier alone, and the same modifier with `dark`. (3) above was
     // invisible to a dark-only cross and (2) to a single-class one.
     // EVERY FRAME IS BUILT IN EVERY DOM SHAPE ITS OWN CSS DISTINGUISHES. A canvas rule
@@ -679,16 +827,20 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
         // that hid `section.print[data-split-role="cover"]` and the two imagery mattes
         // from every previous revision of this file, because all three other derivations
         // walk `ClassSelector` nodes and an attribute is not one.
+        // The token-carrier classes ride every attribute row for this frame — see
+        // `deriveTokenCarriers`. For seventeen of the eighteen frames this is the empty
+        // string and nothing changes.
+        const carried = [...(carriers.get(f) || [])].join(' ');
         for (const attr of attrsFor(f, attrs)) {
           for (const m of CANVAS_MODES) {
             for (const r of ['', ...REGISTERS_NO_PRINT]) {
-              cases.push({ cls: [f, m, r].filter(Boolean).join(' '), child, attr });
+              cases.push({ cls: [f, carried, m, r].filter(Boolean).join(' '), child, attr });
               // WITH `dark` AS WELL, for the reason regression (3) above records: every
               // repainter but print needs `.dark`, so an axis that never sets it sees
               // only half of what an exclusion does. `print dark accent` with the role
               // stamp is exactly that row — the surface is the dark deck ground, not the
               // print de-flood, and the de-flood's own arm had to learn it.
-              if (m !== 'dark') cases.push({ cls: [f, 'dark', m, r].filter(Boolean).join(' '), child, attr });
+              if (m !== 'dark') cases.push({ cls: [f, carried, 'dark', m, r].filter(Boolean).join(' '), child, attr });
             }
           }
         }
@@ -799,8 +951,20 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // that used to stand here exempted the five accent covers outside `dark` and
     // `lat-split-cover` in every mode; both are fixed in `base.finish.css`, so RESIDUE is
     // empty and every row must match. A pin is a certificate, and the only honest number
-    // of them is zero — measured, indaco: this cross leaves 0 mismatches out of 11,178.
+    // of them is zero — measured, indaco: this cross leaves 0 mismatches out of 60,263.
     const RESIDUE = [];
+
+    // AN UNRESOLVED `var()` IS NOT A PASS. `rgba(0, 0, 0, 0)` on both sides compares EQUAL,
+    // so a row whose token the probe never defines is a row that measures nothing — which
+    // is how every `--panel-fill` row passed before the carrier classes above landed.
+    // `--fin-canvas` has `var(--bg)` as its declared default and every arm points at a
+    // token the slide defines, so transparent is always the probe's fault, never an answer.
+    const unresolved = rows.filter((r) => r.canvas === 'rgba(0, 0, 0, 0)').map((r) => r.cls);
+    assert.deepEqual(
+      unresolved.slice(0, 12), [],
+      `--fin-canvas resolves to nothing on ${unresolved.length} row(s), so they compare `
+        + `transparent against transparent and measure nothing:\n  ${unresolved.slice(0, 12).join('\n  ')}`,
+    );
 
     const key = (r) => `${r.cls} | ${r.surface} | ${r.canvas}`;
     const found = rows
@@ -817,6 +981,87 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     assert.deepEqual(
       gone, [],
       `these are pinned but now resolve correctly — remove them:\n  ${gone.join('\n  ')}`,
+    );
+  });
+
+  /**
+   * THE BAR RULES STILL REMOVE THE BAR, which nothing else in this file can see.
+   *
+   * After #2291 `section.dark.spectrum-off`, `section.dark:is(.spectrum-edge-*)` and the
+   * two divider carve-outs consist of `background-image: none` plus the three geometry
+   * longhands and NOTHING else. This cross compares `backgroundColor`, so 100% of what
+   * those rules now do is invisible to it — and the HARD RULE #25 checker proved the
+   * consequence: change `spectrum-off` to `background-image: var(--spectrum)`, so the
+   * register stops removing the hairline that is its entire purpose, and every gate in the
+   * repo stays green.
+   *
+   * Measured HERE rather than in the source contract because the question is what the
+   * CASCADE resolves to on a real section, not what one rule says: the divider's rail and
+   * the dark hairline are set by rules in two other files, and a source check would have to
+   * reimplement the cascade to know whether `off` won.
+   */
+  test('the spectrum registers still clear the bar, and only the bar', async () => {
+    const CASES = [
+      // [class list, what should be left]
+      ['content dark', 'image'],                   // the control: the hairline IS painted
+      ['content dark spectrum-off', 'none'],
+      ['content dark spectrum-edge-left', 'none'],
+      ['content dark spectrum-edge-off', 'none'],
+      ['divider', 'image'],                        // the control: the rail IS painted
+      ['divider spectrum-off', 'none'],
+      ['divider spectrum-edge-off', 'none'],
+      // `spectrum-edge:` moves the bar to a border and is EXEMPT on a divider, whose own
+      // rail stays — only `edge: off` clears that, on the row above.
+      ['divider spectrum-edge-left', 'image'],
+    ];
+    const rows = await xPage.evaluate((cases) => {
+      const host = document.querySelector('article');
+      return cases.map(([cls]) => {
+        const probe = document.createElement('section');
+        probe.className = cls;
+        host.appendChild(probe);
+        const cs = getComputedStyle(probe);
+        const out = {
+          cls,
+          image: cs.backgroundImage === 'none' ? 'none' : 'image',
+          color: cs.backgroundColor,
+          size: cs.backgroundSize,
+          position: cs.backgroundPosition,
+          repeat: cs.backgroundRepeat,
+        };
+        probe.remove();
+        return out;
+      });
+    }, CASES);
+    const wrong = rows
+      .map((r, i) => (r.image === CASES[i][1] ? null : `  ${r.cls}: background-image ${r.image}, expected ${CASES[i][1]}`))
+      .filter(Boolean);
+    assert.deepEqual(
+      wrong, [],
+      `a spectrum register no longer does what it exists to do:\n${wrong.join('\n')}`,
+    );
+    // AND ONLY THE BAR. The geometry longhands belong to the bar too — the hairline's
+    // `100% 1px`, the rail's `3.75px 100%` — and leaving them set meant an author's own
+    // `background-image` on the same section rendered at the bar's size. Measured by the
+    // checker: a full-bleed image became a 3.75px vertical rail on a dark spectrum-off
+    // divider. They are reset with the image; `background-color` is the one left alone.
+    const geometry = rows
+      .filter((_r, i) => CASES[i][1] === 'none')
+      .map((r) => (r.size === 'auto' && r.repeat === 'repeat' ? null : `  ${r.cls}: size ${r.size}, repeat ${r.repeat}`))
+      .filter(Boolean);
+    assert.deepEqual(
+      geometry, [],
+      "a rule that cleared the bar left the bar's GEOMETRY behind, so anything else painting "
+        + `an image on that section takes the bar's size:\n${geometry.join('\n')}`,
+    );
+    // The canvas is untouched — the whole subject of #2291, asserted on the two frames that
+    // paint one, so this test cannot pass by everything resolving to the deck ground.
+    const canvas = rows.find((r) => r.cls === 'divider spectrum-off');
+    const ground = rows.find((r) => r.cls === 'content dark spectrum-off');
+    assert.notEqual(
+      canvas.color, ground.color,
+      "`divider spectrum-off` must keep its own canvas — if it matches the deck ground, a "
+        + 'register is repainting a frame that paints its own surface again (#2291)',
     );
   });
 

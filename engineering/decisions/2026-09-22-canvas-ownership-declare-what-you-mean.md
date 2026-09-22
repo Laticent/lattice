@@ -78,13 +78,23 @@ removed — it replaced `section.dark` wholesale and copied the canvas line alon
 the rest, under a comment (#1528) explaining why the longhands must not be a
 shorthand. The comment was right about the shorthand and silent about the copy.
 
-### What survives, and why it is harmless
+### The bar is four longhands, not one
 
-`background-position`, `-size` and `-repeat` are no longer reset, so a frame keeps
-whatever the earlier rule set — a size for a layer that no longer exists. Audited
-against the built bundle: `section.accent.dark` is the only section-subject rule
-bundled after these that sets `background-image`, and it sets its own
-`background-size`, so nothing inherits a stale one.
+A first cut declared only `background-image: none` and argued the geometry longhands
+were inert with no image to apply to. That is true only while nothing else supplies
+an image, and something else can: a deck carries `<style>`, a theme is a stylesheet,
+and `dist/marp-kit/lattice.css` ships these rules to renderers we do not control.
+Measured with an author rule setting a full-bleed `background-image` on the section,
+`divider dark spectrum-off` rendered it as a **3.75px vertical rail** and
+`content dark spectrum-off` as a **1px strip** — the bar's own geometry, applied to
+somebody else's picture.
+
+`background-position`, `-size` and `-repeat` are reset with the image. The one
+longhand left alone is `background-color`, which is the whole point of the change.
+Found by the HARD RULE #25 checker, and the first cut's audit was reported backwards
+as well ("the only rule bundled *after* these" — `section.accent.dark` is bundled
+*before* them; the question that matters is what can win `background-image` at
+≥(0,2,1), and inside the engine nothing can).
 
 ### `divider` stops being the exception
 
@@ -137,16 +147,51 @@ whether the repainter should be repainting at all.
 
 - `test/integration/invariants/finish-canvas-matrix.test.js` — 18 frames × 219
   modifier classes × every register pair × every subject attribute × both DOM shapes,
-  60,263 cells per palette in real Chromium against the real bundle. Green with
-  nothing pinned.
+  60,263 cells per palette in real Chromium against the real bundle, on all 33
+  palettes. Green with nothing pinned: `main` leaves 3,976–12,628 rows per palette
+  compositing against a color the slide does not paint, this tree leaves 0 on every
+  one.
 - Computed styles off a **real render** (#2291's own acceptance shape):
   `examples/dark-canvas-ownership.md` with `spectrum: off`, `title` / `topic` /
   `closing` moved from `rgb(0,29,51)` to `rgb(0,61,102)`. Identical under
   `spectrum-edge: left`.
 - `examples/spectrum-canvas-ownership.md` (+ committed PDF) is the same deck's
   subject on a rendered surface.
-- Mutants: re-adding `background-color: var(--bg)` to `section.accent.dark`, and
-  restoring either `background:` shorthand, both fail.
+- Mutants, all of which fail: re-adding `background-color: var(--bg)` to
+  `section.accent.dark`; restoring either `background:` shorthand; making
+  `spectrum: off` stop clearing the hairline; leaving the bar's geometry longhands
+  behind; moving print's de-flood arm above the category tint; dropping the token
+  carriers; and leaving the attribute axis's probe-match population unpopulated.
+
+## What the independent checker found, and what it changed
+
+The HARD RULE #25 checker ran against the two commits and found no live
+`--fin-canvas` mismatch — including on an independent 9,072-cell sweep with attribute
+*pairs and triples*, which the shipped cross cannot generate. What it did find was
+four holes in the gate written to protect this change, and each is closed here:
+
+1. **The cover arms' source order was load-bearing and ungated.** Three arms sit at
+   (0,2,1) and two of them beat the one before them on order alone. With print's arm
+   moved above the category tint, a printed categorical split cover composites against
+   a color the page does not paint — and both gates passed 4/4, because the cross puts
+   at most one attribute on a probe and never builds the shape where they collide.
+   Gated now on source position, which is where that fact lives.
+2. **The rewritten bar rules were entirely unmeasured.** After this change they consist
+   of `background-image: none` plus geometry; the cross compares `backgroundColor`.
+   Making `spectrum: off` stop removing the hairline — the register's whole purpose —
+   passed every gate in the repo. A computed-value test now asserts the bar goes and
+   the canvas stays.
+3. **The attribute axis had no population guard**, though the shape axis beside it has
+   one and its comment records why. A derivation that built an attribute wrong and
+   skipped the proof would measure a section the painter never matches.
+4. **Every `--panel-fill` row passed vacuously.** `--panel-fill` is defined by
+   `section.split-panel-split[data-split-mods~="cat-N"]`, a class no derivation had
+   reason to find, so both sides of 3,080 rows were an unresolved `var()` comparing
+   `rgba(0,0,0,0)` to itself. A token-carrier derivation puts the defining class on the
+   probe, and an unresolved `--fin-canvas` is now a failure rather than a pass.
+
+It also caught three wrong cell counts and three stale or inverted sentences in the
+comments, all corrected. The geometry-longhand reset above is its finding too.
 
 **UNVERIFIED:** no WebKit or real-Safari render was driven (#2297 records that CI has
 none), and the PPTX and export-to-Marp paths were not exercised.

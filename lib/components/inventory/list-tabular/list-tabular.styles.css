@@ -555,8 +555,10 @@ section.list-tabular-cover {
   background: var(--accent); color: var(--on-accent);
   display: flex; flex-direction: column; justify-content: center; position: relative;
 }
+/* No `opacity` here -- 0.85 measured 4.40:1 on a light accent (#2292); the demotion is
+   size + tracking, per base.tokens.css. See base.modifiers.css `.lat-split-cover .split-feat-eye`. */
 section.list-tabular-cover .split-feat-eye {
-  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.85;
+  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase;
 }
 section.list-tabular-cover .split-feat-h {
   font-size: var(--fs-h1); font-weight: 800; line-height: var(--lh-tight);

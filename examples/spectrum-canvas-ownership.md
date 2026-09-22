@@ -28,12 +28,13 @@ Every slide here carries `spectrum: off`. The anchors keep the surface they pain
 ---
 
 <!-- _class: topic -->
+<!-- _track: [What it said] | How to fix it | The accent stripe -->
 
 `Section 01 · What it said`
 
 ## One shorthand, two effects
 
-`background: var(--bg)` clears every background longhand at once — which is how you remove a bar — and restates the color, which is how you lose a panel.
+The shorthand clears every background longhand at once — which is how you remove a bar — and restates the color, which is how you lose a panel.
 
 ---
 

@@ -251,11 +251,29 @@ section.spectrum-off { border-top: none; }
  * choice as "drop the specificity, or grow the divider carve-out to all four anchors"; both
  * treat the color reset as a given, and it never was.
  *
- * The other longhands (`background-position`, `-size`, `-repeat`) survive where the
- * shorthand used to reset them. With no image they are inert -- a size for a layer that
- * does not exist. */
-section.dark.spectrum-off { background-image: none; }
-section.divider:not(.light).spectrum-off { background-image: none; }
+ * THE GEOMETRY LONGHANDS ARE RESET TOO, and leaving them out was wrong in a way that is
+ * easy to miss. `background-position`, `-size` and `-repeat` are part of the BAR, not part
+ * of the canvas -- the hairline's `100% 1px`, the rail's `3.75px 100%` -- and the shorthand
+ * used to clear them along with the image. With only `background-image: none` they survive,
+ * and they are inert only while nothing else supplies an image. Something else can: a deck
+ * carries `<style>`, a theme is a stylesheet, and `dist/marp-kit/lattice.css` ships these
+ * rules to renderers we do not control. Measured, with an author rule setting a full-bleed
+ * `background-image` on the section: `divider dark spectrum-off` rendered it as a 3.75px
+ * vertical rail and `content dark spectrum-off` as a 1px strip. So these rules clear the
+ * whole bar and nothing else -- four longhands out of five, `background-color` untouched.
+ * Found by the HARD RULE #25 checker. */
+section.dark.spectrum-off {
+  background-image: none;
+  background-position: 0% 0%;
+  background-size: auto;
+  background-repeat: repeat;
+}
+section.divider:not(.light).spectrum-off {
+  background-image: none;
+  background-position: 0% 0%;
+  background-size: auto;
+  background-repeat: repeat;
+}
 
 /* EDGE — move the section-edge bar to a chosen side (per-side border-image, export-safe).
    The bar width matches base.elements' top border: (--_sec-1cqi * 0.3125). A `divider`
@@ -285,9 +303,17 @@ section.spectrum-edge-bottom:not(.divider) {
  * clears that, on the line below. */
 section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.divider) {
   background-image: none;
+  background-position: 0% 0%;
+  background-size: auto;
+  background-repeat: repeat;
 }
 /* the divider's default is a left rail; edge:off clears it deck-wide. */
-section.divider:not(.light).spectrum-edge-off { background-image: none; }
+section.divider:not(.light).spectrum-edge-off {
+  background-image: none;
+  background-position: 0% 0%;
+  background-size: auto;
+  background-repeat: repeat;
+}
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 
