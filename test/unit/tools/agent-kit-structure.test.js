@@ -619,12 +619,13 @@ test('agent kit structure', { skip }, async (t) => {
 	 * contradicting the kit around it.
 	 */
 	/**
-	 * Both tolerate whitespace before the `>` of the end tag. `</script >` is valid
-	 * HTML, and a regex that cannot match it is what CodeQL's bad-HTML-filtering
-	 * query flags — our generated tags never carry it, but these run over every
-	 * markdown file in the kit, including the ones copied verbatim from the repo.
+	 * Matches the OPENING tag only, and deliberately never the end tag. A pattern that
+	 * spans `<script …></script>` is an HTML tag filter as far as CodeQL's
+	 * bad-HTML-filtering query is concerned, and widening it to accept `</script >` did
+	 * not satisfy the query — correctly, because the answer for reading a list of
+	 * sources is not a more permissive tag regex. The expected side now comes from
+	 * `RUNTIME_SCRIPT_SRCS`, so this only has to FIND the tags a file carries.
 	 */
-	const SCRIPT_TAG_RE = /<script src="([^"]+)"><\/script\s*>/g;
 	const SCRIPT_SRC_RE = /<script[^>]+src="([^"]+)"[^>]*>/g;
 
 	const readKit = (rel) => fs.readFileSync(path.join(KIT, rel), 'utf8');
@@ -822,8 +823,7 @@ test('agent kit structure', { skip }, async (t) => {
 	 * desynchronise them; this arm is what says so.
 	 */
 	await t.test('every stated runtime-script count matches the real tag list', () => {
-		const { RUNTIME_SCRIPTS } = require('../../../lib/core/marp-bundle.js');
-		const names = [...RUNTIME_SCRIPTS.matchAll(SCRIPT_TAG_RE)].map((m) => m[1]);
+		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
 		const word = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'][names.length];
 		assert.ok(word, `${names.length} runtime scripts — extend the word list`);
 
@@ -845,11 +845,10 @@ test('agent kit structure', { skip }, async (t) => {
 	 * hold in each of them.
 	 */
 	await t.test('every kit deck carries the runtime tags in execution order', () => {
-		const { RUNTIME_SCRIPTS } = require('../../../lib/core/marp-bundle.js');
-		const names = [...RUNTIME_SCRIPTS.matchAll(SCRIPT_TAG_RE)].map((m) => m[1]);
+		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
 		const bad = [];
 		for (const f of fs.readdirSync(path.join(KIT, 'examples'))) {
-			const got = [...readKit(`examples/${f}`).matchAll(SCRIPT_TAG_RE)].map((m) => m[1]);
+			const got = [...readKit(`examples/${f}`).matchAll(SCRIPT_SRC_RE)].map((m) => m[1]);
 			if (got.length && got.join(',') !== names.join(',')) bad.push(`examples/${f}: ${got.join(', ')}`);
 		}
 		assert.deepEqual(bad, [], `a shipped deck's runtime tags differ from ${names.join(', ')}`);

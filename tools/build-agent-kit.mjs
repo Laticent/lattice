@@ -1962,23 +1962,20 @@ function exampleDecks() {
 // split out of the runtime bundle, the marp path gained a third tag, and this copy
 // silently kept emitting two — HARD RULE #1, in the small. Reading the one source
 // means a fourth engine lands here for free, and a rename cannot desynchronise them.
-const { RUNTIME_SCRIPTS, MARP_CLI_RANGE } = require('../lib/core/marp-bundle.js');
+const { RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_CLI_RANGE } = require('../lib/core/marp-bundle.js');
 const RUNTIME_TAGS = RUNTIME_SCRIPTS.trim().split('\n');
 
 /**
- * The runtime script FILENAMES, read back out of the tags rather than restated.
+ * The runtime script FILENAMES. `render/` needs the bare names twice — once to
+ * `curl` them, once to build CDN URLs.
  *
- * `render/` needs the bare names twice — once to `curl` them, once to build CDN
- * URLs — and the tags are already the one source (see above). Parsing them back
- * costs a regex and removes the second place a fourth engine would have to be
- * added by hand.
+ * Taken straight from the exported list rather than parsed back out of the rendered
+ * tags. The tag block is now DERIVED from this same array in marp-bundle.js, so
+ * re-parsing it would be reading our own rendering of a list we can simply read —
+ * and the tag-shaped regex that did it was what CodeQL's bad-HTML-filtering query
+ * flagged, correctly enough that widening the pattern was the wrong answer.
  */
-const RUNTIME_SCRIPT_NAMES = RUNTIME_TAGS.flatMap((t) => {
-  // `\\s*` before the `>`: `</script >` is valid HTML, and a regex that cannot match
-  // it is what CodeQL's bad-HTML-filtering-regexp query flags.
-  const m = /<script src="([^"]+)"><\/script\s*>/.exec(t);
-  return m ? [m[1]] : [];
-});
+const RUNTIME_SCRIPT_NAMES = RUNTIME_SCRIPT_SRCS;
 
 /**
  * The two ways to reach a published kit asset, and they are NOT interchangeable.
