@@ -55,8 +55,10 @@ verify    — …
 ```
 
 The five fields are the brief's own (`engineering/workflow.md` §The continuation brief),
-so copy the item across as the brief states it. `origin`, `priority`, `recorded`, one
-`#` title and a `done when` line are required. `checkFollowups` in
+so copy the item across as the brief states it. `origin` and `priority` (both matching
+the file name), `recorded`, a `#` title outside any code fence, and a line starting
+`done when —` are required. A `backfill: true` file is exempt from the `done when` line,
+because one backfilled brief predates that field and the copy is kept verbatim. `checkFollowups` in
 `tools/check-ownership.js`, via `build:check`, fails on a missing one. `source` is
 optional.
 
@@ -64,6 +66,7 @@ optional.
 
 - **Add** the file in the same PR whose brief leaves the item pending.
 - **Delete** the file in the PR that finishes the item, or that finds it already done.
+  If a handoff issue lists the item, tick its box in the same PR.
   The deletion is the record, as a closed issue would be.
 - **Promote** an item to an issue when it needs a board column, an owner or a
   discussion. Delete the file in the same PR and tag the brief `[#N]` from then on.

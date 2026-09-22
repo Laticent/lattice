@@ -6,7 +6,8 @@
  * and a chat transcript. In the two months before this ledger, 29 of 506 merged PRs left
  * 79 such items in their final brief, while 4 handoff issues were filed after #2215 made
  * them the rule. Each item now gets one file here, like changelog.d/: one file per item,
- * so parallel PRs never edit the same region. The PR that finishes an item deletes its file. Contract: followups.d/README.md.
+ * so parallel PRs never edit the same region. The PR that finishes an item deletes its file.
+ * Contract: followups.d/README.md.
  *
  * The FORMAT IS DEFINED ONCE, here. `checkFollowups` in tools/check-ownership.js only
  * surfaces what `followupProblems()` reports, as checkChangelogFragments does for
@@ -22,48 +23,52 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIR = path.join(ROOT, 'followups.d');
-const NAME = /^(\d+)-p\d+-[a-z0-9][a-z0-9-]*\.md$/;
+const NAME = /^(\d+)-p(\d+)-[a-z0-9][a-z0-9-]*\.md$/;
 // The fields a continuation brief carries per item (engineering/workflow.md §The continuation
 // brief). A new item must carry `done when`: without an acceptance check, nobody can close it.
-const REQUIRED_FIELD = /\bdone when\b/i;
+// Anchored to a line start, so a title that merely says "done when" does not count.
+const REQUIRED_FIELD = /^\s*done when\s*—/im;
 
 function parse(src) {
-  const m = src.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  // No CRLF handling: .gitattributes normalizes committed files to LF.
+  const m = src.match(/^---\n([\s\S]*?)\n---[ \t]*(?:\n|$)([\s\S]*)$/);
   if (!m) return null;
   const meta = {};
   for (const line of m[1].split('\n')) {
     const kv = line.match(/^([a-z_]+):\s*(.*)$/);
     if (kv) meta[kv[1]] = kv[2].trim();
   }
-  const title = (m[2].match(/^# (.+)$/m) || [])[1];
+  // Skip fenced blocks, so a `# comment` inside quoted material is not taken as the title.
+  const prose = m[2].replace(/^(```|~~~)[\s\S]*?^\1.*$/gm, '');
+  const title = (prose.match(/^# (.+)$/m) || [])[1];
   return { meta, body: m[2], title };
 }
 
 /** Every item as { file, origin, priority, title }, sorted by file name. */
-function listFollowups() {
-  if (!fs.existsSync(DIR)) return [];
-  return fs.readdirSync(DIR)
+function listFollowups(dir = DIR) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
     .filter((f) => f.endsWith('.md') && f !== 'README.md')
     .sort()
     .map((file) => {
-      const p = parse(fs.readFileSync(path.join(DIR, file), 'utf8')) || { meta: {} };
+      const p = parse(fs.readFileSync(path.join(dir, file), 'utf8')) || { meta: {} };
       return { file, origin: p.meta.origin, priority: p.meta.priority, title: p.title, backfill: p.meta.backfill === 'true' };
     });
 }
 
 /** One string per defect. A missing followups.d/ is a defect too: a gate that scans nothing is also a claim. */
-function followupProblems() {
-  if (!fs.existsSync(DIR)) return ['followups.d/ is missing — the ledger of unticketed pending work lives there (followups.d/README.md).'];
+function followupProblems(dir = DIR) {
+  if (!fs.existsSync(dir)) return ['followups.d/ is missing — the ledger of unticketed pending work lives there (followups.d/README.md).'];
   const problems = [];
-  for (const file of fs.readdirSync(DIR)) {
+  for (const file of fs.readdirSync(dir)) {
     if (file === 'README.md') continue;
     const where = `followups.d/${file}`;
     const name = file.match(NAME);
     if (!name) { problems.push(`${where}: name must be <origin-pr>-p<n>-<slug>.md (lower-case slug).`); continue; }
-    const p = parse(fs.readFileSync(path.join(DIR, file), 'utf8'));
+    const p = parse(fs.readFileSync(path.join(dir, file), 'utf8'));
     if (!p) { problems.push(`${where}: needs YAML front matter between --- fences.`); continue; }
     if (p.meta.origin !== name[1]) problems.push(`${where}: front matter \`origin: ${name[1]}\` must match the file name.`);
-    if (!/^P\d+$/.test(p.meta.priority || '')) problems.push(`${where}: front matter needs \`priority: P<n>\`.`);
+    if (p.meta.priority !== `P${name[2]}`) problems.push(`${where}: front matter \`priority: P${name[2]}\` must match the file name.`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.meta.recorded || '')) problems.push(`${where}: front matter needs \`recorded: YYYY-MM-DD\`.`);
     if (!p.title) problems.push(`${where}: needs one \`# <the change, one line>\` heading.`);
     // Backfilled items are verbatim copies of older briefs, and one of them predates the

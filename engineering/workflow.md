@@ -1497,7 +1497,7 @@ PRIORITIES — work them in this order
                     tools/pixel-check.js | tools/screenshot.js @1440/820/390 |
                     npm run bench before/after>
        verify    — <tier 0 gates | tier 1 checker | tier 2 trio>, because <reason>
-  P2 · [no ticket] <the change, one line>
+  P2 · [followups.d/<origin-pr>-p<n>-<slug>.md] <the change, one line>
        …same five fields…
   P3 · …
 
@@ -1595,7 +1595,9 @@ ordering that makes it work.
    recoverable from the repo; only the author can settle it. Re-stamp the sha
    when you push again — a base naming the commit *before* the one that added the
    card's own evidence tool is worse than no sha.
-6. **Close it by hand.** Tick the items a PR delivered, then — if anything
+6. **Close it by hand.** Tick the items a PR delivered, and delete their
+   `followups.d/` files in that same PR (the file is the record a session reads;
+   the box is the record the board shows, so neither may outlive the other), then — if anything
    remains — rewrite the remainder into a fresh handoff issue and close this one
    with a pointer to it. A partially-done handoff is never left open to rot, and
    never closed with items still unticked.
