@@ -321,7 +321,7 @@ graduates from "new" to "documented". Treat them like
 
 - Small, focused units. One logical change per commit.
 - Message format: `area(scope): short summary` — follow `git log` for the established pattern.
-- If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, then run `npm run gotchas:index` — `engineering/gotchas.md` is GENERATED and anything written into it is deleted on the next regeneration.
+- If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, then run `npm run gotchas:index` — `engineering/gotchas.md` is GENERATED and anything written into it is deleted on the next regeneration. **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes both `npm run gotchas:index` and `build:check` refuse and name the entry. Put the detail in the entry body, where nobody pays for it until they open the topic file.
 - Gallery edits: rebuild the PDF (`npm run preview -- <deck>` during dev; include the rebuilt PDF in the PR's final commit).
 - Feature decks: rebuild `examples/<slug>.pdf` and include it in the same commit as the `.md` change.
 

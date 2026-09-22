@@ -3,7 +3,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { slugify, parseHeadings, collect, render, rowFor, headingFor, verify, splice, FOOTER } = require('../../../tools/build-gotchas-index');
+const { slugify, parseHeadings, collect, render, rowFor, headingFor, billedRow, rowCostProblems, verify, splice, main, FOOTER, ROW_CAP } = require('../../../tools/build-gotchas-index');
 
 // A fixture topic, shaped like what collect() returns — including the anchor map,
 // which is what rowFor reads.
@@ -174,6 +174,131 @@ describe('gotchas-index', () => {
     });
     test('throws when markers are missing', () => {
       assert.throws(() => splice('no markers here', 'x'), /markers/);
+    });
+  });
+
+  describe('rowCostProblems (the per-row budget)', () => {
+    test('an ordinary row is silent', () => {
+      assert.deepEqual(rowCostProblems([topic('css.md', 'CSS', ['A reset declaration does nothing'])]), []);
+    });
+
+    // The heading is the lever precisely because it is paid twice — as the link label
+    // and again, slugged, as the anchor. A heading a little over HALF the cap is
+    // therefore already over it, and that is the number an author has to feel.
+    test('a long heading trips it — the heading is paid TWICE per row', () => {
+      const long = `A symptom sentence that just keeps going ${'and going '.repeat(11)}forever`;
+      assert.ok(long.length < ROW_CAP, 'sanity: the heading ALONE is inside the cap');
+      const [problem] = rowCostProblems([topic('css.md', 'CSS', [long])]);
+      assert.match(problem, /over the 280 cap/);
+      assert.match(problem, /rendered TWICE per row/);
+      assert.match(problem, /^css\.md » "A symptom sentence/, 'the message must name the offending entry');
+    });
+
+    // THE MERGE-SAFETY PROPERTY, and the reason the filename is not billed. A topic
+    // filename is shared by every entry under it, so billing it would let PR A (rename
+    // the topic) and PR B (add a near-cap entry) each pass alone while the second to
+    // merge fails for the other's change — #1547, with the error blaming a heading its
+    // author never touched. The cost of an entry must depend only on that entry.
+    test('the topic filename is NOT billed — a rename cannot re-price a sibling entry', () => {
+      const heading = `A heading sized to sit just under the cap ${'padding '.repeat(9)}end`;
+      const short = topic('ci.md', 'CI', [heading]);
+      assert.deepEqual(rowCostProblems([short]), [], 'sanity: this entry fits');
+      const renamed = topic(`${'a'.repeat(80)}.md`, 'Renamed', [heading]);
+      assert.ok(rowFor(renamed, heading).length > ROW_CAP, 'sanity: the FULL row is over the cap');
+      assert.deepEqual(rowCostProblems([renamed]), [], 'a topic rename must not trip a sibling entry');
+    });
+
+    test('billedRow is the heading twice and nothing else', () => {
+      const b = billedRow(topic('ci.md', 'CI', ['A symptom']), 'A symptom');
+      assert.equal(b, '- [A symptom](#a-symptom)');
+      assert.ok(!b.includes('ci.md'), 'the topic filename must not be billed');
+    });
+
+    // The problem quotes a TRUNCATED heading — an over-cap row is over-cap because its
+    // heading is long, so echoing it whole would print the thing it is complaining about.
+    test('the message truncates the heading it names', () => {
+      const long = 'x'.repeat(400);
+      const [problem] = rowCostProblems([topic('css.md', 'CSS', [long])]);
+      assert.ok(problem.includes(`"${'x'.repeat(80)}…"`), `got: ${problem.slice(0, 160)}`);
+      assert.ok(problem.length < 600, `the message is itself ${problem.length} characters`);
+    });
+
+    test('every offending entry is reported, not just the first', () => {
+      const long = 'y'.repeat(200);
+      assert.equal(rowCostProblems([topic('css.md', 'CSS', [long, `${long}z`])]).length, 2);
+    });
+
+    // NO aggregate over the corpus here — not even "the widest row is still near the cap".
+    // A PR that shortens or deletes the widest gotcha heading would fail such an assertion
+    // for doing exactly what the cap's error message asks of it. Per-entry is the only safe
+    // shape (#1547); the cap's ratchet value is a design fact, recorded in the tool's header.
+    test('every entry in the live corpus is inside the cap', () => {
+      assert.deepEqual(rowCostProblems(collect().topics), []);
+    });
+  });
+
+  // The cap is only a GATE because of ten lines in `main`. Deleting them, moving them
+  // after the write, or weakening the condition leaves every assertion above green — so
+  // these drive the real CLI entry point against a fixture corpus instead.
+  describe('main — the wiring that makes the cap a gate', () => {
+    const fsx = require('node:fs');
+    const os = require('node:os');
+    const pathx = require('node:path');
+    const BEGIN = '<!-- gotchas-index:begin -->';
+    const END = '<!-- gotchas-index:end -->';
+
+    // A fixture repo: one topic file, one index with empty markers. `quiet` swallows the
+    // tool's own stderr so a deliberate refusal does not look like a broken test run.
+    const fixture = (headings) => {
+      const root = fsx.mkdtempSync(pathx.join(os.tmpdir(), 'gotchas-gate-'));
+      const dir = pathx.join(root, 'gotchas');
+      fsx.mkdirSync(dir);
+      fsx.writeFileSync(pathx.join(dir, 'ci.md'), `# Gotchas — CI\n\n${headings.map((h) => `## ${h}\n\nbody\n`).join('\n')}`);
+      const index = pathx.join(root, 'gotchas.md');
+      fsx.writeFileSync(index, `# Gotchas\n\n## Symptom index\n\n${BEGIN}\n${END}\n`);
+      return { dir, index };
+    };
+    // Captures the tool's stderr rather than only swallowing it: an exit code of 1 alone
+    // cannot tell a CAP refusal from a stale-index refusal, and check mode returns 1 for
+    // both. Removing the cap block from `main` left the exit-code-only version green.
+    const capture = (fn) => {
+      const w = process.stderr.write.bind(process.stderr);
+      let err = '';
+      process.stderr.write = (chunk) => { err += chunk; return true; };
+      try { return { code: fn(), err }; } finally { process.stderr.write = w; }
+    };
+
+    test('write mode REFUSES an over-cap row and leaves the index untouched', () => {
+      const { dir, index } = fixture([`A heading well past the cap ${'and then some more '.repeat(12)}end`]);
+      const before = fsx.readFileSync(index, 'utf8');
+      const { code, err } = capture(() => main([], { dir, index }));
+      assert.equal(code, 1, 'write must exit 1');
+      assert.match(err, /over the 280-character cap/, 'it must refuse for the CAP, not for something else');
+      assert.equal(fsx.readFileSync(index, 'utf8'), before, 'it must not emit a row it would refuse to certify');
+    });
+
+    test('check mode REFUSES the same row', () => {
+      const { dir, index } = fixture([`A heading well past the cap ${'and then some more '.repeat(12)}end`]);
+      const { code, err } = capture(() => main(['--check'], { dir, index }));
+      assert.equal(code, 1);
+      assert.match(err, /over the 280-character cap/, 'check returns 1 for a stale index too — it must say CAP');
+    });
+
+    // The negative control: without it, a `main` that returned 1 unconditionally would
+    // pass both assertions above.
+    test('an in-cap corpus writes and then checks clean', () => {
+      const { dir, index } = fixture(['A short symptom']);
+      assert.equal(main([], { dir, index }), 0, 'write must succeed');
+      assert.match(fsx.readFileSync(index, 'utf8'), /- \[A short symptom\]\(gotchas\/ci\.md#a-short-symptom\)/);
+      assert.equal(main(['--check'], { dir, index }), 0, 'check must then pass');
+    });
+
+    test('the cap refuses BEFORE the index is read, so a missing index still reports the cap', () => {
+      const { dir, index } = fixture([`A heading well past the cap ${'and then some more '.repeat(12)}end`]);
+      fsx.rmSync(index);
+      const { code, err } = capture(() => main([], { dir, index }));
+      assert.equal(code, 1, 'it must return 1, not throw ENOENT');
+      assert.match(err, /over the 280-character cap/);
     });
   });
 

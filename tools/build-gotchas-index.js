@@ -241,6 +241,83 @@ function headingFor(topic) {
   return `### [${topic.title}](gotchas/${topic.file})`;
 }
 
+/**
+ * THE PER-ROW COST CAP — the budget this index can actually be held to.
+ *
+ * The generated block is 197 rows, 14 topic headings and a footer: 9,409 tokens
+ * (o200k_base, at the commit that added this cap), of which the ROWS are 9,117. It grows
+ * by one row per gotcha, forever, and until now nothing bounded how wide a row got.
+ * `build-decisions-index.js` already carries this instrument for its sibling index; this
+ * is the same instrument, on the lever this index actually has.
+ *
+ * WHY A ROW CAP AND NOT A FILE TOTAL. A file total is an aggregate over EVERY entry, so
+ * the PR that trips it is being billed for 196 predecessors' contributions and has no
+ * local fix. A per-row cap holds each PR to exactly what it added — the same principle
+ * #1547 applied to correctness, applied to cost. It is also merge-safe by construction:
+ * two concurrent PRs each adding a gotcha both pass, in either order, which is the one
+ * property this generator's whole WRITE-vs-CHECK split exists to preserve (see header).
+ * Nothing here — and nothing in this file's TESTS — may assert an aggregate over the
+ * corpus, including "the widest row is still close to the cap": a PR that shortens or
+ * deletes the widest gotcha heading would fail such an assertion for doing exactly what
+ * the cap's own error message asks for.
+ *
+ * WHAT IS BILLED, AND WHY NOT THE WHOLE ROW. The measured length is `- [HEADING](#ANCHOR)`
+ * — the entry heading, twice, because the ANCHOR is that heading slugged. The topic
+ * FILENAME the row also carries is deliberately EXCLUDED, for the same reason
+ * `build-decisions-index.js` strips the successor pointer: it is shared by every entry
+ * under the topic, so billing it makes a row's cost non-local. Measured: rename
+ * `css.md` to `styling.md` in one PR and add a near-cap css.md entry in another, and each
+ * passes alone while the second to merge fails for its predecessor's rename — the exact
+ * #1547 shape this cap exists to avoid, with an error message blaming a heading its
+ * author never touched. Excluding the filename makes the billed quantity precisely what
+ * the author controls, so the refusal can name one lever and be right every time.
+ *
+ * WHAT THE NUMBER IS. Measured over the live corpus: billed length p50 150 characters,
+ * p90 194, max 274. The cap sits just above today's widest row, so it is a RATCHET at the
+ * corpus, never an aspirational target nothing can hit. It leaves a typical entry about
+ * 135 characters of heading — already more than a scannable symptom needs.
+ *
+ * THE HEADROOM IS SMALL, ON PURPOSE, AND THAT HAS A COST. 280 leaves the widest live row
+ * six characters, which is THREE characters of heading because the heading is billed
+ * twice. An editorial touch to that one heading — a clarity pass, a #21 sweep — will trip
+ * the cap and have to shorten it. That is what a ratchet at the corpus means, and the
+ * precedent sits just as tight (max 281, cap 285). Raise the cap only with the measurement
+ * that justifies it, never to make one edit pass.
+ *
+ * CHARACTERS, NOT TOKENS. The cap counts characters because that is what an author can see
+ * and act on. It is a proxy: across the live corpus a row costs 0.23-0.36 tokens per
+ * character, so a 280-character row is roughly 65-100 tokens. Close enough to bound growth,
+ * and not the same thing as a token budget.
+ */
+const ROW_CAP = 280;
+
+/**
+ * What one row costs its author: the heading as the link label, and the heading again as
+ * the anchor. Deliberately NOT `rowFor` — see the docblock on the topic filename.
+ */
+function billedRow(topic, entry) {
+  return `- [${entry}](#${topic.anchors.get(entry)})`;
+}
+
+/** Per-entry, per-row: the check a single PR can be held responsible for. */
+function rowCostProblems(topics) {
+  const problems = [];
+  for (const topic of topics) {
+    for (const entry of topic.entries) {
+      const billed = billedRow(topic, entry).length;
+      if (billed <= ROW_CAP) continue;
+      problems.push(
+        `${topic.file} » "${entry.slice(0, 80)}${entry.length > 80 ? '…' : ''}": the heading costs ` +
+          `${billed} characters of index row, over the ${ROW_CAP} cap. It is rendered TWICE per row ` +
+          '(link label, then slugged as the anchor) and paid on every read of the index, so a ' +
+          'character here costs two. Shorten it to a symptom a reader can scan and move the ' +
+          'detail into the entry body, where nobody pays for it until they open the topic file.',
+      );
+    }
+  }
+  return problems;
+}
+
 function render(topics) {
   const lines = [BEGIN, ''];
   for (const topic of topics) {
@@ -384,16 +461,29 @@ function splice(indexText, block) {
   return indexText.slice(0, b) + block + indexText.slice(e + END.length);
 }
 
-function main(argv) {
+// `dir`/`index` are injectable ONLY so the tests can drive the real CLI path — the write
+// refusal, the check refusal, the exit codes — against a fixture corpus. Nothing in the
+// repo passes them; a gate whose wiring no test exercises is a gate on the honor system.
+function main(argv, { dir = DIR, index = INDEX } = {}) {
   const check = argv.includes('--check');
-  const { topics, errors } = collect();
+  const { topics, errors } = collect(dir);
   if (errors.length) {
     process.stderr.write(`gotchas-index: ${errors.length} malformed topic file(s):\n`);
     for (const e of errors) process.stderr.write(`  ✗ ${e}\n`);
     return 1;
   }
+  // The per-row cost cap fails BOTH modes: write must not emit a row it would then
+  // refuse to certify, and the author needs to hear it from `npm run gotchas:index`
+  // rather than from a gate two commands later.
+  const oversize = rowCostProblems(topics);
+  if (oversize.length) {
+    process.stderr.write(`gotchas-index: ${oversize.length} row(s) over the ${ROW_CAP}-character cap:\n`);
+    for (const p of oversize) process.stderr.write(`  ✗ ${p}\n`);
+    return 1;
+  }
+
   const entryCount = topics.reduce((a, t) => a + t.entries.length, 0);
-  const indexText = fs.readFileSync(INDEX, 'utf8');
+  const indexText = fs.readFileSync(index, 'utf8');
 
   if (check) {
     const problems = verify(indexText, topics);
@@ -412,10 +502,10 @@ function main(argv) {
     process.stdout.write(`gotchas-index OK — ${entryCount} entries, index already current.\n`);
     return 0;
   }
-  fs.writeFileSync(INDEX, next);
+  fs.writeFileSync(index, next);
   process.stdout.write(`gotchas-index: rewrote ${entryCount} entries across ${topics.length} topics into engineering/gotchas.md\n`);
   return 0;
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { slugify, parseHeadings, collect, render, rowFor, headingFor, parseIndex, verify, splice, FOOTER };
+module.exports = { slugify, parseHeadings, collect, render, rowFor, headingFor, billedRow, rowCostProblems, parseIndex, verify, splice, main, FOOTER, ROW_CAP };

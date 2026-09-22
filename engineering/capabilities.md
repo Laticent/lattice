@@ -60,8 +60,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
 | `css:build` | Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet. |
 | `css:check` | Freshness gate for dist/lattice.css. |
-| `decisions:index` | Regenerate the "Current notes" index in engineering/decisions/README.md from each note's YAML front-matter. |
-| `decisions:index:check` | Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted). |
+| `decisions:index` | Regenerate the "Current notes" index in engineering/decisions/README.md from each note's YAML front-matter. Refuses a note whose index row exceeds ROW_CAP (285 characters). |
+| `decisions:index:check` | Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no row over the 285-character ROW_CAP. |
 | `default:build` | Build dist/lattice-default.css — the flattened zero-config drop-in (engine + cuoio). |
 | `default:check` | Freshness gate for the default bundle. |
 | `dist-readme:build` | Generate dist/README.md — the distribution-folder index. |
@@ -84,8 +84,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `exemplar-core:check` | Freshness gate for the exemplar-core bundle. |
 | `export:marp` | Export a deck as a portable, Marp-native bundle: splits baked to ---, themes, assets, marp-cli config, a README, and (by default) an AI-agent kit (AGENTS.md + component catalog). `<deck.md> <out-dir-or-zip> [palette] [--no-agent]`. |
 | `fonts:emoji` | Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network. |
-| `gotchas:index` | Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file. |
-| `gotchas:index:check` | Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted). |
+| `gotchas:index` | Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file. Refuses an entry heading whose index row exceeds ROW_CAP (280 characters). |
+| `gotchas:index:check` | Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no entry heading over the 280-character ROW_CAP. |
 | `guide-handles:build` | Generate docs/src/components/studio/guide-handles.generated.ts — the rendered part each component declares and the token that names it, scanned from every manifest's `handles` block, so the Present Guide can point at a handle instead of the whole card without holding the component catalog. |
 | `guide-handles:check` | Freshness gate for the generated Guide handle catalog. |
 | `hljs:build` | Build docs/public/playground/hljs/ — the 156 highlight.js grammars the preview bundle's 36-language `common` build omits, one small file each (median 1.9 KB) plus an alias manifest, fetched per deck so the Playground colors every language the CLI export does. |

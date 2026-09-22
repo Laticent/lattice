@@ -138,9 +138,11 @@ The genuine gap that search turned up is narrower and different in kind: **`gotc
 generated with no row cap at all**, and the six large docs the routing table sends you to
 are AUTHORED, so no row cap can reach them. The authored ones are handled here by naming
 the access pattern in `CLAUDE.md` — open the section, not the file — which needed one edit
-rather than six file splits and breaks no existing `§` reference. The gotchas row cap is
-left as follow-up work: it is a real gap, off the path of this change, and #18 says log it
-rather than pull it in.
+rather than six file splits and breaks no existing `§` reference. The gotchas row cap was
+left as follow-up work here — a real gap, off the path of this change, and #18 says log it
+rather than pull it in — and shipped separately as `ROW_CAP` in
+`tools/build-gotchas-index.js`, 300 characters, on the same per-row-not-file-total shape
+this section argues for.
 
 **A repo-wide `MAX_THINKING_TOKENS`.** Thinking is output and bills like output, so a cap
 is a real lever — but one number applies equally to the routine turn and to the hard
