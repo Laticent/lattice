@@ -2,12 +2,12 @@
  * Unit: `dominant-baseline` reaches the `<tspan>`, on every surface that sets one.
  *
  * THE DEFECT THIS PINS. A `<tspan>` carries its own `dominant-baseline: auto`,
- * and the two engines resolve that `auto` differently. Chromium follows SVG2 and
- * resolves it against the parent's COMPUTED value, so a positioned tspan centers
- * on its `y`. WebKit follows SVG 1.1 and resolves it to `alphabetic`, so `y`
- * becomes the glyph baseline and the whole label paints about one font-size too
- * high. Measured on the chart gallery: 107 of 256 labels sat 4–13px high on a
- * 1280×720 slide in Safari, and 0 in Chromium (#2297,
+ * and BOTH SVG 1.1 (§10.9.2) and SVG 2 say that on a tspan `auto` keeps the
+ * PARENT's dominant baseline. Chromium does that, so a positioned tspan centers
+ * on its `y`. WebKit resolves it to `alphabetic` instead — conforming to neither
+ * spec — so `y` becomes the glyph baseline and the label paints high: 0.35em for
+ * `central`, 0.72em for `hanging`. On the chart gallery that put 107 of 256
+ * labels 4–13px high on a 1280×720 slide in Safari, and 0 in Chromium (#2297,
  * `engineering/decisions/2026-09-22-webkit-tspan-baseline.md`).
  *
  * WHY IT NEEDS A GATE AT ALL, AND WHY THIS ONE IS TEXT-SHAPED. Every gate in
@@ -100,10 +100,13 @@ const TSPAN_BUILDERS = [
   },
 ];
 
-// `<tspan ` or `<tspan"` — an opening tag with attributes to follow. Prose saying
-// `<tspan>` does not match, which is why the doc comments in these files do not
-// register as emitters.
-const BUILDS_TSPAN = /<tspan[ "]|createElementNS\([^)]*['"]tspan['"]/;
+// An opening `<tspan` tag with SOMETHING to follow — an attribute, a closing
+// quote, or a string concatenation (`'<tspan' + attrs`). Prose saying `<tspan>`
+// does not match, which is why the doc comments in these files do not register
+// as emitters. The concatenation form matters: an earlier cut required a space
+// or a double quote right after the tag name, and `'<tspan' + posAttrs(i)` was
+// then invisible to BOTH the file census and the per-line check.
+const BUILDS_TSPAN = /<tspan(?![>a-zA-Z])|createElementNS\([^)]*['"]tspan['"]/;
 
 function chartSources(dir, out = []) {
   for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
@@ -127,13 +130,18 @@ describe('the tspan-builder census', () => {
 
   for (const b of TSPAN_BUILDERS.filter((x) => x.owes === 'attr')) {
     test(`${b.file} — every emitted tspan carries the baseline`, () => {
-      const src = read(b.file);
-      for (const [i, line] of src.split('\n').entries()) {
+      const lines = read(b.file).split('\n');
+      for (const [i, line] of lines.entries()) {
         if (!BUILDS_TSPAN.test(line)) continue;
-        // The attribute may be interpolated on the same line or on the next one
-        // (the kernel spreads its template across two).
-        const window = line + '\n' + (src.split('\n')[i + 1] || '');
-        assert.match(window, /dominant-baseline/,
+        // Two lines, because an emitter may spread one tspan template across a
+        // pair. But the window is CUT at the first `<text` after the `<tspan`:
+        // the idiomatic shape puts the wrapping `<text>` — which legitimately
+        // carries the attribute — on the very next line, and a window that
+        // swallowed it would certify a tspan with no baseline at all, the exact
+        // defect this file exists for.
+        const window = (line + '\n' + (lines[i + 1] || '')).split('<tspan').slice(1).join('<tspan');
+        const upToText = window.split('<text')[0];
+        assert.match(upToText, /dominant-baseline/,
           `${b.file}:${i + 1} builds a <tspan> with no dominant-baseline on it. ${b.why}.`);
       }
     });
@@ -171,20 +179,63 @@ const CHART_CSS = [
   'lib/components/chart/word-cloud/word-cloud.styles.css',
 ];
 
-/** Class names in a selector, and whether the selector targets a `tspan`. */
+/**
+ * Every rule that sets a `dominant-baseline`: the classes it names, the VALUE it
+ * sets, and whether it targets a `tspan`.
+ *
+ * The value is carried because a companion rule that sets the WRONG one is worse
+ * than a missing companion: it out-specifies both the `<text>` rule and any
+ * presentation attribute, so the tspan paints one baseline while its `<text>`
+ * paints another — wrong in BOTH engines and in the PDF, where a missing
+ * companion is at least correct everywhere Chromium renders.
+ */
 function baselineRules(css) {
   const rules = [];
   // Comments carry example selectors; strip them before matching.
   const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const m of body.matchAll(/([^{}]+)\{([^{}]*dominant-baseline[^{}]*)\}/g)) {
     const sel = m[1].trim();
+    const parts = compounds(sel);
+    const onTspan = parts.at(-1) === 'tspan';
+    // The SUBJECT compound — what the rule actually selects. For a tspan rule
+    // that is the compound before `tspan`, whose classes are the ones being
+    // covered. Reading classes from the WHOLE selector instead is how a rule
+    // like `:is(section.funnel, …) svg text` certifies itself: its ancestor
+    // classes are already in the covered set from some other rule, while the
+    // thing it really styles is a bare element.
+    const subject = onTspan ? (parts.at(-2) || '') : (parts.at(-1) || '');
     rules.push({
       sel,
-      classes: [...sel.matchAll(/\.([\w-]+)/g)].map((c) => c[1]),
-      onTspan: /\btspan\b/.test(sel),
+      subject,
+      classes: [...subject.matchAll(/\.([\w-]+)/g)].map((c) => c[1]),
+      value: (m[2].match(/dominant-baseline:\s*([\w-]+)/) || [])[1] || null,
+      onTspan,
     });
   }
   return rules;
+}
+
+/**
+ * A selector split into its compounds — the whitespace/combinator-separated
+ * pieces — with parentheses respected, so `:is(a, b) .c tspan` is three pieces
+ * and not five.
+ */
+function compounds(sel) {
+  const out = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of sel) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (depth === 0 && /[\s>+~]/.test(ch)) {
+      if (cur) out.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
 }
 
 describe('the stylesheet companion rules', () => {
@@ -197,19 +248,45 @@ describe('the stylesheet companion rules', () => {
   for (const file of CHART_CSS) {
     test(`${file} — each styled class reaches its tspans`, () => {
       const rules = baselineRules(read(file));
-      const covered = new Set(rules.filter((r) => r.onTspan).flatMap((r) => r.classes));
-      const declared = new Set(rules.filter((r) => !r.onTspan).flatMap((r) => r.classes));
+      // A class -> value map on each side. A class set alone cannot catch a
+      // companion that carries the wrong value, which is the worse of the two
+      // defects this arm exists to find.
+      const sideOf = (onTspan) => {
+        const m = new Map();
+        for (const r of rules.filter((x) => x.onTspan === onTspan)) {
+          for (const c of r.classes) m.set(c, r.value);
+        }
+        return m;
+      };
+      const covered = sideOf(true);
+      const declared = sideOf(false);
       assert.ok(declared.size > 0, 'fixture: expected at least one styled class');
-      for (const c of declared) {
+
+      // A selector naming no class at all (`section.chart-frame svg text`) is
+      // outside what a class map can reason about, so it would be certified by
+      // silence. Refuse it rather than pass it.
+      for (const r of rules) {
+        assert.ok(r.classes.length > 0,
+          `\`${r.sel}\` sets a dominant-baseline, but the thing it selects ` +
+          `(\`${r.subject}\`) names no class — so this arm cannot tell whether its ` +
+          'tspans are covered, and would certify it by silence. Scope it to a ' +
+          'class, or teach this check the shape.');
+      }
+
+      for (const [c, value] of declared) {
         assert.ok(covered.has(c),
           `.${c} gets a dominant-baseline from CSS but no rule carries it to its ` +
           '<tspan>. In WebKit the rule then does nothing for a wrapped label — it ' +
-          'paints alphabetic, about a font-size high. Add .' + c + ' to the ' +
-          'companion tspan rule in this file.');
+          'paints alphabetic. Add .' + c + ' to the companion tspan rule in this file.');
+        assert.equal(covered.get(c), value,
+          `.${c}'s companion tspan rule sets \`${covered.get(c)}\` while its <text> ` +
+          `rule sets \`${value}\`. The companion out-specifies both the <text> rule ` +
+          'and any presentation attribute, so the line and its box would paint ' +
+          'different baselines in EVERY engine — not just WebKit.');
       }
       // A stale companion is a defect too: it says a class is protected when the
       // declaration it mirrors is gone.
-      for (const c of covered) {
+      for (const c of covered.keys()) {
         assert.ok(declared.has(c),
           `.${c} has a tspan companion rule but nothing sets its baseline any more — ` +
           'drop the stale entry.');

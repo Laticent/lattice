@@ -1,11 +1,12 @@
 ---
 status: shipped
 summary: >
-  Every SVG chart label we wrap paints about one font-size too high in Safari, on iOS, and in
-  any WebKit surface — a shared `.html` export opened on an iPhone, the Studio, the Playground.
-  A `<tspan>` carries its own `dominant-baseline: auto`; Chromium resolves that against the
-  parent's computed value (SVG2) and WebKit resolves it to `alphabetic` (SVG 1.1), so the
-  attribute we set on the `<text>` never reaches the line. Measured on the chart gallery, both
+  Every SVG chart label we wrap paints a third to three quarters of a font-size too high in
+  Safari, on iOS, and in any WebKit surface — a shared `.html` export opened on an iPhone, the
+  Studio, the Playground. A `<tspan>` carries its own `dominant-baseline: auto`, and BOTH SVG
+  1.1 and SVG 2 say that on a tspan `auto` keeps the parent's dominant baseline; Chromium does
+  that, WebKit resolves it to `alphabetic` and conforms to neither, so the attribute we set on
+  the `<text>` never reaches the line. Measured on the chart gallery, both
   engines, element for element: 107 of 256 labels drifted 4–13px on a 1280x720 slide, and 0 in
   Chromium — which is why no gate here had ever seen it, since every gate renders through
   headless Chromium. The fix repeats the value on each `<tspan>`, in the shared kernel, in the
@@ -41,16 +42,31 @@ ruled out before anything was changed (§3).
 <text class="gantt-bar-label" font-size="8.5" dominant-baseline="central"><tspan x="8" y="30">Label</tspan></text>
 ```
 
-A `<tspan>` has its own `dominant-baseline`, and its initial value is `auto`. The two engines
-disagree about what `auto` means on a tspan:
+A `<tspan>` has its own `dominant-baseline`, and its initial value is `auto`. The specs agree
+about what `auto` means on a tspan; the engines do not.
 
-- **Chromium** implements SVG 2, where `auto` on a tspan resolves against the **parent's
-  computed value**. The glyphs center on `y`, which is what the emitter intends.
-- **WebKit** implements the SVG 1.1 reading, where `auto` resolves to **`alphabetic`**. `y`
-  becomes the glyph baseline, so the entire glyph box sits above it.
+**Both** SVG 1.1 §10.9.2 and SVG 2 say the same thing. Verbatim, from SVG 1.1:
 
-The offset is therefore about one font-size, and it is the same offset as a label with no
-baseline at all — which is the proof that the attribute is **dropped wholesale**, not misapplied.
+> If this property occurs on a 'tspan', 'tref', 'altGlyph' or 'textPath' element, then the
+> dominant-baseline and the baseline-table components **remain the same as those of the parent
+> text content element**.
+
+- **Chromium** does that. The glyphs center on `y`, which is what the emitter intends.
+- **WebKit** resolves `auto` to **`alphabetic`** instead. `y` becomes the glyph baseline, so
+  the entire glyph box sits above it.
+
+**This is a WebKit bug, not a spec-version split**, and the distinction is load-bearing rather
+than pedantic: framed as a version split the workaround is permanent and there is nothing to
+track; framed as a bug it has an upstream and a day it can be retired. HARD RULE #12's
+retirement record is the standing reminder of what a never-re-verified browser claim costs.
+
+The offset is a third of a font-size for `central`, 0.26em for `middle` and 0.72em for
+`hanging` — measured at 20px in both engines — and it is exactly the offset of a label with no
+baseline at all, which is the proof that the attribute is **dropped wholesale**, not misapplied.
+
+The intuitive reading — "a font-size too high" — overstates the common case by about three
+times, so quote the measurement rather than the intuition. §3's case A is the same number seen
+another way: −5.5 against a `central` label is 0.34 of its font size.
 
 The repo's own `BASELINE_EXTENT` table in `svg-label.js` encodes the Chromium reading
 (`central: [0.53, 0.53]`), and the de-collision pass compares boxes built from it. So in WebKit
@@ -78,8 +94,11 @@ in viewBox units (0 = centered):
 **G is the proof.** WebKit's A, C and H land on exactly the no-baseline control. E rules out
 scaling, F rules out font metrics, B rules out the container.
 
-Case D is the fix. Case I works too, but `alignment-baseline` is the SVG-1.1-only spelling of
-the same thing, so there is no reason to prefer it.
+Case D is the fix. Case I works too, but `alignment-baseline` is a **different property** — it
+aligns a child *to* its parent's dominant baseline — so it would say something other than what
+we mean, and `dominant-baseline` is what the `BASELINE_EXTENT` box math is keyed to. It is not,
+as is sometimes said, an SVG-1.1-only spelling of the same property: it is a different property
+and it is in SVG 2.
 
 A tenth case, measured while writing the fix, decides the CSS half: a rule matching only the
 `<text>` behaves exactly like case A (broken in WebKit), and the same rule extended to
@@ -105,8 +124,11 @@ negative = WebKit paints it higher. The worst rows before the fix:
 | 8 | −5.82 | −6.07 | `cart-tick` `[central, **css**]` |
 | 4 | −5.87 | −6.09 | `funnel-conv` `[central, **css**]` |
 
-**107 of 256 labels drifted more than 4px.** Every `auto`/`alphabetic` label measured 0–2px,
-which is engine rasterization noise and the control that says the rest is real.
+**107 of 256 labels drifted past the audit's default 3px tolerance.** The distribution is
+bimodal — every offender was over 4.3px, every clean label under 2.4px — so the same 107 come
+back at any threshold between them, and the count does not hinge on where the line is drawn.
+The clean ones are all `auto`/`alphabetic` labels: engine rasterization noise, and the control
+that says the rest is real.
 
 `hanging` is worst because it is furthest from `alphabetic`. The two `css` rows matter
 separately: a rule like `.cart-tick { dominant-baseline: central }` matches the `<text>` and
@@ -164,16 +186,39 @@ All three arms were mutation-checked: removing the kernel's interpolation, remov
 state-chart tspan's attribute, dropping one class from the funnel companion rule, and adding a
 baseline to `svg-legend.js` each fail the suite.
 
-The honest limit: this asserts what the source says, never what an engine paints. The painted
-claim comes from `tools/audit-svg-baselines.mjs` against a real WebKit, on demand (HARD RULE
-#23).
+All three arms were re-hardened after an independent check found each of them certifying a
+state it could not see: the CSS arm compared class membership but not the VALUE (a companion
+rule setting the wrong baseline would have passed, and would mis-paint in BOTH engines); the
+census's two-line window could be satisfied by the wrapping `<text>` on the next line; and its
+`<tspan` matcher missed the `'<tspan' + attrs` concatenation shape entirely. Each of those
+three now has a mutant that kills it, alongside the four original ones.
+
+**The honest limits.** This asserts what the source says, never what an engine paints — the
+painted claim comes from `tools/audit-svg-baselines.mjs` against a real WebKit, on demand (HARD
+RULE #23). And that tool drives **desktop WebKit via Playwright, not iOS Safari**: the symptom
+is written about an iPhone and no iPhone was reached from here, so the iOS half of the claim is
+**UNVERIFIED**. The mechanism is engine-level and desktop WebKit is the same engine, but that is
+an inference, not a measurement.
 
 ## 7. What this does not fix
 
 **Mermaid's own labels have the same defect**, and they are not ours. Running the same probe
 over `lib/components/diagram/diagram.gallery.md` finds 17 of 91 labels over 3px — `actor`
 (−5.49), `noteText` (−3.54), `ishikawa-label` (−2.83). The baseline there comes from the
-`<style>` mermaid injects into its own SVG, on classes mermaid owns; `ishikawa` appears nowhere
-in this repo except as styling in `mermaid.css`. Fixing it means widening selectors against a
-third-party renderer's markup, in a different component bucket, which is a different change
-(HARD RULES #8, #17, #18). Recorded here rather than pulled in.
+`<style>` mermaid injects into its own SVG, on classes mermaid owns; We author the ishikawa
+DIAGRAMS — two gallery decks use the `ishikawa-beta` type — but not the markup or the stylesheet
+that places their labels, and the only CSS we own touching them
+(`lib/integrations/mermaid/mermaid.css`) sets no baseline. Fixing it means widening selectors
+against a third-party renderer's markup, in a different component bucket, which is a different
+change (HARD RULES #8, #17, #18). Recorded here rather than pulled in.
+
+**A second pre-existing defect, logged for the same reason.** `bucket-galleries > chart: source
+.md matches manifests` is red on `main` and stays red here: a quadrant caption in
+`lib/components/chart/chart.gallery.md` reads `**Your level** · *where you can operate when
+called for* — illustrative, placements vary by company.` where its manifest says `Illustrative
+— placements vary by company.` The committed `chart.gallery.light.pdf` is stale the same way —
+page 11 (matrix-grid) is missing the label-set legend row the current transform emits. Both
+arrived with the label-set rollout (#2263, #2272); neither is caused or worsened here, and
+both are named rather than swept in. Worth knowing when reading §4, because the audit renders
+that very file: every other page of it rasterizes byte-identically before and after this
+change.

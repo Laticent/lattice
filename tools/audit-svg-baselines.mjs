@@ -5,11 +5,16 @@
  *
  * WHY THIS EXISTS. `dominant-baseline` on a `<text>` does NOT reach a positioned
  * `<tspan>` in WebKit: it resolves the tspan's own `auto` to `alphabetic` instead
- * of to the parent's computed value, so `y` becomes the glyph baseline and the
- * whole label paints roughly one font-size too high. Chromium inherits, so every
- * gate in this repo — all of which render through headless Chromium — is blind to
- * it (`engineering/gotchas/studio-playground.md`). Issue #2297 measured 107 of 256
- * gallery labels shifting more than 4px on a 1280x720 slide.
+ * of to the parent's dominant baseline, which is what BOTH SVG 1.1 (10.9.2) and
+ * SVG 2 require. `y` becomes the glyph baseline and the label paints high —
+ * 0.35em for `central`, 0.72em for `hanging`, measured. Chromium follows the
+ * spec, so every gate in this repo — all of which render through headless
+ * Chromium — is blind to it (`engineering/gotchas/studio-playground.md`).
+ * Issue #2297 measured 107 of 256 gallery labels drifting past this tool's
+ * default 3px tolerance on a 1280x720 slide. The distribution is bimodal — every
+ * offender was over 4.3px and every clean label under 2.4px — so the same 107
+ * come back at any threshold between them, and the count does not hinge on where
+ * the tolerance sits.
  *
  * WHAT IT MEASURES. One deck, rendered once by the real CLI, loaded in both
  * engines. For every `<text>` inside an `<svg>`, the vertical center of its box,
@@ -37,7 +42,9 @@
  *   --tolerance <px>     slide-px drift that counts as a failure (default 3)
  *   --json <path>        write the per-element table
  *
- * Exit 1 when any label drifts past the tolerance, so a fix can be proved.
+ * Exit 1 when a label drifts past the tolerance, 2 when the two engines produced
+ * different DOMs, 3 when any label could not be compared (a skip is not a pass),
+ * and 64 on a usage error.
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -49,7 +56,16 @@ const { chromium, webkit } = await import(join(ROOT, 'docs/node_modules/@playwri
 
 function flag(name, fallback) {
 	const i = process.argv.indexOf(`--${name}`);
-	return i === -1 ? fallback : (process.argv[i + 1] ?? true);
+	if (i === -1) return fallback;
+	const v = process.argv[i + 1];
+	// A flag with nothing after it is a usage error, not a `true`. Silently
+	// coerced, `--tolerance` at the end of the line became Number(true) === 1 —
+	// a tighter gate than anyone asked for, reported as if it were the default.
+	if (v === undefined || v.startsWith('--')) {
+		console.error(`--${name} needs a value`);
+		process.exit(64);
+	}
+	return v;
 }
 const DECK = String(flag('deck', 'lib/components/chart/chart.gallery.md'));
 const THEME = String(flag('theme', 'indaco'));
@@ -77,17 +93,27 @@ const probe = () => {
 		if (!sr?.height || !r.height) continue;
 		const cs = getComputedStyle(t);
 		const tsp = t.querySelector('tspan');
+		const computed = cs.dominantBaseline || 'auto';
+		const attr = t.getAttribute('dominant-baseline');
+		// Where the PAINTED baseline came from, which is the whole point of the
+		// audit — and the reason this compares the attribute's VALUE to the
+		// computed one rather than just asking whether an attribute exists. A
+		// presentation attribute loses to any CSS rule, so `wc-key-label` carries
+		// `middle` on the element while the stylesheet paints `central`: reporting
+		// that row as `attr` names a declaration that did not win, and points a
+		// reader at the wrong file.
+		const src = attr == null
+			? (computed !== 'auto' ? 'css' : 'none')
+			: (attr === computed ? 'attr' : 'attr-lost');
+		const tspanAttr = tsp ? tsp.getAttribute('dominant-baseline') : null;
 		rows.push({
 			cls: t.getAttribute('class') || '',
 			// The text itself keeps the two engines' element lists aligned: a label
 			// the browser wrapped differently must not be compared to its neighbor.
 			txt: (t.textContent || '').trim().slice(0, 40),
-			baseline: cs.dominantBaseline || 'auto',
-			// Where the baseline came from, which is the whole point of the audit:
-			// an attribute on the <text>, a CSS rule, or nothing at all.
-			src: t.hasAttribute('dominant-baseline') ? 'attr'
-				: (cs.dominantBaseline && cs.dominantBaseline !== 'auto') ? 'css' : 'none',
-			tspanDb: tsp ? (tsp.hasAttribute('dominant-baseline') ? 'attr'
+			baseline: computed,
+			src,
+			tspanDb: tsp ? (tspanAttr != null ? 'attr'
 				: (getComputedStyle(tsp).dominantBaseline || 'auto') !== 'auto' ? 'css' : 'none') : null,
 			cy: ((r.top + r.height / 2) - sr.top) / sr.height * 720,
 		});
@@ -148,7 +174,22 @@ for (const g of table) {
 console.log(`\n${over.length} of ${rows.length} labels drift more than ${TOLERANCE}px.`);
 
 if (JSON_OUT) {
-	writeFileSync(JSON_OUT, JSON.stringify({ deck: DECK, theme: THEME, tolerance: TOLERANCE, table, rows }, null, 2));
+	writeFileSync(JSON_OUT, JSON.stringify({ deck: DECK, theme: THEME, tolerance: TOLERANCE, table, rows, skipped }, null, 2));
 	console.log(`wrote ${JSON_OUT}`);
+}
+
+// A skip is not a pass. A label the two engines wrapped differently is dropped
+// from the comparison, and a run that dropped everything would otherwise print
+// "0 of 0 ... drift" and exit 0 — a green that means nothing was measured. That
+// is not hypothetical: state-chart re-wraps its labels from MEASURED DOM at
+// runtime, so engine-dependent line breaking is exactly the shape that skews the
+// lists, and it would turn "the drift is back" into a clean exit.
+if (!rows.length) {
+	console.error('\nNOTHING WAS COMPARED — every label was skipped. This is a failure, not a pass.');
+	process.exit(3);
+}
+if (skipped) {
+	console.error(`\n${skipped} label(s) were skipped and NOT measured; the count above is not the whole deck.`);
+	process.exit(3);
 }
 process.exit(over.length ? 1 : 0);
