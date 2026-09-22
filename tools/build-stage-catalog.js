@@ -278,6 +278,10 @@ function buildAxisSets() {
     if (!Array.isArray(ax.members) || ax.members.some((x) => typeof x !== 'string' || !x.trim())) {
       throw new Error(`[build-stage-catalog] "${m.name}" axisSet.members must be non-empty position names.`);
     }
+    const dupes = ax.members.filter((x, i) => ax.members.indexOf(x) !== i);
+    if (dupes.length) {
+      throw new Error(`[build-stage-catalog] "${m.name}" declares axisSet position ${JSON.stringify(dupes[0])} twice — a position names one axis. (buildLabelSets throws on the same shape; this one did not.)`);
+    }
     const BODIES = { table: ['<table'], list: ['<ul', '<ol'] };
     if (!BODIES[ax.body]) {
       throw new Error(`[build-stage-catalog] "${m.name}" axisSet.body must be "table" or "list" (got ${JSON.stringify(ax.body)}).`);

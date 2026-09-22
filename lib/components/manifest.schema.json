@@ -106,7 +106,7 @@
         "marks": {
           "type": "array",
           "minItems": 1,
-          "description": "Every DATA MARK this kernel paints — the elements whose paint carries a datum, declared rather than inferred. A chart FINISH (pigment / etching / tone) is a stylesheet, so everything it may do to a member is decided by these three facts, and a class that is inferred is a class that can be inferred wrongly: `funnel-band` was taken for a text-bearing mark on the assumption that a band carries its own label — it does not, the labels sit in the left gutter — and that one wrong datum is why funnel rendered byte-identical under all three finishes; `cell-filled` carried no slot attribute and six categories collapsed to one hue. Axis furniture, text labels, the plot frame and per-group TRACKS (a bar's headroom, a bullet's band) are not marks and are not listed. A legend SWATCH is, because a swatch painted from a different palette than the mark it names is the worst version of the same defect — the legend IS the binding. Checked two ways, neither of them complete. `checkChartMarks` in tools/check-ownership.js (via build:check) fails on a class nothing under lib/ writes and on a stamped data-paint/data-encodes value no row declares — it walks declared→emitted only, so an OMITTED mark is invisible to it, and its class test is a whole-token search of lib/ string literals rather than proof the row names a mark. `node tools/chart-language-census.js --check` reads a real render: it is the only thing that can fail on a wrong `bears`, and the only thing that reports a painted mark no manifest declares — but it is an on-demand command, not a CI gate, and it sees only what a given deck renders on a given theme. engineering/decisions/2026-09-07-chart-design-language/",
+          "description": "Every DATA MARK this kernel paints \u2014 the elements whose paint carries a datum, declared rather than inferred. A chart FINISH (pigment / etching / tone) is a stylesheet, so everything it may do to a member is decided by these three facts, and a class that is inferred is a class that can be inferred wrongly: `funnel-band` was taken for a text-bearing mark on the assumption that a band carries its own label \u2014 it does not, the labels sit in the left gutter \u2014 and that one wrong datum is why funnel rendered byte-identical under all three finishes; `cell-filled` carried no slot attribute and six categories collapsed to one hue. Axis furniture, text labels, the plot frame and per-group TRACKS (a bar's headroom, a bullet's band) are not marks and are not listed. A legend SWATCH is, because a swatch painted from a different palette than the mark it names is the worst version of the same defect \u2014 the legend IS the binding. Checked two ways, neither of them complete. `checkChartMarks` in tools/check-ownership.js (via build:check) fails on a class nothing under lib/ writes and on a stamped data-paint/data-encodes value no row declares \u2014 it walks declared\u2192emitted only, so an OMITTED mark is invisible to it, and its class test is a whole-token search of lib/ string literals rather than proof the row names a mark. `node tools/chart-language-census.js --check` reads a real render: it is the only thing that can fail on a wrong `bears`, and the only thing that reports a painted mark no manifest declares \u2014 but it is an on-demand command, not a CI gate, and it sees only what a given deck renders on a given theme. engineering/decisions/2026-09-07-chart-design-language/",
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -120,31 +120,21 @@
               "class": {
                 "type": "string",
                 "pattern": "^[a-z0-9-]+$",
-                "description": "The mark's own class, exactly as the transform writes it — what a finish rule can name. The gate requires the transform to write it, so a renamed class cannot leave a stale declaration behind."
+                "description": "The mark's own class, exactly as the transform writes it \u2014 what a finish rule can name. The gate requires the transform to write it, so a renamed class cannot leave a stale declaration behind."
               },
               "paint": {
                 "type": "string",
-                "enum": [
-                  "fill",
-                  "bg",
-                  "none"
-                ],
-                "description": "HOW the mark takes paint, and it is a GATE rather than a label: `fill` for an SVG shape painted through the fill property, `bg` for an HTML element painted through background. `none` means the mark has no body at all — a stroke-only path, a hollow ring, a text chip, a typed word — and a finish may not reach it. The line's series path is the case that proves the gate: a finish that reached it stepped its stroke to 2.18:1 on light and 1.26:1 on dark, because on a stroked mark the stroke IS the mark and there is no edge left to carry identity. Matches the `data-paint` attribute the transform stamps."
+                "enum": ["fill", "bg", "none"],
+                "description": "HOW the mark takes paint, and it is a GATE rather than a label: `fill` for an SVG shape painted through the fill property, `bg` for an HTML element painted through background. `none` means the mark has no body at all \u2014 a stroke-only path, a hollow ring, a text chip, a typed word \u2014 and a finish may not reach it. The line's series path is the case that proves the gate: a finish that reached it stepped its stroke to 2.18:1 on light and 1.26:1 on dark, because on a stroked mark the stroke IS the mark and there is no edge left to carry identity. Matches the `data-paint` attribute the transform stamps."
               },
               "encodes": {
                 "type": "string",
-                "enum": [
-                  "hue",
-                  "ramp",
-                  "presence",
-                  "layered",
-                  "none"
-                ],
-                "description": "What the BODY encodes — the axis that decides HOW a finish may reach it, never WHETHER (every encoding gets a body under every finish; the rule that made this a whether left three members painting identically under all three). `hue` a categorical or status identity color, which a finish may set outright; `ramp` a continuous magnitude where the fill level IS the datum, so a finish scales the band and may not set the level; `presence` on/off, which a finish floors; `layered` translucent shapes that overlap, which take a flat alpha and never a gradient — a gradient reads as a fourth color where two polygons cross. `none` means THE BODY CARRIES NO DATUM, which is two different marks and deliberately one value: a mark with no body at all (paint `none` — a stroked path, a hollow ring, a typed word), and a mark whose body is a deliberate constant. `state-chart` is the second kind and says why in its own stylesheet — the node fill is ALWAYS neutral so status color lives only in the index badge, or a green on-track node blends into a green wash. Both are the same instruction to a finish: nothing in this body is load-bearing, set it freely. What `encodes` never describes is a datum carried somewhere OTHER than the body — `journey-stage` paints one constant ground under a categorical `::before` rail, and that rail is not this field's to record. Matches the `data-encodes` attribute the transform stamps."
+                "enum": ["hue", "ramp", "presence", "layered", "none"],
+                "description": "What the BODY encodes \u2014 the axis that decides HOW a finish may reach it, never WHETHER (every encoding gets a body under every finish; the rule that made this a whether left three members painting identically under all three). `hue` a categorical or status identity color, which a finish may set outright; `ramp` a continuous magnitude where the fill level IS the datum, so a finish scales the band and may not set the level; `presence` on/off, which a finish floors; `layered` translucent shapes that overlap, which take a flat alpha and never a gradient \u2014 a gradient reads as a fourth color where two polygons cross. `none` means THE BODY CARRIES NO DATUM, which is two different marks and deliberately one value: a mark with no body at all (paint `none` \u2014 a stroked path, a hollow ring, a typed word), and a mark whose body is a deliberate constant. `state-chart` is the second kind and says why in its own stylesheet \u2014 the node fill is ALWAYS neutral so status color lives only in the index badge, or a green on-track node blends into a green wash. Both are the same instruction to a finish: nothing in this body is load-bearing, set it freely. What `encodes` never describes is a datum carried somewhere OTHER than the body \u2014 `journey-stage` paints one constant ground under a categorical `::before` rail, and that rail is not this field's to record. Matches the `data-encodes` attribute the transform stamps."
               },
               "bears": {
                 "type": "boolean",
-                "description": "Does the mark CARRY TEXT — a label inside its own box, as its own text content or as an overlaid sibling. True CAPS how far a finish may retreat the body, because that text has to keep clearing 4.5:1 against whatever the finish paints underneath it; false leaves the body the finish's to set outright. DERIVED GEOMETRICALLY, never from a list: `el.textContent` measures containment, and an SVG rect can have its label drawn ON it as a sibling text node — measured that way `gantt` reports no while its bars plainly carry task names. `node tools/chart-language-census.js --check` re-measures every entry off a real render at 60% max-overlap and fails on a disagreement."
+                "description": "Does the mark CARRY TEXT \u2014 a label inside its own box, as its own text content or as an overlaid sibling. True CAPS how far a finish may retreat the body, because that text has to keep clearing 4.5:1 against whatever the finish paints underneath it; false leaves the body the finish's to set outright. DERIVED GEOMETRICALLY, never from a list: `el.textContent` measures containment, and an SVG rect can have its label drawn ON it as a sibling text node \u2014 measured that way `gantt` reports no while its bars plainly carry task names. `node tools/chart-language-census.js --check` re-measures every entry off a real render at 60% max-overlap and fails on a disagreement."
               }
             }
           }
@@ -163,17 +153,10 @@
       "properties": {
         "frame": {
           "type": "string",
-          "description": "WHAT THE ENCODING MEANS, in one lowercase clause a LISTENER hears before any number — \"each bar's length is its value, measured from zero\". Narration reads it from here rather than from a table in `lib/core/chart-narration.js`, so a chart declares how it should be EXPLAINED in the same file where it declares how it PROJECTS, and a chart added later is covered the day its manifest lands; `2026-09-13-projected-rosters.md` records what a hand-kept roster costs here (nine literals across five files, four holding the same twelve names, not one going red on omission). It exists because a chart whose substance lives in an <svg> reached the voice as a list of numbers with nothing saying what they measured: a listener was told \"North America, four point two million\" and never that the bars were magnitudes from zero. Lowercase and clause-shaped on purpose — callers compose it (\"Nine terms, sized by how often each came up\") and capitalize it themselves. It states the ENCODING ONLY: never a verdict and never a reading of this particular data, because the slide's heading is where the author's interpretation belongs."
+          "description": "WHAT THE ENCODING MEANS, in one lowercase clause a LISTENER hears before any number \u2014 \"each bar's length is its value, measured from zero\". Narration reads it from here rather than from a table in `lib/core/chart-narration.js`, so a chart declares how it should be EXPLAINED in the same file where it declares how it PROJECTS, and a chart added later is covered the day its manifest lands; `2026-09-13-projected-rosters.md` records what a hand-kept roster costs here (nine literals across five files, four holding the same twelve names, not one going red on omission). It exists because a chart whose substance lives in an <svg> reached the voice as a list of numbers with nothing saying what they measured: a listener was told \"North America, four point two million\" and never that the bars were magnitudes from zero. Lowercase and clause-shaped on purpose \u2014 callers compose it (\"Nine terms, sized by how often each came up\") and capitalize it themselves. It states the ENCODING ONLY: never a verdict and never a reading of this particular data, because the slide's heading is where the author's interpretation belongs."
         },
         "figure": {
-          "enum": [
-            "svg",
-            "flow",
-            "spatial",
-            "placeholder",
-            "bare",
-            "none"
-          ],
+          "enum": ["svg", "flow", "spatial", "placeholder", "bare", "none"],
           "description": "HOW this component's rendered visual survives being taken off the slide — the one fact eight hand-maintained rosters were each encoding under a different name. `svg`: the component renders as ONE self-contained <svg> that re-hosts cleanly and extracts as standalone vector, but whose fills resolve through `section.chart-frame`-scoped custom properties, so the re-host must carry `chart-frame` back or the per-category hue lookups collapse to undefined and every fill falls to black. (Said in prose deliberately: this description is inlined into the docs bundles with the schema, where a literal token read would be scanned as a real one by `checkDanglingTokenReads`.) `flow`: an HTML+CSS table/bar/card/track layout sized only in `cqi`, whose whole `.chart-body` re-hosts into a width container. `spatial`: an absolutely-positioned / `cqi`-sized layout that needs a BOUNDED box to re-establish a definite container. `placeholder`: a layout a static re-host cannot reconstruct (runtime-measured edges, height-relative contours), which keeps the honest \"best seen in Present\" note. `bare`: re-hosts as a plain <figure> with no chart-frame — it does not ride the chart spectrum. `none`: this component has NO static re-host producer and falls through to the generic projection. `none` exists so that absence is never the answer — every chart must pick a value, so a chart with genuinely no figure path is a visible choice in a diff rather than the silent omission this whole block replaces. Declared rather than inferred, because inference has already been measured wrong here: an earlier `motion-sheet.ts` keyed on the `render` enum instead and got two components backwards — `diagram` declares SVG and emits no role, `state-chart` is `hybrid` and does."
         },
         "data": {
@@ -223,41 +206,34 @@
     "labelSet": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "members"
-      ],
-      "description": "The set of members this component draws a KEY for, and the default words it names them with. A “set” is any small closed group a reader needs decoded: roadmap's four delivery states, obligation-matrix's four markers, matrix-grid's cell shapes, heatmap's five ramp bands. DECLARED HERE SO ONE SOURCE SERVES BOTH THE RENDER AND THE LINT — the transform takes its derived default from this field and `lint:deck` checks an authored override's keys against it, so a key vocabulary that disagrees with what the component renders is not expressible. That is the move `coda.claims` made when it replaced two hand-maintained exclusion lists that were wrong for 8 of 61 layouts. An author overrides any member with an inline label set — `[{{[x], Enacted}}, {{[-], In committee}}]` in an inline-code span — parsed by lib/core/label-set.js and merged BY KEY and PARTIALLY, so naming one member leaves the rest on their defaults. OMIT the field entirely for a component with no closed set, which is most of them.",
+      "required": ["members"],
+      "description": "The set of members this component draws a KEY for, and the default words it names them with. A \u201cset\u201d is any small closed group a reader needs decoded: roadmap's four delivery states, obligation-matrix's four markers, matrix-grid's cell shapes, heatmap's five ramp bands. DECLARED HERE SO ONE SOURCE SERVES BOTH THE RENDER AND THE LINT \u2014 the transform takes its derived default from this field and `lint:deck` checks an authored override's keys against it, so a key vocabulary that disagrees with what the component renders is not expressible. That is the move `coda.claims` made when it replaced two hand-maintained exclusion lists that were wrong for 8 of 61 layouts. An author overrides any member with an inline label set \u2014 `[{{[x], Enacted}}, {{[-], In committee}}]` in an inline-code span \u2014 parsed by lib/core/label-set.js and merged BY KEY and PARTIALLY, so naming one member leaves the rest on their defaults. OMIT the field entirely for a component with no closed set, which is most of them.",
       "properties": {
         "aria": {
           "type": "string",
           "description": "The key's accessible name, e.g. 'Status key'. Defaults to 'Key'."
         },
         "keyedBy": {
-          "enum": [
-            "component",
-            "transformer"
-          ],
-          "description": "WHO DRAWS THE KEY. `component` (the default — omit it) means the component's own section transform builds it, which is what a component with a figure builder should do: it already knows which members its cells carry and where the key belongs relative to its figure. `transformer` means the shared post-pass (lib/transformers/label-set-key.js) draws it, for a component that has NO transform of its own — obligation-matrix is a stylesheet plus a markdown-it cell rule, so before this there was nowhere for a key to be built. Declared rather than kept as a list inside the transformer, because a hand-maintained list of which components it serves is the exact shape this whole construct replaced."
+          "enum": ["component", "transformer"],
+          "description": "WHO DRAWS THE KEY. `component` (the default \u2014 omit it) means the component's own section transform builds it, which is what a component with a figure builder should do: it already knows which members its cells carry and where the key belongs relative to its figure. `transformer` means the shared post-pass (lib/transformers/label-set-key.js) draws it, for a component that has NO transform of its own \u2014 obligation-matrix is a stylesheet plus a markdown-it cell rule, so before this there was nowhere for a key to be built. Declared rather than kept as a list inside the transformer, because a hand-maintained list of which components it serves is the exact shape this whole construct replaced."
         },
         "members": {
           "type": "array",
           "minItems": 1,
-          "description": "The keyable members, IN RENDER ORDER — that order is the spine an author's override merges onto, so it decides how the key reads left to right. The `key` is what an author types to address the member, and it is deliberately the spelling they ALREADY use in the cell: the marker literal `[x]`/`[-]`/`[ ]`/`[/]` for a marker grid, the step number for a ramp. The bracketed marker survives the parser's whitespace tidy because the brackets protect the space — a bare ' ' key would collapse to empty and be dropped.",
+          "description": "The keyable members, IN RENDER ORDER \u2014 that order is the spine an author's override merges onto, so it decides how the key reads left to right. The `key` is what an author types to address the member, and it is deliberately the spelling they ALREADY use in the cell: the marker literal `[x]`/`[-]`/`[ ]`/`[/]` for a marker grid, the step number for a ramp. The bracketed marker survives the parser's whitespace tidy because the brackets protect the space \u2014 a bare ' ' key would collapse to empty and be dropped.",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "key"
-            ],
+            "required": ["key"],
             "properties": {
               "key": {
                 "type": "string",
                 "minLength": 1,
-                "description": "What an author types to address this member — the marker literal or the step number."
+                "description": "What an author types to address this member \u2014 the marker literal or the step number."
               },
               "label": {
                 "type": "string",
-                "description": "The default word. OMIT IT when the component DERIVES the label from the data at render time: heatmap names each band by the value range it covers, which no fixed word could state because the bands are quantile-cut per matrix, and because polarity is unknowable — high retention is good, high churn is bad. A member with no label still belongs here; it is part of the key vocabulary the lint checks against."
+                "description": "The default word. OMIT IT when the component DERIVES the label from the data at render time: heatmap names each band by the value range it covers, which no fixed word could state because the bands are quantile-cut per matrix, and because polarity is unknowable \u2014 high retention is good, high churn is bad. A member with no label still belongs here; it is part of the key vocabulary the lint checks against."
               },
               "detail": {
                 "type": "string",
@@ -268,7 +244,7 @@
         },
         "derivedLabels": {
           "type": "string",
-          "description": "One line naming what the component derives a member's label FROM, when `label` is omitted (heatmap: 'the value range each band covers'). Documentation for whoever reads the catalog — it explains why the key says what it says."
+          "description": "One line naming what the component derives a member's label FROM, when `label` is omitted (heatmap: 'the value range each band covers'). Documentation for whoever reads the catalog \u2014 it explains why the key says what it says."
         },
         "unkeyed": {
           "type": "array",
@@ -276,15 +252,9 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "key",
-              "why"
-            ],
+            "required": ["key", "why"],
             "properties": {
-              "key": {
-                "type": "string",
-                "minLength": 1
-              },
+              "key": { "type": "string", "minLength": 1 },
               "why": {
                 "type": "string",
                 "minLength": 1,
@@ -302,27 +272,28 @@
         "members",
         "body"
       ],
-      "description": "The AXIS this component lets an author name, as ONE bracketed list in its own paragraph ABOVE the chart body — `` `[Wider reach, Deeper cognition]` ``. DECLARED HERE SO ONE SOURCE SERVES EVERY READER: the transform (which tag bounds its slot), chart-narration (whether a one-span bracketed eyebrow is an axis or an ordinary caption) and `lint:deck` (whether a key written above the body will be misread as an axis). A hand-maintained list in each reader is the drift `labelSet` was bought to end, and narration is the proof — before this field it expanded EVERY bracketed eyebrow, so a `bullet` caption was spoken as axis names while the slide rendered it as a caption. A component WITHOUT this field does not own a bracketed axis: a bracketed span on its slide is an ordinary eyebrow and every reader leaves it alone.",
+      "description": "The axis an author may name, as ONE bracketed list above the chart body — `[Wider reach, Deeper cognition]`. Declared here so the transforms, chart-narration and `lint:deck` share one source. No field = the component owns no axis; a bracketed span on its slide is an ordinary eyebrow. Why: engineering/decisions/2026-09-22-chart-axis-grammar.md.",
       "properties": {
         "members": {
           "type": "array",
+          "uniqueItems": true,
           "minItems": 1,
           "items": {
             "type": "string",
             "minLength": 1
           },
-          "description": "The axis positions IN ORDER, named for what they are — `[\"column\",\"row\"]` for a grid, `[\"x\",\"y\",\"size\"]` for a scatter. The order is the order an author writes them in the list, and naming them is what makes the declaration readable."
+          "description": "The axis positions in order — `[\"column\",\"row\"]`, `[\"x\",\"y\",\"size\"]`."
         },
         "body": {
           "enum": [
             "table",
             "list"
           ],
-          "description": "What bounds the axis slot. A grid's body is its TABLE; an SVG chart's is its LIST. Taking the earliest of either for every component is what let a framing bullet above a grid's axis line move the boundary in front of it, so the axis landed in the key slot and was lost."
+          "description": "What bounds the axis slot: a grid's TABLE or a chart's LIST."
         },
         "keyBelow": {
           "type": "boolean",
-          "description": "Set false when the component draws NO label set below the body. Without it a trailing coda that happened to be bracketed would be consumed as a key the chart never draws — `scatter` declares a coda and has no key."
+          "description": "False when the component draws no label set below the body, so a trailing coda is not eaten as a key."
         }
       }
     },
@@ -989,7 +960,7 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "description": "The RENDERED parts a narrated sentence can name, and the token that names each — the manifest half of the Guide handle contract (engineering/decisions/2026-09-21-manifest-handles.md). Declare a row ONLY when the component renders a repeated composite part whose naming token is a DIFFERENT element from the part itself: team-profile's `.person` is a photo plus three spans, so `headerRange`'s \"everything before the first nested block\" finds no block and hands back the whole card. This is NOT `slots`: `slots` describes the MARKDOWN an author writes, and 25% of slot × component pairs never match the rendered DOM. Every selector here is checked against what lib/ actually writes, so a renamed class fails the build rather than rotting.",
+      "description": "The RENDERED parts a narrated sentence can name, and the token that names each \u2014 the manifest half of the Guide handle contract (engineering/decisions/2026-09-21-manifest-handles.md). Declare a row ONLY when the component renders a repeated composite part whose naming token is a DIFFERENT element from the part itself: team-profile's `.person` is a photo plus three spans, so `headerRange`'s \"everything before the first nested block\" finds no block and hands back the whole card. This is NOT `slots`: `slots` describes the MARKDOWN an author writes, and 25% of slot \u00d7 component pairs never match the rendered DOM. Every selector here is checked against what lib/ actually writes, so a renamed class fails the build rather than rotting.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -1001,17 +972,17 @@
           "part": {
             "type": "string",
             "minLength": 1,
-            "description": "CSS selector for the repeated part, scoped WITHIN the component's own section (the catalog prefixes `section.<name> `). The element a cue resolves to — a card, a node, a row."
+            "description": "CSS selector for the repeated part, scoped WITHIN the component's own section (the catalog prefixes `section.<name> `). The element a cue resolves to \u2014 a card, a node, a row."
           },
           "names": {
             "type": "string",
             "minLength": 1,
-            "description": "CSS selector, scoped within `part`, for the token that NAMES it — the smallest visual thing that stands for the part. Two consumers: the ink goes on it instead of the whole part, and its text is the identity a spoken sentence is matched against."
+            "description": "CSS selector, scoped within `part`, for the token that NAMES it \u2014 the smallest visual thing that stands for the part. Two consumers: the ink goes on it instead of the whole part, and its text is the identity a spoken sentence is matched against."
           },
           "note": {
             "type": "string",
             "minLength": 1,
-            "description": "One line on why this part needs a declaration — what the Guide's heuristics find instead when it is absent."
+            "description": "One line on why this part needs a declaration \u2014 what the Guide's heuristics find instead when it is absent."
           }
         }
       }
