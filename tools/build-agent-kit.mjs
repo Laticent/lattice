@@ -1672,25 +1672,101 @@ function reviewerTraps() {
  * sample to a 13-page PDF through real `marp-cli`, with the palette and the
  * embedded fonts live. That is why it leads.
  *
+ * ROUTE 2 EXISTS BECAUSE ROUTE 1 ASKS FOR A MOVE THE CALLER OFTEN CANNOT MAKE.
+ * "Copy the folder, put your deck inside it" is fine for a person starting a deck
+ * and impossible for an agent handed a path inside a repository it does not own.
+ * Without a second route, the honest answer to "render the deck where it is" was
+ * absent from the kit, and the failure it left behind is silent: every wrong way
+ * to pass the assets renders a deck that looks deliberate and is not Lattice.
+ *
+ * THE THREE ASSET RULES IN THAT SECTION ARE MEASURED, not reasoned. Rendered
+ * through real marp-cli 4.5.1 driving real headless Chrome, `examples/
+ * lattice-example-starter.md`, 10 slides, at each combination:
+ *
+ *   - `--theme-set <url>` → a 10-page PDF in DEFAULT MARP STYLING. No error on
+ *     the stylesheet; marp-cli resolves themeSet entries as paths only. This is
+ *     the worst of the three because the output is a plausible-looking deck.
+ *   - `fonts/` absent from the OUTPUT's directory → palette and layout correct,
+ *     type silently fell back to a system serif. marp-cli INLINES theme CSS into
+ *     a `<style>` block, so `url(fonts/…)` resolves against the output document,
+ *     never against the stylesheet it was written in.
+ *   - runtime `<script src>` local, and the same three from jsDelivr → BOTH
+ *     composed the `kpi` layout identically. The CDN route is real, and it is
+ *     the one thing here that may be a URL.
+ *
+ * WHY raw.githubusercontent IS A DOWNLOAD URL AND NEVER A `<script src>`: it
+ * serves `content-type: text/plain` with `x-content-type-options: nosniff`, so
+ * Chrome refuses to execute it. jsDelivr serves the same bytes off the same
+ * branch as `application/javascript`. Both were checked against the live hosts;
+ * the distinction is invisible until a slide comes up as a plain list.
+ *
  * `npm install @laticent/lattice` is DELIBERATELY ABSENT. The package is not
  * published — the registry returns 404 today — so every install line of that
  * shape in our own docs is aspirational, and a kit that opens with one teaches a
  * command that fails on the reader's first attempt.
  */
 function renderDoc() {
+  const raw = `${KIT_RAW_BASE}/marp`;
+  const cdn = `${KIT_CDN_BASE}/marp`;
   return [
     '# Turn your deck into a PDF',
     '',
     'You have a `.md` file. Here is how to see it.',
     '',
-    '## The quickest route: the Marp kit (nothing to install)',
+    '## How Marp and Lattice divide the work',
+    '',
+    'Read this once and the rest of the page explains itself.',
+    '',
+    '**Marp** splits the Markdown into slides and drives a headless Chrome to print them.',
+    'It does not know what `kpi` or `quadrant` means — to Marp a `<!-- _class: kpi -->`',
+    'comment is just a class name to put on a `<section>`.',
+    '',
+    '**Lattice** is what gives that class name a meaning, in two parts:',
+    '',
+    '- **`lattice.css`** lays the slide out, and a palette like **`cuoio.css`** colors it.',
+    '  Most layouts are pure CSS and need nothing else.',
+    '- **the runtime `<script>`s** build the layouts that cannot be done in CSS — charts,',
+    '  diagrams, and the ones that rearrange their own content, like `kpi`. These run in',
+    '  the browser, during the render.',
+    '',
+    'So a Lattice deck is a Marp deck, plus a stylesheet Marp has to be handed, plus the',
+    `${numberWord(RUNTIME_SCRIPT_NAMES.length)} scripts the deck carries itself. **Miss any of them and the deck still renders** — as`,
+    'plain Marp, or with the palette but no type, or with a layout flattened to a list.',
+    'None of those prints an error. That is the whole difficulty of this page.',
+    '',
+    '## What your deck must carry',
+    '',
+    'A Lattice deck is a Marp deck first. Six things make it one:',
+    '',
+    '| In the deck | Why |',
+    '|---|---|',
+    '| `marp: true` in the front matter | Without it marp-cli treats the file as plain Markdown |',
+    '| `theme: cuoio` — a palette your renderer registered | An unregistered name falls back to plain Marp, silently |',
+    '| `---` alone on a line between slides | This is the slide separator; front matter ends with one too |',
+    '| `<!-- _class: NAME -->` at the top of each slide | Picks the layout. One per slide |',
+    `| the ${numberWord(RUNTIME_SCRIPT_NAMES.length)} runtime \`<script>\` tags, at the **bottom** | Marp emits raw HTML in document order — at the top they land inside slide 1 and print as text |`,
+    '| `class: dark` for dark mode, **not** `color-mode:` | `class:` is Marp\'s own key. Lattice\'s richer registers are read by the full export pipeline, not by Marp |',
+    '',
+    'And one thing on the renderer\'s side: **`html: true`**. marp-core escapes raw HTML by',
+    'default, which turns the deck\'s `<script>` tags into visible text and leaves every',
+    'chart and diagram unbuilt. Pass `--html` on the CLI, or set it in a config file.',
+    '',
+    `The ${numberWord(RUNTIME_SCRIPT_NAMES.length)} tags, in this order — the runtime reads the dagre global synchronously`,
+    'on its first draw, so it has to come last:',
+    '',
+    ...fenced(RUNTIME_TAGS.join('\n'), 'html'),
+    '',
+    '`examples/lattice-example-starter.md` carries all six. Copying it is the cheapest way',
+    'to get them right.',
+    '',
+    '## Route 1: the Marp kit (nothing to install)',
     '',
     'The `marp/` folder published beside this kit is a copy-and-go bundle — the engine',
     'CSS, the palettes, the fonts and a config. Copy the folder, put your deck inside it',
     'next to `Sample-Deck.md`, then:',
     '',
     ...fenced(
-      'npx @marp-team/marp-cli@^4.3.1 your-deck.md \\\n  --config-file marp.config.cjs --allow-local-files -o your-deck.pdf',
+      `npx @marp-team/marp-cli@${MARP_CLI_RANGE} your-deck.md \\\n  --config-file marp.config.cjs --allow-local-files -o your-deck.pdf`,
       'sh',
     ),
     '',
@@ -1701,6 +1777,74 @@ function renderDoc() {
     '',
     'marp-cli renders the PDF through a Chrome or Chromium you already have. If it cannot',
     'find one, point it at yours with `CHROME_PATH=/path/to/chrome`.',
+    '',
+    '## Route 2: render the deck where it already is',
+    '',
+    'Route 1 asks you to move the deck. When you cannot — the deck lives in a repository,',
+    'or you are an agent handed a path — hand marp-cli the stylesheets directly with',
+    '`--theme-set` and leave the deck alone.',
+    '',
+    'First fetch the assets once. One command gets all of them, the typefaces included —',
+    'which matters, because there are dozens of font files and no practical way to name',
+    'them one at a time:',
+    '',
+    ...fenced(
+      [
+        `curl -fsSL ${KIT_TARBALL} \\`,
+        '  | tar -xz --strip-components=1 lattice-dist-kits/marp',
+      ].join('\n'),
+      'sh',
+    ),
+    '',
+    'That leaves a `marp/` directory holding the stylesheets, the palettes, `fonts/` and the',
+    `${numberWord(RUNTIME_SCRIPT_NAMES.length)} runtime scripts. Now point marp-cli at it and leave the deck where it is:`,
+    '',
+    ...fenced(
+      [
+        '# Both of these resolve against the OUTPUT file, so they go beside it —',
+        '# the typefaces, and the runtime scripts the deck names at its bottom.',
+        'cp -r marp/fonts path/to/',
+        `cp ${RUNTIME_SCRIPT_NAMES.map((f) => `marp/${f}`).join(' \\\n   ')} \\\n   path/to/`,
+        '',
+        `npx @marp-team/marp-cli@${MARP_CLI_RANGE} path/to/your-deck.md \\`,
+        '  --html --allow-local-files --pdf -o path/to/your-deck.pdf \\',
+        '  --theme-set marp/lattice.min.css marp/cuoio.min.css',
+      ].join('\n'),
+      'sh',
+    ),
+    '',
+    '### Three rules about where those files may live',
+    '',
+    'Each was checked by rendering the same 10-slide deck both ways and looking at the',
+    'result. Each wrong answer produces a deck, not an error.',
+    '',
+    '| Asset | May it be a URL? | Where it must be |',
+    '|---|---|---|',
+    '| The stylesheets (`--theme-set`) | **No** | A local path. marp-cli resolves themeSet entries as paths only; a URL renders the deck in **default Marp styling** and says nothing |',
+    '| `fonts/` | No | Beside the **output** file, not beside the stylesheet. marp-cli inlines theme CSS into the page, so `url(fonts/…)` resolves against the output document. Get this wrong and the palette and layout are right while the type falls back to a system serif |',
+    `| The ${numberWord(RUNTIME_SCRIPT_NAMES.length)} runtime \`<script src>\` | **Yes** | Beside the **output** file, like the fonts and for the same reason, or a CDN URL. Both were verified rendering the same layout identically |`,
+    '',
+    '### Skipping the download for the scripts',
+    '',
+    'The scripts are the one asset that may be a URL, so a deck can carry them directly and',
+    'you download nothing but the two stylesheets:',
+    '',
+    ...fenced(RUNTIME_SCRIPT_NAMES.map((f) => `<script src="${cdn}/${f}"></script>`).join('\n'), 'html'),
+    '',
+    'Two costs to know before you take that trade. The render now needs network access, so',
+    'it fails where the kit route would not; and **`@dist-kits` is a moving branch**, which',
+    'is what you want for fixes and not what you want for a deck that must render the same',
+    'way next year. Pin a tag instead of the branch when that matters.',
+    '',
+    'There is a second URL for these files, and it is **not** interchangeable. To grab one',
+    'file on its own — a different palette, say — fetch it from the repository directly:',
+    '',
+    ...fenced(`curl -fsSLO ${raw}/cuoio-dark.min.css`, 'sh'),
+    '',
+    '**That host is for downloading and never for a `<script src>`.** It serves JavaScript',
+    'as `text/plain` with `nosniff`, so the browser refuses to run it, the layout comes up',
+    'flat, and nothing anywhere says why. Use the CDN above in a tag; use this one in a',
+    '`curl`.',
     '',
     '## In the browser, with nothing at all',
     '',
@@ -1715,12 +1859,26 @@ function renderDoc() {
     ...fenced('node dist/lattice-emulator.js your-deck.md your-deck.pdf', 'sh'),
     '',
     'The output format is chosen by the extension — `.pdf`, `.pptx`, `.png`, `.zip`, `.html`.',
-    'Needs Node 22.12 or newer and a Chromium that Puppeteer can find.',
+    'Needs Node 22.12 or newer and a Chromium that Puppeteer can find. This route needs no',
+    '`--theme-set` and no `<script>` tags: the engine owns both ends, and it strips the',
+    'deck\'s runtime scripts before export, so a deck carrying them renders the same here.',
     '',
     '## What about `npm install`?',
     '',
     'Not yet. The package is not published to the npm registry, so an `npm install`',
-    'line would fail on your first attempt. Use one of the three routes above until it is.',
+    'line would fail on your first attempt. Use one of the routes above until it is.',
+    '',
+    '## If the slides come out wrong',
+    '',
+    'Every failure on this page is silent, so work back from what you see:',
+    '',
+    '| What you see | What is missing |',
+    '|---|---|',
+    '| Plain Marp slides — no palette, no layout | The stylesheets never registered. Check they are local paths, not URLs |',
+    '| Right colors and layout, wrong typeface | `fonts/` is not beside the **output** file |',
+    '| One layout flattened to a list or a bare fence | The runtime scripts did not run: missing, in the wrong order, at the top of the file, or `--html` was not passed |',
+    '| `<script src=…>` printed on slide 1 as text | `--html` was not passed, so marp-core escaped it |',
+    '| A blank final page after a diagram | An old runtime. Mermaid appends a tooltip to `document.body`, past the last slide, and Chrome spills one more sheet. The shipped runtime pins it; re-fetch yours |',
     '',
     '## Before you render, check the deck',
     '',
@@ -1804,8 +1962,53 @@ function exampleDecks() {
 // split out of the runtime bundle, the marp path gained a third tag, and this copy
 // silently kept emitting two — HARD RULE #1, in the small. Reading the one source
 // means a fourth engine lands here for free, and a rename cannot desynchronise them.
-const { RUNTIME_SCRIPTS } = require('../lib/core/marp-bundle.js');
+const { RUNTIME_SCRIPTS, MARP_CLI_RANGE } = require('../lib/core/marp-bundle.js');
 const RUNTIME_TAGS = RUNTIME_SCRIPTS.trim().split('\n');
+
+/**
+ * The runtime script FILENAMES, read back out of the tags rather than restated.
+ *
+ * `render/` needs the bare names twice — once to `curl` them, once to build CDN
+ * URLs — and the tags are already the one source (see above). Parsing them back
+ * costs a regex and removes the second place a fourth engine would have to be
+ * added by hand.
+ */
+const RUNTIME_SCRIPT_NAMES = RUNTIME_TAGS.flatMap((t) => {
+  const m = /<script src="([^"]+)"><\/script>/.exec(t);
+  return m ? [m[1]] : [];
+});
+
+/**
+ * The two ways to reach a published kit asset, and they are NOT interchangeable.
+ *
+ * `raw.githubusercontent.com` serves every file as `content-type: text/plain`
+ * with `x-content-type-options: nosniff`, so Chrome will download it and refuse
+ * to EXECUTE it. jsDelivr mirrors the same branch with real media types
+ * (`application/javascript`, `text/css`). So: raw for `curl`, jsDelivr for a
+ * `<script src>`. Both checked against the live hosts; the difference shows up
+ * on a slide as a layout that quietly did not compose.
+ */
+/**
+ * Spell a small count, so the README reads as prose and still cannot go stale.
+ *
+ * It said "the two runtime `<script>` tags" while every generated deck in the kit
+ * emitted three — the count was typed once and the list grew under it when dagre
+ * was split out of the runtime bundle. Derived from RUNTIME_SCRIPT_NAMES, not
+ * RUNTIME_TAGS: the tag block also carries a markdownlint comment, so its LINE
+ * count is one more than the number of scripts.
+ */
+function numberWord(n) {
+  return ['zero', 'one', 'two', 'three', 'four', 'five', 'six'][n] || String(n);
+}
+
+const KIT_RAW_BASE = 'https://raw.githubusercontent.com/Laticent/lattice/dist-kits';
+/**
+ * The whole published kit as one tarball. The only practical way to get `fonts/`:
+ * it holds dozens of files, so a per-file `curl` loop cannot name them, and
+ * without them the deck renders in a system serif with nothing said.
+ */
+const KIT_TARBALL = 'https://github.com/Laticent/lattice/archive/refs/heads/dist-kits.tar.gz';
+const KIT_CDN_BASE = 'https://cdn.jsdelivr.net/gh/Laticent/lattice@dist-kits';
 
 /**
  * examples/lattice-example-starter.md — the one deck to copy.
@@ -2573,9 +2776,10 @@ function rootReadme(files, layoutCount, components) {
     'name; an unregistered one falls back to plain Marp styling **with no error**. `cuoio`',
     'works on every route here.',
     '',
-    '**A Marp-rendered deck needs the two runtime `<script>` tags at the bottom of the file.**',
+    `**A Marp-rendered deck needs the ${numberWord(RUNTIME_SCRIPT_NAMES.length)} runtime \`<script>\` tags at the bottom of the file.**`,
     'Without them, layouts that compose in the DOM render as plain lists — again, no error.',
-    'The starter deck in `examples/` carries them; copy it and you inherit them.',
+    'The starter deck in `examples/` carries them; copy it and you inherit them, and',
+    `[\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md) says where the files come from.`,
     '',
     '**Run the checker before you hand a deck over.** `node review/check.mjs your-deck.md`,',
     'from this folder, is code rather than a model: no tokens, offline, a tenth of a second,',
