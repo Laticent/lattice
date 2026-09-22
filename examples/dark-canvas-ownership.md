@@ -65,13 +65,13 @@ An accent cover under dark had kept its accent ink and lost its accent ground.
 
 <!-- _class: topic fact -->
 
-`Section 02 · The third arm`
+`Section 02 · Topic`
 
-## The third arm
+## Topic joins the list
 
-A fact slide keeps its panel when the register takes the page.
+A topic slide paints an inverse panel in every mode, and had never been named in the finish file at all.
 
-`section.topic.fact (0,2,1) beats section.print (0,1,1) · 33 palettes`
+`the print face is in examples/finish-canvas-print-face.md`
 
 ---
 

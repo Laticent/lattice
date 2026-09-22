@@ -175,3 +175,40 @@ test('a painter declared AFTER the dark rule is correct to omit, and `lat-split-
     .sort();
   assert.deepEqual(after, ['lat-split-cover']);
 });
+
+test('no `--fin-canvas` rule in the BUNDLE mixes a `:has()` arm with a non-`:has()` arm', () => {
+  // The same invariant `finish-canvas-contract.test.js` asserts over the SOURCE, asserted
+  // again here over `dist/lattice.css` — and the duplication is the point, because the two
+  // files can disagree. That contract reads `lib/base/base.finish.css`, so it catches a
+  // human merging the blocks back; it cannot see a merge introduced BY THE BUILD. Any CSS
+  // step that folds rules sharing a declaration block would do exactly that, silently.
+  //
+  // What it protects: Selectors-4 invalidates a whole selector list on one unparsable
+  // complex selector, so a `:has()` arm sharing a list with the bookends takes them down
+  // on a renderer that does not know `:has()`. Measured in Chromium 131 with `:has` made
+  // unparsable — split, `title`/`closing`/`divider` hold rgb(0,61,102) and only `topic`
+  // falls; merged, all three drop to rgb(0,29,51). `dist/marp-kit/lattice.css` is
+  // byte-identical to this bundle and ships to third-party Marp renderers.
+  const css = fs.readFileSync(BUNDLE, 'utf8');
+  const ast = csstree.parse(css);
+  const mixed = [];
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.prelude.type !== 'SelectorList') return;
+      const sets = [...node.block.children].some(
+        (d) => d.type === 'Declaration' && d.property === '--fin-canvas',
+      );
+      if (!sets) return;
+      const arms = [...node.prelude.children].map((sel) => csstree.generate(sel));
+      const withHas = arms.filter((a) => a.includes(':has('));
+      if (withHas.length && withHas.length !== arms.length) mixed.push(arms.join(',\n    '));
+    },
+  });
+  assert.deepEqual(
+    mixed,
+    [],
+    'a `--fin-canvas` rule in the bundle mixes `:has()` and non-`:has()` arms, so a renderer '
+      + `without \`:has()\` drops the declaration for all of them:\n    ${mixed.join('\n\n    ')}`,
+  );
+});

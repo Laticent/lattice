@@ -230,6 +230,8 @@ function deriveShapes(css) {
   /** frame name (or '*' for a bare `section`) -> Set of probe-element HTML */
   const byFrame = new Map();
   const unbuildable = [];
+  /** probe HTML -> the `:has(…)` text it was built from, so `before()` can prove it matches */
+  const forms = new Map();
 
   // One `:has()` branch -> one probe element. Supported, because all of it is in the
   // bundle today: `>` chains (`> .cell-stage > p` nests), a descendant with no
@@ -326,7 +328,10 @@ function deriveShapes(css) {
           if (q.type === 'PseudoClassSelector' && q.name === 'has' && q.children) {
             const html = build(q);
             if (html === null) unbuildable.push(csstree.generate(q));
-            else
+            else {
+              for (const h of html) forms.set(h, csstree.generate(q));
+            }
+            if (html !== null)
               for (const k of keys) {
                 if (!byFrame.has(k)) byFrame.set(k, new Set());
                 for (const h of html) byFrame.get(k).add(h);
@@ -338,7 +343,7 @@ function deriveShapes(css) {
       }
     },
   });
-  return { byFrame, unbuildable };
+  return { byFrame, unbuildable, forms };
 }
 
 /** `['']` plus every shape that frame's canvas rules — or a bare `section` rule — gate on. */
@@ -500,6 +505,38 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     }
     xBrowser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
     xPage = await xBrowser.newPage();
+
+    // THE PROBE MUST ACTUALLY MATCH THE SELECTOR IT WAS BUILT FROM, asserted in the
+    // browser rather than by inspecting the string. The string check above ("some shape
+    // mentions tile-track") is satisfied by a probe that mentions the class and does not
+    // match — and that is not hypothetical: wrapping the built element in one classless
+    // `<div>` keeps every row's LABEL reading `[tile-track]` while `:has(> ul.tile-track)`
+    // stops matching, so the whole tracked axis silently measures the trackless shape
+    // again. Measured: with that one-token change AND the `topic.fact` arm deleted from
+    // the bundle, both gates passed 4/4 and the entire subject of this commit shipped
+    // green. A refusal path catches forms it cannot PARSE; only this catches a form it
+    // parses and builds WRONG.
+    await xPage.setContent('<article class="lattice"></article>');
+    const mismatched = await xPage.evaluate((pairs) => {
+      const host = document.querySelector('article');
+      const bad = [];
+      for (const [html, form] of pairs) {
+        const probe = document.createElement('section');
+        probe.className = 'probe';
+        probe.innerHTML = html;
+        host.appendChild(probe);
+        if (!probe.matches(`section${form}`)) bad.push(`${form}  built:  ${html}`);
+        probe.remove();
+      }
+      return bad;
+    }, [...census.forms]);
+    assert.deepEqual(
+      mismatched,
+      [],
+      'a probe element does NOT match the `:has()` it was derived from, so every row built '
+        + `on it is measuring a shape the selector never sees:\n  ${mismatched.join('\n  ')}`,
+    );
+
     await xPage.setContent(
       `<style>${theme}\n${bundle}</style><article class="lattice">` +
         cases

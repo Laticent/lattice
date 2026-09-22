@@ -56,6 +56,7 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   const rules = [...css.matchAll(/([^{}]*)\{\s*--fin-canvas:\s*var\(--surface-inverse\)/g)];
   assert.ok(rules.length, 'expected a rule setting `--fin-canvas: var(--surface-inverse)` for the inverse frames');
   const selector = rules.map((r) => r[1]).join(',');
+
   // `.topic` is here because it paints `--surface-inverse` in EVERY mode. It was left
   // out when this test was renamed from "the three inverse bookends" to "every frame
   // that paints an inverse panel" — the name grew, the list did not, and a mutant
@@ -146,6 +147,30 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   // cross had no axis putting a variant and a register on the same section.
   const KEEPS_CANVAS_UNDER_PRINT = (sel) =>
     sel.includes('.topic') && (sel.includes(':not(:has(> ul.tile-track))') || sel.includes('.fact'));
+  // NO RULE MAY MIX A `:has()` ARM WITH A NON-`:has()` ARM, which is the invariant the
+  // two blocks exist to hold — and asserting the COUNT would not hold it. Selectors-4
+  // invalidates a whole selector list on one unparsable complex selector (`:is()` and
+  // `:where()` are the forgiving exceptions; a bare list is not), so a `:has()` arm
+  // sharing a list with the bookends takes them down on any renderer that does not know
+  // `:has()`. Measured in Chromium 131 with `:has` made unparsable: split, the three
+  // bookends hold rgb(0,61,102) and only topic falls; merged, all three drop to
+  // rgb(0,29,51). `dist/marp-kit/lattice.css` ships this rule to third-party Marp
+  // renderers, so the reach is real.
+  //
+  // Stated as the invariant rather than `rules.length === 2` deliberately: the count
+  // passes a merge back into one list (measured — that mutant passed both gates 4/4
+  // before this assertion existed) and fails a legitimate future third block.
+  for (const [, sel] of rules) {
+    const arms = topLevel(sel);
+    const withHas = arms.filter((a) => a.includes(':has('));
+    if (!withHas.length || withHas.length === arms.length) continue;
+    assert.fail(
+      'a `--fin-canvas: var(--surface-inverse)` rule mixes `:has()` and non-`:has()` arms, so a '
+        + 'renderer without `:has()` drops the declaration for ALL of them — split them into '
+        + `separate blocks:\n  ${arms.join('\n  ')}`,
+    );
+  }
+
   for (const one of topLevel(selector)) {
     if (KEEPS_CANVAS_UNDER_PRINT(one)) {
       assert.ok(
