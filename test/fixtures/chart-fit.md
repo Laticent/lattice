@@ -261,7 +261,7 @@ not what this slide is here to watch. The table below is the committed gallery
 matrix VERBATIM, so the gate measures the real reference content rather than a
 reduced one that would fit either way. -->
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |

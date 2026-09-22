@@ -17,17 +17,17 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `heading` | `h2` | yes | Slide heading naming the rubric. |
-| `eyebrow` | `p > code` | no | OPTIONAL axis labels: TWO inline-code spans in one paragraph, placed with the slide's framing text — `` `Wider reach`  `Deeper cognition` ``. The first names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph with only ONE code span is an ordinary eyebrow/subtitle and is left alone. |
+| `eyebrow` | `p > code` | no | OPTIONAL axis labels: ONE bracketed list in its own paragraph ABOVE the table — `` `[Wider reach, Deeper cognition]` ``. The first member names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Quotes are optional, single or double, and protect a comma inside a name — `["Reach, net", Depth]` is two axes. Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph that is not a bracketed list is an ordinary eyebrow/subtitle and is left alone. |
 | `subtitle` | `h2 + p` | no | One supporting sentence under the heading, framing how to read the grid. |
 | `matrix` | `table` | yes | Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label. |
-| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the cell key: `[{[-], within reach}, {[ ], out of band}]`, one inline-code span alone in its paragraph. TWO shapes are keyable — `[-]` and `[ ]`. `[x]` is deliberately NOT: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a row reading 'filled' would repeat on every slide what the cell already says better. Naming a subset is the normal case; the rest keep the defaults declared in this manifest's `labelSet`. Do not confuse this with the AXIS eyebrow, which is TWO code spans in one paragraph — that is the discriminator, and a one-code paragraph that is not a label set is left alone. |
+| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the cell key: `[{[-], within reach}, {[ ], out of band}]`, one bracketed list in its own paragraph BELOW the table. POSITION is what distinguishes it from the axis — the two are the same shape, so a list above the table names the axes and a list below it renames the key. TWO shapes are keyable — `[-]` and `[ ]`. `[x]` is deliberately NOT: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a row reading 'filled' would repeat on every slide what the cell already says better. Naming a subset is the normal case; the rest keep the defaults declared in this manifest's `labelSet`. |
 | `legend` | `p:last-of-type` | no | Optional single trailing paragraph, doubling as the chart caption. It no longer has to say what the cell shapes mean — the key under the grid names them — so use it for the caveat the key cannot carry (how the placements were derived, what they are illustrative of). A leading `**bold**` run still renders as a filled swatch + label and a leading `*italic*` run as an outlined swatch + label, for a caption that wants to point at a specific cell; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption). |
 
 ### Common mistakes
 
 - **Authoring `[x]` with no trailing label, e.g. `| [x] |` alone.** A filled cell's text IS the row's title at that reach — `[x] Senior`, not a bare marker. An unlabeled filled cell renders as an empty colored box.
 - **Keying `[x]` in a label set.** `[x]` is deliberately not keyable: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a key row reading 'filled' would repeat on every slide what the cell already says better. Key `[-]` and `[ ]`, the two shapes a reader genuinely cannot infer. `lint:deck` says this back to you, quoting the manifest's own reason.
-- **Writing the label set as TWO code spans in one paragraph.** Two code spans in one paragraph is the AXIS EYEBROW — `` `Wider reach`  `Deeper cognition` `` — and it will be read as the axis names. A label set is ONE code span alone in its paragraph.
+- **Writing the label set ABOVE the table, where the axis lives.** The axis and the key are the SAME shape — a bracketed list — so position is the only thing that tells them apart. A list ABOVE the table names the axes; a list BELOW it renames the key. Put it above and your key becomes an axis label reading 'within reach ▶'.
 
 ### Data shape
 
@@ -58,7 +58,7 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 
 Your position is the diagonal — depth and reach meet at one cell.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Depth | Self | Team | Org |
 | ---------- | :--: | :--: | :-: |

@@ -22,7 +22,7 @@ Two ordered axes as an N×M chart-family grid — each cell marks a position (fi
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -44,7 +44,7 @@ Illustrative — placements vary by company.
 
 ## Six categories by five columns is the grid's practical ceiling.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Discipline | Self | Pair | Team | Org | Field |
 | --- | :--: | :--: | :--: | :--: | :--: |
@@ -65,7 +65,7 @@ Illustrative — placements vary by company.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -88,7 +88,7 @@ Illustrative — placements vary by company.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -111,7 +111,7 @@ Illustrative — placements vary by company.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |

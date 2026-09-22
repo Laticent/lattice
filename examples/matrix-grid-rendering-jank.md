@@ -38,7 +38,7 @@ header: "Lattice · matrix-grid column jank"
 
 Every column is the same width, so the reach axis reads as equal steps.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -60,7 +60,7 @@ Every column is the same width, so the reach axis reads as equal steps.
 
 The widest label no longer buys width from its neighbors.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Discipline | Self | Pair | Team | Org | Field |
 | --- | :--: | :--: | :--: | :--: | :--: |

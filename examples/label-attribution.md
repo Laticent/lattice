@@ -78,7 +78,7 @@ Eight names travelled far enough to need a line. Trace any one and it lands on i
 <!-- _class: scatter -->
 <!-- _footer: "The column reads in the dots’ own order" -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## Twelve tools, and a cluster the eye cannot separate.
 

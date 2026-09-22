@@ -110,7 +110,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 `Tooling spend review`
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## The tools we pay most for are the ones nobody adopts.
 

@@ -634,7 +634,7 @@
       "",
       "Your position is the diagonal — depth and reach meet at one cell.",
       "",
-      "`Wider reach`  `Deeper cognition`",
+      "`[Wider reach, Deeper cognition]`",
       "",
       "| Depth | Self | Team | Org |",
       "| ---------- | :--: | :--: | :-: |",
@@ -897,7 +897,7 @@
     "body": [
       "<!-- _class: scatter -->",
       "",
-      "`X measure` `Y measure`",
+      "`[Annual cost, Teams adopting]`",
       "",
       "## Two measures, one relationship.",
       "",

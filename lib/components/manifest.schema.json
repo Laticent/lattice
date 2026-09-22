@@ -265,6 +265,38 @@
         }
       }
     },
+    "axisSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "members",
+        "body"
+      ],
+      "description": "The axis an author may name, as ONE bracketed list above the chart body — `[Wider reach, Deeper cognition]`. Declared here so the transforms, chart-narration and `lint:deck` share one source. No field = the component owns no axis; a bracketed span on its slide is an ordinary eyebrow. Why: engineering/decisions/2026-09-22-chart-axis-grammar.md.",
+      "properties": {
+        "members": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The axis positions in order — `[\"column\",\"row\"]`, `[\"x\",\"y\",\"size\"]`."
+        },
+        "body": {
+          "enum": [
+            "table",
+            "list"
+          ],
+          "description": "What bounds the axis slot: a grid's TABLE or a chart's LIST."
+        },
+        "keyBelow": {
+          "type": "boolean",
+          "description": "False when the component draws no label set below the body, so a trailing coda is not eaten as a key."
+        }
+      }
+    },
     "conformance": {
       "enum": [
         "strict"

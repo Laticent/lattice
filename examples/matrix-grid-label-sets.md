@@ -20,7 +20,7 @@ draw one of them, on purpose.
 <!-- _class: matrix-grid -->
 <!-- _footer: "Derived · two shapes named, one deliberately not" -->
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 ## Your level is a cell, not a rung.
 
@@ -35,7 +35,7 @@ draw one of them, on purpose.
 <!-- _class: matrix-grid -->
 <!-- _footer: "Why [x] has no key row" -->
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 ## A filled cell already says what it is.
 
@@ -52,9 +52,7 @@ would repeat that on every slide, worse.
 <!-- _class: matrix-grid -->
 <!-- _footer: "Overridden · a coverage grid wants other words" -->
 
-`Wider market`  `Deeper product`
-
-`[{[-], within reach}, {[ ], out of band}]`
+`[Wider market, Deeper product]`
 
 ## The same grid, for market coverage.
 
@@ -64,12 +62,14 @@ would repeat that on every slide, worse.
 | Mid-market | [-]        | [x] Core   | [-]         |
 | SMB        | [ ]        | [-]        | [x] Core    |
 
+`[{[-], within reach}, {[ ], out of band}]`
+
 ---
 
 <!-- _class: matrix-grid -->
 <!-- _footer: "Derived · a grid of only filled cells needs no key" -->
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 ## No key when there is nothing to decode.
 

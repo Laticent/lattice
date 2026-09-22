@@ -1695,6 +1695,11 @@ test('narrateDataSeries: reads a nested two-level series, each value bound to it
 test('narrateDataSeries: binds each value to its AXIS when the eyebrow is a multi-pill legend', () => {
   const out = narrateDataSeries(manifestSample('scatter'));
   assert.match(out, /Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent\./);
+  // The axis names now arrive in ONE bracketed span rather than two pills, so the
+  // legend test has to expand the list to count them. Without that the line reads
+  // as a caption and a listener hears "[Annual cost, Teams adopting]." — brackets
+  // spoken aloud, and the values below left unbound. Never say the punctuation.
+  assert.doesNotMatch(out, /[[\]]/, out);
   // The legend is NOT also spoken as a sentence — its words arrive bound to their values.
   assert.doesNotMatch(out, /^Annual cost\./);
   assert.doesNotMatch(out, /Annual cost\. Teams adopting\./);
@@ -2011,4 +2016,24 @@ test('scrubLabel keeps its comma for a Mermaid label — the two breaks mean dif
   // break separates a name from its qualifier.
   const md = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A["Booking received<br/>(EDI 204 / portal)"] --> B["Hold"]', '```'].join('\n');
   assert.match(narrateDiagram(md), /Booking received, \(EDI 204/);
+});
+
+test('narrateDataSeries: only a component that OWNS an axis expands a bracketed eyebrow', () => {
+  // The render path decides by POSITION; this path had no position rule at all,
+  // so the two could disagree about the same span. `bullet` draws no axis, so a
+  // bracketed caption above its rows must stay a CAPTION — spoken as itself,
+  // with the values left unbound — exactly as the slide renders it.
+  const bullet = [
+    '<!-- _class: bullet -->', '', '`[Confidential, internal]`', '', '## Rows', '',
+    '- New ARR `4.2M` `5.0M`', '- Expansion `2.1M` `3.0M`',
+  ].join('\n');
+  const spoken = narrateDataSeries(bullet);
+  assert.match(spoken, /Confidential, internal/, 'the caption is still spoken');
+  assert.doesNotMatch(spoken, /New ARR: Confidential/, 'and never bound as an axis name');
+});
+
+test('narrateDataSeries: a bracketed list cannot invent more axes than the component declares', () => {
+  const { axisSetFor } = require('../../../lib/core/label-set');
+  assert.equal(axisSetFor('scatter').members.length, 3);
+  assert.equal(axisSetFor('bullet'), null, 'bullet declares no axis');
 });

@@ -134,21 +134,24 @@ describe('scatter kernel', () => {
   });
 
   describe('readAxisTitles — the caption paragraph', () => {
-    test('two inline-code spans become the x and y captions and are CONSUMED', () => {
-      const html = '<p><code>Annual cost</code> <code>Teams adopting</code></p><h2>H</h2>';
+    test('a bracketed list above the body becomes the x and y captions, and is CONSUMED', () => {
+      // A body is required: with no chart there is no axis to name, so the lift
+      // has no slot to be in. That is what keeps a code paragraph on a
+      // list-less section byte-identical.
+      const html = '<p><code>[Annual cost, Teams adopting]</code></p><h2>H</h2><ul><li>a</li></ul>';
       const r = readAxisTitles(html);
       assert.equal(r.x, 'Annual cost');
       assert.equal(r.y, 'Teams adopting');
       assert.equal(r.html.includes('Annual cost'), false);
     });
 
-    test('a THIRD span names the bubble size measure', () => {
-      const html = '<p><code>Cost</code> <code>Adoption</code> <code>Seats</code></p>';
+    test('a THIRD member names the bubble size measure', () => {
+      const html = '<p><code>[Cost, Adoption, Seats]</code></p><ul><li>a</li></ul>';
       assert.equal(readAxisTitles(html).size, 'Seats');
     });
 
     test('a ONE-code paragraph is the ordinary chart eyebrow and is left alone', () => {
-      const html = '<p><code>Tooling review</code></p><h2>H</h2>';
+      const html = '<p><code>Tooling review</code></p><h2>H</h2><ul><li>a</li></ul>';
       const r = readAxisTitles(html);
       assert.equal(r.x, '');
       assert.equal(r.html, html);
@@ -491,11 +494,11 @@ describe('scatter kernel', () => {
   describe('transformSection — dispatch', () => {
     test('splices the figure in place of the list and consumes the axis paragraph', () => {
       const html = section(ul([['Atlas', '4', '8'], ['Borealis', '2', '3']]),
-        '<p><code>Cost</code> <code>Value</code></p>');
+        '<p><code>[Cost, Value]</code></p>');
       const out = transformSection(html, CTX);
       assert.match(out, /class="scatter-figure"/);
       assert.equal(/<ul>/.test(out), false, 'the source list must be replaced');
-      assert.equal(out.includes('<code>Cost</code>'), false, 'the axis paragraph must be consumed');
+      assert.equal(out.includes('[Cost, Value]'), false, 'the axis paragraph must be consumed');
       assert.match(out, /ANNUAL|Cost/i);
     });
 
@@ -505,7 +508,7 @@ describe('scatter kernel', () => {
       assert.equal(transformSection(noList, CTX), noList);
       // A list with no numeric points.
       const noPoints = section(ul([['Atlas'], ['Borealis']]),
-        '<p><code>Cost</code> <code>Value</code></p>');
+        '<p><code>[Cost, Value]</code></p>');
       assert.equal(transformSection(noPoints, CTX), noPoints);
     });
 
