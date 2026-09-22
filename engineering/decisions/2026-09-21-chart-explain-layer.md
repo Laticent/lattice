@@ -1221,6 +1221,124 @@ honest statement is the one the tenth round made and the eleventh proved: **#229
 the change that removes the disagreement**, and every round until then is buying
 refusals at the price of coverage.
 
+## The thirteenth round — the first one whose central claim survived (2026-09-22)
+
+A fourth checker ran, and for the first time the thing under review came back
+intact. It found two blocking defects, and neither is on the axis the last eleven
+rounds bled from.
+
+### The negative result is the finding
+
+The checker built a generator biased at exactly this commit's axes, **proved it
+sensitive** by pointing it at the parent commit — 146 contradictions between the
+spoken tally and the transform's own — and then ran it against this head:
+
+```
+~330,000 adversarial decks, ~6,100 spoken tallies
+contradictions between the voice's tally and the chart's own count: 0
+parent commit, same generator, same 20,000 decks:                 146
+```
+
+It also re-derived the sixteen-mutant table independently, under a hook it proved
+fires (an always-null self-test kills three cells; the unmutated control passes all
+seven). Sixteen named rules, sixteen kills, and the corpus-versus-fixture split
+reproduces: the corpora kill four, `REGRESSION_DECKS` holds the rest.
+
+**And it could not refute the fix I reverted.** Round twelve removed the
+dropped-row ambiguity veto that round eleven's checker had suggested, on the grounds
+that it silenced a correct tally. The checker looked for a shape where a dropped
+row's ambiguity means a row is MISSING and `truncated` does not catch it — by
+construction and by fuzz — and found none: every list-ending mechanism markdown-it
+has routes into `stopped`, and the tab disagreement is one-directional, so narration
+pops more and stops more, which is the silent direction.
+
+### What it did find
+
+**A thematic break is not a lost row.** Round twelve widened `lostRows` to any marker
+at indent 0–3, and `* * *`, `+ + +` and `- - -` all match while markdown-it renders
+them as `<hr>` — the chart's list is COMPLETE. A deck ending in a closing note and a
+rule went from *"all two cleared their target"* over a 2-of-2 chart to no tally at
+all. That is precisely the hole `lostRows` was written to close, re-opened by its own
+widening, and it is a regression round twelve created.
+
+**And the root was only two-thirds closed.** `isTopLevelBullet` is `/^-\s+/` — column
+0 — so a `-` indented one space is a top-level item to markdown-it and invisible to
+this scanner. `foreignListFirst`'s widened regex deliberately excluded `-` because
+`-` is `isTopLevelBullet`'s job, and that anchor was never moved. When such a list
+comes FIRST it is the one `extractFirstList` hands the chart:
+
+```
+ - Alpha `5` `4`        ← the chart draws THIS, and only this
+
+  Inside prose.
+- Beta `9` `4`          ← the voice read these two, with plan lines
+- Gamma `2` `4`
+```
+
+One bar drawn; two plan-line readings for rows rendered as plain bullets. Pre-existing
+and unchanged by round twelve — but it is the leading-edge half of the root that
+commit named, and the changelog claimed the closure. Fixed rather than re-worded.
+
+### Three rules were live and unguarded
+
+The checker wrote seven mutants of its own that survived the whole file. Three were
+worth closing, and one of them taught something:
+
+- **The NESTED half of `colTrusted`.** Only the read site was pinned. Forcing the
+  nested write to `true` left every cell green while changing narration on 573 of
+  4,000 tab-heavy decks. The first fixture written for it was worthless: it put the
+  prose at two spaces, which pops back to the ROW entry, so the nested entry is never
+  the stack top when the rule consults it. It takes prose indented far enough to stay
+  *inside* the tab-indented child.
+- **The fence boundary at two of its four call sites.** `parseDataRows` takes the
+  fence indices in four places and only `bullet` was pinned, so dropping the argument
+  at the word-cloud or data-series site changed nothing any test could see.
+
+### And the fixture runner could not tell two outcomes apart
+
+A `tally: null` cell passed whether the narrator refused the TALLY or refused the
+WHOLE SLIDE. Those are different outcomes, and a fixture that went null for an
+unrelated reason would have certified the refusal it was written for. The runner now
+demands one or the other explicitly — and adding that assertion immediately caught
+**four** existing fixtures passing on total silence.
+
+### Measured
+
+```
+unmutated                              pass 8  fail 0
+HOOK SELF-TEST (narrateBullet → null)  pass 5  fail 3   ← the hook fires
+thematic-break exemption removed       pass 7  fail 1
+leading `-` at indent 1-3 not refused  pass 7  fail 1
+nested colTrusted forced true          pass 7  fail 1
+fences arg dropped at word-cloud       pass 7  fail 1
+fences arg dropped at data-series      pass 7  fail 1
+```
+
+Cost on the shipped tree, unchanged through all of it:
+
+```
+roots examples test lib docs/public | split /^---\s*$/m | baseline e69b12bf4
+files CONTAINING a _class: 446 | sections with a _class: 3734 | narrate 501 | CHANGED 0
+```
+
+(That first number is the count of files that CARRY a `_class:`, not the number
+walked — the checker walked 489 and got the same three other figures. The earlier
+label was ambiguous.)
+
+### What this round says about the next one
+
+The four rounds before this each found the central mechanism broken. This one found
+the central mechanism sound and the edges rough: a regex that over-matched, an anchor
+that was never moved, three rules nobody had mutated. That is a different kind of
+finding, and it is the first evidence in this swimlane that the refusal design has
+converged.
+
+It is not evidence that **#2295** is unnecessary. The leading-edge defect is exactly
+the disagreement #2295 removes, and it went unnoticed through four review rounds
+because nothing in the tree can see it — the scanner cannot, and the transform is
+never asked. What changed is the expected VALUE of a fourteenth round: the last four
+each found the thing under test broken, and this one did not.
+
 ## Known limits
 
 - **Nobody has judged the sound.** The track's SHAPE and TIMING are now measured

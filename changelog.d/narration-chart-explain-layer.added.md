@@ -99,12 +99,13 @@
   built from no longer speaks a claim about the whole chart.** Every chart in the
   family is drawn from ONE list. Five things end it or replace it, and narration read
   straight through all five: a note paragraph between rows, a fenced code block, a
-  change of bullet character, an ordered list sitting ABOVE the data, and a row whose
-  marker is indented one to three spaces — which CommonMark makes a sibling the chart
-  draws and scores. Each gave a wrong whole-chart claim on the real export — *"one of
-  three cleared the plan line"* over a two-bar chart, *"none cleared its target"* over
-  a chart whose first row cleared at 125%, *"all two cleared their target"* over a
-  five-row chart, and a word cloud announcing the wrong biggest term. Narration now
+  change of bullet character, a list sitting ABOVE the data, and a marker indented one
+  to three spaces — which CommonMark makes a top-level item the chart draws and scores
+  while a column-0 scan cannot see it at all. Each gave a wrong whole-chart claim on
+  the real export — *"one of three cleared the plan line"* over a two-bar chart,
+  *"none cleared its target"* over a chart whose first row cleared at 125%, *"all two
+  cleared their target"* over a five-row chart, plan-line readings for two rows over a
+  chart drawing ONE bar, and a word cloud announcing the wrong biggest term. Narration
   stops where the list does, tells its callers the row set may be a prefix, and stands
   the tally down; every line past the boundary is read aloud verbatim, so the listener
   loses the summary sentence and none of the numbers.

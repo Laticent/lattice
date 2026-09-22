@@ -416,11 +416,13 @@ const REGRESSION_DECKS = [
     name: 'a fenced block between rows ends the list',
     src: '<!-- _class: bullet -->\n\n## H.\n\n- Uptime `5` `4`\n\n```\nformat: measure target\n```\n\n- Latency `2` `4`\n- Churn `9` `4`',
     tally: null,
+    silent: true,
   },
   {
     name: 'an ordered list ABOVE the rows is the list the chart draws',
     src: '<!-- _class: bullet -->\n\n## H.\n\n1. Alpha `5` `4`\n2. Beta `2` `4`\n\n- Churn `2` `3`\n- Renewal `4` `5`',
     tally: null,
+    silent: true,
   },
   {
     name: 'an ordinary loose list still reads — the refusal is not total',
@@ -452,6 +454,38 @@ const REGRESSION_DECKS = [
     // target" over a chart whose first row cleared at 125%.
     src: '<!-- _class: bullet -->\n\n## H.\n\n 1. Alpha `5` `4`\n 2. Beta `2` `4`\n\n- Churn `2` `3`\n- Renewal `4` `5`',
     tally: null,
+    silent: true,
+  },
+  {
+    name: 'a `-` marker at indent 1-3 ABOVE the rows is the list the chart draws',
+    // `isTopLevelBullet` is `/^-\s+/`, column 0, so a `-` indented one space is a
+    // top-level item to markdown-it and invisible to this scanner. As the FIRST list it
+    // is what `extractFirstList` hands the chart. Measured on the real export: one bar
+    // drawn, and the voice gave plan-line readings to the two rows below it that the
+    // chart renders as plain bullets.
+    src: '<!-- _class: bullet -->\n\n## H.\n\n - Alpha `5` `4`\n\n  Inside prose.\n- Beta `9` `4`\n- Gamma `2` `4`',
+    tally: null,
+    silent: true,
+  },
+  {
+    name: 'a thematic break is not a lost row',
+    // `* * *` opens with a marker and a space and is an `<hr>`, so the chart's list is
+    // COMPLETE. Counting it a lost row put `lostRows` back in the hole it was written to
+    // close — a closing note that loses nothing — and silenced a correct 2-of-2 tally.
+    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n\nA closing note.\n\n* * *',
+    tally: 'all two cleared their target',
+  },
+  {
+    name: 'a tab in a NESTED marker makes its content column untrustworthy too',
+    // `colTrusted` is written on the nested push as well as the row's, and only the READ
+    // site was pinned: forcing the nested write to `true` left every cell green while
+    // changing narration on 573 of 4,000 tab-heavy decks. It takes prose indented far
+    // enough to still be INSIDE the tab-indented child, which is the only time the nested
+    // entry is the stack top when the rule consults it — the first fixture written for
+    // this put the prose at two spaces, which pops back to the row and decides nothing.
+    src: '<!-- _class: bullet -->\n\n## H.\n\n- Row0 `8` `4`\n\t\t- Target `6`\n\n    Prose after a blank.\n\n- Row1 `9` `4`\n  - Target `4`',
+    tally: null,
+    silent: true,
   },
   {
     name: 'a grandchild is not the row\'s own target',
@@ -459,6 +493,7 @@ const REGRESSION_DECKS = [
     // the row's own `1`.
     src: '<!-- _class: bullet -->\n\n## H.\n\n- Row0 `1` `4.2M`\n- Row1 `4.2M`\n- Row2 `80%` `1`\n  - `Floor` `5`\n    - note\n    - `Target` `4.2M`',
     tally: null,
+    silent: true,
   },
 ];
 
@@ -469,6 +504,12 @@ test('every refusal has a deck behind it, and the deck still says what the chart
     for (const re of d.speaks || []) assert.match(said || '', re, `${d.name}: lost a reading it should keep`);
     if (d.tally === null) {
       assert.equal(spoken, null, `${d.name}: expected no tally, got "${said}"`);
+      // A `tally: null` CELL MUST NOT PASS ON TOTAL SILENCE unless that is the point.
+      // "refused the tally" and "refused the whole slide" are different outcomes and the
+      // runner could not tell them apart — a fixture that went null for an unrelated
+      // reason would have certified the refusal it was written for.
+      if (d.silent) assert.equal(said, null, `${d.name}: expected the narrator to bail entirely`);
+      else assert.ok(said, `${d.name}: expected the rows to still be read, got null`);
       continue;
     }
     assert.ok(said, `${d.name}: narrated nothing`);
@@ -525,6 +566,26 @@ test('no narrator ever speaks a fence marker', () => {
       assert.ok(!said.includes('\u0000'), `a fence marker reached the voice: ${JSON.stringify(said.slice(0, 120))}`);
     }
   }
+});
+
+test('the fence boundary is not a bullet-only rule', () => {
+  // `parseDataRows` is shared, and the fence indices are passed at FOUR call sites. Only
+  // the `bullet` one was pinned, so dropping the argument at the word-cloud or
+  // data-series site left every cell green — a checker's own mutants proved it. These
+  // two components read the same interrupted list and must stop at the same place.
+  const cloud = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n\n```\nformat: term count\n```\n\n- delta `20`\n- epsilon `1`';
+  const said = narrateChart(cloud) || '';
+  // The canvas is built from the first list, so `delta` at twenty is not in the picture
+  // and must not be announced as the biggest term.
+  assert.doesNotMatch(said, /delta is the biggest/i, 'named a term past the fence as the leader');
+  assert.match(said, /alpha/i, 'stopped reading the terms the chart does draw');
+
+  const bar = '<!-- _class: bar -->\n\n## Revenue.\n\n- North `4.2`\n- South `3.1`\n\n```\nformat: region value\n```\n\n- East `9.9`';
+  const spoken = narrateChart(bar) || '';
+  // `East` is drawn as a plain bullet, so it may be read VERBATIM by the flattener but
+  // never as a data value ("East, nine point nine").
+  assert.doesNotMatch(spoken, /East, nine point nine/i, 'read a series past the fence as data');
+  assert.match(spoken, /North, four point two/i, 'lost a series the chart does draw');
 });
 
 test('a row marker this parser does not read makes the narrator bail, not guess', () => {
