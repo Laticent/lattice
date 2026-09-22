@@ -73,7 +73,7 @@
     "axes": {
       "selector": "p > code + code",
       "required": true,
-      "description": "The axis captions, as TWO inline-code spans in ONE paragraph — x first, then y; a THIRD names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Two codes is the discriminator: a one-code paragraph is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
+      "description": "The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional, single or double, and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
     },
     "points": {
       "selector": "ul > li",
@@ -86,12 +86,12 @@
       "description": "Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without."
     }
   },
-  "skeleton": "<!-- _class: scatter -->\n\n`X measure` `Y measure`\n\n## Two measures, one relationship.\n\n- First entity `4.2` `62`\n- Second entity `2.1` `38`\n- Third entity `6.8` `81`\n- Fourth entity `3.4` `55`\n",
+  "skeleton": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Two measures, one relationship.\n\n- First entity `4.2` `62`\n- Second entity `2.1` `38`\n- Third entity `6.8` `81`\n- Fourth entity `3.4` `55`\n",
   "anatomyBlock": "scatter",
-  "sample": "<!-- _class: scatter -->\n\n`Annual cost` `Teams adopting`\n\n## The tools we pay most for are the ones nobody adopts.\n\nCost is the renewal we signed; adoption is the share of teams with a weekly active user.\n\n- Atlas `$420k` `18%`\n  - Renewal lands in March\n  - Two teams asked to drop it\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n",
+  "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## The tools we pay most for are the ones nobody adopts.\n\nCost is the renewal we signed; adoption is the share of teams with a weekly active user.\n\n- Atlas `$420k` `18%`\n  - Renewal lands in March\n  - Two teams asked to drop it\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n",
   "stressDoc": {
     "summary": "Twelve entities, four of them inside four points of each other.",
-    "sample": "<!-- _class: scatter -->\n\n`Annual cost` `Teams adopting`\n\n## Stress test — twelve tools and a cluster the eye cannot separate.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n- Granite `$182k` `53%`\n- Halyard `$178k` `50%`\n- Ironwood `$185k` `54%`\n- Juniper `$400k` `20%`\n- Keystone `$88k` `66%`\n- Lantern `$300k` `28%`\n"
+    "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Stress test — twelve tools and a cluster the eye cannot separate.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n- Granite `$182k` `53%`\n- Halyard `$178k` `50%`\n- Ironwood `$185k` `54%`\n- Juniper `$400k` `20%`\n- Keystone `$88k` `66%`\n- Lantern `$300k` `28%`\n"
   },
   "whenToUse": [
     {
@@ -155,12 +155,12 @@
     "bubble": {
       "label": "bubble",
       "summary": "A third measure sizes each dot by area.",
-      "sample": "<!-- _class: scatter bubble -->\n\n`Annual cost` `Teams adopting` `Seats`\n\n## bubble sizes each dot by a third measure.\n\n- Atlas `$420k` `18%` `1200`\n- Borealis `$310k` `24%` `640`\n- Cardinal `$180k` `52%` `900`\n- Dovetail `$95k` `61%` `310`\n- Everline `$240k` `31%` `180`\n- Fathom `$60k` `74%` `450`\n"
+      "sample": "<!-- _class: scatter bubble -->\n\n`[Annual cost, Teams adopting, Seats]`\n\n## bubble sizes each dot by a third measure.\n\n- Atlas `$420k` `18%` `1200`\n- Borealis `$310k` `24%` `640`\n- Cardinal `$180k` `52%` `900`\n- Dovetail `$95k` `61%` `310`\n- Everline `$240k` `31%` `180`\n- Fathom `$60k` `74%` `450`\n"
     },
     "trend": {
       "label": "trend",
       "summary": "A least-squares line through the cloud.",
-      "sample": "<!-- _class: scatter trend -->\n\n`Annual cost` `Teams adopting`\n\n## trend draws the least-squares line through the cloud.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n- Juniper `$400k` `20%`\n- Keystone `$88k` `66%`\n"
+      "sample": "<!-- _class: scatter trend -->\n\n`[Annual cost, Teams adopting]`\n\n## trend draws the least-squares line through the cloud.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n- Juniper `$400k` `20%`\n- Keystone `$88k` `66%`\n"
     }
   },
   "variantDecisionRule": [
@@ -188,7 +188,7 @@
     },
     {
       "mistake": "Writing the axis names as a normal one-pill eyebrow, `` `Cost vs value` ``.",
-      "fix": "That is the chart eyebrow and it stays in the masthead; the plot then has unlabeled axes, which is the one thing a scatter cannot survive. Write the two captions as two inline-code spans in one paragraph."
+      "fix": "That is the chart eyebrow and it stays in the masthead; the plot then has unlabeled axes, which is the one thing a scatter cannot survive. Write the captions as one bracketed list in its own paragraph above the points — `` `[Annual cost, Teams adopting]` ``."
     },
     {
       "mistake": "Assuming a name that does not appear on the plot was lost.",
@@ -196,7 +196,7 @@
     },
     {
       "mistake": "Encoding a third measure in the dot's RADIUS.",
-      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why the third inline-code span on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
+      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
     }
   ],
   "dataShapeGuidance": [

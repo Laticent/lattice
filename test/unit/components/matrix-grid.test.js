@@ -27,10 +27,10 @@ const { buildMatrixGridSection } = require('../../../lib/components/chart/matrix
 const ctx = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
 
 describe('buildMatrixGridSection', () => {
-  test('two inline-code spans in one paragraph become the axis labels, arrows generated', () => {
+  test('a bracketed list above the table becomes the axis labels, arrows generated', () => {
     const html = [
       '<h2>Title</h2>',
-      '<p><code>Wider reach</code> <code>Deeper cognition</code></p>',
+      '<p><code>[Wider reach, Deeper cognition]</code></p>',
       '<table><tbody><tr><td>a</td></tr></tbody></table>',
     ].join('');
     const { html: out } = buildMatrixGridSection(html, ctx);
@@ -46,7 +46,7 @@ describe('buildMatrixGridSection', () => {
 
   test('an arrow the author typed anyway is stripped, never doubled', () => {
     for (const [c, r] of [['Wider reach →', 'Deeper cognition ↑'], ['Wider reach ▶', 'Deeper cognition ▲']]) {
-      const html = `<h2>Title</h2><p><code>${c}</code> <code>${r}</code></p><table><tbody><tr><td>a</td></tr></tbody></table>`;
+      const html = `<h2>Title</h2><p><code>[${c}, ${r}]</code></p><table><tbody><tr><td>a</td></tr></tbody></table>`;
       const { html: out } = buildMatrixGridSection(html, ctx);
       assert.match(out, /data-col-axis="Wider reach ▶"/, c);
       assert.match(out, /data-row-axis="Deeper cognition ▼"/, r);
@@ -148,7 +148,7 @@ describe('buildMatrixGridSection', () => {
   test('regression (finding #4): the row axis is escaped exactly once — a literal "&" round-trips as one entity', () => {
     const html = [
       '<h2>Title</h2>',
-      '<p><code>Wider reach</code> <code>Research &amp; development</code></p>',
+      '<p><code>[Wider reach, Research &amp; development]</code></p>',
       '<table><tbody><tr><td>a</td></tr></tbody></table>',
     ].join('');
     const { html: out } = buildMatrixGridSection(html, ctx);
@@ -303,8 +303,10 @@ describe('the cell key', () => {
   const { labelSetFor } = require('../../../lib/core/label-set');
 
   const cell = (shape, text = '') => `<td><span class="cell ${shape}">${text}</span></td>`;
-  const grid = (cells, extra = '') => `<h2>Rubric</h2>${extra}`
-    + `<table><tbody><tr><td>A</td>${cells}</tr></tbody></table>`;
+  // `extra` — the author's label set — goes BELOW the table now. Position is
+  // what tells the lift a span is a KEY rather than an axis.
+  const grid = (cells, extra = '') => '<h2>Rubric</h2>'
+    + `<table><tbody><tr><td>A</td>${cells}</tr></tbody></table>${extra}`;
   const CTX = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
   const setPara = (t) => `<p><code>${t}</code></p>`;
   const labels = (html) => [...html.matchAll(/matrix-grid-key-label">([^<]*)</g)].map((m) => m[1]);
@@ -361,10 +363,11 @@ describe('the cell key', () => {
     assert.match(out.html, /<\/table><ul class="matrix-grid-key"[\s\S]*?<\/ul><\/div>/);
   });
 
-  test('the TWO-code axis eyebrow is still read as axes, not as a set', () => {
-    // Two code spans in one paragraph is the axis discriminator. The label set
-    // is one code span alone, so the two grammars cannot collide.
-    const axes = '<p><code>Wider reach</code><code>Deeper cognition</code></p>';
+  test('a bracketed list ABOVE the table is read as axes, never as a set', () => {
+    // The two constructs are the SAME SHAPE now — both a bracketed list — and
+    // only POSITION separates them. This span sits above the table, so it is
+    // the axis; the key below still derives its own default.
+    const axes = '<p><code>[Wider reach, Deeper cognition]</code></p>';
     const out = buildMatrixGridSection(axes + grid(OUTLINED), CTX);
     assert.match(out.html, /data-col-axis="Wider reach/);
     assert.match(out.html, /data-row-axis="Deeper cognition/);
@@ -403,8 +406,10 @@ describe('the cell key and the screen-reader label agree', () => {
 
   const CTX = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
   const td = (shape, label, stateLabel) => `<td>${cellHtml({ shape, label, stateLabel })}</td>`;
-  const grid = (cells, extra = '') => `<h2>Rubric</h2>${extra}`
-    + `<table><tbody><tr><td>A</td>${cells}</tr></tbody></table>`;
+  // `extra` — the author's label set — goes BELOW the table now. Position is
+  // what tells the lift a span is a KEY rather than an axis.
+  const grid = (cells, extra = '') => '<h2>Rubric</h2>'
+    + `<table><tbody><tr><td>A</td>${cells}</tr></tbody></table>${extra}`;
   const setPara = (t) => `<p><code>${t}</code></p>`;
   const keyLabels = (h) => [...h.matchAll(/matrix-grid-key-label">([^<]*)</g)].map((m) => m[1]);
   const srLabels = (h) => [...h.matchAll(/cell-sr-label">([^<]*)</g)].map((m) => m[1]);

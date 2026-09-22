@@ -17,7 +17,7 @@ Use when the argument is that two measures move together (or against each other)
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading — name the relationship the dots show, not the chart type. |
-| `axes` | `p > code + code` | yes | The axis captions, as TWO inline-code spans in ONE paragraph — x first, then y; a THIRD names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Two codes is the discriminator: a one-code paragraph is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`. |
+| `axes` | `p > code + code` | yes | The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional, single or double, and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`. |
 | `points` | `ul > li` | yes | One li per entity: the name, then TWO trailing value pills — ``Atlas `$420k` `18%` ``. The first pill is x, the second y; a third sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis. |
 | `detail` | `li > ul` | no | Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without. |
 
@@ -31,9 +31,9 @@ Use when the argument is that two measures move together (or against each other)
 
 - **Splitting a point's two numbers into one comma-separated pill, `` `4.2, 8.1` ``, the way `quadrant` takes them.** A scatter takes TWO separate pills — `` `4.2` `8.1` `` — because each axis carries its own unit and its own affix (`$420k` on x, `18%` on y), which one shared pill cannot express. An item without two numeric pills is skipped rather than plotted, so the point disappears from the chart and from its description.
 - **Expecting the axes to start at zero.** They do not, and that is deliberate. The domain is the data's own range plus about 8% of air. Two measures with narrow ranges — margin 38-44%, NPS 51-58 — forced to include zero collapse into one corner and the relationship disappears. A non-negative series still gets its air below zero — a bubble sitting at zero has to fit inside the plot — but its axis never prints a negative tick.
-- **Writing the axis names as a normal one-pill eyebrow, `` `Cost vs value` ``.** That is the chart eyebrow and it stays in the masthead; the plot then has unlabeled axes, which is the one thing a scatter cannot survive. Write the two captions as two inline-code spans in one paragraph.
+- **Writing the axis names as a normal one-pill eyebrow, `` `Cost vs value` ``.** That is the chart eyebrow and it stays in the masthead; the plot then has unlabeled axes, which is the one thing a scatter cannot survive. Write the captions as one bracketed list in its own paragraph above the points — `` `[Annual cost, Teams adopting]` ``.
 - **Assuming a name that does not appear on the plot was lost.** A name with nowhere left to sit is dropped rather than painted through its neighbor — two overprinted names are two names lost, not one. The name still rides `data-label` on its dot, the mark-detail popover, and the `<desc>` a screen reader reads. Fewer points, or shorter names, brings it back.
-- **Encoding a third measure in the dot's RADIUS.** `bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why the third inline-code span on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide.
+- **Encoding a third measure in the dot's RADIUS.** `bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide.
 
 ### Data shape
 
@@ -60,7 +60,7 @@ Use when the argument is that two measures move together (or against each other)
 ```markdown
 <!-- _class: scatter -->
 
-`X measure` `Y measure`
+`[Annual cost, Teams adopting]`
 
 ## Two measures, one relationship.
 
@@ -98,7 +98,7 @@ A third measure sizes each dot by area.
 ```markdown
 <!-- _class: scatter bubble -->
 
-`Annual cost` `Teams adopting` `Seats`
+`[Annual cost, Teams adopting, Seats]`
 
 ## bubble sizes each dot by a third measure.
 
@@ -117,7 +117,7 @@ A least-squares line through the cloud.
 ```markdown
 <!-- _class: scatter trend -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## trend draws the least-squares line through the cloud.
 

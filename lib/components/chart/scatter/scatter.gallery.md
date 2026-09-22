@@ -18,7 +18,7 @@ An XY plot with real units on both axes — one dot per entity, showing how two 
 <!-- _class: scatter -->
 <!-- _footer: "Default · scatter" -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## The tools we pay most for are the ones nobody adopts.
 
@@ -39,7 +39,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 <!-- _class: scatter bubble -->
 <!-- _footer: "bubble · scatter bubble — A third measure sizes each dot by area." -->
 
-`Annual cost` `Teams adopting` `Seats`
+`[Annual cost, Teams adopting, Seats]`
 
 ## bubble sizes each dot by a third measure.
 
@@ -56,7 +56,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 <!-- _class: scatter trend -->
 <!-- _footer: "trend · scatter trend — A least-squares line through the cloud." -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## trend draws the least-squares line through the cloud.
 
@@ -76,7 +76,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 <!-- stress-slide -->
 <!-- _footer: "Stress test · scatter — Twelve entities, four of them inside four points of each other." -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## Stress test — twelve tools and a cluster the eye cannot separate.
 
@@ -99,7 +99,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 <!-- _class: scatter dark -->
 <!-- _footer: "Composition: dark · scatter dark" -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## The tools we pay most for are the ones nobody adopts.
 
@@ -120,7 +120,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 <!-- _class: scatter compact -->
 <!-- _footer: "Composition: compact · scatter compact" -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## The tools we pay most for are the ones nobody adopts.
 
@@ -141,7 +141,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 <!-- _class: scatter accent -->
 <!-- _footer: "Composition: accent · scatter accent" -->
 
-`Annual cost` `Teams adopting`
+`[Annual cost, Teams adopting]`
 
 ## The tools we pay most for are the ones nobody adopts.
 

@@ -293,7 +293,7 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 ## A rubric grid, where the table has to give ground.
 
-`Wider reach`  `Deeper cognition`
+`[Wider reach, Deeper cognition]`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |

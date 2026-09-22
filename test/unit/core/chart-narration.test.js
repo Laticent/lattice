@@ -1695,6 +1695,11 @@ test('narrateDataSeries: reads a nested two-level series, each value bound to it
 test('narrateDataSeries: binds each value to its AXIS when the eyebrow is a multi-pill legend', () => {
   const out = narrateDataSeries(manifestSample('scatter'));
   assert.match(out, /Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent\./);
+  // The axis names now arrive in ONE bracketed span rather than two pills, so the
+  // legend test has to expand the list to count them. Without that the line reads
+  // as a caption and a listener hears "[Annual cost, Teams adopting]." — brackets
+  // spoken aloud, and the values below left unbound. Never say the punctuation.
+  assert.doesNotMatch(out, /[[\]]/, out);
   // The legend is NOT also spoken as a sentence — its words arrive bound to their values.
   assert.doesNotMatch(out, /^Annual cost\./);
   assert.doesNotMatch(out, /Annual cost\. Teams adopting\./);

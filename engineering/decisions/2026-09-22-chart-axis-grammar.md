@@ -1,9 +1,10 @@
 ---
 status: in-progress
 summary: >
-  Three axis grammars ship today and no two agree: `matrix-grid` and `scatter` discriminate an axis
+  FOUR axis grammars ship today and no two agree: `matrix-grid` and `scatter` discriminate an axis
   by COUNTING code spans in a paragraph, `quadrant` by an arrow glyph that needs a HARD RULE #29
-  carve-out and advertises an ASCII `->` spelling markdown-it escapes before it ever fires, and
+  carve-out and advertises an ASCII `->` spelling markdown-it escapes before it ever fires, `gantt`
+  by a keyword prefix on order-independent pills, and
   `lift-label-set.js` cannot discriminate at all so it try-parses every one-code paragraph. All
   three collapse onto ONE bracketed list — `[Effort, Reach]`, `[{Effort, 0..10}, {Reach, 0..100}]`
   — with quotes optional (single or double) and protecting commas, and `..` for a range because the
@@ -35,12 +36,13 @@ never standardized. The ask: one way to author an axis, defaults that come from
 semantics rather than invention, deterministic placement for the inline-code
 spans, and our own parser rather than a regex per component.
 
-## The measured ground — three grammars, none agreeing
+## The measured ground — four grammars, none agreeing
 
 | Grammar | Components | How it is told apart | What it costs |
 |---|---|---|---|
 | `` `Wider reach`  `Deeper cognition` `` | `matrix-grid`, `scatter` (a third span names the bubble measure) | by COUNTING code spans in the paragraph | The count IS the grammar, so a label set is forbidden from being two spans — one construct constrains another for no reason a reader could guess |
 | `` `Effort 0–10 → Reach 0–100 · targets 5, 50` `` | `quadrant` | by an arrow glyph | Needs a HARD RULE #29 carve-out (`isQuadrantAxisEyebrow`) to pass the typed-glyph gate; packs names, domain and thresholds into one string; its documented ASCII `->` spelling never fires, because markdown-it escapes it to `-&gt;` before `parseEyebrow` sees it |
+| `` `2026 Q1 .. 2026 Q4` `today Q3` `` | `gantt` | by a KEYWORD prefix on order-independent pills | A third shape again, and the one closest to right: it already carries a domain and a threshold marker per axis |
 | nothing authored — derived from table headers and value pills | `bar`, `line`, `bullet`, `waterfall`, `stacked-bar`, `radar`, `slope`, `gantt`, `heatmap` | — | No way to NAME an axis when the derived one reads wrong |
 
 And placement was never a rule. `lift-label-set.js` scans *every* one-code
@@ -62,8 +64,17 @@ Quotes are optional, single or double, and **protect commas** — so
 `["Cost, excluding tax", "Value"]` is two axes, not three. Banning commas in a
 name fails the first author who measures cost excluding tax.
 
-Ranges are `..`, the house spelling. The en-dash it replaces is a typed glyph
-(HARD RULE #29) and goes ambiguous on a negative domain: `-5–10`.
+Ranges are `..`, and that is the HOUSE spelling rather than a new one. `gantt`
+already ships it for every task span and its docs are explicit — "`..` is the
+ONLY span delimiter — a hyphen or en-dash is not recognized" — with `lint:deck`
+flagging the en-dash as a *retired delimiter*. So `quadrant`'s `Effort 0–10` is
+the outlier against a rule a sibling component already enforces. The en-dash is
+also a typed glyph (HARD RULE #29) and goes ambiguous on a negative domain:
+`-5–10`.
+
+`gantt` corroborates the defaults rule too, in its own words: its window and
+`today` pills are "both optional; the axis derives from the data without them."
+
 
 **Per-axis thresholds are a modelling fix, not a respelling.** `· targets 5, 50`
 is a trailing blob detached from the axes it constrains, so a reader counts
@@ -99,7 +110,8 @@ The engine computes what the data can answer and refuses to invent the rest.
 | axis **name** | the skeleton the author edits | authoring time |
 | a name the engine guessed | **never** | — |
 
-Range and threshold already work this way in `quadrant` and are kept. A NAME is
+Range and threshold already work this way in `quadrant` and in `gantt`, and are
+kept. A NAME is
 different in kind: nothing in the data knows an axis is called "Effort", and two
 candidate sources both fail on inspection.
 
@@ -159,6 +171,11 @@ portable signal is `index`, which divides clock speed out — this machine runs
   of its own (HARD RULE #1), not a rider on this one.
 - **Whether the nine derive-only charts gain an authored axis.** The grammar
   admits them; whether each SHOULD is per-component and not settled here.
+- **`gantt`'s migration.** Its pills are keyword-tagged and order-independent
+  (`today Q3` means the same wherever it sits), which is a genuinely different
+  reading from a positional list. The grammar can express it —
+  `[{Timeline, 2026 Q1..2026 Q4, Q3}]` — but whether the keyword form should
+  survive alongside is not settled here.
 - **`[x]` as a one-member list.** `` `[x]` `` is a state mark to
   `inline-code-directives.js` and parses as a one-member list here. Dispatch
   order is what keeps them apart, and it needs an arm pinning it.
