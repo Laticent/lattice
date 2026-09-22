@@ -1616,6 +1616,18 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   dominant-baseline: central;
 }
 
+/* Carry the baseline onto the <tspan>, which the engine will not do for us.
+ * A <tspan> has its own `dominant-baseline: auto`, and WebKit resolves that
+ * `auto` to `alphabetic` instead of to the parent's computed value (Chromium
+ * follows SVG2 and inherits). A rule that matches only the <text> therefore
+ * leaves every wrapped label about one font-size high in Safari and on every
+ * iOS surface, while the Chromium-rendered PDF and every gate in this repo look
+ * correct (#2297, engineering/decisions/2026-09-22-webkit-tspan-baseline.md).
+ * The rule above owns the value; this one repeats it one level down. */
+:is(section.chart-frame, figure.chart-frame) .cart-tick tspan {
+  dominant-baseline: central;
+}
+
 /* Category label — the reader's entry point into the plot, so it carries body
  * ink rather than the tick's muted gray. */
 :is(section.chart-frame, figure.chart-frame) .cart-cat {

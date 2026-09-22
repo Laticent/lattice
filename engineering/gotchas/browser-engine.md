@@ -53,6 +53,44 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   behavior in foreignObject (don't bet on it).
 - **Commits:** `b8fecac2`.
 
+## `dominant-baseline` on a `<text>` never reaches its `<tspan>` in WebKit — every wrapped SVG label paints high in Safari
+
+- **Symptom:** SVG chart labels sit a third to three quarters of a font-size too
+  high inside the shape they should be centered in — a gantt caption above its
+  bar, a funnel value above its band, a y-axis tick above its gridline. Only in
+  Safari, on iOS, and in any WebKit surface (a shared `.html` export opened on an
+  iPhone, the Studio, the Playground). Chrome and the PDF look right.
+- **Cause:** A `<tspan>` carries its own `dominant-baseline`, whose initial
+  value is `auto`. **Both** SVG 1.1 (§10.9.2) and SVG 2 say that on a `tspan`,
+  `auto` keeps the parent text element's dominant baseline — so the glyphs center
+  on the tspan's `y`. Chromium does that. **WebKit resolves it to `alphabetic`
+  instead, conforming to neither spec**, so `y` becomes the glyph baseline and the
+  box sits above it: 0.35em for `central`, 0.26em for `middle`, 0.72em for
+  `hanging`, measured at 20px in both engines. The attribute on the `<text>` is
+  dropped wholesale, not misapplied — the WebKit offset is exactly that of a label
+  with no baseline at all. A CSS rule behaves identically:
+  `.cart-tick { dominant-baseline: central }` matches the `<text>` and nothing
+  else. **This is a browser bug, not a spec-version split**, so it has an upstream
+  and a day it can be retired.
+- **Mitigation:** Repeat the value on every `<tspan>`. The shared kernel does it
+  for any caller that declares a baseline
+  (`lib/components/chart/_chart-family/svg-label.js`); the two hand-rolled
+  emitters in `state-chart.transform.js` do it themselves; each stylesheet that
+  owns a baseline carries a companion `… tspan` rule. Pinned by
+  `test/unit/components/svg-tspan-baseline.test.js` at the source level and
+  measured on a real WebKit by `tools/audit-svg-baselines.mjs`.
+- **Triggered by:** Any `<text dominant-baseline="…">` whose lines are
+  positioned `<tspan>`s — which is every label the wrapping kernel emits.
+- **Removable when:** WebKit ships the spec behavior. Re-measure with
+  `node tools/audit-svg-baselines.mjs`; the duplicated attribute is inert once it
+  does, so there is no rush — but do not let the claim go unchecked the way HARD
+  RULE #12's did.
+- **Watch out:** No gate in this repo can see this. `npm test`, the integration
+  tier, the PDF path and CI all render through headless Chromium, where the
+  drift is 0. The audit tool needs `npx playwright install webkit` first.
+- **Commits:** issue #2297;
+  `engineering/decisions/2026-09-22-webkit-tspan-baseline.md`.
+
 ## Sub-pixel rounding diverges across Chromium platforms
 
 - **Symptom:** A layout with `calc()` expressions mixing units

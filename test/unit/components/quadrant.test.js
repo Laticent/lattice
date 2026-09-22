@@ -81,7 +81,7 @@ function textBoxes(html, className, fontSize, hand = false) {
     const baseline = (attrs.match(/dominant-baseline="([\w-]+)"/) || [])[1] || 'auto';
     const anchor = (attrs.match(/text-anchor="(\w+)"/) || [])[1] || 'start';
     const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
-    const lines = [...m[2].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g)]
+    const lines = [...m[2].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)</g)]
       .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
     // Widest by PAINTED width, not character count — with a per-string advance
     // the two disagree, and it is the painted one that collides.
@@ -112,7 +112,7 @@ function textBoxes(html, className, fontSize, hand = false) {
  * what backtracks, and CodeQL flagged it again. Bounded classes, no unbounded
  * run, is the property that matters.
  */
-const TSPAN_RE = /<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g;
+const TSPAN_RE = /<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)</g;
 
 function labelLines(html, className) {
   const wanted = (attrs) => ((attrs.match(/class="([^"]*)"/) || [])[1] || '')
@@ -706,7 +706,7 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
     const baseline = (head.match(/dominant-baseline="(\w+)"/) || [])[1] || 'auto';
     const anchor = (head.match(/text-anchor="(\w+)"/) || [])[1] || 'start';
     const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
-    const lines = [...m[1].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g)]
+    const lines = [...m[1].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)</g)]
       .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
     const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * FS_ITEM * 0.6;
     // Horizontal extent follows the ANCHOR, exactly as the emitter computes it —

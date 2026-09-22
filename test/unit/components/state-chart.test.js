@@ -1786,7 +1786,7 @@ describe('dagre re-ranking (fake DOM)', () => {
         .map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
       const labels = [...svg.matchAll(/<text class="state-edge-label"([^>]*)>([\s\S]*?)<\/text>/g)].map((m) => {
         const tag = m[1], body = m[2];
-        const tsp = [...body.matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)<\/tspan>/g)];
+        const tsp = [...body.matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)<\/tspan>/g)];
         const lines = tsp.length ? tsp.map((t) => t[3]) : [body];
         const cx = tsp.length ? +tsp[0][1] : +attr(tag, 'x');
         const cy = tsp.length ? +tsp[0][2] + ((tsp.length - 1) * LH) / 2 : +attr(tag, 'y');

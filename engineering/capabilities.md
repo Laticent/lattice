@@ -393,6 +393,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/audit-diagram-contrast.mjs` | tools/audit-diagram-contrast.mjs — what Mermaid ACTUALLY paints, per palette, |
 | `tools/audit-queue-dor.js` | Audit the open issue queue against the Definition of Ready, and replay the |
 | `tools/audit-queue-hygiene.js` | Audit the open issue QUEUE ITSELF for defects — strays, gaps, duplicate leads, |
+| `tools/audit-svg-baselines.mjs` | tools/audit-svg-baselines.mjs — how far an SVG chart label drifts between WebKit |
 | `tools/bench-pdf-export.mjs` | Times the Studio's REAL browser raster exports, per browser engine — the PDF by |
 | `tools/bench-preview-diagrams.mjs` | bench-preview-diagrams — how long the LIVE PREVIEW takes to bake a deck's diagrams. |
 | `tools/bench-sanitize.mjs` | Time the slide-HTML sanitizer in the browser the preview actually runs in. |

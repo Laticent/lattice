@@ -79,3 +79,16 @@
   text-anchor: middle;
   dominant-baseline: central;
 }
+
+/* Carry the baseline onto the <tspan>, which the engine will not do for us.
+ * A <tspan> has its own `dominant-baseline: auto`, and WebKit resolves that
+ * `auto` to `alphabetic` instead of to the parent's computed value (Chromium
+ * follows SVG2 and inherits). A rule that matches only the <text> therefore
+ * leaves every wrapped label about one font-size high in Safari and on every
+ * iOS surface, while the Chromium-rendered PDF and every gate in this repo look
+ * correct (#2297, engineering/decisions/2026-09-22-webkit-tspan-baseline.md).
+ * The rules above own the value; this one repeats it one level down. */
+:is(section.funnel, figure.chart-frame)
+  :is(.funnel-label, .funnel-value, .funnel-conv) tspan {
+  dominant-baseline: central;
+}
