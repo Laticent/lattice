@@ -620,14 +620,15 @@ Two consequences, and they are the whole of the discipline:
 - **`/context`** prints the live breakdown when you want to know where a session went.
 - **Cap thinking on routine turns — but expect little.** Thinking is output and bills
   like output. `MAX_THINKING_TOKENS` sets a ceiling, and it is a lever a human pulls for
-  a session, never a default anyone inherits. Measured over 77 turns, thinking is **33.6%
-  of output and 5.6% of the bill** — new context outweighs output 5x, so deleting thinking
-  entirely saves under a sixteenth of a session. A cap at 4,096 saves 0.1% of the bill; a
-  cap at 512 saves 2.6% and truncates the nine turns that were reasoning hardest, because
-  thinking concentrates rather than spreads (a third of turns emit none at all, and the
-  `checker` subagent in that sample ran at 64.9%). `effort` is the better instrument and
-  already the policy (HARD RULE #27): it is per-agent, which one repo-wide number cannot
-  be. Numbers, method and the priced options:
+  a session, never a default anyone inherits. Measured over 69 turns, thinking is **37% of
+  output and about 6% of the bill** — new context outweighs output 4.5x, so deleting
+  thinking entirely saves around a fifteenth of a session. A cap at 4,096 saves 0.14% of
+  the bill; a cap at 512 saves 2.7% and truncates the nine turns that were reasoning
+  hardest, because thinking concentrates rather than spreads (a third of turns emit none at
+  all, and the `checker` subagent in that sample ran at 64.8% against roughly 32% for the
+  two that were not reviewing). `effort` is the better instrument and already the policy
+  (HARD RULE #27): it is per-agent, which one repo-wide number cannot be. Numbers, method
+  and the priced options:
   `engineering/decisions/2026-09-22-thinking-is-a-third-of-output.md`.
 - **Do not leave a big session idle past the prompt-cache TTL.** When the prefix expires,
   the next turn re-enters at full input price instead of the cached rate. It is the same
@@ -652,57 +653,71 @@ where the real number was 1,182.
 
 **For thinking**, none of the above works: the transcript stores a `thinking` block's
 encrypted `signature` and an EMPTY `thinking` string, so there is no text to tokenize.
-Measure the residual instead, and read the calibration line before the numbers under it —
-if the no-thinking residual is not small next to the thinking estimates, or the cross-check
-`r` is not near 1, it is not measuring thinking. Three traps are commented where each bites;
-all three produced a plausible wrong number first
-(`engineering/decisions/2026-09-22-thinking-is-a-third-of-output.md` §2).
+Measure the residual — billed `output_tokens` minus the output you CAN see — and read the
+first three lines of the output before anything under them. Five traps are commented where
+each bites; every one produced a plausible wrong number first, and three of them pointed the
+same way, making the lever look cheaper than it is
+(`engineering/decisions/2026-09-22-thinking-is-a-third-of-output.md` §2). Keep the file
+inside the repo, or Node cannot resolve `gpt-tokenizer` — it resolves from the script's
+directory, not the cwd.
 
 ```js
-// node thinking-share.cjs ~/.claude/projects/**/*.jsonl
+// node .scratch/thinking-share.cjs ~/.claude/projects/**/*.jsonl
 const fs = require('node:fs');
 const { encode } = require('gpt-tokenizer/encoding/o200k_base');
 const tok = (t) => (t ? encode(t).length : 0);
 const turns = [];
 for (const file of process.argv.slice(2)) {
-  const byId = new Map(); // TRAP 1: one API message is written as SEVERAL records, one
+  const byId = new Map(); // TRAP 2: one API message is written as SEVERAL records, one
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) { // content block each,
     if (!line.trim()) continue;                                   // each repeating the
     let d; try { d = JSON.parse(line); } catch { continue; }       // WHOLE message usage.
     if (d.type !== 'assistant' || !d.message?.usage || !d.message.id) continue;
-    if (!byId.has(d.message.id)) byId.set(d.message.id, { out: 0, text: 0, tools: 0, think: 0, sig: 0 });
+    if (!byId.has(d.message.id)) byId.set(d.message.id, { out: 0, vis: 0, think: 0, sig: 0 });
     const t = byId.get(d.message.id);
-    // TRAP 2: a mid-stream record carries a PARTIAL output_tokens. Take the max, never
-    // the first — the main thread writes the final count on every record and the
-    // subagent transcripts do not, so reading the first understates them ~2.4x.
+    // TRAP 3: a mid-stream record carries a PARTIAL output_tokens. Take the max, never the
+    // first — the main thread writes the final count on every record and the subagent
+    // transcripts do not, so reading the first understated two of them 2.4x and 17x.
     t.out = Math.max(t.out, d.message.usage.output_tokens ?? 0);
     for (const b of d.message.content ?? []) {
-      if (b.type === 'text') t.text += tok(b.text);
-      else if (b.type === 'tool_use') t.tools += tok(JSON.stringify(b.input));
-      // TRAP 3: b.thinking is ALWAYS ''. Tokenizing it answers "thinking is 0% of
-      // output", which is a lever looking free rather than a lever being free.
+      if (b.type === 'text') t.vis += tok(b.text);
+      else if (b.type === 'tool_use') t.vis += tok(JSON.stringify(b.input));
+      // TRAP 1: b.thinking is ALWAYS ''. Tokenizing it answers "thinking is 0% of output",
+      // which is a lever looking free rather than a lever being free.
       else if (b.type === 'thinking') { t.think += 1; t.sig += b.signature?.length ?? 0; }
     }
   }
   turns.push(...byId.values());
 }
-for (const t of turns) t.residual = t.out - t.text - t.tools;
-const withT = turns.filter((t) => t.think > 0);
-const noT = turns.filter((t) => t.think === 0);
-// CALIBRATION: a turn that did not think must residual to roughly zero. This line is the
-// one that catches all three traps; read it before anything below it.
-const overhead = noT.reduce((a, t) => a + t.residual, 0) / noT.length;
-const est = (t) => Math.max(0, t.residual - overhead);
+// TRAP 5: some turns record an output_tokens BELOW their own visible content — a 347-token
+// tool call billed as 3. Taking the max does not repair those; they are not measurements.
+const usable = turns.filter((t) => t.out - t.vis >= 0);
+const noT = usable.filter((t) => !t.think);
+const withT = usable.filter((t) => t.think);
 const sum = (rs, f) => rs.reduce((a, t) => a + f(t), 0);
-console.log(`calibration: n=${noT.length} mean ${overhead.toFixed(1)}`);
-console.log(`thinking ${Math.round(sum(withT, est))} of ${sum(turns, (t) => t.out)} output tokens`);
+// TRAP 4: o200k counts ~70.5% of what the meter counts for the same content, so the gap is
+// PROPORTIONAL, not constant. Subtracting the calibration's MEAN residual under-corrects
+// large turns and over-corrects small ones — and thinking turns skew large. Fit instead.
+const n = noT.length, mx = sum(noT, (t) => t.out) / n, my = sum(noT, (t) => t.vis) / n;
+const cov = sum(noT, (t) => (t.out - mx) * (t.vis - my));
+const b = cov / sum(noT, (t) => (t.out - mx) ** 2);
+const A = my - b * mx;
+const r0 = cov / (Math.sqrt(sum(noT, (t) => (t.out - mx) ** 2)) * Math.sqrt(sum(noT, (t) => (t.vis - my) ** 2)));
+const est = (t) => Math.max(0, t.out - (t.vis - A) / b);
+console.log(`calibration: visible = ${b.toFixed(4)} x out ${A.toFixed(1)}, r=${r0.toFixed(4)}, n=${n}`);
+// THE SELF-CHECK. Over turns that did no thinking, the estimator must find ~nothing. This
+// is the line that catches TRAP 4; the cross-check below does not (it is scale-invariant).
+console.log(`leakage on calibration turns: ${Math.round(sum(noT, est))} (must be small)`);
+console.log(`dropped ${turns.length - usable.length} of ${turns.length} turns as unusable`);
+console.log(`thinking ${Math.round(sum(withT, est))} of ${sum(usable, (t) => t.out)} output tokens`);
 // CROSS-CHECK: the signature is an encryption of the thinking, measured independently of
-// output_tokens, so r near 1 is what promotes the residual from arithmetic to evidence.
+// output_tokens. It validates the SHAPE — that the residual tracks thinking and not turn
+// size — and cannot set the level.
 const p = withT.filter((t) => t.think === 1 && t.sig > 0);
-const mx = sum(p, (t) => t.sig) / p.length, my = sum(p, est) / p.length;
-const r = sum(p, (t) => (t.sig - mx) * (est(t) - my)) /
-  (Math.sqrt(sum(p, (t) => (t.sig - mx) ** 2)) * Math.sqrt(sum(p, (t) => (est(t) - my) ** 2)));
-console.log(`cross-check r = ${r.toFixed(3)} over ${p.length} turns`);
+const sx = sum(p, (t) => t.sig) / p.length, sy = sum(p, est) / p.length;
+const rr = sum(p, (t) => (t.sig - sx) * (est(t) - sy)) /
+  (Math.sqrt(sum(p, (t) => (t.sig - sx) ** 2)) * Math.sqrt(sum(p, (t) => (est(t) - sy) ** 2)));
+console.log(`cross-check r = ${rr.toFixed(3)} over ${p.length} turns`);
 ```
 
 ## Editor setup
