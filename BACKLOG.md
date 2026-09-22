@@ -7,13 +7,13 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **331 open** items.
+only *status*. **342 open** items.
 
-> ⚠️ **29 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2137](https://github.com/Laticent/lattice/issues/2137), [#2145](https://github.com/Laticent/lattice/issues/2145), [#2180](https://github.com/Laticent/lattice/issues/2180), [#2181](https://github.com/Laticent/lattice/issues/2181), [#2182](https://github.com/Laticent/lattice/issues/2182), [#2183](https://github.com/Laticent/lattice/issues/2183), [#2187](https://github.com/Laticent/lattice/issues/2187), [#2189](https://github.com/Laticent/lattice/issues/2189), [#2190](https://github.com/Laticent/lattice/issues/2190), [#2191](https://github.com/Laticent/lattice/issues/2191), [#2192](https://github.com/Laticent/lattice/issues/2192), [#2203](https://github.com/Laticent/lattice/issues/2203), [#2228](https://github.com/Laticent/lattice/issues/2228), [#2252](https://github.com/Laticent/lattice/issues/2252), [#2253](https://github.com/Laticent/lattice/issues/2253), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2255](https://github.com/Laticent/lattice/issues/2255).
+> ⚠️ **31 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2137](https://github.com/Laticent/lattice/issues/2137), [#2145](https://github.com/Laticent/lattice/issues/2145), [#2180](https://github.com/Laticent/lattice/issues/2180), [#2181](https://github.com/Laticent/lattice/issues/2181), [#2182](https://github.com/Laticent/lattice/issues/2182), [#2183](https://github.com/Laticent/lattice/issues/2183), [#2187](https://github.com/Laticent/lattice/issues/2187), [#2189](https://github.com/Laticent/lattice/issues/2189), [#2190](https://github.com/Laticent/lattice/issues/2190), [#2191](https://github.com/Laticent/lattice/issues/2191), [#2192](https://github.com/Laticent/lattice/issues/2192), [#2203](https://github.com/Laticent/lattice/issues/2203), [#2228](https://github.com/Laticent/lattice/issues/2228), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2277](https://github.com/Laticent/lattice/issues/2277), [#2278](https://github.com/Laticent/lattice/issues/2278), [#2291](https://github.com/Laticent/lattice/issues/2291), [#2292](https://github.com/Laticent/lattice/issues/2292), [#2294](https://github.com/Laticent/lattice/issues/2294).
 
-> 📐 **12 cards need definition** (missing a swimlane or an acceptance check, so nothing can pull them): [#2211](https://github.com/Laticent/lattice/issues/2211), [#2224](https://github.com/Laticent/lattice/issues/2224), [#2225](https://github.com/Laticent/lattice/issues/2225), [#2231](https://github.com/Laticent/lattice/issues/2231), [#2252](https://github.com/Laticent/lattice/issues/2252), [#2253](https://github.com/Laticent/lattice/issues/2253), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2255](https://github.com/Laticent/lattice/issues/2255), [#2256](https://github.com/Laticent/lattice/issues/2256), [#2265](https://github.com/Laticent/lattice/issues/2265), [#2274](https://github.com/Laticent/lattice/issues/2274), [#2275](https://github.com/Laticent/lattice/issues/2275).
+> 📐 **25 cards need definition** (missing a swimlane or an acceptance check, so nothing can pull them): [#2211](https://github.com/Laticent/lattice/issues/2211), [#2224](https://github.com/Laticent/lattice/issues/2224), [#2225](https://github.com/Laticent/lattice/issues/2225), [#2231](https://github.com/Laticent/lattice/issues/2231), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2256](https://github.com/Laticent/lattice/issues/2256), [#2265](https://github.com/Laticent/lattice/issues/2265), [#2274](https://github.com/Laticent/lattice/issues/2274), [#2275](https://github.com/Laticent/lattice/issues/2275), [#2277](https://github.com/Laticent/lattice/issues/2277), [#2278](https://github.com/Laticent/lattice/issues/2278), [#2280](https://github.com/Laticent/lattice/issues/2280), [#2282](https://github.com/Laticent/lattice/issues/2282), [#2283](https://github.com/Laticent/lattice/issues/2283), [#2284](https://github.com/Laticent/lattice/issues/2284), [#2285](https://github.com/Laticent/lattice/issues/2285), [#2286](https://github.com/Laticent/lattice/issues/2286), [#2287](https://github.com/Laticent/lattice/issues/2287), [#2288](https://github.com/Laticent/lattice/issues/2288), [#2290](https://github.com/Laticent/lattice/issues/2290), [#2291](https://github.com/Laticent/lattice/issues/2291), [#2292](https://github.com/Laticent/lattice/issues/2292), [#2294](https://github.com/Laticent/lattice/issues/2294), [#2295](https://github.com/Laticent/lattice/issues/2295), [#2297](https://github.com/Laticent/lattice/issues/2297).
 
-## Backlog (320)
+## Backlog (328)
 
 - [#1845](https://github.com/Laticent/lattice/issues/1845) [integration-nightly] render-regression tier failing on main — critical · engine
 - [#2060](https://github.com/Laticent/lattice/issues/2060) [overflow-nightly] corpus overflow ratchet above baseline on main — critical · engine
@@ -72,8 +72,12 @@ only *status*. **331 open** items.
 - [#2180](https://github.com/Laticent/lattice/issues/2180) studio(split): a component pick leaves the preview collapsed — split.spec.ts:206 is red on main — high
 - [#2183](https://github.com/Laticent/lattice/issues/2183) vetrina(narration): cadenza-narrator.test.ts has 2 failures on main — high
 - [#2211](https://github.com/Laticent/lattice/issues/2211) engineering/decisions/README.md is one row out of sort order vs its own generator — high · infra
-- [#2274](https://github.com/Laticent/lattice/issues/2274) Five status-carrying charts ship no redundant encoding on a11y/print — gantt, kanban, progress, state-chart, timeline-list — high · chart
+- [#2274](https://github.com/Laticent/lattice/issues/2274) Gantt's statuses reach none of the three redundant-encoding channels — no text, no glyph, no texture — high · chart
 - [#2275](https://github.com/Laticent/lattice/issues/2275) class-directive-scan: `slideClassDirectives` is quadratic on unclosed comments — 4.7 s at 55 KB, on the Studio's main-thread lint source — high · website
+- [#2280](https://github.com/Laticent/lattice/issues/2280) lint-core: the linter's slide model ignores `split: headings`, so every class-gated rule can name the wrong slide and the wrong defect — high · engine
+- [#2282](https://github.com/Laticent/lattice/issues/2282) check-chart-fit measures a deck the author did not write — it strips the deck's own `size:` and `autosplit:` — high · infra
+- [#2285](https://github.com/Laticent/lattice/issues/2285) `main` ships red on THREE on-demand gates, none of which runs in CI — one is invisible text on a shipped deck — high · infra
+- [#2297](https://github.com/Laticent/lattice/issues/2297) chart(labels): every non-alphabetic SVG label sits ~4–13px high in Safari/WebKit — `dominant-baseline` never reaches the `<tspan>` — high · chart
 - [#286](https://github.com/Laticent/lattice/issues/286) refactor(css): namespace variant classes that collide with component names — medium · engine
 - [#288](https://github.com/Laticent/lattice/issues/288) feat(engine): implement the front-matter deck-config contract (vars, object background/logo, fonts, metadata, sizes) — medium · engine
 - [#289](https://github.com/Laticent/lattice/issues/289) feat(engine): implement the `$`-sigil inline-code variable interpolation grammar — medium · engine
@@ -223,13 +227,15 @@ only *status*. **331 open** items.
 - [#2240](https://github.com/Laticent/lattice/issues/2240) jank: the census has 77 movement leads and zero verdicts — sweep the first 20 with `--anchor` — medium · infra
 - [#2256](https://github.com/Laticent/lattice/issues/2256) top-level-h2: a MISMATCHED heading end tag desyncs walkTopLevel from a real parser — medium · engine
 - [#2258](https://github.com/Laticent/lattice/issues/2258) epic(components): one construct for naming a set's members — four override grammars ship today, and the same four markers are named five ways — medium · chart
-- [#2259](https://github.com/Laticent/lattice/issues/2259) chart(label-set): promote the lift into the kernel and give it an HTML legend path — prerequisites for adopter #2 — medium · chart
-- [#2260](https://github.com/Laticent/lattice/issues/2260) legal(obligation-matrix): the marker key is a prose paragraph the author hand-writes and nothing parses — medium · legal
-- [#2261](https://github.com/Laticent/lattice/issues/2261) chart(journey): the mood ramp hard-codes Pain/Delight — a polarity the ramp decision says is unknowable — medium · chart
-- [#2262](https://github.com/Laticent/lattice/issues/2262) chart(roadmap): STATE_LABEL is hard-coded, so a deck cannot call a state anything but "Shipped" — medium · chart
-- [#2263](https://github.com/Laticent/lattice/issues/2263) chart(matrix-grid): the cell-shape key exists for screen readers only, and the visible legend is unparsed prose — medium · chart
 - [#2265](https://github.com/Laticent/lattice/issues/2265) top-level-h2: route the hand-rolled `<h2>` regexes through the kernel — the census is 18 across 8 files, and 8 of them are depth-blind on purpose — medium · engine
 - [#2266](https://github.com/Laticent/lattice/issues/2266) chart(caption): .chart-caption is a flex COLUMN, so any inline element in caption prose becomes its own row — medium · chart
+- [#2283](https://github.com/Laticent/lattice/issues/2283) A committed-but-stale PDF reads as fresh — two holes in `stalenessAgainstInputs`, one of them a rebase hazard — medium · infra
+- [#2284](https://github.com/Laticent/lattice/issues/2284) `main` ships red on `build:bucket-galleries:check` — the chart bucket gallery drifted in #2272 — medium · chart
+- [#2286](https://github.com/Laticent/lattice/issues/2286) word-cloud: two shipped slides lose a word the packer cannot seat — medium · chart
+- [#2287](https://github.com/Laticent/lattice/issues/2287) parseValue reads a U+2212 in front of a currency symbol but not behind it — medium · chart
+- [#2288](https://github.com/Laticent/lattice/issues/2288) state-chart narration reads its metadata tokens aloud ("Draft start. In Review at-risk.") — medium · chart
+- [#2290](https://github.com/Laticent/lattice/issues/2290) state-chart decides "is this an ending?" twice, by two different rules — medium · chart
+- [#2295](https://github.com/Laticent/lattice/issues/2295) narration re-implements markdown-it's list nesting from a line scanner — read the tree instead — medium · engine
 - [#180](https://github.com/Laticent/lattice/issues/180) epic(chart): resolution-independent charts — cqi-first, kill fixed-px, for any-format / 10K export — low · chart
 - [#279](https://github.com/Laticent/lattice/issues/279) docs: reconcile Mermaid diagram-type count (README "25" vs gallery "26") — low · diagram
 - [#280](https://github.com/Laticent/lattice/issues/280) docs: fix phantom `--hljs-name`/`--hljs-meta` token rows in highlight-js.docs.md — low · docs
@@ -331,12 +337,14 @@ only *status*. **331 open** items.
 - [#2192](https://github.com/Laticent/lattice/issues/2192) studio(library): the search field's Clear ✕ is off the edge of the panel header — unclickable at the docked width
 - [#2203](https://github.com/Laticent/lattice/issues/2203) Studio settings panel scrolls sideways in the General section — the Language trigger won't shrink
 - [#2228](https://github.com/Laticent/lattice/issues/2228) split-panel watermark: the pagination number is canvas ink on an accent panel (1.01 contrast)
-- [#2252](https://github.com/Laticent/lattice/issues/2252) overflow probe: a slide that overflows by a pad's worth is cut in silence, so "CONTENT CLIPPED" cannot be the enforcement for a component budget
-- [#2253](https://github.com/Laticent/lattice/issues/2253) showcase-gallery freshness compares the .md against manifests, never whether the committed PDF reflects an ENGINE change
 - [#2254](https://github.com/Laticent/lattice/issues/2254) chart/heatmap: heatmap.gallery.md clips p3 and p4 on main
-- [#2255](https://github.com/Laticent/lattice/issues/2255) chart/gantt: a `deferred` bar and an unstated bar are near-indistinguishable
+- [#2277](https://github.com/Laticent/lattice/issues/2277) lint:deck coaches on speaker-note prose that never narrates
+- [#2278](https://github.com/Laticent/lattice/issues/2278) word-cloud's SVG &lt;desc&gt; still reads counts where the caption reads rank
+- [#2291](https://github.com/Laticent/lattice/issues/2291) theme(dark): the `spectrum:` register repaints a frame that paints its own canvas
+- [#2292](https://github.com/Laticent/lattice/issues/2292) a11y(cover): the split cover's eyebrow is 4.40:1 on a light accent in the player export
+- [#2294](https://github.com/Laticent/lattice/issues/2294) finish(canvas): `--fin-canvas` misses 32 combinations — every accent cover outside dark, and `topic` in every mode
 
-## Ready (8)
+## Ready (11)
 
 - [#1437](https://github.com/Laticent/lattice/issues/1437) Configure Release Pipeline — critical · infra
 - [#287](https://github.com/Laticent/lattice/issues/287) refactor(engine): LPM Phase 1 — manifest `render` block + `transformSection` adapter; migrate the chart kernels — high · engine
@@ -345,7 +353,10 @@ only *status*. **331 open** items.
 - [#1605](https://github.com/Laticent/lattice/issues/1605) quadrant: one crowded slide sets the label size for every slide — and a name that doesn't fit is silently deleted — high · chart
 - [#1621](https://github.com/Laticent/lattice/issues/1621) fix(studio): the crash report is invisible on the browser's own post-crash reload — three designs withdrawn — high · website
 - [#2213](https://github.com/Laticent/lattice/issues/2213) Finish the agent-workflow hardening swimlane: sweep the 218 grandfathered cards, and three gaps the intake bar exposed — medium · infra
-- [#2251](https://github.com/Laticent/lattice/issues/2251) guide(manifests): make the manifest the spine that connects a rendered component to Vetrina — 18 components never get a handle — medium · engine
+- [#2281](https://github.com/Laticent/lattice/issues/2281) guide(handles): the four surfaces the Present pointer still cannot name, and the one thing no gate can judge — medium · engine
+- [#2296](https://github.com/Laticent/lattice/issues/2296) Handoff — Compose fenced code: three off-path findings from #2289 — medium · website
+- [#2299](https://github.com/Laticent/lattice/issues/2299) infra(context): close the gotchas index row-cap gap, and settle the thinking-token default — medium · infra
+- [#2301](https://github.com/Laticent/lattice/issues/2301) Handoff — Context cost: the thinking-cap decision, an n=1 re-measure, and build.js's stale-vs-refused wording — medium · infra
 
 ## In progress (0)
 
