@@ -212,13 +212,16 @@ that places their labels, and the only CSS we own touching them
 against a third-party renderer's markup, in a different component bucket, which is a different
 change (HARD RULES #8, #17, #18). Recorded here rather than pulled in.
 
-**A second pre-existing defect, logged for the same reason.** `bucket-galleries > chart: source
-.md matches manifests` is red on `main` and stays red here: a quadrant caption in
-`lib/components/chart/chart.gallery.md` reads `**Your level** · *where you can operate when
-called for* — illustrative, placements vary by company.` where its manifest says `Illustrative
-— placements vary by company.` The committed `chart.gallery.light.pdf` is stale the same way —
-page 11 (matrix-grid) is missing the label-set legend row the current transform emits. Both
-arrived with the label-set rollout (#2263, #2272); neither is caused or worsened here, and
-both are named rather than swept in. Worth knowing when reading §4, because the audit renders
-that very file: every other page of it rasterizes byte-identically before and after this
-change.
+**A note on the chart gallery, because §4's audit renders that very file.** While this work was
+in flight, `bucket-galleries > chart: source .md matches manifests` was red on `main` — a
+quadrant caption in `lib/components/chart/chart.gallery.md` had drifted from its manifest, and
+the committed `chart.gallery.light.pdf` was stale the same way (page 11, matrix-grid, missing
+the label-set legend row the current transform emits). Both came in with the label-set rollout
+(#2263, #2272), neither was caused or worsened here, and both were logged rather than swept in.
+
+**Both were fixed upstream before this landed**, and re-measuring says so: that test now passes
+35/35, and every one of the 23 pages of the committed `chart.gallery.light.pdf` rasterizes
+IDENTICALLY against a fresh render carrying this change (100dpi, per-page pixel compare). That
+second number is the stronger statement of §4's Chromium result — not "the drift is 0 in
+Chromium" from the audit's own probe, but the committed artifact and a fresh render agreeing
+page for page, on the one deck that exercises every chart component.
