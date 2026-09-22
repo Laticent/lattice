@@ -1073,8 +1073,13 @@ structural rather than another weighting:
 - **dense** — every axis drawn independently — answers *can the voice ever contradict
   the picture*.
 
-Measured, which is why both ship: on `sparse` alone **every** production mutant
-survives; on `dense` alone the cost cells measure the generator.
+Measured, which is why both ship — and the first version of this sentence overstated
+it. On `sparse` alone **four of sixteen** mutants die (the tab rule, the column-0
+boundary stop, the blank-then-prose rule, the row refusal); the other twelve are
+killed by the FIXTURES below, not by either corpus. On `dense` alone the cost cells
+measure the generator (`exact` falls to 36 and 14 of 500 decks speak a tally). So the
+division of labor is: the corpora find shapes nobody thought of, and the fixtures hold
+the named rules in place.
 
 ```
 sparse   checked 434 | exact 362 | quieter  72 | silent  66 | diverged 0
@@ -1119,6 +1124,102 @@ the change that removes the need to. Two limits are now written down rather than
 implied: the boundary is a REFUSAL and not a model of where a list ends, so it is
 quieter than markdown-it on a lazy continuation; and a whole-chart tally stands down
 after any truncation, even where one over the rows it did read would have been right.
+
+## The twelfth round — three of the four were the scanner's idea of "top level" (2026-09-22)
+
+A third checker blocked, and it found the root the previous two rounds kept circling:
+**narration's line scanner and markdown-it disagree about which lines are top-level
+and where an item's content column is.** Three of the four findings reduce to that one
+sentence. All four are closed here, and the two the eleventh round created were closed
+first.
+
+### What was wrong
+
+| # | Defect | Whose |
+|---|---|---|
+| 1 | `lostRows` keyed on `isTopLevelBullet` (`/^-\s+/`, column 0), so a marker indented one space — a SIBLING item markdown-it draws and scores — reported no loss and the tally spoke over a prefix | round ten's, not closed by eleven |
+| 2 | the `!enclStack.length` narrowing re-opened the `-\tMethodology` shape round ten had closed, because narration counts characters and markdown-it expands a tab to the next four-column stop | **round eleven's** |
+| 3 | the `FENCE_MARK` sentinel reached the voice — two NUL bytes in a state-chart's emitted `.vtt` | **round eleven's** |
+| 4 | `foreignListFirst` was anchored at column 0, so ` 1. Alpha` above the rows still produced *"none cleared its target"* over a chart whose first row cleared at 125% | pre-existing, on-path |
+
+Every one was proved on the real `--captions` export, with lint, `npm test` and
+`build:check` all green — #23 in its purest form.
+
+### The sentinel was the wrong mechanism, not a leaky one
+
+The fence fix wrote a NUL into the blanked text so the boundary rule could see a code
+block. `speakLeftover` stripped it; `narrateStateChart` builds its own flatten with
+`slideToSpeech` and never passes through `speakLeftover`, so it spoke the sentinel.
+
+**A sentinel in shared text is only as safe as the least careful of its consumers, and
+there are five.** So the boundary is a SET OF LINE NUMBERS now — `fenceMarkerLines`
+returns the indices, `parseDataRows` takes them as an argument, and no text anywhere
+carries a marker. The leak is not patched; it is unrepresentable.
+
+### The other three are one anchoring bug in three places
+
+- `lostRows` now fires on any marker at indent 0–3, which is where CommonMark starts a
+  top-level list.
+- `foreignListFirst`'s regex allows the same 0–3.
+- The enclosure entries carry `colTrusted` — was this content column computed from
+  spaces only? The narrowed stop asks whether a line sits inside an open item, which is
+  a question about content columns, so where a tab made one uncomputable the answer is
+  unavailable and the scan stops, as it did before the narrowing.
+
+### One fix I tried and measured wrong
+
+The checker's suggested patch included routing a dropped row's `structurallyAmbiguous`
+into the whole-chart veto. **Measured, it silenced a correct tally.** The
+blank-then-prose rule flags a prose row whenever a paragraph sits under it — including
+the ordinary `- Methodology` / blank / two-space paragraph that markdown-it keeps in one
+list and the chart scores completely — so the veto killed *"two of four cleared the plan
+line"* over a four-row chart. What the veto needs is not "was any row unreadable" but
+"might a row be MISSING", and `truncated` asks that directly. The tab case is covered
+there instead: an untrusted content column stops the scan, which sets `truncated`.
+
+### Measured
+
+Sixteen rules, sixteen mutants, sixteen kills:
+
+```
+unmutated                                pass 7  fail 0
+tab-in-indent rule off                   pass 5  fail 2
+column-0 boundary stop off               pass 3  fail 4
+fence boundary ignored                   pass 6  fail 1
+blank-then-prose rule off                pass 4  fail 3
+blank-then-prose loses its exemption     pass 6  fail 1
+colTrusted ignored                       pass 6  fail 1
+enclosure stack flattened                pass 6  fail 1
+row refusal off                          pass 6  fail 1
+tally ignores `truncated`                pass 6  fail 1
+word cloud ignores `truncated`           pass 6  fail 1
+foreign leading list not refused         pass 6  fail 1
+foreign list anchored at column 0        pass 6  fail 1
+`lostRows` never set                     pass 5  fail 2
+`lostRows` anchored at column 0          pass 6  fail 1
+stop fires inside an open item           pass 6  fail 1
+```
+
+**And the corpora kill four of those sixteen, not all of them.** Running the two corpus
+cells alone (`--test-name-pattern 'transform does|spoken tally'`) kills the tab rule,
+the column-0 stop, the blank-then-prose rule and the row refusal; the other twelve are
+killed by `REGRESSION_DECKS`. The eleventh round's claim that "on sparse alone every
+mutant survives" was wrong in the other direction, and is corrected above.
+
+Cost on the shipped tree, with the method recorded this time because the figure moves:
+
+```
+roots examples test lib docs/public | split /^---\s*$/m | baseline e69b12bf4
+files 446 | sections with a _class: 3734 | narrate 501 | CHANGED 0
+```
+
+### What this round says about the next one
+
+Three checkers, three blocks, and this is the first whose findings share ONE root
+rather than three. That is either convergence or the last coincidence before it. The
+honest statement is the one the tenth round made and the eleventh proved: **#2295 is
+the change that removes the disagreement**, and every round until then is buying
+refusals at the price of coverage.
 
 ## Known limits
 

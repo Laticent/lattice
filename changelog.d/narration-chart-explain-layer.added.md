@@ -93,19 +93,21 @@
   malformed row line voids it. What settled it was changing the ORACLE — comparing
   narration's measure, target, floor and bands against `parseBullet`, the transform's
   own reader, rather than against the SVG `<desc>` that every earlier check went
-  through. On the decks in this repo the refusal costs exactly zero: 3,725 slides
-  carry a `_class:`, 501 narrate, and not one reads differently than before.
+  through. On the decks in this repo the refusal costs exactly zero: 501 of 3,734
+  sections narrate, and not one reads differently than before.
 - **Fixed: a `bullet` or `word-cloud` slide whose list is not the one the picture is
   built from no longer speaks a claim about the whole chart.** Every chart in the
-  family is drawn from ONE list. Four things end it or replace it, and narration read
-  straight through all four: a note paragraph between rows, a fenced code block, a
-  change of bullet character, and an ordered list sitting ABOVE the data. Each gave a
-  wrong whole-chart claim on the real export — *"one of three cleared the plan line"*
-  over a two-bar chart, *"none cleared its target"* over a chart where the first row
-  cleared at 125%, and a word cloud announcing the wrong biggest term. Narration now
-  stops where the list does, says so to its callers, and stands the tally down; every
-  line past the boundary is read aloud verbatim, so the listener loses the summary
-  sentence and none of the numbers.
+  family is drawn from ONE list. Five things end it or replace it, and narration read
+  straight through all five: a note paragraph between rows, a fenced code block, a
+  change of bullet character, an ordered list sitting ABOVE the data, and a row whose
+  marker is indented one to three spaces — which CommonMark makes a sibling the chart
+  draws and scores. Each gave a wrong whole-chart claim on the real export — *"one of
+  three cleared the plan line"* over a two-bar chart, *"none cleared its target"* over
+  a chart whose first row cleared at 125%, *"all two cleared their target"* over a
+  five-row chart, and a word cloud announcing the wrong biggest term. Narration now
+  stops where the list does, tells its callers the row set may be a prefix, and stands
+  the tally down; every line past the boundary is read aloud verbatim, so the listener
+  loses the summary sentence and none of the numbers.
 - **Fixed: a `state-chart` no longer says a state "stops without being marked an
   ending" over a slide that draws it into the finish marker.** It reads *"nothing
   leads out of X"* — true of both rules the chart uses to decide that. A state

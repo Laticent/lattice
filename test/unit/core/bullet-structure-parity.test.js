@@ -4,7 +4,7 @@ const MarkdownIt = require('markdown-it');
 const { parseBullet } = require('../../../lib/components/chart/bullet/bullet.transform.js');
 const { extractFirstList } = require('../../../lib/core/html-lists.js');
 const bulletFacts = require('../../../lib/core/bullet-facts.js');
-const { __parseBulletRowsForTest, narrateBullet, narrateWordCloud } = require('../../../lib/core/chart-narration.js');
+const { __parseBulletRowsForTest, narrateBullet, narrateWordCloud, narrateChart } = require('../../../lib/core/chart-narration.js');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE TIGHTEST ORACLE AVAILABLE — narration's structural read of a bullet row
@@ -278,8 +278,12 @@ function survey(decks) {
 }
 
 test('narration reads a row exactly as the transform does, or does not read it at all', () => {
-  // BOTH CORPORA. `dense` is where a mutation dies — it piles the odd shapes up until
-  // the rules collide. `sparse` is where the COST below means something.
+  // BOTH CORPORA, and neither is where most mutations die. Measured with a load-time
+  // mutation hook over all sixteen production rules: these two cells kill FOUR (the
+  // tab rule, the column-0 boundary stop, the blank-then-prose rule, the row
+  // refusal). The other twelve are killed by `REGRESSION_DECKS` below. `dense` piles
+  // the odd shapes up until rules collide; `sparse` is where the COST numbers below
+  // mean anything.
   const d = survey(corpus(500, 20260921, 'dense'));
   assert.deepEqual(
     d.diverged.slice(0, 2).map((x) => ({ row: x.row, transform: x.transform, narration: x.narration, src: x.src })),
@@ -325,9 +329,14 @@ test('narration reads a row exactly as the transform does, or does not read it a
   // change in the same commit that deleted another number for not re-deriving. Run
   // the cell and read the counters; do not copy them forward.
   //
-  // ON THE DECKS THIS REPO SHIPS IT COSTS NOTHING — 3,725 slides carry a `_class:`,
-  // 501 narrate, and not one reads differently than it did before any of this. This
-  // floor is what stops the refusal quietly swallowing the corpus anyway.
+  // ON THE DECKS THIS REPO SHIPS IT COSTS NOTHING — 501 of 3,734 sections narrate and
+  // not one reads differently than it did before any of this. The POPULATION moves
+  // with `main` (it was 3,725 two commits ago), so the durable part is the method,
+  // not the figure: roots `examples test lib docs/public`, sections split on
+  // `/^---\s*$/m`, every section carrying a `_class:`, `narrateChart` compared
+  // string-by-string against `e69b12bf4`. A checker could not reproduce the earlier
+  // number because no command was recorded with it. This floor is what stops the
+  // refusal quietly swallowing the corpus anyway.
   assert.ok(r.exact > 300,
     `only ${r.exact} decks read every row EXACTLY as the transform does — the refusal has swallowed the corpus`);
 });
@@ -419,6 +428,32 @@ const REGRESSION_DECKS = [
     tally: 'one of two cleared the plan line',
   },
   {
+    name: 'a row indented one space is a sibling the chart draws',
+    // markdown-it makes a marker at indent 1-3 a SIBLING ITEM of the same list, so the
+    // chart scores it. `lostRows` keyed on a column-0 `-` reported no loss and the
+    // tally spoke over the prefix: "all two cleared their target" on a five-row chart.
+    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n- Methodology\nmeasured at quarter end.\n - Gamma `2` `4`\n - Delta `1` `4`',
+    tally: null,
+  },
+  {
+    name: 'a tab in a row marker makes the content column uncomputable',
+    // Narration counts characters; markdown-it expands a tab to the next four-column
+    // stop. So `-\tMethodology` puts its content at column 2 here and 4 there, and the
+    // "is this paragraph inside the item" test the narrowed stop depends on cannot be
+    // answered. Round eleven narrowed without checking that and tallied four rows over
+    // a chart drawing three.
+    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n-\tMethodology\n\n  Measured at quarter end.\n\n- Gamma `2` `4`\n- Delta `1` `4`',
+    tally: null,
+  },
+  {
+    name: 'an ordered list indented one space is still the list the chart draws',
+    // `extractFirstList` takes the first `<ul>` OR `<ol>` and CommonMark allows a
+    // marker at indent 1-3. A column-0 anchor walked past this one: "none cleared its
+    // target" over a chart whose first row cleared at 125%.
+    src: '<!-- _class: bullet -->\n\n## H.\n\n 1. Alpha `5` `4`\n 2. Beta `2` `4`\n\n- Churn `2` `3`\n- Renewal `4` `5`',
+    tally: null,
+  },
+  {
     name: 'a grandchild is not the row\'s own target',
     // Single-slot enclosure read `4.2M` off a child of `Floor`; the transform reads
     // the row's own `1`.
@@ -457,9 +492,39 @@ test('a word cloud whose list is cut short names no leader', () => {
   // accent color while the voice announced `alpha` at nine as the biggest.
   const src = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- gamma\nmeasured at quarter end\n- delta `20`\n- epsilon `1`';
   assert.equal(narrateWordCloud(src), null, 'a truncated cloud must not name a biggest term');
+  // …including where the biggest term's marker is INDENTED, which the first cut of
+  // `lostRows` could not see: the canvas drew `delta` at twenty in the accent color
+  // while the voice announced `alpha` at nine.
+  const indented = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- gamma\nmeasured at quarter end\n - delta `20`\n- epsilon `1`';
+  assert.equal(narrateWordCloud(indented), null, 'an indented marker past the boundary is still a lost row');
   // …and an uninterrupted one still does.
   const whole = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- delta `20`\n- epsilon `1`';
   assert.match(narrateWordCloud(whole) || '', /delta is the biggest at twenty/i);
+});
+
+test('no narrator ever speaks a fence marker', () => {
+  // A FENCED BLOCK HAS TO BE VISIBLE to the list-boundary rule and INVISIBLE to the
+  // voice. The first cut wrote a NUL sentinel into the blanked text, and it reached
+  // `narrateStateChart`'s spoken string — that narrator builds its own flatten with
+  // `slideToSpeech` and never passes through `speakLeftover`, where the sentinel was
+  // being stripped. A sentinel in shared text is only as safe as the least careful of
+  // its five consumers, so the boundary is a set of LINE NUMBERS now and no text
+  // carries a marker at all.
+  //
+  // Asserted across every narrator rather than the one that leaked: the next sentinel
+  // would leak somewhere else.
+  const FENCE = '\n```\nformat: whatever\n```\n';
+  const decks = [
+    '<!-- _class: state-chart lr -->\n\n## H.\n\n1. Draft `start`\n   - `submit => 2`\n2. In Review\n   - `approve => 3`\n3. Published `end`\n',
+    '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n',
+    '<!-- _class: word-cloud -->\n\n## H.\n\n- alpha `9`\n- beta `7`\n- gamma `3`\n',
+  ];
+  for (const deck of decks) {
+    for (const src of [deck + FENCE, FENCE + deck, deck.replace('## H.\n', `## H.\n${FENCE}`)]) {
+      const said = narrateChart(src) || '';
+      assert.ok(!said.includes('\u0000'), `a fence marker reached the voice: ${JSON.stringify(said.slice(0, 120))}`);
+    }
+  }
 });
 
 test('a row marker this parser does not read makes the narrator bail, not guess', () => {
