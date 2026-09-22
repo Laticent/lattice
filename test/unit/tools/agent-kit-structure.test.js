@@ -618,6 +618,16 @@ test('agent kit structure', { skip }, async (t) => {
 	 * heading with no text, a skill naming a file it does not carry, a paste text
 	 * contradicting the kit around it.
 	 */
+	/**
+	 * Matches the OPENING tag only, and deliberately never the end tag. A pattern that
+	 * spans `<script …></script>` is an HTML tag filter as far as CodeQL's
+	 * bad-HTML-filtering query is concerned, and widening it to accept `</script >` did
+	 * not satisfy the query — correctly, because the answer for reading a list of
+	 * sources is not a more permissive tag regex. The expected side now comes from
+	 * `RUNTIME_SCRIPT_SRCS`, so this only has to FIND the tags a file carries.
+	 */
+	const SCRIPT_SRC_RE = /<script[^>]+src="([^"]+)"[^>]*>/g;
+
 	const readKit = (rel) => fs.readFileSync(path.join(KIT, rel), 'utf8');
 	const kitMarkdown = () => {
 		const out = [];
@@ -737,6 +747,115 @@ test('agent kit structure', { skip }, async (t) => {
 			}
 		}
 		assert.deepEqual(missing, [], 'a start page routes the reader to a file the kit does not contain');
+	});
+
+	/**
+	 * The render page is the kit's only bridge from "a model wrote a deck" to "a
+	 * human looked at it", and every way to get it wrong is SILENT. It shipped
+	 * teaching one route — copy the Marp kit folder, put your deck inside it —
+	 * which an agent handed a path inside someone else's repository cannot take,
+	 * and it named neither the stylesheets, the runtime scripts, nor anywhere to
+	 * get either. So the second route, and the three asset rules that make it
+	 * work, are load-bearing text rather than nice-to-have prose.
+	 *
+	 * Each assertion below stands for a render that produces a PLAUSIBLE DECK
+	 * rather than an error: a URL in `--theme-set` yields default Marp styling,
+	 * fonts away from the output yield a system serif, and a missing script
+	 * yields a layout flattened to a list.
+	 */
+	await t.test('the render page teaches a route that does not move the deck', () => {
+		const doc = readKit('render/lattice-render-a-deck.md');
+		for (const [re, why] of [
+			[/--theme-set/, 'never shows how to hand marp-cli the stylesheets directly'],
+			[/--html/, 'never says to pass --html, without which marp-core escapes the script tags'],
+			[/--allow-local-files/, 'never passes --allow-local-files'],
+			[/dist-kits/, 'never says where to get the engine CSS, the palettes or the runtime'],
+			[/fonts/, 'never mentions the typefaces, which fall back to a system serif in silence'],
+			[/cdn\.jsdelivr\.net/, 'never gives a script URL that a browser will actually execute'],
+			[/raw\.githubusercontent\.com/, 'never warns that the raw host serves JS as text/plain'],
+		]) {
+			assert.match(doc, re, `render/lattice-render-a-deck.md ${why}`);
+		}
+	});
+
+	/**
+	 * The two hosts are NOT interchangeable and the difference is invisible until a
+	 * slide comes up flat: raw.githubusercontent serves `text/plain` with
+	 * `nosniff`, so Chrome downloads the script and refuses to run it. jsDelivr
+	 * mirrors the same branch as `application/javascript`. A `<script src>`
+	 * pointing at the raw host is the exact shape this page exists to prevent, so
+	 * it must never appear in one — here or in any deck the kit ships.
+	 */
+	await t.test('no generated file loads a script from the raw host', () => {
+		// Match on the parsed HOST, never on a substring of the URL: `includes(RAW_HOST)`
+		// also matches a URL that merely mentions it in a path or query
+		// (`https://evil.example/?r=raw.githubusercontent.com`), which is the shape CodeQL's
+		// incomplete-URL-sanitization query flags. Same treatment as the CDN host check in
+		// tools/bench-preview-diagrams.mjs. A relative src has no host and is not this arm's
+		// business, so it parses to '' and falls through.
+		const RAW_HOST = 'raw.githubusercontent.com';
+		const hostOf = (u) => {
+			try {
+				return new URL(u).hostname;
+			} catch {
+				return '';
+			}
+		};
+		const offenders = [];
+		for (const rel of kitMarkdown()) {
+			for (const m of readKit(rel).matchAll(SCRIPT_SRC_RE)) {
+				if (hostOf(m[1]) === RAW_HOST) offenders.push(`${rel}: ${m[1]}`);
+			}
+		}
+		assert.deepEqual(
+			offenders,
+			[],
+			'a <script src> points at raw.githubusercontent.com, which serves text/plain with ' +
+				'nosniff. The browser refuses to execute it and the layout renders flat, silently.',
+		);
+	});
+
+	/**
+	 * The README said "the two runtime `<script>` tags" while every deck in the kit
+	 * emitted three — the count was typed once and the list grew under it when
+	 * dagre was split out of the runtime bundle. Both numbers now derive from
+	 * `RUNTIME_SCRIPT_SRCS` in lib/core/marp-bundle.js, which the tag block is generated
+	 * from as well, so a fourth engine cannot desynchronise them; this arm says so.
+	 */
+	await t.test('every stated runtime-script count matches the real tag list', () => {
+		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
+		const word = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'][names.length];
+		assert.ok(word, `${names.length} runtime scripts — extend the word list`);
+
+		const wrong = [];
+		for (const rel of kitMarkdown()) {
+			if (rel.startsWith('skills/') || rel.startsWith('library/')) continue; // verbatim copies
+			for (const m of readKit(rel).matchAll(/\b(zero|one|two|three|four|five|six) runtime `?<script/g)) {
+				if (m[1] !== word) wrong.push(`${rel}: "${m[1]}" but there are ${names.length}`);
+			}
+		}
+		assert.deepEqual(wrong, [], 'a generated file states a runtime-script count that is no longer true');
+	});
+
+	/**
+	 * A deck that carries the tags in the wrong ORDER renders every branching state
+	 * chart as a numbered column: both are classic scripts, so they execute in
+	 * document order, and the runtime reads the dagre global synchronously on its
+	 * first draw. The kit's own decks are what a reader copies, so the order has to
+	 * hold in each of them.
+	 *
+	 * Checks ORDER, not well-formedness: `SCRIPT_SRC_RE` matches the opening tag alone,
+	 * so a deck carrying an unclosed `<script src="x">` would pass here. Unreachable
+	 * while the decks are generated from `RUNTIME_TAGS`, which always closes.
+	 */
+	await t.test('every kit deck carries the runtime tags in execution order', () => {
+		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
+		const bad = [];
+		for (const f of fs.readdirSync(path.join(KIT, 'examples'))) {
+			const got = [...readKit(`examples/${f}`).matchAll(SCRIPT_SRC_RE)].map((m) => m[1]);
+			if (got.length && got.join(',') !== names.join(',')) bad.push(`examples/${f}: ${got.join(', ')}`);
+		}
+		assert.deepEqual(bad, [], `a shipped deck's runtime tags differ from ${names.join(', ')}`);
 	});
 
 	/** The caps are the only thing standing between a paste text and a box that truncates silently. */
