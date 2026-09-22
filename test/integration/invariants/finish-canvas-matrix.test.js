@@ -230,7 +230,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // trackless shape, which is the shape the engine never emits: `topic-track.js`
     // writes `<ul class="tile-track">` on both the derived and the `_track:` arm.
     // Measured: a version of this file with childless probes passed 4/4 while five
-    // tracked-topic rows composited against a colour the slide does not paint.
+    // tracked-topic rows composited against a color the slide does not paint.
     //
     // SHAPES is derived from the bundle the same way the modifier list is: any
     // `:has(> X)` in a section-subject rule is a shape this cross has to build.
@@ -280,7 +280,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     await xBrowser?.close();
   });
 
-  test('no frame composites against a colour it does not paint, beyond the pinned set', async () => {
+  test('no frame composites against a color it does not paint, beyond the pinned set', async () => {
     const rows = await xPage.evaluate(
       (cs) =>
         cs.map(({ cls, child }, i) => ({
@@ -327,7 +327,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     const gone = RESIDUE.filter((k) => !found.includes(k));
     assert.deepEqual(
       added, [],
-      'a finish would composite against a colour the slide does not paint, outside the '
+      'a finish would composite against a color the slide does not paint, outside the '
         + `two known #2294 families — a regression:\n  ${added.join('\n  ')}`,
     );
     assert.deepEqual(
