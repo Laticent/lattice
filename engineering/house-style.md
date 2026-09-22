@@ -27,8 +27,8 @@ ratchet behind it, and the ratchet scanned **tracked files** — so the surfaces
 that drift most were never in scope: a chat reply, an issue body, a PR
 description, a commit message. Measured over the last 300 commits: **21 British
 spellings**, every one under a green build. The tracked tree has since been swept
-to zero and that ratchet deleted; what is left is the rule and a commit-msg
-warning.
+to zero and that ratchet deleted; what is left is the rule, a commit-msg
+warning, and two blocking test arms over the tracked tree.
 
 **Length is a cost, not a courtesy.** A reply that restates the question, lists
 the options it already rejected, and closes with a summary of itself spends
@@ -55,7 +55,9 @@ British-spelled text — an upstream error string, a dependency's option name �
 HARD RULE #14 forbids `--no-verify` as the escape from a false positive. The other
 two are the test-tier arms in `test/unit/tools/us-english-stem-audit.test.js`,
 which do block: one stems every word in the tree and fails on a British form the
-map cannot see, the other fails on a British segment inside an identifier. The list
+map cannot see, the other fails on a British segment inside an identifier. Both walk
+the tracked tree MINUS `engineering/decisions/**` (a dated archive), `changelog.d/**`
+and the dialect map's own files, so a green run is not a proof of zero. The list
 was 170 pairs when this was written and is 237 now, because the first of those arms
 keeps finding forms a hand pass missed. Everything else is discipline.
 
@@ -215,8 +217,8 @@ Before you send a reply, open an issue, or write a doc:
 
 | Surface | Enforcement |
 |---|---|
-| Commit messages — spelling | **Warned, never blocked.** `tools/check-commit-msg.sh` via the commit-msg hook. The only automated check left. |
-| Tracked repo text — spelling | **Discipline.** Swept to zero; the ratchet was retired with the backlog. |
+| Commit messages — spelling | **Warned, never blocked.** `tools/check-commit-msg.sh` via the commit-msg hook — the only check that reaches a commit message, and the only warn-only one. (The same script BLOCKS on the `area(scope):` format; that is #13, not spelling.) |
+| Tracked repo text — spelling | **Blocked**, over the walk's reach. Two arms of `test/unit/tools/us-english-stem-audit.test.js`, which `npm test` runs on the pre-push hook and in CI's `unit` job: one fails on a word whose stem lands in a British family `UK_TO_US` does not list, the other on a listed British form inside a multi-part identifier. Four sibling arms in the same file keep the map and its allowlists from going stale. The repo-wide ratchet is gone; what the walk cannot reach — `engineering/decisions/**`, `changelog.d/**`, the map's own files — is discipline. |
 | Chat, issues, PR bodies — spelling | **Discipline.** Nothing can reach them. |
 | Voice, plain words, concision | **Discipline**, everywhere. |
 
