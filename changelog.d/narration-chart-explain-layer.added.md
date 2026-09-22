@@ -95,14 +95,17 @@
   own reader, rather than against the SVG `<desc>` that every earlier check went
   through. On the decks in this repo the refusal costs exactly zero: 3,725 slides
   carry a `_class:`, 501 narrate, and not one reads differently than before.
-- **Fixed: a `bullet` slide with a SECOND top-level list no longer tallies rows the
-  chart does not draw.** Every chart in the family is built from one list, so a block
-  that interrupts the bullets — a note paragraph, a change of bullet character, an
-  indented line after a blank — ends what the picture shows and starts something it
-  leaves as plain text. Narration read straight through it and said *"one of three
-  cleared the plan line"* over a two-bar chart, with a plan-line reading for a row
-  drawn as an ordinary bullet. It now stops where the list does, and everything after
-  is read aloud verbatim.
+- **Fixed: a `bullet` or `word-cloud` slide whose list is not the one the picture is
+  built from no longer speaks a claim about the whole chart.** Every chart in the
+  family is drawn from ONE list. Four things end it or replace it, and narration read
+  straight through all four: a note paragraph between rows, a fenced code block, a
+  change of bullet character, and an ordered list sitting ABOVE the data. Each gave a
+  wrong whole-chart claim on the real export — *"one of three cleared the plan line"*
+  over a two-bar chart, *"none cleared its target"* over a chart where the first row
+  cleared at 125%, and a word cloud announcing the wrong biggest term. Narration now
+  stops where the list does, says so to its callers, and stands the tally down; every
+  line past the boundary is read aloud verbatim, so the listener loses the summary
+  sentence and none of the numbers.
 - **Fixed: a `state-chart` no longer says a state "stops without being marked an
   ending" over a slide that draws it into the finish marker.** It reads *"nothing
   leads out of X"* — true of both rules the chart uses to decide that. A state

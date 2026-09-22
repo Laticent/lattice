@@ -986,6 +986,140 @@ once, and each time the next one found it.** The `<desc>` was too lossy; the row
 feed was too wide. There is no reason to believe the current one is the first to be
 exactly right.
 
+## The eleventh round — the boundary rule broke the thing it was added to protect (2026-09-21)
+
+The tenth round closed a whole-chart defect and opened one. An independent checker
+found it on ordinary authoring and proved it on the real `--captions` export, and it
+is the fourth time in seven rounds that a fix has introduced a new defect of the
+class it was closing.
+
+### What broke
+
+```markdown
+- Alpha `5` `4`
+- Beta `9` `4`
+- Methodology
+
+  Measured at quarter end.
+
+- Gamma `2` `4`
+- Delta `1` `4`
+```
+
+The two-space paragraph sits at `Methodology`'s own content column, so markdown-it
+keeps ONE list: the chart draws five rows, scores four, and two clear. The tenth
+round's boundary rule stopped there anyway, `parseDataRows` returned a PREFIX, and:
+
+| | |
+|---|---|
+| previous head | *"Two of four cleared the plan line"* — right |
+| round ten | *"All two cleared their target"* — over a four-row chart, with Gamma and Delta demoted to raw text |
+
+### Two mistakes, not one
+
+**The rule was too wide.** Stopping is for prose OUTSIDE every open item. The pop
+loop already leaves the innermost item a line is inside, so an empty stack is the
+whole test — and with it, an ordinary `- Row` with a paragraph under it keeps its
+list. That one condition recovers roughly a third of the readings the unconditional
+stop was giving up.
+
+**And the truncation was invisible.** `parseDataRows` stopped and said nothing about
+it. `narrateBullet`'s tally guard already asked the two questions it could — is any
+dropped row scored, is any row ambiguous — and both came back clean, because the row
+that stops the scan is usually a bare prose bullet with no pills and the rows after
+it are in neither list. So the return value now carries `truncated`, and it is keyed
+on whether a top-level row really does follow the boundary: a slide ending in a
+trailing HTML comment stops the scan and loses nothing, and treating that as
+incomplete silenced six correct slides on our own demo deck.
+
+### And two more the same checker found, both real
+
+**A fenced block was invisible to the boundary.** `withoutFences` blanked the fence
+DELIMITER along with its body, so a code block between two rows looked like empty
+lines. Measured on the real export: a chart drawing ONE bar while the voice said
+*"two of three cleared the plan line"*. The delimiter now leaves a mark, which is
+already a column-0 non-bullet line, so no new rule was needed.
+
+**A foreign list ABOVE the rows is the list the chart draws.** `extractFirstList`
+takes the first `<ul>` OR `<ol>` and `isTopLevelBullet` matches only `-`, so an
+ordered list above the data is what the picture is built from. The voice read the
+rows below it and none of the list: *"none cleared its target"* over a chart where
+`Alpha` cleared at 125%. The boundary rule closes the trailing edge and needs a row
+before it can fire; this is the leading edge, and the answer is the same refusal.
+
+### The test had to change more than the code
+
+**The tally needed a direct guard.** Every cell compared row for row, and questioned
+a tally only when the two parses disagreed about how MANY rows there were. A tally
+can be wrong while the counts agree — that is exactly what round ten shipped. There
+is now a cell that compares the two numbers the voice SAID against the two the
+chart's own parse gives, through `bulletFacts.summarizeRows`, the kernel both
+surfaces share.
+
+**And the old proxy had to go, because it started crying wolf.** `- Methodology`
+between two scored rows is drawn, scores nothing, and is not in narration's row list,
+so the counts differ 3 to 2 while *"one of two cleared the plan line"* is exactly
+right. Asserting the proxy would have forced a refusal on ordinary authoring to keep
+a cell green.
+
+### Two corpora, because there are two questions
+
+Three rounds re-weighted the generator by hand and the fourth found only 7 of 500
+decks still speaking a tally. The axes were drawn independently per row and per
+child, so every axis added in good faith multiplied with the rest. The fix is
+structural rather than another weighting:
+
+- **sparse** — one oddity per deck — answers *what does this cost an author*.
+- **dense** — every axis drawn independently — answers *can the voice ever contradict
+  the picture*.
+
+Measured, which is why both ship: on `sparse` alone **every** production mutant
+survives; on `dense` alone the cost cells measure the generator.
+
+```
+sparse   checked 434 | exact 362 | quieter  72 | silent  66 | diverged 0
+dense    checked 144 | exact  36 | quieter 108 | silent 319 | diverged 0
+```
+
+### And the rules got fixtures, because a corpus is a poor way to PIN one
+
+A corpus finds shapes nobody thought of; it is bad at holding a rule in place,
+because the shape a rule turns on can drift out of the draw and take its only killer
+with it. That happened twice here: the tab rule shipped for two rounds with no
+killer, and the enclosure-stack rule lost its own when the generator was rebalanced.
+Each rule now has a named deck from a checker or a real export, with the reading the
+transform gives. Twelve mutants, twelve kills:
+
+```
+unmutated                              pass 6  fail 0
+tab-in-indent rule off                 pass 4  fail 2
+column-0 boundary stop off             pass 2  fail 4
+blank-then-prose rule off              pass 4  fail 2
+blank-then-prose loses its exemption   pass 5  fail 1
+enclosure stack flattened              pass 5  fail 1
+row refusal off                        pass 5  fail 1
+tally ignores `truncated`              pass 5  fail 1
+word cloud ignores `truncated`         pass 5  fail 1
+foreign leading list not refused       pass 5  fail 1
+fence delimiter not marked             pass 5  fail 1
+`lostRows` never set                   pass 4  fail 2
+stop fires inside an open item         pass 5  fail 1
+```
+
+**One of those numbers is a lesson on its own.** An earlier run of this table
+reported all twelve mutants SURVIVING, which was wrong: the harness file had been
+overwritten by the checker's own, it keyed on a different environment variable, and
+every run was unmutated. A mutation table that reports no kills should be suspected
+of not running before it is believed.
+
+### What is still true
+
+Narration still derives list structure from a line scanner, and **#2295** is still
+the change that removes the need to. Two limits are now written down rather than
+implied: the boundary is a REFUSAL and not a model of where a list ends, so it is
+quieter than markdown-it on a lazy continuation; and a whole-chart tally stands down
+after any truncation, even where one over the rows it did read would have been right.
+
 ## Known limits
 
 - **Nobody has judged the sound.** The track's SHAPE and TIMING are now measured
