@@ -21,7 +21,7 @@ export const LAB_LEDGER = `<!-- _class: list-tabular -->
 
 export const LAB_SHAPES = `<!-- _class: list-tabular -->
 
-## Eight shapes cover the vocabulary.
+## Eight shapes, one geometry.
 
 1. Capsule and tag
    - \`{DEFAULT}:c1\` \`{TAG}:tag:c2\`
@@ -44,11 +44,11 @@ export const LAB_MARKS = `<!-- _class: checklist -->
 `;
 
 A **pill** is a small chip carrying a status, a label, or a piece of
-metadata — `` `{STABLE}` ``, `` `on track` ``, `` `2025 Q1` ``. Pills share one
-geometry drawn from one set of tokens, so a deck reads as one system.
-**Structure unifies; color signals.**
+metadata — `` `{STABLE}` ``, `` `on track` ``, `` `2025 Q1` ``. Every pill is drawn
+from the same tokens, so a deck reads as one system: structure is shared, and
+color is what carries the meaning.
 
-There are three ways to get one:
+Three ways to get one:
 
 | You write | You get | Reach for it when |
 |---|---|---|
@@ -56,18 +56,17 @@ There are three ways to get one:
 | `` - Row text `on track` `` | A **metadata pill** — the component styles it | The component already has a slot for it |
 | `` - Adoption `68%` `at-risk` `` | A **status pill** — the engine picks the color from the word | You are on a chart component with a status slot |
 
-The first works everywhere and is the one to learn first. The other two are
-conventions particular components recognize, so they depend on where you write
-them.
+Learn the first one — it works everywhere. Only certain components recognize
+the other two, so for those, where you write them matters.
 
-## The brace grammar
+## The brace grammar — a pill you place by hand
 
 Put a label in braces inside **single-backtick** inline code and it renders as
 a pill. Shape and color belong to the value, not to the slide — so one list can
 carry four different statuses without any variant on the slide itself.
 
 <CraftLab
-	label="Four statuses, one slide"
+	label="Four statuses on one slide"
 	kind="none"
 	editMarkdown
 	markdown={LAB_LEDGER}
@@ -80,8 +79,9 @@ free** — `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` `` are the same pill.
 
 ### Shape
 
-Eight shapes. Every one is drawn by us — a border radius or a clip path on our
-own box, never a character borrowed from whatever font the machine has.
+Lattice draws all eight shapes itself, as a border radius or a clip path on its
+own box. None of them is a font character, so a shape looks the same in the PDF,
+in the browser, and in an export.
 
 | Modifier | Shape | Use it for |
 |---|---|---|
@@ -103,10 +103,9 @@ own box, never a character borrowed from whatever font the machine has.
 	hint="Try putting a whole word in the :circle — it either overflows the fill or stretches the box until it stops reading as a circle. That is what lint:deck warns about."
 />
 
-`circle` and `diamond` are square boxes by construction, so a word either
-overflows the fill or stretches the box until it stops reading as the shape.
-`lint:deck` suggests `:tag` or `:chip` when it finds one — it advises, it never
-blocks.
+`circle` and `diamond` are square boxes, so they hold a character or two and no
+more. Put a word in one and `lint:deck` will suggest `:tag` or `:chip` instead.
+It only suggests — deck linting never blocks a build.
 
 ### Color — `:c1` … `:c12`
 
@@ -115,30 +114,28 @@ deep red on `burgundy`, so a slot picks a distinct color, never a meaning:
 
 > Never write `:c2` because "green means good." It is not green everywhere.
 
-Text contrast is handled for you. Each slot resolves to the palette's
-categorical fill, its edge, and the ink the engine already derives to clear
-WCAG AA on that fill — there is no per-pill contrast math to do.
+You never do contrast math. Each slot picks up the palette's categorical fill
+and edge, plus the ink Lattice already derived to clear WCAG AA on that fill.
 
 ### Size — `:sm` and `:lg`
 
-Scales from the surrounding type, so a pill stays proportional to the row it
-sits in. The default needs no modifier.
+A pill scales from the surrounding type, so it stays proportional to the row it
+sits in. The default size needs no modifier.
 
 ```markdown
 - Small `{MINOR}:sm:c9` · default `{NORMAL}:c9` · large `{MAJOR}:lg:c9`
 ```
 
-## What stays literal
+## What stays literal — plain code is untouched
 
 Plain inline code is untouched. `` `getUserId()` ``, `` `:root` ``,
 `` `--accent` ``, `` `[data-mark]` `` and `` `{ ok, scene }` `` all render as
-code, exactly as typed. A pill needs a brace pair whose label is trimmed and
-comma-free — which is what separates a label from a JavaScript object an author
-wrote as code.
+code, exactly as typed. A pill needs a brace pair with no comma inside, which is
+what keeps `` `{ ok, scene }` `` looking like the code it is.
 
 **An unknown or repeated modifier falls back to literal rather than being
-ignored.** `` `{X}:c13` `` renders as visible code — obviously wrong in the
-first review pass — instead of quietly becoming a pill you did not ask for.
+ignored.** `` `{X}:c13` `` renders as visible code, not as a pill. You catch it
+in the first review pass, which you would not do if it quietly drew something.
 
 ### Forcing the literal
 
@@ -152,13 +149,13 @@ Put a backslash in front:
 The backslash only escapes what *would* have dispatched, so a regex is safe:
 `` `\d+` `` and `` `\[a-z]` `` are untouched and keep their backslash.
 
-**Fenced and indented code blocks are never touched at all.** They are not
-inline code, so nothing inside one is ever read as a directive.
+**Nothing inside a fenced or indented code block is ever read as a directive.**
+Those are not inline code, so the grammar never reaches them.
 
 ### Turning the grammar off
 
-For a deck you did not write — where `` `[x]` `` in prose was never meant to
-draw anything — one line in front matter turns it all off:
+One line in front matter turns the whole grammar off. Reach for it on a deck you
+did not write, where `` `[x]` `` in prose was never meant to draw anything:
 
 ```yaml
 ---
@@ -167,10 +164,10 @@ inline-code: literal
 ```
 
 One slide at a time is `<!-- _class: inline-code-literal -->`. In the Studio it
-is **Deck settings · General · Inline pills and marks**. The per-occurrence
-backslash is the right tool for one span and the wrong one for ninety.
+is **Deck settings · General · Inline pills and marks**. Use the backslash for a
+span or two; use this switch for a whole deck.
 
-## State marks
+## State marks — the four checklist discs
 
 The same four markers you already write bare at the start of a bullet draw the
 same disc inside inline code, anywhere inline code can go.
@@ -188,26 +185,26 @@ same disc inside inline code, anywhere inline code can go.
 	editMarkdown
 	markdown={LAB_MARKS}
 	size="short"
-	hint="The disc at the start of each row and the pill at the end are separate vocabularies. Swap a [x] for [-] and only the disc changes."
+	hint="The disc at the start of each row and the pill at the end are independent. Swap a [x] for [-] and only the disc changes."
 />
 
-**Brackets make a mark, braces make a pill.** One vocabulary in two positions:
-bare at a bullet's start for a checklist row, inside inline code for a mark in
-a sentence, a heading, or a table cell.
+The same four markers work in two positions: bare at a bullet's start for a
+checklist row, and inside inline code for a mark in a sentence, a heading, or a
+table cell.
 
-Each mark names itself on `role="img"` and `aria-label`, so a screen reader
-says "done" while the document holds no extra word.
+Each mark carries `role="img"` and an `aria-label`, so a screen reader says
+"done" without any visible text on the slide.
 
 **Only the four exact forms dispatch.** `` `[?]` ``, `` `[!]` ``, `` `[0]` ``,
 `` `[X]` `` and `` `[data-mark]` `` all stay literal — the grammar is
 deliberately narrow, because `[` also opens a CSS attribute selector, an array
 index, and a citation.
 
-### A brace is not a checkbox
+### Use brackets for a mark, braces for a pill
 
-Braces make a pill, so `` `{x}` `` would draw a capsule containing the letter
-`x`. The four markers are **reserved** inside braces and render literal, with a
-`lint:deck` suggestion pointing at the bracket form.
+Because braces make a pill, `` `{x}` `` would otherwise draw a capsule holding
+the letter `x`. The four markers are **reserved** inside braces: they render
+literal, and `lint:deck` points you at the bracket form.
 
 ## The metadata pill (trailing inline code)
 
@@ -225,9 +222,8 @@ wrap; a long phrase just makes a wide pill.
 ## Status pills — the chart vocabulary
 
 Some chart components read a **closed vocabulary of ten status words** from a
-trailing inline-code chip. This is a different mechanism from the brace
-grammar, and the difference is the whole point: here **the word is the
-meaning**, and the engine picks the color.
+trailing inline-code span. Here **the word is the meaning**: you write `at-risk`
+and Lattice picks the color from it, so there is no modifier to remember.
 
 ```markdown
 <!-- _class: progress -->
@@ -239,55 +235,61 @@ meaning**, and the engine picks the color.
 - Security review `12%` `blocked`
 ```
 
-Ten words, five readings:
+Ten words, grouped into five meanings:
 
-| Write one of these | Reads as | Paints |
+| Write one of these | Reads as | Draws |
 |---|---|---|
-| `on-track` · `done` · `live` | Good | Pass |
-| `at-risk` · `warn` | Careful | Warn |
-| `blocked` · `fail` | Bad | Fail |
-| `pilot` · `decision` | Noted, in flight | Info |
-| `deferred` | Parked | Muted |
+| `on-track` · `done` · `live` | Good | The palette's positive color |
+| `at-risk` · `warn` | Careful | The caution color |
+| `blocked` · `fail` | Bad | The alarm color |
+| `pilot` · `decision` | Noted, in flight | The informational color |
+| `deferred` | Parked | A gray, deliberately quiet |
 
 Color is not the only channel. In the print and accessibility palettes each
-status also carries a distinct glyph, so the reading survives grayscale and
+group also carries its own glyph, so the reading survives grayscale and
 color-vision deficiency.
 
 ### Where the status word goes
 
 The position differs per component — it is **not** a universal slot:
 
-| Component | Where you write it |
-|---|---|
-| `progress` | Second trailing chip on the row — percent first, status second |
-| `timeline-list` | Trailing chip on the event's lead line, after the title |
-| `kanban` | Trailing chip on the card's nested lane bullet |
-| `gantt` | A token on a task bullet — tints the bar, not a pill |
-| `state-chart` | Trailing chip on the state line — tints the badge |
-| `slope` | Trailing chip on the entity's lead line — tints the mark |
+| Component | Where you write it | What it colors |
+|---|---|---|
+| `progress` | Second trailing span on the row — percent first, status second | A pill |
+| `timeline-list` | Trailing span on the event's lead line, after the title | A pill |
+| `kanban` | Trailing span on the card's nested lane bullet | A pill, and the card |
+| `gantt` | A token on a task bullet | The bar |
+| `state-chart` | Trailing span on the state line | The badge |
+| `slope` | Trailing span on the entity's lead line | The chart mark |
 
-The first three draw an actual status pill. The last three share the same ten
-words but paint a bar, a badge, or a chart mark instead.
+`progress`, `timeline-list` and `kanban` draw an actual status pill. `gantt`,
+`state-chart` and `slope` read the same ten words but color a bar, a badge, or a
+chart mark instead.
 
-### Three things that will bite you
+### Two ways a status word trips you up
 
-**Write it lowercase and hyphenated.** There is no normalization anywhere —
-`at risk` (with a space) and `At Risk` (capitalized) are not in the vocabulary.
+**Spell it lowercase and hyphenated.** Lattice does not fix up your spelling:
+`at risk` (with a space) and `At Risk` (capitalized) are not in the vocabulary,
+and neither is caught for you.
 
-**An unrecognized word fails quietly, not loudly.** In `progress` and
-`timeline-list` a word the engine does not know still renders a pill — a blue
-one, because blue is the default. It looks exactly like a deliberate `pilot`
-or `decision` pill. Only `gantt` lints an unknown token; the others say
-nothing. Proofread these by eye.
+**A word Lattice does not know still draws a pill.** In `progress` and
+`timeline-list` it comes out blue — the default — so a typo looks exactly like a
+deliberate `pilot` or `decision` pill, and a reviewer reads it as one. Only
+`gantt` warns about an unknown token. On the others, check each status word
+against the ten above before you ship the deck.
 
-**The status vocabulary and the brace grammar do not meet.** A `{LABEL}` pill
-can take any of twelve categorical slots and eight shapes, but it cannot say
-"this is failing" — the semantic status colors are reachable only from inside
-those chart components. If you want a red pill on a `cards-grid` slide, there
-is no supported route; picking whichever `:cN` slot looks red in your current
-theme is exactly the portability trap that ordinal slots exist to prevent.
+### What the status vocabulary cannot do
 
-## Date pills
+The ten words reach only those six components. A `{LABEL}` pill goes anywhere,
+takes eight shapes and twelve color slots — and still cannot say "this is
+failing," because the status colors are not among the twelve.
+
+So there is no supported way to put a red status pill on a `cards-grid` slide.
+Do not reach for whichever `:cN` slot looks red in your theme: it is a different
+color in the next one, which is the whole reason the slots are numbered rather
+than named.
+
+## Date pills — positional, and never parsed
 
 A date pill is **positional and per-component**. Nothing is ever date-parsed:
 the engine does not recognize `2025 Q1` as a date, it just styles whatever sits
@@ -296,26 +298,26 @@ you get a pill reading "banana".
 
 | Component | Where the date goes |
 |---|---|
-| `timeline-list` | **Leading** chip, before the title — `` 1. `2025 Q1` Framework approved `` |
-| `regulatory-update` | Last nested bullet, as an only-child chip |
-| `roadmap` | Trailing chip on a phase column header |
+| `timeline-list` | **Leading** span, before the title — `` 1. `2025 Q1` Framework approved `` |
+| `regulatory-update` | Last nested bullet, on its own |
+| `roadmap` | Trailing span on a phase column header |
 
-`timeline-list` is the one to watch: its date **leads** the line, where most
-components put chips at the end. A date written after the title is read as a
-stray status chip instead of the event's anchor.
+`timeline-list` is the one to watch, because its date **leads** the line where
+most components put metadata at the end. Write the date after the title and
+`timeline-list` styles it as a status pill instead.
 
-### Pills the engine derives for you
+## Pills you get without writing one
 
-A `glossary` slide grows a range pill in its heading automatically — the first
-letter of the first and last term, so a list running Consent to Processor gets
-`C – P`. You write nothing; it tracks the terms as you edit them.
+A `glossary` slide grows a range pill in its heading by itself — the first
+letter of the first and last term, so a list running Consent to Processor reads
+`C – P`. You write nothing, and it follows the terms as you edit them.
 
 ## Where a pill can go
 
-Anywhere inline code can — a heading, a paragraph, mid-sentence, a blockquote,
-a table cell, a footer, or a list row.
+Anywhere inline code can: a heading, a paragraph, a blockquote, a table cell, a
+footer, or a list row — including mid-sentence.
 
-Two limits in a `list-tabular` row, both worth knowing:
+A `list-tabular` row has two limits:
 
 - The **`spec`** variant addresses its two codes by position, which cannot see
   a pill. A `spec` row whose trailing chip is a pill works; one whose *key* is
