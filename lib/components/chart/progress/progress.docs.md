@@ -19,7 +19,7 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 | `title` | `h2` | yes | Slide heading framing the progress view. |
 | `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
 | `subtitle` | `p` | no | Optional plain subtitle after the heading. |
-| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary: on-track / live / at-risk / warn / blocked / fail / deferred / done. An optional nested bullet renders as a per-row note. |
+| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Matching is exact: lowercase and hyphenated, with no case or space normalization. `pilot` and `decision` tint the PILL only — the progress bar has no arm for them, so it stays on categorical slot 1. An optional nested bullet renders as a per-row note. |
 
 ### Common mistakes
 
@@ -36,7 +36,7 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 
 - **Comparing unrelated metrics.** Revenue % of target, latency vs SLO, and headcount fill aren't comparable on a shared bar scale. Use `kpi` for value/target/status tiles or `stats` for an independent metric row.
 - **More than eight rows.** Past eight workstreams the bars compress and the labels truncate. Split the view by owner or workstream group; the audience can't scan twelve bars at once anyway.
-- **Decorative status pills.** Don't invent new status words for tone. `on-track`, `at-risk`, `blocked`, `deferred`, `done` are the vocabulary the engine recognizes; everything else renders as a plain pill and breaks the at-a-glance read.
+- **Decorative status pills.** Don't invent status words for tone. Only the shared ten tint the bar; anything else still draws a pill in the info color, so a typo reads as deliberate.
 
 ## Authoring
 

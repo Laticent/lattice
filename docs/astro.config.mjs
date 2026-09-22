@@ -220,6 +220,7 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Authoring decks', slug: 'guides/authoring' },
+						{ label: 'Pills and marks', slug: 'guides/pills' },
 						{ label: 'Themes & palettes', slug: 'guides/themes' },
 					],
 				},

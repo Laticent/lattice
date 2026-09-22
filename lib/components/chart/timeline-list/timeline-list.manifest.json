@@ -70,7 +70,7 @@
     "events": {
       "selector": "ol > li",
       "required": true,
-      "description": "Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary: decision / live / at-risk / blocked / done / on-track / deferred."
+      "description": "Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Matching is exact: lowercase and hyphenated, with no case or space normalization."
     }
   },
   "skeleton": "<!-- _class: timeline-list -->\n\n`Eyebrow · context`\n\n## How it unfolded.\n\n1. `2024 Q3` First milestone\n   - One-sentence description of what shipped.\n2. `2025 Q1` Second milestone `decision`\n   - One-sentence description.\n3. `2025 Q3` Third milestone `live`\n   - One-sentence description.\n",
@@ -105,7 +105,7 @@
     },
     {
       "title": "Status pills as decoration",
-      "body": "The status pill is a verdict — `decision`, `live`, `at-risk`, `blocked`, `done`. Don't invent freeform tags; the engine tints only the known vocabulary."
+      "body": "A status pill is a verdict; only the shared ten count. Anything else draws one in the info color, and reads as deliberate."
     }
   ],
   "related": [
