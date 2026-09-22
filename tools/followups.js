@@ -5,8 +5,8 @@
  * A continuation brief used to tag an item `[no ticket]` and leave it only in a PR comment
  * and a chat transcript. In the two months before this ledger, 29 of 506 merged PRs left
  * 79 such items in their final brief, while 4 handoff issues were filed after #2215 made
- * them the rule. Each item now gets one file here, like changelog.d/: one file per item, so parallel PRs never edit the same
- * region. The PR that finishes an item deletes its file. Contract: followups.d/README.md.
+ * them the rule. Each item now gets one file here, like changelog.d/: one file per item,
+ * so parallel PRs never edit the same region. The PR that finishes an item deletes its file. Contract: followups.d/README.md.
  *
  * The FORMAT IS DEFINED ONCE, here. `checkFollowups` in tools/check-ownership.js only
  * surfaces what `followupProblems()` reports, as checkChangelogFragments does for
@@ -47,7 +47,7 @@ function listFollowups() {
     .sort()
     .map((file) => {
       const p = parse(fs.readFileSync(path.join(DIR, file), 'utf8')) || { meta: {} };
-      return { file, origin: p.meta.origin, priority: p.meta.priority, title: p.title };
+      return { file, origin: p.meta.origin, priority: p.meta.priority, title: p.title, backfill: p.meta.backfill === 'true' };
     });
 }
 
@@ -82,6 +82,10 @@ function main() {
   const items = listFollowups();
   for (const i of items) console.log(`${i.file}  ·  #${i.origin} ${i.priority}  ·  ${i.title}`);
   console.log(`\n${items.length} pending item(s) with no issue — contract: followups.d/README.md`);
+  // A backfilled item was copied from an old brief and never checked against main, so it
+  // may be done or duplicated. Say so on every listing until the triage pass clears them.
+  const untriaged = items.filter((i) => i.backfill).length;
+  if (untriaged) console.log(`⚠ ${untriaged} of them are backfilled and NEED TRIAGE (\`backfill: true\`): some are done or duplicated. Drop the flag once an item is checked.`);
 }
 
 if (require.main === module) main();

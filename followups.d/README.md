@@ -13,7 +13,13 @@ session reads by default. In the two months to 2026-09-22, 29 of 506 merged PRs 
 them, and 4 handoff issues were filed after it landed. The items here were
 backfilled from those briefs by a script, verbatim, **without being re-checked against
 `main`** — some are done and some duplicate each other. Backfilled files carry
-`backfill: true`.
+`backfill: true`, and `npm run followups` warns until a triage pass clears the flag
+(`2313-p1-triage-the-backfilled-followups.md`).
+
+The backfill is complete for the tag. `[no ticket]` was coined in #1775 on 2026-08-23,
+and the harvest window starts 2026-07-22. 33 merged PRs ever used the tag: 29 gave items,
+#1775 only defines it, and on #2229, #2269 and #2300 a later brief on the same PR replaced the untracked items.
+Deferred work mentioned in free prose before the brief existed is not harvested.
 
 ## The contract
 
