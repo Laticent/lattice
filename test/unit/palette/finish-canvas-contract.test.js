@@ -200,39 +200,24 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     }
     assert.ok(excludes(one, 'print'), `\`${one}\` must not apply to a print slide`);
   }
-  // The four registers that OUT-SPECIFY a frame's own (0,1,1) canvas and repaint it to
-  // `var(--bg)`: `section.dark.spectrum-off` (0,2,1), `section.dark:is(.spectrum-edge-…)`
-  // (0,3,1) and `section.accent.dark` (0,2,1). Re-pointing `--fin-canvas` across them
-  // sends the finish at a color the slide does not paint — measured, 60 mismatches
-  // against main's 14 over an 11x11 cross, and a `spectrum: off` deck exported a dark
-  // title as an inverse-panel flood. `divider` is exempt from this row: base.variants.css
-  // gives it carve-outs that KEEP its canvas under every spectrum value, so it excludes
-  // only `print` and `accent`.
-  // Per frame, because the frames genuinely differ — each row measured, not assumed.
-  // `divider`: base.variants.css gives it (0,3,1) carve-outs that keep --surface-inverse
-  // under spectrum-off and spectrum-edge-off, which out-specify BOTH section.accent.dark
-  // (0,2,1) and section.print (0,1,1) — so its accent and print exclusions are
-  // conditional on no carve-out applying, not blanket.
-  // `topic`: two DOM shapes AND a variant. Trackless it restates at (0,2,2) and holds
-  // its canvas under everything but the spectrum edges; carrying `ul.tile-track` it is
-  // (0,1,1) and loses it as title does — EXCEPT as `.fact`, which restates the canvas at
-  // `section.topic.fact` (0,2,1) and so out-specifies `section.print` (0,1,1) and keeps
-  // its inverse panel under print. Measured across all seven registers, tracked, plain
-  // and dark: fact keeps the panel under print, accent, spectrum-off and all four edges,
-  // and loses it only under `.dark` plus one of those six. Hence a third arm carrying
-  // the mode-scoped group and no `:not(.print)`.
-  const REGISTERS = ['accent', 'spectrum-off', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off'];
-  const NEEDED = (one) => {
-    if (one.includes('.divider')) return ['accent'];   // spectrum carve-outs keep its canvas
-    if (one.includes('.topic')) {
-      // trackless topic (0,2,2) loses only to the edges; tracked topic (0,1,1) loses
-      // to everything, exactly as title/closing do.
-      return one.includes(':not(:has(> ul.tile-track))')
-        ? ['spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off']
-        : REGISTERS;
-    }
-    return REGISTERS;
-  };
+  // NO REGISTER REPAINTS A FRAME'S OWN CANVAS ANY MORE (#2291), and this list being empty
+  // is the assertion. Four rules used to: `section.dark.spectrum-off` (0,2,1),
+  // `section.dark:is(.spectrum-edge-*)` (0,3,1) and `section.accent.dark` (0,2,1) all
+  // out-specified a frame's (0,1,1) canvas, so `--fin-canvas` had to give way to them and
+  // every arm below carried a mode-scoped exclusion group naming all six register classes.
+  //
+  // NONE OF THEM WAS TRYING TO PAINT A CANVAS. Each one draws or removes a BAR — the dark
+  // canvas's top hairline, the divider's left rail, the accent stripe — and each restated
+  // the color while doing it, one through the `background:` shorthand and one by copying
+  // `background-color: var(--bg)` out of the rule it replaced. They declare only what they
+  // mean now (`background-image`), so a frame keeps the canvas it paints and the exclusions
+  // are gone with them. `:not(.print)` is all that is left, and only where print takes over.
+  //
+  // If a register is ever given a genuine canvas of its own, this list grows again and the
+  // arms below grow a `:not(:where(.dark.<register>))` group with it — mode-scoped, because
+  // every repainter of that kind has needed `.dark` to fire.
+  const REGISTERS = [];
+  const NEEDED = () => REGISTERS;
   for (const one of topLevel(selector)) {
     for (const reg of NEEDED(one)) {
       assert.ok(excludes(one, reg), `\`${one}\` must not apply to a .${reg} slide — it repaints the surface`);
@@ -309,12 +294,12 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   for (const one of accentArms) {
     for (const reg of REGISTERS) {
       assert.ok(excludes(one, reg), `\`${one}\` must not apply to a .${reg} slide — it repaints the surface`);
+      assert.match(
+        one, /:not\(:where\(\.dark/,
+        `\`${one}\` excludes .${reg} unconditionally — a repainter of that kind needs .dark to fire, `
+          + 'so an unconditional exclusion demotes --fin-canvas on light decks (#1656, on the default path)',
+      );
     }
-    assert.match(
-      one, /:not\(:where\(\.dark/,
-      `\`${one}\` excludes the registers unconditionally — every one of them needs .dark to fire, `
-        + 'so an unconditional exclusion demotes --fin-canvas on light decks (#1656, on the default path)',
-    );
     // `print` per arm, and the two arms genuinely differ — see the paragraph above.
     if (one.includes('.lat-split-cover')) {
       assert.ok(
@@ -340,12 +325,18 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   // tint out-specifies `section.print` (0,1,1) and survives print. Measured, unstamped:
   // `split-panel-cover cat-1 print` paints the tint, not the print ground.
   assert.ok(!excludes(panelFill[0], 'print'), 'the category tint out-specifies section.print, so it must not exclude print');
+  for (const reg of REGISTERS) {
+    assert.ok(excludes(panelFill[0], reg), `the category tint must not apply to a .${reg} slide`);
+  }
   for (const matte of ['--img-matte', '--scene-matte']) {
     const rule = canvasFor(matte);
     assert.strictEqual(rule.length, 1, `expected one rule pointing --fin-canvas at var(${matte})`);
     assert.match(rule[0], /\[data-img-composition="gallery"\]/, `the ${matte} re-point is keyed on the composition stamp`);
     assert.ok(!excludes(rule[0], 'print'), `${matte} is (0,2,1) and out-specifies section.print, so it must not exclude print`);
-    assert.match(rule[0], /:not\(:where\(\.dark/, `${matte}'s register exclusions must be scoped to .dark`);
+    for (const reg of REGISTERS) {
+      assert.ok(excludes(rule[0], reg), `${matte} must not apply to a .${reg} slide — it repaints the surface`);
+      assert.match(rule[0], /:not\(:where\(\.dark/, `${matte}'s .${reg} exclusion must be scoped to .dark`);
+    }
   }
 
   // …but `light` is carved out for the DIVIDER ONLY: `section.light` paints nothing, so

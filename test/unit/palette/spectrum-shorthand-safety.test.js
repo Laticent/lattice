@@ -78,7 +78,7 @@ describe('no var() in a multi-layer background shorthand (#1528)', () => {
     }
   });
 
-  test('the six hoisted sites still paint their surface as background-color', () => {
+  test('the hoisted sites still paint their surface as background-color', () => {
     const want = [
       // The long selector, not bare `section.dark`: the canvas paint moved to a
       // narrower one so a frame that paints ITS OWN canvas keeps it under
@@ -89,7 +89,6 @@ describe('no var() in a multi-layer background shorthand (#1528)', () => {
       // keeps the class list inside it honest; this test only cares that whatever
       // paints, paints with longhands.
       ['base/base.modifiers.css', 'section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover))', '--bg'],
-      ['shared/shared.styles.css', 'section.accent.dark', '--bg'],
       ['components/anchor/divider/divider.styles.css', 'section.divider', '--surface-inverse'],
       ['components/code/code/code.styles.css', 'section.code pre', '--code-bg'],
       ['components/code/compare-code/compare-code.styles.css', 'section.compare-code pre', '--code-bg'],
@@ -102,5 +101,26 @@ describe('no var() in a multi-layer background shorthand (#1528)', () => {
       assert.match(block[0], new RegExp(`background-color\\s*:\\s*var\\(${surface}`), `${rel}: \`${selector}\` must paint ${surface} as background-color`);
       assert.match(block[0], /background-image\s*:/, `${rel}: \`${selector}\` must carry the decoration on background-image`);
     }
+  });
+
+  // THE SIXTH SITE NOW PAINTS NO SURFACE AT ALL, and that is the stronger form of the same
+  // guarantee. `section.accent.dark` draws a STRIPE; its `background-color: var(--bg)` was
+  // a restatement of what `section.dark` declares one file over, and at (0,2,1) it
+  // out-specified the (0,1,1) canvas of every frame that paints its own — flattening a dark
+  // title, cover or matte to the deck ground to draw a line across the top (#2291). A rule
+  // that declares no canvas cannot lose one, so #1528's failure mode is unreachable here by
+  // construction rather than by hoisting. Pinned as its own case so re-adding the line
+  // fails loudly.
+  test('section.accent.dark declares a stripe and no canvas', () => {
+    const css = stripComments(fs.readFileSync(path.join(LIB, 'shared/shared.styles.css'), 'utf8'));
+    const block = css.match(/section\.accent\.dark\s*\{[^}]*\}/);
+    assert.ok(block, 'could not find the `section.accent.dark` rule');
+    assert.match(block[0], /background-image\s*:/, '`section.accent.dark` must carry the stripe on background-image');
+    assert.doesNotMatch(
+      block[0], /background-color\s*:/,
+      '`section.accent.dark` must NOT declare a canvas — it draws a stripe, and restating the '
+        + "canvas out-specifies the (0,1,1) canvas of every frame that paints its own (#2291)",
+    );
+    assert.doesNotMatch(block[0], /(^|\s)background\s*:/, '`section.accent.dark` must not use the shorthand (#1528)');
   });
 });

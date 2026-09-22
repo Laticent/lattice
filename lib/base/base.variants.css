@@ -234,8 +234,28 @@ section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([cl
    so `off` neither adds nor removes a structural rule; the two axes are independent
    (2026-07-03-spectrum-register-white-label.md, 2026-07-16-spectrum-structure-default.md). */
 section.spectrum-off { border-top: none; }
-section.dark.spectrum-off { background: var(--bg); }
-section.divider:not(.light).spectrum-off { background: var(--surface-inverse); }
+/* CLEAR THE BAR, NOT THE CANVAS (#2291). These two used to say `background: var(--bg)` and
+ * `background: var(--surface-inverse)` -- the shorthand, chosen because it resets every
+ * longhand at once, which is what clearing `section.dark`'s hairline or the divider's rail
+ * needs. But the shorthand also RESTATES the color, at (0,2,1) and (0,3,1), and that
+ * out-specifies a frame's own (0,1,1) canvas. So `spectrum: off` flattened a dark title,
+ * closing, topic or cover to the deck ground -- the same defect #2293 fixed one rule over,
+ * through a rule no exemption list could reach, because this one wins on SPECIFICITY rather
+ * than on order. Measured, indaco, before: `title dark spectrum-off` rgb(0,29,51) against
+ * the rgb(0,61,102) it paints for itself.
+ *
+ * The longhand says what the rule means. `background-image: none` removes the bar and
+ * touches nothing else, so a frame keeps whatever canvas it painted and no carve-out list
+ * is needed -- the divider rule below stops being a special case and becomes the same
+ * statement for the frame whose bar is a RAIL rather than a hairline. The issue framed the
+ * choice as "drop the specificity, or grow the divider carve-out to all four anchors"; both
+ * treat the color reset as a given, and it never was.
+ *
+ * The other longhands (`background-position`, `-size`, `-repeat`) survive where the
+ * shorthand used to reset them. With no image they are inert -- a size for a layer that
+ * does not exist. */
+section.dark.spectrum-off { background-image: none; }
+section.divider:not(.light).spectrum-off { background-image: none; }
 
 /* EDGE — move the section-edge bar to a chosen side (per-side border-image, export-safe).
    The bar width matches base.elements' top border: (--_sec-1cqi * 0.3125). A `divider`
@@ -258,12 +278,16 @@ section.spectrum-edge-bottom:not(.divider) {
   border-bottom: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
   border-image-source: var(--spectrum);
 }
-/* dark slides paint the top bar as a background line; drop it when an edge is chosen. */
+/* dark slides paint the top bar as a background line; drop it when an edge is chosen.
+ * `background-image: none` for the reason the `off` block above gives at length: the
+ * shorthand restated the color at (0,3,1) and took a frame's own canvas with the bar.
+ * `:not(.divider)` stays -- a divider's bar is its own left rail and only `edge: off`
+ * clears that, on the line below. */
 section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.divider) {
-  background: var(--bg);
+  background-image: none;
 }
 /* the divider's default is a left rail; edge:off clears it deck-wide. */
-section.divider:not(.light).spectrum-edge-off { background: var(--surface-inverse); }
+section.divider:not(.light).spectrum-edge-off { background-image: none; }
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 

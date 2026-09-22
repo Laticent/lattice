@@ -669,12 +669,22 @@ section.dark {
  *
  * Only .dark needed this. .light sets no canvas, and .print works by remapping
  * the consumed tokens rather than painting over them, so a canvas-owning frame
- * already resolved correctly in both. The `spectrum:` register is a separate,
- * PRE-EXISTING instance of this same defect and is NOT fixed here: section.dark
- * .spectrum-off (0,2,1) and section.dark:is(.spectrum-edge-*) (0,3,1) in
- * base.variants.css both out-specify a frame's own canvas, so under
- * `spectrum: off` a dark title/closing/topic still flattens. divider alone was
- * given a hand-written carve-out there. Tracked as #2291. */
+ * already resolved correctly in both.
+ *
+ * THE `spectrum:` AND `accent:` REGISTERS WERE THE SAME DEFECT IN THREE MORE RULES,
+ * and they are fixed now (#2291) -- this paragraph used to say they were not.
+ * section.dark.spectrum-off (0,2,1), section.dark:is(.spectrum-edge-*) (0,3,1) and
+ * section.accent.dark (0,2,1) all out-specified a frame's own canvas, so unlike this
+ * rule no exemption list could have saved the frame: they won on SPECIFICITY, not on
+ * order, and a dark title/closing/topic/cover flattened under `spectrum: off`.
+ *
+ * None of the three was trying to paint a canvas. Each draws or removes a BAR -- this
+ * rule's top hairline, the divider's left rail, the accent stripe -- and restated the
+ * color while doing it, two through the `background:` shorthand and one by copying
+ * `background-color: var(--bg)` out of the rule it replaced. They declare only what
+ * they mean now (`background-image`), which is why the fix needed neither a
+ * specificity change nor a carve-out list. divider's two hand-written carve-outs are
+ * ordinary members of the set rather than the exception they used to be. */
 section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover)) {
   background-color: var(--bg);
   background-image: var(--spectrum);
