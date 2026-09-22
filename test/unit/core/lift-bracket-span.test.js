@@ -161,3 +161,22 @@ describe('a fenced code block cannot swallow the axis', () => {
     assert.ok(run(800) < run(200) * 12, 'growth must not square');
   });
 });
+
+describe('an escaped span is literal text, never an axis', () => {
+  const { ESCAPED_ATTR } = require('../../../lib/core/inline-code-directives');
+
+  // `inline-code-directives.js` documents `` `\[x]` `` as "the literal,
+  // backslash stripped", and stamps the element so a SECOND pass can tell a
+  // resolved escape from a live directive. This lift is a second pass.
+  test('a code span marked as an escape is not lifted', () => {
+    const html = `<p><code ${ESCAPED_ATTR}="">[x]</code></p>\n` + TABLE;
+    const r = liftBracketSpans(html, { bodyTags: ['<table'] });
+    assert.equal(r.above, null);
+    assert.equal(r.html, html, 'the literal must survive untouched');
+  });
+
+  test('an UNescaped bracketed span in the same position still lifts', () => {
+    const r = liftBracketSpans(p('[x]') + TABLE, { bodyTags: ['<table'] });
+    assert.equal(r.above, '[x]');
+  });
+});

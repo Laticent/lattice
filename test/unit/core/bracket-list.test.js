@@ -178,3 +178,30 @@ describe('nothing backtracks', () => {
     assert.ok(run(4000) * 8 > run(16000), 'growth should be ~linear, not quadratic');
   });
 });
+
+describe('malformed input is never given invented structure', () => {
+  // A `{` only opens a member where a member can START. Anywhere else it is
+  // text, so a stray brace cannot silently become a two-part member.
+  test('a brace mid-member stays literal', () => {
+    assert.deepEqual(parseBracketList('[a{b, c}]'), [['a{b'], ['c}']]);
+  });
+
+  test('adjacent braced groups are two members, not one merged four-part member', () => {
+    assert.deepEqual(parseBracketList('[{a,b}{c,d}]'), [['a', 'b'], ['c', 'd']]);
+  });
+
+  test('a nested brace cannot smuggle a part past the cap', () => {
+    const got = parseBracketList('[{a,{b,c},d}]', { maxParts: 3 });
+    assert.ok(got.every((m) => m.length <= 3), `cap of 3 held: ${JSON.stringify(got)}`);
+  });
+
+  test('the legitimate forms are unchanged by all of the above', () => {
+    assert.deepEqual(parseBracketList('[Effort, Reach]'), [['Effort'], ['Reach']]);
+    assert.deepEqual(parseBracketList('[{Effort, 0..10}, {Reach, 0..100}]'), [
+      ['Effort', '0..10'], ['Reach', '0..100'],
+    ]);
+    assert.deepEqual(parseBracketList('[{1, Good, better, best}]', { maxParts: 2 }), [
+      ['1', 'Good, better, best'],
+    ]);
+  });
+});

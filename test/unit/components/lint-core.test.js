@@ -1885,3 +1885,35 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.equal(rule(src, 'track-list'), undefined);
   });
 });
+
+describe('label-set-above-body — coaching, never refusal', () => {
+  const vocab = { names: new Set(['matrix-grid']), modifiers: new Set() };
+  const grid = (spanAbove) => [
+    '<!-- _class: matrix-grid -->', '',
+    '`[Wider reach, Deeper cognition]`', '',
+    ...(spanAbove ? ['`[{[-], within reach}]`', ''] : []),
+    '## Rubric', '',
+    '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |',
+    ...(spanAbove ? [] : ['', '`[{[-], within reach}]`']),
+  ].join('\n');
+
+  // A key above the body is eaten as an axis, silently and degenerately —
+  // `data-col-axis="[-] ▶"` and no key at all. The deck still renders, so we
+  // coach rather than refuse (HARD RULE #29's posture).
+  test('warns when a label set sits above the body, and says how to fix it', () => {
+    const hits = core.lintTextWith(grid(true), vocab)
+      .filter((f) => f.rule === 'label-set-above-body');
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].severity, 'warning', 'never an error — the deck still renders');
+    assert.match(hits[0].message, /ABOVE the table/);
+    assert.match(hits[0].fix, /below the table/);
+    // The axis position names come from the CATALOG, never a literal here.
+    assert.match(hits[0].fix, /column, row/);
+  });
+
+  test('is silent when the key sits below the body, where it belongs', () => {
+    const hits = core.lintTextWith(grid(false), vocab)
+      .filter((f) => f.rule === 'label-set-above-body');
+    assert.deepEqual(hits, []);
+  });
+});

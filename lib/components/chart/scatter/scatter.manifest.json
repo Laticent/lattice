@@ -64,6 +64,7 @@
   ],
   "description": "An XY plot with real units on both axes — one dot per entity, showing how two measures relate.",
   "purpose": "Use when the argument is that two measures move together (or against each other) and both numbers matter: cost against value, price against adoption, risk against return. Both axes carry a nice-number tick ladder in the author's own units, so a reader sees the shape of the relationship and can still take a value off the chart. For a unitless 2x2 scoring, use `quadrant`.",
+  "axisSet": {"members": ["x", "y", "size"], "body": "list", "keyBelow": false},
   "slots": {
     "title": {
       "selector": "h2",

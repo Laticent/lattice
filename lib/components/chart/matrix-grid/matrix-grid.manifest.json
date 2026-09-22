@@ -27,6 +27,7 @@
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
+  "axisSet": {"members": ["column", "row"], "body": "table"},
   "labelSet": {
     "aria": "Cell key",
     "members": [

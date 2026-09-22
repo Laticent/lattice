@@ -2017,3 +2017,23 @@ test('scrubLabel keeps its comma for a Mermaid label — the two breaks mean dif
   const md = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A["Booking received<br/>(EDI 204 / portal)"] --> B["Hold"]', '```'].join('\n');
   assert.match(narrateDiagram(md), /Booking received, \(EDI 204/);
 });
+
+test('narrateDataSeries: only a component that OWNS an axis expands a bracketed eyebrow', () => {
+  // The render path decides by POSITION; this path had no position rule at all,
+  // so the two could disagree about the same span. `bullet` draws no axis, so a
+  // bracketed caption above its rows must stay a CAPTION — spoken as itself,
+  // with the values left unbound — exactly as the slide renders it.
+  const bullet = [
+    '<!-- _class: bullet -->', '', '`[Confidential, internal]`', '', '## Rows', '',
+    '- New ARR `4.2M` `5.0M`', '- Expansion `2.1M` `3.0M`',
+  ].join('\n');
+  const spoken = narrateDataSeries(bullet);
+  assert.match(spoken, /Confidential, internal/, 'the caption is still spoken');
+  assert.doesNotMatch(spoken, /New ARR: Confidential/, 'and never bound as an axis name');
+});
+
+test('narrateDataSeries: a bracketed list cannot invent more axes than the component declares', () => {
+  const { axisSetFor } = require('../../../lib/core/label-set');
+  assert.equal(axisSetFor('scatter').members.length, 3);
+  assert.equal(axisSetFor('bullet'), null, 'bullet declares no axis');
+});
