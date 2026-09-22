@@ -162,18 +162,46 @@ then tidied each part — three full scans of the same characters — and it was
 SLOWER than the regexes it replaced. Recorded because the module header already
 claimed "linear" while the thing was losing:
 
-| case | old grammar | first cut | single-pass |
+| case | old grammar | first cut | shipped |
 |---|---|---|---|
-| quadrant axis | 1662 ns | 2202 ns | **652 ns** |
-| label set | 1191 ns | 1995 ns | **610 ns** |
-| pass-through eyebrow (the common case) | 112 ns | 104 ns | **91 ns** |
-| adversarial 3000-char | 15315 ns | 53617 ns | **14322 ns** |
-| per character | — | 18.6 ns | **3.4 ns** |
+| quadrant axis | 1537 ns | 2202 ns | **776 ns** |
+| label set | 1282 ns | 1995 ns | **860 ns** |
+| pass-through eyebrow (the common case) | 109 ns | 104 ns | **91 ns** |
+| adversarial 3000-char | 17424 ns | 53617 ns | 24815 ns |
+| per character | — | 18.6 ns | 5.7 ns |
 
-Whole-deck baseline before the change, on this box (`npm run bench`; the
-portable signal is `index`, which divides clock speed out — this machine runs
-~47% slower than the blessed one, calibration 4.73 ms against 3.22 ms):
-`charts` 23 slides, index 17.25, 282 slides/s.
+**The adversarial row went the wrong way and is reported rather than dropped.**
+The shipped scanner is SLOWER than the regex it replaces on a pathological
+input, and slower than its own mid-work state, because two correctness fixes
+cost per-character work: `tidy` now normalizes every whitespace form the regex
+does (it was diverging on 50,955 of 300k fuzzed inputs), and the parser refuses
+to read structure out of a stray brace. Growth is flat-linear out to 27,000
+characters (~4.8 ns/char, 130 us), so the property that matters — no
+backtracking — holds; against an old failure mode of 10.9 SECONDS, 25 us on
+input no author writes is not worth buying back with cleverness. Real axis
+lines are ~40 characters, where the scanner is 2x faster.
+
+### Whole-deck: no measurable change, which is the honest result
+
+`npm run bench` on this box, same tree, before and after. The portable signal is
+`index` (dataset ms divided by a markdown-it calibration probe, so clock speed
+divides out); this machine runs ~50% slower than the blessed one, so absolute ms
+is not comparable to `baseline.json`.
+
+| dataset | before | after |
+|---|---|---|
+| charts (23 slides) | 17.25 | 16.35 |
+| normal (jargon, 58) | 19.90 | 19.62 |
+| math (16) | 18.77 | 18.59 |
+| stress (jargon x6, 348) | 71.77 | 73.70 |
+
+**All four are inside the committed 12% variance band and they move in BOTH
+directions, so this is run-to-run scatter rather than a win.** Parsing is
+microseconds against an ~80ms render, so a 2x parser cannot show up at deck
+scale and does not. Recording it because the alternative — quoting the 5% on
+`charts` and omitting the 3% the other way on `stress` — would be picking the
+number that flatters the change. `bench:bless` is NOT re-run here: nothing
+moved beyond the band, so the committed baseline still describes the engine.
 
 ## What this does NOT decide
 

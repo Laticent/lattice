@@ -95,9 +95,7 @@ Nothing about the two spans distinguishes them. Only where they sit.
 
 ## Quotes are optional, and they are not decoration.
 
-Unquoted, every comma splits. Quoted — single or double — a comma is part of the
-name. The alternative was banning commas, which fails the first author who
-measures cost excluding tax.
+Unquoted, every comma splits. Quoted, a comma is part of the name.
 
 - Atlas `$420k` `18%`
 - Borealis `$310k` `24%`
