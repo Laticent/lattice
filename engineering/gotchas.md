@@ -58,6 +58,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 - [RETIRED (2026-07-10) — `:not(:has(...))` / `:is(:has(...))` were believed unreliable inside Marp's webview Chromium](gotchas/browser-engine.md#retired-2026-07-10--nothas--ishas-were-believed-unreliable-inside-marps-webview-chromium)
 - [Marp / Chromium `foreignObject` creates anonymous grid items](gotchas/browser-engine.md#marp--chromium-foreignobject-creates-anonymous-grid-items)
+- [`dominant-baseline` on a `<text>` never reaches its `<tspan>` in WebKit — every wrapped SVG label paints high in Safari](gotchas/browser-engine.md#dominant-baseline-on-a-text-never-reaches-its-tspan-in-webkit--every-wrapped-svg-label-paints-high-in-safari)
 - [Sub-pixel rounding diverges across Chromium platforms](gotchas/browser-engine.md#sub-pixel-rounding-diverges-across-chromium-platforms)
 - [MutationObserver fires on its own writes (self-triggering loop)](gotchas/browser-engine.md#mutationobserver-fires-on-its-own-writes-self-triggering-loop)
 - [Chromium blocks `file://` URLs as `mask-image` sources](gotchas/browser-engine.md#chromium-blocks-file-urls-as-mask-image-sources)

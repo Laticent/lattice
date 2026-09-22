@@ -156,6 +156,21 @@
   dominant-baseline: central;
 }
 
+/* Carry the baseline onto the <tspan>, which the engine will not do for us.
+ * A <tspan> has its own `dominant-baseline: auto`, and WebKit resolves that
+ * `auto` to `alphabetic` instead of to the parent's computed value (Chromium
+ * follows SVG2 and inherits). A rule that matches only the <text> therefore
+ * leaves a wrapped label about one font-size high in Safari and on every iOS
+ * surface, while the Chromium-rendered PDF and every gate in this repo look
+ * correct (#2297, engineering/decisions/2026-09-22-webkit-tspan-baseline.md).
+ * Only the key label wraps today; the words and the key's own faces are
+ * single-line <text>. The rule covers all four so that a later wrap cannot
+ * reintroduce the defect silently — it is invisible to every gate we run. */
+:is(section.word-cloud, figure.chart-frame)
+  :is(.wc-word, .wc-key-label, .wc-key-edge, .wc-key-a) tspan {
+  dominant-baseline: central;
+}
+
 /* Bottom-tier words read as supporting vocabulary — lighter weight and
  * tracked tighter so the eye groups them as ambient context rather
  * than competing with the focal tier. */

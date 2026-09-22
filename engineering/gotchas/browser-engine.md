@@ -53,6 +53,37 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   behavior in foreignObject (don't bet on it).
 - **Commits:** `b8fecac2`.
 
+## `dominant-baseline` on a `<text>` never reaches its `<tspan>` in WebKit — every wrapped SVG label paints high in Safari
+
+- **Symptom:** SVG chart labels sit roughly one font-size too high inside the
+  shape they should be centered in — a gantt caption above its bar, a funnel
+  value above its band, a y-axis tick above its gridline. Only in Safari, on
+  iOS, and in any WebKit surface (a shared `.html` export opened on an iPhone,
+  the Studio, the Playground). Chrome and the PDF look right.
+- **Cause:** A `<tspan>` carries its own `dominant-baseline`, whose initial
+  value is `auto`. Chromium implements SVG 2 and resolves that `auto` against
+  the parent's COMPUTED value, so the glyphs center on the tspan's `y`. WebKit
+  implements the SVG 1.1 reading and resolves it to `alphabetic`, so `y` becomes
+  the glyph baseline and the whole box sits above it. The attribute on the
+  `<text>` is dropped wholesale, not misapplied: the WebKit offset is exactly
+  that of a label with no baseline at all. A CSS rule behaves identically —
+  `.cart-tick { dominant-baseline: central }` matches the `<text>` and nothing
+  else.
+- **Mitigation:** Repeat the value on every `<tspan>`. The shared kernel does it
+  for any caller that declares a baseline
+  (`lib/components/chart/_chart-family/svg-label.js`); the two hand-rolled
+  emitters in `state-chart.transform.js` do it themselves; each stylesheet that
+  owns a baseline carries a companion `… tspan` rule. Pinned by
+  `test/unit/components/svg-tspan-baseline.test.js` at the source level and
+  measured on a real WebKit by `tools/audit-svg-baselines.mjs`.
+- **Triggered by:** Any `<text dominant-baseline="…">` whose lines are
+  positioned `<tspan>`s — which is every label the wrapping kernel emits.
+- **Watch out:** No gate in this repo can see this. `npm test`, the integration
+  tier, the PDF path and CI all render through headless Chromium, where the
+  drift is 0. The audit tool needs `npx playwright install webkit` first.
+- **Commits:** issue #2297;
+  `engineering/decisions/2026-09-22-webkit-tspan-baseline.md`.
+
 ## Sub-pixel rounding diverges across Chromium platforms
 
 - **Symptom:** A layout with `calc()` expressions mixing units
