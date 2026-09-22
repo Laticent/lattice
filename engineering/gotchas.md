@@ -31,7 +31,11 @@ The generated index below is the live list.)
 When fixing or working around something subtle, add an entry **before** committing
 the fix so the commit message can link to it. Add it to the topic file (as a `##`
 heading), then run `npm run gotchas:index` — the list below is generated, and
-`npm run gotchas:index:check` fails the build if it drifts.
+`npm run gotchas:index:check` fails the build if it drifts. **Keep the heading to a
+symptom a reader can scan.** It is rendered twice in the row below — as the link label,
+then slugged again as the anchor — so a character there costs two, and a heading over
+`ROW_CAP` (280 characters of row) makes the regeneration refuse and name your entry. The
+detail belongs in the entry body, where nobody pays for it until they open the file.
 
 Each entry has the same shape:
 

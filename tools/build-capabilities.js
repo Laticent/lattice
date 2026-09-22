@@ -147,10 +147,10 @@ const SCRIPT_META = {
   'split:treatments:check':   ['Build & bundle', 'Freshness gate for §0c\'s generated split-treatment table (stale vs lib/core/split-facts.js).'],
   'oracle:bless':             ['Test & verify', 'Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component\'s derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11).'],
   'oracle:check':             ['Test & verify', 'Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift.'],
-  'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
-  'decisions:index:check':    ['Build & bundle', 'Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted).'],
-  'gotchas:index':            ['Build & bundle', 'Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file.'],
-  'gotchas:index:check':      ['Build & bundle', 'Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted).'],
+  'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter. Refuses a note whose index row exceeds ROW_CAP (285 characters).'],
+  'decisions:index:check':    ['Build & bundle', 'Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no row over the 285-character ROW_CAP.'],
+  'gotchas:index':            ['Build & bundle', 'Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file. Refuses an entry heading whose index row exceeds ROW_CAP (280 characters).'],
+  'gotchas:index:check':      ['Build & bundle', 'Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no entry heading over the 280-character ROW_CAP.'],
 
   // Galleries & preview (rendered PDFs)
   'build:galleries':          ['Galleries & preview', 'Rebuild per-component gallery PDFs (light + dark).'],
