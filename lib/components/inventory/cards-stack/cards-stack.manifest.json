@@ -17,6 +17,9 @@
     ],
     "note": "past four rows the stack overflows"
   },
+  "cards": {
+    "default": "center"
+  },
   "density": {
     "axis": "item",
     "soft": 16,

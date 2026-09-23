@@ -701,8 +701,12 @@ its own value ignores it — so a unit test fails any component that declares a 
 CSS never reads. A component that declares nothing is not governed at all: nothing is stamped
 and its stylesheet is untouched. The split-page
 rules override `align-content` outright at higher specificity, so a run's pages still look
-alike whatever the deck asked for. Wired today on `cards-grid` and `verdict-grid`; other
-card components still stretch until they opt in. See
+alike whatever the deck asked for. Wired today on `cards-grid`, `verdict-grid`, the
+`list-steps` row (every variant that lays its steps out side by side), the two
+`compare-prose` panes, and `cards-stack horizontal`. A single-line flex row ignores
+`align-content`, so those rows set `flex-wrap: wrap`; their zero-basis cards still share one
+line. Column forms (`list-steps vertical`/`chevron`/…, the default `cards-stack`, tall and
+strip frames) are not governed. Other card components still stretch until they opt in (#2317). See
 `engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5.
 
 ## The slide's corner — `corners:`
