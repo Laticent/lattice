@@ -66,7 +66,7 @@ The consequences are concrete, and each was confirmed in source:
   there; the shape is simply different from the repo's.
 - **The Studio already derives a finish's print face from a recipe**
   (`finish-generate.ts`), and the Library's import already throws away a zip's
-  finish CSS and regenerates it from the recipe (`Library.tsx:497-500`). The recipe
+  finish CSS and `saveStudioFinish` regenerates it from the recipe (`Library.tsx:498-501`). The recipe
   is already the source for user finishes; only shipped finishes are hand-written.
 
 ## 3. The model
@@ -211,8 +211,8 @@ solid slide color. Every layer above it must end on the same color at zero
 opacity, or be a hard-edged pattern.
 
 **Open risk, not yet measured:** the recipe vocabulary may not express every
-detail of the 10 hand-written presets. The first step of that phase is a
-pixel-diff of generated against hand-written CSS for all 10. Anything the
+detail of the 9 hand-written presets (`none` is the tenth register value and paints nothing). The first step of that phase is a
+pixel-diff of generated against hand-written CSS for all 9. Anything the
 vocabulary can't express either becomes a new vocabulary term or stays behind as
 an explicit, gated hand-CSS exception. It is never dropped silently.
 
@@ -322,7 +322,9 @@ Each phase ships on its own and leaves the tree green.
    copies, and import rewrites them from the manifest. This extends the 2026-08-16
    theme rule to every kind.
 2. **Themes move into `themes/<name>/` folders**, like every other kind. Measured
-   cost: 67 source files reference theme paths. The published `./themes/*.css`
+   cost: 67 non-test source files reference a theme path (`grep -rlE "themes/[${a-z'\"\` ]|'themes'|\"themes\""`
+   over `lib tools docs/src lattice-emulator.js build-css.js`, `.js/.mjs/.ts/.tsx/.astro`,
+   tests excluded; counting tests, JSON, YAML and shell raises it to about 150). The published `./themes/*.css`
    import path survives through an `exports` remap to `./themes/*/*.css`.
    Scheduled for phase 5.
 3. **The CLI keeps user packages in a user-global `~/.lattice`**, not a
