@@ -175,6 +175,39 @@ is a **code package**, and every surface treats it the same way:
    boundary. It receives the slide's data and returns an HTML string, which is
    async and time-limited. Contract v1 needs its own design pass (phase 6); the
    existing shipped transforms are the test corpus for how much it must carry.
+
+   **Measured after this note merged: as written, the contract fits none of the 28
+   shipped transforms.** Every one imports engine code. Counting the component
+   transforms that import each helper:
+
+   | Helper | Transforms | What it gives them |
+   |---|---|---|
+   | `transform-utils` | 21 | the chart family's shared string helpers |
+   | `cartesian` | 15 | scales and axes |
+   | `mark-detail` | 15 | per-mark interactive detail |
+   | `svg-label` | 13 | label placement |
+   | `html-lists` | 11 | walking the authored Markdown lists |
+   | `svg-legend` | 10 | legends |
+   | `coda` | 6 | a slide's trailing key-insight and source beats |
+
+   And three need a live page, not a string:
+   - **`state-chart`** measures its own layout with `getBoundingClientRect`
+     (`state-chart.transform.js:792`), so it can't run anywhere that doesn't
+     lay out text.
+   - **`scene`** and **`team-profile`** have a runtime half that walks the rendered
+     slide with `querySelectorAll`.
+
+   So a useful contract v1 is not "data in, HTML out" alone. It must hand the
+   sandboxed transform a **helper toolkit** across the message boundary: at
+   least parsing, scales, axes, labels and legends, and a way to measure text.
+   That toolkit is a published API, which means its surface, versioning and
+   who may call what are phase 6's first design question, ahead of the sandbox
+   itself.
+
+   (Re-derive the table with a `require`/`import` scan of
+   `lib/components/*/*/*.transform.js`, `_`-prefixed folders excluded; the DOM
+   list with a grep for `document.`, `querySelector` and `getBoundingClientRect`,
+   excluding comment lines.)
 3. **Output is sanitized like any other untrusted markup.** A transform's HTML goes
    through `sanitizeSlideHtml` before it reaches a slide. The transform can't
    inject what an author couldn't have typed.
