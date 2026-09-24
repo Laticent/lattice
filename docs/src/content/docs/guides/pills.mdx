@@ -272,11 +272,10 @@ color, not the positive one. On a schedule, `live` is work still running and
 
 ### Two ways a status word trips you up
 
-**Spell it lowercase and hyphenated.** Lattice does not fix up your spelling:
-`at risk` (with a space) and `At Risk` (capitalized) are not in the vocabulary,
-and neither is caught for you. Only `gantt` and `kanban` forgive capitals —
-`AT-RISK` colors a kanban card exactly as `at-risk` does, and the pill keeps
-your spelling. Everywhere else, write it lowercase.
+**Hyphenate it; capitals are fine.** All six components ignore case, so
+`AT-RISK`, `At-risk` and `at-risk` color the same way, and a pill keeps your
+spelling. Lattice does not fix up anything else: `at risk` (with a space) is not
+in the vocabulary, and it is not caught for you.
 
 **A word Lattice does not know still draws a pill.** In `progress` and
 `timeline-list` it falls back to the informational color — the same one `pilot`

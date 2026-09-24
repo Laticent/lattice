@@ -111,7 +111,7 @@
     "states": {
       "selector": "ol > li",
       "required": true,
-      "description": "One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label."
+      "description": "One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail — case is ignored, so `AT-RISK` is `at-risk`). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label."
     },
     "transitions": {
       "selector": "ol > li > ul > li",
