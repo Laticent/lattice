@@ -316,7 +316,11 @@ section.matrix-grid.chart-frame .chart-caption {
    * band, which already provides it. */
   padding-top: var(--sp-xs);
   padding-bottom: 0;
-  gap: var(--sp-3xs);
+}
+/* The hairline-to-text seam: the family draws the hairline as a `::before` block
+ * whose padding-bottom is that seam, so the tighter legend seam goes there. */
+section.matrix-grid.chart-frame .chart-caption::before {
+  padding-bottom: var(--sp-3xs);
 }
 :is(section.matrix-grid, figure.matrix-grid) .chart-caption strong {
   display: inline-flex;

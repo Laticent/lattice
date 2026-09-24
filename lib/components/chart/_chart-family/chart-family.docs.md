@@ -57,6 +57,13 @@ The dispatcher does three things:
 3. Rewrites the inner list (`<ul>` or `<ol>`) into layout-specific
    markup by calling the kernel for that layout.
 
+The caption is one paragraph. `.chart-caption` is a block, so inline code,
+bold and plain text in it wrap as one sentence; its short hairline is a
+background placed at `--headline-align`. When the lift unwraps an italic
+caption, it stamps `data-prose` on a caption that mixes a code span with
+prose, so the eyebrow rule (`p:has(> code:only-child)`) never restyles its
+chip.
+
 CSS in `chart-family.css` styles the skeleton (header padding, body
 flex layout, status pill chrome). Per-component CSS in
 `lib/components/<chart-layout>/<chart-layout>.styles.css` styles the

@@ -1114,14 +1114,16 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
 
 section.chart-frame .chart-caption {
   flex: 0 0 auto;
-  /* flex column so the ::before hairline centers via align-items and its gap to the
-   * caption text is a `gap`, not the pseudo's `margin: 0 auto var(--sp-sm)` (#20). */
-  display: flex;
-  flex-direction: column;
-  /* The caption is framing text — it follows the headline-alignment seam (`headline:`).
-   * `auto`/no register → the fallback `center` (today's centered caption). */
-  align-items: var(--headline-justify, center);
-  gap: var(--sp-sm);
+  /* BLOCK, not a flex column. A caption is ONE paragraph of inline content — text
+   * runs, `<code>`, `<strong>` — and a flex container makes every one of those runs
+   * its own flex item on its own line: "on `lr` and on `tb`" set as five stacked
+   * blocks, and each block took a line of height out of the chart's stage above it
+   * (measured on the branching deck's long-labels slide: a two-code-span caption
+   * stood 237px tall and left the chart a 98px stage; as one paragraph, 73px and 262px). The
+   * flex column only existed to center the `::before` hairline via `align-items`;
+   * the hairline now paints as a positioned background instead (below), so the
+   * caption stays one inline formatting context and `text-align` places both. */
+  display: block;
   box-sizing: border-box;
   width: 100%;
   margin: 0;
@@ -1134,6 +1136,8 @@ section.chart-frame .chart-caption {
    * at x=64 (was 1024 at x=128) — the same box the chart it captions occupies,
    * which is the point; it moved WITH the chart, not away from it. */
   padding-block: var(--sp-sm);
+  /* The caption is framing text — it follows the headline-alignment seam (`headline:`).
+   * `auto`/no register → the fallback `center` (today's centered caption). */
   text-align: var(--headline-align, center);
   font-family: var(--font-label);
   font-size: var(--fs-meta);
@@ -1144,14 +1148,23 @@ section.chart-frame .chart-caption {
 /* Short hairline above the caption — soft separator between chart and
  * chrome. Matches the header hairline's shape (short + solid); the
  * earlier gradient-fade variant was retired with the lucent-strip
- * header for the same reason: decoration belongs in treatments. */
+ * header for the same reason: decoration belongs in treatments.
+ * The pseudo is a full-width block whose BACKGROUND is the 7.5cqi stroke, placed
+ * at `--headline-align` (left / center / right — all valid background-position
+ * keywords), so it follows the text without a flex parent or a centering margin
+ * (#20). Its `padding-bottom` is the gap the flex column's `gap` used to give. */
 section.chart-frame .chart-caption::before {
   content: '';
   display: block;
-  width: 7.5cqi;
   height: var(--chart-hairline);
+  padding-bottom: var(--sp-sm);
   margin: 0;
-  background: color-mix(in oklab, var(--border) 90%, transparent);
+  background:
+    linear-gradient(
+      color-mix(in oklab, var(--border) 90%, transparent),
+      color-mix(in oklab, var(--border) 90%, transparent)
+    )
+    var(--headline-align, center) top / 7.5cqi var(--chart-hairline) no-repeat;
 }
 
 /* The earlier `.minimal` modifier (no gradient, short hairline) is

@@ -7,8 +7,9 @@
  * things: splits a two-part eyebrow ("column axis · row axis") so the row
  * axis renders as a rotated side label, wraps the table in
  * `.matrix-grid-figure`, and wraps the trailing legend paragraph's inner
- * content in one `<span>` (so the shared flex-column `.chart-caption` rule
- * doesn't tear a `<strong>…</strong> · <em>…</em>` legend into stacked lines).
+ * content in one `<span>` (once so the shared `.chart-caption` rule, then a flex
+ * column, didn't tear a `<strong>…</strong> · <em>…</em>` legend into stacked
+ * lines; the caption is a block now, and the span stays as the legend's name).
  *
  * Several cases below are regression locks for an independent checker's
  * findings on the initial implementation: an unanchored eyebrow regex that

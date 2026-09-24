@@ -130,5 +130,4 @@ dagre does not route a self-edge, so the hand-written router keeps drawing them.
 3. Approved `done`:::state-pass-hue
 4. Escalated `end`
 
-*Labels sit below the line on a row and to the right on a column, so a two-line
-label never punches a hole through the edge it belongs to.*
+*Labels sit below the line on `lr` and beside it on `tb`, never through their edge.*
