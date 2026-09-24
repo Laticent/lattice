@@ -493,3 +493,35 @@ two use sites. Six mutants that survived now fail: `allow-table-inline-flow`,
 `illegible` paths end-to-end (no deck was found that trips the type floor rather
 than overflowing), the `unmeasured` field, and PDF/PPTX output — the byte
 comparison is on the `.html` deliverable, upstream of the encode.
+
+## Amendment 2 (2026-09-24) — the structural split made Option B a preprocessor
+
+Option B was designed for a MEASURED split: a live render found the overflow, `resplitDoc` cut by
+the ratio, and every value that depended on the final page count had to wait for the cut to
+converge. That is why this note needed reserved-space placeholders, logical addressing and an
+idle-time reconciliation pass.
+
+The 2026-09-01 ruling removed the premise
+([autosplit-splits-on-structure](2026-09-01-autosplit-splits-on-structure.md)). The split is now a
+pure function of the markup, `resplitDoc` is deleted, and nothing is measured to decide a cut. So a
+live surface does not need a measurer, placeholders or a convergence loop. It runs the same pass
+the CLI runs, on the rendered document string, before writing it into the frame.
+
+What shipped (PR on branch `claude/runtime-structural-split`):
+
+- `lib/core/structural-split.js` is the one preprocessor both surfaces call. It stamps
+  `data-lattice-slide` (the engine omits it and `splitDoc` keys on it), applies the size gate
+  (never `wide`), runs `splitDoc`, and then the emulator's run-level adornments.
+- The CLI (lattice-emulator.js) now calls those pieces. Its output is byte-identical on the 14 decks
+  compared.
+- The Playground preview calls it through `splitForPreview`. The capacity map is baked into the
+  bundle at build time, because the browser has no manifests to read.
+- **Not yet:** the Studio preview (its frame holds one authored slide by design, #1551, so it needs a
+  page-picking rule, an owner decision), Studio exports (a change to exported bytes, which goes
+  through the export sign-off), `lib/runtime` published HTML, and Marp preview.
+
+§2.2 (logical addressing) still holds where a surface keeps authored indexing: the Playground's
+component tour groups a split run back into its authored slide. §2.3 (placeholders and eventual
+consistency) and §4 (the reflow footgun) no longer apply, because the split never waits on a
+measurement.
+

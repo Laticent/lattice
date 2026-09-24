@@ -90,6 +90,15 @@ test('a portrait deck splits on structure: cover, one row per page, the run numb
   assert.equal(nums[1], '2', 'the run opens on its cover, which keeps the authored number');
   assert.ok(nums.length >= 6, `cover + four rows at least, got ${nums.join(',')}`);
   assert.ok(nums.slice(2).every((n) => /^2\.\d+$/.test(n)), `continuation pages are numbered 2.k, got ${nums.join(',')}`);
+  // The run-level adornments (railRun): every page but the last points at the next one. A
+  // preprocessor that split but skipped them would pass every assertion above; this is the arm
+  // that catches it (mutation-checked: returning the bare split fails here).
+  const run = ss.splitTopLevelSections(r.html).slice(1);
+  const body = run.filter((p) => /data-split-role="body"/.test(p));
+  assert.equal(body.length, 4, 'one body page per row');
+  assert.ok(body.slice(0, -1).every((p) => p.includes('lat-split-rel')), 'every body page but the last points at the next row');
+  assert.ok(!body[body.length - 1].includes('lat-split-rel'), 'the last body page has nothing to point at');
+  assert.ok(run.every((p) => /lat-rail|split-rail/.test(p)), 'every page of the run carries the k-of-N rail');
 });
 
 test('without a capacity map the split is a no-op, not a crash (an unbundled import)', () => {
