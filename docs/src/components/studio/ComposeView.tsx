@@ -1446,7 +1446,7 @@ export type ComposeHandle = {
 	revealTail: () => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -1685,6 +1685,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// `lastSlideRef`, so it fires when the caret CROSSES a slide, not per keystroke.
 	const onCursorSlideRef = React.useRef(onCursorSlide);
 	onCursorSlideRef.current = onCursorSlide;
+	// The caret block's text, for the preview's split-page pick (split-page-pick.ts). Plain text:
+	// ProseMirror has already dropped the markdown syntax the picker would otherwise strip.
+	const onCursorTextRef = React.useRef(onCursorText);
+	onCursorTextRef.current = onCursorText;
+	const lastCursorTextRef = React.useRef<string | null>(null);
 	const lastSlideRef = React.useRef(-1);
 	// Ref-backed so the construct-once NodeView factory always calls the CURRENT handler.
 	const onOpenSlideSettingsRef = React.useRef(onOpenSlideSettings);
@@ -1820,6 +1825,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					const { $from } = next.selection;
 					const slideIdx = $from.depth >= 1 ? next.doc.resolve($from.before(1)).index() : -1;
 					const isRestore = !!(tr.getMeta(collapseKey) as { restore?: string[] } | undefined)?.restore;
+					const blockText = $from.parent.textContent;
+					if (!isRestore && blockText !== lastCursorTextRef.current) {
+						lastCursorTextRef.current = blockText;
+						onCursorTextRef.current?.(blockText);
+					}
 					if (slideIdx >= 0 && slideIdx !== lastSlideRef.current) {
 						lastSlideRef.current = slideIdx;
 						if (!isRestore) onCursorSlideRef.current?.(slideIdx);

@@ -516,9 +516,17 @@ What shipped (PR on branch `claude/runtime-structural-split`):
   compared.
 - The Playground preview calls it through `splitForPreview`. The capacity map is baked into the
   bundle at build time, because the browser has no manifests to read.
-- **Not yet:** the Studio preview (its frame holds one authored slide by design, #1551, so it needs a
-  page-picking rule, an owner decision), Studio exports (a change to exported bytes, which goes
-  through the export sign-off), `lib/runtime` published HTML, and Marp preview.
+- The Studio preview shows ONE page of a split slide, the page holding the caret line (the owner
+  picked this from three mocked options, 2026-09-24: follow the caret, stack the run, or pages in the
+  rail). `docs/src/lib/split-page-pick.ts` places the caret line by text: text on every page (the
+  masthead) → the cover; text on several body pages (a claimed insight) → the last of them;
+  otherwise the page that carries it; no match → keep the current page. The frame keeps the #1551
+  one-section contract, and the rail, comments and slide ops stay keyed to authored slides.
+- The live runtime's frame lift now skips a section that already carries its footer cell (the split
+  envelope's composed cover and closing pages), in both the DOM mirror and the string kernel. Without
+  it every split cover in a live preview showed a stray page number.
+- **Not yet:** Studio exports (a change to exported bytes, which goes through the export sign-off),
+  `lib/runtime` published HTML, and Marp preview.
 
 §2.2 (logical addressing) still holds where a surface keeps authored indexing: the Playground's
 component tour groups a split run back into its authored slide. §2.3 (placeholders and eventual

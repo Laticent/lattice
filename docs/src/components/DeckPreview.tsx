@@ -61,6 +61,9 @@ export type DeckPreviewProps = {
 	/** The shown slide alone (front matter + that slide), rendered as the fallback when the
 	 *  counts disagree. Required with `slideIndex`. */
 	slideMarkdown?: string;
+	/** The caret line's text. When the shown slide SPLITS (portrait/square), the preview shows the
+	 *  page of its run that holds this line, and a page indicator under it. Ignored otherwise. */
+	caretText?: string;
 	/** Stable identity for the DECK, not its text. Without it a single-slide deck cannot be
 	 *  told from another single-slide deck, and a switch between two of them is stamped as an
 	 *  edit — see lib/core/swap-kind.mjs. */
@@ -175,6 +178,7 @@ export function DeckPreview({
 	slideIndex,
 	slideCount,
 	slideMarkdown,
+	caretText,
 	deckId,
 	focused,
 	mermaid,
@@ -212,6 +216,19 @@ export function DeckPreview({
 	// deterministic; and (2) a generous ceiling elapses with the frame still unrevealed — the
 	// "renders ok but never paints" case. A later successful render clears it; Retry re-renders.
 	const [failed, setFailed] = React.useState(false);
+	// The page of a split run the frame holds (from the renderer's status), or null for an unsplit
+	// slide. While it is set, a caret move re-renders to follow the caret; while it is null, caret
+	// moves cost nothing — the deps below only carry the caret text when there is a run to walk.
+	const [splitPage, setSplitPage] = React.useState<{ index: number; count: number; label: string } | null>(null);
+	const caretRef = React.useRef(caretText);
+	caretRef.current = caretText;
+	const splitCaret = splitPage ? caretText : undefined;
+	// One dot per page of the run, keyed by page position (the run is a fixed sequence, so position IS
+	// the page's identity here).
+	const splitDots = React.useMemo(
+		() => (splitPage ? Array.from({ length: splitPage.count }, (_, i) => ({ key: `page-${i + 1}`, on: i === splitPage.index })) : []),
+		[splitPage],
+	);
 	// WHY it failed, when the renderer can say something an author can act on (#1551: "this
 	// slide's source renders as 2 slides…"). Generic "couldn't render" is visible but not
 	// actionable, and the whole complaint in #1551 was that the author had no way to know what
@@ -419,7 +436,7 @@ export function DeckPreview({
 		if (!host || !activeRef.current) return;
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
-		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, deckId, focused });
+		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current });
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
 		// when the live frame is actually made visible (== genuinely good). Keying it on the
@@ -429,7 +446,9 @@ export function DeckPreview({
 		// Return the render promise so the frame scheduler can await it for
 		// backpressure — never overlap two renders on the same host.
 		return done;
-	}, [sample, slideIndex, slideCount, slideMarkdown, deckId, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
+		// `splitCaret` is read through `caretRef`; it is listed so a caret move re-renders ONLY while
+		// the shown slide is split.
+	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, deckId, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
 	// active rising-edge effect can reach the current render WITHOUT listing it as a
@@ -585,6 +604,7 @@ export function DeckPreview({
 		// that refuses to stack two sections into a one-section frame would trade a silently
 		// missing slide for a permanently spinning one.
 		if (status) {
+			if (status.ok) setSplitPage(status.page ?? null);
 			const isFailure = status.ok === false && status.error !== 'renderer disposed';
 			setFailed(isFailure);
 			setFailedWhy(isFailure ? String(status.error ?? '') : '');
@@ -748,7 +768,7 @@ export function DeckPreview({
 	// unchanged anchoring).
 	return (
 		<>
-		<figure ref={stageRef} className={cn((loader || failed || chartDetail) && 'relative', 'm-0', className)} role={role} {...aria}>
+		<figure ref={stageRef} className={cn((loader || failed || chartDetail || splitPage) && 'relative', 'm-0', className)} role={role} {...aria}>
 			{loader && !failed && (
 				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
 					<span className="nacre-loader__core" />
@@ -769,6 +789,21 @@ export function DeckPreview({
 					</span>
 					<span className="nacre-loader__vig" />
 				</span>
+			)}
+			{/* A split slide's page indicator: which page of the run the frame holds, numbered as the
+			    PDF prints it. Visual and announced; it takes no pointer events (the preview box is a
+			    swipe surface). */}
+			{splitPage && !failed && (
+				<div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center" data-split-page>
+					<span className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-2.5 py-1 font-mono text-[11px] text-muted-foreground tabular-nums shadow-sm" role="status" aria-label={`Page ${splitPage.label}, ${splitPage.index + 1} of ${splitPage.count} in this slide`}>
+						<span className="flex gap-1" aria-hidden="true">
+							{splitDots.map((d) => (
+								<span key={d.key} className={cn('size-1.5 rounded-full', d.on ? 'bg-primary' : 'bg-border')} />
+							))}
+						</span>
+						<span aria-hidden="true">{splitPage.label} · {splitPage.index + 1} of {splitPage.count}</span>
+					</span>
+				</div>
 			)}
 			{/* #1164 — terminal failure affordance for a non-loader host (never shown on a loader host,
 			    which keeps its skeleton). Overlays the parked opacity:0 iframe with a minimal message +

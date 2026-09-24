@@ -50,6 +50,11 @@ test('stampSlideNumbers numbers each top-level section once and is idempotent', 
   assert.equal(ss.stampSlideNumbers(once), once, 'a second pass changes nothing');
 });
 
+test('stampSlideNumbers takes a starting number for one slide of a deck', () => {
+  const one = '<article class="lattice"><section a></section></article>';
+  assert.deepEqual(slideNumbers(ss.stampSlideNumbers(one, 4)), ['4']);
+});
+
 test('splitApplies splits every family but wide, and a degenerate box never splits', () => {
   assert.equal(ss.splitApplies(1280, 720), false, 'hd is wide');
   assert.equal(ss.splitApplies(1080, 1350), true, 'portrait is tall');

@@ -49,6 +49,7 @@ import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playgroun
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
+import { pickSplitPage } from './split-page-pick';
 import { createThemeFetcher } from './theme-fetch';
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
@@ -96,6 +97,9 @@ export type RenderStatus = {
 	 * (DeckPreview's frame loop) render a patch/restyle instantly but coalesce a heavy
 	 * write. Absent on a failed render. */
 	writePath?: 'patch' | 'restyle' | 'write';
+	/** Set when the shown slide SPLIT (portrait/square): which page of its run the frame holds
+	 *  (0-based `index` of `count`), and that page's number as the PDF prints it (`2.3`). */
+	page?: { index: number; count: number; label: string };
 };
 
 export type SingleSlideOptions = {
@@ -930,6 +934,11 @@ function swapSharedSheet(doc: Document, url: string): void {
  *   - scaleFrame(host)  → re-fit the host's iframe (after a reveal/resize)
  *   - ready()           → window.LatticePlayground present?
  */
+// The page of a split run each preview host last showed, so a caret line that places nowhere (a
+// blank line between bullets) keeps the page instead of flashing the cover. Keyed by host, and
+// scoped to the slide it was picked on.
+const splitPageByHost = new WeakMap<HTMLElement, { slide: number; page: number }>();
+
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const { themeBase, runtimeUrl, engineUrl, specimen } = opts;
 	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
@@ -1283,6 +1292,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			deckId?: string;
 			slideCount?: number;
 			slideMarkdown?: string;
+			/** The caret line's text, for a slide that SPLITS: the preview shows the page of the run
+			 *  that holds it (split-page-pick.ts). Ignored for an unsplit slide. */
+			caretText?: string;
 			/** Marks THE preview the author is looking at — the one the fidelity overlay may describe.
 			 *  Opt-IN, and it fails closed: see the report gate below. */
 			focused?: boolean;
@@ -1587,6 +1599,29 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						};
 					}
 				}
+				// A SPLIT SLIDE SHOWS THE PAGE THE CARET IS ON (the owner's pick of three, 2026-09-24).
+				// At portrait/square the export cuts a multi-row slide into cover → one page per row →
+				// closing (lib/core/structural-split.js). The frame still holds ONE page, so the #1551
+				// contract above is untouched: split the one authored section, pick the page holding
+				// the caret line (split-page-pick.ts), narrow back to that page. The slide is stamped
+				// with its real position in the viewed set, so the run reads 2 · 2.2 · 2.3 like the PDF.
+				// A no-op at landscape, for an unsplit slide, and on a bundle without the preprocessor.
+				let splitPage: RenderStatus['page'];
+				if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown) {
+					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: opts.slideIndex + 1 });
+					if (r.changed) {
+						const pages = sectionsOf(r.html);
+						const prev = splitPageByHost.get(host);
+						const current = prev && prev.slide === opts.slideIndex ? prev.page : 0;
+						const k = pickSplitPage(pages, opts.caretText, current);
+						const narrowed = narrowToSlide(r.html, k, pages.length);
+						if (narrowed !== null) {
+							out.html = narrowed;
+							splitPageByHost.set(host, { slide: opts.slideIndex, page: k });
+							splitPage = { index: k, count: pages.length, label: (pages[k].match(/data-lattice-slide="([^"]+)"/) || [])[1] ?? String(k + 1) };
+						}
+					}
+				}
 				// PREVIEW FIDELITY report — free, and only while the overlay is subscribed.
 				// Everything published here was already computed to make the render happen: which
 				// path this deck took, which registry facts forced it, and what position (if any) was
@@ -1777,7 +1812,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'patch' as const };
+						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage };
 					}
 					// The live document vanished between the guard and the patch — fall
 					// through to a full write below.
@@ -1854,7 +1889,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'restyle' as const };
+						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage };
 					}
 					// patchSlideBody failed (the live doc vanished mid-swap) — fall through to a full write.
 				}
@@ -2081,7 +2116,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
 				tFrameStart = performance.now();
-				return { ok: true, slides, error: null, writePath: 'write' as const };
+				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage };
 			})
 			.catch((e) => {
 				// Surface failures in the console (the old landing bridge did; the
