@@ -137,6 +137,9 @@ export const CHROME = {
 	 *  earlier versions (`assetVersions`), which is deliberately not named "Version
 	 *  history" so this bare, substring-matched literal stays unambiguous. */
 	versionHistory: 'Version history',
+	/** The editor header's find/replace trigger (desktop and tablet; phones reach it from
+	 *  the command sheet's "Find and replace in source"). */
+	findReplace: 'Find and replace',
 	/** A Library card's link to that ASSET's earlier versions. Rendered only when the
 	 *  asset HAS history, and the full accessible name carries the label and count
 	 *  (`Earlier versions of Handedit (1)`), so specs match it as a prefix. The dialog

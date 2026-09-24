@@ -1,4 +1,4 @@
-import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings as SettingsCog, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings as SettingsCog, Share2, Sparkles, TextSearch } from 'lucide-react';
 import * as React from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
@@ -10,7 +10,7 @@ import { FeedbackIcon } from './icons';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReadArticle, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
+	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReadArticle, onReshape, onWatchDemo, onInsert, onFind, onFocus, onFeedback, onLibrary, onWorkspace,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit, inline,
 }: {
 	/**
@@ -69,6 +69,8 @@ export function CommandPalette({
 	onReshape: () => void;
 	onWatchDemo?: () => void;
 	onInsert?: () => void;
+	/** Find and replace in the deck source (switches to the Markdown editor first). */
+	onFind?: () => void;
 	onFocus?: () => void;
 	onFeedback?: () => void;
 	// Workspace opens as an overlay at ANY stop; the Library is now a docked Craft
@@ -221,6 +223,7 @@ export function CommandPalette({
 					<CommandItem onSelect={run(onShare)}><Share2 />Share…</CommandItem>
 					<CommandItem onSelect={run(onReshape)}><Sparkles />Reshape for a reader</CommandItem>
 					{onInsert && <CommandItem onSelect={run(onInsert)}><Plus />Add a slide…</CommandItem>}
+					{onFind && <CommandItem onSelect={run(onFind)} keywords={['search', 'replace']}><TextSearch />Find and replace in source</CommandItem>}
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
 					{onReadArticle && <CommandItem onSelect={run(onReadArticle)}><FileText />Read as an article</CommandItem>}
