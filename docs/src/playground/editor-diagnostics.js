@@ -96,7 +96,7 @@ function clamp(n, lo, hi) {
 
 // Map lint-core findings onto a CodeMirror document as Diagnostic objects.
 //   doc      — a CodeMirror `Text` (the live document)
-//   findings — lint-core findings: { slide, rule, severity, line?, message, fix?, autofixable? }
+//   findings — lint-core findings: { slide, rule, severity, line?, span?, col?, message, fix?, autofixable? }
 //   opts.onFix(view, finding) — wired by the editor for autofixable findings; it
 //              runs lint-core's applyFix and writes the result back. Omitted
 //              (e.g. in tests) → no quick-fix action is attached.
@@ -161,8 +161,26 @@ export function findingsToDiagnostics(doc, findings, opts = {}) {
 		const line = doc.line(lineNo);
 		const trimmed = line.text.trim();
 		const lead = trimmed ? line.text.length - line.text.trimStart().length : 0;
-		const from = line.from + lead;
+		let from = line.from + lead;
 		let to = line.to;
+		// A finding may name the exact SPAN it is about (`pill-shape-crowded` names the one
+		// pill), so the squiggle sits under that text rather than the whole line: on a
+		// sentence carrying three pills, a line-wide underline says "something here" and
+		// leaves the author to guess which. Falls back to the line when the span is absent
+		// or not on the matched line, so a stale or approximate span never misplaces it.
+		if (f.span) {
+			const span = String(f.span);
+			// The finding's own column wins when the span really is there, so two identical
+			// pills on one line get one underline EACH instead of two stacked on the first.
+			const at =
+				Number.isInteger(f.col) && line.text.slice(f.col, f.col + span.length) === span
+					? f.col
+					: line.text.indexOf(span);
+			if (at >= 0) {
+				from = line.from + at;
+				to = from + span.length;
+			}
+		}
 		if (to <= from) to = Math.min(doc.length, from + 1); // a visible range on a blank/short line
 		const severity = f.severity === 'error' ? 'error' : f.severity === 'warning' ? 'warning' : 'info';
 		const canApply = !!(f.autofixable && onFix);
