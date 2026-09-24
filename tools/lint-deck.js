@@ -185,11 +185,23 @@ async function main(argv) {
       const planned = lintText(source, { vocab }).filter((f) => f.autofixable);
       const fixed = applyAllFixes(source, vocab);
       if (fixed !== source) {
-        // Write back in the file's own encoding: its BOM and its line endings. Normalizing
-        // was for linting; handing a Windows author an all-LF diff is not a fix they asked for.
-        const eol = /\r\n/.test(raw) ? '\r\n' : '\n';
-        const bom = raw.startsWith('﻿') ? '﻿' : '';
-        fs.writeFileSync(file, bom + fixed.replace(/\n/g, eol));
+        // Write back in the file's own encoding: its BOM and EACH LINE'S OWN ending, so a
+        // fix is a diff on the lines it changed and nowhere else — CRLF, lone CR and a
+        // mixed file alike. When a fix changes the line count (another rule's autofix may),
+        // lines no longer pair up, so the file's most common ending is used throughout.
+        const bom = raw.startsWith('\uFEFF') ? '\uFEFF' : '';
+        const ends = raw.replace(/^\uFEFF/, '').match(/\r\n|\r|\n/g) || [];
+        const out = fixed.split('\n');
+        let text;
+        if (out.length === ends.length + 1) {
+          text = out.map((l, i) => l + (i < ends.length ? ends[i] : '')).join('');
+        } else {
+          const tally = { '\n': 0, '\r\n': 0, '\r': 0 };
+          for (const e of ends) tally[e]++;
+          const eol = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
+          text = fixed.replace(/\n/g, eol);
+        }
+        fs.writeFileSync(file, bom + text);
         process.stderr.write(`lint:deck --fix — rewrote ${relFromRoot(file)}\n`);
         for (const f of planned) process.stderr.write(`  · slide ${f.slide} · ${f.rule}\n`);
         source = fixed;

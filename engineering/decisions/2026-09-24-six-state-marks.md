@@ -290,12 +290,16 @@ changed meaning with a successful exit code, and never runs the linter. Three la
    `[ ]` drew the red cross, so `[!]` restores exactly what the deck drew. The rewrite is
    slide-wide in one pass (the first `[!]` would otherwise silence the rule and leave the
    slide half-migrated) and skips fenced examples and multi-line comments, as the rule
-   does. It is withheld in a `split: headings` deck: lint-core splits on `---` only (a
-   heading split needs a markdown parse, and lint-core is require-free), so one chunk can
-   hold a checklist beside the verdict-grid, and a checker saw the checklist's `[ ]`
-   rewritten. The render warning bakes the heading splits first, so its slide numbers
-   match the render. `--fix` names every fix it applies, since it applies every rule's,
-   and writes the file back with its own line endings and BOM.
+   does. It rewrites the exact lines the finding judged and no others. That matters
+   because `split: headings` is the DEFAULT: one `---` chunk routinely holds several
+   rendered slides, and a chunk-wide rewrite turned a neighboring checklist's `[ ]` into
+   `[!]`. lint-core does not parse markdown (it ships eagerly to the Studio), so
+   `headingSubSlides` mirrors `lib/core/heading-split-core.js` on lines: a boundary
+   before every h1/h2 after the first, pulled back over the heading's lead-in. A unit
+   test pins the mirror to the engine: the rendered slide count agreed on all 334
+   committed decks. Slide numbers in the finding, the render warning and `lint:deck` are
+   rendered-slide numbers. `--fix` names every fix it applies, since it applies every
+   rule's, and writes the file back with each line's own ending and the BOM.
 3. **obligation-matrix gets no rewrite.** An old `[ ]` there was keyed "exempt" but was
    used for "unconfirmed" and "controlled" too (§10), so there is no safe target. The
    warning names the slide and the choices.
@@ -316,4 +320,7 @@ tests; the heat remaps were verified on a rendered page, light and dark:
   heat slide keyed "Applies" in green under red cells, the same key-versus-cells
   contradiction this whole change began with. The remaps now live in each component's
   stylesheet at a specificity that wins.
-- The `--fix` findings in §10.2 above: `split: headings`, comments, encoding, naming.
+- The `--fix` findings in §10.2 above: comments, encoding, naming, and a first guard that
+  withheld the rewrite only when `split: headings` was spelled out. A second checker
+  showed that heading splits are the default, so the guard missed the common case; the
+  per-slide line mirror replaced it.

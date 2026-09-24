@@ -2157,15 +2157,52 @@ describe('lint-core: `--fix` migrates a moved empty box, and only where the mean
     assert.match(out, / {2}- \[!\] Audit <!-- note -->/);
   });
 
-  test('a `split: headings` deck keeps the finding but gets no rewrite', () => {
-    // lint-core splits on `---` only, so one chunk can hold a checklist AND a verdict-grid
-    // slide; a slide-wide rewrite reached the checklist and turned its `[ ]` into `[!]`.
-    const src = '---\nmarp: true\nsplit: headings\n---\n\n# Tasks\n\n- [x] A\n  - [ ] sub task\n\n'
-      + '# Vendor verdict\n\n<!-- _class: verdict-grid -->\n\n- Vendor\n  - [ ] Audit\n';
+  // `split: headings` is the DEFAULT, so one `---` chunk routinely holds several rendered
+  // slides. The rewrite must touch only the slide the finding judged.
+  const SPLIT_DECK = (fm) => `---\n${fm}---\n\n<!-- _class: verdict-grid -->\n\n# Vendors\n\n`
+    + '- Acme\n  - [x] SOC 2\n  - [ ] ISO\n  - Why.\n\n'
+    + '<!-- _class: checklist -->\n\n## Launch checklist\n\n- Tasks\n  - [ ] book venue\n';
+
+  test('the default split (no `split:` key) rewrites the verdict-grid slide and not the checklist beside it', () => {
+    // The checker's failing input: before, `--fix` rewrote BOTH `[ ]`.
+    const out = fixed(SPLIT_DECK('marp: true\n'));
+    assert.match(out, / {2}- \[!\] ISO/);
+    assert.match(out, / {2}- \[ \] book venue/, 'the checklist on the next rendered slide keeps its open box');
+  });
+
+  test('`split: headings` spelled out behaves the same, and so does a quoted value', () => {
+    for (const fm of ['split: headings\n', 'split: "headings"\n']) {
+      const out = fixed(SPLIT_DECK(fm));
+      assert.match(out, / {2}- \[!\] ISO/);
+      assert.match(out, / {2}- \[ \] book venue/);
+    }
+  });
+
+  test('under `split: rule` the chunk is ONE slide, and its governing class decides', () => {
+    // No heading split, so the directive scanner's winner governs the whole slide — here
+    // the later `_class: checklist`. That slide never renders as a verdict-grid, so the
+    // rule says nothing and rewrites nothing.
+    const src = SPLIT_DECK('split: rule\n');
+    assert.equal(core.findMovedEmptyBoxes(src).length, 0);
     assert.equal(fixed(src), src);
-    const [f] = core.findMovedEmptyBoxes(src);
-    assert.ok(f, 'the author is still told');
-    assert.equal(f.autofixable, undefined);
+  });
+
+  test('slide numbers count RENDERED slides under heading splits', () => {
+    const deck = '---\nmarp: true\n---\n\n# Intro\n\nHello.\n\n<!-- _class: verdict-grid -->\n\n## Vendors\n\n- Acme\n  - [ ] ISO\n  - Why.\n';
+    const [f] = core.findMovedEmptyBoxes(deck);
+    assert.equal(f.slide, 2, 'the verdict-grid is the second rendered slide, though it shares a chunk with the first');
+  });
+
+  test('a comment that closes and reopens on one line keeps the next line hidden', () => {
+    const src = FM + slide('verdict-grid', '- Vendor\n  - [ ] Audit\n<!-- note\nold --> x <!-- again\n  - [ ] commented\n-->');
+    const out = fixed(src);
+    assert.match(out, / {2}- \[!\] Audit/);
+    assert.match(out, / {2}- \[ \] commented/, 'text inside the reopened comment is never rewritten');
+  });
+
+  test('a criterion AFTER a comment closes on the same line is live and rewritten', () => {
+    const src = FM + slide('verdict-grid', '- Vendor\n<!-- a\nb --> x\n  - [ ] tail');
+    assert.match(fixed(src), / {2}- \[!\] tail/);
   });
 
   test('never touches obligation-matrix: its `[ ]` has three honest readings', () => {
@@ -2186,6 +2223,29 @@ describe('lint-core: `--fix` migrates a moved empty box, and only where the mean
     assert.match(r.stderr, /slide 1 · moved-empty-box/, 'each applied fix is named');
     assert.match(fs.readFileSync(file, 'utf8'), / {2}- \[!\] B/);
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('the CLI `--fix` keeps every line\'s own ending — lone CR and a mixed file too', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const body = FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.');
+    const cases = {
+      cr: body.replace(/\n/g, '\r'),
+      mixed: body.split('\n').map((l, i, a) => l + (i === a.length - 1 ? '' : i % 2 ? '\r\n' : '\n')).join(''),
+    };
+    for (const [name, src] of Object.entries(cases)) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+      const file = path.join(dir, 'deck.md');
+      fs.writeFileSync(file, src);
+      spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+      const out = fs.readFileSync(file, 'utf8');
+      const changed = [...out].filter((ch, i) => ch !== src[i]).length;
+      assert.equal(out.length, src.length, `${name}: no line ending rewritten`);
+      assert.equal(changed, 1, `${name}: the fix is the one character inside \`[ ]\``);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('the CLI `--fix` keeps the file\'s BOM and CRLF line endings', () => {
@@ -2213,5 +2273,41 @@ describe('lint-core: typed crosses point at `[!]`, not the open box', () => {
     assert.ok(f);
     assert.match(f.fix, /`\[!\]` no/);
     assert.doesNotMatch(f.fix, /`\[ \]` not met/);
+  });
+});
+
+describe('lint-core: its heading-split mirror agrees with the engine', () => {
+  // lint-core does not parse markdown, so `headingSubSlides` mirrors
+  // lib/core/heading-split-core.js on lines. This pins the two together on every committed
+  // deck: the rendered slide count from the mirror must equal the count of the engine's
+  // own baked split. Measured 334 of 334 when the mirror landed.
+  test('every committed deck counts the same rendered slides both ways', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const { execSync } = require('node:child_process');
+    const { bakeSplits } = require('../../../lib/core/bake-splits');
+    const { splitTopLevel } = require('../../../lib/authoring/slide-split');
+    const ROOT = path.resolve(__dirname, '../../..');
+    const fmCount = (src) => (/^---\n[\s\S]*?\n---\n/.test(src) ? 2 : 0);
+    const decks = execSync("git ls-files '*.md'", { cwd: ROOT, encoding: 'utf8' }).split('\n')
+      .filter((f) => /^(examples|exemplars|kit|test\/integration\/baseline-decks|lib\/components)\//.test(f)
+        && !/\.docs\.md$|README/.test(f));
+    const off = [];
+    let checked = 0;
+    for (const f of decks) {
+      let src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      if (!/^\uFEFF?---\r?\n/.test(src)) continue;
+      src = src.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+      const fm = fmCount(src);
+      const headings = core.splitsOnHeadings(src);
+      let mine = 0;
+      splitTopLevel(src).forEach((chunk, i) => { if (i >= fm) mine += headings ? core.headingSubSlides(chunk).length : 1; });
+      const baked = bakeSplits(src);
+      const theirs = splitTopLevel(baked).length - fmCount(baked);
+      checked++;
+      if (mine !== theirs) off.push(`${f}: mirror ${mine}, engine ${theirs}`);
+    }
+    assert.ok(checked > 100, `expected the committed corpus, found ${checked} decks`);
+    assert.deepEqual(off, []);
   });
 });
