@@ -1232,6 +1232,16 @@ describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () =>
     assert.equal(f.line, 'footer: "F `{WM}:circle`"');
   });
 
+  test('blocks that render no inline markdown get no finding; the engine parser decides', () => {
+    // Each case matches the engine's render: an indented code block and a raw HTML block
+    // draw no pill, while a list continuation and a lazy paragraph line do.
+    assert.equal(crowded(deck('text\n\n    indented `{ST}:circle` code')).length, 0, 'indented code block');
+    assert.equal(crowded(deck('<p>raw `{RA}:circle` html</p>')).length, 0, 'raw HTML block');
+    assert.equal(crowded(deck('- item\n\n    more `{LC}:circle` text')).length, 1, 'list continuation renders');
+    assert.equal(crowded(deck('para\n    lazy `{LZ}:circle` line')).length, 1, 'lazy paragraph line renders');
+    assert.equal(crowded(deck('<div>\n\ninside `{YZ}:circle` para\n\n</div>')).length, 1, 'markdown between HTML lines renders');
+  });
+
   test('one glyph is one character, however many code points it takes', () => {
     for (const one of ['é', '👍🏽', '🇺🇸', '👨‍👩‍👧', '١٢']) assert.equal(core.pillFitsShape(one), true, one);
   });
