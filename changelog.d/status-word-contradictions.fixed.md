@@ -1,1 +1,2 @@
 - **Fixed: a capitalized status word on a `kanban` card now paints.** `AT-RISK` was accepted as a status but stamped verbatim, so neither the card wash nor the pill matched its color rule and both painted untinted. The card and pill now take the lowercase word's color; the pill still shows your spelling.
+- **Fixed: a `progress` bar marked `pilot` or `decision` now matches its pill.** The pill took the informational color while the bar stayed on categorical slot 1, so the two disagreed on any theme whose slot 1 is not blue. The bar now takes the informational color too.

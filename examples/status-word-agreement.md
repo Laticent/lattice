@@ -41,6 +41,22 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
+<!-- _class: progress -->
+
+`progress · pilot and decision`
+
+## A pilot bar now wears the pilot color.
+
+- Adoption `68%` `on-track`
+- Regional pilot `45%` `pilot`
+- Pricing call `30%` `decision`
+- Data migration `41%` `at-risk`
+- No status `52%`
+
+*Bar and pill both read informational; the bar used to stay on slot 1.*
+
+---
+
 <!-- _class: closing -->
 
 # Same word, same color.
