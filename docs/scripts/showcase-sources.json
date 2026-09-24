@@ -112,12 +112,12 @@
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "7ba85cf8b0451322eaee93f1082983fd687c3eab288b80fbdc88e40e4b9055fe"
+		"srcSha256": "8c70190a24caf9306bd9f099103e914b7dd52d507edffe09af8321e32e3dba70"
 	},
 	"pricing.dark": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "0e4cc426ef89c04f0f7fb56df0fb04d7401ee42adb906bad22ae41539454fbcd"
+		"srcSha256": "97f5785346cfdde36179fca0df7e7c11159f46bfefbb6a27f890826bcd5df52c"
 	},
 	"quote.light": {
 		"src": "lib/components/statement/quote/quote.gallery.light.pdf",
