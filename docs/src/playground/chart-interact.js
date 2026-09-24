@@ -627,7 +627,9 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // positioning is never disturbed.
   function liftVec(w, wedges) {
     if (typeof w.getBBox !== 'function') {
-      const dir = chartEl?.getAttribute?.('data-sc-dir');
+      // `data-sc-flow` is the direction the chart was DRAWN in; `data-sc-dir` is only
+      // how its hidden measuring column runs, and on a fit-chosen chart they differ.
+      const dir = chartEl?.getAttribute?.('data-sc-flow') || chartEl?.getAttribute?.('data-sc-dir');
       if (!dir) return '';
       const d = (w.offsetHeight || 28) * 0.4;
       return dir === 'lr'

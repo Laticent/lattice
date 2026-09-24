@@ -1768,7 +1768,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   .slope-dot-to,
   .slope-dot-via,
   .state-node-shape,
-  .state-index-disc,
+  .state-node-accent,
   .state-edge-arrow,
   .waterfall-bar
 ) {

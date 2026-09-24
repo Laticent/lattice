@@ -57,7 +57,14 @@ const TIMEOUT = 600000;
 // measuring column with `[data-sc-svg="1"] .state-nodes { visibility: hidden }`
 // once the SVG is painted; putting it back is precisely the input the filter
 // exists to classify.
-const SHOW_SCAFFOLD = '[data-sc-svg="1"] .state-nodes { visibility: visible !important }';
+//
+// AND `display`, since 2026-09-24 (#2355): while the layout pass has pinned the
+// scale box to its drawing it also takes the column out of layout
+// (`[data-sc-pinned="1"] … { display: none }`), which ended a false CONTENT
+// CLIPPED on wide rows. Restoring visibility alone then shows nothing, the control
+// could not fire, and this arm went red for the wrong reason — the lever has to
+// undo both ways the scaffold is hidden, or it tests nothing.
+const SHOW_SCAFFOLD = '[data-sc-svg="1"] .state-nodes { visibility: visible !important; display: flex !important }';
 
 function fit(extraArgs) {
   const args = [TOOL, DECK, '--size', 'square', ...extraArgs];

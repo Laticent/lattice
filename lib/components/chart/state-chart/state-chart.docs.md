@@ -4,11 +4,11 @@
 
 **Function** progression · **Form** timeline · **Substance** graph
 
-**Drawn with** `hybrid` — States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over. LAYOUT IS HYBRID TOO: a chain keeps the numbered column (`state i at row i`), and a machine that BRANCHES is re-ranked by dagre using the same measured boxes. The browser measures, dagre positions — dagre cannot measure text, so it replaces the positioning half of the layout and nothing else. Self-transitions are never handed to dagre (it does not route them) and keep the hand-written router, so one machine can use both.
+**Drawn with** `hybrid` — States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over. LAYOUT IS CHOSEN BY FIT. The pass scores candidate layouts against the real stage and takes the one that sets the state names largest (capped a step above body size, so a short chain is not folded for no gain): a CHAIN is laid out on a reading-order grid — one row, or several rows that all run the same way with a connector dropping to the next — and a machine that BRANCHES is re-ranked by dagre, unless a wrapped grid beats it by a clear margin. With no direction modifier both directions compete and the stage's shape breaks the tie; `lr` or `tb` pins it. The browser measures, the layout positions — neither dagre nor the grid can measure text. Self-transitions are drawn by the hand-written corner hook on every layout.
 
 **Tags** `flowchart` · `states` · `workflow`
 
-Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the index badge is painted on the node. It is also the LAYOUT for a chain, where a single column is not an approximation of good layout but the right answer. A machine that branches is re-ranked by dagre, because no column can show a fan-out — the states would read as a sequence.
+Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the ordinal is painted in the node's corner (on `inline`, in a leading column). It is also the READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is re-ranked by dagre, because no single line can show a fan-out — the states would read as a sequence.
 
 ## Agent contract
 
@@ -18,15 +18,16 @@ Use to show a finite-state machine — the discrete states a system can be in an
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the state machine. |
 | `eyebrow` | `p > code` | no | Optional eyebrow naming the machine or domain. |
-| `states` | `ol > li` | yes | One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail — case is ignored, so `AT-RISK` is `at-risk`). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label. |
-| `transitions` | `ol > li > ul > li` | no | Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. The event text may carry explicit line breaks — a literal `\n` or an HTML `<br>` / `<br/>` — which are honored on any machine. On a BRANCHING machine (the one dagre re-ranks) the label also sits OFF the line — BELOW it on `lr`, to the RIGHT of it on the default — and text still too long for the rank gap wraps on its own there, never mid-word. A machine that lays out as a single column keeps its label ON the line under a halo, as it always has, and does not auto-wrap: a second line there would cut a gap out of the connector it labels. |
+| `states` | `ol > li` | yes | One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail — case is ignored, so `AT-RISK` is `at-risk`). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and a state with none is a neutral tile. |
+| `transitions` | `ol > li > ul > li` | no | Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. The event text may carry explicit line breaks — a literal `\n` or an HTML `<br>` / `<br/>` — which are honored on any machine. The label sits BESIDE its line on every layout — below a horizontal run, to the right of a vertical one — so it never cuts a gap out of the connector, and text too long for the space it has wraps on its own, never mid-word. |
 | `detail` | `ol > li > ul > li (prose, no arrow)` | no | Optional per-state reveal detail (the shared chart-family detail substrate). A nested bullet under a state that is NOT an inline-code transition (plain prose — the entry/exit action, the rule, the why) is captured as that state's detail rather than a transition. It drives two surfaces from one source: (1) Present/Practice/Preview — the state node is tagged `data-mark` and the prose rides an inert `<template class="chart-detail">` the reveal layer shows in a popover on hover/tap, with the active node lifted, the rest dimmed, and the whole figure tilting (the edge-router skips re-measuring while the tilt is live, so the routed edges stay aligned); (2) the static PDF — the same detail folds into the slide's speaker note (`Label (status): item · item`) as a Marp-faithful comment. Renders nothing on the slide face, so a machine with no prose bullets is byte-identical. Must be a bullet (`-`/`*`), not numbered. |
 | `tint` | `ol > li (::: suffix), ol > li > ul > li (::: suffix)` | no | Optional `:::token` naming a THEME TOKEN to paint with — `:::state-fail-hue`, never a color literal. On a state it tints the node's gradient and stroke; on a transition it tints the line and its arrowhead. A transition takes an optional second slot for its edge-label background: `:::state-fail-hue/surface-raised`. The name is used verbatim as `var(--<token>)` and must match `^[a-z][a-z0-9-]*$` with no `--` prefix (the engine adds it); anything else is dropped whole and the element keeps its inherited paint. Existence is NOT checked at build time — this is a pure string transform and cannot read the theme's declared tokens — so a typo falls back to the untinted default and the deck degrades rather than breaking. Nothing names the typo today: it is silent on every surface, including `lint:deck`. |
 
 ### Variant decision rule
 
-- **default (no modifier).** The default top-to-bottom vertical stack — the plainest read, no extra framing needed.
-- **`lr`.** The states read more naturally as a left-to-right flow (e.g. a pipeline direction) than top-to-bottom.
+- **default (no modifier).** Almost always. The chart picks its direction and how many lines it runs on by whichever sets the type largest in the stage, so a long chain wraps onto a second line in reading order instead of shrinking.
+- **`lr`.** The flow must read left to right whatever the stage shape (a pipeline, a funnel of stages). The chart may still wrap onto more rows.
+- **`tb`.** The flow must read top to bottom whatever the stage shape (a ladder, an escalation). The chart may still wrap into more columns.
 - **`inline`.** The chart needs to sit directly beside its explanatory prose rather than take the full canvas.
 - **`curved`.** Eased, curved connectors fit the deck's visual tone better than straight arrows.
 
@@ -43,7 +44,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 ## When NOT to use
 
-- **More than ~8 states.** Vertical stacks of ten or more states stop reading as a machine and start reading as a list. If the system has many states, group them into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
+- **More than ~12 states.** A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
 - **Hierarchical or parallel states.** v1 grammar is one flat list of states with one outgoing arrow per nested bullet. Composite states, orthogonal regions, history nodes — anything Mermaid's `stateDiagram-v2` does and this layout doesn't — belong in a Mermaid fence via the `diagram` component.
 - **Continuous processes.** If the diagram is really a workflow with stages that overlap or block (queue depth, throughput, capacity), a `gantt` or `kanban` chart reads better. State charts are for discrete, mutually-exclusive states the system flips between.
 
@@ -110,6 +111,23 @@ States flow left to right.
    - `deploy => 4`
    - `fail => 1`
 4. Deployed `end`
+```
+
+### `tb` — Top-to-bottom
+
+States flow top to bottom, whatever the stage.
+
+```markdown
+<!-- _class: state-chart tb -->
+
+## tb stacks the states top to bottom.
+
+1. Queued `start`
+   - `claim => 2`
+2. Running `live`
+   - `finish => 3`
+   - `crash => 1`
+3. Complete `end`
 ```
 
 ### `inline` — Inline
