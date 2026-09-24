@@ -1456,3 +1456,24 @@ for (const [name, md, eyebrow, heading] of [
 		assert.ok(script(secs)[0].text.startsWith(`${eyebrow}. ${heading}`), 'speech leads with the eyebrow');
 	});
 }
+
+// `video` builds its own card, so the lead sentence under its heading shares a stage with the
+// poster — and the media branch re-hosted only the poster, so the Read · Article view dropped a
+// sentence that narration still read (followup 2329-p3). Both card shapes carry it: `.video-lead`
+// in `companion`, a paragraph beside `.video-head` by default. Rendered through the real engine.
+for (const [name, md] of [
+	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n'],
+	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n'],
+]) {
+	test(`video lead paragraph: ${name} projects it once, after the heading and before the poster`, async () => {
+		const { articleHtml } = project(await renderedSections(md));
+		const lead = '<p>One screen, one story.</p>';
+		assert.equal(articleHtml.split(lead).length - 1, 1, `the lead paragraph is projected once: ${articleHtml}`);
+		const at = articleHtml.indexOf(lead);
+		assert.ok(articleHtml.indexOf('</h2>') < at, 'the lead follows the heading');
+		assert.ok(at < articleHtml.indexOf('<figure'), 'the lead precedes the poster');
+		assert.ok(articleHtml.startsWith('<p class="lp-kicker">Product tour</p>\n<h2'), 'the eyebrow is still the kicker');
+		assert.equal(articleHtml.split('Product tour').length - 1, 1, 'the eyebrow is not repeated as body prose');
+		assert.equal(articleHtml.split('Watch on YouTube').length - 1, 1, "the poster's label is not also projected as prose");
+	});
+}

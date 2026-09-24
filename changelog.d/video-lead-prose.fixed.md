@@ -1,0 +1,1 @@
+- The reader view now carries the sentence under a video slide's heading. The article re-hosted only the video's poster, so the lead paragraph of a `video` or `video companion` slide was dropped even though narration read it.
