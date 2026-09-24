@@ -862,6 +862,7 @@ const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
 const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
 const { deckSlideSections, DECK_SLIDES_SRC } = require('./lib/core/deck-slides');
 const { fromBase64: fromBase64Utf8 } = require('./lib/core/base64-utf8');
+const { FIT_FUNCTION_PLOT_SRC } = require('./lib/core/function-plot-viewbox');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
@@ -2805,6 +2806,8 @@ ${ENGINE_SCRIPT_OPEN}
 (function(){
   // UTF-8, not a bare atob: the runtime's decoder, injected verbatim (lib/core/base64-utf8.js).
   var fromBase64 = ${fromBase64Utf8.toString()};
+  // A viewBox on the drawn SVG, so a reading article can scale it (lib/core/function-plot-viewbox.js).
+  var fitFunctionPlotSvg = ${FIT_FUNCTION_PLOT_SRC};
   function inflate() {
     if (typeof window.functionPlot !== 'function') return;
     document.querySelectorAll('div.functionplot[data-fp-config]').forEach(function(div){
@@ -2818,6 +2821,7 @@ ${ENGINE_SCRIPT_OPEN}
         // Disable hover tip in static PDF — it only adds DOM mass.
         if (!cfg.tip) cfg.tip = { renderer: function(){} };
         window.functionPlot(cfg);
+        fitFunctionPlotSvg(div);
         div.dataset.fpInflated = '1';
       } catch (e) {
         div.textContent = 'functionplot error: ' + e.message;

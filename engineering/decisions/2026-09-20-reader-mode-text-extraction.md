@@ -283,10 +283,20 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   and the runtime `require` it, and the emulator injects its `fromBase64` source. Measured on a
   one-plot deck: `--player` went from `Â²` ×2 / `x²` ×0 to `Â²` ×0 / `x²` ×2, and `--read` from
   `Â²` ×1 to `x²` ×1 (`test/integration/invariants/functionplot-utf8.test.js`, red on the old
-  decoder). The Studio is NOT a surface for this fix: driven at 1440px, its preview leaves the
-  `.functionplot` placeholder empty, because nothing under `docs/` loads function-plot's JS and the
-  runtime's inflater returns early without it. That contradicts `deck-export.js`'s own comment and
-  is recorded in `followups.d/2325-p4-…`. The same bare `atob` also sits in `docs/src/lib/anima/hydrate.ts`, which decodes the
+  decoder). **Driving the Studio for this found a worse defect on the same path: it had never
+  drawn a function plot at all.** The runtime inflates only when `window.functionPlot` exists, and
+  no docs host loaded the library, so the preview showed an empty stage and the Read pane had no
+  figure, while `deck-export.js` claimed both were drawn. The runtime now loads the same
+  `function-plot.js` the CLI uses on demand from beside itself (`ensureFunctionPlot`;
+  `sync-playground-assets` stages it as a sibling of `lattice-runtime.js`), so every host that
+  loads the runtime draws plots and none threads a URL. A failed load hands the author the config
+  text and marks the plot settled, and the Studio capture's `waitForDiagrams` waits on plots as it
+  does on Mermaid, releasing a stranded one the same way (#2092). Once drawn, the re-hosted plot
+  was clipped rather than scaled in every reading article, because function-plot's SVG has width
+  and height but no viewBox, so `lib/core/function-plot-viewbox.js` stamps an identity viewBox from
+  both inflaters. Measured: the slide is pixel-identical (0 differing bytes at 100 dpi), the
+  committed PDF is byte-identical, and the Studio preview and Read pane draw `x²` at 1440, 820 and
+  390 (`docs/e2e/studio-function-plot.spec.ts` pins desktop). The same bare `atob` also sits in `docs/src/lib/anima/hydrate.ts`, which decodes the
   `anima` fence's spec from the same encoder. It is left for its own change, because fixing it
   regenerates the committed anima player bundle, and it is recorded in `followups.d/2325-p1-…`.
   **The sibling `R&D` → `R&amp;D` is a different bug, and it is decided: fix it separately.**

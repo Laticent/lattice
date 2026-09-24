@@ -141,6 +141,35 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		return Date.now() - started < BUDGET * 0.5 ? 'early' : 'at-budget';
 	}
 
+	// ```functionplot placeholders stream in the same way now: the runtime loads function-plot.js
+	// on demand in the capture frame, so a plot the capture does not wait for bakes as an empty
+	// stage. Config is `{"data":[{"fn":"x"}],"yAxis":{"label":"x²"}}`, UTF-8 base64.
+	const FP = 'eyJkYXRhIjpbeyJmbiI6IngifV0sInlBeGlzIjp7ImxhYmVsIjoieMKyIn19';
+	it('waits for an un-drawn function plot, and releases it to its config at the budget', async () => {
+		const doc = frag(`<div class="functionplot" data-fp-config="${FP}"></div>`);
+		expect(await returned(doc)).toBe('at-budget');
+		const doc2 = frag(`<div class="functionplot" data-fp-config="${FP}"></div>`);
+		expect(await waitForDiagrams(doc2, BUDGET)).toBe(1);
+		const div = doc2.querySelector('.functionplot');
+		expect(div?.getAttribute('data-fp-state')).toBe('unavailable');
+		// Final, so a late library load cannot draw over what the capture decided to bake.
+		expect(div?.hasAttribute('data-fp-final')).toBe(true);
+		// The author's config, decoded as UTF-8 rather than one char per byte.
+		expect(div?.textContent).toContain('"label":"x²"');
+	});
+
+	it('does not wait for a function plot the runtime drew, errored or released', async () => {
+		for (const attr of ['data-fp-inflated="1"', 'data-fp-inflated="error"', 'data-fp-state="unavailable"']) {
+			expect(await returned(frag(`<div class="functionplot" data-fp-config="${FP}" ${attr}></div>`))).toBe('early');
+		}
+	});
+
+	it('leaves a stranded function plot alone when the caller will wait again', async () => {
+		const doc = frag(`<div class="functionplot" data-fp-config="${FP}"></div>`);
+		expect(await waitForDiagrams(doc, BUDGET, { release: false })).toBe(1);
+		expect(doc.querySelector('.functionplot')?.hasAttribute('data-fp-state')).toBe(false);
+	});
+
 	it('RELEASES a fence still un-settled at the budget, so it bakes as source not as a blank', async () => {
 		// THE WHOLE FIX. `mermaid.css` hides the source <pre> for every state but `error` and
 		// `unavailable`, so when this budget expires with a fence un-settled the capture bakes a
