@@ -492,7 +492,17 @@
    * semantic hues (its documented fallback, so the alias is defined even on a
    * theme that hasn't set the chart hook). Aliased (byte-identical). This is
    * the STATUS axis — distinct from the diagram lifecycle below (a gantt
-   * "in-progress" tone is not a "warn"). */
+   * "in-progress" tone is not a "warn").
+   *
+   * NOT THE STATUS PILL'S TOKENS. `.chart-status[data-s]` and every chart's
+   * status arm read the chart family's `--state-*` set (chart-family.css,
+   * `--state-{pass,warn,fail,info,mute}-{hue,fill,ink}`), and no engine rule reads
+   * these five. They survive anyway, on purpose: they are published vocabulary
+   * that an author's own CSS may use, test/unit/palette/universal-token-
+   * vocabulary.test.js pins them, and 2026-06-11-universal-token-system.md
+   * records them as deliberately not purged. Retiring them is a breaking change
+   * to that vocabulary, so it is a decision, not a cleanup. (`--status-fill` /
+   * `--status-ink` in kanban.styles.css are kanban-local, and unrelated.) */
   --status-pass: var(--pass);  --status-pass-bg: var(--pass-bg);
   --status-warn: var(--warn);  --status-warn-bg: var(--warn-bg);
   --status-fail: var(--fail);  --status-fail-bg: var(--fail-bg);
