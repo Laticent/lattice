@@ -112,14 +112,6 @@ function leadsWord(hay: string, sub: string): boolean {
 	return !!sub && hay.startsWith(sub) && boundedAt(hay, sub, 0);
 }
 
-/** Does `hay` contain `sub` as whole words, anywhere? */
-function containsWord(hay: string, sub: string): boolean {
-	if (!sub) return false;
-	for (let at = hay.indexOf(sub); at !== -1; at = hay.indexOf(sub, at + 1)) {
-		if (boundedAt(hay, sub, at)) return true;
-	}
-	return false;
-}
 
 const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, th, td, code';
 
@@ -251,7 +243,11 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 	if (needle.length < 3 || !/[\p{L}\p{N}]/u.test(needle)) return null;
 	const passed: { el: Element; labelLen: number; corroborated: boolean }[] = [];
 	for (const el of root.querySelectorAll('[data-label]')) {
-		const label = loose((el as HTMLElement).dataset?.label ?? el.getAttribute('data-label') ?? '');
+		const rawLabel = (el as HTMLElement).dataset?.label ?? el.getAttribute('data-label') ?? '';
+		// A region CODE (`GA`, `USA`) is spoken spelled, "G A" (`narrateDataSeries` spells it so the
+		// read-aloud lexicon cannot expand it), so the code leads in that form too.
+		const spelled = /^[A-Z]{2,3}$/.test(rawLabel.trim()) ? loose(rawLabel.trim().split('').join(' ')) : '';
+		const label = spelled && leadsWord(needle, spelled) ? spelled : loose(rawLabel);
 		// A one-character label identifies nothing and would lead half the cues on the slide.
 		if (label.length < 2 || !leadsWord(needle, label)) continue;
 		const raw = (el as HTMLElement).dataset?.value ?? el.getAttribute('data-value') ?? '';
@@ -308,9 +304,24 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
  * never a contiguous phrase and every slope cue failed the check it was built to pass).
  */
 function corroborates(needle: string, raw: string): boolean {
-	if (valueSpellings(raw).some((v) => containsWord(needle, v))) return true;
+	if (valueSpellings(raw).some((v) => saysValue(needle, v))) return true;
 	const ends = raw.split(/\s*(?:[–—]|\.\.|\bto\b)\s*/).filter((p) => p.trim());
-	return ends.length > 1 && ends.every((end) => valueSpellings(end).some((v) => containsWord(needle, v)));
+	return ends.length > 1 && ends.every((end) => valueSpellings(end).some((v) => saysValue(needle, v)));
+}
+
+/**
+ * A spoken value is said only when it is the WHOLE number, not the head of a longer one. "four"
+ * is a whole word inside "four point three" and inside "four hundred", so a whole-word test alone
+ * let a line's `4.0` dot corroborate the Mid-market sentence "Q1 2026, four point three." — two
+ * dots tied and the pointer fell back to the axis label (found by the round-two checker).
+ */
+const CONTINUES_NUMBER = /^ (?:point|hundred|thousand|million|billion|trillion)\b/;
+function saysValue(hay: string, sub: string): boolean {
+	if (!sub) return false;
+	for (let at = hay.indexOf(sub); at !== -1; at = hay.indexOf(sub, at + 1)) {
+		if (boundedAt(hay, sub, at) && !CONTINUES_NUMBER.test(hay.slice(at + sub.length))) return true;
+	}
+	return false;
 }
 
 function valueSpellings(raw: string): string[] {

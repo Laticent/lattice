@@ -163,9 +163,23 @@ heads and bets, and matrix-grid's filled cells, which both render paths stamp th
 
 **GA.** Cadenza's built-in lexicon now expands `GA` to "general availability", exact-case. By the
 lexicon's own rule an abbreviation stays always-on only when it is unambiguous in the house
-domain (a SaaS/tech boardroom), and GA is. The cost: a US map that labels Georgia by postal code
-reads "general availability" until the deck declares `acronyms: GA: Georgia`, which the registry
-lets win.
+domain (a SaaS/tech boardroom), and GA is — except as a map region code, which `map.docs.md`
+sanctions: GA is Georgia on `map us` and Gabon on the world map. So the map narration spells a
+code-only region ("G A", "U S A"), the lexicon never sees the token, and the Guide's mark tier
+accepts a code label in its spelled form. Prose that means Georgia still declares
+`acronyms: GA: Georgia`.
+
+**What the independent checker found, and what changed.** Four real defects, all fixed:
+quadrant said high or low against the authored threshold on every variant, but only `quadrant
+threshold` draws it there (the others split at the center); a line point written with a text
+pill before its value (`` `est` `8.2` ``) was dropped, because the narrator took the first pill
+and the transform takes the last; the GA collision above; and a dot whose value was `4.0` also
+"corroborated" the sentence "four point three", tying two dots so the Guide fell back to the
+axis label — a spoken value now counts only when no "point" or magnitude word follows it. Two
+smaller ones: matrix-grid now says every cell the chart draws (a second placed level, plain
+text), and radar says every middle score, three to a sentence, instead of "between five and
+nine on the other four axes". On `line stacked-area` no dots are drawn, so its per-point
+sentences land on the category label, which is the honest target there.
 
 **Measured.**
 
@@ -174,7 +188,11 @@ lets win.
   flagged slide now tops out below 6.5 seconds.
 - Guide, the eight changed galleries (`sweep-guide-gestures.mjs --deck … --misses`): 1,042 of
   1,043 cues placed. 57.7% land on a labeled mark. The one miss is on a `cards-stack` slide.
-- Live Present, the built Studio, ten flagged slides: see the PR for the per-cue screenshots.
+  "Placed" means some target answered, not that it was the right one; the live check below and
+  the checker's per-cue replay against the export are what say the right one.
+- Live Present, the built Studio, the ten flagged slides, 135 cues, a screenshot each: the pointer
+  rang each line dot as its point was read, each quadrant item, each journey step, each horizon
+  bet and head, and each matrix-grid level.
 
 **Not changed, and why.** The longest cues left are `bullet` rows ("Partner-sourced ARR, nine
 hundred thousand against a one point four million target — sixty-four percent of plan, closing

@@ -2086,3 +2086,27 @@ test('an unnamed axis (a `[, y]` placeholder) binds its value with no dangling c
   assert.ok(out.includes('Atlas: four hundred twenty thousand dollars; Teams adopting, eighteen percent.'), out);
   assert.ok(!/: ,|, ,/.test(out), out);
 });
+
+// ── Round two, from the independent checker ──────────────────────────────────────
+test('narrateDataSeries: a map region authored by its code is spelled, so "GA" is never "general availability"', () => {
+  // `map.docs.md` sanctions postal and ISO codes; GA is Georgia on `map us` and Gabon on the world map.
+  const out = narrateDataSeries('<!-- _class: map us -->\n\n## States.\n\n- GA `42`\n- TX `30`\n- California `12`');
+  assert.match(out, /G A, forty-two\. T X, thirty\. California, twelve\./);
+});
+
+test('narrateQuadrant: high and low are against the line the chart DRAWS — the midpoint unless the variant is `threshold`', () => {
+  const md = (cls) => `<!-- _class: ${cls} -->\n\n\`[{Effort, 0..10, 3}, {Reach, 0..100}]\`\n\n## X.\n\n- G\n  - Item one \`4, 70\``;
+  assert.match(narrateQuadrant(md('quadrant')), /Item one is low on Effort and high on Reach/);
+  assert.match(narrateQuadrant(md('quadrant threshold')), /Item one is high on both Effort and Reach/);
+});
+
+test('narrateDataSeries: a line point reads its LAST pill as the value, as the transform plots it', () => {
+  const out = narrateDataSeries('<!-- _class: line -->\n\n## L.\n\n- Jan `est` `8.2`\n- Feb `7.6`\n- Mar `6.9`');
+  assert.match(out, /The line fell one point three overall, from eight point two to six point nine\. Jan est, eight point two\./);
+});
+
+test('narrateMatrixGrid: every drawn cell is said — a second placed level and a plain-text cell included', () => {
+  const out = narrateChart('<!-- _class: matrix-grid -->\n\n## T\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Lead | [x] Head | [x] Coach |\n| Build | Pair only | [!] Blocked |');
+  assert.match(out, /Head sits at Lead and Self\. Coach sits at Lead and Team\./);
+  assert.match(out, /Build at Self: Pair only\. Build at Team: Blocked\./);
+});

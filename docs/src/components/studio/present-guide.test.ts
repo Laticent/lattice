@@ -1568,6 +1568,23 @@ describe('the chart tiers — a chart cue the text and mark tiers could not plac
 		expect(findCueTarget(d, 'LATAM, six hundred thousand dollars.')?.getAttribute('data-label')).toBe('LATAM');
 	});
 
+	it('a region code leads in the spelled form the narration speaks it in', () => {
+		const d = doc(`<svg><path data-label="GA" data-value="42"></path><path data-label="TX" data-value="30"></path></svg>`);
+		expect(findCueTarget(d, 'G A, forty-two.')?.getAttribute('data-label')).toBe('GA');
+	});
+
+	it('a whole number does not corroborate the head of a longer one said aloud', () => {
+		// A line's three `Q1 2026` dots: 3.6, 4.3 and 4.0. "four" is a whole word inside "four point
+		// three", so the 4.0 dot corroborated the Mid-market sentence too, the two tied, and the
+		// pointer fell back to the axis label. The sentence names ONE dot.
+		const d = doc(
+			`<svg><circle data-label="Q1 2026" data-value="3.6"></circle><circle data-label="Q1 2026" data-value="4.3"></circle>` +
+				`<circle data-label="Q1 2026" data-value="4.0"></circle><text data-label="Q1 2026">Q1 2026</text></svg>`,
+		);
+		expect(findCueTarget(d, 'Q1 2026, four point three.')?.getAttribute('data-value')).toBe('4.3');
+		expect(findCueTarget(d, 'Q1 2026, four.')?.getAttribute('data-value')).toBe('4.0');
+	});
+
 	it('corroborates a signed value the way a waterfall step is said', () => {
 		const d = doc(`<svg><rect data-label="FX" data-value="−0.3M"></rect></svg>`);
 		expect(findCueTarget(d, 'FX, down three hundred thousand.')?.getAttribute('data-label')).toBe('FX');
