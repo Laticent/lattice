@@ -217,3 +217,18 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Removable when:** marp-cli supports theme auto-discovery from a
   directory glob.
 - **Commits:** `3fa0462`, `6aad1e6`.
+
+## A hard-wrapped paragraph renders with line breaks mid-sentence
+
+- **Symptom:** A paragraph, list item or blockquote wrapped at 80 columns in the
+  source breaks at the same places on the slide, leaving ragged lines.
+- **Cause:** `lib/engine/index.js` runs markdown-it with `breaks: true`, the setting
+  Marp Core ships. A single newline inside a paragraph becomes `<br />`, so
+  `line one\nline two` renders as `<p>line one<br />\nline two</p>`.
+- **Mitigation:** None in code, on purpose: the source cannot say whether a break
+  was meant (a `stats` confidence interval, an address), and turning `breaks` off
+  would collapse those. The authoring contract says one paragraph per source line:
+  `design/skill.md` § One paragraph, one source line.
+- **Triggered by:** Any deck whose author or editor hard-wraps prose.
+- **Removable when:** Never. It is Marp parity, not a workaround.
+- **Commits:** the change that added this entry.

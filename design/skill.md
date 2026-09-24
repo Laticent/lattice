@@ -151,6 +151,32 @@ Design record: [2026-07-30-overflow-marker-register.md](../engineering/decisions
 
 ---
 
+## One paragraph, one source line (quick reference)
+
+**Write each paragraph and each list item on ONE source line.** The engine runs
+markdown-it with `breaks: true`, the setting Marp Core ships, so a single newline
+inside a paragraph is a hard line break on the slide, not a space. A paragraph
+wrapped at 80 columns in the source ships with visible breaks mid-sentence:
+
+```md
+The pilot cut onboarding time by a third
+across all four regions.
+```
+
+renders as `<p>The pilot cut onboarding time by a third<br />across all four regions.</p>`,
+two ragged lines on the slide. The same holds inside a list item and a blockquote. Let
+the editor soft-wrap long lines instead of inserting newlines.
+
+The break is sometimes what you want, and then it is the right tool: the two lines of
+a `stats` confidence interval, an address, a verse. A blank line still starts a new
+paragraph. Nothing warns about a wrapped paragraph, because the source cannot say
+whether the break was meant, so the only check is to look at the render.
+
+Why `breaks: true` stays on: `lib/engine/index.js`, where it matches Marp Core so a
+deck renders the same on both. Symptom row: `engineering/gotchas/marp.md`.
+
+---
+
 ## Raw HTML in a deck (quick reference)
 
 A deck can carry raw HTML — markdown-it runs with `html: true`, so a `<div>`, an
