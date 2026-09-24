@@ -1,1 +1,2 @@
 - `dist/docs/grammar.json` now lists the `anima` fence (`body: "json"`, used by `scene`) beside `functionplot` and `mermaid`, and LFM 1.0 §3.3 documents it. The engine already rendered it; the registry and the spec now say so.
+- Compose: the language chip's picker now stays on its code block when the editor scrolls, instead of staying where the chip was when you clicked it.

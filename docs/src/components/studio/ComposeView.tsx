@@ -905,6 +905,20 @@ function codeHighlightPlugin() {
 // The chip is `contenteditable=false` and its mousedown is swallowed, so clicking it
 // neither moves the caret into the chip nor lets ProseMirror read the click as a
 // selection change — the same two lines every control in this file carries.
+/** A Floating UI virtual element: a rect read at position time, plus the element whose
+ *  scroll ancestors should re-position it. */
+export type ChipAnchor = { getBoundingClientRect: () => DOMRect; contextElement?: Element };
+
+/** The chip currently in the DOM for the fence starting at `pos`, or null when that
+ *  position no longer holds a fence (the doc moved under it, or the view is gone). */
+function liveChip(view: EditorView | null, pos: number | undefined): HTMLElement | null {
+	if (!view || typeof pos !== 'number') return null;
+	const node = view.state.doc.nodeAt(pos);
+	if (!node || node.type.name !== 'code_block') return null;
+	const dom = view.nodeDOM(pos) as HTMLElement | null;
+	return (dom?.querySelector?.('.cs-code-chip') as HTMLElement | null) ?? null;
+}
+
 class CodeBlockView {
 	dom: HTMLElement;
 	contentDOM: HTMLElement;
@@ -914,7 +928,7 @@ class CodeBlockView {
 	constructor(
 		node: PMNode,
 		private view: EditorView,
-		onChip: (el: HTMLElement) => void,
+		onChip: (el: HTMLElement, pos?: number) => void,
 		// TAKEN IN THE CONSTRUCTOR, not assigned after it. `syncChip` reads the ancestor
 		// slide's `locked` through this, and with the field assigned by the factory
 		// afterwards it was `undefined` on the first paint — so the chip rendered ENABLED
@@ -962,7 +976,7 @@ class CodeBlockView {
 			// block's current DOM; fall back to the clicked one if the position no longer
 			// resolves, which is no worse than before.
 			const dom = view.nodeDOM(pos) as HTMLElement | null;
-			onChip((dom?.querySelector?.('.cs-code-chip') as HTMLElement | null) ?? chip);
+			onChip((dom?.querySelector?.('.cs-code-chip') as HTMLElement | null) ?? chip, pos);
 		}, { signal: this.ac.signal });
 	}
 	private syncChip() {
@@ -1473,12 +1487,18 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// block's chip was clicked (the NodeView reports the element; Radix anchors to it
 	// through `virtualRef`). A React root per fence would be the obvious shape and the
 	// wrong one: a deck of 40 mermaid slides would carry 40 popovers that are shut.
-	// WHERE the last-clicked chip was, not WHICH element it is. The node view holding it
-	// is rebuilt on a caret move and again on blur — which opening the picker causes —
-	// so an element anchor is detached before the popover can paint. A rect is not.
-	const [chipAnchor, setChipAnchor] = React.useState<DOMRect | null>(null);
+	// WHICH BLOCK the last-clicked chip belongs to, re-measured every time Radix asks —
+	// not the element, and not a rect frozen at click time. The node view holding the chip
+	// is rebuilt on a caret move and again on blur — which opening the picker causes — so
+	// an element anchor is detached before the popover can paint. A frozen rect survives
+	// that but strands: scroll the editor and the popover stays where the chip WAS. So the
+	// anchor keeps the block's document position and asks `nodeDOM` for the LIVE chip on
+	// each call, falling back to the last rect it measured. `contextElement` is the
+	// editor's own DOM, which is how Floating UI finds the scroll container to listen to:
+	// with no element to walk up from, it only ever heard the window scroll.
+	const [chipAnchor, setChipAnchor] = React.useState<ChipAnchor | null>(null);
 	const openChipRef = React.useRef<HTMLElement | null>(null);
-	const onChipClick = React.useCallback((el: HTMLElement) => {
+	const onChipClick = React.useCallback((el: HTMLElement, pos?: number) => {
 		// Clicking the OPEN chip closes it. Identity is compared on the element we were
 		// handed, which is enough: two chips never occupy the same rect.
 		if (openChipRef.current === el) {
@@ -1487,7 +1507,16 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			return;
 		}
 		openChipRef.current = el;
-		setChipAnchor(el.getBoundingClientRect());
+		const view = viewRef.current;
+		let last = el.getBoundingClientRect();
+		setChipAnchor({
+			contextElement: view?.dom,
+			getBoundingClientRect: () => {
+				const live = liveChip(view, pos) ?? (el.isConnected ? el : null);
+				if (live) last = live.getBoundingClientRect();
+				return last;
+			},
+		});
 	}, []);
 	// Ref-backed for the same reason the settings handler is: the NodeView factory is
 	// built once per deck and must keep calling the CURRENT handler.
@@ -1745,7 +1774,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					slide: (node, nodeView, getPos, decorations) =>
 						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
-					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el) => onChipRef.current(el), getPos as () => number | undefined),
+					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el, pos) => onChipRef.current(el, pos), getPos as () => number | undefined),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.
@@ -1918,7 +1947,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
 			    React does not own. Rendered only while a chip is open, so a deck of forty
 			    fences carries one popover rather than forty. */}
-			{chipAnchor && viewRef.current && <FencePicker view={viewRef.current} source={source} anchorRect={chipAnchor} open onOpenChange={(o) => { if (!o) { openChipRef.current = null; setChipAnchor(null); } }} align="start" />}
+			{chipAnchor && viewRef.current && <FencePicker view={viewRef.current} source={source} anchor={chipAnchor} open onOpenChange={(o) => { if (!o) { openChipRef.current = null; setChipAnchor(null); } }} align="start" />}
 		</div>
 	);
 });

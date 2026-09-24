@@ -63,7 +63,7 @@ export function FencePicker({
 	view,
 	source,
 	trigger,
-	anchorRect,
+	anchor,
 	open: openProp,
 	onOpenChange,
 	align = 'center',
@@ -74,20 +74,20 @@ export function FencePicker({
 	/** Pill mode: the button the popover hangs off. Mutually exclusive with `anchor`. */
 	trigger?: React.ReactNode;
 	/**
-	 * Chip mode: WHERE the clicked chip was, with `open` driven by the caller.
+	 * Chip mode: a VIRTUAL anchor for the clicked chip, with `open` driven by the caller.
 	 *
-	 * A RECT, deliberately, not the element. The chip lives in a ProseMirror NodeView,
-	 * and that node view is rebuilt whenever the caret moves into or out of the fence
-	 * and again when the editor blurs — which the picker's own search field causes the
-	 * instant it opens. Measured on the real Studio: anchored to the element, the button
-	 * was detached before the popover could paint and nothing ever appeared. A rect
-	 * captured at click time cannot be detached, and the document does not move
-	 * underneath an open popover.
+	 * Not the element. The chip lives in a ProseMirror NodeView, and that node view is
+	 * rebuilt whenever the caret moves into or out of the fence and again when the editor
+	 * blurs — which the picker's own search field causes the instant it opens. Measured on
+	 * the real Studio: anchored to the element, the button was detached before the
+	 * popover could paint and nothing ever appeared. Not a frozen rect either: that one
+	 * stranded the popover in place while the deck scrolled under it. The caller's anchor
+	 * re-finds the live chip on every measurement (ComposeView `ChipAnchor`).
 	 *
 	 * ONE picker for the whole document, moved to wherever the last chip was clicked,
 	 * rather than a React root per fence.
 	 */
-	anchorRect?: DOMRect | null;
+	anchor?: { getBoundingClientRect: () => DOMRect; contextElement?: Element } | null;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	align?: 'start' | 'center' | 'end';
@@ -122,11 +122,16 @@ export function FencePicker({
 	}, [listEl, query]);
 	const groups = React.useMemo(() => fenceGroups({ source, manifest, query }), [source, manifest, query]);
 	// A STABLE Measurable whose rect is read at position time — Radix keeps the ref
-	// object, so it must not be rebuilt each render, and the live rect rides in a second
-	// ref beside it.
-	const rectRef = React.useRef<DOMRect | null>(anchorRect ?? null);
-	rectRef.current = anchorRect ?? null;
-	const anchorRef = React.useRef({ getBoundingClientRect: () => rectRef.current ?? new DOMRect(0, 0, 0, 0) });
+	// object, so it must not be rebuilt each render; the live anchor rides in a second
+	// ref beside it and is asked afresh on every measurement.
+	const liveRef = React.useRef(anchor ?? null);
+	liveRef.current = anchor ?? null;
+	const anchorRef = React.useRef({
+		getBoundingClientRect: () => liveRef.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 0, 0),
+		get contextElement() {
+			return liveRef.current?.contextElement;
+		},
+	});
 
 	const block = codeBlockAt(view.state);
 	const body = block?.node.textContent || '';
@@ -168,6 +173,9 @@ export function FencePicker({
 			<PopoverContent
 				align={align}
 				collisionPadding={8}
+				// Chip mode only: once its block has scrolled out of the editor, the picker
+				// hides with it rather than pinning to the viewport edge over unrelated slides.
+				hideWhenDetached={!trigger}
 				className="flex w-[min(22rem,86vw)] flex-col overflow-hidden p-0 max-h-[max(140px,min(388px,calc(var(--radix-popover-content-available-height)-12px)))]"
 				onOpenAutoFocus={(e) => e.preventDefault()}
 			>

@@ -376,6 +376,13 @@ Per HARD RULE #23, every claim below names its surface:
   before assignment, which dropped Compose to its textarea fallback on any deck with a
   fence; and a node view rebuilt on every caret move, which detached the chip the
   popover was anchored to). Plus `tools/screenshot.js` at 1440 / 820 / 390, both modes.
+  The fix for the second defect — a rect captured at click time — had a defect of its
+  own, found after ship: the rect cannot detach, but it cannot move either, so scrolling
+  the editor left the popover where the chip WAS. The anchor now keeps the block's
+  document position and re-finds the live chip on every measurement, with the editor's
+  DOM as Floating UI's `contextElement` so the editor's own scroll container
+  re-positions it (2026-09-24). The spec's `@crosswidth` scroll arm measured
+  `gap 4 → 84` px before, at 1440 and 390.
 - **NOT a demo deck.** HARD RULE #9's trigger is the rendered surface, and this change
   renders none: the engine, the themes, the layouts and the exported bytes are
   untouched, and everything here is editor chrome. An earlier draft of this section
