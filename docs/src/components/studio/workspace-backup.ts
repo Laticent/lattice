@@ -9,7 +9,7 @@
 //     decks/<slug>.md   a readable copy of every deck — the backup stays useful
 //                       even opened by hand, with no Lattice at all
 //     library.zip       the saved themes/components/finishes, as a NESTED
-//                       lattice-asset/1 bundle — restore feeds it straight back
+//                       library bundle (package folders since 2026-09) — restore feeds it straight back
 //                       through unpackBundle, zero new parsing code
 //     refdocs.json      the Library's reference docs (kind:'refdoc' records —
 //                       JSON-safe, PDFs ride as data URLs); restore upserts by
@@ -23,7 +23,8 @@
 // stores, pack/parse are testable without a browser beyond localStorage.
 
 import { packBundle, unpackBundle } from './asset-bundle';
-import { listStudioComponents, saveStudioComponent } from './component-library';
+import { applyImportRenames } from './asset-rename';
+import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene } from './scene-library';
@@ -44,7 +45,8 @@ export type WorkspaceManifest = {
 	scenesUnavailable?: true;
 };
 
-export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number };
+/** `refused`: library packages the backup held that could not be read back, each with the reason. */
+export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number; refused: { name: string; why: string }[] };
 
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 async function jszip(): Promise<any> {
@@ -100,7 +102,7 @@ export async function packWorkspace(now: number): Promise<Blob> {
 		zip.file(`decks/${name}.md`, source);
 	}
 
-	// The Library rides as a nested lattice-asset/1 bundle (no showcase PDFs).
+	// The Library rides as a nested library bundle (package folders; a pre-2026-09 backup holds a lattice-asset/1 one) (no showcase PDFs).
 	if (themes.length || components.length || finishes.length || scenes.length) {
 		const assets = await packBundle(themes.map((theme) => ({ theme })), components, finishes, scenes);
 		zip.file('library.zip', assets);
@@ -146,28 +148,44 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	if (!stateFile) throw new Error('Backup is missing workspace.json.');
 	const state = JSON.parse(await stateFile.async('string')) as StudioExport;
 
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0 };
-
+	// Parse the asset library BEFORE importing any state: `unpackBundle` refuses an
+	// oversized archive (`zip-limits.ts`), and refusing it after the decks and settings
+	// had already been replaced left a half-restored workspace.
 	const libraryFile = zip.file('library.zip');
-	if (libraryFile) {
-		const parsed = await unpackBundle(await libraryFile.async('blob'));
+	const parsed = libraryFile ? await unpackBundle(await libraryFile.async('blob')) : null;
+
+	// A backup made before shipped names were reserved can hold a saved `indaco`. The save
+	// below stores it as `indaco-custom`, so the backed-up decks that said `theme: indaco`
+	// are pointed at that name before they are restored — or they would quietly render the
+	// shipped theme instead of the one they were made with.
+	if (parsed && state.sources) {
+		const { backupRenames } = await import('./library/import-parsed');
+		const renames = await backupRenames(parsed);
+		if (renames.length) state.sources = Object.fromEntries(Object.entries(state.sources).map(([id, src]) => [id, applyImportRenames(src, renames)]));
+	}
+
+	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, refused: parsed?.refused ?? [] };
+
+	if (parsed) {
 		for (const t of parsed.themes) {
-			await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css });
+			await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css, ...(t.overrides ? { overrides: t.overrides } : {}), ...(t.rampStrategy ? { rampStrategy: t.rampStrategy } : {}), ...(t.pkg ? { pkg: t.pkg } : {}) });
 			summary.themes++;
 		}
 		for (const c of parsed.components) {
-			await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton });
+			// The library zip is package folders, so a component's full manifest survives a
+			// backup round trip (a legacy backup carried no meta at all).
+			await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, ...(c.manifest ? { meta: toMeta(c.manifest) } : {}), ...(c.pkg ? { pkg: c.pkg } : {}) });
 			summary.components++;
 		}
 		for (const f of parsed.finishes) {
-			await saveStudioFinish({ name: f.name, label: f.label, css: f.css, recipe: f.recipe });
+			await saveStudioFinish({ name: f.name, label: f.label, css: f.css, recipe: f.recipe, ...(f.pkg ? { pkg: f.pkg } : {}) });
 			summary.finishes++;
 		}
 		for (const s of parsed.scenes) {
 			// unpackBundle already dropped any scene whose spec didn't re-validate, so every
 			// scene here is renderable. saveStudioScene sanitizes the untrusted poster/art at
 			// the store boundary — so restoring a hand-crafted backup can't persist raw markup.
-			await saveStudioScene({ name: s.name, label: s.label, description: s.description, spec: s.spec, poster: s.poster, art: s.art });
+			await saveStudioScene({ name: s.name, label: s.label, description: s.description, spec: s.spec, poster: s.poster, art: s.art, ...(s.pkg ? { pkg: s.pkg } : {}) });
 			summary.scenes++;
 		}
 	}

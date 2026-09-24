@@ -32,9 +32,9 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { discoverPackages } = require('../lib/packages/fs.js');
 
 const ROOT = path.join(__dirname, '..');
-const THEMES_DIR = path.join(ROOT, 'themes');
 const OUT = path.join(ROOT, 'docs', 'src', 'lib', 'theme-catalog.generated.ts');
 // The theme GRAPH lives beside the pure resolver that consumes it, not in the docs
 // bundle: the Node CLI, the unit suite and the browser all import it by relative path,
@@ -63,11 +63,15 @@ ${lines}
 `;
 }
 
+// Themes are DISCOVERED THROUGH THE PACKAGE SPINE (lib/packages/fs.js), the one walk
+// the build, the identity gate and the package index share. A theme the spine can't
+// read (a projection that disagrees with its manifest) fails the catalog here rather
+// than being listed under a name nothing else resolves.
 function manifests() {
-  return fs.readdirSync(THEMES_DIR)
-    .filter((f) => f.endsWith('.manifest.json'))
-    .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const found = discoverPackages({ types: ['theme'] });
+  const bad = found.filter((f) => !f.result.ok);
+  if (bad.length) throw new Error(`theme-catalog: unreadable theme package(s):\n${bad.map((b) => `  ${b.path}: ${b.result.errors.join('; ')}`).join('\n')}`);
+  return found.map((f) => f.result.pkg.manifest).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** The picker's own order: curated first, then the rest, then the a11y group. */
@@ -108,6 +112,14 @@ export const A11Y_THEMES = ${arr(a11y)};
 
 /** Every palette the Studio can drive via \`data-palette\` — curated + more + the AA color-blind set. */
 export const BUILTIN_PALETTES = [...CURATED, ...MORE_THEMES, ...A11Y_THEMES];
+
+/**
+ * Every theme name the engine ships — every manifest, \`-dark\` companions and bases
+ * included, plus \`lattice\` itself. A saved theme may not take one of these: a saved
+ * record is resolved by name, so a theme saved as \`indaco\` would re-skin every deck
+ * that says \`theme: indaco\` (2026-09-23-portable-packages.md §3.7).
+ */
+export const SHIPPED_THEME_NAMES: readonly string[] = ${arr(['lattice', ...all.map((m) => m.name)])};
 
 /** Each listed palette's picker dot (manifest \`swatch\`). */
 export const PALETTE_DOTS: Record<string, string> = {

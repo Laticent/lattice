@@ -1,0 +1,19 @@
+{
+  "wash": {
+    "type": "none",
+    "intensity": 8
+  },
+  "texture": {
+    "type": "ruled",
+    "intensity": 8,
+    "scale": 40
+  },
+  "mark": {
+    "type": "bar",
+    "placement": "left"
+  },
+  "edge": {
+    "type": "fold",
+    "intensity": 16
+  }
+}

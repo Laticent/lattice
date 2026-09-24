@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lattice.laticent.io/finish.manifest.schema.json",
+  "title": "Lattice finish manifest",
+  "description": "A shipped finish PACKAGE (engineering/decisions/2026-09-23-portable-packages.md §3.3, §3.6). The manifest owns the name and the picker's presentation; the sibling <name>.recipe.json is the look in the Studio's layer vocabulary (its \"Start from preset\" and a saved copy). What a deck RENDERS is still the hand-written section.finish-<name> rule in lib/base/base.finish.css until the CSS is generated from the recipe (portable-packages §10, phase 2); checkFinishPackages binds the two by name only. The register (lib/core/resolve-finish.js), the Studio's preset recipes and its picker catalog are all generated from these files by tools/build-packages-index.js.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "type", "format", "label", "blurb", "order", "swatch"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "The `finish:` register value. MUST equal the folder name and every file prefix (checkPackageIdentity)."
+    },
+    "type": { "const": "finish" },
+    "format": { "const": 1 },
+    "label": { "type": "string", "minLength": 1, "description": "The picker's display name." },
+    "blurb": { "type": "string", "minLength": 1, "description": "One line under the label in the picker." },
+    "order": { "type": "integer", "minimum": 1, "description": "Position in the register and the picker. Unique across finishes." },
+    "swatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background"],
+      "description": "The picker chip: a CSS background (and optional size) in accent-mix gradients only.",
+      "properties": {
+        "background": { "type": "string", "minLength": 1 },
+        "backgroundSize": { "type": "string" }
+      }
+    }
+  }
+}

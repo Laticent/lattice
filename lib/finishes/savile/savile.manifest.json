@@ -1,0 +1,12 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "savile",
+  "type": "finish",
+  "format": 1,
+  "label": "Savile",
+  "blurb": "A tailored vertical pinstripe + a movable monogram.",
+  "order": 8,
+  "swatch": {
+    "background": "repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent) 0 1px, transparent 1px 5px)"
+  }
+}

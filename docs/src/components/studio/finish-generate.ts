@@ -26,6 +26,12 @@
 // close the selector or inject a second rule into the same-origin preview frame
 // (HARD RULE #22).
 
+// A DEFAULT import: the presets module is CommonJS, and the docs dev server only interops
+// a default import off a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import finishPresets from '../../../../lib/finishes/presets.generated.js';
+
+const { FINISH_PRESETS } = finishPresets;
+
 // ── The closed vocabulary — the only layer types the designer (and the AI) speak.
 export const WASH_TYPES = ['none', 'corner-glow', 'duotone', 'spotlight', 'bands', 'mesh'] as const;
 export const TEXTURE_TYPES = ['none', 'grid', 'dots', 'hatch', 'contour', 'rings', 'ruled', 'pinstripe', 'lattice'] as const;
@@ -101,72 +107,15 @@ export function sanitizeGlyph(input: unknown): string {
 		.slice(0, 3);
 }
 
-// The 5 shipped presets, expressed as recipes so "Start from preset" populates the
-// four controls (the engine CSS in base.finish.css is the rendered truth; these
-// mirror its layer choices so a preset is a tweakable starting point, not a black box).
-export const PRESET_RECIPES: Record<string, FinishRecipe> = {
-	atrium: {
-		wash: { type: 'corner-glow', intensity: 10 },
-		texture: { type: 'grid', intensity: 7, scale: 38 },
-		mark: { type: 'bar', placement: 'left' },
-		edge: { type: 'none', intensity: 6 },
-	},
-	meridian: {
-		wash: { type: 'duotone', intensity: 7 },
-		texture: { type: 'contour', intensity: 6, scale: 46 },
-		mark: { type: 'numeral', placement: 'bottom-right' },
-		edge: { type: 'none', intensity: 6 },
-	},
-	strata: {
-		wash: { type: 'bands', intensity: 5 },
-		texture: { type: 'dots', intensity: 13, scale: 26 },
-		mark: { type: 'tick', placement: 'top-right' },
-		edge: { type: 'none', intensity: 6 },
-	},
-	halo: {
-		wash: { type: 'spotlight', intensity: 6 },
-		texture: { type: 'rings', intensity: 6, scale: 56 },
-		mark: { type: 'none', placement: 'center' },
-		edge: { type: 'vignette', intensity: 5 },
-	},
-	ledger: {
-		wash: { type: 'none', intensity: 8 },
-		texture: { type: 'ruled', intensity: 8, scale: 40 },
-		mark: { type: 'bar', placement: 'left' },
-		edge: { type: 'fold', intensity: 16 },
-	},
-	// ── The 4 NEW premium presets — each leans into a tunable/movable layer. ──
-	nimbus: {
-		// Pure atmosphere: a gradient-MESH of overlapping accent blooms, a soft
-		// vignette to seat it. Wash intensity tunes the bloom strength. No texture.
-		wash: { type: 'mesh', intensity: 12 },
-		texture: { type: 'none', intensity: 7, scale: 38 },
-		mark: { type: 'none', placement: 'center' },
-		edge: { type: 'vignette', intensity: 6 },
-	},
-	loom: {
-		// On-brand woven LATTICE cross-hatch + a MOVABLE corner glow (placement).
-		// Texture scale tunes the weave pitch; the glow rides the placement axis.
-		wash: { type: 'corner-glow', intensity: 11 },
-		texture: { type: 'lattice', intensity: 7, scale: 34 },
-		mark: { type: 'none', placement: 'top-left' },
-		edge: { type: 'none', intensity: 6 },
-	},
-	savile: {
-		// Tailored PINSTRIPE (scale tunes the pitch) + a MOVABLE monogram mark.
-		wash: { type: 'none', intensity: 8 },
-		texture: { type: 'pinstripe', intensity: 8, scale: 18 },
-		mark: { type: 'monogram', placement: 'bottom-right' },
-		edge: { type: 'none', intensity: 6 },
-	},
-	gallery: {
-		// Museum framing: an inset keyline FRAME edge + a spotlight + a MOVABLE numeral.
-		wash: { type: 'spotlight', intensity: 7 },
-		texture: { type: 'none', intensity: 7, scale: 38 },
-		mark: { type: 'numeral', placement: 'top-left' },
-		edge: { type: 'frame', intensity: 12 },
-	},
-};
+// The shipped presets' recipes, read from their PACKAGES (lib/finishes/<name>/<name>.recipe.json)
+// through the generated presets module, so "Start from preset" populates the four controls
+// from the same file the register is built from. This used to be a hand-kept copy, and it had
+// drifted: halo's spotlight sat in the corner instead of the center, loom's glow on the wrong
+// side, and two texture pitches were off by one pixel, so starting from those presets did not
+// reproduce them. `finish-generate.test.ts` pins every recipe as a fixed point of `coerceRecipe`.
+// The engine CSS in base.finish.css is still the rendered truth for the shipped presets
+// (portable-packages §3.6 records the measured gap to generating it).
+export const PRESET_RECIPES: Record<string, FinishRecipe> = Object.fromEntries(FINISH_PRESETS.map((p) => [p.name, p.recipe as FinishRecipe]));
 
 // ── Coercion — clamp/snap any input (a control, or an AI reply) to the vocab. ──
 const oneOf = <T extends string>(opts: readonly T[], v: unknown, fallback: T): T =>
@@ -313,7 +262,14 @@ export type FinishFace = 'rich' | 'opaque';
 const mix = (pct: number, face: FinishFace) =>
 	`color-mix(in srgb, var(--field-accent, var(--accent)) ${Math.round(pct)}%, ${face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))'})`;
 // The end-stop of a full-bleed fade: the canvas for export, nothing for screen.
+// ONLY the BOTTOM full-bleed layer may use it (base.finish.css § THE BOTTOM-LAYER RULE).
 const fadeEnd = (face: FinishFace) => (face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))');
+// The end-stop of a fade in any layer ABOVE the bottom one: the canvas color at zero
+// opacity on export. A solid canvas stop there paints the slide color over every layer
+// below it, which is how the mesh and the vignette printed as a blank slide
+// (2026-09-23-portable-packages.md §1). Zero-opacity CANVAS, not `transparent`, because
+// `transparent` is black at zero opacity and a PDF rasterizer draws that fade through gray.
+const fadeClear = (face: FinishFace) => (face === 'rich' ? 'transparent' : 'rgb(from var(--fin-canvas, var(--bg)) r g b / 0)');
 // Rich nudges accent up a touch (the alpha falloff makes it read fainter than the
 // same % over an opaque canvas), capped so text-on-bg AA still survives.
 const lift = (pct: number, face: FinishFace) => (face === 'rich' ? Math.min(22, pct + 3) : pct);
@@ -344,13 +300,16 @@ function washImage(type: WashType, i: number, face: FinishFace, x = 100, y = 0, 
 			// its own full-bleed radial that fades to the face's end-stop (transparent on
 			// screen so the blooms add cleanly; var(--fin-canvas, var(--bg)) on export so no gray cloud — the
 			// blooms over-mix toward bg but each ends opaque, so the PDF bakes clean).
+			// Only the LAST bloom is the bottom layer, so only it may end on the solid canvas;
+			// the three above it end clear, or the top one hides the rest on export.
 			const hi = mix(a, face);
 			const mid = mix(lift(Math.max(3, i * 0.7), face), face);
 			const lo = mix(lift(Math.max(3, i * 0.5), face), face);
+			const clear = fadeClear(face);
 			return (
-				`radial-gradient(60% 60% at 12% 18%, ${hi} 0%, ${end} 60%), ` +
-				`radial-gradient(58% 58% at 88% 24%, ${mid} 0%, ${end} 58%), ` +
-				`radial-gradient(64% 64% at 78% 90%, ${lo} 0%, ${end} 62%), ` +
+				`radial-gradient(60% 60% at 12% 18%, ${hi} 0%, ${clear} 60%), ` +
+				`radial-gradient(58% 58% at 88% 24%, ${mid} 0%, ${clear} 58%), ` +
+				`radial-gradient(64% 64% at 78% 90%, ${lo} 0%, ${clear} 62%), ` +
 				`radial-gradient(50% 50% at 28% 88%, ${lo} 0%, ${end} 58%)`
 			);
 		}
@@ -452,7 +411,11 @@ function markTextSlots(r: FinishRecipe, mixPct: number): string[] {
 // Build the EDGE gradient (z4 pseudo, full-bleed). Export face: opaque vignette/fold,
 // never an alpha shadow. Screen face: fades to `transparent` for a softer dissolve.
 function edgeImage(type: EdgeType, i: number, face: FinishFace): string {
+	// The edge pseudo paints ABOVE the whole backdrop, so a FULL-BLEED edge (the
+	// vignette) ends clear. The fold is a corner patch and keeps its solid end
+	// (base.finish.css § THE BOTTOM-LAYER RULE).
 	const end = fadeEnd(face);
+	const clear = fadeClear(face);
 	switch (type) {
 		case 'vignette': {
 			// RICH: clear center → low-alpha ink rim. OPAQUE: bg center → ink-in-bg rim.
@@ -460,7 +423,7 @@ function edgeImage(type: EdgeType, i: number, face: FinishFace): string {
 				face === 'rich'
 					? `color-mix(in srgb, var(--text-heading) ${Math.round(Math.min(22, i + 2))}%, transparent)`
 					: `color-mix(in srgb, var(--text-heading) ${Math.round(i)}%, var(--fin-canvas, var(--bg)))`;
-			const center = face === 'rich' ? 'transparent 60%' : 'var(--fin-canvas, var(--bg)) 62%';
+			const center = face === 'rich' ? 'transparent 60%' : `${clear} 62%`;
 			return `radial-gradient(78% 78% at 50% 50%, ${center}, ${rim} 100%)`;
 		}
 		case 'fold':

@@ -1,0 +1,19 @@
+{
+  "wash": {
+    "type": "duotone",
+    "intensity": 7
+  },
+  "texture": {
+    "type": "contour",
+    "intensity": 6,
+    "scale": 47
+  },
+  "mark": {
+    "type": "numeral",
+    "placement": "bottom-right"
+  },
+  "edge": {
+    "type": "none",
+    "intensity": 6
+  }
+}

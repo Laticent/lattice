@@ -1,0 +1,12 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "ledger",
+  "type": "finish",
+  "format": 1,
+  "label": "Ledger",
+  "blurb": "Fine ruled lines + a bold left margin bar + a corner fold.",
+  "order": 5,
+  "swatch": {
+    "background": "linear-gradient(90deg, color-mix(in srgb, var(--accent) 80%, transparent) 0 2px, transparent 2px), repeating-linear-gradient(180deg, transparent 0 5px, color-mix(in srgb, var(--accent) 30%, transparent) 5px 6px)"
+  }
+}

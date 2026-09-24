@@ -1,0 +1,12 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "halo",
+  "type": "finish",
+  "format": 1,
+  "label": "Halo",
+  "blurb": "Centered spotlight + concentric rings + an inset vignette.",
+  "order": 4,
+  "swatch": {
+    "background": "radial-gradient(60% 60% at 50% 50%, color-mix(in srgb, var(--accent) 40%, transparent), transparent 70%), repeating-radial-gradient(circle at 50% 50%, transparent 0 6px, color-mix(in srgb, var(--accent) 34%, transparent) 6px 7px)"
+  }
+}

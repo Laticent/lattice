@@ -74,8 +74,11 @@ const CENSUS = {
 		why: 'the self-contained doc (fonts + composed sheet) and the finish block spliced into shared markdown.',
 	},
 	'docs/src/components/studio/export/deck-export.js': {
-		guards: 1,
-		why: 'embedThemeInMarkdown — a saved library theme spliced into markdown handed to a recipient.',
+		guards: 2,
+		why:
+			'embedThemeInMarkdown — a saved library theme spliced into markdown handed to a recipient; ' +
+			'exportMarp — a saved library theme written as themes/<name>.css in the Marp bundle, which the ' +
+			"recipient's Marp wraps in a <style>.",
 	},
 	'lib/layout/bridge.js': {
 		guards: 1,

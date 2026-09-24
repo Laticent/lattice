@@ -1,0 +1,19 @@
+{
+  "wash": {
+    "type": "spotlight",
+    "intensity": 7
+  },
+  "texture": {
+    "type": "none",
+    "intensity": 7,
+    "scale": 38
+  },
+  "mark": {
+    "type": "numeral",
+    "placement": "top-left"
+  },
+  "edge": {
+    "type": "frame",
+    "intensity": 12
+  }
+}

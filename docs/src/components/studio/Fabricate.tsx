@@ -30,6 +30,8 @@ import { FinishStudio } from './FinishStudio';
 import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
 import { REFUSAL_PREFIX } from './library/asset-store.js';
+import { unreservedComponentName } from './library/reserved-classes';
+import { RESERVED_THEME_NAMES, unreservedName } from './library/reserved-names';
 import { findNameClash } from './library/save-guard.js';
 import { manifestJsonCompletion } from './manifest-complete';
 import { MotionStudio } from './motion/MotionStudio';
@@ -667,8 +669,13 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// the theme copy stayed unscoped, which paired with the conditional pin below to
 	// deadlock Save on this tab after the first save. Three copies of a rule with two
 	// halves is how that happens twice.
-	const nameTakenBy = findNameClash(savedThemes, themeName, editingId, ownedThemes);
-	const compNameTakenBy = findNameClash(savedComponents, compName, compEditingId, ownedComponents);
+	// Checked under the name the store will ACTUALLY use. A shipped name saves as
+	// `<name>-custom` (library/reserved-names.ts), so checking the typed `indaco` found no
+	// clash, and a second "indaco" silently overwrote the first `indaco-custom`.
+	const themeSaveName = unreservedName(RESERVED_THEME_NAMES, themeName);
+	const compSaveName = unreservedComponentName(compName);
+	const nameTakenBy = findNameClash(savedThemes, themeSaveName, editingId, ownedThemes);
+	const compNameTakenBy = findNameClash(savedComponents, compSaveName, compEditingId, ownedComponents);
 	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
 	/**
 	 * WHY SAVE IS DEAD ON A REOPENED IMPORT, said on the button rather than left to be
@@ -739,7 +746,11 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				if (editingId) setEditingId(t.id);
 				own(setOwnedThemes, t.id);
 				setHandDirty(false);
-				notify(`Saved “${t.label}” to your theme library — pick it from Look.`);
+				// A shipped name is reserved (library/reserved-names.ts), so the store may have
+				// saved under `<name>-custom`. Say so: the deck needs the name that was stored.
+				notify(t.name === themeName
+					? `Saved “${t.label}” to your theme library — pick it from Look.`
+					: `“${themeName}” is a shipped theme, so this saved as “${t.name}” — pick it from Look.`);
 			} else {
 				// `id` is what makes this an UPDATE — same reason as the theme branch above.
 				// Without it the store keys on the name, so editing-then-renaming created a
@@ -765,7 +776,9 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				//
 				// Owned, not pinned — see the theme branch above for why those differ.
 				own(setOwnedComponents, c.id);
-				notify(`Saved “.${c.name}” to your component library.`);
+				notify(c.name === compName
+					? `Saved “.${c.name}” to your component library.`
+					: `“.${compName}” is a shipped component, so this saved as “.${c.name}”.`);
 			}
 			onSaved?.();
 		} catch (e) {
@@ -979,7 +992,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				{facultyToggle}
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compName}” is already a saved component — pick another name.` : importedGap.length ? `This component was imported without its ${importedGap.join(', ')} — set ${importedGap.length === 1 ? 'it' : 'them'} in the Manifest panel to save.` : ''}>
+				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeSaveName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compSaveName}” is already a saved component — pick another name.` : importedGap.length ? `This component was imported without its ${importedGap.join(', ')} — set ${importedGap.length === 1 ? 'it' : 'them'} in the Manifest panel to save.` : ''}>
 					<span className="inline-flex shrink-0"><Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></span>
 				</Tip>
 			</div>

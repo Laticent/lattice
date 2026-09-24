@@ -76,6 +76,7 @@ import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
+import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
 import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
@@ -1141,15 +1142,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// CSS of the local components the deck actually USES, injected so an inserted
 	// local component renders STYLED (the engine theme doesn't know it). The engine
 	// applies its `.<name>` class; this supplies the matching rules.
-	const usedLocalCss = React.useMemo(() => {
-		if (!localComponents.length) return undefined;
+	// The same list also rides into the Markdown and Marp exports (ShareSheet), so a
+	// deck that renders a saved component here keeps its styling on the recipient's
+	// machine. One derivation feeds both, so preview and export can't disagree about
+	// which components the deck uses.
+	const usedLocalComponents = React.useMemo(() => {
+		if (!localComponents.length) return [];
 		const used = new Set(usedComponents(source));
-		const css = localComponents
-			.filter((c) => used.has(c.name))
-			.map((c) => c.css)
-			.join('\n\n');
-		return css || undefined;
+		// A record saved under a shipped name before saves were guarded is skipped: its
+		// CSS would restyle the shipped component on every slide that uses it.
+		return localComponents.filter((c) => used.has(c.name) && c.css && !RESERVED_COMPONENT_NAMES.has(c.name)).map((c) => ({ name: c.name, css: c.css }));
 	}, [localComponents, source]);
+	const usedLocalCss = React.useMemo(() => usedLocalComponents.map((c) => c.css).join('\n\n') || undefined, [usedLocalComponents]);
 	// `validation` is an editor preference (persisted in settings). The deck-level
 	// Look controls (size / page numbers / header+footer) are NOT separate state —
 	// they READ from and WRITE to the deck's front-matter, so the toggle always
@@ -1920,17 +1924,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// finish's baked layers — backdrop strength/clearance and any other layer). Empty when
 	// absent. Only the DECK-WIDE active finish honors it; per-slide finishes render baked.
 	const finishOverride = React.useMemo(() => parseFinishOverride(source), [source]);
+	// The saved finishes this deck uses: the `finish-<slug>` class token as a whole word
+	// (front-matter value or a per-slide _class line), or the bare deck-wide slug (back-compat).
+	const usedSavedFinishes = React.useMemo(
+		() =>
+			savedFinishes.filter((f) => {
+				const esc = `finish-${f.name}`.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+				return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
+			}),
+		[savedFinishes, source, finish],
+	);
 	const finishExtraCss = React.useMemo(() => {
-		if (!savedFinishes.length) return undefined;
+		if (!usedSavedFinishes.length) return undefined;
 		const hasOverride = Object.keys(finishOverride).length > 0;
-		const used = savedFinishes.filter((f) => {
-			const token = `finish-${f.name}`;
-			// the `finish-<slug>` class token as a whole word (front-matter value or a
-			// per-slide _class line), or the bare deck-wide slug (back-compat).
-			const esc = token.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-			return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
-		});
-		return used
+		return usedSavedFinishes
 			.map((f) => {
 				// The active deck-wide finish REGENERATES with the override deep-merged into its
 				// recipe (backdrop + any layer); every other used finish renders its baked CSS.
@@ -1939,7 +1946,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			})
 			.filter(Boolean)
 			.join('\n\n') || undefined;
-	}, [savedFinishes, source, finish, finishOverride]);
+	}, [usedSavedFinishes, finish, finishOverride]);
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
@@ -2139,7 +2146,48 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (/\.lattice$/i.test(file.name)) {
 			import('./lattice-file')
 				.then(({ readLatticeFile }) => readLatticeFile(file))
-				.then(({ source: src, title, comments }) => openImportedDeck(src, title, comments))
+				.then(async ({ source: src, title, comments, packages }) => {
+					// The saved themes/components/finishes the deck was exported with ride in the
+					// file as package folders (portable-packages §4). They go through the SAME funnel
+					// as a Library import — same gates, same `-custom` rename, same refusals — so a
+					// `.lattice` file is never a side door around them. Two differences, both because
+					// OPENING a file is not asking to change your Library:
+					//   - keepMine: nothing you saved is overwritten (import-parsed.ts says how);
+					//   - motion is not taken from the file. A deck inlines its motion (§5), so a
+					//     carried motion package is never needed to render it.
+					// The packages go in FIRST, so the deck can be pointed at the names they were
+					// saved under before it opens.
+					const scenesLeft = packages.scenes.length;
+					const carried = { ...packages, scenes: [] };
+					if (!carried.themes.length && !carried.components.length && !carried.finishes.length && !carried.refused.length && !scenesLeft) {
+						openImportedDeck(src, title, comments);
+						return;
+					}
+					const { importParsedBundle, applyImportRenames } = await import('./library/import-parsed');
+					let t: Awaited<ReturnType<typeof importParsedBundle>>;
+					try {
+						t = await importParsedBundle(carried, { keepMine: true });
+					} catch (err) {
+						// The deck is the thing the person asked for; a Library that won't take its
+						// assets must not stop it opening.
+						openImportedDeck(src, title, comments);
+						notify(`Opened the deck, but its saved assets could not be added: ${(err as Error)?.message || 'the Library is unavailable'}.`);
+						return;
+					}
+					openImportedDeck(applyImportRenames(src, t.renames), title, comments);
+					refreshThemes();
+					refreshComponents();
+					refreshFinishes();
+					const got = [t.themes && `${t.themes} theme(s)`, t.components && `${t.components} component(s)`, t.finishes && `${t.finishes} finish(es)`].filter(Boolean).join(' + ');
+					const detail = [
+						t.renamed.length ? `Saved under another name, and this deck now uses it: ${t.renamed.join(', ')}.` : null,
+						t.unchanged ? `${t.unchanged} already in your Library, unchanged.` : null,
+						t.refused.length ? `Not added: ${t.refused.map((r) => `${r.name} (${r.why})`).join('; ')}.` : null,
+						scenesLeft ? `${scenesLeft} motion(s) in the file were not added — the deck carries its motion inline.` : null,
+						t.notes.length ? t.notes.join(' ') : null,
+					].filter(Boolean).join('\n') || undefined;
+					if (got || detail) notify(got ? `Added the deck's ${got} to your Library. Nothing you had was changed.` : 'Nothing was added to your Library.', { description: detail });
+				})
 				// A stale tab fails HERE before it ever reads the file (#1242): the reader is a
 				// lazy chunk, and a superseded deploy's URL is gone. Blaming the .lattice file
 				// for that sends the user to re-export a perfectly good deck — name the real
@@ -2240,10 +2288,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The active theme as a saved library entry (when the active palette names one),
 	// else undefined → a built-in palette. Drives the `extraTheme` everywhere a deck
 	// is rendered/exported so a saved theme is honored, not just previewed.
-	const activeTheme = React.useMemo(() => savedThemes.find((t) => t.name === palette), [savedThemes, palette]);
+	const activeTheme = React.useMemo(() => (RESERVED_THEME_NAMES.has(palette) ? undefined : savedThemes.find((t) => t.name === palette)), [savedThemes, palette]);
 	const extraTheme = activeTheme ? { name: activeTheme.name, css: activeTheme.css } : undefined;
 	// Saved (Fabricated) themes shaped for the grouped picker.
-	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
+	// A record saved under a shipped name before saves were guarded is left out: picking
+	// it would select the shipped theme, so the entry would do nothing it says.
+	const savedMenu = React.useMemo(() => savedThemes.filter((t) => !RESERVED_THEME_NAMES.has(t.name)).map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
 	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
 	// off it); the data-mode observer below pulls the new value into `mode` and the
@@ -2978,7 +3028,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// The deck names its own theme — pin the preview to it. A deck theme that
 			// names a saved (Fabricated) library theme needs its CSS registered, so
 			// pass it as extraTheme; a built-in is fetched by name (extraTheme none).
-			const saved = savedThemes.find((t) => t.name === r.palette);
+			// A shipped name always resolves to the shipped theme. A record saved under one
+			// before saves were guarded (library/reserved-names.ts) must not re-skin it.
+			const saved = RESERVED_THEME_NAMES.has(r.palette) ? undefined : savedThemes.find((t) => t.name === r.palette);
 			return { paletteOverride: r.palette, extraTheme: saved ? { name: saved.name, css: saved.css } : undefined, modeOverride };
 		}
 		// Un-themed deck → adopt the website palette (the saved-theme CSS path is the
@@ -2986,6 +3038,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// deck still pins dark via modeOverride.
 		return { paletteOverride: activeTheme?.name, extraTheme, modeOverride };
 	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
+	// The saved Library records this deck uses — its saved theme, its saved components and
+	// its saved finishes — which a `.lattice` project carries along as package folders
+	// (portable-packages §4). Built from the same derivations the preview uses, so the file
+	// carries exactly what renders.
+	const deckPackages = React.useMemo(() => {
+		// Only a theme the deck NAMES: an un-themed deck previews in the site picker's theme,
+		// which the file must not carry as if the deck depended on it.
+		const named = getFrontMatter(source, 'theme');
+		const themeName = named && preview.extraTheme?.name === named ? named : undefined;
+		const usedComps = new Set(usedLocalComponents.map((c) => c.name));
+		return {
+			themes: themeName ? savedThemes.filter((t) => t.name === themeName) : [],
+			components: localComponents.filter((c) => usedComps.has(c.name)),
+			finishes: usedSavedFinishes,
+		};
+	}, [source, preview.extraTheme, savedThemes, usedLocalComponents, localComponents, usedSavedFinishes]);
 
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
 	// Mirrors for the mount-once navigation listeners below: the keydown handler is
@@ -5670,7 +5738,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →

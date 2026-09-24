@@ -18,8 +18,9 @@ finish:
 - Keeps accent alpha **low (~5–16%)** so text-on-background AA contrast survives
   with no scrim.
 - Provides **both faces**: a RICH screen face (gradients that fade to transparent)
-  and an OPAQUE export face (every full-bleed fade ends on `var(--fin-canvas)`, patterns
-  are hard-stop opaque lines) — with **identical layer counts**.
+  and an OPAQUE export face (the bottom full-bleed fade ends on `var(--fin-canvas)`,
+  every layer above it ends on the canvas at zero opacity, patterns are hard-stop opaque
+  lines) — with **identical layer counts**.
 - Is **palette-blind**: every color is `color-mix()` of `var(--accent)` /
   `var(--fin-canvas)` / `var(--text-heading)`. A theme swap or `dark` recolors it automatically.
 - Has a **point of view** — a signature layer type (a mesh, a lattice, a pinstripe,
@@ -77,25 +78,46 @@ light-canvas wash over those dark surfaces and the white display text disappears
 `finish:` deck's title slide exported as a nearly blank page (#1656). Using the canvas
 token is the whole of the fix, and it costs nothing anywhere else.
 
-So every full-bleed fade needs an OPAQUE mirror that ends on `var(--fin-canvas)` (accent
-mixed *into* bg, never into transparent); patterns become uniform 1px opaque lines
-with transparent gaps. A shared "opaque flip" re-points every slot to its `-opaque`
-mirror under `@media print` and `.lattice-exporting` — you only supply the mirror
-values, and both faces must keep the **same layer count**.
+So every full-bleed fade needs an OPAQUE mirror (accent mixed *into* the canvas, never
+into transparent); patterns become uniform 1px opaque lines with transparent gaps. A
+shared "opaque flip" re-points every slot to its `-opaque` mirror under `@media print`
+and `.lattice-exporting` — you only supply the mirror values, and both faces must keep
+the **same layer count**.
+
+**Only the BOTTOM layer may end on the solid canvas.** The bottom full-bleed wash ends on
+`var(--fin-canvas)`. Every full-bleed layer painted above it — a second or third mesh
+bloom, the edge vignette — ends on the same color at zero opacity,
+`rgb(from var(--fin-canvas) r g b / 0)`. A layer that ends solid paints the slide color
+over everything below it: `halo` and `nimbus` shipped that way and printed as a blank
+white slide with a gray rim. Don't use `transparent` or `color-mix(…, transparent)` for
+that stop — both are black at zero opacity, and that is the gray cloud again. A layer
+sized to a corner or a strip (a fold, a hairline) keeps its solid end: it covers only
+its patch, and a zero-opacity end fades faster in print, because a PDF rasterizer
+interpolates color and opacity separately.
+(`test/unit/css/finish-bottom-layer.test.js` checks the shipped presets.)
 
 ---
 
 ## Where it lives
 
-- **The register** (source of truth): `FINISH_REGISTER` in
-  `lib/core/resolve-finish.js` — one row per finish. Adding a row automatically
-  extends the lint vocabulary and the picker guard.
+- **The package** (source of truth for the finish's NAME and registration):
+  `lib/finishes/<name>/` — `<name>.manifest.json` (name, label, blurb, picker
+  swatch, `order`) and `<name>.recipe.json` (the look in the closed layer
+  vocabulary below, which the Studio starts from — not yet what a deck renders;
+  see **The CSS**).
+  `tools/build-packages-index.js` generates `lib/finishes/presets.generated.js`
+  from the folders, and the register (`FINISH_REGISTER` in
+  `lib/core/resolve-finish.js`), the lint vocabulary, the Studio's picker catalog
+  and its "Start from preset" recipes are all read from it. A folder is the whole
+  registration.
 - **The CSS**: `lib/base/base.finish.css` — the compositor + every preset body +
-  the opaque flip + the per-slide `finish-none` opt-out.
+  the opaque flip + the per-slide `finish-none` opt-out. The preset bodies are still
+  hand-written and are what every deck renders; `checkFinishPackages` fails the
+  build when a package has no `section.finish-<name>` rule or a rule has no
+  package, but it checks names only — tuning a `recipe.json` changes the Studio's
+  starting point and no deck. Generating these bodies from the recipes is the open
+  phase-2 decision (`followups.d/2314-p2-finishes-become-packages.md`).
 - **The sibling `mode:`**: `lib/core/resolve-mode.js` + `lib/base/base.sketch.css`.
-- **Studio display metadata**: `docs/src/components/studio/finish-catalog.ts` (must
-  stay in step with the register or a rot-guard test fails); optional generator
-  recipe in `finish-generate.ts`.
 - **Ships today (10 values)**: `none` (baseline), `atrium`, `meridian`, `strata`,
   `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`.
 - **The closed layer vocabulary** (what the generator/AI may speak): WASH = none /
@@ -107,8 +129,12 @@ values, and both faces must keep the **same layer count**.
 
 ## Recipe
 
-1. **Register the name** — add one row to `FINISH_REGISTER`:
-   `myfinish: 'finish finish-myfinish',`.
+1. **Add the package** — `lib/finishes/myfinish/myfinish.manifest.json` (copy a
+   sibling's: `$schema`, `name`, `type: "finish"`, `format: 1`, `label`, `blurb`,
+   the next `order`, and a picker `swatch`) and `myfinish.recipe.json` (the closest
+   recipe in the vocabulary, so the Studio's "Start from preset" reproduces it). Run
+   `node tools/build-packages-index.js`; the register, lint vocabulary and picker
+   pick it up.
 2. **Write the preset CSS** in `base.finish.css` as `section.finish-myfinish { … }`.
    Declare **all four slot families** (unused = `none`, so it never inherits a
    sibling's stray layer). For each layer you use, write both the RICH default
@@ -121,11 +147,9 @@ values, and both faces must keep the **same layer count**.
    no `margin`.
 4. **Default glyph marks to empty** — `--fin-mark-text: ""`. A deck-wide finish
    paints no monogram/numeral until the author personalizes it per slide.
-5. **Add Studio metadata** in `finish-catalog.ts` (label, blurb, group, nature,
-   zone, swatch) so the rot-guard passes.
-6. **Ship a demo deck** in `examples/` + committed PDF; add a `changelog.d/` fragment + the
+5. **Ship a demo deck** in `examples/` + committed PDF; add a `changelog.d/` fragment + the
    canonical doc.
-7. **Export sign-off** through **both** engines (CLI vector PDF *and* Studio
+6. **Export sign-off** through **both** engines (CLI vector PDF *and* Studio
    html-to-image raster), in **dark and light**. A finish alters exported bytes, so
    this is a mandatory human sign-off (Quality Bar).
 
@@ -189,6 +213,9 @@ with `<!-- _class: finish-none -->`.
 - Accent at 40% alpha — the backdrop competes with the text.
 - A radial wash ending on `transparent` with no opaque mirror → muddy gray in the
   exported PDF.
+- An upper layer (a second bloom, a vignette) whose opaque mirror ends on the solid
+  `var(--fin-canvas)` → it paints over every layer below it and the PDF shows no
+  finish at all.
 - `background-image: url(paper.png)` or a `mask-image` — export-breaking and an
   exfiltration surface; use CSS gradients only.
 - A baked `--fin-mark-text: "ACME"` on a deck-wide finish.
@@ -200,13 +227,13 @@ with `<!-- _class: finish-none -->`.
 
 ## Ship checklist
 
-- [ ] One row added to `FINISH_REGISTER`.
+- [ ] Package folder added (`lib/finishes/<name>/`: manifest + recipe) and the
+      generated presets module rebuilt.
 - [ ] Preset declares all four slot families; every full-bleed layer has a RICH and
       an `-opaque` mirror with **matching layer counts**.
 - [ ] Palette-blind: `color-mix()` of `var(--accent/--bg/--ink)` only; no hex,
       `url()`, `mask-image`, or `margin`.
 - [ ] Glyph mark defaults to empty.
-- [ ] `finish-catalog.ts` metadata added (rot-guard green).
 - [ ] Demo deck + PDF; `changelog.d/` fragment + canonical doc updated.
 - [ ] **Export sign-off**: rendered in both export engines, dark + light, and shown
       for human approval.
@@ -239,5 +266,5 @@ with `<!-- _class: finish-none -->`.
 - `engineering/decisions/2026-07-01-finish-restraint-controls.md` — strength /
   clearance controls.
 - `examples/finish-backdrops.md` — the demo deck (all presets + a custom finish).
-- `docs/src/components/studio/finish-catalog.ts` / `finish-generate.ts` — Studio
-  metadata + the fabricate recipe.
+- `lib/finishes/<name>/` — each preset's package; `finish-generate.ts` — the Studio's
+  recipe → CSS generator.

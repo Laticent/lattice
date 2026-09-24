@@ -1,0 +1,19 @@
+{
+  "wash": {
+    "type": "mesh",
+    "intensity": 12
+  },
+  "texture": {
+    "type": "none",
+    "intensity": 7,
+    "scale": 38
+  },
+  "mark": {
+    "type": "none",
+    "placement": "center"
+  },
+  "edge": {
+    "type": "vignette",
+    "intensity": 6
+  }
+}

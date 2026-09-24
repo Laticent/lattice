@@ -40,13 +40,12 @@
 // refusal. It still reports as a finding; it just does not veto an import.
 
 /** Findings that veto an imported asset. Off-device fetches and script vectors. */
-const REFUSING_RULES = new Set([
-	'css-url-remote', // a remote url() — the beacon
-	'css-import', // a remote or unresolvable @import (theme gate allowlists the legit one)
-	'theme-import', // the theme gate's own verdict on a non-allowlisted import target
-	'css-expression', // legacy IE script-in-CSS
-	'css-binding', // -moz-binding
-]);
+import importGate from '../../../../lib/packages/import-gate.js';
+
+// The refusing rules live in lib/packages/import-gate.js, shared with the CLI's
+// `lattice packages add`, so the two imports refuse exactly the same packages.
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+const { firstRefusal: sharedFirstRefusal } = importGate;
 
 // BOTH CORES ARE LOADED ON DEMAND, and that is a budget rule, not a preference.
 // `Library.tsx` is on the Studio's EAGER path, and these `*.generated.js` bundles are
@@ -78,8 +77,7 @@ export type ImportRefusal = { name: string; why: string } | null;
 type Finding = { rule?: string; message?: string; blocking?: boolean };
 
 function firstRefusal(findings: Finding[] | undefined, name: string): ImportRefusal {
-	const hit = (findings ?? []).find((f) => f.rule && REFUSING_RULES.has(f.rule));
-	return hit ? { name, why: hit.message ?? 'it reaches off the device.' } : null;
+	return sharedFirstRefusal(findings, name) as ImportRefusal;
 }
 
 /**

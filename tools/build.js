@@ -89,6 +89,9 @@ const STEPS = [
   // The palette picker's groups + swatches, baked from themes/*.manifest.json — the
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
+  // The one index of every shipped package (lib/packages/), walked through the package
+  // spine. Committed, like the catalogs around it: later phases import it as a module.
+  { label: 'package index (lib/packages)', script: 'build-packages-index.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
   // The Guide's rendered-part catalog, baked from every manifest's `handles` block. Committed
   // rather than uncommitted: `present-guide.ts` imports it as an ordinary module, so a missing
@@ -135,6 +138,8 @@ const STEPS = [
   { label: 'hljs grammars (docs site)', script: 'build-hljs-languages.js', uncommitted: true },
   { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js', uncommitted: true },
   { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js', uncommitted: true },
+  // The package spine for the Studio's zip import/export (package-zip.ts).
+  { label: 'packages-core bundle (docs site)', script: 'build-packages-core.js', uncommitted: true },
   { label: 'authoring-core bundle (docs site)', script: 'build-authoring-core.js', uncommitted: true },
   { label: 'exemplar-core bundle (docs site)', script: 'build-exemplar-core.js', uncommitted: true },
   { label: 'standalone-core bundle (docs site)', script: 'build-standalone-core.js', uncommitted: true },

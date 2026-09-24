@@ -17,6 +17,14 @@ export const A11Y_THEMES = ['a11y-achromatopsia', 'a11y-deuteranopia', 'a11y-pro
 /** Every palette the Studio can drive via `data-palette` — curated + more + the AA color-blind set. */
 export const BUILTIN_PALETTES = [...CURATED, ...MORE_THEMES, ...A11Y_THEMES];
 
+/**
+ * Every theme name the engine ships — every manifest, `-dark` companions and bases
+ * included, plus `lattice` itself. A saved theme may not take one of these: a saved
+ * record is resolved by name, so a theme saved as `indaco` would re-skin every deck
+ * that says `theme: indaco` (2026-09-23-portable-packages.md §3.7).
+ */
+export const SHIPPED_THEME_NAMES: readonly string[] = ['lattice', 'a11y-achromatopsia', 'a11y-base', 'a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia', 'ardesia', 'ardesia-dark', 'atelier', 'atelier-dark', 'brina', 'brina-dark', 'burgundy', 'burgundy-dark', 'carbone', 'carbone-dark', 'carta', 'carta-dark', 'concrete', 'concrete-dark', 'crepuscolo', 'crepuscolo-dark', 'cuoio', 'cuoio-dark', 'indaco', 'indaco-dark', 'laguna', 'laguna-dark', 'magnolia', 'magnolia-dark', 'mustard', 'mustard-dark', 'onyx', 'onyx-dark'];
+
 /** Each listed palette's picker dot (manifest `swatch`). */
 export const PALETTE_DOTS: Record<string, string> = {
 	indaco: '#006FA8',

@@ -1,0 +1,21 @@
+{
+  "wash": {
+    "type": "corner-glow",
+    "intensity": 11,
+    "x": 0,
+    "y": 0
+  },
+  "texture": {
+    "type": "lattice",
+    "intensity": 7,
+    "scale": 34
+  },
+  "mark": {
+    "type": "none",
+    "placement": "top-left"
+  },
+  "edge": {
+    "type": "none",
+    "intensity": 6
+  }
+}

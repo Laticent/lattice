@@ -10,13 +10,15 @@
 // follow-ons. See engineering/decisions/2026-06-16-lattice-export-format.md and
 // 2026-07-04-comments-layer.md (comments travel in the `.lattice` manifest).
 
+import type { ParsedBundle } from './asset-bundle';
+import type { PackageFiles } from './package-zip';
 import type { SlideComment } from './slide-comments';
+import { assertZipWithinLimits, declaredInflatedBytes, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, readBudget } from './zip-limits';
 
 // Untrusted-input guards: a `.lattice` is a file from anyone, so reading one must
 // not let a tiny deflate bomb inflate to gigabytes and OOM the tab. Cap both the
-// on-disk size and the declared inflated size before decompressing.
-const MAX_COMPRESSED_BYTES = 25 * 1024 * 1024; // 25 MB on disk
-const MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024; // 64 MB inflated (source + manifest)
+// on-disk size and the declared inflated size before decompressing. The numbers are
+// shared with the asset `.zip` import (`zip-limits.ts`).
 // A deck title from an untrusted manifest is clamped to the same spirit as the
 // `.md` import path (titleFromSource caps length) — no multi-MB titles in the index.
 const MAX_TITLE_LEN = 120;
@@ -87,17 +89,27 @@ export function parseLatticeManifest(json: string): LatticeManifest {
 /**
  * Assemble a `.lattice` zip Blob: `deck.md` (verbatim source) + `manifest.json`
  * (metadata + comments). `source` is stored byte-for-byte so re-import is lossless.
+ *
+ * `packages` are the USER packages the deck uses — a saved theme, components, finishes —
+ * written as `packages/<type>/<name>/`, the same folders a package zip and a repo hold
+ * (engineering/decisions/2026-09-23-portable-packages.md §4, finally delivering
+ * 2026-06-16-lattice-export-format.md §3b). Shipped packages ride with the engine, so a
+ * `.lattice` opens on a machine that has never seen the author's Library.
  */
-export async function exportLatticeBlob(source: string, title: string, comments: SlideComment[], now = 0): Promise<Blob> {
+export async function exportLatticeBlob(source: string, title: string, comments: SlideComment[], now = 0, packages: readonly PackageFiles[] = []): Promise<Blob> {
 	const { default: JSZip } = await import('jszip');
 	const zip = new JSZip();
 	zip.file(DECK_FILE, source);
 	zip.file(MANIFEST_FILE, `${JSON.stringify(buildLatticeManifest(title, comments, now), null, 2)}\n`);
+	for (const p of packages) for (const [f, text] of Object.entries(p.files)) zip.file(`${PACKAGES_DIR}${p.type}/${p.name}/${f}`, text);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
-/** The result of reading a `.lattice`: the deck source + its manifest fields. */
-export type LatticeImport = { source: string; title: string; comments: SlideComment[] };
+const PACKAGES_DIR = 'packages/';
+
+/** The result of reading a `.lattice`: the deck source + its manifest fields + the packages
+ *  it carries (empty for a file written before packages rode along). */
+export type LatticeImport = { source: string; title: string; comments: SlideComment[]; packages: ParsedBundle };
 
 /**
  * Read a `.lattice` file back into a deck source + comments. Throws with a plain
@@ -106,7 +118,7 @@ export type LatticeImport = { source: string; title: string; comments: SlideComm
  */
 export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 	// Reject an oversized archive before touching it (cheap, catches the obvious case).
-	if (file.size > MAX_COMPRESSED_BYTES) {
+	if (file.size > MAX_ZIP_BYTES) {
 		throw new Error('That .lattice file is too large to open.');
 	}
 	const { default: JSZip } = await import('jszip');
@@ -121,14 +133,30 @@ export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 	// Deflate-bomb guard: refuse to inflate if the DECLARED uncompressed size is huge
 	// (a few-KB zip can otherwise expand to gigabytes and crash the tab). JSZip exposes
 	// the entry's uncompressed size on its internal `_data`.
-	const inflated = (e: unknown) => Number((e as { _data?: { uncompressedSize?: number } })?._data?.uncompressedSize) || 0;
-	if (inflated(deckEntry) + inflated(manifestEntry) > MAX_UNCOMPRESSED_BYTES) {
+	if (declaredInflatedBytes(deckEntry) + declaredInflatedBytes(manifestEntry) > MAX_INFLATED_BYTES) {
 		throw new Error('That .lattice file is too large to open.');
 	}
+	// The package folders count against the same cap, together with the deck.
+	const packagePaths = Object.keys(zip.files).filter((p) => p.startsWith(PACKAGES_DIR) && !zip.files[p].dir);
+	assertZipWithinLimits(zip, 'That .lattice file is too large to open.', [DECK_FILE, MANIFEST_FILE, ...packagePaths]);
 	const [source, manifestText] = await Promise.all([deckEntry.async('string'), manifestEntry.async('string')]);
 	const manifest = parseLatticeManifest(manifestText);
+	// The packages ride through the SAME reader as a Library package zip, so they meet the
+	// same spine, the same refusals and the same notes. Saving them is the caller's step,
+	// through the Library's import funnel (library/import-parsed.ts), which runs the gates.
+	let packages: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [] };
+	if (packagePaths.length) {
+		const { unpackPackages } = await import('./asset-bundle');
+		const charge = readBudget('That .lattice file is too large to open.');
+		const sub = new JSZip();
+		for (const p of packagePaths) {
+			const entry = zip.file(p);
+			if (entry) sub.file(p.slice(PACKAGES_DIR.length), (charge(await entry.async('string')) as string) ?? '');
+		}
+		packages = await unpackPackages(sub, async (path) => (path ? ((await sub.file(path)?.async('string')) ?? undefined) : undefined));
+	}
 	// Note: `source` is UTF-8 decoded from the zip — round-trip is byte-identical for
 	// any well-formed text (a lone surrogate, only reachable via a corrupt paste, is
 	// normalized to U+FFFD on encode; an accepted narrow caveat, not a data path).
-	return { source, title: manifest.title, comments: manifest.comments };
+	return { source, title: manifest.title, comments: manifest.comments, packages };
 }

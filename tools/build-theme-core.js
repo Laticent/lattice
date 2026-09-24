@@ -49,6 +49,7 @@ import parse from './parse.js';
 import gate from './gate.js';
 import starters from './starters.js';
 import ai from './ai.js';
+import cssScan from '../core/css-scan.js';
 
 // color
 export const {
@@ -80,6 +81,11 @@ export const { gateThemeCss, ENGINE_DEFAULTED_TOKENS } = gate;
 export const { STARTERS, getStarter } = starters;
 // ai (Phase 2 — one prompt builder + reply coercion; the model call is the caller's)
 export const { ASK_SYSTEM, askMessages, coerceEssentials } = ai;
+// css-scan's @import reader — the Marp export bundles a SAVED theme's shipped parents by
+// reading its \`@import 'name'\` lines (deck-export.js \`importedThemeNames\`). css-scan.js is
+// CommonJS with a require, which the docs dev server can't serve over /@fs, and gate.js
+// already pulls it into this bundle, so exporting it here costs nothing.
+export const { findCssImports } = cssScan;
 `;
 
 const BUILD_OPTIONS = {

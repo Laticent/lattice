@@ -119,3 +119,14 @@ export function renameAssetAcrossDecks(
 	}
 	return { changed, hits };
 }
+
+/** A package saved under a name other than the one it carried — a shipped name, or (when
+ *  opening a `.lattice`) a name you already use for something different. */
+export type ImportRename = { kind: RenamableKind; from: string; to: string; why: 'shipped' | 'yours' };
+
+/** A deck, pointed at the names its packages were actually saved under. */
+export function applyImportRenames(source: string, renames: readonly ImportRename[]): string {
+	let out = source;
+	for (const r of renames) out = renameAssetInSource(out, r.kind, r.from, r.to).source;
+	return out;
+}

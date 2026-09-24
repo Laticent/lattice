@@ -1,0 +1,12 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "gallery",
+  "type": "finish",
+  "format": 1,
+  "label": "Gallery",
+  "blurb": "A museum inset keyline frame + a spotlight + a movable numeral.",
+  "order": 9,
+  "swatch": {
+    "background": "linear-gradient(color-mix(in srgb, var(--accent) 60%, transparent), color-mix(in srgb, var(--accent) 60%, transparent)) center / calc(100% - 5px) calc(100% - 5px) no-repeat, radial-gradient(70% 70% at 50% 50%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 65%)"
+  }
+}

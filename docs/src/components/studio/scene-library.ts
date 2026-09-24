@@ -22,6 +22,7 @@
 // Decision: engineering/decisions/2026-07-18-anima-motion-faculty-modes.md §4.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import type { PackageCarry } from '@/components/studio/library/package-carry';
 import { parseScene, type Scene } from '@/lib/anima';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 
@@ -36,6 +37,9 @@ export type StudioScene = {
 	spec: Scene; // the validated Anima scene spec — the source of truth
 	poster?: string; // serialized still SVG (token-preserving); a Library thumbnail
 	art?: string; // source:'svg' line-art markup (UNTRUSTED — sanitize before preview)
+	/** What an imported package carried that this record does not model (its manifest),
+	 *  so exporting it again writes the same files. */
+	pkg?: PackageCarry;
 };
 
 /** The spec shape a record was written under. Stamped on every save from #2071 onward.
@@ -66,7 +70,7 @@ export type StoredScene = { valid: true; scene: StudioScene } | UnreadableScene;
 
 // The asset record asset-store persists. `kind:'scene'` keeps it in its own lane
 // (listAssets filters by kind), beside 'theme' / 'component' / 'finish'.
-type SceneAssetRecord = { id: string; kind: 'scene'; name: string; label?: string; description?: string; spec?: unknown; poster?: string; art?: string; addedAt?: number; specVersion?: number };
+type SceneAssetRecord = { id: string; kind: 'scene'; name: string; label?: string; description?: string; spec?: unknown; poster?: string; art?: string; addedAt?: number; specVersion?: number; pkg?: PackageCarry };
 
 /** Sanitize a scene's UNTRUSTED SVG markup (`poster`/`art`) — the store-boundary chokepoint
  *  (HARD RULE #22). Applied by `saveStudioScene` so no raw markup is ever persisted, whatever
@@ -92,7 +96,7 @@ function toStoredScene(a: SceneAssetRecord): StoredScene {
 	// is what made a schema change able to delete a user's work (frame model §7c).
 	const r = parseScene(a.spec);
 	if (!r.ok) return { valid: false, id: a.id, name: a.name, label: a.label || a.name, description: a.description, reason: r.errors.join('; '), specVersion: a.specVersion, raw: a };
-	return { valid: true, scene: { id: a.id, name: a.name, label: a.label || a.name, description: a.description, spec: r.scene, poster: a.poster, art: a.art } };
+	return { valid: true, scene: { id: a.id, name: a.name, label: a.label || a.name, description: a.description, spec: r.scene, poster: a.poster, art: a.art, ...(a.pkg ? { pkg: a.pkg } : {}) } };
 }
 
 /**
@@ -101,7 +105,7 @@ function toStoredScene(a: SceneAssetRecord): StoredScene {
  * VALIDATED before it is stored (a scene the schema rejects can't silently land).
  * Resolves to the stored Studio scene; rejects on an invalid spec or an unavailable store.
  */
-export async function saveStudioScene(input: { id?: string; name: string; label?: string; description?: string; spec: Scene; poster?: string; art?: string }): Promise<StudioScene> {
+export async function saveStudioScene(input: { id?: string; name: string; label?: string; description?: string; spec: Scene; poster?: string; art?: string; pkg?: PackageCarry }): Promise<StudioScene> {
 	const r = parseScene(input.spec);
 	if (!r.ok) throw new Error(`Invalid scene spec — not saved: ${r.errors.join('; ')}`);
 	const name = slugify(input.name) || `scene-${Date.now().toString(36)}`;
@@ -119,12 +123,13 @@ export async function saveStudioScene(input: { id?: string; name: string; label?
 		art,
 		addedAt: Date.now(),
 		specVersion: SCENE_SPEC_VERSION,
+		...(input.pkg ? { pkg: input.pkg } : {}),
 	};
 	const { id: _drop, ...rest } = record;
 	const stored = (await putAsset((input.id ? { ...rest, id: input.id } : rest) as unknown as SceneAssetRecord)) as SceneAssetRecord;
 	// The spec was validated above (parseScene returns it by reference), so build the Studio
 	// scene directly from the already-valid `r.scene` + the store-assigned id — no re-parse.
-	return { id: stored.id, name: stored.name, label: stored.label || stored.name, description: stored.description, spec: r.scene, poster: stored.poster, art: stored.art };
+	return { id: stored.id, name: stored.name, label: stored.label || stored.name, description: stored.description, spec: r.scene, poster: stored.poster, art: stored.art, ...(stored.pkg ? { pkg: stored.pkg } : {}) };
 }
 
 /**

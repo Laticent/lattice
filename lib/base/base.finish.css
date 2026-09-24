@@ -59,6 +59,23 @@
  *     and faint (a 1px opaque line / dot, transparent GAP only — a hard stop,
  *     never an area fade). This is the look that bakes clean into the vector PDF.
  *
+ *     THE BOTTOM-LAYER RULE. Only the BOTTOM full-bleed layer may end on solid
+ *     `var(--fin-canvas)`. Every FULL-BLEED layer painted above it — a second mesh
+ *     bloom, the edge vignette — must end on the SAME color at zero opacity,
+ *     `rgb(from var(--fin-canvas) r g b / 0)`, or be a hard-edged pattern. A layer
+ *     sized to a corner or a strip (ledger's fold, strata's hairline) covers only that
+ *     patch and keeps its solid end: a PDF rasterizer interpolates color and opacity
+ *     separately, so a zero-opacity end fades faster in print, and a small solid-ended
+ *     patch hides nothing that matters. A layer
+ *     that ends solid paints the slide color over everything below it: that is how
+ *     `halo` and `nimbus` printed as blank white with a gray rim, and nobody saw it
+ *     until 2026-09-23-portable-packages.md §1 pixel-sampled the committed PDF.
+ *     Zero-opacity CANVAS, not `transparent`: `transparent` is black at zero opacity,
+ *     and a PDF rasterizer that interpolates color and opacity separately draws the
+ *     fade through gray. The relative color keeps the canvas's own RGB, so the fade
+ *     stays the canvas color all the way out. (`color-mix(…, transparent)` collapses
+ *     to black at zero opacity too, which is why this is not a color-mix.)
+ *
  * WHERE EACH FACE APPLIES.
  *   - The RICH value is the slot DEFAULT (`--fin-wash: …`), so screen gets it.
  *   - Each preset ALSO declares an `--fin-*-opaque` mirror holding the export-
@@ -836,7 +853,7 @@ section.finish-halo {
   --fin-edge-opaque:
     radial-gradient(
       78% 78% at 50% 50%,
-      var(--fin-canvas) 62%,
+      rgb(from var(--fin-canvas) r g b / 0) 62%,
       color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%
     );
   --fin-edge-position: center;
@@ -905,11 +922,14 @@ section.finish-nimbus {
     radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--field-accent) 11%, transparent) 0%, transparent 58%),
     radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 8%, transparent) 0%, transparent 62%),
     radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--field-accent) 8%, transparent) 0%, transparent 58%);
-  /* OPAQUE mesh — four blooms ending on var(--fin-canvas). */
+  /* OPAQUE mesh — the three upper blooms end on the canvas at ZERO opacity and only
+   * the bottom one ends on solid var(--fin-canvas) (the BOTTOM-LAYER RULE above). Each
+   * of the four used to end solid, so the top bloom painted the canvas over the other
+   * three and the print face showed no mesh at all. */
   --fin-wash-opaque:
-    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--field-accent) 12%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%),
-    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%),
-    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 62%),
+    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--field-accent) 12%, var(--fin-canvas)) 0%, rgb(from var(--fin-canvas) r g b / 0) 60%),
+    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0%, rgb(from var(--fin-canvas) r g b / 0) 58%),
+    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, rgb(from var(--fin-canvas) r g b / 0) 62%),
     radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%);
   /* 5 background-image layers: the texture-none slot (the compositor always lists
    * `var(--fin-texture,none)` first) + the 4 mesh wash blooms — same count both faces.
@@ -930,7 +950,7 @@ section.finish-nimbus {
   --fin-edge-opaque:
     radial-gradient(
       82% 82% at 50% 50%,
-      var(--fin-canvas) 60%,
+      rgb(from var(--fin-canvas) r g b / 0) 60%,
       color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 100%
     );
   --fin-edge-position: center;

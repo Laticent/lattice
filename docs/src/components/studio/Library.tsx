@@ -10,17 +10,17 @@ import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
-import { deleteStudioComponent, listStudioComponents, type StudioComponent, saveStudioComponent } from './component-library';
+import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { generateSwatch } from './finish-generate';
-import { deleteStudioFinish, listStudioFinishes, type StudioFinish, saveStudioFinish } from './finish-library';
-import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from './import-gate';
+import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
+import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
-import { deleteStudioScene, listStudioScenes, type StudioScene, saveStudioScene } from './scene-library';
+import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
-import { deleteStudioTheme, listStudioThemes, type StudioTheme, saveStudioTheme } from './theme-library';
+import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 
 // The unified Library — one shelf for every saved theme + component + finish + the
 // user's reference docs (#651), with a consistent apply/insert · share · manage flow
@@ -476,40 +476,26 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		// landed. The result was a silent partial import that the toast denied. Now a
 		// refused item is named and the rest still import.
 		const refused: ImportRefusal[] = [];
+		// Items saved under another name because they took a SHIPPED name
+		// (library/reserved-names.ts). Named in the toast: a deck that says the old name
+		// now gets the shipped item, so the author needs to know the new one.
+		const renamed: string[] = [];
+		const notes: string[] = [];
 		let failure: string | null = null;
 		try {
 			for (const f of Array.from(files)) {
-				const { themes: ts, components: cs, finishes: fs, scenes: ms } = await unpackBundle(f);
-				// `historyLabel` — an import that lands on a name you already use REPLACES that
-				// record (the store dedupes by kind+name when no id is passed), so the version it
-				// snapshots is the one thing between a stranger's .zip and your own work.
-				for (const t of ts) {
-					const no = await refuseImportedTheme(t.css, t.label || t.name);
-					if (no) { refused.push(no); continue; }
-					await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }, { historyLabel: 'Before import' });
-					nThemes++;
-				}
-				for (const c of cs) {
-					const no = await refuseImportedComponent(c.css, c.name);
-					if (no) { refused.push(no); continue; }
-					await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }, { historyLabel: 'Before import' });
-					nComps++;
-				}
-				// A finish needs no CSS gate: `saveStudioFinish` DISCARDS the bundle's CSS and
-				// regenerates it from the recipe, and `coerceRecipe` clamps every number and
-				// enum-checks every keyword on the way in. Safe by construction, not by a scan.
-				for (const fin of fs) { await saveStudioFinish({ name: fin.name, label: fin.label, css: fin.css, recipe: fin.recipe }, { historyLabel: 'Before import' }); nFinishes++; }
-				// `unpackBundle` has always parsed scenes; the Library simply threw them away, so a
-				// bundle round-tripped through Export and Import lost every motion asset in silence.
-				// The art goes back through `saveStudioScene`, which re-sanitizes at the store boundary.
-				for (const m of ms) {
-					try {
-						await saveStudioScene({ name: m.name, label: m.label, description: m.description, spec: m.spec, art: m.art, poster: m.poster });
-						nScenes++;
-					} catch {
-						refused.push({ name: m.label || m.name, why: 'its motion plan is not valid' });
-					}
-				}
+				// ONE import funnel for every source of packages — this zip, and the packages a
+				// `.lattice` project carries (library/import-parsed.ts): the same CSS gates, the
+				// same reserved-name renames, the same refusals.
+				const { importParsedBundle } = await import('./library/import-parsed');
+				const t = await importParsedBundle(await unpackBundle(f));
+				nThemes += t.themes;
+				nComps += t.components;
+				nFinishes += t.finishes;
+				nScenes += t.scenes;
+				refused.push(...t.refused);
+				renamed.push(...t.renamed);
+				notes.push(...t.notes);
 			}
 		} catch (e) {
 			// Recorded, NOT raised here. The `finally` below speaks unconditionally, and
@@ -531,7 +517,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// information, one pill, and the success no longer competes with the
 			// failures for a slot (`lib/notify.ts`).
 			const refusals = refused.filter((r): r is NonNullable<ImportRefusal> => r !== null);
-			const detail = refusals.length ? refusedDetail(refusals) : undefined;
+			const renamedLine = renamed.length ? `Renamed because a shipped item uses the name: ${renamed.join(', ')}.` : null;
+			const notesLine = notes.length ? `Adjusted on import: ${notes.join('; ')}.` : null;
+			const detail = [refusals.length ? refusedDetail(refusals) : null, renamedLine, notesLine].filter(Boolean).join('\n') || undefined;
 			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
 			if (failure) {
 				// A throw can still leave items on the shelf, so the tally and the refusals

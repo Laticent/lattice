@@ -337,6 +337,18 @@ PALETTE RESOLUTION (highest precedence first)
 
   Available palettes: ${listAvailablePalettes()}
 
+PACKAGES
+  Themes, components, finishes and motion made in the Studio are packages. Install one
+  once and every deck can name it:
+    lattice packages list   [--type theme|component|finish|motion]
+    lattice packages add    <file.zip | folder> [--replace]
+    lattice packages check  <file.zip | folder>
+    lattice packages export <type>/<name> [-o file.zip]
+    lattice packages remove <type>/<name>
+  The store is $LATTICE_HOME/packages (default ~/.lattice/packages); --packages <dir>
+  overrides it for one run, for renders too. A deck whose theme is neither shipped nor
+  installed fails with the theme's name and the command that installs it.
+
 EXIT CODES
   0  Success
   1  Usage error, missing file, palette not found, or render failure
@@ -351,6 +363,20 @@ EXAMPLES
   node lattice-emulator.js deck.md custom-layouts.css out.pdf cuoio
   LATTICE_PALETTE=cuoio node lattice-emulator.js deck.md out.pdf
 `);
+}
+
+// `lattice packages …` — the package store (lib/packages/cli.js). Dispatched BEFORE the render
+// argv parsing, which would otherwise read `packages` as a source file and `--type` as an
+// unknown option. The subcommand owns its own --help.
+//
+// It runs as a CHILD process, and that is what makes the dispatch possible here: everything
+// below is top-level code, so an async `main()` started in-process would race the argv parse,
+// which exits on an unknown option. `spawnSync` blocks until the child is done, and we exit
+// with its code before the render path runs. The cost is one Node startup (~40 ms).
+if (process.argv[2] === 'packages') {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/packages/cli.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  if (r.error) console.error(`error: ${r.error.message}`);
+  process.exit(r.status ?? 1);
 }
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
@@ -386,6 +412,9 @@ function parseArgs(argv) {
     // Who a clipped slide's marker speaks to in THIS render — the same export
     // setting tools/export-marp.js takes (lib/core/resolve-overflow-marker.js).
     '--overflow-marker': 'overflow-marker',
+    // The package store for THIS run (lib/packages/home.js): an installed theme or component
+    // the deck names is found here. Default: $LATTICE_HOME/packages, else ~/.lattice/packages.
+    '--packages': 'packages',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -941,11 +970,32 @@ try {
 const { texturePatternDefs, texturePrefixesReferencedIn } = require('./lib/core/accessibility-textures');
 const THEMES_DIR   = path.join(PKG_ROOT, 'themes');
 const palettePath = path.join(THEMES_DIR, `${paletteName}.css`);
-if (!fs.existsSync(palettePath)) {
+// An INSTALLED theme package (`lattice packages add`) is the second place a theme name
+// resolves — after the shipped themes, never instead of them, so an installed package can
+// never shadow a shipped name (the store renames a clash to <name>-custom on add anyway).
+// There is NO silent fallback to another palette: a name found nowhere fails with the
+// name and the command that installs it (portable-packages §6).
+const packagesHome = require('./lib/packages/home.js');
+const PACKAGES_ROOT = packagesHome.packagesRoot({ flag: flags.packages });
+const installedTheme = fs.existsSync(palettePath) ? null : packagesHome.findInstalled(PACKAGES_ROOT, 'theme', paletteName);
+if (!fs.existsSync(palettePath) && !installedTheme) {
   console.error(`error: palette not found: ${paletteName}`);
-  console.error(`       (looked in ${palettePath})`);
+  console.error(`       (looked in ${palettePath}`);
+  console.error(`        and in the package store ${path.join(PACKAGES_ROOT, 'theme', paletteName)})`);
   console.error(`available palettes: ${listAvailablePalettes()}`);
+  console.error(`to install a theme made in the Studio: lattice packages add ${paletteName}.lattice-theme.zip`);
   process.exit(1);
+}
+// The store is a plain folder: a package unzipped into it by hand, or a `--packages` folder,
+// never passed `add`. So the gate `add` runs is run again here, before the CSS is used, and a
+// refused theme fails the render with the reason (lib/packages/gate.js; HARD RULE #22).
+if (installedTheme) {
+  const refused = require('./lib/packages/gate.js').refusePackage(installedTheme.pkg);
+  if (refused) {
+    console.error(`error: the installed theme ${paletteName} is refused: ${refused}`);
+    console.error(`       (${installedTheme.dir})`);
+    process.exit(1);
+  }
 }
 // THE theme chain, from the manifest. `themes/<name>.manifest.json` declares the
 // parent as `extends`; the CSS also says `@import 'parent'`, but that copy is
@@ -960,8 +1010,12 @@ if (!fs.existsSync(palettePath)) {
 const themeChainFor = (name) => themeChain(name, THEME_EDGES);
 // Parent-first, so a child's `:root` overrides its parent at equal specificity —
 // the cascade order every palette is authored against.
-const paletteChain = themeChainFor(paletteName);
-const paletteFiles = paletteChain.map((n) => path.join(THEMES_DIR, `${n}.css`));
+// An installed theme is not in THEME_EDGES (that graph is the shipped manifests'), and the
+// gate above allows it to import the base theme and nothing else, so its chain is itself.
+const paletteChain = installedTheme ? [paletteName] : themeChainFor(paletteName);
+// Parallel to paletteChain (the engine registers them pairwise): shipped files, then the installed leaf.
+const paletteFiles = paletteChain.map((n) => (installedTheme && n === paletteName ? path.join(installedTheme.dir, `${n}.css`) : path.join(THEMES_DIR, `${n}.css`)));
+if (installedTheme && !flags.quiet) console.log(`  theme: ${paletteName} (installed package, ${installedTheme.dir})`);
 
 const paletteCSS = paletteFiles.map((f) => readFileOrDie(f, `palette '${path.basename(f, '.css')}'`)).join('\n');
 // Does this deck's palette carry its categories by PATTERN rather than hue?
@@ -1996,7 +2050,42 @@ function preprocessMermaid(source) {
 // so a `.html` round-trip renders it once and never regenerates. No-op unless `glossary: auto` +
 // ≥1 defined term. Shared with the docs render path (render-engine.ts) — HARD RULE #1.
 const { appendAutoGlossary, glossaryEntries, resolveGlossaryMode } = require('./lib/core/glossary-auto.mjs');
-const preGlossaryMd = preprocessMermaid(md);
+// INSTALLED COMPONENT PACKAGES the deck names ride in as embedded `<style>` blocks — the
+// SAME bridge the Studio's Markdown and Marp exports use (lib/layout/bridge.js), so a deck
+// renders a user component identically whether its CSS came from the store or from an
+// export (HARD RULE #1). A name the engine ships is never taken from the store.
+function withInstalledComponents(source) {
+  const { embedInstalledComponents, classTokens } = require('./lib/packages/render.js');
+  const { refusePackage } = require('./lib/packages/gate.js');
+  const { embeddedComponentNames } = require('./lib/layout/bridge.js');
+  const { COMPONENT_NAMES } = require('./lib/core/resolve-component.js');
+  // The store is a plain folder, so every package is gated again here (lib/packages/gate.js):
+  // a refused component is left out and named, never embedded.
+  const installed = [];
+  for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
+    const why = refusePackage(p.pkg);
+    if (why) console.error(`warning: the installed component ${p.name} is refused and not used: ${why}`);
+    else installed.push(p);
+  }
+  const r = installed.length ? embedInstalledComponents(source, installed.map((p) => ({ name: p.name, css: p.pkg.files[p.pkg.roles['styles.css']] })), COMPONENT_NAMES) : { source, used: [] };
+  if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
+  // A class the deck names that is not shipped, embedded or installed renders its slides
+  // UNSTYLED — silently, unlike a missing theme. Say so, with the command that fixes it
+  // (portable-packages §6). The deck linter decides what counts as known; it is loaded only
+  // when some class is not a shipped component or an engine class, which is most decks never.
+  const reserved = require('./lib/packages/reserved-classes.generated.js');
+  const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used]);
+  const doubtful = classTokens(r.source).filter((t) => !cheapKnown.has(t) && !reserved.prefixes.some((pre) => t === pre || t.startsWith(pre.endsWith('-') ? pre : `${pre}-`)));
+  if (doubtful.length) {
+    const unknown = new Set(require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class').map((f) => f.classToken));
+    for (const t of doubtful.filter((x) => unknown.has(x))) {
+      console.error(`warning: no component "${t}" — it is not shipped, embedded in the deck, or installed, so its slides render unstyled.`);
+      console.error(`         to install one made in the Studio: lattice packages add ${t}.lattice-component.zip`);
+    }
+  }
+  return r.source;
+}
+const preGlossaryMd = preprocessMermaid(withInstalledComponents(md));
 const rawMd = appendAutoGlossary(preGlossaryMd);
 // The manifest term→definition projection is part of the SAME `glossary: auto` opt-in as the
 // slide (design §18) — gate it so a deck with acronym definitions but no `glossary: auto` stays
