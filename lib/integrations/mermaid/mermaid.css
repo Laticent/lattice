@@ -92,6 +92,34 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * `class` is not usable (null on sequence and pie) and neither is the svg id (`lattice-mmd-N`
  * from the CLI, `lattice-mermaid-N` from the browser). */
 
+/* ── A LABEL TAKES ITS PARENT'S BASELINE, IN WEBKIT TOO ──
+ * Mermaid declares `dominant-baseline` one level ABOVE the glyphs it means to place, and
+ * WebKit does not carry the value down. Two shapes, both measured on the diagram gallery
+ * (WebKit minus Chromium, on a 1280x720 slide):
+ *   - on the `<text>`, with each line in a `<tspan>` — an attribute on sequence `actor`
+ *     (−5.89px) and `noteText` (−3.54px), a rule in mermaid's own `<style>` on
+ *     `ishikawa-label` (−3.27px). SVG 1.1 §10.9.2 and SVG 2 both say a tspan's `auto`
+ *     keeps the parent's baseline; WebKit resolves it to `alphabetic`.
+ *   - on a `<g>` above the `<text>` — architecture service labels (−3.54px), two groups
+ *     up. CSS Inline 3 makes the property inherited and Chromium follows it; WebKit keeps
+ *     SVG 1.1's "not inherited", so the inner `<g>`, then the `<text>`, compute `auto`.
+ *     That is why the rule lists `g` and `a`: `inherit` on the `<text>` alone would copy
+ *     the inner group's `auto`.
+ * Either way the label paints about a third of a font-size high in Safari.
+ *
+ * `inherit`, NOT a repeated value per class as the chart stylesheets do: this markup is
+ * mermaid's, and a class list copied from mermaid 11.14 goes stale on the next upgrade with
+ * nothing to notice. `inherit` names no class, so it covers every family and every future
+ * one. It also cannot move a label in Chromium — there it states exactly what the cascade
+ * already resolves to. Mermaid's own `<style>` rules are scoped by the svg's `#id`, so they
+ * out-specify this one and still win wherever they set a baseline. `:not([dominant-baseline])`
+ * leaves alone a node that states its own baseline as an attribute; author CSS beats a
+ * presentation attribute, so without it this rule would override one. Keyed on
+ * `aria-roledescription` for the reason given above: every mermaid root carries it, and no
+ * chart SVG of ours does.
+ * engineering/decisions/2026-09-22-webkit-tspan-baseline.md §8. */
+:is(section, figure) svg[aria-roledescription] :is(g, a, text, tspan, textPath):not([dominant-baseline]) { dominant-baseline: inherit; }
+
 /* Visibility states keyed off `data-mermaid-state` on the <pre>.
  *
  * The source <pre> is hidden for every tagged state except "error".
