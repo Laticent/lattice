@@ -182,19 +182,29 @@ section.inventory.timeline > .cell-stage > ul {
   list-style: none; padding: var(--sp-md) 0 0;
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
   gap: var(--sp-lg); counter-reset: t var(--lat-split-offset, 0);
+  /* THE DOT IS SIZED FROM THE NUMERAL IT HOLDS, not from the container — the same defect the
+   * ledger's ordinal gutter had (see `--inv-ord-w` above). It was `3cqi` around a numeral set
+   * in `--fs-body-compact`, and those two units track different things: at `hd` the dot was
+   * 34.5px around 17.9px type, but in a portrait box the preset scales type up while cqi
+   * shrinks, and the dot rendered 29px around a 40px numeral, so the digit spilled out of
+   * its own circle and read as a smudge. 1.9 is the landscape ratio, so `hd` moves by half
+   * a pixel and every other preset now scales the circle with its numeral. The row's top
+   * pad (1.5 dots) and the connector (from the dot's right edge, at its mid-height) derive
+   * from the same value, so they cannot drift from it. */
+  --inv-dot: calc(var(--fs-body-compact) * 1.9);
 }
 section.inventory.timeline > .cell-stage > ul > li {
   counter-increment: t; position: relative; list-style: none;
-  padding-top: 4.5cqi; font-size: var(--fs-body-compact); color: var(--text-body);
+  padding-top: calc(var(--inv-dot) * 1.5); font-size: var(--fs-body-compact); color: var(--text-body);
 }
 section.inventory.timeline > .cell-stage > ul > li::before {
-  content: counter(t); position: absolute; top: 0; left: 0; width: 3cqi; height: 3cqi;
+  content: counter(t); position: absolute; top: 0; left: 0; width: var(--inv-dot); height: var(--inv-dot);
   border-radius: 50%; background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center; font-family: var(--font-label);
   font-weight: 600; font-size: var(--fs-body-compact); z-index: 2;
 }
 section.inventory.timeline > .cell-stage > ul > li::after {
-  content: ''; position: absolute; top: 1.5cqi; left: 3cqi; right: calc(var(--sp-lg) * -1);
+  content: ''; position: absolute; top: calc(var(--inv-dot) / 2); left: var(--inv-dot); right: calc(var(--sp-lg) * -1);
   height: 2px; background: var(--border);
 }
 section.inventory.timeline > .cell-stage > ul > li:last-child::after { display: none; }
@@ -318,6 +328,60 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > blockquote,
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   grid-column: 1; grid-row: auto;
+}
+
+/* ── SPLIT PAGES (portrait, and any box that atomizes the run) ──────────────────────
+ * The split cuts an inventory into one row per page. Three things the single-slide
+ * layout never had to answer, all measured on the gallery at `size: portrait`. */
+
+/* 1. THE INSIGHT CLOSES THE RUN, ONCE. `coda.claims: ["blockquote"]` (the manifest) is
+ * right for rendering: each look draws its own insight — accent band, pull-quote, header
+ * line, ruled sidebar — so the universal coda must not restyle it. But the split envelope
+ * reads a claimed element as the component's own anatomy and repeats it on every page
+ * (lib/core/split-envelope.js `beatShapesFor`), so a four-row run printed the same
+ * takeaway four times. It shows on the LAST body page only. That page is the one with no
+ * forward pill: every earlier page carries `.lat-split-rel` naming the next row, and the
+ * last one has nothing to point at. Keyed on the pill, not a page index, so it holds for
+ * any run length and any page count. The blockquote stays in every page's markup; the
+ * author's sentence renders exactly once, where the run ends. */
+section.inventory.lat-split-native > .cell-stage:has(> .lat-split-rel) > blockquote {
+  display: none;
+}
+
+/* 2. A LONE TIMELINE ROW MUST NOT BE STRETCHED. The shared lone-member rule
+ * (base.modifiers.css) grows a member alone on its page to the page's height and centers
+ * its content. That suits a card, and it strands this row's dot: the dot is absolutely
+ * positioned at the row's top, so it stayed at the top of an 800px box while the title
+ * and body centered 350px below it. The row keeps its natural height here, and the list
+ * centers that one grid track, so the dot, title and body travel together. The weight
+ * matches the base rule's four-times `.lat-split-native` idiom and adds the component,
+ * look and `form` classes it needs to win. */
+section.inventory.timeline.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul:has(> li:only-child) {
+  align-content: center;
+}
+section.inventory.timeline.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul > li:only-child {
+  flex: 0 0 auto;
+  align-content: start;
+}
+
+/* 3. AN EDITORIAL PAGE CENTERS LIKE THE OTHER THREE LOOKS. The tall-family reflow above
+ * packs the stacked split from the top (`align-content: start`), which is right for an
+ * unsplit mobile slide holding the whole list. On a split page holding one row, the
+ * ledger, cards and timeline pages all center, and editorial's top-packed row read as a
+ * different layout from its neighbors in the same run. */
+section.inventory.editorial.lat-split-native.lat-split-native > .cell-stage {
+  align-content: safe center;
+}
+
+/* 4. THE TIMELINE'S INSIGHT FOLLOWS ITS LAST ROW ON A SPLIT PAGE. On a single slide the
+ * timeline hoists the insight ABOVE the run (`order: -1`), as the line's heading. On a
+ * split run it appears once, on the last page (rule 1), and there, above the row, it
+ * pushed the final row's dot and title down relative to the three pages before it, a
+ * visible jump on the last page turn. Below the row it lands where the ledger, cards and
+ * editorial runs close theirs, and the row keeps its place. */
+section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
+  order: 0;
+  padding: var(--sp-md) 0 0;
 }
 
 /* ── A LONE ROW ON A SPLIT PAGE ────────────────────────────────────────────────────

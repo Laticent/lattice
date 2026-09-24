@@ -3542,6 +3542,12 @@ section[data-split-role] .lat-split-rel,
 section.form.lat-split-native > .cell-stage > .lat-split-rel,
 section.form.lat-split-native > .lat-split-rel {
   align-self: flex-end;
+  /* `align-self` right-aligns the pill only in a flex COLUMN stage, where it is the cross
+     axis. In a GRID stage it is the block axis, and the inline axis falls to the default
+     `justify-self: stretch`, so the pill became a full-width bordered bar under its row —
+     measured on `inventory editorial` at `size: portrait`, whose stage is a one-column grid.
+     `justify-self: end` is the grid half of the same instruction and is ignored by flex. */
+  justify-self: end;
   display: inline-flex;
   box-sizing: border-box;
   align-items: center;
