@@ -265,6 +265,33 @@ test('@parity the slide navigator keeps the current slide in view', async ({ pag
 	await expect.poll(inView).toBe('in view');
 });
 
+test('@parity a slide navigator that remounts comes back centered on the current slide', async ({ page }) => {
+	// Rotating a phone to landscape unmounts the rail and rotating back mounts a fresh one at
+	// scrollLeft 0, while no slide changed. Found by an independent checker; measured before the
+	// fix with the last slide's pill at 855-950px against a rail spanning 172-378px.
+	test.skip((page.viewportSize()?.width ?? 1440) >= 600, 'the landscape-phone layout is the remount a phone can reach');
+	const n = await slideCount(page);
+	const rail = page.locator('nav[aria-label="Slide navigator"]');
+	const inView = () =>
+		page.evaluate(() => {
+			const nav = document.querySelector('nav[aria-label="Slide navigator"]');
+			const on = nav?.querySelector('button[aria-current="true"]');
+			if (!nav || !on) return 'missing';
+			const a = nav.getBoundingClientRect();
+			const b = on.getBoundingClientRect();
+			return b.left >= a.left - 1 && b.right <= a.right + 1 ? 'in view' : `out: pill ${Math.round(b.left)}-${Math.round(b.right)} rail ${Math.round(a.left)}-${Math.round(a.right)}`;
+		});
+	await page.keyboard.press('End');
+	await expect(page.getByText(`Slide ${n} / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	const portrait = page.viewportSize() ?? { width: 390, height: 844 };
+	await page.setViewportSize({ width: portrait.height, height: portrait.width });
+	await expect(rail).toHaveCount(0);
+	await page.setViewportSize(portrait);
+	await expect(rail).toHaveCount(1);
+	await expect.poll(inView).toBe('in view');
+});
+
 test('@parity a burst of presses on a landscape deck moves exactly that many slides', async ({ page }) => {
 	// Split paging must cost an unsplittable deck nothing. A render-ordered queue once made a held
 	// arrow key on a 16:9 deck crawl one slide per render and keep going after release; the seed

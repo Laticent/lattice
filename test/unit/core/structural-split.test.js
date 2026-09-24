@@ -126,6 +126,23 @@ test('settle: a live preview paints the composed cover already lifted, so the ru
   assert.equal(settled.match(/class="cell-stage"/g).length, forms.length);
 });
 
+test('settle lifts only what the runtime mirror lifts: a sovereign page with a nested title is left alone', () => {
+  // split-compare is sovereign and its title lives in `.compare-left > h2`. The DOM mirror only
+  // lifts a TOP-LEVEL h2, so it leaves those pages as they are, and so does the export. The string
+  // kernel alone is depth-blind there and pulled the nested title into a masthead band, so the
+  // settled preview drew a page the PDF does not (found by an independent checker on
+  // examples/social-grid.md, pages 4.2 and 4.3). Settle must leave every such page byte-identical.
+  const fs = require('node:fs');
+  const md = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'examples', 'social-grid.md'), 'utf8').replace(/\r\n/g, '\n').replace(/^(---\n[\s\S]*?)\n---\n/, (_m, fm) => `${fm.replace(/^size:.*$/m, '')}\nsize: portrait\n---\n`);
+  const out = engine.render(md, 'indaco', { preview: true });
+  const opts = { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY };
+  const pages = (html) => ss.splitTopLevelSections(html).filter((p) => /data-split-role="body"/.test(p) && /\sclass="[^"]*\bsplit-compare\b/.test(p));
+  const plain = pages(ss.structuralSplit(out.html, opts).html);
+  const settled = pages(ss.structuralSplit(out.html, { ...opts, settle: true }).html);
+  assert.ok(plain.length >= 2, `social-grid still splits its compare slide at portrait (got ${plain.length} body pages)`);
+  assert.deepEqual(settled, plain);
+});
+
 test('without a capacity map the split is a no-op, not a crash (an unbundled import)', () => {
   const md = DECK('portrait');
   const out = engine.render(md, 'indaco', { preview: true });

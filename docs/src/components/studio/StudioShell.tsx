@@ -3129,17 +3129,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// not move `slideNo`, so the rail holds still while the preview pages, and moves only when
 	// the deck does. Scrolls the rail itself, never an ancestor (`scrollIntoView` would also
 	// scroll the page, which jolts a phone).
-	const railNavRef = React.useRef<HTMLElement>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: slideNo, the slide count and the label set (which changes pill widths) ARE the triggers; the body reads the DOM.
-	React.useLayoutEffect(() => {
-		const nav = railNavRef.current;
+	const railNavRef = React.useRef<HTMLElement | null>(null);
+	const centerRail = React.useCallback((nav: HTMLElement | null, animate: boolean) => {
 		const pill = nav?.querySelector<HTMLElement>('button[aria-current="true"]');
 		if (!nav || !pill || nav.scrollWidth <= nav.clientWidth) return;
 		const n = nav.getBoundingClientRect();
 		const p = pill.getBoundingClientRect();
 		const left = nav.scrollLeft + (p.left + p.width / 2) - (n.left + n.width / 2);
 		const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		nav.scrollTo({ left: Math.max(0, Math.min(left, nav.scrollWidth - nav.clientWidth)), behavior: reduce ? 'auto' : 'smooth' });
+		nav.scrollTo({ left: Math.max(0, Math.min(left, nav.scrollWidth - nav.clientWidth)), behavior: animate && !reduce ? 'smooth' : 'auto' });
+	}, []);
+	// A rail that MOUNTS (back from the article view, a phone rotated back from landscape) starts at
+	// scrollLeft 0 while none of the effect's triggers changed: center it at once, without animating.
+	const railNavCallback = React.useCallback(
+		(nav: HTMLElement | null) => {
+			railNavRef.current = nav;
+			centerRail(nav, false);
+		},
+		[centerRail],
+	);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: slideNo, the slide count and the label set (which changes pill widths) ARE the triggers; the body reads the DOM.
+	React.useLayoutEffect(() => {
+		centerRail(railNavRef.current, true);
 	}, [slideNo, viewSlides.length, effectiveStop]);
 	const goToSlideRef = React.useRef(goToSlide);
 	goToSlideRef.current = goToSlide;
@@ -4766,7 +4777,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
 					</div>
 				)}
-			<nav ref={railNavRef} className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
+			<nav ref={railNavCallback} className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
 				{viewSlides.map((s, i) => {
 					const on = i === slideNo - 1;
 					// Read is the newcomer's stop — label each slide by its TITLE (its first
