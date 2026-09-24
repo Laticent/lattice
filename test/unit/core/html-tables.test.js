@@ -37,7 +37,7 @@ describe('extracting a table', () => {
 });
 
 describe('splicing a table', () => {
-  test('replaces the table and leaves its neighbours untouched', () => {
+  test('replaces the table and leaves its neighbors untouched', () => {
     const out = spliceFirstTable(`<p>before</p>${TABLE}<p>after</p>`, () => '<figure/>');
     assert.equal(out, '<p>before</p><figure/><p>after</p>');
   });

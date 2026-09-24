@@ -251,7 +251,7 @@ function rendersNoElement(content) {
  *
  * INDEXING A FIXED OFFSET WAS A BUG, and a measured one. `paragraph_open, inline,
  * paragraph_close, <next>` holds only until something invisible sits between the paragraph
- * and its neighbour — and enabling `html: true` (so comments stop being parsed as prose)
+ * and its neighbor — and enabling `html: true` (so comments stop being parsed as prose)
  * made exactly that happen: `<!-- markdownlint-disable-next-line MD026 -->` between an
  * eyebrow and its heading became an `html_block` at the offset the heading was expected at,
  * so the eyebrow was silently dropped from the census. In the DOM a comment is a comment

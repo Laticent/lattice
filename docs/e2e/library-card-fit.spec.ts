@@ -220,7 +220,7 @@ test('@smoke arming a delete moves no other control', async ({ page }) => {
 		expect(after.slice(0, -1), `arming ${kind}'s delete moved a sibling control:\n  before ${before.slice(0, -1)}\n  after  ${after.slice(0, -1)}`).toEqual(before.slice(0, -1));
 		// …and the delete button itself must not have grown into where a sibling was.
 		const w = (s: string) => Number(s.split('x').pop());
-		expect(w(after[after.length - 1]), `${kind}'s confirm grew from ${before.at(-1)} to ${after.at(-1)} — it can only do that over a neighbour`).toBeLessThanOrEqual(w(before[before.length - 1]));
+		expect(w(after[after.length - 1]), `${kind}'s confirm grew from ${before.at(-1)} to ${after.at(-1)} — it can only do that over a neighbor`).toBeLessThanOrEqual(w(before[before.length - 1]));
 
 		await expect(page.getByRole('button', { name: `Delete ${kind}` })).toBeVisible({ timeout: 6000 });
 	}

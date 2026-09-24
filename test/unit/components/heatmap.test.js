@@ -750,7 +750,7 @@ describe('findings from the checker pass — each one a regression arm', () => {
 
   test('F4: a blank column header does not re-bind the columns after it', () => {
     // Filtering unnamed columns out and then reading body cells by the POST-filter
-    // position painted each named column with its neighbour's data and dropped the
+    // position painted each named column with its neighbor's data and dropped the
     // tail, silently — the exact failure this component's docblock promises never
     // happens.
     const m = parseHeatmapTable(tbl(['| X |  | A |  | C |', '| - | - | - | - | - |',

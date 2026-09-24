@@ -547,7 +547,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // reason the gantt refuses the tilt: here the geometry IS the data.
   //
   //  * The 7px centroid→hub nudge has no "out" to move along. A pie wedge steps away
-  //    from a hub into empty space; a heatmap cell has a neighbour on every side, so
+  //    from a hub into empty space; a heatmap cell has a neighbor on every side, so
   //    the nudge slides the active tile OVER two of them and out of its own row and
   //    column — the one thing a reader uses to locate it. Seen on the real Playground
   //    before this guard: the open cell sat visibly off-grid, half under its column
