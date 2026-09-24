@@ -41,6 +41,11 @@ export interface LatticePlaygroundEngine {
 	 *  cannot take HTML — the Compose editor's ProseMirror `code_block`. Optional,
 	 *  because an engine bundle older than this feature does not carry it. */
 	highlightSpans?: (code: string, lang: string) => Array<{ from: number; to: number; cls: string }>;
+	/** The structural auto-split the CLI export runs (lib/core/structural-split.js), applied to a
+	 *  `render()` result so a portrait/square deck paginates live the way its PDF does. A no-op
+	 *  at landscape. `changed` counts the authored slides that split. Optional, because an engine
+	 *  bundle older than this feature does not carry it. */
+	splitForPreview?: (html: string, source: string, width?: number, height?: number) => { html: string; changed: number };
 	languages?: {
 		has: (name: string) => boolean;
 		list: () => string[];
