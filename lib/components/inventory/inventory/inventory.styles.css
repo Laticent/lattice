@@ -112,9 +112,17 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
   top: var(--sp-2xs); left: 0;
 }
+/* `--lh-tight` because the title is DISPLAY type set as a block, and without it the
+ * row inherits the body's `--lh-base` (1.6): a 31px title claimed a 49px line at `hd`.
+ * Four rows of that slack was the whole overflow — the skeleton's four rows plus its
+ * insight band measured 429px against a 400px stage, so `safe center` fell back to
+ * start and the band was clipped mid-line (the Playground renders the skeleton, the
+ * gallery never carried the band). The ordinal lives inside this <strong> and shares
+ * its line box, so it moves with the title. Every look's title takes the same value. */
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
+  line-height: var(--lh-tight);
 }
 /* `relative` makes the LEAD the ordinal's containing block (see the ordinal rule
  * above); it adds no offset of its own, so nothing moves. Scoped to the lead rather
@@ -149,13 +157,19 @@ section.inventory.cards > .cell-stage > ul > li {
 section.inventory.cards > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-2xs);
+  line-height: var(--lh-tight);
 }
 section.inventory.cards > .cell-stage > blockquote {
   padding: var(--sp-xs) 0 0; text-align: center; font-family: var(--font-display);
   font-style: italic; font-size: var(--fs-message); color: var(--accent);
 }
-section.inventory.cards > .cell-stage > blockquote::before { content: '\201C'; }
-section.inventory.cards > .cell-stage > blockquote::after  { content: '\201D'; }
+/* The marks hang on the PARAGRAPH, not the blockquote. Markdown wraps the insight in a
+ * block <p>, so a mark generated on the blockquote is an inline box beside a block — CSS
+ * wraps each in an anonymous line of its own and the quote rendered as three lines: a
+ * stranded opening mark, the sentence, a stranded closing mark. On the first/last <p>
+ * they sit inline, on the sentence's own first and last lines. */
+section.inventory.cards > .cell-stage > blockquote > p:first-of-type::before { content: '\201C'; }
+section.inventory.cards > .cell-stage > blockquote > p:last-of-type::after  { content: '\201D'; }
 
 /* ── Variant · TIMELINE — horizontal numbered run, insight above ──
  * Stage centers [insight + horizontal run]; the run sizes to its content. */
@@ -187,6 +201,7 @@ section.inventory.timeline > .cell-stage > ul > li:last-child::after { display: 
 section.inventory.timeline > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-2xs);
+  line-height: var(--lh-tight);
 }
 
 /* ── Variant · EDITORIAL — magazine split (insight | ruled items) ──
@@ -230,6 +245,7 @@ section.inventory.editorial > .cell-stage > ul > li {
 section.inventory.editorial > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-message);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
+  line-height: var(--lh-tight);
 }
 
 /* A SPLIT body page has no sidebar, so it must not reserve a column for one.
