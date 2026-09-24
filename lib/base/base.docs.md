@@ -1158,10 +1158,15 @@ kernel, `lib/core/state-marks.js` — `MARKER_CLASS`, `LEADING_MARKER_RE` and
 `stateClassesFor`. Every consumer builds its pattern from that kernel: the
 engine (`lib/integrations/markdown-it/plugins.js`), the VS Code / export-to-Marp
 runtime (`lib/runtime/index.js`), roadmap's transform, the table row-label
-heuristic, the linter, and the docs-site Compose editor. Each strips the marker
-and adds `class="state {sem} {shape}"` (a `badge` span on verdict-grid and
-pricing rows). A unit test fails on a private copy of the marker class. CSS owns
-all visual chrome: the disc (`::before`) and the masked mark (`::after`).
+heuristic, and the docs-site Compose editor. Each strips the marker and adds
+`class="state {sem} {shape}"` (a `badge` span on verdict-grid and pricing rows).
+A unit test fails on a private copy of the marker class. Two consumers cannot
+import the kernel and are pinned to it by test instead: the linter
+(`lib/authoring/lint-core.js`, which runs in the browser and stays require-free)
+only names markers in its advice, and the narration projection
+(`lib/transformers/prose-projection.mjs`, a standalone bundle) keeps its own copy
+of the spoken words. CSS owns all visual chrome: the disc (`::before`) and the
+masked mark (`::after`).
 
 ### Treatments — `tint-*` and `mark-*`
 

@@ -58,7 +58,7 @@ describe('the derived key', () => {
   test('names every marker the cells carry, in declaration order', () => {
     const out = t.applyToHtml(section(FULL + HALF + FAIL + UNKNOWN + TODO + SLASH));
     assert.deepEqual(labels(out),
-      ['Applies', 'Partial', 'Does not apply', 'Unclear', 'Undetermined', 'Exempt']);
+      ['Applies', 'Partial', 'Not required', 'Unclear', 'Undetermined', 'Exempt']);
   });
 
   test('names ONLY the markers present', () => {
@@ -173,7 +173,7 @@ describe('applyToDom — the live-DOM path must agree with the string path', () 
     const d = doc(section(FULL + HALF + FAIL + UNKNOWN + TODO + SLASH));
     t.applyToDom(d.body);
     assert.deepEqual(domLabels(d),
-      ['Applies', 'Partial', 'Does not apply', 'Unclear', 'Undetermined', 'Exempt']);
+      ['Applies', 'Partial', 'Not required', 'Unclear', 'Undetermined', 'Exempt']);
   });
 
   test('the swatch carries the cell classes here too', () => {

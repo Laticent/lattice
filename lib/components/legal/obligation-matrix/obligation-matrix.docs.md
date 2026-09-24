@@ -6,7 +6,7 @@
 
 **Tags** `compliance` · `regulation` · `stoplight`
 
-Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [!] does not apply, [?] unclear, [ ] undetermined, [/] exempt) shared with checklist / verdict-grid / roadmap.
+Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [!] not required, [?] unclear, [ ] undetermined, [/] exempt) shared with checklist / verdict-grid / roadmap.
 
 ## Agent contract
 

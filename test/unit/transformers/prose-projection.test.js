@@ -845,6 +845,35 @@ test('obligation-matrix HEAT: same marker meanings as default (only recolored)',
 	assert.match(t, /CCPA — Delete: exempt\./);
 });
 
+test('state-cells: a plain table speaks the universal words, not silence', () => {
+	// `state-cells` is a modifier any table can carry, so no component map covers it.
+	// The marker is stripped from the cell, so without a map every cell read as nothing.
+	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## Vendors\n\n| Criterion | North | South |\n| --- | --- | --- |\n| Audit | [x] | [!] |\n| SSO | [?] | [/] |\n| Price | [-] | [ ] |\n');
+	assert.match(t, /Audit — North: yes; South: no\./);
+	assert.match(t, /SSO — North: unknown; South: does not apply\./);
+	assert.match(t, /Price — North: partly; South: open\./);
+});
+
+test('state-cells words equal the kernel\'s universal labels', async () => {
+	// prose-projection imports no kernel (it ships as a standalone bundle), so this pin is
+	// what keeps its copy of the words from drifting from lib/core/state-marks.js.
+	const { MARKER_LABELS, stateClassesFor } = require('../../../lib/core/state-marks.js');
+	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## K\n\n| A | B |\n| --- | --- |\n'
+		+ Object.keys(MARKER_LABELS).map((m) => `| r${stateClassesFor(m).sem} | [${m}] |`).join('\n') + '\n');
+	for (const [m, word] of Object.entries(MARKER_LABELS)) {
+		assert.match(t, new RegExp(`r${stateClassesFor(m).sem} — B: ${word}\\.`));
+	}
+});
+
+test('an inline state mark is spoken by its label, and does not tag its list item', () => {
+	const [t] = renderSpeech('<!-- _class: checklist -->\n\n## Launch\n\n- [x] Pen test `[!]` failed twice first\n- Load test `[?]` pending\n');
+	assert.match(t, /Pen test no failed twice first: done/);
+	// The second item carries no leading marker: its inline `[?]` must not make the whole
+	// item "unknown", only speak where it stands.
+	assert.match(t, /Load test unknown pending/);
+	assert.doesNotMatch(t, /pending: unknown/);
+});
+
 test('speech: a plain nested list never invents a state word from a descendant', () => {
 	const [t] = speak(sections(
 		`<section data-lattice-slide data-class="list" class="list"><div class="cell-stage"><ul><li>Roadmap<ul><li>Q1 launch</li></ul></li></ul></div></section>`,

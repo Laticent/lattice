@@ -2095,6 +2095,80 @@ describe('lint-core: an empty box whose meaning moved (rule 16, six state marks)
   test('a fenced example on the slide is quoted material, not a criterion', () => {
     assert.equal(moved(slide('verdict-grid', '```markdown\n- Vendor\n  - [ ] Audit\n```')).length, 0);
   });
+  test('pricing: `[ ]` is now "coming", and the fix offers `[!]` or `[/]`', () => {
+    const found = moved(slide('pricing', '- Starter `$0`\n  - [x] Seats\n  - [ ] Audit log\n  - For one team.'));
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /"coming"/);
+    assert.match(found[0].message, /"missing"/);
+    assert.match(found[0].fix, /`\[!\]`/);
+    assert.match(found[0].fix, /`\[\/\]`/);
+  });
+
+  test('the class counts anywhere in the list, as the engine decodes it', () => {
+    assert.equal(moved(slide('dark verdict-grid', '- Vendor\n  - [ ] Audit')).length, 1);
+    assert.equal(moved(slide('heat obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |')).length, 1);
+  });
+
+  test('a slide already using `[!]` or `[?]` was written for the six markers — its `[ ]` is meant', () => {
+    assert.equal(moved(slide('verdict-grid', '- Vendor\n  - [!] Audit\n  - [ ] Cost\n  - Why.')).length, 0);
+    assert.equal(moved(slide('pricing', '- Pro\n  - [?] SSO\n  - [ ] Audit\n  - Why.')).length, 0);
+  });
+
+  test('an HTML comment on the slide is not a criterion', () => {
+    assert.equal(moved(slide('verdict-grid', '<!--\n- Vendor\n  - [ ] Audit\n-->\n- Vendor\n  - [x] A')).length, 0);
+  });
+
+  test('findings carry shapeChange, which the render path prints as a warning', () => {
+    const [f] = moved(slide('obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |'));
+    assert.equal(f.shapeChange, true);
+    assert.equal(f.autofixable, undefined, 'obligation-matrix has no safe rewrite: exempt, "not required" or open');
+    assert.deepEqual(core.findMovedEmptyBoxes(slide('verdict-grid', '- V\n  - [ ] A')).map((x) => x.rule), ['moved-empty-box']);
+  });
+});
+
+describe('lint-core: `--fix` migrates a moved empty box, and only where the meaning moved', () => {
+  const fixed = (src) => core.applyAllFixes(src, vocab);
+  const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+
+  test('rewrites EVERY `[ ]` on a verdict-grid slide, not just the first', () => {
+    // The first `[!]` makes the slide read as six-marker and silences the rule, so a
+    // line-at-a-time fix would stop after one line and leave the slide half-migrated.
+    const out = fixed(FM + slide('verdict-grid', '- Vendor\n  - [x] Speed\n  - [ ] Audit\n  - [ ] Cost\n  - Why.'));
+    assert.match(out, /  - \[!\] Audit\n  - \[!\] Cost/);
+    assert.match(out, /  - \[x\] Speed/);
+  });
+
+  test('rewrites pricing, and leaves a checklist on the same deck alone', () => {
+    const src = FM + slide('pricing', '- Pro\n  - [ ] Audit\n  - Why.') + '\n---\n\n' + slide('checklist', '- [ ] Todo');
+    const out = fixed(src);
+    assert.match(out, /  - \[!\] Audit/);
+    assert.match(out, /- \[ \] Todo/);
+  });
+
+  test('never rewrites a fenced example on the same slide', () => {
+    const out = fixed(FM + slide('verdict-grid', '```markdown\n- V\n  - [ ] Quoted\n```\n\n- Vendor\n  - [ ] Audit'));
+    assert.match(out, /  - \[ \] Quoted/);
+    assert.match(out, /  - \[!\] Audit/);
+  });
+
+  test('never touches obligation-matrix: its `[ ]` has three honest readings', () => {
+    const src = FM + slide('obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |');
+    assert.equal(fixed(src), src);
+  });
+
+  test('the CLI `--fix` writes the file and reports it', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+    const file = path.join(dir, 'deck.md');
+    fs.writeFileSync(file, FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.'));
+    const r = spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+    assert.match(r.stderr, /lint:deck --fix — rewrote/);
+    assert.match(fs.readFileSync(file, 'utf8'), /  - \[!\] B/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 describe('lint-core: typed crosses point at `[!]`, not the open box', () => {

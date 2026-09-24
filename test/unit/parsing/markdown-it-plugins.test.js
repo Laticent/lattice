@@ -1046,6 +1046,20 @@ describe('markdown-it-plugins', () => {
     assert.doesNotMatch(html, /state-empty/);
   });
 
+  test('badge and cell labels land as text, never as markup', () => {
+    // The label reaches an html_inline token after markdown-it has DECODED it, so a
+    // typed `&lt;b&gt;` is `<b>` by then. Unescaped, the engine emitted a live element
+    // while the runtime mirror (which writes textContent) showed the literal text.
+    const badge = makeHost(plugins.verdictGridBadges).render([
+      '<!-- _class: verdict-grid -->', '', '- Card', '  - [!] A &lt;b&gt;x&lt;/b&gt; &amp; B',
+    ].join('\n')).html;
+    assert.match(badge, /<span class="badge fail state-empty">A &lt;b&gt;x&lt;\/b&gt; &amp; B<\/span>/);
+    const cell = makeHost(plugins.obligationMatrixBadges).render([
+      '<!-- _class: table state-cells -->', '', '| A | B |', '| - | - |', '| x | [?] &lt;i&gt; |',
+    ].join('\n')).html;
+    assert.match(cell, /<span class="state unknown state-unknown">&lt;i&gt;<\/span>/);
+  });
+
   test('verdictGridBadges: does NOT fire on slides without the verdict-grid class', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = '## Title\n\n- Card\n  - [x] would-be-pass';

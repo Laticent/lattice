@@ -11,6 +11,7 @@
  *   node tools/lint-deck.js examples/a.md examples/b.md
  *   node tools/lint-deck.js --strict examples/a.md    # warnings fail too
  *   node tools/lint-deck.js --json examples/a.md      # machine-readable
+ *   node tools/lint-deck.js --fix examples/a.md       # apply every machine fix, in place
  *
  * Exit codes:
  *   0  clean (no errors; no warnings under --strict)
@@ -21,6 +22,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { lintText, buildVocab } = require('../lib/authoring/lint');
+const { applyAllFixes } = require('../lib/authoring/lint-core');
 // review-core carries the advisory presentation suggestions (brevity / density /
 // verbose chrome). Wiring it here means a CLI / agent author SEES density budgets
 // too — not just the browser Drawing Board panel (2026-06-30 red-team fix). It is
@@ -123,6 +125,12 @@ async function main(argv) {
   const patterns = argv.filter((a) => !a.startsWith('--'));
   const strict = flags.has('--strict');
   const asJson = flags.has('--json');
+  // --fix: apply every machine-appliable finding in place, then lint what is left. The
+  // SAME engine as the Studio's "Fix all" (lint-core `applyAllFixes`), so the two
+  // surfaces cannot disagree about what a fix does. It is how a deck written before a
+  // grammar change migrates in one command — e.g. rule 16 rewriting an old verdict-grid
+  // `[ ]` ("not met") to `[!]`.
+  const fix = flags.has('--fix');
 
   const files = (flags.has('--all') ? discoverDecks() : expandArgs(patterns)).filter((f) => fs.existsSync(f));
   if (!files.length) {
@@ -169,7 +177,15 @@ async function main(argv) {
     // and no-ask; CRLF silently dropped verbose-eyebrow; lone CR dropped it and invented
     // title-incomplete. A Windows author got different advice for identical content.
     // `\r\n?` covers CRLF and classic-Mac lone CR; it is a no-op on LF.
-    const source = fs.readFileSync(file, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+    let source = fs.readFileSync(file, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+    if (fix) {
+      const fixed = applyAllFixes(source, vocab);
+      if (fixed !== source) {
+        fs.writeFileSync(file, fixed);
+        process.stderr.write(`lint:deck --fix — rewrote ${relFromRoot(file)}\n`);
+        source = fixed;
+      }
+    }
     const findings = lintText(source, { vocab })
       // A deck whose typed glyphs ARE the subject is exempt from the glyph rule
       // and from nothing else (HARD RULE #29). examples/speech-symbols.md proves

@@ -14,12 +14,12 @@ const marks = require('../../../lib/core/state-marks.js');
 
 describe('state-marks — the six markers', () => {
   const EXPECTED = {
-    '[x]': { sem: 'pass', shape: 'state-full', label: 'done' },
-    '[-]': { sem: 'warn', shape: 'state-half', label: 'partial' },
+    '[x]': { sem: 'pass', shape: 'state-full', label: 'yes' },
+    '[-]': { sem: 'warn', shape: 'state-half', label: 'partly' },
     '[!]': { sem: 'fail', shape: 'state-empty', label: 'no' },
     '[?]': { sem: 'unknown', shape: 'state-unknown', label: 'unknown' },
-    '[ ]': { sem: 'todo', shape: 'state-todo', label: 'to do' },
-    '[/]': { sem: 'skip', shape: 'state-slashed', label: 'skipped' },
+    '[ ]': { sem: 'todo', shape: 'state-todo', label: 'open' },
+    '[/]': { sem: 'skip', shape: 'state-slashed', label: 'does not apply' },
   };
 
   for (const [src, want] of Object.entries(EXPECTED)) {
@@ -123,7 +123,17 @@ describe('state-marks — one kernel, no duplicate decision', () => {
     const fs = require('node:fs');
     const path = require('node:path');
     const ROOT = path.resolve(__dirname, '../../..');
-    const PRIVATE = /\[x\\-(?:!\? )?\/ ?\]|\[x\\-\/ \]/;
+    // ORDER-BLIND: any bracket class holding `x`, `-`, `/` and a space, however written —
+    // `[x\-/ ]`, `[ /x\-]`, `[-x/ !?]`. The first cut matched two spellings only, so a copy
+    // with its members shuffled walked straight past it.
+    const CLASS = /\[((?:\\.|[^\]\\\n]){3,16})\]/g;
+    const isMarkerClass = (body) => {
+      const chars = new Set(body.replace(/\\(.)/g, '$1'));
+      return ['x', '-', '/', ' '].every((c) => chars.has(c));
+    };
+    const PRIVATE = { test: (src) => [...src.matchAll(CLASS)].some((m) => isMarkerClass(m[1])) };
+    assert.ok(PRIVATE.test('const r = /[ /x\\-]/;'), 'the guard must catch a shuffled copy');
+    assert.ok(!PRIVATE.test('const r = /[x\\- ]/;'), 'matrix-grid\'s three positional markers are not the class');
     const EXEMPT = new Set(['lib/core/state-marks.js', 'lib/core/matrix-grid-cells.js']);
     const offenders = [];
     const walk = (dir) => {

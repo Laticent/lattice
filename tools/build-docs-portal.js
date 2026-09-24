@@ -1096,13 +1096,10 @@ function renderPortalJson(manifests) {
 // kernel's universal word. Each marker has ONE meaning in every component; only
 // `[x]` and `[ ]` are GitHub task-list syntax (§5.1).
 const { MARKERS, MARKER_LABELS, stateClassesFor } = require('../lib/core/state-marks');
-const MARKER_ANSWERS = Object.freeze({
-  x: 'yes', '-': 'partly', '!': 'no', '?': 'unknown', ' ': 'open', '/': 'does not apply',
-});
 const STATE_MARKERS = Object.fromEntries(MARKERS.map((m) => {
   const { sem, shape } = stateClassesFor(m);
   return [`[${m}]`, {
-    semantic: sem, shape, answer: MARKER_ANSWERS[m], spoken: MARKER_LABELS[m],
+    semantic: sem, shape, answer: MARKER_LABELS[m], spoken: MARKER_LABELS[m],
     gfm: m === 'x' || m === ' ',
   }];
 }));

@@ -21,7 +21,7 @@
  * the eye reads "not in this phase" rather than "missing".
  *
  * Modifiers — compose with the base by adding a second class:
- *   .status      — cells carry state markers ([x]/[-]/[ ]/[/]) and
+ *   .status      — cells carry state markers (the universal six) and
  *                  render as a status board (shipped / WIP / planned /
  *                  out-of-scope). DOM tagging lives in lib/roadmap.js.
  *   .horizons    — table is transposed into Now/Next/Later vertical
@@ -219,7 +219,7 @@
  * wrap into .chart-subtitle / .chart-caption (styled in chart-family.css), so
  * roadmap no longer styles a bare `section.roadmap > p`. */
 
-/* ── ROADMAP STATE MARKERS — universal `[x]/[-]/[ ]/[/]` per cell ─────
+/* ── ROADMAP STATE MARKERS — the universal six per cell ───────────────
  * Cells in ANY roadmap variant can carry a state marker as the leading
  * token. lib/roadmap.js strips the marker, tags the <td> with a state
  * class, and wraps the label in a state-label eyebrow + state-text

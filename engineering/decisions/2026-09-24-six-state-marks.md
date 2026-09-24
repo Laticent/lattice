@@ -117,7 +117,7 @@ answer the layout rarely needs. The marker still works there and falls back to t
 | checklist | done | partial | failed | unknown | to do | skipped |
 | verdict-grid | yes | partial | no | unknown | not assessed | n/a |
 | pricing | included | limited | missing | ask sales | coming | not included |
-| obligation-matrix | applies | partial | does not apply | unclear | undetermined | exempt |
+| obligation-matrix | applies | partial | not required | unclear | undetermined | exempt |
 | roadmap | shipped | in flight | missed | uncertain | planned | out of scope |
 | `state-cells` | yes | partial | no | unknown | not checked | n/a |
 
@@ -248,3 +248,51 @@ Built on the same branch as the pricing fix that surfaced the question (PR #2327
     lesson for any future codemod over this grammar: a layout's DEFAULT reading of a
     marker is not evidence of what one author meant by it.
 
+### 10.1 The review round
+
+An adversarial review of the built branch (red team, inversion, independent checker)
+found these, and each is fixed on the branch with a test that fails without it:
+
+- **Horizons dropped the new answers.** The roadmap `horizons` form matched card rows
+  against a hand-kept list of the four old state classes, so `[!]` and `[?]` rows lost
+  their state. The list is built from the transform's own marker table now, and the row
+  text match no longer stops at the first inner span.
+- **The words disagreed in three places.** A roadmap label set renamed the key but not
+  the cells, so a `status` cell said "Shipped" beside a key reading "Live". A
+  `state-cells` table narrated nothing, because the marker is stripped and no word map
+  covered a modifier. An inline mark was silent in narration, and its `aria-label` mixed
+  checklist words ("done", "to do") with the new ones. The cells read the key's merge,
+  `state-cells` speaks the universal words, and the kernel's `MARKER_LABELS` are the
+  universal words (`yes` `partly` `no` `unknown` `open` `does not apply`).
+- **obligation-matrix `[!]` is "Not required"**, not "Does not apply". "Does not apply" is
+  `[/]`'s universal meaning, so the key printed one answer's name on another's mark, on
+  the one component where `[/]` also sits beside it (as "Exempt").
+- **The engine inserted a badge or cell label as raw HTML.** The label is decoded text by
+  then, so a typed `&lt;` became a live tag on the export path while the runtime showed
+  the literal text. Both paths escape now.
+- **Two style gaps.** Under `heat`, roadmap's missed work kept the alarm red that heat
+  gives shipped work; it takes the relief color like every other `[!]`. `checks-outline`
+  and `checks-tonal` set an inner ring the hollow answers inherited, drawing a double ring.
+- **Compose did not lock a slide with the new markers.** The editor locks task-list items
+  it cannot round-trip, but its check knew only `[ ]` and `[x]`, so `[!]` came back as
+  `\[!\]`.
+
+### 10.2 The transition, for decks we do not ship
+
+`lint:deck` alone was not enough. An author re-rendering an old deck gets a PDF that
+changed meaning with a successful exit code, and never runs the linter. Three layers:
+
+1. **The render warns.** `lattice-emulator.js` prints each slide where an old `[ ]` now
+   draws something else, on the channel and in the shape of the retired-Form warning,
+   capped at five lines. The detector is lint rule 16 (`findMovedEmptyBoxes`), so the
+   two cannot disagree.
+2. **`lint:deck -- --fix` rewrites the safe half.** On verdict-grid and pricing an old
+   `[ ]` drew the red cross, so `[!]` restores exactly what the deck drew. The rewrite is
+   slide-wide in one pass (the first `[!]` would otherwise silence the rule and leave the
+   slide half-migrated) and skips fenced examples.
+3. **obligation-matrix gets no rewrite.** An old `[ ]` there was keyed "exempt" but was
+   used for "unconfirmed" and "controlled" too (§10), so there is no safe target. The
+   warning names the slide and the choices.
+
+Every layer is silent on a slide that uses `[!]` or `[?]` (written for six markers) or
+carries a label set naming `[ ]` (the author said what it means).

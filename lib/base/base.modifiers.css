@@ -1372,6 +1372,12 @@ section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding:
  *   half   (was caution) → caution (var(--warn) — unchanged)
  *   empty  (was bad)   → relief (var(--pass))
  *   skip   (was muted) → muted  (var(--muted-mark) — the graphical tier since #1715)
+ *   unknown / todo      → muted, untouched here (an unsettled answer carries no load
+ *                         either way, and their default is already --muted-mark)
+ *
+ * Roadmap's `missed` joins `planned` in relief: `[!]` is "no" on every surface, so
+ * under heat it reads as relief like the `.fail` disc does. Left at its default red it
+ * would share heat's alarm red with `shipped`, the one pair heat must keep apart.
  *
  * Selectors match the per-layout default --state-color assignments above
  * exactly, so specificity ties; this block is placed AFTER the layout
@@ -1416,7 +1422,9 @@ section.heat > .cell-stage > ol > li.state.fail,
 section.heat .badge.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
-section.heat .horizon-rows > li.cell-state.state-planned { --state-color:var(--pass); }
+section.heat .horizon-rows > li.cell-state.state-planned,
+section.heat td.cell-state.state-missed,
+section.heat .horizon-rows > li.cell-state.state-missed { --state-color:var(--pass); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
@@ -1431,8 +1439,8 @@ section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--m
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS
  * ────────────────────────────────────────────────────────────────────────
- * The checkbox grammar ([x]/[-]/[ ]/[/]) renders as one colored disc
- * carrying a DISTINCT mark per state, across the three consumers that share
+ * The six-marker checkbox grammar renders as a solid disc (settled answers)
+ * or a hollow ring (unsettled ones), each with a DISTINCT mark, across the consumers that share
  * the universal `state {sem} {shape}` classes: checklist, verdict-grid,
  * obligation-matrix. (Roadmap keeps its own dot vocabulary — see the
  * --state-slash note in base.tokens.css.) The disc geometry/painting lives
@@ -1470,6 +1478,10 @@ section .badge.unknown {
   --state-fill-pct: 0%;
   --state-ring-outer-w: 2.2px;
   --state-ring-mix: 100%;
+  /* `checks-outline` and `checks-tonal` set an INNER ring on the section, which
+   * these elements would inherit and draw inside the outer one: a double ring
+   * that reads as a target, not as "open". One ring is the unsettled shape. */
+  --state-ring-inner-w: 0px;
 }
 section .state.todo::after,
 section .badge.todo::after { display: none; }
