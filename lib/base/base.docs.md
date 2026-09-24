@@ -82,6 +82,19 @@ The CSS pattern is `p:has(> code:only-child) + h1/h2/…`. Eyebrows are
 **markdown-lint compliant**: a `<p>` containing code is not a heading,
 so the eyebrow pattern can never violate heading-order rules.
 
+**The WHOLE paragraph has to be the code span.** `` `Section 01` `` is an
+eyebrow; `` `guards: loose` is the default `` is a sentence, and renders as
+one. CSS `:only-child` cannot see text, so before #2308 any paragraph holding
+exactly one code span matched — "The `background:` shorthand clears every
+longhand" after a heading was re-typeset as a muted subtitle and lost its
+pill. The engine now stamps `data-prose` on a `<p>` (or a tight-list `<li>`)
+that mixes code with text (`lib/core/prose-code.js`, mirrored by the
+runtime), and every `:has(> code:only-child)` rule carries
+`:not(:where([data-prose]))`, which adds no specificity. A renderer that
+never runs the kernel (a Marp for VS Code preview with scripts off) keeps the
+old behavior. To keep a kicker that mentions code, put the whole line in
+backticks.
+
 **The eyebrow takes PLAIN inline code — a pill or a mark there is not a
 kicker.** The selector needs a `<code>` ELEMENT as the paragraph's only
 child, and the inline directive grammar (`{LABEL}` pills, `[x]` marks —

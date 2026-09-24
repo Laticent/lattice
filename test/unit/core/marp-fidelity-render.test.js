@@ -374,6 +374,30 @@ const PROBES = {
     ],
   },
 
+  // Both sides of the decision (#2308): what is marked prose AND what is left alone. A probe
+  // that only fed it prose would pass a mirror that marked every paragraph in the deck — the
+  // exact regression that drops every real eyebrow and subtitle on the floor.
+  proseCodeMark: {
+    min: 4,
+    minMatch: /^prose\|/,
+    section: 'content',
+    body: [
+      '`Eyebrow that is only code`', '',
+      '## Heading', '',
+      '`A subtitle that is only code`', '',
+      'The `background:` shorthand clears every longhand.', '',
+      'Two `spans` and `prose` together.', '',
+      'An *emphasis* beside `code` renders another element.', '',
+      '- A tight item with `code` inside',
+      '- `only code`',
+      '- Parent with `code`',
+      '  - `nested only`',
+    ].join('\n'),
+    probe: (doc) => [...doc.querySelectorAll('section p, section li')].map(
+      (el) => `${el.hasAttribute('data-prose') ? 'prose' : 'plain'}|${el.tagName.toLowerCase()}|${el.textContent.replace(/\s+/g, ' ').trim()}`,
+    ),
+  },
+
   slotLabelLift: {
     min: 3,
     section: 'premise',

@@ -104,4 +104,4 @@ section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-
  * eyebrow with the subtitle rule's `balance`. `wrap` resets both halves
  * (mode:wrap, style:auto). Caught by review; the first cut shipped the dead
  * `normal`. */
-section.divider.light p:has(> code:only-child) { max-width:none; text-wrap:wrap; }
+section.divider.light p:has(> code:only-child):not(:where([data-prose])) { max-width:none; text-wrap:wrap; }

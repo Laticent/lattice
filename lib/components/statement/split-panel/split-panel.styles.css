@@ -303,8 +303,8 @@ section.split-panel.watermark .panel-left .watermark { position:absolute; font-f
  * does exactly that. The running header/footer keep --on-accent-secondary
  * (line ~247): muted chrome, WCAG-exempt by palette contract.
  * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
-section.split-panel.watermark .panel-left > p:has(> code:only-child) { position:absolute; top:50%; transform:translateY(-50%); padding:0; margin:0; color:var(--on-accent); }
-section.split-panel.watermark .panel-left > p:has(> code:only-child) > code { color:var(--on-accent); background:none; border:none; padding:0; border-radius:0; }
+section.split-panel.watermark .panel-left > p:has(> code:only-child):not(:where([data-prose])) { position:absolute; top:50%; transform:translateY(-50%); padding:0; margin:0; color:var(--on-accent); }
+section.split-panel.watermark .panel-left > p:has(> code:only-child):not(:where([data-prose])) > code { color:var(--on-accent); background:none; border:none; padding:0; border-radius:0; }
 section.split-panel.watermark .panel-left > h5 { position:absolute; top:var(--sp-xl); margin:0; color:var(--on-accent); }
 section.split-panel.watermark .panel-right { padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
 section.split-panel.watermark .panel-right h3 { font-family:inherit; text-transform:none; letter-spacing:normal; border-bottom:none; padding-bottom:0.3125cqi; color:var(--text-heading); }

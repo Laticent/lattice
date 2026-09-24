@@ -101,7 +101,7 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
   display:flex; flex-direction:column; gap:var(--sp-xs);
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li::marker { content:''; }
-section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
+section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
@@ -205,7 +205,7 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li > strong:first-ch
   font-size:var(--fs-meta);
   letter-spacing:0.10em;
 }
-section.authority-chain.trail > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
+section.authority-chain.trail > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   font-size:var(--fs-meta);
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {

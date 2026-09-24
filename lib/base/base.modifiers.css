@@ -45,20 +45,28 @@
  *   ## Slide Heading
  *
  *   `Four-stage processing pipeline — weekly cadence`
+ *
+ * `:not(:where([data-prose]))` — ON THIS RULE AND EVERY `:has(> code:only-child)` IN THE
+ * BUNDLE (#2308). `:only-child` counts element siblings only, so a sentence holding one code
+ * span ("The `background:` shorthand clears every longhand") matched too: it was re-typeset
+ * as a muted subtitle, lost its pill, and on `topic` its canvas ink measured 1.65:1 on the
+ * panel. The kernel stamps `data-prose` on exactly that paragraph (lib/core/prose-code.js,
+ * engine + runtime mirror). `:where()` keeps the guard at zero specificity, so no cascade
+ * outcome moves, and a renderer that never runs the kernel keeps today's behavior.
  */
-section h1 + p:has(> code:only-child),
-section h2 + p:has(> code:only-child),
-section h3 + p:has(> code:only-child),
-section h4 + p:has(> code:only-child),
-section h5 + p:has(> code:only-child) {
+section h1 + p:has(> code:only-child):not(:where([data-prose])),
+section h2 + p:has(> code:only-child):not(:where([data-prose])),
+section h3 + p:has(> code:only-child):not(:where([data-prose])),
+section h4 + p:has(> code:only-child):not(:where([data-prose])),
+section h5 + p:has(> code:only-child):not(:where([data-prose])) {
   color: var(--text-secondary);
   font-size: var(--fs-message);
 }
-section h1 + p:has(> code:only-child) > code,
-section h2 + p:has(> code:only-child) > code,
-section h3 + p:has(> code:only-child) > code,
-section h4 + p:has(> code:only-child) > code,
-section h5 + p:has(> code:only-child) > code {
+section h1 + p:has(> code:only-child):not(:where([data-prose])) > code,
+section h2 + p:has(> code:only-child):not(:where([data-prose])) > code,
+section h3 + p:has(> code:only-child):not(:where([data-prose])) > code,
+section h4 + p:has(> code:only-child):not(:where([data-prose])) > code,
+section h5 + p:has(> code:only-child):not(:where([data-prose])) > code {
   font-family: var(--font-body);
   font-size: inherit;
   font-style: italic;
@@ -78,14 +86,14 @@ section h5 + p:has(> code:only-child) > code {
  * Measured in Chromium on indaco: 7.19:1 on the grammar level, 1.65:1 on the other,
  * i.e. an eyebrow that all but disappears. An off-grammar heading is an authoring
  * slip the deck lint already flags; it should not also silently erase the label. */
-section.title   :is(h1, h2) + p:has(> code:only-child),
-section.divider :is(h1, h2) + p:has(> code:only-child),
-section.closing :is(h1, h2) + p:has(> code:only-child) { color: var(--on-dark-secondary); }
+section.title   :is(h1, h2) + p:has(> code:only-child):not(:where([data-prose])),
+section.divider :is(h1, h2) + p:has(> code:only-child):not(:where([data-prose])),
+section.closing :is(h1, h2) + p:has(> code:only-child):not(:where([data-prose])) { color: var(--on-dark-secondary); }
 /* divider.light is the bright-canvas variant (former subtopic) — the dark-canvas
  * eyebrow color above would render near-invisible on it, so reset to the
  * standard muted ink and center it. */
-section.divider.light h1 + p:has(> code:only-child),
-section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondary); text-align: var(--headline-align, center); }
+section.divider.light h1 + p:has(> code:only-child):not(:where([data-prose])),
+section.divider.light h2 + p:has(> code:only-child):not(:where([data-prose])) { color: var(--text-secondary); text-align: var(--headline-align, center); }
 /* .dark modifier: the subtitle uses --text-secondary, a light-dark() pair, and
  * section.dark flips color-scheme:dark — so it resolves to its dark-canvas value
  * automatically. No extra rule needed. (The bookends above hardcode
@@ -142,26 +150,26 @@ section:is(.title, .divider:not(.light), .closing) > table td { color: var(--on-
  *
  *   - 14×
  */
-section p:has(> code:only-child):has(+ h1),
-section p:has(> code:only-child):has(+ h2),
-section p:has(> code:only-child):has(+ h3),
-section p:has(> code:only-child):has(+ h4),
-section p:has(> code:only-child):has(+ h5),
-section p:has(> code:only-child):has(+ ul),
-section p:has(> code:only-child):has(+ ol),
-section p:has(> code:only-child):has(+ pre) {
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h1),
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h2),
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h3),
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h4),
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h5),
+section p:has(> code:only-child):not(:where([data-prose])):has(+ ul),
+section p:has(> code:only-child):not(:where([data-prose])):has(+ ol),
+section p:has(> code:only-child):not(:where([data-prose])):has(+ pre) {
   /* eyebrow→heading gap as padding (no background on the eyebrow p, so it adds no
    * visible box) rather than margin-bottom — HARD RULE #20. */
   padding: 0 0 0.3125cqi 0;
 }
-section p:has(> code:only-child):has(+ h1) > code,
-section p:has(> code:only-child):has(+ h2) > code,
-section p:has(> code:only-child):has(+ h3) > code,
-section p:has(> code:only-child):has(+ h4) > code,
-section p:has(> code:only-child):has(+ h5) > code,
-section p:has(> code:only-child):has(+ ul) > code,
-section p:has(> code:only-child):has(+ ol) > code,
-section p:has(> code:only-child):has(+ pre) > code {
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h3) > code,
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h4) > code,
+section p:has(> code:only-child):not(:where([data-prose])):has(+ h5) > code,
+section p:has(> code:only-child):not(:where([data-prose])):has(+ ul) > code,
+section p:has(> code:only-child):not(:where([data-prose])):has(+ ol) > code,
+section p:has(> code:only-child):not(:where([data-prose])):has(+ pre) > code {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 600;
@@ -179,13 +187,13 @@ section p:has(> code:only-child):has(+ pre) > code {
   border-radius: 0;
 }
 /* Dark bookend overrides */
-section.title   p:has(> code:only-child):has(+ h1) > code,
-section.title   p:has(> code:only-child):has(+ h2) > code,
-section.divider p:has(> code:only-child):has(+ h1) > code,
-section.divider p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-secondary); }
+section.title   p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.title   p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+section.divider p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.divider p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--on-dark-secondary); }
 /* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas color. */
-section.divider.light p:has(> code:only-child):has(+ h1) > code,
-section.divider.light p:has(> code:only-child):has(+ h2) > code { color: var(--text-secondary); }
+section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--text-secondary); }
 /* `closing` takes --on-dark-secondary, exactly like `title` and `divider` above.
  * It used to name --on-dark-ghost, the documented "very muted decorative chrome"
  * rung, for a real content label: measured 2.49:1 on indaco and 2.67–2.91:1 on
@@ -199,8 +207,8 @@ section.divider.light p:has(> code:only-child):has(+ h2) > code { color: var(--t
  * either is fine; quoting 7.19 as the *computed* worst case is not, which an earlier
  * draft did.
  * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
-section.closing p:has(> code:only-child):has(+ h1) > code,
-section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-secondary); }
+section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--on-dark-secondary); }
 /* Dark modifier (any layout + dark class) */
 /* THE EYEBROW'S INK FOLLOWS THE RESOLVED GROUND, not the `.dark` class. (#2158)
  *
@@ -219,14 +227,14 @@ section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark
  * `section.dark.form .tile-watermark` (lib/forms/tile/watermark/watermark.css) has the
  * identical bug and is NOT fixed here — the contrast gate does not audit a watermark, so
  * changing it would be an unmeasured rendered change. Logged instead. */
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h1) > code,
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h2) > code,
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h3) > code,
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h4) > code,
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h5) > code,
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ ul) > code,
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ ol) > code,
-section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-secondary); }
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ h3) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ h4) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ h5) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ ul) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ ol) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):not(:where([data-prose])):has(+ pre) > code { color: var(--on-dark-secondary); }
 
 
 /* ── KEY INSIGHT ──────────────────────────────────────────────

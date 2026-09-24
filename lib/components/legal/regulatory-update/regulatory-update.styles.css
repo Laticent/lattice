@@ -53,7 +53,7 @@
  * Variants: .cards, .timeline, .diff-bands, .priority.
  * ──────────────────────────────────────────────────────────────────── */
 section.regulatory-update > .cell-stage { display:flex; flex-direction:column; }
-section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child) {
+section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   margin:0;
   padding-bottom:var(--sp-md);
   font-family:var(--font-label);
@@ -64,7 +64,7 @@ section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-ch
 /* font-family:inherit — see the note in redline.styles.css: the eyebrow font is named
  * on the parent `<p>`, but `section code` fonts this `<code>` in --font-mono, so the
  * update eyebrow never wore the label voice. Only visible under `sketch`. */
-section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child) > code {
+section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) > code {
   background:none; border:none; padding:0; color:inherit; font-family:inherit;
 }
 section.regulatory-update.regulatory-update > .cell-stage > ol,
@@ -124,10 +124,10 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :
 }
 section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li::marker { content:''; }
 /* Citation chip — first nested item, only-child <code>. Row 1, col 3. */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child) {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) {
   grid-column:3; grid-row:1;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
@@ -139,11 +139,11 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :
   grid-column:2 / span 3; grid-row:2;
 }
 /* Impact / date pill — last nested item, only-child <code>. Row 1, col 5. */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) {
   grid-column:5; grid-row:1;
   justify-self:end;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) > code {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) > code {
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -289,9 +289,9 @@ section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff
   row-gap: var(--sp-xs);
   align-items: baseline;
 }
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])),
 section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) {
   grid-column: 2;
   grid-row: auto;
   justify-self: start;

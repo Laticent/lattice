@@ -36,7 +36,7 @@
 section.redline > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); }
 /* A body code-only paragraph (the first lifts into the masthead as the kicker; this
  * only matches a SECOND one left in the stage). */
-section.redline > .cell-stage > p:has(> code:only-child) {
+section.redline > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   margin:0;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -49,7 +49,7 @@ section.redline > .cell-stage > p:has(> code:only-child) {
  * label voice. Invisible on a normal theme (--font-label defaults to var(--font-mono)),
  * plainly wrong under `sketch`, where it left a machine-faced kicker over a
  * hand-drawn clause box. Same fix in citation-card + regulatory-update. */
-section.redline > .cell-stage > p:has(> code:only-child) > code {
+section.redline > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) > code {
   background:none; border:none; padding:0; color:inherit; font-family:inherit;
 }
 section.redline > .cell-stage > blockquote {

@@ -44,7 +44,7 @@ section.kpi > .cell-stage {
  * rule (base.modifiers.css) supplies the mono/uppercase chrome; kpi only tunes
  * the gap to the headline. Authored as `code`, never an h3, so it never trips
  * a heading-order lint. */
-section.kpi > .cell-stage > p:has(> code:only-child) {
+section.kpi > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   margin: 0;
   padding: 0 0 var(--sp-xs) 0;
 }
@@ -174,7 +174,7 @@ section.kpi code {
  *  · the eyebrow paragraph holds a single pill (no preceding sibling), so its
  *    former left indent is preserved as padding-left on the <p> (no background on
  *    the eyebrow paragraph, so the padding adds no fill). */
-section.kpi > .cell-stage > p:has(> code:only-child) {
+section.kpi > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   padding-left: 0.46875cqi;
 }
 section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li:has(code) {
