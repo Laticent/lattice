@@ -341,6 +341,69 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
   grid-column: 1; grid-row: auto;
 }
 
+/* ── A TALL BOX HOLDS THE WHOLE RUN ON ONE PAGE (#2321) ──────────────────────────────
+ * The Playground and the Studio render in the browser, where there is no auto-split: the
+ * split is a build-time pass (lib/core/auto-split.js), and the live one is an accepted but
+ * unbuilt design (engineering/decisions/2026-06-25-runtime-autosplit-eventual-consistency.md).
+ * So on those surfaces a `size: portrait` inventory is ONE tall page carrying every row,
+ * and the manifest promises that page `adapt.capacity.tall` sweet 5. Measured in the
+ * Playground at 390px on the gallery's copy (four rows), the 844px portrait stage did not
+ * hold three of the four looks: cards ran 22px past it, editorial 90px, and the timeline
+ * kept four side-by-side columns 200px wide, which wrapped its titles one word per line and
+ * clipped its bodies. The rules below are the tall answer for each; none reaches a
+ * landscape slide. */
+
+/* TIMELINE: the run turns vertical. The single-column template the reflow above sets does
+ * not collapse a timeline on its own: its list auto-flows by COLUMN, so every row opened a
+ * new implicit column beside the last. Here it flows by row, the dot moves to the left of
+ * its title, and the connector drops from each dot to the next. The dot, its gutter and the
+ * connector all derive from `--inv-dot`, as the horizontal run's do. */
+section.inventory.timeline[data-family="tall"] > .cell-stage > ul {
+  grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
+  padding: var(--sp-xs) 0 0;
+}
+section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li {
+  padding: 0 0 0 calc(var(--inv-dot) + var(--sp-sm));
+  min-height: var(--inv-dot);
+}
+section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li::after {
+  top: var(--inv-dot); bottom: calc(-1 * var(--sp-md));
+  left: calc(var(--inv-dot) / 2 - 1px); right: auto;
+  width: 2px; height: auto;
+}
+
+/* CARDS: four stacked tiles plus the pull-quote. The tiles keep their look; the air
+ * between and inside them comes down one rung and the prose sets at `--lh-snug`, which is
+ * what the stack of four needed (866px against the 844px stage before). */
+section.inventory.cards[data-family="tall"] > .cell-stage > ul {
+  padding-top: 0; gap: var(--sp-2xs);
+}
+section.inventory.cards[data-family="tall"] > .cell-stage > ul > li {
+  padding: var(--sp-xs) var(--sp-sm); line-height: var(--lh-snug);
+}
+section.inventory.cards[data-family="tall"] > .cell-stage > ul > li strong {
+  padding-bottom: var(--sp-3xs);
+}
+
+/* EDITORIAL: the split is stacked here (items, then the ruled insight), so the row titles
+ * step down from `--fs-message` to the `--fs-h3` the other three looks use, the prose sets
+ * at `--lh-snug`, and the gaps come down one rung. On a wide slide the larger title and the
+ * open leading are what balance the sidebar; with no sidebar beside them they only cost
+ * height: four items and a two-line insight measured 910px against the 844px stage. */
+section.inventory.editorial[data-family="tall"] > .cell-stage {
+  row-gap: var(--sp-sm);
+}
+section.inventory.editorial[data-family="tall"] > .cell-stage > ul {
+  gap: var(--sp-xs);
+}
+section.inventory.editorial[data-family="tall"] > .cell-stage > ul > li,
+section.inventory.editorial[data-family="tall"] > .cell-stage > blockquote {
+  line-height: var(--lh-snug);
+}
+section.inventory.editorial[data-family="tall"] > .cell-stage > ul > li strong {
+  font-size: var(--fs-h3);
+}
+
 /* ── SPLIT PAGES (portrait, and any box that atomizes the run) ──────────────────────
  * The split cuts an inventory into one row per page. Three things the single-slide
  * layout never had to answer, all measured on the gallery at `size: portrait`. */
