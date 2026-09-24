@@ -1,0 +1,254 @@
+// validateLtt — every rule of the LTT spec a machine can check, reported as plain sentences.
+//
+// Same contract as `validateTrack`: returns [] for a valid file, never throws, never mutates.
+// It checks more than the JSON Schema can say (the schema has no way to express "cue starts
+// are monotonic" or "the word at {cue, word} still reads as the action's `match`"), and less
+// than it in one place on purpose: it ignores keys it does not know, because a reader must
+// skip a layer it has not heard of (engineering/ltt.md §Layers).
+
+import { validateTrack } from './track';
+import type { CaptionTrack } from './types';
+
+const HASH = /^sha256:[0-9a-f]{64}$/;
+const PACES = ['slow', 'moderate', 'fast'];
+const DECK_PACES = ['brisk', 'natural', 'deliberate'];
+const MOTIONS = ['full', 'legible', 'still'];
+const BASES = ['estimate', 'measured', 'legacy'];
+const AFTERS = ['awaitUser', 'until', 'act'];
+// The core is CLOSED (`@closed` in types.ts): the packed encoding carries these fields by name, so
+// any other key would be dropped by a round trip. Every other object stays open for later layers.
+const TRACK_KEYS = new Set(['cues', 'durationMs']);
+const CUE_KEYS = new Set(['display', 'words', 'startMs', 'endMs', 'charOffset', 'endsParagraph', 'weight']);
+const WORD_KEYS = new Set(['display', 'spoken', 'startMs', 'endMs', 'charOffset', 'weight']);
+
+function checkClosed(obj: Rec, allowed: Set<string>, where: string, out: string[]): void {
+	for (const k of Object.keys(obj)) {
+		if (!allowed.has(k)) out.push(`${where} has "${k}", which the core does not define — the core is closed; a new field is a new version of the spec`);
+	}
+}
+
+type Rec = Record<string, unknown>;
+const isRec = (v: unknown): v is Rec => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isStr = (v: unknown): v is string => typeof v === 'string';
+const isMs = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
+
+/** The word an action names, as Vetrina compares it: case-folded, with the punctuation a
+ *  segmenter leaves attached stripped from both ends. The same rule as Vetrina's
+ *  `normalizeCueWord` (vetrina/narrate.ts), which cannot import this until step 4 opens its gate. */
+export function normalizeMatch(s: string): string {
+	return String(s)
+		.toLowerCase()
+		.replace(/^[^\p{L}\p{N}]+/u, '')
+		.replace(/[^\p{L}\p{N}]+$/u, '');
+}
+
+function checkHash(v: unknown, where: string, out: string[]): void {
+	if (!isStr(v) || !HASH.test(v)) out.push(`${where} is not a content hash (want "sha256:" and 64 lowercase hex digits)`);
+}
+
+function checkEnum(v: unknown, allowed: readonly string[], where: string, out: string[]): void {
+	if (!isStr(v) || !allowed.includes(v)) out.push(`${where} is ${JSON.stringify(v)}; want one of ${allowed.join(', ')}`);
+}
+
+/** The core, beyond `validateTrack`'s timeline invariants: the fields every reader relies on, all
+ *  present and typed, every time an integer, and `durationMs` where the spec says it is. */
+function checkCore(track: unknown, where: string, out: string[]): void {
+	if (!isRec(track) || !Array.isArray(track.cues)) {
+		out.push(`${where}.track has no cues array`);
+		return;
+	}
+	checkClosed(track, TRACK_KEYS, `${where}.track`, out);
+	if (!track.cues.length) out.push(`${where}.track has no cues — a narrated segment says something`);
+	if (!isMs(track.durationMs)) out.push(`${where}.track.durationMs is not a whole, non-negative number of ms`);
+	track.cues.forEach((cue: unknown, i: number) => {
+		const at = `${where}.track.cues[${i}]`;
+		if (!isRec(cue)) {
+			out.push(`${at} is not an object`);
+			return;
+		}
+		checkClosed(cue, CUE_KEYS, at, out);
+		if (!isStr(cue.display)) out.push(`${at}.display is not a string`);
+		for (const k of ['startMs', 'endMs', 'charOffset']) if (!isMs(cue[k])) out.push(`${at}.${k} is not a whole, non-negative number`);
+		if ('endsParagraph' in cue && typeof cue.endsParagraph !== 'boolean') out.push(`${at}.endsParagraph is not a boolean`);
+		if ('weight' in cue && !Number.isFinite(cue.weight)) out.push(`${at}.weight is not a finite number`);
+		if (!Array.isArray(cue.words) || !cue.words.length) {
+			out.push(`${at} has no words`);
+			return;
+		}
+		cue.words.forEach((w: unknown, j: number) => {
+			const wat = `${at}.words[${j}]`;
+			if (!isRec(w)) {
+				out.push(`${wat} is not an object`);
+				return;
+			}
+			checkClosed(w, WORD_KEYS, wat, out);
+			if (!isStr(w.display)) out.push(`${wat}.display is not a string`);
+			if (!isStr(w.spoken)) out.push(`${wat}.spoken is not a string — the core requires the spoken form`);
+			for (const k of ['startMs', 'endMs', 'charOffset']) if (!isMs(w[k])) out.push(`${wat}.${k} is not a whole, non-negative number`);
+			if ('weight' in w && !Number.isFinite(w.weight)) out.push(`${wat}.weight is not a finite number`);
+		});
+	});
+	const last = track.cues[track.cues.length - 1];
+	const end = isRec(last) ? last.endMs : 0;
+	if (isMs(track.durationMs) && track.durationMs !== end) {
+		out.push(`${where}.track.durationMs is ${track.durationMs}, but the last cue ends at ${end} — durationMs is the end of the last cue`);
+	}
+	for (const p of validateTrack(track as unknown as CaptionTrack)) out.push(`${where}.track: ${p}`);
+}
+
+function checkAudio(audio: unknown, where: string, out: string[]): void {
+	if (!isRec(audio)) {
+		out.push(`${where}.audio is not an object`);
+		return;
+	}
+	if (!isStr(audio.src) || !audio.src) out.push(`${where}.audio.src is empty`);
+	checkHash(audio.clip, `${where}.audio.clip`, out);
+	if (!isRec(audio.voice) || !isStr(audio.voice.model) || !isStr(audio.voice.voice) || !Number.isFinite(audio.voice.speed)) {
+		out.push(`${where}.audio.voice needs model, voice and speed`);
+	}
+	if (!isMs(audio.measuredMs)) out.push(`${where}.audio.measuredMs is not a whole, non-negative number`);
+	if ('leadMs' in audio && !(Number.isFinite(audio.leadMs) && (audio.leadMs as number) >= 0)) out.push(`${where}.audio.leadMs is not a non-negative number`);
+}
+
+function checkActions(actions: unknown, track: unknown, where: string, out: string[]): void {
+	if (!Array.isArray(actions)) {
+		out.push(`${where}.actions is not an array`);
+		return;
+	}
+	const cues = isRec(track) && Array.isArray(track.cues) ? track.cues : [];
+	actions.forEach((a: unknown, i: number) => {
+		const at = `${where}.actions[${i}]`;
+		if (!isRec(a)) {
+			out.push(`${at} is not an object`);
+			return;
+		}
+		if (!isStr(a.verb) || !a.verb) out.push(`${at}.verb is empty`);
+		if ('target' in a && !isStr(a.target)) out.push(`${at}.target is not a string`);
+		if ('arrive' in a && a.arrive !== 'on-word') out.push(`${at}.arrive is ${JSON.stringify(a.arrive)}; want "on-word"`);
+		if (!isStr(a.match)) {
+			out.push(`${at}.match is not a string`);
+			return;
+		}
+		const cue = isMs(a.cue) ? cues[a.cue] : undefined;
+		const word = isRec(cue) && Array.isArray(cue.words) && isMs(a.word) ? cue.words[a.word] : undefined;
+		if (!isRec(word) || !isStr(word.display)) {
+			out.push(`${at} points at cue ${String(a.cue)} word ${String(a.word)}, which this track does not have`);
+		} else if (normalizeMatch(word.display) !== a.match) {
+			out.push(
+				`${at} names "${a.match}", but cue ${a.cue} word ${a.word} is now "${word.display}" — the narration moved under the action. Re-anchor it to the word the author named.`,
+			);
+		}
+	});
+}
+
+/**
+ * Check an LTT in its canonical encoding against every rule of the spec a machine can check.
+ * Returns [] when the file is valid.
+ */
+export function validateLtt(ltt: unknown): string[] {
+	const out: string[] = [];
+	if (!isRec(ltt)) return ['an LTT is a JSON object'];
+	if (ltt.format !== 'ltt') out.push(`format is ${JSON.stringify(ltt.format)}; want "ltt"`);
+	if ('encoding' in ltt) out.push(`this file is in the ${JSON.stringify(ltt.encoding)} encoding — unpack it before validating`);
+	if (ltt.version !== '1.0') out.push(`version is ${JSON.stringify(ltt.version)}; this reader knows "1.0"`);
+
+	const source = ltt.source;
+	const kind = isRec(source) ? source.kind : undefined;
+	if (!isRec(source)) out.push('source is missing');
+	else {
+		checkEnum(source.kind, ['deck', 'tour'], 'source.kind', out);
+		if (!isStr(source.id) || !source.id) out.push('source.id is empty');
+	}
+
+	const inputs = ltt.inputs;
+	if (!isRec(inputs)) out.push('inputs is missing');
+	else {
+		checkHash(inputs.engine, 'inputs.engine', out);
+		checkEnum(inputs.pace, PACES, 'inputs.pace', out);
+		if ('deckPace' in inputs) checkEnum(inputs.deckPace, DECK_PACES, 'inputs.deckPace', out);
+		if ('lang' in inputs && !isStr(inputs.lang)) out.push('inputs.lang is not a string');
+		if ('lexicon' in inputs) checkHash(inputs.lexicon, 'inputs.lexicon', out);
+		if ('acronyms' in inputs) checkHash(inputs.acronyms, 'inputs.acronyms', out);
+		if ('motion' in inputs) checkEnum(inputs.motion, MOTIONS, 'inputs.motion', out);
+		if ('stagePace' in inputs && !(Number.isFinite(inputs.stagePace) && (inputs.stagePace as number) >= 0)) out.push('inputs.stagePace is not a non-negative number');
+		if ('viewport' in inputs) {
+			const v = inputs.viewport;
+			if (!isRec(v) || !Number.isInteger(v.w) || !Number.isInteger(v.h) || (v.w as number) < 1 || (v.h as number) < 1) out.push('inputs.viewport needs whole-pixel w and h');
+		}
+		if (kind === 'deck') {
+			for (const k of ['viewport', 'motion', 'stagePace']) if (k in inputs) out.push(`inputs.${k} is a tour input; a deck does not carry it`);
+		}
+		if (kind === 'tour' && 'deckPace' in inputs) out.push('inputs.deckPace is a deck input; a tour does not carry it');
+	}
+
+	if (typeof ltt.seekable !== 'boolean') out.push('seekable is not a boolean');
+	if (!Array.isArray(ltt.segments)) {
+		out.push('segments is not an array');
+		return out;
+	}
+
+	const ids = new Set<string>();
+	let lastSlide = 0;
+	let lastBeat = Number.NEGATIVE_INFINITY;
+	ltt.segments.forEach((seg: unknown, i: number) => {
+		const where = `segments[${i}]`;
+		if (!isRec(seg)) {
+			out.push(`${where} is not an object`);
+			return;
+		}
+		if (!isStr(seg.id) || !seg.id) out.push(`${where}.id is empty`);
+		else if (ids.has(seg.id)) out.push(`${where}.id "${seg.id}" repeats — segment ids are unique in a file`);
+		else ids.add(seg.id);
+
+		const k = seg.kind;
+		if (k !== 'slide' && k !== 'hold' && k !== 'stretch') {
+			out.push(`${where}.kind is ${JSON.stringify(k)}; want slide, hold or stretch`);
+			return;
+		}
+		if (kind === 'deck' && k === 'stretch') out.push(`${where} is a stretch, which only a tour has`);
+		if (kind === 'tour' && k !== 'stretch') out.push(`${where} is a ${k}, which only a deck has`);
+
+		if (k === 'stretch') {
+			const beats = isRec(seg.at) ? seg.at.beats : undefined;
+			if (!Array.isArray(beats) || beats.length !== 2 || !beats.every((b) => Number.isInteger(b) && b >= 0) || beats[0] > beats[1]) {
+				out.push(`${where}.at.beats is not a [first, last] pair of beat indices`);
+			} else {
+				if (beats[0] < lastBeat) out.push(`${where} starts at beat ${beats[0]}, before the previous stretch ended at beat ${lastBeat}`);
+				lastBeat = beats[1];
+			}
+			if ('holdMs' in seg) out.push(`${where}.holdMs is a deck field; a stretch waits on \`after\``);
+			if ('after' in seg) checkEnum(seg.after, AFTERS, `${where}.after`, out);
+			if ('waitedMs' in seg) {
+				if (!isMs(seg.waitedMs)) out.push(`${where}.waitedMs is not a whole, non-negative number`);
+				if (!('after' in seg)) out.push(`${where}.waitedMs records a wait, but the stretch names none in \`after\``);
+			} else if ('after' in seg && ltt.seekable === true) {
+				out.push(`${where} waits on "${String(seg.after)}" with no recorded waitedMs, so the file cannot be seekable`);
+			}
+		} else {
+			const slide = isRec(seg.at) ? seg.at.slide : undefined;
+			if (!Number.isInteger(slide) || (slide as number) < 1) out.push(`${where}.at.slide is not a 1-based slide number`);
+			else {
+				if ((slide as number) <= lastSlide) out.push(`${where} is slide ${slide}, not after slide ${lastSlide} — deck segments run in slide order`);
+				lastSlide = slide as number;
+			}
+			if (!isMs(seg.holdMs)) out.push(`${where}.holdMs is not a whole, non-negative number of ms`);
+			else if (i === 0 && seg.holdMs !== 0) out.push(`${where} is the first segment, whose hold is 0 — Play speaks the first slide at once`);
+			for (const f of ['after', 'waitedMs']) if (f in seg) out.push(`${where}.${f} is a tour field`);
+		}
+
+		if (k === 'hold') {
+			for (const f of ['hash', 'basis', 'track', 'audio', 'actions']) {
+				if (f in seg) out.push(`${where}.${f} does not belong on a hold, which has no narration`);
+			}
+			return;
+		}
+		checkHash(seg.hash, `${where}.hash`, out);
+		checkEnum(seg.basis, BASES, `${where}.basis`, out);
+		checkCore(seg.track, where, out);
+		if ('audio' in seg) checkAudio(seg.audio, where, out);
+		if ('actions' in seg) checkActions(seg.actions, seg.track, where, out);
+	});
+
+	if (kind === 'deck' && ltt.seekable !== true) out.push('a deck is always seekable — every segment is a hold plus a track of known length');
+	return out;
+}

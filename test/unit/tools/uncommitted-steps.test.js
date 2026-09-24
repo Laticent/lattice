@@ -65,6 +65,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-a11y-textures.js',
   'build-player-core.js',
   'build-player-prune.js',
+  // Measured 2026-09-24: its whole write set is docs/src/lib/ltt/dist/, which docs/.gitignore's
+  // `dist/` covers, exactly as it does for the four sibling library dists below.
+  'build-ltt-lib.js',
   'build-cadenza-lib.js',
   'build-vetrina-lib.js',
   'build-lente-lib.js',
@@ -97,6 +100,9 @@ const EXPECTED_PR_OWNED = new Set([
   'build-landing-tokens.js', // docs/src/styles
   'build-spec-docs.js', // docs/src/content/docs/spec
   'build-anima-player.js', // lib/export
+  // Measured 2026-09-24: its whole write set is docs/src/lib/ltt/ltt.schema.json, which git
+  // tracks — it is the generated half of guardrail G1, and build:check must compare it.
+  'build-ltt-schema.js', // docs/src/lib/ltt
   // Measured 2026-09-20 against a timestamped tree: its whole write set is
   // lib/export/speech-projection-bundle.generated.mjs, which git tracks.
   'build-speech-projection-bundle.js', // lib/export

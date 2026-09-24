@@ -85,6 +85,8 @@ const {
   SANCTIONED_DENSITY_EXEMPT,
   checkVetrinaBoundary,
   checkAnimaBoundary,
+  checkCadenzaBoundary,
+  checkLttBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,
   SUONO_SPEC_PATTERNS,
@@ -1782,6 +1784,55 @@ describe('check-ownership', () => {
       const specs = scan("import _ from 'lodash';");
       assert.deepEqual(specs, ['lodash']);
       assert.ok(!'lodash'.startsWith('./') && !'lodash'.startsWith('node:'), 'bare dep would fail');
+    });
+  });
+
+  // The LTT format package imports nothing, and Cadenza's one sanctioned dependency is that
+  // package by exact name (engineering/decisions/2026-09-24-lattice-timing-track.md §6).
+  describe('LTT boundary gate + Cadenza\'s one sanctioned dependency', () => {
+    /** Run `gate` over a scratch folder holding one source file. */
+    const run = (gate, src) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ltt-gate-'));
+      try {
+        fs.writeFileSync(path.join(dir, 'x.ts'), src);
+        const errors = [];
+        gate(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+
+    test('the live tree is clean for both gates', () => {
+      const errors = [];
+      checkLttBoundary(errors);
+      checkCadenzaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('LTT admits an in-folder import and nothing else — not even node:', () => {
+      assert.deepEqual(run(checkLttBoundary, "import { validateTrack } from './track';"), []);
+      for (const src of [
+        "import { createHash } from 'node:crypto';",
+        "import 'side-effect';",
+        "const x = await import('../cadenza');",
+        "const y = require('@laticent/cadenza');",
+        "import {\n  a,\n} from '../suono';",
+      ]) {
+        assert.equal(run(checkLttBoundary, src).length, 1, `not caught: ${src}`);
+      }
+    });
+
+    test('Cadenza admits @laticent/ltt by exact name, and no subpath or sibling reach', () => {
+      assert.deepEqual(run(checkCadenzaBoundary, "import type { Word } from '@laticent/ltt';"), []);
+      assert.deepEqual(run(checkCadenzaBoundary, "export { validateTrack } from '@laticent/ltt';"), []);
+      for (const src of [
+        "import { x } from '@laticent/ltt/validate';",
+        "import { x } from '../ltt/validate';",
+        "import { x } from '@laticent/suono';",
+      ]) {
+        assert.equal(run(checkCadenzaBoundary, src).length, 1, `not caught: ${src}`);
+      }
     });
   });
 

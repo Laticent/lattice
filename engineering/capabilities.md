@@ -98,6 +98,10 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
 | `lente-lib:build` | Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@laticent/lente') and npm publish resolve — the fourth spin-off sibling's consumable artifact. |
 | `lente-lib:check` | Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts). |
+| `ltt-lib:build` | Build the LTT format package dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require('@laticent/ltt') resolves from root CJS and an npm publish — the Lattice Timing Track types, validator and encodings. |
+| `ltt-lib:check` | Freshness gate for the LTT library dist/ (stale vs docs/src/lib/ltt/*.ts). |
+| `ltt-schema:build` | Generate docs/src/lib/ltt/ltt.schema.json (JSON Schema 2020-12) FROM docs/src/lib/ltt/types.ts with the TypeScript parser — guardrail G1: the types are the one source of the LTT schema. |
+| `ltt-schema:check` | Freshness gate for the generated LTT JSON Schema; build:check runs it, so a type change without a regenerated schema cannot merge. |
 | `marp-kit:build` | Build dist/marp-kit — the copy-and-go Marp folder (CSS, runtime, fonts, Mermaid, configs, Sample-Deck.md). No export needed. |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
 | `player-core:check` | Freshness gate for the player-core Playground bundle. |
@@ -418,6 +422,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
+| `tools/build-ltt-lib.js` | Build the LTT library's consumable dist/ — the ESM entry + the CJS entry + type |
+| `tools/build-ltt-schema.js` | Generate the LTT JSON Schema from the LTT TypeScript types — guardrail G1 of |
 | `tools/build-marp-kit.js` | build-marp-kit — assemble dist/marp-kit/, the copy-and-go folder. |
 | `tools/build-packages-core.js` | Bundle the package spine for the browser. |
 | `tools/build-packages-index.js` | build-packages-index — the ONE generated index of every shipped package |

@@ -13,7 +13,7 @@
 //   • a word clock, which is what makes `Step.at` land a click on the word "Save".
 // Sound is the third thing, and it is the only one that needs a voice.
 
-import { buildTrack, type CaptionTrack, makeReader, type Pace } from '@/lib/cadenza';
+import { type BuildOptions, buildTrack, type CaptionTrack, type EmphasisSpan, makeReader, type Pace } from '@/lib/cadenza';
 import type { Stage as AudioStage, Bytes } from '@/lib/suono';
 import { createStage as createAudioStage } from '@/lib/suono';
 import type { NarratedWord, NarrateOptions, NarrationHandle, Narrator } from '@/lib/vetrina';
@@ -22,6 +22,23 @@ export interface CadenzaNarratorOptions {
 	/** Cadenza's pace preset. Leave it to match the tour's own `speed` — a caption that is read
 	 *  faster than it is narrated is two clocks disagreeing in front of the viewer. */
 	pace?: Pace;
+	// The four inputs below change a word's timing exactly as they do on a deck, and the narrators
+	// used to drop them: they passed `pace` alone, so a tour timed "ARR" as three letters where the
+	// deck that registered it as "annual recurring revenue" timed six syllables. A storyboard has no
+	// front matter, so the HOST that builds the tour supplies them — from the deck the tour narrates,
+	// or from its own registry. Each means what it means to `buildTrack`, and the parity test in
+	// cadenza-narrator.test.ts holds one sentence to the same timings through the deck producer and
+	// both narrators (2026-09-24-lattice-timing-track.md §8 step 1).
+	/** Author acronym registry (term → spoken expansion); the author wins. */
+	acronyms?: BuildOptions['acronyms'];
+	/** Read-aloud lexicon (token → spoken form); beats the built-in symbol commons. */
+	lexicon?: BuildOptions['lexicon'];
+	/** Language tag. A non-English line skips the English lexicon and number expansion. */
+	lang?: string;
+	/** Emphasis spans for a line. A FUNCTION of the line, because a span is a char range into the
+	 *  one text it was measured against — a fixed list would land on the wrong words of every other
+	 *  line. Return undefined for a line with no emphasis. */
+	emphasis?: (text: string) => readonly EmphasisSpan[] | undefined;
 	/** Injected for tests. Defaults to `performance.now`. */
 	now?: () => number;
 	/** Injected for tests. Defaults to `requestAnimationFrame`. */
@@ -51,6 +68,31 @@ export function trackToWords(track: CaptionTrack): NarratedWord[] {
  *  and it turns an unbounded leak into a fixed ceiling for the replay case that does grow. */
 const TRACK_CACHE_MAX = 256;
 
+/** One track per distinct line, built with EVERY timing input the host passed — the one place both
+ *  narrators turn text into a track, so the two rungs cannot time a line differently.
+ *
+ *  A tour replays — a kiosk attract loop replays forever — and re-segmenting the same sentence on
+ *  every pass is work with a known answer. The cache is BOUNDED, because the workload it is FOR is
+ *  the one that breaks it unbounded: any line carrying a counter, a clock or a name is a distinct
+ *  string every pass, so the map would grow one segmented track per replay and never shed one.
+ *  Insertion-ordered eviction: a tour cycles through its lines, so the oldest key is the furthest
+ *  from being needed. */
+function trackCache(options: CadenzaNarratorOptions): { trackFor: (text: string) => CaptionTrack; clear: () => void } {
+	const pace: Pace = options.pace ?? 'moderate';
+	const { acronyms, lexicon, lang, emphasis } = options;
+	const cache = new Map<string, CaptionTrack>();
+	const trackFor = (text: string): CaptionTrack => {
+		let t = cache.get(text);
+		if (!t) {
+			t = buildTrack(text, { pace, acronyms, lexicon, lang, emphasis: emphasis?.(text) });
+			if (cache.size >= TRACK_CACHE_MAX) cache.delete(cache.keys().next().value as string);
+			cache.set(text, t);
+		}
+		return t;
+	};
+	return { trackFor, clear: () => cache.clear() };
+}
+
 /**
  * A narrator that TIMES a line without speaking it.
  *
@@ -59,28 +101,10 @@ const TRACK_CACHE_MAX = 256;
  * as the default, and add a voice on top only where a voice is actually wanted.
  */
 export function cadenzaNarrator(options: CadenzaNarratorOptions = {}): Narrator {
-	const pace: Pace = options.pace ?? 'moderate';
 	const now = options.now ?? (() => performance.now());
 	const raf = options.raf ?? ((cb: (t: number) => void) => requestAnimationFrame(cb));
 	const cancelRaf = options.cancelRaf ?? ((h: number) => cancelAnimationFrame(h));
-
-	// One track per distinct line. A tour replays — a kiosk attract loop replays forever — and
-	// re-segmenting the same sentence on every pass is work with a known answer.
-	const cache = new Map<string, CaptionTrack>();
-	const trackFor = (text: string): CaptionTrack => {
-		let t = cache.get(text);
-		if (!t) {
-			t = buildTrack(text, { pace });
-			// BOUNDED, because the workload the cache is FOR is the one that breaks it unbounded.
-			// The justification is a kiosk attract loop replaying the same lines forever — and any
-			// line carrying a counter, a clock or a name is a distinct string every pass, so the map
-			// grows one segmented track per replay and never sheds one. Insertion-ordered eviction:
-			// a tour cycles through its lines, so the oldest key is the furthest from being needed.
-			if (cache.size >= TRACK_CACHE_MAX) cache.delete(cache.keys().next().value as string);
-			cache.set(text, t);
-		}
-		return t;
-	};
+	const { trackFor, clear: clearTracks } = trackCache(options);
 
 	return {
 		voiced: false,
@@ -172,7 +196,7 @@ export function cadenzaNarrator(options: CadenzaNarratorOptions = {}): Narrator 
 		dispose(): void {
 			// Nothing here owns a device — only the track cache. Present so a host can dispose any
 			// narrator without asking which rung it got.
-			cache.clear();
+			clearTracks();
 		},
 	};
 }
@@ -248,21 +272,7 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 	// starts the tour). Doing it here rather than at first `speak` is what keeps that true.
 	audio.unlock();
 
-	const cache = new Map<string, CaptionTrack>();
-	const trackFor = (text: string): CaptionTrack => {
-		let t = cache.get(text);
-		if (!t) {
-			t = buildTrack(text, { pace });
-			// BOUNDED, because the workload the cache is FOR is the one that breaks it unbounded.
-			// The justification is a kiosk attract loop replaying the same lines forever — and any
-			// line carrying a counter, a clock or a name is a distinct string every pass, so the map
-			// grows one segmented track per replay and never sheds one. Insertion-ordered eviction:
-			// a tour cycles through its lines, so the oldest key is the furthest from being needed.
-			if (cache.size >= TRACK_CACHE_MAX) cache.delete(cache.keys().next().value as string);
-			cache.set(text, t);
-		}
-		return t;
-	};
+	const { trackFor, clear: clearTracks } = trackCache(options);
 
 	return {
 		voiced: true,
@@ -369,7 +379,7 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 			};
 		},
 		dispose(): void {
-			cache.clear();
+			clearTracks();
 			// Only what we made. A host that passed its own stage in still has a page using it.
 			if (ownsAudio) audio.dispose?.();
 		},

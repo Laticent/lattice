@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import type { Stage as AudioStage } from '@/lib/suono';
 import { findCueWord, SILENT_NARRATOR } from '@/lib/vetrina';
+import { buildReadAlong } from '../../../../lib/core/read-along-build.js';
 import { cadenzaNarrator, trackToWords, voicedNarrator } from './cadenza-narrator';
 
 // The seam. What matters is that it satisfies Vetrina's port using Cadenza's timing and
@@ -362,4 +363,55 @@ describe('voicedNarrator — the re-anchor onto the MEASURED clip', () => {
 			});
 		}
 	}
+});
+
+// THE DRIFT FIX (2026-09-24-lattice-timing-track.md §8 step 1). The deck producer passes
+// `acronyms`, `lexicon`, `lang` and `emphasis` to `buildTrack`; both narrators used to pass `pace`
+// alone, so one sentence timed differently in a tour than on the deck it came from. One sentence,
+// every input that changes timing, three producers, one answer.
+describe('one sentence times identically through the deck producer and both narrators', () => {
+	const text = 'Revenue grew 18% to $4.2M. ZQX crossed the Q3 target — a record.';
+	const acronyms = new Map([['ZQX', 'zone quality index']]);
+	const lexicon = new Map([['Q3', 'the third quarter']]);
+	const lang = 'en';
+	// "grew 18%" is the emphasized passage, a char range into `text`. It sits in the FIRST sentence
+	// on purpose: emphasis buys a beat after the sentence the passage ends in, so only a passage
+	// that ends before the last sentence moves a later word.
+	const start = text.indexOf('grew');
+	const spans = [{ start, end: start + 'grew 18%'.length, weight: 1.6 }];
+	const pace = 'moderate' as const;
+
+	const deck = buildReadAlong([text], { voice: { model: 'm', voice: 'v', speed: 1 }, pace, acronyms, lexicon, lang, emphasis: [spans] });
+	const deckWords = trackToWords(deck.slides[0].track);
+	const inputs = { pace, acronyms, lexicon, lang, emphasis: (t: string) => (t === text ? spans : undefined) };
+
+	it('the silent narrator matches the deck word for word', () => {
+		expect(cadenzaNarrator(inputs).plan?.(text)).toEqual(deckWords);
+	});
+
+	it('the voiced narrator matches the deck word for word', () => {
+		const { stage } = fakeAudio();
+		const v = voicedNarrator({ ...inputs, audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		expect(v.plan?.(text)).toEqual(deckWords);
+	});
+
+	it('both narrators dispose without throwing', () => {
+		const { stage } = fakeAudio();
+		for (const n of [cadenzaNarrator(inputs), voicedNarrator({ ...inputs, audio: stage, synthesize: async () => new ArrayBuffer(8) })]) {
+			n.plan?.(text);
+			expect(() => n.dispose?.()).not.toThrow();
+		}
+	});
+
+	it('has teeth: each input, dropped, moves the timings — so a narrator that ignores one fails above', () => {
+		const time = (o: Partial<typeof inputs>) => JSON.stringify(cadenzaNarrator({ pace, ...o }).plan?.(text));
+		const all = time(inputs);
+		expect(all).toBe(JSON.stringify(deckWords));
+		for (const drop of ['acronyms', 'lexicon', 'emphasis'] as const) {
+			const { [drop]: _gone, ...rest } = inputs;
+			expect(time(rest), `dropping ${drop} changed nothing — pick a sentence it times`).not.toBe(all);
+		}
+		// A non-English tag switches the English expansions off, which is how `lang` shows up.
+		expect(time({ ...inputs, lang: 'fr' })).not.toBe(all);
+	});
 });

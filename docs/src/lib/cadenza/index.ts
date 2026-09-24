@@ -1,4 +1,5 @@
-// Cadenza — the public surface. Framework-free, zero-dependency: give it text, get
+// Cadenza — the public surface. Framework-free, one dependency (@laticent/ltt, the format its
+// tracks are written in): give it text, get
 // a timed caption track + a pure clock→word cursor + WebVTT/SRT out. It owns no
 // audio and no DOM. See the design ADR: engineering/decisions/2026-07-07-cadenza-caption-timeline.md
 //

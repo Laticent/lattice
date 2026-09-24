@@ -8,8 +8,10 @@ milliseconds — plus a pure **cursor** that maps any clock time to the word act
 right now. It **owns no audio and no DOM**: it emits a timeline and reads a clock you
 inject; playback, highlighting, and *deciding what to say* are the caller's job.
 
-Zero dependencies, framework-free, `node:`-and-relative imports only (an
-import-boundary gate enforces it) — designed to spin off as its own library. The
+One dependency, [`@laticent/ltt`](../ltt/) — the timing-track format, which defines the
+`Word` / `Cue` / `CaptionTrack` types Cadenza produces (re-exported here) — and otherwise
+framework-free, with `node:`-and-relative imports only (an import-boundary gate enforces
+both) — designed to spin off as its own library, published in lockstep with `@laticent/ltt`. The
 full design contract is
 [`engineering/decisions/2026-07-07-cadenza-caption-timeline.md`](../../../../engineering/decisions/2026-07-07-cadenza-caption-timeline.md).
 
