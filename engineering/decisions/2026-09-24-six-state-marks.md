@@ -1,19 +1,21 @@
 ---
 status: proposed
 summary: >
-  The four state markers carry FIVE answers, and `[ ]` is the one doing double duty: "no" in
-  verdict-grid (red ✕) and "not yet" everywhere else (open ring), so the same keystroke draws
-  opposite meanings depending on the layout. Measured across the shipped decks, 66 `[ ]` in
-  `state-cells` comparison tables are really "no" drawn as "not yet". Proposal: one marker per
-  answer, one meaning in every layout — `[x]` yes, `[-]` partly, `[!]` no, `[ ]` open, `[/]` does
-  not apply. SHAPE carries the meaning and never varies; COLOR carries emphasis. The red ✕ stays,
-  owned by `[!]`. Costs a migration of verdict-grid's 43 `[ ]` (15 decks) and a review of 66
-  state-cells `[ ]` (7 decks), plus folding eight private marker regexes into the one kernel.
+  The four state markers carry more answers than they have markers, and `[ ]` does double duty:
+  "no" in verdict-grid (red ✕) and "not yet" everywhere else (open ring), so the same keystroke
+  draws opposite meanings depending on the layout. Measured across the shipped decks, 66 `[ ]` in
+  `state-cells` comparison tables are really "no" drawn as "not yet". Decided: SIX markers, one
+  meaning each in every layout — `[x]` yes, `[-]` partly, `[!]` no, `[?]` unknown, `[ ]` open,
+  `[/]` does not apply. SHAPE carries the meaning and never varies; FILL says settled (solid) or
+  not (hollow); COLOR carries emphasis. The red ✕ stays, owned by `[!]`; `[?]` is a hollow ring
+  with a drawn question mark. Costs a migration of verdict-grid's 43 `[ ]` (15 decks), a review of
+  66 state-cells `[ ]` (7 decks), obligation-matrix exempt to `[/]` (37 uses, 9 decks), and folding
+  eight private marker regexes into the one kernel.
 ---
 
-# Five answers, five marks: one meaning per state marker
+# Six answers, six marks: one meaning per state marker
 
-**Date:** 2026-09-24 · **Status:** proposed, awaiting the owner's decisions in §8
+**Date:** 2026-09-24 · **Status:** proposed — the owner's decisions are recorded in §8; not yet built
 **Refs:** PR #2327 (pricing and `state-cells` draw `[ ]` as the open ring), HARD RULE #1, #29
 
 ## 1. Symptom
@@ -26,21 +28,24 @@ right one: **is the red ✕ going away, and does it still have a place?**
 
 It does have a place. The problem is that it has **no marker of its own**.
 
-## 2. Root cause: four markers, five answers
+## 2. Root cause: four markers, six answers
 
-A status mark answers one question about one row. There are five possible answers, not four:
+A status mark answers one question about one row. There are six possible answers, not four:
 
 | Answer | Logic | Today | Drawing |
 |---|---|---|---|
 | **Yes** | true | `[x]` | green disc, check |
 | **Partly** | truthy | `[-]` | amber disc, dash |
 | **No** | false | `[ ]`, **only in verdict-grid** | red disc, ✕ |
-| **Open** | unknown / not yet | `[ ]`, everywhere else | hollow gray ring |
+| **Unknown** | cannot be settled yet | nothing (authors write `[ ]` or prose) | — |
+| **Open** | not yet looked at | `[ ]`, everywhere else | hollow gray ring |
 | **Does not apply** | outside the question | `[/]` | gray disc, slash, label struck |
 
 "No" and "does not apply" are different answers. *No* means the question applies and the answer
 is negative. *Does not apply* means the question is not relevant to this row. Likewise *no* and
-*open* are different: one is a finding, the other is the absence of one.
+*open* are different: one is a finding, the other is the absence of one. And *unknown* is not
+*open*: open means nobody has looked yet; unknown means somebody looked and the answer cannot be
+settled (disputed data, a pending audit, a vendor who will not say).
 
 `[ ]` carries both *no* and *open*, and `lib/core/state-marks.js` `stateClassesFor(marker,
 neutralEmpty)` picks between them by layout. That flag is the whole defect: the author cannot see
@@ -71,12 +76,15 @@ for comparison: verdict-grid, which draws them correctly, and `state-cells`, whi
 | `[x]` | yes | check on `--pass` | solid |
 | `[-]` | partly | dash on `--warn` | solid |
 | `[!]` | **no** | ✕ on `--fail` | solid |
-| `[ ]` | open | hollow ring, `--muted-mark` | **hollow** |
+| `[?]` | **unknown** | hollow ring, drawn `?` inside, `--muted-mark` | **hollow** |
+| `[ ]` | open | hollow ring, empty, `--muted-mark` | **hollow** |
 | `[/]` | does not apply | slash on `--muted-mark`, label struck | solid |
 
-All five drawings exist today (`--mark-check`, `--mark-dash`, `--mark-x`, `--mark-slash`, and
-the hollow ring from `.state.todo`). **No new artwork is needed.** The change is who owns the ✕:
-it moves from a layout flag to a marker the author types.
+Five of the six drawings exist today (`--mark-check`, `--mark-dash`, `--mark-x`, `--mark-slash`,
+and the hollow ring from `.state.todo`). The one new piece of artwork is `--mark-question`, a
+stroked SVG mask in the same 24-unit box and stroke weight as its siblings, plus a `-bold` twin for
+`checks-bold`. The other change is who owns the ✕: it moves from a layout flag to a marker the
+author types.
 
 ## 4. Design rules
 
@@ -84,13 +92,15 @@ it moves from a layout flag to a marker the author types.
    grayscale channel (see `lib/base/base.docs.md` §State markers), so it is the part that must
    be universal. The check, dash, ✕, ring and slash mean the same thing on every slide.
 2. **Fill says whether the question is settled.** The three findings (yes, partly, no) and
-   *does not apply* are solid discs. *Open* is the only hollow shape, because it is the only
-   answer that is not an answer yet.
+   *does not apply* are solid discs. *Unknown* and *open* are hollow, because neither is an
+   answer yet; the drawn `?` is what tells them apart. This rule is why `[?]` is NOT a solid gray
+   disc: that shape would be a twin of `[/]`, and in grayscale "unknown" and "does not apply"
+   would differ only by a small inner mark (prototype, §9).
 3. **Color carries emphasis, and only a named modifier changes it.** `heat` already remaps
    color for exposure reading (applies = alarm) and keeps every shape. That stays the only way
    to recolor. A layout never softens a color by default: pricing's register is set by the
    author's choice of marker, `[/]` "not on this plan" rather than `[!]` "missing".
-4. **The layout supplies the WORDS, never the meaning.** Each layout names the five answers in
+4. **The layout supplies the WORDS, never the meaning.** Each layout names the six answers in
    its own register, through the label sets (`labelSet` in the manifest), speech and the key
    under the grid. The words change; the answer does not.
 5. **One parse.** The marker grammar is read in one kernel, `lib/core/state-marks.js`
@@ -101,15 +111,15 @@ it moves from a layout flag to a marker the author types.
 What each layout's key, label set and narration say for each answer. A cell marked "—" is an
 answer the layout rarely needs. The marker still works there and falls back to the universal word.
 
-| Layout | `[x]` yes | `[-]` partly | `[!]` no | `[ ]` open | `[/]` does not apply |
-|---|---|---|---|---|---|
-| universal / inline | done | partial | no | to do | skipped |
-| checklist | done | partial | failed | to do | skipped |
-| verdict-grid | yes | partial | no | not assessed | n/a |
-| pricing | included | limited | missing | coming | not included |
-| obligation-matrix | applies | partial | does not apply | undetermined | exempt |
-| roadmap | shipped | in flight | missed | planned | out of scope |
-| `state-cells` | yes | partial | no | — | n/a |
+| Layout | `[x]` yes | `[-]` partly | `[!]` no | `[?]` unknown | `[ ]` open | `[/]` does not apply |
+|---|---|---|---|---|---|---|
+| universal / inline | done | partial | no | unknown | to do | skipped |
+| checklist | done | partial | failed | unknown | to do | skipped |
+| verdict-grid | yes | partial | no | unknown | not assessed | n/a |
+| pricing | included | limited | missing | ask sales | coming | not included |
+| obligation-matrix | applies | partial | does not apply | unclear | undetermined | exempt |
+| roadmap | shipped | in flight | missed | at risk | planned | out of scope |
+| `state-cells` | yes | partial | no | unknown | not checked | n/a |
 
 Two rows move an existing meaning, and each needs a call in §8:
 
@@ -151,12 +161,18 @@ paints `--muted-mark`. The code is right and the comment is stale. A fifth state
 | `[X]` | Looks like a cross | **Rejected:** GitHub-flavored markdown treats `[X]` as *checked*, the opposite answer |
 | `[~]` | Free on most keyboards | Already typed as a literal "partial-ish" in two decks (`examples/autosplit-coverage.md`, `examples/sketch.md`); reads as "approximately", not "no" |
 
-### 6.4 Why not a sixth marker for "unknown"
+### 6.4 The shape of `[?]`
 
-*Unknown* (nobody knows) and *not yet* (will be done) are distinguishable, and `[?]` is the obvious
-spelling. They would share the hollow ring, though, since both are unsettled, so a sixth marker
-needs a sixth shape, and no deck measured here puts both on one slide. Recommendation: keep
-them as one *open* answer. Revisit if a deck needs both at once.
+Three candidates were weighed, and two were prototyped (§9):
+
+| Candidate | Verdict |
+|---|---|
+| **A: hollow ring with a drawn `?`** | **Chosen.** Keeps the fill rule; reads clearly in light and dark at table size |
+| C: solid gray disc, knockout `?` | Rejected. A solid gray twin of `[/]`; the knockout `?` loses contrast in dark mode |
+| B: dotted ring | Not built. The ring is a box-shadow, so dots need per-consumer border rules, and fine dots blur at inline size and in print |
+
+The `?` is DRAWN (a mask), never typed. A typed `?` would be a glyph from the deck's type family at
+the text's weight and baseline, which is the problem HARD RULE #29 exists to stop.
 
 ## 7. Migration
 
@@ -164,27 +180,32 @@ them as one *open* answer. Revisit if a deck needs both at once.
 |---|---|---|
 | verdict-grid `[ ]` → `[!]` | 43 uses, 15 decks | Mechanical codemod: inside a verdict-grid slide, every nested `[ ]` becomes `[!]` |
 | `state-cells` `[ ]` → `[!]` where it means "no" | 66 uses, 7 decks | **Reviewed by hand:** a cell can mean "not checked" |
-| obligation-matrix `[ ]` → `[/]` (if §8 Q3 says so) | 37 uses, 9 decks | Mechanical codemod |
+| obligation-matrix `[ ]` → `[/]` | 37 uses, 9 decks | Mechanical codemod |
 | Third-party decks | unknown | `lint:deck` warns on `[ ]` in a verdict-grid slide ("did you mean `[!]`?"), plus a `**Breaking:**` changelog line |
 
 Renders to check after the switch: every rebuilt gallery and deck through `golden-diff`, and the
 `verdictGridBadges@pricing`-style fidelity probe widened to cover `[!]` on every consumer.
 
-## 8. Decisions for the owner
+## 8. Decisions (owner, 2026-09-24)
 
-1. **The model.** Five markers (recommended), six with `[?]` split out, or keep four.
-2. **The spelling of "no".** `[!]` (recommended), `[n]`, or another.
-3. **Obligation-matrix "exempt".** Move to `[/]` (recommended, it is *does not apply*), or keep
-   `[ ]` with the word "exempt".
-4. **Rollout.** Switch verdict-grid and migrate every shipped deck in one PR, with the lint
-   warning for everyone else (recommended), or keep verdict-grid `[ ]` as ✕ for one release
-   behind a deprecation warning.
+1. **Six markers.** `[?]` unknown is split out from `[ ]` open. (Five was recommended; the owner
+   chose six so "somebody looked and cannot tell" stops sharing a mark with "nobody has looked".)
+2. **"No" is spelled `[!]`.**
+3. **Obligation-matrix "exempt" moves to `[/]`.** `[ ]` there becomes "undetermined".
+4. **Rollout: one PR.** Route all eight parsers through the kernel, add `[!]` and `[?]`, switch
+   verdict-grid `[ ]` to the open ring, migrate every shipped deck, and add a `lint:deck` warning
+   plus a `**Breaking:**` changelog line for everyone else's decks.
+5. **`[?]` draws a hollow ring with a drawn question mark** (candidate A, §6.4).
 
 ## 9. Evidence
 
-A throwaway patch (not committed) added `[!]` to the kernel and the eight regexes, and made `[ ]`
-neutral everywhere. It rendered all five answers in checklist, pricing, `state-cells`,
-verdict-grid, obligation-matrix and inline marks, in light and dark (indaco). Every layout drew
-the five shapes identically with no CSS change: every consumer except roadmap already styles
-`fail` as the ✕. The render also showed the one visible gap. Obligation-matrix's automatic key
-still named `[ ]` "Exempt" and had no entry for `[!]`, which is the §5 label work.
+A throwaway patch (not committed) added `[!]` and `[?]` to the kernel and the eight regexes, and
+made `[ ]` neutral everywhere. Two renders came from it, both in light and dark (indaco):
+
+- **The five existing shapes** in checklist, pricing, `state-cells`, verdict-grid,
+  obligation-matrix and inline marks. Every layout drew them identically with no CSS change,
+  because every consumer except roadmap already styles `fail` as the ✕. The one visible gap:
+  obligation-matrix's automatic key still named `[ ]` "Exempt" and had no entry for `[!]`, which
+  is the §5 label work.
+- **`[?]` as candidates A and C side by side**, from a prototype stylesheet, in checklist, a
+  `state-cells` table and verdict-grid badges. That render settled §6.4.
