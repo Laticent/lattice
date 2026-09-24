@@ -24,3 +24,11 @@ adversarial trio on what actually ships, and it starts with the helper toolkit t
 transform can run without. Until then, a package carrying `transform.js` is refused by name
 at every door: the Library import, a `.lattice` project, `lattice packages add` and
 `lattice packages export`. `packages-cli.test.js` and `lattice-file.test.ts` pin each refusal.
+
+## The design pass (2026-09-24)
+
+`engineering/decisions/2026-09-24-code-package-contract.md` is the design this phase starts
+from. It recommends shipping the helpers INTO the sandbox as a frozen, versioned toolkit, and
+running the CLI's sandbox in a Chromium page under a no-network content-security policy
+instead of a Node child process. It leaves three decisions to the owner (§6 of that note);
+nothing is built until they are made.
