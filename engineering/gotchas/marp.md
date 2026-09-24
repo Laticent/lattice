@@ -97,6 +97,10 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   therefore SAFE on our engine now; the chart family relies on it (every
   component leads with `:is(section.<comp>, figure.chart-frame)`, the Read·Article
   re-host broadening). Guard: [test/unit/engine/css-scope.test.js](../test/unit/engine/css-scope.test.js).
+  The `figure.Y` arm is still packed UNDER a slide, which is harmless in the preview (no
+  re-hosted figure exists there) and wrong for the exported player, where Read·Article
+  lifts the figure out of its slide. The export packs with `flat: true` for that; see
+  [Charts render black in the Studio Webpage player's Read · Article view](charts.md#charts-render-black-in-the-studio-webpage-players-read--article-view).
 - **⚠️ The earlier claim here that this was "VS Code Marp preview-only / PDF
   export looks correct" was WRONG, and that false sense of immunity is exactly
   what let it ship.** It ALSO broke our own deployed playground/Studio/Player:
