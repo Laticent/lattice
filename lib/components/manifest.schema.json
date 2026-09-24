@@ -464,7 +464,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Semi-universal variants this layout opts out of (must be a subset of compact / loose / accent)."
+      "description": "Universal modifiers this layout does not offer: a MODIFIER_GROUPS group name (e.g. \"table\", \"cards\", \"motion\") or a single universal token (e.g. \"compact\", \"claim-bleed\"). Everything is offered by default; list only what provably does nothing on this layout. Drives effectiveVariants() and the editor's positional `_class:` completion. See design/design-system.md §6.5 and lib/components/index.js MODIFIER_GROUPS."
     },
     "variantAxes": {
       "type": "array",

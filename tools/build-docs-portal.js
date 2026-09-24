@@ -55,9 +55,69 @@ const { loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/comp
 const {
   FUNCTIONS, FORMS, SUBSTANCES, TAG_GROUPS,
   UNIVERSAL_GROUPS, UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, EXCLUSIVE_AXES, effectiveVariants,
-  FAMILY_MODIFIERS, familyModifiersFor,
+  FAMILY_MODIFIERS, familyModifiersFor, MODIFIER_GROUPS, excludedModifiers,
 } = require('../lib/components');
-const { blocksFor } = require('../lib/core/authoring-blocks');
+const { blocksFor, readsInsightLabel } = require('../lib/core/authoring-blocks');
+
+const { componentSurfaces, publishedSurfaces } = require('../lib/components/surfaces');
+
+// The editorial blocks a layout renders — the render's own answers, which
+// componentSurfaces turns into the `key-insight` / `below-note` / `insight-label`
+// surfaces (engineering/decisions/2026-09-24-positional-class-completion.md).
+function modifierHosts(name) {
+  const blocks = blocksFor(name);
+  return {
+    'key-insight': blocks.includes('key-insight'),
+    'below-note': blocks.includes('below-note'),
+    'insight-label': blocks.includes('key-insight') || readsInsightLabel(name),
+  };
+}
+
+// How often authors write each `_class:` token, overall and per component — the
+// editor ranks each completion section by it, so the modifier people actually use
+// sits at the top. The corpus is the shipped example decks plus the integration
+// baseline deck. The component galleries are left out on purpose: they demo every
+// variant once, which would flatten the counts toward "all equally common".
+let usageCache = null;
+let namesCache = null;
+const componentNames = () => (namesCache ||= new Set(loadAll().map((m) => m.name)));
+function classUsage() {
+  if (usageCache) return usageCache;
+  const root = path.join(__dirname, '..');
+  const files = [];
+  const walk = (dir) => {
+    for (const e of fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : []) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.md')) files.push(p);
+    }
+  };
+  walk(path.join(root, 'examples'));
+  walk(path.join(root, 'test/integration/baseline-decks'));
+  const perComponent = {};
+  const global = {};
+  for (const f of files.sort()) {
+    let fenced = false;
+    for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+      if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; continue; }
+      if (fenced) continue;
+      const mm = line.match(/^\s*<!--\s*_class:\s*([^>]*?)\s*-->\s*$/);
+      if (!mm) continue;
+      let [name, ...mods] = mm[1].split(/\s+/).filter(Boolean);
+      if (!name) continue;
+      // A line that opens with a modifier (`_class: dark compact`) is a `content`
+      // slide carrying it — the editor reads it the same way.
+      if (!componentNames().has(name)) { mods = [name, ...mods]; name = 'content'; }
+      for (const t of mods) {
+        global[t] = (global[t] || 0) + 1;
+        const bucket = (perComponent[name] ||= {});
+        bucket[t] = (bucket[t] || 0) + 1;
+      }
+    }
+  }
+  usageCache = { perComponent, global };
+  return usageCache;
+}
 const { BUCKET_BLURBS } = require('./build-bucket-galleries');
 const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
@@ -949,6 +1009,18 @@ function renderPortalJson(manifests) {
     ...(Array.isArray(m.variantAxes) && m.variantAxes.length ? { variantAxes: m.variantAxes } : {}),
     effectiveVariants: effectiveVariants(m),
     familyModifiers: familyModifiersFor(m),
+    // The slide parts this layout has (lib/components/surfaces.js): the editor offers
+    // a modifier only where the surface it acts on exists.
+    // Derived, then corrected by the render proof where it has measured this
+    // component (lib/core/modifier-effects.generated.json): `variantSurfaces` are
+    // the ones a declared variant adds, `inertSurfaces` the content surfaces whose
+    // modifiers do nothing here even when the slide has one.
+    ...publishedSurfaces(m, componentSurfaces(m, { dir: path.join(__dirname, '..', 'lib', 'components', manifestBucket(m), m.name), hosts: modifierHosts(m.name) })),
+    // The manifest's own opt-outs (groups expanded) — the escape hatch for a surface
+    // the layout has but deliberately ignores a modifier on.
+    excludedModifiers: excludedModifiers(m),
+    // How often authors write each modifier after this component (see classUsage).
+    modifierUsage: classUsage().perComponent[m.name] || {},
     ...(Array.isArray(m.focusAxes) && m.focusAxes.length ? { focusAxes: m.focusAxes } : {}),
     ...capacityEntry(m),
     ...(m.density ? { density: m.density } : {}),
@@ -984,6 +1056,11 @@ function renderPortalJson(manifests) {
       universalGroups: Object.fromEntries(Object.entries(UNIVERSAL_GROUPS).map(([k, g]) => [k, [...g]])),
       semiUniversalVariants: [...SEMI_UNIVERSAL_VARIANTS],
       exclusiveAxes: Object.fromEntries(Object.entries(EXCLUSIVE_AXES).map(([k, g]) => [k, [...g]])),
+      // The universal modifier registry, in completion order — each group's tokens,
+      // exclusive axes and dependents (lib/components/index.js MODIFIER_GROUPS).
+      modifierGroups: MODIFIER_GROUPS.map((g) => ({ ...g })),
+      // How often each modifier is written after any component (see classUsage).
+      modifierUsage: classUsage().global,
       familyModifiers: Object.fromEntries(
         Object.entries(FAMILY_MODIFIERS).map(([k, g]) => [k, [...g.modifiers]]),
       ),

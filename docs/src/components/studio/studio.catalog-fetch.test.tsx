@@ -66,6 +66,18 @@ describe('StudioShell — the fetched component catalog', () => {
 		await waitFor(() => expect(spy).toHaveBeenCalledWith(CATALOG_URL));
 	});
 
+	it('fetches the `_class:` modifier registry only after the catalog arrives', async () => {
+		const spy = vi.fn(async (url: string) =>
+			url.endsWith('modifier-vocab.json')
+				? new Response(JSON.stringify({ modifierGroups: [{ name: 'mood', label: 'Canvas', tokens: ['dark'] }], exclusiveAxes: {} }), { status: 200 })
+				: new Response(JSON.stringify([entry('title')]), { status: 200 }),
+		);
+		globalThis.fetch = spy as never;
+		render(<StudioShell options={options} catalogUrl={CATALOG_URL} />);
+		await waitFor(() => expect(spy).toHaveBeenCalledWith(CATALOG_URL.replace(/component-catalog\.json$/, 'modifier-vocab.json')));
+		expect(spy.mock.calls[0][0]).toBe(CATALOG_URL); // the catalog first, the registry after
+	});
+
 	it('RETRIES after a rejected fetch instead of degrading for the tab lifetime', async () => {
 		const spy = vi
 			.fn()

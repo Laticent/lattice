@@ -24,7 +24,8 @@ import {
 	backdropAxisPosition,
 	blankBodyPartial,
 	classDirectiveCompletion,
-	classOptions,
+	classTokenResult,
+	deckSplit,
 	directiveNameAt,
 	fenceLangAt,
 	finishValuePosition,
@@ -33,10 +34,10 @@ import {
 	identifierBefore,
 	inFencedLang,
 	inFrontMatter,
-	modifierOptions,
 	paginateValuePosition,
 	sizeValuePosition,
 	skeletonBody,
+	slideBodyAfter,
 	slideBodyEmpty,
 	slideClassAt,
 	splitValuePosition,
@@ -159,7 +160,7 @@ function backdropAxisSource() {
 }
 
 // Completes the component name and modifiers inside a `_class:` directive.
-function classDirectiveSource(catalog, universalModifiers) {
+function classDirectiveSource(catalog, vocab) {
 	return (context) => {
 		const line = context.state.doc.lineAt(context.pos);
 		const before = context.state.sliceDoc(line.from, context.pos);
@@ -169,13 +170,14 @@ function classDirectiveSource(catalog, universalModifiers) {
 		// matching the map source's restraint.
 		if (!spot.typed && !context.explicit) return null;
 
-		const options =
-			spot.kind === 'class'
-				? classOptions(catalog)
-				: modifierOptions(spot.name, catalog, universalModifiers, spot.present);
+		// Positional: a component first, then only what that component accepts.
+		const doc = context.state.doc;
+		const split = deckSplit(doc.sliceString(0, Math.min(doc.length, 4000)));
+		const slideText = slideBodyAfter((n) => doc.line(n).text, doc.lines, line.number, { split });
+		const { options, validFor } = classTokenResult(spot, catalog, vocab || [], { slideText });
 		if (!options.length) return null;
 
-		return { from: line.from + spot.from, options, validFor: TOKEN };
+		return { from: line.from + spot.from, options, validFor };
 	};
 }
 
@@ -247,7 +249,6 @@ function focusAxisSource(catalog) {
 // names. All optional — without them only the (self-sufficient) data sources
 // are live.
 export function latticeAutocomplete({ vocab, catalog, themes, finishes } = {}) {
-	const universalModifiers = (vocab && (vocab.universalModifiers || vocab.modifiers)) || [];
 	return autocompletion({
 		override: [
 			themeSource(themes),
@@ -261,7 +262,7 @@ export function latticeAutocomplete({ vocab, catalog, themes, finishes } = {}) {
 			lineLocalSource(sizeValuePosition, SIZE_OPTIONS),
 			lineLocalSource(fenceLangAt, FENCE_OPTIONS),
 			mermaidSource,
-			classDirectiveSource(catalog, universalModifiers),
+			classDirectiveSource(catalog, vocab),
 			skeletonSource(catalog),
 			...dataSources,
 		],

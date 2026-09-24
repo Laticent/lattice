@@ -90,6 +90,8 @@ const lintVocab = {
 	names: [..._vocab.names],
 	modifiers: [..._vocab.modifiers],
 	universalModifiers: [..._vocab.universalModifiers],
+	modifierGroups: _vocab.modifierGroups || [],
+	exclusiveAxes: _vocab.exclusiveAxes || {},
 	mapRegions: Object.fromEntries(
 		Object.entries(_vocab.mapRegions || {}).map(([k, v]) => [k, { valid: [...v.valid], names: v.names }]),
 	),

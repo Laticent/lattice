@@ -73,30 +73,256 @@ export function classOptions(catalog) {
 		label: c.name,
 		type: 'class',
 		detail: c.bucket || '',
-		info: c.summary || undefined,
+		info: c.summary || c.description || undefined,
 	}));
 }
 
-// Modifier completion options for component `name`: its own declared variants
-// first (most relevant), then the universal modifiers, minus any already
-// present on the directive. Variants/universals may be multi-token decoration
-// strings ('tint-corner at-tl'), so each fragment registers as its own option.
-export function modifierOptions(name, catalog, universalModifiers, present = []) {
-	const seen = new Set(present);
-	const out = [];
-	const push = (label, kind) => {
-		if (!label || seen.has(label)) return;
-		seen.add(label);
-		out.push({ label, type: 'modifier', detail: kind });
-	};
-	const comp = (catalog || []).find((c) => c.name === name);
-	if (comp) for (const v of comp.variants || []) for (const tok of String(v).split(/\s+/)) push(tok, 'variant');
-	// Family (scoped) modifiers in scope for this component (e.g. `checks-*` /
-	// `heat` on state-bearing layouts, `canvas` on charts) — offered after the
-	// component's own variants, before the universals.
-	if (comp) for (const f of comp.familyModifiers || []) for (const tok of String(f).split(/\s+/)) push(tok, 'modifier');
-	for (const u of universalModifiers || []) for (const tok of String(u).split(/\s+/)) push(tok, 'universal');
+// ── `_class:` completion, positional (shell-style) ─────────────────────────
+//
+// A `_class:` line has a grammar — `<component> [modifier …]` — and completion
+// follows it the way shell completion follows a command line: the first word is a
+// component, every later word is something THAT component accepts, and each
+// choice narrows the next. See
+// engineering/decisions/2026-09-24-positional-class-completion.md.
+//
+// `vocab` is either the lint vocab (`{ modifierGroups, exclusiveAxes,
+// universalModifiers }`, from lib/authoring/lint.js buildVocab) or, for older
+// callers, a flat array of universal tokens. The group registry is
+// lib/components/index.js MODIFIER_GROUPS; a catalog entry carries the
+// component's `variants`, `variantAxes`, `familyModifiers` and
+// `excludedModifiers` (manifest `excludes` + unhosted surfaces, computed at build).
+
+// The component a slide falls back to when it names none (#1292).
+const DEFAULT_COMPONENT = 'content';
+
+const splitTokens = (v) => String(v).split(/\s+/).filter(Boolean);
+
+// Section ranks: CodeMirror orders sections by rank, so the component's own looks
+// come first, then any group acting on something THIS slide already contains, then
+// the remaining groups in registry order. Finishes go LAST: a per-slide finish is
+// rare (a finish is usually deck-wide front matter), and twenty-odd of them ahead
+// of the modifier groups buried the groups on the real Studio menu.
+const RANK = { next: 0, variant: 1, family: 2, present: 4, group: 10, finish: 1000 };
+
+// The surfaces an author can add to any slide by writing them. Mirrors
+// CONTENT_SURFACES in lib/components/surfaces.js (pinned by the parity test).
+export const CONTENT_SURFACES = ['heading', 'eyebrow', 'table'];
+
+// What the slide being completed actually contains, as surface names. Reads the
+// markdown BELOW the `_class:` line up to the next slide break. A `>` blockquote is
+// reported as `key-insight` — used only to rank, never to enable, because whether a
+// blockquote becomes a Key Insight is the component's call (a quote absorbs it).
+export function slideSurfaces(body) {
+	const out = new Set();
+	const text = String(body || '');
+	if (/^#{1,6}\s+\S/m.test(text)) out.add('heading');
+	if (/^\s*`[^`\n]+`\s*$/m.test(text)) out.add('eyebrow');
+	if (/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/m.test(text)) out.add('table');
+	if (/^\s*>/m.test(text)) out.add('key-insight');
 	return out;
+}
+
+// An h1/h2 opens a new slide under the default heading split: an ATX `#`/`##` line,
+// or a setext `===` underline (whose `---` sibling is already a slide break).
+const SPLIT_HEADING = /^#{1,2}\s+\S/;
+const SETEXT_H1 = /^=+\s*$/;
+
+// The markdown of the slide whose `_class:` directive sits on 1-based `lineNo`:
+// the lines after it, up to where the next slide starts. A `---` always starts one;
+// under the default `split: headings` so does the next h1/h2 once this slide has
+// its own — and that heading may sit ABOVE the directive (`## A` then the
+// `_class:` line), so the slide's lines above the directive are read first. A
+// fenced block is read through: a `---` or `##` inside one is code, not a break.
+export function slideBodyAfter(getLine, total, lineNo, { split = 'headings' } = {}) {
+	const byHeading = split !== 'rule';
+	let headings = 0;
+	if (byHeading) {
+		// Walk up to this slide's start (the previous `---` outside a fence, or the top).
+		const above = [];
+		for (let n = lineNo - 1; n >= 1; n--) {
+			const t = getLine(n) ?? '';
+			if (SLIDE_BREAK.test(t)) break;
+			above.unshift(t);
+		}
+		let fencedUp = false;
+		for (let i = 0; i < above.length; i++) {
+			const t = above[i];
+			if (/^\s*(```|~~~)/.test(t)) fencedUp = !fencedUp;
+			else if (!fencedUp && (SPLIT_HEADING.test(t) || (SETEXT_H1.test(t) && i > 0 && above[i - 1].trim()))) headings = 1;
+		}
+	}
+	const lines = [];
+	let fenced = false;
+	for (let n = lineNo + 1; n <= total; n++) {
+		const t = getLine(n) ?? '';
+		if (/^\s*(```|~~~)/.test(t)) fenced = !fenced;
+		else if (!fenced) {
+			if (SLIDE_BREAK.test(t)) break;
+			const setext = SETEXT_H1.test(t) && lines.length && lines[lines.length - 1].trim();
+			if (byHeading && (SPLIT_HEADING.test(t) || setext) && ++headings > 1) {
+				// A setext heading's text line already went in; drop it with its underline.
+				if (setext) lines.pop();
+				break;
+			}
+		}
+		lines.push(t);
+	}
+	return lines.join('\n');
+}
+
+// The deck's `split:` register, read from the leading front matter (`headings`
+// when absent) — what slideBodyAfter needs to know where a slide ends.
+export function deckSplit(docText) {
+	const fm = String(docText || '').match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+	const m = fm?.[1].match(/^split:[ \t]*["']?(\w+)/m);
+	// Case-folded, as lib/core/resolve-split.js reads it.
+	return m ? m[1].toLowerCase() : 'headings';
+}
+
+function groupsOf(vocab) {
+	if (Array.isArray(vocab)) return [{ name: 'universal', label: 'universal', tokens: vocab.flatMap(splitTokens), legacy: true }];
+	if (vocab && Array.isArray(vocab.modifierGroups) && vocab.modifierGroups.length) return vocab.modifierGroups;
+	const flat = (vocab && (vocab.universalModifiers || vocab.modifiers)) || [];
+	return [{ name: 'universal', label: 'universal', tokens: [...flat].flatMap(splitTokens), legacy: true }];
+}
+
+// The surface token `t` of group `g` acts on (lib/components/index.js surfaceOf).
+function surfaceOf(g, t) {
+	if (!g.surface) return 'slide';
+	if (typeof g.surface === 'string') return g.surface;
+	return g.surface[t] || g.surface['*'] || 'slide';
+}
+
+// Every set of mutually exclusive tokens that applies to `comp`: the registry's
+// axes, the engine's EXCLUSIVE_AXES, the component's own exclusive variantAxes, and
+// the finish classes (one finish per slide).
+function exclusiveSets(groups, vocab, comp, finishClasses) {
+	const sets = [];
+	for (const g of groups) {
+		if (g.exclusive) sets.push(g.tokens);
+		for (const a of g.axes || []) sets.push(a);
+		// One placement per lead: `tint-corner` has a single radial slot, so a second
+		// corner would only override the first.
+		for (const deps of Object.values(g.follows || {})) sets.push(deps);
+	}
+	if (vocab && !Array.isArray(vocab)) for (const a of Object.values(vocab.exclusiveAxes || {})) sets.push(a);
+	for (const a of comp?.variantAxes || []) if (a.exclusive) sets.push(a.members);
+	if (finishClasses.length) sets.push(finishClasses);
+	return sets;
+}
+
+// How far up its section a token floats: how often authors write it after this
+// component, and (weighted lower) after any component. CodeMirror adds `boost` to
+// the match score inside a section, so a common modifier leads without hiding the rest.
+function usageBoost(token, comp, usage) {
+	const own = comp?.modifierUsage?.[token] || 0;
+	const all = usage?.[token] || 0;
+	if (!own && !all) return 0;
+	return Math.min(60, Math.round(10 * Math.log2(1 + own) + 3 * Math.log2(1 + all)));
+}
+
+// Modifier completion options for component `name`, given the tokens already on
+// the line (`present`). Offered, in sections: the dependents of a token just typed
+// (`tint-corner` → `at-tl` …), the component's own variants, its family modifiers,
+// then the modifier groups — first those acting on something this slide already
+// contains, then the rest in registry order — and the finish classes last. A group is offered
+// only where the surface it acts on exists: on every slide (`slide`), on a component
+// that has it (`comp.surfaces`), or on a slide whose content adds it (a table, a
+// heading, an eyebrow). Dropped: anything already present, the other members of an
+// exclusive axis once one is picked, a dependent whose lead is absent, and the
+// manifest's own `excludedModifiers`. A component with no `surfaces` (a local one,
+// or an older catalog) is offered every group. `variantSurfaces` and
+// `inertSurfaces` come from the render proof (tools/check-modifier-effects.js).
+export function modifierOptions(name, catalog, vocab, present = [], { finishClasses = [], slideText = '', usage = null } = {}) {
+	const comp = (catalog || []).find((c) => c.name === name);
+	const groups = groupsOf(vocab);
+	const excluded = new Set(comp?.excludedModifiers || []);
+	const on = new Set([name, ...present]);
+	// The component's surfaces, plus any a variant already on the line adds
+	// (`kpi ops` gains the card lift plain `kpi` lacks).
+	const has = Array.isArray(comp?.surfaces) ? new Set(comp.surfaces) : null;
+	if (has) for (const t of on) for (const surf of comp.variantSurfaces?.[t] || []) has.add(surf);
+	// A content surface the render proof found inert here stays hidden even when
+	// the slide has one: its modifiers were measured to do nothing on this component.
+	const inert = new Set(comp?.inertSurfaces || []);
+	const content = slideSurfaces(slideText);
+	const hasSurface = (surf) => surf === 'slide' || !has || has.has(surf) || (CONTENT_SURFACES.includes(surf) && content.has(surf) && !inert.has(surf));
+	const blocked = new Set();
+	for (const set of exclusiveSets(groups, vocab, comp, finishClasses)) {
+		if (set.some((t) => on.has(t))) for (const t of set) blocked.add(t);
+	}
+	const globalUsage = usage || (vocab && !Array.isArray(vocab) ? vocab.modifierUsage : null);
+	const seen = new Set();
+	const out = [];
+	// With the grouped registry, each row sits under a section header that already
+	// names its kind, so a per-row `detail` repeating it ("dark  Canvas") is noise;
+	// only a detail that adds something (`after tint-corner`) is kept. The legacy
+	// flat vocabulary has no groups, so it keeps its kind labels.
+	const legacy = groups.some((g) => g.legacy);
+	const push = (label, detail, section, rank, { keepDetail = false } = {}) => {
+		if (!label || seen.has(label) || on.has(label) || blocked.has(label)) return;
+		seen.add(label);
+		const boost = usageBoost(label, comp, globalUsage);
+		out.push({ label, type: 'modifier', ...(legacy || keepDetail ? { detail } : {}), section: { name: section, rank }, ...(boost ? { boost } : {}) });
+	};
+	// A dependent is the obvious next word, so it leads the menu.
+	for (const g of groups) {
+		for (const [lead, deps] of Object.entries(g.follows || {})) {
+			if (on.has(lead) && !excluded.has(lead)) for (const d of deps) if (!excluded.has(d)) push(d, `after ${lead}`, 'Next', RANK.next, { keepDetail: true });
+		}
+	}
+	if (comp) for (const v of comp.variants || []) for (const tok of splitTokens(v)) push(tok, 'variant', `${comp.name} variants`, RANK.variant);
+	if (comp) for (const f of comp.familyModifiers || []) for (const tok of splitTokens(f)) push(tok, 'modifier', 'Family', RANK.family);
+	for (const f of finishClasses) push(f, 'finish', 'Finish', RANK.finish);
+	const dependents = new Set(groups.flatMap((g) => Object.values(g.follows || {}).flat()));
+	groups.forEach((g, i) => {
+		if (g.offer === false) return;
+		for (const tok of g.tokens) {
+			if (excluded.has(tok) || dependents.has(tok)) continue;
+			const surf = surfaceOf(g, tok);
+			if (!hasSurface(surf)) continue;
+			// A group acting on something this slide already contains leads the universals.
+			const rank = surf !== 'slide' && content.has(surf) ? RANK.present : RANK.group + i;
+			push(tok, g.legacy ? 'universal' : g.label, g.legacy ? 'Universal' : g.label, rank);
+		}
+	});
+	return out;
+}
+
+// All `_class:` completion, by position. `spot` is classDirectiveCompletion's
+// result. The first word offers components; when what the author typed matches
+// no component name (`_class: dar`), it offers the modifiers of the default
+// `content` slide instead, so `_class: dark` keeps working. A later word offers
+// what the named component accepts — and a first word that is itself a modifier
+// (`_class: dark ▮`) counts as a `content` slide carrying it.
+export function classTokenOptions(spot, catalog, vocab, extra = {}) {
+	return classTokenResult(spot, catalog, vocab, extra).options;
+}
+
+// classTokenOptions plus the `validFor` CodeMirror needs. CodeMirror keeps the list
+// it already has while the typed word still matches `validFor`, and only asks again
+// once it stops matching. A plain word pattern therefore froze the first-word list
+// on components: typing `dark` never reached the fallback, because `d`, `da` and
+// `dar` all match some component (`radar`) and the source was never asked again.
+// On the first word the list stays valid only while the text still names a
+// component (or, for the fallback, still names none), so the switch happens on the
+// keystroke that needs it.
+export function classTokenResult(spot, catalog, vocab, extra = {}) {
+	const WORD = /^[\w-]*$/;
+	if (!spot) return { options: [], validFor: WORD };
+	const names = (catalog || []).map((c) => c.name);
+	if (spot.kind === 'class') {
+		const namesComponent = (text) => {
+			const t = String(text || '').toLowerCase();
+			return !t || names.some((n) => n.includes(t));
+		};
+		if (!namesComponent(spot.typed)) {
+			return { options: modifierOptions(DEFAULT_COMPONENT, catalog, vocab, [], extra), validFor: (text) => WORD.test(text) && !namesComponent(text) };
+		}
+		return { options: classOptions(catalog), validFor: (text) => WORD.test(text) && namesComponent(text) };
+	}
+	if (names.includes(spot.name)) return { options: modifierOptions(spot.name, catalog, vocab, spot.present, extra), validFor: WORD };
+	return { options: modifierOptions(DEFAULT_COMPONENT, catalog, vocab, [spot.name, ...(spot.present || [])], extra), validFor: WORD };
 }
 
 // Which basemap a `map` slide uses. The world map is the DEFAULT; `us` (alias
