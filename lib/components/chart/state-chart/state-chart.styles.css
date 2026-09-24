@@ -246,6 +246,12 @@ section.state-chart .state-node {
    * pass scores BOTH directions from one measurement, so a node's box must not
    * depend on which way its measuring column happens to run. */
   flex-shrink: 0;
+  /* …and never narrower than its longest word. `max-width: 25cqi` below caps a
+   * node on a narrow stage, and a single word cannot wrap, so on a portrait slide
+   * "Acknowledged" painted wider than its own tile (it did on `main` too, just
+   * smaller). A min-width beats a max-width when they disagree, so the tile grows
+   * to hold the word instead. */
+  min-width: min-content;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-sm);
@@ -790,11 +796,26 @@ section.state-chart .state-label-t {
   font-weight: 500;
 }
 
-/* The ordinal — a quiet numeral on every node (the status is on the tile). */
+/* The ordinal — a quiet numeral on every node (the status is on the tile).
+ *
+ * FLOORED, because it is read: it is the ref a transition cites. The painted size
+ * comes from the measured HTML numeral (9px at HD), and the letterbox then scales
+ * it, so a wrapped machine at k = 0.65 painted it at 5.8px — under the engine's
+ * legibility floor (1% of slide height, 7.2px), which the export's TYPE FLOOR
+ * warning named on five slides of the feature deck.
+ *
+ * The floor rides `--chart-text-min` because that is the token applyFit
+ * counter-scales by 1/k, so it holds AFTER the letterbox. But at 68% of it, not
+ * all of it: the full token is the 11px label size, and an 11px numeral spilled
+ * out of the node's corner on every chart. 68% of 11px is 7.5px — just over the
+ * legibility floor — and at natural scale the 9px `cqi` term still wins, so an
+ * unscaled chart is unchanged. The CSS size overrides the `font-size` attribute
+ * the pass writes, which is the point. */
 section.state-chart .state-index-t {
   fill: var(--state-index-ink);
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
+  font-size: max(calc(var(--chart-text-min) * 0.68), 0.703125cqi);
 }
 
 /* Start and terminal keep DISTINCT redundancy cues, as the HTML card did — the

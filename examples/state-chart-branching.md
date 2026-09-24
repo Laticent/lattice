@@ -13,7 +13,7 @@ header: "Lattice · Branching state charts"
 
 # A state machine that branches.
 
-The numbered column is kept for chains. A fan-out gets a real graph layout.
+A chain keeps its reading order. A fan-out gets a real graph layout.
 
 ---
 
@@ -21,7 +21,7 @@ The numbered column is kept for chains. A fan-out gets a real graph layout.
 
 ## The rule
 
-A chain keeps `state i at row i`. A machine that branches is re-ranked.
+A chain reads `1, 2, 3` in order. A machine that branches is re-ranked.
 
 ---
 
@@ -29,9 +29,9 @@ A chain keeps `state i at row i`. A machine that branches is re-ranked.
 
 `Chain`
 
-## A chain is unchanged.
+## A chain keeps its order.
 
-One outgoing edge per state — the column already is the right answer.
+One outgoing edge per state — reading order already is the right answer.
 
 1. Source `start`
    - `compile => 2`
@@ -42,7 +42,7 @@ One outgoing edge per state — the column already is the right answer.
    - `fail => 1`
 4. Deployed `end`
 
-*Every machine in the six shipped galleries lays out exactly as it did before.*
+*A long chain wraps onto a second row rather than shrinking — the order still reads left to right.*
 
 ---
 
@@ -74,13 +74,13 @@ No single column can show this; the states would read as a sequence.
 
 ---
 
-<!-- _class: state-chart -->
+<!-- _class: state-chart tb -->
 
 `Top to bottom`
 
 ## The same machine, stacked.
 
-Direction is still the author's call — `lr` or the default.
+Direction is the author's call — `lr`, `tb`, or leave it to fit the stage.
 
 1. Intake `start`
    - `triage => 2`
@@ -130,5 +130,5 @@ dagre does not route a self-edge, so the hand-written router keeps drawing them.
 3. Approved `done`:::state-pass-hue
 4. Escalated `end`
 
-*Labels sit below the line on `lr` and to the right on the default, so a two-line
+*Labels sit below the line on `lr` and to the right on `tb`, so a two-line
 label never punches a hole through the edge it belongs to.*
