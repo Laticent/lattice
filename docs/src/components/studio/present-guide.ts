@@ -625,7 +625,7 @@ export function findChartTextTarget(root: Document | Element | null, text: strin
 			// so without this a cue that is a substring of the description resolved to the svg.
 			const hay = loose(paintedText(el)).replace(/ /g, '');
 			if (!hay.includes(tight)) continue;
-			if (hay.length < bestLen || (hay.length === bestLen && best?.contains(el))) {
+			if (hay.length < bestLen || (hay.length === bestLen && (best as Element | null)?.contains(el))) {
 				best = el;
 				bestLen = hay.length;
 			}
