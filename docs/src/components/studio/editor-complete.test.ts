@@ -187,6 +187,11 @@ describe('front-matter registers — keys and values', () => {
 		expect(done('---\nmotion-speed: ')).toEqual(['auto', 'slow', 'normal', 'fast']);
 	});
 
+	it('a key named after an Object prototype member completes nothing', () => {
+		expect(done('---\nconstructor: ')).toEqual([]);
+		expect(done('---\ntoString: ')).toEqual([]);
+	});
+
 	it('does not complete a register value on an indented line (a nested map entry)', () => {
 		// `lexicon:` takes arbitrary word keys; `  cards: …` there is data, not the register.
 		expect(done('---\nlexicon:\n  cards: ')).toEqual([]);
@@ -198,7 +203,7 @@ describe('front-matter registers — keys and values', () => {
 	// vocabulary. It must be wired for value completion or named here as handled by its
 	// own branch, so a register can't ship with values the editor never offers.
 	it('every register value list in the lint vocab is wired for completion', () => {
-		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'names']);
+		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames']);
 		const wired = new Set(Object.values(VOCAB_VALUE_FIELDS));
 		const unwired = Object.keys(vocab).filter((f) => f.endsWith('Names') && !wired.has(f) && !HANDLED_ELSEWHERE.has(f));
 		expect(unwired, 'add these to VOCAB_VALUE_FIELDS (or HANDLED_ELSEWHERE with a reason)').toEqual([]);
@@ -210,6 +215,9 @@ describe('front-matter registers — keys and values', () => {
 	it('the Studio page passes every register value list to the editor', () => {
 		const page = readFileSync(new URL('../../pages/studio.astro', import.meta.url), 'utf8');
 		expect(page).toMatch(/packedNames: packVocabNames\(v\)/);
+		// …and the island UNPACKS it: without this every *Names list vanishes in the Studio.
+		const island = readFileSync(new URL('./StudioIsland.tsx', import.meta.url), 'utf8');
+		expect(island).toMatch(/withUnpackedNames\(props\.lintVocab\)/);
 	});
 
 	// Drift gate: every key the deck Inspector writes must also be completable in the

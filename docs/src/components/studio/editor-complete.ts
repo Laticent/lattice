@@ -274,7 +274,8 @@ export function makeStudioCompletion(
 		// spectrum family, … Top-level keys only (column 0): an indented `key:` is an entry
 		// inside a nested map such as `lexicon:`, where the word is data, not a register.
 		const reg = /^([\w-]+):[ \t]*[\w-]*$/.exec(before);
-		if (reg && registerOptions[reg[1]] && inFrontMatter(context.state.doc.toString(), context.pos)) {
+		// `Object.hasOwn`: a key named `constructor` or `toString` must not hit the prototype.
+		if (reg && Object.hasOwn(registerOptions, reg[1]) && inFrontMatter(context.state.doc.toString(), context.pos)) {
 			const word = context.matchBefore(/[\w-]*/);
 			return { from: word ? word.from : context.pos, options: registerOptions[reg[1]], validFor: /^[\w-]*$/ };
 		}

@@ -63,7 +63,7 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
+import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
@@ -1708,8 +1708,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const toggleMotionPlay = () => settingsWrite(motionPlay ? 'Motion off' : 'Motion on', (s) => writeFrontMatterLine(s, 'motion', motionPlay ? null : 'on'));
 	// `player-motion: off` — the exported offline player ships still charts while the deck
 	// keeps motion for presenting. lib/core/resolve-motion.mjs reads only `off`; any other
-	// value inherits `motion:`, so ON removes the key rather than writing `on`.
-	const playerMotion = (getFrontMatter(source, 'player-motion') || '').trim().toLowerCase() !== 'off';
+	// value inherits `motion:`, so ON removes the key rather than writing `on`. Read the way
+	// the engine reads it: comment stripped, and CASE-SENSITIVE (`OFF` ships motion there).
+	const playerMotion = getFrontMatterName(source, 'player-motion') !== 'off';
 	const togglePlayerMotion = () => settingsWrite(playerMotion ? 'Exported player: still charts' : 'Exported player: motion', (s) => writeFrontMatterLine(s, 'player-motion', playerMotion ? 'off' : null));
 	const motionStyle = getFrontMatter(source, 'motion-style') || 'build';
 	const setMotionStyleFM = (value: string) => settingsWrite(`Motion style → ${value}`, (s) => writeFrontMatterLine(s, 'motion-style', value === 'build' ? null : value));
@@ -1759,11 +1760,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
 	// Card rows (`cards:`) — where a row of cards puts spare height. lib/core/resolve-cards.js.
 	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
-	const cardRow = activeCardRow(getFrontMatter(source, 'cards'));
+	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
 	const setCardRow = (value: string) => settingsWrite(value === '__auto__' ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === '__auto__' ? null : value));
 	// Text guards (`guards:`) — whether the engine may trim text that does not fit.
 	// lib/core/resolve-guards.js; `loose` is the baseline and writes no key.
-	const guards = activeGuards(getFrontMatter(source, 'guards')).name;
+	const guards = activeGuards(getFrontMatterName(source, 'guards')).name;
 	const setGuards = (value: string) => settingsWrite(`Text overflow → ${value}`, (s) => writeFrontMatterLine(s, 'guards', value === 'loose' ? null : value));
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
