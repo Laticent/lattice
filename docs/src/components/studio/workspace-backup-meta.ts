@@ -44,18 +44,9 @@ export function isEvictionProneBrowser(): boolean {
 	}
 }
 
-/** Trigger a client-side download of the backup zip. */
-export function downloadBlob(filename: string, blob: Blob): void {
-	if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	URL.revokeObjectURL(url);
-}
+// Every Studio save goes through the platform seam (download.ts → lib/platform.js), so the
+// backup zip lands in the OS save dialog inside the desktop app. Re-exported, not copied.
+export { downloadBlob } from './download';
 
 /**
  * What a restore could not bring back, carried across the reload that follows it. The restore

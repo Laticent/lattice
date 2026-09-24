@@ -23,6 +23,7 @@ import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE,
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
+import { downloadBlob } from './download';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
@@ -53,7 +54,7 @@ import {
 import { TtsSettings } from './TtsSettings';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 import type { PackReport } from './workspace-backup';
-import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
+import { isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
