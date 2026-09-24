@@ -278,4 +278,15 @@ describe('svg-a11y-names — applyToHtml', () => {
     assert.equal(refs.length, 2);
     assert.notEqual(refs[0], refs[1], 'two slides took the same id — the duplicate-id trap is back');
   });
+  test('a <section quoted in a comment does not unscope the slides after it', () => {
+    // The section walk used to stop at the quoted tag, so every graphic from that
+    // slide on fell through to the out-of-section pass and lost its slide scope.
+    const svg = (t) => `<svg role="img"><title>${t}</title></svg>`;
+    const out = applyToHtml(
+      `<section>${svg('A')}</section>` +
+      `<section><!-- quoting <section class="x"> -->${svg('B')}</section>` +
+      `<section>${svg('C')}</section>`);
+    const ids = [...out.matchAll(/<title id="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(ids, ['lat-svgt-1-1', 'lat-svgt-2-1', 'lat-svgt-3-1']);
+  });
 });

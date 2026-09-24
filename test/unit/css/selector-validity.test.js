@@ -11,7 +11,7 @@
  * § "A LONE BARE MEMBER") wrote its `ul` test as
  * `:has(> li:only-child:not(:has(…)))`. `:has()` may not nest inside `:has()` —
  * the relational pseudo-class is forbidden inside its own argument — so Chromium
- * rejected the selector and dropped the rule. The neighbouring `li` rule put its
+ * rejected the selector and dropped the rule. The neighboring `li` rule put its
  * `:has()` inside a top-level `:not()`, which is legal, so HALF the fix applied:
  * the type stepped up and the bullet marker stayed. It took a real portrait
  * render plus a computed-style probe to see it.

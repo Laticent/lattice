@@ -625,6 +625,63 @@ test('classifyDivergence names a missing progress rail rather than shrugging', (
   assert.equal(core.classifyDivergence(without, withRail), 'progress rail absent');
 });
 
+// ── A <section quoted as TEXT is not a section ─────────────────────────────────
+// The Studio preview refused an ordinary slide ("nested or unbalanced `<section>`") when its
+// body carried a comment or a `<style>` that quoted the tag: the flat tally counted the text.
+test('sectionsOf and sectionOpenCount read past a quoting comment and <style>/<script> text', () => {
+  for (const q of ['<!-- <section class="title"> -->', '<style>/* <section> */ h2{}</style>', '<script>"<section>"</script>']) {
+    const html = `<section id="1">A${q}</section><section id="2">B</section>`;
+    assert.deepEqual(core.sectionsOf(html), [`<section id="1">A${q}</section>`, '<section id="2">B</section>'], q);
+    assert.equal(core.sectionOpenCount(html), 2, q);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 0), undefined, q);
+  }
+});
+
+test('a `<!--` inside <style>/<script> TEXT does not blank the slides after it', () => {
+  // The first cut masked comments before rawtext, so this `<!--` blanked through the next `-->`
+  // in the document: 1 section where there are 2, and a slide the preview used to narrow refused.
+  for (const raw of ['<script>var s = "<!--";</script>', '<style>p::before { content: "<!--"; }</style>']) {
+    const html = `<section id="1">A${raw}</section><section id="2">B<!-- note --></section>`;
+    assert.equal(core.sectionsOf(html).length, 2, raw);
+    assert.equal(core.sectionOpenCount(html), 2, raw);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 0), undefined, raw);
+  }
+});
+
+test('`<!-->` and `<!--->` are empty comments, not the start of one', () => {
+  for (const c of ['<!-->', '<!--->']) {
+    const html = `<section>1 ${c} x</section><section>2</section><section>3<!-- note --></section>`;
+    assert.equal(core.sectionOpenCount(html), 3, c);
+    assert.equal(core.sectionsOf(html).length, 3, c);
+  }
+});
+
+test('a declaration or processing instruction is inert through its `>`', () => {
+  const html = '<!doctype html><section>1<![CDATA[ <section> ]]><?x <section> ?></section><section>2</section>';
+  assert.equal(core.sectionOpenCount(html), 2);
+  assert.equal(core.sectionsOf(html).length, 2);
+});
+
+test('`<style-x>` is an ordinary element, not a stylesheet', () => {
+  const html = '<section><style-x><section>q</section></style-x></section>';
+  // the literal nested open tag is a real tag here, so the flat count sees two opens
+  assert.equal(core.sectionOpenCount(html), 2);
+});
+
+test('sectionSpansOf gives offsets, so a copy inside a comment is never found first', () => {
+  const html = '<section>1</section><!--<section>2</section>--><section>2</section>';
+  const spans = core.sectionSpansOf(html);
+  assert.equal(spans.length, 2);
+  assert.equal(html.slice(...spans[1]), '<section>2</section>');
+  assert.equal(spans[1][0], html.lastIndexOf('<section>2</section>'), 'the live section, not the commented copy');
+});
+
+test('an UNCLOSED <style> is not blanked to the end of the document', () => {
+  const html = '<section>a <style> named in prose</section><section>b</section>';
+  assert.equal(core.sectionOpenCount(html), 2);
+  assert.equal(core.sectionsOf(html).length, 2);
+});
+
 // ── alignmentFailure — the guard the compare closure depends on ───────────────
 // Extracted from the compare because nothing at any tier executed it: not the unit suite, not the
 // PR gate, not even the nightly e2e. It is the check that stops an index-based lookup from quoting

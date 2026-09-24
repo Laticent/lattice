@@ -42,6 +42,7 @@ const { boundaryParser, FRONT_MATTER } = require('../../../lib/core/boundary-par
 const { readDirectiveComment } = require('../../../lib/core/comment-directive');
 const { resolveDiagramBand } = require('../../../lib/core/diagram-band');
 const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
+const { splitSections } = require('../../../lib/core/split-sections');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const engine = latticeEngine.createEngine();
@@ -73,8 +74,12 @@ function sectionClasses(file, src) {
   if (!RENDERED.has(file)) {
     let classes = null;
     try {
-      classes = [...engine.render(src).html.matchAll(/<section\b[^>]*\bclass="([^"]*)"/g)]
-        .map((m) => m[1].split(/\s+/).filter(Boolean));
+      // Walked with the shared kernel, not `/<section\b[^>]*class="…"/g`: a literal
+      // scan counts a section tag QUOTED in a comment or a `<style>` as a slide
+      // (test/fixtures/raw-section-quoted.md exists to carry exactly that).
+      classes = splitSections(engine.render(src).html)
+        .filter((p) => p.type === 'section')
+        .map((p) => p.cls.split(/\s+/).filter(Boolean));
     } catch {
       classes = null; // a file that does not render is not this gate's business
     }

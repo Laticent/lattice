@@ -97,7 +97,8 @@ describe('stage-catalog — the single stage-cell classification', () => {
     // frame one commit at a time, each with rendered evidence at all five registered
     // sizes; the sovereign arms and `lib/forms/frame/math/` are deleted, so there is no
     // second shape left for the flag to disagree with.
-    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'wifi'];
+    // video (PR 5) closed the known gap this test used to pin (see below).
+    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'video', 'wifi'];
     assert.deepEqual([...conformanceCatalog].sort(), EXPECTED_STRICT, 'conformance-catalog drifted from EXPECTED_STRICT');
     // The baked array must equal the manifest source of truth.
     const fromManifests = loadAll().filter((m) => m.conformance === 'strict').map((m) => m.name).sort();
@@ -107,24 +108,15 @@ describe('stage-catalog — the single stage-cell classification', () => {
     assert.equal(kernel.wrapsStageBody('contact form'), true, 'strict canvas contact must wrap');
     assert.equal(kernel.wrapsStageBody('wifi form'), true, 'strict canvas wifi must wrap');
     assert.equal(kernel.wrapsStageBody('diagram form'), true, 'strict canvas diagram must wrap');
-    // `video` is the ONE non-sovereign component still in Form with no Cell, and this
-    // line pins a KNOWN GAP rather than a design choice — measured 2026-09-20 by
-    // rendering all 70 components x 273 declared variant combinations.
-    //
-    // Flipping its `conformance:"strict"` flag is NOT enough, and the attempt is worth
-    // recording because the flag alone looks like it works. video REBUILDS its section
-    // (renderSection returns a fresh `.video-lead` + `.video-embed`) and sits BELOW
-    // mastheadLift in the registry, so the stage cell the flag makes mastheadLift build
-    // is discarded moments later. Moving video above mastheadLift — the documented fix,
-    // the one contact and wifi use — does produce the cell, and REGRESSES the layout:
-    // the masthead lift yanks the h2 and lead paragraph out of the `.video-lead` pair,
-    // collapsing the `companion` composition from side-by-side to stacked and clipping
-    // the caption (7 of 10 gallery pages moved; the engine's own overflow marker fires).
-    //
-    // Closing it means teaching video's transform to keep its title in-card the way
-    // wifi does with `.qr-head > h2` (which is why wifi needed findTopLevelH2). That is
-    // its own change with its own rendered evidence, not a flag flip.
-    assert.equal(kernel.wrapsStageBody('video form'), false, 'video is a known conformance gap — see above');
+    // `video` used to be pinned here as a KNOWN GAP: the one non-sovereign component
+    // in Form with no Cell. A flag flip alone was a no-op (it rebuilt its section
+    // below mastheadLift), and a hoist alone pulled the title out of the `companion`
+    // pair. It closed by keeping its title NESTED in one `.video-card`, which the
+    // depth-aware lift leaves in place, and it now runs above mastheadLift like
+    // contact and wifi. engineering/decisions/2026-09-20-form-is-not-configurable.md.
+    assert.equal(kernel.wrapsStageBody('video form'), true, 'strict canvas video must wrap');
+    // A canvas that has NOT opted in still does not wrap.
+    assert.equal(kernel.wrapsStageBody('funnel form'), false, 'a non-strict canvas must not wrap');
   });
 
   test('stageSizingFor is the single classifier the wrap decision reads', () => {

@@ -535,6 +535,7 @@ const {
 const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
 const { readClassAttr } = require('./lib/core/section-walk');
+const { splitSections } = require('./lib/core/split-sections');
 // The label-drop channel's READER half — same grammar as the writer, one module
 // (lib/components/chart/_chart-family/label-drops.js), so the two cannot drift.
 const { decodeLabelDrops } = require('./lib/components/chart/_chart-family/label-drops');
@@ -2248,29 +2249,18 @@ const imageDimensions    = require('./lib/core/image-dimensions');
 //   - re-tag each section with `data-lattice-slide` (the engine omits it; the
 //     page template's sizing / overflow watcher / PDF pagination key off it).
 
-// Depth-counted scan over <section>…</section> so nested split-panel sections
-// stay inside their parent. Produces the "one <section> string per slide" array
-// shape the emulator's downstream (highlight, deck-logo, page template) expects,
-// from the engine's assembled <article class="lattice"> document.
-function splitTopLevelSections(latticeHtml) {
-  const out = [];
-  const re = /<section\b[^>]*>|<\/section>/gi;
-  let depth = 0;
-  let start = -1;
-  let m;
-  while ((m = re.exec(latticeHtml)) !== null) {
-    if (m[0][1] === '/') {
-      depth--;
-      if (depth === 0 && start >= 0) {
-        out.push(latticeHtml.slice(start, re.lastIndex));
-        start = -1;
-      }
-    } else {
-      if (depth === 0) start = m.index;
-      depth++;
-    }
-  }
-  return out;
+// One `<section>` string per top-level slide, from the engine's assembled
+// <article class="lattice"> document — the shape the emulator's downstream
+// (highlight, deck-logo, page template) expects. The walk is the shared kernel
+// (lib/core/split-sections.js, HARD RULE #1), which reads a comment, a
+// <style>/<script> body and a quoted attribute as TEXT. The private regex copy
+// this replaced did not: a `<section` quoted inside a comment or a <style> moved
+// its depth counter, the walk found zero slides, and the export shipped a
+// one-page PDF with exit code 0.
+function topLevelSectionStrings(latticeHtml) {
+  return splitSections(latticeHtml)
+    .filter((p) => p.type === 'section')
+    .map((p) => `${p.openTag}${p.inner}</section>`);
 }
 
 // `deckSource` defaults to the deck's own source. `--strip-notes` re-enters with the
@@ -2340,7 +2330,7 @@ function engineSlides(deckSource = rawMd) {
   // re-cutting it. `capacity` speaks to the author through `lint:deck`, not to the splitter.
   const html = renderedHtml;
   const imageScrim = require('./lib/transformers/image-scrim');
-  return splitTopLevelSections(html).map((sec, i) => {
+  return topLevelSectionStrings(html).map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
     // engine's basic-mode render doesn't: wrap half-canvas prose in
     // `.image-text`, and inject the contrast scrim for full/contain image
@@ -5332,7 +5322,7 @@ function notesPerRenderedPage(docHtml, authored) {
   const at = String(docHtml || '').search(/<section\b[^>]*\bdata-lattice-slide=/);
   if (at < 0) return authored;
   try {
-    const parts = require('./lib/core/split-sections').splitSections(docHtml.slice(at))
+    const parts = splitSections(docHtml.slice(at))
       .filter((p) => p.type === 'section');
     return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
   } catch { return authored; }
@@ -6035,7 +6025,7 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
   if (fmCaptions?.size) {
     const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
     if (at >= 0) {
-      const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
+      const pages = splitSections(cleanDocHtml.slice(at))
         .filter((x) => x.type === 'section');
       const origin = require('./lib/core/auto-split').authoredIndexPerPage(pages);
       // Only rebuild when the split actually moved something; an unsplit deck keeps the

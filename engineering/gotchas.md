@@ -196,6 +196,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Front-matter `style:` directive specificity vs. theme :root](gotchas/marp.md#front-matter-style-directive-specificity-vs-theme-root)
 - [A theme rule gated on `:root[…]` silently does nothing in a Marp render](gotchas/marp.md#a-theme-rule-gated-on-root-silently-does-nothing-in-a-marp-render)
 - [marp-cli ignores `theme:` front matter unless the theme is registered (Export-to-Marp bundles)](gotchas/marp.md#marp-cli-ignores-theme-front-matter-unless-the-theme-is-registered-export-to-marp-bundles)
+- [A hard-wrapped paragraph renders with line breaks mid-sentence](gotchas/marp.md#a-hard-wrapped-paragraph-renders-with-line-breaks-mid-sentence)
 
 ### [Memory profiling (perf-torture / CDP)](gotchas/memory-profiling.md)
 

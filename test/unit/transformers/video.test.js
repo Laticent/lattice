@@ -16,6 +16,7 @@ const assert = require('node:assert/strict');
 
 const { detectProvider } = require('../../../lib/core/video-providers.mjs');
 const video = require('../../../lib/components/imagery/video/video.transform');
+const { findTopLevelH2 } = require('../../../lib/core/top-level-h2');
 const { resolveOembed, videoUrlsFromDeck } = require('../../../tools/fetch-video-oembed');
 
 const li = (inner) => `<li>${inner}</li>`;
@@ -119,6 +120,34 @@ describe('video transform', () => {
     assert.match(out, /<figure class="video-embed"/);
     assert.match(out, /note/); // the non-payload bullet survives
   });
+
+  // The title stays IN the card. `video` is conformance:"strict" and runs above
+  // mastheadLift, whose h2 lift is depth-aware for a strict component: a nested
+  // h2 stays put, a top-level one goes to the band. So the pin is "no top-level
+  // h2 survives the rebuild", in every composition.
+  for (const cls of ['video', 'video gallery', 'video companion', 'video companion qr']) {
+    test(`${cls}: one .video-card root, the title nested in it`, () => {
+      const out = video.applyToRenderedHtml(section(
+        '<h2>Watch the tour.</h2><p>Ninety seconds.</p><ul>' + li('https://youtu.be/dQw4w9WgXcQ') + '</ul>', cls));
+      const inner = out.replace(/^<section[^>]*>/, '').replace(/<\/section>$/, '');
+      assert.match(inner, /^<div class="video-card">[\s\S]*<\/div>$/);
+      assert.equal(findTopLevelH2(inner), null, 'a top-level h2 would be lifted into the masthead band');
+      assert.match(inner, /<div class="video-(head|lead)"><h2>Watch the tour\.<\/h2>/);
+      assert.match(inner, /Ninety seconds\./);
+    });
+  }
+
+  test('the running header and footer survive every composition', () => {
+    // `companion` rebuilt its section from the h2 + lead alone and dropped both,
+    // so a deck-level `header:` and a slide's `_footer:` vanished from it.
+    const body = '<header>Deck · video</header><h2>x</h2><p>lead</p><ul>' +
+      li('https://youtu.be/dQw4w9WgXcQ') + '</ul><footer>Slide footer</footer>';
+    for (const cls of ['video', 'video gallery', 'video companion']) {
+      const out = video.applyToRenderedHtml(section(body, cls));
+      assert.match(out, /^<section[^>]*><header>Deck · video<\/header><div class="video-card">/, cls);
+      assert.match(out, /<\/div><footer>Slide footer<\/footer><\/section>$/, cls);
+    }
+  });
 });
 
 describe('oEmbed resolver (injected fetcher — no network)', () => {
@@ -153,4 +182,37 @@ describe('oEmbed resolver (injected fetcher — no network)', () => {
     const urls = videoUrlsFromDeck(src);
     assert.deepEqual(urls, ['https://www.youtube.com/watch?v=abc123']);
   });
+});
+
+test('video: a running header does not shift which bullets are consumed', () => {
+  // The consumed bullets are found by offset in the section's inner HTML, so the
+  // header has to come off AFTER they are removed, or the URL bullet survives as
+  // a stray line of text under the poster.
+  const out = video.applyToRenderedHtml(section(
+    '<header>Deck · video</header><h2>x</h2><ul><li>https://vimeo.com/1084537</li>' +
+    '<li>A caption <code>caption</code></li></ul><footer>f</footer>', 'video gallery'));
+  assert.doesNotMatch(out.replace(/href="[^"]*"/g, ''), /vimeo\.com\/1084537/);
+  assert.doesNotMatch(out, /<ul>|<li>/);
+});
+
+test('video: an eyebrow authored above the title rides into the card with it', () => {
+  // With the title in the card, the masthead no longer lifts the eyebrow beside
+  // it. `companion` rebuilt from the title and lead alone and dropped it; the
+  // other compositions left it loose above the head.
+  for (const [cls, head] of [['video companion', 'video-lead'], ['video gallery', 'video-head'], ['video', 'video-head']]) {
+    const out = video.applyToRenderedHtml(section(
+      '<p><code>Onboarding</code></p><h2>x</h2><p>lead</p><ul>' + li('https://youtu.be/dQw4w9WgXcQ') + '</ul>', cls));
+    assert.match(out, new RegExp(`<div class="${head}"><p><code>Onboarding</code></p><h2>x</h2>`), cls);
+  }
+});
+
+test('video: a subtitle label under the title stays its next sibling, in the card', () => {
+  // `section h2 + p:has(> code:only-child)` styles the subtitle only while it
+  // directly follows the h2. Left outside the head it rendered as a code chip.
+  for (const [cls, head] of [['video companion', 'video-lead'], ['video gallery', 'video-head'], ['video', 'video-head']]) {
+    const out = video.applyToRenderedHtml(section(
+      '<h2>x</h2><p><code>A subtitle</code></p><p>lead</p><ul>' + li('https://youtu.be/dQw4w9WgXcQ') + '</ul>', cls));
+    assert.match(out, new RegExp(`<div class="${head}"><h2>x</h2><p><code>A subtitle</code></p>`), cls);
+    assert.match(out, /<p>lead<\/p>/, `${cls}: the lead survives`);
+  }
 });
