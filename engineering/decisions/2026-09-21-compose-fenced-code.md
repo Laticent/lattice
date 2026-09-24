@@ -314,6 +314,14 @@ So Compose colors all three, through the BODY grammar each one declares:
 registry records as each fence's `body`. A test pins the map against that registry, so
 a fourth engine fence cannot arrive uncolored.
 
+**Correction (2026-09-24).** When this section was written the registry listed only
+`functionplot` and `mermaid`, so the claim above held for two of the three fences: the
+pin looped over the registry's entries, and `anima` was not one of them. The
+registry now lists `anima` (`body: "json"`, `usedBy: ["scene"]`) — an entry that
+describes what `animaSceneFences` already did and changes no behavior — and the pin
+asserts the registry and the Lattice group are the SAME set before it checks bodies,
+so a short registry fails instead of passing with nothing checked.
+
 **The general lesson, because it is the second time in this note:** a narrowly-scoped
 CSS rule is not a statement of policy. Both times the fix was to read what the rule
 is scoped TO before generalizing from what its comment says.

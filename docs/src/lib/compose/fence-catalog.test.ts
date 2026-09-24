@@ -23,8 +23,8 @@ describe('the Lattice group', () => {
 
 	it('covers every fence the LFM grammar registry declares', () => {
 		// The direction that matters: a fourth engine fence cannot ship without the
-		// picker learning it. (The reverse does NOT hold — `anima` is engine-recognized
-		// and absent from the registry; see the catalog's docblock.)
+		// picker learning it. The reverse holds too since `anima` joined the registry —
+		// the body pin below asserts the two sets are equal.
 		const grammarPath = path.resolve(__dirname, '../../../../dist/docs/grammar.json');
 		if (!fs.existsSync(grammarPath)) return; // dist is generated, not committed
 		const grammar = JSON.parse(fs.readFileSync(grammarPath, 'utf8')) as { fences?: Record<string, { deprecatedAliases?: string[] }> };
@@ -61,10 +61,18 @@ describe('the Lattice group', () => {
 		const grammarPath = path.resolve(__dirname, '../../../../dist/docs/grammar.json');
 		if (!fs.existsSync(grammarPath)) return;
 		const grammar = JSON.parse(fs.readFileSync(grammarPath, 'utf8')) as { fences?: Record<string, { body?: string }> };
-		for (const [tag, spec] of Object.entries(grammar.fences || {})) {
-			if (!spec.body) continue;
+		// The COUNT first: a loop over an empty or short registry passes without checking
+		// anything, and that is how `anima` sat outside this pin while the decision doc
+		// said the map matched the registry for all three fences.
+		const entries = Object.entries(grammar.fences || {});
+		expect(entries.map(([tag]) => tag).sort()).toEqual(LATTICE_FENCES.map((f) => f.tag).sort());
+		let checked = 0;
+		for (const [tag, spec] of entries) {
+			expect(spec.body, `${tag} must declare its body grammar`).toBeTruthy();
 			expect(highlightLanguageFor(tag), tag).toBe(spec.body);
+			checked++;
 		}
+		expect(checked).toBe(LATTICE_FENCES.length);
 	});
 });
 

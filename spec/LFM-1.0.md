@@ -134,7 +134,7 @@ grammar is **shared** across `checklist`, `verdict-grid`, `obligation-matrix`,
 - **`[-]` / `[/]` degrade to:** literal text (`[-] …`). Readable but not a
   checkbox — LFM 1.0's only non-GFM-clean construct (§5.1).
 
-### 3.3 Fenced sub-languages (charts & diagrams)
+### 3.3 Fenced sub-languages (charts, diagrams & motion)
 
 A fenced code block with a recognized info string is a **sub-language**. Each
 is its own mini-spec; LFM only requires that it degrades to a code block.
@@ -143,17 +143,21 @@ is its own mini-spec; LFM only requires that it degrades to a code block.
 |---|---|---|
 | `functionplot` | A [function-plot](https://mauriciopoppe.github.io/function-plot/) graph spec (JSON body: mathematical functions + axes). Used today by the `math` component's `canvas` variant to draw a curve beside an equation. | A code block showing the JSON config. **L0-clean.** |
 | `mermaid` | Mermaid (passthrough), used by the `diagram` component. | A code block. **L0-clean** (and Mermaid-aware hosts render the diagram). |
+| `anima` | An Anima motion-scene spec (JSON body), used by the `scene` component to animate its poster still on the HTML and present surfaces. The PDF keeps the poster. | A code block showing the JSON spec. **L0-clean.** |
 
 Each fence is **named after the library that renders it**: `functionplot` for
-function-plot, `mermaid` for Mermaid. This matches how the equation half of the
+function-plot, `mermaid` for Mermaid, `anima` for Anima, Lattice's own motion
+host. This matches how the equation half of the
 `math` component uses standard `$$…$$` to pass through to KaTeX. LFM does
 **not** rebrand these libraries or claim to own their config languages.
 
-What LFM owns is narrow and consistent across all three: the fence
+What LFM owns is narrow and consistent across every fence: the fence
 registration, the SVG **theming** that makes the output inherit the deck's
 palette tokens, and the **degradation contract**. The fence body is the
 renderer library's own configuration language, not Markdown, and LFM does not
-own its schema. [`dist/docs/grammar.json`](../dist/docs/grammar.json) records
+own its schema — including Anima's, which Lattice writes but which belongs to
+the Anima host (its scene parser validates it), not to this spec.
+[`dist/docs/grammar.json`](../dist/docs/grammar.json) records
 each fence's library, component, and deprecated aliases; the config schema stays
 with that library, so this prose spec stays stable as those options evolve.
 
@@ -379,6 +383,7 @@ LFM 1.0 deliberately does **not**:
 | Version | Date | Change |
 |---|---|---|
 | 1.0-draft | 2026-06-13 | Initial draft. Formalises the existing extension set, conformance levels, degradation table, and the companion diagnostic protocol. |
+| 1.0-draft | 2026-09-24 | §3.3 registers the `anima` fence (JSON body, read by `scene`). The engine already rendered it; the table and `grammar.json` now say so. Additive — a new extension with its degradation row (§7). |
 
 ## Appendix A — A worked example (informative)
 

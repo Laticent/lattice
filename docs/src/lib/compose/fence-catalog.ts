@@ -58,18 +58,15 @@ export type HljsManifest = {
 /**
  * The engine's own fenced sub-languages.
  *
- * `mermaid` and `functionplot` are the two `dist/docs/grammar.json` registers as LFM
- * fences (`tools/build-docs-portal.js` § FENCES); `anima` is recognized by the engine
- * (`animaSceneFences` in lib/integrations/markdown-it/plugins.js) and used by the
- * `scene` component, but is absent from that registry and from spec/LFM-1.0.md. That
- * gap is real and it is not this change's to close — the spec is not ours to edit on
- * the way past (CLAUDE.md § "is this decision mine to make") — so it is filed rather
- * than fixed here, and the catalog carries all three because an author who wants a
- * motion scene needs the row either way.
+ * All three are registered as LFM fences in `dist/docs/grammar.json`
+ * (`tools/build-docs-portal.js` § FENCES), each with the BODY grammar that colors it.
+ * `anima` joined that registry after this catalog shipped: the engine recognized it
+ * (`animaSceneFences` in lib/integrations/markdown-it/plugins.js) and `scene` read it,
+ * but the registry did not list it, so the pin below had nothing to check for it.
  *
- * `latticeFencesCovered` (below) pins the direction that matters: every tag the
- * registry DOES list has to appear here, so a fourth engine fence cannot ship without
- * the picker learning it.
+ * `latticeFencesCovered` (below) pins that every tag the registry lists appears here,
+ * and the body pin asserts the two sets are equal, so a fourth engine fence cannot
+ * ship without the picker learning it and cannot arrive uncolored.
  */
 export const LATTICE_FENCES: readonly FenceOption[] = Object.freeze([
 	{ tag: 'mermaid', label: 'Diagram', highlight: 'mermaid', note: 'Mermaid — flowcharts, sequences, state charts. Pairs with `_class: diagram`.' },

@@ -36,6 +36,9 @@ describe('LFM grammar.json projection', () => {
     assert.equal(doc.spec, 'LFM 1.0');
     assert.ok(doc.fences.functionplot, 'functionplot fence is declared');
     assert.ok(doc.fences.mermaid, 'mermaid fence is declared');
+    // `anima` is engine-recognized (animaSceneFences) and read by `scene`; the
+    // registry has to say so, or Compose's body-grammar pin has nothing to check.
+    assert.deepEqual(doc.fences.anima, { sublanguage: 'anima', body: 'json', usedBy: ['scene'], degradesTo: 'code-block' });
     // The fence is named after its renderer, not Lattice-branded; the old
     // `latticeplot` name survives only as a recorded deprecated alias.
     assert.ok(!doc.fences.latticeplot, 'latticeplot is not a first-class fence (renamed)');

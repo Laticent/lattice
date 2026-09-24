@@ -1043,8 +1043,12 @@ const STATE_MARKER_COMPONENTS = ['checklist', 'verdict-grid', 'obligation-matrix
 // it, owned by that library and the component that uses it, not by LFM. Each
 // degrades to a plain code block in an LFM-unaware renderer. The fence is named
 // after its renderer (like `mermaid`), not branded — `latticeplot` is retained
-// as a DEPRECATED alias of `functionplot` for one release.
+// as a DEPRECATED alias of `functionplot` for one release. `anima` is the one
+// whose renderer is ours: `animaSceneFences` (lib/integrations/markdown-it/plugins.js)
+// packs the JSON scene spec, the `scene` component carries it, and the Anima
+// host plays it — in the docs site and in the HTML export (lib/export/player-core.mjs). The entry describes that shipped behavior; it adds none.
 const FENCES = {
+  anima: { sublanguage: 'anima', body: 'json', usedBy: ['scene'], degradesTo: 'code-block' },
   functionplot: { sublanguage: 'function-plot', body: 'json', usedBy: ['math'], deprecatedAliases: ['latticeplot'], degradesTo: 'code-block' },
   mermaid: { sublanguage: 'mermaid', body: 'mermaid', usedBy: ['diagram'], degradesTo: 'code-block' },
 };
