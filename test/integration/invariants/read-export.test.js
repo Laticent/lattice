@@ -324,6 +324,10 @@ describe('--read — the deck as prose, and nothing else moves', () => {
       const article = new JSDOM(fs.readFileSync(out, 'utf8')).window.document.querySelector('#lat-read');
       const spans = [...article.querySelectorAll('svg[aria-roledescription] g.node tspan')];
       assert.ok(spans.length >= 3, `expected the three node labels, got ${spans.length}`);
+      // 14px is MERMAID'S default label size, not ours — the article's sanitizer strips the
+      // svg's own `#id{font-size}` rule, so there is nothing in the output to compare against.
+      // A Mermaid upgrade that changes its default would turn this red without a regression;
+      // re-read the default then, and keep asserting ONE size that is not the slide's --fs-body.
       const sizes = [...new Set(spans.map((t) => (t.getAttribute('style') || '').match(/font-size:([^;]+)/)?.[1]))];
       assert.deepEqual(sizes, ['14px'], `every label must bake at Mermaid's 14px, not the slide's body size; got ${JSON.stringify(sizes)}`);
     } finally {

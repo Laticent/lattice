@@ -3,14 +3,18 @@
 One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
 this file is the detail. Entry shape and the rule for adding one are in the index.
 
-## Flowchart labels are clipped on a plain slide ("Order pl…")
+## Mermaid labels are clipped on a plain slide ("Order pl…")
 
-- **Symptom:** a flowchart on a slide with no `_class` (or `_class: content`) shows every
-  node label cut to its first few letters, and cut at the bottom too. The same diagram on a
+- **Symptom:** a Mermaid diagram on a slide with no `_class` (or `_class: content`) shows
+  its labels cut to their first few letters, and cut at the bottom too. Every family that
+  draws HTML labels was hit: flowchart, class, state, ER, mindmap, kanban, requirement and
+  block (measured on the parent commit: class 4/5, state 3/5, mindmap 5/9, kanban 4/8, ER
+  5/7, requirement 10/10, block 3/3 clipped). Sequence, timeline, journey, architecture and
+  quadrant draw SVG text and were never affected. The same diagram on a
   `_class: diagram` slide is fine. In a `--read` or `--player` article the same labels are
   not clipped but sit right of center and run past their box's right edge, in every engine.
 - **Cause:** Mermaid sizes each node box around its label, measured at the diagram's own
-  14px, then wraps the label text in a `<p>` inside a `<foreignObject>`. On a `content`
+  font size (14px by default; a `%%{init}%%` `fontSize` changes it), then wraps the label text in a `<p>` inside a `<foreignObject>`. On a `content`
   slide, `section.content p` (`content.styles.css`) restyles that `<p>` at `--fs-body`
   (21.4px on a 1280x720 slide) with `--lh-relaxed`, so the text is 1.52x its box both ways.
   The slide clips the overflow; the bake (`foreignObjectToText`) copies the 21.4px into the

@@ -101,7 +101,8 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
 
 /* ── A LABEL KEEPS THE TYPE MERMAID MEASURED IT AT ──
  * Mermaid sizes every node box around its label, measured at the diagram's own font
- * (14px, the `#lattice-mmd-N` rule mermaid writes into the svg), then wraps the label
+ * size (the `#lattice-mmd-N{font-size}` rule mermaid writes into the svg: 14px by default,
+ * or whatever a `%%{init}%%` fontSize sets), then wraps the label
  * text in a `<p>`. That `<p>` sits inside our slide, so the slide's prose rules reach
  * it: `section.content p { font-size: var(--fs-body); line-height: var(--lh-relaxed) }`
  * set it at 21.4px in a box sized for 14px. Measured on an 8-node LR flowchart on a
@@ -109,7 +110,8 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * directions. The baked article copy then inherited the same 21.4px and, with nothing
  * clipping it, spilled right of every box.
  * `content` is the layout a slide gets when it declares none, so this reached every
- * diagram not on a `_class: diagram` slide. Reset to the svg's own type, and
+ * diagram not on a `_class: diagram` slide, in every family that draws HTML labels
+ * (flowchart, class, state, ER, mindmap, kanban, requirement, block). Reset to the svg's own type, and
  * `!important` because a deck's prose rule for `p` can out-rank anything scoped here. */
 :is(section, figure) svg[aria-roledescription] foreignObject p {
   font-size: inherit !important;
