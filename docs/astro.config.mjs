@@ -222,6 +222,7 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Authoring decks', slug: 'guides/authoring' },
+						{ label: 'Deck settings', slug: 'guides/deck-settings' },
 						{ label: 'Themes & palettes', slug: 'guides/themes' },
 					],
 				},
@@ -240,6 +241,16 @@ export default defineConfig({
 						{ label: 'Pills a component places', slug: 'guides/status/component-pills' },
 						{ label: 'Upgrading an older deck', slug: 'guides/status/upgrading' },
 						{ label: 'Cheat sheet', slug: 'guides/status/cheat-sheet' },
+					],
+				},
+				{
+					// Lookup pages, as opposed to the learning tracks above: read a Guide once,
+					// in order; come back to Reference when you know what you want and need
+					// the exact spelling. Each Guide links to its Reference page.
+					label: 'Reference',
+					items: [
+						{ label: 'Front matter', slug: 'reference/front-matter' },
+						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 					],
 				},
 				{

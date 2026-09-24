@@ -1,0 +1,26 @@
+---
+title: Front-matter reference
+description: Every deck-level setting Lattice reads — its accepted values, its default, the Studio control that writes it, and the per-slide form. Generated from the same lists the editor and the linter use.
+tableOfContents:
+  maxHeadingLevel: 2
+---
+
+import FrontMatterReference from '../../../components/FrontMatterReference.astro';
+
+Every key a deck's front matter can carry. To learn how front matter works, and
+which settings most decks want, start with [Deck settings](/guides/deck-settings/).
+
+This page is **generated**. The keys and descriptions are the Studio editor's
+autocomplete list, and the values are the ones `lint:deck` accepts, so the
+page cannot list a value the linter would reject. The groups match the sections
+under **Settings → Deck** in the Studio.
+
+**One slide** can differ from the deck through the per-slide form each row
+names. A per-slide class exists for every value except the default: the deck's
+`spectrum: off` is `spectrum-off` on one slide, but there is no `spectrum-on`,
+because `on` is what a slide gets with no class at all.
+
+The [LFM specification](/spec/lfm/) defines a portable subset of these keys, for
+tools other than Lattice. This page is what Lattice itself reads.
+
+<FrontMatterReference />

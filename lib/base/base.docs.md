@@ -1521,7 +1521,7 @@ Modifiers compose space-separated after the layout name.
 ```
 
 **Cascade rule:** when two modifiers tune the same variable (e.g.
-`compact loose`), the last one in source wins. When modifiers tune
+`scale-l scale-xl`), the last one in source wins. When modifiers tune
 disjoint properties (e.g. `compact dark`), they compose without
 conflict.
 

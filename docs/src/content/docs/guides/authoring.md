@@ -101,7 +101,7 @@ every deck.
 ## Modifiers
 
 Any component accepts universal modifiers appended to the class —
-`dark`, `compact`, `loose`, `accent`, state markers, and treatments.
+`dark`, `light`, `numbered`, `scale-xl`, and treatments such as `tint-corner`.
 For example `<!-- _class: cards-grid dark -->` renders the grid on the
 dark canvas. The catalog of modifiers lives in the design system
 reference in the repository.
@@ -360,6 +360,8 @@ header · Hide footer · Hide page number · Hide rail).
 
 ## Where to go next
 
+- [Deck settings](/guides/deck-settings/) — the front-matter block: theme, chrome,
+  accents, motion and voice for every slide at once.
 - [Status and labels](/guides/status/) — state marks like `[x]` and `[!]`,
   `{LABEL}` pills and status words: which one to reach for, and where each works.
 - [Themes & palettes](/guides/themes/) — choose or author a palette.
