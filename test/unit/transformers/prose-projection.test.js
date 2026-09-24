@@ -1502,3 +1502,10 @@ for (const [name, md, eyebrow] of [
 		assert.equal(text.split('A subtitle').length - 1, 1, 'the subtitle is read once');
 	});
 }
+
+
+test('subtitle equal to the eyebrow is projected and read once', async () => {
+	const secs = await renderedSections('`Q3 review`\n\n## Revenue grew\n\n`Q3 review`\n\n- one\n');
+	assert.equal(project(secs).articleHtml.split('Q3 review').length - 1, 1);
+	assert.equal(script(secs)[0].text.split('Q3 review').length - 1, 1);
+});
