@@ -8,7 +8,7 @@ import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
-import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
+import { type CompletionComponent, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { slideEditableOffset, slideIndexAt } from './lint';
 import { tourChromeMargin } from './tour-chrome';
@@ -370,7 +370,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// `class:` completion, from the SAME lint vocabulary the linter validates against
 	// (never a hand-kept list). Absent on vocab-less surfaces → no modifier options.
 	const completionModifiers: string[] = React.useMemo(() => (Array.isArray(lintVocab?.universalModifiers) ? lintVocab.universalModifiers : []), [lintVocab]);
+	const completionRegisters = React.useMemo(() => registerValueLists(lintVocab), [lintVocab]);
 	const modifierKey = completionModifiers.join(',');
+	const registersKey = React.useMemo(() => JSON.stringify(completionRegisters), [completionRegisters]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey are the stable content-proxies; depending on the arrays themselves would rebuild every render.
 	const vocabSets = React.useMemo(() => {
 		if (!useRealLint) return null;
@@ -398,7 +400,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const acComp = React.useRef(new Compartment());
 	const lintComp = React.useRef(new Compartment());
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes })], activateOnTyping: true, icons: false });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters })], activateOnTyping: true, icons: false });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
@@ -765,10 +767,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey/paletteKey/modifierKey are the stable content-proxies; buildAutocomplete reads the live props.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey/paletteKey/modifierKey/registersKey are the stable content-proxies; buildAutocomplete reads the live props.
 	React.useEffect(() => {
 		viewRef.current?.dispatch({ effects: acComp.current.reconfigure(buildAutocomplete()) });
-	}, [compsKey, finishKey, classKey, paletteKey, modifierKey]);
+	}, [compsKey, finishKey, classKey, paletteKey, modifierKey, registersKey]);
 
 	// Reconfigure the linter when the vocab set changes, so a freshly-saved finish
 	// stops being flagged `unknown-finish` inline (the Architect panel already reacts).

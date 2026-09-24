@@ -1,10 +1,14 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
+
+import { readFileSync } from 'node:fs';
 import { CompletionContext } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
-import { makeStudioCompletion } from './editor-complete';
+// The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
+import { buildVocab } from '../../../../lib/authoring/lint.js';
+import { FRONT_MATTER_KEYS, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -153,5 +157,68 @@ describe('makeStudioCompletion', () => {
 	it('does not fire on the front-matter fence line itself', () => {
 		// On the closing `---`, the key completer must stand down.
 		expect(complete('---\nsize: 16:9\n---', 18)).toBeNull();
+	});
+});
+
+describe('front-matter registers — keys and values', () => {
+	const vocab = buildVocab();
+	const withRegisters = makeStudioCompletion(COMPS, [], [], { registers: registerValueLists(vocab) });
+	const done = (doc: string, pos = doc.length) => {
+		const r = withRegisters(new CompletionContext(EditorState.create({ doc }), pos, true));
+		return r ? r.options.map((o) => o.label) : [];
+	};
+
+	it('offers the keys that had no route but knowing they exist', () => {
+		const keys = done('---\n', 4);
+		for (const k of ['guards', 'cards', 'player-motion', 'captions', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
+			expect(keys, `${k} missing from key completion`).toContain(k);
+		}
+	});
+
+	it('completes guards: and cards: values from the engine vocabulary', () => {
+		expect(done('---\nguards: ')).toEqual(['loose', 'strict']);
+		expect(done('---\ncards: sp')).toEqual(['center', 'stretch', 'top', 'spread']);
+		expect(done('---\nclaim: ')).toContain('bleed');
+		expect(done('---\nspectrum-trim: ')).toContain('restrained');
+	});
+
+	it('completes the static vocabularies — player-motion offers only what its reader reads', () => {
+		expect(done('---\nplayer-motion: ')).toEqual(['off']);
+		expect(done('---\nmotion-speed: ')).toEqual(['auto', 'slow', 'normal', 'fast']);
+	});
+
+	it('does not complete a register value on an indented line (a nested map entry)', () => {
+		// `lexicon:` takes arbitrary word keys; `  cards: …` there is data, not the register.
+		expect(done('---\nlexicon:\n  cards: ')).toEqual([]);
+		// …and never outside the front matter.
+		expect(done('---\ntitle: x\n---\n\ncards: ')).toEqual([]);
+	});
+
+	// Drift gate: a new `*Names` list in the lint vocab is a new register with a fixed
+	// vocabulary. It must be wired for value completion or named here as handled by its
+	// own branch, so a register can't ship with values the editor never offers.
+	it('every register value list in the lint vocab is wired for completion', () => {
+		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'names']);
+		const wired = new Set(Object.values(VOCAB_VALUE_FIELDS));
+		const unwired = Object.keys(vocab).filter((f) => f.endsWith('Names') && !wired.has(f) && !HANDLED_ELSEWHERE.has(f));
+		expect(unwired, 'add these to VOCAB_VALUE_FIELDS (or HANDLED_ELSEWHERE with a reason)').toEqual([]);
+	});
+
+	// The gate above reads the FULL vocab, but the Studio receives what studio.astro
+	// serializes. That page used to hand-pick a few `*Names` lists, so this suite passed
+	// while the real editor had no `guards:` values at all. Pin the pass-everything spread.
+	it('the Studio page passes every register value list to the editor', () => {
+		const page = readFileSync(new URL('../../pages/studio.astro', import.meta.url), 'utf8');
+		expect(page).toMatch(/Object\.entries\(v\)\.filter\(\(\[k, x\]\) => k\.endsWith\('Names'\)/);
+	});
+
+	// Drift gate: every key the deck Inspector writes must also be completable in the
+	// editor, so the two surfaces can't offer different front-matter vocabularies.
+	it('every front-matter key the Studio Inspector writes is in autocomplete', () => {
+		const shell = readFileSync(new URL('./StudioShell.tsx', import.meta.url), 'utf8');
+		const written = new Set([...shell.matchAll(/writeFrontMatterLine\(\w+, '([\w-]+)'/g)].map((m) => m[1]));
+		expect(written.size).toBeGreaterThan(20);
+		const offered = new Set(FRONT_MATTER_KEYS.map((k) => k.key));
+		expect([...written].filter((k) => !offered.has(k))).toEqual([]);
 	});
 });

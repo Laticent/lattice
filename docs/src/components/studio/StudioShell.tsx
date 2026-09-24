@@ -47,6 +47,7 @@ import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
+import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SLIDE_COUNTER_SLOT } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
@@ -63,6 +64,7 @@ import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
+import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
@@ -1704,6 +1706,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Play off is the baseline (clears the key); Style default build + Speed default auto are omitted.
 	const motionPlay = (getFrontMatter(source, 'motion') || '').trim().toLowerCase() === 'on';
 	const toggleMotionPlay = () => settingsWrite(motionPlay ? 'Motion off' : 'Motion on', (s) => writeFrontMatterLine(s, 'motion', motionPlay ? null : 'on'));
+	// `player-motion: off` — the exported offline player ships still charts while the deck
+	// keeps motion for presenting. lib/core/resolve-motion.mjs reads only `off`; any other
+	// value inherits `motion:`, so ON removes the key rather than writing `on`.
+	const playerMotion = (getFrontMatter(source, 'player-motion') || '').trim().toLowerCase() !== 'off';
+	const togglePlayerMotion = () => settingsWrite(playerMotion ? 'Exported player: still charts' : 'Exported player: motion', (s) => writeFrontMatterLine(s, 'player-motion', playerMotion ? 'off' : null));
 	const motionStyle = getFrontMatter(source, 'motion-style') || 'build';
 	const setMotionStyleFM = (value: string) => settingsWrite(`Motion style → ${value}`, (s) => writeFrontMatterLine(s, 'motion-style', value === 'build' ? null : value));
 	const motionSpeed = getFrontMatter(source, 'motion-speed') || 'auto';
@@ -1750,6 +1757,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
+	// Card rows (`cards:`) — where a row of cards puts spare height. lib/core/resolve-cards.js.
+	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
+	const cardRow = activeCardRow(getFrontMatter(source, 'cards'));
+	const setCardRow = (value: string) => settingsWrite(value === '__auto__' ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === '__auto__' ? null : value));
+	// Text guards (`guards:`) — whether the engine may trim text that does not fit.
+	// lib/core/resolve-guards.js; `loose` is the baseline and writes no key.
+	const guards = activeGuards(getFrontMatter(source, 'guards')).name;
+	const setGuards = (value: string) => settingsWrite(`Text overflow → ${value}`, (s) => writeFrontMatterLine(s, 'guards', value === 'loose' ? null : value));
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
 	// along — the asymmetry the audit found. There is no named baseline (an absent key
@@ -1934,6 +1949,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// LANG_AUTO clears the deck's `lang:` so it inherits the workspace default; any
 	// concrete code writes the override. languageLabel resolves the human name for the toast.
 	const setDeckLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'Language → workspace default' : `Language → ${langDisplay(value)}`, (s) => writeFrontMatterLine(s, 'lang', value === LANG_AUTO ? null : value));
+	// The AI-output override (`ai-lang:`) — what the AI writes in when it should differ from
+	// the document language. Auto clears it, and `deckOutputLang` then falls back to `lang:`.
+	const deckAiLang = getFrontMatter(source, 'ai-lang') || '';
+	const setDeckAiLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'AI language → same as deck' : `AI language → ${langDisplay(value)}`, (s) => writeFrontMatterLine(s, 'ai-lang', value === LANG_AUTO ? null : value));
 	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => writeFrontMatterLine(s, 'size', value));
 	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? null : 'true'));
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeFrontMatterLine(s, 'lift', lift ? null : 'on'));
@@ -3822,6 +3841,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
 						<CatalogSelect ariaLabel="Choose claim" value={activeClaim(claim).name} onValueChange={setClaim} className="w-full" groups={[{ options: catalogOptions(CLAIMS) }]} />
 					</Field>
+					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
+						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? '__auto__'} onValueChange={setCardRow} className="w-full" groups={[{ options: [{ value: '__auto__', label: autoHeadLabel('each component'), icon: <AutoIcon />, title: 'Automatic — each component decides (no cards: key in the deck).' }] }, { options: catalogOptions(CARD_ROWS) }]} />
+					</Field>
+					<Field label="Text overflow" desc="Keep all text, or trim to fit." find="guards trim overflow cut strict loose" help={<><strong>Keep all text</strong> (the default) never cuts anything: overflowing text is kept and flagged for you to fix. <strong>Trim to fit</strong> lets the engine cut the tail of text that does not fit its box. Only choose it when the tail is detail, not the point. A slide overrides it with <code>_class: guards-loose</code> or <code>guards-strict</code>.</>}>
+						<CatalogSelect ariaLabel="Choose text overflow handling" value={guards} onValueChange={setGuards} className="w-full" groups={[{ options: catalogOptions(GUARDS) }]} />
+					</Field>
 				</More>
 			</div>
 			),
@@ -3877,7 +3902,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					placeholder="Follows the cover heading"
 					onCommit={setDeckName}
 				/>
-				<Field label="Language" desc="The deck's language." help={<>Two things at once: the document language carried into every export and read-aloud, and the language the AI writes content in. <strong>Auto</strong> (the link icon) inherits the workspace default. English only for now.</>}>
+				<Field label="Language" desc="The deck's language." help={<>Two things at once: the document language carried into every export and read-aloud, and the language the AI writes content in (unless <strong>AI writes in</strong> below says otherwise). <strong>Auto</strong> (the link icon) inherits the workspace default. English only for now.</>}>
 					<LanguageSelect
 						value={deckLang || LANG_AUTO}
 						ariaLabel="Choose deck language"
@@ -3885,6 +3910,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						autoLabel={`Automatic — ${langDisplay(workspaceLang)}`}
 						resolvedAuto={langDisplay(workspaceLang)}
 						onValueChange={setDeckLang}
+					/>
+				</Field>
+				<Field label="AI writes in" desc="The language of AI-written content." find="ai-lang output language spelling" help={<>The language the AI drafts and rewrites this deck in, when it should differ from the deck's own — say a US deck whose client copy is in British spelling. <strong>Auto</strong> (the link icon) follows the deck language above.</>}>
+					<LanguageSelect
+						value={deckAiLang || LANG_AUTO}
+						ariaLabel="Choose AI output language"
+						includeAuto
+						autoLabel={`Automatic — ${langDisplay(deckLang || workspaceLang)}`}
+						resolvedAuto={langDisplay(deckLang || workspaceLang)}
+						onValueChange={setDeckAiLang}
 					/>
 				</Field>
 				<Field label="New slide on" desc="Headings, or --- dividers." find="split divider break" help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
@@ -4013,6 +4048,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Play" desc="Animate charts in this deck." help={<>Off keeps every chart static. A single slide can still force motion on or off in its own settings.</>}>
 					<Toggle label="Chart motion" on={motionPlay} onClick={toggleMotionPlay} />
 				</Field>
+				{/* Only meaningful once motion is on: with it off, the exported player is still anyway. */}
+				{motionPlay && (
+					<Field label="In the exported player" desc="Ship the motion, or still charts." find="player-motion export offline file" help={<>The offline player file you send carries the chart motion by default. Turn this off to send still charts, which keeps the file smaller. Motion stays on when you present.</>}>
+						<Toggle label="Motion in the exported player" on={playerMotion} onClick={togglePlayerMotion} />
+					</Field>
+				)}
 				<Field label="Style" desc="How a chart moves in." help={<><strong>Build</strong> reveals in reading order, <strong>Together</strong> fades everything in at once, <strong>Rise</strong> lifts marks into place.</>}>
 					<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="w-full" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
 				</Field>

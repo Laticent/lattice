@@ -174,9 +174,11 @@ try {
 		// `class:` modifier completion (never a hand-kept list).
 		universalModifiers: [...(v.universalModifiers || [])],
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
-		finishNames: v.finishNames || [],
-		modeNames: v.modeNames || [],
-		splitNames: v.splitNames || [],
+		// EVERY register value list (`guardsNames`, `cardsNames`, `claimNames`, the spectrum
+		// family, …), not a hand-picked few: the editor completes front-matter values from
+		// them (editor-complete.ts `VOCAB_VALUE_FIELDS`) and lint-core validates against
+		// them. A hand-kept subset here silently dropped the newer registers from both.
+		...Object.fromEntries(Object.entries(v).filter(([k, x]) => k.endsWith('Names') && Array.isArray(x)).map(([k, x]) => [k, [...x]])),
 		capacity: v.capacity || {},
 		sizes: v.sizes || undefined,
 		universalGroups: v.universalGroups || {},
@@ -184,9 +186,6 @@ try {
 		exclusiveAxes: v.exclusiveAxes || {},
 		stampStyles: v.stampStyles || { boardroom: [], range: [] },
 		toneStyles: v.toneStyles || [],
-		stampStyleNames: v.stampStyleNames || [],
-		toneStyleNames: v.toneStyleNames || [],
-		spectrumNames: v.spectrumNames || [],
 	};
 } catch (e) {
 	lintVocab = null;
