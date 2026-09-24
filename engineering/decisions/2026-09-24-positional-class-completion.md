@@ -62,7 +62,12 @@ the route 14.7KB of escaped HTML props and failed the route budget
 (docs/route-budget.json). It ships as `/studio/modifier-vocab.json`, fetched beside
 the component catalog after hydration; until it arrives, completion falls back to
 the flat universal list. Overall usage is summed in the browser from the
-per-component counts the catalog already carries.
+per-component counts the catalog already carries. What is left on the route is the
+completion kernel, measured as a pair on one tree (main at 90257f8, this PR's
+`docs/src` swapped to main's): studio eagerJsGz 699,510 → 699,593 bytes gz (+83),
+htmlRaw 202,259 both. It fits the 700,600 budget, so `docs/route-budget.json` is
+not touched — its ledger records raises, and an earlier push's raise was dropped
+once `main` re-set the budget above it.
 
 ## What the proof found
 
