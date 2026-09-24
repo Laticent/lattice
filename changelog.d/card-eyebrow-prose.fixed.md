@@ -1,0 +1,1 @@
+- The reader view and narration now carry the eyebrow of a wifi or video slide. Both components keep their eyebrow inside the card head, where the prose projection did not look, so the article showed no kicker above the heading and narration read the eyebrow after the heading instead of before it.

@@ -627,3 +627,35 @@ describe('masthead lift — the page number is relocated, never duplicated', () 
     assert.equal(found[0].parentElement.className, 'cell-footer');
   });
 });
+
+// A RAW wifi / video section reaches the DOM mirror in the late-register window (the
+// runtime's deck-wide `class:` arrives after a first pass). Both components rebuild the
+// slide as a card that owns its `h2`, so no band is built and the sweep starts at the
+// section's first child. It used to sweep the running <header> into `.cell-stage`, and
+// `!next` missed the footer because the rebuilders keep a newline after `</footer>`.
+// The HTML path keeps both outside the stage; the DOM path must agree (HARD RULE #1).
+describe('DOM mirror on a raw card section keeps header and footer out of the stage', () => {
+  const registry = require('../../../lib/transformers/registry');
+  const RAW = {
+    wifi: '<section class="wifi form" data-lattice-pagination="3"><header>Acme</header>\n<p><code>Room Wi-Fi</code></p>\n<h2>Join the room.</h2>\n<ul>\n<li>Guest <code>ssid</code></li>\n<li>pw123 <code>password</code></li>\n</ul>\n<footer>Offsite</footer>\n</section>',
+    video: '<section class="video form" data-lattice-pagination="3"><header>Acme</header>\n<p><code>Product tour</code></p>\n<h2>Watch the tour.</h2>\n<ul>\n<li><a href="https://www.youtube.com/watch?v=aqz-KE-bpKQ">https://www.youtube.com/watch?v=aqz-KE-bpKQ</a></li>\n</ul>\n<footer>Offsite</footer>\n</section>',
+  };
+  // Each child of the section, with the children of the stage and footer cells.
+  const shape = (sec) => [...sec.children].map((c) => {
+    const name = c.tagName.toLowerCase() + (c.className ? `.${c.className.split(' ')[0]}` : '');
+    const cell = c.classList.contains('cell-stage') || c.classList.contains('cell-footer');
+    return cell ? `${name}[${[...c.children].map((k) => k.tagName.toLowerCase()).join(',')}]` : name;
+  });
+  for (const [name, raw] of Object.entries(RAW)) {
+    test(name, () => {
+      const viaHtml = new JSDOM(`<body>${registry.applyAllToHtml(raw)}</body>`).window.document.querySelector('section');
+      const doc = new JSDOM(`<body>${raw}</body>`).window.document;
+      registry.applyAllToDom(doc.body);
+      const viaDom = doc.querySelector('section');
+      assert.deepEqual(shape(viaDom), shape(viaHtml));
+      assert.equal(viaDom.firstElementChild.tagName, 'HEADER');
+      assert.equal(viaDom.querySelector('.cell-stage footer, .cell-stage header'), null);
+      assert.ok(viaDom.querySelector('.cell-footer > footer'));
+    });
+  }
+});

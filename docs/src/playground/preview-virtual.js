@@ -21,31 +21,36 @@
 // windowing math.
 //
 // This module is the pure kernel of the patch path: splitting the rendered HTML
-// into per-slide strings and diffing two renders. It is DOM-free and
-// dependency-free so it is unit-tested directly in Node. The DOM/iframe
-// controller that consumes it lives alongside the editor in
-// `docs/src/pages/drawing-board.astro` (the in-iframe agent), which mirrors
-// `splitSections` inline — see its header.
+// into per-slide strings and diffing two renders. It is DOM-free, and its one
+// import (the shared section walker) is too, so it is unit-tested directly in Node. The
+// controller that consumes it is `renderDeck` in `deck-preview.js`, which re-exports
+// `splitSections` so every host shares one implementation.
 
-// Split marp's rendered HTML into one HTML string per slide.
+import { splitSections as splitSectionsCore, unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
+
+// Split the rendered HTML into one HTML string per slide, with the engine's own walker
+// (`splitSections`, lib/core/split-sections.mjs — HARD RULE #1).
 //
-// The Drawing Board renders with `inlineSVG:false`, so each slide is a flat,
-// non-nested `<section …>…</section>` (no SVG/foreignObject wrapper); marp may
-// append a wrapper <div>/<script> after the last slide, which we ignore. Pairing
-// each `<section>` with the next `</section>` is correct for this flat output
-// (user content is escaped, so no stray section tags appear inside a slide).
+// This used to pair each `<section …>` with the next literal `</section>`, on the claim that
+// user content is escaped so no stray section tag appears inside a slide. An HTML comment is not
+// escaped: a `</section>` quoted in one ended the slide there, and the truncated string went on
+// to `sanitizeSlideHtml` and `patchSections`, so the preview replaced a live slide with half of
+// it. The shared walker reads a tag in a comment, in `<style>`/`<script>` text or in an attribute
+// value as text, and pairs a nested section with its own close, so each string here is one whole
+// top-level slide, the same slide the iframe's DOM holds at that index.
+//
+// A section that never CLOSES runs to the end of the document, because that is what the DOM
+// does with it: a browser auto-closes it at end of file, and every later slide sits inside
+// it. The shared walker leaves such a section to its trailing gap, which returned NO piece for
+// it or anything after it, and `patchSections` then emptied the whole preview while an author
+// was half-way through typing `<section class="x">`. One piece from the open tag to the end
+// keeps the count equal to the DOM's.
 export function splitSections(html) {
-	const out = [];
-	if (!html) return out;
-	const open = /<section\b[^>]*>/gi;
-	const CLOSE = '</section>';
-	let m;
-	while ((m = open.exec(html))) {
-		const close = html.indexOf(CLOSE, m.index);
-		if (close === -1) break;
-		out.push(html.slice(m.index, close + CLOSE.length));
-		open.lastIndex = close + CLOSE.length;
-	}
+	if (!html) return [];
+	const pieces = splitSectionsCore(html);
+	const out = pieces.filter((p) => p.type === 'section').map((p) => p.openTag + p.inner + p.close);
+	const open = unclosedSectionAt(html, pieces);
+	if (open >= 0) out.push(html.slice(open));
 	return out;
 }
 

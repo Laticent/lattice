@@ -270,3 +270,14 @@ describe('applyFormToHtml — the stamp the derailed walk skipped', () => {
     assert.match(out, /class="a\$&b form"/);
   });
 });
+
+// ── unclosedSectionAt ────────────────────────────────────────────────────────
+test('unclosedSectionAt finds the first top-level section that never closes, read by the tokenizer', () => {
+  const { unclosedSectionAt } = require('../../../lib/core/split-sections');
+  assert.equal(unclosedSectionAt('<section>a</section><section>b</section>'), -1);
+  assert.equal(unclosedSectionAt('<section>a</section><!-- <section> -->'), -1, 'a quoted tag is text');
+  assert.equal(unclosedSectionAt('<section>a</section><p title="<section>">x</p>'), -1, 'so is one in an attribute');
+  const html = '<section>a</section> <section id="2">b <section>c</section>';
+  assert.equal(unclosedSectionAt(html), html.indexOf('<section id="2">'));
+  assert.equal(unclosedSectionAt('<section/>'), 0, 'a self-closing slash does not close a section');
+});

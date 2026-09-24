@@ -205,7 +205,15 @@ kind of thing as `roadmap.transform.js`. Different role → different
 home is correct, not an inconsistency. The same reasoning moved the
 depth-aware HTML walkers into core (`html-lists.js` — top-level `<li>`
 / first-list extraction; `section-walk.js` — the shared `<section>`
-walker every applyToRenderedHtml uses): they are coupled to nothing,
+walker every applyToRenderedHtml uses, as `mapSections` for a callback that
+rewrites the inner and `mapSectionHtml` for one that rewrites the whole
+section; both walk `splitSections`, so a section tag quoted in a comment is
+text. A transform never finds slide boundaries with its own regex or
+`indexOf('<section')`. The walker and its tokenizer are ESM
+(`split-sections.mjs`, `top-level-h2.mjs`) behind CommonJS doors at the old
+`.js` paths, so the docs bundle imports the same walk the engine runs: the
+Studio preview's section count and the Playground's per-slide splitter use it
+too): they are coupled to nothing,
 and core importing FROM a component kernel is the inverted edge the
 quality assessment flags as a boundary violation.
 

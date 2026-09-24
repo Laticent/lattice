@@ -52,7 +52,7 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 					    editor toolbar's SHAPE a function of the active slide: buttons appeared and
 					    vanished as you moved between slides, and the pre-paint shell could not draw
 					    the row at all without knowing the boot slide's component. `disabled` is the
-					    idiom the neighbouring "Fix all issues" already uses for exactly this — a
+					    idiom the neighboring "Fix all issues" already uses for exactly this — a
 					    control that is always there and sometimes inert. */}
 					<button type="button" aria-label="Reshape slide" disabled={disabled} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40">
 						<Shapes className="size-3" />

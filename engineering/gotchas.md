@@ -184,6 +184,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A slide surface ignores one input device (a wheel mouse does nothing; arrows are dead)](gotchas/lattice-internals.md#a-slide-surface-ignores-one-input-device-a-wheel-mouse-does-nothing-arrows-are-dead)
 - [A pinch on a slide turns the deck (and `preventDefault` in your React handler does nothing)](gotchas/lattice-internals.md#a-pinch-on-a-slide-turns-the-deck-and-preventdefault-in-your-react-handler-does-nothing)
 - [A destructuring default in a plain-JS export erases the rest of its parameter type](gotchas/lattice-internals.md#a-destructuring-default-in-a-plain-js-export-erases-the-rest-of-its-parameter-type)
+- [A card component's eyebrow is missing from the reader view](gotchas/lattice-internals.md#a-card-components-eyebrow-is-missing-from-the-reader-view)
 - [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)
 
 ### [Marp / Marpit](gotchas/marp.md)

@@ -5744,7 +5744,7 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'wait. COUNT RAISED 1 -> 2 (#2072): `spareAtSettled` is the second poll and the same '
        + 'shape - two consecutive `spareAt` reads must agree before the header fit floor is '
        + 'asserted. It is not a fixed bet on a loaded box; it replaces one. Measured: one run in '
-       + 'five returned -1 (row already over) from reading mid-reflow while its three neighbours '
+       + 'five returned -1 (row already over) from reading mid-reflow while its three neighbors '
        + 'all returned 56, and a fit guard that reports "this row does not fit" because it '
        + 'measured too early is worse than no guard. The alternative was a fixed sleep, which is '
        + 'what this list exists to stop.',

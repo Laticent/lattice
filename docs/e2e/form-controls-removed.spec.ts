@@ -14,7 +14,7 @@ import { expect, gotoStudio, openInspectorTab, test } from './studio-fixture';
 // still mounts it, or a stale bundle, or a build that did not pick the change up.
 // This drives the deployed build a person actually uses.
 //
-// THE POINT OF THE SECOND HALF IS THE NEIGHBOUR. `Section rail` is a DIFFERENT
+// THE POINT OF THE SECOND HALF IS THE NEIGHBOR. `Section rail` is a DIFFERENT
 // register — it owns `class: no-progress`, it survives deliberately, and it sits
 // where the deleted toggle used to. It is the easy thing to remove by mistake while
 // removing the other, so its presence is asserted beside the absence.
@@ -28,7 +28,7 @@ test('the Inspector has no Form / Deck chrome control, and Section rail survives
 	await expect(page.getByRole('switch', { name: 'Form' })).toHaveCount(0);
 	await expect(page.getByRole('combobox', { name: 'Form' })).toHaveCount(0);
 
-	// The neighbour that stays.
+	// The neighbor that stays.
 	await expect(page.getByRole('switch', { name: 'Section rail' })).toBeVisible();
 });
 

@@ -32,7 +32,7 @@
  *             mark — quadrant's own docs say "on a crowded plot 'beside' stops
  *             meaning 'nearest'". Counting drawn leaders beats counting call
  *             sites, because a member may draw none on a given deck.
- *   gap       the MEDIAN nearest-neighbour gap between same-class marks, in
+ *   gap       the MEDIAN nearest-neighbor gap between same-class marks, in
  *             units of the median mark size. 0 means touching. Normalising by
  *             mark size is what makes a pie wedge and a matrix cell comparable.
  *   extended  the fraction of marks that are open paths (`path`/`polyline`) —
@@ -245,7 +245,7 @@ async function main() {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 
-  // TOUCH_MAX: a nearest-neighbour gap under a tenth of a mark's own size reads
+  // TOUCH_MAX: a nearest-neighbor gap under a tenth of a mark's own size reads
   // as touching. Pie wedges and stacked segments land at 0; a bar's gap is ~0.3
   // of a bar width and a funnel's is wider still.
   const TOUCH_MAX = 0.1;

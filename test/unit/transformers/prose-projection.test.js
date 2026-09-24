@@ -1393,3 +1393,27 @@ test('a math slide narrates its equation once, not once in MathML and again in r
 	assert.ok(!text.includes('^'), `TeX superscript reached the voice: ${text}`);
 	assert.ok(text.includes('y'), `the MathML reading was lost too: ${text}`);
 });
+
+// A card-owning component keeps its eyebrow in the card head, not `.masthead-lede`: wifi in
+// `.qr-head`, video in `.video-head` / `.video-lead`. Rendered through the real engine so the
+// arms follow the transforms' markup. Before the fix, the prose article had no kicker for
+// either component and speech read the eyebrow AFTER the heading.
+async function renderedSections(md) {
+	const engine = require('../../../lib/engine');
+	const { html } = await engine.render(`---\ntheme: indaco\n---\n\n${md}`);
+	return [...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('article > section')];
+}
+
+for (const [name, md, eyebrow, heading] of [
+	['wifi (.qr-head)', '<!-- _class: wifi -->\n\n`Offsite · Room Wi-Fi`\n\n## The war room has its own network.\n\n- Offsite-Guest `ssid`\n- boardroom2026 `password`\n', 'Offsite · Room Wi-Fi', 'The war room has its own network.'],
+	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n', 'Product tour', 'Watch the tour.'],
+	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n', 'Product tour', 'Watch the product tour.'],
+]) {
+	test(`eyebrow in a card head: ${name} projects the eyebrow as the kicker`, async () => {
+		const secs = await renderedSections(md);
+		const { articleHtml } = project(secs);
+		assert.ok(articleHtml.startsWith(`<p class="lp-kicker">${eyebrow}</p>\n<h2`), articleHtml.slice(0, 200));
+		assert.equal(articleHtml.split(eyebrow).length - 1, 1, 'the eyebrow is projected once');
+		assert.ok(script(secs)[0].text.startsWith(`${eyebrow}. ${heading}`), 'speech leads with the eyebrow');
+	});
+}

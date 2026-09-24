@@ -27,7 +27,7 @@
 // Left, the comment IS the boundary: delete the line and `Some text\n---` becomes a setext H2,
 // so the export gains a slide the author never wrote. Right, an empty line turns a TIGHT list
 // LOOSE (`<li>Revenue…` becomes `<li><p>Revenue…`) while taking the line reproduces the
-// author's list exactly. Same neighbours, opposite correct answers.
+// author's list exactly. Same neighbors, opposite correct answers.
 //
 // So both cuts are rendered and the one that reproduces the authored deck wins. When neither
 // does — a note at column 0 between two list items, where the comment is what splits them — the

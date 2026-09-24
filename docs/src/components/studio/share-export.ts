@@ -364,11 +364,11 @@ export async function shareHtmlPlayer(
 	// notes sheet, the a11y descriptions and the `--strip-notes` scrub independent of
 	// what the bake does.
 	//
-	// Split DEPTH-AWARE, not with `deck.splitSections`. That one pairs each `<section>`
-	// with the NEXT `</section>`, so a slide containing a hand-authored `<section>` is
-	// truncated at the nested close tag and its comments fall outside the chunk — while
-	// the slide COUNT stays correct, which is exactly why a count-parity check cannot
-	// catch it.
+	// Split DEPTH-AWARE. A flat walk that pairs each `<section>` with the NEXT `</section>`
+	// (what `deck.splitSections` did until it moved onto this same walker) truncates a slide
+	// containing a hand-authored `<section>` at the nested close tag, and its comments fall
+	// outside the chunk — while the slide COUNT stays correct, which is exactly why a
+	// count-parity check cannot catch it.
 	// A SEPARATE variable from `bakeWarning`, merged with it at the end. The bake's own branches
 	// ASSIGN rather than append (they are mutually exclusive), so setting bakeWarning here would
 	// be silently clobbered by any bake outcome — the exact failure the merge below the audit

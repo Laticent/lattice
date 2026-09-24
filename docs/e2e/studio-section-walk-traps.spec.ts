@@ -3,12 +3,17 @@ import { expect, gotoStudio, livePreview, persistedSource, railButtons, test } f
 
 // ── The section walker reads the deck the way the browser does, on the STUDIO route ──────
 //
-// #2279 moved `splitSections` (lib/core/split-sections.js) onto the `scanTags` tokenizer, so
+// #2279 moved `splitSections` (lib/core/split-sections.mjs) onto the `scanTags` tokenizer, so
 // three shapes that used to derail the per-slide Form pass stopped doing it: a comment that
 // quotes a section tag, a `>` inside a quoted attribute, and an apostrophe in an UNQUOTED
 // attribute value. That PR drove /playground. This drives /studio, the one reachable surface
 // it did not exercise, through the real markdown editor — the Studio keeps its own deck
 // store and never reads the Playground's `lattice-docs-pg-source` handoff key.
+//
+// The last two traps are the Studio preview's own walk (lib/diagnostics/slice-equivalence-core.mjs).
+// It kept a local mask over comments and closed rawtext, so a section tag inside a quoted
+// ATTRIBUTE still counted as an open tag there: the tally disagreed with the walk and the Studio
+// painted "This preview couldn't render" over an ordinary slide. It walks `splitSections` now.
 //
 // The claim is per SLIDE, not per deck: before the fix, the walk stopped at the first trap and
 // every slide after it lost its Form stamp while the deck still looked mostly right. So each
@@ -42,6 +47,20 @@ const DECK = [
 	'',
 	'---',
 	'',
+	'## A section tag inside a quoted attribute',
+	'',
+	'<p title="<section>">This paragraph carries a section tag inside a quoted attribute.</p>',
+	'',
+	'---',
+	'',
+	'## A comment quoting a close tag',
+	'',
+	'<!-- quoting </section> in a note -->',
+	'',
+	'The note above closes a section tag inside a comment.',
+	'',
+	'---',
+	'',
 	'## A clean slide last',
 	'',
 	'A walker that stopped early would leave this one bare.',
@@ -52,6 +71,8 @@ const HEADINGS = [
 	'A comment quoting a section tag',
 	'A greater-than inside a quoted attribute',
 	'An apostrophe in an unquoted attribute',
+	'A section tag inside a quoted attribute',
+	'A comment quoting a close tag',
 	'A clean slide last',
 ];
 
@@ -68,7 +89,7 @@ async function seedDeck(page: Page, source: string): Promise<void> {
 	await expect.poll(() => persistedSource(page), { timeout: 20_000 }).toContain('A clean slide last');
 }
 
-test('every slide is stamped when the deck quotes a section tag, a ">" or an apostrophe @crosswidth', async ({ page }, testInfo) => {
+test('every slide is stamped when the deck quotes a section tag, a ">", an apostrophe or a tag in an attribute @crosswidth', async ({ page }, testInfo) => {
 	await gotoStudio(page);
 	await seedDeck(page, DECK);
 
@@ -79,7 +100,7 @@ test('every slide is stamped when the deck quotes a section tag, a ">" or an apo
 	const preview = livePreview(page);
 	// ANTI-VACUITY: the new deck must actually be the one painted, or "every slide is stamped"
 	// is a claim about the seed deck.
-	await expect(preview.locator('section h2', { hasText: HEADINGS[4] })).toBeAttached({ timeout: 40_000 });
+	await expect(preview.locator('section h2', { hasText: HEADINGS.at(-1) })).toBeAttached({ timeout: 40_000 });
 
 	// The preview paints the CURRENT slide, so each one is visited through the rail.
 	await expect(railButtons(page)).toHaveCount(HEADINGS.length);

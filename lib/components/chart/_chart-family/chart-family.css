@@ -1778,7 +1778,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 
 /* EMPHASIS is the one sanctioned departure, and it is a doubling rather than a
  * per-member number: a hero series on a radar, and the active mark a Studio
- * selection puts under the cursor. Both need to out-weigh their neighbours, and
+ * selection puts under the cursor. Both need to out-weigh their neighbors, and
  * both are states, not members. */
 :is(section.chart-frame, figure.chart-frame) svg :is(
   .radar-poly--hero,

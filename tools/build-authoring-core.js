@@ -60,12 +60,12 @@ import deckCanon from './deck-canon.js';
 import deckProfiles from './deck-profiles.js';
 // The DEPTH-AWARE section splitter, carried here because it is what the note channel
 // needs to be extracted correctly: notesCore reads per-slide HTML, and deriving those
-// slides with the docs site's flat "next </section>" scan truncates any slide holding a
-// hand-authored <section>, silently emptying its notes. Bundled beside the channel that
-// depends on it rather than left to a second, wrong splitter on the browser side.
-import splitSectionsMod from '../core/split-sections.js';
-// Re-exported as the FUNCTION, not the CJS module object — consumers call it directly.
-const splitSectionsCore = splitSectionsMod.splitSections;
+// slides with a flat "next </section>" scan truncates any slide holding a hand-authored
+// <section>, silently emptying its notes. Bundled beside the channel that depends on it.
+// A NAMED import of the ESM source, not a default import of the CommonJS door
+// (split-sections.js): esbuild marks the re-exported ESM namespace as __esModule, so the
+// door's default import is undefined and the bundle throws at load.
+import { splitSections as splitSectionsCore } from '../core/split-sections.mjs';
 
 export { lintCore, reviewCore, scorecard, notesCore, deckCanon, deckProfiles, splitSectionsCore };
 `;

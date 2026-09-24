@@ -2587,7 +2587,7 @@ section.lattice-exporting .fit-culprit,
  * from the canvas it claimed to describe (#2149). A theme that paints an unusually deep
  * `--surface-inverse` can retune the brightness here without touching a selector.
  *
- * DECLARED ON `:root` ALONE, deliberately. The neighbouring `:root, section` idiom in
+ * DECLARED ON `:root` ALONE, deliberately. The neighboring `:root, section` idiom in
  * base.tokens.css is load-bearing there because those values carry a `var()` that must
  * re-substitute per slide; these two do not. Adding the `section` half here would match
  * every slide DIRECTLY, and a directly-matched declaration beats an inherited one whatever

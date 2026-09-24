@@ -206,7 +206,7 @@ test('the shared edge rule names no class that is not a real mark', () => {
  * `1px` is one viewBox USER UNIT, and this family's viewBoxes span 4.3x. The
  * source text reads identically either way, which is exactly why this is a
  * test: `.radar-sector-mean` and `.quadrant-hull-line` took the token, missed
- * the list, and rendered at 1.24px and 1.29px beside a 1.00px neighbour.
+ * the list, and rendered at 1.24px and 1.29px beside a 1.00px neighbor.
  */
 test('every class given --chart-edge by a member is pinned by the shared rule', () => {
   const css = fs.readFileSync(CSS, 'utf8');

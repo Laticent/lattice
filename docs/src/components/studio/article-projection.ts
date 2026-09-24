@@ -161,10 +161,11 @@ export async function projectDeckArticle(
 	const mode = modeOverride ?? docMode;
 	const render = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
 	// THE DEPTH-AWARE SPLITTER, which is what the export twin uses (`share-export.ts` →
-	// `slideChannelRecord`). `splitSections` is a flat "scan to the next `</section>`", so a
-	// slide holding a hand-authored `<section>` counts as two — and this count is only used as
-	// the bake's parity denominator, so a miscount silently DISCARDS a good bake and hands the
-	// reader the un-baked article. `deck-export.js` documents the same trap at its own call.
+	// `slideChannelRecord`). A flat "scan to the next `</section>`" counts a slide holding a
+	// hand-authored `<section>` as two — and this count is only used as the bake's parity
+	// denominator, so a miscount silently DISCARDS a good bake and hands the reader the
+	// un-baked article. `deck-export.js` documents the same trap at its own call. (The
+	// Playground's `splitSections` was that flat scan until it moved onto this same walker.)
 	const { splitSectionsCore } = (await import('@/playground/authoring-core.generated.js')) as unknown as {
 		splitSectionsCore: (h: string) => { type: string; openTag: string; inner: string }[];
 	};
