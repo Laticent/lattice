@@ -285,14 +285,14 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   `Â²` ×1 to `x²` ×1 (`test/integration/invariants/functionplot-utf8.test.js`, red on the old
   decoder). The same bare `atob` also sits in `docs/src/lib/anima/hydrate.ts`, which decodes the
   `anima` fence's spec from the same encoder. It is left for its own change, because fixing it
-  regenerates the committed anima player bundle, and it is recorded in `followups.d/`.
+  regenerates the committed anima player bundle, and it is recorded in `followups.d/2325-p1-…`.
   **The sibling `R&D` → `R&amp;D` is a different bug, and it is decided: fix it separately.**
   It is not the bake either. `journey.transform.js` reads each step label out of markdown-it's
   HTML, where `&` is already `&amp;`. `stripTags` keeps the entity, and `escHtml` escapes it
   again. So the visible chip on the slide says `R&amp;D` too, not just the description. The fix
   is to decode entities once after `stripTags`, as `state-chart` does. That changes a surface a
   human sees on a slide, so under HARD RULE #9 it owes its own demo deck. Recorded in
-  `followups.d/` with that root cause rather than folded into a change about the bake.
+  `followups.d/2325-p2-…` with that root cause rather than folded into a change about the bake.
 - **Readability drops part of short decks even from a clean article.** `examples/a11y.md`
   extracts 216 of 334 words (65%) from the projection alone, because its paragraphs are
   short. That is a floor in their algorithm, not something this change can move.
