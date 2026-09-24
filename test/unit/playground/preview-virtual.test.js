@@ -18,6 +18,27 @@ async function load() {
 }
 
 describe('splitSections', () => {
+	// It used to pair each `<section …>` with the next literal `</section>`. A close tag quoted in
+	// an HTML comment ended the slide there, and the truncated string was what the preview patched
+	// in. It walks the engine's own `splitSections` now (HARD RULE #1).
+	test('a </section> quoted in a comment, or a nested section, does not cut the slide short', async () => {
+		const { splitSections } = await load();
+		const one = '<section id="1"><p>a</p><!-- </section> --><p>b</p></section>';
+		const nested = '<section id="2"><section class="x">in</section><p>after</p></section>';
+		assert.deepEqual(splitSections(`${one}\n${nested}<section id="3">c</section>`), [one, nested, '<section id="3">c</section>']);
+	});
+
+	// Found by the independent checker on the first cut: a section that never closes (an author
+	// half-way through typing `<section class="x">`) sent everything from it to the walker's
+	// trailing gap, the split returned no piece for it, and `patchSections` emptied the preview.
+	// A browser runs the open section to the end of the document, so the split does too.
+	test('a section that never closes runs to the end of the document, as in the DOM', async () => {
+		const { splitSections } = await load();
+		const tail = '<section id="2">A <section class="x"> typing</section><section id="3">c</section>';
+		assert.deepEqual(splitSections(`<section id="1">a</section>${tail}`), ['<section id="1">a</section>', tail]);
+		assert.deepEqual(splitSections('<section/><p>x</p>'), ['<section/><p>x</p>']);
+	});
+
 	test('splits a flat <section> sequence and ignores trailing wrapper/script', async () => {
 		const { splitSections } = await load();
 		const html =

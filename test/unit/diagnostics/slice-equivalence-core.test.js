@@ -682,6 +682,18 @@ test('an UNCLOSED <style> is not blanked to the end of the document', () => {
   assert.equal(core.sectionsOf(html).length, 2);
 });
 
+// The shape the old local mask could not see: it blanked comments and rawtext only, so a section
+// tag inside a quoted ATTRIBUTE value still counted as an open tag and the Studio refused the slide.
+// The module walks the engine's own `splitSections` / `scanTags` now, which read it as text.
+test('a section tag inside a quoted attribute value is text, not a tag', () => {
+  for (const attr of ['<p title="<section>">x</p>', "<p title='</section>'>x</p>", '<p data-a="<section class=\'t\'>">x</p>']) {
+    const html = `<section id="1">A${attr}</section><section id="2">B</section>`;
+    assert.deepEqual(core.sectionsOf(html), [`<section id="1">A${attr}</section>`, '<section id="2">B</section>'], attr);
+    assert.equal(core.sectionOpenCount(html), 2, attr);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 1), undefined, attr);
+  }
+});
+
 // ── alignmentFailure — the guard the compare closure depends on ───────────────
 // Extracted from the compare because nothing at any tier executed it: not the unit suite, not the
 // PR gate, not even the nightly e2e. It is the check that stops an index-based lookup from quoting
@@ -699,12 +711,19 @@ test('alignmentFailure catches a 1→N expansion', () => {
   assert.match(core.alignmentFailure(html, core.sectionsOf(html), 11, 10), /renders 14 slides where the editor counts 11/);
 });
 
-test('alignmentFailure catches nested `<section>` markup the flat split mis-pairs', () => {
-  // Two opens, one non-greedy match — the count check alone would not see this.
-  const html = '<section><section>inner</section></section>';
-  const sections = core.sectionsOf(html);
-  assert.equal(sections.length, 1);
-  assert.match(core.alignmentFailure(html, sections, 1, 0), /nested or unbalanced/);
+// The walk is the engine's depth-aware `splitSections`, so balanced nesting is ONE top-level
+// section and identifies fine, whatever case its tags use (the old flat tally refused the
+// lowercase form and, by accident of a lowercase regex, accepted `<SECTION>`). What cannot be
+// placed is a section that never closes: a browser runs it to the end of the document.
+test('alignmentFailure walks balanced nesting and refuses a section that never closes', () => {
+  for (const inner of ['<section>inner</section>', '<SECTION>inner</SECTION>', '<Section class="x">inner</Section>']) {
+    const html = `<section>${inner}</section><section>two</section>`;
+    const sections = core.sectionsOf(html);
+    assert.deepEqual(sections, [`<section>${inner}</section>`, '<section>two</section>'], inner);
+    assert.equal(core.alignmentFailure(html, sections, 2, 1), undefined, inner);
+  }
+  const open = '<section>one <section class="x"> typing</section><section>two</section>';
+  assert.match(core.alignmentFailure(open, core.sectionsOf(open), 1, 0), /never closes/);
 });
 
 test('alignmentFailure refuses when the caller does not know the slide count', () => {

@@ -1,0 +1,2 @@
+- The Studio preview no longer refuses a slide with a section tag inside a quoted attribute, such as `<p title="<section>">`. It counted the tag as a real one and showed "This preview couldn't render" over an ordinary slide. It now counts sections with the same walker the engine uses.
+- The Playground preview no longer cuts a slide short at a `</section>` quoted in an HTML comment. It paired each section with the next close tag, so it patched half a slide into the live preview.
