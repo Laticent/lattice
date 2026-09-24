@@ -136,7 +136,9 @@ was then booted from `/usr/bin/lattice-studio` to confirm the package itself run
   All seven pages were rasterized and checked by eye: fonts, palette, cards and the
   timeline all render.
 - **Ctrl+H** in the app opens find with the replace row, counts "4 of 27", and the preview
-  follows the match.
+  follows the match. After the checker's key-forwarding fix, typed INSIDE the find field on
+  WebKitGTK: Enter then F3 steps to "3 of 27", Ctrl+H opens the replace row, and Escape
+  closes the bar and hands focus back to the editor.
 
 **UNVERIFIED:**
 
