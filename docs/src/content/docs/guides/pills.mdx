@@ -266,11 +266,17 @@ The position differs per component — it is **not** a universal slot:
 `state-chart` and `slope` read the same ten words but color a bar, a badge, or a
 chart mark instead.
 
+One word changes meaning on `gantt`: it paints `live` in the informational
+color, not the positive one. On a schedule, `live` is work still running and
+`done` is work finished, and the two bars need to look different.
+
 ### Two ways a status word trips you up
 
 **Spell it lowercase and hyphenated.** Lattice does not fix up your spelling:
 `at risk` (with a space) and `At Risk` (capitalized) are not in the vocabulary,
-and neither is caught for you.
+and neither is caught for you. Only `gantt` and `kanban` forgive capitals —
+`AT-RISK` colors a kanban card exactly as `at-risk` does, and the pill keeps
+your spelling. Everywhere else, write it lowercase.
 
 **A word Lattice does not know still draws a pill.** In `progress` and
 `timeline-list` it falls back to the informational color — the same one `pilot`

@@ -114,6 +114,8 @@
 :is(section.progress, figure.progress) .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="blocked"],
 :is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="pilot"],
+:is(section.progress, figure.progress) .progress-fill[data-s="decision"] { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
 :is(section.progress, figure.progress) .progress-pct {
   font-family: var(--font-label);
