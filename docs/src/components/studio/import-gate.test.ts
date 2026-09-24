@@ -110,9 +110,9 @@ describe('refuseImportedComponent', () => {
 	it('reads a CRLF gallery and a tab-split scheme the way the CLI export will', async () => {
 		const css = 'section.w .a{color:var(--accent)}';
 		const crlf = '<!-- _class: w -->\r\n\r\n<div>\r\n```mermaid\r\nflowchart LR\r\n  A@{ img: "https://evil.example/c.png" } --> B\r\n```\r\n</div>\r\n';
-		expect((await refuseImportedComponent(css, 'w', crlf))?.why).toMatch(/evil\.example\/c\.png/);
+		expect((await refuseImportedComponent(css, 'w', crlf))?.why).toMatch(/sample slide uses an image shape/);
 		const tab = '<!-- _class: w -->\n\n```mermaid\nflowchart LR\n  A["<img src=\'ht\ttp:evil.example/t.png\'>"]\n```\n';
-		expect((await refuseImportedComponent(css, 'w', tab))?.why).toMatch(/evil\.example\/t\.png/);
+		expect((await refuseImportedComponent(css, 'w', tab))?.why).toMatch(/sample slide uses an HTML media tag in a label/);
 		expect(await refuseImportedComponent(css, 'w', '<!-- _class: w -->\r\n\r\n```mermaid\r\nflowchart LR\r\n  A-->B\r\n```\r\n')).toBeNull();
 	});
 

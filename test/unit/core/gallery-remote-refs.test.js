@@ -69,6 +69,16 @@ const FETCHES = {
   'a mermaid-x fence the runtime would still draw': '```mermaid-x\nflowchart LR\n  A@{ img: "https://evil.test/x.png" }\n```\n',
   'an iframe data: document with a tab in the scheme': '<iframe src="da&#9;ta:text/html,<img src=x>"></iframe>',
   'an iframe data: document behind a control character': '<iframe src="&#1;data:text/html,<img src=x>"></iframe>',
+  // The allowlist: the construct is refused whatever its target looks like, so a spelling no
+  // pass has found yet is covered too. None of these carries a URL the scan could read.
+  'a mermaid image shape pointing at a made-up spelling': '```mermaid\nflowchart LR\n  A@{ img: "h t t p s colon evil" }\n```\n',
+  'a mermaid click directive': '```mermaid\nflowchart LR\n  A-->B\n  click A "anything"\n```\n',
+  'a mermaid label with an <img> tag and no URL at all': '```mermaid\nflowchart LR\n  A["<img src=x>"]\n```\n',
+  'mermaid themeCSS without a URL': '```mermaid\n%%{init: {"themeCSS": ".node rect { fill: red }"}}%%\nflowchart LR\n  A-->B\n```\n',
+  'a mermaid label with a markdown image': '```mermaid\nflowchart LR\n  A["`![x](y)`"]\n```\n',
+  'a mermaid entity code': '```mermaid\nflowchart LR\n  A["a#59;b"]\n```\n',
+  'an iframe with a relative src': '<iframe src="page.html"></iframe>',
+  'an object with a data: image': '<object data="data:image/png;base64,AA"></object>',
   'an iframe holding a data: document': '<iframe src="data:text/html,<img src=x>"></iframe>',
   'an object holding a data: document': '<object data="data:text/html,<img src=x>"></object>',
   'an embed holding a data: document': '<embed type="text/html" src="data:text/html,x">',
@@ -97,7 +107,7 @@ const BENIGN = {
   'code shown as code': '`<img src="https://evil.test/a">`\n\n```html\n<img src="https://evil.test/a">\n```',
   'a bare URL in prose': 'See https://ok.test for more.',
   'a relative reference definition': '# hi\n\n[logo]: ./logo.png\n',
-  'an object holding a data: image': '<object data="data:image/png;base64,AA"></object>',
+  'a mermaid label naming src/ and using R&D': '```mermaid\nflowchart LR\n  A["src/ main.js"] --> B["R&D"]\n```\n',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
   'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n',
 };

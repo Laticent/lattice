@@ -595,6 +595,17 @@ it is the record of what was wrong.
     line endings before drawing, so both doors now convert them first), and a tab inside a
     slashless scheme (`ht<TAB>tp:host`, or Mermaid's `ht#9;tp:`), which the URL parser drops.
     It found no false positive across 305 tracked decks, galleries and baselines.
+  - **Why the gate now uses an allowlist in two places.** Four passes found 11, 2, 4 and 2
+    bypasses, and every late one lived in the same two families: a URL spelled some new way
+    inside Mermaid text, and a nested document. Refusing spellings one at a time can't end,
+    so both families now refuse the CONSTRUCT whatever it points at. A gallery's Mermaid
+    may not use an image shape (`img:`), an HTML media tag in a label, a `src=`/`href=`
+    attribute, a markdown image, a `click` directive, `url()`, `image-set()`, `themeCSS`,
+    `@import`, `//`, or an entity code (`MERMAID_FORBIDDEN` in `lib/core/remote-ref.js`).
+    A gallery may not contain an `iframe`, `frame`, `object`, `embed`, `portal`,
+    `fencedframe` or `applet` at all. Measured against the tree first: 0 of the 163 Mermaid
+    fences in 352 tracked files and 0 of 305 decks and galleries trip it. Plain words stay
+    legal (`diagram.gallery.md` labels a node `src/`), and so does `R&D`.
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked
