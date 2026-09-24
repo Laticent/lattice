@@ -1997,6 +1997,27 @@ describe('label-set-above-body — coaching, never refusal', () => {
     assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
   });
 
+  test('an inline `<!--` closes only inside its paragraph, as markdown-it reads it', () => {
+    // A speaker note at the end of the slide used to close a `<!--` quoted in prose
+    // above the table, blanking everything between — the key below went unlinted.
+    const src = ['<!-- _class: matrix-grid -->', '', 'Type <!-- to open a note.', '', '## Rubric', '',
+      '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`', '', '<!-- n -->'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('comment blanking stays linear on untrusted input (HARD RULE #22)', () => {
+    // It went quadratic once: 280 KB of `a <!--` lines took 12 s. Linear, this is
+    // tens of milliseconds; the bound is generous so a slow runner cannot flake it,
+    // and still an order of magnitude under the quadratic shape.
+    const body = 'a <!--\n'.repeat(100000);
+    const deck = `<!-- _class: quadrant -->\n\n${body}\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const t = Date.now();
+    core.findQuadrantAxisIssues(deck);
+    const oneLine = `<!-- _class: quadrant -->\n\n${'<!--'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    core.findQuadrantAxisIssues(oneLine);
+    assert.ok(Date.now() - t < 1500, `took ${Date.now() - t}ms`);
+  });
+
   test('a key with more members than axes is not called the axis — it prints as text', () => {
     const src = ['<!-- _class: matrix-grid -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
       '| Verb | Self |', '| --- | :--: |', '| N | [x] |'].join('\n');

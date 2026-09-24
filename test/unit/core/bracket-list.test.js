@@ -258,4 +258,8 @@ describe('bracket-list — an unclosed quote is text', () => {
   test("a leading apostrophe with no partner does not swallow the list", () => {
     assert.deepEqual(parseBracketList("['90s cohort, Revenue]"), [["'90s cohort"], ['Revenue']]);
   });
+  test('a partner quote must END a part — a later mid-word apostrophe is not one', () => {
+    assert.deepEqual(parseBracketList("['90s cohort, Customer's spend]"), [["'90s cohort"], ["Customer's spend"]]);
+    assert.deepEqual(parseBracketList("[{'x, y', 0..1}, z]"), [['x, y', '0..1'], ['z']]);
+  });
 });
