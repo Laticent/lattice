@@ -281,6 +281,9 @@ and the nested `diagram/diagram.gallery.md` from 3 to 0.
   in proportion to its height, up to 32px, and LOW rather than high. This rule neither causes
   nor fixes that, since the numbers are identical with and without it. It is logged in
   `followups.d/`, not fixed here (HARD RULE #18).
+- **iOS Safari: UNVERIFIED.** Every WebKit number in this section is desktop WebKit (Playwright
+  WebKit 26.0). iOS runs the same engine, so the fix should carry, but that is an inference: no
+  device was reached, and the changelog claims desktop Safari only.
 - **CI.** As in §6, nothing in CI can see a regression: the rule is a CSS line, not a gate, and
   the audit remains on-demand.
 
