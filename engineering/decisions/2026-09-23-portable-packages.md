@@ -365,3 +365,19 @@ Each phase ships on its own and leaves the tree green.
 4. **Portable packages may carry JavaScript behind a trust prompt**, not data-only.
    §3.5 records the design, and the measured limit: Node 22's `--permission` doesn't
    block the network, so in the CLI the prompt is the real boundary.
+
+## 10. Progress
+
+Each line names what landed, where, and what is still open. §1 stays as written:
+it is the record of what was wrong.
+
+- **Phase 0, export and shadowing fixes: done.** The Markdown and Marp exports
+  carry the saved components a deck uses (`StudioShell.tsx` `usedLocalComponents`
+  feeds both the preview and `ShareSheet`). The Marp bundle writes a saved theme's
+  own CSS and fails with the theme's name when it can't bundle one; the `indaco`
+  fallback is gone (`deck-export.js` `exportMarp`). Shipped theme and component
+  names are reserved and a clash saves as `<name>-custom`
+  (`library/reserved-names.ts`, fed by the generated `SHIPPED_THEME_NAMES` and the
+  stage catalog's `COMPONENT_NAMES`), and a record saved under a shipped name before
+  the guard no longer overrides the shipped item. Asset-zip import has the same size
+  caps as `.lattice` import (`zip-limits.ts`).

@@ -16,6 +16,7 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish, saveStudioFi
 import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
+import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene, saveStudioScene } from './scene-library';
@@ -476,6 +477,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		// landed. The result was a silent partial import that the toast denied. Now a
 		// refused item is named and the rest still import.
 		const refused: ImportRefusal[] = [];
+		// Items saved under another name because they took a SHIPPED name
+		// (library/reserved-names.ts). Named in the toast: a deck that says the old name
+		// now gets the shipped item, so the author needs to know the new one.
+		const renamed: string[] = [];
 		let failure: string | null = null;
 		try {
 			for (const f of Array.from(files)) {
@@ -486,13 +491,15 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				for (const t of ts) {
 					const no = await refuseImportedTheme(t.css, t.label || t.name);
 					if (no) { refused.push(no); continue; }
-					await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }, { historyLabel: 'Before import' });
+					const st = await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }, { historyLabel: 'Before import' });
+					if (RESERVED_THEME_NAMES.has(t.name)) renamed.push(`theme “${t.name}” → “${st.name}”`);
 					nThemes++;
 				}
 				for (const c of cs) {
 					const no = await refuseImportedComponent(c.css, c.name);
 					if (no) { refused.push(no); continue; }
-					await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }, { historyLabel: 'Before import' });
+					const sc = await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }, { historyLabel: 'Before import' });
+					if (RESERVED_COMPONENT_NAMES.has(c.name)) renamed.push(`component “.${c.name}” → “.${sc.name}”`);
 					nComps++;
 				}
 				// A finish needs no CSS gate: `saveStudioFinish` DISCARDS the bundle's CSS and
@@ -531,7 +538,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// information, one pill, and the success no longer competes with the
 			// failures for a slot (`lib/notify.ts`).
 			const refusals = refused.filter((r): r is NonNullable<ImportRefusal> => r !== null);
-			const detail = refusals.length ? refusedDetail(refusals) : undefined;
+			const renamedLine = renamed.length ? `Renamed because a shipped item uses the name: ${renamed.join(', ')}.` : null;
+			const detail = [refusals.length ? refusedDetail(refusals) : null, renamedLine].filter(Boolean).join('\n') || undefined;
 			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
 			if (failure) {
 				// A throw can still leave items on the shelf, so the tally and the refusals

@@ -61,6 +61,8 @@ async function ensureReady(options: SingleSlideOptions): Promise<PG> {
 
 /** An in-memory theme (a saved Fabricate library theme) — registered, not fetched. */
 export type ExtraTheme = { name: string; css: string };
+/** A saved component the deck uses: its class name and its CSS. */
+export type LocalComponentCss = { name: string; css: string };
 
 /**
  * Register the theme to render with and return its name. A saved library theme
@@ -753,7 +755,7 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 }
 
 /** Markdown source with the current theme + referenced components + (when active) the saved finish embedded. */
-export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string): Promise<void> {
+export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
 	const ex = await exporters();
 	// Embed the live theme CSS so the .md keeps its look even where the theme
 	// isn't installed. A saved library theme carries its own CSS; otherwise fetch
@@ -769,7 +771,10 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
 	}
 	// Bake the active saved finish into the exported copy (class + <style>), so the
 	// custom finish renders on another machine. The user's source stays clean.
-	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, []);
+	// …and the saved components the deck uses. This passed `[]` until 2026-09, so a
+	// saved component's slides arrived unstyled on the recipient's machine while the
+	// theme and finish beside them survived (2026-09-23-portable-packages.md §1).
+	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, [...components]);
 }
 
 /** The `.lattice` project file — the deck source + its review comments in one zip,
@@ -784,7 +789,7 @@ export async function shareLattice(source: string, name: string, deckTitle: stri
 }
 
 /** The self-contained Marp ZIP bundle (renders anywhere). */
-export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker): Promise<void> {
+export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
 	await ensureReady(options); // PG.marp must be present
 	const ex = await exporters();
 	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
@@ -795,7 +800,11 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	// default and a recipient got the red QA ring and "FIX ME" overlays on any
 	// clipped slide.
 	const { loadSettings } = await import('./studio-store');
-	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker });
+	// A saved theme has no file on the site, so it rides in as `extraTheme` and the
+	// bundle writes its CSS itself; a saved component rides as an embedded `<style>`,
+	// the same block the Markdown export uses. Without both, the bundle fell back to
+	// `indaco` and dropped the component's styling without a word.
+	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components] });
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format

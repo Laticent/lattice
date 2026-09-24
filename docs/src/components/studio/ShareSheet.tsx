@@ -32,7 +32,7 @@ function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.Re
 	);
 }
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void }) {
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, options, palette, mode, extraTheme, extraCss, onPresent }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes), the Webpage player
@@ -200,7 +200,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// browser runtime inside marp-cli, which is why the choice has to travel with
 	// the artifact at all (engineering/decisions/2026-07-30-overflow-marker-register.md).
 	const exportMarpBundle = (overflowMarker: OverflowMarker) => {
-		run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker));
+		run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker, extraTheme, localComponents));
 	};
 	// The export defaults to the deck's authored `color-mode:` when it has one (so a
 	// system/inherited deck's panel reflects that), else the current preview mode.
@@ -255,7 +255,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 							<PanelSection label="Hand off the source">
 								<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
 								<Row busy={busy === 'lattice'} icon={<FileArchive className="size-4" />} title="Lattice project (.lattice)" desc="Deck + comments in one file — re-opens here" onClick={() => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now()))} />
-								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss))} />
+								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents))} />
 								<Row dev icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => setView('marp')} />
 								<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
 							</PanelSection>

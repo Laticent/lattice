@@ -11,12 +11,12 @@
 // 2026-07-04-comments-layer.md (comments travel in the `.lattice` manifest).
 
 import type { SlideComment } from './slide-comments';
+import { declaredInflatedBytes, MAX_INFLATED_BYTES, MAX_ZIP_BYTES } from './zip-limits';
 
 // Untrusted-input guards: a `.lattice` is a file from anyone, so reading one must
 // not let a tiny deflate bomb inflate to gigabytes and OOM the tab. Cap both the
-// on-disk size and the declared inflated size before decompressing.
-const MAX_COMPRESSED_BYTES = 25 * 1024 * 1024; // 25 MB on disk
-const MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024; // 64 MB inflated (source + manifest)
+// on-disk size and the declared inflated size before decompressing. The numbers are
+// shared with the asset `.zip` import (`zip-limits.ts`).
 // A deck title from an untrusted manifest is clamped to the same spirit as the
 // `.md` import path (titleFromSource caps length) — no multi-MB titles in the index.
 const MAX_TITLE_LEN = 120;
@@ -106,7 +106,7 @@ export type LatticeImport = { source: string; title: string; comments: SlideComm
  */
 export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 	// Reject an oversized archive before touching it (cheap, catches the obvious case).
-	if (file.size > MAX_COMPRESSED_BYTES) {
+	if (file.size > MAX_ZIP_BYTES) {
 		throw new Error('That .lattice file is too large to open.');
 	}
 	const { default: JSZip } = await import('jszip');
@@ -121,8 +121,7 @@ export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 	// Deflate-bomb guard: refuse to inflate if the DECLARED uncompressed size is huge
 	// (a few-KB zip can otherwise expand to gigabytes and crash the tab). JSZip exposes
 	// the entry's uncompressed size on its internal `_data`.
-	const inflated = (e: unknown) => Number((e as { _data?: { uncompressedSize?: number } })?._data?.uncompressedSize) || 0;
-	if (inflated(deckEntry) + inflated(manifestEntry) > MAX_UNCOMPRESSED_BYTES) {
+	if (declaredInflatedBytes(deckEntry) + declaredInflatedBytes(manifestEntry) > MAX_INFLATED_BYTES) {
 		throw new Error('That .lattice file is too large to open.');
 	}
 	const [source, manifestText] = await Promise.all([deckEntry.async('string'), manifestEntry.async('string')]);

@@ -76,6 +76,7 @@ import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
+import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
 import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
@@ -1141,15 +1142,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// CSS of the local components the deck actually USES, injected so an inserted
 	// local component renders STYLED (the engine theme doesn't know it). The engine
 	// applies its `.<name>` class; this supplies the matching rules.
-	const usedLocalCss = React.useMemo(() => {
-		if (!localComponents.length) return undefined;
+	// The same list also rides into the Markdown and Marp exports (ShareSheet), so a
+	// deck that renders a saved component here keeps its styling on the recipient's
+	// machine. One derivation feeds both, so preview and export can't disagree about
+	// which components the deck uses.
+	const usedLocalComponents = React.useMemo(() => {
+		if (!localComponents.length) return [];
 		const used = new Set(usedComponents(source));
-		const css = localComponents
-			.filter((c) => used.has(c.name))
-			.map((c) => c.css)
-			.join('\n\n');
-		return css || undefined;
+		// A record saved under a shipped name before saves were guarded is skipped: its
+		// CSS would restyle the shipped component on every slide that uses it.
+		return localComponents.filter((c) => used.has(c.name) && c.css && !RESERVED_COMPONENT_NAMES.has(c.name)).map((c) => ({ name: c.name, css: c.css }));
 	}, [localComponents, source]);
+	const usedLocalCss = React.useMemo(() => usedLocalComponents.map((c) => c.css).join('\n\n') || undefined, [usedLocalComponents]);
 	// `validation` is an editor preference (persisted in settings). The deck-level
 	// Look controls (size / page numbers / header+footer) are NOT separate state —
 	// they READ from and WRITE to the deck's front-matter, so the toggle always
@@ -2240,10 +2244,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The active theme as a saved library entry (when the active palette names one),
 	// else undefined → a built-in palette. Drives the `extraTheme` everywhere a deck
 	// is rendered/exported so a saved theme is honored, not just previewed.
-	const activeTheme = React.useMemo(() => savedThemes.find((t) => t.name === palette), [savedThemes, palette]);
+	const activeTheme = React.useMemo(() => (RESERVED_THEME_NAMES.has(palette) ? undefined : savedThemes.find((t) => t.name === palette)), [savedThemes, palette]);
 	const extraTheme = activeTheme ? { name: activeTheme.name, css: activeTheme.css } : undefined;
 	// Saved (Fabricated) themes shaped for the grouped picker.
-	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
+	// A record saved under a shipped name before saves were guarded is left out: picking
+	// it would select the shipped theme, so the entry would do nothing it says.
+	const savedMenu = React.useMemo(() => savedThemes.filter((t) => !RESERVED_THEME_NAMES.has(t.name)).map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
 	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
 	// off it); the data-mode observer below pulls the new value into `mode` and the
@@ -2978,7 +2984,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// The deck names its own theme — pin the preview to it. A deck theme that
 			// names a saved (Fabricated) library theme needs its CSS registered, so
 			// pass it as extraTheme; a built-in is fetched by name (extraTheme none).
-			const saved = savedThemes.find((t) => t.name === r.palette);
+			// A shipped name always resolves to the shipped theme. A record saved under one
+			// before saves were guarded (library/reserved-names.ts) must not re-skin it.
+			const saved = RESERVED_THEME_NAMES.has(r.palette) ? undefined : savedThemes.find((t) => t.name === r.palette);
 			return { paletteOverride: r.palette, extraTheme: saved ? { name: saved.name, css: saved.css } : undefined, modeOverride };
 		}
 		// Un-themed deck → adopt the website palette (the saved-theme CSS path is the
@@ -5670,7 +5678,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →

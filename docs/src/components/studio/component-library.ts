@@ -7,6 +7,8 @@
 // the Studio's view model and degrades gracefully when IndexedDB is unavailable.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import { RESERVED_COMPONENT_NAMES, renameComponentSelectors, unreservedName } from '@/components/studio/library/reserved-names';
+import { renameAssetInSource } from './asset-rename';
 
 // Loaded ON DEMAND (2026-08-17 loading audit §9.2). This module is reached eagerly
 // from StudioShell, so a static import pulled layout-core's 126.7KB of source onto
@@ -86,13 +88,20 @@ export type ComponentMeta = {
  */
 export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta }, opts?: { historyLabel?: string }): Promise<StudioComponent> {
 	const meta = input.meta || {};
-	const manifest: Record<string, unknown> = { name: input.name };
+	// A SHIPPED name is reserved: a saved `kpi` would restyle every shipped `kpi` slide
+	// in a deck that also used it. The clash saves as `kpi-custom`, with its selectors
+	// and its skeleton's `_class:` rewritten to match, so the saved record still styles
+	// its own slides. The caller compares the returned name with its own and says so.
+	const name = unreservedName(RESERVED_COMPONENT_NAMES, input.name);
+	const css = name === input.name ? input.css : renameComponentSelectors(input.css, input.name, name);
+	const skeleton = name === input.name ? input.skeleton : renameAssetInSource(input.skeleton, 'component', input.name, name).source;
+	const manifest: Record<string, unknown> = { name };
 	for (const k of ['function', 'form', 'substance', 'bucket', 'adapt', 'capacity', 'density'] as const) {
 		if (meta[k] != null) manifest[k] = meta[k];
 	}
 	if (Array.isArray(meta.tags) && meta.tags.length) manifest.tags = meta.tags;
 	if (meta.description?.trim()) manifest.description = meta.description.trim();
-	const asset = (await loadLayoutCore()).componentAsset({ name: input.name, css: input.css, skeleton: input.skeleton, manifest });
+	const asset = (await loadLayoutCore()).componentAsset({ name, css, skeleton, manifest });
 	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset, opts)) as ComponentAssetRecord;
 	return toStudioComponent(stored);
 }

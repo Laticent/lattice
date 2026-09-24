@@ -109,6 +109,14 @@ export const A11Y_THEMES = ${arr(a11y)};
 /** Every palette the Studio can drive via \`data-palette\` — curated + more + the AA color-blind set. */
 export const BUILTIN_PALETTES = [...CURATED, ...MORE_THEMES, ...A11Y_THEMES];
 
+/**
+ * Every theme name the engine ships — every manifest, \`-dark\` companions and bases
+ * included, plus \`lattice\` itself. A saved theme may not take one of these: a saved
+ * record is resolved by name, so a theme saved as \`indaco\` would re-skin every deck
+ * that says \`theme: indaco\` (2026-09-23-portable-packages.md §3.7).
+ */
+export const SHIPPED_THEME_NAMES: readonly string[] = ${arr(['lattice', ...all.map((m) => m.name)])};
+
 /** Each listed palette's picker dot (manifest \`swatch\`). */
 export const PALETTE_DOTS: Record<string, string> = {
 ${dotLines}

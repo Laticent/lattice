@@ -11,6 +11,7 @@
 // throws — it just returns an empty shelf.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import { RESERVED_THEME_NAMES, unreservedName } from '@/components/studio/library/reserved-names';
 
 // Loaded ON DEMAND (2026-08-17 loading audit §9.2). StudioShell imports this module
 // EAGERLY, and `theme-core.generated.js` is an esbuild __commonJS registry — importing
@@ -85,8 +86,15 @@ export async function saveStudioTheme(input: { id?: string; name: string; label:
 	// → a blank, unthemed render. The caller already serialized `css` under
 	// `input.name`, so TRUST it when it's a valid slug; only fall back (to the
 	// label slug, then a stamped form) when it isn't.
-	const name = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : slugify(input.label) || `theme-${slugify(input.name) || 'studio'}`;
-	const asset = (await loadThemeCore()).themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css, overrides: input.overrides, rampStrategy: input.rampStrategy });
+	const wanted = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : slugify(input.label) || `theme-${slugify(input.name) || 'studio'}`;
+	// A SHIPPED name is reserved: a saved `indaco` would re-skin every deck that says
+	// `theme: indaco`. The clash saves as `indaco-custom`, and the `@theme` directive is
+	// rewritten to match, for the invariant above. The caller compares the returned
+	// name with the one it asked for and says so.
+	const name = unreservedName(RESERVED_THEME_NAMES, wanted);
+	const core = await loadThemeCore();
+	const css = name === wanted ? input.css : core.renameThemeDirective(input.css, name);
+	const asset = core.themeAsset({ name, label: input.label, essentials: input.essentials, css, overrides: input.overrides, rampStrategy: input.rampStrategy });
 	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset, opts)) as ThemeAssetRecord;
 	return toStudioTheme(stored);
 }

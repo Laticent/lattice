@@ -146,11 +146,15 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	if (!stateFile) throw new Error('Backup is missing workspace.json.');
 	const state = JSON.parse(await stateFile.async('string')) as StudioExport;
 
+	// Parse the asset library BEFORE importing any state: `unpackBundle` refuses an
+	// oversized archive (`zip-limits.ts`), and refusing it after the decks and settings
+	// had already been replaced left a half-restored workspace.
+	const libraryFile = zip.file('library.zip');
+	const parsed = libraryFile ? await unpackBundle(await libraryFile.async('blob')) : null;
+
 	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0 };
 
-	const libraryFile = zip.file('library.zip');
-	if (libraryFile) {
-		const parsed = await unpackBundle(await libraryFile.async('blob'));
+	if (parsed) {
 		for (const t of parsed.themes) {
 			await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css });
 			summary.themes++;

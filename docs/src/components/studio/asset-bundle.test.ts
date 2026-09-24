@@ -6,6 +6,7 @@ import { DEFAULT_RECIPE } from './finish-generate';
 import type { StudioFinish } from './finish-library';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
+import { MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, readBudget } from './zip-limits';
 
 const theme: StudioTheme = {
 	id: 't1',
@@ -177,5 +178,69 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		for (const cls of ['title', 'kpi', 'journey', 'diagram', 'split-panel', 'closing']) expect(d).toContain(`_class: ${cls}`);
 		expect(d).toContain('```mermaid');
 		expect(d).toContain('# Harbor');
+	});
+});
+
+// An asset zip is a file from anyone, and until 2026-09 this import had no size caps
+// (`.lattice` import always had them). The same caps now apply to both (`zip-limits.ts`).
+describe('asset-bundle — refuses an oversized zip', () => {
+	it('refuses an archive larger than the on-disk cap before opening it', async () => {
+		const big = new Blob([new Uint8Array(MAX_ZIP_BYTES + 1)]);
+		await expect(unpackBundle(big)).rejects.toThrow(/too large/);
+	});
+
+	it('refuses an archive whose entries declare more than the inflated cap (a deflate bomb)', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'bundle', items: [{ kind: 'component', name: 'x', css: 'bomb.css', skeleton: 'x.md' }] }));
+		// Compresses to a few KB, inflates past the cap.
+		zip.file('bomb.css', 'a'.repeat(MAX_INFLATED_BYTES + 1));
+		const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+		expect(blob.size).toBeLessThan(MAX_ZIP_BYTES);
+		await expect(unpackBundle(blob)).rejects.toThrow(/too large/);
+	});
+
+	it('refuses an archive with more entries than the cap', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'bundle', items: [] }));
+		for (let i = 0; i < MAX_ZIP_ENTRIES; i++) zip.file(`f${i}.txt`, '');
+		await expect(unpackBundle(await zip.generateAsync({ type: 'blob' }))).rejects.toThrow(/too large/);
+	});
+
+	it('does not count a showcase PDF the import never opens', async () => {
+		// Library bulk export writes a showcase PDF per theme, and `unpackBundle` never
+		// reads it. A large export of your own must not be refused on re-import for bytes
+		// nobody inflates.
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'bundle', items: [{ kind: 'theme', name: 'harbor', label: 'Harbor', css: 'harbor.css', showcase: 'harbor-showcase.pdf' }] }));
+		zip.file('harbor.css', theme.css);
+		zip.file('harbor-showcase.pdf', 'a'.repeat(MAX_INFLATED_BYTES + 1));
+		const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+		const round = await unpackBundle(blob);
+		expect(round.themes).toHaveLength(1);
+	});
+
+	it('stops at the read budget when entries understate their sizes', () => {
+		// The declared-size check trusts the archive's directory. The budget charges what
+		// was actually read, so understated entries can't add up past the cap.
+		const charge = readBudget('too large');
+		const half = 'a'.repeat(MAX_INFLATED_BYTES / 2);
+		charge(half);
+		charge(half);
+		expect(() => charge('a')).toThrow('too large');
+	});
+
+	it('refuses a manifest with no item list rather than throwing a TypeError', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'bundle' }));
+		await expect(unpackBundle(await zip.generateAsync({ type: 'blob' }))).rejects.toThrow(/lists no items/);
+	});
+
+	it('still imports a normal bundle under the caps', async () => {
+		const round = await unpackBundle(await packBundle([{ theme }], [comp], [finish], [scene]));
+		expect(round.themes).toHaveLength(1);
 	});
 });

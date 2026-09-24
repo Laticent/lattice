@@ -17,6 +17,9 @@ import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
+import { assertZipWithinLimits, MAX_ZIP_BYTES, readBudget } from './zip-limits';
+
+const TOO_LARGE = 'That asset zip is too large to import.';
 
 export const ASSET_FORMAT = 'lattice-asset/1';
 
@@ -317,28 +320,42 @@ export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob |
 
 /** Read a `.zip` (single or bundle) back into themes + components + finishes ready to save. */
 export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
+	// Size caps first (`zip-limits.ts`): an asset zip is a file from anyone, and this
+	// import had none, so a small archive declaring gigabytes of entries could take the
+	// tab down before a single item was checked. Same numbers as `.lattice` import.
+	if (file.size > MAX_ZIP_BYTES) throw new Error(TOO_LARGE);
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(file);
+	// The entry count, and the manifest's own declared size, before reading anything.
+	assertZipWithinLimits(zip, TOO_LARGE, ['manifest.json']);
+	// Every read below is charged against one running budget (`zip-limits.ts`).
+	const charge = readBudget(TOO_LARGE);
+	const read = async (path: string | undefined): Promise<string | undefined> => (path ? ((charge(await zip.file(path)?.async('string')) as string | undefined) ?? undefined) : undefined);
 	const manifestFile = zip.file('manifest.json');
 	if (!manifestFile) throw new Error('Not a Lattice asset zip — manifest.json missing.');
-	const manifest = JSON.parse(await manifestFile.async('string')) as AssetManifest;
-	if (manifest.format !== ASSET_FORMAT) throw new Error(`Unsupported asset format: ${manifest.format}`);
+	const manifest = JSON.parse((charge(await manifestFile.async('string')) as string) || '') as AssetManifest;
+	if (manifest?.format !== ASSET_FORMAT) throw new Error(`Unsupported asset format: ${manifest?.format}`);
+	if (!Array.isArray(manifest.items)) throw new Error('Not a Lattice asset zip — manifest.json lists no items.');
+	// Then the declared size of exactly the entries this import reads. Showcase PDFs ride
+	// in a bundle but are never opened, so they don't count against the cap.
+	const readPaths = manifest.items.flatMap((it) => Object.entries(it).filter(([k, v]) => k !== 'showcase' && typeof v === 'string' && zip.files[v]).map(([, v]) => v as string));
+	assertZipWithinLimits(zip, TOO_LARGE, ['manifest.json', ...readPaths]);
 	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [] };
 	for (const item of manifest.items) {
 		if (item.kind === 'theme') {
-			const css = await zip.file(item.css)?.async('string');
+			const css = await read(item.css);
 			if (css) out.themes.push({ name: item.name, label: item.label, essentials: item.essentials ?? null, css });
 		} else if (item.kind === 'component') {
-			const css = await zip.file(item.css)?.async('string');
+			const css = await read(item.css);
 			// LINE ENDINGS: the skeleton is markdown spliced verbatim into a deck's source
 			// (`addSlideAfter` in StudioShell), and the zip is external input — so it normalizes
 			// here, at the unpack, for the same reason an imported `.md` does. CSS is left alone:
 			// it is never spliced into markdown and the browser is indifferent to its endings.
-			const skeleton = normalizeSourceText(await zip.file(item.skeleton)?.async('string'));
+			const skeleton = normalizeSourceText(await read(item.skeleton));
 			if (css && skeleton != null) out.components.push({ name: item.name, bucket: item.bucket ?? null, css, skeleton });
 		} else if (item.kind === 'finish') {
-			const css = await zip.file(item.css)?.async('string');
-			const recipeText = await zip.file(item.recipe)?.async('string');
+			const css = await read(item.css);
+			const recipeText = await read(item.recipe);
 			if (css) {
 				// coerceRecipe clamps a missing/garbled recipe to the closed vocab, so a
 				// finish always re-imports renderable even if the recipe JSON is absent.
@@ -351,7 +368,7 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 			// corrupt zip that doesn't yield a schema-valid scene is DROPPED (fail-closed),
 			// never coerced (there is no safe default scene). poster/art ride as strings and
 			// stay UNTRUSTED — a consumer sanitizes them before any preview (HARD RULE #22).
-			const specText = await zip.file(item.spec)?.async('string');
+			const specText = await read(item.spec);
 			// Guard BOTH parse steps: a hostile spec must degrade to a DROP of this one scene,
 			// never a throw that aborts the whole import (parseScene is bounded against the
 			// recursion-bomb, but the try/catch keeps any future validator throw contained too).
@@ -362,8 +379,8 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 				/* malformed JSON or a validator throw → drop this scene */
 			}
 			if (r.ok) {
-				const poster = item.poster ? await zip.file(item.poster)?.async('string') : undefined;
-				const art = item.art ? await zip.file(item.art)?.async('string') : undefined;
+				const poster = await read(item.poster);
+				const art = await read(item.art);
 				out.scenes.push({ name: item.name, label: item.label, description: item.description, spec: r.scene, poster: poster ?? undefined, art: art ?? undefined });
 			}
 		}
