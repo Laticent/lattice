@@ -265,8 +265,8 @@ the model on by default is a re-tune, not a swap.
   holding the user's own key. What this branch ships is the rung and the proof that the rung works,
   not a voice.
 - **A default change.** Every new option defaults to today's behavior. `caption: 'bar'`,
-  `bounds: 'viewport'`. The one exception is `pacing`, which defaults to `'grounded'` — the whole
-  point is the model, and `'legacy'` is the escape.
+  `bounds: 'viewport'`, and `pacing: 'legacy'` — see §Decisions taken, item 3, which reversed
+  the first draft's `'grounded'` default because adopting it re-times every shipped tour.
 - **Viewer telemetry.** See above.
 
 ## What the independent checker broke, and what it cost
