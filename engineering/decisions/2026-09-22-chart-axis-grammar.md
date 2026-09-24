@@ -298,3 +298,33 @@ spelling that works.
 - **Lifted, where the pills are not.** The pills read as an eyebrow and always
   stayed on the slide. The list reads as syntax, so it is lifted like every
   other axis list.
+
+## The third checker pass (2026-09-24)
+
+The third pass on the parser fixes (the squashed `6695cd3`) had been killed
+before it reported. It was re-run over the same code on `main`. It found:
+
+- **Blocking: an apostrophe opened a quote in the middle of a word.**
+  `[Customer's spend, Churn rate]` came back as one member, and the render
+  drew one axis. Straight apostrophes survive inside code spans because the
+  typographer does not touch them, so ordinary English names hit this. A quote
+  now opens only where a part starts, the same rule `{` already followed.
+- **An empty member re-slotted every axis after it.** Position is the
+  authority, so `[, Reach]` has to mean "the second axis is Reach". The parser
+  dropped the blank and put Reach on the first axis. An empty top-level member now holds its place as
+  `[]`. Trailing blanks are trimmed, and a `}` followed by a comma is one
+  separator, not a blank.
+- **The lint body detector disagreed with the render** on a bullet inside an
+  HTML comment and on a blockquoted list or table. Both now match what
+  markdown-it emits. The durable fix is to derive the boundary from markdown-it
+  tokens in lint as well, so there is one model instead of two. That is larger
+  than this pass and is recorded in `followups.d/`.
+- **Verified and held:** `isWs` agrees with `/\s/` on every code point
+  0..0x10FFFF (exactly 25 match, none astral), and `tidy` agrees with
+  `.replace(/\s+/g, ' ').trim()` over 300k fuzzed inputs including lone
+  surrogates. The fail-loud catalog guards cannot fire on a legitimate deck,
+  and no caller can bypass them back into the silent deletion.
+- **Pinned, not changed:** `[{a,b}c, d]` gives three members, a stray `}` is
+  literal, and an unclosed `{` keeps the rest as parts of one member. No
+  character is lost in any of them. Tests pin all three, so changing them is a
+  visible decision.

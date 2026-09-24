@@ -1979,6 +1979,26 @@ describe('label-set-above-body — coaching, never refusal', () => {
   // `parseInlineSet` accepts the braced AXIS form as a set, so the rule used to
   // fire on the documented axis itself — and on scatter told the author to
   // delete it. Above the body, only a list naming a KEY member is a misplaced key.
+  // The rule's body detector has to agree with the render's boundary (the first
+  // body TAG markdown-it emits), or it warns on the wrong side of it.
+  test('a list line inside an HTML comment is not the body', () => {
+    // Without the comment blanking the note's bullet set the boundary, so the
+    // key BELOW it read as below the body and the above-body coaching was lost.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = ['<!-- _class: scatter -->', '', '<!--', '- speaker note', '-->', '',
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-above-body']);
+  });
+
+  test('a blockquoted list is the body, as markdown-it emits its <ul>', () => {
+    // The render's boundary is that <ul>, so the span after it is BELOW the body
+    // and stays on the slide — lint must not call it an axis above the body.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = ['<!-- _class: scatter -->', '', '> - quoted point', '',
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
   test('a state-marker key above a keyless chart is still a misplaced key', () => {
     // scatter declares no key vocabulary, so the state markers stand in for it.
     const all = { names: new Set(['scatter']), modifiers: new Set() };

@@ -691,3 +691,15 @@ describe('scatter — the dense cluster keeps every name reachable', () => {
   });
 });
 
+
+// Position is the authority, so an empty first member names the SECOND axis
+// only. The parser used to drop the blank, which moved the name onto x.
+describe('scatter — an empty member holds its axis position', () => {
+  const { transformChartSection } = require('../../../lib/components/chart/_chart-family/chart-family');
+  test('[, Teams adopting] names y and leaves x unnamed', () => {
+    const { html } = transformChartSection('<p><code>[, Teams adopting]</code></p><h2>X</h2>' +
+      '<ul><li>A <code>1</code> <code>2</code></li><li>B <code>3</code> <code>4</code></li><li>C <code>5</code> <code>1</code></li></ul>', 'scatter');
+    assert.match(html, /data-y-axis="Teams adopting"/);
+    assert.doesNotMatch(html, /data-x-axis=/);
+  });
+});
