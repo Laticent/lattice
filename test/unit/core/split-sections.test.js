@@ -60,11 +60,16 @@ describe('splitSections — a tag-shaped string is not a tag', () => {
   });
 
   // A comment that never closes swallows the rest of the document in a real
-  // parser too, so BOTH must report nothing — the twins agree on the loss.
-  test('an unterminated comment hides the slides from both walks', () => {
+  // parser, and this walk used to agree — both reported nothing. That parity
+  // DELETED the deck in the export: `lattice-emulator.js` keeps only the section
+  // pieces, so everything after the comment left the file, where the browser
+  // would merely have hidden it. The walk now reads an unterminated `<!--` as
+  // text, the trade `scanTags` already makes for an unclosed `<style>`, and
+  // leaves what is visible to the browser. The twins disagree here ON PURPOSE.
+  test('an unterminated comment does not hide the slides from the string walk', () => {
     const html = `<!-- opened and never closed\n${SLIDES}`;
-    assert.deepEqual(classesOf(html), []);
-    assert.deepEqual(classesOf(html), domClassesOf(html));
+    assert.deepEqual(classesOf(html), ['lattice', 'lattice']);
+    assert.deepEqual(domClassesOf(html), [], 'a browser still reads it as a comment to EOF');
   });
 
   test('a <style> block mentioning a section tag does not open one', () => {

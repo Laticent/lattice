@@ -214,3 +214,50 @@ this record states, and a claim with a known exception should carry it.
 - **`applyFormToHtml` recognizes only a double-quoted `class="…"`.** A single-quoted attribute
   yields a duplicate `class` attribute on the open tag. The engine only ever emits double quotes,
   so nothing in the corpus reaches it.
+
+**The same defect lived in FOUR more walkers, and one of them was the export (CLOSED
+2026-09-24).** Fixing `splitSections` fixed the kernel, and four callers never used it. Each
+scanned for the literal string `<section`, so a `<section` quoted in an HTML comment or in
+`<style>` text opened a phantom section on all of them:
+
+- `lattice-emulator.js` split the engine's document with its own regex,
+  `splitTopLevelSections`. The walk returned ZERO slides, and the export shipped a one-page
+  PDF with exit code 0 and no warning. Measured on a three-slide deck with one quoting
+  comment: 1 page before, 3 after.
+- `mapSections` (`lib/core/section-walk.js`), which sits under the masthead lift, the coda,
+  split panels, chart-family and about a dozen other kernels, stopped at the quoting slide
+  and passed every later slide through untouched. The same deck built 0 masthead bands where
+  it builds 2 without the comment. A page count cannot see this, which is why the evidence
+  for this record is a rasterized page and not a number.
+- qr-card's `walkSections` (wifi, contact, video) and svg-a11y-names' `sectionSpans` carried
+  the same scan.
+
+All four now walk `splitSections` (HARD RULE #1). Rendering every `examples/*.md` to HTML on
+both trees, each built from its own source, moved no deck: 195 of 197 are byte-identical and
+the other two differ run to run on the same code (Mermaid's random gitGraph ids and a
+timestamp).
+
+**An independent checker found two faults in the first cut, and both were ours.**
+
+- **An unterminated `<!--` dropped every later slide from the export.** A deck with one
+  `<div><!-- oops</div>` in a raw HTML block exported as one page. The tokenizer read an
+  unterminated comment as inert to end of file, which is what a browser does, and the old
+  regex had never looked at comments at all. It is now read as text, the rule `scanTags`
+  already applied to an unclosed `<style>`, for the same reason. That is not a fix for the
+  author: Chromium still reads the comment to end of file when it prints, so the PDF stops
+  there, exactly as it did before this change (2 pages of 4 on the checker's deck, both
+  trees). What changed is that the export no longer deletes the rest of the deck from the
+  file itself. The string walk and the DOM parse now disagree on this one shape on purpose,
+  and `test/unit/core/split-sections.test.js` says so.
+- **A full-deck render was about 40% slower.** Tokenizing a 339 KB document costs a few
+  milliseconds, and `mapSections` runs about a dozen times per render. `splitSections` now
+  jumps from literal section tag to literal section tag, and it runs the tokenizer only on a
+  stretch that one regex cannot prove clean: no `<!`, no `<?`, no `<script`/`<style`/
+  `<textarea`, no quoted value holding `<` or `>`, and no `<` inside a tag. A seeded fuzz test
+  of 20,000 documents pins the result to the tokenizer-only walk, and deleting any one of those
+  five alternatives turns it red. Measured on the gallery deck, same machine, median of 30
+  renders: HEAD 72-75 ms, this change 75-77 ms, against about 100 ms for the first cut.
+
+The regression arms are `test/integration/export/raw-section-quoted.test.js`, which covers the
+page count and the masthead bands through the real CLI, and
+`test/unit/core/split-sections-fast-path.test.js`.
