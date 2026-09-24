@@ -1173,6 +1173,41 @@ describe('lint-core: author-script-defers (#1792)', () => {
   });
 });
 
+describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () => {
+  const crowded = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'pill-shape-crowded');
+  const deck = (body) => `${FM}## Heading\n\n${body}\n`;
+
+  test('the budget is one character, or a number up to two digits', () => {
+    for (const ok of ['3', '!', '?', '%', 'W', '12', '99']) {
+      assert.equal(core.pillFitsShape(ok), true, `${ok} fits`);
+      assert.equal(crowded(deck(`\`{${ok}}:circle\` \`{${ok}}:diamond\``)).length, 0, `${ok} is not flagged`);
+    }
+    for (const bad of ['OK', 'AB', '1/2', 'WM', '100', 'NEW']) {
+      assert.equal(core.pillFitsShape(bad), false, `${bad} does not fit`);
+      assert.equal(crowded(deck(`\`{${bad}}:circle\` \`{${bad}}:diamond\``)).length, 2, `${bad} is flagged on both shapes`);
+    }
+  });
+
+  test('it WARNS, names the span for the editor underline, and points at :tag', () => {
+    const [f] = crowded(deck('Status is `{WM}:circle:c5` today.'));
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.span, '`{WM}:circle:c5`');
+    assert.match(f.message, /too long for a circle/);
+    assert.match(f.fix, /:tag/);
+  });
+
+  test('modifier order does not hide it, and other shapes are not its business', () => {
+    assert.equal(crowded(deck('`{WM}:lg:c3:diamond`')).length, 1);
+    assert.equal(crowded(deck('`{WM}:tag` `{WM}` `{WM}:chevron-right`')).length, 0);
+  });
+
+  test('code, escapes and the literal register draw no pill, so they get no finding', () => {
+    assert.equal(crowded(deck('```\n`{WM}:circle`\n```')).length, 0, 'fenced code is quoted material');
+    assert.equal(crowded(deck('`\\{WM}:circle` and ``{WM}:circle``')).length, 0, 'escaped and double-backtick spans are literal');
+    assert.equal(crowded('---\nmarp: true\ninline-code: literal\n---\n\n## H\n\n`{WM}:circle`\n').length, 0, 'inline-code: literal draws no pills');
+  });
+});
+
 describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
   const glyphs = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'typed-shape-glyph');
   const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;

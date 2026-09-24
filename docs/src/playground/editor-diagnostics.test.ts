@@ -105,6 +105,19 @@ describe('findingsToDiagnostics', () => {
 		expect(diag.message).toContain('Fix: nest it'); // fix folded into the tooltip
 	});
 
+	it('underlines only the SPAN a finding names, not the whole line', () => {
+		const pills = doc('## Title\n\nStatus is `{OK}:tag` and `{WM}:circle` today.\n');
+		const [diag] = findingsToDiagnostics(pills, [
+			{ slide: 1, rule: 'pill-shape-crowded', severity: 'warning', line: 'Status is `{OK}:tag` and `{WM}:circle` today.', span: '`{WM}:circle`', message: 'm' },
+		]);
+		expect(pills.sliceString(diag.from, diag.to)).toBe('`{WM}:circle`');
+		// A span that is not on the matched line falls back to the whole line, never elsewhere.
+		const [fallback] = findingsToDiagnostics(pills, [
+			{ slide: 1, rule: 'r', severity: 'warning', line: 'Status is `{OK}:tag` and `{WM}:circle` today.', span: '`{GONE}:circle`', message: 'm' },
+		]);
+		expect(pills.sliceString(fallback.from, fallback.to)).toBe('Status is `{OK}:tag` and `{WM}:circle` today.');
+	});
+
 	it('starts the underline past leading indentation', () => {
 		const indented = doc('<!-- _class: kpi -->\n\n  - **A.** body\n');
 		const [diag] = findingsToDiagnostics(indented, [
