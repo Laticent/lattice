@@ -3825,11 +3825,19 @@ section.corners-square {
  * shape is drawn with a typed glyph (#29): a chevron is a clip-path on our own box,
  * not a `❯` borrowed from whatever font the machine has. */
 .lat-pill[data-shape] {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  /* `middle`, not `baseline`. An inline-flex box's baseline is its BOTTOM MARGIN EDGE, so
-   * a baseline-aligned pill hangs below the text it sits in — and by a distance that
+  /* `inline-block`, not `inline-flex`, because of `text-box` below: it trims a BLOCK
+   * container's first and last line, and in an inline-flex pill the label sits in an
+   * anonymous flex item that never receives the property. Centering needs no flex
+   * here: `text-align` does the horizontal, the padding does the vertical. */
+  display:inline-block;
+  text-align:center;
+  /* `letter-spacing` adds its space AFTER every letter, the last one included, so a
+   * tracked label carries half a letter-space of dead room on its right and reads left
+   * of center. Measured, 0.3–0.5px left in all three engines at 15px. Indenting the line
+   * by the same tracking puts the matching space on the left. */
+  text-indent:var(--pill-tracking);
+  /* `middle`, not `baseline`. When this was an inline-flex box its baseline was its
+   * BOTTOM MARGIN EDGE, so a baseline-aligned pill hung below the text it sits in — and by a distance that
    * scales with the type: measured, 2.9px low in 21px body prose and 11px low in a 37px
    * heading, where it reads as a mistake. `middle` puts the box's centre on the text's
    * optical centre instead, which is what a reader expects of a chip in a line of words. */
@@ -3861,6 +3869,47 @@ section.corners-square {
   margin-inline:0.22em;
 }
 
+/* ── Optical centering: the label sits on the box's center in every engine ────────
+ * The pill's own padding is symmetric, but that centers the LINE BOX, not the letters.
+ * Where the glyphs land inside a `line-height:1` line is up to each engine's reading of
+ * the font's metrics and its pixel rounding, and the engines disagree. Measured on
+ * Outfit 600 at 15px, cap-height center against the box center (negative = high):
+ * Chromium −0.5 to −1.1px, Firefox +0.1, WebKit −0.1 to −0.4, a 1.3px spread inside a
+ * 26px box, which is plainly visible as a label that sits high in Chrome.
+ *
+ * `text-box: trim-both cap alphabetic` removes the question. It trims the line to the
+ * cap height above the baseline, so the content box IS the capitals, and symmetric
+ * padding then centers the capitals by construction, whatever the metrics or the
+ * rounding. The padding grows by the trimmed amount, `(1em − 1cap) / 2` a side, so the
+ * box keeps its capsule height (`--lat-pill-h`) and nothing around it moves. Measured
+ * with it, the worst single pill is 0.58px off in Chrome 141, 0.21px in Firefox 156 and
+ * 0.42px in WebKit 2.52; the mean is 0.24px, 0.09px and 0.15px. What is left is each
+ * engine snapping glyphs to a whole pixel, plus `!` and `?`, which Outfit draws taller
+ * than its capitals, so a diamond holding one reads about 0.3px high.
+ * Lowercase descenders hang into the bottom padding, which is what a reader expects of
+ * a label set on its capitals.
+ *
+ * THE FALLBACK IS FOR THE PDF. Our export renderer is the Chrome 131 that puppeteer
+ * pins, and `text-box` shipped in Chrome 133 — so every exported PDF takes this branch,
+ * as do Firefox and Safari releases from before it. Measured in the exported PDF,
+ * Chrome 131 sets the label 0.97px high at the default size, 0.94px at `:lg` and 0.38px
+ * at `:sm`. That is whole-pixel rounding, so no single offset is exact at every size.
+ * Extra top padding, taken back from the bottom so the height holds, was swept from
+ * 0.02em to 0.08em against the PDF. 0.05em gives the smallest worst case: 1.47px → 0.68px,
+ * mean 0.92px → 0.30px. At 0.06em and above, `:lg` flips a whole pixel low. */
+@supports (text-box: trim-both cap alphabetic) {
+  .lat-pill[data-shape] {
+    text-box:trim-both cap alphabetic;
+    padding-block:calc(var(--pill-pad-y) + (1em - 1cap) / 2);
+  }
+}
+@supports not (text-box: trim-both cap alphabetic) {
+  .lat-pill[data-shape] {
+    padding-top:calc(var(--pill-pad-y) + 0.05em);
+    padding-bottom:calc(var(--pill-pad-y) - 0.05em);
+  }
+}
+
 /* Geometry per shape. `pill` is the default and needs no rule — it inherits the
  * capsule `--pill-radius`. */
 .lat-pill[data-shape='chip'] { border-radius:var(--radius-sm); }
@@ -3888,18 +3937,16 @@ section.corners-square {
  * around them. */
 .lat-pill[data-shape='circle'] {
   box-sizing:border-box;
-  aspect-ratio:1;
-  padding:0;
+  padding-inline:0;
   min-width:var(--lat-pill-h);
-  min-height:var(--lat-pill-h);
+  border-radius:var(--pill-radius);
 }
-/* A circle is the one shape whose box the TEXT must not size: `aspect-ratio` alone
- * loses to the label's min-content width plus padding, so a two-character badge came
- * out an upright oval (measured). Zero padding plus a square minimum lets the ratio
- * actually bind, and the label centers in it. Two digits fit inside a capsule-height
- * circle (measured, `12` is 17px wide in a 24px interior); a wider label grows the box
- * and it stays round. */
-.lat-pill[data-shape='circle'] { border-radius:var(--pill-radius); }
+/* The HEIGHT is the shared vertical padding plus one trimmed line, the same sum that
+ * makes a capsule, so the circle needs no height of its own and its label is centered
+ * by the same rule as every other shape. Only the WIDTH is the circle's: no side
+ * padding, and a minimum equal to the height, so a digit or two sits in a round box
+ * (measured, `12` is 17px wide in a 26px circle). A longer label widens the box, and
+ * the capsule radius turns it into a capsule rather than an oval. */
 
 /* CLIPPED SHAPES DRAW THEIR STROKE AS A RING. Chevrons and the diamond are cut with
  * `clip-path`, which slices a border off on every cut edge — so they used to drop the
@@ -3914,14 +3961,21 @@ section.corners-square {
  * measured perpendicular to it, so each vertex moves by the stroke divided by the sine
  * of its edge's angle; the constants below are those factors for a capsule-height box
  * (chevron: a 0.5em point on a ~1.6em box; diamond: 1.4:1). `-1px` on the ring's inset
- * puts it on the (transparent) border edge, where every other shape draws its border. */
+ * puts it on the border edge, over the real border on a chevron and in place of it on the diamond. */
 .lat-pill[data-shape='chevron-right'],
 .lat-pill[data-shape='chevron-left'],
 .lat-pill[data-shape='diamond'] {
   position:relative;
-  border-color:transparent;
   border-radius:0;
 }
+/* A chevron keeps its REAL border for the flat edges. The ring alone left the flat end of
+ * a left chevron half-width in the PDF (measured at 1200dpi: 7 device px against 13 for
+ * the top edge). Chrome snaps the overlay's box to whole pixels but clips at the pill's
+ * fractional edge, so that edge fell between the two. A border paints on the same box
+ * as the fill, so it cannot drift from it; the ring, drawn in the same color, still
+ * supplies the slanted edges the clip cuts the border off. The diamond has no flat
+ * edge, so its border stays transparent and the ring draws all four sides. */
+.lat-pill[data-shape='diamond'] { border-color:transparent; }
 .lat-pill:is([data-shape='chevron-right'], [data-shape='chevron-left'], [data-shape='diamond'])::after {
   content:'';
   position:absolute;
@@ -3942,11 +3996,17 @@ section.corners-square {
 }
 .lat-pill[data-shape='chevron-left'] {
   padding-left:calc(var(--pill-pad-x) + 0.5em);
-  clip-path:polygon(0.5em 0, 100% 0, 100% 100%, 0.5em 100%, 0 50%);
+  /* The flat right edge is drawn 1px PAST the box. WebKit rounds a clip-path's reference
+   * box down to a whole pixel, so on a pill 88.625px wide a clip at `100%` fell at 88px
+   * and cut the 1px stroke away entirely (seen at 1x, 2x and 3x; Chrome and Firefox
+   * clip at the true edge). Nothing paints outside the box, so the overshoot costs
+   * nothing where the rounding does not happen. The left point is at `0`, which no
+   * rounding moves, and chevron-right's flat side is its left, so it needs none. */
+  clip-path:polygon(0.5em 0, calc(100% + 1px) 0, calc(100% + 1px) 100%, 0.5em 100%, 0 50%);
 }
 .lat-pill[data-shape='chevron-left']::after {
   clip-path:polygon(evenodd,
-    0.5em 0, 100% 0, 100% 100%, 0.5em 100%, 0 50%, 0.5em 0,
+    0.5em 0, calc(100% + 1px) 0, calc(100% + 1px) 100%, 0.5em 100%, 0 50%, 0.5em 0,
     calc(0.5em + 0.6px) 1px, calc(100% - 1px) 1px, calc(100% - 1px) calc(100% - 1px),
     calc(0.5em + 0.6px) calc(100% - 1px), 1.2px 50%, calc(0.5em + 0.6px) 1px);
 }
@@ -3959,8 +4019,7 @@ section.corners-square {
    * proportion anyway. A diamond still holds a character or two; a word wants `tag` or
    * `chip`, and `lint:deck` says so. */
   box-sizing:border-box;
-  padding:0;
-  min-height:var(--lat-pill-h);
+  padding-inline:0;
   min-width:calc(var(--lat-pill-h) * 1.4);
   clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }

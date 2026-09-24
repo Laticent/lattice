@@ -1427,7 +1427,9 @@ Every shape is exactly as tall as the capsule, so pills of different shapes shar
 center line and never make a row or a line of prose taller. `circle` is a
 capsule-height disc and `diamond` a capsule-height rhombus, so they hold a digit or a
 mark — `{3}:circle`, `{!}:diamond`. The clipped shapes (the chevrons and the diamond)
-carry the same 1px edge as the rest. A word in one either overflows the fill or forces
+carry the same 1px edge as the rest. The label is centered on its capitals, not on the
+line box, so it sits on the pill's visual center in Chrome, Firefox and Safari alike;
+lowercase descenders hang into the bottom padding. A word in one either overflows the fill or forces
 the box wide enough to stop reading as the shape; `lint:deck` suggests `:tag` or
 `:chip` instead, and never blocks.
 
