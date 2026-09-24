@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoStudio, livePreview, setEditorContent } from './studio-fixture';
+import { CHROME, gotoStudio, livePreview, setEditorContent } from './studio-fixture';
 
 // A ```functionplot fence draws in the Studio, and its non-ASCII text survives.
 //
@@ -41,9 +41,9 @@ test('a function plot draws in the Studio preview and the Read pane, with x² in
 	await expect(labels).toHaveCount(2, { timeout: 30_000 });
 	expect(await labels.allTextContents()).toContain('x²');
 
-	await page.keyboard.press('ControlOrMeta+k');
-	await page.keyboard.type('Read as an article');
-	await page.keyboard.press('Enter');
+	// The article is a Read-stop verb: step the dial to Read, then use its bar button.
+	await page.getByRole('button', { name: CHROME.postureStops[0] }).click();
+	await page.getByRole('button', { name: CHROME.readArticle }).click();
 	const article = page.locator('article.st-read-article');
 	const readLabels = article.locator('text.axis-label');
 	await expect(readLabels).toHaveCount(2, { timeout: 30_000 });
