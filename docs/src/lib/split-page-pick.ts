@@ -54,14 +54,18 @@ export function pageLines(html: string): string[] {
 		.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
 		.replace(CHROME, ' ')
 		.replace(BLOCK, '\n')
-		.replace(/<[^>]+>/g, '')
+		.replace(/<[^>]*>/g, '')
+		// Any `<` or `>` left is a fragment of a tag the strip above could not close. The result is
+		// only ever COMPARED, never rendered, but it must not read as markup to anything downstream.
+		.replace(/[<>]/g, ' ')
 		.replace(/&nbsp;/g, ' ')
-		.replace(/&amp;/g, '&')
 		.replace(/&lt;/g, '<')
 		.replace(/&gt;/g, '>')
 		.replace(/&quot;/g, '"')
 		.replace(/&#39;|&rsquo;|&lsquo;/g, "'")
-		.replace(/&[a-z]+;|&#\d+;/g, ' ')
+		.replace(/&(?!amp;)[a-z]+;|&#\d+;/g, ' ')
+		// `&amp;` LAST, so `&amp;lt;` decodes once, to the text `&lt;`, and never on to `<`.
+		.replace(/&amp;/g, '&')
 		.split('\n')
 		.map((l) => l.replace(/\s+/g, ' ').trim().toLowerCase())
 		.filter(Boolean);

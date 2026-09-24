@@ -49,7 +49,6 @@ import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playgroun
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
-import { pickSplitPage } from './split-page-pick';
 import { createThemeFetcher } from './theme-fetch';
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
@@ -1617,8 +1616,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						const pages = sectionsOf(r.html);
 						const prev = splitPageByHost.get(host);
 						const current = prev && prev.slide === opts.slideIndex && prev.deck === (opts.deckId ?? '') ? prev.page : 0;
-						const k = pickSplitPage(pages, opts.caretText, current);
-						const narrowed = narrowToSlide(r.html, k, pages.length);
+						// Loaded on the first split slide, not with the route: most decks are landscape and
+						// never split, and the Studio's eager bundle is budgeted (docs/route-budget.json).
+						// A failed fetch (offline, or a deploy that rotated the chunk) keeps the whole slide.
+						const pick = await import('./split-page-pick').then((m) => m.pickSplitPage).catch(() => null);
+						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+						const k = pick ? pick(pages, opts.caretText, current) : 0;
+						const narrowed = pick ? narrowToSlide(r.html, k, pages.length) : null;
 						if (narrowed !== null) {
 							out.html = narrowed;
 							splitPageByHost.set(host, { deck: opts.deckId ?? '', slide: opts.slideIndex, page: k });

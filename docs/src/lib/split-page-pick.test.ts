@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { caretProbe, pickSplitPage } from './split-page-pick';
+import { caretProbe, pageLines, pickSplitPage } from './split-page-pick';
 
 // A split run as the engine emits it: the cover hoists the masthead, each body page repeats the
 // heading with "(cont.)" and carries one row, and the last row's page carries the insight.
@@ -20,6 +20,15 @@ describe('caretProbe', () => {
 		expect(caretProbe('## Four levers moved the quarter.')).toBe('four levers moved the quarter.');
 		expect(caretProbe('> Fund the supplier shift first')).toBe('fund the supplier shift first');
 		expect(caretProbe('1. [x] Done item')).toBe('done item');
+	});
+});
+
+describe('pageLines', () => {
+	it('decodes each entity once: `&amp;lt;` is the text `&lt;`, never a `<`', () => {
+		expect(pageLines('<p>a &amp;lt;b&amp;gt; &amp; c &lt;d&gt;</p>')).toEqual(['a &lt;b&gt; & c <d>']);
+	});
+	it('leaves no tag fragment behind, even from a tag the strip cannot close', () => {
+		for (const l of pageLines('<p>x</p><scr<script>ipt>y<p>z <b')) expect(l).not.toMatch(/<[a-z!/]/i);
 	});
 });
 
