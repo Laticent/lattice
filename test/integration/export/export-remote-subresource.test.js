@@ -207,6 +207,42 @@ theme: indaco
 		assert.deepEqual(await rasterHits(['--allow-remote']), ['/bg.png', '/plain.png'], 'the opt-out does not reach the render, or the probe cannot see a fetch');
 	});
 
+	// WEBRTC, the traffic a proxy never sees. A deck's script can open an RTCPeerConnection whose
+	// ICE gathering sends STUN over UDP straight past an http proxy. The render's browsers carry
+	// Chromium's WebRTC policy that keeps it to proxied traffic (lib/core/offline-chromium.js);
+	// a UDP listener on loopback is the oracle, and --allow-remote is the control.
+	async function stunHits(args) {
+		const dgram = require('node:dgram');
+		const sock = dgram.createSocket('udp4');
+		const hits = [];
+		sock.on('message', (msg) => hits.push(msg.length));
+		await new Promise((res) => sock.bind(0, '127.0.0.1', res));
+		const { port } = sock.address();
+		try {
+			const deck = path.join(dir, 'stun.md');
+			fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# Stun\n\n<script>\nconst pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:127.0.0.1:${port}' }] });\npc.createDataChannel('x'); pc.createOffer().then((o) => pc.setLocalDescription(o));\nwindow.__pc = pc;\n</script>\n`);
+			const r = await new Promise((res, rej) => {
+				const child = spawn(process.execPath, [EMULATOR, deck, path.join(dir, 'stun.pdf'), '--quiet', ...args], { cwd: ROOT, env: { ...process.env } });
+				let stderr = '';
+				child.stderr.on('data', (b) => { stderr += b; });
+				child.on('error', rej);
+				child.on('close', (status) => res({ status, stderr }));
+			});
+			assert.equal(r.status, 0, `emulator failed on the STUN deck: ${r.stderr}`);
+			return hits.length;
+		} finally {
+			sock.close();
+		}
+	}
+
+	test('a deck script cannot reach the network over WebRTC by default', { timeout: TIMEOUT }, async () => {
+		assert.equal(await stunHits([]), 0, 'a STUN packet left the render — the WebRTC policy is missing from the launch arguments');
+	});
+
+	test('CONTROL — with --allow-remote the same script does send STUN', { timeout: TIMEOUT }, async () => {
+		assert.ok((await stunHits(['--allow-remote'])) > 0, 'the probe cannot see a STUN packet, so the arm above is vacuous');
+	});
+
 	// THE FAILURE PATH, EXECUTED — not argued.
 	//
 	// The skip that spares the player is a FLAG set where the player is actually written, and

@@ -614,6 +614,13 @@ it is the record of what was wrong.
     also renders the gallery AS INSERTED, and reads the front-matter block with the Mermaid
     allowlist plus a refusal of any `style:` line. All 71 shipped component galleries open
     with front matter (`marp`, `theme`, `paginate`, `header`) and pass.
+  - **Scripts, the sixth pass.** A review of the render containment found that a deck script
+    could still send WebRTC UDP and a DNS lookup past the proxy (fixed there), and that the
+    gate never read `<script>` at all. The gate now refuses an inline `<script>`, a `data:` or
+    `javascript:` script source, any `on…=` event handler and any `javascript:` URL. An empty
+    script loaded by a relative path stays legal: the shipped diagram gallery loads the
+    vendored Mermaid that way, and a package cannot supply such a file, since any script file
+    makes it a code package.
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked

@@ -136,8 +136,10 @@ remove`; `lattice packages --help` prints the usage;
 
 **The render is kept off the network.** Every browser the CLI starts to render a deck — the
 main render behind pdf/pptx/png/imageset, the CSS-prune pass and the Mermaid worker — launches
-behind a dead proxy (`lib/core/offline-chromium.js`), so a remote image, media file, font,
-stylesheet or script in the deck fetches nothing and a remote image renders as the browser's
+behind a dead proxy, with WebRTC kept to proxied traffic and every host name failing to
+resolve (`lib/core/offline-chromium.js`). So a remote image, media file, font, stylesheet or
+script fetch in the deck reaches nothing, a deck script's WebRTC sends no UDP, no DNS query
+leaves, and a remote image renders as the browser's
 broken-image mark with its alt text, as it already does in the Studio preview and the `.html`
 export. Local files, `data:` URIs and the bundled Mermaid, KaTeX and fonts are untouched:
 the data-viz gallery renders byte-identical PDFs either way, light and dark. `--allow-remote`

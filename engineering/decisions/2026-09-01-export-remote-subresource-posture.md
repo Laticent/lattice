@@ -24,10 +24,13 @@ summary: >
 > they never chose. The package gallery gate refuses that on import, but five independent
 > reviews found a bypass in it each time, and every one reached the network through exactly
 > this surface — the CLI's raster render, the only one without containment. So every browser
-> the CLI starts to render a deck now launches off the network (`lib/core/offline-chromium.js`,
-> a dead proxy with loopback included, which refuses stylesheet and script fetches as well as
-> the `img-src`/`media-src`/`font-src` this note's CSP covers), and `--allow-remote` restores
-> the old behavior per render. Chosen by the owner after the cost was put to them: none of the
+> the CLI starts to render a deck now launches off the network (`lib/core/offline-chromium.js`):
+> a dead proxy with loopback included refuses web and WebSocket requests, stylesheet and script
+> fetches among them (this note's CSP covers only `img-src`/`media-src`/`font-src`); a WebRTC
+> policy stops the UDP a proxy never sees; and a resolver rule fails every host name, so no DNS
+> query leaves. A sixth review found the WebRTC route with a deck script and a STUN server
+> (UDP packets and a DNS lookup in a default render), which is why the second and third are
+> there. `--allow-remote` restores the old behavior per render. Chosen by the owner after the cost was put to them: none of the
 > 305 tracked decks, galleries and baselines loads a remote resource, and the data-viz gallery
 > renders byte-identical PDFs either way in light and dark; the visible change is a remote
 > image in an author's own deck showing the broken-image mark in the PDF, as it already did in

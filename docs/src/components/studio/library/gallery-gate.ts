@@ -39,7 +39,7 @@ function* elements(root: ParentNode): Generator<{ tag: string; attrs: [string, s
 		yield {
 			tag: el.localName.toLowerCase(),
 			attrs: [...el.attributes].map((a) => [a.name.toLowerCase(), a.value] as [string, string]),
-			text: el.localName === 'style' || /mermaid/i.test(el.getAttribute('class') || '') ? el.textContent || '' : '',
+			text: el.localName === 'style' || el.localName === 'script' || /mermaid/i.test(el.getAttribute('class') || '') ? el.textContent || '' : '',
 		};
 		if (el instanceof HTMLTemplateElement) yield* elements(el.content);
 	}
