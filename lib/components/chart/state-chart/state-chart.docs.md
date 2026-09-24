@@ -8,7 +8,7 @@
 
 **Tags** `flowchart` · `states` · `workflow`
 
-Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the ordinal is painted in the node's corner. It is also the READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is re-ranked by dagre, because no single line can show a fan-out — the states would read as a sequence.
+Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the ordinal is painted in the node's corner (on `inline`, in a leading column). It is also the READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is re-ranked by dagre, because no single line can show a fan-out — the states would read as a sequence.
 
 ## Agent contract
 

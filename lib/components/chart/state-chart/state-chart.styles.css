@@ -256,7 +256,10 @@ section.state-chart .state-node {
   align-items: center;
   gap: var(--sp-sm);
   max-width: 25cqi;
-  padding: 0.78125cqi 1.25cqi;
+  /* The side padding clears the ordinal. At the chart-text floor it sits a
+   * rx-sized inset from the corner, and a 1.25cqi side left the name's last
+   * letter under it, reading as a superscript ("Draft¹"). */
+  padding: 0.78125cqi 1.5625cqi;
   /* THE CANONICAL CHART FILL (chart-family.css). A status re-points --fill-hue
    * and --fill-ink through the status table below; with none, the node is the
    * family's quiet neutral tile, and it carries no leading accent. */
@@ -296,6 +299,13 @@ section.state-chart .state-node .state-index {
   font-variant-numeric: tabular-nums;
   color: var(--state-index-ink);
   pointer-events: none;
+}
+
+/* The inline row's neutral tile, at zero added specificity so the status table
+ * below re-points it. */
+section.state-chart :where(.state-node-row) {
+  --fill-hue: var(--muted-mark);
+  --fill-ink: var(--diagram-stroke);
 }
 
 /* ── THE STATUS TABLE — one table for every mark that shows a status ────────
@@ -585,35 +595,41 @@ section.state-chart.horizontal .state-chart-scale {
   width: max-content;
 }
 
+/* THE CARD LIST IS A TABLE: numeral | name | transitions. Every row is a SUBGRID
+ * of one three-column grid, so the three columns line up down the whole list —
+ * the names start at one x, the chips start at one x, the numerals sit in one
+ * right-aligned column. It used to be a flex row per card with the chips pushed
+ * right by `space-between`: a row with three chips started them after the name
+ * and a row with one floated it to the far edge, so no two rows agreed. The
+ * numeral used to be pinned into the top-right corner at 2px from the edge; a
+ * list reads its ordinal first, and the `→ 2` on a chip cites that column. */
 section.state-chart.inline .state-rows,
 section.state-chart.horizontal .state-rows {
   list-style: none;
   margin: 0;
-  /* Row spacing lives on the container as flex gap + edge padding (was a
-   * per-row margin: 0.3125cqi 0; margins collapse outside the flex box and
-   * break virtual-list scrollHeight measurement). Adjacent rows' collapsed
-   * margin was 0.3125cqi → gap; the first/last outer margin → padding. */
-  display: flex;
-  flex-direction: column;
-  gap: 0.3125cqi;
-  padding: 0.3125cqi 0;
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  column-gap: var(--sp-md);
+  /* A card's gap is a third of its vertical padding — close enough that the list
+   * reads as one machine, open enough that each card reads as a card. The old
+   * 0.3125cqi (4px) put the tiles edge to edge and the end state's ring touched
+   * the card above it. */
+  row-gap: var(--sp-sm);
+  padding: var(--sp-xs) 0;
 }
 
 section.state-chart.inline .state-node-row,
 section.state-chart.horizontal .state-node-row {
   position: relative;
-  display: flex;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
   align-items: center;
-  /* Right-anchor the transitions cluster via space-between (was margin-left:auto
-   * on .state-transitions — auto margins sit outside the flex content box). The
-   * label is the left child, the transitions the right; the index is absolute. */
-  justify-content: space-between;
-  gap: var(--sp-sm);
   padding: var(--sp-sm) var(--sp-md);
-  /* Row spacing is the container's flex gap now (was margin: 0.3125cqi 0). */
-  /* Same canonical tile as the SVG-variant nodes above. */
-  --fill-hue: var(--muted-mark);
-  --fill-ink: var(--diagram-stroke);
+  /* Same canonical tile as the SVG-variant nodes above. The neutral defaults sit
+   * in a `:where()` rule below, NOT here: at this rule's specificity they beat the
+   * status table (same weight, later in the file), so a `live` row painted as a
+   * plain tile while its legend chip was green. */
   background: linear-gradient(180deg,
     light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
                color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
@@ -625,20 +641,42 @@ section.state-chart.horizontal .state-node-row {
 }
 /* Rows take the status table above like the default variant's nodes. */
 
+/* The row's own `border` shorthand above resets the status accent the shared
+ * rule set, so the card list restates it. */
+section.state-chart.inline .state-node-row[data-s],
+section.state-chart.horizontal .state-node-row[data-s] {
+  border-left: var(--chart-fill-accent) solid var(--fill-ink);
+}
+
+/* A deferred card is hollow and dashed, like the SVG tile and the legend chip. */
+section.state-chart.inline .state-node-row[data-s="deferred"],
+section.state-chart.horizontal .state-node-row[data-s="deferred"] {
+  background: color-mix(in oklab, var(--muted-mark) 18%, var(--bg));
+  border-style: dashed;
+  border-left-style: solid;
+}
+
 section.state-chart.inline .state-node-row[data-kind="start"],
 section.state-chart.horizontal .state-node-row[data-kind="start"] {
   border-width: max(var(--chart-hairline), 0.15625cqi);
 }
 
-section.state-chart.inline .state-node-row[data-kind="terminal"],
-section.state-chart.horizontal .state-node-row[data-kind="terminal"] {
-  outline: 0.1171875cqi solid var(--state-node-stroke);
-  outline-offset: 0.15625cqi;
+/* The end state's double ring is drawn INSIDE the card. As an outline it stood
+ * 0.27cqi proud of the list on every side, so the last card was wider than the
+ * rest and the column's edges broke on the one row that ends the machine. */
+section.state-chart.inline .state-node-row[data-kind="terminal"]::after,
+section.state-chart.horizontal .state-node-row[data-kind="terminal"]::after {
+  content: "";
+  position: absolute;
+  inset: 0.234375cqi;
+  border: 0.1171875cqi solid var(--state-node-stroke);
+  border-radius: max(0px, calc(var(--chart-mark-radius) - 0.234375cqi));
+  pointer-events: none;
 }
 
 section.state-chart.inline .state-node-row .state-label,
 section.state-chart.horizontal .state-node-row .state-label {
-  flex: 0 0 auto;
+  grid-column: 2;
   font-weight: 500;
 }
 
@@ -652,10 +690,12 @@ section.state-chart.horizontal .state-node-row .state-label {
  * to it, so it has to survive the shrink that its own labels survive. */
 section.state-chart.inline .state-node-row .state-index,
 section.state-chart.horizontal .state-node-row .state-index {
-  position: absolute;
-  top: 0.15625cqi;
-  right: 0.46875cqi;
-  font-size: 0.875cqi; /* cqi-ok: index numeral inside a cqi-sized state node */
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  position: static;
+  font-size: max(var(--chart-text-min), 0.9375cqi); /* cqi-ok: index numeral inside a cqi-sized state node */
+  font-variant-numeric: tabular-nums;
   color: var(--state-index-ink);
 }
 
@@ -670,17 +710,24 @@ section.state-chart .state-chart-figure[data-variant="inline"][data-sc-dir="lr"]
   padding: var(--sp-sm) 0;
 }
 
+/* A row of cards has no shared columns to line up, so each card lays its own
+ * three parts out in a line again. */
 section.state-chart .state-chart-figure[data-variant="inline"][data-sc-dir="lr"] .state-node-row {
   flex: 0 0 auto;
   min-width: 10.9375cqi;
+  display: flex;
+  gap: var(--sp-sm);
+}
+section.state-chart .state-chart-figure[data-variant="inline"][data-sc-dir="lr"] .state-node-row .state-index {
+  order: -1;
 }
 
 section.state-chart.inline .state-transitions,
 section.state-chart.horizontal .state-transitions {
+  grid-column: 3;
   display: inline-flex;
   flex-wrap: wrap;
   gap: var(--sp-xs);
-  /* Right-anchored by the row's justify-content:space-between (was margin-left:auto). */
   align-items: center;
 }
 

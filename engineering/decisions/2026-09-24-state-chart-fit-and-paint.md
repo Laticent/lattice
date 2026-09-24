@@ -53,8 +53,8 @@ carried no information and is exactly what gantt removed from its unstated bars
   stops are the family's AA-vetted recipe for text on a status tint. The tool now
   scores the name and ordinal on each status tile, pinned to the CSS.
 - The ordinal is a quiet numeral on every node, taking the name's ink on a status
-  tile (at `--text-body` it measured as low as 3.2:1 there), and floored at the
-  legibility floor after the letterbox (below).
+  tile (at `--text-body` it measured as low as 3.2:1 there), and set at the chart's
+  text floor after the letterbox (below).
 
 ## 3. Layout: fit-driven direction, reading-order wrap
 
@@ -136,9 +136,27 @@ wins over the max-width when they disagree.
 below 1, and the ordinal went to 5.8px — the export's TYPE FLOOR warning named five
 slides of the feature deck. A CSS floor on the counter-scaled `--chart-text-min`
 fixed that and, at a low k, pushed the numeral out of its tile (the red team: 30 of
-30 outside at k = 0.32). The pass now sizes it itself — at least the legibility
-floor at the chosen layout's k, at most a third of the tile's height — and anchors
+30 outside at k = 0.32). The pass now sizes it itself — the chart's text floor on screen at the chosen
+layout's k, at most 30% of the tile's height — and anchors
 it to the tile's corner rather than to the 9px HTML slot.
+
+**The ordinal's size, after review.** The owner found the numeral small and crammed
+into the corner. Two floors exist: the engine's hard floor (1% of slide height, 7.2px at
+720, the export's TYPE FLOOR line) and the chart family's text floor (`--chart-text-min`,
+11px at 1280, what every edge label paints at). The numeral had been sized just above the
+first, and read as a speck. It now takes the second, on screen after the letterbox, with
+one inset on both axes measured to the digit's ink. The node's side padding grew from
+1.25cqi to 1.5625cqi so the name's last letter does not sit under it.
+
+**The `inline` card list is one table.** Each card is a subgrid row of a three-column
+grid: numeral, name, transitions. The flex rows it replaced pushed the chips right with
+`space-between`, so a card with three chips started them after the name and a card with
+one floated it to the far edge. Three other defects came out in the same look: the row's
+neutral `--fill-hue` sat at the status table's specificity and later in the file, so a
+status never tinted a card; the row's `border` shorthand reset the status accent; and the
+end state's outline ring made the last card wider than the rest. The neutral default now
+sits in a `:where()` rule, the card restates its accent, and the ring is an inset
+`::after`. In `lr` the cards run in a row and lay their parts out in a line again.
 
 ## 4. What the adversarial trio found, and what changed
 
