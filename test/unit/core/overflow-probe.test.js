@@ -333,6 +333,22 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
     });
   });
 
+  test('an UNRENDERED figure is skipped, not measured at scale 1 (Anima hides the poster)', () => {
+    withStubbedStyle(() => {
+      // The in-place chart motion pair: the poster SVG hidden with `display: none` (no client
+      // rects, a 0x0 box) and the live clone drawn beside it at full size. Before the skip, the
+      // poster's 0x0 box left scale at 1 and its 7-unit labels read as 7px — under the floor.
+      const hidden = { ...svg({ boxW: 0, boxH: 0, texts: [text(7)] }), getClientRects: () => [] };
+      const live = { ...svg({ boxW: 900, boxH: 900, texts: [text(7)] }), getClientRects: () => [{}] };
+      const r = probeFigureLegibility(section([hidden, live]), floorAt(8));
+      assert.equal(r.count, 1, 'only the rendered clone is measured');
+      assert.equal(r.minPx, 21);
+      assert.equal(r.under, false);
+      // Only a hidden figure → nothing to judge, the same null as no figure at all.
+      assert.equal(probeFigureLegibility(section([hidden]), floorAt(8)), null);
+    });
+  });
+
   test('nothing to judge → null (never a false "legible")', () => {
     withStubbedStyle(() => {
       assert.equal(probeFigureLegibility(section([]), floorAt(8)), null, 'no figure');
