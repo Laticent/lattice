@@ -2134,21 +2134,21 @@ describe('lint-core: `--fix` migrates a moved empty box, and only where the mean
     // The first `[!]` makes the slide read as six-marker and silences the rule, so a
     // line-at-a-time fix would stop after one line and leave the slide half-migrated.
     const out = fixed(FM + slide('verdict-grid', '- Vendor\n  - [x] Speed\n  - [ ] Audit\n  - [ ] Cost\n  - Why.'));
-    assert.match(out, /  - \[!\] Audit\n  - \[!\] Cost/);
-    assert.match(out, /  - \[x\] Speed/);
+    assert.match(out, / {2}- \[!\] Audit\n {2}- \[!\] Cost/);
+    assert.match(out, / {2}- \[x\] Speed/);
   });
 
   test('rewrites pricing, and leaves a checklist on the same deck alone', () => {
     const src = FM + slide('pricing', '- Pro\n  - [ ] Audit\n  - Why.') + '\n---\n\n' + slide('checklist', '- [ ] Todo');
     const out = fixed(src);
-    assert.match(out, /  - \[!\] Audit/);
+    assert.match(out, / {2}- \[!\] Audit/);
     assert.match(out, /- \[ \] Todo/);
   });
 
   test('never rewrites a fenced example on the same slide', () => {
     const out = fixed(FM + slide('verdict-grid', '```markdown\n- V\n  - [ ] Quoted\n```\n\n- Vendor\n  - [ ] Audit'));
-    assert.match(out, /  - \[ \] Quoted/);
-    assert.match(out, /  - \[!\] Audit/);
+    assert.match(out, / {2}- \[ \] Quoted/);
+    assert.match(out, / {2}- \[!\] Audit/);
   });
 
   test('never touches obligation-matrix: its `[ ]` has three honest readings', () => {
@@ -2166,7 +2166,7 @@ describe('lint-core: `--fix` migrates a moved empty box, and only where the mean
     fs.writeFileSync(file, FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.'));
     const r = spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
     assert.match(r.stderr, /lint:deck --fix — rewrote/);
-    assert.match(fs.readFileSync(file, 'utf8'), /  - \[!\] B/);
+    assert.match(fs.readFileSync(file, 'utf8'), / {2}- \[!\] B/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

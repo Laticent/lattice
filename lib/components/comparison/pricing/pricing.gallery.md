@@ -22,8 +22,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 - Starter `$0`
   - [x] The checklist rows compare
+  - [-] A dash marks a capped limit
   - [/] Slashed rows mean not included
-  - [/] Same rows on every tier
   - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent
@@ -130,8 +130,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 - Starter `$0`
   - [x] The checklist rows compare
+  - [-] A dash marks a capped limit
   - [/] Slashed rows mean not included
-  - [/] Same rows on every tier
   - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent
@@ -154,8 +154,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 - Starter `$0`
   - [x] The checklist rows compare
+  - [-] A dash marks a capped limit
   - [/] Slashed rows mean not included
-  - [/] Same rows on every tier
   - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent

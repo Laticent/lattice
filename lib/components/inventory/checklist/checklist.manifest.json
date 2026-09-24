@@ -44,7 +44,7 @@
     "process",
     "requirements"
   ],
-  "description": "Items with state markers — done, partial, todo.",
+  "description": "Items with state markers — done, partial, failed, unknown, to do, skipped.",
   "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[!]/[?]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / cross / question / ring / slash — so the shape reads independently of color (color-blind-safe).",
   "slots": {
     "title": {
@@ -58,12 +58,12 @@
       "description": "Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] out of scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag."
     }
   },
-  "skeleton": "<!-- _class: checklist -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [ ] Fourth item that is not yet started.\n",
+  "skeleton": "<!-- _class: checklist -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [!] Fourth item that was checked and failed.\n- [?] Fifth item nobody can settle yet.\n- [ ] Sixth item that is not yet started.\n",
   "anatomyBlock": "checklist",
-  "sample": "<!-- _class: checklist -->\n\n## The checklist tracks readiness in four states.\n\n- [x] Done rows take a solid check\n- [x] Keep each line under ten words\n- [-] Half-done rows show the dash\n- [ ] Open rows stay empty boxes\n- [/] Descoped rows get the slash\n- [ ] Eight rows is the soft ceiling\n",
+  "sample": "<!-- _class: checklist -->\n\n## The checklist tracks readiness in six answers.\n\n- [x] Done rows take a solid check\n- [-] Half-done rows show the dash\n- [!] Failed rows take the red cross\n- [?] Unsettled rows ring a question mark\n- [ ] Open rows stay an empty ring\n- [/] Descoped rows get the slash\n",
   "stressDoc": {
-    "summary": "Nine rows, all four states — the ceiling.",
-    "sample": "<!-- _class: checklist -->\n\n## Nine rows is where the checklist overflows.\n\n- [x] The first rows land while attention is fresh\n- [x] Sixteen words is the budget a stress row may spend\n- [x] Three checks in a row read as momentum\n- [-] A dash admits the honest middle state\n- [-] Two dashes together flag where the risk lives\n- [ ] Open boxes pull the eye forward\n- [ ] Late rows stay short; the audience is counting now\n- [/] The slash records what was cut, visibly\n- [x] Nine is the last row this layout seats\n"
+    "summary": "Nine rows, all six answers — the ceiling.",
+    "sample": "<!-- _class: checklist -->\n\n## Nine rows is where the checklist overflows.\n\n- [x] The first rows land while attention is fresh\n- [x] Sixteen words is the budget a stress row may spend\n- [x] Three checks in a row read as momentum\n- [-] A dash admits the honest middle state\n- [!] A red cross marks the check that failed\n- [?] A ringed question admits what is unknown\n- [ ] Late rows stay short; the audience is counting now\n- [/] The slash records what was cut, visibly\n- [x] Nine is the last row this layout seats\n"
   },
   "whenToUse": [
     {

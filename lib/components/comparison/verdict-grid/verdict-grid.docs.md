@@ -56,7 +56,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 - **Second option.**
   - [x] First badge
   - [x] Second badge
-  - [-] Third badge
+  - [?] Third badge
   - One-line rationale giving the verdict for this option.
 - **Third option.**
   - [x] First badge

@@ -116,7 +116,7 @@
   },
   "skeleton": "<!-- _class: roadmap -->\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nThe key under the grid names each marker the cells carry.\n",
   "anatomyBlock": "roadmap",
-  "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |\n| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |\n",
+  "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |\n| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |\n",
   "stressDoc": {
     "summary": "Four phases — the ceiling, and what portrait paginates.",
     "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Three workstreams by four phases.\n\n| Workstream | Phase one | Phase two | Phase three | Phase four |\n| --- | --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned | [ ] The last one |\n| Second | [x] Every cell filled | [-] No blanks | [ ] The honest grid | [ ] Four words max |\n| Third | [x] Short labels | [-] Four words max | [ ] Or it wraps | [ ] The ceiling |\n"
@@ -184,7 +184,7 @@
     "status": {
       "label": "status",
       "summary": "Delivery state at a glance.",
-      "sample": "<!-- _class: roadmap status -->\n\n`Layout · roadmap status`\n\n## status reads delivery state at a glance.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |\n| ------------- | -------------------- | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |\n| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |\n| Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |\n"
+      "sample": "<!-- _class: roadmap status -->\n\n`Layout · roadmap status`\n\n## status reads delivery state at a glance.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |\n| ------------- | -------------------- | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [?] Auto-routing |\n| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |\n| Decision Log  | [x] Append schema    | [!] Outcome pairing      | [ ] Auditor export        |\n"
     },
     "swimlane": {
       "label": "swimlane",

@@ -1,6 +1,6 @@
 # checklist
 
-> Items with state markers — done, partial, todo.
+> Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 **Function** inventory · **Form** stack · **Substance** structure
 
@@ -48,7 +48,9 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 - [x] First item that is fully done.
 - [x] Second item that is fully done.
 - [-] Third item that is partially complete with a caveat.
-- [ ] Fourth item that is not yet started.
+- [!] Fourth item that was checked and failed.
+- [?] Fifth item nobody can settle yet.
+- [ ] Sixth item that is not yet started.
 ```
 
 ## Anatomy

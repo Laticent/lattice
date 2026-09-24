@@ -34,7 +34,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 | Workstream | Q1 plan | Q2 plan | Status |
 | --- | --- | --- | --- |
 | Search | [x] Relevance | [x] Typeahead | [x] On plan |
-| Billing | [x] Usage plans | [-] Invoicing v2 | [-] Slipped to Q3 |
+| Billing | [x] Usage plans | [-] Invoicing v2 | [!] Slipped to Q3 |
 | Mobile | [x] iOS parity | [x] Push | [x] On plan |
 | Reporting | [x] Dashboards | [/] Scheduled export | [/] Cut from H1 |
 

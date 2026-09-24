@@ -11,28 +11,28 @@ header: "Lattice · checklist"
 
 `Inventory · Stack · Structure`
 
-Items with state markers — done, partial, todo.
+Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
 <!-- _class: checklist -->
 <!-- _footer: "Default · checklist" -->
 
-## The checklist tracks readiness in four states.
+## The checklist tracks readiness in six answers.
 
 - [x] Done rows take a solid check
-- [x] Keep each line under ten words
 - [-] Half-done rows show the dash
-- [ ] Open rows stay empty boxes
+- [!] Failed rows take the red cross
+- [?] Unsettled rows ring a question mark
+- [ ] Open rows stay an empty ring
 - [/] Descoped rows get the slash
-- [ ] Eight rows is the soft ceiling
 
 
 ---
 
 <!-- _class: checklist -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · checklist — Nine rows, all four states — the ceiling." -->
+<!-- _footer: "Stress test · checklist — Nine rows, all six answers — the ceiling." -->
 
 ## Nine rows is where the checklist overflows.
 
@@ -40,8 +40,8 @@ Items with state markers — done, partial, todo.
 - [x] Sixteen words is the budget a stress row may spend
 - [x] Three checks in a row read as momentum
 - [-] A dash admits the honest middle state
-- [-] Two dashes together flag where the risk lives
-- [ ] Open boxes pull the eye forward
+- [!] A red cross marks the check that failed
+- [?] A ringed question admits what is unknown
 - [ ] Late rows stay short; the audience is counting now
 - [/] The slash records what was cut, visibly
 - [x] Nine is the last row this layout seats
@@ -52,14 +52,14 @@ Items with state markers — done, partial, todo.
 <!-- _class: checklist dark -->
 <!-- _footer: "Composition: dark · checklist dark" -->
 
-## The checklist tracks readiness in four states.
+## The checklist tracks readiness in six answers.
 
 - [x] Done rows take a solid check
-- [x] Keep each line under ten words
 - [-] Half-done rows show the dash
-- [ ] Open rows stay empty boxes
+- [!] Failed rows take the red cross
+- [?] Unsettled rows ring a question mark
+- [ ] Open rows stay an empty ring
 - [/] Descoped rows get the slash
-- [ ] Eight rows is the soft ceiling
 
 
 ---
@@ -67,14 +67,14 @@ Items with state markers — done, partial, todo.
 <!-- _class: checklist compact -->
 <!-- _footer: "Composition: compact · checklist compact" -->
 
-## The checklist tracks readiness in four states.
+## The checklist tracks readiness in six answers.
 
 - [x] Done rows take a solid check
-- [x] Keep each line under ten words
 - [-] Half-done rows show the dash
-- [ ] Open rows stay empty boxes
+- [!] Failed rows take the red cross
+- [?] Unsettled rows ring a question mark
+- [ ] Open rows stay an empty ring
 - [/] Descoped rows get the slash
-- [ ] Eight rows is the soft ceiling
 
 
 ---
@@ -82,14 +82,14 @@ Items with state markers — done, partial, todo.
 <!-- _class: checklist accent -->
 <!-- _footer: "Composition: accent · checklist accent" -->
 
-## The checklist tracks readiness in four states.
+## The checklist tracks readiness in six answers.
 
 - [x] Done rows take a solid check
-- [x] Keep each line under ten words
 - [-] Half-done rows show the dash
-- [ ] Open rows stay empty boxes
+- [!] Failed rows take the red cross
+- [?] Unsettled rows ring a question mark
+- [ ] Open rows stay an empty ring
 - [/] Descoped rows get the slash
-- [ ] Eight rows is the soft ceiling
 
 
 ---

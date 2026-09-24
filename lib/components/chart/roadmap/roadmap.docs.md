@@ -113,9 +113,9 @@ Delivery state at a glance.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |
+| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [?] Auto-routing |
 | Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |
-| Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |
+| Decision Log  | [x] Append schema    | [!] Outcome pairing      | [ ] Auditor export        |
 ```
 
 ### `swimlane` — swimlane

@@ -72,14 +72,14 @@ Inventory — parallel sets of related items.
 <!-- _class: checklist -->
 <!-- _footer: "checklist · inventory survey" -->
 
-## The checklist tracks readiness in four states.
+## The checklist tracks readiness in six answers.
 
 - [x] Done rows take a solid check
-- [x] Keep each line under ten words
 - [-] Half-done rows show the dash
-- [ ] Open rows stay empty boxes
+- [!] Failed rows take the red cross
+- [?] Unsettled rows ring a question mark
+- [ ] Open rows stay an empty ring
 - [/] Descoped rows get the slash
-- [ ] Eight rows is the soft ceiling
 
 ---
 

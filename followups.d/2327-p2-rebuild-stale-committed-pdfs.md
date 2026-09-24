@@ -12,14 +12,19 @@ a render from the branch tip WITHOUT #2327's changes already differed from the c
 PDF, so the drift came from earlier merges, not from #2327. #2327 left them as committed so
 its diff carries only its own pixel changes.
 
+Four more had the same older drift but also carried a #2327 change, so #2327 rebuilt them
+and they now show both: `examples/debug.pdf`, `examples/social-grid.pdf`,
+`exemplars/general-team/roadmap-review.pdf` (its page 6 timeline rings are the older drift;
+page 3 is #2327's), and `examples/data-viz-gallery.{light,dark}.pdf` (the heatmap page is
+the older drift from #2319; the roadmap page is #2327's). They are off this list.
+
 ```text
   P2 · Rebuild the stale committed PDFs
        why now   — the goldens a reviewer compares against no longer show what the
                    engine renders, so a real regression on these pages is harder to see.
-       where     — examples/debug.pdf, examples/portrait-roadmap.pdf, examples/social-grid.pdf,
-                   exemplars/general-team/{project-kickoff,project-status,roadmap-review,status-update}.pdf
-                   (a timeline's status rings changed color), examples/data-viz-gallery.{light,dark}.pdf
-                   (the heatmap and word-cloud pages, after the heatmap transform change in #2319),
+       where     — examples/portrait-roadmap.pdf,
+                   exemplars/general-team/{project-kickoff,project-status,status-update}.pdf
+                   (a timeline's status rings changed color),
                    and kit/Sample-Deck.pdf (marp-cli render; 12 of 13 pages differ from a
                    fresh render, and the decision note 2026-08-11-palette-concat-signoff §7e
                    records that it does not reproduce across environments).

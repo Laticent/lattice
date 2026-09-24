@@ -26,8 +26,8 @@ Options scored against criteria as a verdict matrix.
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
@@ -77,8 +77,8 @@ Options scored against criteria as a verdict matrix.
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
@@ -98,8 +98,8 @@ Options scored against criteria as a verdict matrix.
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
@@ -119,8 +119,8 @@ Options scored against criteria as a verdict matrix.
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
