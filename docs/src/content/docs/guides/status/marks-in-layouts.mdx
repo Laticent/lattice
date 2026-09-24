@@ -1,0 +1,213 @@
+---
+title: Marks in layouts
+description: Which layouts draw state marks, the words each one uses for the six answers, how to rename those words with a label set, and the modifiers that change how marks look.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+
+export const LAB_LABELSET = `<!-- _class: obligation-matrix -->
+
+## Which obligations reach which regime.
+
+\`[{[x], In force}, {[/], Not subject}]\`
+
+| Regulation | Reporting | Audit | Localization |
+| ---------- | :-------: | :---: | :----------: |
+| EU         | [x]       | [x]   | [-]          |
+| UK         | [x]       | [-]   | [/]          |
+| US         | [?]       | [/]   | [ ]          |
+`;
+
+export const LAB_HEAT = `<!-- _class: obligation-matrix heat -->
+
+## Where the exposure sits.
+
+| Regulation | Reporting | Audit | Localization |
+| ---------- | :-------: | :---: | :----------: |
+| EU         | [x]       | [x]   | [-]          |
+| UK         | [x]       | [-]   | [/]          |
+| US         | [!]       | [/]   | [ ]          |
+`;
+
+A marker means the same answer everywhere (see
+[The six answers](/guides/status/answers/)). What a layout adds is the
+**words**: a roadmap says *shipped* where a pricing table says *included*. This
+page lists which layouts read markers, the words each one uses, and the three
+switches that change how marks look.
+
+## Which layouts read markers
+
+The **inline** form, `` `[x]` `` in inline code, works on every slide. The
+**bare** form, a marker at the start of an item or cell, is read by these
+layouts:
+
+| Layout | Where the marker goes | What it draws |
+|---|---|---|
+| `checklist` | Start of each list item | A disc beside the row |
+| `verdict-grid` | Start of each criterion under an option | A badge beside the criterion |
+| `pricing` | Start of each feature under a tier | A badge beside the feature |
+| `obligation-matrix` | Start of a table cell | A disc in the cell, plus a key |
+| `roadmap` | Start of a table cell, before the item | A state on the item, plus a key (except the `status` variant) |
+| Any table, with `state-cells` | Start of a table cell | A disc in the cell |
+
+On any other slide a bare `[!]` at the start of a bullet stays as typed. Use
+the inline form there.
+
+### Tables: turn on `state-cells`
+
+A plain table does not read markers, so a comparison table typed with `✓` and
+`✗` characters is a common sight. Add `state-cells` to the slide's class and
+every cell that starts with a marker draws a disc:
+
+```markdown
+<!-- _class: table state-cells -->
+
+| Criterion | Atlas | Borealis |
+|-----------|-------|----------|
+| SSO       | [x]   | [!]      |
+```
+
+`obligation-matrix` and `roadmap` read cell markers without it.
+
+## Each layout's words
+
+The answer is fixed; the word is the layout's. These are the words a reader
+sees in a key, and hears when the deck is narrated. `checklist`,
+`verdict-grid`, `pricing` and `state-cells` tables draw no key, so for them the
+words are spoken only; your own text beside the mark is what a reader sees.
+The **Universal** row is what an inline mark and a `state-cells` table say.
+
+| Layout | `[x]` | `[-]` | `[!]` | `[?]` | `[ ]` | `[/]` |
+|---|---|---|---|---|---|---|
+| **Universal** | yes | partly | no | unknown | open | does not apply |
+| `checklist` | done | partial | failed | unknown | to do | skipped |
+| `verdict-grid` | yes | partial | no | unknown | not assessed | not applicable |
+| `pricing` | included | limited | missing | ask sales | coming | not included |
+| `obligation-matrix` | Applies | Partial | Not required | Unclear | Undetermined | Exempt |
+| `roadmap` | Shipped | In flight | Missed | Uncertain | Planned | Out of scope |
+
+Two readings deserve a second look:
+
+- **Pricing: `[/]` or `[!]`?** `[/]` "not included" is the calm answer for a
+  tier that does not offer a feature by design. `[!]` "missing" is the red
+  cross, meant for a competitor's column, not your own tiers.
+- **obligation-matrix: `[/]` or `[!]`?** `[/]` "Exempt" means the obligation
+  does not reach this regime. `[!]` "Not required" means it reaches it, but
+  asks nothing.
+
+## Rename the words with a label set
+
+The default words suit the common case, and sometimes they are wrong: a
+legislative roadmap has no *shipped*, and a licensing grid has no *applies*.
+`obligation-matrix` and `roadmap` draw a **key** under the grid, and you can
+rename any entry in it with a **label set**: one inline-code span, alone in its
+own paragraph, above the grid.
+
+```markdown
+`[{[x], In force}, {[/], Not subject}]`
+```
+
+Each pair is `{marker, word}`. Name only the entries you want to change; the
+rest keep their defaults. On `roadmap` the new word reaches the key, the cells
+and the narration. On `obligation-matrix` it renames the key only: the cells
+have no words, and narration still uses the default words.
+
+<CraftLab
+	label="Renaming an obligation-matrix key"
+	kind="none"
+	editMarkdown
+	markdown={LAB_LABELSET}
+	size="short"
+	hint="Add {[?], Under review} to the label set. The key's entry for [?] changes; the ring in the US row does not. The answer is the same — only its name moved."
+/>
+
+Three things to get right:
+
+- **The key is the marker, brackets included.** `{[x], In force}` works.
+  `{applies, In force}` names nothing, and the entry is dropped.
+- **The key lists only the answers the slide uses.** Naming `[?]` on a grid
+  with no `[?]` cell adds nothing.
+- **The rename is the author's word, not a new answer.** Renaming `[!]` to
+  "Pending" puts a red cross beside the word "Pending". Pick the marker for the
+  answer first, then the word.
+
+`lint:deck` and the Studio check every label set against the layout's markers
+and warn about a key that names nothing, a key named twice, or a label set on a
+layout that draws no key.
+
+**Other label sets use the same brackets for something else.** `matrix-grid`,
+`journey` and `heatmap` also take a label set, but they rename a scale or a
+position, not an answer. Each component's reference page covers its own.
+
+## Changing how marks look
+
+Three switches change the drawing, and none of them changes an answer.
+
+### `checks-*` — the disc style
+
+Five styles for the disc, per slide (`<!-- _class: checklist checks-outline -->`)
+or for the whole deck (`class: checks-bold` in front matter):
+
+| Class | Looks like | Reach for it when |
+|---|---|---|
+| *(default)*, `checks-ringed` | Solid disc with a thin darker ring | Almost always |
+| `checks-knockout` | Flat solid disc | You want the cleanest, classic look |
+| `checks-bold` | Larger disc, heavier mark | The deck is read across a room |
+| `checks-outline` | Ring and colored mark, no fill | You want a light, editorial look |
+| `checks-tonal` | Soft tinted fill, ring and colored mark | The background is plain, not tinted |
+
+They reach checklist rows, verdict-grid and pricing badges, table cells and
+inline marks. `roadmap` keeps its own drawing. The two hollow answers stay
+hollow in every style.
+
+### `heat` — when yes is the alarm
+
+On a compliance grid, *applies* is the risk. `heat` flips the colors so the
+reader's eye goes to exposure:
+
+| Answer | Normally | Under `heat` |
+|---|---|---|
+| `[x]` | Green | **Red** — exposure |
+| `[!]` | Red | **Green** — relief |
+| `[-]` | Amber | Amber |
+| `[/]`, `[?]`, `[ ]` | Gray | Gray, unchanged |
+
+<CraftLab
+	label="obligation-matrix read as exposure"
+	kind="none"
+	editMarkdown
+	markdown={LAB_HEAT}
+	size="short"
+	hint="Delete 'heat' from the class line. Every shape stays where it is; only the colors swap back. That is why heat is safe: the shape still says the answer."
+/>
+
+The shapes do not change, so a grayscale print still reads correctly. `heat`
+is made for `obligation-matrix` and `roadmap`. On a verdict-grid or a pricing
+table it makes a red check, which reads as a contradiction; leave it off there.
+
+### `state-cells` — marks in any table
+
+Covered [above](#tables-turn-on-state-cells): it turns a table's leading cell
+markers into discs.
+
+## One layout reads the same brackets differently
+
+`matrix-grid` uses `[x]`, `[-]` and `[ ]` as **positions**, not answers:
+filled (this row's position), reachable, and not applicable. It colors them
+by the row's category rather than by pass or fail, and it does not read `[!]`,
+`[?]` or `[/]`. Everywhere else, a marker is an
+answer.
+
+## In the Studio
+
+- **Compose** has a **Cell state** picker when the cursor is in an
+  `obligation-matrix` or `roadmap` table cell: six buttons, one per answer. On
+  a narrow pane it moves into the table's actions menu.
+- A slide whose list items start with a marker opens in Compose marked
+  **Edit in Markdown**, because the rich editor cannot keep `[!]` and `[?]`
+  intact. Edit that slide in the Markdown pane.
+
+## Next
+
+Marks say an answer. For a label, a category or a free-form status, use a
+pill: [Pills you place](/guides/status/pills/).

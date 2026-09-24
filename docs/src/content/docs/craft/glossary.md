@@ -1,13 +1,13 @@
 ---
 title: Glossary
-description: Every Lattice word this track uses, in one place — including the three that mean different things in different rooms.
+description: Every Lattice word this track uses, in one place — including the four that mean different things in different rooms.
 ---
 
 Look anything up here. Terms are grouped by where you meet them, and the
-three genuine collisions are called out, because each is a word doing more
+four genuine collisions are called out, because each is a word doing more
 than one job.
 
-## The three words that collide
+## The four words that collide
 
 **Canvas** means three different things, and context is the only way to
 tell them apart.
@@ -39,6 +39,18 @@ tell them apart.
 2. **`capacity.axis`** — what a component counts, from a fixed set of five.
 3. **The brand axis** — the two or three anchor colors a theme is built
    from. Informal; not something the engine reads.
+
+**Mark**:
+
+1. **A state mark** — the drawn disc a marker like `[x]` or `[!]` becomes on
+   a slide. This is the authoring meaning, and the one the
+   [Status and labels](/guides/status/) guide uses.
+2. **A finish's third layer** — a placed emblem, like a monogram.
+3. **A `mark-*` treatment** — a class such as `mark-orbit` that adds an accent
+   shape to one slide. A cousin of the finish layer, applied per slide.
+
+The `--mark-*` tokens (`--mark-check`, `--mark-x`) are the drawn shapes inside
+a state mark, so they belong to the first meaning.
 
 ## Themes
 
@@ -78,6 +90,19 @@ tell them apart.
 | **Transform** | Code that rebuilds the markdown into different elements before CSS lays it out. |
 | **Variant** | A modifier that changes a component without replacing it. |
 | **Reflow** | Rearranging for a different page shape, keyed on `data-family`. |
+
+## Status and labels
+
+| Term | What it means |
+|---|---|
+| **Marker** | What you type: `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`. Six of them, one answer each. |
+| **State mark** | What a marker draws: a disc or ring whose shape says the answer. |
+| **Answer** | What a mark means — yes, partly, no, unknown, open, does not apply. The same in every layout. |
+| **Pill** | A small rounded label. `` `{STABLE}:c2` `` places one by hand; some components place one from a word. |
+| **Color slot** | `:c1` … `:c12` on a pill. Numbered, not named: a slot picks a distinct color, never a meaning. |
+| **Status word** | One of ten words — `on-track`, `at-risk`, `blocked` … — that six chart components read and color by meaning. |
+| **Label set** | `` `[{[x], Enacted}]` `` — renames the words a layout's key uses, without changing the answer. |
+| **Key** | The legend a layout draws under its grid, naming each mark the slide uses. |
 
 ## Finishes
 

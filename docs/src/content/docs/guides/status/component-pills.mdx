@@ -1,0 +1,160 @@
+---
+title: Pills a component places
+description: Status words, metadata pills, date pills and automatic pills — where a component reads a pill from the position you write it in, and the mistakes it will not catch for you.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+
+export const LAB_PROGRESS = `<!-- _class: progress -->
+
+## Rollout readiness.
+
+- Adoption \`68%\` \`on-track\`
+- Data migration \`41%\` \`at-risk\`
+- Security review \`12%\` \`blocked\`
+- Partner pilot \`30%\` \`pilot\`
+`;
+
+A [brace pill](/guides/status/pills/) works anywhere because you spell out
+everything about it. The pills on this page work the other way round: **the
+component decides what they look like, and the position you write them in is
+what tells it to.**
+
+That makes them faster to write and easier to get wrong. There is no brace to
+look for, so a word in the wrong place is just a word in the wrong place. Each
+section below says where the slot is and what happens when you miss it.
+
+| Pill | You write | Works in |
+|---|---|---|
+| **Status word** | A word from a fixed list of ten, in a trailing code span | Six chart components |
+| **Metadata pill** | Any short text, in a trailing code span | Components with a metadata slot |
+| **Date pill** | A date, in a slot that expects one | `timeline-list`, `regulatory-update`, `roadmap` |
+| **Automatic pill** | Nothing | `glossary` |
+
+## Status words — the word is the color
+
+Six chart components read a **closed list of ten status words** from a trailing
+inline-code span. You write `at-risk` and the component picks the color from
+the word itself. There is no modifier to remember, and unlike a
+[color slot](/guides/status/pills/#color--c1--c12) the meaning survives a
+change of theme.
+
+<CraftLab
+	label="Status words on a progress chart"
+	kind="none"
+	editMarkdown
+	markdown={LAB_PROGRESS}
+	size="short"
+	hint="Change at-risk to done and the pill turns to the positive color. Then try 'at risk' with a space: it still draws, in the informational color, and nothing warns you."
+/>
+
+The ten words fall into five groups:
+
+| Write one of these | Reads as | Draws |
+|---|---|---|
+| `on-track` · `done` · `live` | Good | The theme's positive color |
+| `at-risk` · `warn` | Careful | The caution color |
+| `blocked` · `fail` | Bad | The alarm color |
+| `pilot` · `decision` | Noted, in flight | The informational color, also the fallback |
+| `deferred` | Parked | A quiet gray |
+
+Color is not the only channel on the pills `progress`, `timeline-list` and
+`kanban` draw. In the print and accessibility palettes each group also carries
+its own symbol, so the reading survives grayscale and color blindness.
+
+### Where the status word goes
+
+The slot is **different in each component**. This is a shared vocabulary, not
+a shared position:
+
+| Component | Where you write it | What it colors |
+|---|---|---|
+| `progress` | Second trailing span on the row: percent first, status second | A pill |
+| `timeline-list` | Trailing span on the event's first line, after the title | A pill |
+| `kanban` | Trailing span on the card's nested lane bullet | A pill, and the card |
+| `gantt` | A token on a task bullet | The bar |
+| `state-chart` | Trailing span on the state line | The badge |
+| `slope` | Trailing span on the entity's first line | The chart mark |
+
+`progress`, `timeline-list` and `kanban` draw an actual pill. `gantt`,
+`state-chart` and `slope` read the same ten words but color a bar, a badge or a
+chart mark instead.
+
+**One word means something different on `gantt`.** It paints `live` in the
+informational color, not the positive one. On a schedule, `live` is work still
+running and `done` is work finished, and the two bars need to look different.
+
+### Two mistakes nothing catches
+
+**Hyphenate the word; capitals are fine.** All six components ignore case, so
+`AT-RISK`, `At-risk` and `at-risk` all color the same way, and the pill keeps
+your spelling. Nothing else is corrected: `at risk`, with a space, is not in the
+list.
+
+**A word Lattice does not know still draws.** In `progress` and
+`timeline-list` an unknown word falls back to the informational color, the same
+one `pilot` and `decision` use. A typo therefore looks like a deliberate
+verdict, and a reviewer reads it as one. Only `gantt` warns about an unknown
+word. On the other components, check each status word against the ten above
+before you ship.
+
+### What status words cannot reach
+
+The ten words work only in those six components. There is no supported way to
+put a red status pill on, say, a `cards-grid` slide. To say *yes*, *no* or
+*partly* on any other slide, use a [state mark](/guides/status/answers/):
+`` `[!]` `` draws the red cross anywhere inline code can go.
+
+## Metadata pills — a trailing code span
+
+On components that have a metadata slot, a trailing inline-code span on a list
+row becomes a pill with no grammar at all:
+
+```markdown
+- Throughput target met `on track`
+- API latency `at risk`
+```
+
+The component chooses the look. Keep the text to one word (hyphenated is fine),
+or two at most: pills do not wrap, so a long phrase makes a very wide pill.
+Which components have the slot is listed on each one's page in the
+[component reference](/components/).
+
+## Date pills — a position, never a parsed date
+
+A date pill is **positional**. Lattice never parses a date: it does not know
+that `2025 Q1` is one, it just styles whatever sits in the date slot. Write
+`banana` there and you get a pill reading "banana".
+
+| Component | Where the date goes |
+|---|---|
+| `timeline-list` | The **leading** span, before the title: `` 1. `2025 Q1` Framework approved `` |
+| `regulatory-update` | The last nested bullet, on its own |
+| `roadmap` | The trailing span on a phase column header |
+
+`timeline-list` is the one to watch. Its date **leads** the line, where most
+components put metadata at the end. Write the date after the title and
+`timeline-list` treats it as a status word instead.
+
+## Automatic pills — you write nothing
+
+A `glossary` slide adds a range pill to its heading by itself: the first letter
+of the first and last term. A list running from *Consent* to *Processor* reads
+`C – P`, and the pill follows the terms as you edit them.
+
+## When two pills meet on one row
+
+A `list-tabular` row has two limits:
+
+- The **`spec`** variant finds its two code spans by position, and a brace pill
+  in the *key* position breaks that. A pill in the trailing position works.
+- **Two trailing items on one row overlap**: `` 1. Name `META` `{PILL}` ``. Two
+  plain code spans do the same, so it is a grid limit, not a pill limit. Put one
+  value in the trailing slot.
+
+## Next
+
+If a pill is not doing what you expect, the
+[cheat sheet](/guides/status/cheat-sheet/) lists every slot on one page. For a
+deck written before the six state marks, read
+[Upgrading an older deck](/guides/status/upgrading/).

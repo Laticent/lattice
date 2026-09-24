@@ -29,6 +29,24 @@ red, not two reds. When a slide shows a status board, the difference
 between "watch this" and "this is broken" is doing real work, and a reader
 seeing them side by side should never have to squint.
 
+### What the signals paint
+
+These three inks color the six [state marks](/guides/status/answers/):
+`--pass` fills the check, `--warn` the dash, `--fail` the cross. The other
+three answers — unknown, open and does not apply — all take one gray,
+`--muted-mark`, and that is deliberate. They are already told apart by shape
+(a ring with a `?`, an empty ring, a disc with a slash), so a fourth and fifth
+signal color would add nothing a reader needs, and every extra color is one
+more thing to keep apart from the other three.
+
+So you set no color for "unknown". What you do owe: `--muted-mark` has to clear
+3:1 against the page, because a ring or a slash is a shape, not text, and the
+3:1 floor for graphics is what applies to it.
+
+The `heat` modifier swaps `--pass` and `--fail` on the marks, for slides read as
+risk. It borrows your two inks rather than adding any, so it needs nothing
+from the theme either.
+
 ## Code — syntax highlighting
 
 Twelve colors for the parts of a code block: comments, keywords, strings,
