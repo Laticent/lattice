@@ -12,7 +12,7 @@ session reads by default. In the two months to 2026-09-22, 29 of 506 merged PRs 
 **79** such items in their final brief. The handoff-issue rule (#2215) was meant to catch
 them, and 4 handoff issues were filed after it landed. A script copied those items here
 verbatim, **without re-checking them against `main`**. A triage pass on 2026-09-24
-checked all 79: it deleted 27 that were done and 6 duplicates, and kept 46. Each kept
+checked all 79: it deleted 28 that were done and 6 duplicates, and kept 45. Each kept
 file says so in a `Triaged 2026-09-24` line under its title. The `backfill: true` flag
 and its warning in `npm run followups` stay in place for any future bulk import.
 
