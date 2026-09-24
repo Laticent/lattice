@@ -11,7 +11,7 @@ import {
 	setSearchQuery,
 } from '@codemirror/search';
 import { type Extension, StateEffect, StateField } from '@codemirror/state';
-import { EditorView, keymap, type Panel, type ViewUpdate } from '@codemirror/view';
+import { EditorView, keymap, type Panel, runScopeHandlers, type ViewUpdate } from '@codemirror/view';
 import { CaseSensitive, ChevronDown, ChevronRight, ChevronUp, Regex, Replace, ReplaceAll, WholeWord, X } from 'lucide-react';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
@@ -69,7 +69,11 @@ function openReplace(view: EditorView): boolean {
 
 function close(view: EditorView): boolean {
 	const closed = closeSearchPanel(view);
-	if (closed) view.focus();
+	if (closed) {
+		// The replace row is per opening: Ctrl+F after a Ctrl+H session opens find alone.
+		view.dispatch({ effects: setReplaceOpen.of(false) });
+		view.focus();
+	}
 	return closed;
 }
 
@@ -144,8 +148,8 @@ function FindBar({ view }: BarProps) {
 
 	// Typing in the find field jumps to the first match at or after the caret, the
 	// way every editor's incremental find does, wrapping to the top when nothing
-	// follows. Searching from the selection START means the match the caret already
-	// sits on counts, so typing one more letter of the same word does not skip ahead.
+	// follows. The match the caret already sits on counts, so typing one more letter
+	// of the same word does not skip ahead.
 	// Not `findNext`: since @codemirror/search 6.5 it also SELECTS the whole find field
 	// (so Enter-then-type replaces the query), which here would make every keystroke
 	// overwrite the one before it.
@@ -153,11 +157,15 @@ function FindBar({ view }: BarProps) {
 		setFindText(value);
 		const next = set({ search: value });
 		if (!next.valid || !value) return;
+		// The scan starts at the caret's LINE, keeping the first match that ends past the
+		// caret, so a pasted query whose match straddles the caret is still found.
 		const s = view.state;
 		const from = s.selection.main.from;
-		const cursor = next.getCursor(s, from) as Iterator<{ from: number; to: number }>;
-		let hit = cursor.next();
-		if (hit.done) hit = (next.getCursor(s, 0, from) as Iterator<{ from: number; to: number }>).next();
+		type Hit = IteratorResult<{ from: number; to: number }>;
+		const cursor = next.getCursor(s, s.doc.lineAt(from).from) as Iterator<{ from: number; to: number }>;
+		let hit: Hit = cursor.next();
+		while (!hit.done && hit.value.to <= from) hit = cursor.next();
+		if (hit.done) hit = (next.getCursor(s) as Iterator<{ from: number; to: number }>).next();
 		if (hit.done) return;
 		view.dispatch({
 			selection: { anchor: hit.value.from, head: hit.value.to },
@@ -167,22 +175,25 @@ function FindBar({ view }: BarProps) {
 	};
 
 	const onFindKey = (e: React.KeyboardEvent) => {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			(e.shiftKey ? findPrevious : findNext)(view);
-		} else if (e.key === 'Escape') {
-			e.preventDefault();
-			close(view);
-		}
+		if (e.key !== 'Enter') return;
+		e.preventDefault();
+		(e.shiftKey ? findPrevious : findNext)(view);
 	};
 	const onReplaceKey = (e: React.KeyboardEvent) => {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			(e.metaKey || e.ctrlKey ? replaceAll : replaceNext)(view);
-		} else if (e.key === 'Escape') {
-			e.preventDefault();
-			close(view);
-		}
+		if (e.key !== 'Enter') return;
+		e.preventDefault();
+		(e.metaKey || e.ctrlKey ? replaceAll : replaceNext)(view);
+	};
+	// CodeMirror listens for key bindings on the EDITOR's content only, so keys typed in
+	// this bar never reach the `search-panel` bindings on their own. The stock panel
+	// forwards them the same way. Without this, F3 / Ctrl+G / Ctrl+H / Escape in the find
+	// field fell through to the browser: its own find bar and its history sidebar.
+	// A key the bar handled stops here, so the Studio's window-level Escape (which also
+	// clears Focus mode and a Craft reveal) does not act on the same keystroke.
+	const onBarKey = (e: React.KeyboardEvent) => {
+		if (!runScopeHandlers(view, e.nativeEvent, 'search-panel')) return;
+		e.preventDefault();
+		e.stopPropagation();
 	};
 
 	const toggles = (
@@ -200,7 +211,7 @@ function FindBar({ view }: BarProps) {
 	);
 
 	return (
-		<search className="@container flex flex-col gap-1.5 px-2 py-1.5" aria-label="Find in deck">
+		<search className="@container flex flex-col gap-1.5 px-2 py-1.5" aria-label="Find in deck" onKeyDown={onBarKey}>
 			<div className="flex items-center gap-1">
 				<IconButton
 					label={replaceOpen ? 'Hide replace' : 'Show replace'}

@@ -35,7 +35,7 @@ the engine. It listed a v1.0 of CodeMirror authoring, live preview, crash recove
 PDF export, a command palette and a welcome deck. By September the Studio had shipped all
 of that and more as a static web app:
 
-- CodeMirror 6 editing, with a live single-slide preview in a sandboxed iframe.
+- CodeMirror 6 editing, with a live single-slide preview in an iframe.
 - In-page export of PDF, PPTX, HTML, image sets and Marp bundles. No Node, no Puppeteer.
 - Present mode with speaker notes and a separate audience window.
 - Autosave, checkpoints, a crash sentinel, and workspace backup and restore.
@@ -68,16 +68,32 @@ a second, private seam is the one the next port misses.
 
 | Seam | Web | Desktop | State |
 |---|---|---|---|
-| **Save a file** | Hidden `<a download>`, clicked inside the user gesture | `save_file`: native save dialog (the xdg portal on Linux), bytes written in Rust | **Shipped here** |
+| **Save a file** | Hidden `<a download>`, clicked inside the user gesture | `save_file`: the native save dialog (GTK's file chooser on Linux), bytes written in Rust. Saves queue, so a multi-file export shows one dialog at a time | **Shipped here** |
 | **Open a file** | `<input type="file">` | Same input. WebKitGTK, WKWebView and WebView2 all raise the native picker | No seam needed |
 | **Service worker** | Registered in production | Skipped: the app bundles every asset, and `tauri://` cannot register one | **Shipped here** |
 | **Window frame** | n/a | Native decorations. A custom title bar is deferred (see below) | Shipped |
 | **Decks as files** | `localStorage` | Real `.md`/`.lattice` files: Save, Save As, a dirty mark, and opening from the file manager | Planned |
-| **AI key** | `localStorage` | The OS keychain (Secret Service on Linux) | Planned |
+| **AI key** | `localStorage` | The OS keychain (Secret Service on Linux), behind a main-frame-only check (see below) | Planned |
 | **OpenRouter sign-in** | Full-page redirect back to `location.href` | Loopback or deep-link callback; `tauri://` is not a valid return address | Planned |
 | **Present audience window** | `window.open` + `getScreenDetails` (Chromium only) | A second native window placed with Tauri's monitor API | Planned |
 | **Vector print / PDF** | `iframe.print()` | Native print. `print_to_pdf` exists only in WebView2 | Planned |
 | **Light/dark** | `prefers-color-scheme` | Same query; confirm WebKitGTK follows the GTK theme on a real desktop | To verify |
+
+**Every seam is callable from any same-origin frame, so a seam that RETURNS a secret needs
+a caller check.** Tauri injects its IPC bridge into the main frame only, but the Studio's
+preview iframes are `srcdoc` frames with no `sandbox` attribute. They share the app's
+`tauri://localhost` origin, so script inside one can reach `parent.__TAURI_INTERNALS__`.
+The sanitizers (HARD RULE #22) are what keep deck content from running script there. That
+is acceptable for `save_file`, which only opens a dialog the user must confirm. It is NOT
+acceptable for the planned keychain seam: a sanitizer bypass would read the AI key. Before
+that seam ships, either sandbox the preview frames or have Rust reject calls that did not
+come from the main frame. `csp: null` matches the website, which sets no CSP either; a
+real policy is part of the same slice.
+
+**The dialog is GTK's, not the xdg portal.** `tauri-plugin-dialog` builds `rfd` with its
+`gtk3` backend, so the save dialog is a `GtkFileChooserDialog`. That is fine for a `.deb`.
+A Flatpak build needs the portal backend instead, because a sandboxed app cannot show the
+host's file chooser any other way.
 
 **The window frame keeps native decorations.** A frameless window with our own buttons
 looks sharper. On Linux, though, we would then own Wayland drag, resize and snapping, plus
@@ -113,7 +129,7 @@ was then booted from `/usr/bin/lattice-studio` to confirm the package itself run
 
 - The Studio boots from the bundled build and draws the editor, the live preview and the
   filmstrip.
-- **Share → Markdown** opens the native GTK save dialog with the suggested name and an MD
+- **Share → Markdown** opens GTK's native save dialog with the suggested name and an MD
   filter. The file lands on disk: 12,393 bytes, with the theme embedded.
 - **Share → PDF → Download PDF** rasterizes all seven slides inside WebKitGTK. The dialog
   appears about 2 seconds after the click, and the saved PDF has 7 pages at 1706×960pt.
@@ -164,4 +180,4 @@ build ahead of it. A cheaper middle ground is `cargo test` and `cargo clippy` on
 4. **Native print**, for vector PDF.
 5. **A release pipeline**: signing, AppImage, auto-update.
 
-Each slice is tracked in `followups.d/` with this PR as its origin.
+Each slice has a file in `followups.d/` whose origin is this PR.

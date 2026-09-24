@@ -96,8 +96,13 @@ function provenance(meta, slides) {
 	return { eng, summary, keywords };
 }
 
-// Every save goes through the platform seam (lib/platform.js), like download.ts.
-const download = (blob, filename) => void saveFile(filename, blob);
+// Every save goes through the platform seam (lib/platform.js), like download.ts. The toast
+// module is TypeScript, which the Node-run unit suite cannot load, so it is imported only
+// on the failure path.
+const download = (blob, filename) =>
+	void saveFile(filename, blob).then((result) => {
+		if (result === 'failed') void import('../download').then((m) => m.reportSaveFailure(filename));
+	});
 
 // ── Markdown ────────────────────────────────────────────────────────────────
 // Self-contained embed for a Workbench *library* theme (export bridge — see

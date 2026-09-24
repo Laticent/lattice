@@ -4567,7 +4567,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* Find and replace. Always rendered (like Fix all above) so the row keeps one shape;
 				    inert in Compose, which has no source editor to search. Icon-only for the width
 				    budget (2026-07-04-studio-toolbar-budget.md); the accessible name carries the verb. */}
-				<Tip label="Find and replace (Ctrl+F)"><Button variant="ghost" size="icon-sm" onClick={() => editorRef.current?.openFind()} disabled={editMode !== 'markdown'} aria-label="Find and replace"><TextSearch className="size-[18px]" /></Button></Tip>
+				<Tip label="Find and replace (Ctrl+F or ⌘F)"><Button variant="ghost" size="icon-sm" onClick={() => editorRef.current?.openFind()} disabled={editMode !== 'markdown'} aria-label="Find and replace"><TextSearch className="size-[18px]" /></Button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
 				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>

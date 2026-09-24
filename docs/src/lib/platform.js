@@ -56,9 +56,19 @@ export function isDesktop() {
  */
 export function saveFile(filename, data) {
 	const host = tauri();
-	if (host) return saveDesktop(host, filename, data);
+	if (host) {
+		// One dialog at a time. Fabricate's "export all" saves several files in a loop, and
+		// each save_file call runs on its own worker thread, so without the queue every
+		// dialog would open at once, stacked on top of each other.
+		const run = desktopQueue.then(() => saveDesktop(host, filename, data));
+		desktopQueue = run.catch(() => {});
+		return run;
+	}
 	return Promise.resolve(saveWeb(filename, data));
 }
+
+/** @type {Promise<unknown>} */
+let desktopQueue = Promise.resolve();
 
 /** @param {string} filename @param {Blob} data @returns {SaveResult} */
 function saveWeb(filename, data) {

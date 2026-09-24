@@ -18,19 +18,30 @@ test.describe('find and replace', () => {
 		await expect(readout).toHaveText(/^1 of \d+$/);
 		await find.press('Enter');
 		await expect(readout).toHaveText(/^2 of \d+$/);
+		// The search-panel bindings work from INSIDE the bar, not only from the editor.
+		await find.press('F3');
+		await expect(readout).toHaveText(/^3 of \d+$/);
+		// Escape stops at the bar: the Studio's window-level Escape (Focus mode, a Craft
+		// reveal) must not act on the same keystroke.
+		await page.evaluate(() => {
+			(window as unknown as { __escSeen: boolean }).__escSeen = false;
+			window.addEventListener('keydown', (e) => { if (e.key === 'Escape') (window as unknown as { __escSeen: boolean }).__escSeen = true; });
+		});
 		await find.press('Escape');
+		expect(await page.evaluate(() => (window as unknown as { __escSeen: boolean }).__escSeen)).toBe(false);
 		await expect(page.locator('.cm-studio-find')).toHaveCount(0);
 		await expect(page.getByRole('textbox', { name: 'Deck source' })).toBeFocused();
 	});
 
-	test('Ctrl+F opens the bar; Ctrl+Enter in the replace field replaces every match in the saved deck', async ({ page }) => {
+	test('Ctrl+F opens the bar, Ctrl+H from the field opens replace, Ctrl+Enter replaces every match in the saved deck', async ({ page }) => {
 		await gotoStudio(page);
 		await page.getByRole('textbox', { name: 'Deck source' }).click();
 		await page.keyboard.press('ControlOrMeta+f');
 		const find = page.getByRole('textbox', { name: 'Find', exact: true });
 		await expect(find).toBeFocused();
 		await find.pressSequentially('boardroom');
-		await page.getByRole('button', { name: 'Show replace' }).click();
+		// Ctrl+H from inside the find field opens the replace row (it used to reach the browser).
+		await find.press('Control+h');
 		const replace = page.getByRole('textbox', { name: 'Replace with' });
 		await replace.fill('ZQXROOM');
 		await replace.press('ControlOrMeta+Enter');

@@ -329,7 +329,7 @@ export function StudioEditorPaneSkeleton() {
 				    by 22px whenever a selection added Refine. */}
 				<span className="hidden @[26rem]:inline">Edit</span>
 				<span className="flex-1" />
-				{/* The label spans ride the app's own container queries (`@[36rem]` / `@[34rem]`),
+				{/* The label spans ride the app's own container queries (`@[44rem]` / `@[34rem]`),
 				    which resolve against the EDITOR PANE — so `.ssr-editpane` carries
 				    `container-type: inline-size` in studio.astro, or every label here would
 				    resolve against the wrong box and the row would measure short. */}

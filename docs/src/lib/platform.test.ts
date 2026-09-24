@@ -81,4 +81,16 @@ describe('saveFile — desktop host', () => {
 		expect(await saveFile('a.md', new Blob(['x']))).toBe('failed');
 		err.mockRestore();
 	});
+	it('opens one dialog at a time: a second save waits for the first to answer', async () => {
+		let answerFirst: (v: boolean) => void = () => {};
+		invoke.mockImplementationOnce(() => new Promise((r) => { answerFirst = r; })).mockResolvedValueOnce(true);
+		const first = saveFile('a.md', new Blob(['a']));
+		const second = saveFile('b.md', new Blob(['b']));
+		await new Promise((r) => setTimeout(r, 20));
+		expect(invoke).toHaveBeenCalledTimes(1);
+		answerFirst(false);
+		expect(await first).toBe('cancelled');
+		expect(await second).toBe('saved');
+		expect(invoke).toHaveBeenCalledTimes(2);
+	});
 });

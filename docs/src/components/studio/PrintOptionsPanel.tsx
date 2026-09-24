@@ -181,6 +181,8 @@ export function PrintOptionsPanel({
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
 	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; url: string; blob: Blob } | null>(null);
+	// Blob by object URL for every PDF built here, so a save never has to read a URL back (see triggerDownload).
+	const pdfBlobs = React.useRef(new Map<string, Blob>());
 	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
 	// jsPDF geometry) with no re-rasterize; a color/source/theme change makes a new `render`
@@ -332,19 +334,26 @@ export function PrintOptionsPanel({
 		if (missing) notify(`Print deck built — but ${missing}.`, { duration: DEGRADED_TOAST_MS });
 		const url = URL.createObjectURL(blob);
 		const prevUrl = builtPdf?.url;
-		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
+		if (prevUrl && prevUrl !== url) { setTimeout(() => { pdfBlobs.current.delete(prevUrl); try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
+		pdfBlobs.current.set(url, blob);
 		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
 		return url;
 	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
-	// Through the platform seam like every other save. The built PDF is held as a `blob:`
-	// URL, so read it back to a Blob; that read is same-document memory, not the network.
-	// The await costs nothing on the web path: this already ran after `await buildPdf()`,
-	// so it was never inside the click's user gesture to begin with.
-	const triggerDownload = React.useCallback(async (url: string) => {
-		downloadBlob(pdfFilename(), await (await fetch(url)).blob());
+	// Through the platform seam like every other save. Every PDF this panel builds is also
+	// kept as a Blob by its URL, so the save starts SYNCHRONOUSLY: `openPdfTab` and the
+	// share-sheet fallback reach here inside the tap, and a browser can refuse a download
+	// that starts after an await has left the gesture. The fetch is only a fallback for a URL
+	// this panel did not build.
+	const triggerDownload = React.useCallback((url: string) => {
+		const blob = pdfBlobs.current.get(url);
+		if (blob) { downloadBlob(pdfFilename(), blob); return; }
+		fetch(url)
+			.then((r) => r.blob())
+			.then((b) => downloadBlob(pdfFilename(), b))
+			.catch(() => notify('Could not save the PDF.'));
 	}, [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
