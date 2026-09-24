@@ -434,9 +434,18 @@ describe('component-manifest', () => {
       assert.match(validate({ ...GOOD, excludes: 'compact' })[0], /array/);
     });
 
-    test('rejects excludes containing non-semi-universal values', () => {
-      const errors = validate({ ...GOOD, excludes: ['dark'] });
-      assert.match(errors[0], /must be one of the semi-universal variants/);
+    test('accepts a modifier GROUP name or any universal token in excludes', () => {
+      assert.deepEqual(validate({ ...GOOD, excludes: ['table', 'motion', 'dark', 'at-tl'] }), []);
+    });
+
+    test('rejects an excludes entry that is neither a group nor a universal token', () => {
+      const errors = validate({ ...GOOD, excludes: ['tabel'] });
+      assert.match(errors[0], /neither a modifier group .* nor a universal modifier token/);
+    });
+
+    test('rejects excluding the never-offered aliases group, or one of its tokens', () => {
+      assert.match(validate({ ...GOOD, excludes: ['aliases'] })[0], /never offered/);
+      assert.match(validate({ ...GOOD, excludes: ['mirror'] })[0], /never-offered 'aliases' group/);
     });
 
     test('rejects malformed slots', () => {

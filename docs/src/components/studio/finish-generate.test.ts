@@ -9,6 +9,7 @@ import {
 	MARK_TYPES,
 	mergeFinishOverride,
 	PRESET_RECIPES,
+	recipeSlots,
 	safeFinishSlug,
 	sanitizeGlyph,
 	TEXTURE_TYPES,
@@ -373,5 +374,58 @@ describe('generated finish CSS resolves OUTSIDE a section too (#1656)', () => {
 			const sw = generateSwatch(recipe);
 			expect(sw.background, `${name} swatch must not reference a bare var(--fin-canvas)`).not.toMatch(/var\(--fin-canvas\)(?!\s*,)/);
 		}
+	});
+});
+
+// THE BOTTOM-LAYER RULE (base.finish.css): on the export face only the bottom full-bleed
+// layer may end on the SOLID canvas. The mesh's top three blooms, the vignette and the fold
+// all used to, so a Studio-made mesh or vignette finish printed as a blank slide — the same
+// defect the shipped `halo` and `nimbus` had (2026-09-23-portable-packages.md §1).
+describe('finish-generate — only the bottom layer ends on the solid canvas (export face)', () => {
+	const SOLID_END = /var\(--fin-canvas, var\(--bg\)\) \d+%\)/g;
+	const CLEAR = 'rgb(from var(--fin-canvas, var(--bg)) r g b / 0)';
+	const slot = (r: FinishRecipe, name: string) => recipeSlots(r, 'opaque').find((d) => d.startsWith(`${name}:`)) ?? '';
+
+	it('the mesh ends its three upper blooms clear and only the last one solid', () => {
+		const wash = slot({ ...DEFAULT_RECIPE, wash: { ...DEFAULT_RECIPE.wash, type: 'mesh' } }, '--fin-wash');
+		const blooms = wash.slice('--fin-wash:'.length).split(/,\s*(?=radial-gradient)/);
+		expect(blooms).toHaveLength(4);
+		for (const b of blooms.slice(0, 3)) {
+			expect(b).toContain(CLEAR);
+			expect(b.match(SOLID_END)).toBeNull();
+		}
+		expect(blooms[3].match(SOLID_END)).toHaveLength(1);
+	});
+
+	it('the vignette ends clear, because it paints over the whole backdrop', () => {
+		const edge = slot({ ...DEFAULT_RECIPE, edge: { type: 'vignette', intensity: 8 } }, '--fin-edge');
+		expect(edge).toContain(CLEAR);
+		expect(edge.match(SOLID_END)).toBeNull();
+	});
+
+	it('the fold keeps its solid end — it is a corner patch, not a full-bleed layer', () => {
+		const edge = slot({ ...DEFAULT_RECIPE, edge: { type: 'fold', intensity: 8 } }, '--fin-edge');
+		expect(edge.match(SOLID_END)).toHaveLength(1);
+	});
+
+	it('the screen face is unchanged — it still fades to transparent', () => {
+		const rich = recipeSlots({ ...DEFAULT_RECIPE, wash: { ...DEFAULT_RECIPE.wash, type: 'mesh' }, edge: { type: 'vignette', intensity: 8 } }, 'rich').join(';');
+		expect(rich).not.toContain('rgb(from');
+	});
+});
+
+// The shipped presets' recipes come from their packages (lib/finishes/<name>/<name>.recipe.json).
+// Coercion may fill in defaults a file leaves out, but it must not change anything the file
+// STATES: a value it would clamp or reject is one the Studio silently rewrites on first touch.
+describe('finish-generate — the packaged preset recipes', () => {
+	it.each(Object.entries(PRESET_RECIPES))('%s survives coerceRecipe with every stated value intact', (_name, recipe) => {
+		expect(coerceRecipe(recipe)).toMatchObject(recipe);
+	});
+	it('covers every shipped finish', () => {
+		expect(Object.keys(PRESET_RECIPES)).toEqual(['atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery']);
+	});
+	it('places halo’s spotlight in the center and loom’s glow top-left, as the shipped CSS does', () => {
+		expect([PRESET_RECIPES.halo.wash.x, PRESET_RECIPES.halo.wash.y]).toEqual([50, 42]);
+		expect([PRESET_RECIPES.loom.wash.x, PRESET_RECIPES.loom.wash.y]).toEqual([0, 0]);
 	});
 });

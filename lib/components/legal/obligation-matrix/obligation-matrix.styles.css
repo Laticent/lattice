@@ -12,7 +12,7 @@
  * | ---------- | :----: | :-----: | :-------: | :----: | :--: |
  * | CCPA       | [x]    | [-]     | [x]       | [x]    | [x]  |
  *
- * Cells are authored with the state-marker grammar [x]/[-]/[ ]/[/], decoded
+ * Cells are authored with the six-marker state grammar (lib/core/state-marks.js), decoded
  * into status-colored state discs (masked SVG via --state-mark). Variants:
  * .heat (cell fills), .pills (cell pills), .lanes (row stripes),
  * .asymmetric (cards).
@@ -77,7 +77,7 @@ section.obligation-matrix tbody tr:nth-child(odd) td:not(:first-child) {
  */
 
 /* ── State glyphs ─────────────────────────────────────────────────────
- * Author writes the universal [x]/[-]/[ ]/[/] grammar; the engine/
+ * Author writes the universal six-marker grammar; the engine/
  * emulator/runtime transforms strip the marker and wrap the cell
  * content in
  *   <span class="state {pass|warn|fail|skip} {state-full|state-half|state-empty|state-slashed}">…</span>.
@@ -88,10 +88,11 @@ section.obligation-matrix tbody tr:nth-child(odd) td:not(:first-child) {
  * scalar-knob recipe shared with checklist / verdict-grid; no font
  * dependency, no Unicode glyphs.
  *
- * Default color mapping is the per-category coverage palette
- * (applies = green; partial = amber; exempt = red; skipped = muted).
- * The universal `.heat` modifier (top of LAYOUTS section) flips to the
- * risk axis (applies = alarm red, exempt = relief green). This layout
+ * Default color mapping is the universal one: applies `[x]` = green; partial
+ * `[-]` = amber; not required `[!]` = red; unclear `[?]`, undetermined `[ ]`
+ * and exempt `[/]` = muted. The universal `.heat` modifier (top of LAYOUTS
+ * section) flips to the risk axis (applies = alarm red, not required = relief
+ * green) and leaves the three muted states neutral. This layout
  * additionally adds heat-aware cell-tint chrome below. */
 section.obligation-matrix td .state,
 section.obligation-matrix .ct-card dd .state,
@@ -130,15 +131,19 @@ section.obligation-matrix .label-set-key-mark.fail { --state-color:var(--fail); 
 section.obligation-matrix td .state.skip,
 section.obligation-matrix .ct-card dd .state.skip,
 section.obligation-matrix .label-set-key-mark.skip { --state-color:var(--muted-mark); }
-/* exempt — `[ ]` is "not subject to this obligation", a NEUTRAL state (not a
- * gap): a true hollow ring (empty center; see `.state.todo` in base.modifiers).
+/* undetermined `[ ]` and unclear `[?]` — the two UNSETTLED answers, NEUTRAL (not
+ * a gap): true hollow rings (see `.state.todo` in base.modifiers); unclear
+ * carries a drawn `?`. Exempt is `[/]`, the muted slash above.
  * --muted-mark, not --text-label (#1821): the latter is accent-hued EMPHASIS
  * since #1801, which painted this "neutral" ring in the brand accent on the ten
  * palettes that hue it from the accent. Same tier as `skip` above by ink, and
  * still unmistakable by shape — this ring has no inner mark at all. */
 section.obligation-matrix td .state.todo,
 section.obligation-matrix .ct-card dd .state.todo,
-section.obligation-matrix .label-set-key-mark.todo { --state-color:var(--muted-mark); }
+section.obligation-matrix .label-set-key-mark.todo,
+section.obligation-matrix td .state.unknown,
+section.obligation-matrix .ct-card dd .state.unknown,
+section.obligation-matrix .label-set-key-mark.unknown { --state-color:var(--muted-mark); }
 /* Mark overlay — masked symbol (check / dash / x / slash) on the disc.
  * Mark color from --state-mark-pct (0% = knockout to --bg). */
 section.obligation-matrix td .state::after,
@@ -168,10 +173,18 @@ section.obligation-matrix.heat tbody tr td:not(:first-child) { background:none; 
  * rather than widening base for a surface no other component reaches.
  * `.heat` adds a class, so these are (0,4,2) against the (0,3,2) defaults above —
  * they win outright, not on the source-order tie base's header describes. */
-section.obligation-matrix.heat .ct-card dd .state.pass { --state-color:var(--fail); }
-section.obligation-matrix.heat .ct-card dd .state.warn { --state-color:var(--warn); }
-section.obligation-matrix.heat .ct-card dd .state.fail { --state-color:var(--pass); }
-section.obligation-matrix.heat .ct-card dd .state.skip { --state-color:var(--muted-mark); }
+section.obligation-matrix.heat .ct-card dd .state.pass,
+section.obligation-matrix.heat .label-set-key-mark.pass { --state-color:var(--fail); }
+section.obligation-matrix.heat .ct-card dd .state.warn,
+section.obligation-matrix.heat .label-set-key-mark.warn { --state-color:var(--warn); }
+section.obligation-matrix.heat .ct-card dd .state.fail,
+section.obligation-matrix.heat .label-set-key-mark.fail { --state-color:var(--pass); }
+section.obligation-matrix.heat .ct-card dd .state.skip,
+section.obligation-matrix.heat .label-set-key-mark.skip { --state-color:var(--muted-mark); }
+/* The KEY takes the remap too. It is drawn outside any `td`, so base's `td .state`
+ * overlay never reached it, and the shipped heat slide keyed "Applies" with a GREEN
+ * disc under a grid of red ones — a key contradicting its cells, the bug #2327 began
+ * with. The swatch shares the cells' classes, so it follows them here. */
 section.obligation-matrix.heat td:has(> .state.pass),
 section.obligation-matrix.heat .ct-card dd:has(> .state.pass) {
   background:color-mix(in srgb, var(--fail) 14%, var(--bg));

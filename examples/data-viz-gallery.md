@@ -239,7 +239,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 <!-- _class: quadrant -->
 <!-- _footer: "quadrant · data-viz gallery" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The quadrant scatters items on two axes.
 
@@ -302,8 +302,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
-| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
+| Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
+| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 ---
 

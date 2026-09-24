@@ -180,3 +180,19 @@ describe('an escaped span is literal text, never an axis', () => {
     assert.equal(r.above, '[x]');
   });
 });
+
+describe('axisAcceptor — a list the component cannot fully read is not its axis', () => {
+  const { axisAcceptor } = require('../../../lib/core/lift-bracket-span');
+  const two = axisAcceptor({ members: ['x', 'y'] });
+  test('accepts up to the declared member count', () => {
+    assert.deepEqual(two('[A, B]'), [['A'], ['B']]);
+    assert.deepEqual(two('[A]'), [['A']]);
+  });
+  test('refuses more members than declared, and a non-list', () => {
+    assert.equal(two('[A, B, C]'), null);
+    assert.equal(two('Impact vs effort'), null);
+  });
+  test('passes maxParts through', () => {
+    assert.deepEqual(axisAcceptor({ members: ['x'] }, { maxParts: 2 })('[{A, 1, 2}]'), [['A', '1, 2']]);
+  });
+});

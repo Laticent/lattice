@@ -815,24 +815,63 @@ test('checklist: completion register — [x]→done, [ ]→to do, [-]→partial'
 	assert.match(t, /DR drills: partial\./);
 });
 
-test('verdict-grid: inclusion register — [x]→yes, [ ]→no, [-]→partial (badge span)', () => {
-	const [t] = renderSpeech('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Speed\n  - [ ] Cost\n  - [-] Adoption\n');
+test('verdict-grid: verdict register — [x]→yes, [!]→no, [-]→partial, [?]→unknown, [ ]→not assessed', () => {
+	const [t] = renderSpeech('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Speed\n  - [!] Cost\n  - [-] Adoption\n  - [?] Support\n  - [ ] Pricing\n');
 	assert.match(t, /Speed: yes/);
 	assert.match(t, /Cost: no/);
 	assert.match(t, /Adoption: partial/);
+	assert.match(t, /Support: unknown/);
+	assert.match(t, /Pricing: not assessed/);
 });
 
-test('obligation-matrix: obligation register — [x]→applies, [ ]→EXEMPT (not "pending"), header-bound', () => {
-	const [t] = renderSpeech('<!-- _class: obligation-matrix -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [ ] |\n| CCPA | [-] | [x] |\n');
+test('pricing: each marker speaks its answer in the pricing register', () => {
+	const [t] = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [ ] Audit log\n  - [/] SSO\n  - [!] Export\n  - For one team.\n');
+	assert.match(t, /Workspace: included/);
+	assert.match(t, /Audit log: coming/);
+	assert.match(t, /SSO: not included/);
+	assert.match(t, /Export: missing/);
+});
+
+test('obligation-matrix: obligation register — [x]→applies, [/]→EXEMPT, [ ]→undetermined, header-bound', () => {
+	const [t] = renderSpeech('<!-- _class: obligation-matrix -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [/] |\n| CCPA | [-] | [ ] |\n');
 	assert.match(t, /GDPR — Delete: applies; Portability: exempt\./);
-	assert.match(t, /CCPA — Delete: partial; Portability: applies\./);
+	assert.match(t, /CCPA — Delete: partial; Portability: undetermined\./);
 	assert.doesNotMatch(t, /pending|: yes|: no/, 'exempt is never narrated as "pending"/"no"');
 });
 
 test('obligation-matrix HEAT: same marker meanings as default (only recolored)', () => {
-	const [t] = renderSpeech('<!-- _class: obligation-matrix heat -->\n\n## Exposure\n\n| Regime | Delete |\n| --- | --- |\n| GDPR | [x] |\n| CCPA | [ ] |\n');
+	const [t] = renderSpeech('<!-- _class: obligation-matrix heat -->\n\n## Exposure\n\n| Regime | Delete |\n| --- | --- |\n| GDPR | [x] |\n| CCPA | [/] |\n');
 	assert.match(t, /GDPR — Delete: applies\./);
 	assert.match(t, /CCPA — Delete: exempt\./);
+});
+
+test('state-cells: a plain table speaks the universal words, not silence', () => {
+	// `state-cells` is a modifier any table can carry, so no component map covers it.
+	// The marker is stripped from the cell, so without a map every cell read as nothing.
+	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## Vendors\n\n| Criterion | North | South |\n| --- | --- | --- |\n| Audit | [x] | [!] |\n| SSO | [?] | [/] |\n| Price | [-] | [ ] |\n');
+	assert.match(t, /Audit — North: yes; South: no\./);
+	assert.match(t, /SSO — North: unknown; South: does not apply\./);
+	assert.match(t, /Price — North: partly; South: open\./);
+});
+
+test('state-cells words equal the kernel\'s universal labels', async () => {
+	// prose-projection imports no kernel (it ships as a standalone bundle), so this pin is
+	// what keeps its copy of the words from drifting from lib/core/state-marks.js.
+	const { MARKER_LABELS, stateClassesFor } = require('../../../lib/core/state-marks.js');
+	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## K\n\n| A | B |\n| --- | --- |\n'
+		+ Object.keys(MARKER_LABELS).map((m) => `| r${stateClassesFor(m).sem} | [${m}] |`).join('\n') + '\n');
+	for (const [m, word] of Object.entries(MARKER_LABELS)) {
+		assert.match(t, new RegExp(`r${stateClassesFor(m).sem} — B: ${word}\\.`));
+	}
+});
+
+test('an inline state mark is spoken by its label, and does not tag its list item', () => {
+	const [t] = renderSpeech('<!-- _class: checklist -->\n\n## Launch\n\n- [x] Pen test `[!]` failed twice first\n- Load test `[?]` pending\n');
+	assert.match(t, /Pen test no failed twice first: done/);
+	// The second item carries no leading marker: its inline `[?]` must not make the whole
+	// item "unknown", only speak where it stands.
+	assert.match(t, /Load test unknown pending/);
+	assert.doesNotMatch(t, /pending: unknown/);
 });
 
 test('speech: a plain nested list never invents a state word from a descendant', () => {
@@ -1393,3 +1432,27 @@ test('a math slide narrates its equation once, not once in MathML and again in r
 	assert.ok(!text.includes('^'), `TeX superscript reached the voice: ${text}`);
 	assert.ok(text.includes('y'), `the MathML reading was lost too: ${text}`);
 });
+
+// A card-owning component keeps its eyebrow in the card head, not `.masthead-lede`: wifi in
+// `.qr-head`, video in `.video-head` / `.video-lead`. Rendered through the real engine so the
+// arms follow the transforms' markup. Before the fix, the prose article had no kicker for
+// either component and speech read the eyebrow AFTER the heading.
+async function renderedSections(md) {
+	const engine = require('../../../lib/engine');
+	const { html } = await engine.render(`---\ntheme: indaco\n---\n\n${md}`);
+	return [...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('article > section')];
+}
+
+for (const [name, md, eyebrow, heading] of [
+	['wifi (.qr-head)', '<!-- _class: wifi -->\n\n`Offsite · Room Wi-Fi`\n\n## The war room has its own network.\n\n- Offsite-Guest `ssid`\n- boardroom2026 `password`\n', 'Offsite · Room Wi-Fi', 'The war room has its own network.'],
+	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n', 'Product tour', 'Watch the tour.'],
+	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n', 'Product tour', 'Watch the product tour.'],
+]) {
+	test(`eyebrow in a card head: ${name} projects the eyebrow as the kicker`, async () => {
+		const secs = await renderedSections(md);
+		const { articleHtml } = project(secs);
+		assert.ok(articleHtml.startsWith(`<p class="lp-kicker">${eyebrow}</p>\n<h2`), articleHtml.slice(0, 200));
+		assert.equal(articleHtml.split(eyebrow).length - 1, 1, 'the eyebrow is projected once');
+		assert.ok(script(secs)[0].text.startsWith(`${eyebrow}. ${heading}`), 'speech leads with the eyebrow');
+	});
+}

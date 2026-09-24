@@ -138,9 +138,11 @@
       "- [x] First item that is fully done.",
       "- [x] Second item that is fully done.",
       "- [-] Third item that is partially complete with a caveat.",
-      "- [ ] Fourth item that is not yet started."
+      "- [!] Fourth item that was checked and failed.",
+      "- [?] Fifth item nobody can settle yet.",
+      "- [ ] Sixth item that is not yet started."
     ],
-    "description": "Items with state markers — done, partial, todo."
+    "description": "Items with state markers — done, partial, failed, unknown, to do, skipped."
   },
   "lattice: citation-card": {
     "prefix": "lattice-citation-card",
@@ -655,7 +657,7 @@
       "| ---------- | :----------: | :----------: | :----------: |",
       "| Regime 1   | [x]          | [x]          | [-]          |",
       "| Regime 2   | [x]          | [-]          | [x]          |",
-      "| Regime 3   | [x]          | [ ]          | [x]          |",
+      "| Regime 3   | [x]          | [/]          | [x]          |",
       ""
     ],
     "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance."
@@ -775,7 +777,7 @@
     "body": [
       "<!-- _class: quadrant -->",
       "",
-      "`Effort 0–10 → Reach 0–100`",
+      "`[{Effort, 0..10}, {Reach, 0..100}]`",
       "",
       "## Where to put the next dollar, having spent the last one on a workshop.",
       "",
@@ -888,7 +890,7 @@
       "| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |",
       "| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |",
       "",
-      "Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope."
+      "The key under the grid names each marker the cells carry."
     ],
     "description": "Phased multi-workstream grid — phases across the top, workstreams down the side."
   },
@@ -1180,12 +1182,12 @@
       "- **First option.**",
       "  - [x] First badge",
       "  - [-] Second badge",
-      "  - [ ] Third badge",
+      "  - [!] Third badge",
       "  - One-line rationale giving the verdict for this option.",
       "- **Second option.**",
       "  - [x] First badge",
       "  - [x] Second badge",
-      "  - [-] Third badge",
+      "  - [?] Third badge",
       "  - One-line rationale giving the verdict for this option.",
       "- **Third option.**",
       "  - [x] First badge",

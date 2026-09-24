@@ -56,10 +56,10 @@ color from the element at all, or to a hollow box, which takes nothing.
 
 | Criterion    | Chorus | Productboard | Notion | Sprig + Log |
 | ------------ | :----: | :----------: | :----: | :---------: |
-| Speed        |  [x]   |     [ ]      |  [x]   |     [x]     |
-| Auditability |  [ ]   |     [x]      |  [x]   |     [x]     |
-| Adoption     |  [x]   |     [x]      |  [ ]   |     [x]     |
-| Calibration  |  [ ]   |     [-]      |  [ ]   |     [x]     |
+| Speed        |  [x]   |     [!]      |  [x]   |     [x]     |
+| Auditability |  [!]   |     [x]      |  [x]   |     [x]     |
+| Adoption     |  [x]   |     [x]      |  [!]   |     [x]     |
+| Calibration  |  [!]   |     [-]      |  [!]   |     [x]     |
 
 > Two layouts already decoded `\[x]` inside a cell. Everywhere else a comparison
 > table had no drawn status at all — which is exactly why authors typed a check.
@@ -98,9 +98,9 @@ color from the element at all, or to a hollow box, which takes nothing.
     ✓ ✗ in a table cell (and 3 more lines on this slide) — typed, not
     drawn, so each machine sets it in whatever font it can find for it,
     next to type set in yours
-    fix: Write the state marker instead — [x] done · [-] partial ·
-    [ ] not met · [/] out of scope — and add `state-cells` to the
-    slide's class so the cells decode them.
+    fix: Write the state marker instead — [x] yes · [-] partly ·
+    [!] no · [?] unknown · [ ] open · [/] does not apply — and add
+    `state-cells` to the slide's class so the cells decode them.
 ```
 
 A warning, never an error. Authors write what they like; the linter offers the

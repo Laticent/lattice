@@ -48,8 +48,8 @@ describe('LFM grammar.json projection', () => {
     }
   });
 
-  test('the four universal state markers carry a gfm-degradation flag', () => {
-    for (const m of ['[x]', '[ ]', '[-]', '[/]']) {
+  test('the six universal state markers carry a gfm-degradation flag', () => {
+    for (const m of ['[x]', '[-]', '[!]', '[?]', '[ ]', '[/]']) {
       assert.ok(doc.stateMarkers[m], `${m} is in the state-marker grammar`);
       assert.equal(typeof doc.stateMarkers[m].gfm, 'boolean', `${m} flags its GFM-cleanliness`);
     }
@@ -57,7 +57,12 @@ describe('LFM grammar.json projection', () => {
     assert.equal(doc.stateMarkers['[x]'].gfm, true);
     assert.equal(doc.stateMarkers['[ ]'].gfm, true);
     assert.equal(doc.stateMarkers['[-]'].gfm, false);
+    assert.equal(doc.stateMarkers['[!]'].gfm, false);
+    assert.equal(doc.stateMarkers['[?]'].gfm, false);
     assert.equal(doc.stateMarkers['[/]'].gfm, false);
+    // One meaning per marker: `[ ]` is the open ring everywhere, never "not met".
+    assert.equal(doc.stateMarkers['[ ]'].semantic, 'todo');
+    assert.equal(doc.stateMarkers['[!]'].semantic, 'fail');
   });
 
   test('one entry per manifest; classToken === name', () => {

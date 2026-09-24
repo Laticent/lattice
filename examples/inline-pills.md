@@ -100,7 +100,7 @@ Shape and color travel with the thing they describe, not with the slide.
 3. An object
    - `{ ok, scene }` is code, not a label
 4. A near-miss marker
-   - `[?]` is not one of the four, so it stays literal
+   - `[~]` is not one of the six, so it stays literal
 5. An escape
    - `\{LIVE}` and `\[x]` show the literal; `\[a-z]` keeps its backslash
 
@@ -115,11 +115,15 @@ Shape and color travel with the thing they describe, not with the slide.
    - Signed by both parties `[x]`
 2. Ledger migration
    - Cutover paused for review `[-]`
-3. Reconciliation
+3. Vendor audit
+   - Evidence rejected by the auditor `[!]`
+4. Data residency
+   - The regulator has not ruled `[?]`
+5. Reconciliation
    - Not started `[ ]`
-4. Legacy batch
+6. Legacy batch
    - Out of scope this quarter `[/]`
-5. Alongside a pill
+7. Alongside a pill
    - `[x]` shipped `{STABLE}:c2` — and `[data-mark]` stays literal
 
 ---

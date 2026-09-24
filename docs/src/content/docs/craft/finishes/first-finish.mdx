@@ -1,33 +1,39 @@
 ---
 title: Build your first finish
-description: Register a name, write the preset, personalize the mark — a complete finish from scratch.
+description: Add a package, write the preset, personalize the mark — a complete finish from scratch.
 ---
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
 import { CSS_FINISH_TWO_LAYERS, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
 
-A finish is one name and one CSS block. Here is the whole job.
+A finish is one package folder and one CSS block. Here is the whole job.
 
-## 1. Register the name
+## 1. Add the package
 
-Add a row to `FINISH_REGISTER` in `lib/core/resolve-finish.js`:
+A finish is a folder in `lib/finishes/`, named for it, holding two files:
 
-```js
-const FINISH_REGISTER = Object.freeze({
-  none: '',
-  atrium: 'finish finish-atrium',
-  // …
-  quarry: 'finish finish-quarry',   // ← yours
-});
+```text
+lib/finishes/quarry/
+  quarry.manifest.json   name, label, blurb, order, picker swatch
+  quarry.recipe.json     the look, in the Studio's layer vocabulary
 ```
 
-That one line does two things: `finish: quarry` starts working in front
-matter, and the deck linter accepts it as a real value while still flagging
-typos like `quary`. It does *not* put the finish in the Studio's picker —
-that needs step 5, and until you do it a guard test fails.
+Copy a sibling's two files and edit them. The manifest's `name` is the
+identity: the folder and both file names must match it, and the build fails if
+they don't. Then regenerate:
 
-The register is deliberately open: adding a finish is a row in a list,
-never a change to the engine.
+```sh
+node tools/build-packages-index.js
+```
+
+That one folder does three things: `finish: quarry` starts working in front
+matter, the deck linter accepts it (while still flagging typos like `quary`),
+and the Studio's picker and "Start from preset" row list it. The recipe is what
+"Start from preset" loads, so keep it as close to your CSS as the vocabulary
+allows.
+
+The register is deliberately open: adding a finish is adding a folder, never a
+change to the engine.
 
 ## 2. Write the preset
 
@@ -98,28 +104,11 @@ Empty is the default; the author opts in per deck.
 
 ## 5. Tell the rest of the tree the name exists
 
-The register in step 1 is what the *engine* reads. Three other places keep
-their own list, and each has a gate that fails until you add yours.
-
-**The Studio's picker** — an entry in
-`docs/src/components/studio/finish-catalog.ts`. Seven fields, not the three
-that sound like display metadata: `name`, `label`, `blurb`, `group`,
-`nature`, `zone` and `swatch`. Miss `nature` or `zone` and TypeScript stops
-the build with "missing the following properties from type `FinishEntry`".
-Copy the entry above yours and edit it.
-
-**The reserved-name list** — `RESERVED_FINISH_NAMES` in
-`docs/src/components/studio/finish-library.ts`. A saved user finish is
-allowed to take any name that is not reserved, and a user finish outranks a
-built-in preset of the same name — so a shipped name that is not on this list
-can be silently shadowed. `finish-preset-parity.test.ts` fails until it is.
-
-**The skill's own count** — `design/skills/finish.md` states how many
-finishes ship, and the ownership guard compares that number against the
-register. It will tell you the exact number to write.
-
-None of the three is optional and none of them is subtle to fix: each gate
-names the file and the change.
+Nothing to do. The engine's register, the Studio's picker, the reserved-name
+list that stops a user's saved finish from shadowing yours, and the skill's own
+count are all read from the package now. The one link the build still checks
+by hand is the CSS: `checkFinishPackages` fails if your package has no
+`section.finish-quarry` rule, or a rule has no package.
 
 ## 6. Ship a demo deck and export it
 

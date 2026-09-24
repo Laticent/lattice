@@ -21,12 +21,15 @@ const {
 describe('roadmap', () => {
   // ── markerToState ──────────────────────────────────────────────────────
 
-  test('markerToState: maps [x]/[-]/[ ]/[/] to the four state classes', () => {
+  test('markerToState: maps the six markers to the six state classes', () => {
     assert.equal(markerToState('x'), 'state-shipped');
     assert.equal(markerToState('-'), 'state-wip');
+    assert.equal(markerToState('!'), 'state-missed');
+    assert.equal(markerToState('?'), 'state-unknown');
     assert.equal(markerToState(' '), 'state-planned');
     assert.equal(markerToState('/'), 'state-skipped');
-    assert.equal(markerToState('?'), '');
+    assert.equal(markerToState('~'), '');
+    assert.equal(markerToState('X'), '');
   });
 
   // ── applyStatusMarkers ────────────────────────────────────────────────
@@ -330,5 +333,52 @@ describe('the status key label set', () => {
       setPara('[{[x], &lt;img src=x onerror=alert(1)&gt;}]') + GRID, { ...CTX });
     assert.ok(!out.html.includes('<img'), 'the label must not become a live element');
     assert.match(out.html, /roadmap-legend-label">&lt;img src=x onerror=alert\(1\)&gt;</);
+  });
+
+  const cellLabels = (html) => [...html.matchAll(/cell-state-label">([^<]*)</g)].map((m) => m[1]);
+
+  test('the cells print the SAME words as the key, authored or not', () => {
+    // Before the set reached the cells, a `status` eyebrow and the narration said
+    // "Shipped" beside a key that said "Enacted". The two read one merge now.
+    const plain = transformSection(GRID, { ...CTX });
+    assert.deepEqual(cellLabels(plain.html), ['Shipped', 'In flight', 'Planned', 'Out of scope']);
+    const renamed = transformSection(setPara('[{[x], Enacted}]') + GRID, { ...CTX });
+    assert.deepEqual(cellLabels(renamed.html), ['Enacted', 'In flight', 'Planned', 'Out of scope']);
+    assert.deepEqual(labels(renamed.html)[0], cellLabels(renamed.html)[0]);
+  });
+
+  test('an authored cell label is escaped too', () => {
+    const out = transformSection(setPara('[{[x], &lt;b&gt;x&lt;/b&gt;}]') + GRID, { ...CTX });
+    assert.ok(!out.html.includes('<b>'), 'the cell eyebrow must not carry live markup');
+    assert.match(out.html, /cell-state-label">&lt;b&gt;x&lt;\/b&gt;</);
+  });
+});
+
+describe('the two answers roadmap gained: missed and uncertain', () => {
+  const { transformSection } = require('../../../lib/components/chart/roadmap/roadmap.transform');
+  const GRID = '<h2>Plan</h2><table><thead><tr><th></th><th>Q2</th><th>Q3</th></tr></thead>'
+    + '<tbody>'
+    + '<tr><td>Billing</td><td>[x] Tiers</td><td>[!] Metering, cut for Q4</td></tr>'
+    + '<tr><td>Ops</td><td>[?] Audit log</td><td>[ ] Failover</td></tr>'
+    + '</tbody></table>';
+  const CTX = { cls: 'roadmap', classTokens: ['roadmap'], orientation: 'landscape' };
+
+  test('the table form tags both, and the key names both', () => {
+    const { html } = transformSection(GRID, { ...CTX });
+    assert.match(html, /<td class="cell-state state-missed">/);
+    assert.match(html, /<td class="cell-state state-unknown">/);
+    assert.match(html, /roadmap-legend-item state-missed/);
+    assert.match(html, /roadmap-legend-item state-unknown/);
+  });
+
+  test('the horizons form carries both onto card rows, with the whole commitment text', () => {
+    // The horizons row matcher once listed the four old states by hand and dropped
+    // `[!]`/`[?]` rows, and its lazy text match cut the commitment at the first span.
+    const { html } = transformSection(GRID,
+      { ...CTX, cls: 'roadmap horizons', classTokens: ['roadmap', 'horizons'] });
+    assert.match(html, /<li class="cell-state state-missed">/);
+    assert.match(html, /<li class="cell-state state-unknown">/);
+    assert.match(html, /Metering, cut for Q4/);
+    assert.match(html, /Audit log/);
   });
 });

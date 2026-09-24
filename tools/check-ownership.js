@@ -53,6 +53,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { discoverPackages, listFlatPackages } = require('../lib/packages/fs.js');
 
 // ── A WORKING TREE IS NOT A FROZEN TREE ───────────────────────────────────────
 //
@@ -105,7 +106,15 @@ function readdirOrNull(p) {
 // check-lint-coverage.js documents and relies on. This only stops a gate from describing
 // a file that is being deleted as it reads it.
 const { PROBE_PREFIX: LINT_PROBE_PREFIX } = require('./check-lint-coverage.js');
-const isTransientProbe = (name) => name.startsWith(LINT_PROBE_PREFIX);
+// The same race has a second writer: the gallery builders render a dark-injected copy
+// beside each deck as `*.gallery.<theme>.tmp.md` (build-galleries.js,
+// build-bucket-galleries.js, build-showcase-galleries.js, and the dark sweep's
+// `*.darksweep.tmp.md`) and delete it when the render ends. The pre-commit `pdf-rebuild`
+// job runs those builders IN PARALLEL with `affected-tests`, so a walk here listed the
+// file and then read it after it was gone (ENOENT in checkTypedGlyphs). Every such file
+// is gitignored and none is tracked, so nothing a gate should see ends `.tmp.md`.
+const TRANSIENT_RENDER_RE = /\.tmp\.md$/;
+const isTransientProbe = (name) => name.startsWith(LINT_PROBE_PREFIX) || TRANSIENT_RENDER_RE.test(name);
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');
@@ -569,8 +578,11 @@ function parseThemeTokens(css) {
  *  cannot be read is a build failure, not a silently skipped file. */
 function listThemeManifests(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const file of fs.readdirSync(themesDir).sort()) {
-    if (!file.endsWith('.manifest.json')) continue;
+  // The package spine owns the enumeration (lib/packages/fs.js), so the theme walks
+  // share one idea of what a theme's files are.
+  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
+    const file = `${stem}.manifest.json`;
+    if (!names.includes(file)) continue;
     const p = path.join(themesDir, file);
     let m;
     try {
@@ -591,9 +603,8 @@ function listThemeManifests(themesDir = THEMES_DIR) {
 /** Theme CSS files on disk, by name. */
 function listThemeFiles(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const file of fs.readdirSync(themesDir).sort()) {
-    if (!file.endsWith('.css')) continue;
-    out.set(file.replace(/\.css$/, ''), fs.readFileSync(path.join(themesDir, file), 'utf8'));
+  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
+    if (names.includes(`${stem}.css`)) out.set(stem, fs.readFileSync(path.join(themesDir, `${stem}.css`), 'utf8'));
   }
   return out;
 }
@@ -938,6 +949,63 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
       `Every palette says \`@import 'lattice'\`, and that import resolves against this name; ` +
       `change it and all 32 palettes silently collapse to scaffold-only CSS.`,
     );
+  }
+}
+
+// ─── Package identity: the manifest owns the name, for EVERY kind ──────────
+// engineering/decisions/2026-09-23-portable-packages.md §3.2. `checkThemeIdentity`
+// above binds a theme's filename, manifest and `@theme`. This generalizes the rule to
+// every package kind through the spine (lib/packages/): the manifest's `name` is the
+// identity, and the folder name and every role file's `<name>.` prefix are projections
+// that must agree with it. Before this, all 71 component folders matched their manifests
+// by discipline alone — a renamed folder, or a `kpi.styles.css` left behind by a rename,
+// passed every gate.
+//
+// It also asserts the spine's discovery is COMPLETE against the manifest-schema sweep:
+// a package the schema gate knows about but the spine can't see would drop out of the
+// generated index silently.
+function checkPackageIdentity(errors, { root } = {}) {
+  const found = discoverPackages(root ? { root } : {});
+  for (const { path: where, result } of found) {
+    for (const e of result.errors) errors.push(`${where}: ${e} (package identity — the manifest owns the name)`);
+  }
+  if (root) return;
+  const { family, listFamilyManifests } = require('./manifest-schemas.js');
+  for (const [type, fam] of [['theme', 'theme'], ['component', 'component']]) {
+    const swept = listFamilyManifests(family(fam)).length;
+    const seen = found.filter((f) => f.type === type).length;
+    if (swept !== seen) {
+      errors.push(
+        `the package spine found ${seen} ${type} package(s) but the manifest-schema sweep found ${swept} — ` +
+          'lib/packages/fs.js and tools/manifest-schemas.js disagree about where these live.',
+      );
+    }
+  }
+}
+
+// ─── Finish packages ↔ their CSS ───────────────────────────────────────────
+// A shipped finish is a package (lib/finishes/<name>/): the register, the Studio's
+// catalog and its preset recipes are all generated from it. Its CSS is still the
+// hand-written `section.finish-<name>` rule in base.finish.css, because generating it
+// from the recipe is not yet pixel-equal for the presets that carry a text or rule mark
+// (portable-packages §10). So the two have to be bound: a package with no rule renders
+// nothing, and a rule with no package is a finish no deck can name.
+const FINISH_CSS = path.join(ROOT, 'lib', 'base', 'base.finish.css');
+function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
+  const pkgs = discoverPackages({ root, types: ['finish'] })
+    .filter((f) => f.result.ok)
+    .map((f) => f.result.pkg.name);
+  const text = fs.readFileSync(css, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = new Set([...text.matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*\{/gm)].map((m) => m[1]));
+  for (const name of pkgs) {
+    if (!rules.has(name)) {
+      errors.push(`lib/finishes/${name}/ is a finish package, but lib/base/base.finish.css has no \`section.finish-${name} {\` rule — the finish would register and render nothing.`);
+    }
+  }
+  for (const name of rules) {
+    if (!pkgs.includes(name)) {
+      errors.push(`lib/base/base.finish.css has a \`section.finish-${name}\` preset rule but no lib/finishes/${name}/ package — no deck can name it. Add the package (manifest + recipe) or remove the rule.`);
+    }
   }
 }
 
@@ -3613,33 +3681,7 @@ const TYPED_GLYPH_BUDGET = 0;
 //
 // A `*.docs.md` is prose ABOUT a component, never projected, so it is out of
 // scope; so is `engineering/decisions/**`, which is a dated archive.
-const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice, isQuadrantAxisEyebrow } = require('../lib/core/shape-glyphs.js');
-const { splitTopLevel: splitDeckSlides } = require('../lib/authoring/slide-split.js');
-const { slideClassDirectives } = require('../lib/core/class-directive-scan.mjs');
-
-// A `quadrant` slide's axis eyebrow is the component's axis DSL, not chrome, so
-// neither this gate nor `lint:deck` counts it. The PREDICATE is the kernel's
-// (isQuadrantAxisEyebrow) and the slide walk uses the same primitives the linter
-// uses — splitTopLevel + slideClassDirectives — because this was previously a
-// hand-rolled scanner here and a role check there, and they disagreed in both
-// directions: a deck-wide `<!-- class: quadrant -->` failed the build while the
-// linter called the file clean, and any backticked eyebrow on a quadrant slide
-// hid a typed glyph from the budget.
-function stripQuadrantAxisEyebrows(text) {
-  const slides = splitDeckSlides(text);
-  const directives = slideClassDirectives(text);
-  const out = [];
-  slides.forEach((slide, idx) => {
-    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
-    out.push(slide.split('\n')
-      .map((line) => (isQuadrantAxisEyebrow(line, tokens) ? ' '.repeat(line.length) : line))
-      .join('\n'));
-  });
-  // The DECK arm only counts matches, so the join needs to preserve glyphs and
-  // nothing else — it deliberately does NOT claim to preserve line numbers, and
-  // no caller reads one off this result.
-  return out.join('\n');
-}
+const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice } = require('../lib/core/shape-glyphs.js');
 
 // The deck ROOTS the authoring linter itself walks (tools/lint-deck.js
 // `discoverDecks`). Kept in step deliberately: the gate and `lint:deck --all`
@@ -3896,7 +3938,7 @@ function checkTypedGlyphs(errors) {
     if (!isGlyphDeck(rel, text)) continue;
     // A glyph inside a ``` fence is quoted material (two decks quote the CLI's
     // own ⚠ overflow warning verbatim), not slide chrome. See stripFencedCode.
-    const n = (stripQuadrantAxisEyebrows(stripFencedCode(text)).match(shapeGlyphRe()) || []).length;
+    const n = (stripFencedCode(text).match(shapeGlyphRe()) || []).length;
     if (!n) continue;
     if (sanctioned.has(rel)) { sanctionSeen.add(rel); continue; }
     total += n;
@@ -5770,7 +5812,7 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'wait. COUNT RAISED 1 -> 2 (#2072): `spareAtSettled` is the second poll and the same '
        + 'shape - two consecutive `spareAt` reads must agree before the header fit floor is '
        + 'asserted. It is not a fixed bet on a loaded box; it replaces one. Measured: one run in '
-       + 'five returned -1 (row already over) from reading mid-reflow while its three neighbours '
+       + 'five returned -1 (row already over) from reading mid-reflow while its three neighbors '
        + 'all returned 56, and a fit guard that reports "this row does not fit" because it '
        + 'measured too early is worse than no guard. The alternative was a fixed sleep, which is '
        + 'what this list exists to stop.',
@@ -11984,6 +12026,8 @@ function run() {
   checkSectionBoxOwnership(errors);
   checkSizeRegistryOwnership(errors);
   checkThemeIdentity(errors);
+  checkPackageIdentity(errors);
+  checkFinishPackages(errors);
   checkThemeRegistrationCallSites(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
@@ -12095,6 +12139,8 @@ module.exports = {
   themeActualModes,
   splitLightDark,
   listThemeManifests,
+  checkPackageIdentity,
+  checkFinishPackages,
   checkZPlanes,
   definedPlaneTokens,
   collectZIndexDeclarations,

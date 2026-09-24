@@ -625,6 +625,75 @@ test('classifyDivergence names a missing progress rail rather than shrugging', (
   assert.equal(core.classifyDivergence(without, withRail), 'progress rail absent');
 });
 
+// ── A <section quoted as TEXT is not a section ─────────────────────────────────
+// The Studio preview refused an ordinary slide ("nested or unbalanced `<section>`") when its
+// body carried a comment or a `<style>` that quoted the tag: the flat tally counted the text.
+test('sectionsOf and sectionOpenCount read past a quoting comment and <style>/<script> text', () => {
+  for (const q of ['<!-- <section class="title"> -->', '<style>/* <section> */ h2{}</style>', '<script>"<section>"</script>']) {
+    const html = `<section id="1">A${q}</section><section id="2">B</section>`;
+    assert.deepEqual(core.sectionsOf(html), [`<section id="1">A${q}</section>`, '<section id="2">B</section>'], q);
+    assert.equal(core.sectionOpenCount(html), 2, q);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 0), undefined, q);
+  }
+});
+
+test('a `<!--` inside <style>/<script> TEXT does not blank the slides after it', () => {
+  // The first cut masked comments before rawtext, so this `<!--` blanked through the next `-->`
+  // in the document: 1 section where there are 2, and a slide the preview used to narrow refused.
+  for (const raw of ['<script>var s = "<!--";</script>', '<style>p::before { content: "<!--"; }</style>']) {
+    const html = `<section id="1">A${raw}</section><section id="2">B<!-- note --></section>`;
+    assert.equal(core.sectionsOf(html).length, 2, raw);
+    assert.equal(core.sectionOpenCount(html), 2, raw);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 0), undefined, raw);
+  }
+});
+
+test('`<!-->` and `<!--->` are empty comments, not the start of one', () => {
+  for (const c of ['<!-->', '<!--->']) {
+    const html = `<section>1 ${c} x</section><section>2</section><section>3<!-- note --></section>`;
+    assert.equal(core.sectionOpenCount(html), 3, c);
+    assert.equal(core.sectionsOf(html).length, 3, c);
+  }
+});
+
+test('a declaration or processing instruction is inert through its `>`', () => {
+  const html = '<!doctype html><section>1<![CDATA[ <section> ]]><?x <section> ?></section><section>2</section>';
+  assert.equal(core.sectionOpenCount(html), 2);
+  assert.equal(core.sectionsOf(html).length, 2);
+});
+
+test('`<style-x>` is an ordinary element, not a stylesheet', () => {
+  const html = '<section><style-x><section>q</section></style-x></section>';
+  // the literal nested open tag is a real tag here, so the flat count sees two opens
+  assert.equal(core.sectionOpenCount(html), 2);
+});
+
+test('sectionSpansOf gives offsets, so a copy inside a comment is never found first', () => {
+  const html = '<section>1</section><!--<section>2</section>--><section>2</section>';
+  const spans = core.sectionSpansOf(html);
+  assert.equal(spans.length, 2);
+  assert.equal(html.slice(...spans[1]), '<section>2</section>');
+  assert.equal(spans[1][0], html.lastIndexOf('<section>2</section>'), 'the live section, not the commented copy');
+});
+
+test('an UNCLOSED <style> is not blanked to the end of the document', () => {
+  const html = '<section>a <style> named in prose</section><section>b</section>';
+  assert.equal(core.sectionOpenCount(html), 2);
+  assert.equal(core.sectionsOf(html).length, 2);
+});
+
+// The shape the old local mask could not see: it blanked comments and rawtext only, so a section
+// tag inside a quoted ATTRIBUTE value still counted as an open tag and the Studio refused the slide.
+// The module walks the engine's own `splitSections` / `scanTags` now, which read it as text.
+test('a section tag inside a quoted attribute value is text, not a tag', () => {
+  for (const attr of ['<p title="<section>">x</p>', "<p title='</section>'>x</p>", '<p data-a="<section class=\'t\'>">x</p>']) {
+    const html = `<section id="1">A${attr}</section><section id="2">B</section>`;
+    assert.deepEqual(core.sectionsOf(html), [`<section id="1">A${attr}</section>`, '<section id="2">B</section>'], attr);
+    assert.equal(core.sectionOpenCount(html), 2, attr);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 1), undefined, attr);
+  }
+});
+
 // ── alignmentFailure — the guard the compare closure depends on ───────────────
 // Extracted from the compare because nothing at any tier executed it: not the unit suite, not the
 // PR gate, not even the nightly e2e. It is the check that stops an index-based lookup from quoting
@@ -642,12 +711,19 @@ test('alignmentFailure catches a 1→N expansion', () => {
   assert.match(core.alignmentFailure(html, core.sectionsOf(html), 11, 10), /renders 14 slides where the editor counts 11/);
 });
 
-test('alignmentFailure catches nested `<section>` markup the flat split mis-pairs', () => {
-  // Two opens, one non-greedy match — the count check alone would not see this.
-  const html = '<section><section>inner</section></section>';
-  const sections = core.sectionsOf(html);
-  assert.equal(sections.length, 1);
-  assert.match(core.alignmentFailure(html, sections, 1, 0), /nested or unbalanced/);
+// The walk is the engine's depth-aware `splitSections`, so balanced nesting is ONE top-level
+// section and identifies fine, whatever case its tags use (the old flat tally refused the
+// lowercase form and, by accident of a lowercase regex, accepted `<SECTION>`). What cannot be
+// placed is a section that never closes: a browser runs it to the end of the document.
+test('alignmentFailure walks balanced nesting and refuses a section that never closes', () => {
+  for (const inner of ['<section>inner</section>', '<SECTION>inner</SECTION>', '<Section class="x">inner</Section>']) {
+    const html = `<section>${inner}</section><section>two</section>`;
+    const sections = core.sectionsOf(html);
+    assert.deepEqual(sections, [`<section>${inner}</section>`, '<section>two</section>'], inner);
+    assert.equal(core.alignmentFailure(html, sections, 2, 1), undefined, inner);
+  }
+  const open = '<section>one <section class="x"> typing</section><section>two</section>';
+  assert.match(core.alignmentFailure(open, core.sectionsOf(open), 1, 0), /never closes/);
 });
 
 test('alignmentFailure refuses when the caller does not know the slide count', () => {

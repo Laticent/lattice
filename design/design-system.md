@@ -465,7 +465,7 @@ promoting it to a footnote, and `note-warn` marks the slide's callout as an alar
 (HARD RULE #29). The **Table** switches sit over the universal table treatment:
 `table-plain` drops the zebra, `table-fill` spreads the rows into the leftover
 stage height, and `state-cells` opts the cells into the universal state-marker
-decoding (`[x]` `[-]` `[ ]` `[/]` → the color-blind-safe status disc) that
+decoding (the six markers `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]` → the color-blind-safe status disc) that
 `obligation-matrix` and `matrix-grid` get by layout. The
 **Claim** variants let content claim the stage by receding the chrome
 (quiet → hero → bleed); they compose with the Chrome switches above and
@@ -491,7 +491,9 @@ slide. The full matrix — and the Studio controls that emit it — is in the
 authoring guide (`docs/src/content/docs/guides/authoring.md`).
 
 **Tier 2 — Semi-universal.** Apply to most layouts but
-not all. Manifests opt OUT via `excludes`; default is accepted.
+not all. Manifests opt OUT via `excludes`; default is accepted. (`excludes` now
+accepts any universal group or token too — see *Which modifiers a component is
+offered* below.)
 
 | Variant | Excluded by |
 |---|---|
@@ -526,6 +528,69 @@ one or a few layouts.
 The validator rejects any manifest that lists a Tier 1 or Tier 2
 variant in its `variants` array — those are added automatically, and
 listing them risks drift if the universal set changes later.
+
+**Which modifiers a component is offered: surfaces, not lists.** Every modifier
+a slide accepts without a manifest declaring it lives in ONE grouped registry,
+`MODIFIER_GROUPS` in `lib/components/index.js`: the Tier 1 and Tier 2 sets above,
+plus the register tokens (`rule-*`, `eyebrow-*`, `head-*`, `cards-*`,
+`lifted`/`flat`, `corners-*`, the `spectrum-*` bar and card rail, `stamp-*`/`tone-*`
+shapes), the stage-frame controls (`align-*`, `fill-*`, `footer-inset`) and the
+motion hooks. Each group names the **surface** it acts on, meaning the part of the
+slide it changes:
+
+| Surface | Modifiers acting on it | Which components have it |
+|---|---|---|
+| slide | `dark`, `light`, `silent`, `no-*`, state stamps, `tone-*`, brand bar, tints, frame, `scale-*` | every component |
+| heading | `rule-*`, `head-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
+| eyebrow | `eyebrow-*` | the sample opens a block with a lone inline-code line |
+| table | `table-plain`, `table-fill`, `state-cells`, `row-label` | a slot selects a table, or the sample writes one |
+| card-row | `cards-*` | the manifest declares a `cards` composition |
+| card-surface | `lifted`, `flat` | the stylesheet reads `--elevation-card` |
+| card-rail | `spectrum-card-*` | named in the card-rail paint rule |
+| chart-marks | `motion-*`, `chart-anima` | the render draws `data-mark` SVG or a scene |
+| key-insight · below-note | `note-warn` · `no-note` | `authoring.blocks` |
+| insight-label | `insight-*` | a Key Insight, or a layout that reads the label |
+
+A modifier is offered only where its surface exists. "Universal" and "shared" are
+results of that rule, not labels anyone assigns: a modifier on the `slide` surface
+is offered everywhere, and one on `table` only where there is a table. No manifest
+lists modifiers. `lib/components/surfaces.js` derives each component's surfaces from
+facts that already exist, and **the render proof corrects the derivation**.
+`npm run check:modifier-effects` renders every component's sample bare and with each
+modifier, fingerprints the result, and records per component which probed surfaces
+actually change. It also re-probes each declared variant, so `lifted` is offered
+after `kpi ops` (whose stylesheet reads the lift there) and not after plain `kpi`.
+The measurement, `lib/core/modifier-effects.generated.json`, is the source for the
+surfaces it probes. A component it has not measured yet falls back to the
+derivation.
+
+`excludes` stays as the escape hatch for a surface a component has but
+deliberately ignores a modifier on (`claim-bleed` on a dense table). It takes a
+group name or a single token, and the validator rejects anything else.
+
+**How the editor completes a `_class:` line.** By position, the way a shell
+completes a command line: the first word is a component, and every later word is
+only what THAT component accepts. The menu lists, in order:
+
+1. the dependents of a token just typed (`tint-corner` → `at-tl` …)
+2. the component's own variants
+3. its family modifiers
+4. the groups acting on something this slide already contains
+5. the remaining groups in registry order, each as a labeled section
+6. the finishes, last (a per-slide finish is rare)
+
+The editor reads the slide below the line, up to where the next slide starts (a
+`---`, or the next h1/h2 under the default heading split; fenced code is skipped).
+A table, heading or eyebrow in its body turns that surface on, unless the proof
+measured it inert on this component. Inside
+each section, modifiers are ranked by how often the example decks use them. A token
+already on the line drops out, and so does every other member of an exclusive axis
+once you pick one. Once the first word names no component, it completes as the default `content`
+slide, so `_class: dark` keeps working. A bare space opens no menu: the
+default look is the component with nothing after it, so Enter there stays a newline.
+The menu opens on the first letter, or on Ctrl-Space. The kernel is
+`classTokenResult` in `docs/src/playground/slide-context.js` (the options plus the
+`validFor` CodeMirror needs), and both editors call it. Record: `engineering/decisions/2026-09-24-positional-class-completion.md`.
 
 ---
 

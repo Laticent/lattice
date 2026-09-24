@@ -68,7 +68,7 @@ marks — not by editing CSS. It also fails on a class a member gives
 `--chart-edge` that the shared rule does not pin, which is the leak worth knowing
 about: the source text reads identically either way, and two radar marks took the
 token, missed the list, and rendered at 1.24px and 1.29px beside a 1.00px
-neighbour.
+neighbor.
 
 **A KNOCKOUT IS NOT AN OUTLINE, and the family has six.** `funnel-band`,
 `line-dot`, `quadrant-dot`, `quadrant-trail-after`, `radar-dot`, `scatter-dot`

@@ -54,8 +54,8 @@ You don't split the content across slides — you sequence it in place. One gram
 
 | Criterion    | Option A | Option B | Option C |
 | ------------ | -------- | -------- | -------- |
-| Speed        | [x]      | [ ]      | [x]      |
-| Auditability | [ ]      | [x]      | [x]      |
+| Speed        | [x]      | [!]      | [x]      |
+| Auditability | [!]      | [x]      | [x]      |
 | Cost         | Low      | High     | Low      |
 
 ---

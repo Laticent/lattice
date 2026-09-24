@@ -113,7 +113,9 @@ section.checklist > .cell-stage > ol > li.state.fail {
  * --text-muted. Giving todo a private neutral token would add a third value
  * nothing could tell apart from this one. */
 section.checklist > .cell-stage > ul > li.state.todo,
-section.checklist > .cell-stage > ol > li.state.todo {
+section.checklist > .cell-stage > ol > li.state.todo,
+section.checklist > .cell-stage > ul > li.state.unknown,
+section.checklist > .cell-stage > ol > li.state.unknown {
   --state-color:var(--muted-mark);
   border-left-color:var(--state-color);
   background:var(--bg-alt);

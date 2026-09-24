@@ -640,9 +640,9 @@ band-reading geometry instead of its hug-and-center default.
 ### A third switch — `state-cells`, for status in cells
 
 `state-cells` is not a look; it changes what the table's cells MEAN. It opts the
-slide into the universal state-marker decoding — `[x]` `[-]` `[ ]` `[/]` become
-the color-blind-safe status disc — which `obligation-matrix` and `matrix-grid`
-get by layout and every other table used to go without.
+slide into the universal state-marker decoding — the six markers become the
+color-blind-safe status disc — which `obligation-matrix` and `matrix-grid` get by
+layout and every other table used to go without.
 
 That gap is why so many comparison tables were typed with a `✓`. A typed check is
 not a shape we draw: the deck's type family carries no glyph for it, so the
@@ -659,14 +659,15 @@ color-blind reader.
 
 | Criterion    | Chorus | Productboard | Notion | Sprig + Log |
 | ------------ | :----: | :----------: | :----: | :---------: |
-| Speed        | [x]    | [ ]          | [x]    | [x]         |
-| Auditability | [ ]    | [x]          | [x]    | [x]         |
-| Calibration  | [ ]    | [-]          | [ ]    | [x]         |
+| Speed        | [x]    | [!]          | [x]    | [x]         |
+| Auditability | [!]    | [x]          | [x]    | [x]         |
+| Calibration  | [!]    | [-]          | [?]    | [ ]         |
 ```
 
-`[ ]` reads NEUTRAL in a cell — a true hollow ring, "not this one" rather than
-"failed" — matching `obligation-matrix`, not `verdict-grid`. Every `checks-*`
-style variant and `heat` works on it unchanged. A trailing label in the cell
+A comparison cell wants the difference between `[!]` — checked, and the answer
+is no — and `[ ]`, nobody has checked yet; `[?]` is the cell somebody checked and
+could not settle. Each draws what it draws in every other layout. Every
+`checks-*` style variant and `heat` works on them unchanged. A trailing label in the cell
 (`[x] Certified`) is hidden, so the column header carries the meaning.
 
 ```css
@@ -1068,44 +1069,51 @@ front-matter registers* in [`base.registers.docs.md`](base.registers.docs.md).
 <!-- _class: kpi tone-warn -->
 ```
 
-### State markers — `[x]`, `[-]`, `[ ]`, `[/]`
+### State markers — `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`
 
-Four layouts — `checklist`, `verdict-grid`, `obligation-matrix`, and
-`roadmap` — accept state markers as a leading prefix on each item (or
-table cell). The marker syntax, color tokens, and **marks** are unified
-so authors learn one vocabulary; three of the four markers render
-identically everywhere, and the fourth (`[ ]`) reads by local meaning.
+Six markers, each with **one meaning in every layout** — `checklist`,
+`verdict-grid`, `pricing`, `obligation-matrix`, `roadmap`, a `state-cells`
+table, and an inline mark in a sentence. Write one as a leading prefix on an
+item (or alone in a table cell):
 
 ```markdown
-- [x] Done — succeeded / chosen
-- [-] Partial — caveat / partial success
-- [ ] Todo — not yet started (neutral); "not met" only in verdict-grid
-- [/] Out of scope — waived / N/A
+- [x] Yes — done, met, included
+- [-] Partly — in progress, limited, qualified
+- [!] No — failed, not met, missing
+- [?] Unknown — somebody looked; the answer cannot be settled yet
+- [ ] Open — not started, not assessed
+- [/] Does not apply — out of scope, waived
 ```
 
-Each marker is a **status-colored circle carrying a distinct mark**. The
-mark *shape* carries the meaning independently of color — the
-color-blind-safe redundant channel — so the states stay unambiguous in
-grayscale or for color-vision-deficient viewers (the old fill-level
-discs, distinguished only by how full they were, did not).
-
-| Marker | Class | Mark | Semantic |
+| Marker | Class | Drawing | Answer |
 |---|---|---|---|
-| `[x]` | `state pass` | check (green) | succeeded, chosen, complete |
-| `[-]` | `state warn` | dash (amber) | partial, caveat, qualified pass |
-| `[ ]` | `state todo` *(neutral)* / `state fail` *(verdict-grid)* | open ring (neutral) / ✕ (red) | **todo / pending** in checklist, obligation-matrix, roadmap; **not met** in verdict-grid |
-| `[/]` | `state skip` | slash (gray) | out of scope, waived, N/A (row struck through) |
+| `[x]` | `state pass state-full` | check on a solid green disc | yes |
+| `[-]` | `state warn state-half` | dash on a solid amber disc | partly |
+| `[!]` | `state fail state-empty` | ✕ on a solid red disc | no |
+| `[?]` | `state unknown state-unknown` | drawn `?` in a hollow gray ring | unknown |
+| `[ ]` | `state todo state-todo` | hollow gray ring, empty | open |
+| `[/]` | `state skip state-slashed` | slash on a solid gray disc, label struck | does not apply |
 
-**Why `[ ]` flexes — clarity over uniformity.** In `checklist` (todo),
-`obligation-matrix` (exempt), and `roadmap` (planned), `[ ]` is a
-**neutral "not yet / on the slate"** — not a failure — so it renders as a
-**true hollow ring** (`--muted-mark` edge ring, empty center — no inner mark,
-so it reads "open", not a "selected" center-dot bullseye). In `verdict-grid`,
-`[ ]` is a criterion **not met**, which *is* a negative,
-so it keeps the **red ✕** (`--fail`, `--mark-x`). The decoder is
-layout-aware; the stable marks (check / dash / slash) are identical across
-all four. One vocabulary, but the one genuinely-ambiguous marker reads
-correctly in each context.
+Three rules keep the six readable:
+
+- **Shape carries the meaning.** Every answer has its own shape, so the marks
+  parse in grayscale and for a color-blind reader; color is the redundant
+  channel.
+- **Fill says whether the answer is settled.** The findings (yes, partly, no)
+  and *does not apply* are solid discs. The two unsettled answers — unknown and
+  open — are hollow rings, told apart by the drawn `?`.
+- **A layout supplies the WORDS, never the meaning.** Each layout names the
+  answers in its own register (a roadmap says *missed* for `[!]`, pricing says
+  *coming* for `[ ]`), through its key, label set and narration. The answer
+  itself is the same on every slide.
+
+`[ ]` used to read by layout — a red ✕ "not met" in verdict-grid and an open
+ring everywhere else — so one keystroke drew opposite answers on two slides of a
+deck. "No" is `[!]` now, everywhere. The record, including the per-layout words:
+`engineering/decisions/2026-09-24-six-state-marks.md`.
+
+Only these six forms are markers. `[X]` is not one: GitHub-flavored markdown
+reads it as a *checked* box, the opposite of what a cross suggests.
 
 **Style variants (`checks-*`).** The disc treatment is one of five
 boardroom-ready styles, switchable per slide (`_class: checklist
@@ -1123,36 +1131,42 @@ status colors never change — only the disc presentation:
 Each variant flips only scalar CSS knobs (`--state-fill-pct`,
 `--state-ring-*`, `--state-mark-pct`, `--state-disc-scale`) at section
 scope; the leaf disc mixes the actual colors from `--state-color` +
-`--bg`, so variants stay theme-aware. See `base.modifiers.css`.
+`--bg`, so variants stay theme-aware. See `base.modifiers.css`. The two
+hollow rings ignore the fill knob in every variant, and `[?]` paints its `?` in
+the ring's own ink — a knockout mark would vanish on an empty disc.
 
 **Theme tokens:** `--pass`, `--warn`, `--fail` (disc fill + ring + left
-bar) and `--muted-mark` — which carries BOTH the neutral `[ ]` todo ring and
-the `[/]` skipped mark, because each is a SHAPE and so takes the 3:1
-graphical tier rather than a text one. The skipped mark read `--text-muted`
-until #1715 split that token's two roles; the todo ring read `--text-label`
-until #1821, when #1801 restored that token to accent-hued emphasis and took
-the supposedly-neutral ring with it. Sharing one ink is deliberate and safe
-here precisely because the two are told apart by shape, not color: the todo
-ring carries no inner mark at all, while `[/]` is a filled disc with a slash
-and a struck-through label. Plus `--pass-bg` / `--warn-bg` / `--fail-bg` (10% color-mix row
-tints). The mark *shapes* are the shared masks `--mark-check` /
-`--mark-dash` / `--mark-x` / `--mark-slash` (each with a `-bold` sibling for
-`checks-bold`); the neutral `[ ]` todo uses no mask — it's a hollow ring.
-The knockout mark uses `--bg` (the
-canvas), so it adapts to light/dark and to each theme. All foreground
-tokens meet WCAG AA on body backgrounds. The `.heat` modifier remaps
-`--state-color` to the load/risk axis and the discs follow.
+bar) and `--muted-mark` — which carries the `[?]` and `[ ]` rings and the `[/]`
+mark, because each is a SHAPE and so takes the 3:1 graphical tier rather than a
+text one. The skipped mark read `--text-muted` until #1715 split that token's two
+roles; the open ring read `--text-label` until #1821, when #1801 restored that
+token to accent-hued emphasis and took the supposedly-neutral ring with it.
+Sharing one ink is deliberate and safe here precisely because the three are told
+apart by shape, not color: the open ring is empty, the unknown ring carries a
+`?`, and `[/]` is a filled disc with a slash and a struck-through label. Plus
+`--pass-bg` / `--warn-bg` / `--fail-bg` (10% color-mix row tints). The mark
+*shapes* are the shared masks `--mark-check` / `--mark-dash` / `--mark-x` /
+`--mark-question` / `--mark-slash` (each with a `-bold` sibling for
+`checks-bold`); the open `[ ]` uses no mask — it's a hollow ring. The knockout
+mark uses `--bg` (the canvas), so it adapts to light/dark and to each theme. All
+foreground tokens meet WCAG AA on body backgrounds. The `.heat` modifier remaps
+`--state-color` to the load/risk axis and the discs follow; it leaves the two
+hollow rings neutral.
 
-**Implementation contract:** the marker is processed in three channels
-that must stay in lockstep — the engine (`lib/engine` →
-`lib/integrations/markdown-it/plugins.js`), emulator (`lattice-emulator.js`),
-and VS Code preview (`lattice-runtime.js`). Each strips the marker and
-adds `class="state {pass|warn|fail|skip|todo} {state-full|state-half|state-empty|state-slashed|state-todo}"`
-to the carrier element — a **layout-aware** decoder emits `state todo
-state-todo` for the neutral `[ ]` (checklist / obligation-matrix /
-roadmap) and `state fail state-empty` for verdict-grid's "not met".
-`roadmap` draws the same disc + masked-`--state-mark` recipe. CSS owns all
-visual chrome: the disc (`::before`) and the masked mark (`::after`).
+**Implementation contract:** the marker grammar AND its meaning live in one
+kernel, `lib/core/state-marks.js` — `MARKER_CLASS`, `LEADING_MARKER_RE` and
+`stateClassesFor`. Every consumer builds its pattern from that kernel: the
+engine (`lib/integrations/markdown-it/plugins.js`), the VS Code / export-to-Marp
+runtime (`lib/runtime/index.js`), roadmap's transform, the table row-label
+heuristic, and the docs-site Compose editor. Each strips the marker and adds
+`class="state {sem} {shape}"` (a `badge` span on verdict-grid and pricing rows).
+A unit test fails on a private copy of the marker class. Two consumers cannot
+import the kernel and are pinned to it by test instead: the linter
+(`lib/authoring/lint-core.js`, which runs in the browser and stays require-free)
+only names markers in its advice, and the narration projection
+(`lib/transformers/prose-projection.mjs`, a standalone bundle) keeps its own copy
+of the spoken words. CSS owns all visual chrome: the disc (`::before`) and the
+masked mark (`::after`).
 
 ### Treatments — `tint-*` and `mark-*`
 
@@ -1467,9 +1481,9 @@ measured:
 
 ## Inline state marks — `` `[x]` ``
 
-The same four markers an author writes bare at the start of a bullet — `[x]` `[-]`
-`[ ]` `[/]` — draw the same disc when written inside **single-backtick** inline code,
-anywhere inline code can go:
+The same six markers an author writes bare at the start of a bullet — `[x]` `[-]`
+`[!]` `[?]` `[ ]` `[/]` — draw the same disc when written inside **single-backtick**
+inline code, anywhere inline code can go:
 
 ```markdown
 1. Settlement engine
@@ -1482,20 +1496,17 @@ anywhere inline code can go:
 than two vocabularies — bare at a bullet's start for a checklist row, inside inline code
 for a mark in a sentence, a heading, a table cell or a row's trailing column.
 
-`[ ]` takes the **neutral** reading inline — an unchecked box, the open ring — not
-`verdict-grid`'s "assessed and failed".
-
 The mark carries its name on `role="img"` + `aria-label`, so a screen reader says "done"
 and the document holds no extra word. Every `checks-*` style variant reaches an inline
 mark, because it uses the same `state` / semantic / shape classes a checklist row does.
 
-**Only the four exact forms dispatch.** `` `[?]` ``, `` `[!]` ``, `` `[data-mark]` ``,
-`` `[0]` `` and `` `[X]` `` all stay literal — the grammar is deliberately narrow,
-because `[` also opens a CSS attribute selector, an array index and a citation.
+**Only the six exact forms dispatch.** `` `[data-mark]` ``, `` `[0]` ``, `` `[~]` ``
+and `` `[X]` `` all stay literal — the grammar is deliberately narrow, because `[` also
+opens a CSS attribute selector, an array index and a citation.
 
 ### `{x}` is not a checkbox
 
-Braces make a pill, so `` `{x}` `` would be a pill containing the letter `x`. The four
+Braces make a pill, so `` `{x}` `` would be a pill containing the letter `x`. The six
 markers are **reserved** inside `{}` and render literal, with a `lint:deck` suggestion
 pointing at `` `[x]` `` — the bracket form above.
 

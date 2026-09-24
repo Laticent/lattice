@@ -70,13 +70,13 @@ Each route trades capital and control differently. We can build our own plant, a
 
 - **Build own plant.**
   - [x] Full control
-  - [ ] Fast to market
-  - [ ] Capital-light
+  - [!] Fast to market
+  - [!] Capital-light
   - 30-month build, €40M outlay — too slow for the open window.
 - **Acquire a converter.**
   - [x] Full control
   - [-] Fast to market
-  - [ ] Capital-light
+  - [!] Capital-light
   - €28M and a year of integration risk on aging assets.
 - **Joint venture.**
   - [-] Full control

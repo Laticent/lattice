@@ -120,7 +120,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 | Regulation | Notice | Consent | Retention | Breach |
 | --- | :---: | :---: | :---: | :---: |
 | GDPR | [x] | [x] | [x] | [x] |
-| CCPA/CPRA | [x] | [~] | [x] | [ ] |
+| CCPA/CPRA | [x] | [~] | [x] | [/] |
 | LGPD | [x] | [x] | [~] | [x] |
 
 ---

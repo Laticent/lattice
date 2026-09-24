@@ -3253,11 +3253,11 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ## Six sentences have to hold, or the design is not finished.
 
-- [ ] A post is visible to every eligible follower who reaches it — except past the pull cap, where ten of your celebrities are dropped on every page. `order the cap, rotate it, or say it out loud`
+- [-] A post is visible to every eligible follower who reaches it — except past the pull cap, where ten of your celebrities are dropped on every page. `order the cap, rotate it, or say it out loud`
 - [x] Media is never lost once an upload is acknowledged. `durable`
 - [x] A like counts exactly once per reader and post. `idempotent`
 - [x] A feed page never repeats or skips an item. `stable cursor + dedupe at merge`
-- [ ] A blocked account is filtered at read — but a signed media URL outlives the check. `keep the TTL short`
+- [-] A blocked account is filtered at read — but a signed media URL outlives the check. `keep the TTL short`
 - [x] Every derived store rebuilds from posts and edges. `rebuildable`
 
 ---

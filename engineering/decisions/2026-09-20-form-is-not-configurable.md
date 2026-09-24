@@ -12,7 +12,8 @@ summary: >-
   deliberate repaint in the same work is the `list bullet` fix below, and the branch's deck-golden
   drift list is a strict subset of `origin/main`'s. Two conformance findings fall out: `list bullet` lost its clip cell to a
   variant/component name collision (fixed — exactly one component x variant answer changes), and
-  `video` cannot reach conformance by flag alone (recorded, not forced).
+  `video` cannot reach conformance by flag alone (recorded, not forced; closed 2026-09-24 by
+  keeping its title in-card — see § Two conformance findings).
 builds-on: 2026-06-16-form-manifest-medium-independent-contract.md, 2026-07-08-runtime-form-default.md, 2026-07-15-model-driven-frame-render.md
 ---
 
@@ -134,6 +135,33 @@ composition from side-by-side to stacked and clipping the caption. Both attempts
 reviewed and reverted. Closing it means teaching video's transform to keep its title in-card the
 way wifi does with `.qr-head > h2` — its own change, with its own evidence.
 
+**CLOSED 2026-09-24, the way the paragraph above said it would have to be.** `video` is now
+`conformance: "strict"` and runs above `mastheadLift`, beside `contact` and `wifi`. The card
+made the hoist safe, not the order. The transform rebuilds every composition into one
+`.video-card` root and keeps the title, and an eyebrow authored above it, NESTED in that card
+(`.video-lead` for `companion`, `.video-head` otherwise). The lift is depth-aware for a strict
+component, so it leaves a nested `<h2>` where it is, and the band has no top-level title to
+claim. The composition CSS moved from the section onto the card, because the section's direct
+children are now the frame's cells. Four defects on `main` went with it:
+
+- `companion` rebuilt its section from the h2 and the lead alone, so it dropped the deck's
+  running `header:`, the slide's `_footer:` and any eyebrow.
+- On `gallery` the injection anchored on the first `</h2>`, which by then sat inside the
+  masthead band, so the whole figure rendered inside the band, above its hairline.
+- The `<figure>` carried the browser's default `1em 40px` margin. The engine never reset it, so
+  that space was invisible to every height measurement (HARD RULE #20).
+- On `companion qr` the poster sat against the top edge.
+
+The stage is shorter than the section (524px of a 720px slide), so two columns were rebudgeted
+to fit, measured in the real export. `companion qr` went from 576px to 519px: poster cap 40cqi
+to 36cqi, channel `--sp-xl` to `--sp-lg`. `gallery qr` went from 539px to 504px: card gap 5cqh
+to 3cqh, poster height cap 52cqh to 48cqh. At `portrait` the stacked column carries the
+header, footer and eyebrow `main` used to drop, so the tall layouts take the `--sp-sm` step
+(`companion qr` ran 1221px in a 1172px stage), and the aside loses its `13rem` side-column cap
+once it runs under the poster. The demo deck renders with no overflow at hd, standard, square,
+portrait and story. The pins are in `test/unit/transformers/video.test.js`,
+and the demo deck is `examples/video-title-in-card.md`.
+
 ## Migration
 
 `lint:deck` warns and never blocks (HARD RULE #29's posture). `retired-form-key` flags any
@@ -214,3 +242,50 @@ this record states, and a claim with a known exception should carry it.
 - **`applyFormToHtml` recognizes only a double-quoted `class="…"`.** A single-quoted attribute
   yields a duplicate `class` attribute on the open tag. The engine only ever emits double quotes,
   so nothing in the corpus reaches it.
+
+**The same defect lived in FOUR more walkers, and one of them was the export (CLOSED
+2026-09-24).** Fixing `splitSections` fixed the kernel, and four callers never used it. Each
+scanned for the literal string `<section`, so a `<section` quoted in an HTML comment or in
+`<style>` text opened a phantom section on all of them:
+
+- `lattice-emulator.js` split the engine's document with its own regex,
+  `splitTopLevelSections`. The walk returned ZERO slides, and the export shipped a one-page
+  PDF with exit code 0 and no warning. Measured on a three-slide deck with one quoting
+  comment: 1 page before, 3 after.
+- `mapSections` (`lib/core/section-walk.js`), which sits under the masthead lift, the coda,
+  split panels, chart-family and about a dozen other kernels, stopped at the quoting slide
+  and passed every later slide through untouched. The same deck built 0 masthead bands where
+  it builds 2 without the comment. A page count cannot see this, which is why the evidence
+  for this record is a rasterized page and not a number.
+- qr-card's `walkSections` (wifi, contact, video) and svg-a11y-names' `sectionSpans` carried
+  the same scan.
+
+All four now walk `splitSections` (HARD RULE #1). Rendering every `examples/*.md` to HTML on
+both trees, each built from its own source, moved no deck: 195 of 197 are byte-identical and
+the other two differ run to run on the same code (Mermaid's random gitGraph ids and a
+timestamp).
+
+**An independent checker found two faults in the first cut, and both were ours.**
+
+- **An unterminated `<!--` dropped every later slide from the export.** A deck with one
+  `<div><!-- oops</div>` in a raw HTML block exported as one page. The tokenizer read an
+  unterminated comment as inert to end of file, which is what a browser does, and the old
+  regex had never looked at comments at all. It is now read as text, the rule `scanTags`
+  already applied to an unclosed `<style>`, for the same reason. That is not a fix for the
+  author: Chromium still reads the comment to end of file when it prints, so the PDF stops
+  there, exactly as it did before this change (2 pages of 4 on the checker's deck, both
+  trees). What changed is that the export no longer deletes the rest of the deck from the
+  file itself. The string walk and the DOM parse now disagree on this one shape on purpose,
+  and `test/unit/core/split-sections.test.js` says so.
+- **A full-deck render was about 40% slower.** Tokenizing a 339 KB document costs a few
+  milliseconds, and `mapSections` runs about a dozen times per render. `splitSections` now
+  jumps from literal section tag to literal section tag, and it runs the tokenizer only on a
+  stretch that one regex cannot prove clean: no `<!`, no `<?`, no `<script`/`<style`/
+  `<textarea`, no quoted value holding `<` or `>`, and no `<` inside a tag. A seeded fuzz test
+  of 20,000 documents pins the result to the tokenizer-only walk, and deleting any one of those
+  five alternatives turns it red. Measured on the gallery deck, same machine, median of 30
+  renders: HEAD 72-75 ms, this change 75-77 ms, against about 100 ms for the first cut.
+
+The regression arms are `test/integration/export/raw-section-quoted.test.js`, which covers the
+page count and the masthead bands through the real CLI, and
+`test/unit/core/split-sections-fast-path.test.js`.

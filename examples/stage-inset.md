@@ -38,7 +38,7 @@ _Measured on a 1280×720 indaco render — distance in px from the slide edge, b
 <!-- _class: quadrant -->
 <!-- _footer: "Chart — the reclaimed inline axis · quadrant" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## An SVG chart keeps its ink and gains its box.
 

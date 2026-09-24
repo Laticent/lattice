@@ -44,8 +44,11 @@ export type RenderMarkdownOpts = {
 		 *  every section of the whole deck. */
 		deckSection?: { index: number; total: number };
 	};
+	/** Also return `flatCss`: the stylesheet packed for the exported PLAYER, which shows
+	 *  slide content outside any slide (Read · Article). `css` keeps the preview shape. */
+	flatCss?: boolean;
 };
-export type RenderMarkdownResult = { html: string; css: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
+export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 
 /**
  * Render `source` through the engine. `PG` is passed explicitly (never read

@@ -55,9 +55,69 @@ const { loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/comp
 const {
   FUNCTIONS, FORMS, SUBSTANCES, TAG_GROUPS,
   UNIVERSAL_GROUPS, UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, EXCLUSIVE_AXES, effectiveVariants,
-  FAMILY_MODIFIERS, familyModifiersFor,
+  FAMILY_MODIFIERS, familyModifiersFor, MODIFIER_GROUPS, excludedModifiers,
 } = require('../lib/components');
-const { blocksFor } = require('../lib/core/authoring-blocks');
+const { blocksFor, readsInsightLabel } = require('../lib/core/authoring-blocks');
+
+const { componentSurfaces, publishedSurfaces } = require('../lib/components/surfaces');
+
+// The editorial blocks a layout renders — the render's own answers, which
+// componentSurfaces turns into the `key-insight` / `below-note` / `insight-label`
+// surfaces (engineering/decisions/2026-09-24-positional-class-completion.md).
+function modifierHosts(name) {
+  const blocks = blocksFor(name);
+  return {
+    'key-insight': blocks.includes('key-insight'),
+    'below-note': blocks.includes('below-note'),
+    'insight-label': blocks.includes('key-insight') || readsInsightLabel(name),
+  };
+}
+
+// How often authors write each `_class:` token, overall and per component — the
+// editor ranks each completion section by it, so the modifier people actually use
+// sits at the top. The corpus is the shipped example decks plus the integration
+// baseline deck. The component galleries are left out on purpose: they demo every
+// variant once, which would flatten the counts toward "all equally common".
+let usageCache = null;
+let namesCache = null;
+const componentNames = () => (namesCache ||= new Set(loadAll().map((m) => m.name)));
+function classUsage() {
+  if (usageCache) return usageCache;
+  const root = path.join(__dirname, '..');
+  const files = [];
+  const walk = (dir) => {
+    for (const e of fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : []) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.md')) files.push(p);
+    }
+  };
+  walk(path.join(root, 'examples'));
+  walk(path.join(root, 'test/integration/baseline-decks'));
+  const perComponent = {};
+  const global = {};
+  for (const f of files.sort()) {
+    let fenced = false;
+    for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+      if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; continue; }
+      if (fenced) continue;
+      const mm = line.match(/^\s*<!--\s*_class:\s*([^>]*?)\s*-->\s*$/);
+      if (!mm) continue;
+      let [name, ...mods] = mm[1].split(/\s+/).filter(Boolean);
+      if (!name) continue;
+      // A line that opens with a modifier (`_class: dark compact`) is a `content`
+      // slide carrying it — the editor reads it the same way.
+      if (!componentNames().has(name)) { mods = [name, ...mods]; name = 'content'; }
+      for (const t of mods) {
+        global[t] = (global[t] || 0) + 1;
+        const bucket = (perComponent[name] ||= {});
+        bucket[t] = (bucket[t] || 0) + 1;
+      }
+    }
+  }
+  usageCache = { perComponent, global };
+  return usageCache;
+}
 const { BUCKET_BLURBS } = require('./build-bucket-galleries');
 const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
@@ -949,6 +1009,18 @@ function renderPortalJson(manifests) {
     ...(Array.isArray(m.variantAxes) && m.variantAxes.length ? { variantAxes: m.variantAxes } : {}),
     effectiveVariants: effectiveVariants(m),
     familyModifiers: familyModifiersFor(m),
+    // The slide parts this layout has (lib/components/surfaces.js): the editor offers
+    // a modifier only where the surface it acts on exists.
+    // Derived, then corrected by the render proof where it has measured this
+    // component (lib/core/modifier-effects.generated.json): `variantSurfaces` are
+    // the ones a declared variant adds, `inertSurfaces` the content surfaces whose
+    // modifiers do nothing here even when the slide has one.
+    ...publishedSurfaces(m, componentSurfaces(m, { dir: path.join(__dirname, '..', 'lib', 'components', manifestBucket(m), m.name), hosts: modifierHosts(m.name) })),
+    // The manifest's own opt-outs (groups expanded) — the escape hatch for a surface
+    // the layout has but deliberately ignores a modifier on.
+    excludedModifiers: excludedModifiers(m),
+    // How often authors write each modifier after this component (see classUsage).
+    modifierUsage: classUsage().perComponent[m.name] || {},
     ...(Array.isArray(m.focusAxes) && m.focusAxes.length ? { focusAxes: m.focusAxes } : {}),
     ...capacityEntry(m),
     ...(m.density ? { density: m.density } : {}),
@@ -984,6 +1056,11 @@ function renderPortalJson(manifests) {
       universalGroups: Object.fromEntries(Object.entries(UNIVERSAL_GROUPS).map(([k, g]) => [k, [...g]])),
       semiUniversalVariants: [...SEMI_UNIVERSAL_VARIANTS],
       exclusiveAxes: Object.fromEntries(Object.entries(EXCLUSIVE_AXES).map(([k, g]) => [k, [...g]])),
+      // The universal modifier registry, in completion order — each group's tokens,
+      // exclusive axes and dependents (lib/components/index.js MODIFIER_GROUPS).
+      modifierGroups: MODIFIER_GROUPS.map((g) => ({ ...g })),
+      // How often each modifier is written after any component (see classUsage).
+      modifierUsage: classUsage().global,
       familyModifiers: Object.fromEntries(
         Object.entries(FAMILY_MODIFIERS).map(([k, g]) => [k, [...g.modifiers]]),
       ),
@@ -1013,23 +1090,20 @@ function renderPortalJson(manifests) {
 // module exports the behavior, not these vocabularies. Keep in sync if the
 // plugin set changes; the grammar.json --check gate makes drift loud.
 
-// The universal state-token marker grammar (lib/integrations/markdown-it/plugins.js
-// `stateClassesFor`). The `semantic` is universal across every state-marker
-// component; the `shape` is the canonical state-token CSS recipe used by
-// checklist / verdict-grid / obligation-matrix / pricing. The chart-family
-// `roadmap` reuses the same markers + semantics but maps them to its own
-// shape classes (state-shipped / state-wip / state-planned / state-skipped) —
-// see `stateMarkersNote` below. `[ ]` is overloaded: neutral
-// todo/planned/exempt in checklist/roadmap/obligation-matrix, "not met" in
-// verdict-grid.
-const STATE_MARKERS = {
-  '[x]': { semantic: 'pass', shape: 'state-full', gfm: true },
-  '[ ]': { semantic: 'neutral-or-fail', shape: 'state-todo|state-empty', gfm: true,
-    note: 'Context-dependent: todo/planned/exempt in checklist/roadmap/obligation-matrix; not-met in verdict-grid.' },
-  '[-]': { semantic: 'warn', shape: 'state-half', gfm: false },
-  '[/]': { semantic: 'skip', shape: 'state-slashed', gfm: false },
-};
-const STATE_MARKERS_NOTE = 'semantic is universal; shape is the canonical state-token recipe (checklist/verdict-grid/obligation-matrix/pricing). The chart-family roadmap maps the same markers/semantics to its own shape classes (state-shipped/state-wip/state-planned/state-skipped).';
+// The shared state-marker grammar (LFM-1.0 §3.2), DERIVED from the kernel that
+// renders it (lib/core/state-marks.js) so grammar.json cannot disagree with the
+// engine: the semantic and shape classes are `stateClassesFor`'s, the answer is the
+// kernel's universal word. Each marker has ONE meaning in every component; only
+// `[x]` and `[ ]` are GitHub task-list syntax (§5.1).
+const { MARKERS, MARKER_LABELS, stateClassesFor } = require('../lib/core/state-marks');
+const STATE_MARKERS = Object.fromEntries(MARKERS.map((m) => {
+  const { sem, shape } = stateClassesFor(m);
+  return [`[${m}]`, {
+    semantic: sem, shape, answer: MARKER_LABELS[m], spoken: MARKER_LABELS[m],
+    gfm: m === 'x' || m === ' ',
+  }];
+}));
+const STATE_MARKERS_NOTE = 'One meaning per marker in every component; a component names the answers in its own words (label sets, narration) but never changes them. shape is the canonical state-token recipe (checklist/verdict-grid/obligation-matrix/pricing/state-cells/inline). The chart-family roadmap maps the same markers to its own shape classes (state-shipped/state-wip/state-missed/state-unknown/state-planned/state-skipped).';
 
 // Components that read the shared state-marker grammar — the markdown-it state
 // plugins keyed on these class names in lib/integrations/markdown-it/plugins.js

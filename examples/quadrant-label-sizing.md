@@ -26,7 +26,7 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 <!-- _class: quadrant -->
 <!-- _footer: "Four items, a half-empty plot — now sized to the room it has" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Where to put the next dollar.
 
@@ -44,7 +44,7 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 <!-- _class: quadrant -->
 <!-- _footer: "Ten items — still clears the bar, because names are short" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Ten initiatives, and every name still reads.
 
@@ -84,7 +84,7 @@ The kernel walks a ladder of sizes **largest first** and keeps the first rung wh
 <!-- _class: quadrant -->
 <!-- _footer: "Fourteen items — the ceiling, and unchanged at the floor size" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The density that pins the floor.
 

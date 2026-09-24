@@ -268,7 +268,7 @@ test('the Studio webpage export keeps the deck the author wrote — the note was
 
 test('the Studio webpage export keeps a tight list tight — the note was inside a list item', async ({ page }, testInfo) => {
 	test.setTimeout(180_000);
-	// The opposite answer, same neighbours. An indented note inside a list item: leave a BLANK
+	// The opposite answer, same neighbors. An indented note inside a list item: leave a BLANK
 	// line where it was and the tight list turns LOOSE (`<li>Revenue…` becomes `<li><p>Revenue…`),
 	// a visible change to a deck that did nothing unusual. Taking the line reproduces it exactly,
 	// so the `drop` cut has to win. A single-cut export gets one of these two cells wrong.

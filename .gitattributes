@@ -85,7 +85,7 @@
 #
 # WHEN IT CONFLICTS IS NOT RANDOM, AND IT IS NOT RARE. Rows sort date-descending then filename,
 # so a note carrying TODAY's date sorts above every existing note in its status group. Two notes
-# written the same day into the same group are therefore ALWAYS immediate neighbours — one
+# written the same day into the same group are therefore ALWAYS immediate neighbors — one
 # insertion point, one textual conflict — whatever their filenames are. Measured with real
 # branches: same-date-far-apart-filenames conflicts, both-dated-today conflicts, and only a
 # straddling note that already sorts BETWEEN them merges cleanly. This is the common shape, not

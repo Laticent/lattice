@@ -1,0 +1,19 @@
+{
+  "wash": {
+    "type": "bands",
+    "intensity": 5
+  },
+  "texture": {
+    "type": "dots",
+    "intensity": 13,
+    "scale": 26
+  },
+  "mark": {
+    "type": "tick",
+    "placement": "top-right"
+  },
+  "edge": {
+    "type": "none",
+    "intensity": 6
+  }
+}

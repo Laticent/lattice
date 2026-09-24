@@ -1,0 +1,3 @@
+- `video` slides keep the deck's running header and the slide's footer. The `companion` composition used to rebuild its slide from the title and lead alone and dropped both, along with any eyebrow above the title.
+- A `gallery` video no longer renders inside the masthead band. Every `video` composition now keeps its title, with its eyebrow and subtitle label, inside the card and sits in the frame's stage cell like `wifi` and `contact`, so the band never claims the title.
+- The video figure no longer carries the browser's default 40px side margins, which pushed a default-composition slide past its frame.

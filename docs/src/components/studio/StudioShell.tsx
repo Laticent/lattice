@@ -57,6 +57,7 @@ import { activeCorners, CORNERS } from './corners-catalog';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import type { EditorHandle } from './Editor';
+import type { CompletionVocab } from './editor-complete';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import type { FabricateSeed } from './Fabricate';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
@@ -75,6 +76,7 @@ import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
+import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
 import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
@@ -312,6 +314,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// must not be permanent for the tab. `componentNames` keeps LINT honest throughout,
 	// but it covers only lint.
 	const [catalogAttempt, setCatalogAttempt] = React.useState(0);
+	// The `_class:` completion's modifier registry (src/pages/studio/modifier-vocab.json.ts),
+	// fetched once the catalog has arrived instead of inlined into the page — inlined, it
+	// cost this route 14.7KB of HTML on every launch. Until it arrives (or if it never
+	// does) the editor completes from the flat universal list, so nothing waits on it.
+	const [completionVocab, setCompletionVocab] = React.useState<CompletionVocab | null>(null);
+	const loadCompletionVocab = React.useCallback((url: string) => {
+		fetch(url.replace(/component-catalog\.json$/, 'modifier-vocab.json'))
+			.then((r) => (r.ok ? r.json() : null))
+			.then((v) => {
+				if (v && Array.isArray(v.modifierGroups) && v.modifierGroups.length) setCompletionVocab(v as CompletionVocab);
+			})
+			.catch(() => {});
+	}, []);
 	React.useEffect(() => {
 		if (components.length || !catalogUrl || catalogAttempt > 3) return;
 		let alive = true;
@@ -326,15 +341,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			.then((r) => (r.ok ? r.json() : null))
 			.then((rows) => {
 				if (!alive) return;
-				if (Array.isArray(rows) && rows.length) setComponents(rows as ComponentEntry[]);
-				else retry();
+				if (Array.isArray(rows) && rows.length) {
+					setComponents(rows as ComponentEntry[]);
+					loadCompletionVocab(catalogUrl);
+				} else retry();
 			})
 			.catch(retry);
 		return () => {
 			alive = false;
 			if (timer) window.clearTimeout(timer);
 		};
-	}, [components.length, catalogUrl, catalogAttempt]);
+	}, [components.length, catalogUrl, catalogAttempt, loadCompletionVocab]);
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());
@@ -1125,15 +1142,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// CSS of the local components the deck actually USES, injected so an inserted
 	// local component renders STYLED (the engine theme doesn't know it). The engine
 	// applies its `.<name>` class; this supplies the matching rules.
-	const usedLocalCss = React.useMemo(() => {
-		if (!localComponents.length) return undefined;
+	// The same list also rides into the Markdown and Marp exports (ShareSheet), so a
+	// deck that renders a saved component here keeps its styling on the recipient's
+	// machine. One derivation feeds both, so preview and export can't disagree about
+	// which components the deck uses.
+	const usedLocalComponents = React.useMemo(() => {
+		if (!localComponents.length) return [];
 		const used = new Set(usedComponents(source));
-		const css = localComponents
-			.filter((c) => used.has(c.name))
-			.map((c) => c.css)
-			.join('\n\n');
-		return css || undefined;
+		// A record saved under a shipped name before saves were guarded is skipped: its
+		// CSS would restyle the shipped component on every slide that uses it.
+		return localComponents.filter((c) => used.has(c.name) && c.css && !RESERVED_COMPONENT_NAMES.has(c.name)).map((c) => ({ name: c.name, css: c.css }));
 	}, [localComponents, source]);
+	const usedLocalCss = React.useMemo(() => usedLocalComponents.map((c) => c.css).join('\n\n') || undefined, [usedLocalComponents]);
 	// `validation` is an editor preference (persisted in settings). The deck-level
 	// Look controls (size / page numbers / header+footer) are NOT separate state —
 	// they READ from and WRITE to the deck's front-matter, so the toggle always
@@ -1904,17 +1924,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// finish's baked layers — backdrop strength/clearance and any other layer). Empty when
 	// absent. Only the DECK-WIDE active finish honors it; per-slide finishes render baked.
 	const finishOverride = React.useMemo(() => parseFinishOverride(source), [source]);
+	// The saved finishes this deck uses: the `finish-<slug>` class token as a whole word
+	// (front-matter value or a per-slide _class line), or the bare deck-wide slug (back-compat).
+	const usedSavedFinishes = React.useMemo(
+		() =>
+			savedFinishes.filter((f) => {
+				const esc = `finish-${f.name}`.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+				return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
+			}),
+		[savedFinishes, source, finish],
+	);
 	const finishExtraCss = React.useMemo(() => {
-		if (!savedFinishes.length) return undefined;
+		if (!usedSavedFinishes.length) return undefined;
 		const hasOverride = Object.keys(finishOverride).length > 0;
-		const used = savedFinishes.filter((f) => {
-			const token = `finish-${f.name}`;
-			// the `finish-<slug>` class token as a whole word (front-matter value or a
-			// per-slide _class line), or the bare deck-wide slug (back-compat).
-			const esc = token.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-			return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
-		});
-		return used
+		return usedSavedFinishes
 			.map((f) => {
 				// The active deck-wide finish REGENERATES with the override deep-merged into its
 				// recipe (backdrop + any layer); every other used finish renders its baked CSS.
@@ -1923,7 +1946,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			})
 			.filter(Boolean)
 			.join('\n\n') || undefined;
-	}, [savedFinishes, source, finish, finishOverride]);
+	}, [usedSavedFinishes, finish, finishOverride]);
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
@@ -2123,7 +2146,48 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (/\.lattice$/i.test(file.name)) {
 			import('./lattice-file')
 				.then(({ readLatticeFile }) => readLatticeFile(file))
-				.then(({ source: src, title, comments }) => openImportedDeck(src, title, comments))
+				.then(async ({ source: src, title, comments, packages }) => {
+					// The saved themes/components/finishes the deck was exported with ride in the
+					// file as package folders (portable-packages §4). They go through the SAME funnel
+					// as a Library import — same gates, same `-custom` rename, same refusals — so a
+					// `.lattice` file is never a side door around them. Two differences, both because
+					// OPENING a file is not asking to change your Library:
+					//   - keepMine: nothing you saved is overwritten (import-parsed.ts says how);
+					//   - motion is not taken from the file. A deck inlines its motion (§5), so a
+					//     carried motion package is never needed to render it.
+					// The packages go in FIRST, so the deck can be pointed at the names they were
+					// saved under before it opens.
+					const scenesLeft = packages.scenes.length;
+					const carried = { ...packages, scenes: [] };
+					if (!carried.themes.length && !carried.components.length && !carried.finishes.length && !carried.refused.length && !scenesLeft) {
+						openImportedDeck(src, title, comments);
+						return;
+					}
+					const { importParsedBundle, applyImportRenames } = await import('./library/import-parsed');
+					let t: Awaited<ReturnType<typeof importParsedBundle>>;
+					try {
+						t = await importParsedBundle(carried, { keepMine: true });
+					} catch (err) {
+						// The deck is the thing the person asked for; a Library that won't take its
+						// assets must not stop it opening.
+						openImportedDeck(src, title, comments);
+						notify(`Opened the deck, but its saved assets could not be added: ${(err as Error)?.message || 'the Library is unavailable'}.`);
+						return;
+					}
+					openImportedDeck(applyImportRenames(src, t.renames), title, comments);
+					refreshThemes();
+					refreshComponents();
+					refreshFinishes();
+					const got = [t.themes && `${t.themes} theme(s)`, t.components && `${t.components} component(s)`, t.finishes && `${t.finishes} finish(es)`].filter(Boolean).join(' + ');
+					const detail = [
+						t.renamed.length ? `Saved under another name, and this deck now uses it: ${t.renamed.join(', ')}.` : null,
+						t.unchanged ? `${t.unchanged} already in your Library, unchanged.` : null,
+						t.refused.length ? `Not added: ${t.refused.map((r) => `${r.name} (${r.why})`).join('; ')}.` : null,
+						scenesLeft ? `${scenesLeft} motion(s) in the file were not added — the deck carries its motion inline.` : null,
+						t.notes.length ? t.notes.join(' ') : null,
+					].filter(Boolean).join('\n') || undefined;
+					if (got || detail) notify(got ? `Added the deck's ${got} to your Library. Nothing you had was changed.` : 'Nothing was added to your Library.', { description: detail });
+				})
 				// A stale tab fails HERE before it ever reads the file (#1242): the reader is a
 				// lazy chunk, and a superseded deploy's URL is gone. Blaming the .lattice file
 				// for that sends the user to re-export a perfectly good deck — name the real
@@ -2224,10 +2288,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The active theme as a saved library entry (when the active palette names one),
 	// else undefined → a built-in palette. Drives the `extraTheme` everywhere a deck
 	// is rendered/exported so a saved theme is honored, not just previewed.
-	const activeTheme = React.useMemo(() => savedThemes.find((t) => t.name === palette), [savedThemes, palette]);
+	const activeTheme = React.useMemo(() => (RESERVED_THEME_NAMES.has(palette) ? undefined : savedThemes.find((t) => t.name === palette)), [savedThemes, palette]);
 	const extraTheme = activeTheme ? { name: activeTheme.name, css: activeTheme.css } : undefined;
 	// Saved (Fabricated) themes shaped for the grouped picker.
-	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
+	// A record saved under a shipped name before saves were guarded is left out: picking
+	// it would select the shipped theme, so the entry would do nothing it says.
+	const savedMenu = React.useMemo(() => savedThemes.filter((t) => !RESERVED_THEME_NAMES.has(t.name)).map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
 	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
 	// off it); the data-mode observer below pulls the new value into `mode` and the
@@ -2962,7 +3028,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// The deck names its own theme — pin the preview to it. A deck theme that
 			// names a saved (Fabricated) library theme needs its CSS registered, so
 			// pass it as extraTheme; a built-in is fetched by name (extraTheme none).
-			const saved = savedThemes.find((t) => t.name === r.palette);
+			// A shipped name always resolves to the shipped theme. A record saved under one
+			// before saves were guarded (library/reserved-names.ts) must not re-skin it.
+			const saved = RESERVED_THEME_NAMES.has(r.palette) ? undefined : savedThemes.find((t) => t.name === r.palette);
 			return { paletteOverride: r.palette, extraTheme: saved ? { name: saved.name, css: saved.css } : undefined, modeOverride };
 		}
 		// Un-themed deck → adopt the website palette (the saved-theme CSS path is the
@@ -2970,6 +3038,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// deck still pins dark via modeOverride.
 		return { paletteOverride: activeTheme?.name, extraTheme, modeOverride };
 	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
+	// The saved Library records this deck uses — its saved theme, its saved components and
+	// its saved finishes — which a `.lattice` project carries along as package folders
+	// (portable-packages §4). Built from the same derivations the preview uses, so the file
+	// carries exactly what renders.
+	const deckPackages = React.useMemo(() => {
+		// Only a theme the deck NAMES: an un-themed deck previews in the site picker's theme,
+		// which the file must not carry as if the deck depended on it.
+		const named = getFrontMatter(source, 'theme');
+		const themeName = named && preview.extraTheme?.name === named ? named : undefined;
+		const usedComps = new Set(usedLocalComponents.map((c) => c.name));
+		return {
+			themes: themeName ? savedThemes.filter((t) => t.name === themeName) : [],
+			components: localComponents.filter((c) => usedComps.has(c.name)),
+			finishes: usedSavedFinishes,
+		};
+	}, [source, preview.extraTheme, savedThemes, usedLocalComponents, localComponents, usedSavedFinishes]);
 
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
 	// Mirrors for the mount-once navigation listeners below: the keydown handler is
@@ -4349,7 +4433,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -4377,7 +4461,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* At the Read stop the preview is the whole surface — strip its editorial
 			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
 			    debug footer) so it reads as "just the slides" (M3 red-team). Only the
-			    live deck + the "Edit this slide" overlay remain. */}
+			    live deck + the navigator, led by the Read verbs, remain. */}
 			{!previewChromeless && (
 			<div data-slot="preview-bar" className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				{/* The band's own name. It earns its place only where the pane is ONE OF TWO —
@@ -4503,7 +4587,43 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
 			    cinema morph (iPhone landscape): the whisper layer carries position instead. */}
 			{!landscapePhone && (
-			<div className="flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
+			<div className="relative flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
+				{/* READ verbs — the Read stop's two actions lead the navigator, in the slot the
+				    slide-op rail holds at Write/Craft. "Edit this slide" stays the accent-filled
+				    primary (the newcomer's one unmissable step to Write, and not hover-gated);
+				    "Read as an article" is Read-only on purpose — it is a way to READ the deck,
+				    so it lives on the reading surface and nowhere else (⌘K offers it only here
+				    too). They used to float over the slide as an overlay pill; in the bar they
+				    cover nothing and sit with the navigation they belong to. Labels drop to
+				    icons on a narrow pane (the section is a size container), and the accessible
+				    name stays whole either way. */}
+				{effectiveStop === 'read' && (
+					<>
+						{!readHintSeen && (
+							<div className="absolute bottom-[calc(100%+8px)] left-3 z-20 flex max-w-[calc(100%-24px)] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+								<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
+								<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
+							</div>
+						)}
+						<button
+							type="button"
+							aria-label="Edit this slide"
+							onClick={() => { dismissReadHint(); if (mobile) setMobilePane('edit'); changePosture('write'); }}
+							className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--on-accent)] shadow-sm transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_88%,var(--text-heading))]"
+						>
+							<PencilLine className="size-3.5" /><span className="hidden @[30rem]:inline">Edit this slide</span>
+						</button>
+						<button
+							type="button"
+							aria-label="Read as an article"
+							onClick={() => setView('article')}
+							className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold text-[var(--text-heading)] transition-colors hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]"
+						>
+							<FileText className="size-3.5" /><span className="hidden @[30rem]:inline">Read as an article</span>
+						</button>
+						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
+					</>
+				)}
 				{composeLens === 'full' && effectiveStop !== 'read' && (
 					<div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
 						<RailOp label="Add slide" onClick={opAddSlide}><Plus className="size-3.5" /></RailOp>
@@ -4912,7 +5032,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				onShare: () => setShareOpen(true),
 				onFeedback: () => setFeedbackOpen(true),
 				onFabricate: () => setView('fabricate'),
-				onReadArticle: () => setView('article'),
+				// Read-only: the article is a way to read the deck, so it is offered on the
+				// reading surface alone — the same place its bar button lives.
+				onReadArticle: effectiveStop === 'read' ? () => setView('article') : undefined,
 				onLibrary: () => { revealCraftDock(); setLibraryOpen(true); },
 				onWorkspace: () => setWorkspaceOpen(true),
 				onReshape: () => { revealCraftDock(); setLensesOpen(true); },
@@ -5427,23 +5549,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<div className="relative min-h-0 flex-1">
 						<div className={cn('absolute inset-0 flex', effPane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={effPane !== 'edit' ? true : undefined}>{editorPane}</div>
 						<div className={cn('absolute inset-0 flex', effPane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={effPane !== 'preview' ? true : undefined}>{previewPane}</div>
-						{/* Mobile Read — the phone newcomer the brief centers (M5). The preview pane
-						    already renders chromeless full-bleed at the Read stop; this adds the one
-						    "Edit this slide" verb + the one-time hint. Tapping it swaps to the edit
-						    pane AND steps the dial to Write — the same Read→Write step as desktop. */}
-						{effectiveStop === 'read' && effPane === 'preview' && (
-							<div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-2.5 px-4">
-								{!readHintSeen && (
-									<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
-										<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
-										<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
-									</div>
-								)}
-								<button type="button" onClick={() => { dismissReadHint(); setMobilePane('edit'); changePosture('write'); }} className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg">
-									<PencilLine className="size-4" />Edit this slide
-								</button>
-							</div>
-						)}
 					</div>
 				</main>
 			) : (
@@ -5562,29 +5667,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</ResizablePanelGroup>
 					</main>
 
-					{/* READ overlay — the one primary verb over the full-bleed preview. Absolutely
-					    positioned in the (relative) spine wrapper, so it is NOT a grid item and
-					    can't affect the #721 track/child count. "Edit this slide" is the single,
-					    unmissable, non-hover-gated action (hover fails on touch); it steps the dial
-					    to Write. The one-time hint carries the banner's one true job (the deck is
-					    yours) as element-attached content that never recurs. */}
-					{effectiveStop === 'read' && (
-						<div className="pointer-events-none absolute inset-x-0 bottom-20 z-20 flex flex-col items-center gap-2.5 px-4">
-							{!readHintSeen && (
-								<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
-									<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
-									<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
-								</div>
-							)}
-							<button
-								type="button"
-								onClick={() => { dismissReadHint(); changePosture('write'); }}
-								className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg transition-transform hover:scale-[1.02]"
-							>
-								<PencilLine className="size-4" />Edit this slide
-							</button>
-						</div>
-					)}
 				</div>
 			)}
 
@@ -5656,7 +5738,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →

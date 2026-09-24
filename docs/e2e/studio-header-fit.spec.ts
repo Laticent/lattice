@@ -640,7 +640,7 @@ test('@smoke the Studio header fits — and keeps its words — at every support
  * `spareAt`, but only once two consecutive reads agree — the same settle discipline
  * `readHeaderSettled` uses, and for the same reason. Measured: the row can still be
  * mid-reflow when the Search pill's locator resolves, and a `spareAt` taken there returned
- * **-1** (already over) on a run whose three neighbours all returned 56. A guard that
+ * **-1** (already over) on a run whose three neighbors all returned 56. A guard that
  * reports "this row does not fit" because it measured too early is worse than no guard.
  */
 async function spareAtSettled(page: import('@playwright/test').Page, tolerance: number): Promise<number> {

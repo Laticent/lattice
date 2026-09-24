@@ -23,6 +23,14 @@
       "pattern": "^[a-z][a-z0-9-]*$",
       "description": "The `_class` directive value (kebab-case)."
     },
+    "type": {
+      "const": "component",
+      "description": "The package type (engineering/decisions/2026-09-23-portable-packages.md §3.2). Optional in the repo, where the folder implies it; the package spine writes it into every exported package, so a loose zip says what it is."
+    },
+    "format": {
+      "const": 1,
+      "description": "The package format version the spine wrote. Optional in the repo; a newer number is refused on import rather than half-read."
+    },
     "function": {
       "enum": [
         "anchor",
@@ -207,7 +215,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["members"],
-      "description": "The set of members this component draws a KEY for, and the default words it names them with. A \u201cset\u201d is any small closed group a reader needs decoded: roadmap's four delivery states, obligation-matrix's four markers, matrix-grid's cell shapes, heatmap's five ramp bands. DECLARED HERE SO ONE SOURCE SERVES BOTH THE RENDER AND THE LINT \u2014 the transform takes its derived default from this field and `lint:deck` checks an authored override's keys against it, so a key vocabulary that disagrees with what the component renders is not expressible. That is the move `coda.claims` made when it replaced two hand-maintained exclusion lists that were wrong for 8 of 61 layouts. An author overrides any member with an inline label set \u2014 `[{{[x], Enacted}}, {{[-], In committee}}]` in an inline-code span \u2014 parsed by lib/core/label-set.js and merged BY KEY and PARTIALLY, so naming one member leaves the rest on their defaults. OMIT the field entirely for a component with no closed set, which is most of them.",
+      "description": "The set of members this component draws a KEY for, and the default words it names them with. A \u201cset\u201d is any small closed group a reader needs decoded: roadmap's six delivery states, obligation-matrix's six markers, matrix-grid's cell shapes, heatmap's five ramp bands. DECLARED HERE SO ONE SOURCE SERVES BOTH THE RENDER AND THE LINT \u2014 the transform takes its derived default from this field and `lint:deck` checks an authored override's keys against it, so a key vocabulary that disagrees with what the component renders is not expressible. That is the move `coda.claims` made when it replaced two hand-maintained exclusion lists that were wrong for 8 of 61 layouts. An author overrides any member with an inline label set \u2014 `[{{[x], Enacted}}, {{[-], In committee}}]` in an inline-code span \u2014 parsed by lib/core/label-set.js and merged BY KEY and PARTIALLY, so naming one member leaves the rest on their defaults. OMIT the field entirely for a component with no closed set, which is most of them.",
       "properties": {
         "aria": {
           "type": "string",
@@ -464,7 +472,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Semi-universal variants this layout opts out of (must be a subset of compact / loose / accent)."
+      "description": "Universal modifiers this layout does not offer: a MODIFIER_GROUPS group name (e.g. \"table\", \"cards\", \"motion\") or a single universal token (e.g. \"compact\", \"claim-bleed\"). Everything is offered by default; list only what provably does nothing on this layout. Drives effectiveVariants() and the editor's positional `_class:` completion. See design/design-system.md §6.5 and lib/components/index.js MODIFIER_GROUPS."
     },
     "variantAxes": {
       "type": "array",

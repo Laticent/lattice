@@ -24,6 +24,7 @@
 
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
 import {
 	alignmentFailure,
@@ -31,6 +32,8 @@ import {
 	deckSectionFor,
 	normalizeSection,
 	RESIDUAL_NEUTRALIZERS,
+	sectionOpenCount,
+	sectionSpansOf,
 	sectionsOf,
 	supplyablePosition,
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
@@ -323,34 +326,32 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // so the permissive branch protected nothing and hid a hole. Both now call `alignmentFailure`, and
 // no count means no narrowing.
 //
-// The walker moved with it, and had to: the guard is "the flat walker mis-paired", so checking it
-// against a list produced by a DIFFERENT walker guards nothing. `sectionsOf` (the same list
-// `alignmentFailure` is handed by the compare closure) replaces the filmstrip's `splitSections`
-// here — both are flat and non-greedy, and `sectionsOf` is the more robust of the two (the
-// filmstrip's `<section\b[^>]*>` stops at the first `>`, so an attribute value containing one cuts
-// the open tag in half). The filmstrip keeps its own copy because it consumes a different shape.
-//
-// The repo HAS a depth-aware walker — `lib/core/split-sections.js`, whose header says the scan
-// "survives nested sections" — but it is CommonJS and not on the browser engine bundle, so wiring
-// it here is a bundle-surface change rather than a line edit. Detect-and-degrade until then: fail
+// The walker moved with it, and had to: the guard is "the walker mis-paired", so checking it
+// against a list produced by a DIFFERENT walker guards nothing. `sectionsOf` / `sectionSpansOf`
+// (the same list `alignmentFailure` is handed by the compare closure) are the engine's own
+// depth-aware walker, `splitSections` (lib/core/split-sections.mjs), and so is the filmstrip's
+// `splitSections` (preview-virtual.js): one walk everywhere (HARD RULE #1). It reads a section tag
+// in a comment, in rawtext or in an attribute value as text, and pairs a nested section with its
+// own close. A nested or never-closed section still makes the open count disagree with the walk,
+// so this path still detects and degrades: fail
 // CLOSED on any disagreement or unusable index. `null` means "cannot prove which section is slide
 // `index`", and the caller falls back rather than guessing. Never return the whole deck — stacking
 // every section into a frame whose CSS and scale transform assume exactly one is both visibly
 // broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
 function narrowToSlide(html: string, index: number, slideCount?: number): string | null {
-	const sections: string[] = sectionsOf(html);
+	const spans: [number, number][] = sectionSpansOf(html);
+	const sections: string[] = spans.map(([s, e]) => html.slice(s, e));
 	if (alignmentFailure(html, sections, slideCount, index)) return null;
 	if (sections.length < 2) return html;
 	let out = '';
 	let pos = 0;
-	// Walk by INDEX (not by matching the section string), so a deck with two byte-identical
-	// slides can't collapse onto the wrong one.
-	for (let i = 0; i < sections.length; i++) {
-		const at = html.indexOf(sections[i], pos);
-		if (at === -1) return null; // shape we cannot walk — fail closed, same as a count mismatch
+	// Walk by OFFSET, not by searching for the section string: `indexOf` found a byte-identical
+	// copy of a later section inside a comment before the real one, and kept two live sections.
+	for (let i = 0; i < spans.length; i++) {
+		const [at, end] = spans[i];
 		out += html.slice(pos, at); // inter-section text: the wrapper open tag, newlines
-		if (i === index) out += sections[i];
-		pos = at + sections[i].length;
+		if (i === index) out += html.slice(at, end);
+		pos = end;
 	}
 	return out + html.slice(pos);
 }
@@ -1548,26 +1549,33 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// contract without inventing a failure, and it is strictly better than the old
 				// behavior: same visible slide, minus the stacked siblings underneath it.
 				//
-				// Refuse ONLY when the sections cannot be told apart — `sectionsOf` walking a shape
-				// it cannot pair (author raw `<section>`, nested markup). There the first section is
-				// not knowable, so guessing would re-open the "confident and wrong" failure the
-				// alignment guard above exists to prevent.
+				// Refuse ONLY when the sections cannot be told apart: a `<section>` that never
+				// closes, which a browser runs to the end of the document. There the first section
+				// is not knowable, so guessing would re-open the "confident and wrong" failure the
+				// alignment guard above exists to prevent. Balanced nesting is NOT refused any more:
+				// `sectionsOf` is the engine's depth-aware walker, so a slide holding a hand-authored
+				// `<section>` is one top-level section, whatever case its tags are written in.
 				//
-				// Counting via `sectionsOf` rather than a `/<section\b/g` tally over raw HTML: a
-				// tally also counts the string inside an HTML comment, so `<!-- <section> -->` in
-				// author content scored 2 against 1 real section and refused a perfectly good slide.
+				// Every count here reads past comments, `<style>`/`<script>` text and attribute
+				// values (`scanTags`). A raw `/<section\b/g` tally counted the string inside an HTML
+				// comment, so `<!-- <section> -->` in author content scored 2 against 1 real
+				// section and refused a perfectly good slide. That tally survived here after this
+				// note was written, and the Studio route painted the refusal on exactly that deck.
 				//
 				// Gated on `slideMarkdown` so the one deliberate exception survives: a caller that
 				// passes `slideIndex` WITHOUT it has explicitly asked for the whole render.
 				if (typeof opts?.slideIndex === 'number' && opts?.slideMarkdown) {
 					const framed = sectionsOf(out.html);
-					const opens = (out.html.match(/<section\b/g) || []).length;
-					if (framed.length > 1 && opens === framed.length) {
+					const opens = sectionOpenCount(out.html);
+					// Walkable unless a section never closes: the walk is depth-aware, so a slide
+					// holding a balanced hand-authored `<section>` is still one top-level section.
+					const walkable = unclosedSectionAt(out.html) < 0;
+					if (walkable && framed.length > 1) {
 						// Walkable: keep the first section and drop its siblings, preserving the
 						// wrapper/inter-section text exactly as `narrowToSlide` does.
 						const narrowed = narrowToSlide(out.html, 0, framed.length);
 						if (narrowed !== null) out.html = narrowed;
-					} else if (opens > 1 && opens !== framed.length) {
+					} else if (!walkable && opens > 1) {
 						// Unwalkable AND multi-section: we cannot say which markup is slide one, and
 						// stacking it is the defect. Fail closed, visibly.
 						return {
@@ -1672,7 +1680,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const geom: Geom = { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H };
 				(host as LiveHost).__latticeGeom = geom;
 				// Section count — computed here so the onload sample below captures it.
-				const slides = (out.html.match(/<\/section>/g) || []).length;
+				// The shared walker, not a count of `</section>`: a close tag quoted in a comment is text.
+				// A section that never closes still counts: the DOM holds it (see `unclosedSectionAt`).
+				const slides = sectionSpansOf(out.html).length + (unclosedSectionAt(out.html) >= 0 ? 1 : 0);
 
 				// PATCH FAST PATH. Everything baked into the srcdoc OUTSIDE the section —
 				// the theme <style> (out.css + extra/author CSS) and the runtime <script> —

@@ -1372,6 +1372,16 @@ section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding:
  *   half   (was caution) → caution (var(--warn) — unchanged)
  *   empty  (was bad)   → relief (var(--pass))
  *   skip   (was muted) → muted  (var(--muted-mark) — the graphical tier since #1715)
+ *   unknown / todo      → muted, untouched here (an unsettled answer carries no load
+ *                         either way, and their default is already --muted-mark)
+ *
+ * Roadmap's `missed` joins `planned` in relief: `[!]` is "no" on every surface, so
+ * under heat it reads as relief like the `.fail` disc does. Left at its default red it
+ * would share heat's alarm red with `shipped`, the one pair heat must keep apart.
+ *
+ * Roadmap's `horizons` CARDS are remapped in roadmap.styles.css, not here: their
+ * defaults carry `.horizons` inside `:is(...)` and outrank any selector this block
+ * could write, so the card selectors that used to sit here never applied.
  *
  * Selectors match the per-layout default --state-color assignments above
  * exactly, so specificity ties; this block is placed AFTER the layout
@@ -1394,8 +1404,7 @@ section.heat > .cell-stage > ul > li.state.pass,
 section.heat > .cell-stage > ol > li.state.pass,
 section.heat .badge.pass,
 section.heat td .state.pass,
-section.heat td.cell-state.state-shipped,
-section.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--fail); }
+section.heat td.cell-state.state-shipped { --state-color:var(--fail); }
 
 /* half → caution (unchanged, but redeclared for symmetry and so per-layout
  * source-order overrides under .heat resolve to the universal palette) */
@@ -1405,8 +1414,7 @@ section.heat > .cell-stage > ul > li.state.warn,
 section.heat > .cell-stage > ol > li.state.warn,
 section.heat .badge.warn,
 section.heat td .state.warn,
-section.heat td.cell-state.state-wip,
-section.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--warn); }
+section.heat td.cell-state.state-wip { --state-color:var(--warn); }
 
 /* empty → relief */
 section.heat > ul > li.state.fail,
@@ -1416,7 +1424,7 @@ section.heat > .cell-stage > ol > li.state.fail,
 section.heat .badge.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
-section.heat .horizon-rows > li.cell-state.state-planned { --state-color:var(--pass); }
+section.heat td.cell-state.state-missed { --state-color:var(--pass); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
@@ -1425,14 +1433,13 @@ section.heat > .cell-stage > ul > li.state.skip,
 section.heat > .cell-stage > ol > li.state.skip,
 section.heat .badge.skip,
 section.heat td .state.skip,
-section.heat td.cell-state.state-skipped,
-section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); }
+section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS
  * ────────────────────────────────────────────────────────────────────────
- * The checkbox grammar ([x]/[-]/[ ]/[/]) renders as one colored disc
- * carrying a DISTINCT mark per state, across the three consumers that share
+ * The six-marker checkbox grammar renders as a solid disc (settled answers)
+ * or a hollow ring (unsettled ones), each with a DISTINCT mark, across the consumers that share
  * the universal `state {sem} {shape}` classes: checklist, verdict-grid,
  * obligation-matrix. (Roadmap keeps its own dot vocabulary — see the
  * --state-slash note in base.tokens.css.) The disc geometry/painting lives
@@ -1450,10 +1457,12 @@ section .state-full    { --state-mark: var(--mark-check); }
 section .state-half    { --state-mark: var(--mark-dash);  }
 section .state-empty   { --state-mark: var(--mark-x);     }
 section .state-slashed { --state-mark: var(--mark-slash); }
-/* Neutral "todo / pending" — `[ ]` that means "not started, on the slate"
- * (checklist todo, obligation exempt, roadmap planned), NOT "not met"
- * (verdict-grid keeps state-empty → ✕). The decoder emits `state todo
- * state-todo` for those cases.
+section .state-unknown { --state-mark: var(--mark-question); }
+/* The two UNSETTLED answers are hollow rings: `[ ]` open (`state todo
+ * state-todo` — not started, not assessed) and `[?]` unknown (`state unknown
+ * state-unknown` — looked at, cannot be settled). Findings (`[x]` `[-]` `[!]`)
+ * and `[/]` are solid discs. Fill is the settled/unsettled channel; the drawn
+ * `?` is what tells the two hollow rings apart.
  *
  * It renders as a TRUE hollow ring — no fill, a full-color --state-color
  * ring, and NO inner mark, so the center is EMPTY ("not started"). A filled
@@ -1461,12 +1470,25 @@ section .state-slashed { --state-mark: var(--mark-slash); }
  * read as a "selected" bullseye; an empty disc + an edge ring reads as
  * "open". (The ring is a vector box-shadow — pixel-crisp in every export —
  * and inherits the variant's disc-scale, so it tracks checks-bold etc.) */
-section .state.todo {
+section .state.todo,
+section .badge.todo,
+section .state.unknown,
+section .badge.unknown {
   --state-fill-pct: 0%;
   --state-ring-outer-w: 2.2px;
   --state-ring-mix: 100%;
+  /* `checks-outline` and `checks-tonal` set an INNER ring on the section, which
+   * these elements would inherit and draw inside the outer one: a double ring
+   * that reads as a target, not as "open". One ring is the unsettled shape. */
+  --state-ring-inner-w: 0px;
 }
-section .state.todo::after { display: none; }
+section .state.todo::after,
+section .badge.todo::after { display: none; }
+/* `[?]` keeps its mark, painted in the ring's own ink: on an empty disc a
+ * knockout (canvas-colored) mark would be invisible, so every `checks-*`
+ * variant's --state-mark-pct is overridden here. */
+section .state.unknown,
+section .badge.unknown { --state-mark-pct: 100%; }
 
 /* ── `state-cells` — the state markers, in ANY table's cells ───────────────
  * The universal opt-in behind HARD RULE #29's answer to a typed `✓`. Two
@@ -1517,7 +1539,8 @@ section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { -
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color: var(--warn); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color: var(--fail); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color: var(--muted-mark); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo { --state-color: var(--text-label); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo,
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color: var(--muted-mark); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state::after {
   content: '';
   position: absolute;
@@ -1589,6 +1612,7 @@ section.checks-bold {              /* larger disc + heavier marks, knockout */
   --state-mark-pct:0%; --state-disc-scale:1.16;
   --mark-check:var(--mark-check-bold); --mark-dash:var(--mark-dash-bold);
   --mark-x:var(--mark-x-bold);         --mark-slash:var(--mark-slash-bold);
+  --mark-question:var(--mark-question-bold);
 }
 section.checks-outline {           /* transparent fill, inner ring + status-color mark */
   --state-fill-pct:0%; --state-ring-outer-w:0px; --state-ring-inner-w:2px;
@@ -2587,7 +2611,7 @@ section.lattice-exporting .fit-culprit,
  * from the canvas it claimed to describe (#2149). A theme that paints an unusually deep
  * `--surface-inverse` can retune the brightness here without touching a selector.
  *
- * DECLARED ON `:root` ALONE, deliberately. The neighbouring `:root, section` idiom in
+ * DECLARED ON `:root` ALONE, deliberately. The neighboring `:root, section` idiom in
  * base.tokens.css is load-bearing there because those values carry a `var()` that must
  * re-substitute per slide; these two do not. Adding the `section` half here would match
  * every slide DIRECTLY, and a directly-matched declaration beats an inherited one whatever
@@ -3915,8 +3939,8 @@ section.corners-square {
 .lat-pill[data-c='c12'] { --lat-pill-bg:var(--cat-12-fill); --lat-pill-edge:var(--cat-12-mark); --lat-pill-ink:var(--cat-on-fill); }
 
 /* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
- * `[x]` `[-]` `[ ]` `[/]` inside SINGLE-backtick inline code decode to the same disc
- * `checklist` draws, via `lib/core/state-marks.js`. Same four markers an author already
+ * The six state markers inside SINGLE-backtick inline code decode to the same disc
+ * `checklist` draws, via `lib/core/state-marks.js`. Same six markers an author already
  * writes bare at a bullet's start, so the vocabulary is one thing in two positions
  * rather than two things — which is the whole reason the inline form uses `[…]` and not
  * a new spelling.
@@ -3962,7 +3986,8 @@ section .lat-state.pass { --state-color:var(--pass); }
 section .lat-state.warn { --state-color:var(--warn); }
 section .lat-state.fail { --state-color:var(--fail); }
 section .lat-state.skip { --state-color:var(--muted-mark); }
-section .lat-state.todo { --state-color:var(--muted-mark); }
+section .lat-state.todo,
+section .lat-state.unknown { --state-color:var(--muted-mark); }
 section .lat-state::after {
   content:'';
   position:absolute;

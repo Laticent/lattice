@@ -71,7 +71,7 @@ test('the inline pill + mark grammar renders, escapes, and stays inert in the Pl
 	await expect(preview.locator('.lat-pill[data-shape="tag"][data-c="c2"]')).toHaveText('Beta');
 	await expect(preview.locator('.lat-pill[data-shape="circle"][data-size="lg"]')).toHaveText('Gamma');
 	// A mark carries its name on `aria-label`, never as text.
-	await expect(preview.locator('.lat-state[aria-label="done"]')).toHaveCount(1);
+	await expect(preview.locator('.lat-state[aria-label="yes"]')).toHaveCount(1);
 
 	// The literals stayed `<code>`. `[data-mark]` and `{ ok, scene }` are the two shapes
 	// closest to the grammar's own — a bracket form it must refuse, and a brace form with

@@ -161,7 +161,7 @@ itself.
 <!-- _class: quadrant cohort -->
 <!-- _footer: "Cohort quadrant — swatch + item count, one family with the rest" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Cohorts of work for next quarter.
 

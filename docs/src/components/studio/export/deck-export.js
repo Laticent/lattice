@@ -158,6 +158,19 @@ export function exportMarkdown(source, name, theme, components) {
 	download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), safeName(name) + '.md');
 }
 
+// The shipped parents a SAVED theme names with `@import '<name>'`, read by the one
+// shared `@import` scanner (not a fifth regex). The theme gate already refused any
+// other import shape when the theme was saved, so only bare names reach here.
+export async function importedThemeNames(css) {
+	// theme-core, not lib/core/css-scan.js directly: css-scan is CommonJS with a require,
+	// which the docs dev server can't serve (see astro.config.mjs). The bundle is loaded
+	// on demand; this is the export path, a user action.
+	const { findCssImports } = await import('../../../playground/theme-core.generated.js');
+	return findCssImports(String(css || ''))
+		.filter((i) => i.kind === 'string' && !i.tail && /^[A-Za-z0-9_-]+$/.test(i.target))
+		.map((i) => i.target.toLowerCase());
+}
+
 // Export to Marp — the SAME self-contained bundle as `npm run export:marp`,
 // assembled in the browser: bake the slide splits into literal `---`, fetch the
 // staged static assets (minified stylesheet / runtime / mermaid) + the
@@ -172,14 +185,19 @@ export function exportMarkdown(source, name, theme, components) {
  * @param {string} palette theme name
  * @param {string} themeBase hashed `…/playground/v/<hash>/themes/` URL
  * @param {{includeAgent?: boolean, version?: string,
- *          overflowMarker?: 'author'|'reader'|'off'}} [opts]
+ *          overflowMarker?: 'author'|'reader'|'off',
+ *          extraTheme?: {name: string, css: string},
+ *          components?: Array<{name: string, css: string}>}} [opts]
  *   `overflowMarker` is the EXPORT setting (lib/core/resolve-overflow-marker.js) —
  *   who the overflow signal in the rendered bundle is addressed to. Typed
  *   explicitly rather than left to inference: the caller passes it from workspace
  *   settings, and an inferred signature dropped it, so a real wiring change
  *   type-errored at the call site instead of being checked here.
+ *   `extraTheme` is a SAVED library theme: it has no file under `themeBase`, so the
+ *   bundle writes its CSS directly. `components` are the saved components the deck
+ *   uses, embedded as `<style>` blocks exactly as the Markdown export embeds them.
  */
-export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker } = {}) {
+export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [] } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
@@ -215,25 +233,40 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	dir.file(
 		`${slug}.md`,
 		withRuntimeScripts(
-			liftImageBgImages(bakeSplits(appendAutoGlossary(source)), undefined),
+			liftImageBgImages(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components))), undefined),
 			{ localAssets: false, overflowMarker },
 		),
 	);
 
-	// palette CSS (+ dark), fetched from the staged theme dir. Fall back to the
-	// default palette if the deck's theme isn't a served built-in (e.g. a
-	// Workbench library theme), so the bundle is always renderable.
+	// palette CSS (+ dark), fetched from the staged theme dir — or, for a SAVED
+	// library theme, written from its own CSS, since the site has no file for it.
+	// There is NO fallback palette: this loop used to retry with `indaco` when the
+	// deck's theme wasn't a served built-in, so a deck in a saved theme shipped in
+	// indaco without a word (2026-09-23-portable-packages.md §1). A theme we can't
+	// bundle now fails the export with its name.
 	const exportBase = themeBase.replace(/themes\/$/, 'export/');
-	let chosen = (palette || 'indaco').toLowerCase();
-	let bundledThemes = [];
-	for (const cand of [chosen, 'indaco']) {
-		bundledThemes = [];
+	const chosen = (palette || 'indaco').toLowerCase();
+	const saved = extraTheme?.css && String(extraTheme.name || '').toLowerCase() === chosen ? extraTheme : null;
+	const bundledThemes = [];
+	{
 		// Bundle the palette, its -dark companion, AND the transitive theme-name
 		// @import closure (a11y-* → a11y-base → onyx), so the recipient's marp-cli
 		// can resolve every link. `lattice` ships via STATIC_ASSETS, so its
 		// imports need nothing extra.
 		const seen = new Set();
-		const queue = [`${cand}.css`, `${cand}-dark.css`];
+		const queue = [];
+		if (saved) {
+			// #22 — a saved theme is user- or model-authored CSS, and the recipient's Marp
+			// wraps this file in a `<style>`; a `</style>` inside it would end that element.
+			const css = marpScopableCss(sanitizeStyleText(String(saved.css)));
+			dir.file(`themes/${chosen}.css`, css);
+			bundledThemes.push(`themes/${chosen}.css`);
+			seen.add(`${chosen}.css`);
+			// A saved theme may extend a shipped one by name; its parents are served files.
+			for (const dep of await importedThemeNames(css)) if (dep !== 'lattice') queue.push(`${dep}.css`);
+		} else {
+			queue.push(`${chosen}.css`, `${chosen}-dark.css`);
+		}
 		while (queue.length) {
 			const tf = queue.shift();
 			if (seen.has(tf)) continue;
@@ -253,7 +286,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 				if (dep !== 'lattice' && `${dep}.css` !== tf) queue.push(`${dep}.css`);
 			}
 		}
-		if (bundledThemes.length) { chosen = cand; break; }
+	}
+	if (!bundledThemes.includes(`themes/${chosen}.css`)) {
+		throw new Error(`Theme “${chosen}” couldn't be bundled — it isn't a shipped theme or one in your library.`);
 	}
 
 	// static assets — minified stylesheet (→ lattice.css), runtime, mermaid.

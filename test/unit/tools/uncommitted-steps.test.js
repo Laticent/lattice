@@ -55,6 +55,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-hljs-languages.js',
   'build-theme-core.js',
   'build-layout-core.js',
+  // Measured 2026-09-24: writes only docs/src/playground/packages-core.generated.js,
+  // which .gitignore's docs/src/playground/*.generated.js covers.
+  'build-packages-core.js',
   'build-authoring-core.js',
   'build-exemplar-core.js',
   'build-standalone-core.js',
@@ -78,6 +81,10 @@ const EXPECTED_UNCOMMITTED = new Set([
 const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
+  // Measured 2026-09-24: its whole write set is lib/packages/packages.generated.json and
+  // lib/finishes/presets.generated.js, both tracked — the spine's registry and the finish
+  // register read them.
+  'build-packages-index.js', // lib/packages
   'build-axis-dom-catalog.js', // lib/runtime
   // Measured 2026-09-21 against a timestamped tree: its whole write set is
   // docs/src/components/studio/guide-handles.generated.ts, which git tracks — the Guide

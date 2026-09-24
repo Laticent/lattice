@@ -40,6 +40,10 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const { BUILDERS, findManifest } = require('./lib/calibrate-core.js');
 const { loadAll, manifestBucket } = require('../lib/components');
+const { MARKER_CLASS } = require('../lib/core/state-marks');
+
+// A state marker is chrome, not a word — every one of the six, not only GFM's two.
+const STATE_MARKER_RE = new RegExp(`\\[${MARKER_CLASS}\\]`, 'g');
 
 const JSON_OUT = process.argv.includes('--json');
 const byName = new Map(loadAll().map((m) => [m.name, m]));
@@ -69,7 +73,7 @@ function members(md) {
 // chrome is most of their markup.
 const wordsOf = (parts) => parts.join(' ')
   .replace(/`[^`]*`/g, ' ')
-  .replace(/\[[ x]\]/g, ' ')
+  .replace(STATE_MARKER_RE, ' ')
   .replace(/[*_#>]/g, ' ')
   .split(/\s+/).filter(Boolean).length;
 

@@ -13,7 +13,7 @@
  *     palette whose colours collapse completely (the pie on a11y-achromatopsia).
  *   - A member may paint perfectly separated tokens through a GRADIENT, and
  *     lose its read anyway — because the shading INSIDE one mark covers more
- *     ground than the gap to its neighbour. The quadrant does exactly this: its
+ *     ground than the gap to its neighbor. The quadrant does exactly this: its
  *     four zone tints are well separated as tokens and unreadable as zones,
  *     since each zone's radial dome ramps further than the step between zones.
  *
@@ -346,7 +346,7 @@ async function main() {
         if (d < nearest) { nearest = d; against = colored[j].slot; }
       }
       if (!Number.isFinite(nearest)) continue;
-      // A mark separated from its nearest neighbour by LINE STYLE is separated,
+      // A mark separated from its nearest neighbor by LINE STYLE is separated,
       // whatever the two colours do — that is the channel a11y-base spends on
       // stroked members (slope, radar, line, scatter trends), precisely because
       // their strokes are grayscale there. Scoring those on colour alone would

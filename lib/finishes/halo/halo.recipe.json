@@ -1,0 +1,21 @@
+{
+  "wash": {
+    "type": "spotlight",
+    "intensity": 6,
+    "x": 50,
+    "y": 42
+  },
+  "texture": {
+    "type": "rings",
+    "intensity": 6,
+    "scale": 57
+  },
+  "mark": {
+    "type": "none",
+    "placement": "center"
+  },
+  "edge": {
+    "type": "vignette",
+    "intensity": 5
+  }
+}

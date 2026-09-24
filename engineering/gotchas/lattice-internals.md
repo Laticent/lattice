@@ -661,6 +661,24 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   playground modules deliberately have none — they must stay plain-Node-loadable.
   `docs/src/playground/voice-model.js` › `synthFor`.
 
+## A card component's eyebrow is missing from the reader view
+
+- **Symptom:** the Read · Article view (or the player's narration) shows a
+  wifi or video slide's heading with no kicker above it. The eyebrow either
+  vanishes or reads as body text after the heading.
+- **Cause:** the prose projection's `eyebrowOf`
+  (`lib/transformers/prose-projection.mjs`) found the eyebrow only in
+  `.masthead-lede`. A component that rebuilds its slide as a card keeps its
+  title inside the card, so no masthead band is built: wifi seats the eyebrow
+  in `.qr-head`, video in `.video-head` or `.video-lead`.
+- **Fix:** `eyebrowOf` also reads the paragraph directly before the `h2` of a
+  card head (`CARD_HEAD_SELECTOR`). A new component that owns its title in a
+  card adds its head class there, or its eyebrow drops out of the projection
+  the same way.
+- **Pinned by:** the "eyebrow in a card head" arms in
+  `test/unit/transformers/prose-projection.test.js`, which render through the
+  real engine.
+
 ## G-gen merge must use non-G file's G-gen block, not the G-file's block
 
 - **Symptom:** After promoting G-files to canonical (merging cuoio-G.css

@@ -1,0 +1,19 @@
+{
+  "wash": {
+    "type": "none",
+    "intensity": 8
+  },
+  "texture": {
+    "type": "pinstripe",
+    "intensity": 8,
+    "scale": 18
+  },
+  "mark": {
+    "type": "monogram",
+    "placement": "bottom-right"
+  },
+  "edge": {
+    "type": "none",
+    "intensity": 6
+  }
+}

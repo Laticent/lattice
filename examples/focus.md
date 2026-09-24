@@ -30,10 +30,10 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | [x]    | [ ]          | [x]       | [x]         |
-| Auditability | [ ]    | [x]          | [x]       | [x]         |
-| Adoption     | [x]    | [x]          | [ ]       | [x]         |
-| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
+| Speed        | [x]    | [!]          | [x]       | [x]         |
+| Auditability | [!]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [!]       | [x]         |
+| Calibration  | [!]    | [!]          | [!]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---
@@ -45,10 +45,10 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | [x]    | [ ]          | [x]       | [x]         |
-| Auditability | [ ]    | [x]          | [x]       | [x]         |
-| Adoption     | [x]    | [x]          | [ ]       | [x]         |
-| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
+| Speed        | [x]    | [!]          | [x]       | [x]         |
+| Auditability | [!]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [!]       | [x]         |
+| Calibration  | [!]    | [!]          | [!]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---
@@ -60,10 +60,10 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | [x]    | [ ]          | [x]       | [x]         |
-| Auditability | [ ]    | [x]          | [x]       | [x]         |
-| Adoption     | [x]    | [x]          | [ ]       | [x]         |
-| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
+| Speed        | [x]    | [!]          | [x]       | [x]         |
+| Auditability | [!]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [!]       | [x]         |
+| Calibration  | [!]    | [!]          | [!]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---
@@ -127,10 +127,10 @@ const entry = await framework.decisions.log(decision, { signals });
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | [x]    | [ ]          | [x]       | [x]         |
-| Auditability | [ ]    | [x]          | [x]       | [x]         |
-| Adoption     | [x]    | [x]          | [ ]       | [x]         |
-| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
+| Speed        | [x]    | [!]          | [x]       | [x]         |
+| Auditability | [!]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [!]       | [x]         |
+| Calibration  | [!]    | [!]          | [!]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---

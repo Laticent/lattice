@@ -10,6 +10,12 @@
  * on any poster (#3-exempt). Spacing is gap/padding only (HARD RULE #20). */
 
 section.video .video-embed {
+  /* A <figure> brings the UA's `1em 40px` margin. Nothing reset it, so every
+   * composition carried 40px of invisible side space and ~21px above and below:
+   * the default composition overflowed its stage by exactly that 40px once it
+   * sat in the card. `margin: 0` is the reset HARD RULE #20 allows; spacing is
+   * the card's `gap`. */
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,17 +129,42 @@ section.video .video-embed figcaption {
   line-height: 1.3;
 }
 
+/* The card — the transform's one root, as `.qr-card` is wifi's. `video` is a
+ * `conformance:"strict"` canvas, so the masthead kernel wraps this card in the
+ * frame's `.cell-stage` clip cell; every composition below lays out INSIDE the
+ * card, never on the section, because the section's direct children are now the
+ * frame's cells. The title rides in the card too (`.video-head` / `.video-lead`),
+ * which keeps it out of the masthead band. */
+section.video .video-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  height: 100%;
+  gap: var(--sp-md);
+}
+/* Pinned against flex shrink, as `section.wifi > .cell-stage > .qr-card` is. The
+ * card is `height: 100%`, so it is always exactly the stage's height and does not
+ * grow; an over-long card's CHILDREN overflow it instead. The card does not clip
+ * them, so they reach the stage's scrollable overflow and the clip-cell probe
+ * reads them, provided they overflow downward, which is what `safe center` on
+ * each composition guarantees. */
+section.video > .cell-stage > .video-card {
+  flex: 0 0 auto;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * COMPOSITIONS — each a candidate "killer" layout; `qr` is an opt-in modifier
  * (the transform emits the QR only under `.qr`, so these mostly reveal/place it).
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── companion — claim/lead LEFT, poster RIGHT (this kernel splits them). ───── */
-section.video.companion {
-  display: flex;
+/* `safe center` on both axes: once the tall family stacks this row into a column,
+ * a plain `center` split an over-long card evenly above and below the stage, and
+ * the top half (eyebrow and accent dash) was clipped where no probe reads it. */
+section.video.companion .video-card {
   flex-direction: row;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   gap: var(--sp-xl, 3rem);
 }
 section.video.companion .video-lead {
@@ -176,15 +207,19 @@ section.video.companion .video-embed {
 }
 section.video.companion .video-poster { max-width: 46cqi; }
 section.video.companion .video-aside { align-items: center; text-align: center; }
-section.video.companion.qr .video-poster { max-width: 40cqi; }
+/* 36cqi, not 40, and the `--sp-lg` channel below rather than `--sp-xl`: the column
+ * used to lay out against the whole section. Inside the frame's stage cell it has
+ * the stage's height (524px of a 720px slide), and at 40cqi with the wider channel
+ * the poster + hairline + QR + hint + caption stack measured 576px, clipped. */
+section.video.companion.qr .video-poster { max-width: 36cqi; }
 /* With the QR on, a hairline rule (poster-width, centered) + a symmetric gap
  * separates the poster from the scannable code, and both stay centered on the
  * column's axis — a pleasing, deliberate channel, not a cramped stack. */
-section.video.companion.qr .video-embed { gap: var(--sp-xl, 3rem); }
+section.video.companion.qr .video-embed { gap: var(--sp-lg, 2rem); }
 section.video.companion.qr .video-aside {
-  width: 40cqi;
+  width: 36cqi;
   max-width: 100%;
-  padding-top: var(--sp-xl, 3rem);
+  padding-top: var(--sp-lg, 2rem);
   border-top: 1px solid var(--border);
 }
 section.video.companion .video-embed figcaption {
@@ -194,12 +229,14 @@ section.video.companion .video-embed figcaption {
 }
 
 /* ── gallery — contained-on-matte museum exhibit (CSS override to contain). ─── */
-section.video.gallery {
-  display: flex;
-  flex-direction: column;
+/* The title now sits IN the stage with the exhibit (the masthead band used to
+ * carry it), so the column is budgeted for both: a 3cqh gap, not 5, and a poster
+ * capped at 48cqh tall rather than 52. `safe center` so a card that still runs
+ * long starts at the top instead of clipping its eyebrow off the top edge. */
+section.video.gallery .video-card {
   align-items: center;
-  justify-content: center;
-  gap: calc(var(--_sec-1cqh, 1cqh) * 5);
+  justify-content: safe center;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 3);
   text-align: center;
 }
 section.video.gallery .video-embed {
@@ -211,7 +248,7 @@ section.video.gallery .video-embed {
 }
 section.video.gallery .video-poster {
   box-sizing: border-box;
-  width: min(68cqi, 52cqh * 1.7778);
+  width: min(68cqi, 48cqh * 1.7778);
   max-width: none;
   aspect-ratio: 16 / 9;
   height: auto;
@@ -280,9 +317,34 @@ section.video:where([data-family="tall"], [data-family="strip"]) .video-embed {
 section.video:where([data-family="tall"], [data-family="strip"]) .video-poster {
   max-width: 100%;
 }
+/* Stacked, the aside runs under the poster at the column's width, so its `13rem`
+ * side-column cap no longer applies. At `portrait` one word of a caption ("walkthrough",
+ * 220px) was wider than the cap and spilled past both edges of the card. */
+section.video:where([data-family="tall"], [data-family="strip"]) .video-aside {
+  max-width: none;
+}
 /* The companion variant splits claim LEFT / poster RIGHT via its own row, so it
  * needs the same stack — and the lead loses its side-column width cap. */
-section.video.companion:where([data-family="tall"], [data-family="strip"]) {
+section.video.companion:where([data-family="tall"], [data-family="strip"]) .video-card {
   flex-direction: column;
   align-items: stretch;
+}
+/* In the stage cell the stacked column carries everything the section used to
+ * spread across its band and body: eyebrow, title, lead, poster, code and caption.
+ * The side-by-side `--sp-xl` channel between claim and clip has no side to sit
+ * beside once they stack, so the stack takes the `--sp-sm` step. The `companion`
+ * selector is repeated because `section.video.companion .video-card` outranks the
+ * `:where()` form. Measured at `portrait`: `companion qr` ran 1221px in a 1172px
+ * stage at `--sp-xl`, and the default composition 1180px at `--sp-md`. */
+section.video:where([data-family="tall"], [data-family="strip"]) .video-card,
+section.video.companion:where([data-family="tall"], [data-family="strip"]) .video-card {
+  gap: var(--sp-sm);
+}
+/* …and the QR column inside it, whose `--sp-lg` gap and hairline padding outrank
+ * the tall-family embed rule above. */
+section.video.companion.qr:where([data-family="tall"], [data-family="strip"]) .video-embed {
+  gap: var(--sp-sm);
+}
+section.video.companion.qr:where([data-family="tall"], [data-family="strip"]) .video-aside {
+  padding-top: var(--sp-sm);
 }

@@ -73,9 +73,10 @@ test('a `<!--` a browser reads as TEXT does not blank the rest of the section', 
     readTopLevelH2Text('<style>/* arrows <!-- and dashes */ section{}</style><h2>Real</h2>'),
     'Real',
   );
-  // An unterminated comment still swallows what follows it — that IS what a
-  // browser does, so the two agree.
-  assert.equal(readTopLevelH2Text('<!-- oops <h2>Real</h2>'), '');
+  // An UNTERMINATED comment is text here, though a browser reads it as a comment
+  // to EOF: following the browser dropped every later slide from the export (see
+  // the note at the comment branch of `scanTags`). A heading after one is read.
+  assert.equal(readTopLevelH2Text('<!-- oops <h2>Real</h2>'), 'Real');
 });
 
 test('a `>` inside a quoted attribute value does not end the tag', () => {
@@ -203,4 +204,11 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
     if (gotUl !== wantUl) misses.push(`ul ${JSON.stringify(html)}: ${gotUl} != ${wantUl}`);
   }
   assert.deepEqual(misses, []);
+});
+
+test('`<!-->` and `<!--->` are complete, empty comments', () => {
+  // Searching for `-->` after the opener read them as a comment that ran to the next `-->`,
+  // swallowing every heading in between.
+  assert.equal(readTopLevelH2Text('<p>a <!--> b</p><h2>Real</h2><!-- note -->'), 'Real');
+  assert.equal(readTopLevelH2Text('<p>a <!---> b</p><h2>Real</h2><!-- note -->'), 'Real');
 });

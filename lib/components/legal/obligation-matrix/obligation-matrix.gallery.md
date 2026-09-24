@@ -27,7 +27,7 @@ Regulation × obligation grid — state-marker cells encode applies / partial / 
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Neutral ink — data first.
 
@@ -46,7 +46,7 @@ Neutral ink — data first.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Heat marks burden, not relief — exempt cells stay neutral.
 
@@ -81,7 +81,7 @@ Each row promotes to a card with body-level breathing room.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Same data, neutral chrome — the state pills carry the meaning without the heat-map alarm.
 
@@ -100,7 +100,7 @@ Same data, neutral chrome — the state pills carry the meaning without the heat
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Each lane stripe signals that the row is its own regime, not a rank.
 
@@ -137,7 +137,7 @@ Each lane stripe signals that the row is its own regime, not a rank.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Neutral ink — data first.
 
@@ -156,7 +156,7 @@ Neutral ink — data first.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Neutral ink — data first.
 
@@ -175,7 +175,7 @@ Neutral ink — data first.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Neutral ink — data first.
 

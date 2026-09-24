@@ -74,15 +74,15 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 - **Rows move apart.**
   - [x] Void gone
-  - [ ] Gutter kept
+  - [!] Gutter kept
   - The row gap grows; the column gap does not.
 - **Measured.**
   - [x] Void gone
-  - [ ] Gutter kept
+  - [!] Gutter kept
   - Measured at 4.2x the column gutter.
 - **Use it deliberately.**
   - [x] Void gone
-  - [ ] Gutter kept
+  - [!] Gutter kept
   - Two sparse rows carry it; a dense grid cannot.
 
 ---

@@ -905,7 +905,7 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.equal(
       core.stripCaptionsFromSource('# Slide\n\n<!-- caption: Read this aloud. -->\n\nBody.\n'),
       '# Slide\n\nBody.\n',
-      'the caption line and one of its blank neighbours go; one blank line remains'
+      'the caption line and one of its blank neighbors go; one blank line remains'
     );
     // No `\n\n\n` run left behind — the cheaper tell, readable with `grep -c` and no re-render.
     assert.doesNotMatch(
@@ -958,7 +958,7 @@ describe('notes-core: caption channel (caption:)', () => {
     // "order-independent, the classes are disjoint". Disjoint BODIES is true and is not the
     // whole interaction: once both cuts became line-aware they meet through BLANK-LINE
     // ACCOUNTING. The first scrub takes a line and may leave an empty one in its place, so the
-    // second reads neighbours the author never wrote.
+    // second reads neighbors the author never wrote.
     const bodies = new Set(['n']);
     // The divergence needs the pair at the END of the input, where "end of file counts as blank
     // on the right" meets a blank the first scrub just emitted on the left. Mid-deck the two
@@ -1006,7 +1006,7 @@ describe('notes-core: caption channel (caption:)', () => {
       core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies)),
       core.stripNotesFromSource(core.stripCaptionsFromSource(src), bodies)
     );
-    // ONE PASS judges every comment against the SOURCE's own neighbours, so there is no order.
+    // ONE PASS judges every comment against the SOURCE's own neighbors, so there is no order.
     const onePass = core.stripChannelsFromSource(src, { noteBodies: bodies, captions: true });
     assert.equal(onePass, core.stripChannelsFromSource(src, { captions: true, noteBodies: bodies }));
     // Both channels gone, and the same answer whichever way the chained version would have gone.
@@ -1351,7 +1351,7 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     assert.equal(
       core.stripNotesFromSource('# Slide\n\n<!-- Pause here. -->\n\nBody.\n', new Set(['Pause here.'])),
       '# Slide\n\nBody.\n',
-      'the note line and one of its blank neighbours go; one blank line remains'
+      'the note line and one of its blank neighbors go; one blank line remains'
     );
     // Indented, as a nested-list author would write it.
     assert.equal(
@@ -1388,7 +1388,7 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // Above a `---` the comment IS the block boundary, so an empty line must take its place —
     // delete the line and `Some text\n---` becomes a setext H2. Inside a LIST item the opposite
     // holds: an empty line turns a tight list loose, and simply taking the line reproduces the
-    // author's own tight list. Same neighbours, opposite answers, so the caller measures.
+    // author's own tight list. Same neighbors, opposite answers, so the caller measures.
     const setext = 'Some text\n<!-- n -->\n---\n';
     assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'preserve' }), 'Some text\n\n---\n');
     assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'drop' }), 'Some text\n---\n');

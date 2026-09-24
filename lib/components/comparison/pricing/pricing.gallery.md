@@ -22,8 +22,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 - Starter `$0`
   - [x] The checklist rows compare
+  - [-] A dash marks a capped limit
   - [/] Slashed rows mean not included
-  - [/] Same rows on every tier
   - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent
@@ -130,8 +130,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 - Starter `$0`
   - [x] The checklist rows compare
+  - [-] A dash marks a capped limit
   - [/] Slashed rows mean not included
-  - [/] Same rows on every tier
   - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent
@@ -154,8 +154,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 - Starter `$0`
   - [x] The checklist rows compare
+  - [-] A dash marks a capped limit
   - [/] Slashed rows mean not included
-  - [/] Same rows on every tier
   - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent
@@ -182,8 +182,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
   - Elevate exactly one tier. Two ribbons cancel out and the eye has nowhere to land — the whole point of the marker is a single recommendation.
 - Features that drift between tiers
   - If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `\[x]` / `\[/]`.
-- A wall of red 'not included'
-  - Use `\[/]` (muted, struck through) for an absent feature, not `\[ ]` (alarming empty/fail). A pricing table sells what's included; it shouldn't read as a list of denials.
+- An open ring for a feature the tier lacks
+  - Use `\[/]` (muted, struck through) for a feature your own tier leaves out. `\[ ]` is an open ring — it reads 'not yet', which promises the feature is coming — and `\[!]` is the red cross, which reads as a failure. Save `\[!]` for a competitor's column.
 
 ---
 

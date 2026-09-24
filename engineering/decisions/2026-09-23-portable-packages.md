@@ -287,10 +287,11 @@ the repo, a manifest, a zip that matches the folder, and a place in `list`.
 ## 6. The CLI
 
 ```
-lattice packages list   [--type theme|component|finish|motion]   shipped + project, with a SOURCE column
-lattice packages add    <file.zip | folder>                      gate, then copy into the project folder
+lattice packages list   [--type theme|component|finish|motion]   shipped + installed, with a SOURCE column
+lattice packages add    <file.zip | folder> [--replace]          gate, then copy into the store
+lattice packages check  <file.zip | folder>                      gate only; install nothing
 lattice packages export <type>/<name> [-o file.zip]              zip one package (refused if it carries code)
-lattice packages remove <type>/<name>                            project packages only; shipped are read-only
+lattice packages remove <type>/<name>                            installed packages only; shipped are read-only
 ```
 
 **Where the CLI keeps user packages:** a user-global `~/.lattice/packages/<type>/<name>/`,
@@ -365,3 +366,191 @@ Each phase ships on its own and leaves the tree green.
 4. **Portable packages may carry JavaScript behind a trust prompt**, not data-only.
    §3.5 records the design, and the measured limit: Node 22's `--permission` doesn't
    block the network, so in the CLI the prompt is the real boundary.
+
+## 10. Progress
+
+Each line names what landed, where, and what is still open. §1 stays as written:
+it is the record of what was wrong.
+
+- **Phase 0, export and shadowing fixes: done.** The Markdown and Marp exports
+  carry the saved components a deck uses (`StudioShell.tsx` `usedLocalComponents`
+  feeds both the preview and `ShareSheet`). The Marp bundle writes a saved theme's
+  own CSS and fails with the theme's name when it can't bundle one; the `indaco`
+  fallback is gone (`deck-export.js` `exportMarp`). Shipped theme and component
+  names are reserved and a clash saves as `<name>-custom`
+  (`library/reserved-names.ts`, fed by the generated `SHIPPED_THEME_NAMES` and the
+  stage catalog's `COMPONENT_NAMES`), and a record saved under a shipped name before
+  the guard no longer overrides the shipped item. Asset-zip import has the same size
+  caps as `.lattice` import (`zip-limits.ts`).
+- **Phase 0, the halo/nimbus print face: done, pending the owner's export sign-off.**
+  `base.finish.css` now states THE BOTTOM-LAYER RULE: only the bottom full-bleed
+  layer ends on solid `--fin-canvas`, and every full-bleed layer above it ends on
+  `rgb(from var(--fin-canvas) r g b / 0)`. Halo's vignette and nimbus's top three
+  blooms and vignette follow it, and so does the Studio generator
+  (`finish-generate.ts` `fadeClear`). Corner and strip patches (ledger's fold,
+  strata's hairline) keep their solid end: in print a zero-opacity end fades
+  faster, because PDF rasterizers interpolate color and opacity separately, and a
+  small patch hides nothing. `test/unit/css/finish-bottom-layer.test.js` checks
+  every shipped preset. Measured with poppler and Ghostscript: the halo spotlight
+  core goes from 255,255,255 to 246,250,252 in light, and a nimbus bloom from
+  255,255,255 to 235,243,248. The vignette rim reads 2 to 4 levels lighter than
+  before, for the same interpolation reason.
+- **Phase 1, the spine core: done.** `lib/packages/` holds `kinds.js`, `read.js`,
+  `write.js`, `index.js` and the build's walk `fs.js`. Themes and components are
+  discovered through it: `loadAll`, the theme catalog, `listThemeManifests` /
+  `listThemeFiles` and the new `checkPackageIdentity` share the one walk, and
+  `tools/build-packages-index.js` writes the committed `packages.generated.json`
+  (33 themes, 71 components, 28 of them code packages). The component schema accepts
+  `type` and `format`, **optional in the repo**, where the folder implies the type;
+  `write.js` stamps both on every package it writes, so a loose zip says what it is.
+  Stamping all 104 shipped manifests would be churn with no reader today. The THEME
+  schema does not take them yet: `manifest-schema-equivalence.test.js` pins that
+  schema's exact mutation corpus and requires every property to be carried by a
+  shipped theme, so the fields land in phase 5, when every theme manifest is rewritten
+  into its folder anyway. Until then a Studio-exported theme's stamped manifest is a
+  valid package but not yet a valid `themes/` manifest; phase 3 or 5 strips or accepts
+  the two fields.
+  Writing the failing arm of the identity gate found a real gap: a renamed component
+  folder didn't fail anything, it vanished, because the walk only looked for
+  `<folder>/<folder>.manifest.json`. `loadAll` had the same blind spot. The walk now
+  lists a folder's lone manifest whatever its prefix, and the strict read names the
+  mismatch. The rest of the tool walks over `themes/` (contrast audits, the scorecard,
+  the docs portal) still read the folder directly; phase 5 moves them onto the spine
+  when themes become folders.
+- **Phase 2, finishes become packages: the registration half is done; the CSS half
+  is measured and waits on the owner.** Each of the 9 presets is now
+  `lib/finishes/<name>/` (manifest: name, label, blurb, picker swatch, `order`;
+  plus `<name>.recipe.json`). `tools/build-packages-index.js` generates
+  `lib/finishes/presets.generated.js`, and `FINISH_REGISTER`, the lint vocabulary,
+  the Studio's `finish-catalog.ts`, `PRESET_RECIPES` and `RESERVED_FINISH_NAMES` all
+  read it. That removes three of the four hand registrations. The fourth, the CSS,
+  stays hand-written in `base.finish.css`, bound to the packages by
+  `checkFinishPackages`.
+
+  **The §3.6 pixel-diff, run before any CSS moved.** Each preset was rendered through
+  the CLI twice, once with the hand CSS and once with `generateFinishCss(recipe)`,
+  and compared per slide (share of pixels differing by more than 2%). The first pass
+  exposed recipe DATA drift, now fixed in the packages: halo's spotlight sat in the
+  corner instead of at 50%/42%, loom's glow on the wrong side, and meridian's and
+  halo's texture pitches were one pixel off. So "Start from preset" in the Studio did
+  not reproduce those presets. After the fix, with no ghost glyph:
+
+  | preset | print light | print dark | screen light | screen dark |
+  |---|---|---|---|---|
+  | atrium | 0.60% | 0.60% | 0.62% | 0.62% |
+  | meridian | 0.00% | 0.00% | 0.00% | 0.00% |
+  | strata | 0.50% | 0.49% | 0.67% | 0.50% |
+  | halo | 0.00% | 0.00% | 0.00% | 0.00% |
+  | ledger | 0.00% | 0.00% | 0.38% | 0.00% |
+  | nimbus | 0.00% | 0.00% | 0.00% | 0.00% |
+  | loom | 0.00% | 0.00% | 0.00% | 0.00% |
+  | savile | 0.00% | 0.00% | 0.00% | 0.00% |
+  | gallery | 0.00% | 0.00% | 0.00% | 0.00% |
+
+  Three gaps the vocabulary can't close, and a fourth that only shows with a glyph:
+  - **atrium**'s margin rule is 0.47cqi; the vocabulary's `bar` is ledger's 1.1cqi.
+  - **strata**'s top hairline strip (`100% 0.31cqi`) has no wash term.
+  - **ledger**'s screen fold is hand-tuned (22% to 65%); the generator's rich face is
+    formulaic (19% to 60%).
+  - **Text marks.** With the demo deck's glyphs (`Q3`, `AB`, `04`), meridian, savile
+    and gallery differ on 5–6% of pixels: the shipped CSS anchors the ghost glyph to a
+    corner with flex alignment, and the generator centers it and shifts it with a
+    transform. A generated rule also uses `section.finish.finish-<name>` (two
+    classes), which outranks the one-class deck overrides the demo deck relies on
+    (`section.finish-meridian { --fin-mark-text: "Q3" }`), so it has to emit the
+    shipped one-class selector.
+
+  So generating the shipped CSS today changes exported bytes on five of nine presets.
+  That is a direction call with a sign-off attached, so it is left for the owner; the
+  follow-up names three ways forward.
+- **Phase 3, the Studio's zip on the spine: done.** A Studio export is now the package
+  folder itself: `<name>/<name>.manifest.json` plus role files, or
+  `<type>/<name>/…` in a bundle, with no envelope (`package-zip.ts`, through the spine's
+  browser bundle `packages-core.generated.js` from `tools/build-packages-core.js`). A
+  component's files take the repo's names (`styles.css`, `gallery.md`, not `.css` and
+  `.skeleton.md`), and a finish ships its recipe only, since the CSS regenerates.
+  `lattice-asset/1` zips still import through a one-way reader. Import trusts the
+  manifest, not the file names: a folder saved as `harbor (1)` imports as `harbor`,
+  and the toast says what was renamed or left out. A package carrying a
+  `transform.js` is refused by name until phase 6. Each Studio record now carries
+  what a package held that the record doesn't model (`PackageCarry`: the full
+  manifest, a component's `docs.md`, a recipe's exact text). With that,
+  `package-roundtrip.test.ts` shows repo package → zip → Studio → zip is
+  byte-identical for a component, a theme and a finish, and
+  `library-package-roundtrip.spec.ts` shows the same on the real Library.
+  The carry lasts until the record is edited: the faculties save what they model and
+  pass no carry, so an edited repo component exports without its `docs.md`. That is
+  the safe direction, since an export never writes a stale manifest over an edit.
+  A theme package's `essentials.json` is not CSS but becomes CSS when Fabricate
+  reopens it, so import keeps only slug-named hex values from it (HARD RULE #22).
+  Three things changed shape to get there. A finish or motion name may start with a
+  digit (the Studio has always saved "2024 Launch" as `2024-launch`); a theme or
+  component name, used bare as a `@theme` or a class, may not. The motion
+  `poster.svg` is optional, because the Studio has always allowed a scene without one. The `@theme` helpers moved out of
+  `parse.js` into `lib/theme/directive.js` (re-exported, API unchanged), so the spine's
+  browser bundle is 15.7 KB instead of 63 KB.
+- **Phase 4, the CLI's packages: done.** `lattice packages list | add | check | export
+  | remove` (`lib/packages/cli.js`, dispatched from `lattice-emulator.js` before any
+  render argument is parsed) works over `lib/packages/home.js`'s store:
+  `--packages <dir>`, else `$LATTICE_HOME/packages`, else `~/.lattice/packages`.
+  `add` runs the Studio's own gates, not a copy of them: the refusing rules moved into
+  the leaf `lib/packages/import-gate.js`, the caps into `limits.js`, and the selector
+  rename into `rename.js`, and the Studio's `import-gate.ts`, `zip-limits.ts` and
+  `reserved-names.ts` now import those leaves. A shipped name installs as
+  `<name>-custom` with its `@theme` or its selectors and gallery rewritten, a package
+  with a `transform.js` is refused by name, and `add` will not overwrite an installed
+  package without `--replace`.
+  The render path looks up a theme it doesn't ship in the store, and fails with the name
+  and the `add` command when it isn't there. An installed theme may import the base
+  theme and nothing else, the Studio's own rule, so the two front doors refuse the same
+  packages.
+  An installed component's CSS is embedded into the deck with the Studio Markdown
+  export's bridge (`lib/packages/render.js`), so the engine needs no second path for
+  it; a component the deck already embeds keeps the deck's copy. `lattice` is reserved
+  as a theme name, as the Studio reserves it. `packages export` of a shipped component
+  works from a repo checkout only, because the npm package leaves galleries out.
+  A `.lattice` project now carries the saved theme, components and finishes the deck
+  uses as `packages/<type>/<name>/` folders (§4). They come back out through the
+  Library's reader, and opening the file routes them through the one import funnel
+  (`library/import-parsed.ts`, which the Library's `.zip` import uses too), so a
+  project file is never a side door around the gates. A carried package that replaces
+  a saved one of the same name keeps the old version in its history, and the toast
+  says so.
+  `jszip` moved from `devDependencies` to `dependencies`: the CLI reads and writes zips
+  at run time (`packages add <zip>`, `packages export`, and the image-set `.zip` output).
+  It used to arrive only through `pptxgenjs`'s dependency on it, which a strict installer
+  such as pnpm does not expose to Lattice.
+- **The adversarial trio on phases 0–4 (PR #2336).** A red team, a Munger inversion and an
+  independent checker ran on what ships, and these findings were fixed before merge:
+  - **Opening a `.lattice` overwrote saved assets.** A carried theme named `brand` replaced
+    your saved `brand` in place, and every other deck of yours that said `theme: brand`
+    changed with it. Opening a file now never writes over anything (`keepMine` in
+    `library/import-parsed.ts`): an identical item is skipped, and a different one is saved
+    under a free name (`brand-2`) that the opened deck is rewritten to use. A `-custom`
+    rename reaches the deck the same way, and so does a workspace restore of a backup made
+    before names were reserved. A `.lattice` no longer brings motion into the Library at
+    all: a deck carries its motion inline (§5), so nothing needs it.
+  - **A component could take a slide class the engine owns.** A package named `finish`,
+    `print` or `dark` restyled every slide the engine stamps with that class. Those names
+    are reserved for components as well: the deck linter's modifier vocabulary, every
+    `section.<class>` in the engine's CSS and the `tint-*`/`mark-*`… families, generated
+    into `lib/packages/reserved-classes.generated.js` and read by the CLI's registry and
+    the Studio's save path.
+  - **The CLI store was gated only at `add`.** A package unzipped into
+    `~/.lattice/packages` by hand, or a `--packages` folder, rendered ungated. The render
+    and `list` now run the same gate (`lib/packages/gate.js`).
+  - **`add` said "added" for a theme no deck could use** (no `@theme` line). `add` now
+    reads back strictly what it will install, the way the render reads it.
+  - **The two front doors disagreed.** The CLI accepted a theme importing a shipped
+    palette, which the Studio refuses, and only the Studio read a zip with its manifest at
+    the root. Both now match the Studio.
+  - **Smaller:** an old-format zip passed a theme's colors through unfiltered; a
+    `.transform.JS`, `.mjs` or `.cjs` file rode along as an asset (any script now makes a
+    code package); `export`/`remove` could not name a finish whose name starts with a
+    digit; file names from a zip reached the terminal with their control characters; a
+    finish saved before the print fix kept the defect until re-saved (its CSS is now
+    regenerated from the recipe on read); a deck naming a component nobody has rendered it
+    unstyled without a word (the CLI now warns); and the finish files called the recipe
+    "the look" when `base.finish.css` is still what renders.
+  What was found and deliberately NOT fixed here is in
+  `followups.d/2336-p3-packages-trio-followups.md`.

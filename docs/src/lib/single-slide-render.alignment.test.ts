@@ -19,7 +19,11 @@ import { frontMatterBlock, stripFrontMatter } from '../components/studio/front-m
 import { splitSlides } from '../components/studio/lint';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs') as { sectionsOf: (h: string) => string[] };
+const { sectionsOf, sectionOpenCount, alignmentFailure } = require('../../../lib/diagnostics/slice-equivalence-core.mjs') as {
+	sectionsOf: (h: string) => string[];
+	sectionOpenCount: (h: string) => number;
+	alignmentFailure: (html: string, sections: string[], slideCount: number, index: number) => string | undefined;
+};
 
 // The engine is CJS and Node-safe (no DOM) — load it directly rather than through the
 // browser bundle, so this test exercises the same numbering code the preview does.
@@ -118,12 +122,12 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 // ── The two holes the count-agreement guard alone does NOT close ──────────────────────
 // Both were found by the adversarial trio against the first revision of this fix.
 
-describe('narrowing fails closed on shapes the flat walker cannot resolve', () => {
-	it('a raw <section> in author content mis-pairs the flat walker — and is DETECTED', () => {
-		// The engine passes author raw HTML through, so this slide's own `<section>` makes the
-		// flat "next </section>" pairing close slide 1 early. The mis-paired part count can still
-		// equal the authored slide count, so a count check alone passes and the neighbor's markup
-		// — including its visible page number — leaks into the frame. The `<section` tally catches it.
+describe('narrowing fails closed on shapes the walker cannot resolve', () => {
+	it('a raw <section> in author content: one slide to the depth-aware walk, with no neighbor leaking in', () => {
+		// The engine passes author raw HTML through, so this slide carries its own `<section>`. The
+		// flat "next </section>" pairing closed slide 1 early, and the neighbor's markup — including
+		// its visible page number — could leak into the frame, so this deck used to be refused.
+		// `sectionsOf` is the engine's depth-aware walker now: slide 1 is whole, and it identifies.
 		const src = '---\npaginate: true\n---\n\n## One\n\n<section class="form">\nnested\n</section>\n\ntail\n\n---\n\n## Two\n\n---\n\n## Three\n';
 		const { slides, doc } = deckDoc(src);
 		const html = engine.render(doc, 'lattice').html;
@@ -131,8 +135,12 @@ describe('narrowing fails closed on shapes the flat walker cannot resolve', () =
 		// 3 authored slides, but 4 `<section` opens — the author's raw one is in there.
 		expect(slides.length).toBe(3);
 		expect(opens).toBeGreaterThan(slides.length);
-		// This is precisely the case a count-only guard would wave through, which is why the
-		// production guard compares the tally to the walker's part count as well.
+		const parts = sectionsOf(html);
+		expect(parts.length).toBe(3);
+		expect(parts[0]).toContain('nested');
+		expect(parts[0]).toContain('tail');
+		expect(parts[0]).not.toContain('Two');
+		expect(alignmentFailure(html, parts, 3, 0)).toBeUndefined();
 	});
 });
 
@@ -224,5 +232,10 @@ describe('counting sections structurally, not textually (#1551)', () => {
 		const html = engine.render(fm + slides[0], 'lattice').html;
 		expect((html.match(/<section\b/g) || []).length).toBe(2); // the naive tally
 		expect(sectionsOf(html).length).toBe(1); // the truth
+		// AND THE COUNT THE GUARD USES. This arm used to stop at `sectionsOf`, while the
+		// refusal and `alignmentFailure` still compared it against the naive tally above,
+		// so the Studio painted "This preview couldn't render" on exactly this slide.
+		expect(sectionOpenCount(html)).toBe(1);
+		expect(alignmentFailure(html, sectionsOf(html), 1, 0)).toBeUndefined();
 	});
 });

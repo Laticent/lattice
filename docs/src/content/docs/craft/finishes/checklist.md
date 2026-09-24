@@ -10,22 +10,23 @@ list.
 ## What you touch
 
 ```text
-lib/core/resolve-finish.js                     ← one row in FINISH_REGISTER
-lib/base/base.finish.css                       ← the preset block
-docs/src/components/studio/finish-catalog.ts   ← the Studio's picker entry
-docs/src/components/studio/finish-library.ts   ← the reserved-name list
-design/skills/finish.md                        ← the count of shipped finishes
-examples/quarry.md + quarry.pdf                ← the demo deck
+lib/finishes/quarry/quarry.manifest.json   ← name, label, blurb, order, swatch
+lib/finishes/quarry/quarry.recipe.json     ← the look, for "Start from preset"
+lib/base/base.finish.css                   ← the preset block
+design/skills/finish.md                    ← the count of shipped finishes
+examples/quarry.md + quarry.pdf            ← the demo deck
 ```
 
-Six files. Only the second one is real work — the other four are a line
-each, and every one of them has a gate that fails until you write it.
+The package folder is the whole registration: the engine's register, the
+lint vocabulary, the Studio's picker and its reserved-name list are generated
+from it. The CSS block is the real work.
 
 ## The checklist
 
 **The preset**
 
-- [ ] One row added to `FINISH_REGISTER`.
+- [ ] Package folder added (`lib/finishes/quarry/`: manifest + recipe), and
+      `node tools/build-packages-index.js` run.
 - [ ] All four slot families declared. Unused background slots are `none`;
       unused `--fin-frame` is `0 0 transparent` — `none` is invalid in a
       shadow list and silently kills the tone rail.
@@ -49,10 +50,6 @@ each, and every one of them has a gate that fails until you write it.
 
 **Around it**
 
-- [ ] `finish-catalog.ts` entry added, all seven fields (`nature` and `zone`
-      are easy to miss and TypeScript will stop you).
-- [ ] The name added to `RESERVED_FINISH_NAMES` in `finish-library.ts`, so a
-      saved user finish cannot shadow your preset.
 - [ ] The shipped-finish count in `design/skills/finish.md` bumped — the
       ownership guard checks it against the register.
 - [ ] `examples/quarry.md` written, six to ten slides, PDF committed.

@@ -3489,3 +3489,21 @@ describe('checkTypedGlyphs — the CSS escape decoder (HARD RULE #29)', () => {
     assert.doesNotThrow(() => decodeCssEscapes('"\\ffffff"'));
   });
 });
+
+describe('listRepoTextFiles skips transient render sources', () => {
+  // The gallery builders write `*.gallery.<theme>.tmp.md` beside a deck and delete it
+  // when the render ends. The pre-commit `pdf-rebuild` job runs them in parallel with
+  // the tests, so a walk that lists the file can read it after it is gone (ENOENT).
+  test('a *.tmp.md file under lib/components is never listed', () => {
+    const { listRepoTextFiles } = require('../../../tools/check-ownership');
+    const probe = path.join(__dirname, '../../../lib/components/comparison/pricing/pricing.gallery.probe.tmp.md');
+    fs.writeFileSync(probe, '---\nmarp: true\n---\n');
+    try {
+      const listed = listRepoTextFiles().map((f) => path.basename(f));
+      assert.ok(listed.includes('pricing.gallery.md'), 'the walk still reaches the real deck');
+      assert.ok(!listed.includes('pricing.gallery.probe.tmp.md'), 'the transient copy is skipped');
+    } finally {
+      fs.unlinkSync(probe);
+    }
+  });
+});

@@ -16,9 +16,12 @@ import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
+import type { StudioComponent } from './component-library';
+import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { BakeVoice } from './read-aloud';
 import type { OverflowMarker } from './studio-store';
+import type { StudioTheme } from './theme-library';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -61,6 +64,10 @@ async function ensureReady(options: SingleSlideOptions): Promise<PG> {
 
 /** An in-memory theme (a saved Fabricate library theme) — registered, not fetched. */
 export type ExtraTheme = { name: string; css: string };
+/** A saved component the deck uses: its class name and its CSS. */
+export type LocalComponentCss = { name: string; css: string };
+/** The saved Library records a deck uses — what a `.lattice` project carries along. */
+export type DeckPackages = { themes: StudioTheme[]; components: StudioComponent[]; finishes: StudioFinish[] };
 
 /**
  * Register the theme to render with and return its name. A saved library theme
@@ -342,7 +349,9 @@ export async function shareHtmlPlayer(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	let out = await renderMarkdown(PG, source, theme);
+	// `flatCss`: the player's stylesheet, packed for a document that shows slide content outside
+	// a slide. `out.css` stays the preview shape for the diagram bake's capture frame below.
+	let out = await renderMarkdown(PG, source, theme, { flatCss: true });
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -364,11 +373,11 @@ export async function shareHtmlPlayer(
 	// notes sheet, the a11y descriptions and the `--strip-notes` scrub independent of
 	// what the bake does.
 	//
-	// Split DEPTH-AWARE, not with `deck.splitSections`. That one pairs each `<section>`
-	// with the NEXT `</section>`, so a slide containing a hand-authored `<section>` is
-	// truncated at the nested close tag and its comments fall outside the chunk — while
-	// the slide COUNT stays correct, which is exactly why a count-parity check cannot
-	// catch it.
+	// Split DEPTH-AWARE. A flat walk that pairs each `<section>` with the NEXT `</section>`
+	// (what `deck.splitSections` did until it moved onto this same walker) truncates a slide
+	// containing a hand-authored `<section>` at the nested close tag, and its comments fall
+	// outside the chunk — while the slide COUNT stays correct, which is exactly why a
+	// count-parity check cannot catch it.
 	// A SEPARATE variable from `bakeWarning`, merged with it at the end. The bake's own branches
 	// ASSIGN rather than append (they are mutually exclusive), so setting bakeWarning here would
 	// be silently clobbered by any bake outcome — the exact failure the merge below the audit
@@ -414,7 +423,7 @@ export async function shareHtmlPlayer(
 			new Set(noteRecord.flatMap((r) => r.noteBodies || [])),
 			recordSections,
 			sectionsOf,
-			(src) => renderMarkdown(PG, src, theme),
+			(src) => renderMarkdown(PG, src, theme, { flatCss: true }),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -613,7 +622,15 @@ export async function shareHtmlPlayer(
 	// prune then (correctly) drops every never-matching rule. `@container lattice` and
 	// `container-name:lattice` use the container NAME, not `.lattice`, so they're
 	// untouched. (extraCss is author `section.<name>` CSS, already unscoped.)
-	const deckCss = out.css.replace(/article\.lattice\s*>\s*/g, '');
+	//
+	// The strip alone is not the CLI's shape, and Read · Article is where that showed: the
+	// view lifts each chart's figure OUT of its slide, and the preview pack had also scoped
+	// every palette token (`:root` → the slide) and every re-host rule (`figure.chart-frame
+	// …` → `section figure.chart-frame …`) to the inside of one. Every chart in the article
+	// painted SVG's initial black. `flatCss` is the same pack with each re-scoped arm also
+	// shipped as written — see `packSelector` in lib/engine/css.js. `?? out.css` keeps an
+	// engine bundle that predates the option exporting what it did before.
+	const deckCss = (out.flatCss ?? out.css).replace(/article\.lattice\s*>\s*/g, '');
 	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
 	const docHtml = buildSelfContainedDoc({
 		lang,
@@ -753,7 +770,7 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 }
 
 /** Markdown source with the current theme + referenced components + (when active) the saved finish embedded. */
-export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string): Promise<void> {
+export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
 	const ex = await exporters();
 	// Embed the live theme CSS so the .md keeps its look even where the theme
 	// isn't installed. A saved library theme carries its own CSS; otherwise fetch
@@ -769,22 +786,28 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
 	}
 	// Bake the active saved finish into the exported copy (class + <style>), so the
 	// custom finish renders on another machine. The user's source stays clean.
-	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, []);
+	// …and the saved components the deck uses. This passed `[]` until 2026-09, so a
+	// saved component's slides arrived unstyled on the recipient's machine while the
+	// theme and finish beside them survived (2026-09-23-portable-packages.md §1).
+	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, [...components]);
 }
 
 /** The `.lattice` project file — the deck source + its review comments in one zip,
  *  so comments travel with the deck (re-import restores both). `now` is stamped by
  *  the caller (app code) into the manifest; the download name gets a `.lattice` ext. */
-export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number): Promise<void> {
-	const [{ exportLatticeBlob }, { listComments }] = await Promise.all([import('./lattice-file'), import('./slide-comments')]);
+export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number, packages?: DeckPackages): Promise<void> {
+	const [{ exportLatticeBlob }, { listComments }, pz] = await Promise.all([import('./lattice-file'), import('./slide-comments'), import('./package-zip')]);
 	const comments = deckId ? listComments(deckId) : [];
-	const blob = await exportLatticeBlob(source, deckTitle, comments, now);
+	// The user packages the deck uses ride inside the project file, as package folders, so
+	// it opens on a machine that has never seen this Library (portable-packages §4).
+	const pkgs = packages ? [...packages.themes.map(pz.themePackage), ...packages.components.map(pz.componentPackage), ...packages.finishes.map(pz.finishPackage)] : [];
+	const blob = await exportLatticeBlob(source, deckTitle, comments, now, pkgs);
 	const { downloadBlob } = await import('./download');
 	downloadBlob(`${name}.lattice`, blob);
 }
 
 /** The self-contained Marp ZIP bundle (renders anywhere). */
-export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker): Promise<void> {
+export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
 	await ensureReady(options); // PG.marp must be present
 	const ex = await exporters();
 	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
@@ -795,7 +818,11 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	// default and a recipient got the red QA ring and "FIX ME" overlays on any
 	// clipped slide.
 	const { loadSettings } = await import('./studio-store');
-	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker });
+	// A saved theme has no file on the site, so it rides in as `extraTheme` and the
+	// bundle writes its CSS itself; a saved component rides as an embedded `<style>`,
+	// the same block the Markdown export uses. Without both, the bundle fell back to
+	// `indaco` and dropped the component's styling without a word.
+	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components] });
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format

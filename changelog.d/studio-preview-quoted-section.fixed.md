@@ -1,0 +1,1 @@
+- The Studio preview no longer refuses a slide whose body quotes a section tag. A comment such as `<!-- <section class="title"> -->` made the slide read as "nested or unbalanced `<section>`", and the preview showed "This preview couldn't render" in place of an ordinary slide. The preview's section count now reads past comments and `<style>`/`<script>` text.

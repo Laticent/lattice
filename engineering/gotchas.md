@@ -76,6 +76,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Chart renders as a thumbnail after an ancestor gains `container-type` (cqh re-basing)](gotchas/charts.md#chart-renders-as-a-thumbnail-after-an-ancestor-gains-container-type-cqh-re-basing)
 - [Chart caption swallowed when `_footer` is set](gotchas/charts.md#chart-caption-swallowed-when-_footer-is-set)
 - [Charts export black/unstyled from the Studio image PDF or PPTX](gotchas/charts.md#charts-export-blackunstyled-from-the-studio-image-pdf-or-pptx)
+- [Charts render black in the Studio Webpage player's Read · Article view](gotchas/charts.md#charts-render-black-in-the-studio-webpage-players-read--article-view)
 
 ### [CI and the cloud sandbox](gotchas/ci.md)
 
@@ -184,6 +185,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A slide surface ignores one input device (a wheel mouse does nothing; arrows are dead)](gotchas/lattice-internals.md#a-slide-surface-ignores-one-input-device-a-wheel-mouse-does-nothing-arrows-are-dead)
 - [A pinch on a slide turns the deck (and `preventDefault` in your React handler does nothing)](gotchas/lattice-internals.md#a-pinch-on-a-slide-turns-the-deck-and-preventdefault-in-your-react-handler-does-nothing)
 - [A destructuring default in a plain-JS export erases the rest of its parameter type](gotchas/lattice-internals.md#a-destructuring-default-in-a-plain-js-export-erases-the-rest-of-its-parameter-type)
+- [A card component's eyebrow is missing from the reader view](gotchas/lattice-internals.md#a-card-components-eyebrow-is-missing-from-the-reader-view)
 - [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)
 
 ### [Marp / Marpit](gotchas/marp.md)
@@ -196,6 +198,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Front-matter `style:` directive specificity vs. theme :root](gotchas/marp.md#front-matter-style-directive-specificity-vs-theme-root)
 - [A theme rule gated on `:root[…]` silently does nothing in a Marp render](gotchas/marp.md#a-theme-rule-gated-on-root-silently-does-nothing-in-a-marp-render)
 - [marp-cli ignores `theme:` front matter unless the theme is registered (Export-to-Marp bundles)](gotchas/marp.md#marp-cli-ignores-theme-front-matter-unless-the-theme-is-registered-export-to-marp-bundles)
+- [A hard-wrapped paragraph renders with line breaks mid-sentence](gotchas/marp.md#a-hard-wrapped-paragraph-renders-with-line-breaks-mid-sentence)
 
 ### [Memory profiling (perf-torture / CDP)](gotchas/memory-profiling.md)
 

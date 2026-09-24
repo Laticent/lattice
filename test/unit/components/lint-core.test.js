@@ -341,6 +341,66 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'gantt-retired-delimiter'), false);
   });
 
+  test('retiredQuadrantAxis rewrites every shipped retired shape; null for an ordinary eyebrow', () => {
+    assert.equal(core.retiredQuadrantAxis('Effort 0–10 → Reach 0–100'), '[{Effort, 0..10}, {Reach, 0..100}]');
+    // The detached `targets` blob moves INTO the axis each number constrains.
+    assert.equal(core.retiredQuadrantAxis('Effort 0–10 → Reach 0–100 · targets 5, 50'), '[{Effort, 0..10, 5}, {Reach, 0..100, 50}]');
+    // The ASCII spelling the old transform never honored still means what it says.
+    assert.equal(core.retiredQuadrantAxis('Effort 0-10 -> Reach 0-100'), '[{Effort, 0..10}, {Reach, 0..100}]');
+    assert.equal(core.retiredQuadrantAxis('Effort → Reach'), '[Effort, Reach]');
+    // A comma in a name is quoted, or it would split into a third axis.
+    assert.equal(core.retiredQuadrantAxis('Cost, ex tax 0–5 → Reach'), '[{"Cost, ex tax", 0..5}, Reach]');
+    assert.equal(core.retiredQuadrantAxis('Impact vs effort'), null, 'a plain eyebrow stays an eyebrow');
+    assert.equal(core.retiredQuadrantAxis('0–10 → 0–100'), null, 'a domain with no name cannot be expressed');
+    assert.equal(core.retiredQuadrantAxis('[Effort, Reach]'), null);
+  });
+
+  test('quadrant retired axis is an autofixable error; applyFix rewrites it and re-lints clean', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## H\n\n- Bets\n  - A \`3, 70\`\n`;
+    const f = ruleFor(src, 'quadrant-retired-axis');
+    assert.equal(f.severity, 'error');
+    assert.equal(f.autofixable, true);
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed.includes('`[{Effort, 0..10}, {Reach, 0..100}]`'));
+    const after = core.lintTextWith(fixed, vocab).map((x) => x.rule);
+    assert.equal(after.includes('quadrant-retired-axis'), false);
+    // The fix's own output must not trip a sibling rule on the same line.
+    assert.equal(after.some((r) => /^label-set-|typed-shape-glyph|quadrant-axis-part/.test(r)), false, after.join(', '));
+  });
+
+  test('quadrant axis rules are scoped: radar quadrant, a gantt, and a line BELOW the list are left alone', () => {
+    const retired = '`Effort 0–10 → Reach 0–100`';
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: radar quadrant -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: gantt -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: quadrant -->\n\n## H\n\n- a\n  - b \`1, 2\`\n\n${retired}\n`).length, 0);
+  });
+
+  test('retiredQuadrantAxis keeps what the old parser kept', () => {
+    // `.5` was a number to the old `[\d.]+` range reader.
+    assert.equal(core.retiredQuadrantAxis('Effort 1.5–2.5 → Reach .5–1'), '[{Effort, 1.5..2.5}, {Reach, .5..1}]');
+    // A reversed range was never a domain; it was part of the name.
+    assert.equal(core.retiredQuadrantAxis('Effort 10–0 → Reach 100–0'), '[Effort 10–0, Reach 100–0]');
+    // The author's own quotes survive; the wrapping quote is the other kind.
+    assert.equal(core.retiredQuadrantAxis('Effort "fast", ish 0–10 → Reach'), `[{'Effort "fast", ish', 0..10}, Reach]`);
+  });
+
+  test('quadrant axis rules skip a line inside an HTML comment, like the render', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n<!--\n\`Effort 0–10 → Reach 0–100\`\n-->\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    assert.equal(core.findQuadrantAxisIssues(src).length, 0);
+  });
+
+  test('a list with more members than axes is named: it prints as text, not as the axis', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n\`[Effort, Reach, Spend]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    assert.match(ruleFor(src, 'quadrant-axis-part').message, /3 members but a quadrant has two axes/);
+  });
+
+  test('quadrant-axis-part names a part the chart ignores', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n\`[{Effort, 10..0}, {Reach, 0..100, soon}]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const f = ruleFor(src, 'quadrant-axis-part');
+    assert.match(f.message, /`10\.\.0`, `soon`/);
+    assert.equal(ruleFor(src.replace('10..0', '0..10').replace(', soon', ', 50'), 'quadrant-axis-part'), undefined);
+  });
+
   test('applyAllFixes clears every autofixable finding across passes', () => {
     // Two inline-bold items on one slide: the rule flags the first per pass, so
     // applyAllFixes must loop (re-lint after each fix) to clear both.
@@ -1142,19 +1202,17 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
     assert.match(found.fix, /already decodes/);
   });
 
-  test('a quadrant axis eyebrow is NOT flagged — the arrow there is required syntax', () => {
-    // It is the component's axis delimiter, and there is no better spelling to
-    // coach toward. The tempting advice — "the parser accepts ASCII `->`" — is
-    // wrong: the eyebrow reaches the transform as escaped HTML, so `->` arrives
-    // as `-&gt;`, the split never fires, and the chart's data points MOVE
-    // (measured on examples/stage-inset.md slide 3). A warning with no good
-    // answer is worse than silence.
-    assert.deepEqual(glyphs(`${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`), []);
+  test('a retired quadrant arrow eyebrow IS flagged — the carve-out is gone', () => {
+    // The arrow was quadrant's axis delimiter and was exempt. The axis is now a
+    // bracketed list (`[{Effort, 0..10}, {Reach, 0..100}]`), which has no glyph
+    // in it, so the arrow is a typed glyph like any other — and the retired
+    // eyebrow gets its own `quadrant-retired-axis` error with the rewrite.
+    const [found] = glyphs(`${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`);
+    assert.ok(found);
   });
 
-  test('the same eyebrow on a NON-quadrant slide is still coached', () => {
-    const [found] = glyphs(`${FM}<!-- _class: kpi -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`);
-    assert.ok(found, 'the skip is scoped to quadrant, not to every code-only line');
+  test('the bracketed quadrant axis carries no glyph to flag', () => {
+    assert.deepEqual(glyphs(`${FM}<!-- _class: quadrant -->\n\n\`[{Effort, 0..10}, {Reach, 0..100}]\`\n\n## Heading\n`), []);
   });
 
   test('prose falls back to the table\'s own per-glyph coaching', () => {
@@ -1163,7 +1221,8 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
   });
 
   test('the arrow coaching does NOT promise ASCII `->`', () => {
-    // It was drafted that way and it was false — see the quadrant test above.
+    // It was drafted that way and it was false: markdown-it escapes `->` to
+    // `-&gt;` inside a code span, so no transform ever saw the ASCII arrow.
     const [found] = glyphs(slide('cards-grid', '- The plan → the outcome'));
     assert.doesNotMatch(found.fix, /accepts ASCII/);
   });
@@ -1915,5 +1974,340 @@ describe('label-set-above-body — coaching, never refusal', () => {
     const hits = core.lintTextWith(grid(false), vocab)
       .filter((f) => f.rule === 'label-set-above-body');
     assert.deepEqual(hits, []);
+  });
+
+  // `parseInlineSet` accepts the braced AXIS form as a set, so the rule used to
+  // fire on the documented axis itself — and on scatter told the author to
+  // delete it. Above the body, only a list naming a KEY member is a misplaced key.
+  // The rule's body detector has to agree with the render's boundary (the first
+  // body TAG markdown-it emits), or it warns on the wrong side of it.
+  test('a list line inside an HTML comment is not the body', () => {
+    // Without the comment blanking the note's bullet set the boundary, so the
+    // key BELOW it read as below the body and the above-body coaching was lost.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = ['<!-- _class: scatter -->', '', '<!--', '- speaker note', '-->', '',
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-above-body']);
+  });
+
+  test('a literal `<!--` quoted in inline code is text, not a comment', () => {
+    // It used to blank the rest of the slide from the lint rules' view.
+    const src = ['<!-- _class: matrix-grid -->', '', 'Use `<!--` for notes.', '', '## Rubric', '',
+      '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('an inline `<!--` closes only inside its paragraph, as markdown-it reads it', () => {
+    // A speaker note at the end of the slide used to close a `<!--` quoted in prose
+    // above the table, blanking everything between — the key below went unlinted.
+    const src = ['<!-- _class: matrix-grid -->', '', 'Type <!-- to open a note.', '', '## Rubric', '',
+      '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`', '', '<!-- n -->'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('comment blanking stays linear on untrusted input (HARD RULE #22)', () => {
+    // It went quadratic once: 280 KB of `a <!--` lines took 12 s. Linear, this is
+    // tens of milliseconds; the bound is generous so a slow runner cannot flake it,
+    // and still an order of magnitude under the quadratic shape.
+    const body = 'a <!--\n'.repeat(100000);
+    const deck = `<!-- _class: quadrant -->\n\n${body}\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const t = Date.now();
+    core.findQuadrantAxisIssues(deck);
+    const oneLine = `<!-- _class: quadrant -->\n\n${'<!--'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    core.findQuadrantAxisIssues(oneLine);
+    // Many CLOSED comments on one line — the shape the second quadratic path hid in.
+    const pairs = `<!-- _class: quadrant -->\n\n${'<!-- x -->'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    core.findQuadrantAxisIssues(pairs);
+    assert.ok(Date.now() - t < 2000, `took ${Date.now() - t}ms`);
+  });
+
+  test('a key with more members than axes is not called the axis — it prints as text', () => {
+    const src = ['<!-- _class: matrix-grid -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
+      '| Verb | Self |', '| --- | :--: |', '| N | [x] |'].join('\n');
+    const [hit] = core.lintTextWith(src, vocab).filter((f) => f.rule === 'label-set-above-body');
+    assert.match(hit.message, /neither the axis nor the key/);
+  });
+
+  test('a blockquoted list is the body, as markdown-it emits its <ul>', () => {
+    // The render's boundary is that <ul>, so the span after it is BELOW the body
+    // and stays on the slide — lint must not call it an axis above the body.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = ['<!-- _class: scatter -->', '', '> - quoted point', '',
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('a state-marker key above a keyless chart is still a misplaced key', () => {
+    // scatter declares no key vocabulary, so the state markers stand in for it.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `1` `2`\n';
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => f.rule === 'label-set-above-body').length, 1);
+  });
+
+  test('the braced axis form above the body is an axis, never a misplaced key', () => {
+    const all = { names: new Set(['matrix-grid', 'scatter', 'quadrant']), modifiers: new Set() };
+    const decks = [
+      ['matrix-grid', '`[{Wider reach, 0..4}, {Deeper cognition, 0..6}]`', '| Verb | Self |\n| --- | :--: |\n| Notice | [x] |'],
+      ['scatter', '`[{Effort, 0..10}, {Reach, 0..100}]`', '- A `1` `2`\n- B `3` `4`'],
+      ['quadrant', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '- Bets\n  - A `3, 70`'],
+    ];
+    for (const [cls, axis, body] of decks) {
+      const src = `<!-- _class: ${cls} -->\n\n${axis}\n\n## H\n\n${body}\n`;
+      const hits = core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule));
+      assert.deepEqual(hits.map((h) => h.rule), [], cls);
+    }
+  });
+});
+
+describe('lint-core: an empty box whose meaning moved (rule 16, six state marks)', () => {
+  const moved = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'moved-empty-box');
+  const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+
+  test('verdict-grid: `[ ]` is now "not assessed", and the fix names `[!]`', () => {
+    const found = moved(slide('verdict-grid', '- Vendor\n  - [x] Speed\n  - [ ] Audit\n  - [ ] Cost\n  - Why.'));
+    assert.equal(found.length, 1, 'one finding per slide, not per box');
+    assert.equal(found[0].severity, 'info', 'a legitimate answer is never a warning');
+    assert.match(found[0].message, /not assessed/);
+    assert.match(found[0].message, /2 on this slide/);
+    assert.match(found[0].fix, /`\[!\]`/);
+  });
+
+  test('obligation-matrix: `[ ]` is now "undetermined", and the fix names `[/]`', () => {
+    const found = moved(slide('obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [ ] |'));
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /undetermined/);
+    assert.match(found[0].fix, /`\[\/\]`/);
+  });
+
+  test('says nothing where `[ ]` always meant open, or where the author already migrated', () => {
+    assert.equal(moved(slide('checklist', '- [ ] Todo')).length, 0);
+    assert.equal(moved(slide('verdict-grid', '- Vendor\n  - [!] Audit\n  - Why.')).length, 0);
+    assert.equal(moved(slide('obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [/] |')).length, 0);
+    // A verdict-grid CARD line (depth 1) is not a criterion.
+    assert.equal(moved(slide('verdict-grid', '- [ ] Vendor\n  - [x] Audit')).length, 0);
+  });
+
+  test('a label set that names `[ ]` on the slide answers the question — no finding', () => {
+    const body = '`[{[x], High exposure}, {[ ], Controlled}]`\n\n| Req | A |\n| --- | :-: |\n| Audit | [ ] |';
+    assert.equal(moved(slide('obligation-matrix', body)).length, 0);
+  });
+
+  test('a fenced example on the slide is quoted material, not a criterion', () => {
+    assert.equal(moved(slide('verdict-grid', '```markdown\n- Vendor\n  - [ ] Audit\n```')).length, 0);
+  });
+  test('pricing: `[ ]` is now "coming", and the fix offers `[!]` or `[/]`', () => {
+    const found = moved(slide('pricing', '- Starter `$0`\n  - [x] Seats\n  - [ ] Audit log\n  - For one team.'));
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /"coming"/);
+    assert.match(found[0].message, /"missing"/);
+    assert.match(found[0].fix, /`\[!\]`/);
+    assert.match(found[0].fix, /`\[\/\]`/);
+  });
+
+  test('the class counts anywhere in the list, as the engine decodes it', () => {
+    assert.equal(moved(slide('dark verdict-grid', '- Vendor\n  - [ ] Audit')).length, 1);
+    assert.equal(moved(slide('heat obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |')).length, 1);
+  });
+
+  test('a slide already using `[!]` or `[?]` was written for the six markers — its `[ ]` is meant', () => {
+    assert.equal(moved(slide('verdict-grid', '- Vendor\n  - [!] Audit\n  - [ ] Cost\n  - Why.')).length, 0);
+    assert.equal(moved(slide('pricing', '- Pro\n  - [?] SSO\n  - [ ] Audit\n  - Why.')).length, 0);
+  });
+
+  test('an HTML comment on the slide is not a criterion', () => {
+    assert.equal(moved(slide('verdict-grid', '<!--\n- Vendor\n  - [ ] Audit\n-->\n- Vendor\n  - [x] A')).length, 0);
+  });
+
+  test('findings carry shapeChange, which the render path prints as a warning', () => {
+    const [f] = moved(slide('obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |'));
+    assert.equal(f.shapeChange, true);
+    assert.equal(f.autofixable, undefined, 'obligation-matrix has no safe rewrite: exempt, "not required" or open');
+    assert.deepEqual(core.findMovedEmptyBoxes(slide('verdict-grid', '- V\n  - [ ] A')).map((x) => x.rule), ['moved-empty-box']);
+  });
+});
+
+describe('lint-core: `--fix` migrates a moved empty box, and only where the meaning moved', () => {
+  const fixed = (src) => core.applyAllFixes(src, vocab);
+  const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+
+  test('rewrites EVERY `[ ]` on a verdict-grid slide, not just the first', () => {
+    // The first `[!]` makes the slide read as six-marker and silences the rule, so a
+    // line-at-a-time fix would stop after one line and leave the slide half-migrated.
+    const out = fixed(FM + slide('verdict-grid', '- Vendor\n  - [x] Speed\n  - [ ] Audit\n  - [ ] Cost\n  - Why.'));
+    assert.match(out, / {2}- \[!\] Audit\n {2}- \[!\] Cost/);
+    assert.match(out, / {2}- \[x\] Speed/);
+  });
+
+  test('rewrites pricing, and leaves a checklist on the same deck alone', () => {
+    const src = FM + slide('pricing', '- Pro\n  - [ ] Audit\n  - Why.') + '\n---\n\n' + slide('checklist', '- [ ] Todo');
+    const out = fixed(src);
+    assert.match(out, / {2}- \[!\] Audit/);
+    assert.match(out, /- \[ \] Todo/);
+  });
+
+  test('never rewrites a fenced example on the same slide', () => {
+    const out = fixed(FM + slide('verdict-grid', '```markdown\n- V\n  - [ ] Quoted\n```\n\n- Vendor\n  - [ ] Audit'));
+    assert.match(out, / {2}- \[ \] Quoted/);
+    assert.match(out, / {2}- \[!\] Audit/);
+  });
+
+  test('never rewrites inside a multi-line HTML comment, but does beside a one-line one', () => {
+    const out = fixed(FM + slide('verdict-grid', '<!--\n- V\n  - [ ] Hidden\n-->\n- Vendor\n  - [ ] Audit <!-- note -->'));
+    assert.match(out, / {2}- \[ \] Hidden/);
+    assert.match(out, / {2}- \[!\] Audit <!-- note -->/);
+  });
+
+  // `split: headings` is the DEFAULT, so one `---` chunk routinely holds several rendered
+  // slides. The rewrite must touch only the slide the finding judged.
+  const SPLIT_DECK = (fm) => `---\n${fm}---\n\n<!-- _class: verdict-grid -->\n\n# Vendors\n\n`
+    + '- Acme\n  - [x] SOC 2\n  - [ ] ISO\n  - Why.\n\n'
+    + '<!-- _class: checklist -->\n\n## Launch checklist\n\n- Tasks\n  - [ ] book venue\n';
+
+  test('the default split (no `split:` key) rewrites the verdict-grid slide and not the checklist beside it', () => {
+    // The checker's failing input: before, `--fix` rewrote BOTH `[ ]`.
+    const out = fixed(SPLIT_DECK('marp: true\n'));
+    assert.match(out, / {2}- \[!\] ISO/);
+    assert.match(out, / {2}- \[ \] book venue/, 'the checklist on the next rendered slide keeps its open box');
+  });
+
+  test('`split: headings` spelled out behaves the same, and so does a quoted value', () => {
+    for (const fm of ['split: headings\n', 'split: "headings"\n']) {
+      const out = fixed(SPLIT_DECK(fm));
+      assert.match(out, / {2}- \[!\] ISO/);
+      assert.match(out, / {2}- \[ \] book venue/);
+    }
+  });
+
+  test('under `split: rule` the chunk is ONE slide, and its governing class decides', () => {
+    // No heading split, so the directive scanner's winner governs the whole slide — here
+    // the later `_class: checklist`. That slide never renders as a verdict-grid, so the
+    // rule says nothing and rewrites nothing.
+    const src = SPLIT_DECK('split: rule\n');
+    assert.equal(core.findMovedEmptyBoxes(src).length, 0);
+    assert.equal(fixed(src), src);
+  });
+
+  test('slide numbers count RENDERED slides under heading splits', () => {
+    const deck = '---\nmarp: true\n---\n\n# Intro\n\nHello.\n\n<!-- _class: verdict-grid -->\n\n## Vendors\n\n- Acme\n  - [ ] ISO\n  - Why.\n';
+    const [f] = core.findMovedEmptyBoxes(deck);
+    assert.equal(f.slide, 2, 'the verdict-grid is the second rendered slide, though it shares a chunk with the first');
+  });
+
+  test('a comment that closes and reopens on one line keeps the next line hidden', () => {
+    const src = FM + slide('verdict-grid', '- Vendor\n  - [ ] Audit\n<!-- note\nold --> x <!-- again\n  - [ ] commented\n-->');
+    const out = fixed(src);
+    assert.match(out, / {2}- \[!\] Audit/);
+    assert.match(out, / {2}- \[ \] commented/, 'text inside the reopened comment is never rewritten');
+  });
+
+  test('a criterion AFTER a comment closes on the same line is live and rewritten', () => {
+    const src = FM + slide('verdict-grid', '- Vendor\n<!-- a\nb --> x\n  - [ ] tail');
+    assert.match(fixed(src), / {2}- \[!\] tail/);
+  });
+
+  test('never touches obligation-matrix: its `[ ]` has three honest readings', () => {
+    const src = FM + slide('obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |');
+    assert.equal(fixed(src), src);
+  });
+
+  test('the CLI `--fix` writes the file and reports it', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+    const file = path.join(dir, 'deck.md');
+    fs.writeFileSync(file, FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.'));
+    const r = spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+    assert.match(r.stderr, /lint:deck --fix — rewrote/);
+    assert.match(r.stderr, /slide 1 · moved-empty-box/, 'each applied fix is named');
+    assert.match(fs.readFileSync(file, 'utf8'), / {2}- \[!\] B/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('the CLI `--fix` keeps every line\'s own ending — lone CR and a mixed file too', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const body = FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.');
+    const cases = {
+      cr: body.replace(/\n/g, '\r'),
+      mixed: body.split('\n').map((l, i, a) => l + (i === a.length - 1 ? '' : i % 2 ? '\r\n' : '\n')).join(''),
+    };
+    for (const [name, src] of Object.entries(cases)) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+      const file = path.join(dir, 'deck.md');
+      fs.writeFileSync(file, src);
+      spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+      const out = fs.readFileSync(file, 'utf8');
+      const changed = [...out].filter((ch, i) => ch !== src[i]).length;
+      assert.equal(out.length, src.length, `${name}: no line ending rewritten`);
+      assert.equal(changed, 1, `${name}: the fix is the one character inside \`[ ]\``);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('the CLI `--fix` keeps the file\'s BOM and CRLF line endings', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+    const file = path.join(dir, 'deck.md');
+    const body = FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.');
+    fs.writeFileSync(file, `\uFEFF${body.replace(/\n/g, '\r\n')}`);
+    spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+    const out = fs.readFileSync(file, 'utf8');
+    assert.ok(out.startsWith('\uFEFF'), 'the BOM survives');
+    assert.ok(!/[^\r]\n/.test(out), 'every line still ends in CRLF');
+    assert.match(out, / {2}- \[!\] B\r\n/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('lint-core: typed crosses point at `[!]`, not the open box', () => {
+  test('a typed ✗ in a state-cells table is coached toward `[!]` and the six markers', () => {
+    const src = `${FM}<!-- _class: table state-cells -->\n\n## H\n\n| A | B |\n| --- | --- |\n| x | ✗ |\n`;
+    const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'typed-shape-glyph');
+    assert.ok(f);
+    assert.match(f.fix, /`\[!\]` no/);
+    assert.doesNotMatch(f.fix, /`\[ \]` not met/);
+  });
+});
+
+describe('lint-core: its heading-split mirror agrees with the engine', () => {
+  // lint-core does not parse markdown, so `headingSubSlides` mirrors
+  // lib/core/heading-split-core.js on lines. This pins the two together on every committed
+  // deck: the rendered slide count from the mirror must equal the count of the engine's
+  // own baked split. Measured 334 of 334 when the mirror landed.
+  test('every committed deck counts the same rendered slides both ways', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const { execSync } = require('node:child_process');
+    const { bakeSplits } = require('../../../lib/core/bake-splits');
+    const { splitTopLevel } = require('../../../lib/authoring/slide-split');
+    const ROOT = path.resolve(__dirname, '../../..');
+    const fmCount = (src) => (/^---\n[\s\S]*?\n---\n/.test(src) ? 2 : 0);
+    const decks = execSync("git ls-files '*.md'", { cwd: ROOT, encoding: 'utf8' }).split('\n')
+      .filter((f) => /^(examples|exemplars|kit|test\/integration\/baseline-decks|lib\/components)\//.test(f)
+        && !/\.docs\.md$|README/.test(f));
+    const off = [];
+    let checked = 0;
+    for (const f of decks) {
+      let src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      if (!/^\uFEFF?---\r?\n/.test(src)) continue;
+      src = src.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+      const fm = fmCount(src);
+      const headings = core.splitsOnHeadings(src);
+      let mine = 0;
+      splitTopLevel(src).forEach((chunk, i) => { if (i >= fm) mine += headings ? core.headingSubSlides(chunk).length : 1; });
+      const baked = bakeSplits(src);
+      const theirs = splitTopLevel(baked).length - fmCount(baked);
+      checked++;
+      if (mine !== theirs) off.push(`${f}: mirror ${mine}, engine ${theirs}`);
+    }
+    assert.ok(checked > 100, `expected the committed corpus, found ${checked} decks`);
+    assert.deepEqual(off, []);
   });
 });

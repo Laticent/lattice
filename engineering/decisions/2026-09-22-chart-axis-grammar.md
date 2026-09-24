@@ -24,7 +24,7 @@ summary: >
 
 # One grammar for a chart axis, and position decides what a span means
 
-**Date:** 2026-09-22 · **Status:** in progress — kernel and two components landed
+**Date:** 2026-09-22 · **Status:** in progress — kernel and all four axis components landed (quadrant and gantt 2026-09-24)
 **Refs:** #2258 (the label-set epic this is the sibling of), #2272 (label sets
 rolled out to four components)
 
@@ -146,10 +146,10 @@ change to that gate rather than a rider on an axis feature. A test pins that at
 shipped strings, which makes the convergence a demonstrated path rather than a
 claim. Until someone walks it, one grammar is served by two parsers.
 
-**The range and threshold parts are parsed and DISCARDED.** `matrix-grid` and
-`scatter` read `parts[0]` only, so `[{Effort, 0..10, 5}]` renders exactly as
-`[Effort]`. The grammar admits them so quadrant's domain and targets have
-somewhere to go; nothing honors them yet.
+**The range and threshold parts are honored by `quadrant` only.** `matrix-grid`
+and `scatter` read `parts[0]` only, so on those two `[{Effort, 0..10, 5}]`
+renders exactly as `[Effort]`. `quadrant` reads all three (see "Quadrant,
+migrated" below).
 
 Nothing backtracks, so the super-linear blowup that bit `label-set.js` (3000
 characters, 10.9s, reachable from the browser linter under HARD RULE #22) is not
@@ -212,11 +212,119 @@ moved beyond the band, so the committed baseline still describes the engine.
   of its own (HARD RULE #1), not a rider on this one.
 - **Whether the nine derive-only charts gain an authored axis.** The grammar
   admits them; whether each SHOULD is per-component and not settled here.
-- **`gantt`'s migration.** Its pills are keyword-tagged and order-independent
-  (`today Q3` means the same wherever it sits), which is a genuinely different
-  reading from a positional list. The grammar can express it —
-  `[{Timeline, 2026 Q1..2026 Q4, Q3}]` — but whether the keyword form should
-  survive alongside is not settled here.
+- **`gantt`'s migration** — settled 2026-09-24, see "Gantt, beside its pills" below.
 - **`[x]` as a one-member list.** `` `[x]` `` is a state mark to
   `inline-code-directives.js` and parses as a one-member list here. Dispatch
   order is what keeps them apart, and it needs an arm pinning it.
+
+## Quadrant, migrated (2026-09-24)
+
+`quadrant` now declares `axisSet` (`members: [x, y]`, `body: list`,
+`keyBelow: false` because it claims a trailing coda) and reads its axis through
+the shared lift. What it took, and what was decided along the way:
+
+- **One reading of a member's parts, shared.** `lib/core/axis-member.js`
+  decides what `{Effort, 0..10, 5}` means: the first part is the name, a part
+  with `..` is the domain, a bare number is the threshold. The transform, the
+  narrator and `lint:deck` all call it, so they cannot disagree about which
+  parts were honored. **Domain and threshold are told apart by shape, not by
+  slot.** `parseBracketList` drops an empty part, so `{Effort, , 5}` cannot
+  hold the domain's place; a threshold without a domain is written
+  `{Effort, 5}`. The NAME stays positional: it is always the first part.
+- **The list is consumed.** The old eyebrow printed on the slide AND named the
+  axes, so every quadrant said its axes twice. This is the same call scatter
+  made. A plain eyebrow beside the list survives, which the demo deck shows.
+- **Loss-free, measured, and the first measurement was too narrow.** Every
+  deck carrying a quadrant slide (21, not only the 17 the migrator edited) was
+  rendered on `main` and on this branch. The `quadrant-figure` SVGs were compared
+  with render ids stripped: **59 of 61 are byte-identical.** The first cut compared only
+  the migrated decks, reported 53 of 54, and missed the second difference. An
+  independent checker found it. The two:
+  - `examples/adaptive-sweep.md` used the ASCII `->`. That spelling never
+    worked, so on `main` its x-axis read "Effort 0-10 -&gt; Reach" on a 0–100
+    domain; it now reads "Effort" on 0–10.
+  - `examples/legend-below-portrait.md` had a plain eyebrow, `Impact vs effort`,
+    which the old parser ALSO drew as the x-axis title. The old grammar took any
+    eyebrow without an arrow as an x-axis name. Its coordinates put impact on x
+    and effort on y, so the title was wrong as well as doubled. The deck now
+    authors `[Impact, Effort]` beside the eyebrow.
+- **A list the component cannot fully read is not its axis.** The checker also
+  found that a three-member list on a two-axis quadrant was lifted and its third
+  member dropped, which is the silent deletion the lift's contract forbids.
+  `axisAcceptor` in `lift-bracket-span.js` now caps the ABOVE slot at the
+  component's declared member count, on all four components. A longer list stays on the slide as text,
+  narration speaks it as text, and `lint:deck` names it on quadrant.
+- **One threshold is enough to turn the lines on.** The old `targets` blob
+  needed both numbers. Now either axis's threshold turns them on, and the other
+  axis takes its midpoint, which is the "derive numbers" rule from Decision 3.
+- **The migration is the linter's autofix.** `quadrant-retired-axis` rewrites
+  the old eyebrow, so the migrator was that fix applied to every tracked `.md`.
+  It is class-aware by construction: it fires only on a code-only line above
+  the list on a `quadrant` slide, so gantt's `2026 Q1 .. 2026 Q4` lines
+  (same shape, not positional) were never candidates. It is an ERROR rather
+  than coaching, like gantt's retired delimiter, because the unmigrated deck
+  still renders, only with its points moved.
+- **The HARD RULE #29 carve-out is deleted.** `isQuadrantAxisEyebrow` and both
+  callers are gone, and `checkTypedGlyphs` passes at budget 0 without them.
+- **A lint fix the migration forced.** `parseInlineSet` accepts
+  `[{Effort, 0..10}, {Reach, 0..100}]` as a label set, so `label-set-above-body`
+  and `label-set-unbound` fired on the documented axis form: 22 warnings on
+  the quadrant gallery. The same happened, unnoticed, on any braced
+  scatter or matrix-grid axis. Above the body a list is a misplaced KEY only
+  when it names one of the component's key members; otherwise it is the axis
+  and the rule says nothing.
+
+## Gantt, beside its pills (2026-09-24)
+
+`gantt` declares `axisSet` (`members: [time]`, `body: list`, `keyBelow: false`
+for its coda) and accepts `[{Timeline, 2026 Q1..2026 Q4, Q3}]` **alongside** the
+keyword pills rather than instead of them. The pills are keyword-tagged and
+order-independent (`today Q3` means the same wherever it sits). That is a
+different reading, not a worse one, and retiring it would cost every author a
+spelling that works.
+
+- **One door into the builder.** The list is turned into the same
+  `{window, today}` pair the pills produce and handed to the same
+  `buildGanttChart`. So the two forms draw the identical chart by construction,
+  not through a second implementation that has to agree with the first. Measured on the demo deck:
+  the two gantt figures are byte-identical apart from their per-slide ids.
+- **Window and today are told apart by shape** (`readTimeAxisMember` in
+  `lib/core/axis-member.js`): a part with `..` is the window and any other part
+  is `today`. So `{Timeline, Q3, 2026 Q1..2026 Q4}` reads the same. This is
+  the same rule quadrant uses for domain and threshold, with a time vocabulary.
+- **The name is not drawn.** A gantt has no axis caption to put it in. It is
+  the one part of the list with nowhere to go. Drawing a time-axis caption would
+  be a visible change to every gantt, so it is left for a separate decision.
+- **Lifted, where the pills are not.** The pills read as an eyebrow and always
+  stayed on the slide. The list reads as syntax, so it is lifted like every
+  other axis list.
+
+## The third checker pass (2026-09-24)
+
+The third pass on the parser fixes (the squashed `6695cd3`) had been killed
+before it reported. It was re-run over the same code on `main`. It found:
+
+- **Blocking: an apostrophe opened a quote in the middle of a word.**
+  `[Customer's spend, Churn rate]` came back as one member, and the render
+  drew one axis. Straight apostrophes survive inside code spans because the
+  typographer does not touch them, so ordinary English names hit this. A quote
+  now opens only where a part starts, the same rule `{` already followed.
+- **An empty member re-slotted every axis after it.** Position is the
+  authority, so `[, Reach]` has to mean "the second axis is Reach". The parser
+  dropped the blank and put Reach on the first axis. An empty top-level member now holds its place as
+  `[]`. Trailing blanks are trimmed, and a `}` followed by a comma is one
+  separator, not a blank.
+- **The lint body detector disagreed with the render** on a bullet inside an
+  HTML comment and on a blockquoted list or table. Both now match what
+  markdown-it emits. The durable fix is to derive the boundary from markdown-it
+  tokens in lint as well, so there is one model instead of two. That is larger
+  than this pass and is recorded in `followups.d/`.
+- **Verified and held:** `isWs` agrees with `/\s/` on every code point
+  0..0x10FFFF (exactly 25 match, none astral), and `tidy` agrees with
+  `.replace(/\s+/g, ' ').trim()` over 300k fuzzed inputs including lone
+  surrogates. The fail-loud catalog guards cannot fire on a legitimate deck,
+  and no caller can bypass them back into the silent deletion.
+- **Pinned, not changed:** `[{a,b}c, d]` gives three members, a stray `}` is
+  literal, and an unclosed `{` keeps the rest as parts of one member. No
+  character is lost in any of them. Tests pin all three, so changing them is a
+  visible decision.

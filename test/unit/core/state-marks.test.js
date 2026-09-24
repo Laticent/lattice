@@ -3,7 +3,7 @@
  *
  * The negative arms carry the weight, for the same reason they do in the pill tests:
  * this grammar reads every single-backtick span in every deck, and `[` opens a CSS
- * attribute selector, an array index and a citation. Only the four exact
+ * attribute selector, an array index and a citation. Only the six exact
  * three-character forms may dispatch.
  */
 
@@ -12,12 +12,14 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const marks = require('../../../lib/core/state-marks.js');
 
-describe('state-marks — the four markers', () => {
+describe('state-marks — the six markers', () => {
   const EXPECTED = {
-    '[x]': { sem: 'pass', shape: 'state-full', label: 'done' },
-    '[-]': { sem: 'warn', shape: 'state-half', label: 'partial' },
-    '[/]': { sem: 'skip', shape: 'state-slashed', label: 'skipped' },
-    '[ ]': { sem: 'todo', shape: 'state-todo', label: 'to do' },
+    '[x]': { sem: 'pass', shape: 'state-full', label: 'yes' },
+    '[-]': { sem: 'warn', shape: 'state-half', label: 'partly' },
+    '[!]': { sem: 'fail', shape: 'state-empty', label: 'no' },
+    '[?]': { sem: 'unknown', shape: 'state-unknown', label: 'unknown' },
+    '[ ]': { sem: 'todo', shape: 'state-todo', label: 'open' },
+    '[/]': { sem: 'skip', shape: 'state-slashed', label: 'does not apply' },
   };
 
   for (const [src, want] of Object.entries(EXPECTED)) {
@@ -30,11 +32,26 @@ describe('state-marks — the four markers', () => {
     });
   }
 
-  test('`[ ]` takes the NEUTRAL reading inline, not verdict-grid\'s "not met"', () => {
-    // A bare `[ ]` in a sentence is an unchecked box. verdict-grid keeps the red ✕ for
-    // a criterion that was assessed and failed, which is a different claim.
-    assert.equal(marks.parseInlineState('[ ]').sem, 'todo');
-    assert.equal(marks.stateClassesFor(' ', false).sem, 'fail', 'the non-neutral reading still exists');
+  test('one meaning per marker: `[ ]` is open everywhere, and "no" is `[!]`', () => {
+    // `[ ]` used to be overloaded — "not met" in verdict-grid, "not yet" everywhere else —
+    // behind a layout flag the author could not see. The flag is gone: a second argument
+    // changes nothing, and the red cross belongs to `[!]` alone.
+    assert.equal(marks.stateClassesFor(' ').sem, 'todo');
+    assert.equal(marks.stateClassesFor(' ', false).sem, 'todo', 'no layout can flip `[ ]` to fail');
+    assert.equal(marks.stateClassesFor('!').sem, 'fail');
+    assert.equal(marks.stateClassesFor('X'), null, '`[X]` is GFM\'s CHECKED box, not a cross');
+    assert.equal(marks.stateClassesFor('~'), null);
+  });
+
+  test('every marker has a spoken label, and the class list is exactly the markers', () => {
+    assert.deepEqual(Object.keys(marks.MARKER_LABELS).sort(), [...marks.MARKERS].sort());
+    for (const m of marks.MARKERS) {
+      assert.ok(marks.LEADING_MARKER_RE.test(`[${m}] rest`), `LEADING_MARKER_RE misses [${m}]`);
+      assert.ok(marks.LEADING_MARKER_PREFIX_RE.test(`[${m}]`), `LEADING_MARKER_PREFIX_RE misses [${m}]`);
+    }
+    for (const bad of ['[X] a', '[~] a', '[>] a', ' [x] a', '[xx] a']) {
+      assert.equal(marks.LEADING_MARKER_RE.test(bad), false, bad);
+    }
   });
 
   test('the mark carries its name on aria-label, never as text', () => {
@@ -73,7 +90,7 @@ describe('state-marks — the four markers', () => {
 
 describe('state-marks — what stays literal', () => {
   const LITERAL = [
-    '[?]', '[!]', '[*]', '[X]',          // near-misses; the vocabulary is these four, lowercase
+    '[~]', '[>]', '[*]', '[X]',          // near-misses; the vocabulary is these six, lowercase
     '[data-mark]', '[data-anima-role]',  // CSS attribute selectors
     '[0]', '[i]', '[1..n]',              // indexes and ranges
     '[]', '[  ]', '[x ]', ' [x]', '[x',  // malformed or padded
@@ -87,12 +104,54 @@ describe('state-marks — what stays literal', () => {
     });
   }
 
-  test('the marker set is exactly four, and nothing has crept in', () => {
-    assert.deepEqual([...marks.MARKERS].sort(), [' ', '-', '/', 'x']);
+  test('the marker set is exactly six, and nothing has crept in', () => {
+    assert.deepEqual([...marks.MARKERS].sort(), [' ', '!', '-', '/', '?', 'x']);
   });
 });
 
 describe('state-marks — one kernel, no duplicate decision', () => {
+  test('no consumer retypes the marker character class — every pattern builds from MARKER_CLASS', () => {
+    // The class used to be retyped as a private regex in eight places across five files
+    // (engineering/decisions/2026-09-24-six-state-marks.md §6.1), plus three in the
+    // docs-site editor and two in tools. A marker added to all but one would print raw
+    // on that one surface. This fails on any private copy of the class — the current
+    // six-marker one or the retired four-marker one — outside the kernel.
+    //
+    // matrix-grid is EXEMPT and named: its `[x]` `[-]` `[ ]` are a POSITIONAL grammar
+    // (filled / reachable / not applicable), parsed by lib/core/matrix-grid-cells.js,
+    // not status markers.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const ROOT = path.resolve(__dirname, '../../..');
+    // ORDER-BLIND: any bracket class holding `x`, `-`, `/` and a space, however written —
+    // `[x\-/ ]`, `[ /x\-]`, `[-x/ !?]`. The first cut matched two spellings only, so a copy
+    // with its members shuffled walked straight past it.
+    const CLASS = /\[((?:\\.|[^\]\\\n]){3,16})\]/g;
+    const isMarkerClass = (body) => {
+      const chars = new Set(body.replace(/\\(.)/g, '$1'));
+      return ['x', '-', '/', ' '].every((c) => chars.has(c));
+    };
+    const PRIVATE = { test: (src) => [...src.matchAll(CLASS)].some((m) => isMarkerClass(m[1])) };
+    assert.ok(PRIVATE.test('const r = /[ /x\\-]/;'), 'the guard must catch a shuffled copy');
+    assert.ok(!PRIVATE.test('const r = /[x\\- ]/;'), 'matrix-grid\'s three positional markers are not the class');
+    const EXEMPT = new Set(['lib/core/state-marks.js', 'lib/core/matrix-grid-cells.js']);
+    const offenders = [];
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name.startsWith('.') || e.name === 'dist') continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!/\.(?:js|mjs|cjs|ts|tsx)$/.test(e.name) || /generated/.test(e.name)) continue;
+        const rel = path.relative(ROOT, p).split(path.sep).join('/');
+        if (EXEMPT.has(rel) || /\.test\./.test(e.name)) continue;
+        const src = fs.readFileSync(p, 'utf8');
+        if (PRIVATE.test(src)) offenders.push(rel);
+      }
+    };
+    for (const top of ['lib', 'tools', 'docs/src']) walk(path.join(ROOT, top));
+    assert.deepEqual(offenders, [], `retyped marker class — build it from MARKER_CLASS in lib/core/state-marks.js:\n  ${offenders.join('\n  ')}`);
+  });
+
   test('neither render path carries its own copy of stateClassesFor any more', () => {
     // It lived twice before this — plugins.js and runtime/index.js each had a private
     // copy, which is the drift HARD RULE #1 exists to stop. Adding a third consumer is
@@ -123,7 +182,7 @@ describe('inline-code-directives — the escape, on both paths', () => {
     // `\[a-z]` is a character class and `\d+` is a regex. Stripping unconditionally
     // would have corrupted both, which is why the rule is "escape only what would
     // otherwise dispatch" rather than "a leading backslash means escape".
-    for (const src of ['\\[a-z]', '\\d+', '\\n', '\\{ ok, scene }', '\\[?]', '\\[0]']) {
+    for (const src of ['\\[a-z]', '\\d+', '\\n', '\\{ ok, scene }', '\\[~]', '\\[0]']) {
       assert.equal(d.escapedText(src), null, src);
     }
   });

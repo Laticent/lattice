@@ -109,7 +109,7 @@ Last updated 2026-05-07 · the 9% is probably higher
 <!-- _class: quadrant -->
 <!-- _footer: "Two-axis scatter · quadrant" -->
 
-`Confidence 0–10 → Impact 0–10`
+`[{Confidence, 0..10}, {Impact, 0..10}]`
 
 ## Where the 18 logged decisions landed
 

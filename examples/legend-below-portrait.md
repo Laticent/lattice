@@ -85,6 +85,8 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 `Impact vs effort`
 
+`[Impact, Effort]`
+
 ## Cohorts on the impact/effort board.
 
 - Quick wins

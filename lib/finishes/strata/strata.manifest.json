@@ -1,0 +1,13 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "strata",
+  "type": "finish",
+  "format": 1,
+  "label": "Strata",
+  "blurb": "Soft horizontal bands + a dot-matrix + a corner tick.",
+  "order": 3,
+  "swatch": {
+    "background": "linear-gradient(125deg, color-mix(in srgb, var(--accent) 40%, transparent), transparent 60%), radial-gradient(color-mix(in srgb, var(--accent) 55%, transparent) 0 1px, transparent 1.6px)",
+    "backgroundSize": "cover, 6px 6px"
+  }
+}

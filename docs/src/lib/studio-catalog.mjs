@@ -83,6 +83,13 @@ export function buildStudioCatalog(root = join(process.cwd(), '..')) {
 				...(Array.isArray(c.variantAxes) && c.variantAxes.length ? { variantAxes: c.variantAxes } : {}),
 				effectiveVariants: Array.isArray(c.effectiveVariants) ? c.effectiveVariants : [],
 				familyModifiers: Array.isArray(c.familyModifiers) ? c.familyModifiers : [],
+				// `_class:` completion data (tools/build-docs-portal.js): the slide parts this
+				// layout has, its manifest opt-outs, and how often authors use each modifier on it.
+				...(Array.isArray(c.surfaces) ? { surfaces: c.surfaces } : {}),
+				...(c.variantSurfaces ? { variantSurfaces: c.variantSurfaces } : {}),
+				...(Array.isArray(c.inertSurfaces) ? { inertSurfaces: c.inertSurfaces } : {}),
+				excludedModifiers: Array.isArray(c.excludedModifiers) ? c.excludedModifiers : [],
+				modifierUsage: c.modifierUsage && typeof c.modifierUsage === 'object' ? c.modifierUsage : {},
 				...(Array.isArray(c.focusAxes) && c.focusAxes.length ? { focusAxes: c.focusAxes } : {}),
 			}))
 			.filter((c) => c.name && c.skeleton);

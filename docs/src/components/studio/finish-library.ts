@@ -8,7 +8,13 @@
 // mode / SSR / jsdom) so a read never throws — it just returns an empty shelf.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import type { PackageCarry } from '@/components/studio/library/package-carry';
+// A DEFAULT import: the presets module is CommonJS, and the docs dev server only interops
+// a default import off a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import finishPresets from '../../../../lib/finishes/presets.generated.js';
 import { coerceRecipe, type FinishRecipe, generateFinishCss } from './finish-generate';
+
+const { FINISH_PRESETS } = finishPresets;
 
 /** A saved finish as the Studio uses it (render with its CSS via DeckPreview's
  *  extraCss + the `finish finish-<name>` class). */
@@ -18,14 +24,24 @@ export type StudioFinish = {
 	label: string; // human-facing name
 	css: string; // the generated `section.finish.finish-<name> { … }` rule
 	recipe: FinishRecipe; // the structured layer recipe (for re-editing)
+	/** What an imported package carried that this record does not model (its manifest,
+	 *  its recipe file's exact text), so exporting it again writes the same files. */
+	pkg?: PackageCarry;
 };
 
 // The asset record asset-store persists. `kind:'finish'` keeps it in its own lane
 // (listAssets filters by kind), beside 'theme' and 'component'.
-type FinishAssetRecord = { id: string; kind: 'finish'; name: string; label?: string; text?: string; recipe?: unknown; addedAt?: number };
+type FinishAssetRecord = { id: string; kind: 'finish'; name: string; label?: string; text?: string; recipe?: unknown; addedAt?: number; pkg?: PackageCarry };
 
+// The CSS is REGENERATED from the recipe on every read, not taken from the stored text. A
+// finish's CSS is always the generator's output for its recipe (the save path discards
+// whatever it is handed), so this changes nothing for a record saved today — and it means
+// a finish saved before a generator fix (the print face's BOTTOM-LAYER RULE, base.finish.css)
+// gets the fix without being re-saved. The stored text is kept only for a record with no
+// recipe, which the generator cannot rebuild.
 function toStudioFinish(a: FinishAssetRecord): StudioFinish {
-	return { id: a.id, name: a.name, label: a.label || a.name, css: a.text || '', recipe: coerceRecipe(a.recipe) };
+	const recipe = coerceRecipe(a.recipe);
+	return { id: a.id, name: a.name, label: a.label || a.name, css: a.recipe ? generateFinishCss(a.name, recipe) : a.text || '', recipe, ...(a.pkg ? { pkg: a.pkg } : {}) };
 }
 
 // Names a saved finish must NOT shadow: every shipped preset + the other
@@ -47,8 +63,8 @@ function toStudioFinish(a: FinishAssetRecord): StudioFinish {
 // from one and keep its name. `finish-preset-parity.test.ts` now derives the preset half
 // from the engine so the two cannot drift again.
 export const RESERVED_FINISH_NAMES: ReadonlySet<string> = new Set([
-	// the 9 shipped presets — keep in step with resolve-finish.js FINISH_REGISTER
-	'atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery',
+	// every shipped preset, from the finish packages (lib/finishes/) — no longer retyped here
+	...FINISH_PRESETS.map((p) => p.name),
 	'boardroom', 'sketch', 'sketch-clean', 'none', 'preview', // register + engine reserved
 ]);
 
@@ -84,7 +100,7 @@ export function safeSaveSlug(text: string): string {
  * Pass the id you loaded and the same record is rewritten whatever the name becomes.
  * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioFinish(input: { id?: string; name: string; label?: string; css: string; recipe: FinishRecipe }, opts?: { historyLabel?: string }): Promise<StudioFinish> {
+export async function saveStudioFinish(input: { id?: string; name: string; label?: string; css: string; recipe: FinishRecipe; pkg?: PackageCarry }, opts?: { historyLabel?: string }): Promise<StudioFinish> {
 	// safeSaveSlug namespaces a reserved-name collision so a saved finish can never
 	// shadow a built-in preset (e.g. `atrium` → `atrium-custom`); empty → a timestamp.
 	const name = safeSaveSlug(input.name) || `finish-${Date.now().toString(36)}`;
@@ -100,6 +116,7 @@ export async function saveStudioFinish(input: { id?: string; name: string; label
 		text: css,
 		recipe: input.recipe,
 		addedAt: Date.now(),
+		...(input.pkg ? { pkg: input.pkg } : {}),
 	};
 	// asset-store's putAsset replaces the empty id with a generated/looked-up one.
 	const { id: _drop, ...rest } = record;

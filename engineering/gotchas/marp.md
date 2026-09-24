@@ -97,6 +97,10 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   therefore SAFE on our engine now; the chart family relies on it (every
   component leads with `:is(section.<comp>, figure.chart-frame)`, the Read·Article
   re-host broadening). Guard: [test/unit/engine/css-scope.test.js](../test/unit/engine/css-scope.test.js).
+  The `figure.Y` arm is still packed UNDER a slide, which is harmless in the preview (no
+  re-hosted figure exists there) and wrong for the exported player, where Read·Article
+  lifts the figure out of its slide. The export packs with `flat: true` for that; see
+  [Charts render black in the Studio Webpage player's Read · Article view](charts.md#charts-render-black-in-the-studio-webpage-players-read--article-view).
 - **⚠️ The earlier claim here that this was "VS Code Marp preview-only / PDF
   export looks correct" was WRONG, and that false sense of immunity is exactly
   what let it ship.** It ALSO broke our own deployed playground/Studio/Player:
@@ -217,3 +221,18 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Removable when:** marp-cli supports theme auto-discovery from a
   directory glob.
 - **Commits:** `3fa0462`, `6aad1e6`.
+
+## A hard-wrapped paragraph renders with line breaks mid-sentence
+
+- **Symptom:** A paragraph, list item or blockquote wrapped at 80 columns in the
+  source breaks at the same places on the slide, leaving ragged lines.
+- **Cause:** `lib/engine/index.js` runs markdown-it with `breaks: true`, the setting
+  Marp Core ships. A single newline inside a paragraph becomes `<br />`, so
+  `line one\nline two` renders as `<p>line one<br />\nline two</p>`.
+- **Mitigation:** None in code, on purpose: the source cannot say whether a break
+  was meant (a `stats` confidence interval, an address), and turning `breaks` off
+  would collapse those. The authoring contract says one paragraph per source line:
+  `design/skill.md` § One paragraph, one source line.
+- **Triggered by:** Any deck whose author or editor hard-wraps prose.
+- **Removable when:** Never. It is Marp parity, not a workaround.
+- **Commits:** the change that added this entry.

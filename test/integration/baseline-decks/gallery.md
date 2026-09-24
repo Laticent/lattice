@@ -365,21 +365,21 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 - Path A · The spreadsheet
   - [x] Speed
-  - [ ] Auditability
+  - [!] Auditability
   - [x] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - Open everywhere, version unknown. No trace — in fairness, the appeal.
 - Path B · Vendor North
   - [x] Speed
   - [x] Auditability
-  - [ ] Adoption
-  - [ ] Calibration
+  - [!] Adoption
+  - [!] Calibration
   - Clean intake, real audit trail. The weights stay on their side of the contract.
 - Path C · Vendor West
   - [x] Speed
   - [x] Auditability
   - [x] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - The better demo, by some distance. The weights are theirs; so is §9.2.
 - Path D · Build in-house
   - [x] Speed
@@ -398,9 +398,9 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 | Criterion    | Spreadsheet  | Vendor North | Vendor West | In-house build |
 | ------------ | ------------ | ------------ | ----------- | -------------- |
 | Speed        | [x]          | [x]          | [x]         | [x]            |
-| Auditability | [ ]          | [x]          | [x]         | [x]            |
-| Adoption     | [x]          | [ ]          | [x]         | [x]            |
-| Calibration  | [ ]          | [ ]          | [ ]         | [x]            |
+| Auditability | [!]          | [x]          | [x]         | [x]            |
+| Adoption     | [x]          | [!]          | [x]         | [x]            |
+| Calibration  | [!]          | [!]          | [!]         | [x]            |
 | Setup time   | Already open | 3–4 weeks    | 6 weeks     | Same quarter   |
 
 _Evaluated against the same four pilot teams and the same 90-minute weekly budget constraint._
@@ -1342,7 +1342,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 <!-- _class: quadrant -->
 <!-- _footer: "Chart — quadrant · quadrant" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Where to put the next quarter.
 

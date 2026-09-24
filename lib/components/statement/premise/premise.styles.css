@@ -62,9 +62,18 @@ section.premise {
   box-sizing: border-box;
 }
 
+/* The split FLEXES. The ledger claims the width its rows need (its max-content,
+ * capped so the rail keeps at least 26%), and the claim rail takes what is left,
+ * between 26% and 34%. Two flex settings on the rail make that order hold. A zero
+ * basis means the rail never competes for the ledger's content width, and a grow
+ * factor of 100 means the rail takes spare width FIRST, until its 34% cap freezes
+ * it and the rest goes to the ledger. At an equal grow factor, flexbox splits the
+ * spare width evenly, the rail falls under its floor, and a short ledger squeezed
+ * the claim to 26% for nothing. */
 section.premise .premise-claim {
-  width: 34%;
-  flex-shrink: 0;
+  flex: 100 1 0;
+  min-width: 26%;
+  max-width: 34%;
   display: flex;
   flex-direction: column;
   gap: var(--sp-md);
@@ -75,12 +84,24 @@ section.premise .premise-claim > p {
   color: var(--text-secondary);
 }
 
+/* The ledger is ONE grid and each row is a subgrid of it, so the term column is
+ * sized once, to the LONGEST term, and every description starts on the same line.
+ * It used to be a fixed 10.9375cqi track per row (140px at 1280), which cut any
+ * term past ~11 characters: "Communication" rendered as "Communic…".
+ *
+ * `fit-content(40%)` caps the term column so one runaway term cannot starve the
+ * descriptions; only a term past that cap still ellipsizes. */
 section.premise > ol {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3xs);
+  max-width: calc(74% - var(--sp-2xl));
+  display: grid;
+  grid-template-columns: auto fit-content(40%) minmax(0, 1fr);
+  align-content: center;
+  /* Defaults are the tight eight-row rhythm; the count rules below loosen them. */
+  --premise-row-gap: var(--sp-3xs);
+  --premise-row-pad: var(--sp-sm);
+  row-gap: var(--premise-row-gap);
   list-style: none;
   padding: 0;
   margin: 0;
@@ -95,10 +116,11 @@ section.premise > ol > li {
    * UA's automatic increment. */
   counter-increment: list-item;
   display: grid;
-  grid-template-columns: 3.28125cqi 10.9375cqi 1fr;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: var(--sp-sm);
-  padding: var(--sp-sm) var(--sp-md);
+  column-gap: var(--sp-md);
+  padding: var(--premise-row-pad) var(--sp-md);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   border-left: 4px solid var(--row-mark, var(--border));
@@ -139,26 +161,79 @@ section.premise > ol > li > strong {
   text-overflow: ellipsis;
   min-width: 0;
 }
-/* The row's two nested items share the last grid track: description takes the
- * space, the framing question sits right-aligned against the row's edge. */
+/* The row's two nested items share the last grid track as a WRAPPING flex line:
+ * description at the start, framing question pushed to the row's right edge by
+ * `space-between`. When both no longer fit on one line, the question drops to a
+ * second line under the description instead of either being cut. A lone item on
+ * a flex line sits at the start, so the dropped question aligns under its clause.
+ * That is a designed second line, not a text wrap: each item stays `nowrap`, and
+ * only a description wider than the whole track still ellipsizes. */
 section.premise > ol > li > ul {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: var(--sp-sm);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3xs) var(--sp-md);
   list-style: none;
   padding: 0;
   margin: 0;
   min-width: 0;
 }
+section.premise > ol > li > ul > li {
+  /* The nested items are list items too, and the row's `display: grid` does not
+   * stop them bumping the `list-item` counter the ordinal reads. */
+  counter-increment: none;
+}
 section.premise > ol > li > ul > li:nth-child(1) {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 section.premise > ol > li > ul > li:nth-child(2) {
   font-size: var(--fs-meta);
   color: var(--text-secondary);
-  text-align: right;
+}
+
+/* ── Row rhythm follows the row COUNT. A three-row ledger with the eight-row gap
+ * floats as a thin strip in a tall box; an eight-row ledger with the three-row gap
+ * does not fit. Quantity queries pick the gap and row padding from the count:
+ *
+ *   rows   gap        row padding
+ *   3      --sp-md    --sp-md
+ *   4      --sp-sm    --sp-sm       (the base padding)
+ *   5      --sp-sm    --sp-xs
+ *   6–7    --sp-xs    --sp-xs
+ *   8+     --sp-3xs   --sp-xs
+ *
+ * A ledger must never be taller than one with MORE rows, or adding a row would
+ * shrink it and the claim beside it would jump. That is why the padding drops at
+ * FIVE: halving it saves 16px per row, and adding a row adds ~80px, so the drop
+ * outweighs the new row from six rows up. An earlier cut dropped it at six, then
+ * at eight, and `node tools/check-jank.js premise --axis count` caught both — the
+ * seven-row ledger stood taller than the eight-row one and reached the header band.
+ * At eight rows the padding has to be the small one: the capacity basis (14 words
+ * a row) puts every question on a second line, and eight such rows at the base
+ * padding overflow the slide.
+ *
+ * The count rules skip the stacked families (square/tall/strip) entirely: those
+ * set their own row padding below, and their row gap stays the tight default,
+ * because portrait is the family whose capacity binds. */
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:not(:has(> li:nth-child(4))) {
+  --premise-row-gap: var(--sp-md);
+  --premise-row-pad: var(--sp-md);
+}
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(4)):not(:has(> li:nth-child(6))) {
+  --premise-row-gap: var(--sp-sm);
+}
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(5)):not(:has(> li:nth-child(8))) {
+  --premise-row-pad: var(--sp-xs);
+}
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(6)):not(:has(> li:nth-child(8))) {
+  --premise-row-gap: var(--sp-xs);
+}
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(8)) {
+  --premise-row-pad: var(--sp-xs);
 }
 
 /* ── Row color — the UNIVERSAL 8-slot categorical palette, NOT the chart
@@ -231,7 +306,11 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
    * fail the overflow oracle, which is exactly what it caught when this was tried. */
 }
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .premise-claim {
-  width: auto;
+  /* The landscape rail's flex basis is a WIDTH share; in a column it would claim a
+   * third of the height instead, so the stacked claim drops the flex sizing. */
+  flex: none;
+  min-width: 0;
+  max-width: none;
 }
 /* The ledger stops STRETCHING once it is stacked. `section.premise > ol` takes
  * `flex: 1` so it claims the row's remaining width beside the 34% claim rail — right
@@ -244,6 +323,7 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
  * to fill the gap — so the fix belongs with that work even though the rule predates it. */
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol {
   flex: 0 1 auto;
+  max-width: none;
 }
 /* The row becomes a hanging-ordinal card: the generated `01` keeps its gutter,
  * and the term stacks OVER its description instead of competing for a fixed
@@ -280,7 +360,8 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
  * competing for one line at this width, and let the question sit under the clause
  * it belongs to instead of right-aligning into its lap. */
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul {
-  grid-template-columns: 1fr;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--sp-3xs);
 }
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(1) {

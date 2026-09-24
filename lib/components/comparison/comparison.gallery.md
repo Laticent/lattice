@@ -60,8 +60,8 @@ Comparison — how two or more options differ.
 
 - Starter `$0`
   - [x] The checklist rows compare
+  - [-] A dash marks a capped limit
   - [/] Slashed rows mean not included
-  - [/] Same rows on every tier
   - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent
@@ -128,13 +128,13 @@ One question on the left; two option cards and a verdict on the right.
 ## The grid scores options against shared criteria.
 
 - **Option one.**
-  - [ ] Criterion
+  - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
