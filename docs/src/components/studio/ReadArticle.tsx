@@ -70,7 +70,7 @@ const READ_ARTICLE_CSS = `
 /* The slide's subtitle: the line the masthead seats under the heading, read as its dek. */
 .st-read-article .lp-subtitle{font-style:italic;color:var(--text-muted);font-size:1.02rem;padding:0 0 1em}
 /* A video: a link card in the prose column, the play mark drawn (HARD RULE #29), never typed. */
-.st-read-article .lp-video{padding:.2em 0 1.2em}
+.st-read-article .lp-video{margin:0;padding:.2em 0 1.2em}
 .st-read-article .lp-video-link{display:inline-flex;align-items:center;gap:.75em;max-width:100%;padding:.65em 1.1em .65em .65em;border:1px solid var(--border);border-radius:12px;background:var(--bg-alt);color:var(--text-heading);font-weight:600;text-decoration:none}
 .st-read-article .lp-video-link:hover{border-color:var(--accent)}
 .st-read-article .lp-video-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

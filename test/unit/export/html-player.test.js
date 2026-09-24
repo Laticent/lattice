@@ -1516,8 +1516,10 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// `#lp-article .lp-subtitle`, for the line the masthead seats under a heading. Diffed the
 	// assembled output before/after: that declaration is the only thing that moved.
 	// Re-blessed for the reader view's VIDEO CARD (followup 2350-p3): the article CSS gained the
-	// `#lp-article .lp-video*` rules. Diffed before/after: those rules are the only thing that moved.
-	assert.equal(sha, '4c3b2d372d16d66dd1f2f2579fc6e04fbdef03680ca1d5e8210efdb818da1d67', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// `#lp-article .lp-video*` rules, then `margin:0` on `.lp-video` once driving a real player
+	// export showed the UA figure margin indenting the card 40px. Diffed before/after: those rules
+	// are the only thing that moved.
+	assert.equal(sha, '476a79a1c0c367e38fe39ba66958dabb8deb764b3d34e32cf4ea0ccef50b6c9c', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
