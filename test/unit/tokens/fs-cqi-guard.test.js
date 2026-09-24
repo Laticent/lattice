@@ -48,9 +48,10 @@ const SANCTIONED = [
   },
   {
     file: 'lib/components/chart/state-chart/state-chart.styles.css',
-    count: 3,
-    why: 'index numerals set inside cqi-sized nodes and badges — flooring the numeral without '
-       + 'flooring the node would overflow the disc. Note state-chart also self-scales '
+    count: 2,
+    why: 'index numerals set inside cqi-sized nodes (default + inline rows) — flooring the numeral '
+       + 'without flooring the node would overflow its corner. (The third site, the status badge, '
+       + 'went when status moved onto the node, 2026-09-24.) Note state-chart also self-scales '
        + '(2026-07-16-state-chart-self-scale.md), so a CSS floor cannot pin an EFFECTIVE size '
        + 'here regardless; see the .state-edge-label comment.',
   },

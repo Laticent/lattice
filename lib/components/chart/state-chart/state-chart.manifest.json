@@ -23,26 +23,20 @@
       {
         "class": "state-node",
         "paint": "bg",
-        "encodes": "none",
+        "encodes": "hue",
         "bears": true
       },
       {
         "class": "state-node-shape",
         "paint": "fill",
-        "encodes": "none",
-        "bears": true
-      },
-      {
-        "class": "state-index",
-        "paint": "bg",
         "encodes": "hue",
         "bears": true
       },
       {
-        "class": "state-index-disc",
+        "class": "state-node-accent",
         "paint": "fill",
         "encodes": "hue",
-        "bears": true
+        "bears": false
       },
       {
         "class": "state-dot",

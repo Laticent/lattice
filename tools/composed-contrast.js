@@ -219,46 +219,38 @@ function pillStop(state, which, lightPct, darkPct) {
 }
 
 /**
- * One `state-chart` status-badge gradient stop as a scored surface.
+ * One state-chart NODE surface: text on a status-tinted tile.
  *
- * The same shape as `pillStop()` above, and since #1830 the same NUMBERS — this component
- * reimplemented `.chart-status`'s recipe rather than sharing it, so it missed both AA
- * retunes chart-family took (dark 48/64 -> 42/54 in #1809, light 33/54 -> 18/30 in #1807)
- * and shipped FORTY-NINE sub-AA pairs, worst concrete|light|pass at 2.48:1. None of them
- * was ever reported, because until now nothing here modeled a state-chart pill at all —
- * a missing surface reads as a pass.
- *
- * THREE sites carry the recipe and only TWO surfaces are generated per state, because the
- * SVG disc is a FLAT fill whose value is the gradient's 100% stop exactly. Scoring it a
- * third time would add a duplicate ratio and no information; what it needs is DRIFT
- * protection, so the high stop's `requires` pins the disc's own declaration alongside the
- * gradient's. A divergence at any of the three reddens this gate.
+ * Since 2026-09-24 a status paints the node itself, and the corner badge these entries
+ * used to model is gone. A status tile takes the PILL's stops (18/30 light, 42/54 dark)
+ * rather than the family bar ramp: measured here, the bar ramp put the state's name
+ * sub-AA on forty dark theme pairs. Two inks sit on the tile — the state NAME and the
+ * ORDINAL — and both are `--state-node-ink` (`--text-heading`) on a status tile, so one
+ * surface per stop covers both; `requires` pins that, and the stops, and the tone
+ * mapping, so a retune of any of them reddens the gate instead of silently moving what
+ * is measured. The neutral tile (no status) is unchanged by that work and is not scored
+ * here: its hue, `--muted-mark`, does not resolve in this tool.
  */
-function stateChartStop(state, which, lightPct, darkPct) {
+function stateChartNode(state, which) {
   const hue = `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})`;
-  const high = which === 'high';
+  const top = which === 'top';
+  const [l, d] = top ? [18, 42] : [30, 54];
   return {
-    id: `state-chart/index-badge-${state}${high ? '' : '-low'}`,
-    ctx: `state-chart .state-index[data-s=${state}] / .state-dot: --text-heading on the badge gradient's ${high ? '100%' : '0%'} stop`,
+    id: `state-chart/node-${state}${top ? '-top' : ''}`,
+    ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's ${top ? '0%' : '100%'} stop`,
     base: '--bg',
     groups: [{
-      bg: `light-dark(color-mix(in oklab, ${hue} ${lightPct}%, var(--bg)), `
-        + `color-mix(in oklab, ${hue} ${darkPct}%, black))`,
+      bg: `light-dark(color-mix(in oklab, ${hue} ${l}%, var(--bg)), color-mix(in oklab, ${hue} ${d}%, black))`,
     }],
     ink: '--text-heading',
     min: 4.5,
     src: STATECHART,
     requires: [
-      // ANCHORED INTO THE GRADIENT. The disc's flat fill carries the SAME two literals as
-      // the 100% stop, so an unanchored pair of value pins is satisfiable by the disc --
-      // measured: moving the gradient's high stop back to 44/68 while leaving the disc
-      // alone left the gate green. The `linear-gradient(` prefix is what separates them.
-      new RegExp(`background: linear-gradient\\(180deg,[\\s\\S]{0,400}?color-mix\\(in oklab, var\\(--pill-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
-      new RegExp(`background: linear-gradient\\(180deg,[\\s\\S]{0,400}?color-mix\\(in oklab, var\\(--pill-hue\\) ${darkPct}%, black\\)`),
-      new RegExp(`--pill-hue: var\\(--state-${state}-hue\\)`),
-      // The SVG disc's flat fill IS this stop. Pinned here rather than scored again --
-      // a duplicate ratio adds no information, but the site still needs drift protection.
-      ...(high ? [/\.state-index-disc\s*\{[^}]*fill: light-dark\(\s*color-mix\(in oklab, var\(--pill-hue\) 30%, var\(--bg\)\),\s*color-mix\(in oklab, var\(--pill-hue\) 54%, black\)\)/] : []),
+      /--state-node-ink: var\(--text-heading\)/,
+      /\.state-index-t\[data-s\] \{\s*color: var\(--state-node-ink\);\s*fill: var\(--state-node-ink\);/,
+      new RegExp(`--state-tile-${top ? 'top' : 'bottom'}-l: ${l}%;`),
+      new RegExp(`--state-tile-${top ? 'top' : 'bottom'}-d: ${d}%;`),
+      new RegExp(`--fill-hue: var\\(--state-${state}-hue\\)`),
     ],
   };
 }
@@ -644,16 +636,10 @@ const SURFACES = [
     pillStop(state, 'high', 30, 54),
     pillStop(state, 'low', 18, 42),
   ]),
-  // ── state-chart · the index badge / legend swatch / SVG disc ─────────────
-  // The SAME stops as the pills above, which is the point of #1830: the recipe was
-  // copied instead of shared and then diverged twice for the same reason. Same ink
-  // token (`.state-index-t[data-s] { fill: var(--text-heading) }`), same ground, so
-  // the surface shape is identical and the two catalogs can be read against each
-  // other. Both stops, per the note above — the light 0% stop is the one that has
-  // twice been argued safe and twice been sub-AA.
-  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((state) => [
-    stateChartStop(state, 'high', 30, 54),
-    stateChartStop(state, 'low', 18, 42),
+  // ── state-chart · the name and the ordinal on a status-tinted node ───────
+  ...['pass', 'warn', 'fail', 'info'].flatMap((state) => [
+    stateChartNode(state, 'top'),
+    stateChartNode(state, 'bottom'),
   ]),
 ];
 

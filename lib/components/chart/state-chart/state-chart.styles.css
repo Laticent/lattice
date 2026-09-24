@@ -10,7 +10,7 @@
  *   <div class="state-chart-figure" data-variant="default" data-sc-transitions="[…]">
  *     <ol class="state-nodes">
  *       <li class="state-node" data-index="N" [data-kind="start|terminal"] [data-s="…"]>
- *         <span class="state-index" [data-s="…"]>N</span>   (status colors the badge)
+ *         <span class="state-index">N</span>   (the ordinal ref — always a quiet numeral)
  *         <span class="state-label">…</span>
  *       </li>
  *     </ol>
@@ -18,13 +18,20 @@
  *   </div>
  *   <ol class="state-legend">…swatch + label per distinct status…</ol>
  *
- * Nodes are NEUTRAL (--bg-alt) so color is reserved for meaning: status is NOT
- * a wide text pill (a state machine shows flow, not a dashboard) — it folds into
- * the top-right index numeral, which becomes a color-coded badge (number = the
- * state ID, color = the status), using the same AA-vetted tone vocabulary
- * chart-family's .chart-status uses (pass/warn/fail/info/mute) and decoded by the
- * legend band below. Mirrors journey's glyph-in-a-disc + legend. Palette-blind
+ * STATUS PAINTS THE NODE, in the chart family's mark language — the same one a
+ * gantt bar, a kanban card and a progress bar speak: a status tints the tile's
+ * fill and inks its edge and its leading accent, and a node with NO status is a
+ * quiet neutral tile with no accent at all. The status word maps onto five tones
+ * by the pill vocabulary (chart-family.css `.chart-status`), and the legend band
+ * below decodes them with chips painted from the same table. Palette-blind
  * throughout — no hex literals, no !important, no :has() chains.
+ *
+ * It used to be the opposite: every node neutral, status folded into a colored
+ * disc overhanging the corner, and a plain slate stripe down every node's left
+ * edge. That stripe carried no information, and it is exactly what gantt removed
+ * from its unstated bars for the same reason (gantt.styles.css,
+ * `.gantt-bar-accent:not([data-s])`); next to every other chart it read as a
+ * different family. engineering/decisions/2026-09-24-state-chart-fit-and-paint.md
  *
  * Sibling implementations (three-renderer parity via the shared registry):
  *   - lib/components/chart/state-chart/state-chart.transform.js  kernel + browser fn
@@ -47,6 +54,17 @@ section.state-chart {
   --state-index-ink: var(--text-body);
   --state-marker: var(--diagram-line);
   --state-label-bg: var(--bg);
+  /* The TILE RAMP — how much hue a node's fill carries at its top and bottom.
+   * A neutral tile takes the chart family's fill ramp. A STATUS tile takes the
+   * pill's stops instead (18/30 light, 42/54 dark), because a state is a mark
+   * that CARRIES TEXT: the family ramp (up to 64% hue into black) is tuned for
+   * bars, and under the state's name it measured sub-AA on forty dark-mode
+   * theme pairs. The pill stops are the family's AA-vetted recipe for text on a
+   * status tint (tools/composed-contrast.js, `stateChartNode`). */
+  --state-tile-top-l: var(--chart-fill-top-l);
+  --state-tile-top-d: var(--chart-fill-top-d);
+  --state-tile-bottom-l: var(--chart-fill-bottom-l);
+  --state-tile-bottom-d: var(--chart-fill-bottom-d);
 }
 
 /* THE OUTER INSET, state-chart's tuning of it (#1598). Re-homed from `.chart-body`
@@ -222,49 +240,37 @@ section.state-chart .state-node {
   gap: var(--sp-sm);
   max-width: 25cqi;
   padding: 0.78125cqi 1.25cqi;
-  /* THE CANONICAL CHART FILL (chart-family.css): every node is a quiet neutral
-   * slate tile, exactly like a kanban card with no lane. The node fill is ALWAYS
-   * neutral — status color lives only in the index badge (see below), never the
-   * node fill, so a green "on-track" node can't blend into a green wash. */
+  /* THE CANONICAL CHART FILL (chart-family.css). A status re-points --fill-hue
+   * and --fill-ink through the status table below; with none, the node is the
+   * family's quiet neutral tile, and it carries no leading accent. */
   --fill-hue: var(--muted-mark);
   --fill-ink: var(--diagram-stroke);
   background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black)) 100%);
+    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
+               color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
+    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-l), var(--bg)),
+               color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-d), black)) 100%);
   border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
   color: var(--state-node-ink);
   border-radius: var(--chart-mark-radius);
   font-weight: 500;
   line-height: 1.25;
 }
 
-/* Nodes stay NEUTRAL — a kanban card with no lane. Status is deliberately NOT
- * painted onto the node fill: a green "on-track" node would overload green's
- * fixed semantic and widen the column. Color lives in the small .state-dot
- * (decoded by the legend band) — the one hue on an otherwise quiet tile.
- * (data-s is kept on the node for the dot and the start/terminal cues.) */
+/* The leading accent, on a node WITH a status only — the HTML twin of the SVG
+ * `.state-node-accent`. Shown before the browser pass paints, and on every `inline`
+ * row. */
+section.state-chart .state-node[data-s],
+section.state-chart .state-node-row[data-s] {
+  border-left: var(--chart-fill-accent) solid var(--fill-ink);
+}
 
 section.state-chart .state-node .state-label {
   min-width: 0;
 }
 
-/* The index numeral doubles as the status badge: a status-LESS node keeps a
- * quiet top-right ref numeral; a status node turns that numeral into a small
- * colored badge (index + status in ONE element — no separate dot, no widening
- * the node). The badge and the legend swatch share the .chart-status pill recipe —
- * --text-heading on a hue-into-bg tint + a vivid --pill-ink edge — INCLUDING its
- * numbers, which is what #1830 restored. This component reimplemented the recipe and
- * so missed both AA retunes chart-family took (dark 48/64 -> 42/54 in #1809, light
- * 33/54 -> 18/30 in #1807); measured through tools/composed-contrast.js's own
- * evalSurface over 32 palettes x 5 states the old stops were sub-AA on FORTY-NINE
- * pairs, worst concrete|light|pass at 2.48:1, and nothing reported it because no
- * surface modeled a state-chart pill at all. Both stops of all three sites are in
- * SURFACES now (`stateChartStop`), so a third divergence reddens a gate instead of
- * shipping. Worst pair today: laguna|dark|pass 4.62:1 — chart-family's own figure,
- * because it is now literally the same recipe. */
+/* The ordinal — the state's ref, the number `=> 4` cites. A quiet numeral in
+ * the node's top-right corner on EVERY node; the status is on the tile itself. */
 section.state-chart .state-node .state-index {
   position: absolute;
   top: 0.15625cqi;
@@ -275,57 +281,68 @@ section.state-chart .state-node .state-index {
   pointer-events: none;
 }
 
-/* Shared status-tone swatch recipe (badge + legend dot). */
-section.state-chart .state-index[data-s],
-section.state-chart .state-dot {
-  --pill-hue: var(--state-info-hue);
-  --pill-ink: var(--state-info-ink);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--pill-hue) 18%, var(--bg)), color-mix(in oklab, var(--pill-hue) 42%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--pill-hue) 30%, var(--bg)), color-mix(in oklab, var(--pill-hue) 54%, black)) 100%);
-  border: var(--chart-hairline) solid var(--pill-ink);
+/* ── THE STATUS TABLE — one table for every mark that shows a status ────────
+ * The HTML node, the inline row, the painted SVG tile, its accent and the
+ * legend chip all read `--fill-hue` / `--fill-ink` from HERE, so the key cannot
+ * disagree with the chart. gantt learned that the hard way with three parallel
+ * tables that drifted (gantt.styles.css, the note above `.gantt-bar-accent`).
+ * The word -> tone mapping is the pill vocabulary's (`.chart-status`), and the
+ * browser pass picks the SVG fill gradient from the same mapping
+ * (state-chart.transform.js `STATUS_TONE`). */
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="on-track"], [data-s="done"], [data-s="live"])
+  { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="at-risk"], [data-s="warn"])
+  { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="blocked"], [data-s="fail"])
+  { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="pilot"], [data-s="decision"])
+  { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
+/* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed
+ * (below) — gantt's treatment, for gantt's reason: on color alone "deferred" and
+ * "no status" are the same mark. */
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot)[data-s="deferred"]
+  { --fill-hue: var(--muted-mark); --fill-ink: var(--text-secondary); }
+/* A status tile's stops — the pill's, see `--state-tile-*` above. Set on the
+ * element that paints the HTML gradient; the SVG pass emits the same four
+ * literals into its per-tone gradient (state-chart.transform.js `nodeFillDefs`). */
+section.state-chart :is(.state-node, .state-node-row, .state-dot)[data-s]:not([data-s="deferred"]) {
+  --state-tile-top-l: 18%;
+  --state-tile-bottom-l: 30%;
+  --state-tile-top-d: 42%;
+  --state-tile-bottom-d: 54%;
 }
-section.state-chart .state-index[data-s="on-track"], section.state-chart .state-dot[data-s="on-track"],
-section.state-chart .state-index[data-s="done"],     section.state-chart .state-dot[data-s="done"],
-section.state-chart .state-index[data-s="live"],     section.state-chart .state-dot[data-s="live"]
-  { --pill-hue: var(--state-pass-hue); --pill-ink: var(--state-pass-ink); }
-section.state-chart .state-index[data-s="at-risk"],  section.state-chart .state-dot[data-s="at-risk"],
-section.state-chart .state-index[data-s="warn"],     section.state-chart .state-dot[data-s="warn"]
-  { --pill-hue: var(--state-warn-hue); --pill-ink: var(--state-warn-ink); }
-section.state-chart .state-index[data-s="blocked"],  section.state-chart .state-dot[data-s="blocked"],
-section.state-chart .state-index[data-s="fail"],     section.state-chart .state-dot[data-s="fail"]
-  { --pill-hue: var(--state-fail-hue); --pill-ink: var(--state-fail-ink); }
-section.state-chart .state-index[data-s="pilot"],    section.state-chart .state-dot[data-s="pilot"],
-section.state-chart .state-index[data-s="decision"], section.state-chart .state-dot[data-s="decision"]
-  { --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink); }
-section.state-chart .state-index[data-s="deferred"], section.state-chart .state-dot[data-s="deferred"]
-  { --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink); }
-
-/* Status badge — the numeral inside a colored disc, overhanging the top-right
- * corner (so it never overlaps the label). The wide horizontal node gutter
- * absorbs the overhang without clipping. */
-section.state-chart .state-index[data-s] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  top: -0.55cqi;
-  right: -0.55cqi;
-  min-width: 1.65cqi;
-  height: 1.65cqi;
-  padding: 0 0.32cqi;
-  border-radius: 0.825cqi;
-  color: var(--text-heading);
-  font-size: 0.78125cqi; /* cqi-ok: index numeral inside a cqi-sized badge */
-  font-weight: 600;
-  line-height: 1;
+/* The ordinal on a status tile takes the NAME's ink. `--text-body` is tuned for
+ * the canvas and the neutral tile; at ~8px on a tinted one it measured as low as
+ * 3.2:1. The numeral stays quiet by being small, not by being faint. */
+section.state-chart :is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"]) .state-index,
+section.state-chart .state-index-t[data-s] {
+  color: var(--state-node-ink);
+  fill: var(--state-node-ink);
 }
 
-/* Legend swatch — same recipe as the badge, a plain disc (no numeral). */
+/* The legend chip is a tiny NODE — the same fill ramp and ink edge a state of
+ * that status wears — so the key shows the chart's own mark rather than a
+ * look-alike. It used to be the pill recipe on a round dot, which matched the
+ * retired corner badge and nothing on the chart today. */
 section.state-chart .state-dot {
+  --fill-hue: var(--muted-mark);
+  --fill-ink: var(--text-secondary);
   flex: 0 0 auto;
-  width: 1.1cqi;
-  height: 1.1cqi;
-  border-radius: 50%;
+  width: 1.4cqi;
+  height: 0.95cqi;
+  border-radius: var(--chart-mark-radius);
+  background: linear-gradient(180deg,
+    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
+               color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
+    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-l), var(--bg)),
+               color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-d), black)) 100%);
+  border: var(--chart-hairline) solid var(--fill-ink);
+  border-left: var(--chart-fill-accent) solid var(--fill-ink);
+}
+section.state-chart .state-dot[data-s="deferred"] {
+  background: color-mix(in oklab, var(--muted-mark) 18%, var(--bg));
+  border-style: dashed;
+  border-left-style: solid;
 }
 
 /* Status legend band — a centered row of dot + label, decoding the node dots.
@@ -351,11 +368,12 @@ section.state-chart .state-legend-label {
   letter-spacing: var(--pill-tracking);
 }
 
-/* Start / terminal redundancy cues alongside the SVG ●/◎ glyphs. Every node now
- * carries a 4px accent; the start node reads heavier (keeps its neutral/status
- * stripe color), the terminal keeps its outline ring. */
+/* Start / terminal redundancy cues alongside the SVG ●/◎ glyphs: the start node
+ * wears a heavier edge, the terminal an outline ring. The start node used to be
+ * told apart by a WIDER left stripe, which only worked because every node had a
+ * stripe; a status-less start node now has none, so the cue is the edge. */
 section.state-chart .state-node[data-kind="start"] {
-  border-left-width: clamp(7px, 0.546875cqi, 9px);
+  border-width: max(var(--chart-hairline), 0.15625cqi);
 }
 
 section.state-chart .state-node[data-kind="terminal"] {
@@ -580,20 +598,19 @@ section.state-chart.horizontal .state-node-row {
   --fill-hue: var(--muted-mark);
   --fill-ink: var(--diagram-stroke);
   background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black)) 100%);
+    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
+               color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
+    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-l), var(--bg)),
+               color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-d), black)) 100%);
   border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
   color: var(--state-node-ink);
   border-radius: var(--chart-mark-radius);
 }
-/* Neutral rows too — the pill carries the status color (see the SVG-node note). */
+/* Rows take the status table above like the default variant's nodes. */
 
 section.state-chart.inline .state-node-row[data-kind="start"],
 section.state-chart.horizontal .state-node-row[data-kind="start"] {
-  border-left-width: clamp(7px, 0.546875cqi, 9px);
+  border-width: max(var(--chart-hairline), 0.15625cqi);
 }
 
 section.state-chart.inline .state-node-row[data-kind="terminal"],
@@ -720,10 +737,8 @@ section.state-chart .state-chart-figure[data-sc-svg="1"] .state-nodes {
  * fill, and because SVG `fill` cannot take a CSS gradient, the layout pass
  * emits it as an inline `<linearGradient>` per node and points the rect at
  * `fill="url(#…)"`. So the gradient DEFS are generated in JS
- * (state-chart.transform.js `nodeFillDefs`) and only the edge is styled here.
- * The fill stays a single neutral tone whatever the state's status — status
- * color lives in the index badge, never the node fill, so a green "on-track"
- * node can't blend into a green wash. */
+ * (state-chart.transform.js `nodeFillDefs`, one ramp per tone present) and only
+ * the edge is styled here. */
 /* The painted node is the HIT TARGET for the mark-detail popover. The overlay
  * is `pointer-events: none` (it must not swallow clicks meant for the slide),
  * and the measuring column is `visibility: hidden`, which also makes it
@@ -739,11 +754,23 @@ section.state-chart .state-node-shape {
   stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
   stroke-width: var(--chart-edge);
 }
+/* A status inks the whole edge, as it does a gantt bar's — the hue at full
+ * strength is what separates the mark from its wash. */
+section.state-chart .state-node-shape[data-s] {
+  stroke: var(--fill-ink);
+}
+/* DEFERRED IS HOLLOW AND DASHED — gantt's `deferred`, for its reason: the tone is
+ * the neutral one, so without this a deferred state and a state with no status
+ * paint the same tile. The dash is in CSS px (the family's non-scaling stroke). */
+section.state-chart .state-node-shape[data-s="deferred"] {
+  fill-opacity: 0.18;
+  stroke-dasharray: 4 2.5;
+}
 
-/* The node's leading accent edge — the HTML card's
- * `border-left: var(--chart-fill-accent) solid var(--fill-ink)`. */
+/* The node's leading accent — emitted ONLY for a node with a status (see
+ * `accentPath`), and inked from the status table, never re-derived here. */
 section.state-chart .state-node-accent {
-  fill: var(--diagram-stroke);
+  fill: var(--fill-ink);
 }
 
 section.state-chart .state-label-t {
@@ -752,57 +779,33 @@ section.state-chart .state-label-t {
   font-weight: 500;
 }
 
-/* The index numeral doubles as the status badge — a status-LESS node keeps a
- * quiet numeral; a status node gets the colored disc behind it. Same tone
- * vocabulary, same --pill-* shape and — since #1830 — the same stops as the HTML
- * badge and the legend swatch. The disc is a FLAT fill, so it carries the gradient's
- * 100% stop alone (30% light / 54% dark); see the note above the HTML badge. */
+/* The ordinal — a quiet numeral on every node (the status is on the tile). */
 section.state-chart .state-index-t {
   fill: var(--state-index-ink);
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
 }
-section.state-chart .state-index-t[data-s] {
-  fill: var(--text-heading);
-}
-section.state-chart .state-index-disc {
-  --pill-hue: var(--state-info-hue);
-  --pill-ink: var(--state-info-ink);
-  fill: light-dark(
-    color-mix(in oklab, var(--pill-hue) 30%, var(--bg)),
-    color-mix(in oklab, var(--pill-hue) 54%, black));
-  stroke: var(--pill-ink);
-  stroke-width: var(--chart-edge);
-}
-section.state-chart .state-index-disc[data-s="on-track"],
-section.state-chart .state-index-disc[data-s="done"],
-section.state-chart .state-index-disc[data-s="live"]     { --pill-hue: var(--state-pass-hue); --pill-ink: var(--state-pass-ink); }
-section.state-chart .state-index-disc[data-s="at-risk"],
-section.state-chart .state-index-disc[data-s="warn"]     { --pill-hue: var(--state-warn-hue); --pill-ink: var(--state-warn-ink); }
-section.state-chart .state-index-disc[data-s="blocked"],
-section.state-chart .state-index-disc[data-s="fail"]     { --pill-hue: var(--state-fail-hue); --pill-ink: var(--state-fail-ink); }
-section.state-chart .state-index-disc[data-s="pilot"],
-section.state-chart .state-index-disc[data-s="decision"] { --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink); }
-section.state-chart .state-index-disc[data-s="deferred"] { --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink); }
 
 /* Start and terminal keep DISTINCT redundancy cues, as the HTML card did — the
  * start node reads heavier at its leading edge, the terminal wears an outline
  * ring. Collapsing both into one identical rule (an earlier cut) made the two
  * ends of a machine visually indistinguishable, which is the one distinction a
  * state diagram must never lose. */
+/* A start or terminal node with no status of its own takes the diagram stroke;
+ * with one, it keeps its status ink and only gains the weight. */
 section.state-chart .state-node-shape[data-kind="start"] {
-  stroke: var(--state-node-stroke);
   stroke-width: var(--chart-edge-strong);
 }
-/* The start node's heavier leading stripe — the HTML card's wider border-left. */
-section.state-chart .state-node-accent[data-kind="start"] {
-  fill: var(--state-node-stroke);
+section.state-chart .state-node-shape[data-kind="start"]:not([data-s]) {
+  stroke: var(--state-node-stroke);
 }
 /* The terminal ring: SVG has no `outline`, so the layout pass emits a second,
  * offset rect behind the node — the same doubled edge the HTML outline drew. */
 section.state-chart .state-node-shape[data-kind="terminal"] {
-  stroke: var(--state-node-stroke);
   stroke-width: var(--chart-edge-strong);
+}
+section.state-chart .state-node-shape[data-kind="terminal"]:not([data-s]) {
+  stroke: var(--state-node-stroke);
 }
 section.state-chart .state-node-ring {
   fill: none;
