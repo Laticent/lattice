@@ -1,12 +1,13 @@
 ---
-status: proposed
-summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decides on its own how the deck's stylesheet reaches it, and there are five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. Proposal — the engine owns style delivery as three named modes (scoped, flat, baked), every surface asks for one by name, and `check:render` renders every mode instead of only the preview's. Nothing is built; four forks go to the owner (§7).
+status: in-progress
+summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decides on its own how the deck's stylesheet reaches it, and there are five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. Proposal — the engine owns style delivery as three named modes (scoped, flat, baked), every surface asks for one by name, and `check:render` renders every mode instead of only the preview's. Step 1, the gate, is built (§5.1): it compares 7,218 Read · Article and 5,964 baked element pairs per run and would have failed #2344 with 309 distinct losses. The modes and the Reading view are not built; four forks go to the owner (§7).
 ---
 
 # One style-delivery spine — every surface gets the deck's CSS the same way
 
-> **Proposed.** Nothing here is built. #2344 fixed one instance and added the `flat`
-> mode this note builds on. §7 lists the four decisions that are the owner's.
+> **In progress.** Step 1 of §8, the gate, is built (§5.1), in #2344 at the owner's
+> request. #2344 also fixed one instance and added the `flat` mode this note builds on.
+> Steps 2–4 are not built. §7 lists the four decisions that are the owner's.
 
 ## 1. The symptom
 
@@ -123,6 +124,76 @@ This changes what an existing gate *finds*, not what CI *runs*, so it is not a
 CI-contract change. It does add runtime to the integration tier; measure it before
 landing.
 
+### 5.1 What was built (2026-09-24, #2344)
+
+`collectCopies` in `tools/check-viz-render.js`, run by the same integration test.
+
+- **The pairing.** Every element inside every slide is stamped (`data-vr`) before the
+  copy is made. The article is built by the real `projectDeckToProse`, so each copy
+  carries its twin's stamp. Every element meets its own original, with no matching
+  heuristics.
+- **The rule.** A finding is a paint the slide has and the copy loses:
+  - a fill, stroke, stop or text color that goes to nothing or to black;
+  - a background that goes transparent;
+  - an element that is not drawn at all (`checkVisibility` plus a nonzero size).
+
+  A changed color is allowed. Pinned without a browser in
+  `test/unit/tools/check-viz-render-copies.test.js`.
+- **Known limits.** These are written into the tool's header:
+  - A text color that loses its token *inherits* the article's ink, which counts as
+    a changed color, so it is caught only when it falls to black or nothing.
+  - A `url(#g)` fill counts as painted whether or not `#g` exists. Lost gradient
+    *stops* are caught; a dropped gradient is not.
+  - `fill-opacity` and `stroke-opacity` are not read.
+- **What the flat pass does not include.** The page uses the flat pack plus
+  `playerCss()`, but not the player's sanitizer or `themeDualMode`'s light/dark
+  rewrite. It gates the stylesheet's shape, not the whole player. The real-surface
+  check for #2344 was a Studio export opened in Chromium.
+- **Measured on the chart gallery, indaco/cuoio/concrete × light/dark:**
+
+| | flat pairs | baked pairs | distinct losses |
+|---|---|---|---|
+| with #2344's flat pack | 7,218 | 5,964 | 10 (all pre-existing, sanctioned with a `why`) |
+| with the old slide-scoped pack (the #2344 bug) | 7,218 | 5,964 | 309 |
+
+- **The 10 remaining losses predate #2344 and are in the chart CSS**, not the
+  delivery shape. Each has a baseline `why`, and all are tracked in
+  `followups.d/2344-p2-chart-paints-lost-in-read-article.md`:
+  - status chips with no `figure` arm;
+  - a roadmap header that reads a token declared only on slides;
+  - matrix-grid, which the projection shows as a plain table.
+- **Guards against a pass that sees nothing.** Two drafts of this pass were blind,
+  and each is now a failing check:
+  - **Hidden article.** The first draft compared nothing and reported no losses:
+    `playerCss()` hides `#lp-doc` outside the Read · Article view, so every copy
+    measured zero and was skipped.
+  - **Undrawn copy.** An independent checker then showed that a copy hidden with
+    `display:none` still passed, because computed paint and `getBBox()` do not change
+    when an element is not drawn. Hence the "not drawn" rule above.
+  - **What the gate fails on now:**
+    - any mode that compares 0 pairs;
+    - any chart that should have a copy and compared nothing. That means every
+      component the catalog re-hosts (`svg`, `flow`, `spatial`) in flat mode, and
+      every component with a shape-bearing SVG in baked mode. A state-chart's static
+      SVG is an empty edge layer, so it owes no baked copy.
+  - **A bake that throws is a finding**, not a silent drop from coverage.
+  - **A copy-loss sanction with a missing or `TODO` `why`** fails the gate.
+- **Arms, committed.** The integration test proves the pass fails on each shape it
+  guards, using one theme and one scheme, with the three arms run in parallel:
+
+  | Arm | Measured (indaco, light) |
+  |---|---|
+  | slide-scoped pack (#2344) | 154 distinct losses |
+  | article SVGs hidden (the checker's case) | 120 "not drawn" |
+  | bake without frozen tokens (#2210) | 112 baked fill/stroke losses |
+
+- **Runtime.**
+  - `check:render` itself went from 14.5 s to 38 s. The two schemes run in parallel;
+    it was 59 s serial.
+  - The integration test file, which also runs the arms, takes 46 s.
+- **Not included.** There is no Reading-view pass: how that view gets its styles is
+  still fork 2. It lands with step 3.
+
 ## 6. What this does not change
 
 - **Slide rendering in any mode.** #2344 showed that the flat mode can be purely
@@ -170,11 +241,11 @@ landing.
 ## 8. Order of work
 
 1. **Extend `check:render` (§5) first.** It is the evidence for everything after
-   it, and it would fail today on the Reading view, which is the proof it works.
+   it. **Done (§5.1).** The Reading-view pass waits for fork 2.
 2. **Name the modes (§4)** and route the three existing hosts through them. No
    output changes; the extended gate must pass byte-identically.
 3. **The Reading view** (fork 2). This closes
    `followups.d/2344-p1-studio-reading-view-charts-render-black.md`.
 4. **The CLI** (fork 3), with export sign-off.
 
-Each step is its own PR.
+Each remaining step is its own PR. Step 1 rode #2344 at the owner's request.
