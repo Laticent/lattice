@@ -3859,7 +3859,12 @@ section.corners-square {
   font-size:calc(min(0.85em, var(--lat-pill-base)) * var(--lat-pill-scale, 1));
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
+  /* Vertical padding goes through two variables so the centering branches below can
+   * set them, and a shape with a heavier stroke (`tag-bordered`) can take its extra
+   * stroke width back out via `--lat-pill-inset` without undoing either branch. */
+  --lat-pill-pt:var(--pill-pad-y);
+  --lat-pill-pb:var(--pill-pad-y);
+  padding:calc(var(--lat-pill-pt) - var(--lat-pill-inset, 0px)) calc(var(--pill-pad-x) - var(--lat-pill-inset, 0px)) calc(var(--lat-pill-pb) - var(--lat-pill-inset, 0px));
   border:1px solid var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
   background:var(--lat-pill-bg, var(--pill-bg, var(--bg)));
   color:var(--lat-pill-ink, var(--pill-fg, var(--text-body)));
@@ -3912,13 +3917,14 @@ section.corners-square {
 @supports (text-box: trim-both cap alphabetic) {
   .lat-pill[data-shape] {
     text-box:trim-both cap alphabetic;
-    padding-block:calc(var(--pill-pad-y) + (1em - 1cap) / 2);
+    --lat-pill-pt:calc(var(--pill-pad-y) + (1em - 1cap) / 2);
+    --lat-pill-pb:calc(var(--pill-pad-y) + (1em - 1cap) / 2);
   }
 }
 @supports not (text-box: trim-both cap alphabetic) {
   .lat-pill[data-shape] {
-    padding-top:calc(var(--pill-pad-y) + 0.05em);
-    padding-bottom:calc(var(--pill-pad-y) - 0.05em);
+    --lat-pill-pt:calc(var(--pill-pad-y) + 0.05em);
+    --lat-pill-pb:calc(var(--pill-pad-y) - 0.05em);
   }
 }
 
@@ -3926,17 +3932,19 @@ section.corners-square {
  * capsule `--pill-radius`. */
 .lat-pill[data-shape='chip'] { border-radius:var(--radius-sm); }
 .lat-pill[data-shape='tag'] { border-radius:0; }
-/* Double stroke: the edge, a band of the pill's own fill, then the edge again — all of
- * it INSIDE the box. It used to be an outer ring (`0 0 0 2px var(--bg), 0 0 0 3px edge`),
- * which painted 3px past the border on every side: measured, it ate more than half of
- * the 0.22em outer gap, so a bordered tag crowded the word or pill next to it and stood
- * taller than the capsules on its own row. An inset shadow paints over the fill and
- * under the text, so the box stays exactly a `tag` and nothing around it moves. */
+/* Double stroke: a 3px `double` border, which draws line, gap, line inside the border
+ * area. It used to be an outer ring (`0 0 0 2px var(--bg), 0 0 0 3px edge`), which
+ * painted 3px past the border on every side: measured, it ate more than half of the
+ * 0.22em outer gap and crowded the word or pill next to it. An inset shadow fixed that
+ * but put the inner line 2–3px into the PADDING, where a lowercase descender hangs:
+ * the `g` of `{Qg}:tag-bordered` ran through it at every size. The border keeps both
+ * lines out of the padding, and `--lat-pill-inset` takes the 2px of extra border back
+ * out of the padding, so the box is still exactly a capsule's size. */
 .lat-pill[data-shape='tag-bordered'] {
   border-radius:0;
-  box-shadow:
-    inset 0 0 0 2px var(--lat-pill-bg, var(--pill-bg, var(--bg))),
-    inset 0 0 0 3px var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
+  border-style:double;
+  border-width:3px;
+  --lat-pill-inset:2px;
 }
 
 /* THE ROUND AND POINTED SHAPES ARE AS TALL AS A CAPSULE, NOT TALLER. `--lat-pill-h` is a capsule's
@@ -3949,16 +3957,17 @@ section.corners-square {
  * around them. */
 .lat-pill[data-shape='circle'] {
   box-sizing:border-box;
-  padding-inline:0;
+  padding-inline:0.25em;
   min-width:var(--lat-pill-h);
   border-radius:var(--pill-radius);
 }
 /* The HEIGHT is the shared vertical padding plus one trimmed line, the same sum that
  * makes a capsule, so the circle needs no height of its own and its label is centered
- * by the same rule as every other shape. Only the WIDTH is the circle's: no side
- * padding, and a minimum equal to the height, so a digit or two sits in a round box
- * (measured, `12` is 17px wide in a 26px circle). A longer label widens the box, and
- * the capsule radius turns it into a capsule rather than an oval. */
+ * by the same rule as every other shape. Only the WIDTH is the circle's: a minimum
+ * equal to the height, so a digit or two sits in a round box (`12` is 17px wide, plus
+ * 0.25em a side, inside a 26px circle). A wider label widens the box and the capsule
+ * radius turns it into a capsule, and the 0.25em side padding keeps the text off the
+ * curve: with none, `{WM}:circle` and `{1234}:circle` ran over the outline. */
 
 /* CLIPPED SHAPES DRAW THEIR STROKE AS A RING. Chevrons and the diamond are cut with
  * `clip-path`, which slices a border off on every cut edge — so they used to drop the
@@ -3972,7 +3981,8 @@ section.corners-square {
  * The inset outline is not a uniform inset of the box. A stroke on a slanted edge is
  * measured perpendicular to it, so each vertex moves by the stroke divided by the sine
  * of its edge's angle; the constants below are those factors for a capsule-height box
- * (chevron: a 0.5em point on a ~1.6em box; diamond: 1.4:1). `-1px` on the ring's inset
+ * (chevron: a 0.5em point on a ~1.6em box; diamond: about 1.7:1, its usual width for one or
+ * two characters). `-1px` on the ring's inset
  * puts it on the border edge, over the real border on a chevron and in place of it on the diamond. */
 .lat-pill[data-shape='chevron-right'],
 .lat-pill[data-shape='chevron-left'],
@@ -4023,22 +4033,24 @@ section.corners-square {
     calc(0.5em + 0.6px) calc(100% - 1px), 1.2px 50%, calc(0.5em + 0.6px) 1px);
 }
 .lat-pill[data-shape='diamond'] {
-  /* A RHOMBUS, 1.4:1, at capsule height. It used to be a 2.4em square, and a square
-   * diamond has to be about twice a label's width to hold it, because its full width
-   * exists only along the midline — measured, 37.9px tall beside a 25.9px capsule.
-   * Widening instead of heightening gives the midline the room and leaves the line
-   * alone: `12` fits with room to spare, and a flowchart's decision node has this
-   * proportion anyway. A diamond still holds a character or two; a word wants `tag` or
-   * `chip`, and `lint:deck` says so. */
+  /* A FLAT RHOMBUS at capsule height. It used to be a 2.4em square, 37.9px tall beside a
+   * 25.9px capsule. A rhombus is full-width only along its midline: at the height of the
+   * capitals it has narrowed by roughly half, so a label needs a box about twice its
+   * own width. The box widens instead of heightening, so the line never grows:
+   *   - `min-width` 1.6× the height holds one character or two digits;
+   *   - side padding of 1.1em grows the box WITH the label, so two wide letters
+   *     (`{WM}:diamond`) still clear the outline. A fixed 1.4:1 box let `12` touch
+   *     the ring and `WM` overflow it.
+   * A word wants `tag` or `chip`, and `lint:deck` says so. */
   box-sizing:border-box;
-  padding-inline:0;
-  min-width:calc(var(--lat-pill-h) * 1.4);
+  padding-inline:1.1em;
+  min-width:calc(var(--lat-pill-h) * 1.6);
   clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 .lat-pill[data-shape='diamond']::after {
   clip-path:polygon(evenodd,
     50% 0, 100% 50%, 50% 100%, 0 50%, 50% 0,
-    50% 1.25px, calc(100% - 1.75px) 50%, 50% calc(100% - 1.25px), 1.75px 50%, 50% 1.25px);
+    50% 1.15px, calc(100% - 2px) 50%, 50% calc(100% - 1.15px), 2px 50%, 50% 1.15px);
 }
 
 /* Quiet roles. A below-note is a caveat and a caption is a label, so their pills take

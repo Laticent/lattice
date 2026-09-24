@@ -1446,7 +1446,7 @@ A pill sizes itself from the text it sits in, so most pills need no size modifie
 
 | Where the pill sits | Size |
 |---|---|
-| A heading (`#`, `##`, `###`, a title slide) | Half the heading: large in a title, a step up in a slide title |
+| A heading or other large text (`#`, `##`, a title slide, a lead or emphasis paragraph) | Half the text's size: large in a title, a step up in a slide title. Text under about twice the pill size, such as an `###` subheading, keeps the usual size |
 | Body text, lists, cards, table cells | The metadata size, as always |
 | A below-note, a chart caption or a figure caption | Small |
 | Footers, headers and other small print | Small, 0.85 of the text around it |
