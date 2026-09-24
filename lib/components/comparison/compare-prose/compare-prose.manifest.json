@@ -6,7 +6,8 @@
   "substance": "structure",
   "stage": "flow",
   "cards": {
-    "default": "center"
+    "default": "center",
+    "withCoda": "stretch"
   },
   "density": {
     "axis": "item",

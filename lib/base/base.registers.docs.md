@@ -705,8 +705,10 @@ alike whatever the deck asked for. Wired today on `cards-grid`, `verdict-grid`, 
 `list-steps` row (every variant that lays its steps out side by side), the two
 `compare-prose` panes, and `cards-stack horizontal`. A single-line flex row ignores
 `align-content`, so those rows set `flex-wrap: wrap`; their zero-basis cards still share one
-line. Column forms (`list-steps vertical`/`chevron`/…, the default `cards-stack`, tall and
-strip frames) are not governed. Other card components still stretch until they opt in (#2317). See
+line, and each card carries `min-width: 0` so it can never force a second line. Column forms
+(`list-steps vertical`/`chevron`/…, the default `cards-stack`, tall and strip frames),
+`list-steps capsule` (already content height) and `compare-prose decision` (its label sits at
+mid-stage) are not governed. All three stretch when a coda follows (`withCoda: stretch`). Other card components still stretch until they opt in (#2317). See
 `engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5.
 
 ## The slide's corner — `corners:`

@@ -41,6 +41,21 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
+<!-- _class: list-steps -->
+
+## A closing insight keeps the cards stretched.
+
+1. Draft
+   - One clause.
+2. Review
+   - One clause.
+3. Ship
+   - One clause.
+
+> The panel stays one step below the cards, so the row stretches when a coda follows.
+
+---
+
 <!-- _class: list-steps cards-stretch -->
 
 ## One slide can still ask for the old stretch.
@@ -73,6 +88,19 @@ list-steps, compare-prose and cards-stack horizontal join the register.
   - No migration cost.
 - Move to the new stack
   - One migration, lower run cost.
+
+---
+
+<!-- _class: compare-prose -->
+
+## A coda under the panes works the same way.
+
+- Build in house
+  - Full control, slower start.
+- Buy a platform
+  - Fast start, less control.
+
+> We recommend buying: the pilot starts next month.
 
 ---
 

@@ -590,8 +590,9 @@ section.compare-prose > .cell-stage {
 /* ── `cards:` register (#2317) ── the two panes. A single-line flex row ignores
  * `align-content`, so the row wraps (two zero-basis panes plus the connector still share
  * one line) and the register decides whether the panes stretch or sit at text height.
- * `vertical` and tall/strip frames stack the panes and are left alone. */
-section.compare-prose:not(.vertical):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
-section.compare-prose:not(.vertical):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner {
+ * `vertical` and tall/strip frames stack the panes and are left alone. `decision` is left out
+ * too: its DECISION label is placed at the stage's mid-height, so moving the panes strands it. */
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner {
   flex-wrap: wrap; align-content: var(--cards-align);
 }

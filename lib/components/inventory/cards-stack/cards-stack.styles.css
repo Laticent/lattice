@@ -195,3 +195,7 @@ section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="
 section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner {
   flex-wrap: wrap; align-content: var(--cards-align);
 }
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol) > li,
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner > * {
+  min-width: 0;
+}
