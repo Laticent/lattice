@@ -1,3 +1,4 @@
+import { MARKER_CLASS } from '../../../../lib/core/state-marks.js';
 import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
@@ -90,7 +91,10 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	// into LIVE markup in the export on the next edit. Lock it everywhere (also closes the same
 	// pre-existing gap in plain prose). Harmless entities (`&amp;`, `&copy;`) don't match.
 	/&(?:lt|#0*60|#x0*3c);\/?[a-zA-Z]/i,
-	/^\s*[-*+]\s+\[[ xX]\]/m, // task-list item
+	// A state-marker list item — any of the six (lib/core/state-marks.js), not just GFM's `[ ]`
+	// and `[x]`: the editor escapes a `[!]` or `[?]` it does not know into `\[!\]`, which the
+	// engine then prints as literal brackets instead of the drawn mark.
+	new RegExp(`^\\s*(?:[-*+]|\\d+[.)])\\s+\\[(?:${MARKER_CLASS}|X)\\]`, 'm'), // GFM also takes `[X]`
 	/\[\^[^\]]+\]/, // footnote reference / definition
 ];
 

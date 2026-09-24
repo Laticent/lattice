@@ -37,6 +37,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadAll, manifestBucket } = require('../lib/components');
+const { MARKER_CLASS } = require('../lib/core/state-marks');
 const { axisNoun } = require('../lib/authoring/lint-core');
 const { resolveAnatomy } = require('./anatomy-catalog');
 
@@ -709,12 +710,13 @@ ${items.join('\n')}`;
  * consumer of `dist/docs/components.json`; written here, a manifest author never has to
  * know the deck grammar exists.
  *
- * Only the four canonical markers, and only inside a single-backtick span — the same
- * narrow set the decoder dispatches on, so this can never escape something that was not
- * going to be decoded.
+ * Only the canonical markers, and only inside a single-backtick span — the same narrow
+ * set the decoder dispatches on (built from the kernel's MARKER_CLASS), so this can never
+ * escape something that was not going to be decoded.
  */
+const DECK_MARKER_SPAN_RE = new RegExp(`\`(\\[${MARKER_CLASS}\\])\``, 'g');
 function escapeDeckMarkers(text) {
-  return String(text).replace(/`(\[[x\-/ ]\])`/g, '`\\$1`');
+  return String(text).replace(DECK_MARKER_SPAN_RE, '`\\$1`');
 }
 
 function renderClosingSlide(m) {

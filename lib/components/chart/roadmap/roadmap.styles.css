@@ -21,7 +21,7 @@
  * the eye reads "not in this phase" rather than "missing".
  *
  * Modifiers — compose with the base by adding a second class:
- *   .status      — cells carry state markers ([x]/[-]/[ ]/[/]) and
+ *   .status      — cells carry state markers (the universal six) and
  *                  render as a status board (shipped / WIP / planned /
  *                  out-of-scope). DOM tagging lives in lib/roadmap.js.
  *   .horizons    — table is transposed into Now/Next/Later vertical
@@ -81,8 +81,14 @@
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--warn);        --state-mark:var(--mark-dash);  }
 /* planned = the neutral "not started" tier (#1821) — --muted-mark, not
  * --text-label, which is accent-hued emphasis since #1801. Matches the cells. */
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-missed  { --state-color:var(--fail);        --state-mark:var(--mark-x);     }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-unknown { --state-color:var(--muted-mark);  --state-mark:var(--mark-question); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--muted-mark); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark);  --state-mark:var(--mark-slash); }
+/* Under `heat` the key takes the cells' remap, or it would decode a red shipped disc
+ * as "green = shipped" beside it. Same mapping as base.modifiers.css's heat block. */
+:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item.state-shipped { --state-color:var(--fail); }
+:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item:is(.state-missed, .state-planned) { --state-color:var(--pass); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
   content:'';
@@ -99,10 +105,15 @@
   -webkit-mask:var(--state-mark) center / 72% 72% no-repeat;
           mask:var(--state-mark) center / 72% 72% no-repeat;
 }
-/* planned = true hollow ring (no center glyph), matching the cell. */
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned .roadmap-legend-mark::before {
+/* planned = true hollow ring (no center glyph), matching the cell. unknown =
+ * the same hollow ring carrying a `?` in the ring's own ink (a canvas-knockout
+ * mark would vanish on an empty disc). */
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item:is(.state-planned, .state-unknown) .roadmap-legend-mark::before {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
+}
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-unknown .roadmap-legend-mark::after {
+  background-color:var(--state-color);
 }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned .roadmap-legend-mark::after {
   display:none;
@@ -212,7 +223,7 @@
  * wrap into .chart-subtitle / .chart-caption (styled in chart-family.css), so
  * roadmap no longer styles a bare `section.roadmap > p`. */
 
-/* ── ROADMAP STATE MARKERS — universal `[x]/[-]/[ ]/[/]` per cell ─────
+/* ── ROADMAP STATE MARKERS — the universal six per cell ───────────────
  * Cells in ANY roadmap variant can carry a state marker as the leading
  * token. lib/roadmap.js strips the marker, tags the <td> with a state
  * class, and wraps the label in a state-label eyebrow + state-text
@@ -228,8 +239,10 @@
  * State token vocabulary:
  *   [x] shipped   → state-shipped  (pass green)
  *   [-] in flight → state-wip      (warn amber)
+ *   [!] missed    → state-missed   (fail red, ✕)
+ *   [?] uncertain → state-unknown  (neutral muted, hollow ring + ?)
  *   [ ] planned   → state-planned  (neutral muted)
- *   [/] skipped   → state-skipped  (fail red — explicitly out of scope)
+ *   [/] skipped   → state-skipped  (neutral muted, slash — out of scope)
  * ──────────────────────────────────────────────────────────────────── */
 
 /* Per-state color tokens — used by both light + heavy treatments. */
@@ -244,6 +257,22 @@
   --state-color:var(--warn);
   --state-mark:var(--mark-dash);
   --cell-state-bg:color-mix(in srgb, var(--warn) 9%, transparent);
+}
+/* missed — `[!]`, the milestone did not land: the universal "no", a solid
+ * --fail disc carrying the ✕. */
+:is(section.roadmap, figure.roadmap) td.cell-state.state-missed,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-missed {
+  --state-color:var(--fail);
+  --state-mark:var(--mark-x);
+  --cell-state-bg:color-mix(in srgb, var(--fail) 8%, transparent);
+}
+/* uncertain — `[?]`, the universal "unknown": nobody can say yet whether it
+ * lands. A hollow ring like planned, carrying a drawn `?`. */
+:is(section.roadmap, figure.roadmap) td.cell-state.state-unknown,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-unknown {
+  --state-color:var(--muted-mark);
+  --state-mark:var(--mark-question);
+  --cell-state-bg:var(--bg-alt);
 }
 /* planned — the NEUTRAL "on the slate, not started" tier that base.modifiers
  * groups with checklist todo and obligation exempt. --muted-mark, not
@@ -261,6 +290,15 @@
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
 }
+/* `heat` on the horizons CARDS: the load/risk remap base.modifiers.css applies to the
+ * table cells (shipped → alarm, missed and planned → relief). Base cannot reach the
+ * cards — the defaults above carry `.horizons` inside `:is(...)` and outrank it — so
+ * the remap lives here, one class heavier. Before it, `roadmap horizons heat` ignored
+ * `heat` entirely: its cards kept the delivery colors while the table form remapped. */
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--fail); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--warn); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state:is(.state-missed, .state-planned) { --state-color:var(--pass); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); }
 
 /* Light treatment (default, any variant): a small state-colored
    indicator with an inset white glyph sits before the cell text.
@@ -272,11 +310,12 @@
                                   equivalent of the retired half-fill disc,
                                   matching the checklist/verdict-grid mark
                                   vocabulary (half → dash)
+     missed   → ✕ cross          (did not land — the universal `[!]` "no")
+     unknown  → ? in a hollow ring (cannot say yet — the universal `[?]`)
      planned  → ○ open ring     (committed / not started) — a TRUE hollow ring
                                   (transparent disc + --state-color ring, empty
                                   center), matching the checklist / obligation
-                                  neutral todo; ✕ ("no") is reserved for
-                                  verdict-grid's genuine "not met"
+                                  neutral todo
      skipped  → ╱ diagonal slash (out of scope; plus strike-through on text)
    The eyebrow label is rendered for the heavy treatment but hidden here. */
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-label { display:none; }
@@ -286,8 +325,9 @@
  * use, so a theme tuning --mark-* / --state-color updates roadmap in lockstep.
  * Both pseudo-elements are absolutely positioned in the text's leading pad so
  * they overlap exactly; the marks are vector masks, pixel-crisp in PDF / HTML
- * / raster. Mark vocabulary: shipped → check, wip → dash, planned → open ring
- * (neutral todo), skipped → slash. */
+ * / raster. Mark vocabulary: shipped → check, wip → dash, missed → ✕,
+ * unknown → ? in an open ring, planned → open ring (neutral todo),
+ * skipped → slash. */
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text {
   position:relative;
@@ -321,10 +361,16 @@
    mark (which reads as a "selected" bullseye): transparent ::before with a
    --state-color ring, ::after mark suppressed. No center dot. Matches the
    checklist / obligation-matrix neutral-todo hollow ring. */
-:is(section.roadmap, figure.roadmap) td.cell-state.state-planned .cell-state-text::before,
-:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned .row-text::before {
+:is(section.roadmap, figure.roadmap) td.cell-state:is(.state-planned, .state-unknown) .cell-state-text::before,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state:is(.state-planned, .state-unknown) .row-text::before {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
+}
+/* unknown keeps its `?`, in the ring's own ink: on the empty disc a canvas
+ * knockout would be invisible. */
+:is(section.roadmap, figure.roadmap) td.cell-state.state-unknown .cell-state-text::after,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-unknown .row-text::after {
+  background-color:var(--state-color);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-planned .cell-state-text::after,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned .row-text::after {
@@ -420,17 +466,21 @@
  * imply a coverage these selectors do not have. */
 :is(section.roadmap, figure.roadmap).status td.cell-state.state-skipped .cell-state-label,
 :is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label,
-:is(section.roadmap, figure.roadmap).status:not(.heat) td.cell-state.state-planned .cell-state-label,
-:is(section.roadmap, figure.roadmap).status:not(.heat) .horizon-rows > li.cell-state.state-planned .cell-state-label {
+:is(section.roadmap, figure.roadmap).status:not(.heat) td.cell-state:is(.state-planned, .state-unknown) .cell-state-label,
+:is(section.roadmap, figure.roadmap).status:not(.heat) .horizon-rows > li.cell-state:is(.state-planned, .state-unknown) .cell-state-label {
   color:var(--text-muted);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text {
   display:block;
   color:var(--text-body);
 }
-/* In heavy mode the cell already conveys state via ribbon + ground;
-   suppress the inline dot to keep the cell uncluttered. */
-:is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text::before {
+/* In heavy mode the cell already conveys state via ribbon + ground + the
+   corner token; suppress the inline disc AND its mark. Hiding only the disc
+   (::before) used to leave the mark (::after) behind: a canvas-knockout ✓ / –
+   / ✕ ghosting on the tinted cell ground beside the text, and a full-ink `?`
+   beside an uncertain cell, each duplicating the corner token. */
+:is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text::before,
+:is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text::after {
   display:none;
 }
 
@@ -439,7 +489,9 @@
  * still encoding state by shape (not just color / fill level):
  *   shipped → check
  *   wip     → dash   (replaces the retired half-disc tonal split)
- *   planned → open ring (neutral "on the slate"; not ✕)
+ *   missed  → ✕ (the universal `[!]` "no")
+ *   unknown → ? in an open ring (the universal `[?]`)
+ *   planned → open ring (neutral "on the slate")
  *   skipped → diagonal slash
  * Shape via CSS, no font dependency; the cell's text label is the third,
  * redundant channel. */
@@ -470,12 +522,14 @@
           mask:var(--state-mark) center / 72% 72% no-repeat;
   z-index:1;
 }
-/* planned corner = hollow ring (no center dot), matching the light treatment. */
-:is(section.roadmap, figure.roadmap).status td.cell-state.state-planned::after {
+/* planned corner = hollow ring (no center dot), matching the light treatment;
+ * unknown = the same ring carrying its `?` in the ring's ink. */
+:is(section.roadmap, figure.roadmap).status td.cell-state:is(.state-planned, .state-unknown)::after {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state.state-planned::before { display:none; }
+:is(section.roadmap, figure.roadmap).status td.cell-state.state-unknown::before { background-color:var(--state-color); }
 
 /* ── ROADMAP HORIZONS — Now / Next / Later vertical phase cards ──────
  * lib/roadmap.js transposes the workstream × phase table into a row

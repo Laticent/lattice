@@ -32,12 +32,12 @@
 	"checklist.light": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "5f716f8aa0cfb2bc17171d7664a1af92c389eacc3654527ff744b6cfb30e86b5"
+		"srcSha256": "fe83a0c40e689a7ca98d13cd813855935412dab957c5d0e03639c2f4e6a3a5ce"
 	},
 	"checklist.dark": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "eb7092d56e9e34adc89e5a5cb984929426735eb5d3ab5ae341f61d4fb01c743b"
+		"srcSha256": "80c0c096b5ff6e57b7a8c183dc89e1afbc2c2055f8ce45b4796e91cf7f19c2d3"
 	},
 	"code.light": {
 		"src": "lib/components/code/code/code.gallery.light.pdf",
@@ -112,12 +112,12 @@
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "7ba85cf8b0451322eaee93f1082983fd687c3eab288b80fbdc88e40e4b9055fe"
+		"srcSha256": "b621529980f1d6a2e4080e62d7a51c142e90e7f837a0c63905f5ed2c3d5efc4e"
 	},
 	"pricing.dark": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "0e4cc426ef89c04f0f7fb56df0fb04d7401ee42adb906bad22ae41539454fbcd"
+		"srcSha256": "5fde769a8a2d770126e0132724ea0631325bd3daad89ca137e638024cead29d9"
 	},
 	"quote.light": {
 		"src": "lib/components/statement/quote/quote.gallery.light.pdf",
@@ -142,12 +142,12 @@
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "49f80caf51c44ae61777f1d9c628da3398e84bef5d9a362fcd3c3249ed822ded"
+		"srcSha256": "a66894c251790455f3bf73f5949dddf0302655b37a3761395624c3b7ea070024"
 	},
 	"roadmap.dark": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "ea1ddd347b08be0c0f3ce6bf6761700245e0b1977f5650d0400bba748b46b01e"
+		"srcSha256": "66a19c1bd6e14eb89b1c4756a224cb6b04caade89af5e5861f6ba342554f71aa"
 	},
 	"topic.light": {
 		"src": "lib/components/anchor/topic/topic.gallery.light.pdf",
@@ -162,12 +162,12 @@
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "98011b6d74af9cda34c5f7758c572df5f263f3533dd3bb63f820b4862f0123b8"
+		"srcSha256": "262d1f97d24a531829f919a136a85ef4bfa546b6fce80a0486aef06c430fbd68"
 	},
 	"verdict-grid.dark": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "c756b5b8991d70629692a379688927b4cb25904dec6130baa8ba3f230f5fce2c"
+		"srcSha256": "c5be90996a42570a77faa15d84db7ce483cd3cb470181117c3ed8006145b4b55"
 	},
 	"waterfall.light": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",

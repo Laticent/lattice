@@ -15,6 +15,11 @@
 .badge.pass { --state-color:var(--pass); }
 .badge.warn { --state-color:var(--warn); }
 .badge.fail { --state-color:var(--fail); }
+/* The two unsettled answers — `[ ]` open (todo) and `[?]` unknown — are hollow
+ * rings on --muted-mark. Ring geometry: `.badge.todo` / `.badge.unknown` beside
+ * `.state.todo` in base.modifiers.css. */
+.badge.todo,
+.badge.unknown { --state-color:var(--muted-mark); }
 .badge.skip { --state-color:var(--muted-mark); color:var(--text-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent); }
 /* Disc (leading ::before, in flex flow) + mark (::after, overlaid on the
  * disc). Colors mixed here from --state-color + the scalar knobs; disc

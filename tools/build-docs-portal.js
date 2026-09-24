@@ -1090,23 +1090,20 @@ function renderPortalJson(manifests) {
 // module exports the behavior, not these vocabularies. Keep in sync if the
 // plugin set changes; the grammar.json --check gate makes drift loud.
 
-// The universal state-token marker grammar (lib/integrations/markdown-it/plugins.js
-// `stateClassesFor`). The `semantic` is universal across every state-marker
-// component; the `shape` is the canonical state-token CSS recipe used by
-// checklist / verdict-grid / obligation-matrix / pricing. The chart-family
-// `roadmap` reuses the same markers + semantics but maps them to its own
-// shape classes (state-shipped / state-wip / state-planned / state-skipped) —
-// see `stateMarkersNote` below. `[ ]` is overloaded: neutral
-// todo/planned/exempt in checklist/roadmap/obligation-matrix, "not met" in
-// verdict-grid.
-const STATE_MARKERS = {
-  '[x]': { semantic: 'pass', shape: 'state-full', gfm: true },
-  '[ ]': { semantic: 'neutral-or-fail', shape: 'state-todo|state-empty', gfm: true,
-    note: 'Context-dependent: todo/planned/exempt in checklist/roadmap/obligation-matrix; not-met in verdict-grid.' },
-  '[-]': { semantic: 'warn', shape: 'state-half', gfm: false },
-  '[/]': { semantic: 'skip', shape: 'state-slashed', gfm: false },
-};
-const STATE_MARKERS_NOTE = 'semantic is universal; shape is the canonical state-token recipe (checklist/verdict-grid/obligation-matrix/pricing). The chart-family roadmap maps the same markers/semantics to its own shape classes (state-shipped/state-wip/state-planned/state-skipped).';
+// The shared state-marker grammar (LFM-1.0 §3.2), DERIVED from the kernel that
+// renders it (lib/core/state-marks.js) so grammar.json cannot disagree with the
+// engine: the semantic and shape classes are `stateClassesFor`'s, the answer is the
+// kernel's universal word. Each marker has ONE meaning in every component; only
+// `[x]` and `[ ]` are GitHub task-list syntax (§5.1).
+const { MARKERS, MARKER_LABELS, stateClassesFor } = require('../lib/core/state-marks');
+const STATE_MARKERS = Object.fromEntries(MARKERS.map((m) => {
+  const { sem, shape } = stateClassesFor(m);
+  return [`[${m}]`, {
+    semantic: sem, shape, answer: MARKER_LABELS[m], spoken: MARKER_LABELS[m],
+    gfm: m === 'x' || m === ' ',
+  }];
+}));
+const STATE_MARKERS_NOTE = 'One meaning per marker in every component; a component names the answers in its own words (label sets, narration) but never changes them. shape is the canonical state-token recipe (checklist/verdict-grid/obligation-matrix/pricing/state-cells/inline). The chart-family roadmap maps the same markers to its own shape classes (state-shipped/state-wip/state-missed/state-unknown/state-planned/state-skipped).';
 
 // Components that read the shared state-marker grammar — the markdown-it state
 // plugins keyed on these class names in lib/integrations/markdown-it/plugins.js

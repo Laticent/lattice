@@ -25,8 +25,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
-| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
+| Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
+| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---
@@ -55,9 +55,9 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |
+| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [?] Auto-routing |
 | Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |
-| Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |
+| Decision Log  | [x] Append schema    | [!] Outcome pairing      | [ ] Auditor export        |
 
 
 ---
@@ -121,8 +121,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
-| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
+| Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
+| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---
@@ -137,8 +137,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
-| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
+| Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
+| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---
@@ -153,8 +153,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
-| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
+| Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
+| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---
@@ -167,7 +167,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 - One workstream
   - A single row of phases is a `timeline` or `list-steps`, not a roadmap. Roadmap earns its grid only when at least two workstreams move in parallel.
 - No state markers
-  - A grid of bare deliverables loses half its value. Add `\[x]`/`\[-]`/`\[ ]`/`\[/]` so the audience reads progress alongside scope.
+  - A grid of bare deliverables loses half its value. Add state markers (`\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `\[/]`) so the audience reads progress alongside scope.
 - Past five workstreams
   - More than five rows compresses cell text and the lane stripes lose their categorical read. Group adjacent workstreams or split by phase.
 

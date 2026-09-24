@@ -847,6 +847,30 @@ if (retiredForm.length > RETIRED_FORM_SHOWN) {
   console.error(`warning: run \`lattice lint\` for the fix \u2014 Form is the composition model now and cannot be disabled.`);
 }
 
+// AN EMPTY BOX WHOSE MEANING MOVED — the six-marker grammar (lib/core/state-marks.js,
+// engineering/decisions/2026-09-24-six-state-marks.md). A verdict-grid or pricing `[ ]`
+// drew the red "not met" / "missing" cross and now draws the open ring; an
+// obligation-matrix `[ ]` was keyed "exempt" and is now "undetermined". A deck written
+// before the change renders differently with a successful exit code, so the render says
+// so, on the same channel and for the same reason as the retired Form opt-outs above.
+// The detector is lint rule 16 (HARD RULE #7); it already stays silent on a slide that
+// uses `[!]` or `[?]`, so a deck written for the six markers is not warned.
+// The rule counts RENDERED slides, heading splits included (lint-core's
+// `headingSubSlides`), so these slide numbers match the PDF.
+const { findMovedEmptyBoxes } = require('./lib/authoring/lint-core');
+const movedBoxes = findMovedEmptyBoxes(md).filter((f) => f.shapeChange);
+for (const f of movedBoxes.slice(0, RETIRED_FORM_SHOWN)) {
+  console.error(`warning: slide ${f.slide}: ${f.message} ${f.short}`);
+}
+if (movedBoxes.length > RETIRED_FORM_SHOWN) {
+  console.error(`warning: \u2026 and ${movedBoxes.length - RETIRED_FORM_SHOWN} more slide(s) with a moved \`[ ]\`.`);
+}
+if (movedBoxes.some((f) => f.autofixable)) {
+  // Only a repo checkout has `lint:deck` (tools/ is not in the published package), so the
+  // per-slide line above already says what to write; this names the shortcut for those who have it.
+  console.error('warning: in a Lattice checkout, `npm run lint:deck -- --fix <deck>` rewrites the verdict-grid and pricing ones as `[!]`.');
+}
+
 // Resolve palette name from the precedence chain (CLI > env > front
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.

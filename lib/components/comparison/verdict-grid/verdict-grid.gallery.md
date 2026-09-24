@@ -21,13 +21,13 @@ Options scored against criteria as a verdict matrix.
 ## The grid scores options against shared criteria.
 
 - **Option one.**
-  - [ ] Criterion
+  - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
@@ -43,8 +43,8 @@ Options scored against criteria as a verdict matrix.
 ## Five options is the verdict grid's ceiling.
 
 - **First.**
-  - [ ] Check
-  - [ ] Check
+  - [!] Check
+  - [!] Check
   - Early cards set the criteria order.
 - **Second.**
   - [-] Check
@@ -72,13 +72,13 @@ Options scored against criteria as a verdict matrix.
 ## The grid scores options against shared criteria.
 
 - **Option one.**
-  - [ ] Criterion
+  - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
@@ -93,13 +93,13 @@ Options scored against criteria as a verdict matrix.
 ## The grid scores options against shared criteria.
 
 - **Option one.**
-  - [ ] Criterion
+  - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion
@@ -114,13 +114,13 @@ Options scored against criteria as a verdict matrix.
 ## The grid scores options against shared criteria.
 
 - **Option one.**
-  - [ ] Criterion
+  - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
 - **Option two.**
   - [x] Criterion
-  - [-] Criterion
-  - Same criteria, same order, always.
+  - [?] Criterion
+  - Unknown is not a no.
 - **Option three.**
   - [x] Criterion
   - [x] Criterion

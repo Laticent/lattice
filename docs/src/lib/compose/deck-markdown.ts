@@ -9,6 +9,7 @@ import {
 } from 'prosemirror-markdown';
 import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
+import { MARKER_CLASS } from '../../../../lib/core/state-marks.js';
 import { commentBlockRule, commentNodeSpec } from './comment-block';
 
 // The deck-model library core — Lattice slide prose ⟷ ProseMirror document,
@@ -156,6 +157,10 @@ const SubState = MarkdownSerializerState as unknown as new (
 	options: SerializerState,
 ) => { renderInline(n: PMNode): void; out: string };
 
+// A leading state marker whose brackets the serializer escaped (`\[x\]`), built from the
+// engine's marker class so every one of the six markers round-trips verbatim.
+const ESCAPED_LEADING_MARKER_RE = new RegExp(`^\\\\\\[(${MARKER_CLASS})\\\\\\]`);
+
 /** Serialize one cell's inline content to a single GFM-safe line. */
 function serializeCell(state: SerializerState, cell: PMNode): string {
 	// A throwaway sub-state renders just this cell's inline content to a string
@@ -163,11 +168,11 @@ function serializeCell(state: SerializerState, cell: PMNode): string {
 	const sub = new SubState(state.nodes, state.marks, state.options);
 	sub.renderInline(cell);
 	let out = sub.out.replace(/\n+/g, ' ').trim();
-	// Un-escape ONLY a leading LFM state marker's brackets — the engine's exact
-	// `^\[([x-/ ])\]` shape — so `[x] [-] [ ] [/]` survive verbatim. Every OTHER escaped
+	// Un-escape ONLY a leading LFM state marker's brackets — the engine's exact marker
+	// shape (lib/core/state-marks.js MARKER_CLASS) — so all six markers survive verbatim. Every OTHER escaped
 	// bracket stays escaped: a user's `\[literal\]` or an escaped `\[text\](url)` must NOT
 	// silently become a live link/image (checker Bug 2).
-	out = out.replace(/^\\\[([x\-/ ])\\\]/, '[$1]');
+	out = out.replace(ESCAPED_LEADING_MARKER_RE, '[$1]');
 	// GFM: a raw pipe splits cells, so escape every literal pipe. Match any run of backslashes
 	// BEFORE the pipe and carry them through, so the escape covers the whole escape sequence — a
 	// bare `replace(/\|/g, …)` would be an INCOMPLETE escape (it ignores a preceding backslash, so

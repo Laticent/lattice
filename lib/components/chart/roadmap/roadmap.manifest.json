@@ -70,6 +70,8 @@
     "members": [
       { "key": "[x]", "label": "Shipped" },
       { "key": "[-]", "label": "In flight" },
+      { "key": "[!]", "label": "Missed" },
+      { "key": "[?]", "label": "Uncertain" },
       { "key": "[ ]", "label": "Planned" },
       { "key": "[/]", "label": "Out of scope" }
     ]
@@ -104,17 +106,17 @@
     "rows": {
       "selector": "table",
       "required": true,
-      "description": "A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable."
+      "description": "A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[!]/[?]/[ ]/[/] then the deliverable."
     },
     "key": {
       "selector": "p > code:only-child",
       "required": false,
-      "description": "OPTIONAL label set renaming the status key: `[{[x], Enacted}, {[-], In committee}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing as an eyebrow, and a one-code paragraph that is not a label set is left alone."
+      "description": "OPTIONAL label set renaming the status key: `[{[x], Enacted}, {[-], In committee}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing as an eyebrow, and a one-code paragraph that is not a label set is left alone."
     }
   },
-  "skeleton": "<!-- _class: roadmap -->\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nMarkers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n",
+  "skeleton": "<!-- _class: roadmap -->\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nThe key under the grid names each marker the cells carry.\n",
   "anatomyBlock": "roadmap",
-  "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |\n| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |\n",
+  "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |\n| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |\n",
   "stressDoc": {
     "summary": "Four phases — the ceiling, and what portrait paginates.",
     "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Three workstreams by four phases.\n\n| Workstream | Phase one | Phase two | Phase three | Phase four |\n| --- | --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned | [ ] The last one |\n| Second | [x] Every cell filled | [-] No blanks | [ ] The honest grid | [ ] Four words max |\n| Third | [x] Short labels | [-] Four words max | [ ] Or it wraps | [ ] The ceiling |\n"
@@ -126,7 +128,7 @@
     },
     {
       "title": "State markers are the second channel",
-      "body": "Every cell can lead with `[x]` shipped, `[-]` in flight, `[ ]` planned, or `[/]` out of scope. The audience sees both 'what' and 'how it's going' without a separate status slide. A status key is emitted automatically below the grid for the markers present (suppressed only on the `status` variant, which already labels every cell)."
+      "body": "Every cell can lead with `[x]` shipped, `[-]` in flight, `[!]` missed, `[?]` uncertain, `[ ]` planned, or `[/]` out of scope. The audience sees both 'what' and 'how it's going' without a separate status slide. A status key is emitted automatically below the grid for the markers present (suppressed only on the `status` variant, which already labels every cell)."
     },
     {
       "title": "The key's words are a DEFAULT, not a fixed vocabulary",
@@ -144,7 +146,7 @@
     },
     {
       "title": "No state markers",
-      "body": "A grid of bare deliverables loses half its value. Add `[x]`/`[-]`/`[ ]`/`[/]` so the audience reads progress alongside scope."
+      "body": "A grid of bare deliverables loses half its value. Add state markers (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`) so the audience reads progress alongside scope."
     },
     {
       "title": "Past five workstreams",
@@ -182,7 +184,7 @@
     "status": {
       "label": "status",
       "summary": "Delivery state at a glance.",
-      "sample": "<!-- _class: roadmap status -->\n\n`Layout · roadmap status`\n\n## status reads delivery state at a glance.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |\n| ------------- | -------------------- | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |\n| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |\n| Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |\n"
+      "sample": "<!-- _class: roadmap status -->\n\n`Layout · roadmap status`\n\n## status reads delivery state at a glance.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |\n| ------------- | -------------------- | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [?] Auto-routing |\n| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |\n| Decision Log  | [x] Append schema    | [!] Outcome pairing      | [ ] Auditor export        |\n"
     },
     "swimlane": {
       "label": "swimlane",
@@ -202,7 +204,7 @@
     },
     {
       "mistake": "Keying a label set on the state NAME rather than the marker.",
-      "fix": "`[{shipped, Enacted}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it."
+      "fix": "`[{shipped, Enacted}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[!]`, `[?]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it."
     },
     {
       "mistake": "Naming a state the grid does not carry.",

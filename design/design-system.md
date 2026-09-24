@@ -465,7 +465,7 @@ promoting it to a footnote, and `note-warn` marks the slide's callout as an alar
 (HARD RULE #29). The **Table** switches sit over the universal table treatment:
 `table-plain` drops the zebra, `table-fill` spreads the rows into the leftover
 stage height, and `state-cells` opts the cells into the universal state-marker
-decoding (`[x]` `[-]` `[ ]` `[/]` → the color-blind-safe status disc) that
+decoding (the six markers `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]` → the color-blind-safe status disc) that
 `obligation-matrix` and `matrix-grid` get by layout. The
 **Claim** variants let content claim the stage by receding the chrome
 (quiet → hero → bleed); they compose with the Chrome switches above and

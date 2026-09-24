@@ -39,6 +39,8 @@ export const LAB_MARKS = `<!-- _class: checklist -->
 
 - [x] Contract signed by both parties \`{DONE}:c2\`
 - [-] Data migration half cut over \`{PARTIAL}:c4\`
+- [!] Load test failed at peak \`{BLOCKED}:c3\`
+- [?] Vendor SLA terms not disclosed \`{ASK}:tag:c11\`
 - [ ] Security review not yet booked \`{QUEUED}:tag:c7\`
 - [/] Legacy batch retired this quarter \`{CLOSED}:tag:c12\`
 `;
@@ -167,17 +169,22 @@ One slide at a time is `<!-- _class: inline-code-literal -->`. In the Studio it
 is **Deck settings · General · Inline pills and marks**. Use the backslash for a
 span or two; use this switch for a whole deck.
 
-## State marks — the four checklist discs
+## State marks — the six answers
 
-The same four markers you already write bare at the start of a bullet draw the
-same disc inside inline code, anywhere inline code can go.
+The same six markers you already write bare at the start of a bullet draw the
+same disc inside inline code, anywhere inline code can go. Each one means the
+same thing in every layout.
 
-| Marker | Means |
-|---|---|
-| `[x]` | Done |
-| `[-]` | Partial |
-| `[ ]` | Not started — the neutral open ring |
-| `[/]` | Out of scope |
+| Marker | Means | Drawn as |
+|---|---|---|
+| `[x]` | Yes — done, met, included | check on a green disc |
+| `[-]` | Partly — in progress, limited | dash on an amber disc |
+| `[!]` | No — failed, not met, missing | cross on a red disc |
+| `[?]` | Unknown — looked at, cannot be settled | question mark in an open ring |
+| `[ ]` | Open — not started, not assessed | an empty open ring |
+| `[/]` | Does not apply — out of scope | slash on a gray disc |
+
+Solid discs are settled answers; the two open rings are not settled yet.
 
 <CraftLab
 	label="Marks and pills on one row"
@@ -188,23 +195,26 @@ same disc inside inline code, anywhere inline code can go.
 	hint="The disc at the start of each row and the pill at the end are independent. Swap a [x] for [-] and only the disc changes."
 />
 
-The same four markers work in two positions: bare at a bullet's start for a
+The same six markers work in two positions: bare at a bullet's start for a
 checklist row, and inside inline code for a mark in a sentence, a heading, or a
 table cell.
 
 Each mark carries `role="img"` and an `aria-label`, so a screen reader says
 "done" without any visible text on the slide.
 
-**Only the four exact forms dispatch.** `` `[?]` ``, `` `[!]` ``, `` `[0]` ``,
-`` `[X]` `` and `` `[data-mark]` `` all stay literal — the grammar is
-deliberately narrow, because `[` also opens a CSS attribute selector, an array
-index, and a citation.
+**Only the six exact forms dispatch.** `` `[~]` ``, `` `[0]` ``, `` `[X]` `` and
+`` `[data-mark]` `` all stay literal — the grammar is deliberately narrow,
+because `[` also opens a CSS attribute selector, an array index, and a
+citation. `` `[X]` `` in particular is not a cross: GitHub-flavored markdown
+reads it as a checked box.
 
 ### Use brackets for a mark, braces for a pill
 
 Because braces make a pill, `` `{x}` `` would otherwise draw a capsule holding
-the letter `x`. The four markers are **reserved** inside braces: they render
-literal, and `lint:deck` points you at the bracket form.
+the letter `x`. The four markers that read as a checkbox — `x`, `-`, a space and
+`/` — are **reserved** inside braces: they render literal, and `lint:deck` points
+you at the bracket form. `` `{!}` `` and `` `{?}` `` stay pills (an alert
+diamond, a help circle).
 
 ## The metadata pill (trailing inline code)
 

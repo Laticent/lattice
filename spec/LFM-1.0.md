@@ -119,20 +119,28 @@ ordered form:
 
 ### 3.2 State markers
 
-A single-character marker at the start of a list item encodes a status. The
-grammar is **shared** across `checklist`, `verdict-grid`, `obligation-matrix`,
-`roadmap`, and `pricing`:
+A single-character marker at the start of a list item (or alone in a table cell,
+or inside single-backtick inline code) encodes an answer. The grammar is
+**shared** across `checklist`, `verdict-grid`, `obligation-matrix`, `roadmap`,
+`pricing`, `state-cells` tables and inline marks, and each marker MUST carry the
+same answer in every one of them. A component MAY name an answer in its own
+words (a roadmap's *missed* for `[!]`); it MUST NOT change the answer.
 
-| Marker | Semantic | Notes |
+| Marker | Answer | Notes |
 |---|---|---|
-| `[x]` | pass / done / met | GFM task-list syntax. |
-| `[ ]` | neutral *or* not-met | Context-dependent: *todo/planned/exempt* in checklist/roadmap/obligation-matrix; *not-met* in verdict-grid. GFM task-list syntax. |
-| `[-]` | partial / warn | **Not GFM syntax** (see §5.1). |
-| `[/]` | skip / out-of-scope | **Not GFM syntax** (see §5.1). |
+| `[x]` | yes / done / met | GFM task-list syntax. |
+| `[-]` | partly / in progress | **Not GFM syntax** (see §5.1). |
+| `[!]` | no / failed / not met | **Not GFM syntax** (see §5.1). |
+| `[?]` | unknown — looked at, cannot be settled | **Not GFM syntax** (see §5.1). |
+| `[ ]` | open — not started, not assessed | GFM task-list syntax. |
+| `[/]` | does not apply / out of scope | **Not GFM syntax** (see §5.1). |
+
+`[X]` (capital) is **not** a marker. GFM reads it as a *checked* box, the
+opposite of what a cross suggests, so LFM leaves it literal.
 
 - **`[x]` / `[ ]` degrade to:** real checkboxes in any GFM host. **L0-clean.**
-- **`[-]` / `[/]` degrade to:** literal text (`[-] …`). Readable but not a
-  checkbox — LFM 1.0's only non-GFM-clean construct (§5.1).
+- **`[-]` / `[!]` / `[?]` / `[/]` degrade to:** literal text (`[-] …`). Readable
+  but not a checkbox — LFM 1.0's only non-GFM-clean construct (§5.1).
 
 ### 3.3 Fenced sub-languages (charts, diagrams & motion)
 
@@ -257,10 +265,11 @@ shows. If a construct cannot degrade readably, it is rejected or redesigned.
 
 ### 5.1 Known non-GFM-clean constructs
 
-LFM 1.0 has exactly one: the **`[-]` and `[/]` state markers** (§3.2). GFM
-task-list syntax covers only `[x]` and `[ ]`, so `[-]`/`[/]` render as literal
-text in a vanilla GFM host. They are retained because the four-state grammar is
-load-bearing across five components and the literal-text fallback is readable.
+LFM 1.0 has exactly one: the **`[-]`, `[!]`, `[?]` and `[/]` state markers**
+(§3.2). GFM task-list syntax covers only `[x]` and `[ ]`, so the other four
+render as literal text in a vanilla GFM host. They are retained because the
+six-answer grammar is load-bearing across every stateful component and the
+literal-text fallback is readable.
 A future LFM version MAY introduce GFM-clean aliases. Until then, this is a
 documented exception, not a conformance failure.
 
@@ -355,7 +364,7 @@ LFM 1.0 deliberately does **not**:
 - **Define a parser or a formal grammar (ABNF/EBNF) for the prose layer.** LFM
   rides CommonMark; the parser is CommonMark's. `grammar.json` is a structural
   projection (selectors + skeletons), not a parser grammar.
-- **Re-encode the `[-]` / `[/]` state markers** into GFM-clean glyphs (§5.1).
+- **Re-encode the `[-]` / `[!]` / `[?]` / `[/]` state markers** into GFM-clean glyphs (§5.1).
   The current glyphs are documented, not changed, in 1.0.
 - **Open a registration path** for out-of-tree components, modifiers, or fences
   (§10).
@@ -384,6 +393,7 @@ LFM 1.0 deliberately does **not**:
 |---|---|---|
 | 1.0-draft | 2026-06-13 | Initial draft. Formalises the existing extension set, conformance levels, degradation table, and the companion diagnostic protocol. |
 | 1.0-draft | 2026-09-24 | §3.3 registers the `anima` fence (JSON body, read by `scene`). The engine already rendered it; the table and `grammar.json` now say so. Additive — a new extension with its degradation row (§7). |
+| 1.0-draft | 2026-09-24 | §3.2 state markers: six answers, one meaning each in every component. Adds `[!]` (no) and `[?]` (unknown); `[ ]` is "open" everywhere, where verdict-grid used to read it as "not met". §5.1 lists the new non-GFM markers. A breaking change to a normative meaning, landed in the pre-ratification draft per §7; the engine's changelog carries the `Breaking:` line. Record: `engineering/decisions/2026-09-24-six-state-marks.md`. |
 
 ## Appendix A — A worked example (informative)
 

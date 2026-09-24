@@ -2058,3 +2058,256 @@ describe('label-set-above-body — coaching, never refusal', () => {
     }
   });
 });
+
+describe('lint-core: an empty box whose meaning moved (rule 16, six state marks)', () => {
+  const moved = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'moved-empty-box');
+  const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+
+  test('verdict-grid: `[ ]` is now "not assessed", and the fix names `[!]`', () => {
+    const found = moved(slide('verdict-grid', '- Vendor\n  - [x] Speed\n  - [ ] Audit\n  - [ ] Cost\n  - Why.'));
+    assert.equal(found.length, 1, 'one finding per slide, not per box');
+    assert.equal(found[0].severity, 'info', 'a legitimate answer is never a warning');
+    assert.match(found[0].message, /not assessed/);
+    assert.match(found[0].message, /2 on this slide/);
+    assert.match(found[0].fix, /`\[!\]`/);
+  });
+
+  test('obligation-matrix: `[ ]` is now "undetermined", and the fix names `[/]`', () => {
+    const found = moved(slide('obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [ ] |'));
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /undetermined/);
+    assert.match(found[0].fix, /`\[\/\]`/);
+  });
+
+  test('says nothing where `[ ]` always meant open, or where the author already migrated', () => {
+    assert.equal(moved(slide('checklist', '- [ ] Todo')).length, 0);
+    assert.equal(moved(slide('verdict-grid', '- Vendor\n  - [!] Audit\n  - Why.')).length, 0);
+    assert.equal(moved(slide('obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [/] |')).length, 0);
+    // A verdict-grid CARD line (depth 1) is not a criterion.
+    assert.equal(moved(slide('verdict-grid', '- [ ] Vendor\n  - [x] Audit')).length, 0);
+  });
+
+  test('a label set that names `[ ]` on the slide answers the question — no finding', () => {
+    const body = '`[{[x], High exposure}, {[ ], Controlled}]`\n\n| Req | A |\n| --- | :-: |\n| Audit | [ ] |';
+    assert.equal(moved(slide('obligation-matrix', body)).length, 0);
+  });
+
+  test('a fenced example on the slide is quoted material, not a criterion', () => {
+    assert.equal(moved(slide('verdict-grid', '```markdown\n- Vendor\n  - [ ] Audit\n```')).length, 0);
+  });
+  test('pricing: `[ ]` is now "coming", and the fix offers `[!]` or `[/]`', () => {
+    const found = moved(slide('pricing', '- Starter `$0`\n  - [x] Seats\n  - [ ] Audit log\n  - For one team.'));
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /"coming"/);
+    assert.match(found[0].message, /"missing"/);
+    assert.match(found[0].fix, /`\[!\]`/);
+    assert.match(found[0].fix, /`\[\/\]`/);
+  });
+
+  test('the class counts anywhere in the list, as the engine decodes it', () => {
+    assert.equal(moved(slide('dark verdict-grid', '- Vendor\n  - [ ] Audit')).length, 1);
+    assert.equal(moved(slide('heat obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |')).length, 1);
+  });
+
+  test('a slide already using `[!]` or `[?]` was written for the six markers — its `[ ]` is meant', () => {
+    assert.equal(moved(slide('verdict-grid', '- Vendor\n  - [!] Audit\n  - [ ] Cost\n  - Why.')).length, 0);
+    assert.equal(moved(slide('pricing', '- Pro\n  - [?] SSO\n  - [ ] Audit\n  - Why.')).length, 0);
+  });
+
+  test('an HTML comment on the slide is not a criterion', () => {
+    assert.equal(moved(slide('verdict-grid', '<!--\n- Vendor\n  - [ ] Audit\n-->\n- Vendor\n  - [x] A')).length, 0);
+  });
+
+  test('findings carry shapeChange, which the render path prints as a warning', () => {
+    const [f] = moved(slide('obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |'));
+    assert.equal(f.shapeChange, true);
+    assert.equal(f.autofixable, undefined, 'obligation-matrix has no safe rewrite: exempt, "not required" or open');
+    assert.deepEqual(core.findMovedEmptyBoxes(slide('verdict-grid', '- V\n  - [ ] A')).map((x) => x.rule), ['moved-empty-box']);
+  });
+});
+
+describe('lint-core: `--fix` migrates a moved empty box, and only where the meaning moved', () => {
+  const fixed = (src) => core.applyAllFixes(src, vocab);
+  const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+
+  test('rewrites EVERY `[ ]` on a verdict-grid slide, not just the first', () => {
+    // The first `[!]` makes the slide read as six-marker and silences the rule, so a
+    // line-at-a-time fix would stop after one line and leave the slide half-migrated.
+    const out = fixed(FM + slide('verdict-grid', '- Vendor\n  - [x] Speed\n  - [ ] Audit\n  - [ ] Cost\n  - Why.'));
+    assert.match(out, / {2}- \[!\] Audit\n {2}- \[!\] Cost/);
+    assert.match(out, / {2}- \[x\] Speed/);
+  });
+
+  test('rewrites pricing, and leaves a checklist on the same deck alone', () => {
+    const src = FM + slide('pricing', '- Pro\n  - [ ] Audit\n  - Why.') + '\n---\n\n' + slide('checklist', '- [ ] Todo');
+    const out = fixed(src);
+    assert.match(out, / {2}- \[!\] Audit/);
+    assert.match(out, /- \[ \] Todo/);
+  });
+
+  test('never rewrites a fenced example on the same slide', () => {
+    const out = fixed(FM + slide('verdict-grid', '```markdown\n- V\n  - [ ] Quoted\n```\n\n- Vendor\n  - [ ] Audit'));
+    assert.match(out, / {2}- \[ \] Quoted/);
+    assert.match(out, / {2}- \[!\] Audit/);
+  });
+
+  test('never rewrites inside a multi-line HTML comment, but does beside a one-line one', () => {
+    const out = fixed(FM + slide('verdict-grid', '<!--\n- V\n  - [ ] Hidden\n-->\n- Vendor\n  - [ ] Audit <!-- note -->'));
+    assert.match(out, / {2}- \[ \] Hidden/);
+    assert.match(out, / {2}- \[!\] Audit <!-- note -->/);
+  });
+
+  // `split: headings` is the DEFAULT, so one `---` chunk routinely holds several rendered
+  // slides. The rewrite must touch only the slide the finding judged.
+  const SPLIT_DECK = (fm) => `---\n${fm}---\n\n<!-- _class: verdict-grid -->\n\n# Vendors\n\n`
+    + '- Acme\n  - [x] SOC 2\n  - [ ] ISO\n  - Why.\n\n'
+    + '<!-- _class: checklist -->\n\n## Launch checklist\n\n- Tasks\n  - [ ] book venue\n';
+
+  test('the default split (no `split:` key) rewrites the verdict-grid slide and not the checklist beside it', () => {
+    // The checker's failing input: before, `--fix` rewrote BOTH `[ ]`.
+    const out = fixed(SPLIT_DECK('marp: true\n'));
+    assert.match(out, / {2}- \[!\] ISO/);
+    assert.match(out, / {2}- \[ \] book venue/, 'the checklist on the next rendered slide keeps its open box');
+  });
+
+  test('`split: headings` spelled out behaves the same, and so does a quoted value', () => {
+    for (const fm of ['split: headings\n', 'split: "headings"\n']) {
+      const out = fixed(SPLIT_DECK(fm));
+      assert.match(out, / {2}- \[!\] ISO/);
+      assert.match(out, / {2}- \[ \] book venue/);
+    }
+  });
+
+  test('under `split: rule` the chunk is ONE slide, and its governing class decides', () => {
+    // No heading split, so the directive scanner's winner governs the whole slide — here
+    // the later `_class: checklist`. That slide never renders as a verdict-grid, so the
+    // rule says nothing and rewrites nothing.
+    const src = SPLIT_DECK('split: rule\n');
+    assert.equal(core.findMovedEmptyBoxes(src).length, 0);
+    assert.equal(fixed(src), src);
+  });
+
+  test('slide numbers count RENDERED slides under heading splits', () => {
+    const deck = '---\nmarp: true\n---\n\n# Intro\n\nHello.\n\n<!-- _class: verdict-grid -->\n\n## Vendors\n\n- Acme\n  - [ ] ISO\n  - Why.\n';
+    const [f] = core.findMovedEmptyBoxes(deck);
+    assert.equal(f.slide, 2, 'the verdict-grid is the second rendered slide, though it shares a chunk with the first');
+  });
+
+  test('a comment that closes and reopens on one line keeps the next line hidden', () => {
+    const src = FM + slide('verdict-grid', '- Vendor\n  - [ ] Audit\n<!-- note\nold --> x <!-- again\n  - [ ] commented\n-->');
+    const out = fixed(src);
+    assert.match(out, / {2}- \[!\] Audit/);
+    assert.match(out, / {2}- \[ \] commented/, 'text inside the reopened comment is never rewritten');
+  });
+
+  test('a criterion AFTER a comment closes on the same line is live and rewritten', () => {
+    const src = FM + slide('verdict-grid', '- Vendor\n<!-- a\nb --> x\n  - [ ] tail');
+    assert.match(fixed(src), / {2}- \[!\] tail/);
+  });
+
+  test('never touches obligation-matrix: its `[ ]` has three honest readings', () => {
+    const src = FM + slide('obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |');
+    assert.equal(fixed(src), src);
+  });
+
+  test('the CLI `--fix` writes the file and reports it', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+    const file = path.join(dir, 'deck.md');
+    fs.writeFileSync(file, FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.'));
+    const r = spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+    assert.match(r.stderr, /lint:deck --fix — rewrote/);
+    assert.match(r.stderr, /slide 1 · moved-empty-box/, 'each applied fix is named');
+    assert.match(fs.readFileSync(file, 'utf8'), / {2}- \[!\] B/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('the CLI `--fix` keeps every line\'s own ending — lone CR and a mixed file too', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const body = FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.');
+    const cases = {
+      cr: body.replace(/\n/g, '\r'),
+      mixed: body.split('\n').map((l, i, a) => l + (i === a.length - 1 ? '' : i % 2 ? '\r\n' : '\n')).join(''),
+    };
+    for (const [name, src] of Object.entries(cases)) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+      const file = path.join(dir, 'deck.md');
+      fs.writeFileSync(file, src);
+      spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+      const out = fs.readFileSync(file, 'utf8');
+      const changed = [...out].filter((ch, i) => ch !== src[i]).length;
+      assert.equal(out.length, src.length, `${name}: no line ending rewritten`);
+      assert.equal(changed, 1, `${name}: the fix is the one character inside \`[ ]\``);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('the CLI `--fix` keeps the file\'s BOM and CRLF line endings', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+    const file = path.join(dir, 'deck.md');
+    const body = FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.');
+    fs.writeFileSync(file, `\uFEFF${body.replace(/\n/g, '\r\n')}`);
+    spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+    const out = fs.readFileSync(file, 'utf8');
+    assert.ok(out.startsWith('\uFEFF'), 'the BOM survives');
+    assert.ok(!/[^\r]\n/.test(out), 'every line still ends in CRLF');
+    assert.match(out, / {2}- \[!\] B\r\n/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('lint-core: typed crosses point at `[!]`, not the open box', () => {
+  test('a typed ✗ in a state-cells table is coached toward `[!]` and the six markers', () => {
+    const src = `${FM}<!-- _class: table state-cells -->\n\n## H\n\n| A | B |\n| --- | --- |\n| x | ✗ |\n`;
+    const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'typed-shape-glyph');
+    assert.ok(f);
+    assert.match(f.fix, /`\[!\]` no/);
+    assert.doesNotMatch(f.fix, /`\[ \]` not met/);
+  });
+});
+
+describe('lint-core: its heading-split mirror agrees with the engine', () => {
+  // lint-core does not parse markdown, so `headingSubSlides` mirrors
+  // lib/core/heading-split-core.js on lines. This pins the two together on every committed
+  // deck: the rendered slide count from the mirror must equal the count of the engine's
+  // own baked split. Measured 334 of 334 when the mirror landed.
+  test('every committed deck counts the same rendered slides both ways', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const { execSync } = require('node:child_process');
+    const { bakeSplits } = require('../../../lib/core/bake-splits');
+    const { splitTopLevel } = require('../../../lib/authoring/slide-split');
+    const ROOT = path.resolve(__dirname, '../../..');
+    const fmCount = (src) => (/^---\n[\s\S]*?\n---\n/.test(src) ? 2 : 0);
+    const decks = execSync("git ls-files '*.md'", { cwd: ROOT, encoding: 'utf8' }).split('\n')
+      .filter((f) => /^(examples|exemplars|kit|test\/integration\/baseline-decks|lib\/components)\//.test(f)
+        && !/\.docs\.md$|README/.test(f));
+    const off = [];
+    let checked = 0;
+    for (const f of decks) {
+      let src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      if (!/^\uFEFF?---\r?\n/.test(src)) continue;
+      src = src.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+      const fm = fmCount(src);
+      const headings = core.splitsOnHeadings(src);
+      let mine = 0;
+      splitTopLevel(src).forEach((chunk, i) => { if (i >= fm) mine += headings ? core.headingSubSlides(chunk).length : 1; });
+      const baked = bakeSplits(src);
+      const theirs = splitTopLevel(baked).length - fmCount(baked);
+      checked++;
+      if (mine !== theirs) off.push(`${f}: mirror ${mine}, engine ${theirs}`);
+    }
+    assert.ok(checked > 100, `expected the committed corpus, found ${checked} decks`);
+    assert.deepEqual(off, []);
+  });
+});

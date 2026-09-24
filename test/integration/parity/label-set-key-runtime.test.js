@@ -36,7 +36,7 @@ const CSS = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
 const cell = (sem, shape) => `<td><span class="state ${sem} ${shape}"></span></td>`;
 const FULL = cell('pass', 'state-full');     // [x]
 const HALF = cell('warn', 'state-half');     // [-]
-const TODO = cell('todo', 'state-todo');     // [ ]
+const SLASH = cell('skip', 'state-slashed'); // [/] exempt — `[ ]` is "undetermined" since the six-marker grammar
 
 const section = (cells, extra = '') => '<section id="1" class="obligation-matrix">'
   + '<h2>Duties</h2>' + extra
@@ -86,7 +86,7 @@ describe('label-set key — applyToDom on the real runtime', () => {
     // The regression arm. Before the fix this threw
     // "Cannot read properties of null (reading 'createElement')" and no key was
     // built at all — on every live preview, with the whole jsdom suite green.
-    const out = await onRuntime(section(FULL + HALF + TODO), (p) => p.evaluate(readKey));
+    const out = await onRuntime(section(FULL + HALF + SLASH), (p) => p.evaluate(readKey));
     assert.equal(out.count, 1, 'exactly one key on the real surface');
     assert.deepEqual(out.labels, ['Applies', 'Partial', 'Exempt']);
   });
@@ -103,7 +103,7 @@ describe('label-set key — applyToDom on the real runtime', () => {
   });
 
   test('an authored label set is read and its paragraph consumed', async () => {
-    const body = section(FULL + HALF + TODO, '<p><code>[{[x], In force}]</code></p>');
+    const body = section(FULL + HALF + SLASH, '<p><code>[{[x], In force}]</code></p>');
     const out = await onRuntime(body, (p) => p.evaluate(readKey));
     assert.deepEqual(out.labels, ['In force', 'Partial', 'Exempt'],
       'the authored key renames one member and leaves the rest');

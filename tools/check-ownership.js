@@ -106,7 +106,15 @@ function readdirOrNull(p) {
 // check-lint-coverage.js documents and relies on. This only stops a gate from describing
 // a file that is being deleted as it reads it.
 const { PROBE_PREFIX: LINT_PROBE_PREFIX } = require('./check-lint-coverage.js');
-const isTransientProbe = (name) => name.startsWith(LINT_PROBE_PREFIX);
+// The same race has a second writer: the gallery builders render a dark-injected copy
+// beside each deck as `*.gallery.<theme>.tmp.md` (build-galleries.js,
+// build-bucket-galleries.js, build-showcase-galleries.js, and the dark sweep's
+// `*.darksweep.tmp.md`) and delete it when the render ends. The pre-commit `pdf-rebuild`
+// job runs those builders IN PARALLEL with `affected-tests`, so a walk here listed the
+// file and then read it after it was gone (ENOENT in checkTypedGlyphs). Every such file
+// is gitignored and none is tracked, so nothing a gate should see ends `.tmp.md`.
+const TRANSIENT_RENDER_RE = /\.tmp\.md$/;
+const isTransientProbe = (name) => name.startsWith(LINT_PROBE_PREFIX) || TRANSIENT_RENDER_RE.test(name);
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');

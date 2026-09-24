@@ -22,9 +22,9 @@ center-aligned text, color left to carry the meaning.
 ## Badges share the pill's geometry, not its color.
 
 - **Build in-house.**
-  - [ ] Certified
+  - [!] Certified
   - [-] Residency
-  - [ ] Export
+  - [!] Export
   - Full control of every axis, and three engineer-quarters from having any of it.
 - **Vendor North.**
   - [x] Certified

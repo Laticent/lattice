@@ -54,6 +54,7 @@ const { isLiteralFromSource } = require(path.join(ROOT, 'lib/core/resolve-inline
  */
 const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/inline-pills.md', 'the demo deck for the pill and mark grammar (HARD RULE #9)'],
+  ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
 ]);
 
 /** The decks the `inline-code: literal` register turns the grammar off for. */

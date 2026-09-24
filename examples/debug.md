@@ -29,19 +29,19 @@ its label; `debug: on-always` pins the whole map on at once.
   - [x] Speed
   - [-] Auditability
   - [x] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - Strong call recording and summarization. No decision logging or calibration loop.
 - Tool B · Productboard
-  - [ ] Speed
+  - [!] Speed
   - [x] Auditability
   - [x] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - Solid intake and prioritization. Decision logging is manual and rarely used.
 - Tool C · Notion
   - [x] Speed
   - [x] Auditability
   - [-] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - Flexible enough to build the whole system — but the result is fragile to maintain.
 - Tool D · Sprig + Decision Log
   - [x] Speed

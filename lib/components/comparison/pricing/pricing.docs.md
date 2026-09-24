@@ -18,7 +18,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading — the choice the tiers resolve (‘Pick the plan that fits the team.’). |
 | `tiers` | `ul > li` | yes | One top-level li per tier. Lead with the plain tier name (auto-bold), then a trailing inline-code price (`$49 / mo`, `Custom`). Add a single-asterisk marker (`*Most popular*`) to elevate one tier — it renders as a ribbon. Then a nested list: one feature per line led by a state marker, and a final marker-less ‘who it's for’ line. |
-| `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker: `[x]` included (green check), `[/]` not included (muted, struck through), `[-]` limited (half). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
+| `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker, with the same meaning it has in every layout: `[x]` included (green check), `[-]` limited (dash), `[/]` not on this plan (muted, struck through), `[ ]` coming (open ring), `[?]` ask sales (question mark in a ring), `[!]` missing (red cross — for a competitor's column, not your own tiers). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
 
 ### Variant decision rule
 
@@ -43,7 +43,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 - **More than four tiers.** Five-plus columns shrink below readability and the price comparison collapses. Curate to the tiers that matter, or use `table` for a dense feature-by-plan matrix.
 - **Every tier marked popular.** Elevate exactly one tier. Two ribbons cancel out and the eye has nowhere to land — the whole point of the marker is a single recommendation.
 - **Features that drift between tiers.** If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `[x]` / `[/]`.
-- **A wall of red 'not included'.** Use `[/]` (muted, struck through) for an absent feature, not `[ ]` (alarming empty/fail). A pricing table sells what's included; it shouldn't read as a list of denials.
+- **An open ring for a feature the tier lacks.** Use `[/]` (muted, struck through) for a feature your own tier leaves out. `[ ]` is an open ring — it reads 'not yet', which promises the feature is coming — and `[!]` is the red cross, which reads as a failure. Save `[!]` for a competitor's column.
 
 ## Authoring
 

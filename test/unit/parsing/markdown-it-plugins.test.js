@@ -996,7 +996,7 @@ describe('markdown-it-plugins', () => {
 
   // ── verdictGridBadges ──────────────────────────────────────────────────
 
-  test('verdictGridBadges: [x] / [-] / [ ] / [/] markers become badge spans with shape classes', () => {
+  test('verdictGridBadges: all six markers become badge spans with shape classes', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = [
       '<!-- _class: verdict-grid -->',
@@ -1005,7 +1005,9 @@ describe('markdown-it-plugins', () => {
       '- Card',
       '  - [x] Pass item',
       '  - [-] Warn item',
-      '  - [ ] Fail item',
+      '  - [!] Fail item',
+      '  - [?] Unknown item',
+      '  - [ ] Open item',
       '  - [/] Skip item',
       '  - body line passes through untouched',
     ].join('\n');
@@ -1013,10 +1015,59 @@ describe('markdown-it-plugins', () => {
     assert.match(html, /<span class="badge pass state-full">Pass item<\/span>/);
     assert.match(html, /<span class="badge warn state-half">Warn item<\/span>/);
     assert.match(html, /<span class="badge fail state-empty">Fail item<\/span>/);
+    assert.match(html, /<span class="badge unknown state-unknown">Unknown item<\/span>/);
+    // `[ ]` is the open ring in verdict-grid as everywhere: "not assessed", not "not met".
+    assert.match(html, /<span class="badge todo state-todo">Open item<\/span>/);
     assert.match(html, /<span class="badge skip state-slashed">Skip item<\/span>/);
     // The body line (no marker) should NOT be wrapped in a badge.
     assert.match(html, /body line passes through untouched/);
     assert.doesNotMatch(html, /<span class="badge[^"]*">body line/);
+  });
+
+  test('verdictGridBadges: pricing reads [ ] as the open ring, like every layout', () => {
+    // Pricing used to borrow verdict-grid's old "not met" reading of `[ ]`, so an
+    // unchecked feature row drew a red ✕ under a legend showing the ring. `[ ]` is the
+    // open ring on a pricing card as in a checklist, a `state-cells` cell or an inline mark.
+    const m = makeHost(plugins.verdictGridBadges);
+    const md = [
+      '<!-- _class: pricing -->',
+      '## Plans',
+      '',
+      '- Starter `$0`',
+      '  - [x] Included',
+      '  - [ ] Unchecked',
+      '  - [/] Not included',
+      '  - For one team.',
+    ].join('\n');
+    const { html } = m.render(md);
+    assert.match(html, /<span class="badge pass state-full">Included<\/span>/);
+    assert.match(html, /<span class="badge todo state-todo">Unchecked<\/span>/);
+    assert.match(html, /<span class="badge skip state-slashed">Not included<\/span>/);
+    assert.doesNotMatch(html, /state-empty/);
+  });
+
+  test('badge and cell labels land as text, never as markup', () => {
+    // The label reaches an html_inline token after markdown-it has DECODED it, so a
+    // typed `&lt;b&gt;` is `<b>` by then. Unescaped, the engine emitted a live element
+    // while the runtime mirror (which writes textContent) showed the literal text.
+    const badge = makeHost(plugins.verdictGridBadges).render([
+      '<!-- _class: verdict-grid -->', '', '- Card', '  - [!] A &lt;b&gt;x&lt;/b&gt; &amp; B',
+    ].join('\n')).html;
+    assert.match(badge, /<span class="badge fail state-empty">A &lt;b&gt;x&lt;\/b&gt; &amp; B<\/span>/);
+    const cell = makeHost(plugins.obligationMatrixBadges).render([
+      '<!-- _class: table state-cells -->', '', '| A | B |', '| - | - |', '| x | [?] &lt;i&gt; |',
+    ].join('\n')).html;
+    assert.match(cell, /<span class="state unknown state-unknown">&lt;i&gt;<\/span>/);
+  });
+
+  test('inline HTML in a label keeps its text and drops its tag, as the runtime\'s textContent does', () => {
+    const badge = makeHost(plugins.verdictGridBadges).render(
+      '<!-- _class: verdict-grid -->\n\n- Card\n  - [x] <em>x</em> crit').html;
+    assert.match(badge, /<span class="badge pass state-full">x crit<\/span>/);
+    assert.doesNotMatch(badge, /&lt;em&gt;/, 'a tag must never print as literal text');
+    const cell = makeHost(plugins.obligationMatrixBadges).render(
+      '<!-- _class: table state-cells -->\n\n| A | B |\n| - | - |\n| x | [x] <b>y</b> |').html;
+    assert.match(cell, /<span class="state pass state-full">y<\/span>/);
   });
 
   test('verdictGridBadges: does NOT fire on slides without the verdict-grid class', () => {

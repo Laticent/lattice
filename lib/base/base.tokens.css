@@ -1021,20 +1021,23 @@
   --state-slash: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='14' x2='14' y2='2' stroke='black' stroke-opacity='0.55' stroke-width='3.5' stroke-linecap='round'/></svg>");
 
   /* ── Universal state-token MARKS — circle + distinct in-disc symbol ───
-   * The redesigned checkbox grammar for [x]/[-]/[ ]/[/]. Every state is
-   * the SAME colored disc treatment carrying a DISTINCT mark, so the
-   * SHAPE channel carries the meaning independently of color — the
-   * color-blind-safe redundant encoding the old fill-level discs
-   * (full/half/empty) lacked:
+   * The six-marker checkbox grammar (lib/core/state-marks.js). Every
+   * state carries a DISTINCT mark, so the SHAPE channel carries the
+   * meaning independently of color — the color-blind-safe redundant
+   * encoding the old fill-level discs (full/half/empty) lacked. FILL says
+   * whether the answer is settled: findings are solid discs, the two
+   * unsettled answers are hollow rings.
    *
-   *   [x] done         → check  on --pass        (green)
-   *   [-] partial      → dash   on --warn        (amber)
-   *   [ ] is OVERLOADED, so the decoder picks per layout:
-   *       · neutral "todo / pending" (checklist todo, obligation exempt,
-   *         roadmap planned) → a hollow --state-color RING on a NEUTRAL disc
-   *         (empty center; no mask — see `.state.todo` in base.modifiers.css)
-   *       · "not met" (verdict-grid)                     → x    on --fail (red)
-   *   [/] out of scope → slash  on --text-muted  (gray, row struck through)
+   *   [x] yes             → check on --pass        (green, solid)
+   *   [-] partly          → dash  on --warn        (amber, solid)
+   *   [!] no              → x     on --fail        (red, solid)
+   *   [?] unknown         → ?     in a hollow ring (--muted-mark)
+   *   [ ] open / not yet  → nothing in a hollow ring (--muted-mark;
+   *                         no mask — see `.state.todo` in base.modifiers.css)
+   *   [/] does not apply  → slash on --muted-mark  (gray, row struck through)
+   *
+   * One meaning per marker in every layout; engineering/decisions/
+   * 2026-09-24-six-state-marks.md.
    *
    * Each mark is a CSS mask (opaque path on transparent ground); the
    * consumer paints it in a `background-color` revealed through the mask,
@@ -1048,13 +1051,18 @@
    * Shape→mark mapping and the disc recipe live with the universal
    * state-token block in base.modifiers.css; consumers read these tokens.
    *
-   * No transform/runtime/emulator change: the marker decoder still emits
-   * `state {pass|warn|fail|skip} {state-full|state-half|state-empty|state-slashed}`;
-   * only what those classes PAINT changed, so all three render paths agree. */
+   * The decoder emits `state {pass|warn|fail|unknown|todo|skip}
+   * {state-full|state-half|state-empty|state-unknown|state-todo|state-slashed}`,
+   * the same classes on every render path. */
   --mark-check: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 12.6l4 4 8-9' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   --mark-dash:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 12h10' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'/></svg>");
   --mark-x:     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 8l8 8M16 8l-8 8' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'/></svg>");
   --mark-slash: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 16L16 8' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'/></svg>");
+  /* `[?]` unknown: a DRAWN question mark (HARD RULE #29 — never a typed `?`, whose
+   * glyph would come from the deck's type family at the text's weight and baseline).
+   * Same 24-unit box and stroke weight as its siblings; the dot is a zero-length
+   * round-capped segment so it scales with the stroke. */
+  --mark-question: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9.4 9.3a2.7 2.7 0 1 1 3.9 2.4c-.9.45-1.3 1.05-1.3 2v.5M12 17.4v.1' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   /* No --mark-todo: the neutral `[ ]` (todo / pending) does NOT use a masked
    * mark — it renders as a TRUE hollow ring (empty disc + an edge ring) so the
    * center stays empty and reads "not started", instead of the "selected"
@@ -1066,6 +1074,7 @@
   --mark-dash-bold:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 12h10' fill='none' stroke='black' stroke-width='3.8' stroke-linecap='round'/></svg>");
   --mark-x-bold:     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 8l8 8M16 8l-8 8' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round'/></svg>");
   --mark-slash-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 16L16 8' fill='none' stroke='black' stroke-width='3.8' stroke-linecap='round'/></svg>");
+  --mark-question-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9.4 9.3a2.7 2.7 0 1 1 3.9 2.4c-.9.45-1.3 1.05-1.3 2v.5M12 17.4v.1' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
   /* ── ICON masks — the CHROME set (HARD RULE #29) ──────────────────────
    * Same idiom as --mark-* above, different job. A --mark-* is a STATUS

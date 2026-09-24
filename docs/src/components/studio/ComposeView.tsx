@@ -19,6 +19,7 @@ import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { MARKER_CLASS, stateClassesFor } from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
 import { getFrontMatter } from './front-matter';
 import { TableControls } from './table-controls';
@@ -300,13 +301,14 @@ export function collapsePlugin() {
 	});
 }
 
-// View-only badge chips for the four LFM state markers at the START of a table cell — the
-// signature obligation-matrix / roadmap grammar. The underlying text stays the literal
-// `[x]`/`[-]`/`[ ]`/`[/]` (so the round-trip is untouched and the marker is still editable); an
-// inline decoration just tints it to the engine's stoplight semantics. Recomputed from the doc
-// each update (tables are small), the same view-only pattern as the collapse decoration.
-const CELL_MARKER_RE = /^\[([x\-/ ])\]/;
-const MARKER_STATE: Record<string, string> = { x: 'pass', '-': 'warn', '/': 'skip', ' ': 'todo' };
+// View-only badge chips for the six LFM state markers at the START of a table cell — the
+// signature obligation-matrix / roadmap grammar. The underlying text stays the literal marker
+// (so the round-trip is untouched and the marker is still editable); an inline decoration just
+// tints it to the engine's semantics. The marker class and each marker's meaning come from the
+// engine's own kernel (lib/core/state-marks.js), so the editor cannot drift from the render.
+// Recomputed from the doc each update (tables are small), the same view-only pattern as the
+// collapse decoration.
+const CELL_MARKER_RE = new RegExp(`^\\[(${MARKER_CLASS})\\]`);
 
 // The PIPE-TABLE components whose BODY cells carry LFM state markers the engine paints as stoplight
 // chips (`obligationMatrixBadges` / roadmap gate on `<td>`, spec LFM-1.0 §3.2). The other stateful
@@ -344,7 +346,7 @@ function stateMarkerPlugin() {
 					const m = CELL_MARKER_RE.exec(first.text ?? '');
 					if (m) {
 						const from = pos + 1; // inline content starts just inside the cell
-						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${MARKER_STATE[m[1]]}` }));
+						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${stateClassesFor(m[1])?.sem}` }));
 					}
 					return true; // a cell can hold nested inline, but the marker is only ever at its start
 				});
@@ -2160,6 +2162,8 @@ function ComposeStyles() {
 				.cs-host .cs-cellmark-warn{color:var(--warn,#b7791f);background:color-mix(in oklab,var(--warn,#b7791f),transparent 86%)}
 				.cs-host .cs-cellmark-skip{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--text-muted,#6b7f9a),transparent 88%);text-decoration:line-through}
 				.cs-host .cs-cellmark-todo{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--border,#e4eaf2),transparent 40%)}
+				.cs-host .cs-cellmark-fail{color:var(--fail);background:color-mix(in oklab,var(--fail),transparent 88%)}
+				.cs-host .cs-cellmark-unknown{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--border,#e4eaf2),transparent 40%);text-decoration:underline dotted}
 				/* the React TableControls island, mounted into the divider bar's Format-group slot: quick
 				   insert-row/column buttons + a table-icon trigger for the shadcn dropdown (menu itself is
 				   styled by shadcn/Tailwind, portaled by Radix). Buttons match the pill's icon buttons. */
@@ -2176,7 +2180,15 @@ function ComposeStyles() {
 				.cs-tblc-mark:hover{background:color-mix(in oklab,currentColor,transparent 86%)}
 				.cs-mk-pass{color:var(--pass)}
 				.cs-mk-warn{color:var(--warn,#b7791f)}
-				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
+				.cs-mk-fail{color:var(--fail)}
+				.cs-mk-todo,.cs-mk-skip,.cs-mk-unknown{color:var(--text-muted,#6b7f9a)}
+				/* Six marker buttons make the pill wider than a narrow pane's slide bar can hold
+				   without covering the Collapse and Delete caps at its ends (measured at 390px:
+				   the pill ran 34..356 over caps at 28..56 and 334..362). Below this pane width the
+				   picker moves into the table menu, which holds all six — the same move the quick
+				   insert buttons make on mobile. A container query, not a viewport one: the Compose
+				   pane is what narrows, and it is narrow at tablet width too. */
+				@container (max-width:460px){.cs-tblc-marks{display:none}}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 				.cs-caret-in-table .cs-insert-table{display:none}
 				/* A layout whose grammar has no place for a table gets no table door. Hidden rather
