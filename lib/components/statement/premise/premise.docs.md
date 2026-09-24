@@ -24,8 +24,9 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 
 ### Common mistakes
 
-- **Writing the row as a nested `- Title` / `  - body` pair instead of one inline line.** `premise` rows are ONE line with four inline segments (code, bold, plain text, italic) — the nested title+body pattern other card-style layouts use doesn't apply here; the row parser looks for a `<strong>…</strong>` immediately followed by descriptive text and a trailing `<em>`.
-- **Omitting the trailing italic note, expecting the row to still align.** The note's column is reserved whether or not it's authored — an empty note leaves a blank cell rather than collapsing the row, so pad it or the row reads unfinished.
+- **Writing the row inline — `1. **Term** — clause, *question?*` — instead of the term with two nested bullets.** Each row is a numbered item whose own line is the term, followed by exactly two nested bullets: the description clause, then the framing question. The term bolds itself and the number is generated, so type neither.
+- **Omitting the framing question, expecting the row to still read as a peer of its siblings.** Without a question, the description simply takes the row's width, so nothing misaligns — but the row reads unfinished next to rows that ask one. Give every row its question.
+- **Long terms and long clauses on the same row.** The term column sizes itself to the LONGEST term on the slide and the claim rail narrows (34% down to 26%) to make room, so a two-word term like `Stakeholder management` fits. When a row's description and question no longer share one line, the question drops under the description instead of either being cut. Past that, only a term wider than 40% of the ledger, or a clause wider than its whole column, still ends in an ellipsis — keep terms to one or two words and the clause to one short sentence.
 
 ### Data shape
 
