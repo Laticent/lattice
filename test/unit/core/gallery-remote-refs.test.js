@@ -57,7 +57,12 @@ const FETCHES = {
   'a mermaid label spelled with Mermaid\'s numeric codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#58;#47;#47;evil.test/l.png\'>"]\n```\n',
   'a mermaid label spelled with named codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#colon;#sol;#sol;evil.test/l.png\'>"]\n```\n',
   'a mermaid label spelled with HTML entities': '```mermaid\nflowchart LR\n  A["<img src=\'https&#58;&#x2f;&#x2F;evil.test/l.png\'>"]\n```\n',
-  'a mermaid fence inside an HTML block (the CLI still draws it)': '<div>\n\n```mermaid\nflowchart LR\n  A@{ img: "https://evil.test/divimg.png", w: 50, h: 50 } --> B\n```\n\n</div>',
+  // TIGHT, so the page renders the fence as HTML-block text: only the source-fence scan sees it.
+  'a mermaid fence inside an HTML block (the CLI still draws it)': '<div>\n```mermaid\nflowchart LR\n  A@{ img: "https://evil.test/divimg.png", w: 50, h: 50 } --> B\n```\n</div>',
+  'the same, with CRLF line endings': '<div>\r\n```mermaid\r\nflowchart LR\r\n  A@{ img: "https://evil.test/crlf.png", w: 50, h: 50 } --> B\r\n```\r\n</div>\r\n',
+  'the same, with lone-CR line endings': '<div>\r```mermaid\rflowchart LR\r  A@{ img: "https://evil.test/cr.png", w: 50, h: 50 } --> B\r```\r</div>\r',
+  'a tab inside a slashless scheme in a mermaid label': '```mermaid\nflowchart LR\n  A["<img src=\'ht\ttp:evil.test/tab.png\'>"]\n```\n',
+  'Mermaid\'s own #9; inside a slashless scheme': '```mermaid\nflowchart LR\n  A["<img src=\'ht#9;tp:evil.test/tab9.png\'>"]\n```\n',
   'a mermaid image with a slashless URL': '```mermaid\nflowchart LR\n  A@{ img: http:evil.test/noslash.png, w: 50, h: 50 }\n```\n',
   'mermaid themeCSS with a slashless url()': '```mermaid\n%%{init: {"themeCSS": ".node rect { fill: url(http:evil.test/t.png) }"}}%%\nflowchart LR\n  A-->B\n```\n',
   'a mermaid label with semicolon-less HTML entities': '```mermaid\nflowchart LR\n  A["<img src=\'http&#58&#47&#47evil.test/nosemi.png\'>"]\n```\n',

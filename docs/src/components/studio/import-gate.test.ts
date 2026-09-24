@@ -107,6 +107,15 @@ describe('refuseImportedComponent', () => {
 		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '---\nlogo: https://evil.example/l.png\n---\n\n<!-- _class: w -->\n')).not.toBeNull();
 	});
 
+	it('reads a CRLF gallery and a tab-split scheme the way the CLI export will', async () => {
+		const css = 'section.w .a{color:var(--accent)}';
+		const crlf = '<!-- _class: w -->\r\n\r\n<div>\r\n```mermaid\r\nflowchart LR\r\n  A@{ img: "https://evil.example/c.png" } --> B\r\n```\r\n</div>\r\n';
+		expect((await refuseImportedComponent(css, 'w', crlf))?.why).toMatch(/evil\.example\/c\.png/);
+		const tab = '<!-- _class: w -->\n\n```mermaid\nflowchart LR\n  A["<img src=\'ht\ttp:evil.example/t.png\'>"]\n```\n';
+		expect((await refuseImportedComponent(css, 'w', tab))?.why).toMatch(/evil\.example\/t\.png/);
+		expect(await refuseImportedComponent(css, 'w', '<!-- _class: w -->\r\n\r\n```mermaid\r\nflowchart LR\r\n  A-->B\r\n```\r\n')).toBeNull();
+	});
+
 	it('refuses, rather than waves through, a sample slide it could not check', async () => {
 		const pg = window.LatticePlayground;
 		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { render: () => { throw new Error('boom'); }, referenceTargets: () => [] };

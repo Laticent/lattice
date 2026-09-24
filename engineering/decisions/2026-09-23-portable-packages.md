@@ -590,7 +590,11 @@ it is the record of what was wrong.
     source), a slashless `http:host/x` in Mermaid text (a `file:` page resolves it), `&#58`
     without its semicolon, and a `data:` scheme split by a tab or led by a control
     character. The Mermaid class match is now the runtime's own substring rule, so a
-    `mermaid-x` fence it would draw is scanned too.
+    `mermaid-x` fence it would draw is scanned too. A fourth pass found two more, both fixed:
+    a CRLF or lone-CR gallery (the fence walker matched nothing raw, while the CLI converts
+    line endings before drawing, so both doors now convert them first), and a tab inside a
+    slashless scheme (`ht<TAB>tp:host`, or Mermaid's `ht#9;tp:`), which the URL parser drops.
+    It found no false positive across 305 tracked decks, galleries and baselines.
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked

@@ -11,6 +11,7 @@
 //
 // Loaded by `import()` from the import gate, so the Studio's eager bundle carries none of it.
 
+import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { renderMarkdown } from '@/lib/render-engine';
 import mermaidFences from '../../../../../lib/core/mermaid-fences.js';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
@@ -45,8 +46,11 @@ function* elements(root: ParentNode): Generator<{ tag: string; attrs: [string, s
 }
 
 /** The remote fetch targets in a gallery, rendered. Unique, in document order. */
-export async function galleryRemoteRefs(md: string): Promise<string[]> {
-	if (!String(md || '').trim()) return [];
+export async function galleryRemoteRefs(source: string): Promise<string[]> {
+	// Line endings as the CLI reads a deck: a CRLF fence the fence walker would not match raw is
+	// still drawn once the deck is exported.
+	const md = normalizeSourceText(String(source || ''));
+	if (!md.trim()) return [];
 	const pg = await engine();
 	// An engine without the reference read can't finish the check, so it doesn't pass it.
 	if (!pg.referenceTargets) throw new Error('the render engine is out of date');
