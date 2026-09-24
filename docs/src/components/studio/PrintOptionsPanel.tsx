@@ -36,6 +36,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
+import { downloadBlob } from './download';
 import { withPrintCanvas } from './front-matter';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
 import { DEGRADED_TOAST_MS } from './toast-duration';
@@ -338,13 +339,12 @@ export function PrintOptionsPanel({
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
-	const triggerDownload = React.useCallback((url: string) => {
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = pdfFilename();
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
+	// Through the platform seam like every other save. The built PDF is held as a `blob:`
+	// URL, so read it back to a Blob; that read is same-document memory, not the network.
+	// The await costs nothing on the web path: this already ran after `await buildPdf()`,
+	// so it was never inside the click's user gesture to begin with.
+	const triggerDownload = React.useCallback(async (url: string) => {
+		downloadBlob(pdfFilename(), await (await fetch(url)).blob());
 	}, [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
