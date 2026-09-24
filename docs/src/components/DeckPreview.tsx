@@ -9,7 +9,7 @@ import {
 	type SingleSlideRenderer,
 } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
-import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts } from '@/playground/anima-host-sel';
+import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, watchDiagramDrawn } from '@/playground/anima-host-sel';
 // The Nacre loader's CSS. Imported here beside the loader markup it styles (below). NOTE: this
 // does NOT gate payload by consumer — Vite co-locates it into a shared chunk (resolve-captions,
 // in single-slide-render's graph) that every DeckPreview host pulls, so Astro inlines the ~1.5KB
@@ -523,6 +523,12 @@ export function DeckPreview({
 		if (!fr || animaBoundRef.current) return;
 		animaBoundRef.current = true;
 		fr.addEventListener('load', syncAnima);
+		// The runtime draws a Mermaid diagram AFTER the render this host syncs on, so a deck whose only
+		// animatable figure is a diagram reads as motion-free at sync time and never loads the host.
+		// Re-run the gate each time a diagram draws. Bound to the <iframe> ELEMENT, like `load`, because
+		// it survives a srcdoc rewrite. (Once the host exists it listens too; the gate then short-
+		// circuits to rebind(), which is a no-op diff for an already-mounted diagram.)
+		watchDiagramDrawn(fr, syncAnima);
 		if (fr.contentDocument?.readyState === 'complete') syncAnima();
 	}, [syncAnima]);
 

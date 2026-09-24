@@ -4,7 +4,7 @@
 
 **Function** evidence · **Form** canvas · **Substance** graph
 
-**Drawn with** `svg` — Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. One caveat worth knowing: node labels ride inside `<foreignObject>`, so they wrap like HTML text and export with the figure, but chart-motion does not move them (it animates `<text>` and marked geometry, and a `<foreignObject><div>` is neither).
+**Drawn with** `svg` — Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. Node labels ride inside `<foreignObject>`, so they wrap like HTML text and export with the figure. Deck `motion: on` animates the diagram like a chart: containers, then boxes, then the arrows between them, then the words (twelve families; `engineering/mermaid.md` § Motion).
 
 **Tags** `flowchart` · `org-chart` · `sequence` · `process`
 

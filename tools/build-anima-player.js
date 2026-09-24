@@ -67,7 +67,7 @@ window.__latticeAnima = {
 // read), and land here as `__latticeChartMotion`.
 const CHART_ENTRY_CONTENTS = `
 import { hydrateChart } from '../chart-anima-hydrate';
-import { hasAnimatableChart, MOTION_OPT_IN_SEL, parseDeckMotion, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, speedToDurationMs } from '../../playground/anima-host-sel';
+import { hasAnimatableChart, MOTION_OPT_IN_SEL, motionMarkCount, parseDeckMotion, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, speedToDurationMs } from '../../playground/anima-host-sel';
 
 window.__latticeAnimaCharts = {
   // \`raw\` is the deck's three front-matter scalars exactly as authored. Parsing them HERE
@@ -89,8 +89,7 @@ window.__latticeAnimaCharts = {
     for (const section of sections) {
       const cfg = resolveMotion(section, deck);
       if (!cfg) continue;
-      const marks = section.querySelectorAll('svg [data-mark]').length;
-      const c = hydrateChart(section, { style: cfg.style, durationMs: speedToDurationMs(cfg.speed, marks) });
+      const c = hydrateChart(section, { style: cfg.style, durationMs: speedToDurationMs(cfg.speed, motionMarkCount(section)) });
       if (c) controllers.push(c);
     }
     for (const el of prehidden) el.classList.remove(PREHIDE_CLASS);

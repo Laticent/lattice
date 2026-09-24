@@ -115,11 +115,34 @@ export function speedToDurationMs(speed: MotionSpeed, markCount: number): number
   return Math.max(2400, Math.min(5400, 1600 + Math.max(0, markCount) * 640));
 }
 
+/** What makes a section animatable: a chart's per-mark index (`data-mark`), or a MERMAID diagram's
+ *  declared roles (it has no popover marks, only the roles `lib/integrations/mermaid/motion-roles.js`
+ *  writes). The role arm is scoped to the Mermaid hosts on purpose: a plain line chart also declares
+ *  roles without `data-mark`, and widening the arm to every svg would change which charts a deck-level
+ *  `motion: on` animates — a chart decision this change does not make. */
+const ANIMATABLE_PART_SEL = 'svg [data-mark], .mermaid svg [data-anima-role], .mermaid-svg svg [data-anima-role]';
+
 /** Whether a section holds an animatable chart — used to find the sections a deck-level `motion: on`
- *  applies to, since those carry no `motion-*` class. Keys on `[data-mark]`, the SAME handle
- *  `chartToScene`'s geometry loop requires. jsdom-safe (no CSS `:has`). */
+ *  applies to, since those carry no `motion-*` class. Keys on the SAME candidate set `chartToScene`'s
+ *  geometry loop reads. jsdom-safe (no CSS `:has`). */
 export function hasAnimatableChart(section: Element): boolean {
-  return section.querySelector('svg [data-mark]') != null;
+  return section.querySelector(ANIMATABLE_PART_SEL) != null;
+}
+
+/** Whether an svg is a rendered Mermaid diagram. The runtime writes every diagram into a
+ *  `div.mermaid` (the HTML player's baked copy keeps that host), and a chart never lives there. */
+export function isMermaidSvg(svg: Element): boolean {
+  return svg.closest('.mermaid, .mermaid-svg') != null;
+}
+
+/** How many marks a section's chart builds — the `auto` speed's pacing input. A chart counts its
+ *  `data-mark` indices, exactly as before (a chart with none still paces as zero marks). A Mermaid
+ *  diagram has none, so it counts its non-label roles instead; without this every diagram would pace
+ *  as a zero-mark chart. */
+export function motionMarkCount(section: Element): number {
+  const marks = section.querySelectorAll('svg [data-mark]').length;
+  if (marks > 0) return marks;
+  return section.querySelectorAll('.mermaid svg [data-anima-role]:not([data-anima-role="label"]), .mermaid-svg svg [data-anima-role]:not([data-anima-role="label"])').length;
 }
 
 /** Preview-only marker: the live host stamps this on a motion-eligible chart FIGURE so it starts HIDDEN
@@ -166,4 +189,21 @@ export function prehideEligibleCharts(root: ParentNode, deck: DeckMotion): Eleme
  *  failure / hung bundle). Idempotent. */
 export function revealPrehiddenCharts(root: ParentNode): void {
   for (const el of Array.from(root.querySelectorAll(`.${PREHIDE_CLASS}`))) el.classList.remove(PREHIDE_CLASS);
+}
+
+/** The event the runtime fires on the host's <iframe> element each time a Mermaid diagram draws
+ *  (`announceDiagramDrawn` in lib/runtime/index.js). */
+export const DIAGRAM_DRAWN_EVENT = 'lattice:diagram-drawn';
+
+/** Call `onDrawn` whenever a Mermaid diagram inside `frame` finishes drawing. The runtime draws a
+ *  diagram AFTER the preview render the hosts rebind on, so without this a diagram under
+ *  `motion: on` is never seen: at rebind time it is still source. The listener sits on the <iframe>
+ *  ELEMENT, not its document, because the element survives a srcdoc rewrite and the document does
+ *  not — a watch on the document was measured landing on the frame's initial document, which the
+ *  deck's document then replaced. The runtime fires the event synchronously, so the host pre-hides
+ *  the fresh diagram before the browser paints its still frame. Returns the unbind. */
+export function watchDiagramDrawn(frame: EventTarget, onDrawn: () => void): () => void {
+  const listener = (): void => onDrawn();
+  frame.addEventListener(DIAGRAM_DRAWN_EVENT, listener);
+  return () => frame.removeEventListener(DIAGRAM_DRAWN_EVENT, listener);
 }
