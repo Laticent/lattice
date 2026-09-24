@@ -116,6 +116,13 @@ describe('refuseImportedComponent', () => {
 		expect(await refuseImportedComponent(css, 'w', '<!-- _class: w -->\r\n\r\n```mermaid\r\nflowchart LR\r\n  A-->B\r\n```\r\n')).toBeNull();
 	});
 
+	it('reads front matter as Insert and the CLI will: as a slide, and with no style: key', async () => {
+		const css = 'section.w .a{color:var(--accent)}';
+		expect(await refuseImportedComponent(css, 'w', '---\nx: "![](https://evil.example/fm.png)"\n---\n\n<!-- _class: w -->\n')).not.toBeNull();
+		expect((await refuseImportedComponent(css, 'w', '---\nstyle: "section{color:red}"\n---\n\n<!-- _class: w -->\n'))?.why).toMatch(/style:/);
+		expect(await refuseImportedComponent(css, 'w', '---\nmarp: true\ntheme: indaco\nprofile: teaching\nheader: "Lattice · w"\n---\n\n<!-- _class: w -->\n')).toBeNull();
+	});
+
 	it('refuses, rather than waves through, a sample slide it could not check', async () => {
 		const pg = window.LatticePlayground;
 		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { render: () => { throw new Error('boom'); }, referenceTargets: () => [] };

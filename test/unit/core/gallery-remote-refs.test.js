@@ -79,6 +79,12 @@ const FETCHES = {
   'a mermaid entity code': '```mermaid\nflowchart LR\n  A["a#59;b"]\n```\n',
   'an iframe with a relative src': '<iframe src="page.html"></iframe>',
   'an object with a data: image': '<object data="data:image/png;base64,AA"></object>',
+  // Front matter: Insert turns it into a slide, and the CLI pastes a `style:` key into the
+  // export. These open the gallery, so they go in bare (see `slide`).
+  'front matter holding markup Insert will render': '---\nx: "![](https://evil.test/fm.png)"\n---\n\n# Sample slide\n',
+  'a front-matter style: key': '---\nstyle: "section{background:url(https://evil.test/s.png)}"\n---\n\n# Sample\n',
+  'a style: line hidden inside another key\'s block': '---\nnote: |\n  style: "section{color:red}"\n---\n\n# Sample\n',
+  'a front-matter style: key with no URL at all': '---\nstyle: "section{color:red}"\n---\n\n# Sample\n',
   'an iframe holding a data: document': '<iframe src="data:text/html,<img src=x>"></iframe>',
   'an object holding a data: document': '<object data="data:text/html,<img src=x>"></object>',
   'an embed holding a data: document': '<embed type="text/html" src="data:text/html,x">',
@@ -108,6 +114,8 @@ const BENIGN = {
   'a bare URL in prose': 'See https://ok.test for more.',
   'a relative reference definition': '# hi\n\n[logo]: ./logo.png\n',
   'a mermaid label naming src/ and using R&D': '```mermaid\nflowchart LR\n  A["src/ main.js"] --> B["R&D"]\n```\n',
+  'a front-matter key that ends in a scheme name (profile:)': '---\nprofile: teaching\n---\n\n# Hi\n',
+  'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npaginate: true\nheader: "Lattice · closing"\n---\n\n<!-- _class: title silent -->\n\n# Hi\n',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
   'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n',
 };

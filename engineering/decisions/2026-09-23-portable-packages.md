@@ -606,6 +606,14 @@ it is the record of what was wrong.
     `fencedframe` or `applet` at all. Measured against the tree first: 0 of the 163 Mermaid
     fences in 352 tracked files and 0 of 305 decks and galleries trip it. Plain words stay
     legal (`diagram.gallery.md` labels a node `src/`), and so does `R&D`.
+  - **Front matter, the fifth pass.** A final checker found two bypasses outside both
+    families, both in front matter, which the gate's own render prints nothing from: Insert
+    splices a gallery after a `---`, so its front matter becomes an ordinary slide; and the
+    CLI's `readGlobalStyle` pastes a front-matter `style:` key into the export's stylesheet,
+    matched line-wise so an indented `style:` inside another key's block counts. The gate now
+    also renders the gallery AS INSERTED, and reads the front-matter block with the Mermaid
+    allowlist plus a refusal of any `style:` line. All 71 shipped component galleries open
+    with front matter (`marp`, `theme`, `paginate`, `header`) and pass.
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked

@@ -17,7 +17,7 @@ import mermaidFences from '../../../../../lib/core/mermaid-fences.js';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-const { remoteRefsInElements, mermaidRemoteRefs, isRemoteUrl, galleryRefusal } = remoteRef;
+const { remoteRefsInElements, mermaidRemoteRefs, frontMatterRemoteRefs, frontMatterOf, isRemoteUrl, galleryRefusal } = remoteRef;
 const { matchMermaidFences } = mermaidFences;
 
 /** The theme the check renders with. The markup, not the look, is what is read. */
@@ -62,7 +62,19 @@ export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	// Every fence the CLI export would hand to Mermaid, read off the SOURCE: one inside an HTML
 	// block is plain text in the page yet is drawn once the deck is exported.
 	const fenced = (matchMermaidFences(md) as { body: string }[]).flatMap((f) => mermaidRemoteRefs(f.body) as string[]);
-	return [...new Set([...(remoteRefsInElements(elements(doc)) as string[]), ...defined, ...fenced])];
+	// Read it twice: alone, and AS INSERTED. Insert splices the gallery after a slide and a
+	// `---`, so its front matter stops being front matter and renders.
+	const inserted = new DOMParser().parseFromString((await renderMarkdown(pg, `# x\n\n---\n\n${md.trim()}\n`, CHECK_THEME)).html, 'text/html');
+	const fm = frontMatterOf(md) as string | null;
+	return [
+		...new Set([
+			...(remoteRefsInElements(elements(doc)) as string[]),
+			...(remoteRefsInElements(elements(inserted)) as string[]),
+			...defined,
+			...fenced,
+			...(fm == null ? [] : (frontMatterRemoteRefs(fm) as string[])),
+		]),
+	];
 }
 
 /**
