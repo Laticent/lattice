@@ -136,7 +136,7 @@ Shape and color travel with the thing they describe, not with the slide.
 - A sentence
   - A pill is one word, two at most. If it needs a clause, it belongs in the row's description where it can wrap.
 - A word in a circle or diamond
-  - Both are square boxes by construction, so they hold a digit or a mark. `lint:deck` says so rather than refusing the deck.
+  - Both are only as tall as a capsule, so they hold a digit or a mark. `lint:deck` says so rather than refusing the deck.
 - A color that means something
   - `:c1`–`:c12` are ordinal slots, not colors. The same slot is sky blue on indaco and deep red on burgundy — pick a slot for contrast, never to say "green means good".
 

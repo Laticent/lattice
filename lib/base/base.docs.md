@@ -1423,8 +1423,11 @@ without any variant class on the section.
 `:tag` · `:tag-bordered` · `:chip` · `:circle` · `:chevron-right` · `:chevron-left` ·
 `:diamond`. With no shape modifier you get the capsule `pill`.
 
-`circle` and `diamond` are square boxes by construction, so they hold a digit or a
-mark — `{3}:circle`, `{!}:diamond`. A word in one either overflows the fill or forces
+Every shape is exactly as tall as the capsule, so pills of different shapes share one
+center line and never make a row or a line of prose taller. `circle` is a
+capsule-height disc and `diamond` a capsule-height rhombus, so they hold a digit or a
+mark — `{3}:circle`, `{!}:diamond`. The clipped shapes (the chevrons and the diamond)
+carry the same 1px edge as the rest. A word in one either overflows the fill or forces
 the box wide enough to stop reading as the shape; `lint:deck` suggests `:tag` or
 `:chip` instead, and never blocks.
 
