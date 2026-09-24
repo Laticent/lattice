@@ -689,8 +689,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   poster (`.video-lead > p` in `companion`, a paragraph beside `.video-head` by
   default), and `projectGeneric` never ran because the figure made the body non-empty.
 - **Fix:** `projectVideo` runs the generic block walk with `.video-embed` skipped,
-  then appends the poster figure. The eyebrow stays the kicker because the walk drops
-  the paragraph that matches it.
+  then appends the video as a link card (below). The eyebrow stays the kicker because
+  the walk drops the paragraph that matches it.
 - **Pinned by:** the "video lead paragraph" arms in
   `test/unit/transformers/prose-projection.test.js`, which render through the real engine.
 
@@ -710,6 +710,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   finds its eyebrow the way the card components do (`CARD_HEAD_SELECTOR`).
 - **Pinned by:** the "image:", "chart:" and "math:" arms in
   `test/unit/transformers/prose-projection.test.js`, rendered through the real engine.
+
+## A video in the reader view is a bare link outside the prose column
+
+- **Symptom:** Read · Article shows a video as "Watch on YouTube" in plain link text, left
+  of the prose column at 1440 and 820, with the heading repeated as a centered caption.
+- **Cause:** the poster is an `<a>` whose picture is an inline `background-image`, and
+  everything that sizes it is scoped to `section.video`. Re-hosted as a breakout
+  `.lp-figure` it lost all of that.
+- **Fix:** `videoCard` rebuilds it as `<figure class="lp-video">` in the column: the link
+  (http(s) or relative only), the provider label, the poster as a real thumbnail, and the
+  author's `caption` as the only figcaption. The play mark is drawn with `clip-path`, never
+  typed (HARD RULE #29). `.lp-video` is styled in all three article hosts.
+- **Pinned by:** the "video:" and "video card:" arms in
+  `test/unit/transformers/prose-projection.test.js`.
 
 ## A slide's subtitle shows as the kicker, or vanishes, in the reader view
 

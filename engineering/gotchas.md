@@ -188,6 +188,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A card component's eyebrow is missing from the reader view](gotchas/lattice-internals.md#a-card-components-eyebrow-is-missing-from-the-reader-view)
 - [A video slide's lead sentence is missing from the reader view](gotchas/lattice-internals.md#a-video-slides-lead-sentence-is-missing-from-the-reader-view)
 - [A media slide's prose is missing from the reader view](gotchas/lattice-internals.md#a-media-slides-prose-is-missing-from-the-reader-view)
+- [A video in the reader view is a bare link outside the prose column](gotchas/lattice-internals.md#a-video-in-the-reader-view-is-a-bare-link-outside-the-prose-column)
 - [A slide's subtitle shows as the kicker, or vanishes, in the reader view](gotchas/lattice-internals.md#a-slides-subtitle-shows-as-the-kicker-or-vanishes-in-the-reader-view)
 - [A code block or a prose line after a heading is pulled into the masthead band](gotchas/lattice-internals.md#a-code-block-or-a-prose-line-after-a-heading-is-pulled-into-the-masthead-band)
 - [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)

@@ -1562,3 +1562,30 @@ test("math: an inline equation's glyph svg does not displace the display equatio
 	assert.ok(articleHtml.includes('The root term'), articleHtml);
 	assert.match(articleHtml, /<figure class="lp-figure"><span class="katex-display">/, articleHtml);
 });
+
+// The video's poster is an `<a>` with its picture as an inline `background-image`, styled only
+// under `section.video` — re-hosted as a breakout figure it read as a bare link left of the column
+// with the heading repeated under it (followup 2350-p3). It projects as an in-column link card.
+test('video: a placeholder poster projects as an in-column link card, not a breakout figure', async () => {
+	const { articleHtml } = project(await renderedSections('<!-- _class: video -->\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n'));
+	assert.match(articleHtml, /<figure class="lp-video"><a class="lp-video-link" href="https:\/\/www\.youtube\.com\/watch\?v=aqz-KE-bpKQ" target="_blank" rel="noreferrer noopener"><span class="lp-video-play" aria-hidden="true"><\/span><span class="lp-video-label">Watch on YouTube<\/span><\/a><\/figure>/, articleHtml);
+	assert.doesNotMatch(articleHtml, /lp-figure/, 'no breakout figure');
+	assert.equal(articleHtml.split('Watch the tour.').length - 1, 1, 'the heading is not repeated as a caption');
+});
+
+test("video: a poster becomes the card's thumbnail and the author's caption its figcaption", async () => {
+	const md = '<!-- _class: video -->\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- https://example.com/poster.jpg `poster`\n- Two minutes, no sound needed. `caption`\n';
+	const { articleHtml } = project(await renderedSections(md));
+	assert.match(articleHtml, /<a class="lp-video-link"[^>]*><img class="lp-video-thumb" src="https:\/\/example\.com\/poster\.jpg" alt="">/, articleHtml);
+	assert.match(articleHtml, /<\/a><figcaption>Two minutes, no sound needed\.<\/figcaption><\/figure>/, articleHtml);
+	assert.equal((articleHtml.match(/<figcaption>/g) || []).length, 1, 'one caption, not two');
+});
+
+test('video card: a non-http poster or link is dropped, and a quote cannot leave the attribute', () => {
+	const card = (href, style) => project(sections(
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed"><a class="video-poster" href="${href}" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
+	)).articleHtml;
+	assert.doesNotMatch(card('javascript:alert(1)', ''), /lp-video/, 'a javascript: link projects no card');
+	assert.doesNotMatch(card('https://ok.example/v', "background-image:url('javascript:alert(1)')"), /<img/, 'a javascript: poster projects no thumbnail');
+	assert.match(card('https://ok.example/v?a=&quot;onmouseover=x', ''), /href="https:\/\/ok\.example\/v\?a=&quot;onmouseover=x"/);
+});
