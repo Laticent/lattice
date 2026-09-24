@@ -866,3 +866,44 @@ describe('fitLabels still governs the column fallback', () => {
     assert.ok(swatchX > 0, `column key flush at ${swatchX} of ${viewW}`);
   });
 });
+
+// The row-name gutter is sized per matrix (rowGutterFor). The claim a reader sees is
+// how many LINES a row name takes, so the arms count lines rather than gutter units.
+describe('the row-name gutter fits the names on one line, never at the cells\' cost', () => {
+  const rowNames = (svg) => [...parse(svg).querySelectorAll('text.cart-cat:not(.heatmap-col-label)')]
+    .map((t) => ({ text: t.textContent, lines: Math.max(1, t.querySelectorAll('tspan').length) }));
+  const cellX = (svg) => Number(parse(svg).querySelector('rect.heatmap-cell').getAttribute('x'));
+  const months = (...names) => tbl([
+    '|  | M0 | M1 | M2 | M3 |', '| --- | --: | --: | --: | --: |',
+    ...names.map((n) => `| ${n} | 100 | 62 | 48 | 44 |`),
+  ].join('\n'));
+
+  test('a monthly cohort matrix sets every month name on one line', () => {
+    // At the old fixed 52, "February 2026" and "September 2026" each wrapped to two.
+    const svg = buildHeatmap(parseHeatmapTable(months('January 2026', 'February 2026', 'September 2026')), {});
+    for (const r of rowNames(svg)) assert.equal(r.lines, 1, `${r.text} wrapped`);
+  });
+
+  test('short names hand the room back to the grid', () => {
+    const short = cellX(buildHeatmap(parseHeatmapTable(months('Q1', 'Q2')), {}));
+    const long = cellX(buildHeatmap(parseHeatmapTable(months('September 2026', 'Q2')), {}));
+    assert.ok(short < long, `the grid starts at ${short} for short names, ${long} for long ones`);
+  });
+
+  test('a name past the ceiling wraps rather than eating the plot', () => {
+    const svg = buildHeatmap(parseHeatmapTable(months('Enterprise accounts acquired through the partner channel', 'Q2')), {});
+    assert.ok(cellX(svg) <= 4 + 96, 'the gutter stops at its ceiling');
+    assert.ok(rowNames(svg)[0].lines >= 2, 'the long name takes a second line instead');
+  });
+
+  test('on a dense matrix the gutter never drops a value the default width printed', () => {
+    const cols = Array.from({ length: 12 }, (_, i) => `W${i + 1}`);
+    const table = tbl([
+      `|  | ${cols.join(' | ')} |`, `| --- |${' --: |'.repeat(12)}`,
+      `| September 2026 | ${cols.map(() => '100').join(' | ')} |`,
+      `| Q2 | ${cols.map(() => '88').join(' | ')} |`,
+    ].join('\n'));
+    const values = parse(buildHeatmap(parseHeatmapTable(table), {})).querySelectorAll('text.heatmap-value').length;
+    assert.equal(values, 24, 'every cell still prints its number');
+  });
+});

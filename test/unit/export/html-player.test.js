@@ -2430,3 +2430,31 @@ test('player: assetBaseUrl leaves absolute, data and remote srcs alone', async (
 	assert.match(html, /src="https:\/\/example\.test\/a\.png"/, 'a remote src is untouched');
 	assert.match(html, /src="data:image\/gif;base64,R0lGOD"/, 'a data: src is untouched');
 });
+
+test('prunePlayerCss keeps the Anima live-stage rules the static DOM never shows', () => {
+	// hydrate.ts adds `.anima-live` / `.scene-live` only at runtime, so nothing in the baked DOM
+	// matches them. Pruned, the live chart clone lost `width/height: 100%` and collapsed to the
+	// browser's 300x150 replaced size — a heatmap's labels shrank with it.
+	const css = [
+		'.anima-live{position:relative}',
+		'.anima-live .scene-live svg{width:100%}',
+		'.anima-live.scene-controls-shown .scene-control{opacity:1}',
+		'.scene-live-other{x:1}',
+	].join('');
+	const out = prunePlayerCss(css, () => false).css;
+	assert.match(out, /\.anima-live\{position:relative\}/);
+	assert.match(out, /\.anima-live \.scene-live svg\{width:100%\}/, 'descendant rule kept');
+	assert.match(out, /\.anima-live\.scene-controls-shown \.scene-control/, 'compound rule kept');
+	assert.doesNotMatch(out, /scene-live-other/, 'an unrelated unused rule still prunes');
+});
+
+test('prunePlayerCss safelist splits compounds and functional pseudos, never substrings', () => {
+	const keep = (css, safelist) => prunePlayerCss(css, () => false, { safelist }).css;
+	// Reached inside `:where()` / `:is()` — the paren must not glue onto the class.
+	assert.match(keep(':where(.anima-live) .scene-live{a:1}', ['.anima-live']), /scene-live/);
+	assert.match(keep(':is(.foo,.anima-live) p{a:2}', ['.anima-live']), /:is/);
+	// Still whole simple selectors: a longer class, an id or an escaped class is not the entry.
+	assert.doesNotMatch(keep('.anima-live-x{a:3}', ['.anima-live']), /anima-live-x/);
+	assert.doesNotMatch(keep('#anima-live{a:4}', ['.anima-live']), /anima-live/);
+	assert.doesNotMatch(keep('p.accent-body{a:5}', ['body']), /accent-body/);
+});

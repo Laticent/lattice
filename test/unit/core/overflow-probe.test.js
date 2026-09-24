@@ -333,6 +333,41 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
     });
   });
 
+  test('an UNRENDERED figure is skipped, not measured at scale 1 (Anima hides the poster)', () => {
+    withStubbedStyle(() => {
+      // The in-place chart motion pair: the poster SVG hidden with `display: none` (no client
+      // rects, a 0x0 box) and the live clone drawn beside it at full size. Before the skip, the
+      // poster's 0x0 box left scale at 1 and its 7-unit labels read as 7px — under the floor.
+      const hidden = { ...svg({ boxW: 0, boxH: 0, texts: [text(7)] }), getClientRects: () => [] };
+      const live = { ...svg({ boxW: 900, boxH: 900, texts: [text(7)] }), getClientRects: () => [{}] };
+      const r = probeFigureLegibility(section([hidden, live]), floorAt(8));
+      assert.equal(r.count, 1, 'only the rendered clone is measured');
+      assert.equal(r.minPx, 21);
+      assert.equal(r.under, false);
+      // Only a hidden figure → nothing to judge, the same null as no figure at all.
+      assert.equal(probeFigureLegibility(section([hidden]), floorAt(8)), null);
+    });
+  });
+
+  test('an UNRENDERED `data-fit-k` box is skipped too — the scaled arm matches the SVG arm', () => {
+    withStubbedStyle(() => {
+      // A scaled HTML box (no svg inside) at k 0.5 with 10px leaves → 5px on the page.
+      const fitBox = (rects) => ({
+        getAttribute: (n) => (n === 'data-fit-k' ? '0.5' : null),
+        getClientRects: () => rects,
+        querySelectorAll: (sel) => (sel === 'svg[viewBox]' ? [] : [text(10)]),
+      });
+      const sec = (box) => ({
+        clientHeight: SLIDE_H,
+        querySelectorAll: (sel) => (sel === '[data-fit-k]' ? [box] : []),
+      });
+      const shown = probeFigureLegibility(sec(fitBox([{}])), floorAt(8));
+      assert.equal(shown.minPx, 5);
+      assert.equal(shown.under, true, 'a rendered scaled box below the floor still flags');
+      assert.equal(probeFigureLegibility(sec(fitBox([])), floorAt(8)), null, 'a hidden one is not judged');
+    });
+  });
+
   test('nothing to judge → null (never a false "legible")', () => {
     withStubbedStyle(() => {
       assert.equal(probeFigureLegibility(section([]), floorAt(8)), null, 'no figure');
