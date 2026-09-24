@@ -14,8 +14,7 @@ import { type Extension, StateEffect, StateField } from '@codemirror/state';
 import { EditorView, keymap, type Panel, runScopeHandlers, type ViewUpdate } from '@codemirror/view';
 import { CaseSensitive, ChevronDown, ChevronRight, ChevronUp, Regex, Replace, ReplaceAll, WholeWord, X } from 'lucide-react';
 import * as React from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { countMatches, matchLabel } from './find-matches';
 
@@ -29,11 +28,14 @@ import { countMatches, matchLabel } from './find-matches';
 // desktop decision ("own the look; go native only where the OS must") applies here
 // too: this is inside the window, so it is ours.
 //
-// WHY A SEPARATE REACT ROOT, rendered with `flushSync`. `openSearchPanel` focuses the
-// panel's `[main-field]` element right after it creates the panel. A portal into the
-// Studio's own tree would render a tick later, so the focus call would find nothing
-// and Ctrl+F would open a bar the caret never lands in. The bar needs no context from
-// the Studio tree (no providers, no store), so a small root costs nothing.
+// WHY A PORTAL FROM THE EDITOR'S OWN TREE, and not a second React root. A root needs
+// `react-dom/client`, and importing it here split React's DOM client out of the Astro
+// renderer's entry chunk on every page of the site. The bytes still loaded, but the
+// route budget (docs/scripts/check-route-budget.mjs) counts only chunks the HTML names,
+// so it read as a 55KB "saving" on routes that never render a find bar. So CodeMirror
+// creates an empty panel element, a small store hands that element to <FindPortal>
+// (which the Editor renders), and React portals the bar into it. Focus on first open is
+// the find field's `autoFocus`, since the field only exists after React commits.
 //
 // WHAT IS LEFT OUT ON PURPOSE. `searchKeymap` also binds Mod-d (select next
 // occurrence) and Mod-Shift-l (select all matches). Both make multiple selections,
@@ -52,8 +54,8 @@ const replaceOpenField = StateField.define<boolean>({
 });
 
 /** Open the bar from outside the editor (a toolbar button, the command palette). A
- *  click moved focus to that button, and `openSearchPanel` only refocuses the find
- *  field when the panel already exists, so focus it here for both cases. */
+ *  click moved focus to that button. On a first open the field's `autoFocus` takes it;
+ *  when the bar is already open the field exists, and this focuses it directly. */
 export function openFind(view: EditorView, replace: boolean): void {
 	if (replace) view.dispatch({ effects: setReplaceOpen.of(true) });
 	openSearchPanel(view);
@@ -128,6 +130,10 @@ function FindBar({ view }: BarProps) {
 	// (Ctrl+F seeds it from the selection). A field bound straight to the query would
 	// lag: this root re-renders from CodeMirror's update, which lands after React has
 	// already restored a controlled input to its old value, so the caret would jump.
+	const findRef = React.useRef<HTMLInputElement>(null);
+	// Select the query once, when the bar mounts, so typing replaces it (what the stock
+	// panel does). `autoFocus` below has already focused the field by then.
+	React.useLayoutEffect(() => findRef.current?.select(), []);
 	const [findText, setFindText] = React.useState(query.search);
 	const [replaceText, setReplaceText] = React.useState(query.replace);
 	React.useEffect(() => setFindText(query.search), [query.search]);
@@ -223,6 +229,9 @@ function FindBar({ view }: BarProps) {
 				<input
 					// `openSearchPanel` focuses and selects the element carrying this attribute.
 					main-field="true"
+					ref={findRef}
+					// biome-ignore lint/a11y/noAutofocus: the bar opens on an explicit Find request; focus belongs in its field.
+					autoFocus
 					className={FIELD}
 					type="text"
 					spellCheck={false}
@@ -280,39 +289,65 @@ function FindBar({ view }: BarProps) {
 	);
 }
 
-function createFindPanel(view: EditorView): Panel {
+/** Connects CodeMirror's panel lifecycle to the React tree that renders the bar. One per
+ *  editor: `studioFind(store)` feeds it, `<FindPortal store={store} />` reads it. */
+export type FindStore = {
+	subscribe: (listener: () => void) => () => void;
+	getSnapshot: () => number;
+	current: { dom: HTMLElement; view: EditorView } | null;
+};
+
+type WritableFindStore = FindStore & { emit: () => void };
+
+export function createFindStore(): FindStore {
+	const listeners = new Set<() => void>();
+	let version = 0;
+	const store: WritableFindStore = {
+		current: null,
+		subscribe(l) {
+			listeners.add(l);
+			return () => listeners.delete(l);
+		},
+		getSnapshot: () => version,
+		emit() {
+			version++;
+			for (const l of listeners) l();
+		},
+	};
+	return store;
+}
+
+function createFindPanel(store: FindStore, view: EditorView): Panel {
 	const dom = document.createElement('div');
 	dom.className = 'cm-studio-find';
-	const root: Root = createRoot(dom);
-	flushSync(() => root.render(<FindBar view={view} />));
+	const { emit } = store as WritableFindStore;
+	store.current = { dom, view };
+	emit();
 	return {
 		dom,
 		top: true,
-		// CodeMirror's own panel selects its find field here; `openSearchPanel` relies on
-		// that for the FIRST open, and only focuses the field itself on later opens.
-		mount() {
-			const field = dom.querySelector<HTMLInputElement>('[main-field]');
-			field?.focus();
-			field?.select();
-		},
 		update(u: ViewUpdate) {
-			if (u.docChanged || u.selectionSet || u.transactions.some((tr) => tr.effects.length > 0)) {
-				root.render(<FindBar view={u.view} />);
-			}
+			if (u.docChanged || u.selectionSet || u.transactions.some((tr) => tr.effects.length > 0)) emit();
 		},
-		// Deferred: React refuses a synchronous unmount while it may be mid-render, and
-		// CodeMirror can destroy the panel from inside a dispatch React started.
 		destroy() {
-			queueMicrotask(() => root.unmount());
+			if (store.current?.dom === dom) store.current = null;
+			emit();
 		},
 	};
 }
 
+/** Renders the find bar into CodeMirror's panel element while the panel is open. */
+export function FindPortal({ store }: { store: FindStore }) {
+	React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+	const host = store.current;
+	return host ? createPortal(<FindBar view={host.view} />, host.dom) : null;
+}
+
 /** The find/replace extension for a Studio code surface. */
-export function studioFind(): Extension {
+export function studioFind(store: FindStore): Extension {
 	return [
 		replaceOpenField,
-		search({ top: true, createPanel: createFindPanel }),
+		search({ top: true, createPanel: (view) => createFindPanel(store, view) }),
 		keymap.of([
 			{ key: 'Mod-f', run: openSearchPanel, scope: 'editor search-panel', preventDefault: true },
 			{ key: 'Mod-h', mac: 'Mod-Alt-f', run: openReplace, scope: 'editor search-panel', preventDefault: true },
