@@ -11,14 +11,18 @@ Every key a deck's front matter can carry. To learn how front matter works, and
 which settings most decks want, start with [Deck settings](/guides/deck-settings/).
 
 This page is **generated**. The keys and descriptions are the Studio editor's
-autocomplete list, and the values are the ones `lint:deck` accepts, so the
-page cannot list a value the linter would reject. The groups match the sections
-under **Settings → Deck** in the Studio.
+autocomplete list. For the look and accent settings, the values are the list
+`lint:deck` checks, so a typo there is warned about. `theme:`, `size:` and the
+motion keys are not checked yet: a typo in one of them renders the default
+without a warning. The groups match the sections under **Settings → Deck** in
+the Studio, in the same order.
 
-**One slide** can differ from the deck through the per-slide form each row
-names. A per-slide class exists for every value except the default: the deck's
-`spectrum: off` is `spectrum-off` on one slide, but there is no `spectrum-on`,
-because `on` is what a slide gets with no class at all.
+**One slide** can differ from the deck through the per-slide form a row names.
+Where it reads `<value>`, put the value there: the deck's `spectrum: off` is
+`spectrum-off` on one slide. Not every value has a class (there is no
+`spectrum-on`, because `on` is what a slide gets with no class), and a key whose
+row names no per-slide form, such as `theme:` or `size:`, applies to the whole
+deck only.
 
 The [LFM specification](/spec/lfm/) defines a portable subset of these keys, for
 tools other than Lattice. This page is what Lattice itself reads.

@@ -70,7 +70,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	// Chrome
 	{ key: 'header', info: 'Running header text on every slide.' },
 	{ key: 'footer', info: 'Running footer text on every slide.' },
-	{ key: 'paginate', info: 'Page numbers — true / false. Anything but false (or empty) turns them on.' },
+	{ key: 'paginate', info: 'Page numbers — true / false. Anything but false, skip, hold or empty turns them on.' },
 	{ key: 'meta', info: 'The masthead bay\u2019s meta line — a date, a document number, a review stage.' },
 	{ key: 'logo', info: 'Deck logo — a path beside the deck or a full URL, drawn into the masthead.' },
 	{ key: 'logo-on', info: 'Which slides carry the logo — all (default) / title.' },

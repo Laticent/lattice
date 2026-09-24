@@ -26,10 +26,11 @@ export type FrontMatterDoc = {
 	values?: string;
 };
 
+// Ordered as the Studio's Settings → Deck panel orders them (deckSections in StudioShell.tsx).
 export const GROUPS: { id: FrontMatterGroup; title: string; blurb: string }[] = [
-	{ id: 'general', title: 'General', blurb: 'What the deck is called, what language it is in, and how its source is read.' },
 	{ id: 'look', title: 'Look', blurb: 'Theme, canvas, size and the overall hand of the deck.' },
 	{ id: 'chrome', title: 'Chrome', blurb: 'The furniture on every slide: running header and footer, page numbers, logo.' },
+	{ id: 'general', title: 'General', blurb: 'What the deck is called, what language it is in, and how its source is read.' },
 	{ id: 'accent', title: 'Accent', blurb: 'The small decorations: brand bar, heading rule, kicker mark, stamps.' },
 	{ id: 'motion', title: 'Motion', blurb: 'How charts move on live surfaces. A PDF is always still.' },
 	{ id: 'speech', title: 'Speech', blurb: 'How the deck is read aloud.' },
@@ -48,7 +49,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	class: { group: 'general', default: 'none', studio: 'General → Default slide class', slide: '_class:', values: 'modifier classes, space-separated' },
 	theme: { group: 'look', default: 'indaco', studio: 'Look → Theme', values: 'a theme name, e.g. indaco, cuoio' },
 	'color-mode': { group: 'look', default: 'the theme’s own', studio: 'Look → Color mode', slide: '_class: dark · color-light · color-system · print' },
-	size: { group: 'look', default: 'hd', studio: 'Look → Size', values: 'hd (16:9) · 4k · standard · square · portrait · story' },
+	size: { group: 'look', default: 'hd', studio: 'Look → Size', values: 'hd (16:9) · 4k · standard (4:3) · square · portrait (4:5) · story · reel (9:16) · mobile' },
 	mode: { group: 'look', default: 'boardroom', studio: 'Look → Mode', slide: '_class: sketch' },
 	finish: { group: 'look', default: 'none', studio: 'Look → Finish', slide: '_class: finish-<name>', values: 'none · atrium · meridian · strata · halo · ledger · nimbus · loom · savile · gallery' },
 	'finish-override': { group: 'look', default: 'none', values: 'a nested map of finish layers', scope: 'Studio only (written by Fabricate)' },
@@ -69,7 +70,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	'logo-y': { group: 'chrome', default: 'the masthead corner', studio: 'Chrome → Logo → Down', values: '0–100; needs logo-x too' },
 	spectrum: { group: 'accent', default: 'on', studio: 'Accent → Brand bar', slide: '_class: spectrum-<value>' },
 	'spectrum-edge': { group: 'accent', default: 'top', studio: 'Accent → Bar placement', slide: '_class: spectrum-edge-<value>' },
-	'spectrum-card': { group: 'accent', default: 'off', studio: 'Accent → Card rail', slide: '_class: spectrum-card-<value>' },
+	'spectrum-card': { group: 'accent', default: 'off', studio: 'Accent → Card rail', slide: '_class: spectrum-card (auto) · spectrum-card-<value>' },
 	'spectrum-card-edge': { group: 'accent', default: 'left', studio: 'Accent → Card rail placement', slide: '_class: spectrum-card-edge-<value>' },
 	'spectrum-trim': { group: 'accent', default: 'off', studio: 'Accent → Structural trim', slide: '_class: spectrum-trim · spectrum-trim-restrained' },
 	rule: { group: 'accent', default: 'auto', studio: 'Accent → Heading rule', slide: '_class: rule-<value>' },
@@ -85,11 +86,11 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	lexicon: { group: 'speech', default: 'none', studio: 'Speech → Lexicon', values: 'a nested map: word → how to say it', scope: 'read-aloud' },
 	acronyms: { group: 'speech', default: 'none', studio: 'Speech → Acronyms', values: 'a nested map: term → expansion, optional definition', scope: 'read-aloud, and glossary: auto' },
 	captions: { group: 'speech', default: 'none', slide: '<!-- caption: … -->', values: 'a nested map: slide number → what to say', scope: 'read-aloud' },
-	present: { group: 'export', default: 'false', scope: 'command-line export only' },
-	read: { group: 'export', default: 'false', scope: 'command-line export only' },
-	fluid: { group: 'export', default: 'false', scope: 'command-line export only' },
-	player: { group: 'export', default: 'false', scope: 'command-line export only' },
-	style: { group: 'raw', default: 'none', values: 'CSS, as a YAML block (style: |)', scope: 'command-line export' },
+	present: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
+	read: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
+	fluid: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
+	player: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
+	style: { group: 'raw', default: 'none', values: 'CSS, as a YAML block (style: |)', scope: 'command-line export; not confirmed in the Studio preview' },
 	color: { group: 'raw', default: 'the theme’s', slide: '<!-- _color: … -->', values: 'a CSS color, quoted: "#1a1a1a"' },
 	backgroundColor: { group: 'raw', default: 'the theme’s', slide: '<!-- _backgroundColor: … -->', values: 'a CSS color, quoted' },
 	backgroundImage: { group: 'raw', default: 'none', slide: '<!-- _backgroundImage: … -->', values: 'a CSS value, e.g. url(./bg.png)' },

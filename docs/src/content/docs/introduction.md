@@ -97,8 +97,8 @@ PDF reader.
 Lattice produces documents, not stage performances. It has no fly-ins,
 no spinning transitions and no per-object animation timeline. What moves
 is there to carry meaning: a chart can build as you present, a slide can
-reveal its points one at a time, and Present mode has a talk clock and
-speaker notes. The PDF is always still. Use Keynote or Google Slides when
+reveal its points one at a time, and Present mode has speaker notes and a
+rehearsal clock. The PDF is always still. Use Keynote or Google Slides when
 you need stagecraft. Use Lattice when the deck has to *read* as well as
 it *presents* — board memos, briefing books, regulatory submissions,
 anything that gets emailed and stands on its own.
