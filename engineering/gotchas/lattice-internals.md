@@ -692,7 +692,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   then appends the poster figure. The eyebrow stays the kicker because the walk drops
   the paragraph that matches it.
 - **Still open:** `image` has the same shape, and a lead paragraph on an `image`
-  slide is still dropped (logged in `followups.d/`).
+  slide is still dropped (`followups.d/2350-p2-image-lead-paragraph-missing-from-prose.md`).
 - **Pinned by:** the "video lead paragraph" arms in
   `test/unit/transformers/prose-projection.test.js`, which render through the real engine.
 
