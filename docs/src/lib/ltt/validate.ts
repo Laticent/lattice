@@ -85,7 +85,7 @@ function checkCore(track: unknown, where: string, out: string[]): void {
 	checkClosed(track, TRACK_KEYS, `${where}.track`, out);
 	if (!track.cues.length) out.push(`${where}.track has no cues — a narrated segment says something`);
 	if (!isMs(track.durationMs)) out.push(`${where}.track.durationMs is not a whole, non-negative number of ms`);
-	track.cues.forEach((cue: unknown, i: number) => {
+	Array.from(track.cues as unknown[]).forEach((cue: unknown, i: number) => {
 		const at = `${where}.track.cues[${i}]`;
 		if (!isRec(cue)) {
 			out.push(`${at} is not an object`);
@@ -100,7 +100,7 @@ function checkCore(track: unknown, where: string, out: string[]): void {
 			out.push(`${at} has no words`);
 			return;
 		}
-		cue.words.forEach((w: unknown, j: number) => {
+		Array.from(cue.words as unknown[]).forEach((w: unknown, j: number) => {
 			const wat = `${at}.words[${j}]`;
 			if (!isRec(w)) {
 				out.push(`${wat} is not an object`);
@@ -155,7 +155,7 @@ function checkActions(actions: unknown, track: unknown, where: string, out: stri
 		return;
 	}
 	const cues = isRec(track) && Array.isArray(track.cues) ? track.cues : [];
-	actions.forEach((a: unknown, i: number) => {
+	Array.from(actions).forEach((a: unknown, i: number) => {
 		const at = `${where}.actions[${i}]`;
 		if (!isRec(a)) {
 			out.push(`${at} is not an object`);
@@ -171,7 +171,7 @@ function checkActions(actions: unknown, track: unknown, where: string, out: stri
 		const cue = isMs(a.cue) ? cues[a.cue] : undefined;
 		const word = isRec(cue) && Array.isArray(cue.words) && isMs(a.word) ? cue.words[a.word] : undefined;
 		if (!isRec(word) || !isStr(word.display)) {
-			out.push(`${at} points at cue ${String(a.cue)} word ${String(a.word)}, which this track does not have`);
+			out.push(`${at} points at cue ${q(a.cue)} word ${q(a.word)}, which this track does not have`);
 		} else if (normalizeMatch(word.display) !== a.match) {
 			out.push(
 				`${at} names ${q(a.match)}, but cue ${a.cue} word ${a.word} is now ${q(word.display)} — the narration moved under the action. Re-anchor it to the word the author named.`,
@@ -185,6 +185,17 @@ function checkActions(actions: unknown, track: unknown, where: string, out: stri
  * Returns [] when the file is valid.
  */
 export function validateLtt(ltt: unknown): string[] {
+	// The contract is "never throws", and the checks below read whatever they are handed. A value no
+	// JSON parser produces — a getter that throws, a revoked Proxy — can still reach them from a
+	// caller holding a live object, so the last line of defense turns a throw into a report.
+	try {
+		return check(ltt);
+	} catch (e) {
+		return [`the validator could not read this file: ${e instanceof Error ? e.message : q(e)}`];
+	}
+}
+
+function check(ltt: unknown): string[] {
 	const out: string[] = [];
 	if (!isRec(ltt)) return ['an LTT is a JSON object'];
 	if (ltt.format !== 'ltt') out.push(`format is ${q(ltt.format)}; want "ltt"`);
@@ -229,7 +240,7 @@ export function validateLtt(ltt: unknown): string[] {
 	const ids = new Set<string>();
 	let lastSlide = 0;
 	let lastBeat = Number.NEGATIVE_INFINITY;
-	ltt.segments.forEach((seg: unknown, i: number) => {
+	Array.from(ltt.segments as unknown[]).forEach((seg: unknown, i: number) => {
 		const where = `segments[${i}]`;
 		if (!isRec(seg)) {
 			out.push(`${where} is not an object`);

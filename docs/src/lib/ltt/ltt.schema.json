@@ -507,10 +507,10 @@
           "type": "array",
           "prefixItems": [
             {
-              "type": "number"
+              "$ref": "#/$defs/LttBeatIndex"
             },
             {
-              "type": "number"
+              "$ref": "#/$defs/LttBeatIndex"
             }
           ],
           "minItems": 2,
@@ -520,6 +520,12 @@
       "required": [
         "beats"
       ]
+    },
+    "LttBeatIndex": {
+      "description": "A 0-based storyboard beat index. A named alias because a tuple element carries no doc tag.",
+      "type": "integer",
+      "maximum": 9007199254740991,
+      "minimum": 0
     },
     "LttSegment": {
       "oneOf": [

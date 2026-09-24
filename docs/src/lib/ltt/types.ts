@@ -221,8 +221,12 @@ export interface LttSlideAt {
 
 /** Where a tour stretch sits: the first and last storyboard beat it spans. */
 export interface LttBeatsAt {
-	beats: [number, number];
+	beats: [LttBeatIndex, LttBeatIndex];
 }
+
+/** A 0-based storyboard beat index. A named alias because a tuple element carries no doc tag.
+ *  @integer @minimum 0 */
+export type LttBeatIndex = number;
 
 export type LttSegment = LttSlideSegment | LttHoldSegment | LttStretchSegment;
 

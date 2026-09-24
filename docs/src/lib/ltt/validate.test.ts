@@ -298,3 +298,28 @@ describe('the second checker pass (PR #2347)', () => {
 		expect(after(deck, (l) => { slide(l, 2).at = { slide: 2 ** 53 + 2 }; })).toMatch(/at\.slide/);
 	});
 });
+
+describe('the third checker pass (PR #2347)', () => {
+	it('reports holes in cues, words, segments and actions instead of skipping or throwing', () => {
+		const shapes: [string, (l: Ltt) => void][] = [
+			['cue hole', (l) => { slide(l, 0).track.cues.length += 1; }],
+			['word hole', (l) => { slide(l, 0).track.cues[0].words.length += 1; }],
+			['segment hole', (l) => { l.segments.length += 1; }],
+		];
+		for (const [name, edit] of shapes) {
+			const l = deck();
+			edit(l);
+			expect(() => validateLtt(l), name).not.toThrow();
+			expect(validateLtt(l).length, name).toBeGreaterThan(0);
+		}
+	});
+
+	it('turns a throwing getter or a revoked Proxy into a report, never a throw', () => {
+		const l = deck() as Mut;
+		Object.defineProperty(l, 'inputs', { get() { throw new Error('boom'); } });
+		expect(validateLtt(l).join('\n')).toMatch(/could not read this file: boom/);
+		const { proxy, revoke } = Proxy.revocable({}, {});
+		revoke();
+		expect(() => validateLtt(proxy)).not.toThrow();
+	});
+});

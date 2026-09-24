@@ -68,7 +68,9 @@ function docOf(node, sf) {
     throw new Error(`${where(node, sf)}: a doc comment is separated from this field by other text — put it directly above the field`);
   }
   const lineStart = full.lastIndexOf('\n', last.pos - 1) + 1;
-  if (/\n/.test(gap) && full.slice(lineStart, last.pos).trim() !== '') {
+  // Only an OPENING BRACE may precede it on its line: `{ /** … */` can document nothing but the
+  // first member below it.
+  if (/\n/.test(gap) && !/(?:^|\{)\s*$/.test(full.slice(lineStart, last.pos))) {
     throw new Error(`${where(node, sf)}: a doc comment trails the previous line — it is ambiguous which field it documents. Give it its own line above the field`);
   }
   const text = full.slice(last.pos, last.end);

@@ -1840,6 +1840,10 @@ describe('check-ownership', () => {
         'a joined-string dynamic import': { 'x.ts': "const m = await import('./' + '../cadenza/index.ts');" },
         'a joined-string require': { 'x.ts': "const m = require('./' + '../../node_modules/lodash');" },
         'require held under another name': { 'x.ts': "const r = require; r('node:fs');" },
+        // The third checker pass (PR #2347): a regex literal holding a quote blinded the text scan.
+        'a call after a regex literal holding a quote': { 'x.ts': "const re = /['’]/g;\nconst m = await import(spec);\nconst t = 'a';" },
+        'a call inside a template substitution': { 'x.ts': 'const s = `$' + '{await import(x)}`;' }, // split so it is not read as a template here
+        'require passed along in object shorthand': { 'x.ts': 'const o = { require };' },
       };
       for (const [name, files] of Object.entries(evasions)) {
         assert.ok(run(checkLttBoundary, files).length >= 1, `not caught: ${name}`);
@@ -1853,6 +1857,10 @@ describe('check-ownership', () => {
         'const a = o.require(1); const b = o.import(x);', // method calls, not module loads
         "const s = 'call import( later';", // text inside a string
         "export type T = typeof import('./types.js');",
+        "const m = await import(\n  './x.js',\n);", // trailing comma
+        "const j = await import('./x.json', { with: { type: 'json' } });", // import attributes
+        'const a = { require: 1 }; const { require: r2 } = mod;',
+        'interface X { require(): void }',
       ]) {
         assert.deepEqual(run(checkLttBoundary, src), [], src);
       }

@@ -24,6 +24,11 @@ import type { CaptionTrack } from './types.js';
  *  3. cue starts are MONOTONIC — the sort `makeCursor`'s binary search depends on, and whose
  *     violation makes the cursor return null at every probe rather than fail loudly.
  */
+/** A value that should have been a number, shown in a report without converting an object. */
+function num(v: unknown): string {
+	return typeof v === 'number' ? String(v) : `a ${v === null ? 'null' : typeof v}`;
+}
+
 /** A word's display, quoted short for a report — and never a throw, whatever `display` holds. */
 function label(display: unknown): string {
 	return typeof display === 'string' ? JSON.stringify(display.slice(0, 40)) : `a ${typeof display}`;
@@ -32,9 +37,9 @@ function label(display: unknown): string {
 export function validateTrack(track: CaptionTrack): string[] {
 	const problems: string[] = [];
 	if (!track || !Array.isArray(track.cues)) return ['track has no cues array'];
-	if (!Number.isFinite(track.durationMs)) problems.push(`track durationMs is not finite (${track.durationMs})`);
+	if (!Number.isFinite(track.durationMs)) problems.push(`track durationMs is not finite (${num(track.durationMs)})`);
 	let prevStart = Number.NEGATIVE_INFINITY;
-	track.cues.forEach((cue, i) => {
+	Array.from(track.cues).forEach((cue, i) => {
 		// A diagnostic must survive the input it diagnoses: a null cue, or a cue with no word list,
 		// is reported rather than dereferenced (validateLtt hands this files it has not trusted yet).
 		if (!cue || typeof cue !== 'object') {
@@ -42,7 +47,7 @@ export function validateTrack(track: CaptionTrack): string[] {
 			return;
 		}
 		if (!Number.isFinite(cue.startMs) || !Number.isFinite(cue.endMs)) {
-			problems.push(`cue ${i} has a non-finite span (${cue.startMs} to ${cue.endMs})`);
+			problems.push(`cue ${i} has a non-finite span (${num(cue.startMs)} to ${num(cue.endMs)})`);
 			return; // the comparisons below are meaningless against NaN — report once, move on
 		}
 		if (cue.startMs < 0) problems.push(`cue ${i} starts before zero (${cue.startMs}ms)`);
@@ -53,7 +58,7 @@ export function validateTrack(track: CaptionTrack): string[] {
 			problems.push(`cue ${i} has no words array`);
 			return;
 		}
-		cue.words.forEach((w, j) => {
+		Array.from(cue.words).forEach((w, j) => {
 			if (!w || typeof w !== 'object') {
 				problems.push(`cue ${i} word ${j} is not an object`);
 				return;

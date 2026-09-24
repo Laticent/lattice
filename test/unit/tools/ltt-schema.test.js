@@ -99,6 +99,14 @@ describe('the generator reads what it is given exactly', () => {
     assert.equal($defs.Ltt.properties.a.type, 'integer');
     assert.equal($defs.Ltt.properties.c.type, 'integer');
   });
+  test('a doc comment after an opening brace, above its field, is unambiguous and kept', () => {
+    assert.equal(generate('export interface Ltt { /** @integer */\n  a: number; }').$defs.Ltt.properties.a.type, 'integer');
+    assert.equal(generate('export interface Ltt {\n  v: { /** @integer */\n    w: number };\n}').$defs.Ltt.properties.v.properties.w.type, 'integer');
+  });
+  test('beat indices are whole numbers in the schema, as validateLtt requires', () => {
+    assert.equal(schema.$defs.LttBeatIndex.type, 'integer');
+    assert.equal(validate({ ...tour(), segments: [{ ...tour().segments[0], at: { beats: [0.5, 1] } }] }), false);
+  });
   test('a quoted property name is the key itself', () => {
     assert.deepEqual(Object.keys(generate('export interface Ltt { "a-b": string }').$defs.Ltt.properties), ['a-b']);
   });

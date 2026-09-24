@@ -7711,40 +7711,59 @@ function listPackageSources(dir, out = []) {
   return out;
 }
 
-/** The [start, end) ranges of every string and template literal in `src` (comments already stripped). */
-function stringLiteralRanges(src) {
-  const out = [];
-  for (const m of src.matchAll(/(['"`])(?:\\[\s\S]|(?!\1)[^\\])*\1/g)) out.push([m.index, m.index + m[0].length]);
-  return out;
-}
-
 /**
  * Every dynamic `import(…)` / `require(…)` a gate could not read, and every `require` used as a value.
  *
- * A call is readable only when its WHOLE argument is one string literal: `import('./x.js')`, across
- * line breaks and spaces as a formatter wraps it. `import('./' + '../cadenza')` starts with a quote
- * and still leaves the package, so "starts with a string" is not enough (checker, PR #2347), and
- * `const r = require; r('x')` hides the call behind a name. Text inside a string literal is not code,
- * and `o.import(x)` / `o.require(x)` are method calls, not module loads.
+ * Read from the TypeScript SYNTAX TREE, not from text. Two text versions of this check each failed:
+ * one accepted `import('./' + '../x')` because it starts with a quote, and the next skipped "string
+ * literals" found by pairing quotes — which a regex literal like `/['’]/` threw off, blinding the gate
+ * across most of three live Cadenza files (checkers, PR #2347). The parser already knows what is a
+ * string, a regex, a comment and code inside a template's `${}`.
+ *
+ * A call is readable only when its FIRST argument is one plain string literal (a second argument —
+ * import attributes — and a trailing comma are fine). `require` anywhere else as a value, such as
+ * `const r = require`, hides the module it loads, so it is refused; a declaration name, a property
+ * name, a type member or an export alias that merely spells `require` is not a use of it.
  */
-function unreadableModuleCalls(src) {
-  const strings = stringLiteralRanges(src);
-  const inString = (i) => strings.some(([a, b]) => i >= a && i < b);
-  const out = [];
-  for (const m of src.matchAll(/(?<![.\w$])(import|require)\b/g)) {
-    if (inString(m.index)) continue;
-    const rest = src.slice(m.index + m[0].length);
-    if (m[1] === 'import') {
-      if (!/^\s*\(/.test(rest)) continue; // `import x from`, `import type`, `import.meta` — not a call
-      if (/^\s*\(\s*(['"])[^'"\n]*\1\s*\)/.test(rest)) continue;
-      out.push('calls import() with something other than one plain string, which no gate can read. Use a string literal specifier.');
-    } else {
-      if (/^\s*\(\s*(['"])[^'"\n]*\1\s*\)/.test(rest)) continue;
-      out.push(/^\s*\(/.test(rest)
-        ? 'calls require() with something other than one plain string, which no gate can read. Use a string literal specifier.'
-        : 'uses `require` as a value, which hides the module it loads from every gate. Call it directly with a string.');
-    }
+function unreadableModuleCalls(src, fileName = 'x.ts') {
+  let ts;
+  try {
+    ts = require('typescript');
+  } catch {
+    return ['cannot be checked: `typescript` is not installed (a devDependency this gate parses with) — run `npm ci`.'];
   }
+  const kind = /\.[cm]?jsx?$/.test(fileName) ? ts.ScriptKind.JSX : /x$/.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, kind);
+  const out = [];
+  const readable = (call) => call.arguments.length >= 1 && ts.isStringLiteral(call.arguments[0]);
+  /** True when this `require` identifier NAMES something rather than referring to the function. */
+  const isName = (id) => {
+    const p = id.parent;
+    if (!p) return true;
+    if (ts.isShorthandPropertyAssignment(p)) return false; // { require } PASSES the function along — a value use
+    if (ts.isPropertyAccessExpression(p) && p.name === id) return true; // o.require
+    if (ts.isQualifiedName(p) || ts.isTypeReferenceNode(p)) return true;
+    if (ts.isImportSpecifier(p) || ts.isExportSpecifier(p)) return true;
+    if (ts.isBindingElement(p)) return true; // const { require } = mod — declares a local
+    if ((ts.isPropertyAssignment(p) || ts.isPropertySignature(p) || ts.isMethodSignature(p) || ts.isMethodDeclaration(p) || ts.isPropertyDeclaration(p)) && p.name === id) return true;
+    if (ts.isDeclaration?.(p) && p.name === id) return true;
+    return false;
+  };
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+        if (!readable(node)) out.push('calls import() with something other than one plain string literal, which no gate can read. Use a string literal specifier.');
+      } else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
+        if (!readable(node)) out.push('calls require() with something other than one plain string literal, which no gate can read. Use a string literal specifier.');
+        node.arguments.forEach(visit);
+        return; // the callee is the call itself, not a value use
+      }
+    } else if (ts.isIdentifier(node) && node.text === 'require' && !isName(node)) {
+      out.push('uses `require` as a value, which hides the module it loads from every gate. Call it directly with a string.');
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
   return out;
 }
 
@@ -7758,8 +7777,9 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
   for (const file of listPackageSources(root)) {
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
     const rel = path.relative(ROOT, file);
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
-    for (const problem of unreadableModuleCalls(src)) errors.push(`${rel} ${problem}`);
+    const raw = fs.readFileSync(file, 'utf8');
+    for (const problem of unreadableModuleCalls(raw, file)) errors.push(`${rel} ${problem}`);
+    const src = stripJsComments(raw);
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {

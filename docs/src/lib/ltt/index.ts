@@ -17,6 +17,7 @@ export type {
 	LttAfter,
 	LttAudio,
 	LttBasis,
+	LttBeatIndex,
 	LttBeatsAt,
 	LttDeckPace,
 	LttHash,
