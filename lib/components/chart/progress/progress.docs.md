@@ -19,7 +19,7 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 | `title` | `h2` | yes | Slide heading framing the progress view. |
 | `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
 | `subtitle` | `p` | no | Optional plain subtitle after the heading. |
-| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Matching is exact: lowercase and hyphenated, with no case or space normalization. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note. |
+| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note. |
 
 ### Common mistakes
 

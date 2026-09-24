@@ -181,8 +181,22 @@ section.state-chart .state-chart-figure[data-sc-dir="lr"] .state-nodes {
   align-items: center;
   /* Tighter horizontal gutter + gap than the comment's original 60/56: at 5
    * nodes the row overran the slide and clipped the terminal node (a static
-   * PDF can't scroll). Narrower gutters fit the documented 4–6 node range. */
-  padding: 7.8125cqi 3.125cqi;
+   * PDF can't scroll). Narrower gutters fit the documented 4–6 node range.
+   * The SIDE gutters host the markers: on `lr` the start disc sits LEFT of the
+   * first node and the terminal ring RIGHT of the last, so the inline padding is
+   * what they paint into. `3.125cqi` alone resolved to 36px at HD against 46px
+   * (start) and 50px + stroke (terminal), and the component's own documented
+   * `lr` example rendered both markers sliced by the stage clip. The value
+   * reserves the ring's full reach at both ends of the scale: draw() multiplies
+   * G_BASE by the section's px-per-cqi, so the 50px the ring needs at HD is 150px
+   * at 4K. A px floor alone clips at 4K, and the base rule's `4.375cqi` measured
+   * 50.4px here, leaving the ring's stroke 0.3px over the edge. 56px is the
+   * ring's 50px plus air at HD; 4.6875cqi is 162px at 4K. Note the two scales
+   * read different boxes: this cqi resolves against the section's CONTENT box
+   * (0.9 of its width today), while draw()'s factor reads the full section, so
+   * the cqi term covers the ring only while the content box stays at least ~83%
+   * of the section. It costs 40px of row width at HD, which applyFit absorbs. */
+  padding: 7.8125cqi max(4.6875cqi, 56px);  /* sanctioned: the marker FLOOR (G_BASE markerGap 40 + termOuter 10, plus stroke and air), px because draw() paints in px — on the inline axis, where `lr` puts its markers. */
   gap: 3.125cqi;
 }
 

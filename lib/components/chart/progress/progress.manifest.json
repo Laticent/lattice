@@ -68,7 +68,7 @@
     "rows": {
       "selector": "ul > li",
       "required": true,
-      "description": "One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Matching is exact: lowercase and hyphenated, with no case or space normalization. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note."
+      "description": "One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note."
     }
   },
   "skeleton": "<!-- _class: progress -->\n\n`Eyebrow · context`\n\n## Progress by item.\n\n- First item `80%` `on-track`\n- Second item `55%` `at-risk`\n- Third item `30%` `blocked`\n",
