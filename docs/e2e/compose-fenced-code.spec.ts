@@ -365,3 +365,24 @@ test('@crosswidth the chip picker rides its block when the editor scrolls under 
 	expect(await scrollBy(1200)).toBeGreaterThan(400);
 	await expect.poll(state).toBe('hidden');
 });
+
+test('a ~~~ fence keeps its tildes when its slide is edited in Compose', async ({ page }) => {
+	// `emitDeck` re-emits an untouched slide's bytes verbatim, so the only way to see this
+	// is to TOUCH the slide: the edit runs it through the serializer, which used to write
+	// backticks for every code block. examples/mermaid-tilde-fences.md is the shipped case.
+	// (The backtick fence rides along because `seedDeck` waits for one to persist.)
+	const TILDE = ['<!-- _class: diagram -->', '', '## A tilde fence', '', '~~~mermaid', 'flowchart LR', '  A --> B', '~~~', '', '```text', 'seed', '```'].join('\n');
+	await gotoStudio(page);
+	await seedDeck(page, TILDE);
+	await toCompose(page);
+
+	const code = page.locator('.cs-host pre.cs-code code').first();
+	await code.click({ position: { x: 4, y: 6 } });
+	await page.keyboard.press('End');
+	await page.keyboard.type(' %% edited');
+
+	await expect.poll(() => deckSource(page)).toContain('%% edited');
+	const src = await deckSource(page);
+	expect(src).toContain('~~~mermaid\nflowchart LR %% edited\n  A --> B\n~~~');
+	expect(src).not.toContain('```mermaid');
+});

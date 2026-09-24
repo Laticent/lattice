@@ -335,15 +335,23 @@ is scoped TO before generalizing from what its comment says.
 - **No new lock.** Fences never locked a slide and still do not.
 - **No new `~~~` support in the door.** The insert door writes backticks, as every
   shipped deck but one does.
-  **A tilde fence does NOT round-trip byte-exact, and an earlier draft of this line
-  claimed it did.** Measured over every fence we ship: 215 fences, tag and body exact
-  in all of them, and the one tilde file — `examples/mermaid-tilde-fences.md` — comes
-  back as ```` ```mermaid ````. prosemirror-markdown's serializer emits backticks for
-  every code block; there is no per-node marker to preserve. The engine renders both
-  identically and `emitDeck`'s identity baseline keeps an untouched slide's exact
-  bytes, so this surfaces only on a slide the author actually edits — but this change
-  ships a one-click way to touch such a slide, so it is recorded rather than claimed
-  away. `fence-round-trip.test.ts` asserts the real behavior, including this.
+  **A fence's character and length round-trip — as of 2026-09-24, and an earlier draft
+  of this line claimed byte-exactness before even that was true.** What still
+  normalizes on an edited slide: an indented opener loses its indent, a closer that
+  differs from its opener is rewritten to match it, and an unclosed fence gains a
+  closer. Measured then over every fence we ship:
+  215 fences, tag and body exact in all of them, and the one tilde file —
+  `examples/mermaid-tilde-fences.md` — came back as ```` ```mermaid ```` on the first
+  edit of its slide, because prosemirror-markdown's serializer emits backticks for every
+  code block and its `code_block` node had nowhere to keep the marker. `code_block` now
+  carries a `marker` attr (the opener exactly as written — `~~~`, ```` ```` ````), the
+  parser fills it from markdown-it's `markup`, and `deck-markdown.ts` writes it back,
+  lengthened only when a body line could read as its closer — at ANY indent, wider than
+  CommonMark, because Compose's own `fenceRanges` reads an indented run as a closer and
+  that scanner decides which slides lock (the checker's catch). A block with
+  no marker (the insert door, an indented block) serializes the upstream way.
+  `fence-round-trip.test.ts` asserts every fence's marker across the corpus and that
+  every fenced slide of the tilde file re-serializes to its own source bytes.
 - **No engine or export change.** `highlightSpans` is a read-only view onto the
   highlighter the engine already runs.
 
