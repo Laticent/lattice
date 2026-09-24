@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Lattice Studio",
+  "mainBinaryName": "lattice-studio",
+  "version": "0.1.0",
+  "identifier": "com.laticent.studio",
+  "build": {
+    "frontendDist": "../../docs/dist",
+    "devUrl": "http://localhost:4321/studio/",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Lattice Studio",
+        "url": "studio/",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 820,
+        "minHeight": 560,
+        "center": true,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "appimage"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Markdown decks, boardroom finish",
+    "longDescription": "Lattice Studio turns Markdown into boardroom-quality slide decks. Write, preview, present and export PDF, PPTX and HTML, all on your own machine.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png"
+    ]
+  }
+}

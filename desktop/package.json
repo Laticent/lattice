@@ -1,0 +1,19 @@
+{
+  "name": "lattice-studio-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lattice Studio as a desktop app: the docs site's Studio in a Tauri window, plus native seams for what a web page cannot do.",
+  "scripts": {
+    "frontend": "npm --prefix ../docs run build",
+    "frontend:fast": "npm --prefix ../docs run build:e2e",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:deb": "tauri build --bundles deb",
+    "build:run": "tauri build --no-bundle",
+    "icons": "tauri icon ../docs/public/icons/icon-512.png",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5"
+  }
+}
