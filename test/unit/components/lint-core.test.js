@@ -2015,7 +2015,10 @@ describe('label-set-above-body — coaching, never refusal', () => {
     core.findQuadrantAxisIssues(deck);
     const oneLine = `<!-- _class: quadrant -->\n\n${'<!--'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
     core.findQuadrantAxisIssues(oneLine);
-    assert.ok(Date.now() - t < 1500, `took ${Date.now() - t}ms`);
+    // Many CLOSED comments on one line — the shape the second quadratic path hid in.
+    const pairs = `<!-- _class: quadrant -->\n\n${'<!-- x -->'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    core.findQuadrantAxisIssues(pairs);
+    assert.ok(Date.now() - t < 2000, `took ${Date.now() - t}ms`);
   });
 
   test('a key with more members than axes is not called the axis — it prints as text', () => {
