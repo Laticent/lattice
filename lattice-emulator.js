@@ -247,6 +247,12 @@ OPTIONS
                           color palette. Every text token clears WCAG AA on
                           white. Any output format; also settable per-deck with
                           'color-mode: print'.
+      --allow-remote      Let the render fetch remote images, media and fonts.
+                          By default every browser this command starts is kept
+                          off the network, so a remote image in the deck is
+                          left out of the PDF/PPTX/PNG (the .html export has
+                          always left it out). Local files, data: URIs and the
+                          bundled fonts, Mermaid and KaTeX are unaffected.
       --raster            Print the PDF as one full-bleed slide image per page
                           (2x JPEG, from the same screenshots the PPTX path
                           takes) instead of vector pages. Maximum viewer
@@ -432,6 +438,7 @@ function parseArgs(argv) {
     if (a === '--present') { flags.present = true; continue; }
     if (a === '--print') { flags.print = true; continue; }
     if (a === '--raster') { flags.raster = true; continue; }
+    if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
     if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
@@ -1558,6 +1565,9 @@ const CHROME_EXEC = detectChromeExecutable();
 // pre-pass can drive an async Puppeteer render. Resolved from PKG_ROOT rather than
 // __dirname so a bundled emulator finds it the same way the fonts are found.
 const MERMAID_WORKER = path.join(PKG_ROOT, 'lib', 'integrations', 'mermaid', 'render-worker.js');
+// Every browser this run starts is kept off the network unless the author passed
+// --allow-remote (lib/core/offline-chromium.js; 2026-09-01 export posture, revised 2026-09-24).
+const OFFLINE_ARGS = require('./lib/core/offline-chromium.js').offlineChromiumArgs(!!flags['allow-remote']);
 if (!CHROME_EXEC) {
   console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or CHROME_PATH, or install puppeteer to download one.');
 }
@@ -1687,6 +1697,9 @@ function runMermaidWorker(requests) {
     fs.writeFileSync(jobFile, JSON.stringify({
       pkgRoot: PKG_ROOT,
       chromePath: CHROME_EXEC || undefined,
+      // The worker's browser draws the deck's Mermaid, labels and all, so it is kept off the
+      // network the same way (lib/core/offline-chromium.js).
+      chromeArgs: OFFLINE_ARGS,
       backgroundColor: 'transparent',
       outFile,
       // The engine's config, delivered the way the live preview delivers it. Nothing is
@@ -3378,6 +3391,8 @@ async function renderExport({ hardened }) {
       '--no-sandbox',
       '--disable-setuid-sandbox',
       ...(hardened ? ['--disable-dev-shm-usage', '--disable-gpu'] : []),
+      // Off the network unless --allow-remote (lib/core/offline-chromium.js).
+      ...OFFLINE_ARGS,
     ],
     headless: 'new',
   };
@@ -5028,9 +5043,9 @@ async function renderBody(browser, g, closeBrowser) {
   //
   // AFTER THE RASTER, DELIBERATELY, and this placement is the whole reason the PDF/PPTX/PNG
   // bytes do not move: those were rendered from the clean file written above, before this
-  // line. The raster class keeps fetching, which is the decided posture — its fetch happens
-  // on the EXPORTING author's machine and hands the recipient baked pixels, so containing it
-  // would blank a picture the author asked for and buy the recipient nothing.
+  // line. The raster renders are contained a different way, at launch: every browser this run
+  // starts is kept off the network unless --allow-remote (lib/core/offline-chromium.js; the
+  // 2026-09-01 posture, revised 2026-09-24 once packages let a stranger's content into a deck).
   //
   // SKIPPED ONLY FOR THE ASSEMBLED PLAYER, and decided from STATE rather than from the
   // document's text. This was `!/http-equiv=["']Content-Security-Policy["']/i.test(live)` —
@@ -5112,7 +5127,7 @@ async function prunePlayerCssInPage(playerHtml) {
   if (!bases.length && !fontBlock) return { applied: false };
 
   const pruneOpts = {
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS],
     headless: 'new',
   };
   if (CHROME_EXEC) pruneOpts.executablePath = CHROME_EXEC;

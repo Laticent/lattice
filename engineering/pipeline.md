@@ -134,6 +134,16 @@ deck already embeds keeps the deck's copy. `lattice packages list | add | check 
 remove`; `lattice packages --help` prints the usage;
 `engineering/decisions/2026-09-23-portable-packages.md` §6 is the design.
 
+**The render is kept off the network.** Every browser the CLI starts to render a deck — the
+main render behind pdf/pptx/png/imageset, the CSS-prune pass and the Mermaid worker — launches
+behind a dead proxy (`lib/core/offline-chromium.js`), so a remote image, media file, font,
+stylesheet or script in the deck fetches nothing and a remote image renders as the browser's
+broken-image mark with its alt text, as it already does in the Studio preview and the `.html`
+export. Local files, `data:` URIs and the bundled Mermaid, KaTeX and fonts are untouched:
+the data-viz gallery renders byte-identical PDFs either way, light and dark. `--allow-remote`
+restores fetching for an author who wants a remote image baked into a PDF. Why:
+`engineering/decisions/2026-09-01-export-remote-subresource-posture.md`, revised 2026-09-24.
+
 PNG/PPTX rasterize at 2× the slide dimensions (2560×1440 from 1280×720) —
 sharp on retina displays and projectors. PDF stays vector throughout (text,
 SVG-rendered Mermaid, code highlighting); the 2× scale only affects the
