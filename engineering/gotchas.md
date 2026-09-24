@@ -76,6 +76,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Chart renders as a thumbnail after an ancestor gains `container-type` (cqh re-basing)](gotchas/charts.md#chart-renders-as-a-thumbnail-after-an-ancestor-gains-container-type-cqh-re-basing)
 - [Chart caption swallowed when `_footer` is set](gotchas/charts.md#chart-caption-swallowed-when-_footer-is-set)
 - [Charts export black/unstyled from the Studio image PDF or PPTX](gotchas/charts.md#charts-export-blackunstyled-from-the-studio-image-pdf-or-pptx)
+- [Charts render black in the Studio Webpage player's Read · Article view](gotchas/charts.md#charts-render-black-in-the-studio-webpage-players-read--article-view)
 
 ### [CI and the cloud sandbox](gotchas/ci.md)
 

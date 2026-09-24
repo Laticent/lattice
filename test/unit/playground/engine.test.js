@@ -94,4 +94,22 @@ describe('playground engine', () => {
     const k = pg.render('---\nsize: 4K\n---\n# A\n', 'cuoio');
     assert.deepEqual({ width: k.width, height: k.height }, { width: 3840, height: 2160 });
   });
+
+  // `flatCss` is the exported player's stylesheet (render(…, { flatCss: true })). This
+  // wrapper rebuilds the engine's result field by field, and it silently dropped the field
+  // on the first attempt — the Studio's `?? out.css` fallback then shipped the black
+  // Read · Article charts again with nothing failing. Pin the pass-through here.
+  test('passes flatCss through only when asked, beside the unchanged preview css', async () => {
+    const pg = await loadEngine();
+    const deck = '---\ntheme: cuoio\n---\n\n# Hi\n';
+    const plain = pg.render(deck, 'cuoio');
+    assert.equal(plain.flatCss, undefined, 'no flatCss unless the caller asks');
+    const flat = pg.render(deck, 'cuoio', { flatCss: true });
+    assert.equal(flat.css, plain.css, 'the preview css is unchanged by the option');
+    assert.equal(typeof flat.flatCss, 'string');
+    // The re-host arm, written as the CLI ships it — the selector Read · Article needs.
+    assert.match(flat.flatCss, /,\s*figure\.chart-frame \.radar-ring[,{]/);
+    assert.doesNotMatch(flat.css, /,\s*figure\.chart-frame \.radar-ring[,{]/);
+  });
 });
+

@@ -1,5 +1,5 @@
 {
-  "note": "Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-color bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
+  "note": "Sanctioned findings of tools/check-viz-render.js. An entry without `mode` is opaque-black SVG paint on the SCOPED (preview) path: a legitimately-black ink or hairline. An entry with `mode` (flat = Read · Article, baked = a stylesheet-free SVG) is a paint the slide has and that copy loses, accepted with the reason in `why`. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
   "themes": [
     "indaco",
     "cuoio",
@@ -23,6 +23,96 @@
       "selector": "text.quadrant-dot-label>tspan",
       "property": "fill",
       "scheme": "light"
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "matrix-grid",
+      "selector": "span.cell",
+      "property": "background-color",
+      "scheme": "dark",
+      "why": "Pre-existing, by design of the projection (see the matrix-grid `tr` entry). Here the loss is content, not chrome: the filled vs outlined cell marks carry meaning and the plain table drops them. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "matrix-grid",
+      "selector": "span.cell",
+      "property": "background-color",
+      "scheme": "light",
+      "why": "Pre-existing, by design of the projection (see the matrix-grid `tr` entry). Here the loss is content, not chrome: the filled vs outlined cell marks carry meaning and the plain table drops them. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "matrix-grid",
+      "selector": "tr",
+      "property": "background-image",
+      "scheme": "dark",
+      "why": "Pre-existing, two causes. matrix-grid is `figure: none` in the projection catalog, so Read · Article shows its table through the generic walk as a plain table rather than a re-hosted chart. And re-hosting alone would not fix this one: the header underline's `figure.matrix-grid` arm (matrix-grid.styles.css) reads `var(--spectrum-structure)`, a token declared only on `section` (base.variants.css), the same cause as roadmap. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "matrix-grid",
+      "selector": "tr",
+      "property": "background-image",
+      "scheme": "light",
+      "why": "Pre-existing, two causes. matrix-grid is `figure: none` in the projection catalog, so Read · Article shows its table through the generic walk as a plain table rather than a re-hosted chart. And re-hosting alone would not fix this one: the header underline's `figure.matrix-grid` arm (matrix-grid.styles.css) reads `var(--spectrum-structure)`, a token declared only on `section` (base.variants.css), the same cause as roadmap. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "progress",
+      "selector": "span.chart-status",
+      "property": "background-image",
+      "scheme": "dark",
+      "why": "Pre-existing CSS gap: the status chip's gradient is written as `section.chart-frame .chart-status` with no `figure` arm, so no stylesheet shape can reach the re-hosted chip. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "progress",
+      "selector": "span.chart-status",
+      "property": "background-image",
+      "scheme": "light",
+      "why": "Pre-existing CSS gap: the status chip's gradient is written as `section.chart-frame .chart-status` with no `figure` arm, so no stylesheet shape can reach the re-hosted chip. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "roadmap",
+      "selector": "tr",
+      "property": "background-image",
+      "scheme": "dark",
+      "why": "Pre-existing, not a delivery-shape loss. The header rule has a `figure.roadmap` arm, but its value reads `var(--spectrum-structure)`, a token declared only on slides, so the figure's header underline has nothing to resolve. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "roadmap",
+      "selector": "tr",
+      "property": "background-image",
+      "scheme": "light",
+      "why": "Pre-existing, not a delivery-shape loss. The header rule has a `figure.roadmap` arm, but its value reads `var(--spectrum-structure)`, a token declared only on slides, so the figure's header underline has nothing to resolve. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "timeline-list",
+      "selector": "span.chart-status",
+      "property": "background-image",
+      "scheme": "dark",
+      "why": "Pre-existing CSS gap: the status chip's gradient is written as `section.chart-frame .chart-status` with no `figure` arm, so no stylesheet shape can reach the re-hosted chip. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
+    },
+    {
+      "family": "chart",
+      "mode": "flat",
+      "component": "timeline-list",
+      "selector": "span.chart-status",
+      "property": "background-image",
+      "scheme": "light",
+      "why": "Pre-existing CSS gap: the status chip's gradient is written as `section.chart-frame .chart-status` with no `figure` arm, so no stylesheet shape can reach the re-hosted chip. Tracked in followups.d/2344-p2-chart-paints-lost-in-read-article.md."
     }
   ]
 }
