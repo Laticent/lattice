@@ -119,11 +119,15 @@ the twelve slots, on purpose. To say *good*, *careful* or *bad*, use a
 instead. Picking whichever slot happens to look red in your theme breaks the
 moment someone switches themes.
 
-## Size — `:sm` and `:lg`
+## Size — automatic, then `:sm` and `:lg`
 
-A pill has one size on every slide: the small metadata size, the same in a
-heading as in a bullet. `:sm` makes it smaller and `:lg` larger; the default
-needs no modifier.
+A pill takes its size from the text around it, so you rarely type one. In a
+heading it is large: half the heading's size, so a title gets a bigger pill than
+a slide title. In body text, lists and table cells it is the usual metadata size.
+In a below-note, a caption or a footer it is small.
+
+`:sm` makes a pill smaller and `:lg` larger than that automatic size. They
+scale the context, so `:lg` in a footer is still a footer-sized pill, only bigger.
 
 ```markdown
 - Small `{MINOR}:sm:c9` · default `{NORMAL}:c9` · large `{MAJOR}:lg:c9`

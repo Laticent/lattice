@@ -3844,7 +3844,19 @@ section.corners-square {
   vertical-align:middle;
   line-height:1;
   font-family:var(--pill-font);
-  font-size:calc(var(--pill-fs) * var(--lat-pill-scale, 1));
+  /* THE SIZE FOLLOWS THE TEXT THE PILL SITS IN, so an author never types a size for the
+   * common cases. `em` here is the surrounding text's size:
+   *   - in a heading, half of it: 24pt in a 48pt title, 14pt in a 28pt slide title;
+   *   - in body text, table cells and cards, `--pill-fs` exactly as before, because
+   *     half of 13.5–16pt is under the meta size and the `max()` floor holds;
+   *   - in small print (a footer, a meta-sized caption), 0.85 of that text, the old
+   *     `:sm`, so a pill never towers over the words around it.
+   * The below-note and captions are small by ROLE, not by size (a plain below-note is
+   * set at body size), so they set `--lat-pill-base` to the `:sm` step outright; see
+   * the rule after this one. `:sm` / `:lg` still multiply whatever the context gave, so
+   * `:lg` in a footer is a larger footer pill, not a heading pill. */
+  --lat-pill-base:max(var(--pill-fs), 0.5em);
+  font-size:calc(min(0.85em, var(--lat-pill-base)) * var(--lat-pill-scale, 1));
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   padding:var(--pill-pad-y) var(--pill-pad-x);
@@ -4027,6 +4039,13 @@ section.corners-square {
   clip-path:polygon(evenodd,
     50% 0, 100% 50%, 50% 100%, 0 50%, 50% 0,
     50% 1.25px, calc(100% - 1.75px) 50%, 50% calc(100% - 1.25px), 1.75px 50%, 50% 1.25px);
+}
+
+/* Quiet roles. A below-note is a caveat and a caption is a label, so their pills take
+ * the small step whatever size the note is set at. `:where()` keeps this at the base
+ * rule's specificity, so an explicit `:sm` / `:lg` still multiplies it. */
+:where(.below-note, .chart-caption, figcaption) .lat-pill[data-shape] {
+  --lat-pill-base:calc(var(--pill-fs) * 0.85);
 }
 
 /* Size axis. Scales the type, and the padding follows because it is set in `em`. */

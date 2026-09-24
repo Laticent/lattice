@@ -1440,9 +1440,19 @@ blue on `indaco` and deep red on `burgundy`, so a slot picks contrast, never mea
 never write `:c2` because "green means good". Text contrast comes from the categorical
 policy already in the engine, so a slot needs no per-pill contrast math.
 
-### Size — `:sm` `:lg`
+### Size — automatic, then `:sm` `:lg`
 
-Scales from the type, so a pill stays proportional to the row it sits in.
+A pill sizes itself from the text it sits in, so most pills need no size modifier:
+
+| Where the pill sits | Size |
+|---|---|
+| A heading (`#`, `##`, `###`, a title slide) | Half the heading: large in a title, a step up in a slide title |
+| Body text, lists, cards, table cells | The metadata size, as always |
+| A below-note, a chart caption or a figure caption | Small |
+| Footers, headers and other small print | Small, 0.85 of the text around it |
+
+`:sm` and `:lg` still work, and they scale whatever the context gave: `:lg` in a
+footer is a bigger footer pill, not a heading-sized one.
 
 Modifier order is free: `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` `` are the same pill.
 
