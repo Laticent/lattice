@@ -2103,7 +2103,7 @@ function withInstalledComponents(source) {
   // names that a release has since started shipping is not the one that renders.
   const shippedComponents = new Set(COMPONENT_NAMES);
   const named = new Set(classTokens(source));
-  for (const p of installed.filter((x) => shippedComponents.has(x.name) && named.has(x.name))) {
+  for (const p of flags.quiet ? [] : installed.filter((x) => shippedComponents.has(x.name) && named.has(x.name))) {
     console.error(`warning: "${p.name}" is a component Lattice ships, so the installed package of that name is not used`);
     console.error(`         (${p.dir}). To use yours, re-add it: it installs as "${p.name}-custom".`);
   }

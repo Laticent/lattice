@@ -68,4 +68,7 @@ why. The numbers are kept so a reference to item 5 still means item 5.
     file from someone else skips the CSS gates and the gallery gate. `import-gate.ts` explains
     why the refusal is scoped to the zip door (a false positive in your OWN backup must not
     abort your restore), so the fix is a per-item gate with a skip-and-report, not a hard
-    refusal. Pre-existing; off the continuation PR's path.
+    refusal. Pre-existing; off the continuation PR's path. Related, same door family: a
+    `.lattice` file's deck and manifest are still read with an uncapped `entry.async()`
+    (`lattice-file.ts`), behind the declared-size check only; route them through
+    `readBudget` too.

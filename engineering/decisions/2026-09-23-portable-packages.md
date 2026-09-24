@@ -579,7 +579,12 @@ it is the record of what was wrong.
     a `)`, a `/*` in prose hiding a style attribute, the `logo:` front matter key, and the
     `video` component's `poster` bullet. The rendered check holds on all of them
     (`test/unit/core/gallery-remote-refs.test.js` keeps each as a row), and the CSS scan is
-    now a tokenizer rather than a regex for the same reason.
+    now a tokenizer rather than a regex for the same reason. A final checker on the rendered
+    version found two more on the CLI's PDF render, both fixed: a Mermaid label spelled with
+    Mermaid's own entity codes (`https#58;#47;#47;…`, which Mermaid decodes after the page has
+    the fence, so the scan now decodes them first), and a nested document (`srcdoc`, and a
+    `data:` document in an `iframe`, `object` or `embed`, which load whatever they hold), plus
+    `imagesrcset`.
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked

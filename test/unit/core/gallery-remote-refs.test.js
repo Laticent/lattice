@@ -54,6 +54,15 @@ const FETCHES = {
   'logo: front matter': '---\nlogo: https://evil.test/a.png\n---\n\n# hi\n',
   'meta refresh': '<meta http-equiv="refresh" content="0;url=https://evil.test/">\n',
   'the video component\'s poster bullet': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- https://evil.test/p.png `poster`\n',
+  'a mermaid label spelled with Mermaid\'s numeric codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#58;#47;#47;evil.test/l.png\'>"]\n```\n',
+  'a mermaid label spelled with named codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#colon;#sol;#sol;evil.test/l.png\'>"]\n```\n',
+  'a mermaid label spelled with HTML entities': '```mermaid\nflowchart LR\n  A["<img src=\'https&#58;&#x2f;&#x2F;evil.test/l.png\'>"]\n```\n',
+  'an iframe holding a data: document': '<iframe src="data:text/html,<img src=x>"></iframe>',
+  'an object holding a data: document': '<object data="data:text/html,<img src=x>"></object>',
+  'an embed holding a data: document': '<embed type="text/html" src="data:text/html,x">',
+  'an iframe srcdoc': '<iframe srcdoc="<img src=x>"></iframe>',
+  'a preload imagesrcset': '<link rel="preload" as="image" imagesrcset="https://evil.test/a.png 1x">',
+  'an image inside <noscript>': '<noscript><img src="https://evil.test/a.png"></noscript>',
   '<style> @import': '<style>@import "x.css";</style>',
   // A definition resolves every use of its label in the deck the slide lands in, the deck's
   // own `![r]` included, and the first definition wins. So a remote one is refused even when
@@ -76,6 +85,7 @@ const BENIGN = {
   'code shown as code': '`<img src="https://evil.test/a">`\n\n```html\n<img src="https://evil.test/a">\n```',
   'a bare URL in prose': 'See https://ok.test for more.',
   'a relative reference definition': '# hi\n\n[logo]: ./logo.png\n',
+  'an object holding a data: image': '<object data="data:image/png;base64,AA"></object>',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
   'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n',
 };

@@ -10,7 +10,9 @@
 // directory. JSZip exposes it on the entry's internal `_data`. It refuses an honest
 // bomb before anything inflates. A dishonest archive can understate it; the read budget
 // then inflates each entry in chunks and stops at the chunk that takes the running total
-// over the cap (lib/packages/zip-read.js), so a liar costs at most the cap.
+// over the cap (lib/packages/zip-read.js). A liar costs the cap plus the rest of the one
+// compressed chunk being inflated when it crosses (about 16 MB of work, measured on a
+// 300 MB entry, and dropped rather than kept), not its true size.
 
 // The numbers live in lib/packages/limits.js, shared with the CLI's `lattice packages add`.
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -59,8 +61,9 @@ export function assertZipWithinLimits(zip: LoadedZip, message: string, paths?: I
 /**
  * A running budget for text read out of an archive: each read INFLATES in chunks and is
  * charged as it goes, and the chunk that takes the total over `MAX_INFLATED_BYTES` stops the
- * inflate and throws. So an entry that understates its size costs at most the cap, not its
- * true size (`lib/packages/zip-read.js`, shared with the CLI).
+ * inflate and throws. So an entry that understates its size costs the cap plus one compressed
+ * chunk's worth of inflate work, not its true size (`lib/packages/zip-read.js`, shared with the
+ * CLI). Counted in UTF-16 units, as the old read was.
  */
 export function readBudget(message: string, max: number = MAX_INFLATED_BYTES): (entry: ZipEntry | null | undefined) => Promise<string | undefined> {
 	const budget = { used: 0, max, message };
