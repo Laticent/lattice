@@ -1518,8 +1518,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Re-blessed for the reader view's VIDEO CARD (followup 2350-p3): the article CSS gained the
 	// `#lp-article .lp-video*` rules, then `margin:0` on `.lp-video` once driving a real player
 	// export showed the UA figure margin indenting the card 40px. Diffed before/after: those rules
-	// are the only thing that moved.
-	assert.equal(sha, '476a79a1c0c367e38fe39ba66958dabb8deb764b3d34e32cf4ea0ccef50b6c9c', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// are the only thing that moved. Then once more after driving a video WITH a poster: the thumbnail
+	// became a background tile (the player's `img-src data:` CSP turned a remote `<img>` poster into a
+	// broken-image icon) and the card's figcaption left-aligns under the card. Only
+	// `.lp-video-thumb` and `.lp-video figcaption` moved.
+	assert.equal(sha, '232a1fb11c2cbe42cc23d567233ee40d0649a2853d0d65333efb13ba1725a355', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

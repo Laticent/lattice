@@ -1573,10 +1573,13 @@ test('video: a placeholder poster projects as an in-column link card, not a brea
 	assert.equal(articleHtml.split('Watch the tour.').length - 1, 1, 'the heading is not repeated as a caption');
 });
 
-test("video: a poster becomes the card's thumbnail and the author's caption its figcaption", async () => {
+// The poster is a CSS background on a tile, never an `<img>`: the player's CSP (`img-src data:`)
+// blocks a remote poster, and a blocked `<img>` painted a broken-image icon in the card.
+test("video: a poster becomes the card's thumbnail tile and the author's caption its figcaption", async () => {
 	const md = '<!-- _class: video -->\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- https://example.com/poster.jpg `poster`\n- Two minutes, no sound needed. `caption`\n';
 	const { articleHtml } = project(await renderedSections(md));
-	assert.match(articleHtml, /<a class="lp-video-link"[^>]*><img class="lp-video-thumb" src="https:\/\/example\.com\/poster\.jpg" alt="">/, articleHtml);
+	assert.match(articleHtml, /<a class="lp-video-link"[^>]*><span class="lp-video-thumb" style="background-image:url\('https:\/\/example\.com\/poster\.jpg'\)" aria-hidden="true"><span class="lp-video-play" aria-hidden="true"><\/span><\/span>/, articleHtml);
+	assert.doesNotMatch(articleHtml, /<img/, 'no <img> for the poster');
 	assert.match(articleHtml, /<\/a><figcaption>Two minutes, no sound needed\.<\/figcaption><\/figure>/, articleHtml);
 	assert.equal((articleHtml.match(/<figcaption>/g) || []).length, 1, 'one caption, not two');
 });
@@ -1586,6 +1589,7 @@ test('video card: a non-http poster or link is dropped, and a quote cannot leave
 		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed"><a class="video-poster" href="${href}" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
 	)).articleHtml;
 	assert.doesNotMatch(card('javascript:alert(1)', ''), /lp-video/, 'a javascript: link projects no card');
-	assert.doesNotMatch(card('https://ok.example/v', "background-image:url('javascript:alert(1)')"), /<img/, 'a javascript: poster projects no thumbnail');
+	assert.doesNotMatch(card('https://ok.example/v', "background-image:url('javascript:alert(1)')"), /lp-video-thumb/, 'a javascript: poster projects no thumbnail');
+	assert.doesNotMatch(card('https://ok.example/v', "background-image:url(&quot;https://x.example/a'b.jpg&quot;)"), /lp-video-thumb/, 'a poster that could close the CSS string is dropped');
 	assert.match(card('https://ok.example/v?a=&quot;onmouseover=x', ''), /href="https:\/\/ok\.example\/v\?a=&quot;onmouseover=x"/);
 });

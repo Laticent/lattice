@@ -719,8 +719,11 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   everything that sizes it is scoped to `section.video`. Re-hosted as a breakout
   `.lp-figure` it lost all of that.
 - **Fix:** `videoCard` rebuilds it as `<figure class="lp-video">` in the column: the link
-  (http(s) or relative only), the provider label, the poster as a real thumbnail, and the
-  author's `caption` as the only figcaption. The play mark is drawn with `clip-path`, never
+  (http(s) or relative only), the provider label, the poster, and the author's `caption` as
+  the only figcaption. The poster is a CSS background on a tile, NOT an `<img>`: the
+  self-contained player's CSP is `img-src data:` and bakes only local `file://` assets, so a
+  remote poster is blocked there, and a blocked `<img>` paints a broken-image icon. A blocked
+  background leaves a plain tile with the play mark, as the slide itself does. The play mark is drawn with `clip-path`, never
   typed (HARD RULE #29). `.lp-video` is styled in all three article hosts.
 - **Pinned by:** the "video:" and "video card:" arms in
   `test/unit/transformers/prose-projection.test.js`.

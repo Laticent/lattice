@@ -74,10 +74,10 @@ const READ_ARTICLE_CSS = `
 .st-read-article .lp-video-link{display:inline-flex;align-items:center;gap:.75em;max-width:100%;padding:.65em 1.1em .65em .65em;border:1px solid var(--border);border-radius:12px;background:var(--bg-alt);color:var(--text-heading);font-weight:600;text-decoration:none}
 .st-read-article .lp-video-link:hover{border-color:var(--accent)}
 .st-read-article .lp-video-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.st-read-article .lp-video-thumb{margin:0;width:7.5em;aspect-ratio:16/9;object-fit:cover;border-radius:7px;flex:none}
+.st-read-article .lp-video-thumb{display:grid;place-items:center;flex:none;width:7.5em;max-width:40%;aspect-ratio:16/9;border-radius:7px;border:1px solid var(--border);background:var(--bg) center/cover no-repeat}
 .st-read-article .lp-video-play{position:relative;flex:none;width:2em;height:2em;border-radius:50%;background:var(--accent)}
 .st-read-article .lp-video-play::after{content:"";position:absolute;left:54%;top:50%;width:.62em;height:.72em;transform:translate(-50%,-50%);background:var(--on-accent);clip-path:polygon(0 0,100% 50%,0 100%)}
-.st-read-article .lp-video figcaption{padding:.5em 0 0;font-size:.88em;color:var(--text-muted)}
+.st-read-article .lp-video figcaption{text-align:left;padding:.5em 0 0;font-size:.88em;color:var(--text-muted)}
 /* Value/label pairs, two columns — a <dl> alternates dt,dd, so auto 1fr puts the
    number and its label on one baseline instead of flowing each into its own cell. */
 .st-read-article .lp-stats{display:grid;grid-template-columns:auto 1fr;gap:.35em 1em;align-items:baseline;padding:0 0 1.2em}
