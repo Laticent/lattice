@@ -381,3 +381,16 @@ it is the record of what was wrong.
   stage catalog's `COMPONENT_NAMES`), and a record saved under a shipped name before
   the guard no longer overrides the shipped item. Asset-zip import has the same size
   caps as `.lattice` import (`zip-limits.ts`).
+- **Phase 0, the halo/nimbus print face: done, pending the owner's export sign-off.**
+  `base.finish.css` now states THE BOTTOM-LAYER RULE: only the bottom full-bleed
+  layer ends on solid `--fin-canvas`, and every full-bleed layer above it ends on
+  `rgb(from var(--fin-canvas) r g b / 0)`. Halo's vignette and nimbus's top three
+  blooms and vignette follow it, and so does the Studio generator
+  (`finish-generate.ts` `fadeClear`). Corner and strip patches (ledger's fold,
+  strata's hairline) keep their solid end: in print a zero-opacity end fades
+  faster, because PDF rasterizers interpolate color and opacity separately, and a
+  small patch hides nothing. `test/unit/css/finish-bottom-layer.test.js` checks
+  every shipped preset. Measured with poppler and Ghostscript: the halo spotlight
+  core goes from 255,255,255 to 246,250,252 in light, and a nimbus bloom from
+  255,255,255 to 235,243,248. The vignette rim reads 2 to 4 levels lighter than
+  before, for the same interpolation reason.

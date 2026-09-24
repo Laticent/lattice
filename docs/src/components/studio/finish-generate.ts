@@ -313,7 +313,14 @@ export type FinishFace = 'rich' | 'opaque';
 const mix = (pct: number, face: FinishFace) =>
 	`color-mix(in srgb, var(--field-accent, var(--accent)) ${Math.round(pct)}%, ${face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))'})`;
 // The end-stop of a full-bleed fade: the canvas for export, nothing for screen.
+// ONLY the BOTTOM full-bleed layer may use it (base.finish.css § THE BOTTOM-LAYER RULE).
 const fadeEnd = (face: FinishFace) => (face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))');
+// The end-stop of a fade in any layer ABOVE the bottom one: the canvas color at zero
+// opacity on export. A solid canvas stop there paints the slide color over every layer
+// below it, which is how the mesh and the vignette printed as a blank slide
+// (2026-09-23-portable-packages.md §1). Zero-opacity CANVAS, not `transparent`, because
+// `transparent` is black at zero opacity and a PDF rasterizer draws that fade through gray.
+const fadeClear = (face: FinishFace) => (face === 'rich' ? 'transparent' : 'rgb(from var(--fin-canvas, var(--bg)) r g b / 0)');
 // Rich nudges accent up a touch (the alpha falloff makes it read fainter than the
 // same % over an opaque canvas), capped so text-on-bg AA still survives.
 const lift = (pct: number, face: FinishFace) => (face === 'rich' ? Math.min(22, pct + 3) : pct);
@@ -344,13 +351,16 @@ function washImage(type: WashType, i: number, face: FinishFace, x = 100, y = 0, 
 			// its own full-bleed radial that fades to the face's end-stop (transparent on
 			// screen so the blooms add cleanly; var(--fin-canvas, var(--bg)) on export so no gray cloud — the
 			// blooms over-mix toward bg but each ends opaque, so the PDF bakes clean).
+			// Only the LAST bloom is the bottom layer, so only it may end on the solid canvas;
+			// the three above it end clear, or the top one hides the rest on export.
 			const hi = mix(a, face);
 			const mid = mix(lift(Math.max(3, i * 0.7), face), face);
 			const lo = mix(lift(Math.max(3, i * 0.5), face), face);
+			const clear = fadeClear(face);
 			return (
-				`radial-gradient(60% 60% at 12% 18%, ${hi} 0%, ${end} 60%), ` +
-				`radial-gradient(58% 58% at 88% 24%, ${mid} 0%, ${end} 58%), ` +
-				`radial-gradient(64% 64% at 78% 90%, ${lo} 0%, ${end} 62%), ` +
+				`radial-gradient(60% 60% at 12% 18%, ${hi} 0%, ${clear} 60%), ` +
+				`radial-gradient(58% 58% at 88% 24%, ${mid} 0%, ${clear} 58%), ` +
+				`radial-gradient(64% 64% at 78% 90%, ${lo} 0%, ${clear} 62%), ` +
 				`radial-gradient(50% 50% at 28% 88%, ${lo} 0%, ${end} 58%)`
 			);
 		}
@@ -452,7 +462,11 @@ function markTextSlots(r: FinishRecipe, mixPct: number): string[] {
 // Build the EDGE gradient (z4 pseudo, full-bleed). Export face: opaque vignette/fold,
 // never an alpha shadow. Screen face: fades to `transparent` for a softer dissolve.
 function edgeImage(type: EdgeType, i: number, face: FinishFace): string {
+	// The edge pseudo paints ABOVE the whole backdrop, so a FULL-BLEED edge (the
+	// vignette) ends clear. The fold is a corner patch and keeps its solid end
+	// (base.finish.css § THE BOTTOM-LAYER RULE).
 	const end = fadeEnd(face);
+	const clear = fadeClear(face);
 	switch (type) {
 		case 'vignette': {
 			// RICH: clear center → low-alpha ink rim. OPAQUE: bg center → ink-in-bg rim.
@@ -460,7 +474,7 @@ function edgeImage(type: EdgeType, i: number, face: FinishFace): string {
 				face === 'rich'
 					? `color-mix(in srgb, var(--text-heading) ${Math.round(Math.min(22, i + 2))}%, transparent)`
 					: `color-mix(in srgb, var(--text-heading) ${Math.round(i)}%, var(--fin-canvas, var(--bg)))`;
-			const center = face === 'rich' ? 'transparent 60%' : 'var(--fin-canvas, var(--bg)) 62%';
+			const center = face === 'rich' ? 'transparent 60%' : `${clear} 62%`;
 			return `radial-gradient(78% 78% at 50% 50%, ${center}, ${rim} 100%)`;
 		}
 		case 'fold':

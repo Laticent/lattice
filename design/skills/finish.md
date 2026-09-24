@@ -18,8 +18,9 @@ finish:
 - Keeps accent alpha **low (~5–16%)** so text-on-background AA contrast survives
   with no scrim.
 - Provides **both faces**: a RICH screen face (gradients that fade to transparent)
-  and an OPAQUE export face (every full-bleed fade ends on `var(--fin-canvas)`, patterns
-  are hard-stop opaque lines) — with **identical layer counts**.
+  and an OPAQUE export face (the bottom full-bleed fade ends on `var(--fin-canvas)`,
+  every layer above it ends on the canvas at zero opacity, patterns are hard-stop opaque
+  lines) — with **identical layer counts**.
 - Is **palette-blind**: every color is `color-mix()` of `var(--accent)` /
   `var(--fin-canvas)` / `var(--text-heading)`. A theme swap or `dark` recolors it automatically.
 - Has a **point of view** — a signature layer type (a mesh, a lattice, a pinstripe,
@@ -77,11 +78,23 @@ light-canvas wash over those dark surfaces and the white display text disappears
 `finish:` deck's title slide exported as a nearly blank page (#1656). Using the canvas
 token is the whole of the fix, and it costs nothing anywhere else.
 
-So every full-bleed fade needs an OPAQUE mirror that ends on `var(--fin-canvas)` (accent
-mixed *into* bg, never into transparent); patterns become uniform 1px opaque lines
-with transparent gaps. A shared "opaque flip" re-points every slot to its `-opaque`
-mirror under `@media print` and `.lattice-exporting` — you only supply the mirror
-values, and both faces must keep the **same layer count**.
+So every full-bleed fade needs an OPAQUE mirror (accent mixed *into* the canvas, never
+into transparent); patterns become uniform 1px opaque lines with transparent gaps. A
+shared "opaque flip" re-points every slot to its `-opaque` mirror under `@media print`
+and `.lattice-exporting` — you only supply the mirror values, and both faces must keep
+the **same layer count**.
+
+**Only the BOTTOM layer may end on the solid canvas.** The bottom full-bleed wash ends on
+`var(--fin-canvas)`. Every full-bleed layer painted above it — a second or third mesh
+bloom, the edge vignette — ends on the same color at zero opacity,
+`rgb(from var(--fin-canvas) r g b / 0)`. A layer that ends solid paints the slide color
+over everything below it: `halo` and `nimbus` shipped that way and printed as a blank
+white slide with a gray rim. Don't use `transparent` or `color-mix(…, transparent)` for
+that stop — both are black at zero opacity, and that is the gray cloud again. A layer
+sized to a corner or a strip (a fold, a hairline) keeps its solid end: it covers only
+its patch, and a zero-opacity end fades faster in print, because a PDF rasterizer
+interpolates color and opacity separately.
+(`test/unit/css/finish-bottom-layer.test.js` checks the shipped presets.)
 
 ---
 
@@ -189,6 +202,9 @@ with `<!-- _class: finish-none -->`.
 - Accent at 40% alpha — the backdrop competes with the text.
 - A radial wash ending on `transparent` with no opaque mirror → muddy gray in the
   exported PDF.
+- An upper layer (a second bloom, a vignette) whose opaque mirror ends on the solid
+  `var(--fin-canvas)` → it paints over every layer below it and the PDF shows no
+  finish at all.
 - `background-image: url(paper.png)` or a `mask-image` — export-breaking and an
   exfiltration surface; use CSS gradients only.
 - A baked `--fin-mark-text: "ACME"` on a deck-wide finish.
