@@ -26,8 +26,7 @@ export function canonicalJson(value: unknown): string {
  *
  * `text` is the narration the segment's track was built from — exactly the string handed to
  * `buildTrack` — and for a tour stretch the producer appends the storyboard steps it spans (§4.5 of
- * the decision note). A legacy conversion, which has no source text, uses its cues' `display`
- * strings joined by single spaces. `inputs` is the file's `inputs` object.
+ * the decision note). `inputs` is the file's `inputs` object.
  */
 export function segmentHashInput(text: string, inputs: object): string {
 	return canonicalJson([String(text), inputs]);

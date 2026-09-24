@@ -13,7 +13,7 @@ const HASH = /^sha256:[0-9a-f]{64}$/;
 const PACES = ['slow', 'moderate', 'fast'];
 const DECK_PACES = ['brisk', 'natural', 'deliberate'];
 const MOTIONS = ['full', 'legible', 'still'];
-const BASES = ['estimate', 'measured', 'legacy'];
+const BASES = ['estimate', 'measured'];
 const AFTERS = ['awaitUser', 'until', 'act'];
 // The core is CLOSED (`@closed` in types.ts): the packed encoding carries these fields by name, so
 // any other key would be dropped by a round trip. Every other object stays open for later layers.

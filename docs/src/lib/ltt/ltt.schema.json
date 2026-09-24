@@ -150,12 +150,11 @@
       ]
     },
     "LttBasis": {
-      "description": "How far to trust a segment's numbers: Cadenza's text-only `estimate`, re-timed to a real clip (`measured`), or converted from a deck exported before the LTT existed (`legacy`).",
+      "description": "How far to trust a segment's numbers: Cadenza's text-only `estimate`, or re-timed to a real clip (`measured`).",
       "type": "string",
       "enum": [
         "estimate",
-        "measured",
-        "legacy"
+        "measured"
       ]
     },
     "LttAfter": {

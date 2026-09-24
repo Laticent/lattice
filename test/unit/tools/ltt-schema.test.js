@@ -130,3 +130,29 @@ describe('the generator refuses what it cannot translate faithfully', () => {
     });
   }
 });
+
+describe('the staleness hash is one definition for every producer', () => {
+  // A GOLDEN vector: the input string and its digest are pinned, so a change to either — in the
+  // package (which a browser uses with crypto.subtle) or in a Node digest — fails here before two
+  // producers come to disagree and flag every segment stale.
+  const { createHash } = require('node:crypto');
+  const { segmentHashInput } = require('@laticent/ltt');
+  const digest = (s) => `sha256:${createHash('sha256').update(s, 'utf8').digest('hex')}`;
+  const inputs = { pace: 'moderate', engine: `sha256:${'0'.repeat(64)}`, viewport: { w: 1440, h: 900 } };
+  // = sha256sum of the input string below, computed independently of this code.
+  const GOLDEN = 'sha256:fc9a0b2221489e4b3e4ac7e061887e56b0eacfeea22f7f7f9474837ad47639a7';
+
+  test('the input is canonical JSON with keys sorted at every depth', () => {
+    assert.equal(
+      segmentHashInput('Now click Publish.', inputs),
+      `["Now click Publish.",{"engine":"sha256:${'0'.repeat(64)}","pace":"moderate","viewport":{"h":900,"w":1440}}]`,
+    );
+  });
+  test('key order at any depth does not move it', () => {
+    const reordered = { viewport: { h: 900, w: 1440 }, engine: inputs.engine, pace: 'moderate' };
+    assert.equal(segmentHashInput('Now click Publish.', reordered), segmentHashInput('Now click Publish.', inputs));
+  });
+  test('the digest is pinned', () => {
+    assert.equal(digest(segmentHashInput('Now click Publish.', inputs)), GOLDEN);
+  });
+});

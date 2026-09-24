@@ -19,7 +19,7 @@ done when — conformance fixtures pin the player's current timing (no hold on s
             whole into `ltt`; the player embeds the packed LTT and drives its crawl from
             `positionAt`; the fixtures pass against the INLINED, MINIFIED copy; `isStale`
             lands with callers in the export pipeline and the Studio (G3). Two gaps step 1
-            found and wrote into engineering/ltt.md §Legacy files are settled here, with the
+            found and wrote into engineering/ltt.md (§Layers, §The transport) are settled here, with the
             owner, before the player embeds an LTT: (a) the 1.0 `audio` layer holds ONE clip
             per segment, but the player ships one clip per CUE and advances on each clip's
             end — so either the layer becomes per-cue (a spec change under G4) or the player

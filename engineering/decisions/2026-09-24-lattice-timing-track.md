@@ -7,7 +7,9 @@ summary: One timing format for every Lattice surface that speaks, captions or mo
 
 > **Step 1 is built** (2026-09-24): `@laticent/ltt`, the spec at
 > [`engineering/ltt.md`](../ltt.md), the generated schema, `validateLtt`, both
-> encodings, the legacy converter and the narrator drift fix. Steps 2–4 are not.
+> encodings and the narrator drift fix. Steps 2–4 are not. The legacy converter
+> (§8 step 1) and the `legacy` basis were dropped: Lattice is not generally
+> available, so no pre-LTT export needs converting (owner ruling, 2026-09-24).
 >
 > **Proposed.** Nothing else here is built. The owner settled all four forks on
 > 2026-09-24 (§9). The adversarial trio (red team, inversion, checker) ran on

@@ -17,7 +17,6 @@ named `*.ltt.json`.
 | The JSON Schema | `docs/src/lib/ltt/ltt.schema.json`, **generated** from the types by `tools/build-ltt-schema.js`. `npm run build:check` fails when the two differ. Do not edit it by hand. |
 | The validator | `validateLtt` in `docs/src/lib/ltt/validate.ts` |
 | The two encodings | `pack` / `unpack` in `docs/src/lib/ltt/encode.ts` |
-| Legacy conversion | `lib/core/ltt-legacy.js` |
 
 `@laticent/ltt` imports nothing outside its own folder, including no `node:`
 built-ins. A boundary gate (`checkLttBoundary` in `tools/check-ownership.js`)
@@ -26,8 +25,7 @@ from the step that first needs it.
 
 ## What is built, and what is not yet
 
-Built (step 1): the types, the schema, `validateLtt`, both encodings, and the
-legacy converter. Not built yet: `positionAt`, `timeline` and `isStale`. Each
+Built (step 1): the types, the schema, `validateLtt` and both encodings. Not built yet: `positionAt`, `timeline` and `isStale`. Each
 lands in the same step as its first production caller (step 2, guardrails G2 and
 G3), and nothing in production writes an LTT before then. The decision note's §8
 lists the steps.
@@ -101,8 +99,7 @@ Each segment has a unique `id`, a `kind` and an `at`.
   `until` or `act`. It is never a time. Absent means the stretch follows the
   previous segment at once.
 - **`basis`** says how far to trust a segment's numbers: `estimate` (Cadenza's
-  calculation from text alone), `measured` (re-timed to a real clip), or
-  `legacy` (converted from an old export; see below).
+  calculation from text alone) or `measured` (re-timed to a real clip).
 
 ## The core
 
@@ -207,13 +204,12 @@ to `packTrack` fails the test (G1).
   `segmentHashInput(text, inputs)` (`docs/src/lib/ltt/hash.ts`): canonical JSON
   of `[text, inputs]`, with object keys sorted at **every** depth. `text` is the
   exact string the segment's track was built from, the one handed to
-  `buildTrack`. A tour stretch also covers the storyboard steps it spans, and a
-  legacy conversion uses its cues' `display` strings joined by single spaces.
+  `buildTrack`. A tour stretch also covers the storyboard steps it spans.
   `inputs` is the file's `inputs` object.
 - The package defines the input string and no digest, because it imports
-  nothing. Each runtime digests with its own SHA-256 (`node:crypto` in
-  `lib/core/ltt-legacy.js`, `crypto.subtle` in a browser). A golden vector in
-  `test/unit/core/ltt-legacy.test.js` pins both the string and the digest.
+  nothing. Each runtime digests with its own SHA-256 (`node:crypto` in Node,
+  `crypto.subtle` in a browser). A golden vector in
+  `test/unit/tools/ltt-schema.test.js` pins both the string and the digest.
 - On a mismatch, a reader marks the segment **stale**. An `estimate` segment may
   be rebuilt freely. A `measured` segment or a recorded wait is flagged and
   kept, because it cannot be rebuilt from text. `isStale(ltt, source)` lands in
@@ -262,42 +258,8 @@ it does not guarantee:** Anima motion (the player receives that separately as
 where the cursor lands, not where it is in every frame). Either may become a
 layer under G4.
 
-## Legacy files
+## Files written before the LTT
 
-`lttFromLegacy` (`lib/core/ltt-legacy.js`) converts the packed blocks inside an
-exported HTML deck, which predate the LTT, into a canonical file with every
-segment marked `basis: "legacy"`. It reads the blocks rather than re-running
-Cadenza on the source. The export's manifest carries no text, no track and no
-pace, and today's Cadenza could draw cue boundaries that no longer match the
-clips baked into the file.
-
-- **Times** are laid out exactly as the player's `expandTrack` lays them out,
-  so they are the times the caption crawls on. (A silent cue's hold floor, rule
-  4 of the transport, is applied by the player, not written into the track.)
-- **A block that does not parse** is read as a silent slide, as the player reads
-  it.
-- **Reconstructed:** `spoken` is set to `display`, and `charOffset` comes from a
-  forward scan through the slide's cue text joined by single spaces. `weight` and
-  `endsParagraph` stay absent.
-- **`tailMs`** is the last cue's breath (`g`), which the player holds before it
-  advances.
-- **Read from the same file** by `readLegacyBlocks`: the slide count and the
-  section dividers (from its `<section data-lattice-slide>` elements, as the
-  player reads them), and the arrival holds (its baked-in `NAR_BEAT`, the last
-  one in the file). `lttFromLegacyHtml(html, { id })` does the whole
-  conversion. Without a slide count, the deck is assumed to end at its last
-  narrated slide. Without `NAR_BEAT`, the holds are Cadenza's natural preset.
-- **Supplied by the caller:** the reading `pace`, which nothing in the file
-  records. The default is `moderate`, and the file carries that default as if it
-  were known.
-- **Damaged input is repaired, not refused.** An entry that is not a
-  `[display, start, end]` triple is skipped. A word's times are clamped into its
-  cue and made to run forward. The count is returned as `wordsRepaired`. A block
-  index past the last slide (at most 10,000) is refused and counted as
-  `ignored`, because the index sizes an array.
-- **Not carried:** audio. Old exports hold one clip per **cue**, but the 1.0
-  audio layer holds one clip per **segment**. The converter returns the count as
-  `clipsNotCarried` rather than dropping the clips silently.
-- **`inputs.engine`** is the hash of the blocks read, because a legacy file
-  cannot know the engine build that timed it. The file still changes identity
-  whenever the deck does.
+Out of scope: Lattice is not generally available, so no deck exported before the
+LTT needs converting. The design note's legacy converter was dropped for that
+reason (owner ruling, 2026-09-24).

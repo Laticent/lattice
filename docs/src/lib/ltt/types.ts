@@ -77,9 +77,9 @@ export type LttDeckPace = 'brisk' | 'natural' | 'deliberate';
 /** Vetrina's resolved motion tier. */
 export type LttMotion = 'full' | 'legible' | 'still';
 
-/** How far to trust a segment's numbers: Cadenza's text-only `estimate`, re-timed to a real clip
- *  (`measured`), or converted from a deck exported before the LTT existed (`legacy`). */
-export type LttBasis = 'estimate' | 'measured' | 'legacy';
+/** How far to trust a segment's numbers: Cadenza's text-only `estimate`, or re-timed to a real
+ *  clip (`measured`). */
+export type LttBasis = 'estimate' | 'measured';
 
 /** The wait a player honors before a tour stretch starts. Never a time: how long it lasts is
  *  unknown until a run is recorded. `awaitUser` waits for the viewer, `until` for a condition in
