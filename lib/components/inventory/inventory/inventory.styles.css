@@ -284,6 +284,17 @@ section.inventory.editorial.lat-split-native > .cell-stage {
 section.inventory.editorial.lat-split-native > .cell-stage > ul {
   grid-column: 1;
 }
+/* …and RELEASE THE ROW PIN, or the one column stacks nothing. The base editorial rules pin
+ * both the list and the insight to `grid-row: 1` (to defeat source-order auto-placement
+ * across TWO columns); in one column that puts them in the same cell, on top of each
+ * other. Measured at `size: square`, where a split body page is `wide`/`square` family and
+ * the tall-family reflow below never fires: the insight's two lines printed straight
+ * through the row's title and body. `auto` lets them stack in source order, the same
+ * release the tall reflow gives the unsplit slide. */
+section.inventory.editorial.lat-split-native > .cell-stage > ul,
+section.inventory.editorial.lat-split-native > .cell-stage > blockquote {
+  grid-row: auto;
+}
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -343,9 +354,32 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
  * forward pill: every earlier page carries `.lat-split-rel` naming the next row, and the
  * last one has nothing to point at. Keyed on the pill, not a page index, so it holds for
  * any run length and any page count. The blockquote stays in every page's markup; the
- * author's sentence renders exactly once, where the run ends. */
+ * author's sentence renders exactly once, where the run ends.
+ * `visibility`, NOT `display`. A hidden copy still takes its space, so every page of the
+ * run lays out the same box and the row sits at the same height on each. `display: none`
+ * collapsed that space on every page but the last, and the lone row, which centers in
+ * whatever the stage has left, jumped up on the final page turn: 77px for the ledger and
+ * 84px for the timeline at portrait, against 33px and 32px on main, where every page
+ * carried the (visible) band. Found by the maker-checker pass on #2321. What remains is
+ * main's own offset, the forward pill that the last page does not carry; see
+ * followups.d/2321-p3-inventory-insight-own-page-on-split.md. */
 section.inventory.lat-split-native > .cell-stage:has(> .lat-split-rel) > blockquote {
-  display: none;
+  visibility: hidden;
+}
+/* …and the LAST page holds the pill's slot, empty. Every earlier page ends on the forward
+ * pill; the last has nothing to point at, so its stage was one item and one gap shorter
+ * and the lone row, which centers in what the stage leaves it, landed lower on the final
+ * page turn: 32–33px at portrait for the ledger and timeline, which main had too, and
+ * 52px for editorial once its pages center (rule 3). A pill-sized spacer in the same flow
+ * takes the same gap the pill takes, in a flex column or a grid alike, so every page lays
+ * out the same box. The height is the pill's own box from the pill's own tokens: the pad
+ * is `em`-based, so the font size is set first and the pad resolves against it. */
+section.inventory.lat-split-native > .cell-stage:not(:has(> .lat-split-rel))::after {
+  content: '';
+  display: block;
+  flex: none;
+  font-size: var(--pill-fs);
+  height: calc(1em + 2 * var(--pill-pad-y) + 2px);
 }
 
 /* 2. A LONE TIMELINE ROW MUST NOT BE STRETCHED. The shared lone-member rule
@@ -375,10 +409,10 @@ section.inventory.editorial.lat-split-native.lat-split-native > .cell-stage {
 
 /* 4. THE TIMELINE'S INSIGHT FOLLOWS ITS LAST ROW ON A SPLIT PAGE. On a single slide the
  * timeline hoists the insight ABOVE the run (`order: -1`), as the line's heading. On a
- * split run it appears once, on the last page (rule 1), and there, above the row, it
- * pushed the final row's dot and title down relative to the three pages before it, a
- * visible jump on the last page turn. Below the row it lands where the ledger, cards and
- * editorial runs close theirs, and the row keeps its place. */
+ * split run it appears once, on the last page (rule 1), after the rows it concludes, so
+ * it lands below the row where the ledger, cards and editorial runs close theirs. The
+ * hidden copies on earlier pages hold the same slot, so the row's height does not
+ * depend on which page it is on. */
 section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
   order: 0;
   padding: var(--sp-md) 0 0;
