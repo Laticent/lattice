@@ -61,22 +61,38 @@ export function isCaptionBody(body: string): boolean {
 // block's `---` front matter split the slide and a `code` slide showing a `_class`
 // comment got its example edited. We mask fenced regions before any scan.
 
+/** The column a line's leading whitespace reaches, with a tab advancing to the next
+ *  multiple of four — CommonMark's tab-stop rule, so `\t```` sits at column 4. */
+function indentWidth(ws: string): number {
+	let col = 0;
+	for (const ch of ws) col = ch === '\t' ? col + 4 - (col % 4) : col + 1;
+	return col;
+}
+
 /** Char ranges `[start, end)` covered by fenced code blocks (``` / ~~~). An
- *  unterminated fence masks to end-of-string (matching how a renderer reads it). */
+ *  unterminated fence masks to end-of-string (matching how a renderer reads it).
+ *
+ *  A CLOSER may be indented at most three columns past the container the fence sits
+ *  in (CommonMark §4.5), so a `    ```` line inside a top-level fence is body, not the
+ *  end. This scanner sees no containers, so it bounds the closer at the opener's column
+ *  plus three: exact at top level (opener at 0, bound 3), and never too tight inside a
+ *  list item, whose content column is at most the opener's. The opener keeps accepting
+ *  any indent for the same reason. */
 export function fenceRanges(text: string): Array<[number, number]> {
 	const ranges: Array<[number, number]> = [];
 	const src = String(text ?? '');
 	let pos = 0;
-	let open: { char: string; len: number; start: number } | null = null;
+	let open: { char: string; len: number; start: number; maxCloseIndent: number } | null = null;
 	for (const line of src.split('\n')) {
 		const lineStart = pos;
 		const lineEnd = pos + line.length;
-		const fm = line.match(/^[ \t]*(`{3,}|~{3,})(.*)$/);
+		const fm = line.match(/^([ \t]*)(`{3,}|~{3,})(.*)$/);
 		if (fm) {
-			const char = fm[1][0];
-			const len = fm[1].length;
-			if (!open) open = { char, len, start: lineStart };
-			else if (open.char === char && len >= open.len && fm[2].trim() === '') {
+			const indent = indentWidth(fm[1]);
+			const char = fm[2][0];
+			const len = fm[2].length;
+			if (!open) open = { char, len, start: lineStart, maxCloseIndent: indent + 3 };
+			else if (open.char === char && len >= open.len && fm[3].trim() === '' && indent <= open.maxCloseIndent) {
 				ranges.push([open.start, lineEnd]);
 				open = null;
 			}

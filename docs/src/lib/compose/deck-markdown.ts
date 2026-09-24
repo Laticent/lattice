@@ -91,11 +91,12 @@ const codeBlockSpec: NodeSpec = {
  *  body line could be read as its CLOSER — a run of the same character at least as long,
  *  then only whitespace.
  *
- *  ANY indent counts, deliberately wider than CommonMark's zero-to-three spaces: Compose's
- *  own fence scanner (`fenceRanges`, slide-directives.ts) reads an indented run as a
- *  closer too, and that scanner decides which slides lock and which directives hoist. A
- *  fence it mis-closes would leave math after it unlocked. Lengthening one line too often
- *  costs nothing; the upstream serializer lengthened on any run at all. */
+ *  ANY indent counts, deliberately wider than CommonMark's zero-to-three columns: the
+ *  serializer writes this fence inside whatever list or blockquote holds the block, so it
+ *  cannot know a body line's absolute column — and a tab's width depends on it (a `\t````
+ *  body line in a list item at column 5 lands on column 8, a valid closer). Lengthening
+ *  one line too often costs nothing; a fence closed early corrupts the render and, via
+ *  `fenceRanges` (slide-directives.ts), unlocks the math after it. */
 export function fenceFor(marker: string, body: string): string {
 	const char = marker[0];
 	let len = marker.length;

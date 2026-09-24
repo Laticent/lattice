@@ -141,19 +141,18 @@ describe('a tilde fence survives an edit of its slide, character for character',
 		// The OTHER character, or a run with an info string after it, closes nothing.
 		expect(fenceFor('~~~', '```\n```js')).toBe('~~~');
 		expect(fenceFor('```', '```js')).toBe('```');
-		// An INDENTED run lengthens too — wider than CommonMark on purpose, because
-		// Compose's own `fenceRanges` reads it as a closer (see `fenceFor`).
+		// An INDENTED run lengthens too — wider than CommonMark on purpose, because the
+		// serializer cannot know the absolute column a nested block lands on (see `fenceFor`).
 		expect(fenceFor('```', '    ```')).toBe('````');
 		expect(fenceFor('~~~', '\t~~~')).toBe('~~~~');
 	});
 
 	it('an indented closer-shaped body line cannot un-lock the math after the fence', () => {
-		// The checker's reproduction: with a CommonMark-exact closer test the fence came
-		// back as ``` around a `    ``` line, `fenceRanges` closed it there, and the `$…$`
-		// after it stopped counting as a lossy construct — so the slide unlocked.
 		// Valid CommonMark as written: a four-space run is not a closer, so the body is
-		// `    ```` and the fence ends on the last line. Compose's scanner disagrees, and it
-		// is the one that decides the lock — so the edit writes a fence both agree on.
+		// `    ```` and the fence ends on the last line. `fenceRanges` agrees, so the math
+		// after the fence locks the slide; the serializer still lengthens the fence, which
+		// every reader agrees on.
+		expect(hasLossyConstruct('```\n    ```\n```\n\nPrice $x^2$')).toBe(true);
 		const src = '## Slide\n\n```\n    ```\n```\n\nPrice is $x^2$ here\n';
 		const out = docToDeck(deckToDoc(src));
 		expect(out).toContain('````\n    ```\n````');
