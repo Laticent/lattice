@@ -187,3 +187,15 @@ section.cards-stack > .cell-stage > ol,
 section.cards-stack .cards-stack-inner {
   padding: var(--elevation-berth);
 }
+
+/* ── `cards:` register (#2317) ── `horizontal` only; the default stack is a column,
+ * where the cross axis is width, so the register has nothing to say there. The row wraps so
+ * `align-content` applies; the zero-basis cards still share one line. */
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner {
+  flex-wrap: wrap; align-content: var(--cards-align);
+}
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol) > li,
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner > * {
+  min-width: 0; max-height: 100%; box-sizing: border-box;
+}

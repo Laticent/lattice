@@ -390,3 +390,20 @@ section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child 
 section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child > :is(ul, p) {
   flex: 0 0 auto;
 }
+
+/* ── `cards:` register (#2317) ── the ROW form only. A single-line flex row ignores
+ * `align-content`, so the row wraps (the cards still fit on one line; they flex from a zero
+ * basis) and the register decides whether that line stretches to the stage or sits at its
+ * text height. Column variants and tall/strip frames stack vertically and are left alone;
+ * `capsule` is already content height (`flex: 0 1 auto`), so the register has nothing to move.
+ * A split page (`lat-split-native`) is left to the generic lone-member rule, whose lone card
+ * fills the stage; this rule outweighs it, so it must step aside. */
+section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol {
+  flex-wrap: wrap; align-content: var(--cards-align);
+}
+/* `min-width: 0` so a long word or a wide badge can never force a step onto a second line;
+ * the row stays one line exactly as it was before it could wrap. `max-height: 100%` keeps
+ * that line inside the stage when a dense step outgrows it, as the one-line row did. */
+section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li {
+  min-width: 0; max-height: 100%; box-sizing: border-box;
+}

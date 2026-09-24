@@ -17,6 +17,10 @@
     ],
     "note": "past four rows the stack overflows"
   },
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "density": {
     "axis": "item",
     "soft": 16,

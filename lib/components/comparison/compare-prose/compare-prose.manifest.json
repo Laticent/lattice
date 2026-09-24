@@ -5,6 +5,10 @@
   "form": "split",
   "substance": "structure",
   "stage": "flow",
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "density": {
     "axis": "item",
     "soft": 20,

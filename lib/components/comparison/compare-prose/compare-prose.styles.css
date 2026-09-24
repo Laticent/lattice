@@ -586,3 +586,21 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
 section.compare-prose > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── `cards:` register (#2317) ── the two panes. A single-line flex row ignores
+ * `align-content`, so the row wraps (two zero-basis panes plus the connector still share
+ * one line) and the register decides whether the panes stretch or sit at text height.
+ * `vertical` and tall/strip frames stack the panes and are left alone. `decision` is left out
+ * too: its DECISION label is placed at the stage's mid-height, so moving the panes strands it. */
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner {
+  flex-wrap: wrap; align-content: var(--cards-align);
+}
+/* A wrapped row sizes its line to the cards, not the stage, so a dense pane would hang past
+ * the stage clip (stage-clip-chrome-shear.test.js). Capping each card's border box at the row keeps the
+ * line inside the stage, as the one-line row did; `min-width: 0` stops a long word from
+ * pushing a pane onto a second line. */
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol) > li,
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner > * {
+  min-width: 0; max-height: 100%; box-sizing: border-box;
+}
