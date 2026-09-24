@@ -25,8 +25,9 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 ### Variant decision rule
 
-- **default (no modifier).** The default top-to-bottom vertical stack — the plainest read, no extra framing needed.
-- **`lr`.** The states read more naturally as a left-to-right flow (e.g. a pipeline direction) than top-to-bottom.
+- **default (no modifier).** Almost always. The chart picks its direction and how many lines it runs on by whichever sets the type largest in the stage, so a long chain wraps onto a second line in reading order instead of shrinking.
+- **`lr`.** The flow must read left to right whatever the stage shape (a pipeline, a funnel of stages). The chart may still wrap onto more rows.
+- **`tb`.** The flow must read top to bottom whatever the stage shape (a ladder, an escalation). The chart may still wrap into more columns.
 - **`inline`.** The chart needs to sit directly beside its explanatory prose rather than take the full canvas.
 - **`curved`.** Eased, curved connectors fit the deck's visual tone better than straight arrows.
 
@@ -43,7 +44,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 ## When NOT to use
 
-- **More than ~8 states.** Vertical stacks of ten or more states stop reading as a machine and start reading as a list. If the system has many states, group them into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
+- **More than ~12 states.** A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
 - **Hierarchical or parallel states.** v1 grammar is one flat list of states with one outgoing arrow per nested bullet. Composite states, orthogonal regions, history nodes — anything Mermaid's `stateDiagram-v2` does and this layout doesn't — belong in a Mermaid fence via the `diagram` component.
 - **Continuous processes.** If the diagram is really a workflow with stages that overlap or block (queue depth, throughput, capacity), a `gantt` or `kanban` chart reads better. State charts are for discrete, mutually-exclusive states the system flips between.
 
@@ -110,6 +111,23 @@ States flow left to right.
    - `deploy => 4`
    - `fail => 1`
 4. Deployed `end`
+```
+
+### `tb` — Top-to-bottom
+
+States flow top to bottom, whatever the stage.
+
+```markdown
+<!-- _class: state-chart tb -->
+
+## tb stacks the states top to bottom.
+
+1. Queued `start`
+   - `claim => 2`
+2. Running `live`
+   - `finish => 3`
+   - `crash => 1`
+3. Complete `end`
 ```
 
 ### `inline` — Inline

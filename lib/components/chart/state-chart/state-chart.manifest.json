@@ -88,6 +88,7 @@
   "purpose": "Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the index badge is painted on the node. It is also the LAYOUT for a chain, where a single column is not an approximation of good layout but the right answer. A machine that branches is re-ranked by dagre, because no column can show a fan-out — the states would read as a sequence.",
   "variants": [
     "lr",
+    "tb",
     "inline",
     "curved"
   ],
@@ -145,8 +146,8 @@
   ],
   "antiPatterns": [
     {
-      "title": "More than ~8 states",
-      "body": "Vertical stacks of ten or more states stop reading as a machine and start reading as a list. If the system has many states, group them into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance."
+      "title": "More than ~12 states",
+      "body": "A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance."
     },
     {
       "title": "Hierarchical or parallel states",
@@ -185,6 +186,11 @@
       "summary": "States flow left to right.",
       "sample": "<!-- _class: state-chart lr -->\n\n## lr flows the states left to right.\n\n1. Source `start`\n   - `compile => 2`\n2. Compiled\n   - `test => 3`\n3. Tested\n   - `deploy => 4`\n   - `fail => 1`\n4. Deployed `end`\n"
     },
+    "tb": {
+      "label": "Top-to-bottom",
+      "summary": "States flow top to bottom, whatever the stage.",
+      "sample": "<!-- _class: state-chart tb -->\n\n## tb stacks the states top to bottom.\n\n1. Queued `start`\n   - `claim => 2`\n2. Running `live`\n   - `finish => 3`\n   - `crash => 1`\n3. Complete `end`\n"
+    },
     "inline": {
       "label": "Inline",
       "summary": "The chart sits beside its prose.",
@@ -209,11 +215,15 @@
   "variantDecisionRule": [
     {
       "variant": "default",
-      "useWhen": "The default top-to-bottom vertical stack — the plainest read, no extra framing needed."
+      "useWhen": "Almost always. The chart picks its direction and how many lines it runs on by whichever sets the type largest in the stage, so a long chain wraps onto a second line in reading order instead of shrinking."
     },
     {
       "variant": "lr",
-      "useWhen": "The states read more naturally as a left-to-right flow (e.g. a pipeline direction) than top-to-bottom."
+      "useWhen": "The flow must read left to right whatever the stage shape (a pipeline, a funnel of stages). The chart may still wrap onto more rows."
+    },
+    {
+      "variant": "tb",
+      "useWhen": "The flow must read top to bottom whatever the stage shape (a ladder, an escalation). The chart may still wrap into more columns."
     },
     {
       "variant": "inline",

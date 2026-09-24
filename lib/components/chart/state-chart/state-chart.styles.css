@@ -145,7 +145,12 @@ section.state-chart .state-chart-scale {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: fit-content;
+  /* `max-content`, not `fit-content`: fit-content CAPS at the figure's width, so
+   * a row wider than the stage overflowed its own box — the end ring painted
+   * outside the canvas and was clipped, and the fit was computed against a box
+   * narrower than the drawing. max-content always contains the column it
+   * measures; applyFit then letterboxes it, which is its job. */
+  width: max-content;
   transform-origin: center center;
   transform: translate(-50%, -50%);   /* centered; draw() appends the fit scale() */
 }
@@ -235,6 +240,12 @@ section.state-chart .state-chart-figure[data-sc-style="curved"] .state-nodes {
 
 section.state-chart .state-node {
   position: relative;
+  /* A node keeps its natural box in a ROW too. In the `lr` column a long machine
+   * used to shrink its nodes to the figure's width — rewrapping their labels — so
+   * the same state measured one size as a column and another as a row. The layout
+   * pass scores BOTH directions from one measurement, so a node's box must not
+   * depend on which way its measuring column happens to run. */
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-sm);

@@ -334,14 +334,29 @@ const MODEL = parseStateChart(OL_WORKED.replace(/^<ol>|<\/ol>$/g, ''));
 
 describe('variant dispatch', () => {
   test('STATE_CHART_VARIANTS lists the modifier classes', () => {
-    assert.deepEqual(STATE_CHART_VARIANTS, ['lr', 'inline', 'curved']);
+    assert.deepEqual(STATE_CHART_VARIANTS, ['lr', 'tb', 'inline', 'curved']);
   });
 
-  test('default (no modifier) is the SVG canvas, top-to-bottom', () => {
+  // No direction token means FIT: the column measures top-to-bottom and the
+  // browser pass is licensed to choose the direction and the line count.
+  test('default (no modifier) is the SVG canvas, measured tb, laid out by fit', () => {
     const html = buildStateChart(MODEL, ['state-chart']);
     assert.match(html, /data-variant="default"/);
     assert.match(html, /data-sc-dir="tb"/);
+    assert.match(html, /data-sc-fit="auto"/);
     assert.match(html, /class="state-chart-edges"/);
+  });
+
+  test('lr and tb pin the direction — no fit licence', () => {
+    for (const tok of ['lr', 'tb']) {
+      const html = buildStateChart(MODEL, ['state-chart', tok]);
+      assert.match(html, new RegExp(`data-sc-dir="${tok}"`));
+      assert.doesNotMatch(html, /data-sc-fit=/, `${tok} must pin, not fit`);
+    }
+  });
+
+  test('curved is a stroke style and pins nothing', () => {
+    assert.match(buildStateChart(MODEL, ['state-chart', 'curved']), /data-sc-fit="auto"/);
   });
 
   test('lr sets direction to left-to-right on the SVG canvas', () => {
@@ -584,7 +599,6 @@ describe('browser layout (fake DOM)', () => {
   const ROW_GAP = 48;
   const COL_CX = 400;   // TB column center x
   const ROW_CY = 380;   // LR row center y
-  const GAP = 5;        // mirrors G.gap (arrow-tip → node boundary)
 
   const nodeWidth = (label) => 70 + String(label).length * 7;
 
@@ -869,16 +883,26 @@ describe('browser layout (fake DOM)', () => {
       transitions: [tr(1, 2, 'go'), tr(1, 3, 'skip'), tr(2, 3, 'go')],
     };
 
-    test('a lone skip attaches at the node center line', () => {
-      const { svg, rects } = runLayout(LONE);
-      const skips = extractPaths(svg).filter((p) => !p.isSelf && /C/.test(p.d));
+    // The grid spreads the loops meeting one side of a node across it; a LONE
+    // loop takes the side's center. Read off the PAINTED boxes: the grid places
+    // every node itself, so the measured CSS rects are not where they end up.
+    const painted = (svg) => Object.fromEntries([...svg.matchAll(
+      /<rect class="state-node-shape" data-index="(\d+)"[^>]*\bx="([-\d.]+)" y="([-\d.]+)" width="([-\d.]+)" height="([-\d.]+)"/g)]
+      .map((m) => [m[1], { x: +m[2], y: +m[3], w: +m[4], h: +m[5] }]));
+    const loopsOf = (svg) => extractPaths(svg).filter((p) => !p.isSelf && flatten(p.d).length > 2);
+
+    test('a lone skip attaches at the center of the side it uses', () => {
+      const { svg } = runLayout(LONE);
+      const box = painted(svg);
+      const skips = loopsOf(svg);
       assert.equal(skips.length, 1, 'exactly one skip edge (1→3)');
       const pts = flatten(skips[0].d);
       const start = pts[0], end = pts[pts.length - 1];
-      const cy1 = rects[1].y + rects[1].h / 2;
-      const cy3 = rects[3].y + rects[3].h / 2;
-      assert.ok(Math.abs(start[1] - cy1) < 0.6, `skip starts at state1 center (${start[1]} vs ${cy1})`);
-      assert.ok(Math.abs(end[1] - cy3) < 0.6, `skip ends at state3 center (${end[1]} vs ${cy3})`);
+      // A single column: the skip rides the +x side, so it meets each node on its
+      // right face, at that face's vertical center.
+      const c1 = box[1].y + box[1].h / 2, c3 = box[3].y + box[3].h / 2;
+      assert.ok(Math.abs(start[1] - c1) < 0.6, `skip starts at state1 center (${start[1]} vs ${c1})`);
+      assert.ok(Math.abs(end[1] - c3) < 0.6, `skip ends at state3 center (${end[1]} vs ${c3})`);
     });
 
     test('multiple edges sharing a face take distinct slots', () => {
@@ -899,13 +923,12 @@ describe('browser layout (fake DOM)', () => {
           tr(1, 3, 'skip3'), tr(1, 4, 'skip4'), tr(1, 5, 'skip5'),
         ],
       };
-      const { svg, rects } = runLayout(SKIPS);
-      const rightX = rects[1].x + rects[1].w + GAP;
-      const starts = extractPaths(svg)
-        .filter((p) => !p.isSelf)
-        .map((p) => flatten(p.d)[0])
-        .filter((s) => Math.abs(s[0] - rightX) < 0.6)
-        .map((s) => +s[1].toFixed(1));
+      const { svg } = runLayout(SKIPS);
+      const b1 = painted(svg)[1];
+      // Every loop leaving state 1 starts ON one of its faces; group by face.
+      const starts = loopsOf(svg).map((p) => flatten(p.d)[0])
+        .filter((s) => s[0] >= b1.x - 0.6 && s[0] <= b1.x + b1.w + 0.6 && s[1] >= b1.y - 0.6 && s[1] <= b1.y + b1.h + 0.6)
+        .map((s) => (Math.abs(s[0] - b1.x) < 0.6 || Math.abs(s[0] - b1.x - b1.w) < 0.6 ? s[1] : s[0]).toFixed(1));
       assert.ok(starts.length >= 3, `at least the 3 skips leave state1 right face (got ${starts.length})`);
       assert.equal(new Set(starts).size, starts.length, `distinct slot y-coords: ${starts}`);
     });
@@ -918,21 +941,22 @@ describe('browser layout (fake DOM)', () => {
       transitions: [tr(1, 2, 'go'), tr(1, 3, 'skip'), tr(2, 3, 'go')],
     };
 
-    test('default style routes skips as racetracks (a straight L run)', () => {
-      const { svg } = runLayout({ ...SKIP, style: 'orthogonal' });
-      // Skip/back edges are the curved (`C`) paths; adjacent spines are M/L
-      // only. A racetrack skip carries BOTH rounded corners (C) and a straight
-      // run (L).
-      const skips = extractPaths(svg).filter((p) => !p.isSelf && /C/.test(p.d));
+    // A grid route is orthogonal by construction. The default draws it with
+    // square corners; `curved` rounds each corner rather than running a spline
+    // through them, which overshot — the wrap connector swung out past its row.
+    const skipsOf = (svg) => extractPaths(svg).filter((p) => !p.isSelf && (p.d.match(/[LQ]/g) || []).length > 1);
+
+    test('default style routes skips square — straight runs only', () => {
+      const skips = skipsOf(runLayout({ ...SKIP, style: 'orthogonal' }).svg);
       assert.ok(skips.length > 0, 'has a skip edge');
-      assert.ok(skips.every((p) => /L/.test(p.d)), 'racetrack skips contain a straight L run');
+      assert.ok(skips.every((p) => /L/.test(p.d) && !/[CQ]/.test(p.d)), 'square skips are M/L only');
     });
 
-    test('curved style routes skips as a single Bézier (no L run)', () => {
-      const { svg } = runLayout({ ...SKIP, style: 'curved' });
-      const skips = extractPaths(svg).filter((p) => !p.isSelf && /C/.test(p.d));
+    test('curved style rounds the corners of the same route', () => {
+      const skips = skipsOf(runLayout({ ...SKIP, style: 'curved' }).svg);
       assert.ok(skips.length > 0, 'has a skip edge');
-      assert.ok(skips.every((p) => !/L/.test(p.d)), 'curved skips are pure cubics, no L run');
+      assert.ok(skips.every((p) => /Q/.test(p.d) && /L/.test(p.d)),
+        'curved skips keep their straight runs and round each corner');
     });
   });
 
@@ -1354,10 +1378,16 @@ describe('dagre re-ranking (fake DOM)', () => {
       'data-sc-transitions': JSON.stringify(spec.transitions),
       'data-sc-dir': spec.dir === 'lr' ? 'lr' : 'tb',
       'data-sc-style': spec.style === 'curved' ? 'curved' : null,
+      ...(spec.fit ? { 'data-sc-fit': 'auto' } : {}),
     };
+    const view = spec.view || { width: 2400, height: 1200 };
     const fig = {
       getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 2400, height: 1200 }),
+      // The pass STAMPS which producer drew the figure (`data-sc-layout`); the
+      // stub keeps what it is told so a test can read it back.
+      setAttribute: (k, v) => { at[k] = String(v); },
+      removeAttribute: (k) => { delete at[k]; },
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: view.width, height: view.height }),
       closest: (s2) => (s2 === 'section'
         ? { getBoundingClientRect: () => ({ width: 1280 }) } : null),
       querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
@@ -1374,7 +1404,8 @@ describe('dagre re-ranking (fake DOM)', () => {
         s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
           ? [fig] : []),
     });
-    return { svg: svg.innerHTML, viewBox: svg._attrs.viewBox, rects };
+    return { svg: svg.innerHTML, viewBox: svg._attrs.viewBox, rects, layout: at['data-sc-layout'],
+      lines: at['data-sc-lines'] ? +at['data-sc-lines'] : null, flow: at['data-sc-flow'] };
   }
 
   const shapes = (svg) => [...svg.matchAll(
@@ -1431,15 +1462,97 @@ describe('dagre re-ranking (fake DOM)', () => {
       transitions: [e(1, 2, ''), e(2, 3, ''), e(3, 4, ''), e(1, 4, 'skip')],
     }],
   ]) {
-    test(`${name} keeps the column`, { skip: !hasDagre }, () => {
-      const { svg, rects } = run(spec);
-      for (const v of shapes(svg)) {
-        assert.ok(Object.values(rects).some(
-          (r) => Math.abs(r.x - v.x) < 0.6 && Math.abs(r.y - v.y) < 0.6),
-        `node moved to ${v.x},${v.y} — it should keep its CSS position`);
-      }
+    // The rule is about dagre ADOPTION, and it still holds: a machine that does
+    // not branch is not handed to dagre. It used to be proved by every node
+    // keeping its CSS rect; since the grid lays out every chain itself, the proof
+    // reads the producer the pass stamps instead.
+    test(`${name} is not re-ranked by dagre`, { skip: !hasDagre }, () => {
+      assert.equal(run(spec).layout, 'grid', 'a machine that does not branch is laid out by the grid');
     });
   }
+
+  // ── Reading-order wrap and fit-driven direction (2026-09-24) ──────────────
+  // A chain used to only SHRINK as it grew: measured on a 16:9 stage, a 10-state
+  // column set its names at 4.6px. These pin the pick, not a pixel layout: a long
+  // chain wraps, a short one does not, and the stage's shape picks the direction.
+  describe('reading-order wrap', () => {
+    const chain = (count, extra = []) => ({
+      dir: 'tb',
+      nodes: Array.from({ length: count }, (_, i) => n(i + 1, 'State ' + (i + 1), i === 0 ? 'start' : undefined)),
+      transitions: [...Array.from({ length: count - 1 }, (_, i) => e(i + 1, i + 2, 'step')), ...extra],
+    });
+    const WIDE = { width: 1152, height: 405 };   // a 16:9 slide's figure viewport
+    const TALL = { width: 405, height: 1152 };
+
+    test('a short chain stays on one line', () => {
+      const r = run({ ...chain(4), fit: true, view: WIDE });
+      assert.equal(r.layout, 'grid');
+      assert.equal(r.lines, 1, 'four states read as one row');
+      assert.equal(r.flow, 'lr', 'a wide stage prefers a row');
+    });
+
+    test('a long chain wraps rather than shrinking', () => {
+      const r = run({ ...chain(10), fit: true, view: WIDE });
+      assert.ok(r.lines >= 2, `ten states wrap (got ${r.lines} line)`);
+      assert.equal(r.flow, 'lr', 'and keeps reading left to right');
+    });
+
+    test('a tall stage turns the same chain into columns', () => {
+      const r = run({ ...chain(4), fit: true, view: TALL });
+      assert.equal(r.flow, 'tb');
+    });
+
+    test('`lr` pins the direction even on a tall stage — it may still wrap', () => {
+      const r = run({ ...chain(10), dir: 'lr', view: TALL });
+      assert.equal(r.flow, 'lr');
+      assert.ok(r.lines >= 2, 'a pinned row still wraps');
+    });
+
+    test('`tb` pins columns on a wide stage', () => {
+      const r = run({ ...chain(10), view: WIDE });
+      assert.equal(r.flow, 'tb');
+    });
+
+    const LOOPY = chain(8, [e(3, 1, 'reject'), e(3, 3, 'revise'), e(2, 5, 'fast track'), e(7, 3, 'reopen')]);
+
+    test('a wrapped chain keeps every mark and route inside its viewBox', () => {
+      const r = run({ ...LOOPY, fit: true, view: WIDE });
+      assert.ok(r.lines >= 2, 'the fixture must actually wrap');
+      const [, , vw, vh] = r.viewBox.split(/\s+/).map(Number);
+      for (const m of r.svg.matchAll(/\b[MLQ] (-?[\d.]+) (-?[\d.]+)/g)) {
+        const x = +m[1], y = +m[2];
+        assert.ok(x >= -0.5 && x <= vw + 0.5 && y >= -0.5 && y <= vh + 0.5,
+          `a route vertex at ${x},${y} lies outside the ${vw}x${vh} canvas`);
+      }
+      for (const m of r.svg.matchAll(/<rect class="state-node-shape"[^>]*\bx="([-\d.]+)" y="([-\d.]+)" width="([-\d.]+)" height="([-\d.]+)"/g)) {
+        assert.ok(+m[1] >= 0 && +m[2] >= 0 && +m[1] + +m[3] <= vw + 0.5 && +m[2] + +m[4] <= vh + 0.5, 'node inside the canvas');
+      }
+    });
+
+    // The router's ports and loop sides exist to keep this at zero: loops on one
+    // side NEST, and loops heading opposite ways do not interleave.
+    test('a wrapped chain with skips, back-edges and a self-loop draws zero crossings', () => {
+      const r = run({ ...LOOPY, fit: true, view: WIDE });
+      const polys = [...r.svg.matchAll(/<path class="state-edge"([^>]*?)d="([^"]+)"/g)]
+        .filter((m) => !/data-self/.test(m[1]))
+        .map((m) => [...m[2].matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((q) => [+q[1], +q[2]]));
+      const ccw = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      const same = (p, q) => Math.abs(p[0] - q[0]) < 1e-6 && Math.abs(p[1] - q[1]) < 1e-6;
+      const cross = (p1, p2, p3, p4) => !(same(p1, p3) || same(p1, p4) || same(p2, p3) || same(p2, p4))
+        && ((ccw(p3, p4, p1) > 0) !== (ccw(p3, p4, p2) > 0)) && ((ccw(p1, p2, p3) > 0) !== (ccw(p1, p2, p4) > 0));
+      const bad = [];
+      for (let a = 0; a < polys.length; a++) for (let b = a + 1; b < polys.length; b++) {
+        let hit = false;
+        for (let i = 0; i + 1 < polys[a].length && !hit; i++) {
+          for (let j = 0; j + 1 < polys[b].length && !hit; j++) hit = cross(polys[a][i], polys[a][i + 1], polys[b][j], polys[b][j + 1]);
+        }
+        if (hit) bad.push([a, b]);
+      }
+      // The full-width wrap connector must cross the edge climbing back a line
+      // (`reopen`, 7 -> 3) — that one crossing is geometry, not routing. Nothing else may.
+      assert.ok(bad.length <= 1, `crossings: ${JSON.stringify(bad)}`);
+    });
+  });
 
   // F2. `curved` reached only edgeTB/edgeLR, so a fan-out silently rendered as
   // the default variant with no signal the modifier had been dropped.
@@ -1601,18 +1714,16 @@ describe('dagre re-ranking (fake DOM)', () => {
       `${distinct.length} distinct viewBoxes: ${boxes.join(' | ')}`);
   });
 
-  // WRAPPING IS THE RE-RANKED PATH'S, AND A CHAIN IS NOT IT. Only `edgeDagre`
-  // draws the label beside the line; a column draws it ON the line under a
-  // `paint-order: stroke` halo, where a second line cuts a taller gap out of the
-  // connector — the failure moving the label off the line exists to avoid.
-  //
-  // The wrap was applied to `t.event` before the adoption test, so it re-rendered
-  // every chain too — which is every machine in the six shipped galleries. It went
-  // unseen because the longest event any shipped deck carries (`return for
-  // changes`, ~119px) clears the 134.4px `lr` budget by 15px, so no gallery moved
-  // and the byte-identity check saw nothing. This test uses a label that does not
-  // clear it.
-  test('a chain does not wrap — the label is still drawn on the line', () => {
+  // A CHAIN'S LABEL SITS BESIDE ITS LINE, AND A LONG ONE WRAPS (2026-09-24). This
+  // pinned the opposite for a year — "a chain does not wrap, the label is drawn ON
+  // the line" — because the column router drew chain labels on the line under a
+  // halo, where a second line would cut a taller gap out of the connector. Chains
+  // are drawn from the grid now, which puts every label beside its run as dagre
+  // does, so wrapping is safe there and one label style covers the component.
+  // The assertion is the CLEARANCE the halo note cares about: the label block's
+  // top sits at least `labelOff` below the run it labels, however many lines.
+  test('a chain label sits beside its line — wrapped, and clear of it', () => {
+    const LABEL_LINE = 13, LABEL_OFF = 7;   // G.labelLine, G.labelOff
     const long = 'submit for editorial review';
     const mk = (index) => {
       const a = { 'data-index': String(index), 'data-kind': index === 1 ? 'start' : null };
@@ -1633,6 +1744,8 @@ describe('dagre re-ranking (fake DOM)', () => {
     };
     const fig = {
       getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
+      setAttribute: (k, v) => { at[k] = String(v); },
+      removeAttribute: (k) => { delete at[k]; },
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 1200, height: 600 }),
       closest: () => ({ getBoundingClientRect: () => ({ width: 1280 }) }),
       querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
@@ -1644,15 +1757,16 @@ describe('dagre re-ranking (fake DOM)', () => {
         s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
           ? [fig] : []) });
     const html = svg.innerHTML;
-    // Not re-ranked: three states in a row is a column, so the adoption test
-    // declines and the canvas stays the measured figure box rather than a dagre
-    // drawing. Asserting this is not decoration — if the machine DID re-rank, the
-    // wrap would be legitimate and the rest of this test would pin the wrong rule.
-    assert.equal(svg._attrs.viewBox, '0 0 1200.0 600.0',
-      'this machine must NOT be re-ranked — the canvas should still be the figure box');
-    assert.match(html, new RegExp('>' + long + '</text>'),
-      'the chain label must render as one unbroken line, as it does on main');
-    assert.doesNotMatch(html, /<tspan/, 'a chain label must not be split into tspans');
+    assert.equal(at['data-sc-layout'], 'grid', 'a chain is drawn from the grid');
+    const m = html.match(/<path class="state-edge"[^>]*d="M ([-\d.]+) ([-\d.]+) L ([-\d.]+) ([-\d.]+)"/);
+    assert.ok(m && m[2] === m[4], 'the first edge is a straight horizontal run');
+    const lineY = +m[2];
+    const label = html.match(/<text class="state-edge-label"[^>]*>(.*?)<\/text>/)[1];
+    const ys = [...label.matchAll(/<tspan[^>]*\by="([-\d.]+)"/g)].map((x) => +x[1]);
+    assert.ok(ys.length >= 2, `the long label wraps into lines (got ${ys.length} tspans)`);
+    const top = Math.min(...ys) - LABEL_LINE / 2;
+    assert.ok(top >= lineY + LABEL_OFF - 0.6,
+      `the label block's top (${top.toFixed(1)}) must clear the line (${lineY}) by ${LABEL_OFF}`);
   });
 
   // THE LABEL MUST CLEAR ITS OWN EDGE, which is the point of moving it off the
@@ -2208,12 +2322,10 @@ describe('dagre re-ranking (fake DOM)', () => {
         transitions: [e(1, 2, 'a')] }],
     ];
 
-    // The pass re-ranked iff some painted node left its CSS rect.
-    const passReRanked = (spec) => {
-      const { svg, rects } = run(spec);
-      return shapes(svg).some((v) => !Object.values(rects).some(
-        (r) => Math.abs(r.x - v.x) < 0.6 && Math.abs(r.y - v.y) < 0.6));
-    };
+    // The pass re-ranked iff it stamped dagre as the producer. (It used to be
+    // inferred from a painted node leaving its CSS rect, which every chain now
+    // does — the grid places it.)
+    const passReRanked = (spec) => run(spec).layout === 'dagre';
 
     for (const [name, spec] of CORPUS) {
       test(name, { skip: !hasDagre }, () => {
