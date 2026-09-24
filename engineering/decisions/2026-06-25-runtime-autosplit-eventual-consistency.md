@@ -530,6 +530,13 @@ What shipped (PR on branch `claude/runtime-structural-split`):
   `revealSlide` makes during a step is that step's own echo and does not count. With the preview
   hidden (collapsed, or a phone's Source tab) there are no pages to step, so the verbs move by
   slide. The owner found the gap on a phone: a swipe skipped the run's other pages.
+- A live preview paints the run already SETTLED (`structuralSplit`'s `settle`). The split composes
+  its cover and closing pages after the engine's render-time masthead lift ran, so they arrived
+  unlifted and the runtime's DOM mirror wrapped them in `.cell-stage` about 160 ms after first
+  paint, which the owner saw as the cover jumping. The preview now runs the same lift with the
+  render-time string kernel before it paints; the mirror then skips the page. The CLI leaves it
+  off: its export is captured after the runtime settles, so it never showed the jump, and its HTML
+  stays byte-identical.
 - The live runtime's frame lift now skips a section that already carries its footer cell (the split
   envelope's composed cover and closing pages), in both the DOM mirror and the string kernel. Without
   it every split cover in a live preview showed a stray page number.

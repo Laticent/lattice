@@ -108,6 +108,24 @@ test('a portrait deck splits on structure: cover, one row per page, the run numb
   assert.ok(run.every((p) => /lat-rail|split-rail/.test(p)), 'every page of the run carries the k-of-N rail');
 });
 
+test('settle: a live preview paints the composed cover already lifted, so the runtime has nothing to move', () => {
+  // The split composes its cover after the engine's masthead lift ran. Unsettled (the CLI), the
+  // cover's heading and lead are bare children of the section, and the live runtime wraps them in
+  // `.cell-stage` after first paint, which the owner saw as the cover jumping. Settled, every
+  // lift-eligible page already has its stage, which is exactly the runtime mirror's skip rule.
+  const md = DECK('portrait');
+  const out = engine.render(md, 'indaco', { preview: true });
+  const opts = { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY };
+  const cover = (html) => ss.splitTopLevelSections(html).find((p) => /data-split-role="cover"/.test(p));
+  const stagedOrFramed = (p) => /^<section[^>]*>\s*<div class="cell-(stage|masthead)"/.test(p) || /<div class="cell-footer"/.test(p);
+  assert.ok(!stagedOrFramed(cover(ss.structuralSplit(out.html, opts).html)), 'unsettled, the cover arrives unlifted');
+  const settled = ss.structuralSplit(out.html, { ...opts, settle: true }).html;
+  assert.ok(stagedOrFramed(cover(settled)), 'settled, the cover is already lifted');
+  const forms = ss.splitTopLevelSections(settled).filter((p) => /^<section[^>]*\sclass="[^"]*\bform\b/.test(p));
+  assert.ok(forms.length >= 5 && forms.every(stagedOrFramed), 'every lift-eligible page is lifted, and none twice');
+  assert.equal(settled.match(/class="cell-stage"/g).length, forms.length);
+});
+
 test('without a capacity map the split is a no-op, not a crash (an unbundled import)', () => {
   const md = DECK('portrait');
   const out = engine.render(md, 'indaco', { preview: true });
