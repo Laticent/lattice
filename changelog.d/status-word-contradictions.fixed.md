@@ -1,0 +1,1 @@
+- **Fixed: a capitalized status word on a `kanban` card now paints.** `AT-RISK` was accepted as a status but stamped verbatim, so neither the card wash nor the pill matched its color rule and both painted untinted. The card and pill now take the lowercase word's color; the pill still shows your spelling.
