@@ -56,15 +56,18 @@ jobs:
       # third-party action out of the pipeline for one command.
       - name: Install Rust (stable)
         run: rustup toolchain install stable --profile minimal && rustup default stable
-      - name: Cache cargo
+      # The crate downloads only, NOT `target/`. The first run cached `target/` too and
+      # saved a 1.2GB entry, and every workflow in this repo shares one 10GB cache quota,
+      # so a job that runs a few times a month would evict the caches that run on every PR.
+      # The price is a cold compile each run (~4 min; the first run took 6 min end to end).
+      - name: Cache cargo downloads
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            desktop/src-tauri/target
-          key: desktop-cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-          restore-keys: desktop-cargo-${{ runner.os }}-
+          key: desktop-cargo-dl-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: desktop-cargo-dl-${{ runner.os }}-
       # The app ships the docs site's own build (tauri.conf.json → ../../docs/dist), and
       # the docs site needs the root bundles first, the same order as ci.yml's docs-build.
       # `build:e2e` skips the showcase rasterize check, which needs a browser; the Studio
