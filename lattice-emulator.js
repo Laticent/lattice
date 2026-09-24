@@ -855,16 +855,23 @@ if (retiredForm.length > RETIRED_FORM_SHOWN) {
 // so, on the same channel and for the same reason as the retired Form opt-outs above.
 // The detector is lint rule 16 (HARD RULE #7); it already stays silent on a slide that
 // uses `[!]` or `[?]`, so a deck written for the six markers is not warned.
+// Baked first: in a `split: headings` deck a heading starts a slide, and lint-core splits
+// on `---` only, so without this the slide numbers here would not match the render.
 const { findMovedEmptyBoxes } = require('./lib/authoring/lint-core');
-const movedBoxes = findMovedEmptyBoxes(md).filter((f) => f.shapeChange);
+const { bakeSplits } = require('./lib/core/bake-splits');
+const movedBoxes = findMovedEmptyBoxes(bakeSplits(md)).filter((f) => f.shapeChange);
 for (const f of movedBoxes.slice(0, RETIRED_FORM_SHOWN)) {
-  console.error(`warning: slide ${f.slide}: ${f.message}`);
+  console.error(`warning: slide ${f.slide}: ${f.message} ${f.short}`);
 }
 if (movedBoxes.length > RETIRED_FORM_SHOWN) {
   console.error(`warning: \u2026 and ${movedBoxes.length - RETIRED_FORM_SHOWN} more slide(s) with a moved \`[ ]\`.`);
 }
-if (movedBoxes.length) {
-  console.error('warning: run `npm run lint:deck -- --fix <deck>` to rewrite verdict-grid and pricing `[ ]` as `[!]`; see `lattice lint` for the rest.');
+// Asked of the UNBAKED source, because that is what `lint:deck --fix` reads: it withholds
+// the rewrite in a `split: headings` deck, so the hint would promise a fix that never comes.
+if (movedBoxes.length && findMovedEmptyBoxes(md).some((f) => f.autofixable)) {
+  // Only a repo checkout has `lint:deck` (tools/ is not in the published package), so the
+  // per-slide line above already says what to write; this names the shortcut for those who have it.
+  console.error('warning: in a Lattice checkout, `npm run lint:deck -- --fix <deck>` rewrites the verdict-grid and pricing ones as `[!]`.');
 }
 
 // Resolve palette name from the precedence chain (CLI > env > front

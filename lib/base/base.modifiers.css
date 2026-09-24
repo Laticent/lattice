@@ -1379,6 +1379,10 @@ section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding:
  * under heat it reads as relief like the `.fail` disc does. Left at its default red it
  * would share heat's alarm red with `shipped`, the one pair heat must keep apart.
  *
+ * Roadmap's `horizons` CARDS are remapped in roadmap.styles.css, not here: their
+ * defaults carry `.horizons` inside `:is(...)` and outrank any selector this block
+ * could write, so the card selectors that used to sit here never applied.
+ *
  * Selectors match the per-layout default --state-color assignments above
  * exactly, so specificity ties; this block is placed AFTER the layout
  * defaults so source-order wins the tie and heat takes effect.
@@ -1400,8 +1404,7 @@ section.heat > .cell-stage > ul > li.state.pass,
 section.heat > .cell-stage > ol > li.state.pass,
 section.heat .badge.pass,
 section.heat td .state.pass,
-section.heat td.cell-state.state-shipped,
-section.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--fail); }
+section.heat td.cell-state.state-shipped { --state-color:var(--fail); }
 
 /* half → caution (unchanged, but redeclared for symmetry and so per-layout
  * source-order overrides under .heat resolve to the universal palette) */
@@ -1411,8 +1414,7 @@ section.heat > .cell-stage > ul > li.state.warn,
 section.heat > .cell-stage > ol > li.state.warn,
 section.heat .badge.warn,
 section.heat td .state.warn,
-section.heat td.cell-state.state-wip,
-section.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--warn); }
+section.heat td.cell-state.state-wip { --state-color:var(--warn); }
 
 /* empty → relief */
 section.heat > ul > li.state.fail,
@@ -1422,9 +1424,7 @@ section.heat > .cell-stage > ol > li.state.fail,
 section.heat .badge.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
-section.heat .horizon-rows > li.cell-state.state-planned,
-section.heat td.cell-state.state-missed,
-section.heat .horizon-rows > li.cell-state.state-missed { --state-color:var(--pass); }
+section.heat td.cell-state.state-missed { --state-color:var(--pass); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
@@ -1433,8 +1433,7 @@ section.heat > .cell-stage > ul > li.state.skip,
 section.heat > .cell-stage > ol > li.state.skip,
 section.heat .badge.skip,
 section.heat td .state.skip,
-section.heat td.cell-state.state-skipped,
-section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); }
+section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS

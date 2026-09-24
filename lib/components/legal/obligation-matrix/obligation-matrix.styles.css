@@ -173,10 +173,18 @@ section.obligation-matrix.heat tbody tr td:not(:first-child) { background:none; 
  * rather than widening base for a surface no other component reaches.
  * `.heat` adds a class, so these are (0,4,2) against the (0,3,2) defaults above —
  * they win outright, not on the source-order tie base's header describes. */
-section.obligation-matrix.heat .ct-card dd .state.pass { --state-color:var(--fail); }
-section.obligation-matrix.heat .ct-card dd .state.warn { --state-color:var(--warn); }
-section.obligation-matrix.heat .ct-card dd .state.fail { --state-color:var(--pass); }
-section.obligation-matrix.heat .ct-card dd .state.skip { --state-color:var(--muted-mark); }
+section.obligation-matrix.heat .ct-card dd .state.pass,
+section.obligation-matrix.heat .label-set-key-mark.pass { --state-color:var(--fail); }
+section.obligation-matrix.heat .ct-card dd .state.warn,
+section.obligation-matrix.heat .label-set-key-mark.warn { --state-color:var(--warn); }
+section.obligation-matrix.heat .ct-card dd .state.fail,
+section.obligation-matrix.heat .label-set-key-mark.fail { --state-color:var(--pass); }
+section.obligation-matrix.heat .ct-card dd .state.skip,
+section.obligation-matrix.heat .label-set-key-mark.skip { --state-color:var(--muted-mark); }
+/* The KEY takes the remap too. It is drawn outside any `td`, so base's `td .state`
+ * overlay never reached it, and the shipped heat slide keyed "Applies" with a GREEN
+ * disc under a grid of red ones — a key contradicting its cells, the bug #2327 began
+ * with. The swatch shares the cells' classes, so it follows them here. */
 section.obligation-matrix.heat td:has(> .state.pass),
 section.obligation-matrix.heat .ct-card dd:has(> .state.pass) {
   background:color-mix(in srgb, var(--fail) 14%, var(--bg));

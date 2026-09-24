@@ -177,12 +177,21 @@ async function main(argv) {
     // and no-ask; CRLF silently dropped verbose-eyebrow; lone CR dropped it and invented
     // title-incomplete. A Windows author got different advice for identical content.
     // `\r\n?` covers CRLF and classic-Mac lone CR; it is a no-op on LF.
-    let source = fs.readFileSync(file, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+    const raw = fs.readFileSync(file, 'utf8');
+    let source = raw.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
     if (fix) {
+      // Name what is about to change, by rule and slide, BEFORE rewriting — `--fix` applies
+      // every machine fix, not only rule 16's, and the author should see each one.
+      const planned = lintText(source, { vocab }).filter((f) => f.autofixable);
       const fixed = applyAllFixes(source, vocab);
       if (fixed !== source) {
-        fs.writeFileSync(file, fixed);
+        // Write back in the file's own encoding: its BOM and its line endings. Normalizing
+        // was for linting; handing a Windows author an all-LF diff is not a fix they asked for.
+        const eol = /\r\n/.test(raw) ? '\r\n' : '\n';
+        const bom = raw.startsWith('﻿') ? '﻿' : '';
+        fs.writeFileSync(file, bom + fixed.replace(/\n/g, eol));
         process.stderr.write(`lint:deck --fix — rewrote ${relFromRoot(file)}\n`);
+        for (const f of planned) process.stderr.write(`  · slide ${f.slide} · ${f.rule}\n`);
         source = fixed;
       }
     }

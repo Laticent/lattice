@@ -1060,6 +1060,16 @@ describe('markdown-it-plugins', () => {
     assert.match(cell, /<span class="state unknown state-unknown">&lt;i&gt;<\/span>/);
   });
 
+  test('inline HTML in a label keeps its text and drops its tag, as the runtime\'s textContent does', () => {
+    const badge = makeHost(plugins.verdictGridBadges).render(
+      '<!-- _class: verdict-grid -->\n\n- Card\n  - [x] <em>x</em> crit').html;
+    assert.match(badge, /<span class="badge pass state-full">x crit<\/span>/);
+    assert.doesNotMatch(badge, /&lt;em&gt;/, 'a tag must never print as literal text');
+    const cell = makeHost(plugins.obligationMatrixBadges).render(
+      '<!-- _class: table state-cells -->\n\n| A | B |\n| - | - |\n| x | [x] <b>y</b> |').html;
+    assert.match(cell, /<span class="state pass state-full">y<\/span>/);
+  });
+
   test('verdictGridBadges: does NOT fire on slides without the verdict-grid class', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = '## Title\n\n- Card\n  - [x] would-be-pass';

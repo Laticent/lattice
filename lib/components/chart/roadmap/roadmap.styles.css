@@ -85,6 +85,10 @@
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-unknown { --state-color:var(--muted-mark);  --state-mark:var(--mark-question); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--muted-mark); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark);  --state-mark:var(--mark-slash); }
+/* Under `heat` the key takes the cells' remap, or it would decode a red shipped disc
+ * as "green = shipped" beside it. Same mapping as base.modifiers.css's heat block. */
+:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item.state-shipped { --state-color:var(--fail); }
+:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item:is(.state-missed, .state-planned) { --state-color:var(--pass); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
   content:'';
@@ -286,6 +290,15 @@
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
 }
+/* `heat` on the horizons CARDS: the load/risk remap base.modifiers.css applies to the
+ * table cells (shipped → alarm, missed and planned → relief). Base cannot reach the
+ * cards — the defaults above carry `.horizons` inside `:is(...)` and outrank it — so
+ * the remap lives here, one class heavier. Before it, `roadmap horizons heat` ignored
+ * `heat` entirely: its cards kept the delivery colors while the table form remapped. */
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--fail); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--warn); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state:is(.state-missed, .state-planned) { --state-color:var(--pass); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); }
 
 /* Light treatment (default, any variant): a small state-colored
    indicator with an inset white glyph sits before the cell text.

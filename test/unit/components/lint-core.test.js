@@ -2151,6 +2151,23 @@ describe('lint-core: `--fix` migrates a moved empty box, and only where the mean
     assert.match(out, / {2}- \[!\] Audit/);
   });
 
+  test('never rewrites inside a multi-line HTML comment, but does beside a one-line one', () => {
+    const out = fixed(FM + slide('verdict-grid', '<!--\n- V\n  - [ ] Hidden\n-->\n- Vendor\n  - [ ] Audit <!-- note -->'));
+    assert.match(out, / {2}- \[ \] Hidden/);
+    assert.match(out, / {2}- \[!\] Audit <!-- note -->/);
+  });
+
+  test('a `split: headings` deck keeps the finding but gets no rewrite', () => {
+    // lint-core splits on `---` only, so one chunk can hold a checklist AND a verdict-grid
+    // slide; a slide-wide rewrite reached the checklist and turned its `[ ]` into `[!]`.
+    const src = '---\nmarp: true\nsplit: headings\n---\n\n# Tasks\n\n- [x] A\n  - [ ] sub task\n\n'
+      + '# Vendor verdict\n\n<!-- _class: verdict-grid -->\n\n- Vendor\n  - [ ] Audit\n';
+    assert.equal(fixed(src), src);
+    const [f] = core.findMovedEmptyBoxes(src);
+    assert.ok(f, 'the author is still told');
+    assert.equal(f.autofixable, undefined);
+  });
+
   test('never touches obligation-matrix: its `[ ]` has three honest readings', () => {
     const src = FM + slide('obligation-matrix', '| R | A |\n| --- | :-: |\n| GDPR | [ ] |');
     assert.equal(fixed(src), src);
@@ -2166,7 +2183,25 @@ describe('lint-core: `--fix` migrates a moved empty box, and only where the mean
     fs.writeFileSync(file, FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.'));
     const r = spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
     assert.match(r.stderr, /lint:deck --fix — rewrote/);
+    assert.match(r.stderr, /slide 1 · moved-empty-box/, 'each applied fix is named');
     assert.match(fs.readFileSync(file, 'utf8'), / {2}- \[!\] B/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('the CLI `--fix` keeps the file\'s BOM and CRLF line endings', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
+    const file = path.join(dir, 'deck.md');
+    const body = FM + slide('verdict-grid', '- Vendor\n  - [x] A\n  - [ ] B\n  - Why.');
+    fs.writeFileSync(file, `\uFEFF${body.replace(/\n/g, '\r\n')}`);
+    spawnSync(process.execPath, [path.resolve(__dirname, '../../../tools/lint-deck.js'), '--fix', file], { encoding: 'utf8' });
+    const out = fs.readFileSync(file, 'utf8');
+    assert.ok(out.startsWith('\uFEFF'), 'the BOM survives');
+    assert.ok(!/[^\r]\n/.test(out), 'every line still ends in CRLF');
+    assert.match(out, / {2}- \[!\] B\r\n/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

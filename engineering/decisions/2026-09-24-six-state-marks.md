@@ -289,10 +289,31 @@ changed meaning with a successful exit code, and never runs the linter. Three la
 2. **`lint:deck -- --fix` rewrites the safe half.** On verdict-grid and pricing an old
    `[ ]` drew the red cross, so `[!]` restores exactly what the deck drew. The rewrite is
    slide-wide in one pass (the first `[!]` would otherwise silence the rule and leave the
-   slide half-migrated) and skips fenced examples.
+   slide half-migrated) and skips fenced examples and multi-line comments, as the rule
+   does. It is withheld in a `split: headings` deck: lint-core splits on `---` only (a
+   heading split needs a markdown parse, and lint-core is require-free), so one chunk can
+   hold a checklist beside the verdict-grid, and a checker saw the checklist's `[ ]`
+   rewritten. The render warning bakes the heading splits first, so its slide numbers
+   match the render. `--fix` names every fix it applies, since it applies every rule's,
+   and writes the file back with its own line endings and BOM.
 3. **obligation-matrix gets no rewrite.** An old `[ ]` there was keyed "exempt" but was
    used for "unconfirmed" and "controlled" too (§10), so there is no safe target. The
    warning names the slide and the choices.
 
 Every layer is silent on a slide that uses `[!]` or `[?]` (written for six markers) or
 carries a label set naming `[ ]` (the author said what it means).
+
+### 10.3 The checker round
+
+An independent checker on §10.1–§10.2 found these. The label and `--fix` fixes carry unit
+tests; the heat remaps were verified on a rendered page, light and dark:
+
+- The label escape from §10.1 printed inline HTML as literal tags (`<em>x</em>` became
+  `&lt;em&gt;`). The engine now builds the label from text children only, which is the
+  runtime's `textContent`, so the two paths agree for the first time.
+- `heat` never reached roadmap's `horizons` cards (their defaults outrank base's heat
+  block), nor the roadmap and obligation-matrix KEYS. The obligation-matrix gallery's own
+  heat slide keyed "Applies" in green under red cells, the same key-versus-cells
+  contradiction this whole change began with. The remaps now live in each component's
+  stylesheet at a specificity that wins.
+- The `--fix` findings in §10.2 above: `split: headings`, comments, encoding, naming.
