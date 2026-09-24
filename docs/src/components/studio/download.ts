@@ -1,15 +1,11 @@
-// Trigger a client-side download for a Blob. Browser-only; a no-op-safe guard keeps
-// it from throwing in a non-DOM environment (tests).
+import { saveFile } from '@/lib/platform';
+
+// Save a Blob as a file the user keeps. Every Studio export lands here, and this hands
+// it to the platform seam (`lib/platform.js`), which clicks a download link in a browser
+// and shows the native save dialog on the desktop. Fire-and-forget: no caller acts on
+// the outcome today, and the web path must not await before its click (see saveFile).
 export function downloadBlob(filename: string, blob: Blob): void {
-	if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	URL.revokeObjectURL(url);
+	void saveFile(filename, blob);
 }
 
 // Trigger a client-side file download for a text blob (the Share "hand off the

@@ -39,6 +39,7 @@ import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.m
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
+import { saveFile } from '../../../lib/platform.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
@@ -98,16 +99,8 @@ function provenance(meta, slides) {
 	return { eng, summary, keywords };
 }
 
-function download(blob, filename) {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// Every save goes through the platform seam (lib/platform.js), like download.ts.
+const download = (blob, filename) => void saveFile(filename, blob);
 
 // ── Markdown ────────────────────────────────────────────────────────────────
 // Self-contained embed for a Workbench *library* theme (export bridge — see
