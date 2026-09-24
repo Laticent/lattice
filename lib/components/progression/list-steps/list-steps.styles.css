@@ -400,7 +400,8 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
   flex-wrap: wrap; align-content: var(--cards-align);
 }
 /* `min-width: 0` so a long word or a wide badge can never force a step onto a second line;
- * the row stays one line exactly as it was before it could wrap. */
+ * the row stays one line exactly as it was before it could wrap. `max-height: 100%` keeps
+ * that line inside the stage when a dense step outgrows it, as the one-line row did. */
 section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li {
-  min-width: 0;
+  min-width: 0; max-height: 100%; box-sizing: border-box;
 }
