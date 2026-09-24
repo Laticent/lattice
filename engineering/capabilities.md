@@ -419,6 +419,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-marp-kit.js` | build-marp-kit — assemble dist/marp-kit/, the copy-and-go folder. |
+| `tools/build-packages-core.js` | Bundle the package spine for the browser. |
 | `tools/build-packages-index.js` | build-packages-index — the ONE generated index of every shipped package |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |

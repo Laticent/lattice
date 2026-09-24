@@ -440,7 +440,10 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const s = await restoreWorkspace(file, Date.now());
 			const decks = s.added + s.restoredCopies;
 			const assets = s.themes + s.components + s.finishes + s.scenes;
-			notify(`Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in. Reloading…`);
+			// A library package the backup held but could not be read back is NAMED, never
+			// dropped in silence — the reload below would otherwise hide that it was ever there.
+			const lost = s.refused.length ? { description: `Not restored: ${s.refused.map((r) => `${r.name} (${r.why})`).join('; ')}` } : undefined;
+			notify(`Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in. Reloading…`, lost);
 			// The restore touches decks, settings, and the Library across several
 			// stores; a reload is the one honest way to re-derive every view of them.
 			setTimeout(() => window.location.reload(), 1100);

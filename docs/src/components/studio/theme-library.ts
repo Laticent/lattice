@@ -11,6 +11,7 @@
 // throws — it just returns an empty shelf.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import type { PackageCarry } from '@/components/studio/library/package-carry';
 import { RESERVED_THEME_NAMES, unreservedName } from '@/components/studio/library/reserved-names';
 
 // Loaded ON DEMAND (2026-08-17 loading audit §9.2). StudioShell imports this module
@@ -39,10 +40,14 @@ export type StudioTheme = {
 	 *  without them a saved theme reloads as a different theme from the one saved. */
 	overrides: Record<string, unknown> | null;
 	rampStrategy: string | null;
+	/** What an imported package carried that this record does not model — its manifest
+	 *  and any role files — so exporting it again writes the same files
+	 *  (engineering/decisions/2026-09-23-portable-packages.md §3.1). */
+	pkg?: PackageCarry;
 };
 
 // The asset record as asset-store persists it (themeAsset shape).
-type ThemeAssetRecord = { id: string; name: string; label?: string; text?: string; essentials?: Record<string, string> | null; overrides?: Record<string, unknown> | null; rampStrategy?: string | null };
+type ThemeAssetRecord = { id: string; name: string; label?: string; text?: string; essentials?: Record<string, string> | null; overrides?: Record<string, unknown> | null; rampStrategy?: string | null; pkg?: PackageCarry };
 
 /**
  * Turn arbitrary text into a valid engine theme slug (`^[a-z][a-z0-9-]*$`), or
@@ -61,7 +66,7 @@ export function slugify(text: string): string {
 }
 
 function toStudioTheme(a: ThemeAssetRecord): StudioTheme {
-	return { id: a.id, name: a.name, label: a.label || a.name, css: a.text || '', essentials: a.essentials ?? null, overrides: a.overrides ?? null, rampStrategy: a.rampStrategy ?? null };
+	return { id: a.id, name: a.name, label: a.label || a.name, css: a.text || '', essentials: a.essentials ?? null, overrides: a.overrides ?? null, rampStrategy: a.rampStrategy ?? null, ...(a.pkg ? { pkg: a.pkg } : {}) };
 }
 
 /**
@@ -79,7 +84,7 @@ function toStudioTheme(a: ThemeAssetRecord): StudioTheme {
  * becomes. Omit it and the name-keyed behavior above is unchanged, which is what
  * every save-a-new-theme caller wants.
  */
-export async function saveStudioTheme(input: { id?: string; name: string; label: string; essentials: Record<string, string>; css: string; overrides?: Record<string, unknown>; rampStrategy?: string }, opts?: { historyLabel?: string }): Promise<StudioTheme> {
+export async function saveStudioTheme(input: { id?: string; name: string; label: string; essentials: Record<string, string>; css: string; overrides?: Record<string, unknown>; rampStrategy?: string; pkg?: PackageCarry }, opts?: { historyLabel?: string }): Promise<StudioTheme> {
 	// The invariant the feature rests on: the stored record name MUST equal the
 	// name the CSS was serialized under (its `@theme <name>`), or the engine
 	// registers the theme under the CSS name while the deck renders by record name
@@ -95,7 +100,8 @@ export async function saveStudioTheme(input: { id?: string; name: string; label:
 	const core = await loadThemeCore();
 	const css = name === wanted ? input.css : core.renameThemeDirective(input.css, name);
 	const asset = core.themeAsset({ name, label: input.label, essentials: input.essentials, css, overrides: input.overrides, rampStrategy: input.rampStrategy });
-	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset, opts)) as ThemeAssetRecord;
+	const withPkg = input.pkg ? { ...asset, pkg: input.pkg } : asset;
+	const stored = (await putAsset(input.id ? { ...withPkg, id: input.id } : withPkg, opts)) as ThemeAssetRecord;
 	return toStudioTheme(stored);
 }
 

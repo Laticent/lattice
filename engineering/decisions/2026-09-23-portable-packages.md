@@ -462,3 +462,29 @@ it is the record of what was wrong.
   So generating the shipped CSS today changes exported bytes on five of nine presets.
   That is a direction call with a sign-off attached, so it is left for the owner; the
   follow-up names three ways forward.
+- **Phase 3, the Studio's zip on the spine: done.** A Studio export is now the package
+  folder itself: `<name>/<name>.manifest.json` plus role files, or
+  `<type>/<name>/…` in a bundle, with no envelope (`package-zip.ts`, through the spine's
+  browser bundle `packages-core.generated.js` from `tools/build-packages-core.js`). A
+  component's files take the repo's names (`styles.css`, `gallery.md`, not `.css` and
+  `.skeleton.md`), and a finish ships its recipe only, since the CSS regenerates.
+  `lattice-asset/1` zips still import through a one-way reader. Import trusts the
+  manifest, not the file names: a folder saved as `harbor (1)` imports as `harbor`,
+  and the toast says what was renamed or left out. A package carrying a
+  `transform.js` is refused by name until phase 6. Each Studio record now carries
+  what a package held that the record doesn't model (`PackageCarry`: the full
+  manifest, a component's `docs.md`, a recipe's exact text). With that,
+  `package-roundtrip.test.ts` shows repo package → zip → Studio → zip is
+  byte-identical for a component, a theme and a finish, and
+  `library-package-roundtrip.spec.ts` shows the same on the real Library.
+  The carry lasts until the record is edited: the faculties save what they model and
+  pass no carry, so an edited repo component exports without its `docs.md`. That is
+  the safe direction, since an export never writes a stale manifest over an edit.
+  A theme package's `essentials.json` is not CSS but becomes CSS when Fabricate
+  reopens it, so import keeps only slug-named hex values from it (HARD RULE #22).
+  Three things changed shape to get there. A finish or motion name may start with a
+  digit (the Studio has always saved "2024 Launch" as `2024-launch`); a theme or
+  component name, used bare as a `@theme` or a class, may not. The motion
+  `poster.svg` is optional, because the Studio has always allowed a scene without one. The `@theme` helpers moved out of
+  `parse.js` into `lib/theme/directive.js` (re-exported, API unchanged), so the spine's
+  browser bundle is 15.7 KB instead of 63 KB.

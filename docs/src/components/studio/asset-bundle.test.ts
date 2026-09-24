@@ -29,21 +29,28 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		const round = await unpackBundle(await packTheme(theme));
 		expect(round.themes).toHaveLength(1);
 		expect(round.components).toHaveLength(0);
-		expect(round.themes[0]).toEqual({ name: 'harbor', label: 'Harbor', essentials: theme.essentials, css: theme.css });
+		expect(round.themes[0]).toMatchObject({ name: 'harbor', label: 'Harbor', essentials: theme.essentials, css: theme.css });
 	});
 
-	it('records the showcase PDF in the manifest when supplied', async () => {
+	it('writes the package FOLDER — no envelope — with the showcase beside it', async () => {
 		const pdf = new Blob([new Uint8Array([1, 2, 3])], { type: 'application/pdf' });
 		const { default: JSZip } = await import('jszip');
 		const zip = await JSZip.loadAsync(await packTheme(theme, pdf));
-		expect(zip.file('harbor-showcase.pdf')).toBeTruthy();
-		const manifest = JSON.parse(await zip.file('manifest.json')!.async('string'));
-		expect(manifest.items[0].showcase).toBe('harbor-showcase.pdf');
+		expect(Object.keys(zip.files).filter((p) => !zip.files[p].dir).sort()).toEqual(['README.md', 'harbor-showcase.pdf', 'harbor/harbor.css', 'harbor/harbor.essentials.json', 'harbor/harbor.manifest.json']);
+		expect(zip.file('manifest.json')).toBeNull();
+		const manifest = JSON.parse(await zip.file('harbor/harbor.manifest.json')!.async('string'));
+		expect(manifest).toEqual({ name: 'harbor', type: 'theme', format: 1, label: 'Harbor' });
 	});
 
-	it('packs a component and reads it back (css + skeleton + bucket)', async () => {
+	it('packs a component and reads it back (css + gallery + bucket)', async () => {
 		const round = await unpackBundle(await packComponent(comp));
-		expect(round.components).toEqual([{ name: 'callout', bucket: 'statement', css: comp.css, skeleton: comp.skeleton }]);
+		expect(round.components).toHaveLength(1);
+		expect(round.components[0]).toMatchObject({ name: 'callout', bucket: 'statement', css: comp.css, skeleton: comp.skeleton });
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(await packComponent(comp));
+		// The repo's file names: styles.css and gallery.md, not the old .css / .skeleton.md.
+		expect(zip.file('callout/callout.styles.css')).toBeTruthy();
+		expect(zip.file('callout/callout.gallery.md')).toBeTruthy();
 	});
 
 	it('packs a finish and reads it back (css + recipe roundtrip)', async () => {
@@ -53,7 +60,9 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		expect(round.finishes).toHaveLength(1);
 		expect(round.finishes[0].name).toBe('mybrand');
 		expect(round.finishes[0].label).toBe('My Brand');
-		expect(round.finishes[0].css).toBe(finish.css);
+		// The CSS no longer travels: saveStudioFinish regenerates it from the recipe (§3.6),
+		// which it always did — it discarded a zip's CSS even when there was one.
+		expect(round.finishes[0].css).toBe('');
 		// The structured recipe survives (coerced — so a hand-edited number stays in-vocab).
 		expect(round.finishes[0].recipe.mark.type).toBe('monogram');
 		expect(round.finishes[0].recipe.mark.glyph).toBe('AB');
@@ -73,11 +82,11 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		const { default: JSZip } = await import('jszip');
 		const blob = await packScene(scene);
 		const zip = await JSZip.loadAsync(blob);
-		// The manifest records the engine (derived from source) + the poster filename.
-		const manifest = JSON.parse(await zip.file('manifest.json')!.async('string'));
-		expect(manifest.kind).toBe('scene');
-		expect(manifest.items[0].engine).toBe('zdog');
-		expect(manifest.items[0].poster).toBe('gyroscope.poster.svg');
+		// The package manifest records the engine (derived from source); the poster is a role file.
+		const manifest = JSON.parse(await zip.file('gyroscope/gyroscope.manifest.json')!.async('string'));
+		expect(manifest.type).toBe('motion');
+		expect(manifest.engine).toBe('zdog');
+		expect(zip.file('gyroscope/gyroscope.poster.svg')).toBeTruthy();
 		const round = await unpackBundle(blob);
 		expect(round.scenes).toHaveLength(1);
 		expect(round.scenes[0].name).toBe('gyroscope');
@@ -242,5 +251,98 @@ describe('asset-bundle — refuses an oversized zip', () => {
 	it('still imports a normal bundle under the caps', async () => {
 		const round = await unpackBundle(await packBundle([{ theme }], [comp], [finish], [scene]));
 		expect(round.themes).toHaveLength(1);
+	});
+});
+
+// OLD ZIPS STILL IMPORT (portable-packages §8, phase 3): a `lattice-asset/1` zip exported
+// before the package format is read one way by the legacy reader.
+describe('asset-bundle — a lattice-asset/1 zip still imports', () => {
+	it('reads a legacy theme + component bundle', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('themes/harbor/harbor.css', theme.css);
+		zip.file('components/callout/callout.css', comp.css);
+		zip.file('components/callout/callout.skeleton.md', comp.skeleton);
+		zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'bundle', items: [
+			{ kind: 'theme', name: 'harbor', label: 'Harbor', essentials: theme.essentials, css: 'themes/harbor/harbor.css' },
+			{ kind: 'component', name: 'callout', bucket: 'statement', css: 'components/callout/callout.css', skeleton: 'components/callout/callout.skeleton.md' },
+		] }));
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		expect(round.themes[0]).toEqual({ name: 'harbor', label: 'Harbor', essentials: theme.essentials, css: theme.css });
+		expect(round.components[0]).toEqual({ name: 'callout', bucket: 'statement', css: comp.css, skeleton: comp.skeleton });
+	});
+});
+
+describe('asset-bundle — package zips from elsewhere', () => {
+	it('refuses a code package by name instead of importing it without its transform', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('bar/bar.manifest.json', JSON.stringify({ name: 'bars', type: 'component', format: 1 }));
+		zip.file('bar/bar.styles.css', 'section.bars{}');
+		zip.file('bar/bar.gallery.md', '<!-- _class: bars -->');
+		zip.file('bar/bar.transform.js', 'export default () => "<svg/>"');
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		expect(round.components).toHaveLength(0);
+		expect(round.refused).toEqual([{ name: 'bars', why: expect.stringMatching(/carries code/) }]);
+	});
+
+	it('trusts the manifest, not the file names: a renamed folder imports under its manifest name', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		// A browser saved it as `harbor (1)`; the manifest inside still says harbor.
+		zip.file('harbor (1)/harbor (1).manifest.json', JSON.stringify({ name: 'harbor', type: 'theme', format: 1, label: 'Harbor' }));
+		zip.file('harbor (1)/harbor (1).css', theme.css);
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		expect(round.themes.map((t) => t.name)).toEqual(['harbor']);
+		expect(round.notes.join(' ')).toMatch(/harbor \(1\)\.css → harbor\.css/);
+	});
+});
+
+// Found by the P3a checker, each one a way a user's own data was lost or let through.
+describe('asset-bundle — package import edge cases', () => {
+	it('round-trips a finish whose name starts with a digit (the Studio has always saved "2024 Launch" as 2024-launch)', async () => {
+		const f = { ...finish, name: '2024-launch', label: '2024 Launch' };
+		const round = await unpackBundle(await packBundle([], [], [f], []));
+		expect(round.refused).toEqual([]);
+		expect(round.finishes.map((x) => x.name)).toEqual(['2024-launch']);
+	});
+
+	it('keeps only hex colors from a theme package’s essentials and overrides (HARD RULE #22)', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('harbor/harbor.manifest.json', JSON.stringify({ name: 'harbor', type: 'theme', format: 1 }));
+		zip.file('harbor/harbor.css', theme.css);
+		zip.file('harbor/harbor.essentials.json', JSON.stringify({
+			essentials: { accent: '#2d4ed8', bg: 'red; background: url(https://evil.test/x.png)' },
+			overrides: { 'surface-inverse': { light: 'red; background-image: url(https://evil.test/b.png); --x: 0', dark: '#101010' }, 'bad token;': { light: '#fff' } },
+			rampStrategy: 'spectrum; x',
+		}));
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		const t = round.themes[0];
+		expect(t.essentials).toEqual({ accent: '#2d4ed8' });
+		expect(t.overrides).toEqual({ 'surface-inverse': { dark: '#101010' } });
+		expect(t.rampStrategy).toBeUndefined();
+	});
+
+	it('reads a zip whose manifest sits at the ROOT (the files were zipped, not the folder)', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('harbor.manifest.json', JSON.stringify({ name: 'harbor', type: 'theme', format: 1 }));
+		zip.file('harbor.css', theme.css);
+		zip.file('README.md', '# not a package file');
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		expect(round.themes.map((x) => x.name)).toEqual(['harbor']);
+	});
+
+	it('names the component assets it leaves out instead of dropping them in silence', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('wall/wall.manifest.json', JSON.stringify({ name: 'wall', type: 'component', format: 1 }));
+		zip.file('wall/wall.styles.css', 'section.wall{}');
+		zip.file('wall/wall.gallery.md', '<!-- _class: wall -->');
+		zip.file('wall/acme.svg', '<svg/>');
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		expect(round.components).toHaveLength(1);
+		expect(round.notes.join(' ')).toMatch(/left out 1 asset file\(s\): acme\.svg/);
 	});
 });

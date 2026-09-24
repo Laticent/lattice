@@ -138,6 +138,8 @@ const STEPS = [
   { label: 'hljs grammars (docs site)', script: 'build-hljs-languages.js', uncommitted: true },
   { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js', uncommitted: true },
   { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js', uncommitted: true },
+  // The package spine for the Studio's zip import/export (package-zip.ts).
+  { label: 'packages-core bundle (docs site)', script: 'build-packages-core.js', uncommitted: true },
   { label: 'authoring-core bundle (docs site)', script: 'build-authoring-core.js', uncommitted: true },
   { label: 'exemplar-core bundle (docs site)', script: 'build-exemplar-core.js', uncommitted: true },
   { label: 'standalone-core bundle (docs site)', script: 'build-standalone-core.js', uncommitted: true },

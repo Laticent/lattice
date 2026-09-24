@@ -1,20 +1,30 @@
-// The Lattice asset-share format — a portable `.zip` for a saved theme or
-// component, built on ONE `manifest.json` envelope (the same shape the
-// `.lattice` deck format uses: `engineering/decisions/2026-06-16-lattice-export-format.md`).
-// Pack here is pure data + JSZip; the live theme PDF showcase is rendered by the
-// caller (Library) and handed in as a Blob, so this module stays engine-free and
-// testable. Unpack re-hydrates straight into the shared asset store.
+// The Lattice asset-share format — a portable `.zip` of saved themes, components,
+// finishes and motion.
 //
-// Layout — single asset (files at root), bundle (one zip, many assets):
-//   <slug>.lattice-theme.zip      manifest.json · <slug>.css · <slug>-showcase.pdf · README.md
-//   <slug>.lattice-component.zip  manifest.json · <slug>.css · <slug>.skeleton.md · README.md
-//   lattice-assets.zip            manifest.json · themes/<slug>/… · components/<slug>/… · README.md
+// SINCE 2026-09 THE ZIP IS THE PACKAGE FOLDER (engineering/decisions/2026-09-23-portable-
+// packages.md §3.1, phase 3). A single export unzips to `<name>/`, a bundle to
+// `<type>/<name>/`, and each folder holds exactly what a repo package holds:
+// `<name>.manifest.json` plus role files. package-zip.ts maps records to packages and back
+// through the package spine.
+//
+//   <slug>.lattice-theme.zip      <slug>/<slug>.manifest.json · <slug>.css [· <slug>.essentials.json]
+//                                 + README.md and <slug>-showcase.pdf beside the folder
+//   <slug>.lattice-component.zip  <slug>/<slug>.manifest.json · <slug>.styles.css · <slug>.gallery.md
+//   <slug>.lattice-finish.zip     <slug>/<slug>.manifest.json · <slug>.recipe.json
+//   <slug>.lattice-scene.zip      <slug>/<slug>.manifest.json · <slug>.scene.json [· poster/art .svg]
+//   lattice-assets.zip            theme/… · component/… · finish/… · motion/… + README.md
+//
+// OLD ZIPS STILL IMPORT. A `lattice-asset/1` zip (one root `manifest.json` envelope listing
+// items, files under other names) is read by `unpackLegacy` below, one way: nothing writes it.
+// Pack here is pure data + JSZip; the theme showcase PDF is rendered by the caller (Library).
 
 import { parseScene, type Scene } from '@/lib/anima';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
+import type { PackageCarry } from './library/package-carry';
+import { componentFromPackage, componentPackage, finishFromPackage, finishPackage, isPackageZip, motionFromPackage, motionPackage, type PackageFiles, readPackagesFromZip, themeFromPackage, themePackage, writePackagesToZip } from './package-zip';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 import { assertZipWithinLimits, MAX_ZIP_BYTES, readBudget } from './zip-limits';
@@ -44,11 +54,15 @@ export type SceneItem = { kind: 'scene'; name: string; label: string; descriptio
 export type ManifestItem = ThemeItem | ComponentItem | FinishItem | SceneItem;
 export type AssetManifest = { format: typeof ASSET_FORMAT; kind: 'theme' | 'component' | 'finish' | 'scene' | 'bundle'; items: ManifestItem[] };
 
-export type ParsedTheme = { name: string; label: string; essentials: Record<string, string> | null; css: string };
-export type ParsedComponent = { name: string; bucket: string | null; css: string; skeleton: string };
-export type ParsedFinish = { name: string; label: string; css: string; recipe: FinishRecipe };
-export type ParsedScene = { name: string; label: string; description?: string; spec: Scene; poster?: string; art?: string };
-export type ParsedBundle = { themes: ParsedTheme[]; components: ParsedComponent[]; finishes: ParsedFinish[]; scenes: ParsedScene[] };
+// `pkg` is what a PACKAGE zip carried that the Studio record does not model (package-carry.ts);
+// a legacy zip has none. `manifest` is a component package's full manifest.
+export type ParsedTheme = { name: string; label: string; essentials: Record<string, string> | null; css: string; overrides?: Record<string, unknown>; rampStrategy?: string; pkg?: PackageCarry };
+export type ParsedComponent = { name: string; bucket: string | null; css: string; skeleton: string; manifest?: Record<string, unknown>; pkg?: PackageCarry };
+export type ParsedFinish = { name: string; label: string; css: string; recipe: FinishRecipe; pkg?: PackageCarry };
+export type ParsedScene = { name: string; label: string; description?: string; spec: Scene; poster?: string; art?: string; pkg?: PackageCarry };
+/** `notes`: what the reader changed or left out (a renamed file, a dropped README).
+ *  `refused`: packages it would not import, each with the reason. */
+export type ParsedBundle = { themes: ParsedTheme[]; components: ParsedComponent[]; finishes: ParsedFinish[]; scenes: ParsedScene[]; notes: string[]; refused: { name: string; why: string }[] };
 
 export const themeZipName = (t: { name: string }) => `${t.name}.lattice-theme.zip`;
 export const componentZipName = (c: { name: string }) => `${c.name}.lattice-component.zip`;
@@ -158,11 +172,10 @@ A palette-blind theme for [Lattice](https://lattice.style). Every color is a
 token; the derivation is WCAG-AA in light **and** dark.
 
 ## What's inside
-- \`${t.name}.css\` — the serialized \`@theme ${t.name}\` (drop into \`themes/\` or load in the Studio).
-${hasShowcase ? `- \`${t.name}-showcase.pdf\` — a representative deck rendered in this theme (title · KPIs · chart · Mermaid · split-panel · closer).\n` : ''}- \`manifest.json\` — the asset envelope (re-imports losslessly into the Studio Library).
-
+- \`${t.name}/\` — the theme as a Lattice package: \`${t.name}.manifest.json\` (its name and label), \`${t.name}.css\` (the serialized \`@theme ${t.name}\`)${t.essentials ? `, and \`${t.name}.essentials.json\` (the picked colors, so it reopens for editing)` : ''}.
+${hasShowcase ? `- \`${t.name}-showcase.pdf\` — a representative deck rendered in this theme (title · KPIs · chart · Mermaid · split-panel · closer).\n` : ''}
 ## Use it
-Open the Studio → **Library** → **Import .zip**, or drop \`${t.name}.css\` into a deck's \`themes/\`.
+Open the Studio → **Library** → **Import .zip**. The folder is the same shape a Lattice repo keeps its packages in.
 `;
 }
 
@@ -172,9 +185,7 @@ function componentReadme(c: StudioComponent): string {
 A local, palette-blind, scope-checked component for [Lattice](https://lattice.style).
 
 ## What's inside
-- \`${c.name}.css\` — the \`.${c.name}\`-scoped styles (palette-blind).
-- \`${c.name}.skeleton.md\` — a sample slide that invokes \`<!-- _class: ${c.name} -->\`.
-- \`manifest.json\` — the asset envelope (re-imports into the Studio Library).
+- \`${c.name}/\` — the component as a Lattice package: \`${c.name}.manifest.json\`, \`${c.name}.styles.css\` (the \`.${c.name}\`-scoped styles, palette-blind) and \`${c.name}.gallery.md\` (a sample slide that invokes \`<!-- _class: ${c.name} -->\`).
 
 ## Use it
 Open the Studio → **Library** → **Import .zip**, then **Insert** it into any deck.
@@ -188,9 +199,7 @@ A palette-blind, export-safe surface finish for [Lattice](https://lattice.style)
 Every color is a token; it recolors with the theme and bakes clean into PDF/PPTX.
 
 ## What's inside
-- \`${f.name}.finish.css\` — the \`section.finish.finish-${f.name}\` rule (apply per slide with \`<!-- _class: finish finish-${f.name} -->\` or deck-wide with \`class: finish finish-${f.name}\`).
-- \`${f.name}.recipe.json\` — the structured layer recipe (re-opens in the Finish faculty for re-editing).
-- \`manifest.json\` — the asset envelope (re-imports into the Studio Library).
+- \`${f.name}/\` — the finish as a Lattice package: \`${f.name}.manifest.json\` and \`${f.name}.recipe.json\`, the structured layer recipe. The CSS is generated from the recipe on import, so it is not in the zip. Apply it per slide with \`<!-- _class: finish finish-${f.name} -->\` or deck-wide with \`class: finish finish-${f.name}\`.
 
 ## Use it
 Open the Studio → **Library** → **Import .zip**, then pick it from the Finish menu in the Inspector.
@@ -205,8 +214,8 @@ scene SPEC is the source of truth; the poster is a token-preserving still that b
 a PDF.
 
 ## What's inside
-- \`${s.name}.scene.json\` — the canonical Anima scene spec (${engineOf(s.spec)} engine).
-${s.poster ? `- \`${s.name}.poster.svg\` — the hero still (keeps \`var(--token)\`, so it recolors with the theme).\n` : ''}${s.art ? `- \`${s.name}.art.svg\` — the authored line-art the scene draws.\n` : ''}- \`manifest.json\` — the asset envelope (re-imports into the Studio Library).
+- \`${s.name}/\` — the motion as a Lattice package: \`${s.name}.manifest.json\` and \`${s.name}.scene.json\`, the canonical Anima scene spec (${engineOf(s.spec)} engine).
+${s.poster ? `- \`${s.name}/${s.name}.poster.svg\` — the hero still (keeps \`var(--token)\`, so it recolors with the theme).\n` : ''}${s.art ? `- \`${s.name}/${s.name}.art.svg\` — the authored line-art the scene draws.\n` : ''}
 
 ## Use it
 Open the Studio → **Library** → **Import .zip**, then place it via the scene component.
@@ -219,128 +228,123 @@ async function jszip(): Promise<any> {
 	return new JSZip();
 }
 
-/** Pack ONE theme → a `.zip` Blob. `showcasePdf` (rendered by the caller) rides as `<slug>-showcase.pdf`. */
-export async function packTheme(theme: StudioTheme, showcasePdf?: Blob | null): Promise<Blob> {
+async function zipOf(pkgs: PackageFiles[], extras: Record<string, string | Blob>): Promise<Blob> {
 	const zip = await jszip();
-	const item: ThemeItem = { kind: 'theme', name: theme.name, label: theme.label, essentials: theme.essentials, css: `${theme.name}.css` };
-	zip.file(`${theme.name}.css`, theme.css);
-	if (showcasePdf) {
-		item.showcase = `${theme.name}-showcase.pdf`;
-		zip.file(item.showcase, showcasePdf);
-	}
-	zip.file('manifest.json', JSON.stringify({ format: ASSET_FORMAT, kind: 'theme', items: [item] } satisfies AssetManifest, null, 2));
-	zip.file('README.md', themeReadme(theme, !!showcasePdf));
+	writePackagesToZip(zip, pkgs, extras);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+}
+
+/** Pack ONE theme → a `.zip` Blob. `showcasePdf` (rendered by the caller) rides beside the folder. */
+export async function packTheme(theme: StudioTheme, showcasePdf?: Blob | null): Promise<Blob> {
+	return zipOf([themePackage(theme)], { 'README.md': themeReadme(theme, !!showcasePdf), ...(showcasePdf ? { [`${theme.name}-showcase.pdf`]: showcasePdf } : {}) });
 }
 
 /** Pack ONE component → a `.zip` Blob. */
 export async function packComponent(c: StudioComponent): Promise<Blob> {
-	const zip = await jszip();
-	const item: ComponentItem = { kind: 'component', name: c.name, bucket: c.bucket, css: `${c.name}.css`, skeleton: `${c.name}.skeleton.md` };
-	zip.file(item.css, c.css);
-	zip.file(item.skeleton, c.skeleton);
-	zip.file('manifest.json', JSON.stringify({ format: ASSET_FORMAT, kind: 'component', items: [item] } satisfies AssetManifest, null, 2));
-	zip.file('README.md', componentReadme(c));
-	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+	return zipOf([componentPackage(c)], { 'README.md': componentReadme(c) });
 }
 
-/** Pack ONE saved finish → a `.zip` Blob (CSS + recipe JSON + manifest). */
+/** Pack ONE saved finish → a `.zip` Blob (manifest + recipe; the CSS regenerates on import). */
 export async function packFinish(f: StudioFinish): Promise<Blob> {
-	const zip = await jszip();
-	const item: FinishItem = { kind: 'finish', name: f.name, label: f.label, css: `${f.name}.finish.css`, recipe: `${f.name}.recipe.json` };
-	zip.file(item.css, f.css);
-	zip.file(item.recipe, JSON.stringify(f.recipe, null, 2));
-	zip.file('manifest.json', JSON.stringify({ format: ASSET_FORMAT, kind: 'finish', items: [item] } satisfies AssetManifest, null, 2));
-	zip.file('README.md', finishReadme(f));
-	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+	return zipOf([finishPackage(f)], { 'README.md': finishReadme(f) });
 }
 
-/** Pack ONE scene → a `.zip` Blob (spec JSON + optional poster/art SVG + manifest). */
+/** Pack ONE scene → a `.zip` Blob. */
 export async function packScene(s: StudioScene): Promise<Blob> {
-	const zip = await jszip();
-	const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: engineOf(s.spec), spec: `${s.name}.scene.json` };
-	zip.file(item.spec, JSON.stringify(s.spec, null, 2));
-	if (s.poster) {
-		item.poster = `${s.name}.poster.svg`;
-		zip.file(item.poster, s.poster);
-	}
-	if (s.art) {
-		item.art = `${s.name}.art.svg`;
-		zip.file(item.art, s.art);
-	}
-	zip.file('manifest.json', JSON.stringify({ format: ASSET_FORMAT, kind: 'scene', items: [item] } satisfies AssetManifest, null, 2));
-	zip.file('README.md', sceneReadme(s));
-	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+	return zipOf([motionPackage(s)], { 'README.md': sceneReadme(s) });
 }
 
-/** Pack a MIX of themes + components + finishes + scenes → one `lattice-assets.zip` Blob (sub-dir layout). */
+/** Pack a SELECTION of assets into one bundle `.zip`: one `<type>/<name>/` folder each. */
 export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob | null }[], components: StudioComponent[], finishes: StudioFinish[] = [], scenes: StudioScene[] = []): Promise<Blob> {
-	const zip = await jszip();
-	const items: ManifestItem[] = [];
-	for (const { theme, showcase } of themes) {
-		const base = `themes/${theme.name}`;
-		const item: ThemeItem = { kind: 'theme', name: theme.name, label: theme.label, essentials: theme.essentials, css: `${base}/${theme.name}.css` };
-		zip.file(item.css, theme.css);
-		if (showcase) {
-			item.showcase = `${base}/${theme.name}-showcase.pdf`;
-			zip.file(item.showcase, showcase);
-		}
-		items.push(item);
+	const pkgs = [...themes.map((t) => themePackage(t.theme)), ...components.map(componentPackage), ...finishes.map(finishPackage), ...scenes.map(motionPackage)];
+	const extras: Record<string, string | Blob> = {
+		'README.md': `# Lattice asset bundle\n\n${themes.length} theme(s) + ${components.length} component(s) + ${finishes.length} finish(es) + ${scenes.length} motion(s).\nEach folder is a Lattice package: \`<type>/<name>/<name>.manifest.json\` plus its files.\nImport via the Studio → **Library** → **Import .zip**.\n`,
+	};
+	for (const { theme, showcase } of themes) if (showcase) extras[`showcases/${theme.name}-showcase.pdf`] = showcase;
+	// A single-item "bundle" still lands under its type folder, so a bundle is always the same shape.
+	if (pkgs.length === 1) {
+		const zip = await jszip();
+		for (const [file, text] of Object.entries(pkgs[0].files)) zip.file(`${pkgs[0].type}/${pkgs[0].name}/${file}`, text);
+		for (const [file, body] of Object.entries(extras)) zip.file(file, body);
+		return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	}
-	for (const c of components) {
-		const base = `components/${c.name}`;
-		zip.file(`${base}/${c.name}.css`, c.css);
-		zip.file(`${base}/${c.name}.skeleton.md`, c.skeleton);
-		items.push({ kind: 'component', name: c.name, bucket: c.bucket, css: `${base}/${c.name}.css`, skeleton: `${base}/${c.name}.skeleton.md` });
-	}
-	for (const f of finishes) {
-		const base = `finishes/${f.name}`;
-		zip.file(`${base}/${f.name}.finish.css`, f.css);
-		zip.file(`${base}/${f.name}.recipe.json`, JSON.stringify(f.recipe, null, 2));
-		items.push({ kind: 'finish', name: f.name, label: f.label, css: `${base}/${f.name}.finish.css`, recipe: `${base}/${f.name}.recipe.json` });
-	}
-	for (const s of scenes) {
-		const base = `scenes/${s.name}`;
-		const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: engineOf(s.spec), spec: `${base}/${s.name}.scene.json` };
-		zip.file(item.spec, JSON.stringify(s.spec, null, 2));
-		if (s.poster) {
-			item.poster = `${base}/${s.name}.poster.svg`;
-			zip.file(item.poster, s.poster);
-		}
-		if (s.art) {
-			item.art = `${base}/${s.name}.art.svg`;
-			zip.file(item.art, s.art);
-		}
-		items.push(item);
-	}
-	zip.file('manifest.json', JSON.stringify({ format: ASSET_FORMAT, kind: 'bundle', items } satisfies AssetManifest, null, 2));
-	zip.file('README.md', `# Lattice asset bundle\n\n${themes.length} theme(s) + ${components.length} component(s) + ${finishes.length} finish(es) + ${scenes.length} scene(s). Import via the Studio → **Library** → **Import .zip**.\n`);
-	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+	return zipOf(pkgs, extras);
 }
 
-/** Read a `.zip` (single or bundle) back into themes + components + finishes ready to save. */
+/**
+ * Read a `.zip` back into themes + components + finishes + scenes ready to save — a package
+ * zip, or an old `lattice-asset/1` one.
+ */
 export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
-	// Size caps first (`zip-limits.ts`): an asset zip is a file from anyone, and this
-	// import had none, so a small archive declaring gigabytes of entries could take the
-	// tab down before a single item was checked. Same numbers as `.lattice` import.
+	// Size caps first (`zip-limits.ts`): an asset zip is a file from anyone.
 	if (file.size > MAX_ZIP_BYTES) throw new Error(TOO_LARGE);
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(file);
-	// The entry count, and the manifest's own declared size, before reading anything.
-	assertZipWithinLimits(zip, TOO_LARGE, ['manifest.json']);
+	assertZipWithinLimits(zip, TOO_LARGE, []);
 	// Every read below is charged against one running budget (`zip-limits.ts`).
 	const charge = readBudget(TOO_LARGE);
 	const read = async (path: string | undefined): Promise<string | undefined> => (path ? ((charge(await zip.file(path)?.async('string')) as string | undefined) ?? undefined) : undefined);
+	if (isPackageZip(zip)) return unpackPackages(zip, read);
+	return unpackLegacy(zip, read);
+}
+
+/** A package zip: every `<name>/` folder through the spine, then into the Library's shapes. */
+// biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
+async function unpackPackages(zip: any, read: (path: string | undefined) => Promise<string | undefined>): Promise<ParsedBundle> {
+	// The declared size of every entry a package folder holds; loose files beside the folders
+	// (a README, a showcase PDF) are never read and don't count.
+	const inFolders = Object.keys(zip.files).filter((p) => !zip.files[p].dir && p.includes('/') && !p.startsWith('showcases/'));
+	assertZipWithinLimits(zip, TOO_LARGE, inFolders);
+	const { packages, refused } = await readPackagesFromZip(zip, (p) => read(p));
+	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [...refused] };
+	for (const p of packages) {
+		if (p.notes.length) out.notes.push(`${p.name}: ${p.notes.join('; ')}`);
+		// §3.5: a package carrying JavaScript needs the user's consent and a sandbox, and
+		// neither exists yet. It is refused by name, never imported without its code.
+		if (p.code) {
+			out.refused.push({ name: p.name, why: 'it carries code (a transform), and code packages are not supported yet' });
+			continue;
+		}
+		if (p.type === 'theme') out.themes.push(themeFromPackage(p));
+		else if (p.type === 'component') {
+			const c = componentFromPackage(p);
+			// LINE ENDINGS: the gallery (the Studio's skeleton) is spliced into a deck's source.
+			out.components.push({ name: c.name, bucket: c.bucket, css: c.css, skeleton: normalizeSourceText(c.skeleton) ?? '', manifest: c.manifest, pkg: c.pkg });
+		} else if (p.type === 'finish') {
+			const f = finishFromPackage(p);
+			out.finishes.push({ name: f.name, label: f.label, css: '', recipe: f.recipe, pkg: f.pkg });
+		} else if (p.type === 'motion') {
+			const m = motionFromPackage(p);
+			// The spec is the source of truth and is re-validated; a scene that doesn't parse is
+			// refused, never coerced (there is no safe default scene).
+			let r: ReturnType<typeof parseScene> = { ok: false, errors: ['unreadable scene spec'] };
+			try {
+				r = parseScene(JSON.parse(m.specText));
+			} catch {
+				/* malformed JSON → refused below */
+			}
+			if (r.ok) out.scenes.push({ name: m.name, label: m.label, description: m.description, spec: r.scene, poster: m.poster, art: m.art, pkg: m.pkg });
+			else out.refused.push({ name: m.name, why: 'its motion plan is not valid' });
+		}
+	}
+	return out;
+}
+
+/** The pre-2026-09 `lattice-asset/1` envelope. Read-only: nothing writes this format any more. */
+// biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
+async function unpackLegacy(zip: any, read: (path: string | undefined) => Promise<string | undefined>): Promise<ParsedBundle> {
+	// The entry count, and the manifest's own declared size, before reading anything.
+	assertZipWithinLimits(zip, TOO_LARGE, ['manifest.json']);
 	const manifestFile = zip.file('manifest.json');
-	if (!manifestFile) throw new Error('Not a Lattice asset zip — manifest.json missing.');
-	const manifest = JSON.parse((charge(await manifestFile.async('string')) as string) || '') as AssetManifest;
+	if (!manifestFile) throw new Error('Not a Lattice asset zip — no package folder and no manifest.json.');
+	const manifest = JSON.parse((await read('manifest.json')) || '') as AssetManifest;
 	if (manifest?.format !== ASSET_FORMAT) throw new Error(`Unsupported asset format: ${manifest?.format}`);
 	if (!Array.isArray(manifest.items)) throw new Error('Not a Lattice asset zip — manifest.json lists no items.');
 	// Then the declared size of exactly the entries this import reads. Showcase PDFs ride
 	// in a bundle but are never opened, so they don't count against the cap.
 	const readPaths = manifest.items.flatMap((it) => Object.entries(it).filter(([k, v]) => k !== 'showcase' && typeof v === 'string' && zip.files[v]).map(([, v]) => v as string));
 	assertZipWithinLimits(zip, TOO_LARGE, ['manifest.json', ...readPaths]);
-	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [] };
+	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [] };
 	for (const item of manifest.items) {
 		if (item.kind === 'theme') {
 			const css = await read(item.css);

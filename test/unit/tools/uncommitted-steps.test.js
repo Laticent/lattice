@@ -55,6 +55,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-hljs-languages.js',
   'build-theme-core.js',
   'build-layout-core.js',
+  // Measured 2026-09-24: writes only docs/src/playground/packages-core.generated.js,
+  // which .gitignore's docs/src/playground/*.generated.js covers.
+  'build-packages-core.js',
   'build-authoring-core.js',
   'build-exemplar-core.js',
   'build-standalone-core.js',

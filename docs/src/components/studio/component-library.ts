@@ -7,6 +7,7 @@
 // the Studio's view model and degrades gracefully when IndexedDB is unavailable.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import type { PackageCarry } from '@/components/studio/library/package-carry';
 import { RESERVED_COMPONENT_NAMES, renameComponentSelectors, unreservedName } from '@/components/studio/library/reserved-names';
 import { renameAssetInSource } from './asset-rename';
 
@@ -37,12 +38,15 @@ export type StudioComponent = {
 	 *  moment a component can be REOPENED for editing, because the faculty would seed
 	 *  from its own saved record and silently lose the author's whole contract. */
 	meta: ComponentMeta;
+	/** What an imported package carried that this record does not model (its full
+	 *  manifest, a `docs.md`), so exporting it again writes the same files. */
+	pkg?: PackageCarry;
 };
 
-type ComponentAssetRecord = { id: string; name: string; bucket?: string | null; text?: string; skeleton?: string; manifest?: Record<string, unknown> };
+type ComponentAssetRecord = { id: string; name: string; bucket?: string | null; text?: string; skeleton?: string; manifest?: Record<string, unknown>; pkg?: PackageCarry };
 
 /** The manifest fields worth carrying back, in the shape `saveStudioComponent` takes. */
-function toMeta(manifest: Record<string, unknown> | undefined): ComponentMeta {
+export function toMeta(manifest: Record<string, unknown> | undefined): ComponentMeta {
 	const m = manifest || {};
 	const out: ComponentMeta = {};
 	for (const k of ['function', 'form', 'substance', 'bucket', 'description'] as const) {
@@ -56,7 +60,7 @@ function toMeta(manifest: Record<string, unknown> | undefined): ComponentMeta {
 }
 
 function toStudioComponent(a: ComponentAssetRecord): StudioComponent {
-	return { id: a.id, name: a.name, bucket: a.bucket ?? null, css: a.text || '', skeleton: a.skeleton || '', meta: toMeta(a.manifest) };
+	return { id: a.id, name: a.name, bucket: a.bucket ?? null, css: a.text || '', skeleton: a.skeleton || '', meta: toMeta(a.manifest), ...(a.pkg ? { pkg: a.pkg } : {}) };
 }
 
 /** The full component contract the Studio captures (manifest minus name/skeleton). */
@@ -86,7 +90,7 @@ export type ComponentMeta = {
  * Pass the id you loaded and the same record is rewritten whatever the name becomes.
  * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta }, opts?: { historyLabel?: string }): Promise<StudioComponent> {
+export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta; pkg?: PackageCarry }, opts?: { historyLabel?: string }): Promise<StudioComponent> {
 	const meta = input.meta || {};
 	// A SHIPPED name is reserved: a saved `kpi` would restyle every shipped `kpi` slide
 	// in a deck that also used it. The clash saves as `kpi-custom`, with its selectors
@@ -102,7 +106,8 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 	if (Array.isArray(meta.tags) && meta.tags.length) manifest.tags = meta.tags;
 	if (meta.description?.trim()) manifest.description = meta.description.trim();
 	const asset = (await loadLayoutCore()).componentAsset({ name, css, skeleton, manifest });
-	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset, opts)) as ComponentAssetRecord;
+	const withPkg = input.pkg ? { ...asset, pkg: input.pkg } : asset;
+	const stored = (await putAsset(input.id ? { ...withPkg, id: input.id } : withPkg, opts)) as ComponentAssetRecord;
 	return toStudioComponent(stored);
 }
 
