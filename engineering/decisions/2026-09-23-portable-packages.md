@@ -584,7 +584,13 @@ it is the record of what was wrong.
     Mermaid's own entity codes (`https#58;#47;#47;…`, which Mermaid decodes after the page has
     the fence, so the scan now decodes them first), and a nested document (`srcdoc`, and a
     `data:` document in an `iframe`, `object` or `embed`, which load whatever they hold), plus
-    `imagesrcset`.
+    `imagesrcset`. A third checker pass on that fix found four more, all fixed and each a test
+    row: a Mermaid fence inside an HTML block (plain text in the page, yet the CLI export
+    draws it, so the gate now also scans every fence `lib/core/mermaid-fences.js` finds in the
+    source), a slashless `http:host/x` in Mermaid text (a `file:` page resolves it), `&#58`
+    without its semicolon, and a `data:` scheme split by a tab or led by a control
+    character. The Mermaid class match is now the runtime's own substring rule, so a
+    `mermaid-x` fence it would draw is scanned too.
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked

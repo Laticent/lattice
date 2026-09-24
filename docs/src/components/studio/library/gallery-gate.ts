@@ -12,10 +12,12 @@
 // Loaded by `import()` from the import gate, so the Studio's eager bundle carries none of it.
 
 import { renderMarkdown } from '@/lib/render-engine';
+import mermaidFences from '../../../../../lib/core/mermaid-fences.js';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-const { remoteRefsInElements, isRemoteUrl, galleryRefusal } = remoteRef;
+const { remoteRefsInElements, mermaidRemoteRefs, isRemoteUrl, galleryRefusal } = remoteRef;
+const { matchMermaidFences } = mermaidFences;
 
 /** The theme the check renders with. The markup, not the look, is what is read. */
 const CHECK_THEME = 'indaco';
@@ -36,7 +38,7 @@ function* elements(root: ParentNode): Generator<{ tag: string; attrs: [string, s
 		yield {
 			tag: el.localName.toLowerCase(),
 			attrs: [...el.attributes].map((a) => [a.name.toLowerCase(), a.value] as [string, string]),
-			text: el.localName === 'style' || /mermaid/.test(el.getAttribute('class') || '') ? el.textContent || '' : '',
+			text: el.localName === 'style' || /mermaid/i.test(el.getAttribute('class') || '') ? el.textContent || '' : '',
 		};
 		if (el instanceof HTMLTemplateElement) yield* elements(el.content);
 	}
@@ -53,7 +55,10 @@ export async function galleryRemoteRefs(md: string): Promise<string[]> {
 	// A reference definition renders nothing where it is written, yet resolves an image in the
 	// deck the slide is inserted into, so every one is read too.
 	const defined = pg.referenceTargets(md).filter((t) => isRemoteUrl(t));
-	return [...new Set([...(remoteRefsInElements(elements(doc)) as string[]), ...defined])];
+	// Every fence the CLI export would hand to Mermaid, read off the SOURCE: one inside an HTML
+	// block is plain text in the page yet is drawn once the deck is exported.
+	const fenced = (matchMermaidFences(md) as { body: string }[]).flatMap((f) => mermaidRemoteRefs(f.body) as string[]);
+	return [...new Set([...(remoteRefsInElements(elements(doc)) as string[]), ...defined, ...fenced])];
 }
 
 /**
