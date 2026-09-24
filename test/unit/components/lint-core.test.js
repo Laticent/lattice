@@ -341,6 +341,66 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'gantt-retired-delimiter'), false);
   });
 
+  test('retiredQuadrantAxis rewrites every shipped retired shape; null for an ordinary eyebrow', () => {
+    assert.equal(core.retiredQuadrantAxis('Effort 0–10 → Reach 0–100'), '[{Effort, 0..10}, {Reach, 0..100}]');
+    // The detached `targets` blob moves INTO the axis each number constrains.
+    assert.equal(core.retiredQuadrantAxis('Effort 0–10 → Reach 0–100 · targets 5, 50'), '[{Effort, 0..10, 5}, {Reach, 0..100, 50}]');
+    // The ASCII spelling the old transform never honored still means what it says.
+    assert.equal(core.retiredQuadrantAxis('Effort 0-10 -> Reach 0-100'), '[{Effort, 0..10}, {Reach, 0..100}]');
+    assert.equal(core.retiredQuadrantAxis('Effort → Reach'), '[Effort, Reach]');
+    // A comma in a name is quoted, or it would split into a third axis.
+    assert.equal(core.retiredQuadrantAxis('Cost, ex tax 0–5 → Reach'), '[{"Cost, ex tax", 0..5}, Reach]');
+    assert.equal(core.retiredQuadrantAxis('Impact vs effort'), null, 'a plain eyebrow stays an eyebrow');
+    assert.equal(core.retiredQuadrantAxis('0–10 → 0–100'), null, 'a domain with no name cannot be expressed');
+    assert.equal(core.retiredQuadrantAxis('[Effort, Reach]'), null);
+  });
+
+  test('quadrant retired axis is an autofixable error; applyFix rewrites it and re-lints clean', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## H\n\n- Bets\n  - A \`3, 70\`\n`;
+    const f = ruleFor(src, 'quadrant-retired-axis');
+    assert.equal(f.severity, 'error');
+    assert.equal(f.autofixable, true);
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed.includes('`[{Effort, 0..10}, {Reach, 0..100}]`'));
+    const after = core.lintTextWith(fixed, vocab).map((x) => x.rule);
+    assert.equal(after.includes('quadrant-retired-axis'), false);
+    // The fix's own output must not trip a sibling rule on the same line.
+    assert.equal(after.some((r) => /^label-set-|typed-shape-glyph|quadrant-axis-part/.test(r)), false, after.join(', '));
+  });
+
+  test('quadrant axis rules are scoped: radar quadrant, a gantt, and a line BELOW the list are left alone', () => {
+    const retired = '`Effort 0–10 → Reach 0–100`';
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: radar quadrant -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: gantt -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: quadrant -->\n\n## H\n\n- a\n  - b \`1, 2\`\n\n${retired}\n`).length, 0);
+  });
+
+  test('retiredQuadrantAxis keeps what the old parser kept', () => {
+    // `.5` was a number to the old `[\d.]+` range reader.
+    assert.equal(core.retiredQuadrantAxis('Effort 1.5–2.5 → Reach .5–1'), '[{Effort, 1.5..2.5}, {Reach, .5..1}]');
+    // A reversed range was never a domain; it was part of the name.
+    assert.equal(core.retiredQuadrantAxis('Effort 10–0 → Reach 100–0'), '[Effort 10–0, Reach 100–0]');
+    // The author's own quotes survive; the wrapping quote is the other kind.
+    assert.equal(core.retiredQuadrantAxis('Effort "fast", ish 0–10 → Reach'), `[{'Effort "fast", ish', 0..10}, Reach]`);
+  });
+
+  test('quadrant axis rules skip a line inside an HTML comment, like the render', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n<!--\n\`Effort 0–10 → Reach 0–100\`\n-->\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    assert.equal(core.findQuadrantAxisIssues(src).length, 0);
+  });
+
+  test('a list with more members than axes is named: it prints as text, not as the axis', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n\`[Effort, Reach, Spend]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    assert.match(ruleFor(src, 'quadrant-axis-part').message, /3 members but a quadrant has two axes/);
+  });
+
+  test('quadrant-axis-part names a part the chart ignores', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n\`[{Effort, 10..0}, {Reach, 0..100, soon}]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const f = ruleFor(src, 'quadrant-axis-part');
+    assert.match(f.message, /`10\.\.0`, `soon`/);
+    assert.equal(ruleFor(src.replace('10..0', '0..10').replace(', soon', ', 50'), 'quadrant-axis-part'), undefined);
+  });
+
   test('applyAllFixes clears every autofixable finding across passes', () => {
     // Two inline-bold items on one slide: the rule flags the first per pass, so
     // applyAllFixes must loop (re-lint after each fix) to clear both.
@@ -1142,19 +1202,17 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
     assert.match(found.fix, /already decodes/);
   });
 
-  test('a quadrant axis eyebrow is NOT flagged — the arrow there is required syntax', () => {
-    // It is the component's axis delimiter, and there is no better spelling to
-    // coach toward. The tempting advice — "the parser accepts ASCII `->`" — is
-    // wrong: the eyebrow reaches the transform as escaped HTML, so `->` arrives
-    // as `-&gt;`, the split never fires, and the chart's data points MOVE
-    // (measured on examples/stage-inset.md slide 3). A warning with no good
-    // answer is worse than silence.
-    assert.deepEqual(glyphs(`${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`), []);
+  test('a retired quadrant arrow eyebrow IS flagged — the carve-out is gone', () => {
+    // The arrow was quadrant's axis delimiter and was exempt. The axis is now a
+    // bracketed list (`[{Effort, 0..10}, {Reach, 0..100}]`), which has no glyph
+    // in it, so the arrow is a typed glyph like any other — and the retired
+    // eyebrow gets its own `quadrant-retired-axis` error with the rewrite.
+    const [found] = glyphs(`${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`);
+    assert.ok(found);
   });
 
-  test('the same eyebrow on a NON-quadrant slide is still coached', () => {
-    const [found] = glyphs(`${FM}<!-- _class: kpi -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`);
-    assert.ok(found, 'the skip is scoped to quadrant, not to every code-only line');
+  test('the bracketed quadrant axis carries no glyph to flag', () => {
+    assert.deepEqual(glyphs(`${FM}<!-- _class: quadrant -->\n\n\`[{Effort, 0..10}, {Reach, 0..100}]\`\n\n## Heading\n`), []);
   });
 
   test('prose falls back to the table\'s own per-glyph coaching', () => {
@@ -1163,7 +1221,8 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
   });
 
   test('the arrow coaching does NOT promise ASCII `->`', () => {
-    // It was drafted that way and it was false — see the quadrant test above.
+    // It was drafted that way and it was false: markdown-it escapes `->` to
+    // `-&gt;` inside a code span, so no transform ever saw the ASCII arrow.
     const [found] = glyphs(slide('cards-grid', '- The plan → the outcome'));
     assert.doesNotMatch(found.fix, /accepts ASCII/);
   });
@@ -1915,5 +1974,87 @@ describe('label-set-above-body — coaching, never refusal', () => {
     const hits = core.lintTextWith(grid(false), vocab)
       .filter((f) => f.rule === 'label-set-above-body');
     assert.deepEqual(hits, []);
+  });
+
+  // `parseInlineSet` accepts the braced AXIS form as a set, so the rule used to
+  // fire on the documented axis itself — and on scatter told the author to
+  // delete it. Above the body, only a list naming a KEY member is a misplaced key.
+  // The rule's body detector has to agree with the render's boundary (the first
+  // body TAG markdown-it emits), or it warns on the wrong side of it.
+  test('a list line inside an HTML comment is not the body', () => {
+    // Without the comment blanking the note's bullet set the boundary, so the
+    // key BELOW it read as below the body and the above-body coaching was lost.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = ['<!-- _class: scatter -->', '', '<!--', '- speaker note', '-->', '',
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-above-body']);
+  });
+
+  test('a literal `<!--` quoted in inline code is text, not a comment', () => {
+    // It used to blank the rest of the slide from the lint rules' view.
+    const src = ['<!-- _class: matrix-grid -->', '', 'Use `<!--` for notes.', '', '## Rubric', '',
+      '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('an inline `<!--` closes only inside its paragraph, as markdown-it reads it', () => {
+    // A speaker note at the end of the slide used to close a `<!--` quoted in prose
+    // above the table, blanking everything between — the key below went unlinted.
+    const src = ['<!-- _class: matrix-grid -->', '', 'Type <!-- to open a note.', '', '## Rubric', '',
+      '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`', '', '<!-- n -->'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('comment blanking stays linear on untrusted input (HARD RULE #22)', () => {
+    // It went quadratic once: 280 KB of `a <!--` lines took 12 s. Linear, this is
+    // tens of milliseconds; the bound is generous so a slow runner cannot flake it,
+    // and still an order of magnitude under the quadratic shape.
+    const body = 'a <!--\n'.repeat(100000);
+    const deck = `<!-- _class: quadrant -->\n\n${body}\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const t = Date.now();
+    core.findQuadrantAxisIssues(deck);
+    const oneLine = `<!-- _class: quadrant -->\n\n${'<!--'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    core.findQuadrantAxisIssues(oneLine);
+    // Many CLOSED comments on one line — the shape the second quadratic path hid in.
+    const pairs = `<!-- _class: quadrant -->\n\n${'<!-- x -->'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    core.findQuadrantAxisIssues(pairs);
+    assert.ok(Date.now() - t < 2000, `took ${Date.now() - t}ms`);
+  });
+
+  test('a key with more members than axes is not called the axis — it prints as text', () => {
+    const src = ['<!-- _class: matrix-grid -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
+      '| Verb | Self |', '| --- | :--: |', '| N | [x] |'].join('\n');
+    const [hit] = core.lintTextWith(src, vocab).filter((f) => f.rule === 'label-set-above-body');
+    assert.match(hit.message, /neither the axis nor the key/);
+  });
+
+  test('a blockquoted list is the body, as markdown-it emits its <ul>', () => {
+    // The render's boundary is that <ul>, so the span after it is BELOW the body
+    // and stays on the slide — lint must not call it an axis above the body.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = ['<!-- _class: scatter -->', '', '> - quoted point', '',
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('a state-marker key above a keyless chart is still a misplaced key', () => {
+    // scatter declares no key vocabulary, so the state markers stand in for it.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `1` `2`\n';
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => f.rule === 'label-set-above-body').length, 1);
+  });
+
+  test('the braced axis form above the body is an axis, never a misplaced key', () => {
+    const all = { names: new Set(['matrix-grid', 'scatter', 'quadrant']), modifiers: new Set() };
+    const decks = [
+      ['matrix-grid', '`[{Wider reach, 0..4}, {Deeper cognition, 0..6}]`', '| Verb | Self |\n| --- | :--: |\n| Notice | [x] |'],
+      ['scatter', '`[{Effort, 0..10}, {Reach, 0..100}]`', '- A `1` `2`\n- B `3` `4`'],
+      ['quadrant', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '- Bets\n  - A `3, 70`'],
+    ];
+    for (const [cls, axis, body] of decks) {
+      const src = `<!-- _class: ${cls} -->\n\n${axis}\n\n## H\n\n${body}\n`;
+      const hits = core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule));
+      assert.deepEqual(hits.map((h) => h.rule), [], cls);
+    }
   });
 });

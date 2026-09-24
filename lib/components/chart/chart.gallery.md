@@ -239,7 +239,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 <!-- _class: quadrant -->
 <!-- _footer: "quadrant · chart survey" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The quadrant scatters items on two axes.
 

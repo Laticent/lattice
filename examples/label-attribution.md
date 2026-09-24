@@ -26,7 +26,7 @@ A crowded plot asks the reader two questions. **Which mark does this name belong
 <!-- _class: quadrant -->
 <!-- _footer: "Ordinary density — nothing travelled, nothing drawn" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Six initiatives, and not a hairline in sight.
 
@@ -48,7 +48,7 @@ A leader is drawn only where a name could not sit against its own dot. None had 
 <!-- _class: quadrant -->
 <!-- _footer: "Fourteen initiatives — every name names its dot" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The same chart at the density that broke it.
 
@@ -102,7 +102,7 @@ Four sit within four points of each other and their dots overlap. The stacked na
 <!-- _class: quadrant -->
 <!-- _footer: "A column you can check against the dots" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Order is worth an anchor. It is never worth a name.
 

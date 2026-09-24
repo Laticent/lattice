@@ -22,7 +22,7 @@ paginate: true
 
 <!-- _class: quadrant -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Group headings carrying the three sub-fallback glyphs.
 
@@ -45,7 +45,7 @@ Every group name below carries `―` (horizontal bar), `→` (rightwards arrow) 
 
 <!-- _class: quadrant cohort -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Cohort centroid names, long enough to wrap at two lines.
 
@@ -68,7 +68,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 <!-- _class: quadrant magic -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Magic-quadrant archetypes at the widest tracking.
 
@@ -108,7 +108,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 <!-- _class: quadrant sketch -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The same group headings under the hand face.
 
@@ -131,7 +131,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 <!-- _class: quadrant cohort sketch -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Cohort centroid names under the hand face.
 
@@ -152,7 +152,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 <!-- _class: quadrant magic sketch -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Magic archetypes at 0.08em tracking under the hand face.
 

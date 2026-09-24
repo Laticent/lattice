@@ -21,7 +21,7 @@
 
 <!-- _class: quadrant -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Quadrant must scale with the slide.
 

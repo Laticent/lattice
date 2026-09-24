@@ -31,7 +31,6 @@ const {
   NOT_SHAPES,
   shapeGlyphRe,
   stripFencedCode,
-  isQuadrantAxisEyebrow,
   findShapeGlyphs,
   shapeGlyphAdvice,
 } = require('../../../lib/core/shape-glyphs.js');
@@ -155,9 +154,7 @@ describe('shape-glyphs — stripFencedCode', () => {
   });
 
   test('leaves INLINE code in scope', () => {
-    // A backticked eyebrow is set on the slide; a quadrant's arrow is a
-    // parse-time delimiter with an ASCII spelling already accepted. Both
-    // should still be seen.
+    // A backticked eyebrow is set on the slide, so a glyph in it is seen.
     assert.equal(findShapeGlyphs(stripFencedCode('`Effort 0–10 → Reach 0–100`')).length, 1);
   });
 
@@ -167,32 +164,14 @@ describe('shape-glyphs — stripFencedCode', () => {
   });
 });
 
-describe('shape-glyphs — the quadrant eyebrow, one predicate for two consumers', () => {
-  // The exclusion was implemented TWICE — a hand-rolled scanner in the ownership
-  // gate, a role check in the linter — and they disagreed in both directions.
-  // These pin the shared predicate; test/unit/components/lint-core.test.js and
-  // test/unit/cli/check-ownership.test.js pin that each consumer asks it.
-  test('an arrow eyebrow on a quadrant slide is excluded', () => {
-    assert.equal(isQuadrantAxisEyebrow('`Effort 0–10 → Reach 0–100`', ['quadrant']), true);
-  });
-
-  test('a typed CHECK in a quadrant eyebrow is NOT excluded', () => {
-    // The gate previously blanked any whole-line code span on a quadrant slide,
-    // so a `✓` hid inside one and passed at budget 0.
-    assert.equal(isQuadrantAxisEyebrow('`Shipped ✓ · Q3 review`', ['quadrant']), false);
-  });
-
-  test('the same eyebrow on a non-quadrant slide is NOT excluded', () => {
-    assert.equal(isQuadrantAxisEyebrow('`Effort 0–10 → Reach 0–100`', ['kpi']), false);
-  });
-
-  test('prose with an arrow is never an eyebrow', () => {
-    assert.equal(isQuadrantAxisEyebrow('- the plan → the outcome', ['quadrant']), false);
-  });
-
-  test('no class tokens at all is safe', () => {
-    assert.equal(isQuadrantAxisEyebrow('`a → b`', []), false);
-    assert.equal(isQuadrantAxisEyebrow('`a → b`', null), false);
+describe('shape-glyphs — no inline span is exempt', () => {
+  // `quadrant`'s arrow eyebrow was the one carve-out (`isQuadrantAxisEyebrow`),
+  // because the arrow was that component's axis delimiter. The axis moved onto
+  // the bracketed list (engineering/decisions/2026-09-22-chart-axis-grammar.md),
+  // so the exemption is gone rather than merely unused: an arrow in a quadrant
+  // eyebrow is a typed glyph like any other.
+  test('the carve-out predicate is no longer exported', () => {
+    assert.equal(require('../../../lib/core/shape-glyphs.js').isQuadrantAxisEyebrow, undefined);
   });
 });
 

@@ -1342,7 +1342,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 <!-- _class: quadrant -->
 <!-- _footer: "Chart — quadrant · quadrant" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Where to put the next quarter.
 

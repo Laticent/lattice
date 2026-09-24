@@ -90,6 +90,7 @@
   ],
   "description": "Native 2×2 scatter chart — items plotted on two continuous axes.",
   "purpose": "Use to position items by two numeric attributes (cost × value, effort × impact). Data-driven; for static categorical 2×2 grids, use matrix-2x2.",
+  "axisSet": {"members": ["x", "y"], "body": "list", "keyBelow": false},
   "slots": {
     "title": {
       "selector": "h2",
@@ -99,7 +100,7 @@
     "axes": {
       "selector": "p > code",
       "required": false,
-      "description": "Optional axis-label eyebrow (inline-code paragraph)."
+      "description": "Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`."
     },
     "items": {
       "selector": "ul > li",
@@ -112,12 +113,12 @@
       "description": "Optional 3rd-level nested sublist under an item (the x,y are inline pills, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class=\"chart-detail\">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged."
     }
   },
-  "skeleton": "<!-- _class: quadrant -->\n\n`Effort 0–10 → Reach 0–100`\n\n## Where to put the next dollar, having spent the last one on a workshop.\n\nEffort estimated in story-points; reach as percent of addressable teams.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n- Defer\n  - Vendor scoping `2, 30`\n  - Manual recalibration `1, 22`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n  - Bespoke board export `9, 28`\n",
+  "skeleton": "<!-- _class: quadrant -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Where to put the next dollar, having spent the last one on a workshop.\n\nEffort estimated in story-points; reach as percent of addressable teams.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n- Defer\n  - Vendor scoping `2, 30`\n  - Manual recalibration `1, 22`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n  - Bespoke board export `9, 28`\n",
   "anatomyBlock": "quadrant",
-  "sample": "<!-- _class: quadrant -->\n\n`Effort 0–10 → Reach 0–100`\n\n## The quadrant scatters items on two axes.\n\nEffort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.\n\n- Quick Wins\n  - Weekly signal digest `2, 82`\n  - Slack intake bot `3, 72`\n- Strategic Bets\n  - Scoring model v2 `8, 88`\n    - Owner: Platform team\n    - A 3-week spike de-risks the roadmap\n  - Decision-log API `7, 74`\n- Defer\n  - Per-team weighting UI `2, 28`\n  - Maturity self-assessment `1, 20`\n- Time Sinks\n  - Bespoke board exports `8, 18`\n  - Custom calibration tooling `9, 26`\n",
+  "sample": "<!-- _class: quadrant -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## The quadrant scatters items on two axes.\n\nEffort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.\n\n- Quick Wins\n  - Weekly signal digest `2, 82`\n  - Slack intake bot `3, 72`\n- Strategic Bets\n  - Scoring model v2 `8, 88`\n    - Owner: Platform team\n    - A 3-week spike de-risks the roadmap\n  - Decision-log API `7, 74`\n- Defer\n  - Per-team weighting UI `2, 28`\n  - Maturity self-assessment `1, 20`\n- Time Sinks\n  - Bespoke board exports `8, 18`\n  - Custom calibration tooling `9, 26`\n",
   "stressDoc": {
     "summary": "A crowded field of points — the ceiling.",
-    "sample": "<!-- _class: quadrant -->\n\n`Effort 0–10 → Reach 0–100`\n\n## Stress test — fourteen initiatives, dense labels, one owner.\n\n- Strategic Bets\n  - Scoring model v2 `3, 72`\n  - Per-team calibration `5, 85`\n  - Multi-source signal dedupe `4, 78`\n  - Decision-log audit trail `2, 66`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n  - Adoption dashboard `7, 62`\n- Defer\n  - Vendor scoping `2, 30`\n  - Manual recalibration `1, 22`\n  - Legacy intake shim `3, 14`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n  - Bespoke board export `9, 28`\n  - Per-decision profiles `8, 12`\n  - Self-assessment generator `6, 25`\n"
+    "sample": "<!-- _class: quadrant -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Stress test — fourteen initiatives, dense labels, one owner.\n\n- Strategic Bets\n  - Scoring model v2 `3, 72`\n  - Per-team calibration `5, 85`\n  - Multi-source signal dedupe `4, 78`\n  - Decision-log audit trail `2, 66`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n  - Adoption dashboard `7, 62`\n- Defer\n  - Vendor scoping `2, 30`\n  - Manual recalibration `1, 22`\n  - Legacy intake shim `3, 14`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n  - Bespoke board export `9, 28`\n  - Per-decision profiles `8, 12`\n  - Self-assessment generator `6, 25`\n"
   },
   "whenToUse": [
     {
@@ -144,7 +145,7 @@
     },
     {
       "title": "Coordinates without an audience-shared scale",
-      "body": "If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either label the axis units in the eyebrow — the `Effort 0–10` / `Reach 0–100` line above every slide here — or normalize to a familiar scale before authoring."
+      "body": "If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either give each axis its domain in the axis list — the `[{Effort, 0..10}, {Reach, 0..100}]` line above every slide here — or normalize to a familiar scale before authoring."
     }
   ],
   "related": [
@@ -181,32 +182,32 @@
     "bubble": {
       "label": "bubble",
       "summary": "A third value sizes each point.",
-      "sample": "<!-- _class: quadrant bubble -->\n\n`Effort 0–10 → Reach 0–100`\n\n## bubble sizes each point by a third value.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70, 2.4`\n  - Per-team calibration `5, 85, 4.1`\n- Quick Wins\n  - Weekly signal brief `8, 80, 0.9`\n  - Snapshot exports `9, 55, 0.6`\n- Defer\n  - Vendor scoping `2, 30, 0.4`\n- Time Sinks\n  - Custom audit log UI `7, 18, 1.3`\n"
+      "sample": "<!-- _class: quadrant bubble -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## bubble sizes each point by a third value.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70, 2.4`\n  - Per-team calibration `5, 85, 4.1`\n- Quick Wins\n  - Weekly signal brief `8, 80, 0.9`\n  - Snapshot exports `9, 55, 0.6`\n- Defer\n  - Vendor scoping `2, 30, 0.4`\n- Time Sinks\n  - Custom audit log UI `7, 18, 1.3`\n"
     },
     "trail": {
       "label": "trail",
       "summary": "Arrows show where points moved from.",
-      "sample": "<!-- _class: quadrant trail -->\n\n`Effort 0–10 → Reach 0–100`\n\n## trail shows where each point moved from.\n\n- Strategic Bets\n  - Scoring model v2 `5, 60` `3, 78`\n  - Per-team calibration `7, 70` `5, 88`\n- Quick Wins\n  - Snapshot exports `9, 45` `8, 62`\n- Time Sinks\n  - Custom audit log UI `6, 25` `7, 16`\n"
+      "sample": "<!-- _class: quadrant trail -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## trail shows where each point moved from.\n\n- Strategic Bets\n  - Scoring model v2 `5, 60` `3, 78`\n  - Per-team calibration `7, 70` `5, 88`\n- Quick Wins\n  - Snapshot exports `9, 45` `8, 62`\n- Time Sinks\n  - Custom audit log UI `6, 25` `7, 16`\n"
     },
     "cohort": {
       "label": "cohort",
       "summary": "Points color by group.",
-      "sample": "<!-- _class: quadrant cohort -->\n\n`Effort 0–10 → Reach 0–100`\n\n## cohort colors the points by group.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n- Defer\n  - Vendor scoping `2, 30`\n  - Manual recalibration `1, 22`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n  - Bespoke board export `9, 28`\n"
+      "sample": "<!-- _class: quadrant cohort -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## cohort colors the points by group.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n- Defer\n  - Vendor scoping `2, 30`\n  - Manual recalibration `1, 22`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n  - Bespoke board export `9, 28`\n"
     },
     "threshold": {
       "label": "threshold",
       "summary": "The lines that matter, drawn.",
-      "sample": "<!-- _class: quadrant threshold -->\n\n`Effort 0–10 → Reach 0–100 · targets 5, 50`\n\n## threshold draws the lines that matter.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n- Defer\n  - Vendor scoping `2, 30`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n"
+      "sample": "<!-- _class: quadrant threshold -->\n\n`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`\n\n## threshold draws the lines that matter.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n- Defer\n  - Vendor scoping `2, 30`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n"
     },
     "magic": {
       "label": "magic",
       "summary": "All four quadrants named.",
-      "sample": "<!-- _class: quadrant magic -->\n\n`Completeness of vision 0–100 → Ability to execute 0–100`\n\n## magic names all four quadrants.\n\n- Challengers\n  - Productboard `30, 82`\n- Leaders\n  - Sprig + Log `85, 88`\n  - Chorus `72, 76`\n- Niche Players\n  - Notion build-out `25, 28`\n- Visionaries\n  - Spreadsheet `82, 34`\n"
+      "sample": "<!-- _class: quadrant magic -->\n\n`[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`\n\n## magic names all four quadrants.\n\n- Challengers\n  - Productboard `30, 82`\n- Leaders\n  - Sprig + Log `85, 88`\n  - Chorus `72, 76`\n- Niche Players\n  - Notion build-out `25, 28`\n- Visionaries\n  - Spreadsheet `82, 34`\n"
     },
     "minimal": {
       "label": "minimal",
       "summary": "Just the points.",
-      "sample": "<!-- _class: quadrant minimal -->\n\n`Effort 0–10 → Reach 0–100`\n\n## minimal strips the chart to its points.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n- Defer\n  - Vendor scoping `2, 30`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n"
+      "sample": "<!-- _class: quadrant minimal -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## minimal strips the chart to its points.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n- Defer\n  - Vendor scoping `2, 30`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n"
     }
   },
   "commonMistakes": [
@@ -221,7 +222,7 @@
   ],
   "dataShapeGuidance": [
     "An item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — EXCEPT `trail`, which needs TWO chips (`` `5, 60` `` `` `3, 78` ``, from-position then to-position); splitting a non-`trail` item's coordinates into two chips silently zeroes the second axis instead of erroring.",
-    "The eyebrow isn't just a label — it SETS the axis domain when present (`Effort 0–10 → Reach 0–100` fixes the scale instead of deriving it from the data), and `threshold` reads its own `· targets X, Y` suffix on the same eyebrow line to place the cutoff lines; omit either and the chart falls back to a data-derived scale / a midpoint threshold."
+    "The axis list is not just a label — a member's domain SETS the scale (`{Effort, 0..10}` fixes it instead of deriving it from the data), and its optional third part is that axis's threshold, which `threshold` draws as a cutoff line (`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`); omit either and the chart falls back to a data-derived scale / a midpoint threshold. The retired arrow eyebrow (`Effort 0–10 → Reach 0–100`) now renders as a plain eyebrow — `lint:deck` flags it and rewrites it."
   ],
   "variantDecisionRule": [
     {

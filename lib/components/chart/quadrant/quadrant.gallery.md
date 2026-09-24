@@ -18,7 +18,7 @@ Native 2×2 scatter chart — items plotted on two continuous axes.
 <!-- _class: quadrant -->
 <!-- _footer: "Default · quadrant" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The quadrant scatters items on two axes.
 
@@ -45,7 +45,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant bubble -->
 <!-- _footer: "bubble · quadrant bubble — A third value sizes each point." -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## bubble sizes each point by a third value.
 
@@ -66,7 +66,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant trail -->
 <!-- _footer: "trail · quadrant trail — Arrows show where points moved from." -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## trail shows where each point moved from.
 
@@ -84,7 +84,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant cohort -->
 <!-- _footer: "cohort · quadrant cohort — Points color by group." -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## cohort colors the points by group.
 
@@ -107,7 +107,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant threshold -->
 <!-- _footer: "threshold · quadrant threshold — The lines that matter, drawn." -->
 
-`Effort 0–10 → Reach 0–100 · targets 5, 50`
+`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`
 
 ## threshold draws the lines that matter.
 
@@ -127,7 +127,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant magic -->
 <!-- _footer: "magic · quadrant magic — All four quadrants named." -->
 
-`Completeness of vision 0–100 → Ability to execute 0–100`
+`[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`
 
 ## magic names all four quadrants.
 
@@ -147,7 +147,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant minimal -->
 <!-- _footer: "minimal · quadrant minimal — Just the points." -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## minimal strips the chart to its points.
 
@@ -169,7 +169,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- stress-slide -->
 <!-- _footer: "Stress test · quadrant — A crowded field of points — the ceiling." -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Stress test — fourteen initiatives, dense labels, one owner.
 
@@ -198,7 +198,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant dark -->
 <!-- _footer: "Composition: dark · quadrant dark" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The quadrant scatters items on two axes.
 
@@ -225,7 +225,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant compact -->
 <!-- _footer: "Composition: compact · quadrant compact" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The quadrant scatters items on two axes.
 
@@ -252,7 +252,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: quadrant accent -->
 <!-- _footer: "Composition: accent · quadrant accent" -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The quadrant scatters items on two axes.
 
@@ -286,7 +286,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 - Single axis matters
   - If one axis is decorative and only the other carries meaning, you have a ranking, not a scatter. Use `progress` for percent-complete or `kpi` for ranked metrics with status.
 - Coordinates without an audience-shared scale
-  - If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either label the axis units in the eyebrow — the `Effort 0–10` / `Reach 0–100` line above every slide here — or normalize to a familiar scale before authoring.
+  - If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either give each axis its domain in the axis list — the `[{Effort, 0..10}, {Reach, 0..100}]` line above every slide here — or normalize to a familiar scale before authoring.
 
 ---
 

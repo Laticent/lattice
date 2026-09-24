@@ -310,7 +310,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 <!-- _class: quadrant -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## The quadrant scatters items on two axes.
 
@@ -482,7 +482,7 @@ caught the regression.
 
 <!-- _class: quadrant canvas -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## A painted panel is the one body that earns an inset.
 

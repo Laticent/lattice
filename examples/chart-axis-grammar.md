@@ -11,7 +11,7 @@ acronyms:
 
 # One grammar for an axis. Position says what it means.
 
-`Chart axes · matrix-grid · scatter`
+`Chart axes · matrix-grid · scatter · quadrant · gantt`
 
 Four components named their axes four different ways — by counting code spans,
 by an arrow glyph, by a keyword prefix. They now share one bracketed list, and
@@ -104,33 +104,75 @@ Unquoted, every comma splits. Quoted, a comma is part of the name.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "An ordinary eyebrow is not a bracketed list, so it is left alone" -->
+<!-- _class: quadrant threshold -->
+<!-- _footer: "quadrant · name, domain and threshold, one member per axis" -->
 
-`Capability review · FY26`
+`Portfolio review · FY26`
 
-## A paragraph that is not a list still passes through.
+`[{Effort, 0..10, 6}, {Reach, 0..100, 60}]`
 
-The bracket is what makes a span a construct; position only decides which one.
-An eyebrow above the grid stays an eyebrow.
+## Each threshold sits in the axis it cuts.
 
-| Verb       | Self       | Team       |
-| ---------- | :--------: | :--------: |
-| Create     | [ ]        | [x] Staff  |
-| Apply      | [x] Senior | [-]        |
+The eyebrow above is not a list, so it stays an eyebrow; the list below it
+sets both domains and draws both cutoff lines.
+
+- Strategic Bets
+  - Scoring model v2 `3, 70`
+  - Per-team calibration `5, 85`
+- Quick Wins
+  - Weekly signal brief `8, 80`
+- Defer
+  - Vendor scoping `2, 30`
+- Time Sinks
+  - Custom audit log UI `7, 18`
+
+---
+
+<!-- _class: gantt -->
+<!-- _footer: "gantt · the keyword pills, kept · order-independent" -->
+
+`2026 Q1 .. 2026 Q4` `today Q3`
+
+## Gantt keeps its pills, and they still work.
+
+- Platform
+  - Discovery `Q1..Q1` `done`
+  - Build `Q2..Q3` `live`
+  - Launch `Q4` `milestone`
+- Go-to-market
+  - Pricing study `Q1..Q2` `done`
+  - Pilot accounts `Q3..Q4` `at-risk`
+
+---
+
+<!-- _class: gantt -->
+<!-- _footer: "gantt · the same axis as one bracketed list · the identical chart" -->
+
+`[{Timeline, 2026 Q1..2026 Q4, Q3}]`
+
+## The bracketed form draws the identical chart.
+
+- Platform
+  - Discovery `Q1..Q1` `done`
+  - Build `Q2..Q3` `live`
+  - Launch `Q4` `milestone`
+- Go-to-market
+  - Pricing study `Q1..Q2` `done`
+  - Pilot accounts `Q3..Q4` `at-risk`
 
 ---
 
 <!-- _class: content -->
 <!-- _footer: "What it replaced" -->
 
-## Four grammars, retired.
+## Four grammars, one list.
 
 - matrix-grid and scatter
   - Counted code spans — two meant an axis, one meant an eyebrow. A label set
     was forbidden from being two spans as a result.
 - quadrant
-  - An arrow glyph, needing a carve-out in the typed-glyph gate.
+  - An arrow glyph, needing a carve-out in the typed-glyph gate, and a
+    detached `targets` suffix read by counting positions. The carve-out is gone.
 - gantt
   - Keyword-tagged pills, and already the closest to right — it ships the `..`
-    range this grammar adopts.
+    range this grammar adopts. The pills stay; the list works beside them.

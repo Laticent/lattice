@@ -3613,33 +3613,7 @@ const TYPED_GLYPH_BUDGET = 0;
 //
 // A `*.docs.md` is prose ABOUT a component, never projected, so it is out of
 // scope; so is `engineering/decisions/**`, which is a dated archive.
-const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice, isQuadrantAxisEyebrow } = require('../lib/core/shape-glyphs.js');
-const { splitTopLevel: splitDeckSlides } = require('../lib/authoring/slide-split.js');
-const { slideClassDirectives } = require('../lib/core/class-directive-scan.mjs');
-
-// A `quadrant` slide's axis eyebrow is the component's axis DSL, not chrome, so
-// neither this gate nor `lint:deck` counts it. The PREDICATE is the kernel's
-// (isQuadrantAxisEyebrow) and the slide walk uses the same primitives the linter
-// uses — splitTopLevel + slideClassDirectives — because this was previously a
-// hand-rolled scanner here and a role check there, and they disagreed in both
-// directions: a deck-wide `<!-- class: quadrant -->` failed the build while the
-// linter called the file clean, and any backticked eyebrow on a quadrant slide
-// hid a typed glyph from the budget.
-function stripQuadrantAxisEyebrows(text) {
-  const slides = splitDeckSlides(text);
-  const directives = slideClassDirectives(text);
-  const out = [];
-  slides.forEach((slide, idx) => {
-    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
-    out.push(slide.split('\n')
-      .map((line) => (isQuadrantAxisEyebrow(line, tokens) ? ' '.repeat(line.length) : line))
-      .join('\n'));
-  });
-  // The DECK arm only counts matches, so the join needs to preserve glyphs and
-  // nothing else — it deliberately does NOT claim to preserve line numbers, and
-  // no caller reads one off this result.
-  return out.join('\n');
-}
+const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice } = require('../lib/core/shape-glyphs.js');
 
 // The deck ROOTS the authoring linter itself walks (tools/lint-deck.js
 // `discoverDecks`). Kept in step deliberately: the gate and `lint:deck --all`
@@ -3896,7 +3870,7 @@ function checkTypedGlyphs(errors) {
     if (!isGlyphDeck(rel, text)) continue;
     // A glyph inside a ``` fence is quoted material (two decks quote the CLI's
     // own ⚠ overflow warning verbatim), not slide chrome. See stripFencedCode.
-    const n = (stripQuadrantAxisEyebrows(stripFencedCode(text)).match(shapeGlyphRe()) || []).length;
+    const n = (stripFencedCode(text).match(shapeGlyphRe()) || []).length;
     if (!n) continue;
     if (sanctioned.has(rel)) { sanctionSeen.add(rel); continue; }
     total += n;

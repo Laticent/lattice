@@ -56,7 +56,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 <!-- _class: quadrant -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Crowded item names are placed apart, not on top of each other.
 
