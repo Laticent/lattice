@@ -1,0 +1,12 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "loom",
+  "type": "finish",
+  "format": 1,
+  "label": "Loom",
+  "blurb": "A woven lattice cross-hatch + a movable corner glow.",
+  "order": 7,
+  "swatch": {
+    "background": "radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 60%), repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 30%, transparent) 0 1px, transparent 1px 7px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--accent) 30%, transparent) 0 1px, transparent 1px 7px)"
+  }
+}

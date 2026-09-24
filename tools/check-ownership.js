@@ -975,6 +975,32 @@ function checkPackageIdentity(errors, { root } = {}) {
   }
 }
 
+// ─── Finish packages ↔ their CSS ───────────────────────────────────────────
+// A shipped finish is a package (lib/finishes/<name>/): the register, the Studio's
+// catalog and its preset recipes are all generated from it. Its CSS is still the
+// hand-written `section.finish-<name>` rule in base.finish.css, because generating it
+// from the recipe is not yet pixel-equal for the presets that carry a text or rule mark
+// (portable-packages §10). So the two have to be bound: a package with no rule renders
+// nothing, and a rule with no package is a finish no deck can name.
+const FINISH_CSS = path.join(ROOT, 'lib', 'base', 'base.finish.css');
+function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
+  const pkgs = discoverPackages({ root, types: ['finish'] })
+    .filter((f) => f.result.ok)
+    .map((f) => f.result.pkg.name);
+  const text = fs.readFileSync(css, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = new Set([...text.matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*\{/gm)].map((m) => m[1]));
+  for (const name of pkgs) {
+    if (!rules.has(name)) {
+      errors.push(`lib/finishes/${name}/ is a finish package, but lib/base/base.finish.css has no \`section.finish-${name} {\` rule — the finish would register and render nothing.`);
+    }
+  }
+  for (const name of rules) {
+    if (!pkgs.includes(name)) {
+      errors.push(`lib/base/base.finish.css has a \`section.finish-${name}\` preset rule but no lib/finishes/${name}/ package — no deck can name it. Add the package (manifest + recipe) or remove the rule.`);
+    }
+  }
+}
+
 // ─── Theme registration passes the name, never searches for it ────────────
 // `ThemeStore.add(name, css)` takes identity as an argument. The one-argument
 // `add(css)` form recovers it from `@theme` and survives only for external
@@ -11993,6 +12019,7 @@ function run() {
   checkSizeRegistryOwnership(errors);
   checkThemeIdentity(errors);
   checkPackageIdentity(errors);
+  checkFinishPackages(errors);
   checkThemeRegistrationCallSites(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
@@ -12105,6 +12132,7 @@ module.exports = {
   splitLightDark,
   listThemeManifests,
   checkPackageIdentity,
+  checkFinishPackages,
   checkZPlanes,
   definedPlaneTokens,
   collectZIndexDeclarations,

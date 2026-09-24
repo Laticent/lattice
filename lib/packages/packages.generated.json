@@ -4,7 +4,7 @@
   "counts": {
     "theme": 33,
     "component": 71,
-    "finish": 0,
+    "finish": 9,
     "motion": 0
   },
   "packages": [
@@ -1141,6 +1141,87 @@
         "transform.js"
       ],
       "code": true
+    },
+    {
+      "type": "finish",
+      "name": "atrium",
+      "path": "lib/finishes/atrium",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "gallery",
+      "path": "lib/finishes/gallery",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "halo",
+      "path": "lib/finishes/halo",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "ledger",
+      "path": "lib/finishes/ledger",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "loom",
+      "path": "lib/finishes/loom",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "meridian",
+      "path": "lib/finishes/meridian",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "nimbus",
+      "path": "lib/finishes/nimbus",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "savile",
+      "path": "lib/finishes/savile",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
+    },
+    {
+      "type": "finish",
+      "name": "strata",
+      "path": "lib/finishes/strata",
+      "roles": [
+        "manifest.json",
+        "recipe.json"
+      ]
     }
   ]
 }

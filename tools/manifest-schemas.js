@@ -97,6 +97,12 @@ const FAMILIES = Object.freeze([
     flat: true, // themes/<name>.manifest.json
   },
   {
+    family: 'finish',
+    schema: 'lib/finishes/finish.schema.json',
+    dir: 'lib/finishes',
+    ext: '.manifest.json', // lib/finishes/<name>/<name>.manifest.json
+  },
+  {
     family: 'form frame',
     schema: 'lib/forms/schema/frame.schema.json',
     dir: 'lib/forms/frame',

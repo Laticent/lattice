@@ -1,0 +1,19 @@
+{
+  "wash": {
+    "type": "corner-glow",
+    "intensity": 10
+  },
+  "texture": {
+    "type": "grid",
+    "intensity": 7,
+    "scale": 38
+  },
+  "mark": {
+    "type": "bar",
+    "placement": "left"
+  },
+  "edge": {
+    "type": "none",
+    "intensity": 6
+  }
+}

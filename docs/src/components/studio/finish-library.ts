@@ -8,7 +8,12 @@
 // mode / SSR / jsdom) so a read never throws — it just returns an empty shelf.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+// A DEFAULT import: the presets module is CommonJS, and the docs dev server only interops
+// a default import off a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import finishPresets from '../../../../lib/finishes/presets.generated.js';
 import { coerceRecipe, type FinishRecipe, generateFinishCss } from './finish-generate';
+
+const { FINISH_PRESETS } = finishPresets;
 
 /** A saved finish as the Studio uses it (render with its CSS via DeckPreview's
  *  extraCss + the `finish finish-<name>` class). */
@@ -47,8 +52,8 @@ function toStudioFinish(a: FinishAssetRecord): StudioFinish {
 // from one and keep its name. `finish-preset-parity.test.ts` now derives the preset half
 // from the engine so the two cannot drift again.
 export const RESERVED_FINISH_NAMES: ReadonlySet<string> = new Set([
-	// the 9 shipped presets — keep in step with resolve-finish.js FINISH_REGISTER
-	'atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery',
+	// every shipped preset, from the finish packages (lib/finishes/) — no longer retyped here
+	...FINISH_PRESETS.map((p) => p.name),
 	'boardroom', 'sketch', 'sketch-clean', 'none', 'preview', // register + engine reserved
 ]);
 

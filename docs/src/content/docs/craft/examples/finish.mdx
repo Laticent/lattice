@@ -52,25 +52,21 @@ palette and both canvases for free.
 **The mark is empty.** A monogram baked into a shared finish makes it one
 organization's finish.
 
-## The register row
+## The package
 
-In `lib/core/resolve-finish.js`:
+In `lib/finishes/quarry/`:
 
-```js
-quarry: 'finish finish-quarry',
+```text
+quarry.manifest.json   { "name": "quarry", "type": "finish", "format": 1,
+                         "label": "Quarry", "blurb": "…", "order": 10, "swatch": {…} }
+quarry.recipe.json     the look, in the Studio's layer vocabulary
 ```
 
-One line. `finish: quarry` starts working in front matter and the deck
-linter accepts it while still flagging typos.
-
-## The catalog entry
-
-In `docs/src/components/studio/finish-catalog.ts` — seven fields, of which
-`nature` and `zone` are the two that look optional and are not. The name also
-goes in `RESERVED_FINISH_NAMES` (`finish-library.ts`) so a saved user finish
-cannot shadow it, and the shipped-finish count in `design/skills/finish.md`
-has to be bumped. Each of the three has a gate;
-[Build your first finish](/craft/finishes/first-finish/) step 5 walks them.
+One folder. After `node tools/build-packages-index.js`, `finish: quarry`
+works in front matter, the deck linter accepts it while still flagging typos,
+the Studio's picker lists it and a saved user finish cannot shadow it. The
+shipped-finish count in `design/skills/finish.md` still has to be bumped by
+hand; the ownership guard names the number.
 
 ## What is not on this page
 

@@ -245,3 +245,39 @@ describe('the committed index', () => {
     assert.equal(committed.packages.filter((p) => p.code).length, transforms);
   });
 });
+
+describe('finish packages', () => {
+  const { checkFinishPackages } = require('../../../tools/check-ownership.js');
+  const { FINISH_PRESETS } = require('../../../lib/finishes/presets.generated.js');
+  const { FINISH_NAMES } = require('../../../lib/core/resolve-finish.js');
+
+  test('the register is exactly `none` plus every finish package, in the packages’ order', () => {
+    assert.deepEqual(FINISH_NAMES, ['none', ...FINISH_PRESETS.map((p) => p.name)]);
+    assert.equal(FINISH_PRESETS.length, discoverPackages({ types: ['finish'] }).length);
+  });
+
+  function finishRepo(css) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-finishes-'));
+    fs.mkdirSync(path.join(root, 'lib/finishes/velvet'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'lib/finishes/velvet/velvet.manifest.json'), JSON.stringify({ name: 'velvet', type: 'finish', format: 1 }));
+    fs.writeFileSync(path.join(root, 'lib/finishes/velvet/velvet.recipe.json'), '{}');
+    fs.writeFileSync(path.join(root, 'base.finish.css'), css);
+    return root;
+  }
+
+  test('a package with its rule passes', () => {
+    const root = finishRepo('section.finish-velvet {\n  --fin-wash: none;\n}\n');
+    const errors = [];
+    checkFinishPackages(errors, { root, css: path.join(root, 'base.finish.css') });
+    assert.deepEqual(errors, []);
+  });
+
+  test('THE FAILING ARMS: a package with no rule, and a rule with no package', () => {
+    const root = finishRepo('/* section.finish-velvet { } is only a comment */\nsection.finish-ghost {\n}\n');
+    const errors = [];
+    checkFinishPackages(errors, { root, css: path.join(root, 'base.finish.css') });
+    assert.equal(errors.length, 2);
+    assert.match(errors[0], /velvet\/ is a finish package, but .* has no `section\.finish-velvet \{` rule/);
+    assert.match(errors[1], /`section\.finish-ghost` preset rule but no lib\/finishes\/ghost\/ package/);
+  });
+});

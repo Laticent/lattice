@@ -11,6 +11,12 @@
 // var(--accent) so the chip recolors with the site theme, exactly like the real
 // finish does.
 
+// A DEFAULT import: the presets module is CommonJS, and the docs dev server only interops
+// a default import off a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import finishPresets from '../../../../lib/finishes/presets.generated.js';
+
+const { FINISH_PRESETS } = finishPresets;
+
 export type FinishNature = 'parametric' | 'typographic';
 export type FinishZone = 'field' | 'none';
 export type FinishGroup = 'plain' | 'finish';
@@ -27,103 +33,25 @@ export type FinishEntry = {
 	swatch: { background: string; backgroundSize?: string };
 };
 
-const A = (pct: number) => `color-mix(in srgb, var(--accent) ${pct}%, transparent)`;
-
-// Ordered as the picker shows them. `none` is the named baseline (no backdrop;
-// omitting the key renders it). The rendering MODE — boardroom / sketch — is a
-// SEPARATE axis now (mode-catalog.ts / the `style:` register), so it no longer
-// lives here. Each finish preset is a STACK of layers in the engine; the chip
-// shows a single representative layer, intentionally a touch more saturated than
-// the real (deliberately subtle) finish so the motif reads at 16px.
+// The shipped finishes come from their PACKAGES (lib/finishes/<name>/<name>.manifest.json:
+// label, blurb, picker swatch), through the generated presets module. This file used to
+// hand-keep a second copy of every preset's label and swatch, one of four places a new
+// finish had to be typed in (engineering/decisions/2026-09-23-portable-packages.md §3.6).
 export const FINISHES: FinishEntry[] = [
 	{
 		name: 'none', label: 'None', group: 'plain', nature: 'parametric', zone: 'none',
 		blurb: 'No backdrop — just the content over the theme canvas.',
 		swatch: { background: 'var(--bg)' },
 	},
-	{
-		name: 'atrium', label: 'Atrium', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'Corner glow + a fine grid + a left margin rule.',
-		swatch: {
-			background:
-				`radial-gradient(120% 90% at 100% 0%, ${A(45)}, transparent 60%), `
-				+ `repeating-linear-gradient(0deg, ${A(28)} 0 1px, transparent 1px 6px), `
-				+ `repeating-linear-gradient(90deg, ${A(28)} 0 1px, transparent 1px 6px)`,
-		},
-	},
-	{
-		name: 'meridian', label: 'Meridian', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'Diagonal duotone wash + contour lines + a ghost numeral.',
-		swatch: {
-			background:
-				`linear-gradient(118deg, ${A(40)} 0%, transparent 45%, ${A(24)} 100%), `
-				+ `repeating-linear-gradient(-4deg, transparent 0 7px, ${A(26)} 7px 8px)`,
-		},
-	},
-	{
-		name: 'strata', label: 'Strata', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'Soft horizontal bands + a dot-matrix + a corner tick.',
-		swatch: {
-			background:
-				`linear-gradient(125deg, ${A(40)}, transparent 60%), `
-				+ `radial-gradient(${A(55)} 0 1px, transparent 1.6px)`,
-			backgroundSize: 'cover, 6px 6px',
-		},
-	},
-	{
-		name: 'halo', label: 'Halo', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'Centered spotlight + concentric rings + an inset vignette.',
-		swatch: {
-			background:
-				`radial-gradient(60% 60% at 50% 50%, ${A(40)}, transparent 70%), `
-				+ `repeating-radial-gradient(circle at 50% 50%, transparent 0 6px, ${A(34)} 6px 7px)`,
-		},
-	},
-	{
-		name: 'ledger', label: 'Ledger', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'Fine ruled lines + a bold left margin bar + a corner fold.',
-		swatch: {
-			background:
-				`linear-gradient(90deg, ${A(80)} 0 2px, transparent 2px), `
-				+ `repeating-linear-gradient(180deg, transparent 0 5px, ${A(30)} 5px 6px)`,
-		},
-	},
-	{
-		name: 'nimbus', label: 'Nimbus', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'A gradient mesh of soft accent blooms + a seating vignette.',
-		swatch: {
-			background:
-				`radial-gradient(60% 60% at 15% 20%, ${A(55)}, transparent 60%), `
-				+ `radial-gradient(60% 60% at 85% 25%, ${A(40)}, transparent 58%), `
-				+ `radial-gradient(60% 60% at 75% 90%, ${A(34)}, transparent 62%)`,
-		},
-	},
-	{
-		name: 'loom', label: 'Loom', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'A woven lattice cross-hatch + a movable corner glow.',
-		swatch: {
-			background:
-				`radial-gradient(120% 90% at 0% 0%, ${A(45)}, transparent 60%), `
-				+ `repeating-linear-gradient(45deg, ${A(30)} 0 1px, transparent 1px 7px), `
-				+ `repeating-linear-gradient(-45deg, ${A(30)} 0 1px, transparent 1px 7px)`,
-		},
-	},
-	{
-		name: 'savile', label: 'Savile', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'A tailored vertical pinstripe + a movable monogram.',
-		swatch: {
-			background: `repeating-linear-gradient(90deg, ${A(45)} 0 1px, transparent 1px 5px)`,
-		},
-	},
-	{
-		name: 'gallery', label: 'Gallery', group: 'finish', nature: 'parametric', zone: 'field',
-		blurb: 'A museum inset keyline frame + a spotlight + a movable numeral.',
-		swatch: {
-			background:
-				`linear-gradient(${A(60)}, ${A(60)}) center / calc(100% - 5px) calc(100% - 5px) no-repeat, `
-				+ `radial-gradient(70% 70% at 50% 50%, ${A(30)}, transparent 65%)`,
-		},
-	},
+	...FINISH_PRESETS.map((p): FinishEntry => ({
+		name: p.name,
+		label: p.label,
+		blurb: p.blurb,
+		group: 'finish',
+		nature: 'parametric',
+		zone: 'field',
+		swatch: p.swatch as FinishEntry['swatch'],
+	})),
 ];
 
 export const FINISH_BY_NAME: Record<string, FinishEntry> = Object.fromEntries(

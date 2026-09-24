@@ -1,0 +1,12 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "meridian",
+  "type": "finish",
+  "format": 1,
+  "label": "Meridian",
+  "blurb": "Diagonal duotone wash + contour lines + a ghost numeral.",
+  "order": 2,
+  "swatch": {
+    "background": "linear-gradient(118deg, color-mix(in srgb, var(--accent) 40%, transparent) 0%, transparent 45%, color-mix(in srgb, var(--accent) 24%, transparent) 100%), repeating-linear-gradient(-4deg, transparent 0 7px, color-mix(in srgb, var(--accent) 26%, transparent) 7px 8px)"
+  }
+}

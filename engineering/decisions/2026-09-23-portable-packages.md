@@ -416,3 +416,49 @@ it is the record of what was wrong.
   mismatch. The rest of the tool walks over `themes/` (contrast audits, the scorecard,
   the docs portal) still read the folder directly; phase 5 moves them onto the spine
   when themes become folders.
+- **Phase 2, finishes become packages: the registration half is done; the CSS half
+  is measured and waits on the owner.** Each of the 9 presets is now
+  `lib/finishes/<name>/` (manifest: name, label, blurb, picker swatch, `order`;
+  plus `<name>.recipe.json`). `tools/build-packages-index.js` generates
+  `lib/finishes/presets.generated.js`, and `FINISH_REGISTER`, the lint vocabulary,
+  the Studio's `finish-catalog.ts`, `PRESET_RECIPES` and `RESERVED_FINISH_NAMES` all
+  read it. That removes three of the four hand registrations. The fourth, the CSS,
+  stays hand-written in `base.finish.css`, bound to the packages by
+  `checkFinishPackages`.
+
+  **The §3.6 pixel-diff, run before any CSS moved.** Each preset was rendered through
+  the CLI twice, once with the hand CSS and once with `generateFinishCss(recipe)`,
+  and compared per slide (share of pixels differing by more than 2%). The first pass
+  exposed recipe DATA drift, now fixed in the packages: halo's spotlight sat in the
+  corner instead of at 50%/42%, loom's glow on the wrong side, and meridian's and
+  halo's texture pitches were one pixel off. So "Start from preset" in the Studio did
+  not reproduce those presets. After the fix, with no ghost glyph:
+
+  | preset | print light | print dark | screen light | screen dark |
+  |---|---|---|---|---|
+  | atrium | 0.60% | 0.60% | 0.62% | 0.62% |
+  | meridian | 0.00% | 0.00% | 0.00% | 0.00% |
+  | strata | 0.50% | 0.49% | 0.67% | 0.50% |
+  | halo | 0.00% | 0.00% | 0.00% | 0.00% |
+  | ledger | 0.00% | 0.00% | 0.38% | 0.00% |
+  | nimbus | 0.00% | 0.00% | 0.00% | 0.00% |
+  | loom | 0.00% | 0.00% | 0.00% | 0.00% |
+  | savile | 0.00% | 0.00% | 0.00% | 0.00% |
+  | gallery | 0.00% | 0.00% | 0.00% | 0.00% |
+
+  Three gaps the vocabulary can't close, and a fourth that only shows with a glyph:
+  - **atrium**'s margin rule is 0.47cqi; the vocabulary's `bar` is ledger's 1.1cqi.
+  - **strata**'s top hairline strip (`100% 0.31cqi`) has no wash term.
+  - **ledger**'s screen fold is hand-tuned (22% to 65%); the generator's rich face is
+    formulaic (19% to 60%).
+  - **Text marks.** With the demo deck's glyphs (`Q3`, `AB`, `04`), meridian, savile
+    and gallery differ on 5–6% of pixels: the shipped CSS anchors the ghost glyph to a
+    corner with flex alignment, and the generator centers it and shifts it with a
+    transform. A generated rule also uses `section.finish.finish-<name>` (two
+    classes), which outranks the one-class deck overrides the demo deck relies on
+    (`section.finish-meridian { --fin-mark-text: "Q3" }`), so it has to emit the
+    shipped one-class selector.
+
+  So generating the shipped CSS today changes exported bytes on five of nine presets.
+  That is a direction call with a sign-off attached, so it is left for the owner; the
+  follow-up names three ways forward.

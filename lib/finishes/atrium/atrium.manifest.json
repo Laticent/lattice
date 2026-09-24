@@ -1,0 +1,12 @@
+{
+  "$schema": "../finish.schema.json",
+  "name": "atrium",
+  "type": "finish",
+  "format": 1,
+  "label": "Atrium",
+  "blurb": "Corner glow + a fine grid + a left margin rule.",
+  "order": 1,
+  "swatch": {
+    "background": "radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 60%), repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 28%, transparent) 0 1px, transparent 1px 6px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 28%, transparent) 0 1px, transparent 1px 6px)"
+  }
+}

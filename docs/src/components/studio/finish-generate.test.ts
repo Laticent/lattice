@@ -413,3 +413,19 @@ describe('finish-generate — only the bottom layer ends on the solid canvas (ex
 		expect(rich).not.toContain('rgb(from');
 	});
 });
+
+// The shipped presets' recipes come from their packages (lib/finishes/<name>/<name>.recipe.json).
+// Coercion may fill in defaults a file leaves out, but it must not change anything the file
+// STATES: a value it would clamp or reject is one the Studio silently rewrites on first touch.
+describe('finish-generate — the packaged preset recipes', () => {
+	it.each(Object.entries(PRESET_RECIPES))('%s survives coerceRecipe with every stated value intact', (_name, recipe) => {
+		expect(coerceRecipe(recipe)).toMatchObject(recipe);
+	});
+	it('covers every shipped finish', () => {
+		expect(Object.keys(PRESET_RECIPES)).toEqual(['atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery']);
+	});
+	it('places halo’s spotlight in the center and loom’s glow top-left, as the shipped CSS does', () => {
+		expect([PRESET_RECIPES.halo.wash.x, PRESET_RECIPES.halo.wash.y]).toEqual([50, 42]);
+		expect([PRESET_RECIPES.loom.wash.x, PRESET_RECIPES.loom.wash.y]).toEqual([0, 0]);
+	});
+});
