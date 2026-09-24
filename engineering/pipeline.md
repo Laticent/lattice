@@ -115,12 +115,16 @@ or `--packages <dir>` for one run). Install one with `lattice packages add
 <studio-export>.zip`; the gates are the Studio's import gates, so a theme that reaches
 off the device or a package that carries JavaScript is refused by name. A deck naming
 a theme that is neither shipped nor installed fails with that name and the `add`
-command; it never falls back to another theme. The installed theme's file joins the
-palette chain after its shipped parent, and an installed component's CSS is embedded into
-the deck the way the Studio's Markdown export does it (`lib/packages/render.js`), so
-neither needs a special case in the engine. A component the deck already embeds keeps the
-deck's copy. `lattice packages list | add | check | export | remove`; `lattice packages
---help` prints the usage;
+command; it never falls back to another theme. A slide class that is not shipped,
+embedded or installed renders unstyled, so the render warns with the class name and the
+`add` command. The store is a plain folder, so the render gates every package again
+(`lib/packages/gate.js`): a refused theme fails the render with the reason, and a refused
+component is left out and named. An installed theme may import the base theme and
+nothing else (the Studio's rule), so its file is the whole palette chain. An installed
+component's CSS is embedded into the deck the way the Studio's Markdown export does it
+(`lib/packages/render.js`), so neither needs a special case in the engine; a component the
+deck already embeds keeps the deck's copy. `lattice packages list | add | check | export |
+remove`; `lattice packages --help` prints the usage;
 `engineering/decisions/2026-09-23-portable-packages.md` §6 is the design.
 
 PNG/PPTX rasterize at 2× the slide dimensions (2560×1440 from 1280×720) —

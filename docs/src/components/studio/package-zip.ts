@@ -151,7 +151,7 @@ export type ReadPackage = {
 // slug-named entries with hex values, and drops the rest.
 const HEX = /^#[0-9a-fA-F]{3,8}$/;
 const SLUG = /^[a-z][a-z0-9-]*$/;
-function hexMap(v: unknown): Record<string, string> | null {
+export function hexMap(v: unknown): Record<string, string> | null {
 	if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
 	const out = Object.entries(v as Record<string, unknown>).filter(([k, x]) => SLUG.test(k) && typeof x === 'string' && HEX.test(x));
 	return out.length ? Object.fromEntries(out) as Record<string, string> : null;

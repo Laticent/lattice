@@ -281,3 +281,14 @@ describe('finish packages', () => {
     assert.match(errors[1], /`section\.finish-ghost` preset rule but no lib\/finishes\/ghost\/ package/);
   });
 });
+
+test('a folder of components that is not a known bucket fails the walk instead of vanishing', () => {
+  const os = require('node:os');
+  const { listComponentFolders } = require('../../../lib/packages/fs.js');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spine-bucket-'));
+  fs.mkdirSync(path.join(root, 'newbucket', 'foo'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'newbucket', 'foo', 'foo.manifest.json'), '{"name":"foo"}');
+  assert.throws(() => listComponentFolders(root, { isBucket: (n) => n === 'statement' }), /newbucket\/ holds component folders but is not a known bucket/);
+  // The arm: registered as a bucket, the same folder is walked.
+  assert.equal(listComponentFolders(root, { isBucket: (n) => n === 'newbucket' }).length, 1);
+});

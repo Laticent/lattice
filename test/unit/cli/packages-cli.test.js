@@ -60,7 +60,7 @@ describe('lattice packages', () => {
     const store = tmp('store');
     const r = await run(['add', await zipOf('indaco', theme('indaco')), '--packages', store]);
     assert.equal(r.code, 0, r.text);
-    assert.match(r.text, /"indaco" is a shipped theme, so it installs as "indaco-custom"/);
+    assert.match(r.text, /"indaco" is a name Lattice uses for a theme, so it installs as "indaco-custom"/);
     assert.match(fs.readFileSync(path.join(store, 'theme/indaco-custom/indaco-custom.css'), 'utf8'), /@theme indaco-custom/);
   });
 
@@ -136,15 +136,16 @@ describe('lattice packages', () => {
     assert.equal((await run(['--help'])).code, 0);
   });
 
-  test('a theme that extends another INSTALLED theme is refused — the render resolves shipped parents only', async () => {
+  test('a theme may import the base and nothing else — the Studio\'s rule, so both doors refuse the same packages', async () => {
     const store = tmp('store');
     await run(['add', await zipOf('probe-brand', theme('probe-brand')), '--packages', store]);
-    const r = await run(['add', await zipOf('child-brand', theme('child-brand', "/* @theme child-brand */\n@import 'probe-brand';\n:root { --accent: #123456; }\n")), '--packages', store]);
-    assert.equal(r.code, 1, r.text);
-    assert.match(r.text, /refused {2}child-brand/);
-    // The arm: a shipped parent resolves, so the same shape extending one is accepted.
-    const ok = await run(['add', await zipOf('child-indaco', theme('child-indaco', "/* @theme child-indaco */\n@import 'indaco';\n:root { --accent: #123456; }\n")), '--packages', store]);
-    assert.equal(ok.code, 0, ok.text);
+    for (const parent of ['probe-brand', 'indaco']) {
+      const r = await run(['add', await zipOf('child-brand', theme('child-brand', `/* @theme child-brand */\n@import '${parent}';\n:root { --accent: #123456; }\n`)), '--packages', store]);
+      assert.equal(r.code, 1, `${parent}: ${r.text}`);
+      assert.match(r.text, /refused {2}child-brand/);
+    }
+    // The arm: the base import every Studio theme carries is accepted.
+    assert.equal((await run(['add', await zipOf('child-base', theme('child-base')), '--packages', store])).code, 0);
   });
 
   test('`lattice` is reserved as a theme name, as the Studio reserves it', async () => {

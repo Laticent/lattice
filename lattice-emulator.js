@@ -986,6 +986,17 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
   console.error(`to install a theme made in the Studio: lattice packages add ${paletteName}.lattice-theme.zip`);
   process.exit(1);
 }
+// The store is a plain folder: a package unzipped into it by hand, or a `--packages` folder,
+// never passed `add`. So the gate `add` runs is run again here, before the CSS is used, and a
+// refused theme fails the render with the reason (lib/packages/gate.js; HARD RULE #22).
+if (installedTheme) {
+  const refused = require('./lib/packages/gate.js').refusePackage(installedTheme.pkg);
+  if (refused) {
+    console.error(`error: the installed theme ${paletteName} is refused: ${refused}`);
+    console.error(`       (${installedTheme.dir})`);
+    process.exit(1);
+  }
+}
 // THE theme chain, from the manifest. `themes/<name>.manifest.json` declares the
 // parent as `extends`; the CSS also says `@import 'parent'`, but that copy is
 // MARP's — Lattice reads the manifest and never parses the stylesheet for it.
@@ -999,20 +1010,9 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
 const themeChainFor = (name) => themeChain(name, THEME_EDGES);
 // Parent-first, so a child's `:root` overrides its parent at equal specificity —
 // the cascade order every palette is authored against.
-// An installed theme is not in THEME_EDGES (that graph is the shipped manifests'), so its
-// chain is the shipped chain of the ONE shipped parent it imports by name, plus itself. The
-// Studio's serializer writes `@import 'lattice'`; a hand-edited theme may extend a palette.
-function installedThemeParents(css) {
-  const { findCssImports } = require('./lib/core/css-scan.js');
-  const parent = findCssImports(String(css || ''))
-    .filter((i) => i.kind === 'string' && !i.tail)
-    .map((i) => i.target)
-    .find((n) => n !== 'lattice' && fs.existsSync(path.join(THEMES_DIR, `${n}.css`)));
-  return parent ? themeChainFor(parent) : [];
-}
-const paletteChain = installedTheme
-  ? [...installedThemeParents(installedTheme.pkg.files[installedTheme.pkg.roles.css]), paletteName]
-  : themeChainFor(paletteName);
+// An installed theme is not in THEME_EDGES (that graph is the shipped manifests'), and the
+// gate above allows it to import the base theme and nothing else, so its chain is itself.
+const paletteChain = installedTheme ? [paletteName] : themeChainFor(paletteName);
 // Parallel to paletteChain (the engine registers them pairwise): shipped files, then the installed leaf.
 const paletteFiles = paletteChain.map((n) => (installedTheme && n === paletteName ? path.join(installedTheme.dir, `${n}.css`) : path.join(THEMES_DIR, `${n}.css`)));
 if (installedTheme && !flags.quiet) console.log(`  theme: ${paletteName} (installed package, ${installedTheme.dir})`);
@@ -2055,12 +2055,34 @@ const { appendAutoGlossary, glossaryEntries, resolveGlossaryMode } = require('./
 // renders a user component identically whether its CSS came from the store or from an
 // export (HARD RULE #1). A name the engine ships is never taken from the store.
 function withInstalledComponents(source) {
-  const installed = packagesHome.listInstalled(PACKAGES_ROOT).filter((p) => p.type === 'component' && p.ok);
-  if (!installed.length) return source;
-  const { embedInstalledComponents } = require('./lib/packages/render.js');
+  const { embedInstalledComponents, classTokens } = require('./lib/packages/render.js');
+  const { refusePackage } = require('./lib/packages/gate.js');
+  const { embeddedComponentNames } = require('./lib/layout/bridge.js');
   const { COMPONENT_NAMES } = require('./lib/core/resolve-component.js');
-  const r = embedInstalledComponents(source, installed.map((p) => ({ name: p.name, css: p.pkg.files[p.pkg.roles['styles.css']] })), COMPONENT_NAMES);
+  // The store is a plain folder, so every package is gated again here (lib/packages/gate.js):
+  // a refused component is left out and named, never embedded.
+  const installed = [];
+  for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
+    const why = refusePackage(p.pkg);
+    if (why) console.error(`warning: the installed component ${p.name} is refused and not used: ${why}`);
+    else installed.push(p);
+  }
+  const r = installed.length ? embedInstalledComponents(source, installed.map((p) => ({ name: p.name, css: p.pkg.files[p.pkg.roles['styles.css']] })), COMPONENT_NAMES) : { source, used: [] };
   if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
+  // A class the deck names that is not shipped, embedded or installed renders its slides
+  // UNSTYLED — silently, unlike a missing theme. Say so, with the command that fixes it
+  // (portable-packages §6). The deck linter decides what counts as known; it is loaded only
+  // when some class is not a shipped component or an engine class, which is most decks never.
+  const reserved = require('./lib/packages/reserved-classes.generated.js');
+  const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used]);
+  const doubtful = classTokens(r.source).filter((t) => !cheapKnown.has(t) && !reserved.prefixes.some((pre) => t === pre || t.startsWith(pre.endsWith('-') ? pre : `${pre}-`)));
+  if (doubtful.length) {
+    const unknown = new Set(require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class').map((f) => f.classToken));
+    for (const t of doubtful.filter((x) => unknown.has(x))) {
+      console.error(`warning: no component "${t}" — it is not shipped, embedded in the deck, or installed, so its slides render unstyled.`);
+      console.error(`         to install one made in the Studio: lattice packages add ${t}.lattice-component.zip`);
+    }
+  }
   return r.source;
 }
 const preGlossaryMd = preprocessMermaid(withInstalledComponents(md));

@@ -33,8 +33,15 @@ export type StudioFinish = {
 // (listAssets filters by kind), beside 'theme' and 'component'.
 type FinishAssetRecord = { id: string; kind: 'finish'; name: string; label?: string; text?: string; recipe?: unknown; addedAt?: number; pkg?: PackageCarry };
 
+// The CSS is REGENERATED from the recipe on every read, not taken from the stored text. A
+// finish's CSS is always the generator's output for its recipe (the save path discards
+// whatever it is handed), so this changes nothing for a record saved today — and it means
+// a finish saved before a generator fix (the print face's BOTTOM-LAYER RULE, base.finish.css)
+// gets the fix without being re-saved. The stored text is kept only for a record with no
+// recipe, which the generator cannot rebuild.
 function toStudioFinish(a: FinishAssetRecord): StudioFinish {
-	return { id: a.id, name: a.name, label: a.label || a.name, css: a.text || '', recipe: coerceRecipe(a.recipe), ...(a.pkg ? { pkg: a.pkg } : {}) };
+	const recipe = coerceRecipe(a.recipe);
+	return { id: a.id, name: a.name, label: a.label || a.name, css: a.recipe ? generateFinishCss(a.name, recipe) : a.text || '', recipe, ...(a.pkg ? { pkg: a.pkg } : {}) };
 }
 
 // Names a saved finish must NOT shadow: every shipped preset + the other

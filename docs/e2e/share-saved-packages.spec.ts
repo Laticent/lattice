@@ -142,6 +142,20 @@ test('a .lattice project carries its saved theme and component to another Studio
 		// other Studio falls back to that when the deck's theme is unknown).
 		await expect(livePreview(p2).locator(`section.${COMPONENT}`).first()).toBeVisible({ timeout: 40_000 });
 		await expect.poll(() => rendered(p2)).toEqual(origin);
+
+		// Opening a file is not asking to change your Library. The same file again writes
+		// nothing; a copy whose theme DIFFERS from the saved one lands under a new name and the
+		// opened deck follows it, so the theme B already had is left as it was.
+		const reopen = async (buffer: Buffer) => p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer });
+		await reopen(fs.readFileSync(file));
+		await expect(p2.getByText(/already in your Library, unchanged/).first()).toBeVisible({ timeout: 30_000 });
+		const tampered = await JSZip.loadAsync(fs.readFileSync(file));
+		const themePath = `packages/theme/${THEME}/${THEME}.css`;
+		const themeCss = await tampered.file(themePath)!.async('string');
+		tampered.file(themePath, `${themeCss}\n:root { --accent: #ff00aa; }\n`);
+		await reopen(await tampered.generateAsync({ type: 'nodebuffer' }));
+		await expect(p2.getByText(new RegExp(`theme “${THEME}” → “${THEME}-2”`)).first()).toBeVisible({ timeout: 30_000 });
+		await expect.poll(async () => (await rendered(p2)).accent).toBe('rgb(255, 0, 170)');
 	} finally {
 		await other.close();
 	}

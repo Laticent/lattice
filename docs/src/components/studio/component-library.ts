@@ -8,7 +8,7 @@
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
 import type { PackageCarry } from '@/components/studio/library/package-carry';
-import { RESERVED_COMPONENT_NAMES, renameComponentSelectors, unreservedName } from '@/components/studio/library/reserved-names';
+import { renameComponentSelectors } from '@/components/studio/library/reserved-names';
 import { renameAssetInSource } from './asset-rename';
 
 // Loaded ON DEMAND (2026-08-17 loading audit §9.2). This module is reached eagerly
@@ -96,7 +96,10 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 	// in a deck that also used it. The clash saves as `kpi-custom`, with its selectors
 	// and its skeleton's `_class:` rewritten to match, so the saved record still styles
 	// its own slides. The caller compares the returned name with its own and says so.
-	const name = unreservedName(RESERVED_COMPONENT_NAMES, input.name);
+	// So is a class the ENGINE owns (`finish`, `print`, `dark`…): a component named `finish`
+	// would restyle every slide carrying a finish. Loaded here, not with the Studio.
+	const { unreservedComponentName } = await import('./library/reserved-classes');
+	const name = unreservedComponentName(input.name);
 	const css = name === input.name ? input.css : renameComponentSelectors(input.css, input.name, name);
 	const skeleton = name === input.name ? input.skeleton : renameAssetInSource(input.skeleton, 'component', input.name, name).source;
 	const manifest: Record<string, unknown> = { name };

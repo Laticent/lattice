@@ -273,6 +273,19 @@ describe('asset-bundle — a lattice-asset/1 zip still imports', () => {
 	});
 });
 
+describe('asset-bundle — a lattice-asset/1 zip gets no looser a door', () => {
+	it('keeps only hex colors in a legacy theme\'s essentials (they reach inline styles on the Studio page)', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('themes/harbor/harbor.css', theme.css);
+		zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'theme', items: [
+			{ kind: 'theme', name: 'harbor', label: 'Harbor', essentials: { accent: 'url(https://evil.example/b.png)', bg: '#ffffff' }, css: 'themes/harbor/harbor.css' },
+		] }));
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		expect(round.themes[0].essentials).toEqual({ bg: '#ffffff' });
+	});
+});
+
 describe('asset-bundle — package zips from elsewhere', () => {
 	it('refuses a code package by name instead of importing it without its transform', async () => {
 		const { default: JSZip } = await import('jszip');

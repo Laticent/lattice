@@ -23,6 +23,7 @@
 // stores, pack/parse are testable without a browser beyond localStorage.
 
 import { packBundle, unpackBundle } from './asset-bundle';
+import { applyImportRenames } from './asset-rename';
 import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
@@ -152,6 +153,16 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// had already been replaced left a half-restored workspace.
 	const libraryFile = zip.file('library.zip');
 	const parsed = libraryFile ? await unpackBundle(await libraryFile.async('blob')) : null;
+
+	// A backup made before shipped names were reserved can hold a saved `indaco`. The save
+	// below stores it as `indaco-custom`, so the backed-up decks that said `theme: indaco`
+	// are pointed at that name before they are restored — or they would quietly render the
+	// shipped theme instead of the one they were made with.
+	if (parsed && state.sources) {
+		const { backupRenames } = await import('./library/import-parsed');
+		const renames = await backupRenames(parsed);
+		if (renames.length) state.sources = Object.fromEntries(Object.entries(state.sources).map(([id, src]) => [id, applyImportRenames(src, renames)]));
+	}
 
 	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, refused: parsed?.refused ?? [] };
 

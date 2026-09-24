@@ -17,9 +17,16 @@
  *     The wash layers sit under the texture, and the last one listed is the bottom. A
  *     layer sized to a strip is exempt: it covers only its strip.
  *
- * A "solid-canvas stop" is a bare `var(--fin-canvas) N%` gradient stop. A stop that
- * MIXES the canvas (`color-mix(…, var(--fin-canvas)) N%`) is a tint, not the canvas,
- * and ends in `)) N%`, so the pattern doesn't match it.
+ *   - No `--fin-texture-opaque` layer has one: the texture paints ABOVE the wash.
+ *
+ * A "solid-canvas stop" is a gradient stop whose COLOR is the canvas itself —
+ * `var(--fin-canvas)` with or without a fallback (`var(--fin-canvas, var(--bg))`, the
+ * Studio generator's form), or `var(--bg)` — at any position or none. It is found by
+ * splitting each gradient into its stops, not by a text pattern: an earlier regex
+ * (`var(--fin-canvas) N%`) missed the fallback form, a fractional or `calc()` position
+ * and a stop with no position. A stop that MIXES the canvas (`color-mix(…)`,
+ * `rgb(from var(--fin-canvas) … / 0)`) starts with another function, so it is a tint or a
+ * clear stop, not the canvas.
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,7 +34,39 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const CSS = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.finish.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-const SOLID_CANVAS_STOP = /var\(--fin-canvas\)\s+\d+%/g;
+/** The top-level comma-separated arguments of `fn(…)`, or the whole value split the same way. */
+function args(value) {
+  const out = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] === '(') depth++;
+    else if (value[i] === ')') depth--;
+    else if (value[i] === ',' && depth === 0) {
+      out.push(value.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  out.push(value.slice(start).trim());
+  return out;
+}
+
+/** How many of a layer's gradient stops are the solid canvas. */
+function solidCanvasStops(layer) {
+  let n = 0;
+  // Every gradient in the layer (a layer is one gradient, but be generous), by its argument list.
+  for (const m of layer.matchAll(/(?:repeating-)?(?:linear|radial|conic)-gradient\(/g)) {
+    let depth = 1;
+    let i = m.index + m[0].length;
+    const from = i;
+    for (; i < layer.length && depth; i++) {
+      if (layer[i] === '(') depth++;
+      else if (layer[i] === ')') depth--;
+    }
+    for (const stop of args(layer.slice(from, i - 1))) if (/^var\(\s*--(?:fin-canvas|bg)(?=[\s,)])/.test(stop)) n++;
+  }
+  return n;
+}
 
 /** Every `section.finish-<name> { … }` preset block, by name. */
 function presets() {
@@ -70,7 +109,7 @@ test('no FULL-BLEED export-face edge ends on the solid canvas — it paints over
     const edge = slot(block, '--fin-edge-opaque');
     // A corner patch (ledger's fold, sized 9.4cqi) covers only its corner.
     const fullBleed = /^(cover|auto|100% 100%)$/.test(slot(block, '--fin-edge-size') || 'auto');
-    if (edge && fullBleed && edge.match(SOLID_CANVAS_STOP)) bad.push(name);
+    if (edge && fullBleed && layers(edge).some(solidCanvasStops)) bad.push(name);
   }
   assert.deepEqual(bad, [], 'end the edge on rgb(from var(--fin-canvas) r g b / 0) instead');
 });
@@ -96,15 +135,31 @@ test('only the LAST full-bleed export-face wash layer may end on the solid canva
     if (!wash || wash === 'none') continue;
     const ls = layers(wash);
     ls.slice(0, -1).forEach((l, i) => {
-      if (l.match(SOLID_CANVAS_STOP) && washLayerIsFullBleed(block, i)) bad.push(`${name} layer ${i + 1} of ${ls.length}`);
+      if (solidCanvasStops(l) && washLayerIsFullBleed(block, i)) bad.push(`${name} layer ${i + 1} of ${ls.length}`);
     });
   }
   assert.deepEqual(bad, [], 'end every upper layer on rgb(from var(--fin-canvas) r g b / 0) instead');
 });
 
-test('the pattern catches the defect it exists for (the failing arm)', () => {
-  const broken = 'radial-gradient(78% 78% at 50% 50%, var(--fin-canvas) 62%, color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%)';
-  assert.equal(broken.match(SOLID_CANVAS_STOP)?.length, 1);
-  const fixed = broken.replace('var(--fin-canvas) 62%', 'rgb(from var(--fin-canvas) r g b / 0) 62%');
-  assert.equal(fixed.match(SOLID_CANVAS_STOP), null);
+test('no export-face TEXTURE layer ends on the solid canvas — the texture paints above the wash', () => {
+  const bad = [];
+  for (const [name, block] of presets()) {
+    const tex = slot(block, '--fin-texture-opaque');
+    if (!tex || tex === 'none') continue;
+    layers(tex).forEach((l, i) => {
+      if (solidCanvasStops(l)) bad.push(`${name} texture layer ${i + 1}`);
+    });
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('the check catches every way to write the defect (the failing arms)', () => {
+  const tail = ', color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%)';
+  for (const stop of ['var(--fin-canvas) 62%', 'var(--fin-canvas, var(--bg)) 60%', 'var(--fin-canvas) 62.5%', 'var(--bg) 60%', 'var(--fin-canvas)', 'var(--fin-canvas) calc(50% + 2px)']) {
+    assert.equal(solidCanvasStops(`radial-gradient(78% 78% at 50% 50%, ${stop}${tail}`), 1, stop);
+  }
+  // …and none of the forms that are NOT the canvas.
+  for (const stop of ['rgb(from var(--fin-canvas) r g b / 0) 62%', 'color-mix(in srgb, var(--accent) 12%, var(--fin-canvas)) 0%', 'var(--fin-canvas-ink) 10%']) {
+    assert.equal(solidCanvasStops(`radial-gradient(78% 78% at 50% 50%, ${stop}${tail}`), 0, stop);
+  }
 });

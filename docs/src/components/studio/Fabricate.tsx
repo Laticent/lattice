@@ -30,7 +30,8 @@ import { FinishStudio } from './FinishStudio';
 import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
 import { REFUSAL_PREFIX } from './library/asset-store.js';
-import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES, unreservedName } from './library/reserved-names';
+import { unreservedComponentName } from './library/reserved-classes';
+import { RESERVED_THEME_NAMES, unreservedName } from './library/reserved-names';
 import { findNameClash } from './library/save-guard.js';
 import { manifestJsonCompletion } from './manifest-complete';
 import { MotionStudio } from './motion/MotionStudio';
@@ -672,7 +673,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// `<name>-custom` (library/reserved-names.ts), so checking the typed `indaco` found no
 	// clash, and a second "indaco" silently overwrote the first `indaco-custom`.
 	const themeSaveName = unreservedName(RESERVED_THEME_NAMES, themeName);
-	const compSaveName = unreservedName(RESERVED_COMPONENT_NAMES, compName);
+	const compSaveName = unreservedComponentName(compName);
 	const nameTakenBy = findNameClash(savedThemes, themeSaveName, editingId, ownedThemes);
 	const compNameTakenBy = findNameClash(savedComponents, compSaveName, compEditingId, ownedComponents);
 	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);

@@ -360,7 +360,10 @@ async function unpackLegacy(zip: any, read: (path: string | undefined) => Promis
 	for (const item of manifest.items) {
 		if (item.kind === 'theme') {
 			const css = await read(item.css);
-			if (css) out.themes.push({ name: item.name, label: item.label, essentials: item.essentials ?? null, css });
+			// The same hex-only filter as the package path: `essentials` reaches inline styles on
+			// the Studio's own page (the theme swatches), so a `url(…)` here would be a fetch
+			// from the main origin. An old zip gets no looser a door than a new one.
+			if (css) out.themes.push({ name: item.name, label: item.label, essentials: (await packageZip()).hexMap(item.essentials), css });
 		} else if (item.kind === 'component') {
 			const css = await read(item.css);
 			// LINE ENDINGS: the skeleton is markdown spliced verbatim into a deck's source

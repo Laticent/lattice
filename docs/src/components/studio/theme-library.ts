@@ -23,7 +23,7 @@ import { RESERVED_THEME_NAMES, unreservedName } from '@/components/studio/librar
 // while SAVING a theme, which is a user action.
 type ThemeCore = typeof import('@/playground/theme-core.generated.js');
 let themeCoreLoad: Promise<ThemeCore> | null = null;
-function loadThemeCore(): Promise<ThemeCore> {
+export function loadThemeCore(): Promise<ThemeCore> {
 	if (!themeCoreLoad) themeCoreLoad = import('@/playground/theme-core.generated.js');
 	return themeCoreLoad;
 }

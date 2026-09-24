@@ -501,9 +501,9 @@ it is the record of what was wrong.
   with a `transform.js` is refused by name, and `add` will not overwrite an installed
   package without `--replace`.
   The render path looks up a theme it doesn't ship in the store, and fails with the name
-  and the `add` command when it isn't there. An installed theme may extend ONE shipped
-  palette by `@import`; it may not extend another installed theme, and `add` refuses
-  one that tries, because the render resolves parents among the shipped palettes only.
+  and the `add` command when it isn't there. An installed theme may import the base
+  theme and nothing else, the Studio's own rule, so the two front doors refuse the same
+  packages.
   An installed component's CSS is embedded into the deck with the Studio Markdown
   export's bridge (`lib/packages/render.js`), so the engine needs no second path for
   it; a component the deck already embeds keeps the deck's copy. `lattice` is reserved
@@ -520,3 +520,37 @@ it is the record of what was wrong.
   at run time (`packages add <zip>`, `packages export`, and the image-set `.zip` output).
   It used to arrive only through `pptxgenjs`'s dependency on it, which a strict installer
   such as pnpm does not expose to Lattice.
+- **The adversarial trio on phases 0–4 (PR #2336).** A red team, a Munger inversion and an
+  independent checker ran on what ships, and these findings were fixed before merge:
+  - **Opening a `.lattice` overwrote saved assets.** A carried theme named `brand` replaced
+    your saved `brand` in place, and every other deck of yours that said `theme: brand`
+    changed with it. Opening a file now never writes over anything (`keepMine` in
+    `library/import-parsed.ts`): an identical item is skipped, and a different one is saved
+    under a free name (`brand-2`) that the opened deck is rewritten to use. A `-custom`
+    rename reaches the deck the same way, and so does a workspace restore of a backup made
+    before names were reserved. A `.lattice` no longer brings motion into the Library at
+    all: a deck carries its motion inline (§5), so nothing needs it.
+  - **A component could take a slide class the engine owns.** A package named `finish`,
+    `print` or `dark` restyled every slide the engine stamps with that class. Those names
+    are reserved for components as well: the deck linter's modifier vocabulary, every
+    `section.<class>` in the engine's CSS and the `tint-*`/`mark-*`… families, generated
+    into `lib/packages/reserved-classes.generated.js` and read by the CLI's registry and
+    the Studio's save path.
+  - **The CLI store was gated only at `add`.** A package unzipped into
+    `~/.lattice/packages` by hand, or a `--packages` folder, rendered ungated. The render
+    and `list` now run the same gate (`lib/packages/gate.js`).
+  - **`add` said "added" for a theme no deck could use** (no `@theme` line). `add` now
+    reads back strictly what it will install, the way the render reads it.
+  - **The two front doors disagreed.** The CLI accepted a theme importing a shipped
+    palette, which the Studio refuses, and only the Studio read a zip with its manifest at
+    the root. Both now match the Studio.
+  - **Smaller:** an old-format zip passed a theme's colors through unfiltered; a
+    `.transform.JS`, `.mjs` or `.cjs` file rode along as an asset (any script now makes a
+    code package); `export`/`remove` could not name a finish whose name starts with a
+    digit; file names from a zip reached the terminal with their control characters; a
+    finish saved before the print fix kept the defect until re-saved (its CSS is now
+    regenerated from the recipe on read); a deck naming a component nobody has rendered it
+    unstyled without a word (the CLI now warns); and the finish files called the recipe
+    "the look" when `base.finish.css` is still what renders.
+  What was found and deliberately NOT fixed here is in
+  `followups.d/2336-p3-packages-trio-followups.md`.

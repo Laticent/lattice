@@ -2147,32 +2147,46 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			import('./lattice-file')
 				.then(({ readLatticeFile }) => readLatticeFile(file))
 				.then(async ({ source: src, title, comments, packages }) => {
-					openImportedDeck(src, title, comments);
 					// The saved themes/components/finishes the deck was exported with ride in the
 					// file as package folders (portable-packages §4). They go through the SAME funnel
 					// as a Library import — same gates, same `-custom` rename, same refusals — so a
-					// `.lattice` file is never a side door around them.
-					if (!packages.themes.length && !packages.components.length && !packages.finishes.length && !packages.scenes.length && !packages.refused.length) return;
-					const had = new Set([...savedThemes.map((t) => `theme ${t.name}`), ...localComponents.map((c) => `component ${c.name}`), ...savedFinishes.map((f) => `finish ${f.name}`)]);
-					const { importParsedBundle } = await import('./library/import-parsed');
-					const t = await importParsedBundle(packages);
-					// Only what was actually SAVED replaced anything: a refused item left the saved one alone.
-					const refusedNames = new Set(t.refused.map((r) => r.name));
-					const replaced = [...packages.themes.map((x) => ['theme', x.name, x.label || x.name]), ...packages.components.map((x) => ['component', x.name, x.name]), ...packages.finishes.map((x) => ['finish', x.name, x.label || x.name])]
-						.filter(([kind, name, shown]) => had.has(`${kind} ${name}`) && !refusedNames.has(name) && !refusedNames.has(shown))
-						.map(([kind, name]) => `${kind} ${name}`);
+					// `.lattice` file is never a side door around them. Two differences, both because
+					// OPENING a file is not asking to change your Library:
+					//   - keepMine: nothing you saved is overwritten (import-parsed.ts says how);
+					//   - motion is not taken from the file. A deck inlines its motion (§5), so a
+					//     carried motion package is never needed to render it.
+					// The packages go in FIRST, so the deck can be pointed at the names they were
+					// saved under before it opens.
+					const scenesLeft = packages.scenes.length;
+					const carried = { ...packages, scenes: [] };
+					if (!carried.themes.length && !carried.components.length && !carried.finishes.length && !carried.refused.length && !scenesLeft) {
+						openImportedDeck(src, title, comments);
+						return;
+					}
+					const { importParsedBundle, applyImportRenames } = await import('./library/import-parsed');
+					let t: Awaited<ReturnType<typeof importParsedBundle>>;
+					try {
+						t = await importParsedBundle(carried, { keepMine: true });
+					} catch (err) {
+						// The deck is the thing the person asked for; a Library that won't take its
+						// assets must not stop it opening.
+						openImportedDeck(src, title, comments);
+						notify(`Opened the deck, but its saved assets could not be added: ${(err as Error)?.message || 'the Library is unavailable'}.`);
+						return;
+					}
+					openImportedDeck(applyImportRenames(src, t.renames), title, comments);
 					refreshThemes();
 					refreshComponents();
 					refreshFinishes();
-					refreshScenes();
-					const got = [t.themes && `${t.themes} theme(s)`, t.components && `${t.components} component(s)`, t.finishes && `${t.finishes} finish(es)`, t.scenes && `${t.scenes} motion(s)`].filter(Boolean).join(' + ');
+					const got = [t.themes && `${t.themes} theme(s)`, t.components && `${t.components} component(s)`, t.finishes && `${t.finishes} finish(es)`].filter(Boolean).join(' + ');
 					const detail = [
-						replaced.length ? `Replaced your saved ${replaced.join(', ')} with the file's copy — the earlier version is in its history.` : null,
-						t.renamed.length ? `Renamed because a shipped item uses the name: ${t.renamed.join(', ')}.` : null,
+						t.renamed.length ? `Saved under another name, and this deck now uses it: ${t.renamed.join(', ')}.` : null,
+						t.unchanged ? `${t.unchanged} already in your Library, unchanged.` : null,
 						t.refused.length ? `Not added: ${t.refused.map((r) => `${r.name} (${r.why})`).join('; ')}.` : null,
+						scenesLeft ? `${scenesLeft} motion(s) in the file were not added — the deck carries its motion inline.` : null,
 						t.notes.length ? t.notes.join(' ') : null,
 					].filter(Boolean).join('\n') || undefined;
-					notify(got ? `Added the deck's ${got} to your Library.` : 'The deck carried assets that were not added.', { description: detail });
+					if (got || detail) notify(got ? `Added the deck's ${got} to your Library. Nothing you had was changed.` : 'Nothing was added to your Library.', { description: detail });
 				})
 				// A stale tab fails HERE before it ever reads the file (#1242): the reader is a
 				// lazy chunk, and a superseded deploy's URL is gone. Blaming the .lattice file

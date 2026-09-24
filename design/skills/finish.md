@@ -100,9 +100,11 @@ interpolates color and opacity separately.
 
 ## Where it lives
 
-- **The package** (source of truth): `lib/finishes/<name>/` —
-  `<name>.manifest.json` (name, label, blurb, picker swatch, `order`) and
-  `<name>.recipe.json` (the look, in the closed layer vocabulary below).
+- **The package** (source of truth for the finish's NAME and registration):
+  `lib/finishes/<name>/` — `<name>.manifest.json` (name, label, blurb, picker
+  swatch, `order`) and `<name>.recipe.json` (the look in the closed layer
+  vocabulary below, which the Studio starts from — not yet what a deck renders;
+  see **The CSS**).
   `tools/build-packages-index.js` generates `lib/finishes/presets.generated.js`
   from the folders, and the register (`FINISH_REGISTER` in
   `lib/core/resolve-finish.js`), the lint vocabulary, the Studio's picker catalog
@@ -110,8 +112,11 @@ interpolates color and opacity separately.
   registration.
 - **The CSS**: `lib/base/base.finish.css` — the compositor + every preset body +
   the opaque flip + the per-slide `finish-none` opt-out. The preset bodies are still
-  hand-written; `checkFinishPackages` fails the build when a package has no
-  `section.finish-<name>` rule or a rule has no package.
+  hand-written and are what every deck renders; `checkFinishPackages` fails the
+  build when a package has no `section.finish-<name>` rule or a rule has no
+  package, but it checks names only — tuning a `recipe.json` changes the Studio's
+  starting point and no deck. Generating these bodies from the recipes is the open
+  phase-2 decision (`followups.d/2314-p2-finishes-become-packages.md`).
 - **The sibling `mode:`**: `lib/core/resolve-mode.js` + `lib/base/base.sketch.css`.
 - **Ships today (10 values)**: `none` (baseline), `atrium`, `meridian`, `strata`,
   `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`.
