@@ -100,7 +100,9 @@ describe('--field-accent reads against --fin-canvas on every accent-field cover,
         const cv = document.createElement('canvas');
         cv.width = cv.height = 1;
         const ctx = cv.getContext('2d', { willReadFrequently: true });
-        const rgb = (c) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = '#000'; ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3); };
+        // An unparseable color would leave the PREVIOUS fill in place and score the last row's
+        // color instead, so one that the engine cannot parse reads as black, explicitly.
+        const rgb = (c) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = CSS.supports('color', c) ? c : '#000'; ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3); };
         const lum = ([r, g, b]) => {
           const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
           return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
