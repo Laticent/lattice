@@ -51,12 +51,12 @@ Three of scene's compositions repaint the section, and all three are gated on an
 
 `Section 02 · Covers`
 
-## The covers are fixed in the same change, and no slide here can show them
+## The covers are fixed in the same change, and this run shows them
 
 - What the cascade does
   - An accent cover paints `var(--accent)` in every mode. Six of them re-point the canvas to match.
-- Why you cannot see it
-  - A split drops the `finish` class when it builds a cover, so a cover gets no backdrop. Filed separately.
+- Why you can see it now
+  - A split used to drop the `finish` class from a cover. Since #2305 it keeps it.
 
 ---
 

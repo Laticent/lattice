@@ -4347,13 +4347,15 @@ const SANCTIONED_FALLBACK_READS = [
   })),
   {
     token: 'spectrum-solid',
-    fallback: 'accent',
+    fallback: 'field-accent',
     why:
       'a per-theme OVERRIDE, not a required slot. `--spectrum-solid` exists only so a theme ' +
       'whose accent is too near-black to read as a bar (onyx, concrete) can name a different ' +
-      'hue for the solid spectrum style; every other theme wants exactly --accent, which is a ' +
-      'contract token. The fallback IS the intended value for the common case, so a theme ' +
-      'omitting it is correct rather than degraded.',
+      'hue for the solid spectrum style; every other theme wants the ink that reads on the ' +
+      'frame\'s field. That is `--field-accent` (base.finish.css): `--accent` on every ordinary ' +
+      'slide, and the on-accent / on-tint ink on the six split covers that paint the accent or ' +
+      'a category tint (#2305), where an accent bar is accent on accent. The fallback IS the ' +
+      'intended value for the common case, so a theme omitting it is correct rather than degraded.',
   },
 ];
 

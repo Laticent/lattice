@@ -54,8 +54,8 @@
  *     encodes a large-area gradient that fades through ALPHA so PDF rasterizers
  *     (poppler AND Ghostscript both confirmed) interpolate toward transparent-
  *     BLACK → a muddy GRAY cloud. So every FULL-BLEED fade must end OPAQUE: a
- *     wash/glow is `color-mix(var(--accent) N%, var(--fin-canvas))` → plain `var(--fin-canvas)`
- *     (accent mixed INTO the bg, never into `transparent`); patterns are UNIFORM
+ *     wash/glow is `color-mix(var(--field-accent) N%, var(--fin-canvas))` → plain `var(--fin-canvas)`
+ *     (the ink mixed INTO the bg, never into `transparent`); patterns are UNIFORM
  *     and faint (a 1px opaque line / dot, transparent GAP only — a hard stop,
  *     never an area fade). This is the look that bakes clean into the vector PDF.
  *
@@ -77,7 +77,7 @@
  *   other or from the preset — there is a single source for every value.
  *
  * Design constraints (all load-bearing — see the decision doc):
- *   1. PALETTE-BLIND. Every color is color-mix() of var(--accent)/var(--fin-canvas);
+ *   1. PALETTE-BLIND. Every color is color-mix() of var(--field-accent)/var(--fin-canvas);
  *      a theme swap (or `dark`) recolors the finish automatically. No hex (#3).
  *      The RICH variant may mix toward `transparent` (alpha) — palette-blind
  *      still holds (it is the accent/bg color, just faded).
@@ -255,7 +255,7 @@ section.finish {
 
 /* ── --fin-canvas: THE SURFACE THIS FINISH IS PAINTED ON (#1656) ───────
  * Every finish layer is palette-blind by mixing toward the slide's canvas — the
- * wash is `color-mix(var(--accent) N%, canvas)`, the opaque export face fades to
+ * wash is `color-mix(var(--field-accent) N%, canvas)`, the opaque export face fades to
  * plain canvas, the clearance mask PAINTS canvas over the content area, the ghost
  * mark inks it. Each of those said `var(--bg)` and was therefore correct only
  * while `--bg` was the color actually under the finish.
@@ -295,7 +295,27 @@ section.finish {
  * clean"), not a repair for an unreadable slide. */
 section {
   --fin-canvas: var(--bg);
+  --field-accent: var(--accent);
 }
+
+/* ── --field-accent: THE INK THAT READS ON THE FRAME'S FIELD (#2305) ───────────────
+ * `--fin-canvas`'s other half. Every preset below drew its grid, contours, glow and
+ * mark in `var(--accent)` — correct on every surface that is not itself the accent,
+ * and invisible on the one that is. Until #2305 no page carrying a finish painted an
+ * accent field, because the splitter dropped the finish class from the six accent
+ * covers. Once it carries it, atrium's 9% accent grid on a `var(--accent)` cover is
+ * accent on accent: the backdrop is in the DOM and paints nothing a reader can see.
+ *
+ * So the frame that paints the field names the ink that reads on it, beside the
+ * canvas it already names, and the presets draw in `--field-accent`. The default is the
+ * accent, so every slide that was already right renders byte-identical. Declared on
+ * `section` for the reason `--fin-canvas` is: a fabricated finish (finish-generate.ts)
+ * reads it too, with `var(--accent)` as its fallback.
+ *
+ * NAMED FOR THE FIELD, NOT THE FINISH, because the finish is not the only decoration that
+ * draws in the accent and now reaches these covers. The `spectrum:` bar rides the same class
+ * swap, and its solid/duo/mono fills (base.variants.css) draw in this token too — a solid
+ * accent rail on an accent cover was the HARD RULE #25 checker's finding. */
 /* ONE EXCLUSION IS LEFT, AND IT IS `print` (#2291). Four rules used to out-specify a
  * frame's own (0,1,1) canvas and repaint it, so every arm in this file carried a
  * mode-scoped group naming six register classes:
@@ -483,12 +503,15 @@ section.topic:has(> ul.tile-track):not(.print) {
 section:is(.decision-cover, .compare-code-cover, .compare-split-cover,
            .list-tabular-cover, .split-panel-cover):not(.print) {
   --fin-canvas: var(--accent);
+  --field-accent: var(--on-accent);
 }
 section.lat-split-cover {
   --fin-canvas: var(--accent);
+  --field-accent: var(--on-accent);
 }
 section.split-panel-cover:is([data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"], [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) {
   --fin-canvas: var(--panel-fill);
+  --field-accent: var(--cat-on-fill);
 }
 
 /* ── THE IMAGERY MATTE IS A THIRD CANVAS, and the same defect sat on it ───────
@@ -536,6 +559,7 @@ section.scene:is([data-img-composition="gallery"], [data-img-composition="spotli
  * painting what it never meant to paint. */
 section.print[data-split-role="cover"] {
   --fin-canvas: var(--surface-inverse);
+  --field-accent: var(--accent);
 }
 
 /* ── WHAT USED TO BE HERE, and what removed it ────────────────────────────────
@@ -605,44 +629,44 @@ section.finish-atrium {
   --fin-texture:
     repeating-linear-gradient(
       0deg,
-      color-mix(in srgb, var(--accent) 9%, transparent) 0 1px,
+      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
       transparent 1px 38px
     ),
     repeating-linear-gradient(
       90deg,
-      color-mix(in srgb, var(--accent) 9%, transparent) 0 1px,
+      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
       transparent 1px 38px
     );
   --fin-wash:
     radial-gradient(
       ellipse 120% 95% at 100% 0%,
-      color-mix(in srgb, var(--accent) 13%, transparent) 0%,
+      color-mix(in srgb, var(--field-accent) 13%, transparent) 0%,
       transparent 60%
     );
   /* OPAQUE mirror — uniform faint grid + opaque corner glow. */
   --fin-texture-opaque:
     repeating-linear-gradient(
       0deg,
-      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
+      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 38px
     ),
     repeating-linear-gradient(
       90deg,
-      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
+      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 38px
     );
   --fin-wash-opaque:
     radial-gradient(
       ellipse 120% 90% at 100% 0%,
-      color-mix(in srgb, var(--accent) 10%, var(--fin-canvas)) 0%,
+      color-mix(in srgb, var(--field-accent) 10%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 55%
     );
   /* 3 field layers: grid-h, grid-v, glow (same count in both faces) */
   --fin-size: auto, auto, cover;
   --fin-position: top left, top left, top left;
   --fin-repeat: repeat, repeat, no-repeat;
-  --fin-mark: linear-gradient(var(--accent), var(--accent));
-  --fin-mark-opaque: linear-gradient(var(--accent), var(--accent));
+  --fin-mark: linear-gradient(var(--field-accent), var(--field-accent));
+  --fin-mark-opaque: linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-position: left center;
   --fin-mark-size-bg: 0.47cqi 100%; /* ~6px rule at the left edge */
   --fin-mark-text: "";
@@ -660,27 +684,27 @@ section.finish-meridian {
     repeating-linear-gradient(
       -4deg,
       transparent 0 46px,
-      color-mix(in srgb, var(--accent) 8%, transparent) 46px 47px
+      color-mix(in srgb, var(--field-accent) 8%, transparent) 46px 47px
     );
   --fin-wash:
     linear-gradient(
       118deg,
-      color-mix(in srgb, var(--accent) 11%, transparent) 0%,
+      color-mix(in srgb, var(--field-accent) 11%, transparent) 0%,
       transparent 48%,
-      color-mix(in srgb, var(--accent) 7%, transparent) 100%
+      color-mix(in srgb, var(--field-accent) 7%, transparent) 100%
     );
   --fin-texture-opaque:
     repeating-linear-gradient(
       -4deg,
       transparent 0 46px,
-      color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 46px 47px
+      color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 46px 47px
     );
   --fin-wash-opaque:
     linear-gradient(
       118deg,
-      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0%,
+      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 42%,
-      color-mix(in srgb, var(--accent) 4%, var(--fin-canvas)) 100%
+      color-mix(in srgb, var(--field-accent) 4%, var(--fin-canvas)) 100%
     );
   /* 2 field layers: contour, duotone */
   --fin-size: auto, cover;
@@ -693,7 +717,7 @@ section.finish-meridian {
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--fin-canvas));
+  --fin-mark-color: color-mix(in srgb, var(--field-accent) 9%, var(--fin-canvas));
   --fin-mark-fs: 30cqi;              /* tasteful default ghost (~third of slide height) */
   --fin-mark-pad: 0 1cqi 0 0;        /* right-aligned, hug the bottom edge */
   --fin-mark-align: flex-end;
@@ -710,41 +734,41 @@ section.finish-meridian {
 section.finish-strata {
   --fin-texture:
     radial-gradient(
-      color-mix(in srgb, var(--accent) 15%, transparent) 0 1.3px,
+      color-mix(in srgb, var(--field-accent) 15%, transparent) 0 1.3px,
       transparent 1.7px
     );
   --fin-wash:
     linear-gradient(
       90deg,
-      var(--accent) 0%,
-      color-mix(in srgb, var(--accent) 35%, transparent) 55%,
+      var(--field-accent) 0%,
+      color-mix(in srgb, var(--field-accent) 35%, transparent) 55%,
       transparent 100%
     ),
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--accent) 7%, transparent) 0%,
+      color-mix(in srgb, var(--field-accent) 7%, transparent) 0%,
       transparent 35%,
       transparent 70%,
-      color-mix(in srgb, var(--accent) 5%, transparent) 100%
+      color-mix(in srgb, var(--field-accent) 5%, transparent) 100%
     );
   --fin-texture-opaque:
     radial-gradient(
-      color-mix(in srgb, var(--accent) 13%, var(--fin-canvas)) 0 1.3px,
+      color-mix(in srgb, var(--field-accent) 13%, var(--fin-canvas)) 0 1.3px,
       transparent 1.7px
     );
   --fin-wash-opaque:
     linear-gradient(
       90deg,
-      var(--accent) 0%,
-      color-mix(in srgb, var(--accent) 35%, var(--fin-canvas)) 60%,
+      var(--field-accent) 0%,
+      color-mix(in srgb, var(--field-accent) 35%, var(--fin-canvas)) 60%,
       var(--fin-canvas) 100%
     ),
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--accent) 5%, var(--fin-canvas)) 0%,
+      color-mix(in srgb, var(--field-accent) 5%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 30%,
       var(--fin-canvas) 70%,
-      color-mix(in srgb, var(--accent) 4%, var(--fin-canvas)) 100%
+      color-mix(in srgb, var(--field-accent) 4%, var(--fin-canvas)) 100%
     );
   /* 3 field layers: dot-matrix, top-hairline, bands */
   --fin-size: 26px 26px, 100% 0.31cqi, cover;
@@ -752,11 +776,11 @@ section.finish-strata {
   --fin-repeat: repeat, no-repeat, no-repeat;
   /* registration tick — horizontal + vertical solid accent strips at the corner */
   --fin-mark:
-    linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(var(--accent), var(--accent));
+    linear-gradient(var(--field-accent), var(--field-accent)),
+    linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-opaque:
-    linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(var(--accent), var(--accent));
+    linear-gradient(var(--field-accent), var(--field-accent)),
+    linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-position: top 2.7cqi right 3.1cqi, top 2.7cqi right 3.1cqi;
   --fin-mark-size-bg: 2.65cqi 0.16cqi, 0.16cqi 2.65cqi; /* arm-H, arm-V */
   --fin-mark-repeat: no-repeat, no-repeat;
@@ -775,24 +799,24 @@ section.finish-halo {
     repeating-radial-gradient(
       circle at 50% 42%,
       transparent 0 56px,
-      color-mix(in srgb, var(--accent) 8%, transparent) 56px 57px
+      color-mix(in srgb, var(--field-accent) 8%, transparent) 56px 57px
     );
   --fin-wash:
     radial-gradient(
       85% 75% at 50% 42%,
-      color-mix(in srgb, var(--accent) 9%, transparent) 0%,
+      color-mix(in srgb, var(--field-accent) 9%, transparent) 0%,
       transparent 62%
     );
   --fin-texture-opaque:
     repeating-radial-gradient(
       circle at 50% 42%,
       transparent 0 56px,
-      color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 56px 57px
+      color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 56px 57px
     );
   --fin-wash-opaque:
     radial-gradient(
       80% 70% at 50% 42%,
-      color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 0%,
+      color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 60%
     );
   /* 2 field layers: rings, spotlight */
@@ -829,35 +853,35 @@ section.finish-ledger {
     repeating-linear-gradient(
       180deg,
       transparent 0 39px,
-      color-mix(in srgb, var(--accent) 10%, transparent) 39px 40px
+      color-mix(in srgb, var(--field-accent) 10%, transparent) 39px 40px
     );
   --fin-wash: none;
   --fin-texture-opaque:
     repeating-linear-gradient(
       180deg,
       transparent 0 39px,
-      color-mix(in srgb, var(--accent) 8%, var(--fin-canvas)) 39px 40px
+      color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 39px 40px
     );
   --fin-wash-opaque: none;
   /* 2 field layers: ruled lines, wash-none */
   --fin-size: auto, auto;
   --fin-position: top left, top left;
   --fin-repeat: repeat, no-repeat;
-  --fin-mark: linear-gradient(var(--accent), var(--accent));
-  --fin-mark-opaque: linear-gradient(var(--accent), var(--accent));
+  --fin-mark: linear-gradient(var(--field-accent), var(--field-accent));
+  --fin-mark-opaque: linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-position: left center;
   --fin-mark-size-bg: 1.1cqi 100%; /* ~14px bold bar at the left edge */
   --fin-mark-text: "";
   --fin-edge:
     linear-gradient(
       225deg,
-      color-mix(in srgb, var(--accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--field-accent) 22%, transparent) 0%,
       transparent 65%
     );
   --fin-edge-opaque:
     linear-gradient(
       225deg,
-      color-mix(in srgb, var(--accent) 16%, var(--fin-canvas)) 0%,
+      color-mix(in srgb, var(--field-accent) 16%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 60%
     );
   --fin-edge-position: top right;
@@ -877,16 +901,16 @@ section.finish-nimbus {
   --fin-texture-opaque: none;
   /* RICH mesh — four blooms toward transparent. */
   --fin-wash:
-    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--accent) 15%, transparent) 0%, transparent 60%),
-    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--accent) 11%, transparent) 0%, transparent 58%),
-    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 62%),
-    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 58%);
+    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--field-accent) 15%, transparent) 0%, transparent 60%),
+    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--field-accent) 11%, transparent) 0%, transparent 58%),
+    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 8%, transparent) 0%, transparent 62%),
+    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--field-accent) 8%, transparent) 0%, transparent 58%);
   /* OPAQUE mesh — four blooms ending on var(--fin-canvas). */
   --fin-wash-opaque:
-    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--accent) 12%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%),
-    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--accent) 8%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%),
-    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 62%),
-    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%);
+    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--field-accent) 12%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%),
+    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%),
+    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 62%),
+    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%);
   /* 5 background-image layers: the texture-none slot (the compositor always lists
    * `var(--fin-texture,none)` first) + the 4 mesh wash blooms — same count both faces.
    * The aux slots carry one entry per layer, in compositor order (texture, then wash). */
@@ -924,35 +948,35 @@ section.finish-loom {
   --fin-texture:
     repeating-linear-gradient(
       45deg,
-      color-mix(in srgb, var(--accent) 9%, transparent) 0 1px,
+      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
       transparent 1px 34px
     ),
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--accent) 9%, transparent) 0 1px,
+      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
       transparent 1px 34px
     );
   --fin-texture-opaque:
     repeating-linear-gradient(
       45deg,
-      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
+      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 34px
     ),
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
+      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 34px
     );
   --fin-wash:
     radial-gradient(
       ellipse 120% 90% at 0% 0%,
-      color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+      color-mix(in srgb, var(--field-accent) 14%, transparent) 0%,
       transparent 60%
     );
   --fin-wash-opaque:
     radial-gradient(
       ellipse 120% 90% at 0% 0%,
-      color-mix(in srgb, var(--accent) 11%, var(--fin-canvas)) 0%,
+      color-mix(in srgb, var(--field-accent) 11%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 55%
     );
   /* 2 weave layers (45°, −45°) + 1 glow layer — same count both faces. */
@@ -977,13 +1001,13 @@ section.finish-savile {
   --fin-texture:
     repeating-linear-gradient(
       90deg,
-      color-mix(in srgb, var(--accent) 10%, transparent) 0 1px,
+      color-mix(in srgb, var(--field-accent) 10%, transparent) 0 1px,
       transparent 1px 18px
     );
   --fin-texture-opaque:
     repeating-linear-gradient(
       90deg,
-      color-mix(in srgb, var(--accent) 8%, var(--fin-canvas)) 0 1px,
+      color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0 1px,
       transparent 1px 18px
     );
   --fin-wash: none;
@@ -999,7 +1023,7 @@ section.finish-savile {
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--fin-canvas));
+  --fin-mark-color: color-mix(in srgb, var(--field-accent) 9%, var(--fin-canvas));
   --fin-mark-fs: 30cqi;
   --fin-mark-pad: 0 2cqi;
   --fin-mark-align: flex-end;
@@ -1022,13 +1046,13 @@ section.finish-gallery {
   --fin-wash:
     radial-gradient(
       80% 70% at 50% 42%,
-      color-mix(in srgb, var(--accent) 10%, transparent) 0%,
+      color-mix(in srgb, var(--field-accent) 10%, transparent) 0%,
       transparent 60%
     );
   --fin-wash-opaque:
     radial-gradient(
       80% 70% at 50% 42%,
-      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0%,
+      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 60%
     );
   /* 2 background-image layers: the texture-none slot (the compositor always lists
@@ -1042,7 +1066,7 @@ section.finish-gallery {
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--fin-canvas));
+  --fin-mark-color: color-mix(in srgb, var(--field-accent) 9%, var(--fin-canvas));
   --fin-mark-fs: 30cqi;
   --fin-mark-pad: 0 1cqi;
   --fin-mark-align: flex-start;
@@ -1057,7 +1081,7 @@ section.finish-gallery {
   --fin-edge-opaque: none;
   --fin-frame:
     inset 0 0 0 calc(2.6  * var(--_sec-1cqi, 1cqi)) var(--fin-canvas),
-    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--accent) 40%, var(--fin-canvas));
+    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

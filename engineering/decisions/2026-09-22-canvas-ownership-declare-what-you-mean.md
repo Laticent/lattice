@@ -196,6 +196,39 @@ comments, all corrected. The geometry-longhand reset above is its finding too.
 **UNVERIFIED:** no WebKit or real-Safari render was driven (#2297 records that CI has
 none), and the PPTX and export-to-Marp paths were not exercised.
 
+## The split half: the covers now carry what this CSS was written for (#2305)
+
+#2293 and #2309 gave the accent covers a correct `--fin-canvas`, but no cover the
+splitter emitted carried a finish. `roleOpenTag` (`lib/core/split-envelope.js`)
+replaced the class list and kept only the canvas axis. So the CSS was right and nothing
+in a rendered deck exercised it. Measured on `examples/finish-canvas-light-half.md`,
+`finish: atrium`: 8 of 13 pages carried the finish. None of the 6 covers and carousel
+pages did, and the auto-split body pages beside them did. One run disagreed with itself.
+
+Three changes close it. Each one applies this note's rule from the other side:
+
+1. **The deck's surface registers ride the class swap.**
+   `lib/core/surface-registers.js` builds the list from each register's own tokens.
+   `claim:` and `cards:` stay behind because they compose a layout, and they reach the
+   page as `data-split-mods`.
+2. **`splitDoc` re-injects the `.backdrop` wrapper** on the pages it re-authors. The
+   injector moved to `lib/core/backdrop.js` so the splitter can call it without a
+   require cycle. It now also lands after a leading deck logo.
+3. **A frame that paints the field names the ink that reads on it.** Every preset drew
+   in `var(--accent)`, which is accent on accent on these six covers. The backdrop was
+   in the DOM and changed 0.06% of the cover's pixels, all of them in the spectrum bar.
+   The presets now draw in `--field-accent`, which defaults to `var(--accent)`. The accent
+   covers set `var(--on-accent)`, a `cat-N` tint sets `var(--cat-on-fill)`, and print's
+   de-flood arm resets it to the accent. It is `--fin-canvas`'s other half: the canvas
+   the finish mixes toward, and the ink it draws in, are both declared by the frame that
+   owns the surface.
+
+`test/integration/invariants/finish-ink-matrix.test.js` holds `--field-accent` against
+`--fin-canvas` at 3:1 or better. It covers the six covers (stamped and unstamped), all
+eight `cat-N` tints, the four bookend and content controls, six canvas modifiers and all
+33 palettes: 4,608 rows, worst 4.88:1. With the cover ink declarations removed from the
+bundle, 2,050 rows fail.
+
 ## Records
 
 - `2026-08-09-color-theme-ownership.md` — who owns color at all
@@ -203,3 +236,4 @@ none), and the PPTX and export-to-Marp paths were not exercised.
 - #2294 — `--fin-canvas` outside `dark`, closed alongside this
 - #1528 — why these rules use longhands rather than a multi-layer shorthand
 - #1656 — what `--fin-canvas` is for
+- #2305 — the split kept only the canvas axis, so no cover carried a finish

@@ -311,14 +311,14 @@ export type FinishFace = 'rich' | 'opaque';
 // An accent mix at N%. The fade-base is var(--fin-canvas, var(--bg)) for export, `transparent` for
 // screen — the single knob that splits the two faces.
 const mix = (pct: number, face: FinishFace) =>
-	`color-mix(in srgb, var(--accent) ${Math.round(pct)}%, ${face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))'})`;
+	`color-mix(in srgb, var(--field-accent, var(--accent)) ${Math.round(pct)}%, ${face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))'})`;
 // The end-stop of a full-bleed fade: the canvas for export, nothing for screen.
 const fadeEnd = (face: FinishFace) => (face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))');
 // Rich nudges accent up a touch (the alpha falloff makes it read fainter than the
 // same % over an opaque canvas), capped so text-on-bg AA still survives.
 const lift = (pct: number, face: FinishFace) => (face === 'rich' ? Math.min(22, pct + 3) : pct);
 // A solid accent fill (for rules/bars/ticks — a 1-stop "gradient" the slot expects).
-const SOLID = 'linear-gradient(var(--accent), var(--accent))';
+const SOLID = 'linear-gradient(var(--field-accent, var(--accent)), var(--field-accent, var(--accent)))';
 
 // Build the --fin-wash gradient (z1, full-bleed → export face fades opaque→opaque).
 // A single-source wash (corner-glow, spotlight) reads its movable hotspot from x/y and
@@ -557,7 +557,7 @@ export function recipeSlots(r: FinishRecipe, face: FinishFace = 'opaque'): strin
 		// opaque + blur-free, so they bake crisp in the vector PDF and carry no alpha —
 		// identical in both faces (export-safe by construction). Intensity tunes the
 		// keyline strength.
-		const c = `color-mix(in srgb, var(--accent) ${Math.round(Math.min(48, 26 + r.edge.intensity))}%, var(--fin-canvas, var(--bg)))`;
+		const c = `color-mix(in srgb, var(--field-accent, var(--accent)) ${Math.round(Math.min(48, 26 + r.edge.intensity))}%, var(--fin-canvas, var(--bg)))`;
 		decls.push(`--fin-frame:inset 0 0 0 2.6cqi var(--fin-canvas, var(--bg)), inset 0 0 0 2.82cqi ${c}`);
 	}
 
