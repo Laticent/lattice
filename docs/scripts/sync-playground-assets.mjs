@@ -79,6 +79,12 @@ const katexProviderJs = join(pgDir, 'lattice-katex.js');
 const assets = [
   ['lattice-runtime.js', runtimeJs],
   ['lattice-dagre.js', dagreJs],
+  // function-plot, the SAME build the CLI emulator injects (the version package-lock.json locks). Staged as a sibling of
+  // lattice-runtime.js on purpose: the runtime loads it on demand by swapping its own
+  // filename (lib/runtime/index.js `ensureFunctionPlot`), so a deck with a ```functionplot
+  // fence draws on every host that loads the runtime, and no host threads a URL. A deck
+  // without a plot never fetches it.
+  ['function-plot.js', createRequire(import.meta.url).resolve('function-plot/dist/function-plot.js', { paths: [repoRoot] })],
   ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
   ['themes/lattice.css', latticeCss],

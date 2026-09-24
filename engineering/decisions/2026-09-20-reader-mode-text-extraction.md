@@ -218,9 +218,17 @@ common: **every one of them sat in a composition the happy path never exercised.
    hangs outside, sorted back into document order. The article then REPLACES that container
    rather than dropping it when empty; the empty check could never fire, because by the time it
    ran the container held the whole article, which is how every `--read` document shipped a
-   `<main>` inside a `<main>` (3 axe landmark violations). `measureOverflow` still carries the
-   identical id-selector hole — pre-existing, off that change's path, and recorded here rather
-   than widened into it.
+   `<main>` inside a `<main>` (3 axe landmark violations). `measureOverflow` carried the
+   identical hole, fully unscoped. **Resolved 2026-09-24:** the scope moved into one kernel,
+   `lib/core/deck-slides.js`, which the `--read` projection, `measureOverflow`, the content-cut
+   pass, the chart label-drop pass, the guards trim and the page count all use. Measured on a two-slide deck
+   that pastes the scaffold and overflows on slide 2: the OVERFLOW line said "pages 1, 3" and
+   now says "pages 1, 2" (`test/integration/invariants/overflow-slide-scope.test.js`). The guards
+   trim came along because it prints page numbers too ("TRIM REVERTED … pages X"), and an
+   independent checker pointed out that one run would otherwise give one slide two numbers.
+   Still unscoped, and off this path because none of them names a page in the export's
+   warnings: the SVG export's per-slide walk and slide titles, and the exported document's own
+   runtime watcher.
 
 3. **`read: true` front matter was a documented no-op.** `--help` and the changelog both
    promised it; `RENDER_TARGET_KEYS` did not carry `read`, so the key always read absent
@@ -264,15 +272,40 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   block walk over a journey stage yields `PprospectSsalesUuserOonboarding` and
   `Pain12345Delight`, the index welded to its label. An invented description is worse than an
   absent one, so a component that describes itself nowhere still gets the note alone.
-- **The bake's UTF-8 double-encoding now reaches the reading article.** A browser-drawn
-  `function-plot` captured by the bake ships its axis label as `x²` double-encoded — it renders
-  `XÂ²`. Pre-existing in the capture (`--player` has carried the identical bytes all along), and
-  the net for that slide is still a plot instead of a placeholder, but `--read` is a surface
-  that did not show it before. Off-path for the change that surfaced it; recorded rather than
-  fixed. Same shape: a journey step labelled `R&D` reads `R&amp;D` in the article and to a
-  screen reader, because the label arrives already entity-encoded and is escaped again — the
-  visible chip on the slide has always done the same, so the description is consistent with
-  shipped behavior rather than newly wrong.
+- ~~**The bake's UTF-8 double-encoding now reaches the reading article.**~~ **Resolved
+  2026-09-24, and it was never the bake.** The `functionplot` fence packs its config as UTF-8
+  base64, and BOTH inflaters decoded it with a bare `atob`: the runtime's
+  (`lib/runtime/index.js`, which the Studio and every exported document run) and a second copy
+  the emulator writes into its render page. `atob` hands each UTF-8 byte back as its own
+  character, so `x²` (bytes C2 B2) drew as `xÂ²`. That was already wrong on the SLIDE, in the
+  PDF too, so the bake captured it faithfully. The committed `examples/marp-export-fidelity.pdf`
+  carried it. The pair now lives in one kernel, `lib/core/base64-utf8.js`: the fence encoder
+  and the runtime `require` it, and the emulator injects its `fromBase64` source. Measured on a
+  one-plot deck: `--player` went from `Â²` ×2 / `x²` ×0 to `Â²` ×0 / `x²` ×2, and `--read` from
+  `Â²` ×1 to `x²` ×1 (`test/integration/invariants/functionplot-utf8.test.js`, red on the old
+  decoder). **Driving the Studio for this found a worse defect on the same path: it had never
+  drawn a function plot at all.** The runtime inflates only when `window.functionPlot` exists, and
+  no docs host loaded the library, so the preview showed an empty stage and the Read pane had no
+  figure, while `deck-export.js` claimed both were drawn. The runtime now loads the same
+  `function-plot.js` the CLI uses on demand from beside itself (`ensureFunctionPlot`;
+  `sync-playground-assets` stages it as a sibling of `lattice-runtime.js`), so every host that
+  loads the runtime draws plots and none threads a URL. A failed load hands the author the config
+  text and marks the plot settled, and the Studio capture's `waitForDiagrams` waits on plots as it
+  does on Mermaid, releasing a stranded one the same way (#2092). Once drawn, the re-hosted plot
+  was clipped rather than scaled in every reading article, because function-plot's SVG has width
+  and height but no viewBox, so `lib/core/function-plot-viewbox.js` stamps an identity viewBox from
+  both inflaters. Measured: the slide is pixel-identical (0 differing bytes at 100 dpi), the
+  committed PDF is byte-identical, and the Studio preview and Read pane draw `x²` at 1440, 820 and
+  390 (`docs/e2e/studio-function-plot.spec.ts` pins desktop). The same bare `atob` also sits in `docs/src/lib/anima/hydrate.ts`, which decodes the
+  `anima` fence's spec from the same encoder. It is left for its own change, because fixing it
+  regenerates the committed anima player bundle, and it is recorded in `followups.d/2325-p1-…`.
+  **The sibling `R&D` → `R&amp;D` is a different bug, and it is decided: fix it separately.**
+  It is not the bake either. `journey.transform.js` reads each step label out of markdown-it's
+  HTML, where `&` is already `&amp;`. `stripTags` keeps the entity, and `escHtml` escapes it
+  again. So the visible chip on the slide says `R&amp;D` too, not just the description. The fix
+  is to decode entities once after `stripTags`, as `state-chart` does. That changes a surface a
+  human sees on a slide, so under HARD RULE #9 it owes its own demo deck. Recorded in
+  `followups.d/2325-p2-…` with that root cause rather than folded into a change about the bake.
 - **Readability drops part of short decks even from a clean article.** `examples/a11y.md`
   extracts 216 of 334 words (65%) from the projection alone, because its paragraphs are
   short. That is a floor in their algorithm, not something this change can move.

@@ -860,6 +860,9 @@ const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
 // `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
 const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
+const { deckSlideSections, DECK_SLIDES_SRC } = require('./lib/core/deck-slides');
+const { fromBase64: fromBase64Utf8 } = require('./lib/core/base64-utf8');
+const { FIT_FUNCTION_PLOT_SRC } = require('./lib/core/function-plot-viewbox');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
@@ -2801,12 +2804,16 @@ const functionPlotScript = (hasFunctionPlot && functionPlotJsAbsPath)
   ? `<script ${ENGINE_SCRIPT_ATTR} src="file://${functionPlotJsAbsPath}"></script>
 ${ENGINE_SCRIPT_OPEN}
 (function(){
+  // UTF-8, not a bare atob: the runtime's decoder, injected verbatim (lib/core/base64-utf8.js).
+  var fromBase64 = ${fromBase64Utf8.toString()};
+  // A viewBox on the drawn SVG, so a reading article can scale it (lib/core/function-plot-viewbox.js).
+  var fitFunctionPlotSvg = ${FIT_FUNCTION_PLOT_SRC};
   function inflate() {
     if (typeof window.functionPlot !== 'function') return;
     document.querySelectorAll('div.functionplot[data-fp-config]').forEach(function(div){
       if (div.dataset.fpInflated === '1') return;
       try {
-        var cfg = JSON.parse(atob(div.getAttribute('data-fp-config')));
+        var cfg = JSON.parse(fromBase64(div.getAttribute('data-fp-config')));
         var rect = div.getBoundingClientRect();
         cfg.target = div;
         cfg.width  = cfg.width  || Math.round(rect.width)  || 480;
@@ -2814,6 +2821,7 @@ ${ENGINE_SCRIPT_OPEN}
         // Disable hover tip in static PDF — it only adds DOM mass.
         if (!cfg.tip) cfg.tip = { renderer: function(){} };
         window.functionPlot(cfg);
+        fitFunctionPlotSvg(div);
         div.dataset.fpInflated = '1';
       } catch (e) {
         div.textContent = 'functionplot error: ' + e.message;
@@ -3495,7 +3503,7 @@ async function renderBody(browser, g, closeBrowser) {
   // clientHeight) — the signal both the author warning and the measured auto-split
   // pass below read. Scope to real slide sections only — `<section>` literals inside
   // code blocks parse as nested DOM and would pollute the indices.
-  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, ignoreSel, probeSrc, legibilitySrc, verdictSrc, floorRatio, tol }) => {
+  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, ignoreSel, probeSrc, legibilitySrc, verdictSrc, slidesSrc, floorRatio, tol }) => {
     const TOL = tol; // the shared noise budget; lib/core/overflow-probe.js § FRAME_TOLERANCE
     // Three functions, injected verbatim, all owned by lib/core (HARD RULE #1):
     //   · probeSectionOverflow — cell-aware EXTENT. A bounded content cell that
@@ -3512,13 +3520,17 @@ async function renderBody(browser, g, closeBrowser) {
     const buildSplitVerdict = new Function('return (' + verdictSrc + ')')();
     const deps = { probeSectionOverflow, probeFigureLegibility };
     const opts = { clipSel, ignoreSel, tol: TOL, floorRatio, structuralCarousel, paginatorCarousel };
+    // The deck's OWN slides, not every `section[data-lattice-slide]`: an author's pasted
+    // example section would be measured as a slide and shift every later page number
+    // (lib/core/deck-slides.js).
+    const deckSlideSections = new Function('return (' + slidesSrc + ')')();
     const out = [];
-    document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
+    deckSlideSections(document).forEach((s, i) => {
       const v = buildSplitVerdict(s, deps, opts);
       if (v) out.push({ slide: i + 1, ...v });
     });
     return out;
-  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, verdictSrc: SPLIT_VERDICT_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO, tol: FRAME_TOLERANCE }), 'measure overflow');
+  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, verdictSrc: SPLIT_VERDICT_SRC, slidesSrc: DECK_SLIDES_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO, tol: FRAME_TOLERANCE }), 'measure overflow');
   /**
    * Measure in the page, DECIDE in Node, apply in the page.
    *
@@ -3527,7 +3539,7 @@ async function renderBody(browser, g, closeBrowser) {
    * and `golden-diff` stays green.
    */
   const applyGuardsTrim = () => g(async () => {
-    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel, enabledSrc, tol }) => {
+    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel, enabledSrc, slidesSrc, tol }) => {
       // `measureTrim` calls `trimRoleOf` by name. Under `require` that is module
       // scope; injected through `new Function` it is not, so the role classifier is
       // bound globally FIRST. Inlining it into the measurer instead would put the
@@ -3537,8 +3549,11 @@ async function renderBody(browser, g, closeBrowser) {
       const measureTrim = new Function('return (' + measureSrc + ')')();
       const clearTrim = new Function('return (' + clearSrc + ')')();
       const guardsEnabled = new Function('return (' + enabledSrc + ')')();
+      // The deck's own slides (lib/core/deck-slides.js), so the page numbers the trim
+      // reports agree with the OVERFLOW line's on a deck that pastes slide markup.
+      const deckSlideSections = new Function('return (' + slidesSrc + ')')();
       const out = [];
-      document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
+      deckSlideSections(document).forEach((s, i) => {
         if (!guardsEnabled(s.className)) return;
         clearTrim(s);
         // A PER-SLIDE id namespace, matching the runtime. The export bakes one
@@ -3547,7 +3562,7 @@ async function renderBody(browser, g, closeBrowser) {
         if (model.boxes.length) out.push({ index: i, model });
       });
       return out;
-    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC, tol: FRAME_TOLERANCE });
+    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC, slidesSrc: DECK_SLIDES_SRC, tol: FRAME_TOLERANCE });
 
     const pages = [];
     const reverted = [];
@@ -3564,7 +3579,7 @@ async function renderBody(browser, g, closeBrowser) {
       // `examples/overflow-guards.md` page 4 was trimmed AND still overflowed.
       // So the outcome is re-measured, and a trim that did not buy the fit is
       // undone rather than left as content destroyed for nothing.
-      const fitted = await page.evaluate(({ i, p, eps, applySrc, measureSrc, clearSrc, roleSrc, findSrc, clearBoxesSrc, verifySrc, clipSel, ignoreSel, probeSrc, tol }) => {
+      const fitted = await page.evaluate(({ i, p, eps, applySrc, measureSrc, clearSrc, roleSrc, findSrc, clearBoxesSrc, verifySrc, clipSel, ignoreSel, probeSrc, slidesSrc, tol }) => {
         globalThis.trimRoleOf = new Function('return (' + roleSrc + ')')();
         globalThis.trimBlockEl = new Function('return (' + findSrc + ')')();
         globalThis.clearTrim = new Function('return (' + clearSrc + ')')();
@@ -3573,7 +3588,8 @@ async function renderBody(browser, g, closeBrowser) {
         const applyTrim = new Function('return (' + applySrc + ')')();
         const verifyTrim = new Function('return (' + verifySrc + ')')();
         const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
-        const sec = document.querySelectorAll('section[data-lattice-slide]')[i];
+        // The same scope the measure used, or index i names a different section.
+        const sec = new Function('return (' + slidesSrc + ')')()(document)[i];
         applyTrim(sec, p);
         // THE VERDICT IS THE KERNEL'S, not this file's. Both arms, their scoping and
         // the all-or-nothing consequence live in `verifyTrim` (lib/core/guards-trim.js)
@@ -3587,7 +3603,7 @@ async function renderBody(browser, g, closeBrowser) {
       }, { i: index, p: plan, eps: TRIM_FIT_EPSILON, applySrc: TRIM_APPLY_SRC, measureSrc: TRIM_MEASURE_SRC,
            clearSrc: TRIM_CLEAR_SRC, roleSrc: TRIM_ROLE_SRC, findSrc: TRIM_FIND_SRC,
            clearBoxesSrc: TRIM_CLEAR_BOXES_SRC, verifySrc: TRIM_VERIFY_SRC, clipSel: CLIP_CELL_SELECTOR,
-           ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, tol: FRAME_TOLERANCE });
+           ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, slidesSrc: DECK_SLIDES_SRC, tol: FRAME_TOLERANCE });
       const ok = fitted.fits && fitted.kept;
       (ok ? pages : reverted).push(index + 1);
       // The RECORD, actually used rather than imported and voided to silence lint.
@@ -3821,13 +3837,14 @@ async function renderBody(browser, g, closeBrowser) {
   // could fix it was the only person not informed. `overflow:check` reads this line
   // too, so the corpus ratchet counts them (HARD RULE #23 — a channel nothing reads is
   // not a channel).
-  const { cuts: contentOnly, nearMiss } = await g(() => page.evaluate(({ ignoreSel, bearerSel, ccSrc, probeSrc, clipSel, tol, floor }) => {
+  const { cuts: contentOnly, nearMiss } = await g(() => page.evaluate(({ ignoreSel, bearerSel, ccSrc, probeSrc, slidesSrc, clipSel, tol, floor }) => {
     const TOL = tol;
     const probeContentClipped = new Function('return (' + ccSrc + ')')();
     const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
+    const deckSlideSections = new Function('return (' + slidesSrc + ')')();
     const out = [];
     const near = [];
-    document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
+    deckSlideSections(document).forEach((s, i) => {
       const p = probeSectionOverflow(s, clipSel, TOL, ignoreSel);
       // HOW FAR past the frame, read off the SAME call rather than a second one at zero
       // tolerance. `scrollH` and `clientH` are not gated by TOL — the probe folds a
@@ -3847,7 +3864,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (c.cut) out.push({ slide: i + 1, first: c.first });
     });
     return { cuts: out, nearMiss: near };
-  }, { ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR, tol: FRAME_TOLERANCE, floor: NEAR_MISS_FLOOR }), 'measure content cuts');
+  }, { ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, tol: FRAME_TOLERANCE, floor: NEAR_MISS_FLOOR }), 'measure content cuts');
   if (contentOnly.length) {
     const n = contentOnly.length;
     console.warn(`  ⚠ CONTENT CLIPPED — ${n} slide${n > 1 ? 's' : ''} lose${n > 1 ? '' : 's'} content inside a box that clips, without exceeding the frame: page${n > 1 ? 's' : ''} ${contentOnly.map((o) => o.slide).join(', ')}.`);
@@ -3907,9 +3924,10 @@ async function renderBody(browser, g, closeBrowser) {
   // matters more than the convenience: a probe that re-measured "how many names SHOULD
   // be painted" would be a second implementation of the layout's own decision, and it
   // would disagree with the producer the first time either moved.
-  const labelDrops = await g(() => page.evaluate(() => {
+  const labelDrops = await g(() => page.evaluate((slidesSrc) => {
+    const deckSlideSections = new Function('return (' + slidesSrc + ')')();
     const out = [];
-    document.querySelectorAll('section[data-lattice-slide]').forEach((sec, i) => {
+    deckSlideSections(document).forEach((sec, i) => {
       for (const body of sec.querySelectorAll('[data-label-drops]')) {
         out.push({
           slide: i + 1,
@@ -3919,7 +3937,7 @@ async function renderBody(browser, g, closeBrowser) {
       }
     });
     return out;
-  }), 'measure chart label drops');
+  }, DECK_SLIDES_SRC), 'measure chart label drops');
   if (labelDrops.length) {
     const decoded = labelDrops.map((d) => ({ ...d, drops: decodeLabelDrops(d.raw) }));
     const total = decoded.reduce((t, d) => t + d.drops.length, 0);
@@ -4632,7 +4650,9 @@ async function renderBody(browser, g, closeBrowser) {
     // claim this format is documented on.
     let pageCount = slides.length;
     try {
-      const n = (await page.$$('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')).length;
+      // Through the shared kernel, not a `#deck > …` selector string: an id selector also
+      // matches a `main#deck` an author pasted, and counted its section as a page.
+      const n = await page.evaluate((src) => new Function('return (' + src + ')')()(document).length, DECK_SLIDES_SRC);
       if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
@@ -5613,22 +5633,10 @@ async function buildReadingArticleDocument(docHtml, deckScheme) {
     // KEYED ON THE CONTAINER NODE, not on an `#deck >` selector, and an independent checker
     // is why. A CSS id selector matches ANY element carrying that id, so a deck teaching the
     // export shell by pasting `<main id="deck"><section data-lattice-slide=…>` still minted a
-    // phantom slide — the same double-copy bug one wrapper deeper. Measured on such a deck:
-    // SCAFFOLDPROBE twice, 3 article sections for a 2-slide deck. Resolving `main#deck` ONCE
-    // and asking it for its own children closes that, because `querySelector` returns the
-    // FIRST in document order and the real container always encloses the pasted one.
-    // (`measureOverflow` ~950 lines up has the identical hole, pre-existing and off this
-    // change's path; recorded in the decision note rather than widened into here.)
-    const deckRoot = doc.querySelector('main#deck');
-    const slideSections = () => {
-      const inDeck = deckRoot ? [...deckRoot.querySelectorAll(':scope > section[data-lattice-slide]')] : [];
-      const atBody = [...doc.body.querySelectorAll(':scope > section[data-lattice-slide]')];
-      // Document order across both buckets: the closing-main-tag split leaves earlier slides
-      // inside the container and later ones beside it, and the article must not reorder them.
-      return [...inDeck, ...atBody].sort((a, b) =>
-        // eslint-disable-next-line no-bitwise
-        a.compareDocumentPosition(b) & 0x02 ? 1 : -1);
-    };
+    // phantom slide. The scope now lives in ONE kernel, lib/core/deck-slides.js, which the
+    // emulator's overflow, content-cut and label-drop passes inject too, so the article and
+    // the page numbers in the export's warnings count the same slides.
+    const slideSections = () => deckSlideSections(doc);
 
     // Sanitize each section in isolation, then project the clean nodes — the
     // caller-sanitizes contract prose-projection states in its own header (HARD RULE #22).

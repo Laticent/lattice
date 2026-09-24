@@ -370,6 +370,21 @@ describe('--read — the deck as prose, and nothing else moves', () => {
         fs.rmSync(dir7c, { recursive: true, force: true });
       }
 
+      // `inherited` is the one register whose correct behavior is to write NOTHING: with the
+      // sections gone there is nothing between the article and the theme's `:root` to inherit
+      // from, so the root is left to the theme (the map's comment in lattice-emulator.js).
+      // Pinned because a wrong write here looks deliberate — `inherited: 'inherit'` or
+      // `inherited: 'light dark'` added to the map would each read as a considered choice.
+      const dir7i = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-mode-inherited-'));
+      try {
+        fs.writeFileSync(path.join(dir7i, 'deck.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\ncolor-mode: inherited'));
+        const inherited = render(dir7i, path.join(dir7i, 'read.html'), ['--read']);
+        const idoc = new JSDOM(fs.readFileSync(inherited, 'utf8')).window.document;
+        assert.doesNotMatch(idoc.documentElement.getAttribute('style') || '', /color-scheme/, 'an inherited deck leaves the root to the theme');
+      } finally {
+        fs.rmSync(dir7i, { recursive: true, force: true });
+      }
+
       // And a deck that says nothing is left alone rather than pinned to a scheme it never
       // asked for. A SECOND DIRECTORY, because `render` always reads `<dir>/deck.md` — the
       // first cut of this arm wrote a `plain.md` the helper ignored, so it re-rendered the
