@@ -175,6 +175,12 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<style>{READ_ARTICLE_CSS}</style>
+			{/* KaTeX's stylesheet, only for an article that carries math. Without it `.katex-mathml` is
+			    not clipped, so every equation and every legend symbol printed twice — once as MathML
+			    text and once as KaTeX's HTML. The player inlines this sheet and the `--read` shell
+			    links it; this pane was the one host that never loaded it. `katexUrl` is the
+			    site-vendored copy the Stage path already uses, never a CDN. */}
+			{options.katexUrl && html.includes('class="katex') ? <link rel="stylesheet" href={options.katexUrl} /> : null}
 			<div className="flex flex-none items-center gap-2 border-b px-4 py-2">
 				<button
 					type="button"

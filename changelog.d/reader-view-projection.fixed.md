@@ -2,3 +2,5 @@
 - The masthead no longer lifts a code block, or a paragraph that mixes code and text, as a subtitle. A slide with a mermaid fence after its heading and a code-only note below it had the fence, the note and its body pulled into the heading band.
 - The reader view keeps the words around a chart, image, diagram or equation. An image's lead paragraph, a chart's caption, a math slide's variable legend and its second equation were dropped. A chart's figure caption is now its own caption rather than a repeat of the heading.
 - The reader view shows a video as a link card inside the prose column, with its poster as a thumbnail when it has one. It used to be a bare "Watch on YouTube" link hanging left of the column.
+- The Studio's reader view typesets math once. It never loaded KaTeX's stylesheet, so every equation and legend symbol also printed as plain MathML text.
+- The reader view keeps the caption under a journey or state chart, which it dropped along with the chart it cannot re-host.
