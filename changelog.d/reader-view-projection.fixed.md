@@ -1,0 +1,2 @@
+- The reader view and narration put a slide's subtitle after its heading. Before, a lone subtitle showed as the kicker above the heading and was read first, and a subtitle on a slide that also had an eyebrow was dropped.
+- The masthead no longer lifts a code block, or a paragraph that mixes code and text, as a subtitle. A slide with a mermaid fence after its heading and a code-only note below it had the fence, the note and its body pulled into the heading band.

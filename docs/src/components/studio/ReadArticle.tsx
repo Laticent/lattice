@@ -67,6 +67,8 @@ const READ_ARTICLE_CSS = `
 .st-read-article blockquote{border-left:3px solid var(--accent);padding:.15em 0 .15em 1em;color:var(--text-heading)}
 .st-read-article .lp-cite{color:var(--text-muted);font-size:.88rem;padding:0 0 1em}
 .st-read-article .lp-kicker{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);padding:0 0 .25em}
+/* The slide's subtitle: the line the masthead seats under the heading, read as its dek. */
+.st-read-article .lp-subtitle{font-style:italic;color:var(--text-muted);font-size:1.02rem;padding:0 0 1em}
 /* Value/label pairs, two columns — a <dl> alternates dt,dd, so auto 1fr puts the
    number and its label on one baseline instead of flowing each into its own cell. */
 .st-read-article .lp-stats{display:grid;grid-template-columns:auto 1fr;gap:.35em 1em;align-items:baseline;padding:0 0 1.2em}

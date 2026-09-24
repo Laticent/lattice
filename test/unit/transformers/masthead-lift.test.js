@@ -207,6 +207,29 @@ describe('masthead-lift — HTML-string kernel', () => {
     assert.match(out, /<div class="cell-stage"><p>Intro\.<\/p><p><code>Not a subtitle<\/code><\/p><\/div>$/);
   });
 
+  // `<p[^>]*>` also matched `<pre>`, and the lazy body ran on to the next code-only
+  // paragraph: a heading, then a code block (an unrendered mermaid fence), then a closing
+  // note pulled the fence, the note and the stage into the band (examples/carbone-light-face.md,
+  // slide 5). A `<p>` holding code AND text is prose, not a subtitle
+  // (examples/system-design-foundations.md). The DOM twin was right about both all along —
+  // `tagName === 'P'` and a single child — so each arm also asserts the two paths agree.
+  for (const [name, inner, stageStart] of [
+    ['a code block after the heading', '<h2>Title</h2><pre><code class="language-mermaid">flowchart LR</code></pre><p><code>A closing note.</code></p>', '<pre>'],
+    ['a prose paragraph mixing code and text', '<h2>Title</h2><p data-prose=""><code>a = 1</code> · <code>b = 2</code></p><p>Body.</p>', '<p data-prose'],
+  ]) {
+    test(`${name} is not lifted as a subtitle — string and DOM paths agree`, () => {
+      const out = kernel.transformMastheadSection(inner, 'content form');
+      assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><hr class="masthead-rule"><\/div>/, out);
+      assert.ok(out.includes(`<div class="cell-stage">${stageStart}`), out);
+      const doc = dom(`<section class="content form">${inner}</section>`);
+      adapter.applyToDom(doc);
+      assert.equal(
+        sectionOuterHtml(doc.querySelector('section').outerHTML),
+        sectionOuterHtml(`<section class="content form">${out}</section>`),
+      );
+    });
+  }
+
   // Form-migration audit adversarial re-review (2026-07-09): extractEyebrowP
   // scoped its SEARCH WINDOW to before the h2, but the regex itself was
   // unanchored/depth-blind — it could match a code-only <p> nested inside a

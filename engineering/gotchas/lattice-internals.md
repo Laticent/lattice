@@ -696,6 +696,39 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Pinned by:** the "video lead paragraph" arms in
   `test/unit/transformers/prose-projection.test.js`, which render through the real engine.
 
+## A slide's subtitle shows as the kicker, or vanishes, in the reader view
+
+- **Symptom:** in Read · Article, a slide's subtitle sits ABOVE its heading in
+  kicker type, and narration reads it first ("A subtitle. Heading here."). When
+  the slide also has an eyebrow, the subtitle is missing from both.
+- **Cause:** the masthead seats an eyebrow, the heading and a subtitle in
+  `.masthead-lede`, in that order (`masthead-lift.js`). `eyebrowOf` in
+  `lib/transformers/prose-projection.mjs` took the lede's FIRST paragraph, so a
+  lone subtitle won the kicker slot. With an eyebrow present the subtitle was
+  never read at all: it sits outside `.cell-stage`, where the body walk looks.
+- **Fix:** `ledeParts` splits the lede at its heading. The paragraph before is the
+  kicker; the paragraph after is the subtitle, which the article emits as
+  `<p class="lp-subtitle">` right after the heading and narration reads as the
+  last sentence of the title unit. `.masthead-lede` is in `SKIP_SELECTOR`, so no
+  body walk reads a lede paragraph a second time.
+- **Pinned by:** the "subtitle:" arms in
+  `test/unit/transformers/prose-projection.test.js`, rendered through the real engine.
+
+## A code block or a prose line after a heading is pulled into the masthead band
+
+- **Symptom:** in the engine HTML, `.masthead-lede` holds a `<pre>`, or a paragraph
+  that mixes code spans and text, under the heading. In the first case the stage
+  and any closing note end up inside the band too. The runtime (DOM) path leaves
+  the same slide alone.
+- **Cause:** `extractSubtitleP` in `lib/forms/cell/masthead/masthead.transform.js`
+  matched `<p[^>]*>`, which also matches `<pre>`, and its lazy body ran on to the
+  next `</code></p>` it could find. A slide with a mermaid fence after the heading
+  and a code-only note below it had everything in between lifted.
+- **Fix:** the match now needs a real `<p>` holding one code span and nothing
+  else, the same test the DOM twin makes (`tagName === 'P'`, one child).
+- **Pinned by:** the "is not lifted as a subtitle — string and DOM paths agree"
+  arms in `test/unit/transformers/masthead-lift.test.js`.
+
 ## G-gen merge must use non-G file's G-gen block, not the G-file's block
 
 - **Symptom:** After promoting G-files to canonical (merging cuoio-G.css

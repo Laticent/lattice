@@ -1512,7 +1512,10 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// no `lattice.css` at all, and because a kernel rule at (0,1,2) loses to the generic
 	// `#lp-article .lp-figure svg` (1,1,1) above — which is what the reverted arm's
 	// `!important` was paying for. `mermaid.css` § THE RE-HOSTED FIGURE has the long form.
-	assert.equal(sha, '1b4e175626e1fa8afd22c3df551ba02fa34c6cc776869f18f3ad027d71d314b7', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the reader view's SUBTITLE (followup 2350-p1): the article CSS gained one rule,
+	// `#lp-article .lp-subtitle`, for the line the masthead seats under a heading. Diffed the
+	// assembled output before/after: that declaration is the only thing that moved.
+	assert.equal(sha, '4ad9aa0bf62807e3d7cc445fc0691f6282a4260a5732a3985ec58cfc174a8207', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

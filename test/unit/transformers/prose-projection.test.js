@@ -1477,3 +1477,28 @@ for (const [name, md] of [
 		assert.equal(articleHtml.split('Watch on YouTube').length - 1, 1, "the poster's label is not also projected as prose");
 	});
 }
+
+// The masthead seats a subtitle AFTER the heading in `.masthead-lede`, and `eyebrowOf` took the
+// lede's FIRST paragraph — so a lone subtitle became the kicker, above the heading in the article
+// and read before it in narration ("A subtitle. Heading here."), and with an eyebrow present the
+// subtitle was dropped outright, since it sits outside `.cell-stage` where the body walk looks
+// (followup 2350-p1). Rendered through the real engine, so the arms follow masthead-lift's markup.
+for (const [name, md, eyebrow] of [
+	['subtitle only', '## Heading here.\n\n`A subtitle`\n\n- one\n- two\n', null],
+	['eyebrow and subtitle', '`Kicker`\n\n## Heading here.\n\n`A subtitle`\n\nBody para.\n', 'Kicker'],
+	['stats layout', '<!-- _class: stats -->\n\n## Heading here.\n\n`A subtitle`\n\n1. **73%**\n   - faster\n', null],
+	// A chart's plain-text line under the heading becomes `.chart-subtitle`, hoisted into the lede.
+	['chart subtitle (radar)', '<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## Heading here.\n\nA subtitle\n\n- Meridian\n  - Speed `9`\n  - Price `7`\n  - Support `8`\n', 'Scale · 0–10'],
+]) {
+	test(`subtitle: ${name} projects after the heading, never as the kicker`, async () => {
+		const secs = await renderedSections(md);
+		const { articleHtml } = project(secs);
+		const lead = `${eyebrow ? `<p class="lp-kicker">${eyebrow}</p>\n` : ''}<h2 id="lp-sec-0">Heading here.</h2>\n<p class="lp-subtitle">A subtitle</p>\n`;
+		assert.ok(articleHtml.startsWith(lead), articleHtml.slice(0, 300));
+		assert.equal(articleHtml.split('A subtitle').length - 1, 1, 'the subtitle is projected once');
+		const text = script(secs)[0].text;
+		const said = `${eyebrow ? `${eyebrow}. ` : ''}Heading here. A subtitle.`;
+		assert.ok(text === said || text.startsWith(`${said}\n\n`), text);
+		assert.equal(text.split('A subtitle').length - 1, 1, 'the subtitle is read once');
+	});
+}
