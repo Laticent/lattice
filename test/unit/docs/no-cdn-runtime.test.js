@@ -326,7 +326,7 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 		// plausible-looking wrong layout.
 		assert.ok(
 			text.includes('lattice-dagre.js'),
-			`${rel} must pass the vendored dagre URL — omitting it silently returns every BRANCHING state chart to the numbered column`,
+			`${rel} must pass the vendored dagre URL — omitting it silently returns every BRANCHING state chart to the chain grid`,
 		);
 	}
 });

@@ -749,6 +749,15 @@ section.state-chart.horizontal .state-chip-arrow {
 section.state-chart .state-chart-figure[data-sc-svg="1"] .state-nodes {
   visibility: hidden;
 }
+/* While the layout pass has pinned the scale box to the DRAWING (a grid or dagre
+ * layout), the measuring column leaves layout entirely: the pin, not the column,
+ * sizes the box, and a hidden column taller than a wide drawing hung its last
+ * numerals past the stage's clip (a false CONTENT CLIPPED). The pass removes
+ * `data-sc-pinned` before it measures, in the same synchronous draw, so the
+ * boxes are always there to be measured and never painted. */
+section.state-chart .state-chart-figure[data-sc-svg="1"][data-sc-pinned="1"] .state-nodes {
+  display: none;
+}
 
 /* The node tile — the SVG twin of the .state-node card. Same canonical chart
  * fill, and because SVG `fill` cannot take a CSS gradient, the layout pass
@@ -796,26 +805,16 @@ section.state-chart .state-label-t {
   font-weight: 500;
 }
 
-/* The ordinal — a quiet numeral on every node (the status is on the tile).
- *
- * FLOORED, because it is read: it is the ref a transition cites. The painted size
- * comes from the measured HTML numeral (9px at HD), and the letterbox then scales
- * it, so a wrapped machine at k = 0.65 painted it at 5.8px — under the engine's
- * legibility floor (1% of slide height, 7.2px), which the export's TYPE FLOOR
- * warning named on five slides of the feature deck.
- *
- * The floor rides `--chart-text-min` because that is the token applyFit
- * counter-scales by 1/k, so it holds AFTER the letterbox. But at 68% of it, not
- * all of it: the full token is the 11px label size, and an 11px numeral spilled
- * out of the node's corner on every chart. 68% of 11px is 7.5px — just over the
- * legibility floor — and at natural scale the 9px `cqi` term still wins, so an
- * unscaled chart is unchanged. The CSS size overrides the `font-size` attribute
- * the pass writes, which is the point. */
+/* The ordinal — a quiet numeral on every node (the status is on the tile). Its
+ * SIZE and PLACE come from the layout pass (`nodeShape`): at least the legibility
+ * floor after the letterbox, at most a third of the tile, anchored to the tile's
+ * corner. A CSS size here would override that `font-size` attribute, so there is
+ * none. (An earlier cut floored it here via `--chart-text-min`; at a low k that
+ * pushed the numeral out of its tile.) */
 section.state-chart .state-index-t {
   fill: var(--state-index-ink);
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
-  font-size: max(calc(var(--chart-text-min) * 0.68), 0.703125cqi);
 }
 
 /* Start and terminal keep DISTINCT redundancy cues, as the HTML card did — the

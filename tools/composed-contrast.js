@@ -139,6 +139,7 @@ const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
 const CHARTFAMILY = 'lib/components/chart/_chart-family/chart-family.css';
 const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
 const STATECHART = 'lib/components/chart/state-chart/state-chart.styles.css';
+const STATECHART_JS = 'lib/components/chart/state-chart/state-chart.transform.js';
 const ELEMENTS = 'lib/base/base.elements.css';
 
 // The kanban card's own opaque fill — the base every in-card surface sits on. Light is
@@ -641,6 +642,20 @@ const SURFACES = [
     stateChartNode(state, 'top'),
     stateChartNode(state, 'bottom'),
   ]),
+  // THE PAINTED TILE'S STOPS LIVE IN JS, and the entries above pin only the CSS.
+  // Once the layout pass runs, what a reader sees is the SVG tile, whose gradient
+  // the transform emits from literals (`nodeFillDefs`) — so a drift there would
+  // leave every CSS pin green over a sub-AA painted state. Scored once, at the
+  // darker (100%) stop of the pass tone, with both literal stops pinned: a
+  // duplicate ratio adds nothing, the drift protection is the point.
+  { ...stateChartNode('pass', 'bottom'),
+    id: 'state-chart/node-svg-stops',
+    ctx: 'state-chart SVG tile: the transform\'s literal gradient stops (nodeFillDefs) match the CSS tile',
+    src: STATECHART_JS,
+    requires: [
+      /lit\('--state-' \+ tone \+ '-hue', '0%', 18, 42\)/,
+      /lit\('--state-' \+ tone \+ '-hue', '100%', 30, 54\)/,
+    ] },
 ];
 
 // ── The frozen sub-threshold baseline ───────────────────────────────────────

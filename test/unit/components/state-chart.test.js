@@ -1529,6 +1529,46 @@ describe('dagre re-ranking (fake DOM)', () => {
       }
     });
 
+    // TWO EDGES MUST NEVER DRAW AS ONE. A stub rising out of a node and the stub
+    // dropping out of the node directly above it used to meet end to end in one
+    // vertical, so the headline approval machine read "Draft -> Approved" — an edge
+    // that does not exist (the inversion lens's repro, with its caption removed so
+    // it wraps). Checked as collinear runs of DIFFERENT edges that overlap or meet
+    // within a pixel.
+    test('no two edges share a line — not overlapping, not end to end', () => {
+      const APPROVAL = {
+        dir: 'tb',
+        nodes: [n(1, 'Draft', 'start'), n(2, 'Submitted'), n(3, 'In Review'), n(4, 'Approved'),
+          n(5, 'Published'), n(6, 'Archived', 'terminal')],
+        transitions: [e(1, 2, 'submit'), e(1, 6, 'discard'), e(2, 3, 'review'), e(3, 4, 'approve'),
+          e(3, 1, 'reject'), e(3, 3, 'revise'), e(4, 5, 'publish'), e(5, 6, 'archive')],
+      };
+      for (const view of [WIDE, { width: 900, height: 405 }, { width: 700, height: 500 }]) {
+        const r = run({ ...APPROVAL, fit: true, view });
+        const runs = [];
+        [...r.svg.matchAll(/<path class="state-edge"([^>]*?)d="([^"]+)"/g)].forEach((m, owner) => {
+          if (/data-self/.test(m[1])) return;
+          const p = [...m[2].matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((q) => [+q[1], +q[2]]);
+          for (let i = 1; i < p.length; i++) runs.push({ owner, a: p[i - 1], b: p[i] });
+        });
+        for (let i = 0; i < runs.length; i++) {
+          for (let j = i + 1; j < runs.length; j++) {
+            const s1 = runs[i], s2 = runs[j];
+            if (s1.owner === s2.owner) continue;
+            for (const ax of [0, 1]) {
+              const o = 1 - ax;   // ax = the axis the runs lie along
+              const flat = (sg) => Math.abs(sg.a[o] - sg.b[o]) < 0.5;
+              if (!flat(s1) || !flat(s2) || Math.abs(s1.a[o] - s2.a[o]) > 0.5) continue;
+              const lo1 = Math.min(s1.a[ax], s1.b[ax]), hi1 = Math.max(s1.a[ax], s1.b[ax]);
+              const lo2 = Math.min(s2.a[ax], s2.b[ax]), hi2 = Math.max(s2.a[ax], s2.b[ax]);
+              assert.ok(lo1 > hi2 + 1 || lo2 > hi1 + 1,
+                `edges ${s1.owner} and ${s2.owner} draw one line at ${ax ? 'x' : 'y'}=${s1.a[o]} (view ${view.width}x${view.height}, ${r.lines} lines)`);
+            }
+          }
+        }
+      }
+    });
+
     // The router's ports and loop sides exist to keep this at zero: loops on one
     // side NEST, and loops heading opposite ways do not interleave.
     test('a wrapped chain with skips, back-edges and a self-loop draws zero crossings', () => {
@@ -2338,7 +2378,7 @@ describe('dagre re-ranking (fake DOM)', () => {
           gate
             ? 'the gate ships dagre for a machine the pass lays out as a column'
             : 'THE GATE WITHHOLDS DAGRE FROM A MACHINE THE PASS RE-RANKS — the export '
-              + 'would silently fall back to the numbered column');
+              + 'would silently fall back to the chain grid');
       });
     }
 
@@ -2367,11 +2407,20 @@ describe('dagre re-ranking (fake DOM)', () => {
  * costs ~16x the time — so the test compares two sizes and allows a wide band.
  */
 describe('state-chart parsing stays linear on adversarial author text', () => {
+  // THE MINIMUM OF SEVERAL RUNS, not one. A single sample let one GC pause or a
+  // descheduled thread land in the ratio: under four parallel copies of this file
+  // the linear parser measured 0.0ms -> 11.7ms, "234x", and failed about one run
+  // in twenty. Noise only ever ADDS time, so the minimum discards it — and a
+  // parser that really is quadratic is still quadratic at its fastest.
   const timeOf = (fn) => {
     fn(); // warm, so JIT compilation is not counted as growth
-    const t0 = process.hrtime.bigint();
-    fn();
-    return Number(process.hrtime.bigint() - t0) / 1e6;
+    let best = Infinity;
+    for (let i = 0; i < 7; i++) {
+      const t0 = process.hrtime.bigint();
+      fn();
+      best = Math.min(best, Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    return best;
   };
 
   for (const [name, build, lo, hi] of [

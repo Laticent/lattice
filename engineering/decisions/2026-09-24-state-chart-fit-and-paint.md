@@ -88,8 +88,10 @@ they would get in the real figure viewport. The first candidate in preference or
 (fewer lines, then the preferred direction — the stage's own aspect) that comes
 within **12%** of the best wins. The score is **capped at 1.2× body size**: past
 that, a wrap buys no legibility, and uncapped a four-state chain folded into a 2×2
-square because the square letterboxed bigger. Measured on 16:9: 4 and 5 states stay
-a row; 6 wraps 3+3; 12 wraps into three rows of four. With no direction token the
+square because the square letterboxed bigger. Measured on a bare 16:9 stage (no
+subtitle or caption): 4 and 5 states stay a row; 6 wraps 3+3; 12 wraps into three
+rows of four. The count follows the room the slide leaves: on the feature deck,
+where a subtitle, caption and legend take their share, 12 states take two rows. With no direction token the
 build stamps `data-sc-fit="auto"` and both directions compete; `lr` and the new
 `tb` pin the direction and still wrap. `curved` is a stroke style and pins nothing.
 
@@ -130,13 +132,60 @@ stage and a single word cannot wrap, so on a portrait slide "Acknowledged" paint
 wider than its tile — on `main` as well, just smaller. `min-width: min-content`
 wins over the max-width when they disagree.
 
-**The ordinal floor.** A wrapped machine letterboxes below 1, and the ordinal went
-to 5.8px — the export's TYPE FLOOR warning named five slides of the feature deck.
-It now floors at 68% of the counter-scaled `--chart-text-min` (7.5px after the
-letterbox, just over the 7.2px floor); the full token (11px) spilled out of the
-node's corner.
+**The ordinal is sized and placed from its tile.** A wrapped machine letterboxes
+below 1, and the ordinal went to 5.8px — the export's TYPE FLOOR warning named five
+slides of the feature deck. A CSS floor on the counter-scaled `--chart-text-min`
+fixed that and, at a low k, pushed the numeral out of its tile (the red team: 30 of
+30 outside at k = 0.32). The pass now sizes it itself — at least the legibility
+floor at the chosen layout's k, at most a third of the tile's height — and anchors
+it to the tile's corner rather than to the 9px HTML slot.
 
-## 4. What did not change, and what is still open
+## 4. What the adversarial trio found, and what changed
+
+The red team, the inversion lens and the independent checker (HARD RULE #25) each
+reproduced defects in the first cut. Every one below was fixed in this PR and has a
+test or a re-run probe behind it.
+
+- **Labels were budgeted at 11px and painted at 11px/k.** An edge label's CSS size
+  is floored by `--chart-text-min`, which applyFit counter-scales by 1/k; every gap
+  and label box assumed 11px. Labels landed on nodes (feature deck), past the
+  canvas (a 30-state machine, CONTENT CLIPPED), across their own lines. The label
+  geometry is now scaled by the size a label will paint at — per candidate, from
+  that candidate's own k, re-laid-out once.
+- **Two edges could draw one line.** A node's rising stub met the stub dropping
+  out of the node above it end to end, so the headline machine read
+  "Draft -> Approved". A side whose ports face ports across the channel slides
+  half a step; a test asserts no two edges share a line at three viewports.
+- **The label-line cache kept stale breaks after a font change** (keyed on text +
+  width, and a clamped node's width does not move with its font). The resolved
+  font and letter-spacing are in the key.
+- **A fallback label spot could land on its own line.** Each spot now takes the
+  side of the run it lands on, and a label touching its own run is a clash.
+- **The edit-time microtask redrew every chart** (100–175ms on the 14-chart
+  stress deck) and re-ran on every burst for a figure whose draw bailed. It now
+  draws only never-painted figures, once each.
+- **The layout could flip on a redraw** (a webfont landing, a resize). A redraw
+  keeps the layout it drew last unless it has fallen 25% behind.
+- **The hidden measuring column hung past a wide drawing,** and the export reported
+  CONTENT CLIPPED for text no reader sees. While the box is pinned to the drawing
+  the column is `display: none`; the pass lifts that before it measures.
+- **Self-loop labels wrapped** though the hook router places them as one line; they
+  no longer wrap, and the grid reserves their width.
+- **`curved` was nearly invisible on a grid route;** its corner radius is generous.
+- **The SVG tile's colors were unpinned** — the contrast gate watched only the CSS;
+  it now pins the transform's literal stops too.
+- **Copy:** "twelve states take three rows" held only on a bare stage (the feature
+  deck renders two); captions with inline code split into blocks and ate the
+  chart's stage (the branching deck's long-labels slide shrank to 40% of its `main`
+  size for that reason alone — a pre-existing renderer behavior, logged as a
+  follow-up). A test fixture that tripped the type floor by accident (the old
+  state-chart gallery) was replaced with one that does so on purpose.
+
+Put to the owner rather than decided here: whether the default-direction change
+is marked **Breaking** in the changelog, and the upscale ceiling, which reverses
+the "fills UP when there's room" rule of `2026-07-16-state-chart-self-scale.md`.
+
+## 5. What did not change, and what is still open
 
 - The `inline` variant is HTML chips and untouched beyond the status table.
 - The Node export gate (`state-chart.adoption.js`) is unchanged: dagre is still

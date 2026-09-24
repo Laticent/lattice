@@ -80,7 +80,7 @@ Each row reads left to right, and one connector drops to the next.
 
 `Reading-order wrap`
 
-## Twelve states take three rows.
+## Twelve states still read.
 
 The chart scores every row count and keeps the one that sets the type largest.
 
@@ -197,7 +197,7 @@ dagre cannot wrap, so a wrapped layout competes with it and wins only by a clear
    - `escalate => 5`
 5. Executive `end`
 
-*A row pins the same way with `lr`. With neither, the stage's shape decides.*
+*A row pins the same way. With neither, the stage's shape decides.*
 
 ---
 
@@ -216,15 +216,14 @@ Status tiles use the pill's stops, so every state name clears 4.5:1 on every the
 3. In Review `at-risk`
    - `approve => 4`
    - `reject => 1`
-   - `block => 7`
 4. Approved `done`
    - `schedule => 5`
-5. Scheduled
+5. Scheduled `blocked`
    - `publish => 6`
 6. Published `live`
+   - `watch => 7`
+7. Monitored
    - `archive => 8`
-7. Blocked `blocked`
-   - `unblock => 3`
 8. Archived `end`
 
 *The ordinal takes the name's ink on a status tile, so it holds contrast too.*

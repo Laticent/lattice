@@ -49,7 +49,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 ---
 
 <!-- _class: state-chart -->
-<!-- _footer: "state-chart · the default picks a column on a tall stage" -->
+<!-- _footer: "state-chart · a column on a tall stage" -->
 
 `Submission lifecycle`
 

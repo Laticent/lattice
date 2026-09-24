@@ -311,7 +311,7 @@ nothing on our side had ever rendered it. The reference render was made with
 | \`${THEME}-dark.min.css\` | A second palette. Select it with \`theme: ${THEME}-dark\`. |
 | \`lattice-runtime.min.js\` | Builds charts and diagrams in the browser. |
 | \`mermaid-v11.min.js\` | Third party. Diagram slides need it. |
-| \`lattice-dagre.min.js\` | Third party. Lays out a state chart that BRANCHES. **Delete it and the chart still draws** — as a numbered column, which looks deliberate rather than broken. It is the one file here whose absence is invisible on the slide. |
+| \`lattice-dagre.min.js\` | Third party. Lays out a state chart that BRANCHES. **Delete it and the chart still draws** — on the reading-order grid a chain uses, each branch drawn as a skip, which looks deliberate rather than broken. It is the one file here whose absence is invisible on the slide. |
 | \`lattice.css\` · \`${THEME}.css\` · \`${THEME}-dark.css\` · \`lattice-runtime.js\` | Unminified counterparts of the four above, for reading or diffing. Neither config references them — delete them freely, or keep them for reference. |
 | \`fonts/\` | The embedded typefaces. **Do not drop these** — without them type falls back to system serif, silently. |
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
