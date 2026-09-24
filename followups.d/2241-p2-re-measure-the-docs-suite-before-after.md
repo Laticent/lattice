@@ -3,13 +3,12 @@ origin: 2241
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2241#issuecomment-5752669968
-backfill: true
 ---
 
 # Re-measure the docs suite before/after on a second machine
 
 Backfilled verbatim from the continuation brief on #2241 (merged 2026-09-20).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P2 · [no ticket] Re-measure the docs suite before/after on a second machine

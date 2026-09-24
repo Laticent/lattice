@@ -3,13 +3,12 @@ origin: 2239
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2239#issuecomment-5751812986
-backfill: true
 ---
 
 # Delete the three empty model:* label DEFINITIONS
 
 Backfilled verbatim from the continuation brief on #2239 (merged 2026-09-20).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. Half done: `model:sonnet` and `model:haiku` are gone from the repo, but `model:opus` still exists (GET /labels, 2026-09-24).
 
 ```text
   P2 · [no ticket] Delete the three empty model:* label DEFINITIONS

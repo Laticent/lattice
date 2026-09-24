@@ -3,13 +3,12 @@ origin: 2279
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2279#issuecomment-5764143460
-backfill: true
 ---
 
 # Close the `video` conformance gap by keeping its title in-card
 
 Backfilled verbatim from the continuation brief on #2279 (merged 2026-09-21).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. Also carries #2247 P5, the same gap (deleted as a duplicate). `stage-catalog.test.js` still pins `video` as the known exception.
 
 ```text
   P2 · [no ticket] Close the `video` conformance gap by keeping its title in-card

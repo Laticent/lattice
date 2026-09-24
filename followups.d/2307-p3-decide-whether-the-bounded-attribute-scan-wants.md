@@ -3,13 +3,12 @@ origin: 2307
 priority: P3
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2307#issuecomment-5777628875
-backfill: true
 ---
 
 # Decide whether the bounded attribute scan wants a regression test
 
 Backfilled verbatim from the continuation brief on #2307 (merged 2026-09-22).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P3 · [no ticket] Decide whether the bounded attribute scan wants a regression test

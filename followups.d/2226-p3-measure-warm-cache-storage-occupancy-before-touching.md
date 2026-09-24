@@ -3,13 +3,12 @@ origin: 2226
 priority: P3
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2226#issuecomment-5673609887
-backfill: true
 ---
 
 # Measure warm Cache Storage occupancy before touching the SW cap
 
 Backfilled verbatim from the continuation brief on #2226 (merged 2026-09-15).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P3 · [no ticket] Measure warm Cache Storage occupancy before touching the SW cap

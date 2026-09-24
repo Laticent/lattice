@@ -3,13 +3,12 @@ origin: 2230
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2230#issuecomment-5679323232
-backfill: true
 ---
 
 # Residual `:where()` reaches the player's dark block via `hoistRuleLightDark`, where a non-parsing engine would freeze the declaration light.
 
 Backfilled verbatim from the continuation brief on #2230 (merged 2026-09-15).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. Also carries #2196 P4, the same item (deleted as a duplicate). `player-core.mjs` has not changed this behavior since #2196.
 
 ```text
   P2 · [no ticket] Residual `:where()` reaches the player's dark block via `hoistRuleLightDark`,

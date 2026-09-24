@@ -3,13 +3,12 @@ origin: 2309
 priority: P3
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2309#issuecomment-5779466187
-backfill: true
 ---
 
 # Put the WebKit CI arm to the human as a decision, with measured cost — do NOT add it on your own judgment.
 
 Backfilled verbatim from the continuation brief on #2309 (merged 2026-09-22).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. Also carries #2303 P3, the same decision (deleted as a duplicate). It is still the maintainer's call. Carried over from #2303 P3's done-when: if the answer is yes, the item is done only when one arm renders the chart gallery in WebKit and asserts the audit's tolerance.
 
 ```text
   P3 · [no ticket] Put the WebKit CI arm to the human as a decision, with measured

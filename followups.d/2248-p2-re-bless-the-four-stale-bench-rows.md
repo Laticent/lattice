@@ -3,13 +3,12 @@ origin: 2248
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2248#issuecomment-5753967687
-backfill: true
 ---
 
 # Re-bless the four stale bench rows
 
 Backfilled verbatim from the continuation brief on #2248 (merged 2026-09-21).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P2 · [no ticket] Re-bless the four stale bench rows

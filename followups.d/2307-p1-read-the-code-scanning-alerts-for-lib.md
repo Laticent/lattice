@@ -3,13 +3,12 @@ origin: 2307
 priority: P1
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2307#issuecomment-5777628875
-backfill: true
 ---
 
 # Read the code-scanning alerts for lib/authoring/lint-core.js
 
 Backfilled verbatim from the continuation brief on #2307 (merged 2026-09-22).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P1 · [no ticket] Read the code-scanning alerts for lib/authoring/lint-core.js

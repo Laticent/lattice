@@ -3,13 +3,12 @@ origin: 2245
 priority: P3
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2245#issuecomment-5754168975
-backfill: true
 ---
 
 # Sweep the five files still hand-rolling the depth-blind <h2> regex
 
 Backfilled verbatim from the continuation brief on #2245 (merged 2026-09-21).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P3 · [no ticket] Sweep the five files still hand-rolling the depth-blind <h2> regex

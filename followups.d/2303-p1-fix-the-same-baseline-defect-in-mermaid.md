@@ -3,13 +3,12 @@ origin: 2303
 priority: P1
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2303#issuecomment-5776537591
-backfill: true
 ---
 
 # Fix the same baseline defect in mermaid-rendered diagram labels
 
 Backfilled verbatim from the continuation brief on #2303 (merged 2026-09-22).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P1 · [no ticket] Fix the same baseline defect in mermaid-rendered diagram labels
