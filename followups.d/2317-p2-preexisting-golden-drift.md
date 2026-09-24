@@ -67,3 +67,12 @@ each either fixed at the source or re-blessed with the change that explains it.
 - `examples/universal-tokens-p6-chart-cat`
 - `examples/word-cloud-portrait`
 - `exemplars/academic/conference-talk`
+
+Also drifting on `main` at `35e19c1`, found by the chart-accessibility PR's full gallery run
+(`node tools/regression-gate.mjs --scope galleries`) and reproduced with that PR's changes
+stashed, same numbers to the hundredth of a percent — so not caused by it:
+
+- gallery `state-chart` (2 pages, worst 3.48% light / 3.43% dark)
+- gallery `authority-chain` (1 page, 0.42%)
+- gallery `legal` (1 page, 0.42%)
+- gallery `statement` (1 page, 15.45% light / 14.80% dark)

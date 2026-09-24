@@ -5166,7 +5166,7 @@ function checkGuideHandles(manifests, errors) {
  * thousand", and `toSpokenText` joins them. That took `funnel` from 15.8% of its cues resolving
  * to 89.1%.
  *
- * It rests entirely on a CONVENTION. Twelve component transforms emit the attributes, a handful of
+ * It rests entirely on a CONVENTION. Every chart transform that has marks emits the attributes, a handful of
  * per-component unit tests assert them, and nothing cross-cutting checks that the set holds — so
  * a transform that drops `data-label` in a refactor degrades every gesture on that chart and no
  * test goes red. A silent degradation is the failure mode this repo spends its gates on.
@@ -5193,19 +5193,35 @@ const SANCTIONED_MARK_IDENTITY = [
   // each merely name `data-label` in prose. Two more named a DIFFERENT attribute whose name starts
   // the same way — `_chart-family/chart-family.js` writes `data-label-drops`, `journey.transform.js`
   // writes `data-label-len`. All five are out; `writesMarkIdentity` strips comments and bounds the
-  // attribute name, so none can come back. Thirteen files write a mark identity, not eighteen.
+  // attribute name, so none can come back. Thirteen files wrote a mark identity then, not
+  // eighteen. (`word-cloud.transform.js` has since started writing one for real — its words
+  // are the Guide's targets — so it is listed below on its own merits, not as a comment.)
+  // Twenty rows as of the 2026-09-24 accessibility pass, which gave every chart's marks a name.
   ['components/chart/bar/bar.transform.js', true, true],
   ['components/chart/bullet/bullet.transform.js', true, true],
+  // The shared category-axis emitter: a category's label names the column or row a data-series
+  // sentence is about ("Q1 2025: …"). Declares no value, so a mark that corroborates outranks it.
+  ['components/chart/_chart-family/cartesian.js', true, false],
   ['components/chart/funnel/funnel.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
+  // The three flow charts label their row / card / column / milestone — the thing each sentence of
+  // their narrator (`narrateProgress` · `narrateKanban` · `narrateTimelineList`) leads with. Only
+  // progress has a number to corroborate; a card and a date have none.
+  ['components/chart/kanban/kanban.transform.js', true, false],
   ['components/chart/map/map.transform.js', true, true],
+  ['components/chart/piechart/piechart.transform.js', true, true],
+  ['components/chart/progress/progress.transform.js', true, true],
   ['components/chart/quadrant/quadrant.transform.js', true, false],
+  // A radar polygon is named by its series; its values are per SPOKE, so there is no one value.
+  ['components/chart/radar/radar.transform.js', true, false],
   ['components/chart/scatter/scatter.transform.js', true, false],
   ['components/chart/slope/slope.transform.js', true, true],
   ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
   ['components/chart/state-chart/state-chart.transform.js', true, true],
+  ['components/chart/timeline-list/timeline-list.transform.js', true, false],
   ['components/chart/waterfall/waterfall.transform.js', true, true],
+  ['components/chart/word-cloud/word-cloud.transform.js', true, false],
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],

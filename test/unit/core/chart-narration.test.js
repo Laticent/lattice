@@ -304,7 +304,7 @@ test('narrateRadar: returns null with no axis data', () => {
   assert.equal(narrateRadar('<!-- _class: radar -->\n\n## X.\n\n- Lattice'), null);
 });
 
-test('narrateRadar: defers to slideToSpeech on the `quadrant` variant', () => {
+test('narrateRadar: reads the `quadrant` variant with all three levels — series, sector, axis', () => {
   const md = [
     '<!-- _class: radar quadrant -->',
     '',
@@ -317,7 +317,12 @@ test('narrateRadar: defers to slideToSpeech on the `quadrant` variant', () => {
     '  - Process',
     '    - Cadence `5`',
   ].join('\n');
-  assert.equal(narrateRadar(md), null);
+  // It used to return null here, and the slide then narrated its heading and nothing else:
+  // the caption walker skips the SVG, so "defer to slideToSpeech" deferred to silence.
+  const out = narrateRadar(md);
+  assert.ok(out.includes('Our capability.'), out);
+  assert.ok(out.includes('People, averaging three point five: Hiring, four; Retention, three.'), out);
+  assert.ok(out.includes('Process, averaging five: Cadence, five.'), out);
 });
 
 test('narrateRadar: does not treat a per-axis detail sublist line as an axis, but still speaks it', () => {

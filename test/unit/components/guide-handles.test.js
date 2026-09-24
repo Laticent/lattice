@@ -194,6 +194,10 @@ describe('guide handles — a component that renders a nameable part declares on
 		// A MULTI-ROW TABLE BODY: the projection reads a row as one sentence built from its cells,
 		// and the first cell names it — the shape `tbody > tr` / `td:first-child` declares.
 		for (const body of sec.querySelectorAll('tbody')) {
+			// A SCREEN-READER-ONLY table is not a part: it paints nothing and the Guide never
+			// points into it (present-guide.ts skips `.chart-sr-only`). heatmap and line carry one
+			// (cartesian.js `buildSrDataTable`) so a listener can walk every reading.
+			if (body.closest('.chart-sr-only')) continue;
 			const rows = [...body.children].filter((r) => r.tagName === 'TR');
 			if (rows.length >= 2 && rows[0].children.length >= 2) found.push('tbody > tr');
 		}

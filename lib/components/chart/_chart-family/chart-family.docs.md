@@ -625,6 +625,37 @@ first-party does.
 
 ---
 
+## Accessibility — the three readers every chart owes
+
+A chart is read by three things that cannot see it. Every member owes all three, and
+`test/unit/components/chart-a11y-contract.test.js` holds every gallery slide to them.
+
+| Reader | What it reads | What the kernel must emit |
+|---|---|---|
+| **Screen reader** | the accessibility tree | `role="img"` + `<title>` + a `<desc>` that carries the **values**, not only the names (a legend's "Key — A, B, C" is not a description). A matrix-shaped chart whose `<desc>` is a summary on purpose (`heatmap`, `line`) also appends `cartesian.buildSrDataTable` — a hidden table a listener can walk cell by cell. An HTML chart uses list or table semantics (`role="list"` / `role="listitem"`, `<table>`, `role="heading"`), and a meaning shown only by color or a CSS glyph gets words in `.chart-sr-only`. |
+| **Cadenza** (captions, read-aloud) | `narrateChart` in `lib/core/chart-narration.js`, else the rendered projection | Anything drawn in an `<svg>` or built from `<div>`s is **invisible to the projection** — it reads `p`, `ul`, `ol`, `table`, headings and `[role="heading"]` only. Such a chart needs a narrator (or the generic `narrateDataSeries` floor, by declaring `projection.figure: "svg"`). Every narrator opens with the manifest's `projection.frame` sentence. |
+| **Present Guide** (Vetrina's pointer on the captions) | `data-label` / `data-value` on the rendered marks, manifest `handles` | Every mark a sentence is about carries `data-label` with the name that sentence **opens with**, and `data-value` with a value the sentence **says** (a range like `31% to 24%` counts when both ends are said). A sentence about a group — a category, a row, a quadrant, a sector — needs the group's own element labeled: the shared category axis does this for every cartesian chart. A caller that shortens its axis labels passes the full ones as `names`. |
+
+The rules that cost a measured miss when broken:
+
+- **Lead with the name.** The Guide matches a mark whose `data-label` opens the sentence as whole
+  words. "Two terms tie at the top: component and manifest" named no mark; "Component and
+  manifest tie at the top" does.
+- **Stamp the name, not the fitted text.** A `data-label` of "Receip…" matches nothing the voice
+  says.
+- **A new writer of `data-label` joins `SANCTIONED_MARK_IDENTITY`** in `tools/check-ownership.js`,
+  with what it emits.
+- **Screen-reader-only text lives in `.chart-sr-only`.** The Guide never points into it.
+
+What the Guide does when no mark answers, in order: a mark's spoken detail note points at its
+mark, words drawn in a `<div>` or `<text>` are found inside `.chart-body`, and a sentence about
+the whole chart (the frame, an axis, a computed summary) points at `.chart-body` itself.
+`node tools/sweep-guide-gestures.mjs --deck <gallery> --misses` lists every cue that still
+hides and every one that fell back to the whole chart. The measured audit is
+`engineering/decisions/2026-09-24-chart-accessibility-contract.md`.
+
+---
+
 ## Three-renderer parity
 
 The dispatcher runs identically in three places:

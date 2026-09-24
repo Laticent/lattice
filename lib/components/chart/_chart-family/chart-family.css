@@ -1181,6 +1181,24 @@ section.chart-frame .chart-caption::before {
  * now the default; the lucent-strip variant is retired. Decoration
  * is opt-in via the universal `tint-*` / `mark-*` treatments. */
 
+/* ── Screen-reader-only text — words a listener needs and a sighted reader
+ * already gets from the picture: kanban's size chip says "S", and "size" is the
+ * part only the eye supplies. The same clip pattern matrix-grid's
+ * `.cell-sr-label` and journey's `.journey-desc` use; `:is(section, figure)` so it
+ * stays hidden where the Read·Article projection re-hosts the chart. */
+:is(section.chart-frame, figure.chart-frame) .chart-sr-only {
+  position: absolute;
+  width: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  height: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  /* A host label may be uppercased for the eye (roadmap's `.row-label`); the hidden words are
+   * for the ear, and an all-caps run is one some screen readers spell out. */
+  text-transform: none;
+}
+
 /* Shared status pill vocabulary — used by progress, timeline-list, kanban.
  * Reads as `[s]` data attribute on a chip element so the markup is small
  * and the color mapping lives in one place. */

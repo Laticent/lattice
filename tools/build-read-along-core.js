@@ -53,12 +53,14 @@ const {
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,
   narrateBullet, narrateWordCloud, narrateDataSeries,
 } = require('./chart-narration.js');
+const { spokenValue } = require('./chart-values.js');
 export {
   buildReadAlong, emphasisForResolved, mergeNarration, readAlongToVtt, readAlongToVttParts,
   slideToSpeech,
   narrateChart, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,
   narrateBullet, narrateWordCloud, narrateDataSeries,
+  spokenValue,
 };
 `;
 

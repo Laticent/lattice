@@ -227,7 +227,7 @@ test('word-cloud — a TIED top is not given a leader', () => {
   const out = narrateWordCloud(slide('word-cloud', [
     '## Tie.', '', '- component `5`', '- manifest `5`', '- function `3`', '- form `2`',
   ].join('\n')));
-  assert.ok(out.includes('Two terms tie at the top: component and manifest at five each'), out);
+  assert.ok(out.includes('Component and manifest tie at the top, at five each'), out);
   assert.ok(!/is the biggest/.test(out), 'naming one of two equals would pick arbitrarily');
 });
 

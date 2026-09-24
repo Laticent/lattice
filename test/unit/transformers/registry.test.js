@@ -179,7 +179,7 @@ describe('chart-family transformer', () => {
     assert.match(html, /<h2>Q3 progress<\/h2>/);
     assert.match(html, /<p class="chart-subtitle">Five workstreams\.<\/p>/);
     assert.match(html, /<div class="chart-body">/);
-    assert.match(html, /<div class="progress-bars">/);
+    assert.match(html, /<div class="progress-bars"[^>]*>/);
     assert.ok(cls.split(/\s+/).includes('chart-frame'),
       `chart-frame should be appended to cls; got "${cls}"`);
   });
