@@ -598,8 +598,9 @@ section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tal
 }
 /* A wrapped row sizes its line to the cards, not the stage, so a dense pane would hang past
  * the stage clip (stage-clip-chrome-shear.test.js). Capping each card's border box at the row keeps the
- * line inside the stage, as the one-line row did. */
+ * line inside the stage, as the one-line row did; `min-width: 0` stops a long word from
+ * pushing a pane onto a second line. */
 section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol) > li,
 section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner > * {
-  max-height: 100%; box-sizing: border-box;
+  min-width: 0; max-height: 100%; box-sizing: border-box;
 }
