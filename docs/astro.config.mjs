@@ -115,6 +115,9 @@ export default defineConfig({
 	// does not do the job.
 	vite: {
 		server: { fs: { allow: ['..'] } },
+		// Cadenza imports the LTT format by package name; the site reads it as SOURCE, the same
+		// alias docs/vitest.config.ts carries (its comment has the why).
+		resolve: { alias: { '@laticent/ltt': path.resolve(import.meta.dirname, 'src/lib/ltt/index.ts') } },
 		// Module (ESM) workers, not the default IIFE: the PDF export worker
 		// (src/components/studio/export/pdf-export-worker.js) bundles jspdf, whose internal
 		// dynamic imports force a code-splitting worker build — which Rollup

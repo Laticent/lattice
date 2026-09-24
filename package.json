@@ -45,6 +45,7 @@
   "workspaces": [
     "docs/src/lib/cadenza",
     "docs/src/lib/lente",
+    "docs/src/lib/ltt",
     "docs/src/lib/suono",
     "docs/src/lib/vetrina"
   ],
@@ -153,6 +154,10 @@
     "vetrina-lib:check": "node tools/build-vetrina-lib.js --check",
     "lente-lib:build": "node tools/build-lente-lib.js",
     "lente-lib:check": "node tools/build-lente-lib.js --check",
+    "ltt-lib:build": "node tools/build-ltt-lib.js",
+    "ltt-lib:check": "node tools/build-ltt-lib.js --check",
+    "ltt-schema:build": "node tools/build-ltt-schema.js",
+    "ltt-schema:check": "node tools/build-ltt-schema.js --check",
     "suono-lib:build": "node tools/build-suono-lib.js",
     "suono-lib:check": "node tools/build-suono-lib.js --check",
     "dist-readme:build": "node tools/build-dist-readme.js",

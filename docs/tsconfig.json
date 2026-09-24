@@ -4,7 +4,8 @@
   "exclude": ["dist"],
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@laticent/ltt": ["./src/lib/ltt/index.ts"]
     },
     "jsx": "react-jsx",
     "jsxImportSource": "react"
