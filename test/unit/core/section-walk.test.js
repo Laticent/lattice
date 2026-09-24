@@ -96,3 +96,21 @@ test('an UNTERMINATED comment is text, so the walk goes on past it', () => {
   mapSections(html, (_o, cls) => { seen.push(cls); return null; });
   assert.deepEqual(seen, ['a', 'b']);
 });
+
+const { mapSectionHtml } = require('../../../lib/core/section-walk');
+
+test('mapSectionHtml hands the callback the whole section and passes null through verbatim', () => {
+  const seen = [];
+  const out = mapSectionHtml(`x${TWO}y`, (sec, cls) => { seen.push([sec, cls]); return null; });
+  assert.equal(out, `x${TWO}y`);
+  assert.deepEqual(seen, [
+    ['<section id="1" class="title">A</section>', 'title'],
+    ['<section id="2" class="stats dark">B</section>', 'stats dark'],
+  ]);
+});
+
+test('mapSectionHtml reads a </section> quoted in a comment as text, not the slide end', () => {
+  const html = '<section class="a">x<!-- </section> -->y</section>';
+  const out = mapSectionHtml(html, (sec) => sec.replace(/y<\/section>$/, 'Y</section>'));
+  assert.equal(out, '<section class="a">x<!-- </section> -->Y</section>');
+});

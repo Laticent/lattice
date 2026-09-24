@@ -205,7 +205,11 @@ kind of thing as `roadmap.transform.js`. Different role → different
 home is correct, not an inconsistency. The same reasoning moved the
 depth-aware HTML walkers into core (`html-lists.js` — top-level `<li>`
 / first-list extraction; `section-walk.js` — the shared `<section>`
-walker every applyToRenderedHtml uses): they are coupled to nothing,
+walker every applyToRenderedHtml uses, as `mapSections` for a callback that
+rewrites the inner and `mapSectionHtml` for one that rewrites the whole
+section; both walk `splitSections`, so a section tag quoted in a comment is
+text. A transform never finds slide boundaries with its own regex or
+`indexOf('<section')`): they are coupled to nothing,
 and core importing FROM a component kernel is the inverted edge the
 quality assessment flags as a boundary violation.
 
