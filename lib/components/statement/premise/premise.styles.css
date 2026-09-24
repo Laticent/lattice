@@ -198,7 +198,24 @@ section.premise > ol > li > ul > li:nth-child(2) {
 /* ── Row rhythm follows the row COUNT. A three-row ledger with the eight-row gap
  * floats as a thin strip in a tall box; an eight-row ledger with the three-row gap
  * does not fit. Quantity queries pick the gap and row padding from the count:
- *   3 rows → loose · 4–5 → medium · 6–7 → snug · 8+ → the tight base values.
+ *
+ *   rows   gap        row padding
+ *   3      --sp-md    --sp-md
+ *   4      --sp-sm    --sp-sm       (the base padding)
+ *   5      --sp-sm    --sp-xs
+ *   6–7    --sp-xs    --sp-xs
+ *   8+     --sp-3xs   --sp-xs
+ *
+ * A ledger must never be taller than one with MORE rows, or adding a row would
+ * shrink it and the claim beside it would jump. That is why the padding drops at
+ * FIVE: halving it saves 16px per row, and adding a row adds ~80px, so the drop
+ * outweighs the new row from six rows up. An earlier cut dropped it at six, then
+ * at eight, and `node tools/check-jank.js premise --axis count` caught both — the
+ * seven-row ledger stood taller than the eight-row one and reached the header band.
+ * At eight rows the padding has to be the small one: the capacity basis (14 words
+ * a row) puts every question on a second line, and eight such rows at the base
+ * padding overflow the slide.
+ *
  * The count rules skip the stacked families (square/tall/strip) entirely: those
  * set their own row padding below, and their row gap stays the tight default,
  * because portrait is the family whose capacity binds. */
@@ -208,6 +225,9 @@ section.premise:not([data-family="square"], [data-family="tall"], [data-family="
 }
 section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(4)):not(:has(> li:nth-child(6))) {
   --premise-row-gap: var(--sp-sm);
+}
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(5)):not(:has(> li:nth-child(8))) {
+  --premise-row-pad: var(--sp-xs);
 }
 section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(6)):not(:has(> li:nth-child(8))) {
   --premise-row-gap: var(--sp-xs);
