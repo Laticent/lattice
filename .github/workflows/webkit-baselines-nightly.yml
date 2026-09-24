@@ -9,7 +9,8 @@ name: WebKit baselines nightly (SVG label drift)
 # labels) and this job files that on its first night — a true finding, not a harness
 # fault. Nothing on the per-PR path can see a new instance:
 # every gate there renders through headless Chromium, where the drift is 0 by
-# construction. `engineering/decisions/2026-09-22-webkit-tspan-baseline.md` §6 and §8.
+# construction. `engineering/decisions/2026-09-22-webkit-tspan-baseline.md` §6 (and §8,
+# on mermaid, once #2326 lands).
 #
 # WHAT IT RUNS. `tools/audit-svg-baselines.mjs` on the two galleries that exercise
 # every chart and every mermaid family we ship. The tool renders each deck once
@@ -20,7 +21,7 @@ name: WebKit baselines nightly (SVG label drift)
 # WHY ONLY THE GALLERIES. Three example decks (`sequence-narration`,
 # `universal-tokens-p2-structural`, `xychart-narration`) fail today for a DIFFERENT
 # WebKit defect — the whole sequence/xychart `<svg>` box is sized differently — which
-# #2326 logs in `followups.d/`. Adding them would file that on night one and bury the
+# #2326 logs in `followups.d/` (on main once #2326 lands). Adding them would file that on night one and bury the
 # baseline signal this job exists for. Add them once that item is fixed.
 #
 # WHY NIGHTLY AND NOT PER-PR. The maintainer's call on #2306, from measured numbers
@@ -126,11 +127,18 @@ jobs:
           : > "$REPORT"
           FINDING=0
           BROKEN=0
-          for DECK in lib/components/chart/chart.gallery.md lib/components/diagram/diagram.gallery.md; do
+          # DECK:FLOOR. The floor is the fewest `<text>` labels a run must compare before its
+          # verdict counts. Both engines load the SAME exported HTML, so a render that lost
+          # diagrams hands both a thinner deck and would otherwise read clean. Measured
+          # 2026-09-24: chart 256, diagram 91; the floors leave room for gallery edits and
+          # trip on a lost diagram family or a lost chart page.
+          for ENTRY in lib/components/chart/chart.gallery.md:200 lib/components/diagram/diagram.gallery.md:70; do
+            DECK="${ENTRY%%:*}"
+            FLOOR="${ENTRY##*:}"
             echo "=== $DECK" | tee -a "$REPORT"
             OUT="$(mktemp)"
             if node tools/audit-svg-baselines.mjs --deck "$DECK" > "$OUT" 2>&1; then CODE=0; else CODE=$?; fi
-            cat "$OUT" | tee -a "$REPORT"
+            tee -a "$REPORT" < "$OUT"
             echo "=== exit $CODE" | tee -a "$REPORT"
             # Exit 1 is ALSO what node returns for an uncaught throw — a CLI render that
             # failed, a browser that would not launch. Only the tool's own verdict line
@@ -140,6 +148,14 @@ jobs:
               1) if grep -qE '^[0-9]+ of [0-9]+ labels drift more than' "$OUT"; then FINDING=1; else BROKEN=1; fi ;;
               *) BROKEN=1 ;;
             esac
+            if [ "$CODE" -le 1 ] && grep -qE '<text> nodes compared' "$OUT"; then
+              N="$(grep -oE '^[0-9]+ <text> nodes compared' "$OUT" | grep -oE '^[0-9]+' || echo 0)"
+              if [ "${N:-0}" -lt "$FLOOR" ]; then
+                echo "=== only ${N:-0} labels compared, floor $FLOOR — the render lost content, so this deck measured too little" | tee -a "$REPORT"
+                BROKEN=1
+              fi
+            fi
+            rm -f "$OUT"
           done
           if [ "$BROKEN" -eq 1 ]; then
             echo "failed=true" >> "$GITHUB_OUTPUT"
@@ -191,7 +207,7 @@ jobs:
           {
             case "$KIND" in
               finding)
-                echo "At least one SVG label paints more than 3px away from Chromium in WebKit on \`main@${{ github.sha }}\`."
+                echo "At least one SVG label paints further from Chromium than the audit's tolerance in WebKit on \`main@${{ github.sha }}\`."
                 echo ""
                 echo "Safari and every WebKit surface show it; the PDF and Chrome do not. The usual cause is a"
                 echo "\`dominant-baseline\` declared on a \`<text>\` or \`<g>\` that does not reach the glyphs —"
@@ -200,9 +216,12 @@ jobs:
                 echo "\`node tools/audit-svg-baselines.mjs --deck <gallery>\`."
                 ;;
               broken)
-                echo "The audit could not compare the two engines on \`main@${{ github.sha }}\` (exit 2 or 3:"
-                echo "different DOMs, or labels it could not pair). Nothing was measured on that deck."
-                echo "This is not a drift finding, and it is not a clean night."
+                echo "The audit did not measure a deck in full on \`main@${{ github.sha }}\`. The report's"
+                echo "\`=== exit\` lines say which cause: exit 1 with no verdict line is an uncaught throw"
+                echo "(the CLI render failed or a browser would not launch — the likeliest case); exit 2 means"
+                echo "the engines built different DOMs; exit 3 means labels could not be paired; a"
+                echo "\`floor\` line means the render lost content. None of these is a drift finding,"
+                echo "and none is a clean night."
                 ;;
               *)
                 echo "The audit did not run to a verdict on \`main@${{ github.sha }}\`. An empty kind means the"
