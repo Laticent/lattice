@@ -38,6 +38,16 @@ most chart sentences.
   renders each deck in Chromium, and asks it to place every real caption cue. This change adds
   `--deck` (measure named decks only) and `--misses` (print every cue that hid, and every one that
   fell back to the whole chart).
+- **Guide, live:** the built Studio (`npm run build:e2e`, `astro preview`) with a seven-slide deck
+  of each gallery's first `gantt`, `progress`, `kanban`, `radar`, `heatmap`, `line` and
+  `piechart` slide, Present opened with Guide on and played on the silent rung. A screenshot 1.1s
+  into each of the 69 cues: every sentence about one mark rested on that mark — each gantt bar,
+  lane and the GA diamond, each progress row, each kanban column and card, each radar series
+  polygon, each heatmap row label, each line category, each pie wedge — and every detail note
+  ("92 decks, averaging 18 slides each.") on its parent's mark. None landed on the wrong mark. The first
+  sentence after a slide change sometimes showed no pointer yet, because it was still arriving.
+  That sentence is the eyebrow or the heading, which the block-text tier places ahead of every
+  chart tier this change adds.
 
 ## Root causes
 
