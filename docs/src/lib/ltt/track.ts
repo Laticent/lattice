@@ -24,6 +24,11 @@ import type { CaptionTrack } from './types.js';
  *  3. cue starts are MONOTONIC — the sort `makeCursor`'s binary search depends on, and whose
  *     violation makes the cursor return null at every probe rather than fail loudly.
  */
+/** A word's display, quoted short for a report — and never a throw, whatever `display` holds. */
+function label(display: unknown): string {
+	return typeof display === 'string' ? JSON.stringify(display.slice(0, 40)) : `a ${typeof display}`;
+}
+
 export function validateTrack(track: CaptionTrack): string[] {
 	const problems: string[] = [];
 	if (!track || !Array.isArray(track.cues)) return ['track has no cues array'];
@@ -54,9 +59,9 @@ export function validateTrack(track: CaptionTrack): string[] {
 				return;
 			}
 			if (!Number.isFinite(w.startMs) || !Number.isFinite(w.endMs)) {
-				problems.push(`cue ${i} word ${j} (${JSON.stringify(String(w.display).slice(0, 40))}) has a non-finite span`);
+				problems.push(`cue ${i} word ${j} (${label(w.display)}) has a non-finite span`);
 			} else if (w.endMs < w.startMs) {
-				problems.push(`cue ${i} word ${j} (${JSON.stringify(String(w.display).slice(0, 40))}) ends before it starts`);
+				problems.push(`cue ${i} word ${j} (${label(w.display)}) ends before it starts`);
 			}
 		});
 	});

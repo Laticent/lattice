@@ -35,8 +35,15 @@ const isMs = (v: unknown): v is number => Number.isSafeInteger(v) && (v as numbe
 /** A deck-authored string quoted in a report, cut short so one hostile 40k-character word cannot
  *  turn a list of problems into megabytes. */
 const q = (v: unknown): string => {
-	if (typeof v !== 'string') return String(JSON.stringify(v) ?? v).slice(0, 60);
-	return JSON.stringify(v.length > 40 ? `${v.slice(0, 40)}…` : v);
+	if (typeof v === 'string') return JSON.stringify(v.length > 40 ? `${v.slice(0, 40)}…` : v);
+	// Never throw while describing a value: a BigInt will not stringify, and a null-prototype
+	// object will not convert to a string. Neither comes out of JSON.parse, but the contract is
+	// "never throws" for any input.
+	try {
+		return String(JSON.stringify(v) ?? v).slice(0, 60);
+	} catch {
+		return `a ${typeof v}`;
+	}
 };
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 
@@ -205,7 +212,7 @@ export function validateLtt(ltt: unknown): string[] {
 		if ('stagePace' in inputs && !(Number.isFinite(inputs.stagePace) && (inputs.stagePace as number) >= 0)) out.push('inputs.stagePace is not a non-negative number');
 		if ('viewport' in inputs) {
 			const v = inputs.viewport;
-			if (!isRec(v) || !Number.isInteger(v.w) || !Number.isInteger(v.h) || (v.w as number) < 1 || (v.h as number) < 1) out.push('inputs.viewport needs whole-pixel w and h');
+			if (!isRec(v) || !Number.isSafeInteger(v.w) || !Number.isSafeInteger(v.h) || (v.w as number) < 1 || (v.h as number) < 1) out.push('inputs.viewport needs whole-pixel w and h');
 		}
 		if (kind === 'deck') {
 			for (const k of ['viewport', 'motion', 'stagePace']) if (k in inputs) out.push(`inputs.${k} is a tour input; a deck does not carry it`);
@@ -242,7 +249,7 @@ export function validateLtt(ltt: unknown): string[] {
 
 		if (k === 'stretch') {
 			const beats = isRec(seg.at) ? seg.at.beats : undefined;
-			if (!Array.isArray(beats) || beats.length !== 2 || !beats.every((b) => Number.isInteger(b) && b >= 0) || beats[0] > beats[1]) {
+			if (!Array.isArray(beats) || beats.length !== 2 || !beats.every((b) => Number.isSafeInteger(b) && b >= 0) || beats[0] > beats[1]) {
 				out.push(`${where}.at.beats is not a [first, last] pair of beat indices`);
 			} else {
 				if (beats[0] < lastBeat) out.push(`${where} starts at beat ${beats[0]}, before the previous stretch ended at beat ${lastBeat}`);
@@ -260,7 +267,7 @@ export function validateLtt(ltt: unknown): string[] {
 			const slide = isRec(seg.at) ? seg.at.slide : undefined;
 			// Every slide gets a segment, narrated or not, because every slide after the first waits
 			// one hold on arrival: a missing slide would be a missing hold in the deck's timeline.
-			if (!Number.isInteger(slide) || (slide as number) < 1) out.push(`${where}.at.slide is not a 1-based slide number`);
+			if (!Number.isSafeInteger(slide) || (slide as number) < 1) out.push(`${where}.at.slide is not a 1-based slide number`);
 			else {
 				if (slide !== lastSlide + 1) out.push(`${where} is slide ${slide}, but slide ${lastSlide + 1} comes next — deck segments run in slide order, one per slide, with no gaps`);
 				lastSlide = slide as number;

@@ -57,7 +57,20 @@ function docOf(node, sf) {
     .filter((r) => full.slice(r.pos, r.pos + 3) === '/**')
     .sort((a, b) => a.pos - b.pos);
   const last = ranges[ranges.length - 1];
-  if (!last || full.slice(last.end, node.getStart(sf)).trim() !== '') return { description: '', tags: {} };
+  if (!last) return { description: '', tags: {} };
+  // AMBIGUOUS attachment is refused, never guessed (checker, PR #2347). A doc comment must sit
+  // directly against its node — nothing but whitespace between — and when a line break separates
+  // them, it must start its own line. `a: number; /** @integer *\/\n b: number` is ambiguous (it
+  // reads as trailing `a` and would narrow `b`), and a plain comment wedged between a doc comment and
+  // its field used to drop the tag silently.
+  const gap = full.slice(last.end, node.getStart(sf));
+  if (gap.trim() !== '') {
+    throw new Error(`${where(node, sf)}: a doc comment is separated from this field by other text — put it directly above the field`);
+  }
+  const lineStart = full.lastIndexOf('\n', last.pos - 1) + 1;
+  if (/\n/.test(gap) && full.slice(lineStart, last.pos).trim() !== '') {
+    throw new Error(`${where(node, sf)}: a doc comment trails the previous line — it is ambiguous which field it documents. Give it its own line above the field`);
+  }
   const text = full.slice(last.pos, last.end);
   const body = text
     .replace(/^\/\*\*/, '')

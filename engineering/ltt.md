@@ -17,6 +17,7 @@ named `*.ltt.json`.
 | The JSON Schema | `docs/src/lib/ltt/ltt.schema.json`, **generated** from the types by `tools/build-ltt-schema.js`. `npm run build:check` fails when the two differ. Do not edit it by hand. |
 | The validator | `validateLtt` in `docs/src/lib/ltt/validate.ts` |
 | The two encodings | `pack` / `unpack` in `docs/src/lib/ltt/encode.ts` |
+| The staleness hash's input | `segmentHashInput` in `docs/src/lib/ltt/hash.ts` |
 
 `@laticent/ltt` imports nothing outside its own folder, including no `node:`
 built-ins. A boundary gate (`checkLttBoundary` in `tools/check-ownership.js`)

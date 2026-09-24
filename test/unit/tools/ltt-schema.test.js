@@ -120,6 +120,9 @@ describe('the generator refuses what it cannot translate faithfully', () => {
     // The red team's six silent mistranslations (PR #2347): each used to produce a WRONG schema.
     'prose after a tag, which became the tag\'s value': 'export interface Ltt {\n  /** @pattern ^x$ the id */\n  a: string;\n}',
     'an overlapping union': 'export interface Ltt { a: string | "x" }',
+    // The checker's two ambiguous attachments (PR #2347): one narrowed the WRONG field, one dropped a tag.
+    'a doc comment trailing the previous field': 'export interface Ltt {\n  a: number; /** @integer */\n  b: number;\n}',
+    'a plain comment between a doc comment and its field': 'export interface Ltt {\n  /** @integer */\n  // note\n  a: number;\n}',
     'a type declared twice (declaration merging)': 'export interface Ltt { a: string }\nexport interface Ltt { b: string }',
     '@closed on a type alias': '/** @closed */\nexport type X = string;\nexport interface Ltt { a: X }',
     '@minimum on a string': 'export interface Ltt {\n  /** @minimum 0 */\n  a: string;\n}',

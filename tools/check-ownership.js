@@ -7711,6 +7711,43 @@ function listPackageSources(dir, out = []) {
   return out;
 }
 
+/** The [start, end) ranges of every string and template literal in `src` (comments already stripped). */
+function stringLiteralRanges(src) {
+  const out = [];
+  for (const m of src.matchAll(/(['"`])(?:\\[\s\S]|(?!\1)[^\\])*\1/g)) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+
+/**
+ * Every dynamic `import(…)` / `require(…)` a gate could not read, and every `require` used as a value.
+ *
+ * A call is readable only when its WHOLE argument is one string literal: `import('./x.js')`, across
+ * line breaks and spaces as a formatter wraps it. `import('./' + '../cadenza')` starts with a quote
+ * and still leaves the package, so "starts with a string" is not enough (checker, PR #2347), and
+ * `const r = require; r('x')` hides the call behind a name. Text inside a string literal is not code,
+ * and `o.import(x)` / `o.require(x)` are method calls, not module loads.
+ */
+function unreadableModuleCalls(src) {
+  const strings = stringLiteralRanges(src);
+  const inString = (i) => strings.some(([a, b]) => i >= a && i < b);
+  const out = [];
+  for (const m of src.matchAll(/(?<![.\w$])(import|require)\b/g)) {
+    if (inString(m.index)) continue;
+    const rest = src.slice(m.index + m[0].length);
+    if (m[1] === 'import') {
+      if (!/^\s*\(/.test(rest)) continue; // `import x from`, `import type`, `import.meta` — not a call
+      if (/^\s*\(\s*(['"])[^'"\n]*\1\s*\)/.test(rest)) continue;
+      out.push('calls import() with something other than one plain string, which no gate can read. Use a string literal specifier.');
+    } else {
+      if (/^\s*\(\s*(['"])[^'"\n]*\1\s*\)/.test(rest)) continue;
+      out.push(/^\s*\(/.test(rest)
+        ? 'calls require() with something other than one plain string, which no gate can read. Use a string literal specifier.'
+        : 'uses `require` as a value, which hides the module it loads from every gate. Call it directly with a string.');
+    }
+  }
+  return out;
+}
+
 /**
  * Report every import in `dir` that leaves it, except a `node:` built-in when `allowNode` and a bare
  * specifier named exactly in `allowBare`. `describe(rel, spec)` writes the error for a boundary hit.
@@ -7722,9 +7759,7 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
     const rel = path.relative(ROOT, file);
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
-    if (/\b(?:import|require)\s*\(\s*(?!['"])/.test(src)) {
-      errors.push(`${rel} calls import() or require() with something other than a plain string, which no gate can read. Use a static import with a string specifier.`);
-    }
+    for (const problem of unreadableModuleCalls(src)) errors.push(`${rel} ${problem}`);
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
@@ -12396,6 +12431,7 @@ module.exports = {
   checkSuonoBoundary,
   checkLttBoundary,
   LTT_DIR,
+  unreadableModuleCalls,
   checkLenteBoundary,
   checkAudioPlaybackBoundary,
   SANCTIONED_LEGACY_AUDIO,

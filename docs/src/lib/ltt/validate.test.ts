@@ -278,3 +278,23 @@ describe('validateLtt agrees with the schema on every enum value and every requi
 		});
 	});
 });
+
+describe('the second checker pass (PR #2347)', () => {
+	it('never throws even on values JSON cannot produce: a BigInt, a null-prototype display', () => {
+		const l = deck() as Mut;
+		l.format = 10n;
+		expect(() => validateLtt(l)).not.toThrow();
+		const m = deck();
+		const w = slide(m, 0).track.cues[0].words[0] as Mut;
+		w.display = Object.create(null);
+		w.endMs = Number.NaN;
+		expect(() => validateLtt(m)).not.toThrow();
+		expect(validateLtt(m).length).toBeGreaterThan(0);
+	});
+
+	it('refuses an unsafe integer everywhere the schema does, not only in the time fields', () => {
+		expect(after(tour, (l) => { l.inputs.viewport = { w: 2 ** 53 + 2, h: 900 }; })).toMatch(/viewport/);
+		expect(after(tour, (l) => { stretch(l, 1).at = { beats: [3, 2 ** 53 + 2] }; })).toMatch(/beats/);
+		expect(after(deck, (l) => { slide(l, 2).at = { slide: 2 ** 53 + 2 }; })).toMatch(/at\.slide/);
+	});
+});

@@ -1836,9 +1836,25 @@ describe('check-ownership', () => {
         'a dot folder': { 'index.ts': "export * from './.internal/x';", '.internal/x.ts': "import x from 'lodash-es';" },
         'a test module re-exported from production': { 'index.ts': "export * from './sneak.test';", 'sneak.test.ts': "import fs from 'node:fs';" },
         'a template-literal dynamic import': { 'x.ts': 'const fs = await import(`node:fs`);' },
+        // The second checker pass (PR #2347): a joined string starts with a quote and still escapes.
+        'a joined-string dynamic import': { 'x.ts': "const m = await import('./' + '../cadenza/index.ts');" },
+        'a joined-string require': { 'x.ts': "const m = require('./' + '../../node_modules/lodash');" },
+        'require held under another name': { 'x.ts': "const r = require; r('node:fs');" },
       };
       for (const [name, files] of Object.entries(evasions)) {
         assert.ok(run(checkLttBoundary, files).length >= 1, `not caught: ${name}`);
+      }
+    });
+
+    test('LTT does not flag valid code that merely looks like a call', () => {
+      for (const src of [
+        "const m = await import(\n\t'./x.js'\n);", // a formatter-wrapped dynamic import
+        "const m = await import ( './x.js' );",
+        'const a = o.require(1); const b = o.import(x);', // method calls, not module loads
+        "const s = 'call import( later';", // text inside a string
+        "export type T = typeof import('./types.js');",
+      ]) {
+        assert.deepEqual(run(checkLttBoundary, src), [], src);
       }
     });
 
