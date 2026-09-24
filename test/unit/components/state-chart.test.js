@@ -757,6 +757,34 @@ describe('browser layout (fake DOM)', () => {
     ],
   };
 
+  // A redraw with nothing changed must WRITE nothing. The runtime answers any
+  // childList mutation under <body> with a content pass that calls draw() again,
+  // so a draw that rewrites identical markup schedules its own successor: an idle
+  // state-chart slide redrew every ~160ms in the Playground until this held.
+  test('a second draw over an unchanged figure does not rewrite the SVG', () => {
+    const f = fakeFigure(ROUTER);
+    let html = f.svg.innerHTML;
+    let writes = 0;
+    Object.defineProperty(f.svg, 'innerHTML', {
+      get() { return html; },
+      set(v) { writes++; html = v; },
+    });
+    const doc = {
+      readyState: 'complete',
+      querySelectorAll(sel) {
+        return sel === '.state-chart-figure[data-sc-transitions]' || sel === '.state-chart-figure' ? [f.fig] : [];
+      },
+      addEventListener() {},
+    };
+    installStateChartLayout(doc);
+    assert.equal(writes, 1, 'the first draw paints');
+    const painted = html;
+    installStateChartLayout(doc);
+    installStateChartLayout(doc);
+    assert.equal(writes, 1, 'identical redraws are no-op writes');
+    assert.equal(html, painted);
+  });
+
   // Slide 11 — incident response: forward skips, three back-edges, a self
   // loop. The regression/need-more-info back-edges once crossed; must not.
   const INCIDENT = {
