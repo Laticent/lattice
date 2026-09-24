@@ -12,7 +12,8 @@ summary: >-
   deliberate repaint in the same work is the `list bullet` fix below, and the branch's deck-golden
   drift list is a strict subset of `origin/main`'s. Two conformance findings fall out: `list bullet` lost its clip cell to a
   variant/component name collision (fixed — exactly one component x variant answer changes), and
-  `video` cannot reach conformance by flag alone (recorded, not forced).
+  `video` cannot reach conformance by flag alone (recorded, not forced; closed 2026-09-24 by
+  keeping its title in-card — see § Two conformance findings).
 builds-on: 2026-06-16-form-manifest-medium-independent-contract.md, 2026-07-08-runtime-form-default.md, 2026-07-15-model-driven-frame-render.md
 ---
 
@@ -133,6 +134,33 @@ layout: the lift pulls the h2 and lead out of the `.video-lead` pair, collapsing
 composition from side-by-side to stacked and clipping the caption. Both attempts were rendered,
 reviewed and reverted. Closing it means teaching video's transform to keep its title in-card the
 way wifi does with `.qr-head > h2` — its own change, with its own evidence.
+
+**CLOSED 2026-09-24, the way the paragraph above said it would have to be.** `video` is now
+`conformance: "strict"` and runs above `mastheadLift`, beside `contact` and `wifi`. The card
+made the hoist safe, not the order. The transform rebuilds every composition into one
+`.video-card` root and keeps the title, and an eyebrow authored above it, NESTED in that card
+(`.video-lead` for `companion`, `.video-head` otherwise). The lift is depth-aware for a strict
+component, so it leaves a nested `<h2>` where it is, and the band has no top-level title to
+claim. The composition CSS moved from the section onto the card, because the section's direct
+children are now the frame's cells. Four defects on `main` went with it:
+
+- `companion` rebuilt its section from the h2 and the lead alone, so it dropped the deck's
+  running `header:`, the slide's `_footer:` and any eyebrow.
+- On `gallery` the injection anchored on the first `</h2>`, which by then sat inside the
+  masthead band, so the whole figure rendered inside the band, above its hairline.
+- The `<figure>` carried the browser's default `1em 40px` margin. The engine never reset it, so
+  that space was invisible to every height measurement (HARD RULE #20).
+- On `companion qr` the poster sat against the top edge.
+
+The stage is shorter than the section (524px of a 720px slide), so two columns were rebudgeted
+to fit, measured in the real export. `companion qr` went from 576px to 519px: poster cap 40cqi
+to 36cqi, channel `--sp-xl` to `--sp-lg`. `gallery qr` went from 539px to 504px: card gap 5cqh
+to 3cqh, poster height cap 52cqh to 48cqh. At `portrait` the stacked column carries the
+header, footer and eyebrow `main` used to drop, so the tall layouts take the `--sp-sm` step
+(`companion qr` ran 1221px in a 1172px stage), and the aside loses its `13rem` side-column cap
+once it runs under the poster. The demo deck renders with no overflow at hd, standard, square,
+portrait and story. The pins are in `test/unit/transformers/video.test.js`,
+and the demo deck is `examples/video-title-in-card.md`.
 
 ## Migration
 

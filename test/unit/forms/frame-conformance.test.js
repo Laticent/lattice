@@ -156,7 +156,7 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     }
   });
 
-  test('the strict set is exactly the migrated components — contact + diagram + math + wifi', () => {
+  test('the strict set is exactly the migrated components — contact + diagram + math + video + wifi', () => {
     // Opt-in, one component (or one same-kernel family) per PR (§2). PR 1
     // migrated the first canvas — `contact` — with the render-side wiring proven
     // byte-identical AND probe-verdict-identical (§5). PR 2 added `wifi`, the
@@ -190,7 +190,14 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     // clearance). One variant, `feature`, still overflows at four sizes on a sample whose
     // equation is wider than a portrait slide; it overflows further on `main`, and no
     // reflow can fix it under the Fit Spine's no-scale axiom.
-    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'wifi'];
+    // PR 5 added `video`, the last non-sovereign component composing as Form with no
+    // Cell. It runs above mastheadLift like contact/wifi and rebuilds every composition
+    // into one `.video-card` whose title (and eyebrow) stay NESTED, so the depth-aware
+    // lift leaves them in the card. The two earlier attempts failed exactly there — a
+    // flag flip alone was a no-op, and a hoist alone pulled the title out of the
+    // `companion` pair. Two columns were rebudgeted to fit the stage cell (measured in
+    // the export), and the render gate materializes its stage cell.
+    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'video', 'wifi'];
     assert.deepEqual(
       strict.map((m) => m.name).sort(),
       EXPECTED_STRICT,

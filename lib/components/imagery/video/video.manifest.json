@@ -17,6 +17,7 @@
   },
   "stage": "canvas",
   "coda": { "dock": "row" },
+  "conformance": "strict",
   "orientation": [
     "landscape",
     "portrait"
