@@ -916,6 +916,18 @@ the surface it is actually drawn on, for every palette in both schemes. Its
 hard-coded rather than derived from the map: derive it and the gate simply
 re-judges a mis-assigned key against its new tier and stays green.
 
+### Label baselines in WebKit
+
+Mermaid centers a label by setting `dominant-baseline` on the `<text>`, or on a `<g>` above
+it, and WebKit does not pass it down to the `<tspan>` lines or through the group. In Safari the
+label paints about a third of a font-size high. `mermaid.css` fixes that with one rule, which
+sets `dominant-baseline: inherit` on every `g`, `a`, `text`, `tspan` and `textPath` in a
+mermaid root that carries no baseline attribute of its own. The rule names no mermaid class,
+so a mermaid upgrade cannot leave it behind. Check it with
+`node tools/audit-svg-baselines.mjs --deck lib/components/diagram/diagram.gallery.md`, which
+needs WebKit installed. Measurements and the reasoning:
+`engineering/decisions/2026-09-22-webkit-tspan-baseline.md` §8.
+
 ---
 
 ## 5.3c The subgraph box — corner, and what "padding" can and cannot reach

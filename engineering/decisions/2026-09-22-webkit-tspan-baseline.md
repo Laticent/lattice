@@ -212,15 +212,9 @@ an inference, not a measurement.
 
 ## 7. What this does not fix
 
-**Mermaid's own labels have the same defect**, and they are not ours. Running the same probe
-over `lib/components/diagram/diagram.gallery.md` finds 17 of 91 labels over 3px — `actor`
-(−5.49), `noteText` (−3.54), `ishikawa-label` (−2.83). The baseline there comes from the
-`<style>` mermaid injects into its own SVG, on classes mermaid owns; We author the ishikawa
-DIAGRAMS — two gallery decks use the `ishikawa-beta` type — but not the markup or the stylesheet
-that places their labels, and the only CSS we own touching them
-(`lib/integrations/mermaid/mermaid.css`) sets no baseline. Fixing it means widening selectors
-against a third-party renderer's markup, in a different component bucket, which is a different
-change (HARD RULES #8, #17, #18). Recorded here rather than pulled in.
+**Mermaid's own labels have the same defect.** Running the same probe over
+`lib/components/diagram/diagram.gallery.md` found 17 of 91 labels over 3px. That was out of
+this change's scope (HARD RULES #8, #17, #18) and was fixed separately, in #2306 — §8.
 
 **A note on the chart gallery, because §4's audit renders that very file.** While this work was
 in flight, `bucket-galleries > chart: source .md matches manifests` was red on `main` — a
@@ -235,3 +229,71 @@ IDENTICALLY against a fresh render carrying this change (100dpi, per-page pixel 
 second number is the stronger statement of §4's Chromium result — not "the drift is 0 in
 Chromium" from the audit's own probe, but the committed artifact and a fresh render agreeing
 page for page, on the one deck that exercises every chart component.
+
+## 8. Mermaid's labels (#2306)
+
+Same symptom, a different owner: mermaid writes the markup and the `<style>` that place these
+labels, so the fix could not go where §5's did. It is one rule in
+`lib/integrations/mermaid/mermaid.css`, the only stylesheet we own that reaches a mermaid SVG:
+
+```css
+:is(section, figure) svg[aria-roledescription] :is(g, a, text, tspan, textPath):not([dominant-baseline]) { dominant-baseline: inherit; }
+```
+
+**Two WebKit gaps, not one.** Probing computed styles in both engines found a second shape
+beside §2's:
+
+| Where mermaid puts the baseline | Families | Chromium | WebKit |
+|---|---|---|---|
+| On the `<text>` (attribute or its own CSS), each line in a `<tspan>` | sequence `actor`, `noteText`; `ishikawa-label` | tspan resolves to the parent's | tspan `auto` → `alphabetic` (§2, a bug in WebKit against both specs) |
+| On a `<g>` two levels above the `<text>` | architecture service labels | `<text>` computes `middle` | `<text>` computes `auto` |
+
+The second row IS a spec split: SVG 1.1 lists `dominant-baseline` as not inherited, and CSS
+Inline 3 makes it inherited. Chromium follows CSS Inline 3 and WebKit keeps SVG 1.1. The
+architecture labels only came right once the rule also covered `g` — `inherit` on the `<text>`
+alone copied the intermediate, attribute-less `<g>`'s `auto`, and the probe still read −3.54.
+
+**Why `inherit` and not §5's per-class repeat.** A class list copied from mermaid 11.14 goes
+stale on the next mermaid upgrade, and nothing in the tree would notice. `inherit` names no
+mermaid class, so it covers every family, including ones mermaid adds later. It also cannot
+move a label in Chromium, which already treats the property as inherited; there the rule
+states what the cascade resolves anyway. Mermaid's own `<style>` rules are scoped by the svg's
+`#id`, so wherever mermaid sets a baseline in CSS its rule out-specifies this one and still
+wins. `:not([dominant-baseline])` leaves alone any node that states its own baseline as an
+attribute, which author CSS would otherwise override.
+
+**Measured**, `node tools/audit-svg-baselines.mjs --deck lib/components/diagram/diagram.gallery.md`
+(WebKit minus Chromium, px on a 1280x720 slide):
+
+| | over 3px | `actor` | `noteText` | architecture | `ishikawa-label` |
+|---|---|---|---|---|---|
+| before | 17 / 91 | −5.89 | −3.54 | −3.54 | −3.27 |
+| after | 0 / 91 | −0.68 | −0.23 | −0.61 | −0.92 |
+
+Worst label after: −0.92px, inside the noise band that §4's untouched labels already occupy.
+
+**Wider than the gallery.** An independent checker re-ran the before/after on 29 decks, both
+diagram galleries plus every `examples/*.md` deck with a mermaid fence, in both engines. Chromium
+moved 0.000px on every `<text>` in a mermaid root, and no label got worse in WebKit.
+`mermaid-sketch-labels` went from 9 to 0 over 3px, `universal-tokens-p3-status` from 5 to 0,
+and the nested `diagram/diagram.gallery.md` from 3 to 0.
+
+**What it does not reach.**
+
+- **The Studio's Read pane.** The Read article pane (`.st-read-article`, `ReadArticle.tsx`)
+  ships no `lattice.css` (see the note above the rule in `mermaid.css`), so a diagram re-hosted
+  there keeps the drift on Safari. The Studio's slide previews load `lattice.css` through
+  `theme-fetch.ts`, so the rule should reach them. That comes from reading the code: neither
+  surface was driven in WebKit.
+- **A second, unrelated WebKit drift.** On `sequence-narration`, `universal-tokens-p2-structural`
+  and `xychart-narration`, WebKit sizes the whole sequence or xychart `<svg>` box differently:
+  305 slide-px tall in Chromium against 275 in WebKit on the same deck. So every label drifts
+  in proportion to its height, up to 32px, and LOW rather than high. This rule neither causes
+  nor fixes that, since the numbers are identical with and without it. It is logged in
+  `followups.d/`, not fixed here (HARD RULE #18).
+- **iOS Safari: UNVERIFIED.** Every WebKit number in this section is desktop WebKit (Playwright
+  WebKit 26.0). iOS runs the same engine, so the fix should carry, but that is an inference: no
+  device was reached, and the changelog claims desktop Safari only.
+- **CI.** As in §6, nothing in CI can see a regression: the rule is a CSS line, not a gate, and
+  the audit remains on-demand.
+
