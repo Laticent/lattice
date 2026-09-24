@@ -645,7 +645,9 @@ The rules that cost a measured miss when broken:
   says.
 - **A new writer of `data-label` joins `SANCTIONED_MARK_IDENTITY`** in `tools/check-ownership.js`,
   with what it emits.
-- **Screen-reader-only text lives in `.chart-sr-only`.** The Guide never points into it.
+- **Screen-reader-only text lives in `.chart-sr-only`.** The Guide never points into it, and the
+  overflow probe (`IGNORED_CLIP_SELECTOR`) never reports its clip as lost content. Put the class on
+  a block wrapper, never on a `<table>`, which ignores the 1px box and lays out at full size.
 
 What the Guide does when no mark answers, in order: a mark's spoken detail note points at its
 mark, words drawn in a `<div>` or `<text>` are found inside `.chart-body`, and a sentence about

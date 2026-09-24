@@ -77,6 +77,10 @@ most chart sentences.
   dependencies, window and today; heatmap and line append a hidden, walkable data table
   (`cartesian.buildSrDataTable`); list roles on the three flow charts; status words on roadmap
   `horizons` rows (shown before by color and CSS glyph only); "size" on kanban's chip.
+- **Overflow probe:** `.chart-sr-only` joins `IGNORED_CLIP_SELECTOR` in `lib/core/overflow-probe.js`.
+  The hidden table's wrapper clips its content by design; before this, every heatmap and line
+  export reported "OVERFLOW … CLIPPED" (the integration tier's frame invariant caught it), which
+  is also autosplit's signal. Export warnings for every chart gallery now match `main`.
 - **Fallback:** `slideToSpeech`, which Present speaks until the rendered projection loads, reads
   a GFM table as rows instead of pipes and dashes.
 
