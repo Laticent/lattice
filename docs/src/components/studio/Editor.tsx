@@ -8,7 +8,7 @@ import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
-import { type CompletionComponent, makeStudioCompletion, registerValueLists } from './editor-complete';
+import { type CompletionComponent, type CompletionVocab, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { slideEditableOffset, slideIndexAt } from './lint';
 import { tourChromeMargin } from './tour-chrome';
@@ -283,6 +283,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	/** `theme:` front-matter VALUE vocabulary — the palettes a deck can name
 	 *  (built-in + saved). Drives the `theme:`-value completion only. */
 	completionPalettes?: string[];
+	/** The `_class:` completion's modifier registry (groups, surfaces, exclusive axes),
+	 *  fetched after hydration (src/pages/studio/modifier-vocab.json.ts). Absent → the
+	 *  completion falls back to the flat `lintVocab.universalModifiers` list. */
+	completionVocab?: CompletionVocab | null;
 	/** The deterministic lint vocabulary. When present, the editor runs the FULL
 	 *  shared lint-core (severity tiers + per-finding fixes) instead of the
 	 *  unknown-component-only fallback. */
@@ -314,7 +318,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  an external setSource so callers can react to authoring, not to their own writes. */
 	onUserEdit?: () => void;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], lintVocab, extraComponentNames, onCursorSlide, onSelectionChange, onUserEdit, onLintCounts, carryKey, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onSelectionChange, onUserEdit, onLintCounts, carryKey, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -400,7 +404,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const acComp = React.useRef(new Compartment());
 	const lintComp = React.useRef(new Compartment());
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: lintVocab })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
@@ -767,10 +771,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey/paletteKey/modifierKey/registersKey are the stable content-proxies; buildAutocomplete reads the live props.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey/paletteKey/modifierKey/registersKey are the stable content-proxies (completionVocab is set once, after its fetch); buildAutocomplete reads the live props.
 	React.useEffect(() => {
 		viewRef.current?.dispatch({ effects: acComp.current.reconfigure(buildAutocomplete()) });
-	}, [compsKey, finishKey, classKey, paletteKey, modifierKey, registersKey]);
+	}, [compsKey, finishKey, classKey, paletteKey, modifierKey, registersKey, completionVocab]);
 
 	// Reconfigure the linter when the vocab set changes, so a freshly-saved finish
 	// stops being flagged `unknown-finish` inline (the Architect panel already reacts).

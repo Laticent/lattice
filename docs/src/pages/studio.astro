@@ -174,12 +174,6 @@ try {
 		// spectrum styles, …) valid on ANY slide — drives the editor's `_class:` /
 		// `class:` modifier completion (never a hand-kept list).
 		universalModifiers: [...(v.universalModifiers || [])],
-		// The grouped registry behind those tokens (lib/components MODIFIER_GROUPS) —
-		// sections, exclusive axes and dependents for the positional `_class:` completion.
-		modifierGroups: v.modifierGroups || [],
-		// How often authors write each modifier (dist/docs/components.json, built from the
-		// example decks) — ranks the `_class:` completion. Filled in below, best-effort.
-		modifierUsage: {},
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
 		// EVERY register value list (`guardsNames`, `cardsNames`, `claimNames`, the spectrum
 		// family, …), not a hand-picked few: the editor completes front-matter values from
@@ -200,14 +194,6 @@ try {
 	};
 } catch (e) {
 	lintVocab = null;
-}
-if (lintVocab) {
-	try {
-		const portal = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
-		lintVocab.modifierUsage = portal.vocabularies?.modifierUsage || {};
-	} catch {
-		// Without it the completion keeps registry order; nothing else changes.
-	}
 }
 
 // firstDeck powers only the instant-shell topbar title (a chrome placeholder shown until

@@ -57,6 +57,13 @@ eyebrow there turns that content surface on (unless the proof found it inert on
 this component) and moves its group up. Within each section, modifiers are ranked
 by how often the example decks use them after this component, then overall.
 
+**Delivery.** The Studio page does not inline the registry: at ~5KB of JSON it cost
+the route 14.7KB of escaped HTML props and failed the route budget
+(docs/route-budget.json). It ships as `/studio/modifier-vocab.json`, fetched beside
+the component catalog after hydration; until it arrives, completion falls back to
+the flat universal list. Overall usage is summed in the browser from the
+per-component counts the catalog already carries.
+
 ## What the proof found
 
 A content surface (heading, eyebrow, table) is called inert only after it was

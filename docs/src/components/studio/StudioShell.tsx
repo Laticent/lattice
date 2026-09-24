@@ -57,6 +57,7 @@ import { activeCorners, CORNERS } from './corners-catalog';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import type { EditorHandle } from './Editor';
+import type { CompletionVocab } from './editor-complete';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import type { FabricateSeed } from './Fabricate';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
@@ -312,6 +313,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// must not be permanent for the tab. `componentNames` keeps LINT honest throughout,
 	// but it covers only lint.
 	const [catalogAttempt, setCatalogAttempt] = React.useState(0);
+	// The `_class:` completion's modifier registry (src/pages/studio/modifier-vocab.json.ts),
+	// fetched once the catalog has arrived instead of inlined into the page — inlined, it
+	// cost this route 14.7KB of HTML on every launch. Until it arrives (or if it never
+	// does) the editor completes from the flat universal list, so nothing waits on it.
+	const [completionVocab, setCompletionVocab] = React.useState<CompletionVocab | null>(null);
+	const loadCompletionVocab = React.useCallback((url: string) => {
+		fetch(url.replace(/component-catalog\.json$/, 'modifier-vocab.json'))
+			.then((r) => (r.ok ? r.json() : null))
+			.then((v) => {
+				if (v && Array.isArray(v.modifierGroups) && v.modifierGroups.length) setCompletionVocab(v as CompletionVocab);
+			})
+			.catch(() => {});
+	}, []);
 	React.useEffect(() => {
 		if (components.length || !catalogUrl || catalogAttempt > 3) return;
 		let alive = true;
@@ -326,15 +340,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			.then((r) => (r.ok ? r.json() : null))
 			.then((rows) => {
 				if (!alive) return;
-				if (Array.isArray(rows) && rows.length) setComponents(rows as ComponentEntry[]);
-				else retry();
+				if (Array.isArray(rows) && rows.length) {
+					setComponents(rows as ComponentEntry[]);
+					loadCompletionVocab(catalogUrl);
+				} else retry();
 			})
 			.catch(retry);
 		return () => {
 			alive = false;
 			if (timer) window.clearTimeout(timer);
 		};
-	}, [components.length, catalogUrl, catalogAttempt]);
+	}, [components.length, catalogUrl, catalogAttempt, loadCompletionVocab]);
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());
@@ -4349,7 +4365,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>

@@ -253,7 +253,11 @@ export function makeStudioCompletion(
 		Object.entries(opts.registers || {}).map(([key, values]) => [key, values.map((v) => ({ label: v, type: 'constant', detail: key }))]),
 	);
 	const classVocab: CompletionVocab | string[] = opts.vocab?.modifierGroups?.length ? opts.vocab : [...new Set(opts.modifiers || [])].sort();
-	const classExtra = { finishClasses };
+	// How often each modifier is used after ANY component: summed from the catalog's
+	// per-component counts, so the page need not ship a second copy of the numbers.
+	const usage: Record<string, number> = { ...(opts.vocab?.modifierUsage || {}) };
+	if (!opts.vocab?.modifierUsage) for (const c of components) for (const [t, n] of Object.entries(c.modifierUsage || {})) usage[t] = (usage[t] || 0) + n;
+	const classExtra = { finishClasses, usage };
 
 	return function studioComplete(context: CompletionContext): CompletionResult | null {
 		const line = context.state.doc.lineAt(context.pos);
