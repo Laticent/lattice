@@ -90,7 +90,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	read: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
 	fluid: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
 	player: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
-	style: { group: 'raw', default: 'none', values: 'CSS, as a YAML block (style: |)', scope: 'command-line export; not confirmed in the Studio preview' },
+	style: { group: 'raw', default: 'none', values: 'CSS, as a YAML block (style: |)', scope: 'command-line render only; the Studio preview and its exports ignore it' },
 	color: { group: 'raw', default: 'the theme’s', slide: '<!-- _color: … -->', values: 'a CSS color, quoted: "#1a1a1a"' },
 	backgroundColor: { group: 'raw', default: 'the theme’s', slide: '<!-- _backgroundColor: … -->', values: 'a CSS color, quoted' },
 	backgroundImage: { group: 'raw', default: 'none', slide: '<!-- _backgroundImage: … -->', values: 'a CSS value, e.g. url(./bg.png)' },

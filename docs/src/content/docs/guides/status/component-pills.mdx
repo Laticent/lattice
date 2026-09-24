@@ -146,8 +146,9 @@ of the first and last term. A list running from *Consent* to *Processor* reads
 
 A `list-tabular` row has two limits:
 
-- The **`spec`** variant finds its two code spans by position, and a brace pill
-  in the *key* position breaks that. A pill in the trailing position works.
+- The **`spec`** variant finds its two code spans by position. A pill in the
+  chip position works. A pill in the *key* position swaps the two: the plain
+  chip lands in the key column and the pill moves to the end of the row.
 - **Two trailing items on one row overlap**: `` 1. Name `META` `{PILL}` ``. Two
   plain code spans do the same, so it is a grid limit, not a pill limit. Put one
   value in the trailing slot.
