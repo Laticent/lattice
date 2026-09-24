@@ -17,7 +17,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the analysis. |
-| `axes` | `p > code` | no | Optional axis-label eyebrow (inline-code paragraph). |
+| `axes` | `p > code` | no | Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`. |
 | `items` | `ul > li` | yes | One li per item. Format: `Label — x, y[, size]`. |
 | `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the x,y are inline pills, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
 
@@ -39,7 +39,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 ### Data shape
 
 - An item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — EXCEPT `trail`, which needs TWO chips (`` `5, 60` `` `` `3, 78` ``, from-position then to-position); splitting a non-`trail` item's coordinates into two chips silently zeroes the second axis instead of erroring.
-- The eyebrow isn't just a label — it SETS the axis domain when present (`Effort 0–10 → Reach 0–100` fixes the scale instead of deriving it from the data), and `threshold` reads its own `· targets X, Y` suffix on the same eyebrow line to place the cutoff lines; omit either and the chart falls back to a data-derived scale / a midpoint threshold.
+- The axis list is not just a label — a member's domain SETS the scale (`{Effort, 0..10}` fixes it instead of deriving it from the data), and its optional third part is that axis's threshold, which `threshold` draws as a cutoff line (`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`); omit either and the chart falls back to a data-derived scale / a midpoint threshold. The retired arrow eyebrow (`Effort 0–10 → Reach 0–100`) now renders as a plain eyebrow — `lint:deck` flags it and rewrites it.
 
 ## When to use
 
@@ -51,14 +51,14 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 - **Static categorical 2×2.** If the quadrants are fixed labels (Important × Urgent, Build × Buy × Partner × Defer) and items are placed by category not coordinate, use `matrix-2x2`. `quadrant` is data-driven; `matrix-2x2` is conceptual.
 - **Single axis matters.** If one axis is decorative and only the other carries meaning, you have a ranking, not a scatter. Use `progress` for percent-complete or `kpi` for ranked metrics with status.
-- **Coordinates without an audience-shared scale.** If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either label the axis units in the eyebrow — the `Effort 0–10` / `Reach 0–100` line above every slide here — or normalize to a familiar scale before authoring.
+- **Coordinates without an audience-shared scale.** If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either give each axis its domain in the axis list — the `[{Effort, 0..10}, {Reach, 0..100}]` line above every slide here — or normalize to a familiar scale before authoring.
 
 ## Authoring
 
 ```markdown
 <!-- _class: quadrant -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Where to put the next dollar, having spent the last one on a workshop.
 
@@ -104,7 +104,7 @@ A third value sizes each point.
 ```markdown
 <!-- _class: quadrant bubble -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## bubble sizes each point by a third value.
 
@@ -127,7 +127,7 @@ Arrows show where points moved from.
 ```markdown
 <!-- _class: quadrant trail -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## trail shows where each point moved from.
 
@@ -147,7 +147,7 @@ Points color by group.
 ```markdown
 <!-- _class: quadrant cohort -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## cohort colors the points by group.
 
@@ -172,7 +172,7 @@ The lines that matter, drawn.
 ```markdown
 <!-- _class: quadrant threshold -->
 
-`Effort 0–10 → Reach 0–100 · targets 5, 50`
+`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`
 
 ## threshold draws the lines that matter.
 
@@ -194,7 +194,7 @@ All four quadrants named.
 ```markdown
 <!-- _class: quadrant magic -->
 
-`Completeness of vision 0–100 → Ability to execute 0–100`
+`[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`
 
 ## magic names all four quadrants.
 
@@ -216,7 +216,7 @@ Just the points.
 ```markdown
 <!-- _class: quadrant minimal -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## minimal strips the chart to its points.
 

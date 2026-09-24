@@ -357,14 +357,14 @@ test('narrateQuadrant: returns null for a non-quadrant slide', () => {
   assert.equal(narrateQuadrant('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `1, 2`'), null);
 });
 
-// Same correction as radar: the per-axis `if (!xRange)` / `if (!yRange)` guards already skip
-// an axis sentence the eyebrow stated, so the extra whole-narrator bail only cost the reader
-// every group and coordinate on the slide.
-test('narrateQuadrant: skips only the axis SENTENCES when the eyebrow ranges both axes', () => {
+// The axis list is DATA: spoken as one sentence per axis, never read out with its
+// brackets and `0..10`. Before the bracketed grammar the eyebrow was read verbatim
+// ("Effort 0–10 → Reach 0–100."), arrow and all.
+test('narrateQuadrant: speaks the axis list as a sentence per axis, never the brackets', () => {
   const md = [
     '<!-- _class: quadrant -->',
     '',
-    '`Effort 0–10 → Reach 0–100`',
+    '`[{Effort, 0..10}, {Reach, 0..100}]`',
     '',
     '## Where to put the next dollar.',
     '',
@@ -374,9 +374,18 @@ test('narrateQuadrant: skips only the axis SENTENCES when the eyebrow ranges bot
     '  - Weekly signal brief `8, 80`',
   ].join('\n');
   const out = narrateQuadrant(md);
-  assert.ok(!out.includes('axis runs'), 'the eyebrow already ranged both axes');
+  assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'), out);
+  assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred.'), out);
+  assert.ok(!/[[\]{}]|\.\./.test(out), 'no list syntax reaches the voice');
   assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy.'));
   assert.ok(out.includes('Quick Wins: Weekly signal brief at eight, eighty.'));
+});
+
+test('narrateQuadrant: a threshold is spoken with the axis it belongs to', () => {
+  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+  const out = narrateQuadrant(md);
+  assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten, with a threshold at five.'), out);
+  assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred, with a threshold at fifty.'), out);
 });
 
 test('narrateQuadrant: narrates both axis scales and every item when no eyebrow is authored', () => {
@@ -388,11 +397,11 @@ test('narrateQuadrant: narrates both axis scales and every item when no eyebrow 
   assert.ok(out.includes('Quick Wins: Weekly signal brief at eight, eighty.'));
 });
 
-test('narrateQuadrant: narrates only the axis the eyebrow leaves unranged', () => {
-  const md = ['<!-- _class: quadrant -->', '', '`Effort 0–10`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+test('narrateQuadrant: an axis with no authored domain speaks the data-derived one', () => {
+  const md = ['<!-- _class: quadrant -->', '', '`[{Effort, 0..10}, Reach]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
   const out = narrateQuadrant(md);
-  assert.ok(!out.includes('horizontal axis'));
-  assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
+  assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'));
+  assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred.'));
 });
 
 test('narrateQuadrant: correctly parses the `trail` variant two-pill item instead of garbling the label', () => {
@@ -462,11 +471,11 @@ test('narrateQuadrant: speaks an intro paragraph between the heading and the gro
   assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy.'));
 });
 
-test('narrateQuadrant: does not silently strip an unparseable eyebrow "targets" suffix', () => {
+test('narrateQuadrant: an unreadable threshold is not spoken, and the domain still is', () => {
   const md = [
     '<!-- _class: quadrant -->',
     '',
-    '`Effort 0–10 → Reach 0–100 · targets tbd`',
+    '`[{Effort, 0..10, tbd}, Reach]`',
     '',
     '## Where to invest.',
     '',
@@ -476,8 +485,9 @@ test('narrateQuadrant: does not silently strip an unparseable eyebrow "targets" 
     '  - Weekly signal brief `8, 30`',
   ].join('\n');
   const out = narrateQuadrant(md);
-  assert.ok(out.includes('The vertical axis runs zero to fifty.'));
-  assert.ok(!out.includes('one hundred'));
+  assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'));
+  assert.ok(out.includes('The vertical axis, Reach, runs zero to fifty.'));
+  assert.ok(!out.includes('threshold'));
 });
 
 test('narrateQuadrant: tolerates ordinary indentation variance between sibling item lines', () => {
@@ -497,8 +507,8 @@ test('narrateQuadrant: tolerates ordinary indentation variance between sibling i
 });
 
 test('narrateQuadrant: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
-  const md = ['<!-- _class: quadrant -->', '', '`Effort 0–10`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
-  assert.equal(narrateQuadrant(md), 'Effort 0–10. X. Each item sits at its two scores, so which quadrant it lands in is the read. The vertical axis runs zero to one hundred. Group: Item at five, eighty-five.');
+  const md = ['<!-- _class: quadrant -->', '', '`Portfolio review`', '', '`[Effort, Reach]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+  assert.equal(narrateQuadrant(md), 'Portfolio review. X. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis, Effort, runs zero to five. The vertical axis, Reach, runs zero to one hundred. Group: Item at five, eighty-five.');
 });
 
 test('narrateQuadrant: mirrors parseCoordPill leading-digit quirk (`.5` does not count as a coordinate)', () => {

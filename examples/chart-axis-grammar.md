@@ -11,7 +11,7 @@ acronyms:
 
 # One grammar for an axis. Position says what it means.
 
-`Chart axes · matrix-grid · scatter`
+`Chart axes · matrix-grid · scatter · quadrant`
 
 Four components named their axes four different ways — by counting code spans,
 by an arrow glyph, by a keyword prefix. They now share one bracketed list, and
@@ -104,20 +104,27 @@ Unquoted, every comma splits. Quoted, a comma is part of the name.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "An ordinary eyebrow is not a bracketed list, so it is left alone" -->
+<!-- _class: quadrant threshold -->
+<!-- _footer: "quadrant · name, domain and threshold, one member per axis" -->
 
-`Capability review · FY26`
+`Portfolio review · FY26`
 
-## A paragraph that is not a list still passes through.
+`[{Effort, 0..10, 6}, {Reach, 0..100, 60}]`
 
-The bracket is what makes a span a construct; position only decides which one.
-An eyebrow above the grid stays an eyebrow.
+## Each threshold sits in the axis it cuts.
 
-| Verb       | Self       | Team       |
-| ---------- | :--------: | :--------: |
-| Create     | [ ]        | [x] Staff  |
-| Apply      | [x] Senior | [-]        |
+The eyebrow above is not a list, so it stays an eyebrow; the list below it
+sets both domains and draws both cutoff lines.
+
+- Strategic Bets
+  - Scoring model v2 `3, 70`
+  - Per-team calibration `5, 85`
+- Quick Wins
+  - Weekly signal brief `8, 80`
+- Defer
+  - Vendor scoping `2, 30`
+- Time Sinks
+  - Custom audit log UI `7, 18`
 
 ---
 
@@ -130,7 +137,8 @@ An eyebrow above the grid stays an eyebrow.
   - Counted code spans — two meant an axis, one meant an eyebrow. A label set
     was forbidden from being two spans as a result.
 - quadrant
-  - An arrow glyph, needing a carve-out in the typed-glyph gate.
+  - An arrow glyph, needing a carve-out in the typed-glyph gate, and a
+    detached `targets` suffix read by counting positions. The carve-out is gone.
 - gantt
   - Keyword-tagged pills, and already the closest to right — it ships the `..`
     range this grammar adopts.

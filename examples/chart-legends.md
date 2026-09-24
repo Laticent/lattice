@@ -78,7 +78,7 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 
 <!-- _class: quadrant cohort -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Where to put the next dollar — clustered by theme.
 

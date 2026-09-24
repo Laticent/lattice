@@ -24,7 +24,7 @@ summary: >
 
 # One grammar for a chart axis, and position decides what a span means
 
-**Date:** 2026-09-22 · **Status:** in progress — kernel and two components landed
+**Date:** 2026-09-22 · **Status:** in progress — kernel and three components landed (quadrant 2026-09-24)
 **Refs:** #2258 (the label-set epic this is the sibling of), #2272 (label sets
 rolled out to four components)
 
@@ -146,10 +146,10 @@ change to that gate rather than a rider on an axis feature. A test pins that at
 shipped strings, which makes the convergence a demonstrated path rather than a
 claim. Until someone walks it, one grammar is served by two parsers.
 
-**The range and threshold parts are parsed and DISCARDED.** `matrix-grid` and
-`scatter` read `parts[0]` only, so `[{Effort, 0..10, 5}]` renders exactly as
-`[Effort]`. The grammar admits them so quadrant's domain and targets have
-somewhere to go; nothing honors them yet.
+**The range and threshold parts are honored by `quadrant` only.** `matrix-grid`
+and `scatter` read `parts[0]` only, so on those two `[{Effort, 0..10, 5}]`
+renders exactly as `[Effort]`. `quadrant` reads all three (see "Quadrant,
+migrated" below).
 
 Nothing backtracks, so the super-linear blowup that bit `label-set.js` (3000
 characters, 10.9s, reachable from the browser linter under HARD RULE #22) is not
@@ -220,3 +220,46 @@ moved beyond the band, so the committed baseline still describes the engine.
 - **`[x]` as a one-member list.** `` `[x]` `` is a state mark to
   `inline-code-directives.js` and parses as a one-member list here. Dispatch
   order is what keeps them apart, and it needs an arm pinning it.
+
+## Quadrant, migrated (2026-09-24)
+
+`quadrant` now declares `axisSet` (`members: [x, y]`, `body: list`,
+`keyBelow: false` because it claims a trailing coda) and reads its axis through
+the shared lift. What it took, and what was decided along the way:
+
+- **One reading of a member's parts, shared.** `lib/core/axis-member.js`
+  decides what `{Effort, 0..10, 5}` means: the first part is the name, a part
+  with `..` is the domain, a bare number is the threshold. The transform, the
+  narrator and `lint:deck` all call it, so they cannot disagree about which
+  parts were honored. **Domain and threshold are told apart by shape, not by
+  slot.** `parseBracketList` drops an empty part, so `{Effort, , 5}` cannot
+  hold the domain's place; a threshold without a domain is written
+  `{Effort, 5}`. The NAME stays positional: it is always the first part.
+- **The list is consumed.** The old eyebrow printed on the slide AND named the
+  axes, so every quadrant said its axes twice. This is the same call scatter
+  made. A plain eyebrow beside the list survives, which the demo deck shows.
+- **Loss-free, measured.** All 17 decks that authored the old eyebrow were
+  rendered on `main` and on this branch, and the `quadrant-figure` SVGs were
+  compared with render-sequence ids stripped: **53 of 54 are byte-identical**.
+  The one that differs is `examples/adaptive-sweep.md`, which used the ASCII
+  `->`. That spelling never worked, so on `main` its x-axis read
+  "Effort 0-10 -&gt; Reach" on a 0–100 domain; it now reads "Effort" on 0–10.
+- **One threshold is enough to turn the lines on.** The old `targets` blob
+  needed both numbers. Now either axis's threshold turns them on, and the other
+  axis takes its midpoint, which is the "derive numbers" rule from Decision 3.
+- **The migration is the linter's autofix.** `quadrant-retired-axis` rewrites
+  the old eyebrow, so the migrator was that fix applied to every tracked `.md`.
+  It is class-aware by construction: it fires only on a code-only line above
+  the list on a `quadrant` slide, so gantt's `2026 Q1 .. 2026 Q4` lines
+  (same shape, not positional) were never candidates. It is an ERROR rather
+  than coaching, like gantt's retired delimiter, because the unmigrated deck
+  still renders, only with its points moved.
+- **The HARD RULE #29 carve-out is deleted.** `isQuadrantAxisEyebrow` and both
+  callers are gone, and `checkTypedGlyphs` passes at budget 0 without them.
+- **A lint fix the migration forced.** `parseInlineSet` accepts
+  `[{Effort, 0..10}, {Reach, 0..100}]` as a label set, so `label-set-above-body`
+  and `label-set-unbound` fired on the documented axis form: 22 warnings on
+  the quadrant gallery. The same happened, unnoticed, on any braced
+  scatter or matrix-grid axis. Above the body a list is a misplaced KEY only
+  when it names one of the component's key members; otherwise it is the axis
+  and the rule says nothing.

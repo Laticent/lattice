@@ -63,7 +63,7 @@ Hover a region on screen; read the note in the PDF.
 
 <!-- _class: quadrant -->
 
-`Effort 0–10 → Reach 0–100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## Where to put the next dollar.
 

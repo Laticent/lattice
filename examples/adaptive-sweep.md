@@ -320,7 +320,7 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 <!-- _class: quadrant -->
 
-`Effort 0-10 -> Reach 0-100`
+`[{Effort, 0..10}, {Reach, 0..100}]`
 
 ## A height-bound chart letterboxes instead of shrinking its labels.
 

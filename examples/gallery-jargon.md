@@ -895,7 +895,7 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 <!-- _class: quadrant -->
 <!-- _footer: "Two-axis scatter · quadrant" -->
 
-`Confidence 0–10 → Impact 0–10`
+`[{Confidence, 0..10}, {Impact, 0..10}]`
 
 ## Where the 18 logged decisions landed
 

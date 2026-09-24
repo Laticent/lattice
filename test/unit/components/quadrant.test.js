@@ -7,8 +7,8 @@
  *
  *   1. Source parsing: parseItemPills, parseCoordPill, parseItem,
  *      parseGroup, parseQuadrant.
- *   2. Eyebrow grammar: parseEyebrow (axes + scale + targets).
- *   3. Scale resolution: niceCeil, resolveScale, matchEyebrowText.
+ *   2. Axis grammar: parseAxisList (names + domains + thresholds).
+ *   3. Scale resolution: niceCeil, resolveScale.
  *   4. Geometry: plotPoint, bubbleRadius, convexHull, centroid.
  *   5. Variant emission: buildQuadrant — one default + five modifiers.
  *   6. Chart-family integration: transformChartSection wires up correctly.
@@ -27,7 +27,7 @@ const {
   parseItem,
   parseItemPills,
   parseCoordPill,
-  parseEyebrow,
+  parseAxisList,
   resolveScale,
   niceCeil,
   pickVariant,
@@ -36,7 +36,6 @@ const {
   convexHull,
   centroid,
   bubbleRadius,
-  matchEyebrowText,
 } = require('../../../lib/components/chart/quadrant/quadrant.transform');
 
 // ── Painted-box reconstruction ─────────────────────────────────────────
@@ -259,61 +258,101 @@ test('niceCeil: rounds up to clean intervals', () => {
   assert.equal(niceCeil(0), 1);
 });
 
-// ── parseEyebrow ───────────────────────────────────────────────────────
+// ── parseAxisList — the bracketed axis list ─────────────────────────────
 
-test('parseEyebrow: names + per-axis ranges', () => {
-  const eb = parseEyebrow('Effort 0–10 → Reach 0–100');
+test('parseAxisList: names + per-axis domains', () => {
+  const eb = parseAxisList('[{Effort, 0..10}, {Reach, 0..100}]');
   assert.equal(eb.xName, 'Effort');
   assert.equal(eb.yName, 'Reach');
   assert.deepEqual(eb.xRange, { min: 0, max: 10 });
   assert.deepEqual(eb.yRange, { min: 0, max: 100 });
-  assert.equal(eb.targets, null);
+  assert.equal(eb.xThreshold, null);
+  assert.equal(eb.yThreshold, null);
 });
 
-test('parseEyebrow: names only (no scale)', () => {
-  const eb = parseEyebrow('Effort → Reach');
+test('parseAxisList: names only (no domain)', () => {
+  const eb = parseAxisList('[Effort, Reach]');
   assert.equal(eb.xName, 'Effort');
   assert.equal(eb.yName, 'Reach');
   assert.equal(eb.xRange, null);
   assert.equal(eb.yRange, null);
 });
 
-test('parseEyebrow: trailing · targets parses to {x,y}', () => {
-  const eb = parseEyebrow('Effort 0–10 → Reach 0–100 · targets 6, 75');
-  assert.deepEqual(eb.targets, { x: 6, y: 75 });
+test('parseAxisList: a threshold sits in the axis it constrains', () => {
+  const eb = parseAxisList('[{Effort, 0..10, 6}, {Reach, 0..100, 75}]');
+  assert.equal(eb.xThreshold, 6);
+  assert.equal(eb.yThreshold, 75);
   assert.deepEqual(eb.xRange, { min: 0, max: 10 });
 });
 
-test('parseEyebrow: empty string yields null fields', () => {
-  const eb = parseEyebrow('');
+test('parseAxisList: a threshold with no domain is read by its shape, not its slot', () => {
+  // parseBracketList drops an empty part, so `{Effort, , 5}` cannot hold the
+  // domain's place; a bare number after the name is the threshold wherever it sits.
+  const eb = parseAxisList('[{Effort, 5}, Reach]');
+  assert.equal(eb.xRange, null);
+  assert.equal(eb.xThreshold, 5);
+});
+
+test('parseAxisList: a negative domain reads with `..`, where an en-dash was ambiguous', () => {
+  assert.deepEqual(parseAxisList('[{Margin, -5..10}, Growth]').xRange, { min: -5, max: 10 });
+});
+
+test('parseAxisList: quotes protect a comma inside a name', () => {
+  const eb = parseAxisList('[{"Cost, excluding tax", 0..50}, Value]');
+  assert.equal(eb.xName, 'Cost, excluding tax');
+  assert.deepEqual(eb.xRange, { min: 0, max: 50 });
+  assert.equal(eb.yName, 'Value');
+});
+
+test('parseAxisList: an inverted domain or a stray part is ignored, never guessed', () => {
+  const eb = parseAxisList('[{Effort, 10..0, soon}, Reach]');
+  assert.equal(eb.xRange, null);
+  assert.equal(eb.xThreshold, null);
+});
+
+test('parseAxisList: the retired arrow eyebrow is NOT an axis list', () => {
+  const eb = parseAxisList('Effort 0–10 → Reach 0–100');
+  assert.equal(eb.xName, '');
+  assert.equal(eb.xRange, null);
+});
+
+test('parseAxisList: empty string yields blank fields', () => {
+  const eb = parseAxisList('');
   assert.equal(eb.xRange, null);
   assert.equal(eb.yRange, null);
-  assert.equal(eb.targets, null);
+  assert.equal(eb.xThreshold, null);
 });
 
 // ── resolveScale ───────────────────────────────────────────────────────
 
-test('resolveScale: eyebrow ranges win over data', () => {
+test('resolveScale: authored domains win over data', () => {
   const model = parseQuadrant(innerOf(UL_FOUR));
-  const s = resolveScale(model, 'Effort 0–10 → Reach 0–100');
+  const s = resolveScale(model, '[{Effort, 0..10}, {Reach, 0..100}]');
   assert.equal(s.x.min, 0); assert.equal(s.x.max, 10);
   assert.equal(s.y.min, 0); assert.equal(s.y.max, 100);
   assert.equal(s.x.label, 'Effort');
   assert.equal(s.y.label, 'Reach');
 });
 
-test('resolveScale: auto-fits when eyebrow has no range', () => {
+test('resolveScale: auto-fits when the list has no domain', () => {
   const model = parseQuadrant(innerOf(UL_FOUR));
-  const s = resolveScale(model, 'Effort → Reach');
+  const s = resolveScale(model, '[Effort, Reach]');
   // data max x=8 → niceCeil → 10; data max y=85 → niceCeil → 100
   assert.equal(s.x.max, 10);
   assert.equal(s.y.max, 100);
 });
 
-test('resolveScale: targets reach the scale object', () => {
+test('resolveScale: thresholds reach the scale object', () => {
   const model = parseQuadrant(innerOf(UL_FOUR));
-  const s = resolveScale(model, 'Effort 0–10 → Reach 0–100 · targets 6, 75');
+  const s = resolveScale(model, '[{Effort, 0..10, 6}, {Reach, 0..100, 75}]');
   assert.deepEqual(s.targets, { x: 6, y: 75 });
+});
+
+test('resolveScale: one threshold turns targets on, the other axis takes its midpoint', () => {
+  const model = parseQuadrant(innerOf(UL_FOUR));
+  const s = resolveScale(model, '[{Effort, 0..10, 6}, {Reach, 0..100}]');
+  assert.deepEqual(s.targets, { x: 6, y: 50 });
+  assert.equal(resolveScale(model, '[{Effort, 0..10}, Reach]').targets, null);
 });
 
 // ── Geometry ───────────────────────────────────────────────────────────
@@ -507,13 +546,6 @@ test('buildQuadrant: magic — author-supplied group names override defaults', (
   assert.doesNotMatch(out, /Challengers/);
 });
 
-// ── matchEyebrowText ───────────────────────────────────────────────────
-
-test('matchEyebrowText: pulls the first <p><code> text', () => {
-  assert.equal(matchEyebrowText('<p><code>Effort → Reach</code></p><h2>X</h2>'), 'Effort → Reach');
-  assert.equal(matchEyebrowText('<h2>X</h2><ul></ul>'), '');
-});
-
 // ── chart-family dispatch (integration with lib/components/chart/_chart-family/chart-family.js) ───────
 // Quadrant is a chart-family member; section dispatch + chart-frame
 // wrapping are owned by lib/components/chart/_chart-family/chart-family.js. These pin the wiring.
@@ -539,14 +571,38 @@ describe('quadrant', () => {
     assert.match(html, /class="quadrant-bubble"/);
   });
 
-  test('chart-family: eyebrow scale + targets reach the figure', () => {
-    const inner = '<p><code>Effort 0–10 → Reach 0–100 · targets 6, 75</code></p>' +
+  test('chart-family: the axis list sets domain + thresholds and is consumed', () => {
+    const inner = '<p><code>[{Effort, 0..10, 6}, {Reach, 0..100, 75}]</code></p>' +
       '<h2>X</h2>' + UL_FOUR;
     const { html } = transformChartSection(inner, 'quadrant threshold');
     assert.match(html, /data-tx="6"/);
     assert.match(html, /data-ty="75"/);
-    // Eyebrow stays in the DOM as `.chart-eyebrow`.
+    // The list is painted on the axes, so it must not ALSO print as an eyebrow.
+    assert.doesNotMatch(html, /\[\{Effort/);
+    assert.doesNotMatch(html, /class="chart-eyebrow"/);
+  });
+
+  test('chart-family: a plain eyebrow beside the axis list survives', () => {
+    const inner = '<p><code>Portfolio review</code></p>' +
+      '<p><code>[Effort, Reach]</code></p><h2>X</h2>' + UL_FOUR;
+    const { html } = transformChartSection(inner, 'quadrant');
     assert.match(html, /class="chart-eyebrow"/);
+    assert.match(html, /Portfolio review/);
+    assert.doesNotMatch(html, /\[Effort, Reach\]/);
+  });
+
+  test('chart-family: a bracketed paragraph BELOW the chart is the coda, not eaten', () => {
+    const inner = '<p><code>[Effort, Reach]</code></p><h2>X</h2>' + UL_FOUR +
+      '<p><code>[Source: survey, n=40]</code></p>';
+    const { html } = transformChartSection(inner, 'quadrant');
+    assert.match(html, /Source: survey, n=40/);
+  });
+
+  test('chart-family: the retired arrow eyebrow stays an eyebrow and names nothing', () => {
+    const inner = '<p><code>Effort 0–10 → Reach 0–100</code></p><h2>X</h2>' + UL_FOUR;
+    const { html } = transformChartSection(inner, 'quadrant');
+    assert.match(html, /class="chart-eyebrow"/);
+    assert.doesNotMatch(html, /quadrant-axis-name--x[^>]*>(?:<[^>]+>)*Effort/);
   });
 });
 
@@ -646,7 +702,7 @@ describe('quadrant — per-item detail (interactive reveal substrate)', () => {
     '</ul>'
   );
   const build = (variant) =>
-    buildQuadrant(parseQuadrant(UL_DETAIL), variant, resolveScale(parseQuadrant(UL_DETAIL), 'Effort 0-10 → Reach 0-100'));
+    buildQuadrant(parseQuadrant(UL_DETAIL), variant, resolveScale(parseQuadrant(UL_DETAIL), '[{Effort, 0..10}, {Reach, 0..100}]'));
 
   test('a plain quadrant emits no detail payload and no note', () => {
     const html = buildQuadrant(parseQuadrant(UL_FOUR), 'default', resolveScale(parseQuadrant(UL_FOUR), ''));

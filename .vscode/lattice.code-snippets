@@ -775,7 +775,7 @@
     "body": [
       "<!-- _class: quadrant -->",
       "",
-      "`Effort 0–10 → Reach 0–100`",
+      "`[{Effort, 0..10}, {Reach, 0..100}]`",
       "",
       "## Where to put the next dollar, having spent the last one on a workshop.",
       "",
