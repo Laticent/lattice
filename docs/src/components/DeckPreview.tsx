@@ -64,6 +64,12 @@ export type DeckPreviewProps = {
 	/** The caret line's text. When the shown slide SPLITS (portrait/square), the preview shows the
 	 *  page of its run that holds this line, and a page indicator under it. Ignored otherwise. */
 	caretText?: string;
+	/** An explicit page of the shown slide's split run, from the host's navigation (a swipe, an
+	 *  arrow key, the ‹ › buttons). Wins over `caretText` while it is set. */
+	pageIndex?: number;
+	/** Reports the split run on show after each render: which page of how many, for which slide.
+	 *  `null` when the shown slide does not split. The host's navigation steps through it. */
+	onSplitPage?: (page: { slide: number; index: number; count: number } | null) => void;
 	/** Stable identity for the DECK, not its text. Without it a single-slide deck cannot be
 	 *  told from another single-slide deck, and a switch between two of them is stamped as an
 	 *  edit — see lib/core/swap-kind.mjs. */
@@ -179,6 +185,8 @@ export function DeckPreview({
 	slideCount,
 	slideMarkdown,
 	caretText,
+	pageIndex,
+	onSplitPage,
 	deckId,
 	focused,
 	mermaid,
@@ -222,6 +230,8 @@ export function DeckPreview({
 	const [splitPage, setSplitPage] = React.useState<{ index: number; count: number; label: string } | null>(null);
 	const caretRef = React.useRef(caretText);
 	caretRef.current = caretText;
+	const onSplitPageRef = React.useRef(onSplitPage);
+	onSplitPageRef.current = onSplitPage;
 	const splitCaret = splitPage ? caretText : undefined;
 	// One dot per page of the run, keyed by page position (the run is a fixed sequence, so position IS
 	// the page's identity here).
@@ -436,7 +446,7 @@ export function DeckPreview({
 		if (!host || !activeRef.current) return;
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
-		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current });
+		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex });
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
 		// when the live frame is actually made visible (== genuinely good). Keying it on the
@@ -448,7 +458,7 @@ export function DeckPreview({
 		return done;
 		// `splitCaret` is read through `caretRef`; it is listed so a caret move re-renders ONLY while
 		// the shown slide is split.
-	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, deckId, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
+	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, pageIndex, deckId, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
 	// active rising-edge effect can reach the current render WITHOUT listing it as a
@@ -604,7 +614,10 @@ export function DeckPreview({
 		// that refuses to stack two sections into a one-section frame would trade a silently
 		// missing slide for a permanently spinning one.
 		if (status) {
-			if (status.ok) setSplitPage(status.page ?? null);
+			if (status.ok) {
+				setSplitPage(status.page ?? null);
+				onSplitPageRef.current?.(status.page ? { slide: status.page.slide, index: status.page.index, count: status.page.count } : null);
+			}
 			const isFailure = status.ok === false && status.error !== 'renderer disposed';
 			setFailed(isFailure);
 			setFailedWhy(isFailure ? String(status.error ?? '') : '');

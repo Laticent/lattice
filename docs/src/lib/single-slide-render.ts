@@ -97,8 +97,8 @@ export type RenderStatus = {
 	 * write. Absent on a failed render. */
 	writePath?: 'patch' | 'restyle' | 'write';
 	/** Set when the shown slide SPLIT (portrait/square): which page of its run the frame holds
-	 *  (0-based `index` of `count`), and that page's number as the PDF prints it (`2.3`). */
-	page?: { index: number; count: number; label: string };
+	 *  (0-based `index` of `count`) of authored slide `slide`, and that page's number as the PDF prints it (`2.3`). */
+	page?: { index: number; count: number; label: string; slide: number };
 };
 
 export type SingleSlideOptions = {
@@ -1294,6 +1294,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			/** The caret line's text, for a slide that SPLITS: the preview shows the page of the run
 			 *  that holds it (split-page-pick.ts). Ignored for an unsplit slide. */
 			caretText?: string;
+			/** An explicit page of a split run (0-based; past the end means the last page), from the
+			 *  host's own navigation: a swipe, an arrow key, the ‹ › buttons. It wins over the caret
+			 *  while the host passes it. Ignored for an unsplit slide, and without `caretText`. */
+			pageIndex?: number;
 			/** Marks THE preview the author is looking at — the one the fidelity overlay may describe.
 			 *  Opt-IN, and it fails closed: see the report gate below. */
 			focused?: boolean;
@@ -1619,10 +1623,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// Loaded on the first split slide, not with the route: most decks are landscape and
 						// never split, and the Studio's eager bundle is budgeted (docs/route-budget.json).
 						// A failed fetch (offline, or a deploy that rotated the chunk) keeps the whole slide.
-						const pick = await import('./split-page-pick').then((m) => m.pickSplitPage).catch(() => null);
+						// An explicit page from the host's navigation needs no picker at all.
+						const asked = typeof opts.pageIndex === 'number' && Number.isFinite(opts.pageIndex) ? opts.pageIndex : typeof opts.pageIndex === 'number' ? pages.length - 1 : null;
+						const pick = asked === null ? await import('./split-page-pick').then((m) => m.pickSplitPage).catch(() => null) : null;
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-						const k = pick ? pick(pages, opts.caretText, current) : 0;
-						const narrowed = pick ? narrowToSlide(r.html, k, pages.length) : null;
+						const k = asked !== null ? Math.max(0, Math.min(asked, pages.length - 1)) : pick ? pick(pages, opts.caretText, current) : 0;
+						const narrowed = asked !== null || pick ? narrowToSlide(r.html, k, pages.length) : null;
 						if (narrowed !== null) {
 							out.html = narrowed;
 							splitPageByHost.set(host, { deck: opts.deckId ?? '', slide: opts.slideIndex, page: k });
@@ -1630,7 +1636,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							// slide cannot disagree — they would on a slide rendered alone (a `split: headings`
 							// deck's fallback), whose engine numbering starts at 1.
 							const printed = (pages[k].match(/\sdata-lattice-pagination="([^"]+)"/) || [])[1];
-							splitPage = { index: k, count: pages.length, label: printed ?? (pages[k].match(/data-lattice-slide="([^"]+)"/) || [])[1] ?? String(k + 1) };
+							splitPage = { slide: opts.slideIndex, index: k, count: pages.length, label: printed ?? (pages[k].match(/data-lattice-slide="([^"]+)"/) || [])[1] ?? String(k + 1) };
 						}
 					}
 				}

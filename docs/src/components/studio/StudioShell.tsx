@@ -391,6 +391,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The caret line's text, reported by whichever editor is mounted. The live preview shows the page
 	// of a SPLIT slide (portrait/square) that holds it — option A of the three the owner weighed.
 	const [caretText, setCaretText] = React.useState('');
+	// A page the shell's own NAVIGATION asked for (a swipe, an arrow key, the ‹ › buttons), keyed by
+	// the viewed slide it belongs to. It wins over the caret until the author moves the caret
+	// themselves. `navigatingRef` brackets a navigation: `revealSlide` moves the caret to the slide's
+	// first line synchronously, and that move is the navigation's own echo, not the author's.
+	const [pageRequest, setPageRequest] = React.useState<{ slide: number; page: number } | null>(null);
+	const navigatingRef = React.useRef(false);
+	const onCursorText = React.useCallback((text: string) => {
+		setCaretText(text);
+		if (!navigatingRef.current) setPageRequest(null);
+	}, []);
+	// The split run the live preview shows, as it last reported it: which page of how many, for
+	// which viewed slide. Navigation steps through it before it leaves the slide.
+	// The ref serves the mount-once key/gesture listeners; the state mirror serves the buttons'
+	// `disabled`, which must know a split last slide still has pages to go.
+	const shownSplitRef = React.useRef<{ slide: number; index: number; count: number } | null>(null);
+	// Pages are stepped only while the live preview is on screen: with it collapsed (or on a
+	// phone's Source tab) a step would be invisible, and "next" would spend the hidden pages
+	// before it moved the editor on.
+	const previewShownRef = React.useRef(false);
+	const [shownSplit, setShownSplit] = React.useState<{ slide: number; index: number; count: number } | null>(null);
+	// Reported after EVERY preview render (each keystroke), so the state only moves when the page
+	// did: a fresh object each time would re-render this whole shell per keystroke for nothing.
+	const onSplitPage = React.useCallback((p: { slide: number; index: number; count: number } | null) => {
+		shownSplitRef.current = p;
+		setShownSplit((prev) => (prev === p || (prev && p && prev.slide === p.slide && prev.index === p.index && prev.count === p.count) ? prev : p));
+	}, []);
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// Persona posture — the always-visible, reversible density stop that replaced the
 	// one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
@@ -3066,6 +3092,40 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	slideNoRef.current = slideNo;
 	const goToSlideRef = React.useRef(goToSlide);
 	goToSlideRef.current = goToSlide;
+	const viewCountRef = React.useRef(viewSlides.length);
+	viewCountRef.current = viewSlides.length;
+	// THE one step, for every input verb and the ‹ › buttons. A split slide shows one page of its
+	// run in the preview, so "next" means the next PAGE until the run ends, and only then the next
+	// slide; "prev" mirrors it and enters a split slide on its LAST page, the way paging back
+	// through the PDF does. On an unsplit slide this is exactly the old slide step.
+	function stepDeck(action: string, opts: { focus?: boolean; expand?: boolean } = {}) {
+		const cur = slideNoRef.current - 1; // 0-based viewed index
+		const shown = previewShownRef.current ? shownSplitRef.current : null;
+		if (shown && shown.slide === cur && (action === 'next' || action === 'prev')) {
+			const k = shown.index + (action === 'next' ? 1 : -1);
+			if (k >= 0 && k < shown.count) {
+				setPageRequest({ slide: cur, page: k });
+				return;
+			}
+		}
+		const last = viewCountRef.current - 1;
+		const to = action === 'next' ? cur + 1 : action === 'prev' ? cur - 1 : action === 'first' ? 0 : action === 'last' ? last : null;
+		if (to === null || to < 0 || to > last) return; // an unknown action, or the deck's edge
+		if (to === cur) {
+			// Home/End on the slide already shown: its first or last page, if it splits.
+			if (shown && shown.slide === cur) setPageRequest({ slide: cur, page: action === 'last' ? Number.POSITIVE_INFINITY : 0 });
+			return;
+		}
+		navigatingRef.current = true;
+		try {
+			goToSlideRef.current(to, opts);
+		} finally {
+			navigatingRef.current = false;
+		}
+		setPageRequest({ slide: to, page: action === 'prev' || action === 'last' ? Number.POSITIVE_INFINITY : 0 });
+	}
+	const stepDeckRef = React.useRef(stepDeck);
+	stepDeckRef.current = stepDeck;
 	const presentOpenRef = React.useRef(presentOpen);
 	presentOpenRef.current = presentOpen;
 	// The full-deck index of the slide currently in view (for handing off to Present).
@@ -3196,11 +3256,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `action === 'next' ? … : …` two-way collapse silently turned Home into "prev"
 	// and End into "prev" — the keymap carries four actions, not two, so a binary
 	// switch is wrong the moment `first`/`last` reach it.
+	// An action this surface does not implement does nothing, quietly (`stepDeck` returns).
 	const nav = React.useCallback((action: string) => {
-		const cur = slideNoRef.current; // 1-based; goToSlide takes a 0-based index
-		const to = action === 'next' ? cur : action === 'prev' ? cur - 2 : action === 'first' ? 0 : action === 'last' ? Number.MAX_SAFE_INTEGER : null;
-		if (to === null) return; // an action this surface does not implement — do nothing, quietly
-		goToSlideRef.current(to, { focus: false, expand: false });
+		stepDeckRef.current(action, { focus: false, expand: false });
 	}, []);
 	// The latest-ref idiom this file already uses for `goToSlideRef`/`slideNoRef`:
 	// the holder's `[]`-stable callback ref reaches navigation through here rather
@@ -3331,6 +3389,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view === 'compose' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	previewShownRef.current = editorSlotVisible;
 
 	// Structural slide ops (full lens only). Each rewrites the source, moves the
 	// active slide to follow the edit, and reveals it in the editor next frame
@@ -4432,11 +4491,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={setSourceFromEditor} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} onCursorText={setCaretText} />
+				<ComposeView ref={composeRef} source={source} onChange={setSourceFromEditor} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={setCaretText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -4499,9 +4558,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// a render. See `paintZoomBadge`.
 					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} className="shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label={`Reset zoom to fit — currently ${Math.round(previewZoomScale.current * 100)}%`}>{Math.round(previewZoomScale.current * 100)}%</button></Tip>
 				)}
-				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
+				<button type="button" onClick={() => stepDeck('prev')} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
 				<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]"><span data-shell-unknowable="slide-counter" className={SLIDE_COUNTER_SLOT}>Slide {slideNo} / {viewSlides.length}</span></span>
-				<button type="button" onClick={() => goToSlide(slideNo)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
+				<button type="button" onClick={() => stepDeck('next')} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
 				{splitUsable && (
 					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
@@ -4583,7 +4642,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} deckId={previewDeckId} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} pageIndex={pageRequest?.slide === viewIndex ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
 			</div>
@@ -5482,8 +5541,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<LandscapeWhisper current={slideNo} total={viewSlides.length} revealKey={whisperReveal} />
 						{/* Screen-reader nav + live position. Cinema is swipe-only for sighted users, but VoiceOver/TalkBack intercept one-finger swipes, so these give AT users an intro, real controls, and an announced position (the visible counter is aria-hidden). */}
 						<p className="sr-only">Slide deck. Swipe, or use the previous and next buttons below, to move through slides. Rotate the phone upright to edit.</p>
-						<button type="button" className="sr-only" onClick={() => goToSlide(slideNo - 2)} disabled={slideNo <= 1}>Previous slide</button>
-						<button type="button" className="sr-only" onClick={() => goToSlide(slideNo)} disabled={slideNo >= viewSlides.length}>Next slide</button>
+						<button type="button" className="sr-only" onClick={() => stepDeck('prev')} disabled={slideNo <= 1 && !(editorSlotVisible && shownSplit?.slide === viewIndex && shownSplit.index > 0)}>Previous slide</button>
+						<button type="button" className="sr-only" onClick={() => stepDeck('next')} disabled={slideNo >= viewSlides.length && !(editorSlotVisible && shownSplit?.slide === viewIndex && shownSplit.index < shownSplit.count - 1)}>Next slide</button>
 						<div className="sr-only" aria-live="polite">Slide {slideNo} of {viewSlides.length}</div>
 				</main>
 			) : mobile ? (

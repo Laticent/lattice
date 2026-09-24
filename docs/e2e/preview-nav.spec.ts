@@ -1,4 +1,4 @@
-import { currentSlide, expect, gotoStudio, LIVE_PREVIEW, railButtons, slideCount, test, typeInEditor } from './studio-fixture';
+import { currentSlide, expect, gotoStudio, LIVE_PREVIEW, railButtons, setEditorContent, slideCount, test, typeInEditor } from './studio-fixture';
 
 // Preview navigation + reader lenses. The outer "Slide N / M" label and the rail
 // count are the reliable outer-DOM oracles; the painted slide *changing* is
@@ -132,6 +132,84 @@ test('@parity a touch swipe turns the deck', async ({ page }) => {
 	if (!box) return;
 	await swipeLeft(page, box);
 	await expect(page.getByText(`Slide 2 / ${n}`, { exact: true })).toBeVisible();
+});
+
+// ── A split slide is paged, not skipped ───────────────────────────────────────
+// At portrait a slide with several rows splits into a run (cover, one row per page), and the
+// preview frame shows ONE page of it (#2341). Every verb that turns the deck must walk that
+// run page by page before it leaves the slide: a swipe that jumped to the next slide left the
+// run's other pages unreachable without the editor. `prev` enters a split slide on its LAST
+// page, the way paging back through the PDF does.
+const SPLIT_DECK = `---
+theme: indaco
+size: portrait
+---
+
+<!-- _class: title -->
+
+# A deck
+
+---
+
+<!-- _class: inventory -->
+
+## Four levers moved the quarter.
+
+- **Fulfillment.** Same-day share rose to 71 percent.
+- **Returns.** Processing time fell from six days to two.
+- **Suppliers.** Two regional partners replaced one national.
+- **Staffing.** Weekend coverage now matches weekday demand.
+
+---
+
+<!-- _class: title -->
+
+# The end
+`;
+
+test('@parity every verb pages through a split slide before it leaves it', async ({ page }) => {
+	// A phone shows one pane at a time: seed the deck in Source, then read it in Preview.
+	const phone = (page.viewportSize()?.width ?? 1440) < 600;
+	const paneTab = (name: string) => page.getByRole('button', { name, exact: true }).filter({ visible: true }).first();
+	if (phone) await paneTab('Markdown source').click();
+	await setEditorContent(page, SPLIT_DECK);
+	if (phone) await paneTab('Preview').click();
+	else await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	const pill = page.locator('[data-split-page]');
+	const at = (slide: number) => expect(page.getByText(`Slide ${slide} / 3`, { exact: true })).toBeVisible();
+
+	await page.keyboard.press('Home');
+	await at(1);
+	await page.keyboard.press('ArrowRight');
+	await at(2);
+	await expect(pill).toContainText('2 · 1 of 5');
+	await page.keyboard.press('ArrowRight');
+	await expect(pill).toContainText('2.2 · 2 of 5');
+	await at(2);
+
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.wheel(0, 260);
+	await expect(pill).toContainText('2.3 · 3 of 5');
+	if (test.info().project.use.hasTouch) await swipeLeft(page, box);
+	else await page.keyboard.press('PageDown');
+	await expect(pill).toContainText('2.4 · 4 of 5');
+	await page.getByRole('button', { name: 'Next slide' }).first().click();
+	await expect(pill).toContainText('2.5 · 5 of 5');
+	await at(2);
+
+	// Past the run's last page: the next slide, which does not split.
+	await page.keyboard.press('ArrowRight');
+	await at(3);
+	await expect(pill).toHaveCount(0);
+	// Back again: onto the run's LAST page, not its cover.
+	await page.keyboard.press('ArrowLeft');
+	await at(2);
+	await expect(pill).toContainText('2.5 · 5 of 5');
+	await page.keyboard.press('ArrowLeft');
+	await expect(pill).toContainText('2.4 · 4 of 5');
 });
 
 // ── Zoom, and the gestures it had to take back (#pinch-zoom) ─────────────────

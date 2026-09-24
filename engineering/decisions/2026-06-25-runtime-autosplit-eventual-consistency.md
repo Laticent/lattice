@@ -522,6 +522,14 @@ What shipped (PR on branch `claude/runtime-structural-split`):
   masthead) → the cover; text on several body pages (a claimed insight) → the last of them;
   otherwise the page that carries it; no match → keep the current page. The frame keeps the #1551
   one-section contract, and the rail, comments and slide ops stay keyed to authored slides.
+- Navigation PAGES through a split slide before it leaves it. Keyboard, wheel, touch and the ‹ ›
+  buttons all go through one step (`stepDeck` in `StudioShell.tsx`), which the input-verb parity
+  rule (`2026-08-10-input-verb-parity.md`) requires: next is the next page until the run ends, then
+  the next slide; prev enters a split slide on its last page, as paging back through the PDF does.
+  A page asked for this way wins over the caret until the author moves the caret; the caret move
+  `revealSlide` makes during a step is that step's own echo and does not count. With the preview
+  hidden (collapsed, or a phone's Source tab) there are no pages to step, so the verbs move by
+  slide. The owner found the gap on a phone: a swipe skipped the run's other pages.
 - The live runtime's frame lift now skips a section that already carries its footer cell (the split
   envelope's composed cover and closing pages), in both the DOM mirror and the string kernel. Without
   it every split cover in a live preview showed a stray page number.
