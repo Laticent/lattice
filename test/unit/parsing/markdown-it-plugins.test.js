@@ -1019,6 +1019,28 @@ describe('markdown-it-plugins', () => {
     assert.doesNotMatch(html, /<span class="badge[^"]*">body line/);
   });
 
+  test('verdictGridBadges: pricing reads [ ] as the neutral ring, not verdict-grid\'s ✕', () => {
+    // verdict-grid is the one layout where `[ ]` means "not met". Pricing shares the
+    // decoder but not that reading: an unchecked feature row draws the same open ring
+    // as a checklist todo, a `state-cells` cell or an inline `[ ]`.
+    const m = makeHost(plugins.verdictGridBadges);
+    const md = [
+      '<!-- _class: pricing -->',
+      '## Plans',
+      '',
+      '- Starter `$0`',
+      '  - [x] Included',
+      '  - [ ] Unchecked',
+      '  - [/] Not included',
+      '  - For one team.',
+    ].join('\n');
+    const { html } = m.render(md);
+    assert.match(html, /<span class="badge pass state-full">Included<\/span>/);
+    assert.match(html, /<span class="badge todo state-todo">Unchecked<\/span>/);
+    assert.match(html, /<span class="badge skip state-slashed">Not included<\/span>/);
+    assert.doesNotMatch(html, /state-empty/);
+  });
+
   test('verdictGridBadges: does NOT fire on slides without the verdict-grid class', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = '## Title\n\n- Card\n  - [x] would-be-pass';

@@ -213,6 +213,23 @@ const PROBES = {
     probe: marked('.badge'),
   },
 
+  // pricing rides the same decoder but reads `[ ]` the UNIVERSAL way — a neutral
+  // open ring (`todo state-todo`), not verdict-grid's "not met" ✕. The per-layout
+  // choice is made separately on each side (the engine's class test, the runtime's
+  // `classList`), so a probe that only ever showed verdict-grid could not see them
+  // disagree about pricing.
+  'verdictGridBadges@pricing': {
+    row: 'verdictGridBadges',
+    min: 4,
+    section: 'pricing',
+    body: [
+      '## Plans', '',
+      '- Starter `$0`', '  - [x] Included', '  - [ ] Unchecked', '  - For one team.',
+      '- Growth `$49`', '  - [-] Limited', '  - [/] Not included', '  - For scaling.',
+    ].join('\n'),
+    probe: marked('.badge'),
+  },
+
   obligationMatrixBadges: {
     min: 4,
     section: 'obligation-matrix',

@@ -93,7 +93,7 @@ describe('the swatch takes the CELL\'s own classes', () => {
 
   test('[ ] reads as the NEUTRAL state here, not as a failure', () => {
     // obligation-matrix's `[ ]` is "not subject to this obligation". The same
-    // marker is a hard fail in verdict-grid and pricing, which draw no key yet.
+    // marker is a hard fail in verdict-grid, which draws no key yet.
     assert.equal(t.MARKER_STATE['[ ]'].sem, 'todo');
   });
 });

@@ -69,7 +69,7 @@
     "features": {
       "selector": "ul > li > ul > li",
       "required": true,
-      "description": "Feature rows, each led by a state marker: `[x]` included (green check), `[/]` not included (muted, struck through), `[-]` limited (half). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan."
+      "description": "Feature rows, each led by a state marker: `[x]` included (green check), `[/]` not included (muted, struck through), `[-]` limited (half). `[ ]` draws the same neutral open ring it draws in a checklist or an inline mark — never verdict-grid's red ✕. The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan."
     }
   },
   "skeleton": "<!-- _class: pricing -->\n\n## Pick the plan that fits the team.\n\n- Starter `$0`\n  - [x] First feature\n  - [/] Second feature\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] First feature\n  - [x] Second feature\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] First feature\n  - [x] Second feature\n  - For procurement and compliance.\n",
@@ -111,8 +111,8 @@
       "body": "If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `[x]` / `[/]`."
     },
     {
-      "title": "A wall of red 'not included'",
-      "body": "Use `[/]` (muted, struck through) for an absent feature, not `[ ]` (alarming empty/fail). A pricing table sells what's included; it shouldn't read as a list of denials."
+      "title": "An open ring for a feature the tier lacks",
+      "body": "Use `[/]` (muted, struck through) for an absent feature. `[ ]` is an open, unchecked ring — it reads 'not yet', which suggests the feature is coming, not that the tier leaves it out."
     }
   ],
   "related": [

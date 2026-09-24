@@ -822,6 +822,13 @@ test('verdict-grid: inclusion register — [x]→yes, [ ]→no, [-]→partial (b
 	assert.match(t, /Adoption: partial/);
 });
 
+test('pricing: [ ] speaks as the open ring it draws ("not yet"), [/] as "not included"', () => {
+	const [t] = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [ ] Audit log\n  - [/] SSO\n  - For one team.\n');
+	assert.match(t, /Workspace: included/);
+	assert.match(t, /Audit log: not yet/);
+	assert.match(t, /SSO: not included/);
+});
+
 test('obligation-matrix: obligation register — [x]→applies, [ ]→EXEMPT (not "pending"), header-bound', () => {
 	const [t] = renderSpeech('<!-- _class: obligation-matrix -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [ ] |\n| CCPA | [-] | [x] |\n');
 	assert.match(t, /GDPR — Delete: applies; Portability: exempt\./);

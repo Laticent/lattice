@@ -1070,8 +1070,8 @@ front-matter registers* in [`base.registers.docs.md`](base.registers.docs.md).
 
 ### State markers — `[x]`, `[-]`, `[ ]`, `[/]`
 
-Four layouts — `checklist`, `verdict-grid`, `obligation-matrix`, and
-`roadmap` — accept state markers as a leading prefix on each item (or
+Five layouts — `checklist`, `verdict-grid`, `pricing`, `obligation-matrix`,
+and `roadmap` — accept state markers as a leading prefix on each item (or
 table cell). The marker syntax, color tokens, and **marks** are unified
 so authors learn one vocabulary; three of the four markers render
 identically everywhere, and the fourth (`[ ]`) reads by local meaning.
@@ -1093,18 +1093,20 @@ discs, distinguished only by how full they were, did not).
 |---|---|---|---|
 | `[x]` | `state pass` | check (green) | succeeded, chosen, complete |
 | `[-]` | `state warn` | dash (amber) | partial, caveat, qualified pass |
-| `[ ]` | `state todo` *(neutral)* / `state fail` *(verdict-grid)* | open ring (neutral) / ✕ (red) | **todo / pending** in checklist, obligation-matrix, roadmap; **not met** in verdict-grid |
+| `[ ]` | `state todo` *(neutral)* / `state fail` *(verdict-grid)* | open ring (neutral) / ✕ (red) | **todo / pending** in checklist, pricing, obligation-matrix, roadmap, `state-cells` and inline marks; **not met** in verdict-grid only |
 | `[/]` | `state skip` | slash (gray) | out of scope, waived, N/A (row struck through) |
 
 **Why `[ ]` flexes — clarity over uniformity.** In `checklist` (todo),
-`obligation-matrix` (exempt), and `roadmap` (planned), `[ ]` is a
+`pricing` (unchecked feature), `obligation-matrix` (exempt), and `roadmap`
+(planned), `[ ]` is a
 **neutral "not yet / on the slate"** — not a failure — so it renders as a
 **true hollow ring** (`--muted-mark` edge ring, empty center — no inner mark,
 so it reads "open", not a "selected" center-dot bullseye). In `verdict-grid`,
 `[ ]` is a criterion **not met**, which *is* a negative,
-so it keeps the **red ✕** (`--fail`, `--mark-x`). The decoder is
-layout-aware; the stable marks (check / dash / slash) are identical across
-all four. One vocabulary, but the one genuinely-ambiguous marker reads
+so it keeps the **red ✕** (`--fail`, `--mark-x`). `verdict-grid` is the
+ONLY place `[ ]` reads as a failure: `pricing` shares its decoder but not that
+reading. The decoder is layout-aware; the stable marks (check / dash / slash)
+are identical everywhere. One vocabulary, but the one genuinely-ambiguous marker reads
 correctly in each context.
 
 **Style variants (`checks-*`).** The disc treatment is one of five
@@ -1150,7 +1152,8 @@ and VS Code preview (`lattice-runtime.js`). Each strips the marker and
 adds `class="state {pass|warn|fail|skip|todo} {state-full|state-half|state-empty|state-slashed|state-todo}"`
 to the carrier element — a **layout-aware** decoder emits `state todo
 state-todo` for the neutral `[ ]` (checklist / obligation-matrix /
-roadmap) and `state fail state-empty` for verdict-grid's "not met".
+roadmap; `badge todo state-todo` on a pricing feature row) and `state fail
+state-empty` for verdict-grid's "not met".
 `roadmap` draws the same disc + masked-`--state-mark` recipe. CSS owns all
 visual chrome: the disc (`::before`) and the masked mark (`::after`).
 

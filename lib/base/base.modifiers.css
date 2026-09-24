@@ -1451,7 +1451,7 @@ section .state-half    { --state-mark: var(--mark-dash);  }
 section .state-empty   { --state-mark: var(--mark-x);     }
 section .state-slashed { --state-mark: var(--mark-slash); }
 /* Neutral "todo / pending" — `[ ]` that means "not started, on the slate"
- * (checklist todo, obligation exempt, roadmap planned), NOT "not met"
+ * (checklist todo, obligation exempt, roadmap planned, pricing not-included), NOT "not met"
  * (verdict-grid keeps state-empty → ✕). The decoder emits `state todo
  * state-todo` for those cases.
  *
@@ -1461,12 +1461,14 @@ section .state-slashed { --state-mark: var(--mark-slash); }
  * read as a "selected" bullseye; an empty disc + an edge ring reads as
  * "open". (The ring is a vector box-shadow — pixel-crisp in every export —
  * and inherits the variant's disc-scale, so it tracks checks-bold etc.) */
-section .state.todo {
+section .state.todo,
+section .badge.todo {
   --state-fill-pct: 0%;
   --state-ring-outer-w: 2.2px;
   --state-ring-mix: 100%;
 }
-section .state.todo::after { display: none; }
+section .state.todo::after,
+section .badge.todo::after { display: none; }
 
 /* ── `state-cells` — the state markers, in ANY table's cells ───────────────
  * The universal opt-in behind HARD RULE #29's answer to a typed `✓`. Two
@@ -1517,7 +1519,7 @@ section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { -
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color: var(--warn); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color: var(--fail); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color: var(--muted-mark); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo { --state-color: var(--text-label); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo { --state-color: var(--muted-mark); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state::after {
   content: '';
   position: absolute;

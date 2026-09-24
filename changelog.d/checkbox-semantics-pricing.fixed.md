@@ -1,0 +1,3 @@
+- `pricing` now draws `[ ]` as the neutral open ring, the same mark it draws in `checklist`, `state-cells` tables and an inline `` `[ ]` ``. Pricing used to borrow `verdict-grid`'s decoder whole, so an unchecked feature row drew a red ✕ — the "criterion not met" mark that only `verdict-grid` means.
+- `state-cells` tables draw the `[ ]` ring in the neutral `--muted-mark` gray, matching every other todo ring. The rule was left on `--text-label`, which has been accent-hued since #1801, so the "neutral" ring came out in the brand accent.
+- Speech, read-along and prose projection now say "not yet" for a pricing `[ ]`, matching the open ring it draws. `[/]` still says "not included".
