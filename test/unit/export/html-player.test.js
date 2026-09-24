@@ -1512,7 +1512,16 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// no `lattice.css` at all, and because a kernel rule at (0,1,2) loses to the generic
 	// `#lp-article .lp-figure svg` (1,1,1) above — which is what the reverted arm's
 	// `!important` was paying for. `mermaid.css` § THE RE-HOSTED FIGURE has the long form.
-	assert.equal(sha, '1b4e175626e1fa8afd22c3df551ba02fa34c6cc776869f18f3ad027d71d314b7', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the DIAGRAM FLOOR (2026-09-24): a long Mermaid diagram (2:1 or more
+	// either way) in the article stops shrinking at 12/14 of its natural size and its figure
+	// scrolls sideways, so a 1409x67 LR flowchart keeps 12px labels at 390px instead of
+	// 3.4px. Three CSS blocks land in the article stylesheet — `#lp-article .lp-figure.lp-diagram`
+	// (the property defaults + overflow-x), its `[style] svg[aria-roledescription]` width
+	// clamp, and an `@media print` block that lets the floor give way on paper. Deleting
+	// exactly those three blocks' text from the assembled output reproduces the
+	// previous sha (1b4e1756…) byte for byte. The fixture carries no diagram, so the kernel's
+	// new figure attributes are not in it; no script, markup or CSP change.
+	assert.equal(sha, '7642139f9b818510069811b4b2bbb6744f222e963f565ee6cc61e0173f39a2a2', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

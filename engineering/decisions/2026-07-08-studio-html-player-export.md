@@ -1,21 +1,43 @@
 ---
-status: proposed
+status: shipped
 summary: >
-  Bring the self-contained .html player to the Studio's Share sheet as a
-  "Download as webpage" option — the app side of the download, distinct from the
-  server-hosted lattice.style/deck/{id} track. buildPlayerHtml is Node-locked
-  (fs images, jsdom sanitize, crypto sha256, subset-font wasm), so the plan
-  extracts a pure lib/export/player-core.mjs with a dependency-injection seam
-  (the sanitize-slide-html pattern): a Node adapter keeps the CLI byte-identical,
-  a browser adapter assembles the player in the Studio from the in-browser
-  PG.render output, pruning against the live preview iframe. Phased P1 (extract
-  core + reroute CLI byte-identical) → P2 (Studio Share row) → P3 (notes/strip
-  toggle).
+  SHIPPED 2026-07-08 in four PRs: the Studio's Share sheet offers "Webpage (.html)", which
+  assembles the same self-contained player the CLI --player flag writes, entirely in the
+  browser. P1 #831 extracted the pure lib/export/player-core.mjs and rerouted the CLI through
+  it byte-identically; P2 #834 added the Share row (ShareSheet.tsx, share-export.ts); P2b #839
+  added the CSS + font-face prune (player-prune-browser.ts, the CLI's kernel behind a
+  computed-style gate); P3 #835 added the "Strip speaker notes" switch (WebpageOptionsPanel.tsx).
+  Of the open questions, KaTeX CSS is fetched on demand for math decks only, and the Studio
+  prunes unused font faces but does not glyph-subset them.
 ---
 
 # Studio “Download as webpage” — the HTML player, in the browser
 
 **Follows:** `2026-07-07-html-lattice-player.md` (the player itself, shipped CLI-only across #798–#824)
+
+## Status — shipped (checked against the code 2026-09-24)
+
+Every phase below landed. Each row names the PR and where the code lives today.
+
+| Phase | PR | What landed | Code |
+|---|---|---|---|
+| P1 — extract the core | #831 (`a01258823`) | The pure assembler, with the CLI rerouted through it and a golden pinning its bytes | `lib/export/player-core.mjs` |
+| P2 — the Share row | #834 (`d69160f86`) | "Webpage (.html)" in the Share sheet, built from the live render with browser adapters | `docs/src/components/studio/ShareSheet.tsx`, `share-export.ts` |
+| P2b — the prune | #839 (`6c6209b70`) | The CSS + font-face prune #834 deferred, running the CLI's kernel behind a computed-style gate | `docs/src/components/studio/player-prune-browser.ts` |
+| P3 — the notes toggle | #835 (`3aaea6a6e`) | "Strip speaker notes", off by default like the CLI | `docs/src/components/studio/WebpageOptionsPanel.tsx` |
+
+How the open questions resolved:
+
+1. **Font subset in the browser** — not done. The Studio drops font faces the deck never
+   references but ships the kept faces whole; the core's `subsetFonts` cap stays unset
+   on this path. Studio files are larger than the CLI's for that reason.
+2. **KaTeX CSS** — fetched on demand, only when the render carries `class="katex`, and
+   only from the locally vendored sheet (`share-export.ts`). An export never reaches a
+   third party.
+3. **Prune cost** — the prune runs in the tab and reports through the existing
+   `onStatus` channel.
+
+The sections below are the original plan, kept as written.
 
 ## The gap
 
