@@ -3,13 +3,12 @@ origin: 2279
 priority: P3
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2279#issuecomment-5764143460
-backfill: true
 ---
 
 # Two pre-existing British spellings, off the path of #2279
 
 Backfilled verbatim from the continuation brief on #2279 (merged 2026-09-21).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P3 · [no ticket] Two pre-existing British spellings, off the path of #2279

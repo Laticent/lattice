@@ -3,13 +3,12 @@ origin: 2307
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2307#issuecomment-5777628875
-backfill: true
 ---
 
 # Render the CDN script route from a machine with UNPROXIED egress
 
 Backfilled verbatim from the continuation brief on #2307 (merged 2026-09-22).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. Also carries #2302 P1, the same unproven route (deleted as a duplicate).
 
 ```text
   P2 · [no ticket] Render the CDN script route from a machine with UNPROXIED egress

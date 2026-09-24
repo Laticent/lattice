@@ -3,13 +3,12 @@ origin: 2219
 priority: P1
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2219#issuecomment-5673123505
-backfill: true
 ---
 
 # Restore the split-panel coverless band chrome, and remove the pointer-suppression guard #2219 shipped in its place.
 
 Backfilled verbatim from the continuation brief on #2219 (merged 2026-09-15).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P1 · [no ticket] Restore the split-panel coverless band chrome, and remove the

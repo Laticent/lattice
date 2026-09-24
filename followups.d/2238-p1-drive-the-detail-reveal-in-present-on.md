@@ -3,13 +3,12 @@ origin: 2238
 priority: P1
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2238#issuecomment-5752514215
-backfill: true
 ---
 
 # Drive the detail reveal in PRESENT on a touch context
 
 Backfilled verbatim from the continuation brief on #2238 (merged 2026-09-20).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P1 · [no ticket] Drive the detail reveal in PRESENT on a touch context

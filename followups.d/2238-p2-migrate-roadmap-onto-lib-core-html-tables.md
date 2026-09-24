@@ -3,13 +3,12 @@ origin: 2238
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2238#issuecomment-5752514215
-backfill: true
 ---
 
 # Migrate roadmap onto lib/core/html-tables.js
 
 Backfilled verbatim from the continuation brief on #2238 (merged 2026-09-20).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P2 · [no ticket] Migrate roadmap onto lib/core/html-tables.js

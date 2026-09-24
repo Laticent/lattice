@@ -3,13 +3,12 @@ origin: 2264
 priority: P3
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2264#issuecomment-5767264630
-backfill: true
 ---
 
 # The bake double-encodes UTF-8 — a function-plot's `x²` renders `XÂ²`
 
 Backfilled verbatim from the continuation brief on #2264 (merged 2026-09-21).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P3 · [no ticket] The bake double-encodes UTF-8 — a function-plot's `x²` renders `XÂ²`

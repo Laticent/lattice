@@ -3,13 +3,12 @@ origin: 2311
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2311#issuecomment-5781317701
-backfill: true
 ---
 
 # progress: pill and bar disagree on pilot/decision
 
 Backfilled verbatim from the continuation brief on #2311 (merged 2026-09-22).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P2 · [no ticket] progress: pill and bar disagree on pilot/decision

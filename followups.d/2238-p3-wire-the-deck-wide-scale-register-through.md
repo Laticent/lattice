@@ -3,13 +3,12 @@ origin: 2238
 priority: P3
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2238#issuecomment-5752514215
-backfill: true
 ---
 
 # Wire the deck-wide `scale:` register through to chart transforms
 
 Backfilled verbatim from the continuation brief on #2238 (merged 2026-09-20).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P3 · [no ticket] Wire the deck-wide `scale:` register through to chart transforms

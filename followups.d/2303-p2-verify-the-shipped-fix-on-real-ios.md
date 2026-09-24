@@ -3,13 +3,12 @@ origin: 2303
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2303#issuecomment-5776537591
-backfill: true
 ---
 
 # Verify the shipped fix on real iOS Safari
 
 Backfilled verbatim from the continuation brief on #2303 (merged 2026-09-22).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P2 · [no ticket] Verify the shipped fix on real iOS Safari

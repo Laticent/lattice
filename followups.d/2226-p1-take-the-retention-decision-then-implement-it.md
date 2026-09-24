@@ -3,13 +3,12 @@ origin: 2226
 priority: P1
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2226#issuecomment-5673609887
-backfill: true
 ---
 
 # Take the retention decision, then implement it
 
 Backfilled verbatim from the continuation brief on #2226 (merged 2026-09-15).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. Also carries #2217 P1, the same decision (that file is deleted as a duplicate). `sync-playground-assets.mjs:292` still `rmSync`s the whole `v/` tree. #2226 already corrected the `sw.js` comment that #2217 flagged.
 
 ```text
   P1 · [no ticket] Take the retention decision, then implement it

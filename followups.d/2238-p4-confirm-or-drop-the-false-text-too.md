@@ -3,13 +3,12 @@ origin: 2238
 priority: P4
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2238#issuecomment-5752514215
-backfill: true
 ---
 
 # Confirm or drop the false "text too small" under a live Anima stage
 
 Backfilled verbatim from the continuation brief on #2238 (merged 2026-09-20).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P4 · [no ticket] Confirm or drop the false "text too small" under a live Anima stage

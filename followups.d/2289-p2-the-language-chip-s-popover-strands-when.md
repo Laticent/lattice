@@ -3,13 +3,12 @@ origin: 2289
 priority: P2
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2289#issuecomment-5767837535
-backfill: true
 ---
 
 # The language chip's popover strands when the deck scrolls under it
 
 Backfilled verbatim from the continuation brief on #2289 (merged 2026-09-21).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open.
 
 ```text
   P2 · [no ticket] The language chip's popover strands when the deck scrolls under it

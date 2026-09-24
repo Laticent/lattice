@@ -10,11 +10,11 @@ A continuation brief tagged an unticketed item `[no ticket]` and treated the bri
 as the spec. That brief lived in a PR comment and in a chat transcript, and nowhere a
 session reads by default. In the two months to 2026-09-22, 29 of 506 merged PRs left
 **79** such items in their final brief. The handoff-issue rule (#2215) was meant to catch
-them, and 4 handoff issues were filed after it landed. The items here were
-backfilled from those briefs by a script, verbatim, **without being re-checked against
-`main`** — some are done and some duplicate each other. Backfilled files carry
-`backfill: true`, and `npm run followups` warns until a triage pass clears the flag
-(`2313-p1-triage-the-backfilled-followups.md`).
+them, and 4 handoff issues were filed after it landed. A script copied those items here
+verbatim, **without re-checking them against `main`**. A triage pass on 2026-09-24
+checked all 79: it deleted 27 that were done and 6 duplicates, and kept 46. Each kept
+file says so in a `Triaged 2026-09-24` line under its title. The `backfill: true` flag
+and its warning in `npm run followups` stay in place for any future bulk import.
 
 The backfill is complete for the tag. `[no ticket]` was coined in #1775 on 2026-08-23,
 and the harvest window starts 2026-07-22. 33 merged PRs ever used the tag: 29 gave items,

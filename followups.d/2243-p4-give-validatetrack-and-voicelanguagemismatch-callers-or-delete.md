@@ -3,13 +3,12 @@ origin: 2243
 priority: P4
 recorded: 2026-09-22
 source: https://github.com/Laticent/lattice/pull/2243#issuecomment-5757375213
-backfill: true
 ---
 
 # Give validateTrack() and voiceLanguageMismatch() callers, or delete them
 
 Backfilled verbatim from the continuation brief on #2243 (merged 2026-09-21).
-Not re-checked against `main` — it may already be done or duplicated elsewhere.
+Triaged 2026-09-24 against `main` at 6110a1e: still open. Half done: `voiceLanguageMismatch` has its caller now (`NarrationExportOptions.tsx:118`). `validateTrack` still has none outside tests.
 
 ```text
   P4 · [no ticket] Give validateTrack() and voiceLanguageMismatch() callers, or delete them
