@@ -82,6 +82,7 @@ test('a landscape deck passes through unsplit (only the slide stamp is added)', 
   const out = engine.render(DECK(''), 'indaco', { preview: true });
   const r = ss.structuralSplit(out.html, { deckSource: DECK(''), width: out.width, height: out.height, capacity: CAPACITY });
   assert.equal(r.changed, 0);
+  assert.equal(r.applies, false, 'a wide box can never split, which a live host needs to know');
   assert.equal(r.html, ss.stampSlideNumbers(out.html));
 });
 
@@ -90,6 +91,7 @@ test('a portrait deck splits on structure: cover, one row per page, the run numb
   const out = engine.render(md, 'indaco', { preview: true });
   const r = ss.structuralSplit(out.html, { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY });
   assert.equal(r.changed, 1, 'the inventory slide splits; the title slide does not');
+  assert.equal(r.applies, true);
   const nums = slideNumbers(r.html);
   assert.equal(nums[0], '1');
   assert.equal(nums[1], '2', 'the run opens on its cover, which keeps the authored number');

@@ -407,40 +407,31 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setPageRequestState(r);
 	}, []);
 	const navigatingRef = React.useRef(false);
-	// Steps that arrived while the slide just entered had not rendered yet. They WAIT rather than
-	// drop: a quick back-press is input like any other. Each render that lands runs the next one;
-	// a timer runs it anyway if a render never reports (a host torn down mid-render).
-	const stepQueueRef = React.useRef<{ action: string; opts: { focus?: boolean; expand?: boolean } }[]>([]);
-	const stepTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-	const clearStepQueue = React.useCallback(() => {
-		stepQueueRef.current = [];
-		if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
-		stepTimerRef.current = null;
-	}, []);
+	// ONE step may wait for the slide just entered to render, and only on a deck that can split.
+	// Until that render lands nobody knows whether the slide splits, and a fast second swipe would
+	// cross it blind and skip every page of it. One, not a queue: a held key on a landscape deck
+	// must stop when the key does, and a queue kept moving after release. No timer either: a
+	// waiting step runs when its render lands, or is dropped, and never steps blind.
+	const waitingStepRef = React.useRef<{ action: string; opts: { focus?: boolean; expand?: boolean }; slide: number; deck: string } | null>(null);
 	const onCursorText = React.useCallback(
 		(text: string) => {
 			setCaretText(text);
 			if (!navigatingRef.current) {
 				setPageRequest(null);
-				clearStepQueue();
+				waitingStepRef.current = null;
 			}
 		},
-		[setPageRequest, clearStepQueue],
+		[setPageRequest],
 	);
 	// The split run the live preview shows, as it last reported it: which page of how many, for
 	// which viewed slide. Navigation steps through it before it leaves the slide.
 	// The ref serves the mount-once key/gesture listeners; the state mirror serves the buttons'
 	// `disabled`, which must know a split last slide still has pages to go.
 	const shownSplitRef = React.useRef<{ slide: number; index: number; count: number } | null>(null);
-	// The viewed slide the preview last finished a render of, split or not (or failed). After a
-	// step crosses into a slide, the next step waits for this, since until then nobody knows whether
-	// that slide splits, and a fast second swipe would skip every page of it.
-	const reportedSlideRef = React.useRef(-1);
-	// The deck identity of that report. Steps only ever wait on a preview that IS reporting: before
-	// the engine loads (or wherever nothing renders), the verbs move exactly as they always did.
-	const reportedDeckRef = React.useRef('');
-	// Assigned beside `stepDeck`; the report handler above reaches it through this ref.
-	const runQueuedStepRef = React.useRef<(force: boolean) => void>(() => {});
+	// The last render the preview finished (split or not, or failed): which viewed slide, which deck
+	// identity, and whether that deck's box can split at all. Before the first report (the engine
+	// still loading, or nothing rendering) no step ever waits: the verbs move as they always did.
+	const reportedRef = React.useRef<{ slide: number; deck: string; canSplit: boolean } | null>(null);
 	// Pages are stepped only while the live preview is on screen: with it collapsed (or on a
 	// phone's Source tab) a step would be invisible, and "next" would spend the hidden pages
 	// before it moved the editor on.
@@ -448,14 +439,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [shownSplit, setShownSplit] = React.useState<{ slide: number; index: number; count: number } | null>(null);
 	// Reported after EVERY preview render (each keystroke), so the state only moves when the page
 	// did: a fresh object each time would re-render this whole shell per keystroke for nothing.
-	const onSplitPage = React.useCallback((report: { slide: number; page: { index: number; count: number } | null }) => {
-		reportedSlideRef.current = report.slide;
-		reportedDeckRef.current = previewDeckIdRef.current;
+	const onSplitPage = React.useCallback((report: { slide: number; deck: string; canSplit: boolean; page: { index: number; count: number } | null }) => {
+		reportedRef.current = { slide: report.slide, deck: report.deck, canSplit: report.canSplit };
 		const p = report.page ? { slide: report.slide, ...report.page } : null;
 		shownSplitRef.current = p;
 		setShownSplit((prev) => (prev === p || (prev && p && prev.slide === p.slide && prev.index === p.index && prev.count === p.count) ? prev : p));
-		// A render landed: the next waiting step can now see what it is stepping through.
-		runQueuedStepRef.current(false);
+		// The render a waiting step was waiting for landed: it can now see what it steps through.
+		const waiting = waitingStepRef.current;
+		if (waiting && waiting.slide === report.slide && waiting.deck === report.deck) {
+			waitingStepRef.current = null;
+			stepDeckRef.current(waiting.action, waiting.opts, true);
+		}
 	}, []);
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// Persona posture — the always-visible, reversible density stop that replaced the
@@ -3139,17 +3133,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// run in the preview, so "next" means the next PAGE until the run ends, and only then the next
 	// slide; "prev" mirrors it and enters a split slide on its LAST page, the way paging back
 	// through the PDF does. On an unsplit slide this is exactly the old slide step.
-	function stepDeck(action: string, opts: { focus?: boolean; expand?: boolean } = {}, queued = false) {
+	function stepDeck(action: string, opts: { focus?: boolean; expand?: boolean } = {}, resumed = false) {
 		const cur = slideNoRef.current - 1; // 0-based viewed index
 		const deckKey = previewDeckIdRef.current;
 		const visible = previewShownRef.current;
 		const asked = pageRequestRef.current && pageRequestRef.current.slide === cur && pageRequestRef.current.deck === deckKey ? pageRequestRef.current : null;
-		// Just crossed into this slide and its render has not landed, or earlier steps are already
-		// waiting: queue this one behind them, in order. Until the render lands nobody knows whether
-		// the slide splits, and stepping blind skipped every page of it on a fast double swipe.
-		if (!queued && visible && reportedDeckRef.current === deckKey && (stepQueueRef.current.length > 0 || (asked && reportedSlideRef.current !== cur))) {
-			if (stepQueueRef.current.length < 12) stepQueueRef.current.push({ action, opts });
-			if (!stepTimerRef.current) stepTimerRef.current = setTimeout(() => runQueuedStepRef.current(true), 1500);
+		// Just crossed into this slide, on a deck that can split, and its render has not landed: the
+		// step waits for it (see `waitingStepRef`). A second one while one waits is dropped. Bounded:
+		// past 1.5 s the step goes ahead, so a render that never reports cannot freeze the verbs.
+		const reported = reportedRef.current;
+		if (!resumed && visible && asked && reported?.deck === deckKey && reported.canSplit && reported.slide !== cur && Date.now() - asked.at < 1500) {
+			if (!waitingStepRef.current) waitingStepRef.current = { action, opts, slide: cur, deck: deckKey };
 			return;
 		}
 		const shown = visible && shownSplitRef.current?.slide === cur ? shownSplitRef.current : null;
@@ -3179,20 +3173,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}
 	const stepDeckRef = React.useRef(stepDeck);
 	stepDeckRef.current = stepDeck;
-	// Run the next waiting step, if the render it waited for has landed (or `force`, from the timer).
-	runQueuedStepRef.current = (force: boolean) => {
-		if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
-		stepTimerRef.current = null;
-		const cur = slideNoRef.current - 1;
-		if (!force && reportedSlideRef.current !== cur) {
-			if (stepQueueRef.current.length) stepTimerRef.current = setTimeout(() => runQueuedStepRef.current(true), 1500);
-			return;
-		}
-		const next = stepQueueRef.current.shift();
-		if (!next) return;
-		stepDeck(next.action, next.opts, true);
-		if (stepQueueRef.current.length && !stepTimerRef.current) stepTimerRef.current = setTimeout(() => runQueuedStepRef.current(true), 1500);
-	};
 	const presentOpenRef = React.useRef(presentOpen);
 	presentOpenRef.current = presentOpen;
 	// The full-deck index of the slide currently in view (for handing off to Present).
@@ -3458,6 +3438,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view === 'compose' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
 	previewShownRef.current = editorSlotVisible;
+	// A waiting step was aimed at the preview as it stood: drop it when the preview hides, Present
+	// opens, or the deck or lens changes, so it never moves a surface the author has left.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the three values ARE the triggers; the body reads only a ref.
+	React.useEffect(() => {
+		waitingStepRef.current = null;
+	}, [editorSlotVisible, previewDeckId, presentOpen]);
 
 	// Structural slide ops (full lens only). Each rewrites the source, moves the
 	// active slide to follow the edit, and reveals it in the editor next frame

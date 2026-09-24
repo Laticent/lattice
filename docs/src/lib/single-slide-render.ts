@@ -97,11 +97,11 @@ export type RenderStatus = {
 	 * write. Absent on a failed render. */
 	writePath?: 'patch' | 'restyle' | 'write';
 	/** Set when the shown slide SPLIT (portrait/square): which page of its run the frame holds
-	 *  (0-based `index` of `count`) of authored slide `slide`, and that page's number as the PDF prints it (`2.3`). */
-	page?: { index: number; count: number; label: string; slide: number };
-	/** The slide this render showed (`opts.slideIndex`), on a successful slide render, split or not.
-	 *  A host's navigation needs to know a render for the slide it just moved to has landed. */
-	slide?: number;
+	 *  (0-based `index` of `count`), and that page's number as the PDF prints it (`2.3`). */
+	page?: { index: number; count: number; label: string };
+	/** Whether this render's box can split at all (portrait/square/strip, not wide), for a render
+	 *  that ran the caret-following split. A host waits on a slide it just entered only then. */
+	canSplit?: boolean;
 };
 
 export type SingleSlideOptions = {
@@ -1617,8 +1617,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// no caret; splitting there showed only a split slide's cover, the rows unreachable, on
 				// the audience's surface. They keep the whole slide, as before.
 				let splitPage: RenderStatus['page'];
+				let canSplit = false;
 				if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
 					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: opts.slideIndex + 1 });
+					canSplit = r.applies === true;
 					if (r.changed) {
 						const pages = sectionsOf(r.html);
 						const prev = splitPageByHost.get(host);
@@ -1639,7 +1641,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							// slide cannot disagree — they would on a slide rendered alone (a `split: headings`
 							// deck's fallback), whose engine numbering starts at 1.
 							const printed = (pages[k].match(/\sdata-lattice-pagination="([^"]+)"/) || [])[1];
-							splitPage = { slide: opts.slideIndex, index: k, count: pages.length, label: printed ?? (pages[k].match(/data-lattice-slide="([^"]+)"/) || [])[1] ?? String(k + 1) };
+							splitPage = { index: k, count: pages.length, label: printed ?? (pages[k].match(/data-lattice-slide="([^"]+)"/) || [])[1] ?? String(k + 1) };
 						}
 					}
 				}
@@ -1833,7 +1835,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage, slide: opts?.slideIndex };
+						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage, canSplit };
 					}
 					// The live document vanished between the guard and the patch — fall
 					// through to a full write below.
@@ -1910,7 +1912,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage, slide: opts?.slideIndex };
+						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage, canSplit };
 					}
 					// patchSlideBody failed (the live doc vanished mid-swap) — fall through to a full write.
 				}
@@ -2137,7 +2139,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
 				tFrameStart = performance.now();
-				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage, slide: opts?.slideIndex };
+				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage, canSplit };
 			})
 			.catch((e) => {
 				// Surface failures in the console (the old landing bridge did; the

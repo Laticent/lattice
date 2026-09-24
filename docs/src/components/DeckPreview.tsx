@@ -70,7 +70,7 @@ export type DeckPreviewProps = {
 	/** Reports each definitive render of a slide: which slide it showed, and, when that slide
 	 *  split, which page of how many. `page` is `null` for an unsplit slide and for a failed
 	 *  render. The host's navigation steps through the run, and waits for this after it moves. */
-	onSplitPage?: (report: { slide: number; page: { index: number; count: number } | null }) => void;
+	onSplitPage?: (report: { slide: number; deck: string; canSplit: boolean; page: { index: number; count: number } | null }) => void;
 	/** Stable identity for the DECK, not its text. Without it a single-slide deck cannot be
 	 *  told from another single-slide deck, and a switch between two of them is stamped as an
 	 *  edit — see lib/core/swap-kind.mjs. */
@@ -233,8 +233,9 @@ export function DeckPreview({
 	caretRef.current = caretText;
 	const onSplitPageRef = React.useRef(onSplitPage);
 	onSplitPageRef.current = onSplitPage;
-	const slideIndexRef = React.useRef(slideIndex);
-	slideIndexRef.current = slideIndex;
+	// The slide and deck the render in flight was ISSUED for. Renders on a host never overlap, so the
+	// status that comes back belongs to these, not to whatever the props say by the time it lands.
+	const issuedRef = React.useRef<{ slide: number; deck: string } | null>(null);
 	const splitCaret = splitPage ? caretText : undefined;
 	// One dot per page of the run, keyed by page position (the run is a fixed sequence, so position IS
 	// the page's identity here).
@@ -450,6 +451,7 @@ export function DeckPreview({
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
 		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex });
+		issuedRef.current = slideIndex === undefined ? null : { slide: slideIndex, deck: deckId ?? '' };
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
 		// when the live frame is actually made visible (== genuinely good). Keying it on the
@@ -620,12 +622,13 @@ export function DeckPreview({
 			const isFailure = status.ok === false && status.error !== 'renderer disposed';
 			if (status.ok) {
 				setSplitPage(status.page ?? null);
-				if (typeof status.slide === 'number') onSplitPageRef.current?.({ slide: status.slide, page: status.page ? { index: status.page.index, count: status.page.count } : null });
+				const issued = issuedRef.current;
+				if (issued) onSplitPageRef.current?.({ ...issued, canSplit: status.canSplit === true, page: status.page ? { index: status.page.index, count: status.page.count } : null });
 			} else if (isFailure) {
 				// A failed render shows no run, so there are no pages to step: say so, or the host keeps
 				// stepping a run that is no longer on screen and the verbs never leave the slide.
 				setSplitPage(null);
-				if (typeof slideIndexRef.current === 'number') onSplitPageRef.current?.({ slide: slideIndexRef.current, page: null });
+				if (issuedRef.current) onSplitPageRef.current?.({ ...issuedRef.current, canSplit: false, page: null });
 			}
 			setFailed(isFailure);
 			setFailedWhy(isFailure ? String(status.error ?? '') : '');

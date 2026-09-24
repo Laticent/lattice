@@ -220,14 +220,28 @@ test('@parity every verb pages through a split slide before it leaves it', async
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('ArrowRight');
 	await expect(pill).toContainText('2.3 · 3 of 5');
-	// …and a burst that crosses INTO a split slide pages through it rather than skipping to the
-	// slide after, which is where the first cut of the fix still landed. Every press counts, in
-	// order, so three from slide 1 always end on the run's third page.
+	// …and a burst that crosses INTO a split slide stays on it instead of skipping to the slide
+	// after, which is where the first cut of the fix landed. Where it lands depends on render
+	// timing: a press that arrives before the slide just entered has rendered waits (one at most,
+	// the rest are dropped), and one that arrives after pages. Either way three presses from slide
+	// 1 cannot get past slide 2's five pages.
 	await page.keyboard.press('Home');
 	await at(1);
 	for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
-	await expect(pill).toContainText('2.3 · 3 of 5');
+	await expect(pill).toContainText(/^2(\.[23])? · [123] of 5$/);
 	await at(2);
+});
+
+test('@parity a burst of presses on a landscape deck moves exactly that many slides', async ({ page }) => {
+	// Split paging must cost an unsplittable deck nothing. A render-ordered queue once made a held
+	// arrow key on a 16:9 deck crawl one slide per render and keep going after release; the seed
+	// deck is landscape, where no step may wait and none may be dropped.
+	const n = await slideCount(page);
+	expect(n).toBeGreaterThanOrEqual(6);
+	await expect(page.getByText(`Slide 1 / ${n}`, { exact: true })).toBeVisible();
+	for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+	await expect(page.getByText(`Slide 6 / ${n}`, { exact: true })).toBeVisible();
+	await expect(page.locator('[data-split-page]')).toHaveCount(0);
 });
 
 // ── Zoom, and the gestures it had to take back (#pinch-zoom) ─────────────────

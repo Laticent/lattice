@@ -45,7 +45,7 @@ export interface LatticePlaygroundEngine {
 	 *  `render()` result so a portrait/square deck paginates live the way its PDF does. A no-op
 	 *  at landscape. `changed` counts the authored slides that split. Optional, because an engine
 	 *  bundle older than this feature does not carry it. */
-	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number }) => { html: string; changed: number };
+	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number }) => { html: string; changed: number; applies?: boolean };
 	languages?: {
 		has: (name: string) => boolean;
 		list: () => string[];
