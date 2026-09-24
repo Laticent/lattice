@@ -88,6 +88,8 @@ export default defineConfig({
 		'/spec/form-model': '/model/form-model/',
 		'/drawing-board': '/studio/',
 		'/workbench': '/studio/',
+		// The one "Pills and marks" page became the "Status and labels" track.
+		'/guides/pills': '/guides/status/',
 	},
 	// HTML navigation is cheap, so warm it everywhere: every internal <a>
 	// prefetches its destination on hover/focus (the `hover` strategy). The one
@@ -220,8 +222,35 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Authoring decks', slug: 'guides/authoring' },
-						{ label: 'Pills and marks', slug: 'guides/pills' },
+						{ label: 'Deck settings', slug: 'guides/deck-settings' },
 						{ label: 'Themes & palettes', slug: 'guides/themes' },
+					],
+				},
+				{
+					// How to say status on a slide: state marks, pills, status words and
+					// label sets. A track read in order, not a reference, because the
+					// confusion it exists to prevent is between neighbors (a mark vs a
+					// pill, `[!]` vs `[ ]`), and a neighbor only makes sense once you have
+					// met the thing beside it. The cheat sheet is the reference.
+					label: 'Status and labels',
+					items: [
+						{ label: 'Saying status on a slide', slug: 'guides/status' },
+						{ label: 'The six answers', slug: 'guides/status/answers' },
+						{ label: 'Marks in layouts', slug: 'guides/status/marks-in-layouts' },
+						{ label: 'Pills you place', slug: 'guides/status/pills' },
+						{ label: 'Pills a component places', slug: 'guides/status/component-pills' },
+						{ label: 'Upgrading an older deck', slug: 'guides/status/upgrading' },
+						{ label: 'Cheat sheet', slug: 'guides/status/cheat-sheet' },
+					],
+				},
+				{
+					// Lookup pages, as opposed to the learning tracks above: read a Guide once,
+					// in order; come back to Reference when you know what you want and need
+					// the exact spelling. Each Guide links to its Reference page.
+					label: 'Reference',
+					items: [
+						{ label: 'Front matter', slug: 'reference/front-matter' },
+						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 					],
 				},
 				{

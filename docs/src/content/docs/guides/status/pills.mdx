@@ -1,0 +1,193 @@
+---
+title: Pills you place
+description: The brace grammar — put a label in braces inside inline code and it draws a pill, with the shape, color and size you choose, on any slide.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+
+export const LAB_LEDGER = `<!-- _class: list-tabular -->
+
+## One slide, four different statuses.
+
+1. Settlement engine
+   - Shipped and load-tested \`{STABLE}:c2\`
+2. Ledger migration
+   - Cutover paused for review \`{PARTIAL}:c4\`
+3. Reconciliation
+   - Design agreed, not started \`{QUEUED}:tag:c7\`
+4. Legacy batch
+   - Retired this quarter \`{CLOSED}:tag:c12\`
+`;
+
+export const LAB_SHAPES = `<!-- _class: list-tabular -->
+
+## Eight shapes, one geometry.
+
+1. Capsule and tag
+   - \`{DEFAULT}:c1\` \`{TAG}:tag:c2\`
+2. Bordered and chip
+   - \`{BORDERED}:tag-bordered:c4\` \`{CHIP}:chip:c7\`
+3. Round and pointed
+   - \`{3}:circle:c5\` \`{NEXT}:chevron-right:c6\` \`{BACK}:chevron-left:c8\`
+4. Decision marks
+   - \`{!}:diamond:c3\` \`{?}:diamond:c11\`
+`;
+
+A **pill** is a small rounded label: a status, a category, a version. You make
+one by writing a label in braces inside **single-backtick** inline code:
+
+```markdown
+The settlement engine is `{STABLE}:c2` as of this week.
+```
+
+This is the **universal** pill. It works on every slide, in every component,
+anywhere inline code can go: a heading, a sentence, a table cell, a footer. You
+choose everything about it. If you learn only one pill, learn this one.
+
+<CraftLab
+	label="Four statuses on one slide"
+	kind="none"
+	editMarkdown
+	markdown={LAB_LEDGER}
+	size="short"
+	hint="Change :c2 to :c9 and watch only that row move. The slide has no variant class — the color travels with the value."
+/>
+
+## How to read a pill
+
+```
+`{QUEUED}:tag:c7:lg`
+  ───┬──  ─┬─ ─┬ ─┬
+     │     │   │  └ size
+     │     │   └ color slot
+     │     └ shape
+     └ the label, in braces
+```
+
+Everything after the closing brace is a **modifier**, and each one starts with
+a colon. **Order does not matter**: `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` ``
+are the same pill. Leave a modifier out and you get the default.
+
+## Shape
+
+Lattice draws all eight shapes itself, as a rounded corner or a cut-out on the
+pill's own box. None of them is a font character, so a shape looks the same in
+the PDF, in the browser and in an export.
+
+| Modifier | Shape | Use it for |
+|---|---|---|
+| *(none)* | Capsule | The default status chip |
+| `:chip` | Softly rounded | A quieter label |
+| `:tag` | Square corners | A filed or categorical label |
+| `:tag-bordered` | Square, double stroke | Emphasis without spending a color |
+| `:circle` | Circle | **A digit or a single character** — `` `{3}:circle` `` |
+| `:chevron-right` | Right-pointing | Sequence, forward — `` `{STEP 2}:chevron-right` `` |
+| `:chevron-left` | Left-pointing | Sequence, back |
+| `:diamond` | Diamond | **One or two characters** — `` `{!}:diamond` `` |
+
+<CraftLab
+	label="Every shape, side by side"
+	kind="none"
+	editMarkdown
+	markdown={LAB_SHAPES}
+	size="short"
+	hint="Put a whole word in the :circle. It either overflows or stretches until it stops reading as a circle — which is what lint:deck warns about."
+/>
+
+`circle` and `diamond` are square boxes, so they hold a character or two and no
+more. Put a word in one and `lint:deck`, or the Studio's **Coach** panel,
+suggests `:tag` or `:chip` instead. It only suggests: deck linting never blocks
+a build.
+
+## Color — `:c1` … `:c12`
+
+The twelve color slots are **numbered, not named**. `:c1` is a light blue in
+the `indaco` theme and a khaki in `burgundy`, so a slot picks a *distinct*
+color, never a *meaning*.
+
+> Never write `:c2` because "green means good." It is not green in every theme.
+
+Use slots to tell categories apart: team A, team B, team C. You never do
+contrast math. Each slot takes the theme's fill and edge for that category, plus
+a text color Lattice has already checked against the fill.
+
+**A pill cannot say "failing."** The pass, warn and fail colors are not among
+the twelve slots, on purpose. To say *good*, *careful* or *bad*, use a
+[state mark](/guides/status/answers/) or a
+[status word](/guides/status/component-pills/#status-words--the-word-is-the-color)
+instead. Picking whichever slot happens to look red in your theme breaks the
+moment someone switches themes.
+
+## Size — `:sm` and `:lg`
+
+A pill has one size on every slide: the small metadata size, the same in a
+heading as in a bullet. `:sm` makes it smaller and `:lg` larger; the default
+needs no modifier.
+
+```markdown
+- Small `{MINOR}:sm:c9` · default `{NORMAL}:c9` · large `{MAJOR}:lg:c9`
+```
+
+## When inline code should stay code
+
+Plain inline code is left alone. `` `getUserId()` ``, `` `:root` ``,
+`` `--accent` `` and `` `{ ok, scene }` `` all render as code, exactly as typed.
+A pill needs a brace pair with no comma inside, which is what keeps
+`` `{ ok, scene }` `` looking like the code it is.
+
+**A mistake shows up as code, not as a wrong pill.** An unknown or repeated
+modifier leaves the whole span literal: `` `{X}:c13` `` renders as the text
+`{X}:c13`. You catch it on the first read-through, which you would not if it
+quietly drew something.
+
+### Forcing literal text
+
+Put a backslash in front:
+
+```markdown
+`\{LIVE}`   renders as   {LIVE}
+`\[x]`      renders as   [x]
+```
+
+The backslash only escapes something that *would* have become a pill or a mark,
+so a regular expression is safe: `` `\d+` `` and `` `\[a-z]` `` keep their
+backslash and render as typed.
+
+Fenced and indented code blocks are never read as pills or marks. Only
+single-backtick inline code is.
+
+### Turning the grammar off for a whole deck
+
+On a deck you did not write, `` `[x]` `` in a sentence may never have been
+meant to draw anything. One line of front matter turns pills and inline marks
+off for the whole deck:
+
+```yaml
+---
+inline-code: literal
+---
+```
+
+For one slide, add `inline-code-literal` to its class:
+`<!-- _class: inline-code-literal -->`. In the Studio the same switch is
+**Settings → Deck → General → Inline pills and marks**. Turning it off writes
+the `inline-code: literal` line for you.
+
+Use the backslash for one or two spans. Use the switch for a whole deck.
+
+## Braces make a pill, brackets make a mark
+
+`` `{x}` `` would draw a capsule holding the letter `x`, which is almost never
+what an author reaching for a checkbox meant. So the four markers that read as a
+checkbox — `x`, `-`, a space and `/` — are **reserved** inside braces. They
+render as literal text, and `lint:deck` and the Studio's Coach point you at the
+bracket form,
+`` `[x]` ``. `` `{!}` `` and `` `{?}` `` stay pills: an alert diamond and a help
+circle are established uses.
+
+Brackets draw a state mark: [The six answers](/guides/status/answers/).
+
+## Next
+
+Some components place a pill for you, from a word you write in the right slot:
+[Pills a component places](/guides/status/component-pills/).

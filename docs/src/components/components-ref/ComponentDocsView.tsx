@@ -11,6 +11,7 @@ import {
 	TableRow,
 } from '@/components/ui/table';
 import { joinBase } from '@/lib/base-url.mjs';
+import { guidesFor } from '@/lib/component-guides.mjs';
 import { inlineMd } from '@/lib/component-inline';
 import { playgroundQuery } from '@/lib/playground-controller';
 
@@ -98,6 +99,7 @@ export function ComponentDocsView({
 	const variantKeys = Array.isArray(m.variants) ? m.variants.filter((v) => variantDocs[v]) : [];
 	const variantDecisionRule = Array.isArray(m.variantDecisionRule) ? m.variantDecisionRule : [];
 	const related = Array.isArray(m.related) ? m.related : [];
+	const guides = guidesFor(m.name);
 	const skeleton = (m.skeleton || '').replace(/\n$/, '');
 
 	return (
@@ -277,6 +279,22 @@ export function ComponentDocsView({
 							</div>
 						);
 					})}
+				</section>
+			)}
+
+			{guides.length > 0 && (
+				<section>
+					<SectionH2>Guides</SectionH2>
+					<ul className="m-0 list-none p-0">
+						{guides.map((g) => (
+							<li key={g.slug + g.when} className="my-1.5 flex flex-wrap items-baseline gap-2.5">
+								<a href={joinBase(base, `${g.slug}/`)} className="font-medium text-primary">
+									{g.title}
+								</a>
+								<span className="text-[13.5px] text-muted-foreground">{inlineMd(g.when)}</span>
+							</li>
+						))}
+					</ul>
 				</section>
 			)}
 

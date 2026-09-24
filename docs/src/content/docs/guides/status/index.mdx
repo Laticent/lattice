@@ -1,0 +1,109 @@
+---
+title: Saying status on a slide
+description: Start here. Lattice has four ways to put a status or a label on a slide — state marks, pills, status words and label sets. Which one to reach for, and which work everywhere versus in one component.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+
+export const LAB_BOTH = `<!-- _class: checklist -->
+
+## Brackets make a mark, braces make a pill.
+
+- [x] Contract signed by both parties \`{LEGAL}:tag:c2\`
+- [-] Data migration half cut over \`{DATA}:tag:c4\`
+- [!] Load test failed at peak \`{INFRA}:tag:c7\`
+- [?] Vendor SLA terms not disclosed \`{VENDOR}:tag:c11\`
+- [ ] Security review not yet booked \`{SECURITY}:tag:c5\`
+- [/] Legacy batch retired this quarter \`{DATA}:tag:c4\`
+`;
+
+Almost every business deck has to say where something stands: shipped or
+late, included or missing, applies or exempt. Lattice gives you four tools for
+it. They look alike, and they do different jobs.
+
+<CraftLab
+	label="A mark and a pill on every row"
+	kind="none"
+	editMarkdown
+	markdown={LAB_BOTH}
+	size="short"
+	hint="The disc at the start of each row is a mark: it says the answer. The tag at the end is a pill: it names a team. Change a [x] to [!] and only the answer changes."
+/>
+
+## Which one do I reach for?
+
+| You want to say | Reach for | Looks like | Learn it in |
+|---|---|---|---|
+| **An answer**: yes, no, partly, unknown, not yet, not applicable | A **state mark** | `[x]` `[!]` `[?]` | [The six answers](/guides/status/answers/) |
+| **A label or category**: a team, a phase, a version | A **pill you place** | `` `{STABLE}:c2` `` | [Pills you place](/guides/status/pills/) |
+| **How a chart item is going**: on track, at risk, blocked | A **status word** | `` `at-risk` `` | [Pills a component places](/guides/status/component-pills/) |
+| **Different words** for a layout's answers | A **label set** | `` `[{[x], Enacted}]` `` | [Marks in layouts](/guides/status/marks-in-layouts/#rename-the-words-with-a-label-set) |
+
+The most common mix-up is using a pill for an answer. A pill's color is a
+numbered slot that changes with the theme, so a "red" pill is not red in the
+next theme, and it tells a color-blind reader nothing. A mark's answer is
+carried by its **shape**, the same in every theme. If a reader should read
+*yes* or *no*, use a mark.
+
+## What works where
+
+Every feature on these pages sits in one of three tiers. Knowing the tier tells
+you whether a thing will work on the slide you are writing.
+
+### Universal — works on every slide
+
+Anywhere inline code can go: a heading, a sentence, a table cell, a footer, in
+any component.
+
+- **Inline state marks**: `` `[x]` `` `` `[!]` `` and the rest, inside inline code.
+- **Brace pills**: `` `{LABEL}` ``, with shape, color and size modifiers.
+- **The backslash escape**: `` `\[x]` `` and `` `\{LABEL}` `` stay literal.
+- **The off switch**: `inline-code: literal` turns both off for a deck.
+
+If you are not sure a slide supports something, the universal form is the safe
+choice.
+
+### Shared — one grammar, read by a set of components
+
+The syntax and the meaning are the same everywhere they work, but only certain
+components read them.
+
+- **Bare state markers** at the start of an item or cell: `checklist`,
+  `verdict-grid`, `pricing`, `obligation-matrix`, `roadmap`, and any table with
+  `state-cells` turned on.
+- **The ten status words**: `progress`, `timeline-list`, `kanban`, `gantt`,
+  `state-chart` and `slope`. Same words everywhere, but a **different slot** in
+  each component.
+- **Label sets** that rename a key: `obligation-matrix` and `roadmap`.
+- **Disc styles and `heat`**: the `checks-*` classes and the `heat` modifier,
+  on the layouts that draw marks.
+
+### Component-specific — a slot in one component
+
+These are positional: the component decides what a span means from where you
+put it.
+
+- **Date pills** in `timeline-list`, `regulatory-update` and `roadmap`.
+- **Metadata pills**: a trailing code span, where a component has a slot for it.
+- **The automatic range pill** on a `glossary` heading.
+- **`matrix-grid`'s cells**, where `[x]` `[-]` `[ ]` mean a position, not an
+  answer.
+
+Each component's page in the [component reference](/components/) says which of
+these it reads, and links back here.
+
+## How this guide is organized
+
+Read the pages in order the first time; each builds on the one before.
+
+1. [The six answers](/guides/status/answers/): what each state mark means, and
+   how to choose between the ones that look alike.
+2. [Marks in layouts](/guides/status/marks-in-layouts/): each layout's words,
+   renaming them, and the styles.
+3. [Pills you place](/guides/status/pills/): the brace grammar.
+4. [Pills a component places](/guides/status/component-pills/): status words,
+   dates and other positional pills.
+5. [Upgrading an older deck](/guides/status/upgrading/): the empty box changed
+   meaning in three layouts.
+6. [Cheat sheet](/guides/status/cheat-sheet/): everything on one page, for
+   when you know what you want and need the syntax.

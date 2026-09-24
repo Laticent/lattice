@@ -19,7 +19,7 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] out of scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
+| `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] skipped (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
 
 ### Common mistakes
 

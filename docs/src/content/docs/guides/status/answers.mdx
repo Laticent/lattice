@@ -1,0 +1,170 @@
+---
+title: The six answers
+description: Six state markers, one meaning each, in every layout. What each answer means, how to choose between the ones that look alike, and how a mark stays readable in grayscale and to a screen reader.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+
+export const LAB_CHECKLIST = `<!-- _class: checklist -->
+
+## Launch readiness.
+
+- [x] Contract signed by both parties
+- [-] Data migration half cut over
+- [!] Load test failed at peak
+- [?] Vendor has not disclosed SLA terms
+- [ ] Security review not yet booked
+- [/] Legacy batch retired, no cutover needed
+`;
+
+export const LAB_TABLE = `<!-- _class: table state-cells -->
+
+## Where each vendor lands.
+
+| Criterion      | Atlas | Borealis | Cirrus |
+|----------------|-------|----------|--------|
+| EU residency   | [x]   | [!]      | [x]    |
+| SSO            | [x]   | [-]      | [x]    |
+| SOC 2 Type II  | [x]   | [?]      | [ ]    |
+| On-prem option | [/]   | [!]      | [/]    |
+`;
+
+A **state mark** (what most tools call a <span data-pagefind-weight="10">checkbox</span>) answers one question about
+one row: *is this done? is this
+included? does this rule apply?* You type a **marker** in square brackets, and
+Lattice draws the mark:
+
+```markdown
+- [x] Contract signed by both parties
+```
+
+There are six markers because a question has six possible answers, not two.
+Each marker means **the same thing in every layout** — a checklist, a pricing
+table, a roadmap, a sentence. Learn the six once and you can read any Lattice
+slide.
+
+<CraftLab
+	label="All six answers on one checklist"
+	kind="none"
+	editMarkdown
+	markdown={LAB_CHECKLIST}
+	size="short"
+	hint="Change [!] to [ ] on the load-test row. The red cross becomes an empty ring: the row stops saying 'it failed' and starts saying 'nobody has run it'."
+/>
+
+## The six answers
+
+| Marker | Answer | Use it when | Drawn as |
+|---|---|---|---|
+| `[x]` | **Yes** | It is done, met or included | A check on a solid green disc |
+| `[-]` | **Partly** | It is in progress, limited or qualified | A dash on a solid amber disc |
+| `[!]` | **No** | It failed, was not met or is missing | A cross on a solid red disc |
+| `[?]` | **Unknown** | Somebody looked, and the answer cannot be settled yet | A question mark in an open ring |
+| `[ ]` | **Open** | Nobody has looked yet | An empty open ring |
+| `[/]` | **Does not apply** | The question is not relevant to this row | A slash on a solid gray disc, the label struck through |
+
+`[x]` and `[ ]` are ordinary GitHub task-list syntax, so they read as checkboxes
+in any markdown viewer. The other four are Lattice's.
+
+## Choosing between the ones that look alike
+
+Most mistakes are between two neighbors. Ask one question to tell each pair
+apart:
+
+**`[!]` no, or `[ ]` open?** *Has anyone checked?* A load test that ran and
+failed is `[!]`. A load test nobody has run is `[ ]`. One is a finding; the
+other is the absence of one. Writing `[ ]` for "no" tells your reader the work
+is merely unstarted.
+
+**`[ ]` open, or `[?]` unknown?** *Did someone try to find out?* `[ ]` means
+nobody has looked. `[?]` means somebody looked and could not settle it: the
+data is disputed, the audit is pending, the vendor will not say.
+
+**`[!]` no, or `[/]` does not apply?** *Does the question apply to this row?*
+"Does this plan include SSO?" is `[!]` for a plan that lacks it. "Does this
+regulation reach this country?" is `[/]` for a country outside it. *No* means
+the question applies and the answer is negative. *Does not apply* means the
+question was never asked of this row.
+
+**`[-]` partly, or `[x]` yes?** *Would you sign off on it as it stands?* If a
+reader would need a footnote, it is `[-]`.
+
+<CraftLab
+	label="A vendor comparison using five answers"
+	kind="none"
+	editMarkdown
+	markdown={LAB_TABLE}
+	size="short"
+	hint="Borealis has [!] for residency (checked: not offered) and [?] for SOC 2 (asked: no answer). Cirrus has [ ] (not yet asked). Three different stories, and a reader can tell them apart at a glance."
+/>
+
+## Three rules that keep six marks readable
+
+**1. Shape carries the meaning.** Every answer has its own shape — check, dash,
+cross, question mark, empty ring, slash — and the shape never changes from one
+layout to the next. So the marks still read in a grayscale print and for a
+reader who is color-blind. Color is the second channel, not the only one.
+
+**2. Fill says whether the answer is settled.** Yes, partly, no and does not
+apply are **solid discs**: each is a settled answer. Unknown and open are
+**hollow rings**: neither is an answer yet. The question mark is what tells the
+two rings apart.
+
+**3. Color carries emphasis, and only you change it.** Green, amber, red and
+gray are the defaults everywhere. A layout never recolors a mark on its own.
+The one way to recolor is the `heat` modifier, which flips the colors for a
+risk reading. See [Marks in layouts](/guides/status/marks-in-layouts/#heat--when-yes-is-the-alarm).
+
+A fourth rule follows from the three: **a layout changes the words, never the
+answer.** A roadmap calls `[!]` *missed*; pricing calls it *missing*. Both mean
+*no*. [Marks in layouts](/guides/status/marks-in-layouts/) lists every layout's
+words.
+
+## Two places to write a marker
+
+**Bare, at the start of a list item or table cell**, in the layouts built to
+read markers: a checklist row, a pricing feature, a verdict-grid criterion, a
+roadmap or obligation-matrix cell, or any table with `state-cells` turned on.
+
+```markdown
+- [!] Load test failed at peak
+```
+
+**Inside inline code**, anywhere inline code can go: a sentence, a heading, a
+table cell, a legend under a slide. This is the **universal** form. It works on
+every slide.
+
+```markdown
+Residency `[x]` · SSO `[x]` · SOC 2 `[?]`
+```
+
+The two forms draw the same disc. Use the bare form where a layout is built
+around marks, and the inline form everywhere else.
+
+## What a reader hears
+
+Every mark is also read aloud. An inline mark carries an accessible name, so a
+screen reader says *yes*, *partly*, *no*, *unknown*, *open* or *does not
+apply*, with no extra word on the slide. When Lattice narrates a deck, each
+layout speaks its own words: a checklist says *done* and *to do*, and pricing
+says *included* and *coming*.
+
+## Only these six
+
+Only the six exact forms become a mark. `` `[~]` ``, `` `[0]` `` and
+`` `[data-mark]` `` all stay literal, because `[` also opens a CSS selector, an
+array index and a citation, and those must survive.
+
+**`[X]` with a capital is not a cross.** GitHub reads `[X]` as a *checked*
+box, the opposite of what the letter suggests. Write `[!]` for no.
+
+**Braces are not brackets.** `` `{x}` `` is neither a mark nor a pill: it
+stays literal, and the linter points you to `` `[x]` ``. See
+[Pills you place](/guides/status/pills/#braces-make-a-pill-brackets-make-a-mark).
+
+To show a marker as literal text, put a backslash in front: `` `\[x]` ``.
+
+## Next
+
+[Marks in layouts](/guides/status/marks-in-layouts/): where marks draw, each
+layout's words, and how to rename them.

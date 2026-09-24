@@ -55,7 +55,7 @@
     "items": {
       "selector": "ul > li",
       "required": true,
-      "description": "Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] out of scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag."
+      "description": "Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] skipped (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag."
     }
   },
   "skeleton": "<!-- _class: checklist -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [!] Fourth item that was checked and failed.\n- [?] Fifth item nobody can settle yet.\n- [ ] Sixth item that is not yet started.\n",
