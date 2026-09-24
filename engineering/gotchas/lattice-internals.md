@@ -691,10 +691,25 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Fix:** `projectVideo` runs the generic block walk with `.video-embed` skipped,
   then appends the poster figure. The eyebrow stays the kicker because the walk drops
   the paragraph that matches it.
-- **Still open:** `image` has the same shape, and a lead paragraph on an `image`
-  slide is still dropped (`followups.d/2350-p2-image-lead-paragraph-missing-from-prose.md`).
 - **Pinned by:** the "video lead paragraph" arms in
   `test/unit/transformers/prose-projection.test.js`, which render through the real engine.
+
+## A media slide's prose is missing from the reader view
+
+- **Symptom:** Read · Article shows a chart, image, diagram or equation slide as its
+  heading and the picture alone. The paragraph above an image, a chart's caption, a math
+  slide's variable legend and its second equation are gone, though narration reads them.
+  The figure's caption repeats the heading printed just above it.
+- **Cause:** `projectDeckToProse` sent every `MEDIA_COMPONENTS` slide to `projectMedia`,
+  which re-hosts the FIRST visual and nothing else, and captions it with the heading.
+- **Fix:** `projectMediaSlide` walks the stage's prose in slide order through
+  `projectGeneric` and puts the figure where the visual's block stood (a chart's
+  `.chart-body`, the `<p>` around an image or display equation). It skips what narration
+  skips (aria-hidden decoration) and no second picture is re-hosted. The figure caption is
+  the slide's `.chart-caption` when it has one. An image-split slide (`.image-text`) now
+  finds its eyebrow the way the card components do (`CARD_HEAD_SELECTOR`).
+- **Pinned by:** the "image:", "chart:" and "math:" arms in
+  `test/unit/transformers/prose-projection.test.js`, rendered through the real engine.
 
 ## A slide's subtitle shows as the kicker, or vanishes, in the reader view
 

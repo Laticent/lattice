@@ -1,2 +1,3 @@
 - The reader view and narration put a slide's subtitle after its heading. Before, a lone subtitle showed as the kicker above the heading and was read first, and a subtitle on a slide that also had an eyebrow was dropped.
 - The masthead no longer lifts a code block, or a paragraph that mixes code and text, as a subtitle. A slide with a mermaid fence after its heading and a code-only note below it had the fence, the note and its body pulled into the heading band.
+- The reader view keeps the words around a chart, image, diagram or equation. An image's lead paragraph, a chart's caption, a math slide's variable legend and its second equation were dropped. A chart's figure caption is now its own caption rather than a repeat of the heading.

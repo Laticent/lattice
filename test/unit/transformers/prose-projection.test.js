@@ -1509,3 +1509,56 @@ test('subtitle equal to the eyebrow is projected and read once', async () => {
 	assert.equal(project(secs).articleHtml.split('Q3 review').length - 1, 1);
 	assert.equal(script(secs)[0].text.split('Q3 review').length - 1, 1);
 });
+
+// A media slide re-hosted ONLY its visual, so the prose around it never reached the article while
+// narration read all of it (followup 2350-p2). The rule for every MEDIA component: prose in slide
+// order, the visual re-hosted as a figure where it stood. Rendered through the real engine.
+test('image: the lead paragraph projects once, after the heading and before the figure; the eyebrow is the kicker', async () => {
+	const secs = await renderedSections('<!-- _class: image -->\n\n`Offsite`\n\n## Pic\n\nA lead paragraph here.\n\n![alt](https://example.com/a.png)\n\nTrailing words.\n');
+	const { articleHtml } = project(secs);
+	assert.ok(articleHtml.startsWith('<p class="lp-kicker">Offsite</p>\n<h2 id="lp-sec-0">Pic</h2>\n<p>A lead paragraph here.</p>\n<figure'), articleHtml);
+	assert.ok(articleHtml.indexOf('</figure>') < articleHtml.indexOf('<p>Trailing words.</p>'), 'prose after the picture stays after it');
+	assert.equal(articleHtml.split('A lead paragraph here.').length - 1, 1, 'the lead is projected once');
+	assert.equal(articleHtml.split('<img').length - 1, 1, 'the picture is re-hosted once');
+	assert.ok(script(secs)[0].text.startsWith('Offsite. Pic.\n\n'), 'narration leads with the eyebrow');
+});
+
+test("chart: the slide's own caption is the figure caption, not a repeat of the heading", async () => {
+	const md = '<!-- _class: bullet -->\n\n## Two of five KPIs cleared the plan line.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n\n*Actual against target inside a qualitative band.*\n';
+	const { articleHtml } = project(await renderedSections(md));
+	assert.match(articleHtml, /<figcaption>Actual against target inside a qualitative band\.<\/figcaption><\/figure>/, articleHtml);
+	assert.equal(articleHtml.split('Actual against target').length - 1, 1, 'the caption is projected once');
+	assert.equal(articleHtml.split('Two of five KPIs').length - 1, 1, 'the heading is not repeated as the caption');
+});
+
+test('math: the variable legend and a second equation reach the article', async () => {
+	const md = '<!-- _class: math -->\n\n## The closed-form estimator.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $X$ — design matrix\n- $y$ — response vector\n\n$$ e = y - X\\hat\\beta $$\n';
+	const { articleHtml } = project(await renderedSections(md));
+	assert.equal((articleHtml.match(/class="katex-display"/g) || []).length, 2, 'both display equations are projected');
+	assert.ok(articleHtml.includes('— design matrix'), articleHtml);
+	assert.ok(articleHtml.indexOf('<figure') < articleHtml.indexOf('— design matrix'), 'the legend follows the first equation');
+});
+
+
+test('small multiples: the chart is re-hosted once, not the first mini plus raw siblings', async () => {
+	const fs = require('node:fs');
+	const src = fs.readFileSync(require.resolve('../../../examples/chart-family-all-svg.md'), 'utf8');
+	const engine = require('../../../lib/engine');
+	const { html } = await engine.render(src);
+	const secs = [...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('article > section')];
+	const s = secs.find((x) => x.textContent.includes('Four minis, four names, one drawing each.'));
+	assert.ok(s, 'fixture slide present');
+	const { articleHtml } = project([s]);
+	assert.equal((articleHtml.match(/<figure/g) || []).length, 1, articleHtml.replace(/<svg[\s\S]*?<\/svg>/g, '<svg/>'));
+});
+
+test("math: an inline equation's glyph svg does not displace the display equation or its sentence", () => {
+	const secs = sections(
+		'<section data-lattice-slide class="math form" data-class="math"><div class="cell-stage">' +
+			'<p>The root term <span class="katex"><svg id="g"></svg></span> matters here.</p>' +
+			'<p><span class="katex-display"><span class="katex">E</span></span></p><p>Closing note.</p></div></section>',
+	);
+	const { articleHtml } = project(secs);
+	assert.ok(articleHtml.includes('The root term'), articleHtml);
+	assert.match(articleHtml, /<figure class="lp-figure"><span class="katex-display">/, articleHtml);
+});
