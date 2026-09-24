@@ -180,9 +180,9 @@ test('narrateJourneyWeighted: returns null for journey without the weighted modi
 test('narrateJourneyWeighted: speaks each task share of the total volume', () => {
   const out = narrateJourneyWeighted(weightedSample);
   assert.ok(out.includes('weighted sizes the stages by importance.'));
-  assert.ok(out.includes('Discover: Search, forty-five percent; Referral, eighteen percent.'));
-  assert.ok(out.includes('Convert: Pricing page, twelve percent; Checkout, ten percent.'));
-  assert.ok(out.includes('Support: Settings, eight percent; Help docs, seven percent.'));
+  assert.ok(out.includes('Discover, two steps. Search, forty-five percent of the traffic. Referral, eighteen percent of the traffic.'));
+  assert.ok(out.includes('Convert, two steps. Pricing page, twelve percent of the traffic. Checkout, ten percent of the traffic.'));
+  assert.ok(out.includes('Support, two steps. Settings, eight percent of the traffic. Help docs, seven percent of the traffic.'));
 });
 
 test('narrateJourneyWeighted: defaults an unweighted task to volume 1', () => {
@@ -204,7 +204,7 @@ test('narrateJourneyWeighted: does not treat a per-task detail sublist line as a
     '  - Task B `@me` `:3` `+50`',
   ].join('\n');
   const out = narrateJourneyWeighted(md);
-  assert.ok(out.includes('Stage: Task A, fifty percent; Task B, fifty percent.'));
+  assert.ok(out.includes('Stage, two steps. Task A, fifty percent of the traffic. Task B, fifty percent of the traffic.'));
   assert.ok(out.includes('Escalated after 3 retries.'));
 });
 
@@ -219,12 +219,12 @@ test('narrateJourneyWeighted: keeps a qualifying phrase authored AFTER a task to
     '  - Resolve `@support` `:2` `+60`',
   ].join('\n');
   const out = narrateJourneyWeighted(md);
-  assert.ok(out.includes('Stage: Escalate to tier two, forty percent; Resolve, sixty percent.'));
+  assert.ok(out.includes('Stage, two steps. Escalate to tier two, forty percent of the traffic. Resolve, sixty percent of the traffic.'));
 });
 
 test('narrateJourneyWeighted: accepts a `+.5`-style fractional volume with no leading digit', () => {
   const md = ['<!-- _class: journey weighted -->', '', '## Flow.', '', '- Stage', '  - A `@me` `:2` `+.5`', '  - B `@me` `:2` `+.5`'].join('\n');
-  assert.ok(narrateJourneyWeighted(md).includes('Stage: A, fifty percent; B, fifty percent.'));
+  assert.ok(narrateJourneyWeighted(md).includes('Stage, two steps. A, fifty percent of the traffic. B, fifty percent of the traffic.'));
 });
 
 test('narrateJourneyWeighted: tolerates ordinary indentation variance between sibling task lines', () => {
@@ -237,17 +237,17 @@ test('narrateJourneyWeighted: tolerates ordinary indentation variance between si
     '  - Search `@me` `:3` `+50`',
     '   - Referral `@me` `:3` `+50`',
   ].join('\n');
-  assert.equal(narrateJourneyWeighted(md), 'X. Stage: Search, fifty percent; Referral, fifty percent.');
+  assert.equal(narrateJourneyWeighted(md), 'X. Stage, two steps. Search, fifty percent of the traffic. Referral, fifty percent of the traffic.');
 });
 
 test('narrateJourneyWeighted: accepts a trailing non-numeric suffix on a volume token (`+45%`)', () => {
   const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - Task `@me` `:3` `+45%`', '  - Filler `@me` `:3` `+1`'].join('\n');
-  assert.equal(narrateJourneyWeighted(md), 'X. Stage: Task, ninety-eight percent; Filler, two percent.');
+  assert.equal(narrateJourneyWeighted(md), 'X. Stage, two steps. Task, ninety-eight percent of the traffic. Filler, two percent of the traffic.');
 });
 
 test('narrateJourneyWeighted: recognizes an h1 heading, not just h2', () => {
   const md = ['<!-- _class: journey weighted -->', '', '# Flow', '', '- Stage', '  - A `@me` `:3` `+9`', '  - B `@me` `:3` `+1`'].join('\n');
-  assert.equal(narrateJourneyWeighted(md), 'Flow. Stage: A, ninety percent; B, ten percent.');
+  assert.equal(narrateJourneyWeighted(md), 'Flow. Stage, two steps. A, ninety percent of the traffic. B, ten percent of the traffic.');
 });
 
 // ── narrateRadar ──────────────────────────────────────────────────────────────
@@ -278,16 +278,16 @@ test('narrateRadar: skips only the scale SENTENCE when the eyebrow already decla
   const out = narrateRadar(md);
   assert.ok(!out.includes('On a scale of'), 'the eyebrow already said it');
   assert.ok(out.includes('Scale \u00b7 0\u201310.'), 'and the eyebrow itself is still read');
-  assert.ok(out.includes('Lattice: Performance, nine; Pricing, seven.'));
-  assert.ok(out.includes('Rival North: Performance, seven; Pricing, eight.'));
+  assert.ok(out.includes('Lattice is strongest on Performance, at nine. Lattice is weakest on Pricing, at seven.'), out);
+  assert.ok(out.includes('Rival North is strongest on Pricing, at eight. Rival North is weakest on Performance, at seven.'), out);
 });
 
 test('narrateRadar: narrates the auto-fit scale and every series when no eyebrow is authored', () => {
   const md = ['<!-- _class: radar -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '  - Pricing `7`', '- Rival North', '  - Performance `7`', '  - Pricing `8`'].join('\n');
   const out = narrateRadar(md);
   assert.ok(out.includes('On a scale of zero to ten.'));
-  assert.ok(out.includes('Lattice: Performance, nine; Pricing, seven.'));
-  assert.ok(out.includes('Rival North: Performance, seven; Pricing, eight.'));
+  assert.ok(out.includes('Lattice is strongest on Performance, at nine. Lattice is weakest on Pricing, at seven.'), out);
+  assert.ok(out.includes('Rival North is strongest on Pricing, at eight. Rival North is weakest on Performance, at seven.'), out);
 });
 
 test('narrateRadar: still auto-computes the scale when the eyebrow is present but not a parseable number', () => {
@@ -321,8 +321,8 @@ test('narrateRadar: reads the `quadrant` variant with all three levels — serie
   // the caption walker skips the SVG, so "defer to slideToSpeech" deferred to silence.
   const out = narrateRadar(md);
   assert.ok(out.includes('Our capability.'), out);
-  assert.ok(out.includes('People, averaging three point five: Hiring, four; Retention, three.'), out);
-  assert.ok(out.includes('Process, averaging five: Cadence, five.'), out);
+  assert.ok(out.includes('People averages three point five. People: Hiring scores four and Retention three.'), out);
+  assert.ok(out.includes('Process averages five. Process: Cadence scores five.'), out);
 });
 
 test('narrateRadar: does not treat a per-axis detail sublist line as an axis, but still speaks it', () => {
@@ -338,23 +338,23 @@ test('narrateRadar: does not treat a per-axis detail sublist line as an axis, bu
   ].join('\n');
   const out = narrateRadar(md);
   assert.ok(out.includes('On a scale of zero to ten.'));
-  assert.ok(out.includes('Lattice: Performance, nine; Pricing, seven.'));
+  assert.ok(out.includes('Lattice is strongest on Performance, at nine. Lattice is weakest on Pricing, at seven.'), out);
   assert.ok(out.includes('Verified in cycle 2024.'));
 });
 
 test('narrateRadar: tolerates ordinary indentation variance between sibling axis lines', () => {
   const md = ['<!-- _class: radar -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '   - Pricing `95`'].join('\n');
-  assert.equal(narrateRadar(md), 'How we stack up. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to one hundred. Lattice: Performance, nine; Pricing, ninety-five.');
+  assert.equal(narrateRadar(md), 'How we stack up. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to one hundred. Lattice is strongest on Pricing, at ninety-five. Lattice is weakest on Performance, at nine.');
 });
 
 test('narrateRadar: tolerates trailing non-numeric text on an axis value pill', () => {
   const md = ['<!-- _class: radar -->', '', '## X.', '', '- Lattice', '  - Performance `9 pts`'].join('\n');
-  assert.equal(narrateRadar(md), 'X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice: Performance, nine.');
+  assert.equal(narrateRadar(md), 'X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice scores nine on Performance.');
 });
 
 test('narrateRadar: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
   const md = ['<!-- _class: radar -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
-  assert.equal(narrateRadar(md), 'Buying criteria. X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice: Performance, nine.');
+  assert.equal(narrateRadar(md), 'Buying criteria. X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice scores nine on Performance.');
 });
 
 // ── narrateQuadrant ───────────────────────────────────────────────────────────
@@ -382,8 +382,9 @@ test('narrateQuadrant: speaks the axis list as a sentence per axis, never the br
   assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'), out);
   assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred.'), out);
   assert.ok(!/[[\]{}]|\.\./.test(out), 'no list syntax reaches the voice');
-  assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy.'));
-  assert.ok(out.includes('Quick Wins: Weekly signal brief at eight, eighty.'));
+  // Where each item sits, in words, before its numbers — the numbers named by their axis.
+  assert.ok(out.includes('Strategic Bets, one item. Scoring model v2 is low on Effort and high on Reach: Effort three, Reach seventy.'), out);
+  assert.ok(out.includes('Quick Wins, one item. Weekly signal brief is high on both Effort and Reach: Effort eight, Reach eighty.'), out);
 });
 
 test('narrateQuadrant: a threshold is spoken with the axis it belongs to', () => {
@@ -398,8 +399,8 @@ test('narrateQuadrant: narrates both axis scales and every item when no eyebrow 
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs zero to ten.'));
   assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
-  assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at five, eighty-five.'));
-  assert.ok(out.includes('Quick Wins: Weekly signal brief at eight, eighty.'));
+  assert.ok(out.includes('Strategic Bets, two items. Scoring model v2 is high and to the left: three across, seventy up. Per-team calibration is high and in the middle: five across, eighty-five up.'), out);
+  assert.ok(out.includes('Quick Wins, one item. Weekly signal brief is high and to the right: eight across, eighty up.'), out);
 });
 
 test('narrateQuadrant: one threshold draws BOTH lines, so both are spoken', () => {
@@ -436,8 +437,8 @@ test('narrateQuadrant: correctly parses the `trail` variant two-pill item instea
     '  - Snapshot exports `9, 45` `8, 62`',
   ].join('\n');
   const out = narrateQuadrant(md);
-  assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy-eight; Per-team calibration at five, eighty-eight.'));
-  assert.ok(out.includes('Quick Wins: Snapshot exports at eight, sixty-two.'));
+  assert.ok(out.includes('Scoring model v2 is high and to the left: three across, seventy-eight up. Per-team calibration is high and in the middle: five across, eighty-eight up.'), out);
+  assert.ok(out.includes('Snapshot exports is high and to the right: eight across, sixty-two up.'), out);
   assert.ok(!out.includes('5, 60'));
   assert.ok(!out.includes('7, 70'));
 });
@@ -468,7 +469,7 @@ test('narrateQuadrant: does not treat a per-item detail sublist line as an item,
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs zero to five.'));
   assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
-  assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at five, eighty-five.'));
+  assert.ok(out.includes('Strategic Bets, two items. Scoring model v2 is high and to the right: three across, seventy up. Per-team calibration is high and to the right: five across, eighty-five up.'), out);
   assert.ok(out.includes('Confidence range 40, 95.'));
 });
 
@@ -487,7 +488,7 @@ test('narrateQuadrant: speaks an intro paragraph between the heading and the gro
   ].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('Bubble size reflects team size.'));
-  assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy.'));
+  assert.ok(out.includes('Strategic Bets, one item. Scoring model v2 is high and to the left: three across, seventy up.'), out);
 });
 
 test('narrateQuadrant: an unreadable threshold is not spoken, and the domain still is', () => {
@@ -521,18 +522,18 @@ test('narrateQuadrant: tolerates ordinary indentation variance between sibling i
   ].join('\n');
   assert.equal(
     narrateQuadrant(md),
-    'Where to invest. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis runs zero to ten. The vertical axis runs zero to one hundred. Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at seven, eighty-five.',
+    'Where to invest. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis runs zero to ten. The vertical axis runs zero to one hundred. Strategic Bets, two items. Scoring model v2 is high and to the left: three across, seventy up. Per-team calibration is high and to the right: seven across, eighty-five up.',
   );
 });
 
 test('narrateQuadrant: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
   const md = ['<!-- _class: quadrant -->', '', '`Portfolio review`', '', '`[Effort, Reach]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
-  assert.equal(narrateQuadrant(md), 'Portfolio review. X. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis, Effort, runs zero to five. The vertical axis, Reach, runs zero to one hundred. Group: Item at five, eighty-five.');
+  assert.equal(narrateQuadrant(md), 'Portfolio review. X. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis, Effort, runs zero to five. The vertical axis, Reach, runs zero to one hundred. Group, one item. Item is high on both Effort and Reach: Effort five, Reach eighty-five.');
 });
 
 test('narrateQuadrant: mirrors parseCoordPill leading-digit quirk (`.5` does not count as a coordinate)', () => {
   const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `.5, 80`'].join('\n');
-  assert.ok(narrateQuadrant(md).includes('Group: Item at eighty, zero.'));
+  assert.ok(narrateQuadrant(md).includes('Item is low and to the right: eighty across, zero up.'));
 });
 
 // ── narrateStateChartInference ─────────────────────────────────────────────────
@@ -1555,9 +1556,13 @@ test('narrateXychart: accessibility statements and comments carry nothing; negat
 test('narrateJourneyMood: reads each task with its actors and its mood, by section', () => {
   const md = ['<!-- _class: journey -->', '', '## The path.', '', '- Evaluate', '  - Read case study `@prospect` `:5`', '  - Live demo `@prospect` `@sales` `:4`', '- Trial', '  - Signup `@user` `:3`'].join('\n');
   const out = narrateJourneyMood(md);
-  assert.ok(out.includes('Evaluate: Read case study, prospect, five out of five;'), out);
-  assert.ok(out.includes('Live demo, prospect and sales, four out of five.'), out);
-  assert.ok(out.includes('Trial: Signup, user, three out of five.'), out);
+  // The scale once, in its own words; a stage by its size; a step per sentence, naming who.
+  assert.ok(out.includes('Each step is scored for how it feels, from one, pain, to five, delight.'), out);
+  assert.ok(out.includes('Evaluate, two steps. Read case study, by the prospect, scores five out of five.'), out);
+  assert.ok(out.includes('Live demo, by the prospect and sales, scores four out of five.'), out);
+  assert.ok(out.includes('Trial, one step. Signup, by the user, scores three out of five.'), out);
+  // …and it ends on the contour the chart exists to show.
+  assert.ok(out.includes('The low point is Signup, at three out of five. The high point is Read case study, at five out of five.'), out);
   // The mood scale is the point, and a listener has no axis to read a bare number against.
   assert.ok(!/\bfive\.(?! )/.test(out.replace(/out of five/g, '')), 'no bare mood numbers');
 });
@@ -1572,7 +1577,7 @@ test('narrateJourneyMood: leaves an omitted mood UNSAID rather than reporting th
   // Narrating that default would state an affect the author never claimed.
   const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `@prospect`'].join('\n');
   const out = narrateJourneyMood(md);
-  assert.ok(out.includes('Read case study, prospect.'), out);
+  assert.ok(out.includes('Read case study, by the prospect.'), out);
   assert.ok(!out.includes('out of five'), out);
 });
 
@@ -1628,13 +1633,13 @@ test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot stat
   // "zero", `:4x` read nothing, and `@` produced an empty actor and a double comma.
   const md = ['<!-- _class: journey -->', '', '## X.', '', '- Stage', '  - High `@prospect` `:99`', '  - Low `@` `:0`', '  - Odd `@user` `:4x`', '  - Half `@user` `:2.5`'].join('\n');
   const out = narrateJourneyMood(md);
-  assert.ok(out.includes('High, prospect, five out of five'), out); // 99 clamps to 5
-  assert.ok(out.includes('Low, one out of five'), out); // 0 clamps to 1, bare @ dropped
-  assert.ok(out.includes('Odd, user, four out of five'), out); // parseInt reads 4 from `4x`
+  assert.ok(out.includes('High, by the prospect, scores five out of five'), out); // 99 clamps to 5
+  assert.ok(out.includes('Low scores one out of five'), out); // 0 clamps to 1, bare @ dropped
+  assert.ok(out.includes('Odd, by the user, scores four out of five'), out); // parseInt reads 4 from `4x`
   // `:2.5` reads TWO, not three: the transform runs `parseInt` BEFORE `clampMood`, so the
   // fraction is gone before any rounding happens. Asserted against journey.transform.js
   // itself rather than against what rounding alone would suggest.
-  assert.ok(out.includes('Half, user, two out of five'), out);
+  assert.ok(out.includes('Half, by the user, scores two out of five'), out);
   assert.ok(!out.includes(', ,'), `an empty actor left a double comma: ${out}`);
 });
 
@@ -1717,8 +1722,9 @@ test('narrateDataSeries: reads a flat one-pill series — the audit\'s own bar c
 
 test('narrateDataSeries: reads a nested two-level series, each value bound to its group', () => {
   const out = narrateDataSeries(manifestSample('line'));
-  assert.match(out, /Q1 2025: Enterprise, four point one; Mid-market, two point six; Services, one point two\./);
-  assert.match(out, /Q2 2026: Enterprise, three point five; Mid-market, four point six; Services, five point two\./);
+  // A series at a time: its overall move, then each point, each point a sentence of its own.
+  assert.match(out, /Enterprise fell zero point six overall, from four point one to three point five\. Q1 2025, four point one\. Q2 2025, four point four\./);
+  assert.match(out, /Services rose four overall, from one point two to five point two\.[\s\S]*Q2 2026, five point two\./);
 });
 
 test('narrateDataSeries: binds each value to its AXIS when the eyebrow is a multi-pill legend', () => {
@@ -1744,17 +1750,20 @@ test('narrateDataSeries: a ONE-pill eyebrow is a caption, spoken first, never an
 
 test('narrateDataSeries: reads a markdown table as a grid, naming each column', () => {
   const out = narrateDataSeries(manifestSample('heatmap'));
-  assert.match(out, /Jan 2026: M0, one hundred; M1, sixty-two; M2, forty-eight; M3, forty-four\./);
+  assert.match(out, /Each row runs across M0, M1, M2, and M3\./);
+  assert.match(out, /Jan 2026 is highest at M0, one hundred, and lowest at M3, forty-four\./);
   // An EMPTY cell is a fact the slide shows — say so, rather than emit a short row a
   // listener cannot align. heatmap's own sample leaves Apr/M3 blank.
-  assert.match(out, /Apr 2026: M0, one hundred; M1, sixty-nine; M2, fifty-seven; M3, no data\./);
+  assert.match(out, /Apr 2026 is highest at M0, one hundred, and lowest at M2, fifty-seven\. Apr 2026 has no data for M3\./);
 });
 
 test('narrateDataSeries: keeps a row-level pill with its row, then its nested values', () => {
   // slope authors a status pill on the GROUP line and two endpoints under it.
   const out = narrateDataSeries(manifestSample('slope'));
-  assert.match(out, /Northwind, fail: 2023, thirty-one percent; 2026, twenty-four percent\./);
-  assert.match(out, /Vantage: 2023, nineteen percent; 2026, twenty-one percent\./);
+  // The move as a verb, sized in points between two percentages; the status said as a flag.
+  assert.match(out, /Each line runs from 2023, on the left, to 2026, on the right\./);
+  assert.match(out, /Northwind, marked failing, fell seven points, from thirty-one percent to twenty-four percent\./);
+  assert.match(out, /Vantage rose two points, from nineteen percent to twenty-one percent\./);
 });
 
 test('narrateDataSeries: reads two unnamed pills in authored order and claims nothing about them', () => {
@@ -1855,8 +1864,10 @@ test('narrateDataSeries: speaks every row EXACTLY once — nothing consumed is a
   assert.equal(once(bar, 'Revenue · FY26'), 1); // the eyebrow, too
   assert.equal(once(bar, '$4.2M'), 0, 'the raw pill must not survive alongside its spoken form');
   const line = narrateDataSeries(manifestSample('line'));
-  assert.equal(once(line, 'Q1 2025'), 1);
-  assert.equal(once(line, 'Enterprise'), 6); // once per period, never twice per period
+  // A line reads a series at a time, so each period is said once PER SERIES (three here) and each
+  // series name once, in its own verdict sentence.
+  assert.equal(once(line, 'Q1 2025'), 3);
+  assert.equal(once(line, 'Enterprise'), 1);
   const heat = narrateDataSeries(manifestSample('heatmap'));
   assert.equal(once(heat, 'Jan 2026'), 1);
   assert.equal(once(heat, '| 100 |'), 0, 'the raw table row must not survive');
@@ -1929,20 +1940,20 @@ test('narrateDataSeries: the table reader narrates the grid markdown-it BUILDS',
   // A cell PAST the header count is dropped by markdown-it, so the chart never draws it.
   // Narrating it announced a value, under an invented column name, that is not on the slide.
   const extra = t('| Jan | 1 | 2 | 3 |');
-  assert.match(extra, /Jan: M0, one; M1, two\./);
+  assert.match(extra, /Jan is highest at M1, two, and lowest at M0, one\./);
   assert.doesNotMatch(extra, /column|three/);
   // A SHORT row is padded by markdown-it, and the chart paints the pad as unmeasured — so it
   // reads the same as an author's explicit empty cell, not as silence.
-  assert.match(t('| Feb | 4 |'), /Feb: M0, four; M1, no data\./);
+  assert.match(t('| Feb | 4 |'), /Feb is four at M0\. Feb has no data for M1\./);
   // A one-column table names no columns to read values against.
   assert.equal(t('| Jan |', '| Region |\n| --- |'), null);
   // A cell annotation is the chart's NOTE, not part of the value — and not dropped either.
-  assert.match(t('| Jan | 100 | 62 `# rollout paused` |'), /M1, sixty-two \(rollout paused\)\./);
+  assert.match(t('| Jan | 100 | 62 `# rollout paused` |'), /Jan at M1, sixty-two: rollout paused\./);
 });
 
 test('narrateDataSeries: a nested line with no pill is prose, not a value-less item', () => {
   const out = narrateDataSeries('<!-- _class: line -->\n\n## L.\n\n- Q1\n  - Enterprise `4.1`\n  - A note with no value\n- Q2\n  - Enterprise `4.4`');
-  assert.match(out, /Q1: Enterprise, four point one\./);
+  assert.match(out, /Enterprise rose zero point three overall, from four point one to four point four\. Q1, four point one\./);
   assert.doesNotMatch(out, /A note with no value,/, 'not read as an item');
   assert.match(out, /A note with no value/, 'but still spoken');
 });
@@ -2009,7 +2020,7 @@ test('narrateDataSeries: a delimiter row needs a DASH — colons alone are not a
   assert.equal(narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| A | B |\n| : | : |\n| 1 | 2 |'), null);
   assert.match(
     narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| | A | B |\n| --- | --- | --- |\n| Jan | 1 | 2 |'),
-    /Jan: A, one; B, two\./,
+    /Jan is highest at B, two, and lowest at A, one\./,
   );
 });
 

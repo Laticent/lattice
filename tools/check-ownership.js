@@ -5196,7 +5196,9 @@ const SANCTIONED_MARK_IDENTITY = [
   // attribute name, so none can come back. Thirteen files wrote a mark identity then, not
   // eighteen. (`word-cloud.transform.js` has since started writing one for real — its words
   // are the Guide's targets — so it is listed below on its own merits, not as a comment.)
-  // Twenty rows as of the 2026-09-24 accessibility pass, which gave every chart's marks a name.
+  // Twenty rows as of the 2026-09-24 accessibility pass, which gave every chart's marks a name;
+  // twenty-four after its second round, which named the marks the rewritten narrations of line,
+  // journey, roadmap `horizons` and matrix-grid open their sentences with.
   ['components/chart/bar/bar.transform.js', true, true],
   ['components/chart/bullet/bullet.transform.js', true, true],
   // The shared category-axis emitter: a category's label names the column or row a data-series
@@ -5205,16 +5207,24 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/funnel/funnel.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
+  // A journey's stage and step — each sentence of `narrateJourneyMood` opens with one. The mood is
+  // said as a score ("scores four"), and a step carries no value attribute to corroborate it.
+  ['components/chart/journey/journey.transform.js', true, false],
   // The three flow charts label their row / card / column / milestone — the thing each sentence of
   // their narrator (`narrateProgress` · `narrateKanban` · `narrateTimelineList`) leads with. Only
   // progress has a number to corroborate; a card and a date have none.
   ['components/chart/kanban/kanban.transform.js', true, false],
+  // A line names its SERIES on the line and its CATEGORY on each dot, with the dot's value: the
+  // narration reads a series point by point, and the value is what tells one quarter's dots apart.
+  ['components/chart/line/line.transform.js', true, true],
   ['components/chart/map/map.transform.js', true, true],
   ['components/chart/piechart/piechart.transform.js', true, true],
   ['components/chart/progress/progress.transform.js', true, true],
   ['components/chart/quadrant/quadrant.transform.js', true, false],
   // A radar polygon is named by its series; its values are per SPOKE, so there is no one value.
   ['components/chart/radar/radar.transform.js', true, false],
+  // roadmap `horizons`: a card's head (its horizon) and each bet in it (`narrateRoadmapHorizons`).
+  ['components/chart/roadmap/roadmap.transform.js', true, false],
   ['components/chart/scatter/scatter.transform.js', true, false],
   ['components/chart/slope/slope.transform.js', true, true],
   ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
@@ -5225,6 +5235,9 @@ const SANCTIONED_MARK_IDENTITY = [
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
+  // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
+  // component because both render paths (markdown-it and the live DOM) build cells through it.
+  ['core/matrix-grid-cells.js', true, false],
 ];
 
 /**

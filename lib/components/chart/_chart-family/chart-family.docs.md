@@ -645,6 +645,14 @@ The rules that cost a measured miss when broken:
   says.
 - **A new writer of `data-label` joins `SANCTIONED_MARK_IDENTITY`** in `tools/check-ownership.js`,
   with what it emits.
+- **One thought per sentence, the relation before the number.** A sentence is one caption cue
+  and one breath. A row read as a semicolon chain ("Mar 2026: M0, one hundred; M1, seventy-one;
+  …") is eight seconds of numbers with no pause, and a listener asked why it was being said. Say
+  what the numbers DO — rose, fell, highest, lowest, high on Reach — then the numbers, named. Read
+  a line a series at a time and a point per sentence; a heatmap row by its peak and its low; a
+  slope entity by its move ("fell seven points, from … to …"). Check the result with
+  `node tools/measure-cue-profile.mjs <deck>.[0-9][0-9].vtt`: a chart cue past about six seconds
+  is the smell.
 - **Screen-reader-only text lives in `.chart-sr-only`.** The Guide never points into it, and the
   overflow probe (`IGNORED_CLIP_SELECTOR`) never reports its clip as lost content. Put the class on
   a block wrapper, never on a `<table>`, which ignores the 1px box and lays out at full size.

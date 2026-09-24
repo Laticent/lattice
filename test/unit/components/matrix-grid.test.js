@@ -447,7 +447,7 @@ describe('the cell key and the screen-reader label agree', () => {
     // text ("Senior") IS its label.
     const out = buildMatrixGridSection(grid(FILLED + OUTLINED), CTX);
     assert.deepEqual(srLabels(out.html), ['reachable']);
-    assert.match(out.html, /class="cell cell-filled">Senior</);
+    assert.match(out.html, /class="cell cell-filled" data-label="Senior">Senior</);
   });
 
   test('an override lands as TEXT in the sr label, never as markup', () => {

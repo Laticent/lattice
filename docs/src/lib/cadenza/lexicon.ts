@@ -95,6 +95,11 @@ const BASE_CASED: Record<string, string> = {
   // "mo" otherwise). Exact-LOWERCASE so the name "Mo", the state "MO", and all-caps titles never
   // fire. Plural default (metrics cite spans > 1); a rare "1 mo" reads "one months" — accepted.
   mo: 'months', mos: 'months',
+  // A release stage, the house domain's reading ("GA, a milestone at Q4" was spoken as the
+  // two letters). Exact-case, so "ga" in prose never fires. Residual: the postal code for
+  // Georgia — a US map authored by code rather than name reads it as "general availability";
+  // that deck declares `acronyms: GA: Georgia`, which the registry lets beat this entry.
+  GA: 'general availability',
   // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
   // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
   // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom

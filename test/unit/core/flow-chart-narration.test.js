@@ -122,5 +122,5 @@ test('a list ABOVE the heading is not the chart`s', () => {
 
 test('radar quadrant: a later series is said on the FIRST series` axes, as parseRadar plots it', () => {
 	const out = narrateChart(slide('radar quadrant', '## R.\n\n- Us\n  - People\n    - Hiring `4`\n    - Retention `3`\n- Them\n  - Staff\n    - retention `5`\n    - Hiring `2`'));
-	assert.ok(out.includes('Them. People: Hiring, two; Retention, five.'), out);
+	assert.ok(out.includes('Them. People: Hiring scores two and Retention five.'), out);
 });

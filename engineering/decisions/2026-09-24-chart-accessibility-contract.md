@@ -125,6 +125,62 @@ fails. It went red when the progress narrator was unregistered and when the heat
 removed. The rules for a new chart are in `lib/components/chart/_chart-family/chart-family.docs.md`
 § Accessibility.
 
+## Round two — what a listener heard
+
+The owner listened to a 26-slide deck built from the galleries, with the Guide on. Every
+complaint was right, and every one traced to one of two causes.
+
+1. **One sentence, one breath, many numbers.** Radar, heatmap, journey and the weighted journey
+   joined a whole row into one sentence with semicolons ("Mar 2026: M0, one hundred; M1,
+   seventy-one; M2, fifty-nine; M3, fifty-five."). The caption segmenter makes one cue per
+   sentence, so each row was one breathless run. This is the defect `narrateMachineShape` already
+   fixed for state-chart. It had not been fixed anywhere else.
+2. **The numbers without the verdict.** Slope said "2023, thirty-one percent; 2026, twenty-four
+   percent" and never "fell". Quadrant said "at three, seventy" after stating two axis ranges
+   several sentences back. Matrix-grid and roadmap `horizons` went through the generic walker,
+   which read every placeholder cell ("Self: not applicable; Team: reachable; …") and then the
+   key's words alone. A listener got the inputs to a judgment and had to make it from memory.
+
+**What changed.** Each chart now says what its numbers do before it says them, one idea per
+sentence, and every sentence still opens with the mark it is about:
+
+| Chart | Now reads |
+|---|---|
+| radar | "Meridian is strongest on Performance and Security, at nine." Then the middle, grouped by score, and the weakest. Sectors: "People averages three." |
+| heatmap | "Each row runs across M0, M1, M2, and M3." Then "Jan 2026 is highest at M0, one hundred, and lowest at M3, forty-four." |
+| line | "Enterprise fell zero point six overall, from four point one to three point five." Then one sentence per point, "Q2 2025, four point four.", which the Guide places on that dot. A series past eight points says its start, high, low and end. |
+| slope | "Northwind, marked failing, fell seven points, from thirty-one percent to twenty-four percent." The columns are said once. |
+| dumbbell | "Each row runs from Plan, the hollow dot, to Actual, the solid dot." Then "Platform rose seven, from forty-eight to fifty-five." |
+| quadrant | "Scoring model v2 is low on Effort and high on Reach: Effort three, Reach seventy." Unnamed axes read "high and to the left". |
+| journey | The scale once ("from one, pain, to five, delight"), then "Evaluate, three steps." and "Read case study, by the prospect, scores five out of five." Ends on the low and high points. |
+| roadmap `horizons` | "Horizon 1: Now." Then "Connector v1 has shipped, in Signal Intake." The generated "Phase 01" and the key are not read. |
+| matrix-grid | The two axes, then bottom row up: "Junior sits at Remember and Self." and "Junior: Team is reachable." Then "The other cells are not applicable." |
+
+The marks those sentences open with got names: line series and dots (a dot also carries its
+value, which is what tells one quarter's three dots apart), journey stages and steps, horizon
+heads and bets, and matrix-grid's filled cells, which both render paths stamp through
+`lib/core/matrix-grid-cells.js`.
+
+**GA.** Cadenza's built-in lexicon now expands `GA` to "general availability", exact-case. By the
+lexicon's own rule an abbreviation stays always-on only when it is unambiguous in the house
+domain (a SaaS/tech boardroom), and GA is. The cost: a US map that labels Georgia by postal code
+reads "general availability" until the deck declares `acronyms: GA: Georgia`, which the registry
+lets win.
+
+**Measured.**
+
+- Caption shape, the 26-slide deck, real `--captions` export, `tools/measure-cue-profile.mjs`:
+  the 90th-percentile cue fell from 7.6 to 5.6 seconds and the longest from 9.9 to 8.9. Every
+  flagged slide now tops out below 6.5 seconds.
+- Guide, the eight changed galleries (`sweep-guide-gestures.mjs --deck … --misses`): 1,042 of
+  1,043 cues placed. 57.7% land on a labeled mark. The one miss is on a `cards-stack` slide.
+- Live Present, the built Studio, ten flagged slides: see the PR for the per-cue screenshots.
+
+**Not changed, and why.** The longest cues left are `bullet` rows ("Partner-sourced ARR, nine
+hundred thousand against a one point four million target — sixty-four percent of plan, closing
+on plan", 8.9 seconds). Nobody flagged bullet, and its narrator went through four review rounds
+of its own; splitting it is a separate change.
+
 ## Left open, on purpose
 
 - A word cloud narrates a ranking — its leader by name, its tail as a range — so the middle words
