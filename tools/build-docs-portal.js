@@ -79,6 +79,8 @@ function modifierHosts(name) {
 // baseline deck. The component galleries are left out on purpose: they demo every
 // variant once, which would flatten the counts toward "all equally common".
 let usageCache = null;
+let namesCache = null;
+const componentNames = () => (namesCache ||= new Set(loadAll().map((m) => m.name)));
 function classUsage() {
   if (usageCache) return usageCache;
   const root = path.join(__dirname, '..');
@@ -101,8 +103,11 @@ function classUsage() {
       if (fenced) continue;
       const mm = line.match(/^\s*<!--\s*_class:\s*([^>]*?)\s*-->\s*$/);
       if (!mm) continue;
-      const [name, ...mods] = mm[1].split(/\s+/).filter(Boolean);
+      let [name, ...mods] = mm[1].split(/\s+/).filter(Boolean);
       if (!name) continue;
+      // A line that opens with a modifier (`_class: dark compact`) is a `content`
+      // slide carrying it — the editor reads it the same way.
+      if (!componentNames().has(name)) { mods = [name, ...mods]; name = 'content'; }
       for (const t of mods) {
         global[t] = (global[t] || 0) + 1;
         const bucket = (perComponent[name] ||= {});

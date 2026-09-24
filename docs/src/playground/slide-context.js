@@ -122,21 +122,48 @@ export function slideSurfaces(body) {
 	return out;
 }
 
+// An h1/h2 opens a new slide under the default heading split: an ATX `#`/`##` line,
+// or a setext `===` underline (whose `---` sibling is already a slide break).
+const SPLIT_HEADING = /^#{1,2}\s+\S/;
+const SETEXT_H1 = /^=+\s*$/;
+
 // The markdown of the slide whose `_class:` directive sits on 1-based `lineNo`:
 // the lines after it, up to where the next slide starts. A `---` always starts one;
-// under the default `split: headings` so does the SECOND h1/h2 (the first is this
-// slide's own heading). A fenced block is read through — a `---` or `##` inside
-// one is code, not a slide break.
+// under the default `split: headings` so does the next h1/h2 once this slide has
+// its own — and that heading may sit ABOVE the directive (`## A` then the
+// `_class:` line), so the slide's lines above the directive are read first. A
+// fenced block is read through: a `---` or `##` inside one is code, not a break.
 export function slideBodyAfter(getLine, total, lineNo, { split = 'headings' } = {}) {
+	const byHeading = split !== 'rule';
+	let headings = 0;
+	if (byHeading) {
+		// Walk up to this slide's start (the previous `---` outside a fence, or the top).
+		const above = [];
+		for (let n = lineNo - 1; n >= 1; n--) {
+			const t = getLine(n) ?? '';
+			if (SLIDE_BREAK.test(t)) break;
+			above.unshift(t);
+		}
+		let fencedUp = false;
+		for (let i = 0; i < above.length; i++) {
+			const t = above[i];
+			if (/^\s*(```|~~~)/.test(t)) fencedUp = !fencedUp;
+			else if (!fencedUp && (SPLIT_HEADING.test(t) || (SETEXT_H1.test(t) && i > 0 && above[i - 1].trim()))) headings = 1;
+		}
+	}
 	const lines = [];
 	let fenced = false;
-	let headings = 0;
 	for (let n = lineNo + 1; n <= total; n++) {
 		const t = getLine(n) ?? '';
 		if (/^\s*(```|~~~)/.test(t)) fenced = !fenced;
 		else if (!fenced) {
 			if (SLIDE_BREAK.test(t)) break;
-			if (split !== 'rule' && /^#{1,2}\s+\S/.test(t) && ++headings > 1) break;
+			const setext = SETEXT_H1.test(t) && lines.length && lines[lines.length - 1].trim();
+			if (byHeading && (SPLIT_HEADING.test(t) || setext) && ++headings > 1) {
+				// A setext heading's text line already went in; drop it with its underline.
+				if (setext) lines.pop();
+				break;
+			}
 		}
 		lines.push(t);
 	}
@@ -148,7 +175,8 @@ export function slideBodyAfter(getLine, total, lineNo, { split = 'headings' } = 
 export function deckSplit(docText) {
 	const fm = String(docText || '').match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
 	const m = fm?.[1].match(/^split:[ \t]*["']?(\w+)/m);
-	return m ? m[1] : 'headings';
+	// Case-folded, as lib/core/resolve-split.js reads it.
+	return m ? m[1].toLowerCase() : 'headings';
 }
 
 function groupsOf(vocab) {

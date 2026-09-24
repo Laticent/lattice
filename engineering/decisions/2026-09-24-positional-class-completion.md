@@ -122,8 +122,14 @@ paint (`cursor`, `transition`, …).
 
 - The deck lint does not yet warn on an offered-nowhere modifier; the owner chose
   completion first, lint next (the widened `excludes` does not change lint).
-- The proof is on-demand, not CI. Nothing fails when a stylesheet change makes the
-  measurement stale, and a NEW component is not required to be measured before
+- The proof is on-demand, not CI. One staleness arm IS browser-free: a measured
+  component whose manifest declares `cards` must measure the `card-row` surface
+  (test/unit/components/modifier-effects.test.js). It exists because the second
+  maker-checker pass caught exactly that: `main`'s #2323 opted `list-steps`,
+  `compare-prose` and `cards-stack horizontal` into the `cards:` register while
+  this work was in flight, and the measurement blessed before the rebase would
+  have hidden `cards-*` on all three. Beyond that arm, nothing fails when a
+  stylesheet change makes the measurement stale, and a NEW component is not required to be measured before
   `npm test` passes (it keeps its derivation). Re-run
   `npm run check:modifier-effects` (about two and a half minutes) after touching a
   component's CSS, or `--only=<name>` for one.

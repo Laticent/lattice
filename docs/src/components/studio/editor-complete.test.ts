@@ -146,6 +146,24 @@ describe('makeStudioCompletion', () => {
 			expect(r?.options.map((o) => o.label)).toContain('table-fill');
 		});
 
+		it('a heading ABOVE the directive is this slide\'s own, so the next one below ends it', () => {
+			const doc = `## A\n\n<!-- _class: content \n\ntext\n\n## B\n\n${table}\n`;
+			const line = '<!-- _class: content ';
+			const r = s(new CompletionContext(EditorState.create({ doc }), doc.indexOf(line) + line.length, true));
+			expect((r?.options ?? []).map((o) => o.label)).not.toContain('table-fill');
+		});
+
+		it('a setext `===` heading starts the next slide too', () => {
+			expect(labels(`<!-- _class: content \n\n## A\n\nB\n===\n\n${table}\n`)).not.toContain('table-fill');
+		});
+
+		it('reads `split:` case-insensitively, as the engine does', () => {
+			const doc = `---\nsplit: Rule\n---\n\n<!-- _class: content \n\n## A\n\n## B\n\n${table}\n`;
+			const line = '<!-- _class: content ';
+			const r = s(new CompletionContext(EditorState.create({ doc }), doc.indexOf(line) + line.length, true));
+			expect((r?.options ?? []).map((o) => o.label)).toContain('table-fill');
+		});
+
 		it('a `---` inside a fenced block is code, not a slide break', () => {
 			expect(labels(`<!-- _class: content \n\n\`\`\`yaml\n---\n\`\`\`\n\n${table}\n`)).toContain('table-fill');
 		});

@@ -23,6 +23,23 @@ test('nothing unknown is measured', () => {
   assert.deepEqual(unknown, [], `measured components that no longer exist — re-bless: ${unknown.join(', ')}`);
 });
 
+// A browser-free staleness arm. resolve-cards.js governs exactly the components whose
+// manifest declares `cards`, so a measured component with `cards` must show the
+// `card-row` surface (outright, or under a variant). This fails the moment a manifest
+// opts in and the measurement predates it — which is how #2323 landing under this
+// work would otherwise have hidden `cards-*` on list-steps, compare-prose and
+// cards-stack. Remedy: npm run check:modifier-effects:bless -- --only=<name>.
+test('every measured component that declares `cards` measures the card-row surface', () => {
+  const stale = [];
+  for (const m of loadAll()) {
+    const e = oracle.components[m.name];
+    if (!m.cards || !e) continue;
+    const found = e.surfaces.includes('card-row') || Object.values(e.variants || {}).some((l) => l.includes('card-row'));
+    if (!found) stale.push(m.name);
+  }
+  assert.deepEqual(stale, [], `measurement predates a \`cards\` opt-in — re-bless: npm run check:modifier-effects:bless -- --only=${stale.join(',')}`);
+});
+
 test('entries name only probed surfaces, and inert ones only content surfaces', () => {
   for (const [name, e] of Object.entries(oracle.components)) {
     for (const s of e.surfaces) assert.ok(PROBED_SURFACES.includes(s), `${name}: ${s}`);

@@ -589,8 +589,8 @@ once you pick one. Once the first word names no component, it completes as the d
 slide, so `_class: dark` keeps working. A bare space opens no menu: the
 default look is the component with nothing after it, so Enter there stays a newline.
 The menu opens on the first letter, or on Ctrl-Space. The kernel is
-`classTokenOptions` in `docs/src/playground/slide-context.js`, and both editors call
-it. Record: `engineering/decisions/2026-09-24-positional-class-completion.md`.
+`classTokenResult` in `docs/src/playground/slide-context.js` (the options plus the
+`validFor` CodeMirror needs), and both editors call it. Record: `engineering/decisions/2026-09-24-positional-class-completion.md`.
 
 ---
 
