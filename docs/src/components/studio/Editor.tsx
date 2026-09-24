@@ -400,7 +400,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const acComp = React.useRef(new Compartment());
 	const lintComp = React.useRef(new Compartment());
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters })], activateOnTyping: true, icons: false });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: lintVocab })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {

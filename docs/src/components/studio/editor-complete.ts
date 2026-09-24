@@ -1,5 +1,6 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { PACE_NAMES } from '@/lib/resolve-pace';
+import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
 import { MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { STUDIO_LANGUAGES } from './studio-language';
 
@@ -9,7 +10,29 @@ import { STUDIO_LANGUAGES } from './studio-language';
 // uses (passed in from the page), so the suggestions never drift from the engine.
 // Pure factory: returns a CodeMirror CompletionSource; no DOM, unit-testable.
 
-export type CompletionComponent = { name: string; bucket: string; description: string };
+// `variants` onward are the per-component completion data the build-time catalog
+// carries (docs/src/lib/studio-catalog.mjs); a local component has none of them.
+export type CompletionComponent = {
+	name: string;
+	bucket: string;
+	description: string;
+	variants?: string[];
+	variantAxes?: { label: string; exclusive?: boolean; members: readonly string[] }[];
+	familyModifiers?: string[];
+	excludedModifiers?: string[];
+	surfaces?: string[];
+	variantSurfaces?: Record<string, string[]>;
+	inertSurfaces?: string[];
+	modifierUsage?: Record<string, number>;
+};
+
+// The slice of the lint vocab the `_class:` completion reads (lib/authoring/lint.js).
+export type CompletionVocab = {
+	modifierGroups?: { name: string; label: string; tokens: string[]; exclusive?: boolean; axes?: string[][]; follows?: Record<string, string[]>; offer?: boolean; surface?: string | Record<string, string> }[];
+	exclusiveAxes?: Record<string, string[]>;
+	universalModifiers?: string[];
+	modifierUsage?: Record<string, number>;
+};
 
 // Deck-level front-matter directives the engine honors, with a one-line hint. Values
 // are left to the author (a few common ones are suggested inline below).
@@ -208,9 +231,10 @@ export function makeStudioCompletion(
 	//   palettes  — theme names (built-in + saved), offered as `theme:` FM values.
 	//   registers — key → accepted values for every fixed-vocabulary FM key
 	//     (`registerValueLists(lintVocab)`), offered on a top-level `key:` line.
-	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]> } = {},
+	//   vocab     — the lint vocab's modifier registry; drives the positional
+	//     `_class:` completion (falls back to the flat `modifiers` list).
+	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null } = {},
 ) {
-	const componentOptions: Completion[] = components.map((c) => ({ label: c.name, type: 'class', detail: c.bucket, info: c.description, boost: 1 }));
 	// The `finish:` front-matter VALUE vocabulary — built-in presets (bare, e.g.
 	// `atrium`; the engine adds the prefix) PLUS the user's saved finishes, which
 	// carry their `finish-<slug>` prefix so the deck names them consistently.
@@ -225,21 +249,35 @@ export function makeStudioCompletion(
 	const modifierOptions: Completion[] = [...new Set(opts.modifiers || [])].sort().map((m) => ({ label: m, type: 'keyword', detail: 'modifier' }));
 	// The `theme:` front-matter VALUE vocabulary — the palettes a deck can name.
 	const paletteOptions: Completion[] = (opts.palettes || []).map((p) => ({ label: p, type: 'constant', detail: 'theme' }));
-	const classOptions = [...componentOptions, ...classFinishOptions, ...modifierOptions];
 	const registerOptions: Record<string, Completion[]> = Object.fromEntries(
 		Object.entries(opts.registers || {}).map(([key, values]) => [key, values.map((v) => ({ label: v, type: 'constant', detail: key }))]),
 	);
+	const classVocab: CompletionVocab | string[] = opts.vocab?.modifierGroups?.length ? opts.vocab : [...new Set(opts.modifiers || [])].sort();
+	const classExtra = { finishClasses };
 
 	return function studioComplete(context: CompletionContext): CompletionResult | null {
 		const line = context.state.doc.lineAt(context.pos);
 		const before = line.text.slice(0, context.pos - line.from);
 
-		// 1. A `_class:` directive token — component name, `finish-<name>` class, or a
-		// universal modifier. Fires on ANY space-separated token (not just the first),
-		// so a modifier appended after a component (`_class: statement dark`) completes.
-		if (/<!--\s*_class:[\w\s-]*$/.test(before) && classOptions.length) {
-			const word = context.matchBefore(/[\w-]*/);
-			return { from: word ? word.from : context.pos, options: classOptions, validFor: /^[\w-]*$/ };
+		// 1. A `_class:` directive token, completed by POSITION like a shell command
+		// line: the first word is a component, and every later word is only what THAT
+		// component accepts — its variants, its family modifiers, the modifier groups
+		// whose surface it has, finishes last — minus anything an earlier word already
+		// settled (slide-context.js classTokenOptions; the manifest drives it).
+		const spot = classDirectiveCompletion(before);
+		if (spot) {
+			// The default look is the component with nothing after it, so a bare space
+			// opens NO menu: an Enter there must stay a newline, never a pick of the
+			// highlighted variant. The menu opens on the first letter, or on Ctrl-Space.
+			if (!spot.typed && !context.explicit) return null;
+			// The slide's own content (a table, a heading, a blockquote below this line)
+			// widens and reorders what is offered.
+			const doc = context.state.doc;
+			const split = deckSplit(doc.sliceString(0, Math.min(doc.length, 4000)));
+			const slideText = slideBodyAfter((n: number) => doc.line(n).text, doc.lines, line.number, { split });
+			const { options, validFor } = classTokenResult(spot, components, classVocab, { ...classExtra, slideText });
+			if (!options.length) return null;
+			return { from: line.from + spot.from, options: options as Completion[], validFor };
 		}
 
 		// 1b. The deck-wide `class:` front-matter VALUE — the same modifier vocabulary
