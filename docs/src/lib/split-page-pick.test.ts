@@ -27,8 +27,12 @@ describe('pageLines', () => {
 	it('decodes each entity once: `&amp;lt;` is the text `&lt;`, never a `<`', () => {
 		expect(pageLines('<p>a &amp;lt;b&amp;gt; &amp; c &lt;d&gt;</p>')).toEqual(['a &lt;b&gt; & c <d>']);
 	});
-	it('leaves no tag fragment behind, even from a tag the strip cannot close', () => {
-		for (const l of pageLines('<p>x</p><scr<script>ipt>y<p>z <b')) expect(l).not.toMatch(/<[a-z!/]/i);
+	it('reads no script, style or split chrome as page text', () => {
+		const html = '<section><style>p{}</style><p>Row</p><script>x()</script><div class="lat-split-rel"><span>Next</span></div><div class="cell-footer"><span>2.2</span></div></section>';
+		expect(pageLines(html)).toEqual(['row']);
+	});
+	it('puts each block on its own line, nested blocks included', () => {
+		expect(pageLines('<ul><li><p><strong>Title</strong></p><ul><li>Body text</li></ul></li></ul>')).toEqual(['title', 'body text']);
 	});
 });
 

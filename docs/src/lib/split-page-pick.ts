@@ -43,29 +43,21 @@ export function caretProbe(line: string): string {
 
 // Split CHROME is not the page's content: the forward pill names the NEXT row, the rail and the
 // footer repeat on every page. Left in, a row's title matched its own page AND the page before it.
-// `\sclass=` with the leading space, so `data-class` is never read as the class list (#1358).
-const CHROME = /<(div|span|nav)\b[^>]*\sclass="[^"]*\b(?:lat-split-rel|lat-split-rail|cell-footer|marker-rail|fixme-tab|overflow-tab|illegible-tab)\b[^"]*"[^>]*>[\s\S]*?<\/\1>/gi;
+const CHROME = '.lat-split-rel, .lat-split-rail, .cell-footer, .marker-rail, .fixme-tab, .overflow-tab, .illegible-tab';
 // Block boundaries become line breaks, so a row's text starts a line of its own.
-const BLOCK = /<\/?(?:p|li|h[1-6]|blockquote|td|th|dt|dd|figcaption|div|section|ul|ol|tr)\b[^>]*>/gi;
+const BLOCK = 'p, li, h1, h2, h3, h4, h5, h6, blockquote, td, th, dt, dd, figcaption, div, section, ul, ol, tr';
 
-/** A page's visible text, one line per block, lower-cased; split chrome removed. */
+/** A page's visible text, one line per block, lower-cased; split chrome removed.
+ *  Read through DOMParser, not by regex-stripping tags: the parser decodes every entity exactly
+ *  once and never runs a script, and its textContent holds no markup to strip. */
 export function pageLines(html: string): string[] {
-	return String(html || '')
-		.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
-		.replace(CHROME, ' ')
-		.replace(BLOCK, '\n')
-		.replace(/<[^>]*>/g, '')
-		// Any `<` or `>` left is a fragment of a tag the strip above could not close. The result is
-		// only ever COMPARED, never rendered, but it must not read as markup to anything downstream.
-		.replace(/[<>]/g, ' ')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;|&rsquo;|&lsquo;/g, "'")
-		.replace(/&(?!amp;)[a-z]+;|&#\d+;/g, ' ')
-		// `&amp;` LAST, so `&amp;lt;` decodes once, to the text `&lt;`, and never on to `<`.
-		.replace(/&amp;/g, '&')
+	const body = new DOMParser().parseFromString(String(html || ''), 'text/html').body;
+	for (const el of body.querySelectorAll(`script, style, template, ${CHROME}`)) el.remove();
+	for (const el of body.querySelectorAll(BLOCK)) {
+		el.before('\n');
+		el.append('\n');
+	}
+	return (body.textContent || '')
 		.split('\n')
 		.map((l) => l.replace(/\s+/g, ' ').trim().toLowerCase())
 		.filter(Boolean);
