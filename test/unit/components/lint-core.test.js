@@ -1990,6 +1990,20 @@ describe('label-set-above-body — coaching, never refusal', () => {
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-above-body']);
   });
 
+  test('a literal `<!--` quoted in inline code is text, not a comment', () => {
+    // It used to blank the rest of the slide from the lint rules' view.
+    const src = ['<!-- _class: matrix-grid -->', '', 'Use `<!--` for notes.', '', '## Rubric', '',
+      '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`'].join('\n');
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
+  });
+
+  test('a key with more members than axes is not called the axis — it prints as text', () => {
+    const src = ['<!-- _class: matrix-grid -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
+      '| Verb | Self |', '| --- | :--: |', '| N | [x] |'].join('\n');
+    const [hit] = core.lintTextWith(src, vocab).filter((f) => f.rule === 'label-set-above-body');
+    assert.match(hit.message, /neither the axis nor the key/);
+  });
+
   test('a blockquoted list is the body, as markdown-it emits its <ul>', () => {
     // The render's boundary is that <ul>, so the span after it is BELOW the body
     // and stays on the slide — lint must not call it an axis above the body.

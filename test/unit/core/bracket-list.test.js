@@ -251,3 +251,11 @@ describe('bracket-list — malformed braces keep every character', () => {
     assert.deepEqual(parseBracketList('[{Effort, 0..10, {Reach, 0..100}]'), [['Effort', '0..10', '{Reach', '0..100']]);
   });
 });
+
+describe('bracket-list — an unclosed quote is text', () => {
+  // A leading apostrophe (`'90s`) opened a quote that ran to the end and
+  // swallowed every later member.
+  test("a leading apostrophe with no partner does not swallow the list", () => {
+    assert.deepEqual(parseBracketList("['90s cohort, Revenue]"), [["'90s cohort"], ['Revenue']]);
+  });
+});

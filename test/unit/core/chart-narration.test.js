@@ -2061,3 +2061,12 @@ test('narrateDataSeries: a bracketed list cannot invent more axes than the compo
   assert.equal(axisSetFor('scatter').members.length, 3);
   assert.equal(axisSetFor('bullet'), null, 'bullet declares no axis');
 });
+
+test('an unnamed axis (a `[, y]` placeholder) binds its value with no dangling comma', () => {
+  const { narrateChart: narrate } = require('../../../lib/core/chart-narration');
+  const md = ['<!-- _class: scatter -->', '', '`[, Teams adopting]`', '', '## Cost against adoption.', '',
+    '- Atlas `$420k` `18%`', '- Borealis `$310k` `24%`', '- Cardinal `$180k` `52%`'].join('\n');
+  const out = narrate(md);
+  assert.ok(out.includes('Atlas: four hundred twenty thousand dollars; Teams adopting, eighteen percent.'), out);
+  assert.ok(!/: ,|, ,/.test(out), out);
+});
