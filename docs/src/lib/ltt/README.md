@@ -21,7 +21,7 @@ const ltt: Ltt = {
   inputs: { engine: 'sha256:…', pace: 'moderate' },
   seekable: true,
   segments: [{ id: 'd1', kind: 'slide', at: { slide: 1 }, hash: 'sha256:…', basis: 'estimate',
-               holdMs: 0, track: buildTrack('Revenue grew 18% to $4.2M.') }],
+               holdMs: 0, track: buildTrack('Revenue grew 18% to $4.2M.'), tailMs: 400 }],
 };
 
 validateLtt(ltt);            // [] when valid; plain sentences otherwise. Never throws.

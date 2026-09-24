@@ -177,6 +177,10 @@ export interface LttSlideSegment {
 	/** The hold on arrival. 0 on the first slide. @integer @minimum 0 */
 	holdMs: number;
 	track: CaptionTrack;
+	/** The breath the player holds after the slide's LAST cue, before it advances. The track ends
+	 *  at the end of its last cue, so this is the one part of a slide's length the track cannot
+	 *  say. A slide lasts `holdMs + track.durationMs + tailMs`. @integer @minimum 0 */
+	tailMs: number;
 	audio?: LttAudio;
 	actions?: LttAction[];
 }

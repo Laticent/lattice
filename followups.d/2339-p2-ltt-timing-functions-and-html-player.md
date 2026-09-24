@@ -23,8 +23,9 @@ done when — conformance fixtures pin the player's current timing (no hold on s
             owner, before the player embeds an LTT: (a) the 1.0 `audio` layer holds ONE clip
             per segment, but the player ships one clip per CUE and advances on each clip's
             end — so either the layer becomes per-cue (a spec change under G4) or the player
-            stitches clips; (b) the breath after a slide's LAST cue is not a core field, and
-            the conformance fixtures need it — derive it (`interCueGapMs`) or add it.
+            stitches clips; (b) `positionAt` / `timeline` must apply the player's silent-cue
+            hold floor (300 ms, 900 ms with no estimate — ltt.md §The transport rule 4),
+            which the track does not carry. (The last-cue breath is carried: `tailMs`.)
 evidence  — a representative narrated demo deck exported to HTML in dark AND light mode,
             sent via SendUserFile, played end to end in a real browser; the fixture run.
 verify    — tier 2 adversarial trio, because it changes exported bytes and the player's

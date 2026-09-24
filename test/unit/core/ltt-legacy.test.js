@@ -16,6 +16,7 @@ const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><tit
 // Plain, single-spaced text, so the cue texts joined by spaces ARE the source text and the
 // reconstructed char offsets can be checked against the ones buildTrack computed.
 const TEXTS = ['Revenue grew 18% to $4.2M this quarter. Churn fell again.', '', 'The board is asked to approve the hiring plan.'];
+const LAST_GAP = 620;
 const tracks = TEXTS.map((t) => (t ? buildTrack(t, { pace: 'moderate' }) : null));
 
 /** The cue payload the Studio hands the export (share-export.ts), from a real track. */
@@ -24,7 +25,9 @@ const cuesOf = (t) =>
     ? t.cues.map((c, i) => ({
         text: c.display,
         estimateMs: c.endMs - c.startMs,
-        gapMs: (t.cues[i + 1]?.startMs ?? c.endMs) - c.endMs,
+        // The last cue's breath is non-zero, as the Studio bake writes it (interCueGapMs), so the
+        // tail the player holds after the slide is really exercised.
+        gapMs: (t.cues[i + 1]?.startMs ?? c.endMs + LAST_GAP) - c.endMs,
         audio: i === 0 ? 'data:audio/wav;base64,UklGRg==' : null,
         words: c.words.map((w) => ({ display: w.display, startMs: w.startMs, endMs: w.endMs })),
       }))
@@ -65,6 +68,7 @@ describe('legacy exported deck → LTT', () => {
       // built from; only the fields the blocks never carried were reconstructed.
       const strip = (t) => ({ ...t, cues: t.cues.map(({ weight, endsParagraph, ...c }) => ({ ...c, words: c.words.map(({ weight: _w, ...w }) => ({ ...w, spoken: w.display })) })) });
       assert.deepEqual(seg.track, strip(tracks[i]));
+      assert.equal(seg.tailMs, LAST_GAP, 'the breath after the last cue is carried, not dropped');
     }
   });
 
@@ -79,6 +83,13 @@ describe('legacy exported deck → LTT', () => {
     const { ltt } = lttFromLegacy({ id: 'x', slides: [[{ t: 'Hello there.', d: 900, g: 0, a: null, w: [] }]] });
     assert.deepEqual(validateLtt(ltt), []);
     assert.deepEqual(ltt.segments[0].track.cues[0].words, [{ display: 'Hello there.', spoken: 'Hello there.', startMs: 0, endMs: 900, charOffset: 0 }]);
+  });
+
+  test('a block that does not parse is a silent slide, as the player reads it', () => {
+    const html = `<script type="${LEGACY_BLOCK_MIME}" data-lp-audio="0">[{"t":"ok","d":300,"g":0,"w":[]}]</script><script type="${LEGACY_BLOCK_MIME}" data-lp-audio="1">[{"t":</script>`;
+    const { slides } = readLegacyBlocks(html);
+    assert.equal(slides[1], null);
+    assert.deepEqual(validateLtt(lttFromLegacy({ id: 'x', slides, slideCount: 2 }).ltt), []);
   });
 
   test('the engine hash moves when the deck does', () => {

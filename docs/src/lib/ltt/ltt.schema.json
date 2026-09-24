@@ -368,6 +368,11 @@
         "track": {
           "$ref": "#/$defs/CaptionTrack"
         },
+        "tailMs": {
+          "description": "The breath the player holds after the slide's LAST cue, before it advances. The track ends at the end of its last cue, so this is the one part of a slide's length the track cannot say. A slide lasts `holdMs + track.durationMs + tailMs`.",
+          "type": "integer",
+          "minimum": 0
+        },
         "audio": {
           "$ref": "#/$defs/LttAudio"
         },
@@ -385,7 +390,8 @@
         "hash",
         "basis",
         "holdMs",
-        "track"
+        "track",
+        "tailMs"
       ]
     },
     "LttHoldSegment": {

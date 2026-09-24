@@ -212,6 +212,11 @@ export interface VoicedNarratorOptions extends CadenzaNarratorOptions {
 	 * OpenRouter key off the docs site, and the Playground speaks on the USER's own key. A host
 	 * with a key passes its TTS through; a host without one passes anything that is audio.
 	 * `durationMs` is the estimate's length, for a producer that wants to match it.
+	 *
+	 * It receives the RAW line. When the host passes `acronyms` or `lexicon`, the estimate times
+	 * their expansions, so a voice that does not apply the same expansions will not follow the
+	 * word timing inside the line (the measured clip still corrects the line's total length).
+	 * Hand your TTS the same registry, or expand the text before you speak it.
 	 */
 	synthesize(text: string, ctx: { signal: AbortSignal; durationMs: number }): Promise<Bytes>;
 	/** The Suono stage to play through. Defaults to one this narrator owns. Pass your own when the

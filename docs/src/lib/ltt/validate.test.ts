@@ -20,9 +20,9 @@ function deck(): Ltt {
 		inputs: { engine: H, pace: 'moderate', deckPace: 'natural', lang: 'en' },
 		seekable: true,
 		segments: [
-			{ id: 'd1', kind: 'slide', at: { slide: 1 }, hash: H, basis: 'estimate', holdMs: 0, track: buildTrack('Revenue grew 18% to $4.2M.') },
+			{ id: 'd1', kind: 'slide', at: { slide: 1 }, hash: H, basis: 'estimate', holdMs: 0, track: buildTrack('Revenue grew 18% to $4.2M.'), tailMs: 700 },
 			{ id: 'd2', kind: 'hold', at: { slide: 2 }, holdMs: 1400 },
-			{ id: 'd3', kind: 'slide', at: { slide: 3 }, hash: H, basis: 'estimate', holdMs: 1400, track: buildTrack('We ask the board to approve the plan.') },
+			{ id: 'd3', kind: 'slide', at: { slide: 3 }, hash: H, basis: 'estimate', holdMs: 1400, track: buildTrack('We ask the board to approve the plan.'), tailMs: 700 },
 		],
 	};
 }
@@ -88,7 +88,10 @@ describe('validateLtt', () => {
 		['a tour input on a deck', deck, (l) => { l.inputs.motion = 'full'; }, /tour input; a deck does not carry it/],
 		['a deck that says it is not seekable', deck, (l) => { l.seekable = false; }, /a deck is always seekable/],
 		['a hold on the first slide', deck, (l) => { slide(l, 0).holdMs = 1400; }, /Play speaks the first slide at once/],
-		['slides out of order', deck, (l) => { slide(l, 2).at = { slide: 2 }; }, /deck segments run in slide order/],
+		['slides out of order', deck, (l) => { slide(l, 2).at = { slide: 2 }; }, /one per slide, with no gaps/],
+		['a skipped slide', deck, (l) => { slide(l, 2).at = { slide: 4 }; }, /slide 3 comes next/],
+		['a slide without its tail breath', deck, (l) => { delete (slide(l, 0) as Mut).tailMs; }, /tailMs is not a whole/],
+		['a negative voice speed', deck, (l) => { slide(l, 0).audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: -1 }, measuredMs: 900 }; }, /non-negative speed/],
 		['a repeated id', deck, (l) => { l.segments[1].id = 'd1'; }, /repeats/],
 		['narration on a hold', deck, (l) => { (l.segments[1] as Mut).track = buildTrack('x'); }, /does not belong on a hold/],
 		['a stretch in a deck', deck, (l) => { (l.segments[1] as Mut).kind = 'stretch'; }, /only a tour has/],

@@ -103,8 +103,8 @@ function checkAudio(audio: unknown, where: string, out: string[]): void {
 	}
 	if (!isStr(audio.src) || !audio.src) out.push(`${where}.audio.src is empty`);
 	checkHash(audio.clip, `${where}.audio.clip`, out);
-	if (!isRec(audio.voice) || !isStr(audio.voice.model) || !isStr(audio.voice.voice) || !Number.isFinite(audio.voice.speed)) {
-		out.push(`${where}.audio.voice needs model, voice and speed`);
+	if (!isRec(audio.voice) || !isStr(audio.voice.model) || !isStr(audio.voice.voice) || !Number.isFinite(audio.voice.speed) || (audio.voice.speed as number) < 0) {
+		out.push(`${where}.audio.voice needs model, voice and a non-negative speed`);
 	}
 	if (!isMs(audio.measuredMs)) out.push(`${where}.audio.measuredMs is not a whole, non-negative number`);
 	if ('leadMs' in audio && !(Number.isFinite(audio.leadMs) && (audio.leadMs as number) >= 0)) out.push(`${where}.audio.leadMs is not a non-negative number`);
@@ -226,9 +226,11 @@ export function validateLtt(ltt: unknown): string[] {
 			}
 		} else {
 			const slide = isRec(seg.at) ? seg.at.slide : undefined;
+			// Every slide gets a segment, narrated or not, because every slide after the first waits
+			// one hold on arrival: a missing slide would be a missing hold in the deck's timeline.
 			if (!Number.isInteger(slide) || (slide as number) < 1) out.push(`${where}.at.slide is not a 1-based slide number`);
 			else {
-				if ((slide as number) <= lastSlide) out.push(`${where} is slide ${slide}, not after slide ${lastSlide} — deck segments run in slide order`);
+				if (slide !== lastSlide + 1) out.push(`${where} is slide ${slide}, but slide ${lastSlide + 1} comes next — deck segments run in slide order, one per slide, with no gaps`);
 				lastSlide = slide as number;
 			}
 			if (!isMs(seg.holdMs)) out.push(`${where}.holdMs is not a whole, non-negative number of ms`);
@@ -237,11 +239,13 @@ export function validateLtt(ltt: unknown): string[] {
 		}
 
 		if (k === 'hold') {
-			for (const f of ['hash', 'basis', 'track', 'audio', 'actions']) {
+			for (const f of ['hash', 'basis', 'track', 'tailMs', 'audio', 'actions']) {
 				if (f in seg) out.push(`${where}.${f} does not belong on a hold, which has no narration`);
 			}
 			return;
 		}
+		if (k === 'slide' && !isMs(seg.tailMs)) out.push(`${where}.tailMs is not a whole, non-negative number of ms — the breath after the slide's last cue`);
+		if (k === 'stretch' && 'tailMs' in seg) out.push(`${where}.tailMs is a deck field`);
 		checkHash(seg.hash, `${where}.hash`, out);
 		checkEnum(seg.basis, BASES, `${where}.basis`, out);
 		checkCore(seg.track, where, out);

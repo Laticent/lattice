@@ -54,7 +54,9 @@ every layer.
 
 **Times.** Every time is a whole, non-negative number of milliseconds. Times
 restart at zero in each segment. Because times are whole numbers, the packed
-encoding can store times relative to a cue and add them back exactly.
+encoding can store times relative to a cue and add them back exactly. A producer
+writing a `measured` track rounds: `cursor.align` re-times to fractional
+milliseconds, and `validateLtt` refuses a fraction.
 
 **`source`.** `kind` is `deck` or `tour`; `id` is whatever its producer uses to
 find it again.
@@ -77,14 +79,19 @@ Each segment has a unique `id`, a `kind` and an `at`.
 
 | `kind` | Where | Carries | Its length |
 |---|---|---|---|
-| `slide` | deck; `at: { slide: n }` (1-based) | `hash`, `basis`, `holdMs`, `track`, optional layers | `holdMs` + the track |
+| `slide` | deck; `at: { slide: n }` (1-based) | `hash`, `basis`, `holdMs`, `track`, `tailMs`, optional layers | `holdMs` + `track.durationMs` + `tailMs` |
 | `hold` | deck; a slide with no narration | `holdMs` only | `holdMs` |
 | `stretch` | tour; `at: { beats: [first, last] }` | `hash`, `basis`, `track`, optional `after` / `waitedMs`, optional layers | the wait + the track |
 
-- **Deck segments run in slide order.** The first segment's `holdMs` is 0,
+- **A deck has one segment per slide, in order, with no gaps**: slide 1, 2, 3
+  and so on. A silent slide still waits its hold, so a missing slide would be a
+  missing hold. The first segment's `holdMs` is 0,
   because Play speaks the first slide at once. Every later slide waits one hold
   when it **arrives**, whether or not it is narrated. The hold is a section hold
   or a slide hold according to the arriving slide.
+- **`tailMs`** is the breath the player holds after a slide's last cue, before
+  it advances. The track ends at the end of its last cue, so this is the one part
+  of a slide's length the track cannot carry.
 - **`after`** names what a stretch waits on before it starts: `awaitUser`,
   `until` or `act`. It is never a time. Absent means the stretch follows the
   previous segment at once.
@@ -188,8 +195,11 @@ player, including the video renderer's simulated one, must follow them.
 3. **Advance on clip end.** With audio, the next cue starts when the clip ends
    (`onended`), never at a computed time. The breath after a cue is held after
    that.
-4. **A clip that fails to decode** falls back to the estimate for that cue: the
-   caption shows and the cue holds for its estimated length.
+4. **A cue with no clip, or a clip that fails to decode,** shows its caption and
+   holds for its estimated length, but never less than 300 ms (and 900 ms when
+   the estimate is missing). The caption crawl still runs on the estimate itself.
+   So in a captions-only export a cue shorter than 300 ms plays longer than its
+   track says, and a timeline for such a file must apply the same floor.
 5. **Pause restarts the slide** rather than resuming mid-word.
 6. **Manual navigation re-anchors** on the chosen slide and speaks it with no
    hold.
@@ -215,10 +225,15 @@ pace, and today's Cadenza could draw cue boundaries that no longer match the
 clips baked into the file.
 
 - **Times** are laid out exactly as the player's `expandTrack` lays them out,
-  so they are the times the deck plays.
+  so they are the times the caption crawls on. (A silent cue's hold floor, rule
+  4 of the transport, is applied by the player, not written into the track.)
+- **A block that does not parse** is read as a silent slide, as the player reads
+  it.
 - **Reconstructed:** `spoken` is set to `display`, and `charOffset` comes from a
   forward scan through the slide's cue text joined by single spaces. `weight` and
   `endsParagraph` stay absent.
+- **`tailMs`** is the last cue's breath (`g`), which the player holds before it
+  advances.
 - **Supplied by the caller, because the blocks do not record them:** which
   slides are section dividers (the player reads that from the live DOM), and the
   reading `pace` (default `moderate`). The arrival holds come from the file's
@@ -226,8 +241,7 @@ clips baked into the file.
   Cadenza's natural preset.
 - **Not carried:** audio. Old exports hold one clip per **cue**, but the 1.0
   audio layer holds one clip per **segment**. The converter returns the count as
-  `clipsNotCarried` rather than dropping the clips silently. The breath after a
-  slide's last cue is not a core field, so it is not carried either.
+  `clipsNotCarried` rather than dropping the clips silently.
 - **`inputs.engine`** is the hash of the blocks read, because a legacy file
   cannot know the engine build that timed it. The file still changes identity
   whenever the deck does.

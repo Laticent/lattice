@@ -21,7 +21,7 @@ function deck() {
     inputs: { engine: H, pace: 'moderate', deckPace: 'natural' },
     seekable: true,
     segments: [
-      { id: 'd1', kind: 'slide', at: { slide: 1 }, hash: H, basis: 'estimate', holdMs: 0, track: buildTrack('Revenue grew 18% to $4.2M.', { emphasis: [{ start: 0, end: 7, weight: 2 }] }) },
+      { id: 'd1', kind: 'slide', at: { slide: 1 }, hash: H, basis: 'estimate', holdMs: 0, track: buildTrack('Revenue grew 18% to $4.2M.', { emphasis: [{ start: 0, end: 7, weight: 2 }] }), tailMs: 620 },
       { id: 'd2', kind: 'hold', at: { slide: 2 }, holdMs: 1400 },
     ],
   };
@@ -72,6 +72,8 @@ describe('the schema and validateLtt agree', () => {
     'an unknown segment kind': (l) => { l.segments[1].kind = 'pause'; },
     'an unknown basis': (l) => { l.segments[0].basis = 'guessed'; },
     'the wrong version': (l) => { l.version = '1.1'; },
+    'a negative voice speed': (l) => { l.segments[0].audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: -1 }, measuredMs: 900 }; },
+    'a slide without its tail breath': (l) => { delete l.segments[0].tailMs; },
   };
   for (const [name, edit] of Object.entries(breaks)) {
     test(`both reject ${name}`, () => {
