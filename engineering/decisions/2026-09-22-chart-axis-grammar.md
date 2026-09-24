@@ -24,7 +24,7 @@ summary: >
 
 # One grammar for a chart axis, and position decides what a span means
 
-**Date:** 2026-09-22 · **Status:** in progress — kernel and three components landed (quadrant 2026-09-24)
+**Date:** 2026-09-22 · **Status:** in progress — kernel and all four axis components landed (quadrant and gantt 2026-09-24)
 **Refs:** #2258 (the label-set epic this is the sibling of), #2272 (label sets
 rolled out to four components)
 
@@ -212,11 +212,7 @@ moved beyond the band, so the committed baseline still describes the engine.
   of its own (HARD RULE #1), not a rider on this one.
 - **Whether the nine derive-only charts gain an authored axis.** The grammar
   admits them; whether each SHOULD is per-component and not settled here.
-- **`gantt`'s migration.** Its pills are keyword-tagged and order-independent
-  (`today Q3` means the same wherever it sits), which is a genuinely different
-  reading from a positional list. The grammar can express it —
-  `[{Timeline, 2026 Q1..2026 Q4, Q3}]` — but whether the keyword form should
-  survive alongside is not settled here.
+- **`gantt`'s migration** — settled 2026-09-24, see "Gantt, beside its pills" below.
 - **`[x]` as a one-member list.** `` `[x]` `` is a state mark to
   `inline-code-directives.js` and parses as a one-member list here. Dispatch
   order is what keeps them apart, and it needs an arm pinning it.
@@ -263,3 +259,28 @@ the shared lift. What it took, and what was decided along the way:
   scatter or matrix-grid axis. Above the body a list is a misplaced KEY only
   when it names one of the component's key members; otherwise it is the axis
   and the rule says nothing.
+
+## Gantt, beside its pills (2026-09-24)
+
+`gantt` declares `axisSet` (`members: [time]`, `body: list`, `keyBelow: false`
+for its coda) and accepts `[{Timeline, 2026 Q1..2026 Q4, Q3}]` **alongside** the
+keyword pills rather than instead of them. The pills are keyword-tagged and
+order-independent (`today Q3` means the same wherever it sits). That is a
+different reading, not a worse one, and retiring it would cost every author a
+spelling that works.
+
+- **One door into the builder.** The list is turned into the same
+  `{window, today}` pair the pills produce and handed to the same
+  `buildGanttChart`. So the two forms draw the identical chart by construction,
+  not through a second implementation that has to agree with the first. Measured on the demo deck:
+  the two gantt figures are byte-identical apart from their per-slide ids.
+- **Window and today are told apart by shape** (`readTimeAxisMember` in
+  `lib/core/axis-member.js`): a part with `..` is the window and any other part
+  is `today`. So `{Timeline, Q3, 2026 Q1..2026 Q4}` reads the same. This is
+  the same rule quadrant uses for domain and threshold, with a time vocabulary.
+- **The name is not drawn.** A gantt has no axis caption to put it in. It is
+  the one part of the list with nowhere to go. Drawing a time-axis caption would
+  be a visible change to every gantt, so it is left for a separate decision.
+- **Lifted, where the pills are not.** The pills read as an eyebrow and always
+  stayed on the slide. The list reads as syntax, so it is lifted like every
+  other axis list.

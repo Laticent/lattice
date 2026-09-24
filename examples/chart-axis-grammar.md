@@ -11,7 +11,7 @@ acronyms:
 
 # One grammar for an axis. Position says what it means.
 
-`Chart axes · matrix-grid · scatter · quadrant`
+`Chart axes · matrix-grid · scatter · quadrant · gantt`
 
 Four components named their axes four different ways — by counting code spans,
 by an arrow glyph, by a keyword prefix. They now share one bracketed list, and
@@ -128,10 +128,44 @@ sets both domains and draws both cutoff lines.
 
 ---
 
+<!-- _class: gantt -->
+<!-- _footer: "gantt · the keyword pills, kept · order-independent" -->
+
+`2026 Q1 .. 2026 Q4` `today Q3`
+
+## Gantt keeps its pills, and they still work.
+
+- Platform
+  - Discovery `Q1..Q1` `done`
+  - Build `Q2..Q3` `live`
+  - Launch `Q4` `milestone`
+- Go-to-market
+  - Pricing study `Q1..Q2` `done`
+  - Pilot accounts `Q3..Q4` `at-risk`
+
+---
+
+<!-- _class: gantt -->
+<!-- _footer: "gantt · the same axis as one bracketed list · the identical chart" -->
+
+`[{Timeline, 2026 Q1..2026 Q4, Q3}]`
+
+## The bracketed form draws the identical chart.
+
+- Platform
+  - Discovery `Q1..Q1` `done`
+  - Build `Q2..Q3` `live`
+  - Launch `Q4` `milestone`
+- Go-to-market
+  - Pricing study `Q1..Q2` `done`
+  - Pilot accounts `Q3..Q4` `at-risk`
+
+---
+
 <!-- _class: content -->
 <!-- _footer: "What it replaced" -->
 
-## Four grammars, retired.
+## Four grammars, one list.
 
 - matrix-grid and scatter
   - Counted code spans — two meant an axis, one meant an eyebrow. A label set
@@ -141,4 +175,4 @@ sets both domains and draws both cutoff lines.
     detached `targets` suffix read by counting positions. The carve-out is gone.
 - gantt
   - Keyword-tagged pills, and already the closest to right — it ships the `..`
-    range this grammar adopts.
+    range this grammar adopts. The pills stay; the list works beside them.

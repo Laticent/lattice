@@ -997,3 +997,61 @@ describe('gantt — checker findings', () => {
 
 });
 
+
+// ── The bracketed axis, alongside the keyword pills ───────────────────────────
+// `[{Timeline, 2026 Q1..2026 Q4, Q3}]` is the shared axis grammar
+// (engineering/decisions/2026-09-22-chart-axis-grammar.md). The pills stay: they
+// are keyword-tagged and order-independent, a genuinely different reading, and
+// no author should lose `today Q3`. Both forms feed the SAME builder the same
+// {window, today} pair, so these pin byte-identity rather than resemblance.
+describe('gantt — bracketed axis alongside the pills', () => {
+  const BODY = '<h2>Plan</h2><ul><li>Lane<ul>' +
+    '<li>Design <code>Q1..Q2</code> <code>done</code></li>' +
+    '<li>Build <code>Q2..Q4</code></li>' +
+    '<li>Ship <code>Q4</code> <code>milestone</code></li>' +
+    '</ul></li></ul><p>Source: PMO, Sept.</p>';
+  const render = (above) => {
+    resetRenderIds();
+    return engine.transformChartSection(above + BODY, 'gantt').html;
+  };
+  const figure = (html) => html.match(/<div class="chart-body">[\s\S]*<\/svg>/)[0];
+
+  test('the list and the pills draw the identical chart', () => {
+    const pills = render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
+    const list = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>');
+    assert.equal(figure(list), figure(pills));
+    assert.match(list, /class="gantt-today"/);
+  });
+
+  test('the list is consumed; the pills stay on the slide as before', () => {
+    assert.doesNotMatch(render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>'), /Timeline/);
+    assert.match(render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>'), /today Q3/);
+  });
+
+  test('window and today are told apart by shape, so today may come first', () => {
+    const a = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>');
+    const b = render('<p><code>[{Timeline, Q3, 2026 Q1..2026 Q4}]</code></p>');
+    assert.equal(figure(a), figure(b));
+  });
+
+  test('each part is optional: no today draws no today line', () => {
+    assert.doesNotMatch(render('<p><code>[{Timeline, 2026 Q1..2026 Q4}]</code></p>'), /class="gantt-today"/);
+  });
+
+  test('a bracketed paragraph BELOW the chart is the coda, not eaten', () => {
+    const html = render('<p><code>[Timeline]</code></p>');
+    assert.match(html, /Source: PMO, Sept\./);
+    resetRenderIds();
+    const below = engine.transformChartSection(BODY + '<p><code>[Source: PMO, FY26]</code></p>', 'gantt').html;
+    assert.match(below, /Source: PMO, FY26/);
+  });
+
+  test('lint reads the list window for the mixed-time check, same as the pill', () => {
+    const vocab = { names: new Set(['gantt']), modifiers: new Set() };
+    const deck = (axis) => `<!-- _class: gantt -->\n\n\`${axis}\`\n\n## H\n\n- Lane\n  - A \`Q1..Q2\`\n`;
+    const rules = (axis) => core.lintTextWith(deck(axis), vocab).filter((f) => f.rule === 'gantt-mixed-time').length;
+    assert.equal(rules('[{Timeline, 2026-01-01..2026-06-01}]'), 1);
+    assert.equal(rules('2026-01-01 .. 2026-06-01'), 1);
+    assert.equal(rules('[{Timeline, 2026 Q1..2026 Q4, Q3}]'), 0);
+  });
+});
