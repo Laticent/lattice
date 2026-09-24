@@ -89,6 +89,11 @@ describe('hasAnimatableChart', () => {
   it('true for a Mermaid diagram — roles, no `data-mark`', () => {
     expect(hasAnimatableChart(section('', DIAGRAM))).toBe(true);
   });
+  it('false for a chart with roles but no data-mark (a plain line chart) — the role arm is Mermaid-only', () => {
+    const line = '<div class="line-figure"><svg><path data-anima-role="line"/><circle data-anima-role="point"/></svg></div>';
+    expect(hasAnimatableChart(section('line', line))).toBe(false);
+    expect(motionMarkCount(section('line', line))).toBe(0);
+  });
   it('false for an untagged Mermaid diagram (a family we do not animate)', () => {
     expect(hasAnimatableChart(section('', '<div class="mermaid"><svg><g class="task"><rect/></g></svg></div>'))).toBe(false);
   });

@@ -1239,9 +1239,17 @@ participants also key on their x position, because Mermaid writes them right to 
 | pie | the disc at once (sectors reveal together, as for a chart pie) |
 | gantt · XY chart · quadrant · git graph · timeline | tasks · bars, then lines · points · commits, then arrows · events |
 | anything else (journey, …) | nothing — no roles, so it stays a still |
+| any diagram with a clickable node (`click A "url" "tooltip"`) | nothing — see below |
 
 The shared-graph families are found by STRUCTURE, not by name, so a new family on that renderer
-animates with no change.
+animates with no change. A sequence diagram's stick-figure participants (`actor Bob`) key on their
+head's center, so they build in their column like a box.
+
+**Two diagrams stay still on purpose.** A diagram with a clickable node gets no roles: while it
+animates, the host shows a sanitized COPY and hides the original, and Mermaid's tooltip and
+callback listeners live on the original, so animating would silently switch them off. And a very
+large diagram stays still because its baked copy passes `chartToScene`'s 256 KB markup cap —
+measured on Mermaid 11.14, a 60-node flowchart bakes to ~228 KB, so the line sits near 65 nodes.
 
 **Where the roles are written — three producers, one function:**
 

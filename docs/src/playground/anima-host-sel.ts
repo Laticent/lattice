@@ -115,10 +115,12 @@ export function speedToDurationMs(speed: MotionSpeed, markCount: number): number
   return Math.max(2400, Math.min(5400, 1600 + Math.max(0, markCount) * 640));
 }
 
-/** The parts `chartToScene` treats as animation candidates: a chart's per-mark index (`data-mark`) or
- *  a declared motion role (`data-anima-role`). The second arm is what a Mermaid diagram carries — it
- *  has no popover marks, only the roles `lib/integrations/mermaid/motion-roles.js` writes. */
-const ANIMATABLE_PART_SEL = 'svg [data-mark], svg [data-anima-role]';
+/** What makes a section animatable: a chart's per-mark index (`data-mark`), or a MERMAID diagram's
+ *  declared roles (it has no popover marks, only the roles `lib/integrations/mermaid/motion-roles.js`
+ *  writes). The role arm is scoped to the Mermaid hosts on purpose: a plain line chart also declares
+ *  roles without `data-mark`, and widening the arm to every svg would change which charts a deck-level
+ *  `motion: on` animates — a chart decision this change does not make. */
+const ANIMATABLE_PART_SEL = 'svg [data-mark], .mermaid svg [data-anima-role], .mermaid-svg svg [data-anima-role]';
 
 /** Whether a section holds an animatable chart — used to find the sections a deck-level `motion: on`
  *  applies to, since those carry no `motion-*` class. Keys on the SAME candidate set `chartToScene`'s
@@ -134,12 +136,13 @@ export function isMermaidSvg(svg: Element): boolean {
 }
 
 /** How many marks a section's chart builds — the `auto` speed's pacing input. A chart counts its
- *  `data-mark` indices, exactly as before. A Mermaid diagram has none, so it counts its non-label
- *  roles instead; without this every diagram would pace as a zero-mark chart. */
+ *  `data-mark` indices, exactly as before (a chart with none still paces as zero marks). A Mermaid
+ *  diagram has none, so it counts its non-label roles instead; without this every diagram would pace
+ *  as a zero-mark chart. */
 export function motionMarkCount(section: Element): number {
   const marks = section.querySelectorAll('svg [data-mark]').length;
   if (marks > 0) return marks;
-  return section.querySelectorAll('svg [data-anima-role]:not([data-anima-role="label"])').length;
+  return section.querySelectorAll('.mermaid svg [data-anima-role]:not([data-anima-role="label"]), .mermaid-svg svg [data-anima-role]:not([data-anima-role="label"])').length;
 }
 
 /** Preview-only marker: the live host stamps this on a motion-eligible chart FIGURE so it starts HIDDEN

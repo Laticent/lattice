@@ -4244,7 +4244,8 @@ async function renderBody(browser, g, closeBrowser) {
           // exists to prevent. Silence there is indistinguishable from success.
           try {
             const flat = window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' });
-            window.__tagMermaidMotion(flat);
+            // Its own try: a tagging failure costs only the motion, never the bake it rides on.
+            try { window.__tagMermaidMotion(flat); } catch (_t) { /* ships as a still */ }
             copies[i].replaceWith(flat);
           } catch (_e) { unbaked++; }
         }

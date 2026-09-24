@@ -400,6 +400,17 @@ describe('createAnimaScenes — Mermaid diagrams (deck `motion: on`)', () => {
     expect(doc.querySelector('.scene-live')).toBeNull();
   });
 
+  it('a host destroyed and then rebound (DeckPreview inactive → active) still mounts a live diagram after the bake loads', async () => {
+    const doc = diagramDoc(true);
+    const scenes = createAnimaScenes({ getFrame: () => frameOf(doc), getDeckMotion: () => ON });
+    scenes.rebind(); // starts the bake's load
+    scenes.destroy(); // falling edge, mid-load
+    scenes.rebind(); // rising edge on the SAME instance
+    await vi.waitFor(() => expect(doc.querySelector('.mermaid .scene-live')).not.toBeNull());
+    expect(doc.querySelector('.mermaid')?.classList.contains(PREHIDE_CLASS)).toBe(false);
+    scenes.destroy();
+  });
+
   it('leaves a diagram still when the deck does not play motion', () => {
     const doc = diagramDoc(false);
     const scenes = createAnimaScenes({ getFrame: () => frameOf(doc), getDeckMotion: () => ({ play: null, style: null, speed: null }) });

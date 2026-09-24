@@ -169,6 +169,9 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   }
 
   function rebind(): void {
+    // A host can be destroyed and then rebound: DeckPreview's inactive→active edge reuses the same
+    // instance. Clear the flag so the bake's load, its backstop and the draw watcher work again.
+    destroyed = false;
     const frame = getFrame();
     if (frame !== watchedFrame) {
       unwatch?.();
@@ -246,13 +249,15 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // Start the diagram bake's load EARLY, so it has landed before Mermaid finishes drawing: not every
     // surface pre-hides (the Playground's frame has no pre-hide rule, since its charts mount
     // synchronously), so a late load shows the still diagram first. Two early signals: the deck plays
-    // motion (known at the very first rebind — measured in the Playground, that is the only rebind
-    // before the first diagram draws), or an undrawn fence sits on a slide that will animate. A fence
-    // the runtime has not reached yet has no state and still carries `language-mermaid`.
+    // motion and holds a diagram (known at the very first rebind — measured in the Playground, that is
+    // the only rebind before the first diagram draws), or an undrawn fence sits on a slide that will
+    // animate. A fence the runtime has not reached yet has no state and still carries
+    // `language-mermaid`. A deck with no diagram never loads it.
     if (!flatten && flattenState === 'idle') {
       const undrawn = 'pre[data-mermaid-state]:not([data-mermaid-state="rendered"]), marp-pre[data-mermaid-state]:not([data-mermaid-state="rendered"]), code.language-mermaid';
+      const hasDiagram = doc.querySelector('.mermaid, .mermaid-svg, code.language-mermaid, pre[data-mermaid-state], marp-pre[data-mermaid-state]') != null;
       const early =
-        deck.play === 'on' ||
+        (deck.play === 'on' && hasDiagram) ||
         Array.from(doc.querySelectorAll(undrawn)).some((fence) => {
           const sec = fence.closest('section');
           return sec != null && resolveMotion(sec, deck) !== null;

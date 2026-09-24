@@ -102,6 +102,26 @@ describe('tagMermaidMotion — the families with their own renderer', () => {
     assert.deepEqual(parts.map((p) => p.id), ['alice-top', 'alice-line', 'alice-bottom', 'bob-top', 'bob-line', 'bob-bottom', 'note', 'm1', 'm2']);
   });
 
+  it('sequence — a stick-figure participant builds in its column like a box', () => {
+    const svg = svgOf(
+      '<svg aria-roledescription="sequence">' +
+        '<g class="actor-man actor-bottom" id="bob-bottom"><circle cx="275"/></g>' +
+        '<g><line class="actor-line" x1="275" id="bob-line"/><g class="actor-man actor-top" id="bob-top"><circle cx="275"/></g></g>' +
+        '<g><line class="actor-line" x1="75" id="api-line"/><g><rect class="actor actor-top" x="0" width="150" id="api-top"/></g></g>' +
+        '<line class="messageLine0" id="m1"/></svg>',
+    );
+    tagMermaidMotion(svg);
+    const parts = Array.from(svg.querySelectorAll('[data-anima-role]'), (el, i) => ({ id: el.id, key: Number(el.getAttribute('data-anima-order') || 0), i }));
+    parts.sort((a, b) => a.key - b.key || a.i - b.i);
+    assert.deepEqual(parts.map((p) => p.id), ['api-top', 'api-line', 'bob-top', 'bob-line', 'bob-bottom', 'm1']);
+  });
+
+  it('leaves a diagram with clickable nodes still — the animated copy would drop its tooltips', () => {
+    const svg = svgOf(FLOWCHART.replace('<g class="node default"><rect/><g class="label"/></g>', '<g class="node default clickable"><rect/></g>'));
+    assert.equal(tagMermaidMotion(svg), 0);
+    assert.equal(svg.querySelector('[data-anima-role]'), null);
+  });
+
   it('leaves an unrecognized family untagged, so it stays a still picture', () => {
     const svg = svgOf('<svg aria-roledescription="journey"><g class="task"><rect/></g></svg>');
     assert.equal(tagMermaidMotion(svg), 0);
