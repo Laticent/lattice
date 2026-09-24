@@ -69,7 +69,7 @@
     "features": {
       "selector": "ul > li > ul > li",
       "required": true,
-      "description": "Feature rows, each led by a state marker, with the same meaning it has in every layout: `[x]` included (green check), `[-]` limited (dash), `[/]` not on this plan (muted, struck through), `[ ]` coming (open ring), `[?]` ask sales (question mark in a ring), `[!]` missing (red cross — for a competitor's column, not your own tiers). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan."
+      "description": "Feature rows, each led by a state marker, with the same meaning it has in every layout: `[x]` included (green check), `[-]` limited (dash), `[/]` not included (muted, struck through — not on this plan), `[ ]` coming (open ring), `[?]` ask sales (question mark in a ring), `[!]` missing (red cross — for a competitor's column, not your own tiers). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan."
     }
   },
   "skeleton": "<!-- _class: pricing -->\n\n## Pick the plan that fits the team.\n\n- Starter `$0`\n  - [x] First feature\n  - [/] Second feature\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] First feature\n  - [x] Second feature\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] First feature\n  - [x] Second feature\n  - For procurement and compliance.\n",

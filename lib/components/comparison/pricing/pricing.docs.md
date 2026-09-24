@@ -18,7 +18,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading — the choice the tiers resolve (‘Pick the plan that fits the team.’). |
 | `tiers` | `ul > li` | yes | One top-level li per tier. Lead with the plain tier name (auto-bold), then a trailing inline-code price (`$49 / mo`, `Custom`). Add a single-asterisk marker (`*Most popular*`) to elevate one tier — it renders as a ribbon. Then a nested list: one feature per line led by a state marker, and a final marker-less ‘who it's for’ line. |
-| `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker, with the same meaning it has in every layout: `[x]` included (green check), `[-]` limited (dash), `[/]` not on this plan (muted, struck through), `[ ]` coming (open ring), `[?]` ask sales (question mark in a ring), `[!]` missing (red cross — for a competitor's column, not your own tiers). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
+| `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker, with the same meaning it has in every layout: `[x]` included (green check), `[-]` limited (dash), `[/]` not included (muted, struck through — not on this plan), `[ ]` coming (open ring), `[?]` ask sales (question mark in a ring), `[!]` missing (red cross — for a competitor's column, not your own tiers). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
 
 ### Variant decision rule
 

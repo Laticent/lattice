@@ -19,9 +19,8 @@ npm install
 
 ## Render the gallery deck
 
-The repository ships a gallery deck that exercises every layout — all
-55, in one 115-slide tour — and serves as the ground-truth fixture for
-what the renderer produces. Render it with the bundled `lattice` CLI
+The repository ships a gallery deck, a long tour of the layouts, that
+serves as the ground-truth fixture for what the renderer produces. Render it with the bundled `lattice` CLI
 (no network required):
 
 ```sh
@@ -77,8 +76,8 @@ npx lattice deck.md deck.pptx    # PowerPoint (image slides)
 npx lattice deck.md deck.png     # → deck.001.png, deck.002.png, …
 ```
 
-Need a copy someone can render with Marp? Use **Export to Marp** in the Drawing
-Board (or `npm run export:marp`) to produce a self-contained `.zip` — splits
+Need a copy someone can render with Marp? In the Studio, use **Share → Marp
+bundle** (or `npm run export:marp`) to produce a self-contained `.zip` — splits
 baked to literal `---`, themes, assets, and a zero-install bundled renderer.
 Lattice itself never renders through Marp, and its front matter never needs
 `marp: true` — add that key only if you preview decks with the VS Code Marp

@@ -31,7 +31,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 
 - **Two to four options.** Each card is one option; the grid keeps two cards per row. Past four options the cards crowd and the criteria badges lose legibility.
 - **Shared criteria across cards.** Every option is scored on the same set of criteria, in the same order. Drifting criteria between cards defeats the at-a-glance scan the layout exists for.
-- **Two-word badges.** Each criterion is a state marker (`[x]` yes · `[-]` partly · `[!]` no · `[?]` unknown · `[ ]` not assessed · `[/]` n/a, shared with `checklist` and `obligation-matrix`) plus a badge label of at most two words — `Residency`, `Self-serve`, `SOC 2`. The badge is chrome that must scan in a glance.
+- **Two-word badges.** Each criterion is a state marker (`[x]` yes · `[-]` partial · `[!]` no · `[?]` unknown · `[ ]` not assessed · `[/]` not applicable, shared with `checklist` and `obligation-matrix`) plus a badge label of at most two words — `Residency`, `Self-serve`, `SOC 2`. The badge is chrome that must scan in a glance.
 - **A rationale line is required.** Every option ends with one final inner bullet that carries NO marker — a short prose verdict for that option. It is the body that fills the card, and the last option renders as the focal, recommended verdict.
 
 ## When NOT to use

@@ -1,0 +1,179 @@
+---
+title: Deck settings
+description: The front-matter block at the top of a deck sets everything that applies to every slide — theme, chrome, accents, motion, voice. How it works, how one slide can differ, and the settings most decks want.
+---
+
+import CraftLab from '../../../components/craft/CraftLab.astro';
+
+export const LAB_ACCENTS = `---
+theme: cuoio
+spectrum: duo
+rule: short
+eyebrow: bar
+---
+
+<!-- _class: cards-grid -->
+
+\`Q3 review\`
+
+## Three bets for the next quarter.
+
+- Expand EMEA
+  - Two new markets, one partner each.
+- Rebuild onboarding
+  - Cut time-to-value from nine days to three.
+- Retire the legacy API
+  - Migrate the last forty accounts.
+`;
+
+export const LAB_OVERRIDE = `---
+spectrum: duo
+paginate: true
+footer: Board review · Confidential
+---
+
+<!-- _class: spectrum-off -->
+<!-- _paginate: false -->
+
+## One slide can differ from the deck.
+
+This slide drops the brand bar and its page number. The footer still comes from the deck.
+`;
+
+Every deck can start with a **front-matter** block: a few lines of settings
+between two `---` lines, before the first slide.
+
+```yaml
+---
+title: Q3 board review
+theme: cuoio
+paginate: true
+footer: Board review · Confidential
+---
+```
+
+Each line is a **key** and a **value**. The block applies to **every slide**,
+so it is where you set what the deck as a whole looks and sounds like. You
+never have to write one: a deck with no front matter renders with sensible
+defaults.
+
+## Four things to know
+
+**1. It applies to every slide.** `footer: Confidential` puts the footer on
+every slide. You set it once instead of forty times.
+
+**2. One slide can differ.** Most settings have a per-slide form, usually a
+class on the slide's `_class:` line or a `<!-- _key: … -->` comment. The slide's
+own setting wins over the deck's:
+
+<CraftLab
+	label="A slide overriding the deck"
+	kind="none"
+	editMarkdown
+	markdown={LAB_OVERRIDE}
+	size="short"
+	hint="The deck sets a two-color brand bar and page numbers. This slide drops the bar (spectrum-off) and hides its own number (_paginate: false). Delete those two lines and the slide falls back to the deck."
+/>
+
+**3. A wrong value is usually caught.** Most look and accent settings accept a
+fixed list of values. `lint:deck` and the Studio editor warn on a value outside
+that list, such as `spectrum: rainbow`, and name the values that work. The deck
+still renders, using the default. `theme:`, `size:` and the motion keys are not
+checked yet, so a typo there renders the default without a warning.
+
+**4. The Studio writes it for you.** The controls under **Settings → Deck**
+write these lines. (The one exception is Inline validation, which is your own
+editor preference.) The panel's sections — Look, Chrome, General, Accent,
+Motion, Speech — match the groups below and in the
+[front-matter reference](/reference/front-matter/). Type a key in the editor
+and autocomplete offers its values.
+
+## The settings most decks want
+
+### General — what the deck is
+
+| Key | What it does |
+|---|---|
+| `title:` | The deck's name: the browser tab, the Studio switcher, the export filename. Defaults to the first heading. |
+| `lang:` | The deck's language, e.g. `en-US` or `it`. It sets the read-aloud voice, so set it for any deck that is not in English. |
+| `split:` | Where a new slide starts: at each `##` heading (`headings`, the default), or only at `---` (`rule`). See [Authoring decks](/guides/authoring/). |
+| `class:` | A modifier on every slide, e.g. `class: checks-bold`. |
+
+### Look — theme and canvas
+
+| Key | What it does |
+|---|---|
+| `theme:` | The palette. See [Themes & palettes](/guides/themes/). |
+| `color-mode:` | Open in `light`, `dark` or `print`, or follow the viewer's `system`. |
+| `size:` | The slide shape: `hd` (16:9) by default, or `standard` (4:3), `square`, `portrait` (4:5), `story` or `reel` (9:16), `mobile`, `4k`. |
+| `mode:` | The hand: `boardroom` (clean, the default) or `sketch` (hand-drawn). |
+| `finish:` | A backdrop behind every slide, e.g. `halo` or `gallery`. |
+
+Three more change the feel of card layouts: `lift: on` gives cards a shadow,
+`corners: rounded` rounds the slide, and `cards:` decides where a short card
+row puts its spare height.
+
+### Chrome — the furniture on every slide
+
+`header:`, `footer:` and `paginate:` add a running header, a running footer and
+page numbers. `meta:` fills the small status line in the masthead, such as a
+date or a review stage. `logo:` draws your logo. `logo-on: title` keeps it to
+the title slide, and `logo-scale:`, `logo-x:` and `logo-y:` size and place it.
+
+### Accent — the small decorations
+
+These are where a deck gets its character, and each one is a single word:
+
+<CraftLab
+	label="Four accent settings"
+	kind="none"
+	editMarkdown
+	markdown={LAB_ACCENTS}
+	size="short"
+	hint="Try spectrum: mono, rule: accent, eyebrow: dot. Each changes its own decoration. An unknown value falls back to the default, and lint:deck lists the valid ones."
+/>
+
+| Key | Decorates |
+|---|---|
+| `spectrum:` | The spectrum accent: `on` (a rainbow), `solid`, `duo`, `mono` or `off`. It colors the brand bar along one edge and every accent that follows it, such as table rails and code strips. `spectrum-edge:` moves the bar. |
+| `spectrum-card:` | A thin rail on each card. |
+| `rule:` | The line under each heading. |
+| `eyebrow:` | The mark on the **eyebrow**: a line holding only inline code, just above the heading, like `` `Q3 review` ``. |
+| `headline:` | How the heading lines up: left, center, right. |
+| `stamp:` · `tone:` | The shape of a status stamp, and of a review tone. |
+
+### Motion — for live surfaces only
+
+`motion: on` animates charts as they appear in the preview, in Present mode and
+in the exported player. **A PDF is always still.** `motion-style:` and
+`motion-speed:` tune it, and `player-motion: off` keeps motion while you present
+but ships still charts in the exported player.
+
+### Speech — how the deck is read aloud
+
+`pace:` sets how long a self-presenting deck holds on a slide before speaking.
+`lexicon:` teaches the voice how to say a word, and `acronyms:` spells out
+abbreviations. Definitions in `acronyms:` also feed `glossary: auto`, which adds
+a glossary slide at the end:
+
+```yaml
+---
+acronyms:
+  ARR: annual recurring revenue
+glossary: auto
+---
+```
+
+## Settings to reach for last
+
+- **`color:`, `backgroundColor:`, `backgroundImage:` and `style:`** are raw CSS,
+  kept for Marp compatibility. They bypass the theme, so the deck stops
+  following a theme or a dark-mode switch. Prefer `theme:` and `finish:`.
+  `style:` also works only in the command-line render: the Studio ignores it.
+- **`present:`, `read:`, `fluid:` and `player:`** choose what the command-line
+  export produces. In the Studio, **Share** makes that choice instead.
+
+## Next
+
+Every key, its accepted values and its default, grouped the same way:
+[Front-matter reference](/reference/front-matter/).

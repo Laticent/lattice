@@ -1496,8 +1496,8 @@ inline code, anywhere inline code can go:
 than two vocabularies — bare at a bullet's start for a checklist row, inside inline code
 for a mark in a sentence, a heading, a table cell or a row's trailing column.
 
-The mark carries its name on `role="img"` + `aria-label`, so a screen reader says "done"
-and the document holds no extra word. Every `checks-*` style variant reaches an inline
+The mark carries its name on `role="img"` + `aria-label`, so a screen reader says "yes"
+(or "partly", "no", "unknown", "open", "does not apply") and the document holds no extra word. Every `checks-*` style variant reaches an inline
 mark, because it uses the same `state` / semantic / shape classes a checklist row does.
 
 **Only the six exact forms dispatch.** `` `[data-mark]` ``, `` `[0]` ``, `` `[~]` ``
@@ -1521,7 +1521,8 @@ Modifiers compose space-separated after the layout name.
 ```
 
 **Cascade rule:** when two modifiers tune the same variable (e.g.
-`compact loose`), the last one in source wins. When modifiers tune
+`scale-l scale-xl`), the stylesheet's order decides, not the order you write
+them in — so `scale-xl scale-l` still renders at the xl size. Write one. When modifiers tune
 disjoint properties (e.g. `compact dark`), they compose without
 conflict.
 

@@ -70,7 +70,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	// Chrome
 	{ key: 'header', info: 'Running header text on every slide.' },
 	{ key: 'footer', info: 'Running footer text on every slide.' },
-	{ key: 'paginate', info: 'Page numbers — true / false.' },
+	{ key: 'paginate', info: 'Page numbers — true / false. Anything but false, skip, hold or empty turns them on.' },
 	{ key: 'meta', info: 'The masthead bay\u2019s meta line — a date, a document number, a review stage.' },
 	{ key: 'logo', info: 'Deck logo — a path beside the deck or a full URL, drawn into the masthead.' },
 	{ key: 'logo-on', info: 'Which slides carry the logo — all (default) / title.' },
@@ -83,14 +83,14 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'spectrum-edge', info: 'Which edge the brand bar sits on — top (default) / left / right / bottom / off.' },
 	{ key: 'spectrum-card', info: 'Card rail style — off (default) / auto / solid / duo / mono / rainbow.' },
 	{ key: 'spectrum-card-edge', info: 'Card rail placement — left (default) / top / right / bottom.' },
-	{ key: 'spectrum-trim', info: 'Flow the spectrum onto structural accents (table rails, code strips, hr). on / off.' },
+	{ key: 'spectrum-trim', info: 'Flow the spectrum onto structural accents (table rails, code strips, hr). off (default) / restrained / on.' },
 	{ key: 'rule', info: 'Heading underline — auto (default) / full / short / accent / none.' },
 	{ key: 'eyebrow', info: 'The mark on the mono-caps kicker — plain (default) / dot / bar / arrow / underline.' },
 	{ key: 'headline', info: 'Framing-text alignment — auto (default) / left / center / right.' },
 	{ key: 'stamp', info: 'Deck-wide state-badge shape — e.g. tab, notch, seal, pill.' },
 	{ key: 'tone', info: 'Deck-wide review-tone shape — rail (default) / edge / glow.' },
 	// Motion + speech
-	{ key: 'motion', info: 'Chart motion on the live surfaces — on / off. Preview-only; the export is unchanged.' },
+	{ key: 'motion', info: 'Chart motion on the live surfaces — on / off. Reaches the preview, Present and the exported player (see player-motion); the PDF stays still.' },
 	{ key: 'motion-style', info: 'How a chart moves — build (default) / together / rise.' },
 	{ key: 'motion-speed', info: 'How fast the build runs — auto (default) / slow / normal / fast.' },
 	{ key: 'player-motion', info: 'off ships still charts in the exported offline player while motion stays on for presenting. Omit it to follow motion.' },
@@ -106,7 +106,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'backgroundPosition', info: 'Where the background image sits — a CSS value, e.g. center.' },
 	{ key: 'backgroundRepeat', info: 'Whether the background image tiles — a CSS value, e.g. no-repeat.' },
 	{ key: 'backgroundSize', info: 'Background image size — a CSS value, e.g. cover.' },
-	{ key: 'debug', info: 'Layout debug overlay — on-hover / on-always (+ verbose). Preview-only, stripped from every export.' },
+	{ key: 'debug', info: 'Layout debug overlay — off / on-hover / on-always (+ verbose). Preview-only, stripped from every export.' },
 	// The three RENDER-TARGET keys. They get no Studio CONTROL on purpose — they name the
 	// artifact a render should emit, not a property of the deck, and the Studio decides all
 	// three at export time (ShareSheet). That decision is recorded in

@@ -1,0 +1,107 @@
+---
+/**
+ * The front-matter reference, generated at build time so it cannot drift from what the
+ * engine accepts:
+ *   - the KEYS and their one-line descriptions are the Studio's autocomplete list
+ *     (FRONT_MATTER_KEYS), the same rows an author sees while typing;
+ *   - the VALUES come from the lint vocabulary (lib/authoring/lint.js buildVocab) through
+ *     registerValueLists, so a value listed here is one lint:deck accepts;
+ *   - group, default, per-slide form and Settings location come from front-matter-docs.ts,
+ *     whose test fails when a key is missing from either side.
+ */
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+import { FRONT_MATTER_KEYS, registerValueLists } from './studio/editor-complete';
+import { FRONT_MATTER_DOCS, GROUPS } from '../lib/front-matter-docs';
+import { PACE_NAMES } from '../lib/resolve-pace';
+
+const require = createRequire(import.meta.url);
+const repoRoot = join(process.cwd(), '..');
+const { loadAll } = require(join(repoRoot, 'lib/components', 'index.js'));
+const { buildVocab } = require(join(repoRoot, 'lib/authoring', 'lint.js'));
+const values = registerValueLists(buildVocab(loadAll()));
+values.pace = [...PACE_NAMES];
+
+const rows = FRONT_MATTER_KEYS.map((k) => ({ ...k, doc: FRONT_MATTER_DOCS[k.key] })).filter((r) => r.doc);
+// A key-list description reads "Name — explanation. a / b / c." The table shows the
+// values in their own column, so drop every sentence after the first that is a
+// slash-separated value list, and keep the explanation around it. "e.g." and "i.e." do
+// not end a sentence.
+const sentences = (text: string) => text.split(/(?<!\be\.g|\bi\.e)(?<=\.)\s+/).filter(Boolean);
+const notValues = (sentence: string) => !sentence.includes(' / ');
+const lead = (info: string) => {
+	const [head, ...rest] = info.split(' — ');
+	const [first, ...more] = sentences(head);
+	const firstPart = [first, ...more.filter(notValues)].join(' ');
+	const kept = sentences(rest.join(' — ')).filter(notValues).join(' ');
+	// "Page numbers — Anything but…" reads as two sentences; lower the first letter unless
+	// it starts an acronym ("PDF").
+	const tail = /^[A-Z][a-z]/.test(kept) ? kept[0].toLowerCase() + kept.slice(1) : kept;
+	const out = tail ? `${firstPart.replace(/\.$/, '')} — ${tail}` : firstPart;
+	return out.replace(/\.$/, '');
+};
+const anchor = (key: string) => `key-${key}`;
+---
+
+{GROUPS.map((g) => {
+	const inGroup = rows.filter((r) => r.doc.group === g.id);
+	if (!inGroup.length) return null;
+	return (
+		<section class="fm-group">
+			<h2 id={`group-${g.id}`}>{g.title}</h2>
+			<p>{g.blurb}</p>
+			<div class="fm-table">
+				<table>
+					<thead>
+						<tr><th scope="col">Key</th><th scope="col">What it does</th><th scope="col">Values</th><th scope="col">Default</th></tr>
+					</thead>
+					<tbody>
+						{inGroup.map((r) => (
+							<tr id={anchor(r.key)}>
+								<th scope="row"><code>{r.key}:</code></th>
+								<td>
+									{lead(r.info)}.
+									{r.doc.scope && <span class="fm-note"> Applies to: {r.doc.scope}.</span>}
+									{r.doc.studio && <span class="fm-note"> Studio: <strong>Settings → Deck → {r.doc.studio}</strong>.</span>}
+									{r.doc.slide && <span class="fm-note"> One slide: <code>{r.doc.slide}</code>.</span>}
+								</td>
+								<td data-label="Values">
+									{values[r.key]
+										? values[r.key].map((v, i) => <>{i > 0 && ' · '}<code>{v}</code></>)
+										: r.doc.values || '—'}
+								</td>
+								<td data-label="Default">{r.doc.default}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	);
+})}
+
+<style>
+	.fm-note { display: block; padding-top: 0.25rem; font-size: 0.875em; color: var(--sl-color-gray-3); }
+	.fm-table table th[scope='row'] { white-space: nowrap; vertical-align: top; }
+	.fm-table table td { vertical-align: top; }
+
+	/* Four columns leave the description a few words wide on a phone, so below 50rem each
+	   row becomes a card: the key, the description, then labeled Values and Default lines.
+	   The header row is hidden visually but kept for screen readers. */
+	@media (max-width: 50rem) {
+		.fm-table table,
+		.fm-table tbody,
+		.fm-table tr,
+		.fm-table th[scope='row'],
+		.fm-table td { display: block; width: 100%; }
+		.fm-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+		.fm-table tr { padding: 0.75rem 0; border-bottom: 1px solid var(--sl-color-hairline); }
+		.fm-table th[scope='row'],
+		.fm-table td { padding: 0.15rem 0; border: 0; }
+		.fm-table td[data-label]::before {
+			content: attr(data-label) ': ';
+			font-weight: 600;
+			color: var(--sl-color-gray-2);
+		}
+	}
+</style>

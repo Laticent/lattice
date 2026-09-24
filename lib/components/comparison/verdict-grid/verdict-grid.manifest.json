@@ -91,7 +91,7 @@
     },
     {
       "title": "Two-word badges",
-      "body": "Each criterion is a state marker (`[x]` yes · `[-]` partly · `[!]` no · `[?]` unknown · `[ ]` not assessed · `[/]` n/a, shared with `checklist` and `obligation-matrix`) plus a badge label of at most two words — `Residency`, `Self-serve`, `SOC 2`. The badge is chrome that must scan in a glance."
+      "body": "Each criterion is a state marker (`[x]` yes · `[-]` partial · `[!]` no · `[?]` unknown · `[ ]` not assessed · `[/]` not applicable, shared with `checklist` and `obligation-matrix`) plus a badge label of at most two words — `Residency`, `Self-serve`, `SOC 2`. The badge is chrome that must scan in a glance."
     },
     {
       "title": "A rationale line is required",
