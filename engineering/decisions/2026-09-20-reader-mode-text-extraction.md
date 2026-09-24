@@ -218,9 +218,17 @@ common: **every one of them sat in a composition the happy path never exercised.
    hangs outside, sorted back into document order. The article then REPLACES that container
    rather than dropping it when empty; the empty check could never fire, because by the time it
    ran the container held the whole article, which is how every `--read` document shipped a
-   `<main>` inside a `<main>` (3 axe landmark violations). `measureOverflow` still carries the
-   identical id-selector hole — pre-existing, off that change's path, and recorded here rather
-   than widened into it.
+   `<main>` inside a `<main>` (3 axe landmark violations). `measureOverflow` carried the
+   identical hole, fully unscoped. **Resolved 2026-09-24:** the scope moved into one kernel,
+   `lib/core/deck-slides.js`, which the `--read` projection, `measureOverflow`, the content-cut
+   pass, the chart label-drop pass, the guards trim and the page count all use. Measured on a two-slide deck
+   that pastes the scaffold and overflows on slide 2: the OVERFLOW line said "pages 1, 3" and
+   now says "pages 1, 2" (`test/integration/invariants/overflow-slide-scope.test.js`). The guards
+   trim came along because it prints page numbers too ("TRIM REVERTED … pages X"), and an
+   independent checker pointed out that one run would otherwise give one slide two numbers.
+   Still unscoped, and off this path because none of them names a page in the export's
+   warnings: the SVG export's per-slide walk and slide titles, and the exported document's own
+   runtime watcher.
 
 3. **`read: true` front matter was a documented no-op.** `--help` and the changelog both
    promised it; `RENDER_TARGET_KEYS` did not carry `read`, so the key always read absent
