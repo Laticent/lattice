@@ -606,3 +606,22 @@ it is the record of what was wrong.
   The e2e `library-remote-refs.spec.ts` imports both through the real Library and asserts,
   against a control fetch that proves the log works, that the browser made no request to the
   beacon host.
+- **Trio follow-ups 1, 4, 6 and 9.**
+  - **1, the CLI half: done.** A shipped name hides an installed package of the same name,
+    and that is now said out loud: the render path warns when the deck's theme, or a
+    component it uses, is shipped AND installed, and `packages list` marks the installed row
+    as hidden. The Studio half and a user namespace stay open as the owner's call.
+  - **4, the streaming inflate: done.** `lib/packages/zip-read.js` `readEntryCapped` inflates
+    an entry through JSZip's `internalStream` and stops at the chunk that takes the running
+    total past the cap. The CLI's `add` and the Studio's `readBudget` (asset zips and
+    `.lattice` packages) both read through it. Measured on a 51 KB zip whose 50 MB entry
+    declares 10 bytes: the capped read stops after 1.06 MB against a 1 MB cap, in 125 ms;
+    `entry.async()` inflates all 50 MB before JSZip's own size check throws.
+  - **6, the `process.execPath` spawn: declined.** Running `packages` in-process needs the
+    rest of `lattice-emulator.js`'s top-level code not to run, and the only in-file way, a
+    top-level `return`, is legal CommonJS that Biome refuses to parse. The clean fix is a thin
+    bin entry that dispatches before loading the renderer, and it is worth building together
+    with a single-executable build, which does not exist yet. Nothing ships on a runtime other
+    than Node today.
+  - **9, escaped selectors: done.** `renameComponentSelectors` decodes each class token's CSS
+    escapes before comparing, so `.\6b pi` and `.k\70 i` are renamed with `.kpi`.

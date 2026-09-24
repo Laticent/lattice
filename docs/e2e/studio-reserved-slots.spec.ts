@@ -72,6 +72,16 @@ const READ_SLOTS = (scope: string) => `(${((sel: string) => {
  * layout before it reads a box back.
  * Both are "the geometry has settled", so both are polled on the geometry itself.
  */
+/**
+ * The pre-paint shell carries the same `data-shell-unknowable` slots and outlives the live
+ * iframe's first paint by a beat, so a page-wide locator read in that beat finds TWO of each and
+ * a strict-mode read throws. The first test waits for the shell to go before it reads the app;
+ * the two that read page-wide locators do the same through this.
+ */
+async function appOnly(page: import('@playwright/test').Page) {
+	await expect(page.locator('#studio-ssr-shell')).toHaveCount(0, { timeout: 10_000 });
+}
+
 async function settle(page: import('@playwright/test').Page) {
 	await page.evaluate(() => document.fonts.ready);
 	await page.waitForFunction(
@@ -123,6 +133,7 @@ test('paging to another slide does not move the counter or anything after it', a
 	await page.setViewportSize(WIDE);
 	await page.goto('/studio/');
 	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+	await appOnly(page);
 	await settle(page);
 
 	const counter = page.locator('[data-shell-unknowable="slide-counter"]');
@@ -145,6 +156,7 @@ test('a slot does not resize when its content does — the relation, over the wh
 	await page.setViewportSize(WIDE);
 	await page.goto('/studio/');
 	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+	await appOnly(page);
 	await settle(page);
 
 	// TWO transforms, because the cheap one is not sufficient and it took a mutation run to

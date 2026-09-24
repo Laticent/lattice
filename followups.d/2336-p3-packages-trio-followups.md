@@ -20,32 +20,34 @@ verify    — unit + the package e2e specs.
 
 1. **A name is not an identity over time.** Every shipped name a release adds silently
    changes how existing user work renders: a saved theme that later becomes a shipped name
-   is hidden from the menus, and the CLI prefers the shipped theme over an installed one
-   without a word (`lattice-emulator.js` palette lookup, `lib/packages/render.js`). At least
-   warn when a shipped name hides an installed or saved one; longer term, consider a user
-   namespace. Owner decision.
+   is hidden from the menus, and the CLI prefers the shipped theme over an installed one.
+   **The CLI half now warns** (PR for the portable-packages continuation): a render that
+   resolves a shipped theme, or uses a shipped component, that an installed package also
+   names says so on stderr with the re-add fix, and `packages list` marks the installed row
+   "hidden by the shipped … of this name". **Still open, and the owner's call:** the Studio
+   half (the Library still lists a hidden saved theme, but the menus drop it without a word)
+   and a user namespace as the long-term fix.
 
-Items 2 (gallery gating) and 3 (motion art's remote references) are fixed; the decision note's
-§10 says how. The numbers are kept so a reference to item 4 still means item 4.
+Items 2 (gallery gating), 3 (motion art's remote references), 4 (the streaming inflate) and 9
+(escaped selectors) are fixed, and item 6 is declined; the decision note's §10 says how and
+why. The numbers are kept so a reference to item 5 still means item 5.
 
-4. **A zip that understates its entry sizes still inflates fully** — in the CLI as in the
-   Studio (`zip-limits.ts` documents the residual). A streaming inflate with a running cap
-   would close it.
 5. **`rgb(from …)` is the repo's first relative-color syntax** (the finish BOTTOM-LAYER
    RULE). It needs Chrome 119+ / Safari 18+; on an older engine (an old WebKitGTK behind
    the desktop wrapper) the export-face variable fails and prints no wash at all — no worse
    than before #2336, but nobody has decided that browser floor.
-6. **`lattice packages` spawns `process.execPath`**, which assumes the CLI runs under Node.
-   A single-executable or embedded build needs another dispatch.
 7. **Studio theme exports carry `type`/`format`**, which `themes/theme.schema.json` does not
    accept yet; phase 5 (themes into folders) must accept or strip them.
 8. **A Studio Markdown export with a saved theme embeds that theme's CSS, but the CLI still
    fails with `palette not found`** and now suggests installing a zip the recipient may not
    have. Pre-existing; the CLI could register an embedded theme block.
-9. **The escaped selector form (`.\6b pi`) is not renamed by `renameComponentSelectors`.**
-   Low impact while the component gate does not refuse selectors outside the component's
-   own class anyway.
-10. **Studio e2e specs that fail on `main` itself** (found by a full local run for #2336; each
+10. **Studio e2e specs that fail on `main` itself.** Re-run 2026-09-24 on a current build: the
+    four below that were re-run still failed. `studio-reserved-slots.spec.ts:122` and `:144`
+    are now FIXED (they read
+    page-wide locators while the pre-paint shell was still mounted, so each found two
+    elements; they now wait for the shell to go, as the first test in the file does). The
+    others stay open (`split.spec.ts:206` still fails its collapsed-preview assertion, and
+    the `minfont` parity arm is still 21px off). Originally (found by a full local run for #2336; each
     reproduced against `main` at the merge base, so none is that PR's): `split.spec.ts:206`,
     `studio-reserved-slots.spec.ts:122` and `:144`, and the `minfont` project's
     `studio-shell-parity.spec.ts:160` at 1280px/Craft ("Previous slide" 21px off). The three in

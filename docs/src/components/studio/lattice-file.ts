@@ -151,7 +151,7 @@ export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 		const sub = new JSZip();
 		for (const p of packagePaths) {
 			const entry = zip.file(p);
-			if (entry) sub.file(p.slice(PACKAGES_DIR.length), (charge(await entry.async('string')) as string) ?? '');
+			if (entry) sub.file(p.slice(PACKAGES_DIR.length), (await charge(entry)) ?? '');
 		}
 		packages = await unpackPackages(sub, async (path) => (path ? ((await sub.file(path)?.async('string')) ?? undefined) : undefined));
 	}

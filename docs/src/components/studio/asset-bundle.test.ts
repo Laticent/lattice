@@ -6,7 +6,7 @@ import { DEFAULT_RECIPE } from './finish-generate';
 import type { StudioFinish } from './finish-library';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
-import { MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, readBudget } from './zip-limits';
+import { declaredInflatedBytes, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, readBudget } from './zip-limits';
 
 const theme: StudioTheme = {
 	id: 't1',
@@ -231,14 +231,28 @@ describe('asset-bundle — refuses an oversized zip', () => {
 		expect(round.themes).toHaveLength(1);
 	});
 
-	it('stops at the read budget when entries understate their sizes', () => {
-		// The declared-size check trusts the archive's directory. The budget charges what
-		// was actually read, so understated entries can't add up past the cap.
-		const charge = readBudget('too large');
-		const half = 'a'.repeat(MAX_INFLATED_BYTES / 2);
-		charge(half);
-		charge(half);
-		expect(() => charge('a')).toThrow('too large');
+	it('stops the INFLATE at the read budget when an entry understates its size', async () => {
+		// The declared-size check trusts the archive's directory. The budget charges each
+		// chunk as it inflates, so an entry that lies about its size stops at the cap instead
+		// of inflating in full first (lib/packages/zip-read.js).
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('big.css', 'a'.repeat(4 * 1024 * 1024));
+		const buf = new Uint8Array(await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }));
+		const view = new DataView(buf.buffer);
+		view.setUint32(22, 10, true); // the local header's uncompressed size
+		let cd = buf.length - 4;
+		while (!(buf[cd] === 0x50 && buf[cd + 1] === 0x4b && buf[cd + 2] === 1 && buf[cd + 3] === 2)) cd--;
+		view.setUint32(cd + 24, 10, true); // and the central directory's
+		const liar = await JSZip.loadAsync(buf);
+		expect(declaredInflatedBytes(liar.files['big.css'])).toBe(10);
+		const charge = readBudget('too large', 256 * 1024);
+		await expect(charge(liar.file('big.css'))).rejects.toThrow('too large');
+		// Two honest reads share one budget.
+		const two = readBudget('too large', 10);
+		const small = new JSZip().file('a', 'abcdef');
+		await two(small.file('a'));
+		await expect(two(small.file('a'))).rejects.toThrow('too large');
 	});
 
 	it('refuses a manifest with no item list rather than throwing a TypeError', async () => {

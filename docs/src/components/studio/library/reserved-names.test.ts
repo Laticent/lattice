@@ -34,6 +34,10 @@ describe('renameComponentSelectors', () => {
 	it('rewrites the class token, including inside :is() and :not()', () => {
 		expect(r('section.kpi h2, :is(.kpi) p, section:not(.kpi) li {}')).toBe('section.kpi-custom h2, :is(.kpi-custom) p, section:not(.kpi-custom) li {}');
 	});
+	it('rewrites the escaped spellings the browser reads as the same class (.\\6b pi is .kpi)', () => {
+		expect(r('section.\\6b pi h2, section.k\\70 i p, section.\\kpi li {}')).toBe('section.kpi-custom h2, section.kpi-custom p, section.kpi-custom li {}');
+		expect(r('section.\\6b pis, .\\6b  pi {}')).toBe('section.\\6b pis, .\\6b  pi {}');
+	});
 	it('leaves a longer class alone', () => {
 		expect(r('.kpi-row, .kpis, .xkpi {}')).toBe('.kpi-row, .kpis, .xkpi {}');
 	});

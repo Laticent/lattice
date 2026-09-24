@@ -8,14 +8,17 @@
 //
 // The inflated-size check reads the size each entry DECLARES in the archive's central
 // directory. JSZip exposes it on the entry's internal `_data`. It refuses an honest
-// bomb before anything inflates. A dishonest archive can understate it; the asset
-// import's read budget then stops the import at the first read that takes the running
-// total over the cap, but that one read has already inflated in full.
-// JSZip exposes no streaming read to stop it sooner.
+// bomb before anything inflates. A dishonest archive can understate it; the read budget
+// then inflates each entry in chunks and stops at the chunk that takes the running total
+// over the cap (lib/packages/zip-read.js), so a liar costs at most the cap.
 
 // The numbers live in lib/packages/limits.js, shared with the CLI's `lattice packages add`.
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import limits from '../../../../lib/packages/limits.js';
+
+/** A JSZip file entry. Its `internalStream`, which the capped read uses, is missing from
+ *  JSZip's published types, so the entry is passed through untyped. */
+type ZipEntry = object;
 
 /** Largest archive accepted, on disk. */
 export const MAX_ZIP_BYTES: number = limits.MAX_ZIP_BYTES;
@@ -54,16 +57,17 @@ export function assertZipWithinLimits(zip: LoadedZip, message: string, paths?: I
 }
 
 /**
- * A running budget for text actually read out of an archive. Each read is charged, and
- * the read that takes the total over `MAX_INFLATED_BYTES` throws, so entries that
- * understated their sizes can't add up past the cap. It can't stop the read that
- * crosses it: that read has already inflated (see the header).
+ * A running budget for text read out of an archive: each read INFLATES in chunks and is
+ * charged as it goes, and the chunk that takes the total over `MAX_INFLATED_BYTES` stops the
+ * inflate and throws. So an entry that understates its size costs at most the cap, not its
+ * true size (`lib/packages/zip-read.js`, shared with the CLI).
  */
-export function readBudget(message: string): (text: string | null | undefined) => string | null | undefined {
-	let used = 0;
-	return (text) => {
-		used += text ? text.length : 0;
-		if (used > MAX_INFLATED_BYTES) throw new Error(message);
-		return text;
+export function readBudget(message: string, max: number = MAX_INFLATED_BYTES): (entry: ZipEntry | null | undefined) => Promise<string | undefined> {
+	const budget = { used: 0, max, message };
+	return async (entry) => {
+		if (!entry) return undefined;
+		// Loaded on the first read: this module is on the Studio's eager path, a read never is.
+		const { default: zipRead } = await import('../../../../lib/packages/zip-read.js');
+		return (await zipRead.readEntryCapped(entry as Parameters<typeof zipRead.readEntryCapped>[0], 'string', budget)) as string;
 	};
 }

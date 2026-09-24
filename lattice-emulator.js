@@ -1013,6 +1013,16 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
 // The store is a plain folder: a package unzipped into it by hand, or a `--packages` folder,
 // never passed `add`. So the gate `add` runs is run again here, before the CSS is used, and a
 // refused theme fails the render with the reason (lib/packages/gate.js; HARD RULE #22).
+// A shipped name wins over an installed one, and a release that ADDS a shipped name hides a
+// package the user installed under it before. That must not be silent: the deck would render
+// a different theme from the one it rendered yesterday (followups.d/2336 item 1).
+if (fs.existsSync(palettePath) && !flags.quiet) {
+  const hidden = packagesHome.findInstalled(PACKAGES_ROOT, 'theme', paletteName);
+  if (hidden) {
+    console.error(`warning: "${paletteName}" is a theme Lattice ships, so the installed package of that name is not used`);
+    console.error(`         (${hidden.dir}). To use yours, re-add it: it installs as "${paletteName}-custom".`);
+  }
+}
 if (installedTheme) {
   const refused = require('./lib/packages/gate.js').refusePackage(installedTheme.pkg);
   if (refused) {
@@ -2089,6 +2099,14 @@ function withInstalledComponents(source) {
     else installed.push(p);
   }
   const r = installed.length ? embedInstalledComponents(source, installed.map((p) => ({ name: p.name, css: p.pkg.files[p.pkg.roles['styles.css']] })), COMPONENT_NAMES) : { source, used: [] };
+  // The component half of the shipped-name warning above: an installed component the deck
+  // names that a release has since started shipping is not the one that renders.
+  const shippedComponents = new Set(COMPONENT_NAMES);
+  const named = new Set(classTokens(source));
+  for (const p of installed.filter((x) => shippedComponents.has(x.name) && named.has(x.name))) {
+    console.error(`warning: "${p.name}" is a component Lattice ships, so the installed package of that name is not used`);
+    console.error(`         (${p.dir}). To use yours, re-add it: it installs as "${p.name}-custom".`);
+  }
   if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
   // A class the deck names that is not shipped, embedded or installed renders its slides
   // UNSTYLED — silently, unlike a missing theme. Say so, with the command that fixes it

@@ -186,6 +186,28 @@ describe('lattice packages', () => {
     assert.ok(process.memoryUsage().rss - before < MAX_INFLATED_BYTES / 2, 'the entry was not inflated');
   });
 
+  test('a zip that UNDERSTATES an entry is stopped at the cap while inflating, not after', async () => {
+    const { MAX_INFLATED_BYTES } = require('../../../lib/packages/limits.js');
+    const zip = new JSZip();
+    zip.file('liar/liar.manifest.json', JSON.stringify({ name: 'liar', type: 'theme', format: 1 }));
+    zip.file('liar/liar.css', 'a'.repeat(MAX_INFLATED_BYTES + 1024 * 1024));
+    const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+    // Rewrite both copies of liar.css's declared size to 10 bytes.
+    for (let at = buf.indexOf('PK\x03\x04'); at >= 0; at = buf.indexOf('PK\x03\x04', at + 4)) {
+      if (buf.toString('utf8', at + 30, at + 30 + buf.readUInt16LE(at + 26)).endsWith('.css')) buf.writeUInt32LE(10, at + 22);
+    }
+    for (let at = buf.indexOf('PK\x01\x02'); at >= 0; at = buf.indexOf('PK\x01\x02', at + 4)) {
+      if (buf.toString('utf8', at + 46, at + 46 + buf.readUInt16LE(at + 28)).endsWith('.css')) buf.writeUInt32LE(10, at + 24);
+    }
+    const file = path.join(tmp('zip'), 'liar.zip');
+    fs.writeFileSync(file, buf);
+    const r = await run(['add', file, '--packages', tmp('store')]);
+    assert.equal(r.code, 1, r.text);
+    // The cap's own words. Inflating the entry whole first ends in JSZip's "uncompressed data
+    // size mismatch" instead, after all 65 MB are in memory.
+    assert.match(r.text, /inflates past 64 MB/);
+  });
+
   test('a hand-broken install still needs --replace to be overwritten', async () => {
     const store = tmp('store');
     fs.mkdirSync(path.join(store, 'theme/probe-brand'), { recursive: true });
@@ -234,6 +256,22 @@ describe('the render path', () => {
     assert.equal(r.status, 1);
     assert.match(r.stderr, /palette not found: probe-missing/);
     assert.match(r.stderr, /lattice packages add probe-missing\.lattice-theme\.zip/);
+  });
+
+  test('a shipped name that hides an installed package is said out loud, at render and in list', async () => {
+    // A release that starts shipping a name hides the package a user installed under it
+    // (followups.d/2336 item 1). Placed by hand, as a package installed before the release was.
+    const store = tmp('store');
+    const dir = path.join(store, 'theme/indaco');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [f, body] of Object.entries(theme('indaco'))) fs.writeFileSync(path.join(dir, f), body);
+    const listed = await run(['list', '--type', 'theme', '--packages', store]);
+    assert.match(listed.text, /theme\s+indaco\s+installed {2}\(hidden by the shipped theme of this name; re-add it to install as indaco-custom\)/);
+    const deck = path.join(tmp('deck'), 'deck.md');
+    fs.writeFileSync(deck, '---\ntheme: indaco\n---\n\n# Hi\n');
+    // A browser that isn't there ends the run right after the theme is resolved.
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), deck, deck.replace(/md$/, 'pdf'), '--packages', store], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: '/nonexistent/chrome', PUPPETEER_EXECUTABLE_PATH: '/nonexistent/chrome' } });
+    assert.match(r.stderr, /warning: "indaco" is a theme Lattice ships, so the installed package of that name is not used/);
   });
 
   test('`lattice packages` is dispatched before the render arguments are parsed', () => {

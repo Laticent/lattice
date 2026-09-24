@@ -293,7 +293,7 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 	assertZipWithinLimits(zip, TOO_LARGE, []);
 	// Every read below is charged against one running budget (`zip-limits.ts`).
 	const charge = readBudget(TOO_LARGE);
-	const read = async (path: string | undefined): Promise<string | undefined> => (path ? ((charge(await zip.file(path)?.async('string')) as string | undefined) ?? undefined) : undefined);
+	const read = async (path: string | undefined): Promise<string | undefined> => (path ? charge(zip.file(path)) : undefined);
 	if ((await packageZip()).isPackageZip(zip)) return unpackPackages(zip, read);
 	return unpackLegacy(zip, read);
 }

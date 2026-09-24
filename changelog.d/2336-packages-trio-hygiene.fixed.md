@@ -1,0 +1,3 @@
+- `lattice` now warns when a theme or component Lattice ships hides an installed package of the same name, at render time and in `lattice packages list`, with the fix (re-add it and it installs as `<name>-custom`).
+- A zip that understates an entry's size is stopped at the 64 MB cap while it inflates, in the Studio's imports and in `lattice packages add`, instead of after the whole entry has inflated.
+- Importing a component under a shipped name now also renames selectors written with CSS escapes (`.\6b pi` for `.kpi`).
