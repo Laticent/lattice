@@ -114,6 +114,9 @@ const COMMENTS_ONLY = {
     'CI also retries once, so a flaky pass reads as green',
   'studio-e2e-nightly.yml::e2e-ai':
     'a live model, so one passing night is weaker evidence than it looks',
+  'webkit-baselines-nightly.yml::audit':
+    'absolute per run, but its tolerance lives in the workflow and the tool, and widening it ' +
+    'turns a night green without moving a label — the same shape as a re-bless',
   'perf-nightly.yml::watch':
     'differential — head against a base ~24h old, and it emits no harness-failure marker to ' +
     'discriminate on',
