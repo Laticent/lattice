@@ -289,3 +289,20 @@ timestamp).
 The regression arms are `test/integration/export/raw-section-quoted.test.js`, which covers the
 page count and the masthead bands through the real CLI, and
 `test/unit/core/split-sections-fast-path.test.js`.
+
+**The backdrop injector was the last render-path pass that did not walk slides (CLOSED
+2026-09-24).** `applyBackdropToHtml` (`lib/core/backdrop.js`) stamped a `.backdrop` wrapper
+after every finish `<section …>` open tag it could match with a global regex. It never lost a
+slide, because it stamped open tags rather than finding where a slide ends, but it wrote a
+wrapper inside an HTML comment that quoted a finish section, and into a `<section
+class="finish">` an author nested inside a slide. It now walks top-level sections through
+`mapSections`. Its DOM twin, `injectBackdrops` in `lib/runtime/index.js`, skips nested sections
+the way `applyDefaultComponent` already did, so both paths wrap the same sections. A never-closed
+author `<section>` now ends the walk, so nothing after it is wrapped. That is deliberate: the
+deck is already broken on every path, and every other `mapSections` pass stops at the same byte.
+
+Exporting every `examples/*.md` to HTML on both trees, each built from its own source, with the
+absolute asset path normalized: 203 of 205 are byte-identical. The other two differ between two
+runs of the same tree (Mermaid's gitGraph ids and the player's `generatedAt`). The arms are
+`test/unit/core/backdrop-walk.test.js`, including one that runs the runtime twin's own source in
+jsdom against the string path.
