@@ -110,7 +110,8 @@ shape a view of it.**
     "acronyms": "sha256:77e3…",
     // tours only: what a recorded run's timing depended on (§4.6)
     "viewport": { "w": 1440, "h": 900 },
-    "reducedMotion": false
+    "motion": "full",              // Vetrina's resolved motion tier: full | legible | still
+    "stagePace": 1
   },
 
   "seekable": false,               // true when every segment's length is known (§4.4)
@@ -121,7 +122,7 @@ shape a view of it.**
       "kind": "stretch",           // "slide" | "hold" | "stretch" (§4.3)
       "at": { "beats": [3, 5] },   // a deck writes { "slide": 3 }
       "after": "awaitUser",        // what a player waits on before this segment; never a time
-      "hash": "sha256:e09a…",      // this segment's narration text + the file's inputs (§4.5)
+      "hash": "sha256:e09a…",      // narration text + storyboard steps + the file's inputs (§4.5)
       "basis": "estimate",         // "estimate" | "measured" | "legacy" — how far to trust the track
 
       // CORE (Cadenza). Required on "slide" and "stretch". Exactly a CaptionTrack.
@@ -135,6 +136,7 @@ shape a view of it.**
             { "display": "Now",     "spoken": "Now",     "startMs": 0,   "endMs": 240,  "charOffset": 0 },
             { "display": "click",   "spoken": "click",   "startMs": 240, "endMs": 520,  "charOffset": 4 },
             { "display": "Publish", "spoken": "Publish", "startMs": 520, "endMs": 1010, "charOffset": 10, "weight": 1.3 }
+            // … six more words, the last ending at 3120
           ]
         }]
       },
@@ -154,8 +156,10 @@ shape a view of it.**
       ]
     },
 
-    // A deck slide with no narration still takes time: exactly one hold.
-    { "id": "d7", "kind": "hold", "at": { "slide": 7 }, "durationMs": 1400 }
+    // In a deck, every slide after the first waits one hold when it ARRIVES (§4.3).
+    // A narrated slide carries its hold before its track; a slide with no
+    // narration is a "hold" segment: the arrival hold and nothing else.
+    { "id": "d7", "kind": "hold", "at": { "slide": 7 }, "holdMs": 1400 }
   ]
 }
 ```
@@ -167,7 +171,10 @@ it, `spoken` included. Omitting fields is a packed-form concern only (§7).
 
 | Layer | Owner | Required | What a reader that does not know it does |
 |---|---|---|---|
-| `source`, `inputs`, segment `hash` and `basis` | the producer | yes | — |
+| `source`, `inputs` | the producer | yes | — |
+| segment `id`, `kind`, `at` | the producer | yes, on every segment | — |
+| segment `hash`, `basis` | the producer | yes on `slide` and `stretch`; absent on `hold`, whose length depends only on `inputs.deckPace` | — |
+| segment `holdMs` | the producer | yes on deck segments (0 on the first slide); absent on tour stretches | — |
 | `segments[].track` | Cadenza | yes, on `slide` and `stretch` | — (a reader that cannot read the core cannot play the file) |
 | `segments[].audio` | Suono | no | plays silently on the estimate, exactly as the HTML player does for a cue with no clip |
 | `segments[].actions` | Vetrina | no | skips it; captions and audio still play |
@@ -185,11 +192,20 @@ Times restart at zero in each segment, and `after` names the wait before it
 without giving that wait a length. This is what lets one format describe a deck
 and a tour without claiming a time for a wait nobody can predict.
 
-- **`slide`** — a narrated deck slide.
-- **`hold`** — a slide with no narration. The HTML player dwells on it for
-  exactly one slide or section hold (`player-core.mjs`: an empty cue list goes
-  straight to `endSlide`, which advances after the hold). The first draft had no
-  such kind and would have skipped these slides on the timeline (§12, red team 1).
+How a deck spends a hold, from the player's source: Play speaks the current
+slide at once, with no hold (`toggleNarration` → `speakSlide`). When a slide's
+narration ends, `endSlide` **advances first, then holds on the slide that
+arrived, then speaks it** — and the hold is a section hold or a slide hold
+according to the ARRIVING slide. So every slide after the first waits one hold
+on arrival, narrated or not, and a deck segment's length is its `holdMs` plus
+its narration.
+
+- **`slide`** — a narrated deck slide: `holdMs` (0 on the first slide), then its
+  track.
+- **`hold`** — a slide with no narration: its arrival hold and nothing else. An
+  empty cue list goes straight to `endSlide` (`player-core.mjs`), so the slide
+  is on screen for exactly that hold. The first draft had no such kind, and its
+  first revision placed the hold on the wrong side of the slide (§12).
 - **`stretch`** — in a tour, the run between two waits (`until`, `awaitUser`, an
   async `act`).
 
@@ -201,9 +217,11 @@ callers work from planned files, and a captions-only export has no clips, so it
 can never be "resolved" at all (§12). So the states are replaced by one property:
 
 - **`seekable: true`** — every segment has a known length, so the segments lay
-  end to end on one absolute timeline. A deck is always seekable: an estimated
-  slide has its track's length, a hold has its hold, and a measured slide has
-  its clip's length. A tour is seekable only once a run has been recorded,
+  end to end on one absolute timeline. A deck is always seekable: every
+  segment's length is its `holdMs` plus its narration, and the narration's length
+  is the track's estimate or, once measured, the clips' lengths plus the breaths
+  between them. The conformance fixtures (§8) pin that arithmetic against the
+  player, including the breath the player holds after a slide's last sentence. A tour is seekable only once a run has been recorded,
   because a recording fills in how long each wait took.
 - **`seekable: false`** — some wait's length is unknown. A tour before a run.
 
@@ -221,7 +239,9 @@ invalidated every measured clip and every recorded wait — data that cannot be
 rebuilt. The rules now:
 
 - **Hash per segment**, over that segment's narration text plus the file's
-  `inputs`. A typo invalidates one segment.
+  `inputs`, and for a tour stretch also the storyboard steps it spans (actions,
+  targets, `after` waits). A typo invalidates one segment, and so does moving
+  an action's target, which changes how long the recorded waits took.
 - **`inputs.engine` is a content hash of the timing engine's build**, not its
   package version.
 - **`audio.clip` is a content hash of the clip bytes**, and `audio.voice`
@@ -234,13 +254,16 @@ rebuilt. The rules now:
 
 ### 4.6 Tours: what a recording depends on
 
-How long a tour takes depends on the screen, not only the text. The cursor
-leaves early by `stage.leadMs`, which scales with the distance it travels
-(Fitts's law) and snaps to 160 ms under reduced motion
-(`docs/src/lib/vetrina/stage.ts`), and the storyboard delays a whole line when
-the hand is behind (`storyboard.ts`). A run recorded at 1440 px therefore plays
-wrong at 390 px. So a recorded tour carries `inputs.viewport` and
-`inputs.reducedMotion`, and a player that differs from them treats the
+How long a tour takes depends on the screen and the theme, not only the text.
+The cursor leaves early by `stage.leadMs`, which returns `(register + travel) *
+pace` (`docs/src/lib/vetrina/stage.ts`): travel scales with the distance the hand
+crosses (Fitts's law), and in a reduced motion tier it is a flat 160 ms, still
+multiplied by `pace`. The motion tier comes from `theme.motion` (`full`,
+`legible` or `still`), with a reduced-motion device landing on `legible`, and
+`pace` from `theme.pace`. The storyboard delays a whole line when the hand is
+behind (`storyboard.ts`). A run recorded at 1440 px therefore plays wrong at
+390 px. So a recorded tour carries `inputs.viewport`, `inputs.motion` and
+`inputs.stagePace`, and a player that differs from any of them treats the
 recording as a guide, not a timeline: it recomputes the hand's lead per run.
 
 ### 4.7 Actions keep the word the author named
@@ -312,9 +335,12 @@ Cadenza's `makeCursor` by serializing the function's source (`capKernel`).
 them so: they go under `test/unit/export/inlinable-kernels.test.js`, **run
 against the minified production output too** (the docs bundle has broken an
 inlined kernel through minifier renames before, `player-core.mjs` `playerJs`);
-and the word lookup is **one** implementation. `makeCursor`'s lookup moves into
-`ltt` beside the types it reads, and Cadenza re-exports it, so there are never
-two lookups to drift.
+and the word lookup is **one** implementation. `makeCursor` keeps its lookup
+inside the function on purpose, because an inlined copy can reach no module
+scope (`cursor.ts`), so the lookup cannot move out of it on its own. Instead
+`makeCursor` moves **whole and unchanged** into `ltt` in step 2, the step that
+changes export bytes anyway; `positionAt` calls it, the player inlines both, and
+Cadenza re-exports it. There are never two lookups to drift.
 
 ## 6. Where the code lives
 
@@ -324,10 +350,10 @@ allows different things:
 | Library | Gate | Allows beyond in-folder imports |
 |---|---|---|
 | Cadenza | `checkCadenzaBoundary` | `node:` built-ins; static `from` imports only are matched |
-| Vetrina | `checkVetrinaBoundary` | `react` / `react-dom` in `react.ts` only; static `from` imports only are matched |
+| Vetrina | `checkVetrinaBoundary` | `node:` built-ins; `react` / `react-dom` in `react.ts` only; static `from` imports only are matched |
 | Suono | `checkSuonoBoundary` | also catches side-effect, dynamic `import()` and `require()` imports |
 | Lente | `checkLenteBoundary` | same pattern set as Suono |
-| Anima | `checkAnimaBoundary` | sanctioned engine dependencies (`zdog`, `animejs`) per backend file |
+| Anima | `checkAnimaBoundary` | intra-library `../` imports; sanctioned engine dependencies (`zdog`, `animejs`, `animejs/svg`) per backend file |
 
 Fork B settled the home (§9.1): the format gets its own package,
 `@laticent/ltt`, and the libraries may import it. The owner's ruling is that a
@@ -337,7 +363,7 @@ of every OTHER outside dependency, and `ltt` itself imports nothing.
 
 | Piece | Home | Why |
 |---|---|---|
-| The LTT types (core, envelope, layers), `validateLtt`, `isStale`, `positionAt`, `timeline`, the word lookup | **`@laticent/ltt`**, at `docs/src/lib/ltt/`, gated to in-folder imports with the **Suono pattern set** (the strictest) | A format someone else adopts needs a reference implementation that is only the format. Every type is defined once, here. |
+| The LTT types (core, envelope, layers), `validateLtt`, `isStale`, `positionAt`, `timeline`, and (from step 2) `makeCursor` | **`@laticent/ltt`**, at `docs/src/lib/ltt/`, gated to in-folder imports with the **Suono pattern set** (the strictest) | A format someone else adopts needs a reference implementation that is only the format. Every type is defined once, here. |
 | `Word`, `Cue`, `CaptionTrack` | **moved into `ltt`**; Cadenza's `index.ts` re-exports them | So every existing importer keeps working unchanged: `PresentCaption.tsx`, `read-aloud.ts`, `cadenza-narrator.ts`, and Cadenza's own `builder.ts`, `cursor.ts`, `reader.ts`, `vtt.ts`. |
 | `buildTrack`, `BuildOptions`, `EmphasisSpan` | **stay in Cadenza** | They are the engine, not the format. |
 | `validateTrack` | **becomes the core check inside `validateLtt`**; Cadenza re-exports it | One structural validator, not two. |
@@ -346,7 +372,7 @@ of every OTHER outside dependency, and `ltt` itself imports nothing.
 | Tour recorder (writes a seekable LTT) | **`docs/src/lib/vetrina-narration/`** | It sits above the libraries, where `cadenzaNarrator` already lives. |
 
 **A gate opens only in the step that adds its first import.** Cadenza's opens in
-step 1 (it imports the moved types). Vetrina's opens in step 5 (the actions
+step 1 (it imports the moved types). Vetrina's opens in step 4 (the actions
 layer). Suono imports nothing from `ltt` today (0 references to `CaptionTrack`),
 so its gate stays closed until a step needs it. No new CI step: these are rule
 changes inside `build:check`.
@@ -382,9 +408,17 @@ runs over **every field the schema defines**, generated from the schema rather
 than listed by hand, so a field added to one encoding and not the other fails
 the test (guardrail G1).
 
-Reproduce: `node -e` over `require('@laticent/cadenza').buildTrack` on the same
-text; the script is in PR #2339's description, and step 1 commits it as a
-fixture.
+Reproduce: run `require('@laticent/cadenza').buildTrack(text, { pace: 'moderate' })`
+where `text` is this paragraph repeated three times, then measure each encoding
+with `JSON.stringify(...).length` and `zlib.gzipSync(...).length`:
+
+> Revenue grew 18% to $4.2M this quarter, led by enterprise renewals. ARR crossed
+> the ten million mark in August. Churn fell for the third straight quarter. We are
+> raising guidance for the full year. The board is asked to approve the hiring plan
+> on the next slide.
+
+Each repeat ends with a space. The full script is in PR #2339's description, and
+step 1 commits it as a fixture.
 
 ## 8. Order of work, and the guardrails that ride with it
 
@@ -398,12 +432,13 @@ lands in the step named.
 - **G1 — one source for the schema** (step 1). The JSON Schema is generated from
   the `ltt` TypeScript types, and a `build:check` arm fails when they differ.
   The round-trip test is generated from the schema.
-- **G2 — no function ships without a production caller** (steps 2–3). `positionAt`
-  and `timeline` land in the same PR as the HTML player calling them.
-- **G3 — staleness has a named function and callers** (step 1). `isStale` is
-  called by the export pipeline and the Studio from the day it lands, with a
-  test that edits the source and asserts the stale segment is flagged and the
-  measured data is kept.
+- **G2 — no function ships without a production caller** (step 2). `positionAt`
+  and `timeline` land in the same step as the HTML player calling them.
+- **G3 — staleness has a named function and callers** (step 2, with the first
+  production producer). `isStale` is called by the export pipeline and the
+  Studio from the day it lands, with a test that edits the source and asserts
+  the stale segment is flagged and the measured data is kept. It cannot land in
+  step 1: nothing in production writes an LTT until step 2.
 - **G4 — a rule for what may become a layer, with an owner** (step 1).
   `engineering/ltt.md` names the spec's owner; a new layer must change what
   `positionAt` returns and needs its own decision record.
@@ -414,7 +449,8 @@ lands in the step named.
   cursor's position mid-travel (an `on-word` action records where the cursor
   lands, not where it is at every frame). Either may become a layer under G4.
 
-**Steps.** Each ships on its own. Steps 1 and 2 change no export bytes.
+**Steps.** Each ships on its own. Step 1 changes no export bytes; step 2 is the
+first that does, and it stops for the owner's sign-off.
 
 1. **The package, the spec, and the fixes.**
    - Wiring: `docs/src/lib/ltt/` as a workspace in the root `package.json`;
@@ -423,38 +459,47 @@ lands in the step named.
      `tools/build-capabilities.js` (HARD RULE #15); `@laticent/ltt` in Cadenza's
      `package.json` dependencies; the `ltt` boundary gate; Cadenza's gate widened
      to admit `@laticent/ltt` and nothing else.
-   - Move `Word`, `Cue`, `CaptionTrack` and the word lookup into `ltt`; Cadenza
-     re-exports them (§6).
+   - Move the TYPES `Word`, `Cue` and `CaptionTrack` into `ltt`; Cadenza
+     re-exports them (§6). Types only: `makeCursor` stays put until step 2, so
+     the function the export inlines is untouched and no export byte moves.
    - `engineering/ltt.md` (the spec, with its owner and the transport rules of
-     §5), the generated JSON Schema, `validateLtt`, `isStale`, and G1–G5.
+     §5), the generated JSON Schema, `validateLtt`, and G1, G4 and G5.
    - Converters: `CaptionTrack` ↔ canonical ↔ packed, and **legacy → LTT from the
-     packed blocks already in exported decks**, marked `basis: "legacy"` with the
-     missing fields marked absent. Not re-derived from source: `readAlong` 1.1
-     carries no text, no track and no pace, and re-running today's Cadenza could
-     produce cue boundaries that no longer match the clips baked into those decks.
+     packed blocks already in exported decks**, marked `basis: "legacy"`. Not
+     re-derived from source: `readAlong` 1.1 carries no text, no track and no
+     pace, and re-running today's Cadenza could produce cue boundaries that no
+     longer match the clips baked into those decks. The packed blocks drop
+     `spoken`, `charOffset` and `weight`, and the core requires the first two, so
+     the converter FILLS them: `spoken` is set to `display`, `charOffset` comes
+     from a forward scan of each word through its cue's text (the same
+     best-effort scan `buildTrack` uses), and `weight` stays absent, which the
+     core already means as "ordinary". A legacy segment is therefore a valid
+     core; `basis: "legacy"` is what tells a reader the spoken form and offsets
+     were reconstructed rather than computed.
    - The drift fix: both Vetrina narrators take `acronyms`, `lexicon`, `lang` and
      `emphasis` as options, passed in by the host that builds the tour (a
      storyboard has no deck front matter, so the host supplies them), plus a
      parity test that pushes one sentence through the deck producer and both
      narrators and asserts identical timings.
-2. **`positionAt` and `timeline`, with conformance fixtures:** sample
-   `.ltt.json` files and the expected result at chosen times, written against the
-   HTML player's current behavior (slide and section holds, `hold` segments,
-   breaths, silent-cue holds, lead trim). Under G2 this step merges only together
-   with step 3.
-3. **The HTML player reads the packed LTT** and drives its crawl from
-   `positionAt`, with the transport following the specified rules. The fixtures
-   run against the **inlined, minified** copy. **This changes export bytes, so
-   it stops for the owner's sign-off** on a demo deck rendered in dark and light
-   mode (CLAUDE.md §Quality Bar). Decks already exported keep playing: each
-   carries its own player.
-4. **Video export.** A simulated transport over `timeline` and `positionAt`,
+2. **The timing functions and the HTML player, together** (G2, G3).
+   `positionAt` and `timeline` with **conformance fixtures**: sample `.ltt.json`
+   files and the expected result at chosen times, written against the HTML
+   player's current behavior (no hold on the first slide, one arrival hold on
+   every later slide, `hold` segments, breaths including the one after a slide's
+   last sentence, silent-cue holds, lead trim). `makeCursor` moves whole and
+   unchanged into `ltt`. The HTML player reads the packed LTT and drives its crawl
+   from `positionAt`, with the transport following the specified rules; the
+   fixtures run against the **inlined, minified** copy. `isStale` lands with its
+   callers. **This changes export bytes, so it stops for the owner's sign-off**
+   on a demo deck rendered in dark and light mode (CLAUDE.md §Quality Bar).
+   Decks already exported keep playing: each carries its own player.
+3. **Video export.** A simulated transport over `timeline` and `positionAt`,
    headless Chromium stepping frame by frame, the measured audio on the same
    timeline, and a `.vtt` from the same LTT. Its own decision note, because it
    brings a muxer.
-5. **Vetrina.** Its gate opens; the actions layer; `Narrator.plan()` returns the
+4. **Vetrina.** Its gate opens; the actions layer; `Narrator.plan()` returns the
    core's cue and word shape instead of a flat list; the tour recorder writes a
-   seekable LTT with `viewport` and `reducedMotion`.
+   seekable LTT with `viewport`, `motion` and `stagePace`.
 
 What each step does **not** do: none of them changes what a viewer sees on the
 deck path today. That path already passes every input and already looks right.
@@ -524,7 +569,7 @@ that is earned, not declared.
 
 ## 11. What this note does not decide
 
-- The video export's encoder, muxer and frame rate (step 4's own note).
+- The video export's encoder, muxer and frame rate (step 3's own note).
 - Whether Vetrina's default pacing flips to `'grounded'`. That is still the open
   follow-up in `2026-09-13-vetrina-cursor-caption-narration.md`; the LTT neither
   requires nor blocks it.
@@ -533,7 +578,7 @@ that is earned, not declared.
   fork B here: a change to Cadenza's word model is now a format version bump.
 - Whether the CSP hash stays stable once the timing functions are inlined, and
   rounding drift over many cues in the player's `expandTrack`. The red team did
-  not attack either; step 3 measures both.
+  not attack either; step 2 measures both.
 
 ## 12. What the adversarial trio found
 
@@ -569,6 +614,31 @@ stale §5 sentence removed; the gate table corrected to five libraries with thei
 real allowances (§6); the fork B ruling named as option 2 (§9.1); gates open
 only with their first importer (§6); and step 1 now lists the wiring a junior
 engineer would otherwise have to ask for (§8).
+
+**Second checker pass — nine findings, all taken.** A fresh checker read the
+revision above (branch head `a9df155`) and found three contradictions and six
+smaller gaps:
+1. The hold was on the wrong side of the slide: the player advances first and
+   then holds on the slide that arrived, so every slide after the first waits
+   one arrival hold. → `holdMs` on deck segments, and a `hold` segment is an
+   empty slide's arrival hold (§4.1, §4.3, §4.4).
+2. Moving the word lookup out of `makeCursor` in step 1 would have broken the
+   inlined player or changed export bytes early. → step 1 moves types only;
+   `makeCursor` moves whole in step 2 (§5, §8).
+3. Legacy segments would have failed the required core. → the converter fills
+   `spoken` and `charOffset` (§8 step 1).
+4. Step 2 could not "ship on its own" and also "merge only with step 3", and G3
+   had no producer to call it in step 1. → the old steps 2 and 3 are one step,
+   and G3 lands there (§8).
+5. Tour timing also depends on the motion tier and `theme.pace`. → `inputs.motion`
+   and `inputs.stagePace` (§4.6).
+6. The `hold` example broke the required-field table. → the table now says
+   which fields each segment kind carries (§4.2).
+7. Segment hashes missed storyboard edits. → a stretch's hash covers its steps
+   (§4.5).
+8. The gate table missed Vetrina's `node:` allowance and Anima's `../` and
+   `animejs/svg`. → corrected (§6).
+9. The example track showed three words of nine without saying so. → marked.
 
 ## Related
 
