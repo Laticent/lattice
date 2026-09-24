@@ -103,6 +103,20 @@ const READ_ARTICLE_CSS = `
    The long form, with the measurements and why the rule is not in the kernel:
    lib/integrations/mermaid/mermaid.css § THE RE-HOSTED FIGURE. */
 .st-read-article figure svg[aria-roledescription]{width:auto;max-width:100%}
+/* A WIDE DIAGRAM STOPS SHRINKING AND SCROLLS. The kernel writes each diagram figure's
+   natural width, floor width (a fixed share of natural) and aspect ratio inline, and makes
+   it focusable; the values here are only defaults the inline ones override. The width is
+   the column or the 78vh height cap, whichever binds, clamped between floor and natural,
+   so past the floor the svg overflows and the figure pans instead. Computed outright, not
+   width:auto + min-width: WebKit resolves that pair to the floor even when the diagram fits. The cue is the diagram itself, cut mid-node at the column edge; a
+   scroll-shadow was tried and dropped, since a background paints UNDER the svg and showed
+   only as a smudge below the nodes. Long form: engineering/mermaid.md § "How big the
+   re-hosted diagram is". */
+.st-read-article figure.lp-diagram{--lp-fig-w:100%;--lp-fig-min-w:0px;--lp-fig-ratio:auto;overflow-x:auto}
+.st-read-article figure.lp-diagram[style] svg[aria-roledescription]{width:clamp(var(--lp-fig-min-w),min(100%,78vh * var(--lp-fig-ratio)),var(--lp-fig-w));height:auto;aspect-ratio:var(--lp-fig-ratio);max-width:none;max-height:none}
+/* PAPER CANNOT SCROLL: in print the floor gives way and the diagram fits the page again,
+   as it did before the floor existed. Otherwise a printed long flowchart loses its last nodes. */
+@media print{.st-read-article figure.lp-diagram{overflow:visible}.st-read-article figure.lp-diagram[style] svg[aria-roledescription]{width:min(100%,var(--lp-fig-w))}}
 .st-read-article figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
 .st-read-article figcaption{font-size:.82rem;color:var(--text-muted);padding:.5em 0 0;text-align:center}
 .st-read-article .lp-figure-note{border:1px dashed var(--border);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt)}

@@ -130,7 +130,12 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
     // deck rang on 7 of 11 slides at phone size, because the floor is 1% of the SLIDE box and in
     // the fluid viewer that box is the reader's screen. Driven at three widths, since the whole
     // failure was viewport-dependent and a desktop-only check missed it entirely.
-    const deck = path.join(ROOT, 'lib', 'components', 'chart', 'state-chart', 'state-chart.gallery.md');
+    // A fixture that is below the floor ON PURPOSE. This used to be the state-chart gallery,
+    // which stopped tripping the floor when that chart learned to wrap (2026-09-24) — and the
+    // test then failed on "the author still gets the stderr report", a fixture going legible
+    // rather than the watcher breaking. An accident of one component's density is not a
+    // fixture; `type-floor-dense.md` says what it is for.
+    const deck = path.join(ROOT, 'test', 'fixtures', 'type-floor-dense.md');
     const out = path.join(dir, 'fluid.pdf');
     const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), deck, out, '--fluid'], {
       cwd: ROOT, encoding: 'utf8', timeout: 240000,

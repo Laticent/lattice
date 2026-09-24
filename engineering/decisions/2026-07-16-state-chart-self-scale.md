@@ -51,6 +51,11 @@ so we give it the SVG shape by hand:
   is crisp at any render size.
 - **`chart-body`** also uses `flex: 1 1 0` so it fills the stage by grow.
 
+> **Superseded on the UP side (2026-09-24).** The letterbox now stops growing at
+> 1.6x body size (`MAX_OVER_BODY`): uncapped, a three-state row set its names at 2.2x
+> body and read as a poster. The owner kept the ceiling. The shrink side, and
+> everything else here, stands. See `2026-09-24-state-chart-fit-and-paint.md` §3.
+
 Consequence: state-chart **never overflows** — it always scales to fit. So it leaves the
 `flex:0 0 auto` pin group in `chart-family.css` and the overflow gate now asserts a dense
 machine reports `over:false` (it scaled, it didn't spill).

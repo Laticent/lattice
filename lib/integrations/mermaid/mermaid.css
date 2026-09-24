@@ -90,7 +90,35 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * KEYED ON `aria-roledescription`, which every Mermaid family writes on the svg root and
  * none of our chart SVGs carry — a chart is token-driven and must keep filling its band.
  * `class` is not usable (null on sequence and pie) and neither is the svg id (`lattice-mmd-N`
- * from the CLI, `lattice-mermaid-N` from the browser). */
+ * from the CLI, `lattice-mermaid-N` from the browser).
+ *
+ * THE FLOOR. The contract above scales down without limit, so a wide LR flowchart drew
+ * 3.4px labels on a phone. The prose-projection kernel now writes natural width, floor
+ * (12/14, for a diagram 2:1 or longer either way) and aspect ratio inline on each diagram
+ * figure, and each host clamps the svg's width between them inside a sideways-scrolling
+ * figure. Same one-rule-per-host shape, same reason it is not here.
+ * `engineering/mermaid.md` §"How big the re-hosted diagram is" has the measurements. */
+
+/* ── A LABEL KEEPS THE TYPE MERMAID MEASURED IT AT ──
+ * Mermaid sizes every node box around its label, measured at the diagram's own font
+ * size (the `#lattice-mmd-N{font-size}` rule mermaid writes into the svg: 14px by default,
+ * or whatever a `%%{init}%%` fontSize sets), then wraps the label
+ * text in a `<p>`. That `<p>` sits inside our slide, so the slide's prose rules reach
+ * it: `section.content p { font-size: var(--fs-body); line-height: var(--lh-relaxed) }`
+ * set it at 21.4px in a box sized for 14px. Measured on an 8-node LR flowchart on a
+ * plain slide: all 8 labels clipped ("Order pl…"), each 1.52x its box in both
+ * directions. The baked article copy then inherited the same 21.4px and, with nothing
+ * clipping it, spilled right of every box.
+ * `content` is the layout a slide gets when it declares none, so this reached every
+ * diagram not on a `_class: diagram` slide, in every family that draws HTML labels
+ * (flowchart, class, state, ER, mindmap, kanban, requirement, block). Reset to the svg's own type, and
+ * `!important` because a deck's prose rule for `p` can out-rank anything scoped here. */
+:is(section, figure) svg[aria-roledescription] foreignObject p {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
 
 /* ── A LABEL TAKES ITS PARENT'S BASELINE, IN WEBKIT TOO ──
  * Mermaid declares `dominant-baseline` one level ABOVE the glyphs it means to place, and

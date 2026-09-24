@@ -5,6 +5,13 @@ summary: state-chart adopts dagre for node placement and edge routing, reversing
 
 # state-chart adopts dagre for layout
 
+> **Superseded in part, 2026-09-24** (`2026-09-24-state-chart-fit-and-paint.md`).
+> A chain no longer keeps the numbered column: every chain is drawn from a
+> reading-order grid that wraps a long machine, direction is chosen by fit when no
+> `lr`/`tb` pins it, and a branching machine's dagre layout now competes with the
+> grid's wrapped layouts. The dagre integration below — synchronous, self-hosted,
+> adopted only when a machine branches — is unchanged.
+
 ## 1. What this reverses, and why that is not a slight
 
 `state-chart`'s founding PR #27 rejected a layout engine by name:

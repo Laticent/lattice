@@ -23,7 +23,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 `gantt` is an HTML/CSS grid, so it reflows in CSS — no kernel change, landscape untouched. `state-chart` is native SVG whose edges are measured in the browser, so it fills the height and re-routes.
 
 - **gantt** — the lane label rides *above* full-width bars; lanes distribute down the canvas; the time axis stays aligned.
-- **state-chart** — the vertical default fills the height; an `lr` machine falls back to `tb` where a row can't fit.
+- **state-chart** — the default fits a tall stage with a column; an `lr` machine falls back to `tb` where a row can't fit.
 - **Landscape is byte-identical** — every change is gated on a tall container.
 
 ---
@@ -49,7 +49,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 ---
 
 <!-- _class: state-chart -->
-<!-- _footer: "state-chart · vertical default fills the height" -->
+<!-- _footer: "state-chart · a column on a tall stage" -->
 
 `Submission lifecycle`
 

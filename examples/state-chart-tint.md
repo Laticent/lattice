@@ -79,7 +79,7 @@ Terminal states carry their outcome in the tile.
 3. Accepted `done`:::state-pass-hue
 4. Refused `end`:::state-fail-hue
 
-*A tint paints the tile; the badge still carries the status.*
+*A tint names the paint outright; where a state also has a status, the tint wins.*
 
 ---
 

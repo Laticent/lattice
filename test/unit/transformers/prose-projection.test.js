@@ -319,6 +319,63 @@ test('the ARTICLE keeps a block NESTED under an aria-hidden wrapper', () => {
 	assert.match(articleHtml, /class="deck-logo"/, 'the deck logo still re-hosts');
 });
 
+test('a LONG re-hosted diagram carries its floor and takes focus; a square one, a chart and a bad viewBox do not', () => {
+	// A wide LR flowchart used to shrink to the column however narrow it got — 14px labels
+	// drawn at 3.4px on a 390px phone. The kernel now writes natural width, floor (12/14 of
+	// the viewBox, for a diagram at least 2:1 either way) and aspect ratio as custom
+	// properties, and the hosts clamp the width between them inside a sideways-scrolling
+	// figure. Focusable for the `<pre>` reason: a scroller that cannot take focus cannot be
+	// scrolled from the keyboard.
+	const secs = sections(
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Flow</h2></div>
+			<svg id="m1" aria-roledescription="flowchart-v2" viewBox="-8 -8 1409 67"><g><text>A</text></g></svg>
+		</div></section>`,
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Broken</h2></div>
+			<svg id="m2" aria-roledescription="flowchart-v2" viewBox="0 0 0 67"><g><text>B</text></g></svg>
+		</div></section>`,
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Share</h2></div>
+			<svg id="m3" aria-roledescription="pie" viewBox="0 0 547 450"><g><text>C</text></g></svg>
+		</div></section>`,
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Down</h2></div>
+			<svg id="m4" aria-roledescription="flowchart-v2" viewBox="0 0 113 976"><g><text>D</text></g></svg>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(
+		articleHtml,
+		/<figure class="lp-figure lp-diagram" tabindex="0" style="--lp-fig-w:1409px;--lp-fig-min-w:1207.7px;--lp-fig-ratio:21.0299"><svg id="m1/,
+		'a long diagram carries its size, a floor of 12/14 and a tab stop',
+	);
+	// Near-square: panning a pie shows a cut circle, so it keeps scaling to the column —
+	// floor 0, and no tab stop, since a figure that cannot overflow cannot scroll.
+	assert.match(
+		articleHtml,
+		/<figure class="lp-figure lp-diagram" style="--lp-fig-w:547px;--lp-fig-min-w:0px;--lp-fig-ratio:1.2156"><svg id="m3/,
+		'a near-square diagram gets no floor and no tab stop',
+	);
+	// Tall: floored, so the height cap stops shrinking its labels, but its floor is far
+	// narrower than any column, so it never scrolls sideways and takes no tab stop.
+	assert.match(
+		articleHtml,
+		/<figure class="lp-figure lp-diagram" style="--lp-fig-w:113px;--lp-fig-min-w:96.9px;--lp-fig-ratio:0.1158"><svg id="m4/,
+		'a tall diagram is floored but not focusable',
+	);
+	assert.match(articleHtml, /<figure class="lp-figure"><svg id="m2/, 'a zero-width viewBox gets no floor, not a NaN');
+	assert.doesNotMatch(articleHtml, /NaN/);
+	// A chart is token-driven and fills its band — it never carries aria-roledescription,
+	// so it must never pick up the floor.
+	const chart = project(
+		sections(
+			'<section data-lattice-slide class="content" data-class="content"><div class="cell-stage"><svg class="funnel-svg" viewBox="0 0 900 400"><g></g></svg></div></section>',
+		),
+	).articleHtml;
+	assert.doesNotMatch(chart, /lp-diagram|--lp-fig-min/, 'a chart svg is not a diagram');
+});
+
 test('speech drops a whole subtree under an aria-hidden wrapper, article and speech disagreeing on purpose', () => {
 	// The other half of the split: `aria-hidden` governs what is ANNOUNCED, not what is
 	// DRAWN, so the same wrapper is silent in speech and visible in the article.

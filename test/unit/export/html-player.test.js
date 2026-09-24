@@ -1512,6 +1512,15 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// no `lattice.css` at all, and because a kernel rule at (0,1,2) loses to the generic
 	// `#lp-article .lp-figure svg` (1,1,1) above — which is what the reverted arm's
 	// `!important` was paying for. `mermaid.css` § THE RE-HOSTED FIGURE has the long form.
+	// Re-blessed for the DIAGRAM FLOOR (2026-09-24): a long Mermaid diagram (2:1 or more
+	// either way) in the article stops shrinking at 12/14 of its natural size and its figure
+	// scrolls sideways, so a 1409x67 LR flowchart keeps 12px labels at 390px instead of
+	// 3.4px. Three CSS blocks land in the article stylesheet — `#lp-article .lp-figure.lp-diagram`
+	// (the property defaults + overflow-x), its `[style] svg[aria-roledescription]` width
+	// clamp, and an `@media print` block that lets the floor give way on paper. Deleting
+	// exactly those three blocks' text from the assembled output reproduces the
+	// previous sha (1b4e1756…) byte for byte. The fixture carries no diagram, so the kernel's
+	// new figure attributes are not in it; no script, markup or CSP change.
 	// Re-blessed for the reader view's SUBTITLE (followup 2350-p1): the article CSS gained one rule,
 	// `#lp-article .lp-subtitle`, for the line the masthead seats under a heading. Diffed the
 	// assembled output before/after: that declaration is the only thing that moved.
@@ -1522,7 +1531,9 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// became a background tile (the player's `img-src data:` CSP turned a remote `<img>` poster into a
 	// broken-image icon) and the card's figcaption left-aligns under the card. Only
 	// `.lp-video-thumb` and `.lp-video figcaption` moved.
-	assert.equal(sha, '232a1fb11c2cbe42cc23d567233ee40d0649a2853d0d65333efb13ba1725a355', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Merged with the diagram floor above: both only ADD article CSS rules, and the assembled output
+	// differs from main's by exactly the `.lp-subtitle` and `.lp-video*` rules.
+	assert.equal(sha, '8abf1d33d40de5ee2df443e94ca5b03689080f9881b8c9d14f292506a5280ac4', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

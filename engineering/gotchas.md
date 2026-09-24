@@ -215,6 +215,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ### [Mermaid](gotchas/mermaid.md)
 
+- [Mermaid labels are clipped on a plain slide ("Order pl…")](gotchas/mermaid.md#mermaid-labels-are-clipped-on-a-plain-slide-order-pl)
 - [A mermaid `click` directive is inert (and used to be an XSS)](gotchas/mermaid.md#a-mermaid-click-directive-is-inert-and-used-to-be-an-xss)
 - [A diagram with an `%%{init}%%` renders in Mermaid's stock colors (yellow clusters)](gotchas/mermaid.md#a-diagram-with-an-init-renders-in-mermaids-stock-colors-yellow-clusters)
 - [Playground: Mermaid (and all DOM transforms) stop rendering after the first edit](gotchas/mermaid.md#playground-mermaid-and-all-dom-transforms-stop-rendering-after-the-first-edit)
