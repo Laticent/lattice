@@ -637,6 +637,45 @@ test('sectionsOf and sectionOpenCount read past a quoting comment and <style>/<s
   }
 });
 
+test('a `<!--` inside <style>/<script> TEXT does not blank the slides after it', () => {
+  // The first cut masked comments before rawtext, so this `<!--` blanked through the next `-->`
+  // in the document: 1 section where there are 2, and a slide the preview used to narrow refused.
+  for (const raw of ['<script>var s = "<!--";</script>', '<style>p::before { content: "<!--"; }</style>']) {
+    const html = `<section id="1">A${raw}</section><section id="2">B<!-- note --></section>`;
+    assert.equal(core.sectionsOf(html).length, 2, raw);
+    assert.equal(core.sectionOpenCount(html), 2, raw);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 0), undefined, raw);
+  }
+});
+
+test('`<!-->` and `<!--->` are empty comments, not the start of one', () => {
+  for (const c of ['<!-->', '<!--->']) {
+    const html = `<section>1 ${c} x</section><section>2</section><section>3<!-- note --></section>`;
+    assert.equal(core.sectionOpenCount(html), 3, c);
+    assert.equal(core.sectionsOf(html).length, 3, c);
+  }
+});
+
+test('a declaration or processing instruction is inert through its `>`', () => {
+  const html = '<!doctype html><section>1<![CDATA[ <section> ]]><?x <section> ?></section><section>2</section>';
+  assert.equal(core.sectionOpenCount(html), 2);
+  assert.equal(core.sectionsOf(html).length, 2);
+});
+
+test('`<style-x>` is an ordinary element, not a stylesheet', () => {
+  const html = '<section><style-x><section>q</section></style-x></section>';
+  // the literal nested open tag is a real tag here, so the flat count sees two opens
+  assert.equal(core.sectionOpenCount(html), 2);
+});
+
+test('sectionSpansOf gives offsets, so a copy inside a comment is never found first', () => {
+  const html = '<section>1</section><!--<section>2</section>--><section>2</section>';
+  const spans = core.sectionSpansOf(html);
+  assert.equal(spans.length, 2);
+  assert.equal(html.slice(...spans[1]), '<section>2</section>');
+  assert.equal(spans[1][0], html.lastIndexOf('<section>2</section>'), 'the live section, not the commented copy');
+});
+
 test('an UNCLOSED <style> is not blanked to the end of the document', () => {
   const html = '<section>a <style> named in prose</section><section>b</section>';
   assert.equal(core.sectionOpenCount(html), 2);

@@ -205,3 +205,10 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
   }
   assert.deepEqual(misses, []);
 });
+
+test('`<!-->` and `<!--->` are complete, empty comments', () => {
+  // Searching for `-->` after the opener read them as a comment that ran to the next `-->`,
+  // swallowing every heading in between.
+  assert.equal(readTopLevelH2Text('<p>a <!--> b</p><h2>Real</h2><!-- note -->'), 'Real');
+  assert.equal(readTopLevelH2Text('<p>a <!---> b</p><h2>Real</h2><!-- note -->'), 'Real');
+});

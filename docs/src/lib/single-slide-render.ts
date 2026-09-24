@@ -32,6 +32,7 @@ import {
 	normalizeSection,
 	RESIDUAL_NEUTRALIZERS,
 	sectionOpenCount,
+	sectionSpansOf,
 	sectionsOf,
 	supplyablePosition,
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
@@ -339,19 +340,19 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // every section into a frame whose CSS and scale transform assume exactly one is both visibly
 // broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
 function narrowToSlide(html: string, index: number, slideCount?: number): string | null {
-	const sections: string[] = sectionsOf(html);
+	const spans: [number, number][] = sectionSpansOf(html);
+	const sections: string[] = spans.map(([s, e]) => html.slice(s, e));
 	if (alignmentFailure(html, sections, slideCount, index)) return null;
 	if (sections.length < 2) return html;
 	let out = '';
 	let pos = 0;
-	// Walk by INDEX (not by matching the section string), so a deck with two byte-identical
-	// slides can't collapse onto the wrong one.
-	for (let i = 0; i < sections.length; i++) {
-		const at = html.indexOf(sections[i], pos);
-		if (at === -1) return null; // shape we cannot walk — fail closed, same as a count mismatch
+	// Walk by OFFSET, not by searching for the section string: `indexOf` found a byte-identical
+	// copy of a later section inside a comment before the real one, and kept two live sections.
+	for (let i = 0; i < spans.length; i++) {
+		const [at, end] = spans[i];
 		out += html.slice(pos, at); // inter-section text: the wrapper open tag, newlines
-		if (i === index) out += sections[i];
-		pos = at + sections[i].length;
+		if (i === index) out += html.slice(at, end);
+		pos = end;
 	}
 	return out + html.slice(pos);
 }
