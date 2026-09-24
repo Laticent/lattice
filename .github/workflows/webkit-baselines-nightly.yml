@@ -1,0 +1,279 @@
+name: WebKit baselines nightly (SVG label drift)
+
+# NIGHTLY, REPORT-ONLY watch for SVG labels that paint high in WebKit.
+#
+# WebKit does not carry `dominant-baseline` down from a `<text>` to its `<tspan>`
+# lines, nor from a `<g>` to the `<text>` inside it, so a label centered in Chromium
+# paints a third of a font-size high in Safari. #2303 fixed the charts and #2326 the
+# mermaid diagrams. UNTIL #2326 IS ON MAIN, the diagram gallery still drifts (17 of 91
+# labels) and this job files that on its first night — a true finding, not a harness
+# fault. Nothing on the per-PR path can see a new instance:
+# every gate there renders through headless Chromium, where the drift is 0 by
+# construction. `engineering/decisions/2026-09-22-webkit-tspan-baseline.md` §6 (and §8,
+# on mermaid, once #2326 lands).
+#
+# WHAT IT RUNS. `tools/audit-svg-baselines.mjs` on the two galleries that exercise
+# every chart and every mermaid family we ship. The tool renders each deck once
+# through the real CLI, loads it in Chromium AND WebKit, and compares every SVG
+# `<text>` element for element. Exit 0 clean, 1 drift past tolerance, 2 the engines
+# built different DOMs, 3 a label could not be compared (a skip is not a pass).
+#
+# WHY ONLY THE GALLERIES. Three example decks (`sequence-narration`,
+# `universal-tokens-p2-structural`, `xychart-narration`) fail today for a DIFFERENT
+# WebKit defect — the whole sequence/xychart `<svg>` box is sized differently — which
+# #2326 logs in `followups.d/` (on main once #2326 lands). Adding them would file that on night one and bury the
+# baseline signal this job exists for. Add them once that item is fixed.
+#
+# WHY NIGHTLY AND NOT PER-PR. The maintainer's call on #2306, from measured numbers
+# (4-vCPU sandbox, not a GitHub runner): WebKit download 5.4s, `apt-get update` 1.8s,
+# WebKit system libraries 10s, audit 8.6s (chart gallery) + 9.8s (diagram gallery) —
+# about 36s, before checkout, `npm ci` and the docs `npm ci` this job also needs. A
+# regression here comes from CSS or a mermaid upgrade, which are rare, so finding it
+# within a day costs little, and no PR pays for it.
+#
+# REPORT-ONLY, per `2026-06-28-experience-gating-playwright.md` §3: a browser check
+# becomes blocking only after an observed green streak on a real cadence, and nothing
+# has observed this one on a GitHub runner yet. The job stays green; the rolling issue
+# is the signal.
+
+on:
+  schedule:
+    # daily 05:53 UTC — after perf 05:37, before the 06:17 backlog sync. A non-round
+    # minute like every other cron here: GitHub queues the top of the hour heavily.
+    - cron: '53 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # open / append the rolling tracking issue
+
+concurrency:
+  group: webkit-baselines-nightly
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    # Two ~10s audits plus two `npm ci`s and a WebKit install. 20 minutes is several
+    # times that; without a ceiling a hung browser inherits GitHub's 360-minute default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+
+      # The CLI render uses puppeteer's cached Chromium, the same one
+      # overflow-nightly.yml pins and for the same reason — see that file.
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Root deps: `prepare` builds the uncommitted dist/ artifacts, among them
+      # dist/lattice-emulator.js, which the audit renders with.
+      - run: npm ci
+
+      # Docs deps: the audit imports Playwright from docs/node_modules/@playwright/test,
+      # so the browsers it drives are the ones docs/playwright.config.ts pins.
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+
+      - name: Install Playwright Chromium and WebKit (pinned to @playwright/test)
+        run: npx playwright install --with-deps chromium webkit
+        working-directory: docs
+
+      # Fails HERE with a message that names the browser, rather than inside the audit
+      # where a missing binary reads as "the engines produced different DOMs".
+      - name: Resolve the puppeteer Chromium the CLI render uses
+        id: chrome
+        run: |
+          CHROME="$(node -p "require('puppeteer').executablePath()")"
+          if [ ! -x "$CHROME" ]; then
+            echo "::error::puppeteer resolved $CHROME but nothing executable is there — the browser cache did not restore and npm ci did not download it."
+            exit 1
+          fi
+          if [ ! -f dist/lattice-emulator.js ]; then
+            echo "::error::dist/lattice-emulator.js is missing — npm ci's prepare step did not build it."
+            exit 1
+          fi
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+
+      # Keep the JOB green whatever the audit says, and classify from the exit codes.
+      # `if …; then` rather than a bare pipeline: GitHub runs steps under `bash -e`,
+      # and a failing bare pipeline kills the step before its exit code is read
+      # (overflow-nightly.yml records the measurement).
+      #
+      # Exit 1 WITH the tool's verdict line is the only FINDING. 2 and 3 mean the
+      # comparison itself did not hold, and a bare 1 is an uncaught throw, so nothing was
+      # measured on that deck — they file as "could not measure", never as a drift, and
+      # never read as clean. Render errors win when both are present.
+      - name: Audit SVG label baselines, Chromium vs WebKit (report-only)
+        id: audit
+        env:
+          PUPPETEER_EXECUTABLE_PATH: ${{ steps.chrome.outputs.path }}
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/webkit-baselines-report.txt"
+          : > "$REPORT"
+          FINDING=0
+          BROKEN=0
+          # DECK:FLOOR. The floor is the fewest `<text>` labels a run must compare before its
+          # verdict counts. Both engines load the SAME exported HTML, so a render that lost
+          # diagrams hands both a thinner deck and would otherwise read clean. Measured
+          # 2026-09-24: chart 256, diagram 91; the floors leave room for gallery edits and
+          # trip on a lost diagram family or a lost chart page.
+          for ENTRY in lib/components/chart/chart.gallery.md:200 lib/components/diagram/diagram.gallery.md:70; do
+            DECK="${ENTRY%%:*}"
+            FLOOR="${ENTRY##*:}"
+            echo "=== $DECK" | tee -a "$REPORT"
+            OUT="$(mktemp)"
+            if node tools/audit-svg-baselines.mjs --deck "$DECK" > "$OUT" 2>&1; then CODE=0; else CODE=$?; fi
+            tee -a "$REPORT" < "$OUT"
+            echo "=== exit $CODE" | tee -a "$REPORT"
+            # Exit 1 is ALSO what node returns for an uncaught throw — a CLI render that
+            # failed, a browser that would not launch. Only the tool's own verdict line
+            # makes a 1 a finding; a 1 without it measured nothing.
+            case "$CODE" in
+              0) ;;
+              1) if grep -qE '^[0-9]+ of [0-9]+ labels drift more than' "$OUT"; then FINDING=1; else BROKEN=1; fi ;;
+              *) BROKEN=1 ;;
+            esac
+            if [ "$CODE" -le 1 ] && grep -qE '<text> nodes compared' "$OUT"; then
+              N="$(grep -oE '^[0-9]+ <text> nodes compared' "$OUT" | grep -oE '^[0-9]+' || echo 0)"
+              if [ "${N:-0}" -lt "$FLOOR" ]; then
+                echo "=== only ${N:-0} labels compared, floor $FLOOR — the render lost content, so this deck measured too little" | tee -a "$REPORT"
+                BROKEN=1
+              fi
+            fi
+            rm -f "$OUT"
+          done
+          if [ "$BROKEN" -eq 1 ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "kind=broken" >> "$GITHUB_OUTPUT"
+          elif [ "$FINDING" -eq 1 ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "kind=finding" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+            echo "kind=clean" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo '### WebKit baselines nightly — SVG label drift, Chromium vs WebKit'
+            echo '```'
+            tail -n 80 "$GITHUB_WORKSPACE/webkit-baselines-report.txt" || echo '(no report)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-baselines-nightly-${{ github.run_id }}
+          path: webkit-baselines-report.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      # One rolling issue, found by its title marker AND the bot author — the lookup
+      # every sibling uses, pinned by test/unit/tools/nightly-alarm-contract.test.js.
+      # `!= 'false'` so a step that died before writing its output still files.
+      - name: Open / append WebKit baselines issue
+        if: always() && steps.audit.outputs.failed != 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[webkit-baselines-nightly]'
+          BODY="$GITHUB_WORKSPACE/webkit-baselines-body.md"
+          KIND='${{ steps.audit.outputs.kind }}'
+          case "$KIND" in
+            finding) SUBJECT='SVG labels drift in WebKit on main' ;;
+            broken)  SUBJECT='webkit-baselines-nightly could not compare the engines' ;;
+            *)       SUBJECT='webkit-baselines-nightly could not run' ;;
+          esac
+          {
+            case "$KIND" in
+              finding)
+                echo "At least one SVG label paints further from Chromium than the audit's tolerance in WebKit on \`main@${{ github.sha }}\`."
+                echo ""
+                echo "Safari and every WebKit surface show it; the PDF and Chrome do not. The usual cause is a"
+                echo "\`dominant-baseline\` declared on a \`<text>\` or \`<g>\` that does not reach the glyphs —"
+                echo "see engineering/gotchas/browser-engine.md and"
+                echo "engineering/decisions/2026-09-22-webkit-tspan-baseline.md. Reproduce with"
+                echo "\`node tools/audit-svg-baselines.mjs --deck <gallery>\`."
+                ;;
+              broken)
+                echo "The audit did not measure a deck in full on \`main@${{ github.sha }}\`. The report's"
+                echo "\`=== exit\` lines say which cause: exit 1 with no verdict line is an uncaught throw"
+                echo "(the CLI render failed or a browser would not launch — the likeliest case); exit 2 means"
+                echo "the engines built different DOMs; exit 3 means labels could not be paired; a"
+                echo "\`floor\` line means the render lost content. None of these is a drift finding,"
+                echo "and none is a clean night."
+                ;;
+              *)
+                echo "The audit did not run to a verdict on \`main@${{ github.sha }}\`. An empty kind means the"
+                echo "step died or the job was canceled (20-minute ceiling). Treat the night as unmeasured."
+                ;;
+            esac
+            echo ""
+            echo '```'
+            tail -n 80 "$GITHUB_WORKSPACE/webkit-baselines-report.txt" || echo '(no report)'
+            echo '```'
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$BODY"
+          # THE STAND-DOWN STEP BELOW MUST USE THE IDENTICAL LOOKUP.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue edit "$ISSUE" --title "$MARKER $SUBJECT" >/dev/null
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE (title set to: $SUBJECT)"
+          else
+            gh issue create \
+              --title "$MARKER $SUBJECT" \
+              --label "area:engine" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # COMMENTS, NEVER CLOSES. The audit has no committed baseline, but its TOLERANCE
+      # lives in this file and in the tool's default, and widening it turns a red night
+      # green without fixing a label — the same shape as a re-bless, which is why the
+      # baseline-scored siblings comment rather than close. A comment naming the run
+      # gives a human the counter-evidence; closing is their call.
+      #
+      # `outcome == 'success' && failed == 'false'`, never `!= 'true'`: the output is
+      # empty whenever nothing was measured, and an empty string is not health.
+      - name: Report a clean audit on the rolling issue
+        if: always() && steps.audit.outcome == 'success' && steps.audit.outputs.failed == 'false' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[webkit-baselines-nightly]'
+          # The IDENTICAL lookup the filing step above uses.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          {
+            echo "Measured green on \`main@${{ github.sha }}\`: both galleries compared in full, and no SVG label drifts more than the tolerance between Chromium and WebKit."
+            echo ""
+            echo "**Left open deliberately.** The tolerance is set in the workflow and the tool, and widening it turns a night green without moving a label. Check that it did not change, then close by hand; a recurrence appends here."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true

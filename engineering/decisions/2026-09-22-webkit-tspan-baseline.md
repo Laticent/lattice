@@ -170,6 +170,16 @@ here can assert the painted result. `docs/playwright.config.ts` already declares
 exercised for chart rendering. **Adding a WebKit arm is a CI-contract change** and belongs to
 the maintainer, not to this fix.
 
+**The maintainer's call (#2306): nightly, report-only.** `.github/workflows/webkit-baselines-nightly.yml`
+runs `tools/audit-svg-baselines.mjs` on the chart and diagram galleries every night at 05:53 UTC
+and files a rolling `[webkit-baselines-nightly]` issue on drift. The per-PR option cost about 36s
+per PR, measured in a 4-vCPU sandbox rather than on a GitHub runner: WebKit download 5.4s,
+`apt-get update` 1.8s, the WebKit system libraries 10s, and the two audits 8.6s + 9.8s. A
+regression of this kind comes from a CSS change or a mermaid upgrade, both rare, so finding it
+within a day is cheap and no PR pays for it. The job comments on a clean night and never
+closes its thread, because the tolerance lives in the workflow and widening it would read as a
+recovery.
+
 What is gated is the **source invariant** — wherever a baseline is declared, it is declared one
 level down too. `test/unit/components/svg-tspan-baseline.test.js`, three arms:
 
