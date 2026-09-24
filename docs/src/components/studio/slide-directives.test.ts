@@ -138,11 +138,15 @@ describe('fence awareness', () => {
 		expect(fenceRanges(three)).toEqual([[0, three.indexOf('\nafter')]]);
 	});
 	it('closes a fence nested in a list item at the list content indent', () => {
-		// An opener at column 4+ can only sit inside a container, so its closer may be
-		// indented as far as the opener (plus three) — else it would mask to the end.
+		// The closer may sit up to three columns past the list's content column, which the
+		// scanner bounds by the opener's column — else it would mask to the end.
 		const chunk = '1. step\n\n      ```js\n      x()\n      ```\n\n<!-- _class: kpi -->';
 		expect(fenceRanges(chunk)).toEqual([[chunk.indexOf('      ```js'), chunk.indexOf('\n\n<!--')]]);
 		expect(getClassTokens(chunk)).toEqual(['kpi']);
+		// Content column 2, closer at 5: markdown-it closes here, so the scanner must too.
+		const shallow = '- a\n\n  ```\n  x\n     ```\n\n<!-- _class: kpi -->';
+		expect(fenceRanges(shallow)).toEqual([[shallow.indexOf('  ```'), shallow.indexOf('\n\n<!--')]]);
+		expect(getClassTokens(shallow)).toEqual(['kpi']);
 	});
 	it('preserves trailing spaces inside a fence when tidying', () => {
 		const withHardBreak = '# Hi\n\n\n\n```\ncode   \n\n\nmore\n```';

@@ -74,10 +74,10 @@ function indentWidth(ws: string): number {
  *
  *  A CLOSER may be indented at most three columns past the container the fence sits
  *  in (CommonMark §4.5), so a `    ```` line inside a top-level fence is body, not the
- *  end. This scanner sees no containers, so it infers one from the opener: an opener
- *  at column 0–3 is top level (closer bound 3); one at column 4 or more can only be a
- *  fence inside a list item, whose content starts at most three columns before it
- *  (closer bound opener + 3). The opener keeps accepting any indent for that reason. */
+ *  end. This scanner sees no containers, so it bounds the closer at the opener's column
+ *  plus three: exact at top level (opener at 0, bound 3), and never too tight inside a
+ *  list item, whose content column is at most the opener's. The opener keeps accepting
+ *  any indent for the same reason. */
 export function fenceRanges(text: string): Array<[number, number]> {
 	const ranges: Array<[number, number]> = [];
 	const src = String(text ?? '');
@@ -91,7 +91,7 @@ export function fenceRanges(text: string): Array<[number, number]> {
 			const indent = indentWidth(fm[1]);
 			const char = fm[2][0];
 			const len = fm[2].length;
-			if (!open) open = { char, len, start: lineStart, maxCloseIndent: indent <= 3 ? 3 : indent + 3 };
+			if (!open) open = { char, len, start: lineStart, maxCloseIndent: indent + 3 };
 			else if (open.char === char && len >= open.len && fm[3].trim() === '' && indent <= open.maxCloseIndent) {
 				ranges.push([open.start, lineEnd]);
 				open = null;
