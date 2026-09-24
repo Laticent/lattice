@@ -49,7 +49,8 @@ export function chunkStartLines(src) {
  * @property {Set<string>} names
  * @property {Set<string>} modifiers
  * @property {Record<string, { valid: Set<string>; names: string[] }>} [mapRegions]
- * @property {string[]} [finishNames]
+ * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
+ *   (`guardsNames`, `cardsNames`, …); only the ones a caller reads by name are declared
  * @property {string[]} [modeNames]
  * @property {string[]} [splitNames]
  * @property {Record<string, { axis: string; hard: number }>} [capacity]
@@ -70,12 +71,16 @@ export function buildVocabSets(vocab) {
 			sets.mapRegions[which] = { valid: new Set(mv.valid || []), names: mv.names || [] };
 		}
 	}
-	if (v.finishNames) sets.finishNames = v.finishNames; // deck-wide `finish:` validator
-	if (v.modeNames) sets.modeNames = v.modeNames; // deck-wide `mode:` validator
-	if (v.splitNames) sets.splitNames = v.splitNames; // deck-wide `split:` validator
-	if (v.stampStyleNames) sets.stampStyleNames = v.stampStyleNames; // deck-wide `stamp:` validator
-	if (v.toneStyleNames) sets.toneStyleNames = v.toneStyleNames; // deck-wide `tone:` validator
-	if (v.spectrumNames) sets.spectrumNames = v.spectrumNames; // deck-wide `spectrum:` validator
+	// EVERY register value list (`finishNames`, `guardsNames`, `cardsNames`, the spectrum
+	// family, …), by suffix rather than by name: each gates one `findUnknown*` rule in
+	// lint-core (`if (vocab.guardsNames) …`), so a list this builder drops turns that rule
+	// off in the Studio while `lint:deck` still fires it. A hand-kept six of these once
+	// left fifteen rules dead in the editor and the Coach while the editor COMPLETED their
+	// values. Forwarding by suffix means a new register's list reaches the browser linter
+	// the day `buildVocab` exports it.
+	for (const [key, list] of Object.entries(v)) {
+		if (key.endsWith('Names') && Array.isArray(list)) /** @type {Record<string, unknown>} */ (sets)[key] = list;
+	}
 	if (v.capacity) sets.capacity = v.capacity; // per-layout content-capacity contract
 	// No `sizes` handoff: lint-core imports the engine's size registry directly
 	// (lib/engine/sizes.js is pure and fs-free), so the browser linter derives the

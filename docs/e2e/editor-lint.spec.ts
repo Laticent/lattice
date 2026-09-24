@@ -209,3 +209,30 @@ test('@crosswidth @webkit-phone a nested render-target key warns on the nested l
 	await page.locator('.cm-editor').first().screenshot({ path: shot });
 	await testInfo.attach('nested-render-target-key.png', { path: shot, contentType: 'image/png' });
 });
+
+// ── A mistyped deck REGISTER value warns in the Studio, as `lint:deck` does ─
+// Each `*Names` list in the lint vocab turns on one `findUnknown*` rule. `buildVocabSets`
+// once forwarded six of the twenty-one, so `guards: strcit` drew a warning from
+// `npm run lint:deck` and nothing in the Studio, while the editor autocompleted `strict`.
+// The unit test in editor-diagnostics.test.ts proves every register's rule fires through the
+// builder; this arm proves the running Studio paints one — the surface an author sees.
+const REGISTER_DECK = ['---', 'theme: indaco', 'guards: strcit', '---', '', '# Guards', '', 'Body copy.', ''].join('\n');
+
+test('a mistyped register value (`guards: strcit`) underlines its front-matter line', async ({ page }, testInfo) => {
+	await setEditorContent(page, REGISTER_DECK);
+
+	await expect
+		.poll(() => underlineLine(page, 'guards: strcit'), { message: 'no warning underline ever appeared for `guards: strcit`' })
+		.toEqual({ number: 3, text: 'guards: strcit' });
+
+	await warningCovering(page, 'guards: strcit').hover();
+	const tooltip = page.locator('.cm-tooltip-lint');
+	await expect(tooltip).toContainText("'strcit' is not a known guards value");
+	await expect(tooltip).toContainText('loose, strict');
+
+	// The whole page, not the editor box: the tooltip opens above line 3 and an editor-box
+	// crop cuts the message off at its first line.
+	const shot = testInfo.outputPath('register-guards-tooltip.png');
+	await page.screenshot({ path: shot });
+	await testInfo.attach('register-guards-tooltip.png', { path: shot, contentType: 'image/png' });
+});
