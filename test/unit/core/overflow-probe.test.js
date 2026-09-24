@@ -349,6 +349,25 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
     });
   });
 
+  test('an UNRENDERED `data-fit-k` box is skipped too — the scaled arm matches the SVG arm', () => {
+    withStubbedStyle(() => {
+      // A scaled HTML box (no svg inside) at k 0.5 with 10px leaves → 5px on the page.
+      const fitBox = (rects) => ({
+        getAttribute: (n) => (n === 'data-fit-k' ? '0.5' : null),
+        getClientRects: () => rects,
+        querySelectorAll: (sel) => (sel === 'svg[viewBox]' ? [] : [text(10)]),
+      });
+      const sec = (box) => ({
+        clientHeight: SLIDE_H,
+        querySelectorAll: (sel) => (sel === '[data-fit-k]' ? [box] : []),
+      });
+      const shown = probeFigureLegibility(sec(fitBox([{}])), floorAt(8));
+      assert.equal(shown.minPx, 5);
+      assert.equal(shown.under, true, 'a rendered scaled box below the floor still flags');
+      assert.equal(probeFigureLegibility(sec(fitBox([])), floorAt(8)), null, 'a hidden one is not judged');
+    });
+  });
+
   test('nothing to judge → null (never a false "legible")', () => {
     withStubbedStyle(() => {
       assert.equal(probeFigureLegibility(section([]), floorAt(8)), null, 'no figure');

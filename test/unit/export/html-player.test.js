@@ -2447,3 +2447,14 @@ test('prunePlayerCss keeps the Anima live-stage rules the static DOM never shows
 	assert.match(out, /\.anima-live\.scene-controls-shown \.scene-control/, 'compound rule kept');
 	assert.doesNotMatch(out, /scene-live-other/, 'an unrelated unused rule still prunes');
 });
+
+test('prunePlayerCss safelist splits compounds and functional pseudos, never substrings', () => {
+	const keep = (css, safelist) => prunePlayerCss(css, () => false, { safelist }).css;
+	// Reached inside `:where()` / `:is()` — the paren must not glue onto the class.
+	assert.match(keep(':where(.anima-live) .scene-live{a:1}', ['.anima-live']), /scene-live/);
+	assert.match(keep(':is(.foo,.anima-live) p{a:2}', ['.anima-live']), /:is/);
+	// Still whole simple selectors: a longer class, an id or an escaped class is not the entry.
+	assert.doesNotMatch(keep('.anima-live-x{a:3}', ['.anima-live']), /anima-live-x/);
+	assert.doesNotMatch(keep('#anima-live{a:4}', ['.anima-live']), /anima-live/);
+	assert.doesNotMatch(keep('p.accent-body{a:5}', ['body']), /accent-body/);
+});
