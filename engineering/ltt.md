@@ -52,7 +52,8 @@ lists the steps.
 The decision note's §4.1 has a longer example: a tour stretch that carries
 every layer.
 
-**Times.** Every time is a whole, non-negative number of milliseconds. Times
+**Times.** Every time is a whole, non-negative number of milliseconds, no
+larger than 2^53 − 1. Times
 restart at zero in each segment. Because times are whole numbers, the packed
 encoding can store times relative to a cue and add them back exactly. A producer
 writing a `measured` track rounds: `cursor.align` re-times to fractional
@@ -92,6 +93,10 @@ Each segment has a unique `id`, a `kind` and an `at`.
 - **`tailMs`** is the breath the player holds after a slide's last cue, before
   it advances. The track ends at the end of its last cue, so this is the one part
   of a slide's length the track cannot carry.
+- **A stretch has no tail.** Whatever passes between a stretch's last cue and
+  the next stretch's first belongs to that next stretch's wait.
+- **`waitedMs`** is how long a recorded run spent between the end of the
+  previous segment's track and the start of this stretch's first cue.
 - **`after`** names what a stretch waits on before it starts: `awaitUser`,
   `until` or `act`. It is never a time. Absent means the stretch follows the
   previous segment at once.
@@ -124,6 +129,12 @@ Everything outside the core is **open**. A reader skips a key it does not know,
 and `validateLtt` ignores one, so a file written with a later layer still plays
 in an older reader.
 
+**The audio layer's clip granularity is not settled.** 1.0 defines one clip per
+segment, but the HTML player ships one clip per **cue** and advances on each
+clip's end (transport rule 3). Step 2 settles which one the layer carries, with
+the owner, before any player reads it
+(`followups.d/2339-p2-ltt-timing-functions-and-html-player.md`).
+
 An action is anchored to a **word**, never to a time. `match` is the word the
 author named, normalized: case-folded, with edge punctuation stripped
 (`normalizeMatch`, the same rule as Vetrina's `findCueWord`). `validateLtt`
@@ -134,6 +145,27 @@ a narration edit that moved the words under an action is caught.
 returns for some time in some segment. It needs its own decision record and the
 owner's sign-off. Anything else is metadata and belongs to its producer, not to
 this format.
+
+## What only `validateLtt` checks
+
+The JSON Schema says what a file may contain. It cannot say how the parts
+relate, so a file can pass the schema and still fail `validateLtt`. Validate with
+`validateLtt` when correctness matters. The rules only it enforces:
+
+- which fields belong to which segment kind (`tailMs` on a slide only, `after`
+  and `waitedMs` on a stretch only, no narration on a hold), and which inputs
+  belong to a deck or a tour;
+- deck segments run one per slide from slide 1 with no gaps, and the first
+  one's hold is 0;
+- tour stretches run forward through the storyboard's beats;
+- a seekable tour records `waitedMs` on every waited stretch;
+- the timeline: cue starts in order, each word inside its cue, words running
+  forward, cues not overlapping, and `durationMs` equal to the last cue's end;
+- each action's `match` still names the word at `{cue, word}`;
+- segment ids are unique.
+
+Two schema-level facts also run the other way: an unknown key outside the core
+passes both checks, and a key inside the core fails both.
 
 ## Versions
 
@@ -162,7 +194,8 @@ PackedWord  = [display, startMs − cue.startMs, endMs − cue.startMs,
 has the key. `s` is `spoken`, written only when it differs from `display`. The
 trailing object is left out when it is empty. On the 141-word sample in the
 decision note's §7, the packed form is 4,432 bytes (833 gzipped) against the
-canonical form's 13,718 (2,391 gzipped).
+canonical form's 13,718 (2,391 gzipped). The note measured 4,400 (856) for an
+earlier tuple layout; the test pins only the ratio, at least 2.5x gzipped.
 
 The round-trip test in `encode.test.ts` is generated from the schema. It builds
 a file with every field the schema defines, so a field added to the types but not
@@ -170,11 +203,17 @@ to `packTrack` fails the test (G1).
 
 ## Staleness
 
-- A segment's `hash` is SHA-256 over `JSON.stringify([text, inputs])`, where
-  `text` is the segment's narration and `inputs` is the file's `inputs` with its
-  keys sorted. For a tour stretch, `text` also covers the storyboard steps the
-  stretch spans. `segmentHash` in `lib/core/ltt-legacy.js` implements this, and
-  step 2's producer reuses it.
+- A segment's `hash` is SHA-256 over the UTF-8 bytes of
+  `segmentHashInput(text, inputs)` (`docs/src/lib/ltt/hash.ts`): canonical JSON
+  of `[text, inputs]`, with object keys sorted at **every** depth. `text` is the
+  exact string the segment's track was built from, the one handed to
+  `buildTrack`. A tour stretch also covers the storyboard steps it spans, and a
+  legacy conversion uses its cues' `display` strings joined by single spaces.
+  `inputs` is the file's `inputs` object.
+- The package defines the input string and no digest, because it imports
+  nothing. Each runtime digests with its own SHA-256 (`node:crypto` in
+  `lib/core/ltt-legacy.js`, `crypto.subtle` in a browser). A golden vector in
+  `test/unit/core/ltt-legacy.test.js` pins both the string and the digest.
 - On a mismatch, a reader marks the segment **stale**. An `estimate` segment may
   be rebuilt freely. A `measured` segment or a recorded wait is flagged and
   kept, because it cannot be rebuilt from text. `isStale(ltt, source)` lands in
@@ -195,16 +234,24 @@ player, including the video renderer's simulated one, must follow them.
 3. **Advance on clip end.** With audio, the next cue starts when the clip ends
    (`onended`), never at a computed time. The breath after a cue is held after
    that.
-4. **A cue with no clip, or a clip that fails to decode,** shows its caption and
-   holds for its estimated length, but never less than 300 ms (and 900 ms when
-   the estimate is missing). The caption crawl still runs on the estimate itself.
-   So in a captions-only export a cue shorter than 300 ms plays longer than its
-   track says, and a timeline for such a file must apply the same floor.
+4. **A cue with no clip** shows its caption and holds for its estimated length,
+   but never less than 300 ms (and 900 ms when the estimate is missing). The
+   caption crawl still runs on the estimate itself. So in a captions-only
+   export, a cue shorter than 300 ms plays longer than its track says, and a
+   timeline for such a file must apply the same floor. **A clip that fails to
+   decode** must be treated the same way. **The HTML player does not do this
+   yet.** Its `onerror` starts the fallback, but the rejected `play()` promise
+   then stops narration outright (reproduced in Chrome 131). A followup
+   tracks the player fix, which changes export bytes.
 5. **Pause restarts the slide** rather than resuming mid-word.
 6. **Manual navigation re-anchors** on the chosen slide and speaks it with no
    hold.
-7. Within a segment, the player may re-time a cue to the decoded clip length
-   (`cursor.align`). That is the only way a measured length enters playback.
+7. Within a segment, the player may re-time a cue to the decoded clip's
+   length (`cursor.align`). That is the only way a measured length enters
+   playback. **Lead trim:** a clip whose encoder added leading silence (`leadMs`)
+   starts playing `leadMs` in, and the cue is aligned to the clip's length
+   **minus** `leadMs`, the speech alone. A player that skips the trim lets the
+   crawl lag the voice by that much on every cue.
 
 ## What video export guarantees (G5)
 
@@ -234,11 +281,20 @@ clips baked into the file.
   `endsParagraph` stay absent.
 - **`tailMs`** is the last cue's breath (`g`), which the player holds before it
   advances.
-- **Supplied by the caller, because the blocks do not record them:** which
-  slides are section dividers (the player reads that from the live DOM), and the
-  reading `pace` (default `moderate`). The arrival holds come from the file's
-  baked-in `NAR_BEAT` when `readLegacyBlocks` finds it, and otherwise from
-  Cadenza's natural preset.
+- **Read from the same file** by `readLegacyBlocks`: the slide count and the
+  section dividers (from its `<section data-lattice-slide>` elements, as the
+  player reads them), and the arrival holds (its baked-in `NAR_BEAT`, the last
+  one in the file). `lttFromLegacyHtml(html, { id })` does the whole
+  conversion. Without a slide count, the deck is assumed to end at its last
+  narrated slide. Without `NAR_BEAT`, the holds are Cadenza's natural preset.
+- **Supplied by the caller:** the reading `pace`, which nothing in the file
+  records. The default is `moderate`, and the file carries that default as if it
+  were known.
+- **Damaged input is repaired, not refused.** An entry that is not a
+  `[display, start, end]` triple is skipped. A word's times are clamped into its
+  cue and made to run forward. The count is returned as `wordsRepaired`. A block
+  index past the last slide (at most 10,000) is refused and counted as
+  `ignored`, because the index sizes an array.
 - **Not carried:** audio. Old exports hold one clip per **cue**, but the 1.0
   audio layer holds one clip per **segment**. The converter returns the count as
   `clipsNotCarried` rather than dropping the clips silently.

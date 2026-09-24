@@ -6,8 +6,8 @@
 // than it in one place on purpose: it ignores keys it does not know, because a reader must
 // skip a layer it has not heard of (engineering/ltt.md §Layers).
 
-import { validateTrack } from './track';
-import type { CaptionTrack } from './types';
+import { validateTrack } from './track.js';
+import type { CaptionTrack } from './types.js';
 
 const HASH = /^sha256:[0-9a-f]{64}$/;
 const PACES = ['slow', 'moderate', 'fast'];
@@ -30,16 +30,28 @@ function checkClosed(obj: Rec, allowed: Set<string>, where: string, out: string[
 type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
-const isMs = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
+// SAFE integers: past 2^53 the packed encoding's relative times stop adding back exactly.
+const isMs = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
+/** A deck-authored string quoted in a report, cut short so one hostile 40k-character word cannot
+ *  turn a list of problems into megabytes. */
+const q = (v: unknown): string => {
+	if (typeof v !== 'string') return String(JSON.stringify(v) ?? v).slice(0, 60);
+	return JSON.stringify(v.length > 40 ? `${v.slice(0, 40)}…` : v);
+};
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 
 /** The word an action names, as Vetrina compares it: case-folded, with the punctuation a
  *  segmenter leaves attached stripped from both ends. The same rule as Vetrina's
  *  `normalizeCueWord` (vetrina/narrate.ts), which cannot import this until step 4 opens its gate. */
 export function normalizeMatch(s: string): string {
-	return String(s)
-		.toLowerCase()
-		.replace(/^[^\p{L}\p{N}]+/u, '')
-		.replace(/[^\p{L}\p{N}]+$/u, '');
+	// A linear scan from each end, not `/[^\p{L}\p{N}]+$/u`: that regex restarts at every position of
+	// a long punctuation run, which made a 121 KB file block `validateLtt` for 20 seconds.
+	const chars = Array.from(String(s).toLowerCase());
+	let a = 0;
+	let b = chars.length;
+	while (a < b && !LETTER_OR_DIGIT.test(chars[a])) a++;
+	while (b > a && !LETTER_OR_DIGIT.test(chars[b - 1])) b--;
+	return chars.slice(a, b).join('');
 }
 
 function checkHash(v: unknown, where: string, out: string[]): void {
@@ -47,12 +59,18 @@ function checkHash(v: unknown, where: string, out: string[]): void {
 }
 
 function checkEnum(v: unknown, allowed: readonly string[], where: string, out: string[]): void {
-	if (!isStr(v) || !allowed.includes(v)) out.push(`${where} is ${JSON.stringify(v)}; want one of ${allowed.join(', ')}`);
+	if (!isStr(v) || !allowed.includes(v)) out.push(`${where} is ${q(v)}; want one of ${allowed.join(', ')}`);
 }
 
 /** The core, beyond `validateTrack`'s timeline invariants: the fields every reader relies on, all
- *  present and typed, every time an integer, and `durationMs` where the spec says it is. */
+ *  present and typed, every time an integer, and `durationMs` where the spec says it is.
+ *
+ *  Then the TIMELINE, but only once the structure is sound: comparing times on a cue that is null
+ *  or has no word list is how this used to throw. The timeline rules are what make a slide's
+ *  length formula (`holdMs + durationMs + tailMs`) true of every file that validates: each word
+ *  sits inside its cue, words run forward, and a cue ends before the next one starts. */
 function checkCore(track: unknown, where: string, out: string[]): void {
+	const before = out.length;
 	if (!isRec(track) || !Array.isArray(track.cues)) {
 		out.push(`${where}.track has no cues array`);
 		return;
@@ -88,9 +106,23 @@ function checkCore(track: unknown, where: string, out: string[]): void {
 			if ('weight' in w && !Number.isFinite(w.weight)) out.push(`${wat}.weight is not a finite number`);
 		});
 	});
-	const last = track.cues[track.cues.length - 1];
-	const end = isRec(last) ? last.endMs : 0;
-	if (isMs(track.durationMs) && track.durationMs !== end) {
+	if (out.length > before) return; // structure is broken — the timeline below would read garbage
+	const cues = track.cues as Array<{ startMs: number; endMs: number; words: Array<{ display: string; startMs: number; endMs: number }> }>;
+	cues.forEach((cue, i) => {
+		const at = `${where}.track.cues[${i}]`;
+		let prev = cue.startMs;
+		cue.words.forEach((w, j) => {
+			if (w.startMs < cue.startMs || w.endMs > cue.endMs) {
+				out.push(`${at}.words[${j}] (${q(w.display)}) runs ${w.startMs}–${w.endMs}, outside its cue's ${cue.startMs}–${cue.endMs}`);
+			}
+			if (w.startMs < prev) out.push(`${at}.words[${j}] (${q(w.display)}) starts at ${w.startMs}, before the word ahead of it at ${prev}`);
+			prev = w.startMs;
+		});
+		const next = cues[i + 1];
+		if (next && cue.endMs > next.startMs) out.push(`${at} ends at ${cue.endMs}, after cue ${i + 1} starts at ${next.startMs} — cues do not overlap`);
+	});
+	const end = cues[cues.length - 1].endMs;
+	if (track.durationMs !== end) {
 		out.push(`${where}.track.durationMs is ${track.durationMs}, but the last cue ends at ${end} — durationMs is the end of the last cue`);
 	}
 	for (const p of validateTrack(track as unknown as CaptionTrack)) out.push(`${where}.track: ${p}`);
@@ -124,7 +156,7 @@ function checkActions(actions: unknown, track: unknown, where: string, out: stri
 		}
 		if (!isStr(a.verb) || !a.verb) out.push(`${at}.verb is empty`);
 		if ('target' in a && !isStr(a.target)) out.push(`${at}.target is not a string`);
-		if ('arrive' in a && a.arrive !== 'on-word') out.push(`${at}.arrive is ${JSON.stringify(a.arrive)}; want "on-word"`);
+		if ('arrive' in a && a.arrive !== 'on-word') out.push(`${at}.arrive is ${q(a.arrive)}; want "on-word"`);
 		if (!isStr(a.match)) {
 			out.push(`${at}.match is not a string`);
 			return;
@@ -135,7 +167,7 @@ function checkActions(actions: unknown, track: unknown, where: string, out: stri
 			out.push(`${at} points at cue ${String(a.cue)} word ${String(a.word)}, which this track does not have`);
 		} else if (normalizeMatch(word.display) !== a.match) {
 			out.push(
-				`${at} names "${a.match}", but cue ${a.cue} word ${a.word} is now "${word.display}" — the narration moved under the action. Re-anchor it to the word the author named.`,
+				`${at} names ${q(a.match)}, but cue ${a.cue} word ${a.word} is now ${q(word.display)} — the narration moved under the action. Re-anchor it to the word the author named.`,
 			);
 		}
 	});
@@ -148,9 +180,9 @@ function checkActions(actions: unknown, track: unknown, where: string, out: stri
 export function validateLtt(ltt: unknown): string[] {
 	const out: string[] = [];
 	if (!isRec(ltt)) return ['an LTT is a JSON object'];
-	if (ltt.format !== 'ltt') out.push(`format is ${JSON.stringify(ltt.format)}; want "ltt"`);
-	if ('encoding' in ltt) out.push(`this file is in the ${JSON.stringify(ltt.encoding)} encoding — unpack it before validating`);
-	if (ltt.version !== '1.0') out.push(`version is ${JSON.stringify(ltt.version)}; this reader knows "1.0"`);
+	if (ltt.format !== 'ltt') out.push(`format is ${q(ltt.format)}; want "ltt"`);
+	if ('encoding' in ltt) out.push(`this file is in the ${q(ltt.encoding)} encoding — unpack it before validating`);
+	if (ltt.version !== '1.0') out.push(`version is ${q(ltt.version)}; this reader knows "1.0"`);
 
 	const source = ltt.source;
 	const kind = isRec(source) ? source.kind : undefined;
@@ -202,7 +234,7 @@ export function validateLtt(ltt: unknown): string[] {
 
 		const k = seg.kind;
 		if (k !== 'slide' && k !== 'hold' && k !== 'stretch') {
-			out.push(`${where}.kind is ${JSON.stringify(k)}; want slide, hold or stretch`);
+			out.push(`${where}.kind is ${q(k)}; want slide, hold or stretch`);
 			return;
 		}
 		if (kind === 'deck' && k === 'stretch') out.push(`${where} is a stretch, which only a tour has`);

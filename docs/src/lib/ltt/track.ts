@@ -1,9 +1,9 @@
 // The core check — a caption track's timeline invariants. Moved here from Cadenza's `track.ts`
-// unchanged, so there is ONE structural validator: `validateLtt` runs it on every segment's
+// with its checks intact, so there is ONE structural validator: `validateLtt` runs it on every segment's
 // track, and Cadenza re-exports it for the callers that already import it from there
 // (`lib/core/read-along-vtt.js`).
 
-import type { CaptionTrack } from './types';
+import type { CaptionTrack } from './types.js';
 
 /**
  * Check a track's TIMELINE INVARIANTS and report what is wrong, as plain sentences.
@@ -30,6 +30,12 @@ export function validateTrack(track: CaptionTrack): string[] {
 	if (!Number.isFinite(track.durationMs)) problems.push(`track durationMs is not finite (${track.durationMs})`);
 	let prevStart = Number.NEGATIVE_INFINITY;
 	track.cues.forEach((cue, i) => {
+		// A diagnostic must survive the input it diagnoses: a null cue, or a cue with no word list,
+		// is reported rather than dereferenced (validateLtt hands this files it has not trusted yet).
+		if (!cue || typeof cue !== 'object') {
+			problems.push(`cue ${i} is not an object`);
+			return;
+		}
 		if (!Number.isFinite(cue.startMs) || !Number.isFinite(cue.endMs)) {
 			problems.push(`cue ${i} has a non-finite span (${cue.startMs} to ${cue.endMs})`);
 			return; // the comparisons below are meaningless against NaN — report once, move on
@@ -38,11 +44,19 @@ export function validateTrack(track: CaptionTrack): string[] {
 		if (cue.endMs < cue.startMs) problems.push(`cue ${i} ends before it starts (${cue.startMs} to ${cue.endMs})`);
 		if (cue.startMs < prevStart) problems.push(`cue ${i} starts at ${cue.startMs}ms, before cue ${i - 1} at ${prevStart}ms — the cursor cannot binary-search a track whose cues are out of order`);
 		prevStart = cue.startMs;
+		if (!Array.isArray(cue.words)) {
+			problems.push(`cue ${i} has no words array`);
+			return;
+		}
 		cue.words.forEach((w, j) => {
+			if (!w || typeof w !== 'object') {
+				problems.push(`cue ${i} word ${j} is not an object`);
+				return;
+			}
 			if (!Number.isFinite(w.startMs) || !Number.isFinite(w.endMs)) {
-				problems.push(`cue ${i} word ${j} ("${w.display}") has a non-finite span`);
+				problems.push(`cue ${i} word ${j} (${JSON.stringify(String(w.display).slice(0, 40))}) has a non-finite span`);
 			} else if (w.endMs < w.startMs) {
-				problems.push(`cue ${i} word ${j} ("${w.display}") ends before it starts`);
+				problems.push(`cue ${i} word ${j} (${JSON.stringify(String(w.display).slice(0, 40))}) ends before it starts`);
 			}
 		});
 	});

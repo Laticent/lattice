@@ -5,9 +5,10 @@
 // folder, and a boundary gate in tools/check-ownership.js holds it to that. The spec is
 // engineering/ltt.md; the JSON Schema beside this file is generated from `types.ts`.
 
-export type { PackedCue, PackedCueExtra, PackedLtt, PackedTrack, PackedWord, PackedWordExtra } from './encode';
-export { pack, packTrack, unpack, unpackTrack } from './encode';
-export { validateTrack } from './track';
+export type { PackedCue, PackedCueExtra, PackedLtt, PackedTrack, PackedWord, PackedWordExtra } from './encode.js';
+export { pack, packTrack, unpack, unpackTrack } from './encode.js';
+export { canonicalJson, segmentHashInput } from './hash.js';
+export { validateTrack } from './track.js';
 export type {
 	CaptionTrack,
 	Cue,
@@ -31,8 +32,8 @@ export type {
 	LttViewport,
 	LttVoice,
 	Word,
-} from './types';
-export { normalizeMatch, validateLtt } from './validate';
+} from './types.js';
+export { normalizeMatch, validateLtt } from './validate.js';
 
 /** The spec version this package reads and writes. */
 export const LTT_VERSION = '1.0';

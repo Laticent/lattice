@@ -1790,11 +1790,15 @@ describe('check-ownership', () => {
   // The LTT format package imports nothing, and Cadenza's one sanctioned dependency is that
   // package by exact name (engineering/decisions/2026-09-24-lattice-timing-track.md §6).
   describe('LTT boundary gate + Cadenza\'s one sanctioned dependency', () => {
-    /** Run `gate` over a scratch folder holding one source file. */
+    /** Run `gate` over a scratch folder holding one source file (or several: `{ 'a/b.ts': src }`). */
     const run = (gate, src) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ltt-gate-'));
       try {
-        fs.writeFileSync(path.join(dir, 'x.ts'), src);
+        const files = typeof src === 'string' ? { 'x.ts': src } : src;
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
         const errors = [];
         gate(errors, dir);
         return errors;
@@ -1823,12 +1827,28 @@ describe('check-ownership', () => {
       }
     });
 
+    // The red team's evasions (PR #2347): each passed the old `startsWith('./')` gate with 0 errors.
+    test('LTT catches every evasion the red team found', () => {
+      const evasions = {
+        'a ./ specifier that climbs out': { 'x.ts': "export * from './../cadenza/index';" },
+        'an .mts file': { 'helper.mts': "import x from 'lodash-es';" },
+        'a .cts file': { 'helper.cts': "import x from 'lodash-es';" },
+        'a dot folder': { 'index.ts': "export * from './.internal/x';", '.internal/x.ts': "import x from 'lodash-es';" },
+        'a test module re-exported from production': { 'index.ts': "export * from './sneak.test';", 'sneak.test.ts': "import fs from 'node:fs';" },
+        'a template-literal dynamic import': { 'x.ts': 'const fs = await import(`node:fs`);' },
+      };
+      for (const [name, files] of Object.entries(evasions)) {
+        assert.ok(run(checkLttBoundary, files).length >= 1, `not caught: ${name}`);
+      }
+    });
+
     test('Cadenza admits @laticent/ltt by exact name, and no subpath or sibling reach', () => {
       assert.deepEqual(run(checkCadenzaBoundary, "import type { Word } from '@laticent/ltt';"), []);
       assert.deepEqual(run(checkCadenzaBoundary, "export { validateTrack } from '@laticent/ltt';"), []);
       for (const src of [
         "import { x } from '@laticent/ltt/validate';",
         "import { x } from '../ltt/validate';",
+        "import { validateLtt } from './../ltt/validate';",
         "import { x } from '@laticent/suono';",
       ]) {
         assert.equal(run(checkCadenzaBoundary, src).length, 1, `not caught: ${src}`);

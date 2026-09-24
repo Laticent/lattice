@@ -22,7 +22,7 @@
 // Relative times are exact because every time in an LTT is an integer (validateLtt checks it), so
 // subtracting and adding back cannot round.
 
-import type { CaptionTrack, Cue, Ltt, Word } from './types';
+import type { CaptionTrack, Cue, Ltt, Word } from './types.js';
 
 export type PackedWordExtra = { s?: string; w?: number };
 export type PackedWord = [string, number, number, number] | [string, number, number, number, PackedWordExtra];

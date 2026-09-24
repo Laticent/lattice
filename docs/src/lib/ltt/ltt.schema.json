@@ -19,15 +19,18 @@
         },
         "startMs": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "endMs": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "charOffset": {
           "description": "Index into the source text where `display` begins (best-effort forward scan).",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "weight": {
@@ -60,14 +63,17 @@
         },
         "startMs": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "endMs": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "charOffset": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "endsParagraph": {
@@ -101,6 +107,7 @@
         "durationMs": {
           "description": "Total estimated duration (end of the last cue), ms.",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         }
       },
@@ -187,10 +194,12 @@
       "properties": {
         "w": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 1
         },
         "h": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 1
         }
       },
@@ -287,6 +296,7 @@
         "measuredMs": {
           "description": "The clip's decoded length.",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "leadMs": {
@@ -309,11 +319,13 @@
         "cue": {
           "description": "Index of the cue in this segment's track.",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "word": {
           "description": "Index of the word in that cue.",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "match": {
@@ -363,6 +375,7 @@
         "holdMs": {
           "description": "The hold on arrival. 0 on the first slide.",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "track": {
@@ -371,6 +384,7 @@
         "tailMs": {
           "description": "The breath the player holds after the slide's LAST cue, before it advances. The track ends at the end of its last cue, so this is the one part of a slide's length the track cannot say. A slide lasts `holdMs + track.durationMs + tailMs`.",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "audio": {
@@ -409,6 +423,7 @@
         },
         "holdMs": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         }
       },
@@ -439,6 +454,7 @@
         "waitedMs": {
           "description": "How long the `after` wait took in a recorded run. Required on every waited stretch of a seekable file, because a seekable file must know every segment's length.",
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 0
         },
         "hash": {
@@ -476,6 +492,7 @@
       "properties": {
         "slide": {
           "type": "integer",
+          "maximum": 9007199254740991,
           "minimum": 1
         }
       },

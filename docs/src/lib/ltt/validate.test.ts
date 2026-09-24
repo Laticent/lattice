@@ -148,3 +148,133 @@ describe('normalizeMatch', () => {
 		expect(normalizeMatch('$4.2M')).toBe('4.2m');
 	});
 });
+
+describe('validateLtt survives hostile input (red team, PR #2347)', () => {
+	it('reports — never throws on — a null cue, a words string, a null word, a cue with no words', () => {
+		const shapes: [string, (l: Ltt) => void][] = [
+			['cues:[null]', (l) => { (slide(l, 0).track as Mut).cues = [null]; }],
+			['words:"abc"', (l) => { (slide(l, 0).track.cues[0] as Mut).words = 'abc'; }],
+			['words:[null]', (l) => { (slide(l, 0).track.cues[0] as Mut).words = [null]; }],
+			['no words key', (l) => { delete (slide(l, 0).track.cues[0] as Mut).words; }],
+		];
+		for (const [name, edit] of shapes) {
+			const l = deck();
+			edit(l);
+			expect(() => validateLtt(l), name).not.toThrow();
+			expect(validateLtt(l).length, name).toBeGreaterThan(0);
+		}
+	});
+
+	it('normalizeMatch is linear: a 40k-character punctuation run takes milliseconds, not a second', () => {
+		const t = performance.now();
+		expect(normalizeMatch(`a${'!'.repeat(40000)}a`)).toBe(`a${'!'.repeat(40000)}a`);
+		expect(performance.now() - t).toBeLessThan(250);
+	});
+
+	it('quotes a hostile word short, so a report cannot run to megabytes', () => {
+		const long = 'x'.repeat(40000);
+		const msg = after(tour, (l) => { stretch(l, 1).actions![0].match = long; }).split('\n')[0];
+		expect(msg.length).toBeLessThan(400);
+	});
+
+	it('refuses a time past the largest safe integer, where packed times stop adding back exactly', () => {
+		expect(after(deck, (l) => { slide(l, 0).track.cues[0].words[0].endMs = 2 ** 53 + 2; })).toMatch(/endMs is not a whole/);
+	});
+
+	const timeline: [string, (l: Ltt) => void, RegExp][] = [
+		['a word outside its cue', (l) => { slide(l, 0).track.cues[0].words[0].endMs = slide(l, 0).track.cues[0].endMs + 50; }, /outside its cue/],
+		['words running backward', (l) => { const w = slide(l, 0).track.cues[0].words; w[2].startMs = w[1].startMs - 1; }, /before the word ahead of it/],
+		['overlapping cues', (l) => { const t = buildTrack('One two. Three four.'); t.cues[0].endMs = t.cues[1].startMs + 1; slide(l, 2).track = t; }, /cues do not overlap/],
+	];
+	for (const [name, edit, want] of timeline) {
+		it(`reports ${name}, which the slide length formula cannot describe`, () => {
+			const l = deck();
+			edit(l);
+			expect(validateLtt(l).join('\n')).toMatch(want);
+		});
+	}
+});
+
+// The inversion pass (PR #2347) found validateLtt keeping its own enums and required fields, with
+// nothing tying them to the generated schema: add `'recorded'` to LttBasis, or a required field to a
+// segment, and the two disagreed with every test green. This walks the schema ALONGSIDE real
+// fixtures, so every enum value and every required key the schema defines is exercised — generated,
+// not listed, exactly as the encoding round trip is.
+describe('validateLtt agrees with the schema on every enum value and every required key', () => {
+	type Node = Record<string, Mut>;
+	const $defs = schema.$defs as unknown as Record<string, Node>;
+	const resolve = (n: Node): Node => (n.$ref ? resolve($defs[n.$ref.replace('#/$defs/', '')]) : n);
+	const full = (): Ltt[] => {
+		const d = deck();
+		slide(d, 0).audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: 1 }, measuredMs: 900, leadMs: 4 };
+		const t = tour();
+		t.seekable = true;
+		stretch(t, 1).waitedMs = 2300;
+		stretch(t, 1).audio = { src: 'b.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: 1 }, measuredMs: 900 };
+		return [d, t];
+	};
+	/** Every (path, schema node) pair the fixture actually reaches, with paths in validateLtt's form. */
+	function walk(node: Node, value: Mut, path: string, out: [string, Node, Mut][]): void {
+		const n = resolve(node);
+		if (n.oneOf) {
+			const branch = n.oneOf.map(resolve).find((b: Node) => b.properties?.kind?.const === value?.kind);
+			if (branch) walk(branch, value, path, out);
+			return;
+		}
+		out.push([path, n, value]);
+		if (n.type === 'object' && value && typeof value === 'object') {
+			for (const [k, sub] of Object.entries(n.properties as Record<string, Node>)) {
+				if (k in value) walk(sub, value[k], path ? `${path}.${k}` : k, out);
+			}
+		}
+		if (n.type === 'array' && Array.isArray(value) && n.items) {
+			for (let i = 0; i < value.length; i++) walk(n.items, value[i], `${path}[${i}]`, out);
+		}
+	}
+	const get = (root: Mut, path: string): Mut => path.split(/\.|\[(\d+)\]/).filter(Boolean).reduce((o, k) => o[k], root);
+
+	it('the fixtures are valid, and reach every enum in the schema', () => {
+		const enums = new Set<string>();
+		for (const f of full()) {
+			expect(validateLtt(f)).toEqual([]);
+			const out: [string, Node, Mut][] = [];
+			walk(schema as Node, f, '', out);
+			for (const [, n] of out) if (n.enum) enums.add(n.enum.join('|'));
+		}
+		const all = Object.values($defs).filter((d) => d.enum).map((d) => d.enum.join('|'));
+		for (const e of all) expect(enums, `no fixture reaches the enum ${e}`).toContain(e);
+	});
+
+	it('every value each enum allows is accepted where it appears', () => {
+		full().forEach((f, fi) => {
+			const out: [string, Node, Mut][] = [];
+			walk(schema as Node, f, '', out);
+			for (const [path, n] of out) {
+				if (!n.enum || path === 'source.kind') continue; // the kind decides which other fields apply
+				for (const v of n.enum) {
+					const l = full()[fi];
+					const parts = path.split('.');
+					const key = parts.pop() as string;
+					(parts.length ? get(l, parts.join('.')) : l)[key] = v;
+					const hits = validateLtt(l).filter((m) => m.startsWith(`${path} `));
+					expect(hits, `${path} = ${v}`).toEqual([]);
+				}
+			}
+		});
+	});
+
+	it('deleting any key the schema requires is refused', () => {
+		full().forEach((f, fi) => {
+			const out: [string, Node, Mut][] = [];
+			walk(schema as Node, f, '', out);
+			for (const [path, n, value] of out) {
+				if (n.type !== 'object' || !value) continue;
+				for (const key of n.required ?? []) {
+					const l = full()[fi];
+					delete (path ? get(l, path) : l)[key];
+					expect(validateLtt(l).length, `deleting ${path ? `${path}.` : ''}${key} was accepted`).toBeGreaterThan(0);
+				}
+			}
+		});
+	});
+});

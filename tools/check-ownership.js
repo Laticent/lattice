@@ -7688,6 +7688,65 @@ function checkVetrinaBoundary(errors) {
   }
 }
 
+// ── The strict package walker (Cadenza, LTT) ───────────────────────────────
+// A boundary gate that only ASKS whether a specifier starts with `./` can be walked around, and the
+// LTT red team (PR #2347) walked around it seven ways: `./../cadenza/x` (starts with `./`, lands
+// outside), a `.mts` / `.cts` file the source walker never listed, a dot folder it skipped, a test
+// file re-exported from production code (tests are skipped), and an `import(\`node:fs\`)` template
+// literal no string pattern reads. So this walker RESOLVES each relative specifier and requires it to
+// land inside the package, lists every source extension, enters dot folders (all but the builders'
+// `.dist.tmp-<pid>` staging, the #2117 race), refuses a production file that imports a `*.test`
+// module, and refuses `import(` / `require(` whose argument is not a plain string.
+const STRICT_SOURCE_EXT = /\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
+const TEST_FILE = /\.test\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
+
+function listPackageSources(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.dist.tmp-')) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listPackageSources(p, out);
+    else if (STRICT_SOURCE_EXT.test(e.name) && !e.name.endsWith('.d.ts')) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Report every import in `dir` that leaves it, except a `node:` built-in when `allowNode` and a bare
+ * specifier named exactly in `allowBare`. `describe(rel, spec)` writes the error for a boundary hit.
+ */
+function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe }) {
+  if (!fs.existsSync(dir)) return;
+  const root = path.resolve(dir);
+  for (const file of listPackageSources(root)) {
+    if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
+    const rel = path.relative(ROOT, file);
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    if (/\b(?:import|require)\s*\(\s*(?!['"])/.test(src)) {
+      errors.push(`${rel} calls import() or require() with something other than a plain string, which no gate can read. Use a static import with a string specifier.`);
+    }
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        if (seen.has(spec)) continue;
+        seen.add(spec);
+        if (spec.startsWith('.')) {
+          const target = path.resolve(path.dirname(file), spec);
+          if (target !== root && !target.startsWith(root + path.sep)) errors.push(describe(rel, spec));
+          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec)) {
+            errors.push(`${rel} imports '${spec}', a test module. Test files are not gated, so production code may not reach through one.`);
+          }
+          continue;
+        }
+        if (allowNode && spec.startsWith('node:')) continue;
+        if (allowBare.has(spec)) continue;
+        errors.push(describe(rel, spec));
+      }
+    }
+  }
+}
+
 // ── Cadenza (docs/src/lib/cadenza) — the caption/timeline engine ────────────
 // The same self-containment antibody as Vetrina, and stricter: Cadenza is the
 // pure timing/caption core (engineering/decisions/2026-07-07-cadenza-caption-timeline.md)
@@ -7703,31 +7762,20 @@ function checkVetrinaBoundary(errors) {
 // (`@laticent/ltt/x`), a relative `../ltt/` escape, or any other package still fails.
 const CADENZA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'cadenza');
 const CADENZA_SANCTIONED_DEP = '@laticent/ltt';
-const CADENZA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
 
 // `dir` defaults to the real library; the unit test points it at a scratch folder to prove the
 // gate bites.
 function checkCadenzaBoundary(errors, dir = CADENZA_DIR) {
-  if (!fs.existsSync(dir)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(dir)) {
-    const rel = path.relative(ROOT, file);
-    const base = path.basename(file);
-    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
-    const src = fs.readFileSync(file, 'utf8');
-    for (const m of src.matchAll(CADENZA_IMPORT)) {
-      const spec = m[1];
-      if (spec.startsWith('./')) continue; // in-folder relative — fine
-      if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
-      if (spec === CADENZA_SANCTIONED_DEP) continue; // the LTT format — its one dependency (see above)
-      errors.push(
-        `${rel} imports '${spec}', which escapes the Cadenza folder. The caption/timeline engine is ` +
-        `spin-off-able (2026-07-07-cadenza-caption-timeline.md): every import must resolve inside ` +
-        `docs/src/lib/cadenza/ (\`./x\`), and its one dependency is '${CADENZA_SANCTIONED_DEP}' by that exact ` +
-        `name (2026-09-24-lattice-timing-track.md §6). Move shared code into the folder — Cadenza has no ` +
-        `peer-dep seam and must not couple to the host.`,
-      );
-    }
-  }
+  checkStrictPackageImports(errors, dir, {
+    allowNode: true, // node built-ins — allowed (SSR-safe core)
+    allowBare: new Set([CADENZA_SANCTIONED_DEP]), // the LTT format — its one dependency (see above)
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Cadenza folder. The caption/timeline engine is ` +
+      `spin-off-able (2026-07-07-cadenza-caption-timeline.md): every import must resolve inside ` +
+      `docs/src/lib/cadenza/, and its one dependency is '${CADENZA_SANCTIONED_DEP}' by that exact ` +
+      `name (2026-09-24-lattice-timing-track.md §6). Move shared code into the folder — Cadenza has no ` +
+      `peer-dep seam and must not couple to the host.`,
+  });
 }
 
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
@@ -7800,28 +7848,15 @@ const LTT_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'ltt');
 
 // `dir` defaults to the real package; the unit test points it at a scratch folder.
 function checkLttBoundary(errors, dir = LTT_DIR) {
-  if (!fs.existsSync(dir)) return; // package not present — nothing to guard
-  for (const file of listSourceFiles(dir)) {
-    const rel = path.relative(ROOT, file);
-    const base = path.basename(file);
-    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest)
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
-    const seen = new Set();
-    for (const pattern of SUONO_SPEC_PATTERNS) {
-      for (const m of src.matchAll(pattern)) {
-        const spec = m[1];
-        if (spec.startsWith('./')) continue; // in-folder relative — the only thing allowed
-        if (seen.has(spec)) continue;
-        seen.add(spec);
-        errors.push(
-          `${rel} imports '${spec}'. The LTT format package imports NOTHING outside its own folder — ` +
-          `not an npm package, not a \`node:\` built-in, not a \`../\` sibling — because every timing ` +
-          `library may depend on it, so anything it imports they inherit (2026-09-24-lattice-timing-track.md §6). ` +
-          `Keep the format pure data and pure functions, in docs/src/lib/ltt/ (\`./x\`).`,
-        );
-      }
-    }
-  }
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}'. The LTT format package imports NOTHING outside its own folder — ` +
+      `not an npm package, not a \`node:\` built-in, not a \`../\` sibling — because every timing ` +
+      `library may depend on it, so anything it imports they inherit (2026-09-24-lattice-timing-track.md §6). ` +
+      `Keep the format pure data and pure functions, in docs/src/lib/ltt/.`,
+  });
 }
 
 // ── Anima (docs/src/lib/anima) — the animation core ─────────────────────────

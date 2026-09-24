@@ -37,26 +37,53 @@ const SOURCE = path.join(ROOT, 'docs', 'src', 'lib', 'ltt', 'types.ts');
 const OUT = path.join(ROOT, 'docs', 'src', 'lib', 'ltt', 'ltt.schema.json');
 const ROOT_TYPE = 'Ltt';
 
-/** The doc comment directly above `node`, split into prose and tags. */
+/**
+ * The doc comment attached to `node`, split into prose and tags.
+ *
+ * "Attached" means the LAST `/** … *\/` before the node with nothing but whitespace between them,
+ * whichever line it sits on. TypeScript's own attachment misses a comment on the same line as the
+ * previous token (`{ /** @integer *\/ a: number }` is, to TypeScript, a trailing comment of `{`),
+ * and so did the leading-comment ranges this used to read: the tag silently vanished and the field
+ * was loosened. So both leading and trailing ranges are read here, and the rule is positional.
+ *
+ * Tags come LAST, after the prose, and each carries at most one value token (`@minimum 0`,
+ * `@pattern ^x$`; `@integer` and `@closed` carry none). Anything else after a tag is refused, because
+ * it used to become the tag's value: `@pattern ^x$ the id` shipped the pattern `^x$ the id`.
+ */
 function docOf(node, sf) {
-  const text = sf.getFullText();
-  const ranges = ts.getLeadingCommentRanges(text, node.getFullStart()) || [];
-  const last = ranges.filter((r) => text.slice(r.pos, r.pos + 3) === '/**').pop();
-  if (!last) return { description: '', tags: {} };
+  const full = sf.getFullText();
+  const pos = node.getFullStart();
+  const ranges = [...(ts.getTrailingCommentRanges(full, pos) || []), ...(ts.getLeadingCommentRanges(full, pos) || [])]
+    .filter((r) => full.slice(r.pos, r.pos + 3) === '/**')
+    .sort((a, b) => a.pos - b.pos);
+  const last = ranges[ranges.length - 1];
+  if (!last || full.slice(last.end, node.getStart(sf)).trim() !== '') return { description: '', tags: {} };
+  const text = full.slice(last.pos, last.end);
   const body = text
-    .slice(last.pos + 3, last.end - 2)
+    .replace(/^\/\*\*/, '')
+    .replace(/\*\/$/, '')
     .split('\n')
     .map((l) => l.replace(/^\s*\*?\s?/, ''))
     .join('\n');
+  const at = body.search(/(^|\s)@\w/);
+  const prose = at < 0 ? body : body.slice(0, at);
   const tags = {};
-  // A tag runs to the next tag or the end; its value is the text after the name, trimmed.
-  const prose = body.replace(/@(integer|closed|minimum|pattern)\b([^@]*)/g, (_m, name, value) => {
-    tags[name] = value.trim();
-    return '';
-  });
-  if (/@\w/.test(prose)) {
-    const bad = prose.match(/@\w+/)[0];
-    throw new Error(`${where(node, sf)}: unknown doc tag ${bad} — the schema generator knows @integer, @closed, @minimum and @pattern`);
+  if (at >= 0) {
+    const tokens = body.slice(at).trim().split(/\s+/);
+    for (let i = 0; i < tokens.length; i++) {
+      const name = tokens[i].slice(1);
+      if (!tokens[i].startsWith('@') || !['integer', 'closed', 'minimum', 'pattern'].includes(name)) {
+        throw new Error(
+          `${where(node, sf)}: "${tokens[i]}" in a doc comment — the generator knows @integer, @closed, @minimum <n> and @pattern <regex>, and tags go last, after the prose`,
+        );
+      }
+      if (name in tags) throw new Error(`${where(node, sf)}: @${name} appears twice`);
+      if (name === 'minimum' || name === 'pattern') {
+        const value = tokens[++i];
+        if (value === undefined || value.startsWith('@')) throw new Error(`${where(node, sf)}: @${name} needs a value`);
+        tags[name] = value;
+      } else tags[name] = '';
+    }
   }
   return { description: prose.replace(/\s+/g, ' ').trim(), tags };
 }
@@ -69,11 +96,16 @@ function where(node, sf) {
 /** Apply the narrowing tags to a schema already built for the type. */
 function narrow(schema, tags, node, sf) {
   const out = { ...schema };
+  if ('closed' in tags) throw new Error(`${where(node, sf)}: @closed belongs on an interface, not a field`);
   if ('integer' in tags) {
     if (out.type !== 'number') throw new Error(`${where(node, sf)}: @integer on a type that is not a number`);
     out.type = 'integer';
+    // SAFE integers only: validateLtt refuses anything past 2^53, where packed relative times stop
+    // adding back exactly, so the schema says the same.
+    out.maximum = Number.MAX_SAFE_INTEGER;
   }
   if ('minimum' in tags) {
+    if (out.type !== 'number' && out.type !== 'integer') throw new Error(`${where(node, sf)}: @minimum on a type that is not a number`);
     const n = Number(tags.minimum);
     if (!Number.isFinite(n)) throw new Error(`${where(node, sf)}: @minimum needs a number, got "${tags.minimum}"`);
     out.minimum = n;
@@ -123,7 +155,11 @@ function typeSchema(node, sf, names) {
     case ts.SyntaxKind.UnionType: {
       const parts = node.types.map((t) => typeSchema(t, sf, names));
       if (parts.every((p) => typeof p.const === 'string')) return { type: 'string', enum: parts.map((p) => p.const) };
-      return { oneOf: parts };
+      // Only unions of declared types become `oneOf`, and those are the segment kinds, each told
+      // apart by its `kind` const. Anything else can overlap (`string | "x"`), and `oneOf` rejects a
+      // value that matches two branches — so it is refused rather than mistranslated.
+      if (parts.every((p) => p.$ref)) return { oneOf: parts };
+      throw new Error(`${where(node, sf)}: "${node.getText(sf)}" mixes kinds of type — a union here is all string literals or all declared type names`);
     }
     default:
       break;
@@ -138,7 +174,8 @@ function objectSchema(members, sf, names, tags) {
     if (m.kind !== ts.SyntaxKind.PropertySignature || !m.type) {
       throw new Error(`${where(m, sf)}: only plain properties are supported in an LTT object type`);
     }
-    const key = m.name.getText(sf);
+    if (!ts.isIdentifier(m.name) && !ts.isStringLiteral(m.name)) throw new Error(`${where(m, sf)}: a property name must be a plain name or a string`);
+    const key = m.name.text; // the name itself — a quoted "a-b" is the key a-b, not "\"a-b\""
     const doc = docOf(m, sf);
     let schema = narrow(typeSchema(m.type, sf, names), doc.tags, m, sf);
     if (doc.description) schema = { description: doc.description, ...schema };
@@ -160,14 +197,23 @@ function generate(sourceText = fs.readFileSync(SOURCE, 'utf8')) {
       throw new Error(`${where(s, sf)}: types.ts holds type declarations only — move "${s.getText(sf).slice(0, 40)}…" out`);
     }
   }
-  const names = new Set(decls.map((d) => d.name.text));
+  const names = new Set();
+  for (const d of decls) {
+    // Declaration merging would silently keep only the last declaration's fields.
+    if (names.has(d.name.text)) throw new Error(`${where(d, sf)}: "${d.name.text}" is declared twice — declare each type once`);
+    names.add(d.name.text);
+  }
   if (!names.has(ROOT_TYPE)) throw new Error(`types.ts declares no ${ROOT_TYPE}`);
   const $defs = {};
   for (const d of decls) {
     if (d.typeParameters) throw new Error(`${where(d, sf)}: generic declarations are not supported`);
     if (ts.isInterfaceDeclaration(d) && d.heritageClauses) throw new Error(`${where(d, sf)}: \`extends\` is not supported — spell the fields out`);
     const doc = docOf(d, sf);
-    let schema = ts.isInterfaceDeclaration(d) ? objectSchema(d.members, sf, names, doc.tags) : narrow(typeSchema(d.type, sf, names), doc.tags, d, sf);
+    const isInterface = ts.isInterfaceDeclaration(d);
+    // An interface takes only @closed; @integer / @minimum / @pattern narrow a value, not an object.
+    const misplaced = Object.keys(doc.tags).filter((t) => (isInterface ? t !== 'closed' : t === 'closed'));
+    if (misplaced.length) throw new Error(`${where(d, sf)}: @${misplaced[0]} does not apply to ${isInterface ? 'an interface' : 'a type alias'}`);
+    let schema = isInterface ? objectSchema(d.members, sf, names, doc.tags) : narrow(typeSchema(d.type, sf, names), doc.tags, d, sf);
     if (doc.description) schema = { description: doc.description, ...schema };
     $defs[d.name.text] = schema;
   }

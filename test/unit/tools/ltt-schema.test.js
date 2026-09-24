@@ -93,6 +93,20 @@ describe('the schema and validateLtt agree', () => {
   });
 });
 
+describe('the generator reads what it is given exactly', () => {
+  test('a tag on the same line as the previous token is kept, not dropped', () => {
+    const $defs = generate('export interface Ltt { /** @integer */ a: number; b: string; /** @integer */ c: number }').$defs;
+    assert.equal($defs.Ltt.properties.a.type, 'integer');
+    assert.equal($defs.Ltt.properties.c.type, 'integer');
+  });
+  test('a quoted property name is the key itself', () => {
+    assert.deepEqual(Object.keys(generate('export interface Ltt { "a-b": string }').$defs.Ltt.properties), ['a-b']);
+  });
+  test('@integer caps at the largest safe integer, as validateLtt does', () => {
+    assert.equal(generate('export interface Ltt {\n  /** @integer */\n  a: number;\n}').$defs.Ltt.properties.a.maximum, Number.MAX_SAFE_INTEGER);
+  });
+});
+
 describe('the generator refuses what it cannot translate faithfully', () => {
   const refuse = {
     'a type from outside the file': 'export interface Ltt { at: Date }',
@@ -103,6 +117,12 @@ describe('the generator refuses what it cannot translate faithfully', () => {
     'an optional tuple element': 'export interface Ltt { a: [number, number?] }',
     '@integer on a string': 'export interface Ltt {\n  /** @integer */\n  a: string;\n}',
     'a method': 'export interface Ltt { f(): void }',
+    // The red team's six silent mistranslations (PR #2347): each used to produce a WRONG schema.
+    'prose after a tag, which became the tag\'s value': 'export interface Ltt {\n  /** @pattern ^x$ the id */\n  a: string;\n}',
+    'an overlapping union': 'export interface Ltt { a: string | "x" }',
+    'a type declared twice (declaration merging)': 'export interface Ltt { a: string }\nexport interface Ltt { b: string }',
+    '@closed on a type alias': '/** @closed */\nexport type X = string;\nexport interface Ltt { a: X }',
+    '@minimum on a string': 'export interface Ltt {\n  /** @minimum 0 */\n  a: string;\n}',
   };
   for (const [name, src] of Object.entries(refuse)) {
     test(`refuses ${name}`, () => {
