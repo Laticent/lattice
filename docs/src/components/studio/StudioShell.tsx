@@ -3124,6 +3124,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// mover and Present state rather than the render that installed it.
 	const slideNoRef = React.useRef(slideNo);
 	slideNoRef.current = slideNo;
+	// Keep the current slide's pill in view in the slide navigator, centered so the slides on
+	// either side show too. Keyed to the AUTHORED slide: paging through a split slide's run does
+	// not move `slideNo`, so the rail holds still while the preview pages, and moves only when
+	// the deck does. Scrolls the rail itself, never an ancestor (`scrollIntoView` would also
+	// scroll the page, which jolts a phone).
+	const railNavRef = React.useRef<HTMLElement>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: slideNo, the slide count and the label set (which changes pill widths) ARE the triggers; the body reads the DOM.
+	React.useLayoutEffect(() => {
+		const nav = railNavRef.current;
+		const pill = nav?.querySelector<HTMLElement>('button[aria-current="true"]');
+		if (!nav || !pill || nav.scrollWidth <= nav.clientWidth) return;
+		const n = nav.getBoundingClientRect();
+		const p = pill.getBoundingClientRect();
+		const left = nav.scrollLeft + (p.left + p.width / 2) - (n.left + n.width / 2);
+		const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		nav.scrollTo({ left: Math.max(0, Math.min(left, nav.scrollWidth - nav.clientWidth)), behavior: reduce ? 'auto' : 'smooth' });
+	}, [slideNo, viewSlides.length, effectiveStop]);
 	const goToSlideRef = React.useRef(goToSlide);
 	goToSlideRef.current = goToSlide;
 	const previewDeckIdRef = React.useRef('');
@@ -4749,7 +4766,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
 					</div>
 				)}
-			<nav className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
+			<nav ref={railNavRef} className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
 				{viewSlides.map((s, i) => {
 					const on = i === slideNo - 1;
 					// Read is the newcomer's stop — label each slide by its TITLE (its first

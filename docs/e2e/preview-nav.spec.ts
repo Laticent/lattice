@@ -186,6 +186,14 @@ test('@parity every verb pages through a split slide before it leaves it', async
 	await page.keyboard.press('ArrowRight');
 	await expect(pill).toContainText('2.2 · 2 of 5');
 	await at(2);
+	// The slide navigator is keyed to the AUTHORED slide: paging the run leaves its highlight and
+	// its scroll exactly where they were.
+	const railState = () => page.evaluate(() => {
+		const nav = document.querySelector('nav[aria-label="Slide navigator"]');
+		return `${nav?.querySelector('button[aria-current="true"]')?.getAttribute('aria-label')} @ ${nav?.scrollLeft}`;
+	});
+	const railBefore = await railState();
+	expect(railBefore).toContain('Slide 2');
 
 	const box = await previewSurface(page).boundingBox();
 	expect(box).not.toBeNull();
@@ -199,6 +207,7 @@ test('@parity every verb pages through a split slide before it leaves it', async
 	await page.getByRole('button', { name: 'Next slide' }).first().click();
 	await expect(pill).toContainText('2.5 · 5 of 5');
 	await at(2);
+	expect(await railState()).toBe(railBefore);
 
 	// Past the run's last page: the next slide, which does not split.
 	await page.keyboard.press('ArrowRight');
@@ -230,6 +239,30 @@ test('@parity every verb pages through a split slide before it leaves it', async
 	for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
 	await expect(pill).toContainText(/^2(\.[23])? · [123] of 5$/);
 	await at(2);
+});
+
+test('@parity the slide navigator keeps the current slide in view', async ({ page }) => {
+	// The rail under the preview scrolls sideways once the deck outgrows it (always on a phone).
+	// It used to stay put while the deck moved, so the highlighted slide could sit off-screen.
+	const n = await slideCount(page);
+	const inView = () =>
+		page.evaluate(() => {
+			const nav = document.querySelector('nav[aria-label="Slide navigator"]');
+			const on = nav?.querySelector('button[aria-current="true"]');
+			if (!nav || !on) return 'missing';
+			const a = nav.getBoundingClientRect();
+			const b = on.getBoundingClientRect();
+			return b.left >= a.left - 1 && b.right <= a.right + 1 ? 'in view' : `out: pill ${Math.round(b.left)}-${Math.round(b.right)} rail ${Math.round(a.left)}-${Math.round(a.right)}`;
+		});
+	await page.keyboard.press('End');
+	await expect(page.getByText(`Slide ${n} / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	await page.keyboard.press('Home');
+	await expect(page.getByText(`Slide 1 / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+	await expect(page.getByText(`Slide 5 / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
 });
 
 test('@parity a burst of presses on a landscape deck moves exactly that many slides', async ({ page }) => {
