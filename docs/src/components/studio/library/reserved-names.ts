@@ -19,6 +19,7 @@
 // (its keys ARE `COMPONENT_NAMES`, pinned by resolve-component.test.js) and a leaf
 // `module.exports` the dev shim can default-import.
 import STAGE_CATALOG from '../../../../../lib/forms/cell/masthead/stage-catalog.generated.js';
+import rename from '../../../../../lib/packages/rename.js';
 import { SHIPPED_THEME_NAMES } from '../../../lib/theme-catalog.generated';
 
 /** Every theme name the engine ships, `-dark` companions and `lattice` included. */
@@ -40,23 +41,9 @@ export function unreservedName(reserved: ReadonlySet<string>, name: string): str
 }
 
 /**
- * Rewrite a component's class selector `.from` to `.to` in its CSS. A component's
- * CSS is scoped by its own class (`section.kpi …`, `.kpi .row`), so a rename that
- * left the selectors alone would save `kpi-custom` whose rules still target `.kpi`,
- * which is the exact shadowing this module exists to stop.
- *
- * The match is a whole class token: `.kpi` followed by anything that can't continue
- * an identifier, so `.kpi-row` and `.kpis` are left alone.
+ * Rewrite a component's class selector `.from` to `.to` in its CSS — the kernel in
+ * lib/packages/rename.js, shared with the CLI's `lattice packages add`. A component's CSS
+ * is scoped by its own class, so a rename that left the selectors alone would save
+ * `kpi-custom` whose rules still target `.kpi`.
  */
-export function renameComponentSelectors(css: string, from: string, to: string): string {
-	if (!from || from === to) return css;
-	const esc = from.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-	return (
-		String(css ?? '')
-			.replace(new RegExp(`\\.${esc}(?![A-Za-z0-9_-])`, 'g'), `.${to}`)
-			// …and a class ATTRIBUTE selector whose value is exactly the name:
-			// `[class~="kpi"]`, `[class=kpi]`, `[class*='kpi' i]`. Left alone, it would
-			// still target the shipped class after the rename.
-			.replace(new RegExp(`(\\[\\s*class\\s*[~|^$*]?=\\s*)(["']?)${esc}\\2(?=[\\s\\]])`, 'g'), `$1$2${to}$2`)
-	);
-}
+export const renameComponentSelectors: (css: string, from: string, to: string) => string = rename.renameComponentSelectors;

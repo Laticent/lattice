@@ -16,6 +16,35 @@ describe('lattice-file', () => {
 		expect(m.comments).toHaveLength(2);
 	});
 
+	// portable-packages §4: the saved assets a deck uses ride along as package folders, and
+	// come back out through the same reader as a Library zip.
+	it('carries package folders and reads them back as a parsed bundle', async () => {
+		const theme = { type: 'theme' as const, name: 'probe-brand', files: { 'probe-brand.manifest.json': JSON.stringify({ name: 'probe-brand', type: 'theme', format: 1, label: 'Probe' }), 'probe-brand.css': "/* @theme probe-brand */\n@import 'lattice';\n:root { --accent: #2d4ed8; }\n" } };
+		const blob = await exportLatticeBlob(SRC, 'My deck', COMMENTS, 99, [theme]);
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(blob);
+		expect(Object.keys(zip.files).filter((f) => !zip.files[f].dir)).toEqual(expect.arrayContaining(['packages/theme/probe-brand/probe-brand.css', 'packages/theme/probe-brand/probe-brand.manifest.json']));
+		const back = await readLatticeFile(blob);
+		expect(back.source).toBe(SRC);
+		expect(back.packages.themes.map((t) => t.name)).toEqual(['probe-brand']);
+		expect(back.packages.themes[0].css).toBe(theme.files['probe-brand.css']);
+	});
+
+	it('a file with no packages (every .lattice before format 1 of packages) reads an empty bundle', async () => {
+		const back = await readLatticeFile(await exportLatticeBlob(SRC, 'My deck', COMMENTS, 99));
+		expect(back.packages.themes).toEqual([]);
+		expect(back.packages.components).toEqual([]);
+		expect(back.packages.refused).toEqual([]);
+	});
+
+	it('a carried package with code is refused by name, and the deck still opens', async () => {
+		const bars = { type: 'component' as const, name: 'bars', files: { 'bars.manifest.json': JSON.stringify({ name: 'bars', type: 'component', format: 1 }), 'bars.styles.css': 'section.bars {}', 'bars.gallery.md': '<!-- _class: bars -->', 'bars.transform.js': 'module.exports = () => ""' } };
+		const back = await readLatticeFile(await exportLatticeBlob(SRC, 'My deck', COMMENTS, 99, [bars]));
+		expect(back.source).toBe(SRC);
+		expect(back.packages.components).toEqual([]);
+		expect(back.packages.refused.map((r) => r.name)).toContain('bars');
+	});
+
 	it('round-trips source + comments losslessly through the zip', async () => {
 		const blob = await exportLatticeBlob(SRC, 'My deck', COMMENTS, 99);
 		const back = await readLatticeFile(blob);

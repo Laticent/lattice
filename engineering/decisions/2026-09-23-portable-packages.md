@@ -287,10 +287,11 @@ the repo, a manifest, a zip that matches the folder, and a place in `list`.
 ## 6. The CLI
 
 ```
-lattice packages list   [--type theme|component|finish|motion]   shipped + project, with a SOURCE column
-lattice packages add    <file.zip | folder>                      gate, then copy into the project folder
+lattice packages list   [--type theme|component|finish|motion]   shipped + installed, with a SOURCE column
+lattice packages add    <file.zip | folder> [--replace]          gate, then copy into the store
+lattice packages check  <file.zip | folder>                      gate only; install nothing
 lattice packages export <type>/<name> [-o file.zip]              zip one package (refused if it carries code)
-lattice packages remove <type>/<name>                            project packages only; shipped are read-only
+lattice packages remove <type>/<name>                            installed packages only; shipped are read-only
 ```
 
 **Where the CLI keeps user packages:** a user-global `~/.lattice/packages/<type>/<name>/`,
@@ -488,3 +489,34 @@ it is the record of what was wrong.
   `poster.svg` is optional, because the Studio has always allowed a scene without one. The `@theme` helpers moved out of
   `parse.js` into `lib/theme/directive.js` (re-exported, API unchanged), so the spine's
   browser bundle is 15.7 KB instead of 63 KB.
+- **Phase 4, the CLI's packages: done.** `lattice packages list | add | check | export
+  | remove` (`lib/packages/cli.js`, dispatched from `lattice-emulator.js` before any
+  render argument is parsed) works over `lib/packages/home.js`'s store:
+  `--packages <dir>`, else `$LATTICE_HOME/packages`, else `~/.lattice/packages`.
+  `add` runs the Studio's own gates, not a copy of them: the refusing rules moved into
+  the leaf `lib/packages/import-gate.js`, the caps into `limits.js`, and the selector
+  rename into `rename.js`, and the Studio's `import-gate.ts`, `zip-limits.ts` and
+  `reserved-names.ts` now import those leaves. A shipped name installs as
+  `<name>-custom` with its `@theme` or its selectors and gallery rewritten, a package
+  with a `transform.js` is refused by name, and `add` will not overwrite an installed
+  package without `--replace`.
+  The render path looks up a theme it doesn't ship in the store, and fails with the name
+  and the `add` command when it isn't there. An installed theme may extend ONE shipped
+  palette by `@import`; it may not extend another installed theme, and `add` refuses
+  one that tries, because the render resolves parents among the shipped palettes only.
+  An installed component's CSS is embedded into the deck with the Studio Markdown
+  export's bridge (`lib/packages/render.js`), so the engine needs no second path for
+  it; a component the deck already embeds keeps the deck's copy. `lattice` is reserved
+  as a theme name, as the Studio reserves it. `packages export` of a shipped component
+  works from a repo checkout only, because the npm package leaves galleries out.
+  A `.lattice` project now carries the saved theme, components and finishes the deck
+  uses as `packages/<type>/<name>/` folders (§4). They come back out through the
+  Library's reader, and opening the file routes them through the one import funnel
+  (`library/import-parsed.ts`, which the Library's `.zip` import uses too), so a
+  project file is never a side door around the gates. A carried package that replaces
+  a saved one of the same name keeps the old version in its history, and the toast
+  says so.
+  `jszip` moved from `devDependencies` to `dependencies`: the CLI reads and writes zips
+  at run time (`packages add <zip>`, `packages export`, and the image-set `.zip` output).
+  It used to arrive only through `pptxgenjs`'s dependency on it, which a strict installer
+  such as pnpm does not expose to Lattice.

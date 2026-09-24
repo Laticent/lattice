@@ -109,6 +109,20 @@ Installed via npm, the same binary is `npx lattice`.
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
 `indaco`.
 
+**A theme or component the deck names but Lattice doesn't ship** resolves from the
+installed packages, `~/.lattice/packages/<type>/<name>/` (or `$LATTICE_HOME/packages`,
+or `--packages <dir>` for one run). Install one with `lattice packages add
+<studio-export>.zip`; the gates are the Studio's import gates, so a theme that reaches
+off the device or a package that carries JavaScript is refused by name. A deck naming
+a theme that is neither shipped nor installed fails with that name and the `add`
+command; it never falls back to another theme. The installed theme's file joins the
+palette chain after its shipped parent, and an installed component's CSS is embedded into
+the deck the way the Studio's Markdown export does it (`lib/packages/render.js`), so
+neither needs a special case in the engine. A component the deck already embeds keeps the
+deck's copy. `lattice packages list | add | check | export | remove`; `lattice packages
+--help` prints the usage;
+`engineering/decisions/2026-09-23-portable-packages.md` §6 is the design.
+
 PNG/PPTX rasterize at 2× the slide dimensions (2560×1440 from 1280×720) —
 sharp on retina displays and projectors. PDF stays vector throughout (text,
 SVG-rendered Mermaid, code highlighting); the 2× scale only affects the

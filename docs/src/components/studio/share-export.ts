@@ -16,9 +16,12 @@ import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
+import type { StudioComponent } from './component-library';
+import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { BakeVoice } from './read-aloud';
 import type { OverflowMarker } from './studio-store';
+import type { StudioTheme } from './theme-library';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -63,6 +66,8 @@ async function ensureReady(options: SingleSlideOptions): Promise<PG> {
 export type ExtraTheme = { name: string; css: string };
 /** A saved component the deck uses: its class name and its CSS. */
 export type LocalComponentCss = { name: string; css: string };
+/** The saved Library records a deck uses — what a `.lattice` project carries along. */
+export type DeckPackages = { themes: StudioTheme[]; components: StudioComponent[]; finishes: StudioFinish[] };
 
 /**
  * Register the theme to render with and return its name. A saved library theme
@@ -780,10 +785,13 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
 /** The `.lattice` project file — the deck source + its review comments in one zip,
  *  so comments travel with the deck (re-import restores both). `now` is stamped by
  *  the caller (app code) into the manifest; the download name gets a `.lattice` ext. */
-export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number): Promise<void> {
-	const [{ exportLatticeBlob }, { listComments }] = await Promise.all([import('./lattice-file'), import('./slide-comments')]);
+export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number, packages?: DeckPackages): Promise<void> {
+	const [{ exportLatticeBlob }, { listComments }, pz] = await Promise.all([import('./lattice-file'), import('./slide-comments'), import('./package-zip')]);
 	const comments = deckId ? listComments(deckId) : [];
-	const blob = await exportLatticeBlob(source, deckTitle, comments, now);
+	// The user packages the deck uses ride inside the project file, as package folders, so
+	// it opens on a machine that has never seen this Library (portable-packages §4).
+	const pkgs = packages ? [...packages.themes.map(pz.themePackage), ...packages.components.map(pz.componentPackage), ...packages.finishes.map(pz.finishPackage)] : [];
+	const blob = await exportLatticeBlob(source, deckTitle, comments, now, pkgs);
 	const { downloadBlob } = await import('./download');
 	downloadBlob(`${name}.lattice`, blob);
 }

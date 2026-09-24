@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { CHROME, expect, gotoStudio, setEditorContent, shareExport, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, setEditorContent, shareExport, test } from './studio-fixture';
 
 // A SAVED THEME AND COMPONENT SURVIVE THE SOURCE HANDOFFS, on the real Studio (HARD
 // RULE #23). 2026-09-23-portable-packages.md §1 found three ways they didn't:
@@ -42,7 +42,7 @@ theme: ${THEME}
 A saved component in a saved theme.
 `;
 
-async function download(page: Page, format: 'markdown' | 'marp'): Promise<string> {
+async function download(page: Page, format: 'markdown' | 'marp' | 'lattice'): Promise<string> {
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const [file] = await Promise.all([page.waitForEvent('download'), shareExport(page, format)]);
 	const path = await file.path();
@@ -52,8 +52,8 @@ async function download(page: Page, format: 'markdown' | 'marp'): Promise<string
 	return path;
 }
 
-test('a saved theme and component ride in the Markdown and Marp exports', async ({ page }) => {
-	test.slow();
+/** Fabricate saves a theme and a component into the real store, and the deck uses both. */
+async function saveProbes(page: Page) {
 	await gotoStudio(page);
 	await openFabricate(page);
 
@@ -64,12 +64,17 @@ test('a saved theme and component ride in the Markdown and Marp exports', async 
 	await page.getByRole('button', { name: 'Component', exact: true }).click();
 	await page.getByRole('textbox', { name: 'Component name' }).fill(COMPONENT);
 	await retype(page, 'Component skeleton', `<!-- _class: ${COMPONENT} -->\n\n## Boxed\n\nBody.`);
-	await retype(page, 'Component CSS', `section.${COMPONENT} { display: grid; }\nsection.${COMPONENT} h2 { color: var(--accent); }`);
+	await retype(page, 'Component CSS', `section.${COMPONENT} { outline: 3px solid var(--accent); }\nsection.${COMPONENT} h2 { color: var(--accent); }`);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByText(new RegExp(`Saved .*${COMPONENT}`)).first()).toBeVisible();
 
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
 	await setEditorContent(page, DECK);
+}
+
+test('a saved theme and component ride in the Markdown and Marp exports', async ({ page }) => {
+	test.slow();
+	await saveProbes(page);
 
 	const md = fs.readFileSync(await download(page, 'markdown'), 'utf8');
 	expect(md, 'the Markdown export embeds the saved component').toContain(`section.${COMPONENT} h2`);
@@ -83,6 +88,63 @@ test('a saved theme and component ride in the Markdown and Marp exports', async 
 	expect(names.some((n) => n.endsWith('/themes/indaco.css')), 'no silent indaco fallback').toBe(false);
 	const deck = names.find((n) => /\/[^/]+\.md$/.test(n) && !/README|AGENTS/.test(n));
 	expect(await zip.file(deck ?? '')?.async('string'), 'the Marp deck embeds the saved component').toContain(`section.${COMPONENT} h2`);
+});
+
+// §4: a `.lattice` project carries the saved packages the deck uses, and opening it in a
+// Studio that has never seen them adds them to that Library and renders the deck with them.
+// The second profile is a fresh browser context: its own IndexedDB, so nothing leaks across.
+test('a .lattice project carries its saved theme and component to another Studio', async ({ page, browser }) => {
+	test.slow();
+	await saveProbes(page);
+	// What the deck renders with, read inside the preview: the theme's accent and the outline
+	// the component's rule sets. The origin is the reference the other Studio must match.
+	const rendered = (pg: Page) =>
+		livePreview(pg)
+			.locator(`section.${COMPONENT}`)
+			.first()
+			.evaluate((s) => {
+				const probe = document.createElement('i');
+				probe.style.color = 'var(--accent)';
+				s.append(probe);
+				const accent = getComputedStyle(probe).color;
+				probe.remove();
+				return { accent, outline: getComputedStyle(s).outlineStyle };
+			});
+	const origin = await rendered(page);
+	expect(origin.outline, 'the saved component renders at the origin').toBe('solid');
+	const file = await download(page, 'lattice');
+	const { default: JSZip } = await import('jszip');
+	const zip = await JSZip.loadAsync(fs.readFileSync(file));
+	const names = Object.keys(zip.files);
+	expect(names, 'the project carries the theme package').toContain(`packages/theme/${THEME}/${THEME}.css`);
+	expect(names, 'the project carries the component package').toContain(`packages/component/${COMPONENT}/${COMPONENT}.styles.css`);
+
+	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
+	try {
+		const p2 = await other.newPage();
+		await gotoStudio(p2);
+		// The arm that lets the accent check fail: before the import, the other Studio's
+		// accent (its site palette) is not the saved theme's.
+		const before = await livePreview(p2).locator('section').first().evaluate((s) => {
+			const probe = document.createElement('i');
+			probe.style.color = 'var(--accent)';
+			s.append(probe);
+			const accent = getComputedStyle(probe).color;
+			probe.remove();
+			return accent;
+		});
+		expect(before).not.toBe(origin.accent);
+		// By name: Playwright's download path has no extension, and the Studio picks the reader by it.
+		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: fs.readFileSync(file) });
+		await expect(p2.getByText(/Added the deck's 1 theme\(s\) \+ 1 component\(s\) to your Library/).first()).toBeVisible({ timeout: 30_000 });
+		// The oracle is the render. The component's rule outlines the section (nothing else in the engine sets `outline`); the
+		// theme's accent must match the origin's, and it is not the site palette's (the
+		// other Studio falls back to that when the deck's theme is unknown).
+		await expect(livePreview(p2).locator(`section.${COMPONENT}`).first()).toBeVisible({ timeout: 40_000 });
+		await expect.poll(() => rendered(p2)).toEqual(origin);
+	} finally {
+		await other.close();
+	}
 });
 
 test('a theme saved under a shipped name is stored as <name>-custom', async ({ page }) => {

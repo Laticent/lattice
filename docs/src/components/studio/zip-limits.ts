@@ -13,12 +13,16 @@
 // total over the cap, but that one read has already inflated in full.
 // JSZip exposes no streaming read to stop it sooner.
 
+// The numbers live in lib/packages/limits.js, shared with the CLI's `lattice packages add`.
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import limits from '../../../../lib/packages/limits.js';
+
 /** Largest archive accepted, on disk. */
-export const MAX_ZIP_BYTES = 25 * 1024 * 1024;
-/** Largest total the archive's entries may inflate to. */
-export const MAX_INFLATED_BYTES = 64 * 1024 * 1024;
-/** Most entries an asset archive may hold. A bundle of every shipped asset is a few hundred. */
-export const MAX_ZIP_ENTRIES = 2000;
+export const MAX_ZIP_BYTES: number = limits.MAX_ZIP_BYTES;
+/** Largest total the entries a reader opens may inflate to. */
+export const MAX_INFLATED_BYTES: number = limits.MAX_INFLATED_BYTES;
+/** Most entries an asset archive may hold. */
+export const MAX_ZIP_ENTRIES: number = limits.MAX_ZIP_ENTRIES;
 
 /** The uncompressed size an entry declares, or 0 when it declares none. */
 export function declaredInflatedBytes(entry: unknown): number {

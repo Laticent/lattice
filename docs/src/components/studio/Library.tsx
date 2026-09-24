@@ -10,18 +10,17 @@ import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
-import { deleteStudioComponent, listStudioComponents, type StudioComponent, saveStudioComponent, toMeta } from './component-library';
+import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { generateSwatch } from './finish-generate';
-import { deleteStudioFinish, listStudioFinishes, type StudioFinish, saveStudioFinish } from './finish-library';
-import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from './import-gate';
+import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
+import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
-import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
-import { deleteStudioScene, listStudioScenes, type StudioScene, saveStudioScene } from './scene-library';
+import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
-import { deleteStudioTheme, listStudioThemes, type StudioTheme, saveStudioTheme } from './theme-library';
+import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 
 // The unified Library — one shelf for every saved theme + component + finish + the
 // user's reference docs (#651), with a consistent apply/insert · share · manage flow
@@ -485,46 +484,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let failure: string | null = null;
 		try {
 			for (const f of Array.from(files)) {
-				const { themes: ts, components: cs, finishes: fs, scenes: ms, notes: ns, refused: rs } = await unpackBundle(f);
-				// What the package reader refused (a code package, an unreadable folder) or changed
-				// (a file renamed to its manifest's name, a stray file left out) is said, not swallowed.
-				for (const r of rs) refused.push(r);
-				notes.push(...ns);
-				// `historyLabel` — an import that lands on a name you already use REPLACES that
-				// record (the store dedupes by kind+name when no id is passed), so the version it
-				// snapshots is the one thing between a stranger's .zip and your own work.
-				for (const t of ts) {
-					const no = await refuseImportedTheme(t.css, t.label || t.name);
-					if (no) { refused.push(no); continue; }
-					const st = await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css, ...(t.overrides ? { overrides: t.overrides } : {}), ...(t.rampStrategy ? { rampStrategy: t.rampStrategy } : {}), ...(t.pkg ? { pkg: t.pkg } : {}) }, { historyLabel: 'Before import' });
-					if (RESERVED_THEME_NAMES.has(t.name)) renamed.push(`theme “${t.name}” → “${st.name}”`);
-					nThemes++;
-				}
-				for (const c of cs) {
-					const no = await refuseImportedComponent(c.css, c.name);
-					if (no) { refused.push(no); continue; }
-					// A package carries the full manifest, so a component imported from one keeps its
-					// function/form/substance/description and can be re-saved; a legacy zip carried
-					// only the bucket.
-					const sc = await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: c.manifest ? toMeta(c.manifest) : { bucket: c.bucket || undefined }, ...(c.pkg ? { pkg: c.pkg } : {}) }, { historyLabel: 'Before import' });
-					if (RESERVED_COMPONENT_NAMES.has(c.name)) renamed.push(`component “.${c.name}” → “.${sc.name}”`);
-					nComps++;
-				}
-				// A finish needs no CSS gate: `saveStudioFinish` DISCARDS the bundle's CSS and
-				// regenerates it from the recipe, and `coerceRecipe` clamps every number and
-				// enum-checks every keyword on the way in. Safe by construction, not by a scan.
-				for (const fin of fs) { await saveStudioFinish({ name: fin.name, label: fin.label, css: fin.css, recipe: fin.recipe, ...(fin.pkg ? { pkg: fin.pkg } : {}) }, { historyLabel: 'Before import' }); nFinishes++; }
-				// `unpackBundle` has always parsed scenes; the Library simply threw them away, so a
-				// bundle round-tripped through Export and Import lost every motion asset in silence.
-				// The art goes back through `saveStudioScene`, which re-sanitizes at the store boundary.
-				for (const m of ms) {
-					try {
-						await saveStudioScene({ name: m.name, label: m.label, description: m.description, spec: m.spec, art: m.art, poster: m.poster, ...(m.pkg ? { pkg: m.pkg } : {}) });
-						nScenes++;
-					} catch {
-						refused.push({ name: m.label || m.name, why: 'its motion plan is not valid' });
-					}
-				}
+				// ONE import funnel for every source of packages — this zip, and the packages a
+				// `.lattice` project carries (library/import-parsed.ts): the same CSS gates, the
+				// same reserved-name renames, the same refusals.
+				const { importParsedBundle } = await import('./library/import-parsed');
+				const t = await importParsedBundle(await unpackBundle(f));
+				nThemes += t.themes;
+				nComps += t.components;
+				nFinishes += t.finishes;
+				nScenes += t.scenes;
+				refused.push(...t.refused);
+				renamed.push(...t.renamed);
+				notes.push(...t.notes);
 			}
 		} catch (e) {
 			// Recorded, NOT raised here. The `finally` below speaks unconditionally, and

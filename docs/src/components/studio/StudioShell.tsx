@@ -1924,17 +1924,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// finish's baked layers — backdrop strength/clearance and any other layer). Empty when
 	// absent. Only the DECK-WIDE active finish honors it; per-slide finishes render baked.
 	const finishOverride = React.useMemo(() => parseFinishOverride(source), [source]);
+	// The saved finishes this deck uses: the `finish-<slug>` class token as a whole word
+	// (front-matter value or a per-slide _class line), or the bare deck-wide slug (back-compat).
+	const usedSavedFinishes = React.useMemo(
+		() =>
+			savedFinishes.filter((f) => {
+				const esc = `finish-${f.name}`.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+				return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
+			}),
+		[savedFinishes, source, finish],
+	);
 	const finishExtraCss = React.useMemo(() => {
-		if (!savedFinishes.length) return undefined;
+		if (!usedSavedFinishes.length) return undefined;
 		const hasOverride = Object.keys(finishOverride).length > 0;
-		const used = savedFinishes.filter((f) => {
-			const token = `finish-${f.name}`;
-			// the `finish-<slug>` class token as a whole word (front-matter value or a
-			// per-slide _class line), or the bare deck-wide slug (back-compat).
-			const esc = token.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-			return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
-		});
-		return used
+		return usedSavedFinishes
 			.map((f) => {
 				// The active deck-wide finish REGENERATES with the override deep-merged into its
 				// recipe (backdrop + any layer); every other used finish renders its baked CSS.
@@ -1943,7 +1946,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			})
 			.filter(Boolean)
 			.join('\n\n') || undefined;
-	}, [savedFinishes, source, finish, finishOverride]);
+	}, [usedSavedFinishes, finish, finishOverride]);
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
@@ -2143,7 +2146,34 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (/\.lattice$/i.test(file.name)) {
 			import('./lattice-file')
 				.then(({ readLatticeFile }) => readLatticeFile(file))
-				.then(({ source: src, title, comments }) => openImportedDeck(src, title, comments))
+				.then(async ({ source: src, title, comments, packages }) => {
+					openImportedDeck(src, title, comments);
+					// The saved themes/components/finishes the deck was exported with ride in the
+					// file as package folders (portable-packages §4). They go through the SAME funnel
+					// as a Library import — same gates, same `-custom` rename, same refusals — so a
+					// `.lattice` file is never a side door around them.
+					if (!packages.themes.length && !packages.components.length && !packages.finishes.length && !packages.scenes.length && !packages.refused.length) return;
+					const had = new Set([...savedThemes.map((t) => `theme ${t.name}`), ...localComponents.map((c) => `component ${c.name}`), ...savedFinishes.map((f) => `finish ${f.name}`)]);
+					const { importParsedBundle } = await import('./library/import-parsed');
+					const t = await importParsedBundle(packages);
+					// Only what was actually SAVED replaced anything: a refused item left the saved one alone.
+					const refusedNames = new Set(t.refused.map((r) => r.name));
+					const replaced = [...packages.themes.map((x) => ['theme', x.name, x.label || x.name]), ...packages.components.map((x) => ['component', x.name, x.name]), ...packages.finishes.map((x) => ['finish', x.name, x.label || x.name])]
+						.filter(([kind, name, shown]) => had.has(`${kind} ${name}`) && !refusedNames.has(name) && !refusedNames.has(shown))
+						.map(([kind, name]) => `${kind} ${name}`);
+					refreshThemes();
+					refreshComponents();
+					refreshFinishes();
+					refreshScenes();
+					const got = [t.themes && `${t.themes} theme(s)`, t.components && `${t.components} component(s)`, t.finishes && `${t.finishes} finish(es)`, t.scenes && `${t.scenes} motion(s)`].filter(Boolean).join(' + ');
+					const detail = [
+						replaced.length ? `Replaced your saved ${replaced.join(', ')} with the file's copy — the earlier version is in its history.` : null,
+						t.renamed.length ? `Renamed because a shipped item uses the name: ${t.renamed.join(', ')}.` : null,
+						t.refused.length ? `Not added: ${t.refused.map((r) => `${r.name} (${r.why})`).join('; ')}.` : null,
+						t.notes.length ? t.notes.join(' ') : null,
+					].filter(Boolean).join('\n') || undefined;
+					notify(got ? `Added the deck's ${got} to your Library.` : 'The deck carried assets that were not added.', { description: detail });
+				})
 				// A stale tab fails HERE before it ever reads the file (#1242): the reader is a
 				// lazy chunk, and a superseded deploy's URL is gone. Blaming the .lattice file
 				// for that sends the user to re-export a perfectly good deck — name the real
@@ -2994,6 +3024,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// deck still pins dark via modeOverride.
 		return { paletteOverride: activeTheme?.name, extraTheme, modeOverride };
 	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
+	// The saved Library records this deck uses — its saved theme, its saved components and
+	// its saved finishes — which a `.lattice` project carries along as package folders
+	// (portable-packages §4). Built from the same derivations the preview uses, so the file
+	// carries exactly what renders.
+	const deckPackages = React.useMemo(() => {
+		// Only a theme the deck NAMES: an un-themed deck previews in the site picker's theme,
+		// which the file must not carry as if the deck depended on it.
+		const named = getFrontMatter(source, 'theme');
+		const themeName = named && preview.extraTheme?.name === named ? named : undefined;
+		const usedComps = new Set(usedLocalComponents.map((c) => c.name));
+		return {
+			themes: themeName ? savedThemes.filter((t) => t.name === themeName) : [],
+			components: localComponents.filter((c) => usedComps.has(c.name)),
+			finishes: usedSavedFinishes,
+		};
+	}, [source, preview.extraTheme, savedThemes, usedLocalComponents, localComponents, usedSavedFinishes]);
 
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
 	// Mirrors for the mount-once navigation listeners below: the keydown handler is
@@ -5678,7 +5724,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →

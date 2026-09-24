@@ -24,7 +24,12 @@ import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
 import type { PackageCarry } from './library/package-carry';
-import { componentFromPackage, componentPackage, finishFromPackage, finishPackage, isPackageZip, motionFromPackage, motionPackage, type PackageFiles, readPackagesFromZip, themeFromPackage, themePackage, writePackagesToZip } from './package-zip';
+import type { PackageFiles } from './package-zip';
+
+// The package converters load on first use, not with the Library: every caller here is
+// already async, and the Studio's eager bundle has a byte budget (docs/route-budget.json).
+const packageZip = () => import('./package-zip');
+
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 import { assertZipWithinLimits, MAX_ZIP_BYTES, readBudget } from './zip-limits';
@@ -229,33 +234,38 @@ async function jszip(): Promise<any> {
 }
 
 async function zipOf(pkgs: PackageFiles[], extras: Record<string, string | Blob>): Promise<Blob> {
-	const zip = await jszip();
+	const [zip, { writePackagesToZip }] = await Promise.all([jszip(), packageZip()]);
 	writePackagesToZip(zip, pkgs, extras);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
 /** Pack ONE theme → a `.zip` Blob. `showcasePdf` (rendered by the caller) rides beside the folder. */
 export async function packTheme(theme: StudioTheme, showcasePdf?: Blob | null): Promise<Blob> {
+	const { themePackage } = await packageZip();
 	return zipOf([themePackage(theme)], { 'README.md': themeReadme(theme, !!showcasePdf), ...(showcasePdf ? { [`${theme.name}-showcase.pdf`]: showcasePdf } : {}) });
 }
 
 /** Pack ONE component → a `.zip` Blob. */
 export async function packComponent(c: StudioComponent): Promise<Blob> {
+	const { componentPackage } = await packageZip();
 	return zipOf([componentPackage(c)], { 'README.md': componentReadme(c) });
 }
 
 /** Pack ONE saved finish → a `.zip` Blob (manifest + recipe; the CSS regenerates on import). */
 export async function packFinish(f: StudioFinish): Promise<Blob> {
+	const { finishPackage } = await packageZip();
 	return zipOf([finishPackage(f)], { 'README.md': finishReadme(f) });
 }
 
 /** Pack ONE scene → a `.zip` Blob. */
 export async function packScene(s: StudioScene): Promise<Blob> {
+	const { motionPackage } = await packageZip();
 	return zipOf([motionPackage(s)], { 'README.md': sceneReadme(s) });
 }
 
 /** Pack a SELECTION of assets into one bundle `.zip`: one `<type>/<name>/` folder each. */
 export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob | null }[], components: StudioComponent[], finishes: StudioFinish[] = [], scenes: StudioScene[] = []): Promise<Blob> {
+	const { themePackage, componentPackage, finishPackage, motionPackage } = await packageZip();
 	const pkgs = [...themes.map((t) => themePackage(t.theme)), ...components.map(componentPackage), ...finishes.map(finishPackage), ...scenes.map(motionPackage)];
 	const extras: Record<string, string | Blob> = {
 		'README.md': `# Lattice asset bundle\n\n${themes.length} theme(s) + ${components.length} component(s) + ${finishes.length} finish(es) + ${scenes.length} motion(s).\nEach folder is a Lattice package: \`<type>/<name>/<name>.manifest.json\` plus its files.\nImport via the Studio → **Library** → **Import .zip**.\n`,
@@ -284,17 +294,19 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 	// Every read below is charged against one running budget (`zip-limits.ts`).
 	const charge = readBudget(TOO_LARGE);
 	const read = async (path: string | undefined): Promise<string | undefined> => (path ? ((charge(await zip.file(path)?.async('string')) as string | undefined) ?? undefined) : undefined);
-	if (isPackageZip(zip)) return unpackPackages(zip, read);
+	if ((await packageZip()).isPackageZip(zip)) return unpackPackages(zip, read);
 	return unpackLegacy(zip, read);
 }
 
-/** A package zip: every `<name>/` folder through the spine, then into the Library's shapes. */
+/** A package zip: every `<name>/` folder through the spine, then into the Library's shapes.
+ *  Exported for the `.lattice` reader, whose `packages/` folders are the same thing. */
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
-async function unpackPackages(zip: any, read: (path: string | undefined) => Promise<string | undefined>): Promise<ParsedBundle> {
+export async function unpackPackages(zip: any, read: (path: string | undefined) => Promise<string | undefined>): Promise<ParsedBundle> {
 	// The declared size of every entry a package folder holds; loose files beside the folders
 	// (a README, a showcase PDF) are never read and don't count.
 	const inFolders = Object.keys(zip.files).filter((p) => !zip.files[p].dir && p.includes('/') && !p.startsWith('showcases/'));
 	assertZipWithinLimits(zip, TOO_LARGE, inFolders);
+	const { readPackagesFromZip, themeFromPackage, componentFromPackage, finishFromPackage, motionFromPackage } = await packageZip();
 	const { packages, refused } = await readPackagesFromZip(zip, (p) => read(p));
 	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [...refused] };
 	for (const p of packages) {
