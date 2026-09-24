@@ -272,15 +272,27 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   block walk over a journey stage yields `PprospectSsalesUuserOonboarding` and
   `Pain12345Delight`, the index welded to its label. An invented description is worse than an
   absent one, so a component that describes itself nowhere still gets the note alone.
-- **The bake's UTF-8 double-encoding now reaches the reading article.** A browser-drawn
-  `function-plot` captured by the bake ships its axis label as `x²` double-encoded — it renders
-  `XÂ²`. Pre-existing in the capture (`--player` has carried the identical bytes all along), and
-  the net for that slide is still a plot instead of a placeholder, but `--read` is a surface
-  that did not show it before. Off-path for the change that surfaced it; recorded rather than
-  fixed. Same shape: a journey step labelled `R&D` reads `R&amp;D` in the article and to a
-  screen reader, because the label arrives already entity-encoded and is escaped again — the
-  visible chip on the slide has always done the same, so the description is consistent with
-  shipped behavior rather than newly wrong.
+- ~~**The bake's UTF-8 double-encoding now reaches the reading article.**~~ **Resolved
+  2026-09-24, and it was never the bake.** The `functionplot` fence packs its config as UTF-8
+  base64, and BOTH inflaters decoded it with a bare `atob`: the runtime's
+  (`lib/runtime/index.js`, which the Studio and every exported document run) and a second copy
+  the emulator writes into its render page. `atob` hands each UTF-8 byte back as its own
+  character, so `x²` (bytes C2 B2) drew as `xÂ²`. That was already wrong on the SLIDE, in the
+  PDF too, so the bake captured it faithfully. The committed `examples/marp-export-fidelity.pdf`
+  carried it. The pair now lives in one kernel, `lib/core/base64-utf8.js`: the fence encoder
+  and the runtime `require` it, and the emulator injects its `fromBase64` source. Measured on a
+  one-plot deck: `--player` went from `Â²` ×2 / `x²` ×0 to `Â²` ×0 / `x²` ×2, and `--read` from
+  `Â²` ×1 to `x²` ×1 (`test/integration/invariants/functionplot-utf8.test.js`, red on the old
+  decoder). The same bare `atob` also sits in `docs/src/lib/anima/hydrate.ts`, which decodes the
+  `anima` fence's spec from the same encoder. It is left for its own change, because fixing it
+  regenerates the committed anima player bundle, and it is recorded in `followups.d/`.
+  **The sibling `R&D` → `R&amp;D` is a different bug, and it is decided: fix it separately.**
+  It is not the bake either. `journey.transform.js` reads each step label out of markdown-it's
+  HTML, where `&` is already `&amp;`. `stripTags` keeps the entity, and `escHtml` escapes it
+  again. So the visible chip on the slide says `R&amp;D` too, not just the description. The fix
+  is to decode entities once after `stripTags`, as `state-chart` does. That changes a surface a
+  human sees on a slide, so under HARD RULE #9 it owes its own demo deck. Recorded in
+  `followups.d/` with that root cause rather than folded into a change about the bake.
 - **Readability drops part of short decks even from a clean article.** `examples/a11y.md`
   extracts 216 of 334 words (65%) from the projection alone, because its paragraphs are
   short. That is a floor in their algorithm, not something this change can move.

@@ -861,6 +861,7 @@ const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
 const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
 const { deckSlideSections, DECK_SLIDES_SRC } = require('./lib/core/deck-slides');
+const { fromBase64: fromBase64Utf8 } = require('./lib/core/base64-utf8');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
@@ -2802,12 +2803,14 @@ const functionPlotScript = (hasFunctionPlot && functionPlotJsAbsPath)
   ? `<script ${ENGINE_SCRIPT_ATTR} src="file://${functionPlotJsAbsPath}"></script>
 ${ENGINE_SCRIPT_OPEN}
 (function(){
+  // UTF-8, not a bare atob: the runtime's decoder, injected verbatim (lib/core/base64-utf8.js).
+  var fromBase64 = ${fromBase64Utf8.toString()};
   function inflate() {
     if (typeof window.functionPlot !== 'function') return;
     document.querySelectorAll('div.functionplot[data-fp-config]').forEach(function(div){
       if (div.dataset.fpInflated === '1') return;
       try {
-        var cfg = JSON.parse(atob(div.getAttribute('data-fp-config')));
+        var cfg = JSON.parse(fromBase64(div.getAttribute('data-fp-config')));
         var rect = div.getBoundingClientRect();
         cfg.target = div;
         cfg.width  = cfg.width  || Math.round(rect.width)  || 480;

@@ -1,1 +1,2 @@
 - The export's OVERFLOW, content-cut and chart label warnings, and the guards trim now number pages by the deck's own slides. A deck that pasted a `<section data-lattice-slide>` example, or the whole export scaffold, used to count it as a slide, so every later page number was off by one ("pages 1, 3" on a two-slide deck).
+- A `functionplot` whose config holds non-ASCII text now draws it correctly. An axis label `x²` used to draw as `xÂ²` on the slide, in the PDF, in `--player` and in the `--read` article: both inflaters decoded the UTF-8 config with a bare `atob`.
