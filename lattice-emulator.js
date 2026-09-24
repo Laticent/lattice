@@ -1870,9 +1870,6 @@ function renderMermaid(definition, mode, look, hand = false) {
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor, orientationCss, geometryVarsCss } = require('./lib/engine/css');
-// The ONE family classifier (lib/adaptive/README.md) — the same call the engine's `data-family`
-// stamp makes, so the split gate and the components can never disagree about which box this is.
-const { familyFor } = require('./lib/adaptive/families');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // The one pattern that says "this is a Mermaid fence", shared with the narrator (#1).
 const { matchMermaidFences } = require('./lib/core/mermaid-fences');
@@ -2227,26 +2224,14 @@ const ENGINE_BUILD = pkgVersion() ?? '';
 const AUTOSPLIT = !NO_SPLIT;
 const SPLIT_CAP = (() => {
   if (!AUTOSPLIT) return {};
-  const map = {};
   // Resolve the manifest tree from PKG_ROOT, not the module's __dirname: in
   // the esbuild bundle __dirname is <pkg>/dist/ (no manifests there), which
   // made autosplit a SILENT NO-OP for every npx/npm consumer of the packaged
   // CLI while working in the repo. lib/ ships in the tarball, so the
   // package-root walk lands on the real manifests in both worlds.
-  for (const m of require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components'))) {
-    const axis = m.capacity?.axis ?? m.adapt?.capacity?.axis;
-    // A layout joins the split registry if it can paginate (has a capacity axis) OR
-    // declares a carousel `split` recipe (read-across re-authored as a sequence).
-    // `perPage` is the AUTHORED split pacing — how many members ride one page of a split
-    // run (1 for a heavy member that atomizes). Distinct from `sweet`, which is authoring
-    // comfort; auto-split.js `splitTargetOf` prefers it and falls back to sweet → soft → hard.
-    // `relationship` is the CONNECTED-MEMBER kind (§0b, §8 rule 12a) — the split kernel needs it
-    // to derive each page's "→ next / ↻ back to / governs ↓ / Option N of M" adornment. This
-    // projection is a hand-listed whitelist, so a capacity field absent here reaches the kernel as
-    // `undefined` and the feature is a SILENT no-op (the manifests declared it, every unit test
-    // passed, and the real render emitted nothing — caught only by looking at the render).
-    if (axis || m.split) map[m.name] = { axis: axis ?? null, hard: m.capacity?.hard ?? null, sweet: m.capacity?.sweet ?? null, soft: m.capacity?.soft ?? null, perPage: m.capacity?.perPage ?? null, relationship: m.capacity?.relationship ?? null, split: m.split ?? null };
-  }
+  // The projection itself is shared with the browser bundle (lib/core/structural-split.js
+  // `splitCapacityFrom`), so the CLI and the live preview read the same map.
+  const map = require('./lib/core/structural-split').splitCapacityFrom(require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components')));
   // An empty registry with autosplit requested means the manifests were not
   // found — the exact silent failure this resolver fix closes. Never quiet.
   if (!Object.keys(map).length) {
@@ -2297,13 +2282,13 @@ const slideH         = parseFloat(_geom.height);
 // cannot happen — inline dimensions are not a size value, and the #502 fail-fast rejects an
 // unregistered name before this line runs.)
 //
-// The `Number.isFinite` guard is not defensive noise: both sibling call sites carry it
-// (lib/engine/index.js:171, lib/engine/css.js orientationFor), because `familyFor(NaN)` falls
-// through every band and returns 'strip' — the opposite verdict from the 'wide' those two produce
-// for the same degenerate geometry. Dropping it here is how the gate and the `data-family` stamp
-// would come to disagree about one box, which is exactly what this gate must never do.
-const AUTOSPLIT_APPLIES = AUTOSPLIT
-  && familyFor(Number.isFinite(slideW) && Number.isFinite(slideH) && slideH > 0 ? slideW / slideH : 16 / 9) !== 'wide';
+// The gate is `splitApplies` (lib/core/structural-split.js), shared with the browser preview so
+// the two can never disagree about which box splits. It calls the ONE family classifier
+// (lib/adaptive/families.js `familyFor`), the same call the engine's `data-family` stamp makes,
+// and keeps the `Number.isFinite` guard both sibling call sites carry (lib/engine/index.js,
+// lib/engine/css.js orientationFor): `familyFor(NaN)` falls through every band and returns
+// 'strip', the opposite verdict from the 'wide' those two produce for the same degenerate box.
+const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').splitApplies(slideW, slideH);
 // Orientation scaling/fill (social/mobile portrait + square @sizes). Empty for
 // landscape, so the HD/4K PDF is byte-identical. Same helper the engine
 // scaffold + runtime use, so every render path agrees.
@@ -3734,7 +3719,7 @@ async function renderBody(browser, g, closeBrowser) {
   // does not fit even at one element per page rings, which is the honest terminal: there is no
   // smaller cut left to make.
   if (AUTOSPLIT_APPLIES) {
-    const { splitDoc, applyRails, applyRelationshipSignals, stripDeckChrome, deckChromeFrom } = require('./lib/core/auto-split');
+    const { splitDoc } = require('./lib/core/auto-split');
     const r = splitDoc(cleanDocHtml, SPLIT_CAP);
     if (r.changed) {
       cleanDocHtml = r.html;
@@ -3760,8 +3745,7 @@ async function renderBody(browser, g, closeBrowser) {
     // so cannot tell the deck's repeated band from this slide's own caption. Reading the section
     // deleted the author's caption from every page of a run (measured on portrait-journey and
     // portrait-roadmap, both of which declare a per-slide footer and no deck-level one).
-    const deckChrome = deckChromeFrom(md);
-    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(stripDeckChrome(cleanDocHtml, deckChrome), SPLIT_CAP)));
+    const railed = require('./lib/core/structural-split').railRun(cleanDocHtml, md, SPLIT_CAP);
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);

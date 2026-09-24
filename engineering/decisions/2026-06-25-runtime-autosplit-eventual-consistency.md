@@ -493,3 +493,58 @@ two use sites. Six mutants that survived now fail: `allow-table-inline-flow`,
 `illegible` paths end-to-end (no deck was found that trips the type floor rather
 than overflowing), the `unmeasured` field, and PDF/PPTX output — the byte
 comparison is on the `.html` deliverable, upstream of the encode.
+
+## Amendment 2 (2026-09-24) — the structural split made Option B a preprocessor
+
+Option B was designed for a MEASURED split: a live render found the overflow, `resplitDoc` cut by
+the ratio, and every value that depended on the final page count had to wait for the cut to
+converge. That is why this note needed reserved-space placeholders, logical addressing and an
+idle-time reconciliation pass.
+
+The 2026-09-01 ruling removed the premise
+([autosplit-splits-on-structure](2026-09-01-autosplit-splits-on-structure.md)). The split is now a
+pure function of the markup, `resplitDoc` is deleted, and nothing is measured to decide a cut. So a
+live surface does not need a measurer, placeholders or a convergence loop. It runs the same pass
+the CLI runs, on the rendered document string, before writing it into the frame.
+
+What shipped (PR on branch `claude/runtime-structural-split`):
+
+- `lib/core/structural-split.js` is the one preprocessor both surfaces call. It stamps
+  `data-lattice-slide` (the engine omits it and `splitDoc` keys on it), applies the size gate
+  (never `wide`), runs `splitDoc`, and then the emulator's run-level adornments.
+- The CLI (lattice-emulator.js) now calls those pieces. Its output is byte-identical on the 14 decks
+  compared.
+- The Playground preview calls it through `splitForPreview`. The capacity map is baked into the
+  bundle at build time, because the browser has no manifests to read.
+- The Studio preview shows ONE page of a split slide, the page holding the caret line (the owner
+  picked this from three mocked options, 2026-09-24: follow the caret, stack the run, or pages in the
+  rail). `docs/src/lib/split-page-pick.ts` places the caret line by text: text on every page (the
+  masthead) → the cover; text on several body pages (a claimed insight) → the last of them;
+  otherwise the page that carries it; no match → keep the current page. The frame keeps the #1551
+  one-section contract, and the rail, comments and slide ops stay keyed to authored slides.
+- Navigation PAGES through a split slide before it leaves it. Keyboard, wheel, touch and the ‹ ›
+  buttons all go through one step (`stepDeck` in `StudioShell.tsx`), which the input-verb parity
+  rule (`2026-08-10-input-verb-parity.md`) requires: next is the next page until the run ends, then
+  the next slide; prev enters a split slide on its last page, as paging back through the PDF does.
+  A page asked for this way wins over the caret until the author moves the caret; the caret move
+  `revealSlide` makes during a step is that step's own echo and does not count. With the preview
+  hidden (collapsed, or a phone's Source tab) there are no pages to step, so the verbs move by
+  slide. The owner found the gap on a phone: a swipe skipped the run's other pages.
+- A live preview paints the run already SETTLED (`structuralSplit`'s `settle`). The split composes
+  its cover and closing pages after the engine's render-time masthead lift ran, so they arrived
+  unlifted and the runtime's DOM mirror wrapped them in `.cell-stage` about 160 ms after first
+  paint, which the owner saw as the cover jumping. The preview now runs the same lift with the
+  render-time string kernel before it paints; the mirror then skips the page. The CLI leaves it
+  off: its export is captured after the runtime settles, so it never showed the jump, and its HTML
+  stays byte-identical.
+- The live runtime's frame lift now skips a section that already carries its footer cell (the split
+  envelope's composed cover and closing pages), in both the DOM mirror and the string kernel. Without
+  it every split cover in a live preview showed a stray page number.
+- **Not yet:** Studio exports (a change to exported bytes, which goes through the export sign-off),
+  `lib/runtime` published HTML, and Marp preview.
+
+§2.2 (logical addressing) still holds where a surface keeps authored indexing: the Playground's
+component tour groups a split run back into its authored slide. §2.3 (placeholders and eventual
+consistency) and §4 (the reflow footgun) no longer apply, because the split never waits on a
+measurement.
+
