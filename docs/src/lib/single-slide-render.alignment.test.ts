@@ -19,7 +19,11 @@ import { frontMatterBlock, stripFrontMatter } from '../components/studio/front-m
 import { splitSlides } from '../components/studio/lint';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs') as { sectionsOf: (h: string) => string[] };
+const { sectionsOf, sectionOpenCount, alignmentFailure } = require('../../../lib/diagnostics/slice-equivalence-core.mjs') as {
+	sectionsOf: (h: string) => string[];
+	sectionOpenCount: (h: string) => number;
+	alignmentFailure: (html: string, sections: string[], slideCount: number, index: number) => string | undefined;
+};
 
 // The engine is CJS and Node-safe (no DOM) — load it directly rather than through the
 // browser bundle, so this test exercises the same numbering code the preview does.
@@ -224,5 +228,10 @@ describe('counting sections structurally, not textually (#1551)', () => {
 		const html = engine.render(fm + slides[0], 'lattice').html;
 		expect((html.match(/<section\b/g) || []).length).toBe(2); // the naive tally
 		expect(sectionsOf(html).length).toBe(1); // the truth
+		// AND THE COUNT THE GUARD USES. This arm used to stop at `sectionsOf`, while the
+		// refusal and `alignmentFailure` still compared it against the naive tally above,
+		// so the Studio painted "This preview couldn't render" on exactly this slide.
+		expect(sectionOpenCount(html)).toBe(1);
+		expect(alignmentFailure(html, sectionsOf(html), 1, 0)).toBeUndefined();
 	});
 });

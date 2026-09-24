@@ -625,6 +625,24 @@ test('classifyDivergence names a missing progress rail rather than shrugging', (
   assert.equal(core.classifyDivergence(without, withRail), 'progress rail absent');
 });
 
+// ── A <section quoted as TEXT is not a section ─────────────────────────────────
+// The Studio preview refused an ordinary slide ("nested or unbalanced `<section>`") when its
+// body carried a comment or a `<style>` that quoted the tag: the flat tally counted the text.
+test('sectionsOf and sectionOpenCount read past a quoting comment and <style>/<script> text', () => {
+  for (const q of ['<!-- <section class="title"> -->', '<style>/* <section> */ h2{}</style>', '<script>"<section>"</script>']) {
+    const html = `<section id="1">A${q}</section><section id="2">B</section>`;
+    assert.deepEqual(core.sectionsOf(html), [`<section id="1">A${q}</section>`, '<section id="2">B</section>'], q);
+    assert.equal(core.sectionOpenCount(html), 2, q);
+    assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 2, 0), undefined, q);
+  }
+});
+
+test('an UNCLOSED <style> is not blanked to the end of the document', () => {
+  const html = '<section>a <style> named in prose</section><section>b</section>';
+  assert.equal(core.sectionOpenCount(html), 2);
+  assert.equal(core.sectionsOf(html).length, 2);
+});
+
 // ── alignmentFailure — the guard the compare closure depends on ───────────────
 // Extracted from the compare because nothing at any tier executed it: not the unit suite, not the
 // PR gate, not even the nightly e2e. It is the check that stops an index-based lookup from quoting
