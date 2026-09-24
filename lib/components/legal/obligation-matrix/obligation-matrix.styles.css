@@ -138,7 +138,10 @@ section.obligation-matrix .label-set-key-mark.skip { --state-color:var(--muted-m
  * still unmistakable by shape — this ring has no inner mark at all. */
 section.obligation-matrix td .state.todo,
 section.obligation-matrix .ct-card dd .state.todo,
-section.obligation-matrix .label-set-key-mark.todo { --state-color:var(--muted-mark); }
+section.obligation-matrix .label-set-key-mark.todo,
+section.obligation-matrix td .state.unknown,
+section.obligation-matrix .ct-card dd .state.unknown,
+section.obligation-matrix .label-set-key-mark.unknown { --state-color:var(--muted-mark); }
 /* Mark overlay — masked symbol (check / dash / x / slash) on the disc.
  * Mark color from --state-mark-pct (0% = knockout to --bg). */
 section.obligation-matrix td .state::after,

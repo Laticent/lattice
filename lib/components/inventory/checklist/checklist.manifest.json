@@ -45,7 +45,7 @@
     "requirements"
   ],
   "description": "Items with state markers — done, partial, todo.",
-  "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).",
+  "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[!]/[?]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / cross / question / ring / slash — so the shape reads independently of color (color-blind-safe).",
   "slots": {
     "title": {
       "selector": "h2",
@@ -55,7 +55,7 @@
     "items": {
       "selector": "ul > li",
       "required": true,
-      "description": "Each item prefixed with a state marker — [x] done, [-] partial, [ ] todo, or [/] out-of-scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag."
+      "description": "Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] out of scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag."
     }
   },
   "skeleton": "<!-- _class: checklist -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [ ] Fourth item that is not yet started.\n",
@@ -90,7 +90,7 @@
     },
     {
       "title": "Custom state markers",
-      "body": "Only `[x]`, `[-]`, `[ ]`, and `[/]` (out-of-scope, struck through) map to the mark palette. Authoring `[?]` or `[!]` renders as literal text and breaks the visual contract."
+      "body": "Only the six markers — `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]` — map to the mark palette. Anything else in brackets (`[X]`, `[~]`, `[>]`) renders as literal text and breaks the visual contract. `[X]` is the trap: GitHub-flavored markdown reads it as a checked box, and it does not draw a mark here."
     }
   ],
   "related": [

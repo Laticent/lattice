@@ -1,4 +1,4 @@
-import { AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, Check, Circle, Columns3, Minus, Rows3, Slash, Table, Trash2 } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, Check, Circle, CircleHelp, Columns3, Minus, Rows3, Slash, Table, Trash2, X } from 'lucide-react';
 import type { Command } from 'prosemirror-state';
 import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
@@ -7,14 +7,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { type ColAlign, currentColumnAlign, setCellMarker, setColumnAlign } from '@/lib/compose/table-commands';
 import { cn } from '@/lib/utils';
 
-// The four LFM state markers, for the class-aware picker (obligation-matrix / roadmap). Each sets
-// the marker at the caret cell's start; the cell's own rendered chip (stateMarkerPlugin) shows the
-// live state, so the picker itself needs no pressed-state.
+// The six LFM state markers, for the class-aware picker (obligation-matrix / roadmap), in the
+// kernel's order (lib/core/state-marks.js MARKERS). Each sets the marker at the caret cell's
+// start; the cell's own rendered chip (stateMarkerPlugin) shows the live state, so the picker
+// itself needs no pressed-state. The labels are the universal answers, not a layout's words.
 const MARKERS = [
-	{ token: '[x]', Icon: Check, label: 'Pass', cls: 'cs-mk-pass' },
-	{ token: '[-]', Icon: Minus, label: 'Partial', cls: 'cs-mk-warn' },
-	{ token: '[ ]', Icon: Circle, label: 'To-do', cls: 'cs-mk-todo' },
-	{ token: '[/]', Icon: Slash, label: 'Skip', cls: 'cs-mk-skip' },
+	{ token: '[x]', Icon: Check, label: 'Yes', cls: 'cs-mk-pass' },
+	{ token: '[-]', Icon: Minus, label: 'Partly', cls: 'cs-mk-warn' },
+	{ token: '[!]', Icon: X, label: 'No', cls: 'cs-mk-fail' },
+	{ token: '[?]', Icon: CircleHelp, label: 'Unknown', cls: 'cs-mk-unknown' },
+	{ token: '[ ]', Icon: Circle, label: 'Open', cls: 'cs-mk-todo' },
+	{ token: '[/]', Icon: Slash, label: 'Does not apply', cls: 'cs-mk-skip' },
 ] as const;
 
 // The table controls that live IN the slide's context-sensitive divider bar when the caret is in a
@@ -71,6 +74,21 @@ export function TableControls({ view, stateful = false }: { view: EditorView; st
 					</button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="center" sideOffset={6} className="w-48">
+					{/* The menu holds the FULL action set, so the six state markers live here too. On a
+					    narrow pane the inline picker hides (the pill must never cover the slide's
+					    collapse and delete caps) and this group is the only way in; on a wide one it is
+					    a second route to the same six. */}
+					{stateful && (
+						<>
+							<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Cell state</DropdownMenuLabel>
+							{MARKERS.map(({ token, Icon, label, cls }) => (
+								<DropdownMenuItem key={token} onSelect={() => run(setCellMarker(token))}>
+									<Icon className={cls} /> {label}
+								</DropdownMenuItem>
+							))}
+							<DropdownMenuSeparator />
+						</>
+					)}
 					<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Insert</DropdownMenuLabel>
 					<DropdownMenuItem onSelect={() => run(addRowBefore)}>
 						<ArrowUpToLine /> Row above

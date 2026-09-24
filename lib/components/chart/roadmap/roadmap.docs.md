@@ -19,8 +19,8 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the plan. |
-| `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable. |
-| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the status key: `[{[x], Enacted}, {[-], In committee}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing as an eyebrow, and a one-code paragraph that is not a label set is left alone. |
+| `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[!]/[?]/[ ]/[/] then the deliverable. |
+| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the status key: `[{[x], Enacted}, {[-], In committee}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing as an eyebrow, and a one-code paragraph that is not a label set is left alone. |
 
 ### Variant decision rule
 
@@ -33,20 +33,20 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 ### Common mistakes
 
 - **Writing the deliverable text before the state marker in a cell.** Each cell must LEAD with the state marker (`[x] Shipped item`), not follow it — a marker placed after the text isn't recognized as the cell's state.
-- **Keying a label set on the state NAME rather than the marker.** `[{shipped, Enacted}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it.
+- **Keying a label set on the state NAME rather than the marker.** `[{shipped, Enacted}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[!]`, `[?]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it.
 - **Naming a state the grid does not carry.** A key row for a marker no cell uses would point at nothing, so it is dropped. `lint:deck` names the key when that happens — the rendered key is not the place to discover it.
 
 ## When to use
 
 - **Phased delivery across workstreams.** When the question is what each team ships in each phase. Workstreams down the side, phases across the top, deliverables in the cells — the whole plan reads in one glance.
-- **State markers are the second channel.** Every cell can lead with `[x]` shipped, `[-]` in flight, `[ ]` planned, or `[/]` out of scope. The audience sees both 'what' and 'how it's going' without a separate status slide. A status key is emitted automatically below the grid for the markers present (suppressed only on the `status` variant, which already labels every cell).
+- **State markers are the second channel.** Every cell can lead with `[x]` shipped, `[-]` in flight, `[!]` missed, `[?]` uncertain, `[ ]` planned, or `[/]` out of scope. The audience sees both 'what' and 'how it's going' without a separate status slide. A status key is emitted automatically below the grid for the markers present (suppressed only on the `status` variant, which already labels every cell).
 - **The key's words are a DEFAULT, not a fixed vocabulary.** 'Shipped' is right for a product plan and wrong for a legislative one. Write a label set above the grid — `` `[{[x], Enacted}, {[-], In committee}]` `` — and those states are renamed; the ones you do not name keep theirs. The key is the MARKER you already type in a cell, brackets included. The defaults are declared in this manifest's `labelSet`, which is also what `lint:deck` checks your keys against, so a key that would be dropped is reported before you render.
 - **Phase headers carry meta pills.** Append `` `Q2 2026` `` to a phase header and the renderer anchors a meta pill on the right of the column. Use it for date, owner, or status tags that frame the phase.
 
 ## When NOT to use
 
 - **One workstream.** A single row of phases is a `timeline` or `list-steps`, not a roadmap. Roadmap earns its grid only when at least two workstreams move in parallel.
-- **No state markers.** A grid of bare deliverables loses half its value. Add `[x]`/`[-]`/`[ ]`/`[/]` so the audience reads progress alongside scope.
+- **No state markers.** A grid of bare deliverables loses half its value. Add state markers (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`) so the audience reads progress alongside scope.
 - **Past five workstreams.** More than five rows compresses cell text and the lane stripes lose their categorical read. Group adjacent workstreams or split by phase.
 
 ## Authoring
@@ -61,7 +61,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |
 | Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |
 
-Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
+The key under the grid names each marker the cells carry.
 ```
 
 ## Anatomy

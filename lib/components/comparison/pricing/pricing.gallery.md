@@ -183,7 +183,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 - Features that drift between tiers
   - If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `\[x]` / `\[/]`.
 - An open ring for a feature the tier lacks
-  - Use `\[/]` (muted, struck through) for an absent feature. `\[ ]` is an open, unchecked ring — it reads 'not yet', which suggests the feature is coming, not that the tier leaves it out.
+  - Use `\[/]` (muted, struck through) for a feature your own tier leaves out. `\[ ]` is an open ring — it reads 'not yet', which promises the feature is coming — and `\[!]` is the red cross, which reads as a failure. Save `\[!]` for a competitor's column.
 
 ---
 

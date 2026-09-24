@@ -39,7 +39,7 @@ KPIs, comparisons and split panels reflow to the taller frame — no rebuild, ju
 
 - Chorus
   - [x] Speed
-  - [ ] Auditability
+  - [!] Auditability
   - Strong recording; no decision log.
 - Sprig + Log
   - [x] Speed

@@ -3,27 +3,29 @@ marp: true
 theme: indaco
 paginate: true
 header: "Lattice · checkbox semantics"
-footer: "One mark, one meaning"
+footer: "Six answers, one meaning each"
 ---
 
 <!-- _class: title silent -->
 
 `Fix demo · state markers`
 
-# An empty box means the same thing everywhere.
+# Six answers, and each one means the same thing everywhere.
 
-A tour of every component that draws the four marks, and the one that reads them differently on purpose.
+Yes, partly, no, unknown, open, and does not apply — in every layout that draws a mark.
 
 ---
 
 <!-- _class: checklist -->
 
-## The four marks, as every component now reads them.
+## The six marks, read the same way in every layout.
 
-- [x] Done — a green check
-- [-] Partial — an amber dash
-- [ ] Not yet — a gray open ring
-- [/] Out of scope — a gray slash, label struck
+- [x] Yes — done, met, included
+- [-] Partly — in progress, limited
+- [!] No — failed, not met, missing
+- [?] Unknown — looked at, cannot be settled
+- [ ] Open — not started, not assessed
+- [/] Does not apply — out of scope
 
 ---
 
@@ -43,53 +45,73 @@ A tour of every component that draws the four marks, and the one that reads them
   - [ ] Audit log
   - [/] Single sign-on
   - For scaling teams.
-- Enterprise `Custom`
+- Rival `$59 / mo`
   - [x] Shared workspace
   - [x] Unlimited seats
-  - [x] Audit log
-  - [x] Single sign-on
-  - For procurement.
+  - [!] Audit log
+  - [?] Single sign-on
+  - What they leave out.
 
-`[x]` Included · `[-]` Limited · `[ ]` Coming in Q3 · `[/]` Not on this plan
+`[x]` Included · `[-]` Limited · `[!]` Missing · `[?]` Ask sales · `[ ]` Coming in Q3 · `[/]` Not on this plan
 
 ---
 
 <!-- _class: table state-cells -->
 
-## The same plans as a table draw the same marks.
+## A comparison table can finally say "no".
 
-| Capability       | Starter | Growth | Enterprise |
-| ---------------- | :-----: | :----: | :--------: |
-| Shared workspace | [x]     | [x]    | [x]        |
-| Seats            | [-]     | [x]    | [x]        |
-| Audit log        | [ ]     | [ ]    | [x]        |
-| Single sign-on   | [/]     | [/]    | [x]        |
+| Criterion    | Chorus | Productboard | Notion | Sprig |
+| ------------ | :----: | :----------: | :----: | :---: |
+| Speed        | [x]    | [!]          | [x]    | [x]   |
+| Auditability | [!]    | [x]          | [?]    | [x]   |
+| Calibration  | [-]    | [-]          | [ ]    | [x]   |
+| On-prem      | [/]    | [/]          | [!]    | [/]   |
 
-`[x]` Included · `[-]` Limited · `[ ]` Coming in Q3 · `[/]` Not on this plan
+`[!]` is a tested "no". `[?]` was tested and could not be settled. `[ ]` has not been tested yet.
+
+---
+
+<!-- _class: verdict-grid -->
+
+## Verdict-grid: "no" and "not assessed" stop sharing a mark.
+
+- Vendor North
+  - [x] Speed
+  - [!] Audit
+  - [?] Adoption
+  - [ ] Pricing
+  - Fails the audit. Adoption data is disputed.
+- Vendor South
+  - [x] Speed
+  - [x] Audit
+  - [-] Adoption
+  - [/] Pricing
+  - Passes the audit. Adoption is partial.
 
 ---
 
 <!-- _class: obligation-matrix -->
 
-## Obligation-matrix reads the open ring as exempt.
+## Obligation-matrix names the same six in its own words.
 
 | Regime | Breach notice | Data export | Local storage |
 | ------ | :-----------: | :---------: | :-----------: |
 | GDPR   | [x]           | [x]         | [-]           |
-| CCPA   | [x]           | [x]         | [ ]           |
-| PIPL   | [x]           | [-]         | [x]           |
-| LGPD   | [x]           | [/]         | [ ]           |
+| CCPA   | [x]           | [!]         | [/]           |
+| PIPL   | [x]           | [?]         | [x]           |
+| LGPD   | [x]           | [ ]         | [/]           |
 
 ---
 
 <!-- _class: roadmap -->
 
-## Roadmap reads the open ring as planned.
+## Roadmap does too: missed and uncertain join the plan.
 
 | Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
 | --- | --- | --- | --- |
-| Billing | [x] Plan tiers | [-] Seat limits | [ ] Usage metering |
-| Compliance | [x] Breach notices | [ ] Audit log | [/] On-prem vault |
+| Billing | [x] Plan tiers | [-] Seat limits | [!] Usage metering |
+| Compliance | [x] Breach notices | [?] Audit log | [/] On-prem vault |
+| Platform | [x] SSO | [ ] Data residency | [ ] Regional failover |
 
 ---
 
@@ -97,29 +119,14 @@ A tour of every component that draws the four marks, and the one that reads them
 
 ## A mark in a sentence draws the same shape.
 
-- Audit log on Starter `[ ]` — coming in Q3
-- Seats on Starter `[-]` — capped at five
-- Single sign-on on Growth `[/]` — Enterprise only
-- Shared workspace everywhere `[x]` — every plan
+- Pen test `[x]` passed on the second run
+- Load test `[-]` reached 80% of target
+- SOC 2 evidence `[!]` rejected by the auditor
+- Vendor SLA `[?]` terms not disclosed
+- Status page `[ ]` copy not written yet
+- EU region `[/]` moved out of this launch
 
 Write a mark in inline code and it draws the disc, wherever inline code can go.
-
----
-
-<!-- _class: verdict-grid -->
-
-## Verdict-grid is the one place an empty box means "not met".
-
-- Vendor North
-  - [x] Speed
-  - [ ] Auditability
-  - [x] Adoption
-  - Fast and adopted, but fails the audit.
-- Vendor South
-  - [x] Speed
-  - [x] Auditability
-  - [-] Adoption
-  - Passes the audit. Adoption is partial.
 
 ---
 
@@ -127,6 +134,6 @@ Write a mark in inline code and it draws the disc, wherever inline code can go.
 
 `State markers · one vocabulary`
 
-# Learn the four marks once.
+# Learn the six marks once.
 
-Only verdict-grid reads an empty box as a failure, because a verdict scores against a bar.
+Shape carries the answer. Solid discs are settled; the two hollow rings are not yet.

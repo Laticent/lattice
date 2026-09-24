@@ -128,7 +128,7 @@ One question on the left; two option cards and a verdict on the right.
 ## The grid scores options against shared criteria.
 
 - **Option one.**
-  - [ ] Criterion
+  - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
 - **Option two.**

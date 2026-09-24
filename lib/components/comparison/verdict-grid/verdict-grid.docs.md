@@ -19,19 +19,19 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the choice. |
-| `options` | `ul > li` | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
+| `options` | `ul > li` | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[!]/[?]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
 | `rationale` | `ul > li > ul > li:last-child` | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the badges. |
 
 ### Common mistakes
 
-- **Using `[ ]` (empty) to mean "not applicable" or a soft neutral, rather than an explicit fail.** In verdict-grid specifically, `[ ]` reads as a hard fail/alarm state, not neutral — for a partial reading use `[-]`; for a muted, not-alarming 'not included' use `[/]`. This is verdict-grid's own scoring, not the shared state-marker vocabulary's default: the same `[ ]` reads as a neutral 'not yet' in checklist, pricing, obligation-matrix, roadmap, `state-cells` tables and inline marks. Picking the wrong marker here changes the badge's color semantics, not just its shape.
+- **Writing `[ ]` for a criterion that was assessed and NOT met.** `[ ]` is the open ring — "not assessed yet" — in every layout, verdict-grid included. A criterion that was assessed and failed is `[!]`, the red cross; one that does not apply to this option is `[/]`; a partial pass is `[-]`. The marker is the answer, and it means the same on every slide of the deck.
 - **Putting the recommended option first instead of last.** The focal-verdict treatment is applied to the LAST option card, not whichever one the author considers the pick — order the option you want to recommend so it's written last.
 
 ## When to use
 
 - **Two to four options.** Each card is one option; the grid keeps two cards per row. Past four options the cards crowd and the criteria badges lose legibility.
 - **Shared criteria across cards.** Every option is scored on the same set of criteria, in the same order. Drifting criteria between cards defeats the at-a-glance scan the layout exists for.
-- **Two-word badges.** Each criterion is a state marker (`[x]` / `[-]` / `[ ]` / `[/]`, shared with `checklist` and `obligation-matrix`) plus a badge label of at most two words — `Residency`, `Self-serve`, `SOC 2`. The badge is chrome that must scan in a glance.
+- **Two-word badges.** Each criterion is a state marker (`[x]` yes · `[-]` partly · `[!]` no · `[?]` unknown · `[ ]` not assessed · `[/]` n/a, shared with `checklist` and `obligation-matrix`) plus a badge label of at most two words — `Residency`, `Self-serve`, `SOC 2`. The badge is chrome that must scan in a glance.
 - **A rationale line is required.** Every option ends with one final inner bullet that carries NO marker — a short prose verdict for that option. It is the body that fills the card, and the last option renders as the focal, recommended verdict.
 
 ## When NOT to use
@@ -51,7 +51,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 - **First option.**
   - [x] First badge
   - [-] Second badge
-  - [ ] Third badge
+  - [!] Third badge
   - One-line rationale giving the verdict for this option.
 - **Second option.**
   - [x] First badge

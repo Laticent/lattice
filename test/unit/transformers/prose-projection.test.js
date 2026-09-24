@@ -815,29 +815,32 @@ test('checklist: completion register — [x]→done, [ ]→to do, [-]→partial'
 	assert.match(t, /DR drills: partial\./);
 });
 
-test('verdict-grid: inclusion register — [x]→yes, [ ]→no, [-]→partial (badge span)', () => {
-	const [t] = renderSpeech('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Speed\n  - [ ] Cost\n  - [-] Adoption\n');
+test('verdict-grid: verdict register — [x]→yes, [!]→no, [-]→partial, [?]→unknown, [ ]→not assessed', () => {
+	const [t] = renderSpeech('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Speed\n  - [!] Cost\n  - [-] Adoption\n  - [?] Support\n  - [ ] Pricing\n');
 	assert.match(t, /Speed: yes/);
 	assert.match(t, /Cost: no/);
 	assert.match(t, /Adoption: partial/);
+	assert.match(t, /Support: unknown/);
+	assert.match(t, /Pricing: not assessed/);
 });
 
-test('pricing: [ ] speaks as the open ring it draws ("not yet"), [/] as "not included"', () => {
-	const [t] = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [ ] Audit log\n  - [/] SSO\n  - For one team.\n');
+test('pricing: each marker speaks its answer in the pricing register', () => {
+	const [t] = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [ ] Audit log\n  - [/] SSO\n  - [!] Export\n  - For one team.\n');
 	assert.match(t, /Workspace: included/);
-	assert.match(t, /Audit log: not yet/);
+	assert.match(t, /Audit log: coming/);
 	assert.match(t, /SSO: not included/);
+	assert.match(t, /Export: missing/);
 });
 
-test('obligation-matrix: obligation register — [x]→applies, [ ]→EXEMPT (not "pending"), header-bound', () => {
-	const [t] = renderSpeech('<!-- _class: obligation-matrix -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [ ] |\n| CCPA | [-] | [x] |\n');
+test('obligation-matrix: obligation register — [x]→applies, [/]→EXEMPT, [ ]→undetermined, header-bound', () => {
+	const [t] = renderSpeech('<!-- _class: obligation-matrix -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [/] |\n| CCPA | [-] | [ ] |\n');
 	assert.match(t, /GDPR — Delete: applies; Portability: exempt\./);
-	assert.match(t, /CCPA — Delete: partial; Portability: applies\./);
+	assert.match(t, /CCPA — Delete: partial; Portability: undetermined\./);
 	assert.doesNotMatch(t, /pending|: yes|: no/, 'exempt is never narrated as "pending"/"no"');
 });
 
 test('obligation-matrix HEAT: same marker meanings as default (only recolored)', () => {
-	const [t] = renderSpeech('<!-- _class: obligation-matrix heat -->\n\n## Exposure\n\n| Regime | Delete |\n| --- | --- |\n| GDPR | [x] |\n| CCPA | [ ] |\n');
+	const [t] = renderSpeech('<!-- _class: obligation-matrix heat -->\n\n## Exposure\n\n| Regime | Delete |\n| --- | --- |\n| GDPR | [x] |\n| CCPA | [/] |\n');
 	assert.match(t, /GDPR — Delete: applies\./);
 	assert.match(t, /CCPA — Delete: exempt\./);
 });

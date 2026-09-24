@@ -2058,3 +2058,51 @@ describe('label-set-above-body — coaching, never refusal', () => {
     }
   });
 });
+
+describe('lint-core: an empty box whose meaning moved (rule 16, six state marks)', () => {
+  const moved = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'moved-empty-box');
+  const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+
+  test('verdict-grid: `[ ]` is now "not assessed", and the fix names `[!]`', () => {
+    const found = moved(slide('verdict-grid', '- Vendor\n  - [x] Speed\n  - [ ] Audit\n  - [ ] Cost\n  - Why.'));
+    assert.equal(found.length, 1, 'one finding per slide, not per box');
+    assert.equal(found[0].severity, 'info', 'a legitimate answer is never a warning');
+    assert.match(found[0].message, /not assessed/);
+    assert.match(found[0].message, /2 on this slide/);
+    assert.match(found[0].fix, /`\[!\]`/);
+  });
+
+  test('obligation-matrix: `[ ]` is now "undetermined", and the fix names `[/]`', () => {
+    const found = moved(slide('obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [ ] |'));
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /undetermined/);
+    assert.match(found[0].fix, /`\[\/\]`/);
+  });
+
+  test('says nothing where `[ ]` always meant open, or where the author already migrated', () => {
+    assert.equal(moved(slide('checklist', '- [ ] Todo')).length, 0);
+    assert.equal(moved(slide('verdict-grid', '- Vendor\n  - [!] Audit\n  - Why.')).length, 0);
+    assert.equal(moved(slide('obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [/] |')).length, 0);
+    // A verdict-grid CARD line (depth 1) is not a criterion.
+    assert.equal(moved(slide('verdict-grid', '- [ ] Vendor\n  - [x] Audit')).length, 0);
+  });
+
+  test('a label set that names `[ ]` on the slide answers the question — no finding', () => {
+    const body = '`[{[x], High exposure}, {[ ], Controlled}]`\n\n| Req | A |\n| --- | :-: |\n| Audit | [ ] |';
+    assert.equal(moved(slide('obligation-matrix', body)).length, 0);
+  });
+
+  test('a fenced example on the slide is quoted material, not a criterion', () => {
+    assert.equal(moved(slide('verdict-grid', '```markdown\n- Vendor\n  - [ ] Audit\n```')).length, 0);
+  });
+});
+
+describe('lint-core: typed crosses point at `[!]`, not the open box', () => {
+  test('a typed ✗ in a state-cells table is coached toward `[!]` and the six markers', () => {
+    const src = `${FM}<!-- _class: table state-cells -->\n\n## H\n\n| A | B |\n| --- | --- |\n| x | ✗ |\n`;
+    const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'typed-shape-glyph');
+    assert.ok(f);
+    assert.match(f.fix, /`\[!\]` no/);
+    assert.doesNotMatch(f.fix, /`\[ \]` not met/);
+  });
+});

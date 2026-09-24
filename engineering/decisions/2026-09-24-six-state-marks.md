@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   The four state markers carry more answers than they have markers, and `[ ]` does double duty:
   "no" in verdict-grid (red ✕) and "not yet" everywhere else (open ring), so the same keystroke
@@ -15,7 +15,7 @@ summary: >
 
 # Six answers, six marks: one meaning per state marker
 
-**Date:** 2026-09-24 · **Status:** proposed — the owner's decisions are recorded in §8; not yet built
+**Date:** 2026-09-24 · **Status:** in progress — the owner's decisions are recorded in §8; built in PR #2327 (§10)
 **Refs:** PR #2327 (pricing and `state-cells` draw `[ ]` as the open ring), HARD RULE #1, #29
 
 ## 1. Symptom
@@ -118,7 +118,7 @@ answer the layout rarely needs. The marker still works there and falls back to t
 | verdict-grid | yes | partial | no | unknown | not assessed | n/a |
 | pricing | included | limited | missing | ask sales | coming | not included |
 | obligation-matrix | applies | partial | does not apply | unclear | undetermined | exempt |
-| roadmap | shipped | in flight | missed | at risk | planned | out of scope |
+| roadmap | shipped | in flight | missed | uncertain | planned | out of scope |
 | `state-cells` | yes | partial | no | unknown | not checked | n/a |
 
 Two rows move an existing meaning, and each needs a call in §8:
@@ -209,3 +209,42 @@ made `[ ]` neutral everywhere. Two renders came from it, both in light and dark 
   is the §5 label work.
 - **`[?]` as candidates A and C side by side**, from a prototype stylesheet, in checklist, a
   `state-cells` table and verdict-grid badges. That render settled §6.4.
+
+## 10. What the build found
+
+Built on the same branch as the pricing fix that surfaced the question (PR #2327).
+
+- **The private copies were not eight but thirteen.** Besides the eight in §6.1, the
+  docs-site Compose editor carried three (`ComposeView.tsx`, `table-commands.ts`,
+  `deck-markdown.ts`), and two tools carried one each (`build-component-docs.js`,
+  `audit-capacity-basis.js`). Every one now builds from `MARKER_CLASS`, and
+  `test/unit/core/state-marks.test.js` fails on a private copy anywhere under `lib/`,
+  `tools/` or `docs/src`.
+- **matrix-grid is the one named exception.** Its `[x]` `[-]` `[ ]` are a POSITIONAL
+  grammar (filled / reachable / not applicable) parsed by `lib/core/matrix-grid-cells.js`,
+  not status answers. It keeps its own parser, and the guard test names it.
+- **`{!}` and `{?}` stay pills.** The pill grammar reserves the markers inside braces so
+  that `{x}` typed by someone reaching for a checkbox renders literal. `{!}` and `{?}` are
+  established single-glyph pills (an alert diamond, a help circle in
+  `examples/inline-pills.md`), so the reservation stays at the four that read as a
+  checkbox.
+- **Roadmap `status` cells ghosted their mark.** Heavy mode hid the inline disc but not
+  its mark, so a canvas-colored ✓ / – / ✕ showed faintly on the tinted cell beside the
+  text. It surfaced when `[?]`'s full-ink mark showed the same leak plainly; the rule
+  now hides both.
+- **The migration**, measured before, applied by one codemod, then READ slide by slide:
+  - 43 verdict-grid `[ ]` → `[!]` in 15 decks. Every slide is a scored evaluation, so the
+    old "not met" reading was right in all of them.
+  - 64 `state-cells` `[ ]` → `[!]` in 6 decks. Every table is a tool evaluation, where an
+    empty cell was a "no".
+  - Obligation-matrix: the codemod turned 37 `[ ]` into `[/]` on the assumption that `[ ]`
+    there always meant "exempt". **Reading the slides refuted that in three decks, and 17 of
+    the 37 went back to `[ ]`.** `kit/Sample-Deck.md` uses the grid as a "what renders
+    where" table whose prose says "an open mark is unconfirmed"; the compliance-audit
+    exemplar's heat map says "empty = controlled"; `examples/table-outer-edge.md` names
+    the `[ ]` marker in its prose. The first and third now read "Undetermined", which is
+    what they meant; the exemplar gained a label set naming `[ ]` "Controlled". Two
+    label-set keys that renamed the old exempt `[ ]` moved to `[/]` with their cells. The
+    lesson for any future codemod over this grammar: a layout's DEFAULT reading of a
+    marker is not evidence of what one author meant by it.
+

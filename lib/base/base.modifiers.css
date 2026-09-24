@@ -1450,10 +1450,12 @@ section .state-full    { --state-mark: var(--mark-check); }
 section .state-half    { --state-mark: var(--mark-dash);  }
 section .state-empty   { --state-mark: var(--mark-x);     }
 section .state-slashed { --state-mark: var(--mark-slash); }
-/* Neutral "todo / pending" — `[ ]` that means "not started, on the slate"
- * (checklist todo, obligation exempt, roadmap planned, pricing not-included), NOT "not met"
- * (verdict-grid keeps state-empty → ✕). The decoder emits `state todo
- * state-todo` for those cases.
+section .state-unknown { --state-mark: var(--mark-question); }
+/* The two UNSETTLED answers are hollow rings: `[ ]` open (`state todo
+ * state-todo` — not started, not assessed) and `[?]` unknown (`state unknown
+ * state-unknown` — looked at, cannot be settled). Findings (`[x]` `[-]` `[!]`)
+ * and `[/]` are solid discs. Fill is the settled/unsettled channel; the drawn
+ * `?` is what tells the two hollow rings apart.
  *
  * It renders as a TRUE hollow ring — no fill, a full-color --state-color
  * ring, and NO inner mark, so the center is EMPTY ("not started"). A filled
@@ -1462,13 +1464,20 @@ section .state-slashed { --state-mark: var(--mark-slash); }
  * "open". (The ring is a vector box-shadow — pixel-crisp in every export —
  * and inherits the variant's disc-scale, so it tracks checks-bold etc.) */
 section .state.todo,
-section .badge.todo {
+section .badge.todo,
+section .state.unknown,
+section .badge.unknown {
   --state-fill-pct: 0%;
   --state-ring-outer-w: 2.2px;
   --state-ring-mix: 100%;
 }
 section .state.todo::after,
 section .badge.todo::after { display: none; }
+/* `[?]` keeps its mark, painted in the ring's own ink: on an empty disc a
+ * knockout (canvas-colored) mark would be invisible, so every `checks-*`
+ * variant's --state-mark-pct is overridden here. */
+section .state.unknown,
+section .badge.unknown { --state-mark-pct: 100%; }
 
 /* ── `state-cells` — the state markers, in ANY table's cells ───────────────
  * The universal opt-in behind HARD RULE #29's answer to a typed `✓`. Two
@@ -1519,7 +1528,8 @@ section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { -
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color: var(--warn); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color: var(--fail); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color: var(--muted-mark); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo { --state-color: var(--muted-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo,
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color: var(--muted-mark); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state::after {
   content: '';
   position: absolute;
@@ -1591,6 +1601,7 @@ section.checks-bold {              /* larger disc + heavier marks, knockout */
   --state-mark-pct:0%; --state-disc-scale:1.16;
   --mark-check:var(--mark-check-bold); --mark-dash:var(--mark-dash-bold);
   --mark-x:var(--mark-x-bold);         --mark-slash:var(--mark-slash-bold);
+  --mark-question:var(--mark-question-bold);
 }
 section.checks-outline {           /* transparent fill, inner ring + status-color mark */
   --state-fill-pct:0%; --state-ring-outer-w:0px; --state-ring-inner-w:2px;
@@ -3911,8 +3922,8 @@ section.corners-square {
 .lat-pill[data-c='c12'] { --lat-pill-bg:var(--cat-12-fill); --lat-pill-edge:var(--cat-12-mark); --lat-pill-ink:var(--cat-on-fill); }
 
 /* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
- * `[x]` `[-]` `[ ]` `[/]` inside SINGLE-backtick inline code decode to the same disc
- * `checklist` draws, via `lib/core/state-marks.js`. Same four markers an author already
+ * The six state markers inside SINGLE-backtick inline code decode to the same disc
+ * `checklist` draws, via `lib/core/state-marks.js`. Same six markers an author already
  * writes bare at a bullet's start, so the vocabulary is one thing in two positions
  * rather than two things — which is the whole reason the inline form uses `[…]` and not
  * a new spelling.
@@ -3958,7 +3969,8 @@ section .lat-state.pass { --state-color:var(--pass); }
 section .lat-state.warn { --state-color:var(--warn); }
 section .lat-state.fail { --state-color:var(--fail); }
 section .lat-state.skip { --state-color:var(--muted-mark); }
-section .lat-state.todo { --state-color:var(--muted-mark); }
+section .lat-state.todo,
+section .lat-state.unknown { --state-color:var(--muted-mark); }
 section .lat-state::after {
   content:'';
   position:absolute;

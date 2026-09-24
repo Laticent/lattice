@@ -6,7 +6,7 @@
 
 **Tags** `status` · `stoplight` · `process` · `requirements`
 
-Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).
+Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[!]/[?]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / cross / question / ring / slash — so the shape reads independently of color (color-blind-safe).
 
 ## Agent contract
 
@@ -19,7 +19,7 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [ ] todo, or [/] out-of-scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
+| `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] out of scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
 
 ### Common mistakes
 
@@ -36,7 +36,7 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 
 - **All-done lists.** If every item is `[x]` the state markers are decoration. Use `list` (or its `takeaway` variant) for celebratory recaps; checklist earns its weight when the mix matters.
 - **Long per-item prose.** Each item is one short line. If a row needs a sentence of explanation, the right home is cards-stack or list-tabular.
-- **Custom state markers.** Only `[x]`, `[-]`, `[ ]`, and `[/]` (out-of-scope, struck through) map to the mark palette. Authoring `[?]` or `[!]` renders as literal text and breaks the visual contract.
+- **Custom state markers.** Only the six markers — `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]` — map to the mark palette. Anything else in brackets (`[X]`, `[~]`, `[>]`) renders as literal text and breaks the visual contract. `[X]` is the trap: GitHub-flavored markdown reads it as a checked box, and it does not draw a mark here.
 
 ## Authoring
 

@@ -47,15 +47,20 @@ describe('playground engine', () => {
       '- **Folder shape.**',
       '  - [x] Self-contained per component',
       '  - [-] Familiar pattern',
-      '  - [ ] No room for transform.js',
+      '  - [!] No room for transform.js',
+      '  - [?] Vendor roadmap',
+      '  - [ ] Not assessed yet',
     ].join('\n');
     const { html, css } = pg.render(md, 'cuoio');
     assert.ok(typeof html === 'string' && html.length > 0, 'html produced');
     assert.ok(typeof css === 'string' && css.length > 0, 'css produced');
-    // verdictGridBadges wraps each [x]/[-]/[ ] item in a state badge span.
+    // verdictGridBadges wraps each marker item in a state badge span — `[!]` is the
+    // red cross, and `[ ]` is the open ring here as in every layout.
     assert.match(html, /class="badge pass state-full"/, 'pass badge present');
     assert.match(html, /class="badge warn state-half"/, 'warn badge present');
     assert.match(html, /class="badge fail state-empty"/, 'fail badge present');
+    assert.match(html, /class="badge unknown state-unknown"/, 'unknown badge present');
+    assert.match(html, /class="badge todo state-todo"/, 'open badge present');
   });
 
   test('slide count matches `---` separators', async () => {

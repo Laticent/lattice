@@ -655,7 +655,7 @@
       "| ---------- | :----------: | :----------: | :----------: |",
       "| Regime 1   | [x]          | [x]          | [-]          |",
       "| Regime 2   | [x]          | [-]          | [x]          |",
-      "| Regime 3   | [x]          | [ ]          | [x]          |",
+      "| Regime 3   | [x]          | [/]          | [x]          |",
       ""
     ],
     "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance."
@@ -888,7 +888,7 @@
       "| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |",
       "| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |",
       "",
-      "Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope."
+      "The key under the grid names each marker the cells carry."
     ],
     "description": "Phased multi-workstream grid — phases across the top, workstreams down the side."
   },
@@ -1180,7 +1180,7 @@
       "- **First option.**",
       "  - [x] First badge",
       "  - [-] Second badge",
-      "  - [ ] Third badge",
+      "  - [!] Third badge",
       "  - One-line rationale giving the verdict for this option.",
       "- **Second option.**",
       "  - [x] First badge",

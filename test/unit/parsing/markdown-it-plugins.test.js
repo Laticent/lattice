@@ -996,7 +996,7 @@ describe('markdown-it-plugins', () => {
 
   // ── verdictGridBadges ──────────────────────────────────────────────────
 
-  test('verdictGridBadges: [x] / [-] / [ ] / [/] markers become badge spans with shape classes', () => {
+  test('verdictGridBadges: all six markers become badge spans with shape classes', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = [
       '<!-- _class: verdict-grid -->',
@@ -1005,7 +1005,9 @@ describe('markdown-it-plugins', () => {
       '- Card',
       '  - [x] Pass item',
       '  - [-] Warn item',
-      '  - [ ] Fail item',
+      '  - [!] Fail item',
+      '  - [?] Unknown item',
+      '  - [ ] Open item',
       '  - [/] Skip item',
       '  - body line passes through untouched',
     ].join('\n');
@@ -1013,16 +1015,19 @@ describe('markdown-it-plugins', () => {
     assert.match(html, /<span class="badge pass state-full">Pass item<\/span>/);
     assert.match(html, /<span class="badge warn state-half">Warn item<\/span>/);
     assert.match(html, /<span class="badge fail state-empty">Fail item<\/span>/);
+    assert.match(html, /<span class="badge unknown state-unknown">Unknown item<\/span>/);
+    // `[ ]` is the open ring in verdict-grid as everywhere: "not assessed", not "not met".
+    assert.match(html, /<span class="badge todo state-todo">Open item<\/span>/);
     assert.match(html, /<span class="badge skip state-slashed">Skip item<\/span>/);
     // The body line (no marker) should NOT be wrapped in a badge.
     assert.match(html, /body line passes through untouched/);
     assert.doesNotMatch(html, /<span class="badge[^"]*">body line/);
   });
 
-  test('verdictGridBadges: pricing reads [ ] as the neutral ring, not verdict-grid\'s ✕', () => {
-    // verdict-grid is the one layout where `[ ]` means "not met". Pricing shares the
-    // decoder but not that reading: an unchecked feature row draws the same open ring
-    // as a checklist todo, a `state-cells` cell or an inline `[ ]`.
+  test('verdictGridBadges: pricing reads [ ] as the open ring, like every layout', () => {
+    // Pricing used to borrow verdict-grid's old "not met" reading of `[ ]`, so an
+    // unchecked feature row drew a red ✕ under a legend showing the ring. `[ ]` is the
+    // open ring on a pricing card as in a checklist, a `state-cells` cell or an inline mark.
     const m = makeHost(plugins.verdictGridBadges);
     const md = [
       '<!-- _class: pricing -->',

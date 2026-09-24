@@ -31,8 +31,10 @@
     "members": [
       { "key": "[x]", "label": "Applies" },
       { "key": "[-]", "label": "Partial" },
-      { "key": "[ ]", "label": "Exempt" },
-      { "key": "[/]", "label": "Out of scope" }
+      { "key": "[!]", "label": "Does not apply" },
+      { "key": "[?]", "label": "Unclear" },
+      { "key": "[ ]", "label": "Undetermined" },
+      { "key": "[/]", "label": "Exempt" }
     ]
   },
   "tags": [
@@ -41,7 +43,7 @@
     "stoplight"
   ],
   "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance.",
-  "purpose": "Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [ ] exempt, [/] out of scope) shared with checklist / verdict-grid / roadmap.",
+  "purpose": "Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [!] does not apply, [?] unclear, [ ] undetermined, [/] exempt) shared with checklist / verdict-grid / roadmap.",
   "excludes": [
     "claim-bleed"
   ],
@@ -60,12 +62,12 @@
     "matrix": {
       "selector": "table",
       "required": true,
-      "description": "Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells."
+      "description": "Markdown table — rows are regulations, columns are obligations. Use state markers ([x]/[-]/[!]/[?]/[ ]/[/]) in cells."
     },
     "key": {
       "selector": "p > code:only-child",
       "required": false,
-      "description": "OPTIONAL label set renaming the marker key: `[{[x], In force}, {[ ], Not subject}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing above the grid."
+      "description": "OPTIONAL label set renaming the marker key: `[{[x], In force}, {[/], Not subject}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing above the grid."
     },
     "legend": {
       "selector": "p",
@@ -73,9 +75,9 @@
       "description": "Optional trailing paragraph — what to take from the matrix, or a caveat about the placements. It no longer has to explain the markers: the key under the grid names them, derived from the ones the cells actually carry."
     }
   },
-  "skeleton": "<!-- _class: obligation-matrix -->\n\n## Headline framing what the matrix compares.\n\n| Regulation | Obligation A | Obligation B | Obligation C |\n| ---------- | :----------: | :----------: | :----------: |\n| Regime 1   | [x]          | [x]          | [-]          |\n| Regime 2   | [x]          | [-]          | [x]          |\n| Regime 3   | [x]          | [ ]          | [x]          |\n\n",
+  "skeleton": "<!-- _class: obligation-matrix -->\n\n## Headline framing what the matrix compares.\n\n| Regulation | Obligation A | Obligation B | Obligation C |\n| ---------- | :----------: | :----------: | :----------: |\n| Regime 1   | [x]          | [x]          | [-]          |\n| Regime 2   | [x]          | [-]          | [x]          |\n| Regime 3   | [x]          | [/]          | [x]          |\n\n",
   "anatomyBlock": "obligation-matrix",
-  "sample": "<!-- _class: obligation-matrix -->\n\n## The matrix grids obligations across regimes.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nNeutral ink — data first.\n",
+  "sample": "<!-- _class: obligation-matrix -->\n\n## The matrix grids obligations across regimes.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |\n\nNeutral ink — data first.\n",
   "stressDoc": {
     "summary": "Six regimes by five duties.",
     "sample": "<!-- _class: obligation-matrix -->\n\n## Six regimes by five duties is the grid ceiling.\n\n| Regime | Notice | Consent | Retention | Breach | DSAR |\n| --- | :---: | :---: | :---: | :---: | :---: |\n| GDPR | [x] | [x] | [x] | [x] | [x] |\n| CCPA/CPRA | [x] | [-] | [x] | [x] | [x] |\n| LGPD | [x] | [x] | [x] | [x] | [x] |\n| PIPEDA | [x] | [x] | [-] | [x] | [x] |\n| APPI | [x] | [-] | [x] | [x] | [-] |\n| PIPL | [x] | [x] | [x] | [x] | [x] |\n"
@@ -87,15 +89,15 @@
     },
     {
       "title": "State markers, not values",
-      "body": "Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `table`."
+      "body": "Cells are state markers — the universal six (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), one meaning each in every layout. For textual cell values use `table`."
     },
     {
       "title": "The key's words are a DEFAULT, not a fixed vocabulary",
-      "body": "'Applies' and 'Exempt' suit a compliance matrix; a licensing or diligence grid wants other words. Write a label set above the grid — `[{[x], In force}, {[ ], Not subject}]` — and those markers are renamed; the ones you do not name keep theirs. The defaults are declared in this manifest's `labelSet`, which is also what `lint:deck` checks your keys against."
+      "body": "'Applies' and 'Exempt' suit a compliance matrix; a licensing or diligence grid wants other words. Write a label set above the grid — `[{[x], In force}, {[/], Not subject}]` — and those markers are renamed; the ones you do not name keep theirs. The defaults are declared in this manifest's `labelSet`, which is also what `lint:deck` checks your keys against."
     },
     {
       "title": "Risk axis with heat",
-      "body": "The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[ ]`) cells resolve to the neutral state and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage."
+      "body": "The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[/]`) and undetermined (`[ ]`) cells stay neutral and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage."
     }
   ],
   "antiPatterns": [
@@ -138,7 +140,7 @@
     "heat": {
       "label": "heat",
       "summary": "Cells shaded by burden.",
-      "sample": "<!-- _class: obligation-matrix heat -->\n\n## heat shades the cells by burden.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nHeat marks burden, not relief — exempt cells stay neutral.\n"
+      "sample": "<!-- _class: obligation-matrix heat -->\n\n## heat shades the cells by burden.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |\n\nHeat marks burden, not relief — exempt cells stay neutral.\n"
     },
     "asymmetric": {
       "label": "asymmetric",
@@ -148,18 +150,18 @@
     "pills": {
       "label": "pills",
       "summary": "Cells as status words.",
-      "sample": "<!-- _class: obligation-matrix pills -->\n\n## pills spell each cell as a status word.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nSame data, neutral chrome — the state pills carry the meaning without the heat-map alarm.\n"
+      "sample": "<!-- _class: obligation-matrix pills -->\n\n## pills spell each cell as a status word.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |\n\nSame data, neutral chrome — the state pills carry the meaning without the heat-map alarm.\n"
     },
     "lanes": {
       "label": "lanes",
       "summary": "One regime per band.",
-      "sample": "<!-- _class: obligation-matrix lanes -->\n\n## lanes walks one regime per band.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nEach lane stripe signals that the row is its own regime, not a rank.\n"
+      "sample": "<!-- _class: obligation-matrix lanes -->\n\n## lanes walks one regime per band.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |\n\nEach lane stripe signals that the row is its own regime, not a rank.\n"
     }
   },
   "commonMistakes": [
     {
       "mistake": "Keying a label set on the marker's NAME rather than the marker.",
-      "fix": "`[{applies, In force}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it."
+      "fix": "`[{applies, In force}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[!]`, `[?]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it."
     },
     {
       "mistake": "Explicitly left-aligning table columns (`:---`) instead of leaving alignment unspecified or writing `:---:`.",
@@ -173,7 +175,7 @@
     },
     {
       "variant": "heat",
-      "useWhen": "The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[ ]`) cells resolve to a neutral state that `heat` does NOT re-color; they keep their default neutral ring rather than turning 'relief' green."
+      "useWhen": "The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[/]`) and undetermined (`[ ]`) cells stay neutral; `heat` does NOT re-color them; they keep their default neutral ring rather than turning 'relief' green."
     },
     {
       "variant": "asymmetric",
@@ -181,7 +183,7 @@
     },
     {
       "variant": "pills",
-      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content."
+      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content."
     },
     {
       "variant": "lanes",

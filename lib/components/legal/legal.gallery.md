@@ -241,9 +241,9 @@ Pick this when the audience wants to scan many obligations at once.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
-Filled · half · empty circles. Neutral ink — applies / partial / exempt as data.
+Check · dash · slash. Neutral ink — applies / partial / exempt as data.
 
 ---
 
@@ -259,9 +259,9 @@ Filled · half · empty circles. Neutral ink — applies / partial / exempt as d
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]  |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]  |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]  |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]  |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]  |
 
-Same grammar, semantic palette — red = applies, amber = partial, green = exempt.
+Same grammar, semantic palette — red = applies, amber = partial, exempt stays neutral.
 
 ---
 
@@ -277,7 +277,7 @@ Same grammar, semantic palette — red = applies, amber = partial, green = exemp
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]  |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]  |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]  |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]  |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]  |
 
 Pills (no heat) — same data, neutral chrome. Less assertive than heat.
 
@@ -295,7 +295,7 @@ Pills (no heat) — same data, neutral chrome. Less assertive than heat.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]  |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]  |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]  |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]  |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]  |
 
 Lane stripes signal "this row is its own regime."
 

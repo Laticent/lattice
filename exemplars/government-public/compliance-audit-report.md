@@ -91,6 +91,8 @@ Subrecipient monitoring is the largest: 4 of 18 subrecipients had no documented 
 
 ## Read for exposure: the same findings as a risk heat map.
 
+`[{[x], High exposure}, {[-], Moderate}, {[ ], Controlled}]`
+
 | Requirement | Award | Monitor | Report | Close |
 | ---------- | :----: | :-----: | :----: | :---: |
 | Subrecipient oversight | [ ] | [x] | [ ] | [ ] |

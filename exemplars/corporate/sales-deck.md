@@ -79,13 +79,13 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 - **CRM forecast fields.**
   - [x] In the workflow
-  - [ ] Reads real signals
-  - [ ] Learns from outcomes
+  - [!] Reads real signals
+  - [!] Learns from outcomes
   - Manual rollups; only as honest as the reps filling them in.
 - **BI dashboards.**
   - [x] In the workflow
   - [-] Reads real signals
-  - [ ] Learns from outcomes
+  - [!] Learns from outcomes
   - Shows you the past; predicts nothing forward.
 - **Northwind.**
   - [x] In the workflow

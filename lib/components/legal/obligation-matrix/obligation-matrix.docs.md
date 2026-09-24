@@ -6,7 +6,7 @@
 
 **Tags** `compliance` · `regulation` · `stoplight`
 
-Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [ ] exempt, [/] out of scope) shared with checklist / verdict-grid / roadmap.
+Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [!] does not apply, [?] unclear, [ ] undetermined, [/] exempt) shared with checklist / verdict-grid / roadmap.
 
 ## Agent contract
 
@@ -15,29 +15,29 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
-| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
-| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the marker key: `[{[x], In force}, {[ ], Not subject}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing above the grid. |
+| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x]/[-]/[!]/[?]/[ ]/[/]) in cells. |
+| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the marker key: `[{[x], In force}, {[/], Not subject}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing above the grid. |
 | `legend` | `p` | no | Optional trailing paragraph — what to take from the matrix, or a caveat about the placements. It no longer has to explain the markers: the key under the grid names them, derived from the ones the cells actually carry. |
 
 ### Variant decision rule
 
 - **default (no modifier).** Neutral, data-first cell chrome with no additional emphasis — reference tone.
-- **`heat`.** The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[ ]`) cells resolve to a neutral state that `heat` does NOT re-color; they keep their default neutral ring rather than turning 'relief' green.
+- **`heat`.** The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[/]`) and undetermined (`[ ]`) cells stay neutral; `heat` does NOT re-color them; they keep their default neutral ring rather than turning 'relief' green.
 - **`asymmetric`.** The regimes genuinely differ in kind and each deserves body-level breathing room as its own card rather than a strict grid cell.
-- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content.
+- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content.
 - **`lanes`.** Each regime should read as its own horizontal band, emphasizing that it's a distinct regime rather than a rank in a list.
 
 ### Common mistakes
 
-- **Keying a label set on the marker's NAME rather than the marker.** `[{applies, In force}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it.
+- **Keying a label set on the marker's NAME rather than the marker.** `[{applies, In force}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[!]`, `[?]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it.
 - **Explicitly left-aligning table columns (`:---`) instead of leaving alignment unspecified or writing `:---:`.** The matrix unconditionally centers every cell, so a plain column with no alignment markers still centers state-marker glyphs fine. Only an EXPLICIT `:---` left-align syntax breaks it — that emits an inline left-align style, which (being inline) overrides the component's own centering rule regardless of specificity.
 
 ## When to use
 
 - **Many regimes, shared obligations.** Three or more regulations or jurisdictions compared across the same set of duties. The grid lets the reader scan a row to know a regime and a column to know an obligation.
-- **State markers, not values.** Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `table`.
-- **The key's words are a DEFAULT, not a fixed vocabulary.** 'Applies' and 'Exempt' suit a compliance matrix; a licensing or diligence grid wants other words. Write a label set above the grid — `[{[x], In force}, {[ ], Not subject}]` — and those markers are renamed; the ones you do not name keep theirs. The defaults are declared in this manifest's `labelSet`, which is also what `lint:deck` checks your keys against.
-- **Risk axis with heat.** The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[ ]`) cells resolve to the neutral state and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage.
+- **State markers, not values.** Cells are state markers — the universal six (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), one meaning each in every layout. For textual cell values use `table`.
+- **The key's words are a DEFAULT, not a fixed vocabulary.** 'Applies' and 'Exempt' suit a compliance matrix; a licensing or diligence grid wants other words. Write a label set above the grid — `[{[x], In force}, {[/], Not subject}]` — and those markers are renamed; the ones you do not name keep theirs. The defaults are declared in this manifest's `labelSet`, which is also what `lint:deck` checks your keys against.
+- **Risk axis with heat.** The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[/]`) and undetermined (`[ ]`) cells stay neutral and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage.
 
 ## When NOT to use
 
@@ -56,7 +56,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 | ---------- | :----------: | :----------: | :----------: |
 | Regime 1   | [x]          | [x]          | [-]          |
 | Regime 2   | [x]          | [-]          | [x]          |
-| Regime 3   | [x]          | [ ]          | [x]          |
+| Regime 3   | [x]          | [/]          | [x]          |
 
 ```
 
@@ -96,7 +96,7 @@ Cells shaded by burden.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Heat marks burden, not relief — exempt cells stay neutral.
 ```
@@ -135,7 +135,7 @@ Cells as status words.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Same data, neutral chrome — the state pills carry the meaning without the heat-map alarm.
 ```
@@ -156,7 +156,7 @@ One regime per band.
 | LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 Each lane stripe signals that the row is its own regime, not a rank.
 ```

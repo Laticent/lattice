@@ -21,12 +21,15 @@ const {
 describe('roadmap', () => {
   // ── markerToState ──────────────────────────────────────────────────────
 
-  test('markerToState: maps [x]/[-]/[ ]/[/] to the four state classes', () => {
+  test('markerToState: maps the six markers to the six state classes', () => {
     assert.equal(markerToState('x'), 'state-shipped');
     assert.equal(markerToState('-'), 'state-wip');
+    assert.equal(markerToState('!'), 'state-missed');
+    assert.equal(markerToState('?'), 'state-unknown');
     assert.equal(markerToState(' '), 'state-planned');
     assert.equal(markerToState('/'), 'state-skipped');
-    assert.equal(markerToState('?'), '');
+    assert.equal(markerToState('~'), '');
+    assert.equal(markerToState('X'), '');
   });
 
   // ── applyStatusMarkers ────────────────────────────────────────────────

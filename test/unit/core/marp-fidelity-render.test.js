@@ -182,8 +182,8 @@ const PROBES = {
     // cover, where `slice(0, -1)` silently ate the final badge.
     body: [
       '## Grid', '',
-      '- **Option one.**', '  - [ ] Criterion A', '  - [-] Criterion B',
-      '- **Option two.**', '  - [x] Criterion A', '  - [/] Criterion B',
+      '- **Option one.**', '  - [ ] Criterion A', '  - [-] Criterion B', '  - [!] Criterion C',
+      '- **Option two.**', '  - [x] Criterion A', '  - [/] Criterion B', '  - [?] Criterion C',
     ].join('\n'),
     probe: marked('.badge'),
   },
@@ -224,8 +224,8 @@ const PROBES = {
     section: 'pricing',
     body: [
       '## Plans', '',
-      '- Starter `$0`', '  - [x] Included', '  - [ ] Unchecked', '  - For one team.',
-      '- Growth `$49`', '  - [-] Limited', '  - [/] Not included', '  - For scaling.',
+      '- Starter `$0`', '  - [x] Included', '  - [ ] Unchecked', '  - [!] Missing', '  - For one team.',
+      '- Growth `$49`', '  - [-] Limited', '  - [/] Not included', '  - [?] Ask sales', '  - For scaling.',
     ].join('\n'),
     probe: marked('.badge'),
   },
@@ -236,7 +236,7 @@ const PROBES = {
     body: [
       '## Duties', '',
       '| Duty | Us | Them |', '|---|---|---|',
-      '| Notify | [x] | [ ] |', '| Audit | [-] | [/] |',
+      '| Notify | [x] | [ ] |', '| Audit | [-] | [/] |', '| Report | [!] | [?] |',
     ].join('\n'),
     probe: marked('td .state'),
   },
@@ -318,6 +318,7 @@ const PROBES = {
       '## Ship list', '',
       '- [x] Contracts signed', '- [ ] Data migrated',
       '- [-] Runbook drafted', '- [/] Legal sign-off',
+      '- [!] Load test', '- [?] Vendor SLA',
     ].join('\n'),
     // The marker becomes CLASSES ON THE <li> here rather than a wrapper span, so the
     // probe reads the class list and the stripped text together — a transform that
@@ -365,9 +366,9 @@ const PROBES = {
       // and `{LABEL}` are disjoint by opening character, and a drift that let one
       // swallow the other would show here as a path disagreement.
       '4. Marks',
-      '   - `[x]` `[-]` `[ ]` `[/]`',
+      '   - `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`',
       '5. Literals',
-      '   - `[?]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+      '   - `[~]` `[X]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
       // The escape, on both paths. A backslash survives into the DOM, which is why it
       // replaced the double-backtick form — that one was invisible to the runtime and
       // this arm is what proved it.

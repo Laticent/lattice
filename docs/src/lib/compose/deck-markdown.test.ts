@@ -115,9 +115,9 @@ describe('table round-trip — the reason table slides stop locking', () => {
 		});
 	}
 
-	it('all four LFM state markers survive verbatim in cells (never escaped to \\[x\\])', () => {
-		const out = roundTripSlideProse('| A | B |\n| --- | --- |\n| [x] | [-] |\n| [ ] | [/] |');
-		for (const marker of ['[x]', '[-]', '[ ]', '[/]']) expect(out).toContain(`| ${marker}`);
+	it('all six LFM state markers survive verbatim in cells (never escaped to \\[x\\])', () => {
+		const out = roundTripSlideProse('| A | B | C |\n| --- | --- | --- |\n| [x] | [-] | [!] |\n| [?] | [ ] | [/] |');
+		for (const marker of ['[x]', '[-]', '[!]', '[?]', '[ ]', '[/]']) expect(out).toContain(`| ${marker}`);
 		expect(out).not.toContain('\\[');
 	});
 

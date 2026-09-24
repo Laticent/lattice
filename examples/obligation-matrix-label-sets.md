@@ -50,15 +50,15 @@ cell is one the reader cannot find.
 <!-- _class: obligation-matrix -->
 <!-- _footer: "Overridden · compliance words become licensing words" -->
 
-`[{[x], In force}, {[ ], Not subject}]`
+`[{[x], In force}, {[/], Not subject}]`
 
 ## The same grid, for a licensing review.
 
 | Regime     | Register | Disclose | Audit | Renew |
 | ---------- | :------: | :------: | :---: | :---: |
 | Class A    | [x]      | [x]      | [x]   | [x]   |
-| Class B    | [x]      | [-]      | [x]   | [ ]   |
-| Class C    | [x]      | [ ]      | [ ]   | [ ]   |
+| Class B    | [x]      | [-]      | [x]   | [/]   |
+| Class C    | [x]      | [/]      | [/]   | [/]   |
 
 Two markers renamed; the third keeps its default.
 
@@ -67,14 +67,14 @@ Two markers renamed; the third keeps its default.
 <!-- _class: obligation-matrix heat -->
 <!-- _footer: "heat · the key follows the cells, whatever they paint" -->
 
-`[{[x], Exposed}, {[ ], Carved out}]`
+`[{[x], Exposed}, {[/], Carved out}]`
 
 ## The key cannot drift from the cells.
 
 | Regulation | Notice | Consent | Retention | Breach |
 | ---------- | :----: | :-----: | :-------: | :----: |
 | GDPR       | [x]    | [x]     | [x]       | [x]    |
-| CCPA/CPRA  | [x]    | [-]     | [x]       | [ ]    |
+| CCPA/CPRA  | [x]    | [-]     | [x]       | [/]    |
 
 Heat marks burden, not relief — exempt cells stay neutral. The key's swatches
 take the cells' own classes, so one stylesheet rule paints both.

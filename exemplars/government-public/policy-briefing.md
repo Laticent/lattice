@@ -54,13 +54,13 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 - **Keep voluntary guidance.**
   - [x] Low cost
-  - [ ] Compliance gain
-  - [ ] Equity reach
+  - [!] Compliance gain
+  - [!] Equity reach
   - Cheapest to administer, but eight years of flat compliance show it does not change behavior at scale.
 - **Mandate with no support.**
-  - [ ] Low cost
+  - [!] Low cost
   - [x] Compliance gain
-  - [ ] Equity reach
+  - [!] Equity reach
   - Drives compliance but lands hardest on owners who cannot afford clearance, inviting non-compliance and appeals.
 - **Mandate with hardship grants.**
   - [-] Low cost

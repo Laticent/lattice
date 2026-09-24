@@ -17,6 +17,8 @@ const { labelSetFor } = require('../../../lib/core/label-set');
 const cell = (sem, shape) => `<td><span class="state ${sem} ${shape}"></span></td>`;
 const FULL = cell('pass', 'state-full');       // [x]
 const HALF = cell('warn', 'state-half');       // [-]
+const FAIL = cell('fail', 'state-empty');      // [!]
+const UNKNOWN = cell('unknown', 'state-unknown'); // [?]
 const TODO = cell('todo', 'state-todo');       // [ ]
 const SLASH = cell('skip', 'state-slashed');   // [/]
 
@@ -54,18 +56,19 @@ describe('who it serves', () => {
 
 describe('the derived key', () => {
   test('names every marker the cells carry, in declaration order', () => {
-    const out = t.applyToHtml(section(FULL + HALF + TODO + SLASH));
-    assert.deepEqual(labels(out), ['Applies', 'Partial', 'Exempt', 'Out of scope']);
+    const out = t.applyToHtml(section(FULL + HALF + FAIL + UNKNOWN + TODO + SLASH));
+    assert.deepEqual(labels(out),
+      ['Applies', 'Partial', 'Does not apply', 'Unclear', 'Undetermined', 'Exempt']);
   });
 
   test('names ONLY the markers present', () => {
     // A key row for a marker no cell uses points at nothing on the slide.
-    assert.deepEqual(labels(t.applyToHtml(section(FULL + TODO))), ['Applies', 'Exempt']);
+    assert.deepEqual(labels(t.applyToHtml(section(FULL + TODO))), ['Applies', 'Undetermined']);
   });
 
   test('order is the manifest\'s, not the order the cells happen to appear', () => {
     assert.deepEqual(labels(t.applyToHtml(section(SLASH + TODO + HALF + FULL))),
-      ['Applies', 'Partial', 'Exempt', 'Out of scope']);
+      ['Applies', 'Partial', 'Undetermined', 'Exempt']);
   });
 
   test('a grid with no marker cells gets no key at all', () => {
@@ -84,17 +87,22 @@ describe('the swatch takes the CELL\'s own classes', () => {
     // A key painted from a different rule than the cells it names is the worst
     // kind of stale legend: it stays plausible. The stylesheet adds this one
     // class to the cell-disc selectors rather than restating the recipe.
-    const out = t.applyToHtml(section(FULL + HALF + TODO + SLASH));
+    const out = t.applyToHtml(section(FULL + HALF + FAIL + UNKNOWN + TODO + SLASH));
     assert.match(out, /label-set-key-mark state pass state-full/);
     assert.match(out, /label-set-key-mark state warn state-half/);
+    assert.match(out, /label-set-key-mark state fail state-empty/);
+    assert.match(out, /label-set-key-mark state unknown state-unknown/);
     assert.match(out, /label-set-key-mark state todo state-todo/);
     assert.match(out, /label-set-key-mark state skip state-slashed/);
   });
 
-  test('[ ] reads as the NEUTRAL state here, not as a failure', () => {
-    // obligation-matrix's `[ ]` is "not subject to this obligation". The same
-    // marker is a hard fail in verdict-grid, which draws no key yet.
+  test('each marker keys the one state it means in every layout', () => {
+    // `[ ]` is open (undetermined, here) and "does not apply" is `[!]`; exempt moved to
+    // `[/]`. No component reads a marker its own way any more.
     assert.equal(t.MARKER_STATE['[ ]'].sem, 'todo');
+    assert.equal(t.MARKER_STATE['[!]'].sem, 'fail');
+    assert.equal(t.MARKER_STATE['[?]'].sem, 'unknown');
+    assert.equal(t.MARKER_STATE['[/]'].sem, 'skip');
   });
 });
 
@@ -162,9 +170,10 @@ describe('applyToDom — the live-DOM path must agree with the string path', () 
   const domLabels = (d) => [...d.querySelectorAll('.label-set-key-label')].map((n) => n.textContent);
 
   test('draws the same derived key the string path does', () => {
-    const d = doc(section(FULL + HALF + TODO));
+    const d = doc(section(FULL + HALF + FAIL + UNKNOWN + TODO + SLASH));
     t.applyToDom(d.body);
-    assert.deepEqual(domLabels(d), ['Applies', 'Partial', 'Exempt']);
+    assert.deepEqual(domLabels(d),
+      ['Applies', 'Partial', 'Does not apply', 'Unclear', 'Undetermined', 'Exempt']);
   });
 
   test('the swatch carries the cell classes here too', () => {
@@ -177,7 +186,7 @@ describe('applyToDom — the live-DOM path must agree with the string path', () 
   });
 
   test('reads and consumes the authored set', () => {
-    const d = doc(section(FULL + TODO, setPara('[{[x], In force}]')));
+    const d = doc(section(FULL + SLASH, setPara('[{[x], In force}]')));
     t.applyToDom(d.body);
     assert.deepEqual(domLabels(d), ['In force', 'Exempt']);
     assert.ok(!d.body.textContent.includes('In force}'),

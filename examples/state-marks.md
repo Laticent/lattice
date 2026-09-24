@@ -11,20 +11,22 @@ header: "Lattice · state marks"
 
 # Circles, with a mark
 
-A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one status-colored disc, one distinct mark.
+A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `\[/]` — one answer each, one distinct shape each.
 
 ---
 
 <!-- _class: checklist -->
 
-## One disc, four marks.
+## Six answers, six marks.
 
-- [x] Check — done, succeeded, complete
-- [-] Dash — partial, caveat, qualified
-- [ ] X — not done, rejected, todo
-- [/] Slash — out of scope, waived, N/A
+- [x] Check — yes, done, met
+- [-] Dash — partly, qualified
+- [!] Cross — no, failed, not met
+- [?] Question — unknown, cannot say yet
+- [ ] Open ring — not started, not assessed
+- [/] Slash — does not apply, waived
 
-> The mark's shape carries the meaning independently of color — the redundant channel the old fill-level discs lacked. Read it in grayscale and it still parses.
+> The shape carries the meaning, so it parses in grayscale. The two unsettled answers are the hollow rings.
 
 ---
 
@@ -35,6 +37,8 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one 
 - [x] Scoring policy live across all pilot teams
 - [x] Decision Log audit trail readable by Auditor role
 - [-] Examiner pack auto-generation — _open, see slide 27_
+- [!] Legacy export parity — _failed the pilot_
+- [?] Vendor SLA renewal — _terms not disclosed_
 - [ ] Multi-team calibration cadence — _Phase 2_
 - [/] Org-wide adoption — _deferred to Phase 3_
 
@@ -45,9 +49,9 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one 
 ## Same grammar inside verdict badges.
 
 - **Build in-house.**
-  - [ ] Certified
+  - [!] Certified
   - [-] Residency
-  - [ ] Export
+  - [!] Export
   - Full control of every axis, three engineer-quarters from having any of it.
 - **Vendor North.**
   - [x] Certified
@@ -71,7 +75,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one 
 | GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |
 | CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |
 | PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |
-| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
+| GLBA       | [x]    | [-]     | [-]       | [x]    | [/]   |
 
 ---
 
@@ -81,6 +85,8 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one 
 
 - [x] Editorial, low-ink: ring + status-color mark
 - [-] Best where the row has no tint behind it
+- [!] The cross keeps its red, in outline
+- [?] The question mark sits in the open ring
 - [ ] Per-slide or per-deck, no markup change
 - [/] Marks and colors never change — only the disc
 
@@ -92,6 +98,8 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one 
 
 - [x] Larger disc, heavier mark — reads across a room
 - [-] Knockout mark on a flat saturated fill
+- [!] Heavier cross for a failed row
+- [?] Heavier question mark in the ring
 - [ ] Good for projection or a single hero checklist
 - [/] Five variants ship; the default is Ringed Solid
 

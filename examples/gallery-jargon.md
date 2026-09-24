@@ -356,19 +356,19 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
   - [x] Speed
   - [-] Auditability
   - [x] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - Great call recording, no logging, no calibration. The sales team already uses it.
 - Tool B · Productboard
-  - [ ] Speed
+  - [!] Speed
   - [x] Auditability
   - [x] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - Solid intake, no calibration. Setup was "3–4 weeks." It took 11.
 - Tool C · Notion
   - [x] Speed
   - [x] Auditability
   - [-] Adoption
-  - [ ] Calibration
+  - [!] Calibration
   - Build anything. Teams built seven, then debated the canon for two quarters.
 - Tool D · Sprig + Decision Log
   - [x] Speed
@@ -386,10 +386,10 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | [x]    | [ ]          | [x]       | [x]         |
-| Auditability | [ ]    | [x]          | [x]       | [x]         |
-| Adoption     | [x]    | [x]          | [ ]       | [x]         |
-| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
+| Speed        | [x]    | [!]          | [x]       | [x]         |
+| Auditability | [!]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [!]       | [x]         |
+| Calibration  | [!]    | [!]          | [!]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 _Criteria defined by the team building Sprig + Log. We're transparent about it. It's in the footnote._

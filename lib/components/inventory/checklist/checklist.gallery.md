@@ -104,7 +104,7 @@ Items with state markers — done, partial, todo.
 - Long per-item prose
   - Each item is one short line. If a row needs a sentence of explanation, the right home is cards-stack or list-tabular.
 - Custom state markers
-  - Only `\[x]`, `\[-]`, `\[ ]`, and `\[/]` (out-of-scope, struck through) map to the mark palette. Authoring `[?]` or `[!]` renders as literal text and breaks the visual contract.
+  - Only the six markers — `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `\[/]` — map to the mark palette. Anything else in brackets (`[X]`, `[~]`, `[>]`) renders as literal text and breaks the visual contract. `[X]` is the trap: GitHub-flavored markdown reads it as a checked box, and it does not draw a mark here.
 
 ---
 
