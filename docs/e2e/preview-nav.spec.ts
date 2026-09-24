@@ -220,14 +220,14 @@ test('@parity every verb pages through a split slide before it leaves it', async
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('ArrowRight');
 	await expect(pill).toContainText('2.3 · 3 of 5');
-	// …and a burst that crosses INTO a split slide stops on it rather than skipping its pages to
-	// the slide after, which is where the first cut of the fix still landed.
+	// …and a burst that crosses INTO a split slide pages through it rather than skipping to the
+	// slide after, which is where the first cut of the fix still landed. Every press counts, in
+	// order, so three from slide 1 always end on the run's third page.
 	await page.keyboard.press('Home');
 	await at(1);
 	for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
-	await page.waitForTimeout(1600);
+	await expect(pill).toContainText('2.3 · 3 of 5');
 	await at(2);
-	await expect(pill).toBeVisible();
 });
 
 // ── Zoom, and the gestures it had to take back (#pinch-zoom) ─────────────────
