@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: The state chart was janky three ways — it snapped after every edit and redrew forever while idle, it painted a plain slate stripe down every node and carried status on a corner sticker, and a long machine could only shrink (a 10-state chain set its names at 4.6px on 16:9). It now draws in the frame it appears and settles, lets a status paint the node in gantt's mark language, and picks direction and line count by fit — wrapping a long chain in reading order through one grid producer that every chain, and a branching machine that cannot fit, is drawn from.
 ---
 
@@ -122,7 +122,7 @@ directions from one measurement). `.state-chart-scale { width: max-content }`:
 own box, clipped its end ring, and fitted against a box narrower than the drawing.
 
 **The upscale ceiling.** The letterbox used to grow a small machine without limit
-(the 2026-07-16 self-scale note: "fills UP when there's room"). Measured, a
+(the 2026-07-16 self-scale note: "no floor, no cap"; the pass's comment said it "fills UP when there's room"). Measured, a
 three-state row set its names at 48px (2.2x body) and a portrait five-state column
 at about 2.5x — boxes that read as a poster. The fit now stops at 1.6x body size
 (`MAX_OVER_BODY`); the shrink direction is untouched.
@@ -199,9 +199,14 @@ test or a re-run probe behind it.
   follow-up). A test fixture that tripped the type floor by accident (the old
   state-chart gallery) was replaced with one that does so on purpose.
 
-Put to the owner rather than decided here: whether the default-direction change
-is marked **Breaking** in the changelog, and the upscale ceiling, which reverses
-the "fills UP when there's room" rule of `2026-07-16-state-chart-self-scale.md`.
+Put to the owner, and settled by the owner (2026-09-24):
+
+- **The default-direction change is marked Breaking (visual)** in the changelog.
+  Nothing fails to build, but every state-chart slide without `lr` changes shape
+  on its own, and `tb` is the way back to the column.
+- **The 1.6x upscale ceiling stays.** It replaces the "no floor, no cap" letterbox
+  of `2026-07-16-state-chart-self-scale.md` on the UP side only; the shrink side
+  is unchanged. That note carries a supersession line pointing here.
 
 ## 5. What did not change, and what is still open
 
