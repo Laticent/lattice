@@ -99,6 +99,25 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * figure. Same one-rule-per-host shape, same reason it is not here.
  * `engineering/mermaid.md` §"How big the re-hosted diagram is" has the measurements. */
 
+/* ── A LABEL KEEPS THE TYPE MERMAID MEASURED IT AT ──
+ * Mermaid sizes every node box around its label, measured at the diagram's own font
+ * (14px, the `#lattice-mmd-N` rule mermaid writes into the svg), then wraps the label
+ * text in a `<p>`. That `<p>` sits inside our slide, so the slide's prose rules reach
+ * it: `section.content p { font-size: var(--fs-body); line-height: var(--lh-relaxed) }`
+ * set it at 21.4px in a box sized for 14px. Measured on an 8-node LR flowchart on a
+ * plain slide: all 8 labels clipped ("Order pl…"), each 1.52x its box in both
+ * directions. The baked article copy then inherited the same 21.4px and, with nothing
+ * clipping it, spilled right of every box.
+ * `content` is the layout a slide gets when it declares none, so this reached every
+ * diagram not on a `_class: diagram` slide. Reset to the svg's own type, and
+ * `!important` because a deck's prose rule for `p` can out-rank anything scoped here. */
+:is(section, figure) svg[aria-roledescription] foreignObject p {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
 /* ── A LABEL TAKES ITS PARENT'S BASELINE, IN WEBKIT TOO ──
  * Mermaid declares `dominant-baseline` one level ABOVE the glyphs it means to place, and
  * WebKit does not carry the value down. Two shapes, both measured on the diagram gallery

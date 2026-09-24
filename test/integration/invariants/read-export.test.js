@@ -305,6 +305,32 @@ describe('--read — the deck as prose, and nothing else moves', () => {
     }
   });
 
+  // A DIAGRAM ON A PLAIN SLIDE keeps the type Mermaid measured its boxes at. Mermaid wraps
+  // each label in a `<p>`, and on a `content` slide (the layout a slide gets when it
+  // declares none) `section.content p` restyled it at --fs-body: 21.4px in a box sized for
+  // 14px. The slide clipped every label ("Order pl…"); the baked article copied the 21.4px
+  // and spilled each label right of its box. The arm above cannot see this — its fixture is
+  // a `_class: diagram` slide, which that rule never reaches, and so was every gate's.
+  test('a diagram on a plain content slide bakes its labels at the size its boxes were measured for', { timeout: 900000 }, async () => {
+    const dir7 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-plain-'));
+    try {
+      fs.writeFileSync(
+        path.join(dir7, 'deck.md'),
+        '---\ntheme: indaco\n---\n\n# How an order moves\n\n' +
+          '```mermaid\nflowchart LR\n  A[Order placed] --> B[Payment checked] --> C[Stock reserved]\n```\n',
+      );
+      const out = render(dir7, path.join(dir7, 'read.html'), ['--read']);
+      const { JSDOM } = require('jsdom');
+      const article = new JSDOM(fs.readFileSync(out, 'utf8')).window.document.querySelector('#lat-read');
+      const spans = [...article.querySelectorAll('svg[aria-roledescription] g.node tspan')];
+      assert.ok(spans.length >= 3, `expected the three node labels, got ${spans.length}`);
+      const sizes = [...new Set(spans.map((t) => (t.getAttribute('style') || '').match(/font-size:([^;]+)/)?.[1]))];
+      assert.deepEqual(sizes, ['14px'], `every label must bake at Mermaid's 14px, not the slide's body size; got ${JSON.stringify(sizes)}`);
+    } finally {
+      fs.rmSync(dir7, { recursive: true, force: true });
+    }
+  });
+
   // REGRESSION, from the same checker pass. `--fluid` and `--read` ask for opposite
   // documents and the write is an `else if` chain, so one loses — silently. Only the
   // `--player` clash warned; `--read --fluid` produced a fluid viewer with no article in it
