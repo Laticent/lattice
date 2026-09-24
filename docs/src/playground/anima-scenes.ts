@@ -19,7 +19,7 @@ import { rendererFor } from '@/lib/anima/backends/registry';
 import { hydrateScene } from '@/lib/anima/hydrate';
 import { hydrateChart } from '@/lib/chart-anima-hydrate';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
-import { type DeckMotion, hasAnimatableChart, MOTION_OPT_IN_SEL, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, SCENE_SEL, speedToDurationMs } from './anima-host-sel';
+import { type DeckMotion, hasAnimatableChart, isMermaidSvg, MOTION_OPT_IN_SEL, motionMarkCount, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, SCENE_SEL, speedToDurationMs, watchDiagramDrawn } from './anima-host-sel';
 
 // The eligibility selectors + the deck-default/slide-override cascade live in a zero-dependency leaf
 // (anima-host-sel.ts) so this host and the DeckPreview host-load gate share ONE definition and can't
@@ -56,6 +56,59 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   // re-entered later (e.g. Present) mounts settled rather than auto-restarting; the ↻ control replays
   // it. A CHANGED chart or a SWITCHED style is a new signature → it plays.
   const played = new Set<string>();
+
+  // The Mermaid bake (`flattenSvgStyles`), loaded on the FIRST diagram that needs it rather than with
+  // this module: the Playground imports this host statically, and a deck with no diagram should not
+  // pay ~21 KB for it. Until it lands, a diagram stays pre-hidden and is skipped; the load re-runs
+  // rebind(), which mounts it. If the load fails, diagrams show as stills from then on.
+  type Flatten = (svg: Element, win: Window, opts: { foreignObjectLabels: 'text' }) => Element;
+  let flatten: Flatten | null = null;
+  let flattenState: 'idle' | 'loading' | 'failed' = 'idle';
+  // Set by destroy(), so a load that lands after teardown does not re-mount into a dead host.
+  let destroyed = false;
+  function loadFlattener(): void {
+    if (flattenState !== 'idle') return;
+    flattenState = 'loading';
+    // A load that never settles must not leave a diagram pre-hidden forever: give up after a
+    // generous beat, the same backstop DeckPreview keeps for this host's own import.
+    const backstop = setTimeout(() => {
+      if (flattenState !== 'loading') return;
+      flattenState = 'failed';
+      if (!destroyed) rebind();
+    }, 1800);
+    import('./standalone-svg.generated.js')
+      .then((m) => {
+        clearTimeout(backstop);
+        if (flattenState === 'failed') return; // the backstop already gave up; diagrams stay still
+        flatten = m.flattenSvgStyles as Flatten;
+        flattenState = 'idle';
+        if (!destroyed) rebind();
+      })
+      .catch((err) => {
+        clearTimeout(backstop);
+        console.error('[anima] diagram bake failed to load — diagrams stay still', err);
+        flattenState = 'failed';
+        if (!destroyed) rebind();
+      });
+  }
+  // Bake a live Mermaid svg into native `<text>` labels + inline paint, so it survives the sanitizer
+  // (see `prepare` in chart-anima-hydrate.ts). A chart — or an already-baked diagram — passes through.
+  const needsBake = (svg: Element): boolean => isMermaidSvg(svg) && svg.querySelector('foreignObject, style') != null;
+  function prepareSvg(svg: SVGSVGElement): Element | null {
+    if (!needsBake(svg)) return svg;
+    // The frame's window resolves the frame's styles; the host's resolves them too on a same-origin
+    // frame, and is the only one a window-less document has.
+    const win = svg.ownerDocument.defaultView ?? (typeof window === 'undefined' ? null : window);
+    if (!flatten || !win) return null;
+    return flatten(svg, win, { foreignObjectLabels: 'text' });
+  }
+  // The <iframe> whose diagram draws we listen for (see `watchDiagramDrawn`). Bound on the first
+  // rebind that finds a frame, and moved if the caller hands us a different element.
+  let watchedFrame: HTMLIFrameElement | null = null;
+  let unwatch: (() => void) | null = null;
+  const onDiagramDrawn = (): void => {
+    if (!destroyed) rebind();
+  };
 
   function frameDoc(): Document | null {
     try {
@@ -104,13 +157,25 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   function sigOf(s: Element, deck: DeckMotion): string {
     if (s.matches(SCENE_SEL)) return `scene|${s.getAttribute('data-scene-spec') ?? ''}`;
     const svg = s.querySelector('svg');
-    const text = (svg?.textContent ?? '').replace(/\s+/g, ' ').trim();
-    const marks = svg?.querySelectorAll('[data-mark]').length ?? 0;
+    // A Mermaid SVG carries its own `<style>`, keyed by a per-render id (`#lattice-mermaid-7 …`), so
+    // its whole textContent changes on every fresh render of an unchanged diagram. Read only the
+    // words it draws — the `<text>` and `<foreignObject>` labels — so an unrelated edit does not
+    // replay it. A chart's text is all `<text>` already, so a chart keys exactly as before.
+    const words = svg && isMermaidSvg(svg) ? Array.from(svg.querySelectorAll('text, foreignObject'), (n) => n.textContent ?? '').join(' ') : (svg?.textContent ?? '');
+    const text = words.replace(/\s+/g, ' ').trim();
+    const marks = svg?.querySelectorAll('[data-mark], [data-anima-role]').length ?? 0;
     const cfg = resolveMotion(s, deck);
     return `chart|${cfg?.style ?? ''}|${cfg?.speed ?? ''}|${marks}|${text}`;
   }
 
   function rebind(): void {
+    const frame = getFrame();
+    if (frame !== watchedFrame) {
+      unwatch?.();
+      unwatch = null;
+      watchedFrame = frame;
+      if (frame && typeof frame.addEventListener === 'function') unwatch = watchDiagramDrawn(frame, onDiagramDrawn);
+    }
     const doc = frameDoc();
     if (!doc) {
       disposeAll();
@@ -178,6 +243,23 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
       const sig = sigOf(section, deck);
       mount(section, sig, (settled) => hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml, startSettled: settled, rendererFor }));
     }
+    // Start the diagram bake's load EARLY, so it has landed before Mermaid finishes drawing: not every
+    // surface pre-hides (the Playground's frame has no pre-hide rule, since its charts mount
+    // synchronously), so a late load shows the still diagram first. Two early signals: the deck plays
+    // motion (known at the very first rebind — measured in the Playground, that is the only rebind
+    // before the first diagram draws), or an undrawn fence sits on a slide that will animate. A fence
+    // the runtime has not reached yet has no state and still carries `language-mermaid`.
+    if (!flatten && flattenState === 'idle') {
+      const undrawn = 'pre[data-mermaid-state]:not([data-mermaid-state="rendered"]), marp-pre[data-mermaid-state]:not([data-mermaid-state="rendered"]), code.language-mermaid';
+      const early =
+        deck.play === 'on' ||
+        Array.from(doc.querySelectorAll(undrawn)).some((fence) => {
+          const sec = fence.closest('section');
+          return sec != null && resolveMotion(sec, deck) !== null;
+        });
+      if (early) loadFlattener();
+    }
+
     // The chart on-ramp. Two ways a chart section qualifies: an EXPLICIT per-slide opt-in class
     // (`motion-*` / legacy `chart-anima`), OR — when the deck sets Play on — ANY chart section (a
     // front-matter default leaves no class to select, so we scan chart sections and let `resolveMotion`
@@ -188,14 +270,25 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
       if (live.has(section)) continue;
       const cfg = resolveMotion(section, deck);
       if (!cfg) continue;
-      const marks = section.querySelectorAll('svg [data-mark]').length;
-      const durationMs = speedToDurationMs(cfg.speed, marks);
+      // A live Mermaid diagram needs the bake before it can mount. First sighting: start the load and
+      // leave the diagram pre-hidden; the load's rebind() mounts it. A failed load mounts nothing, and
+      // `mount` below then clears the pre-hide, so the diagram shows as a still.
+      const svg = section.querySelector('svg');
+      if (svg && needsBake(svg) && !flatten && flattenState !== 'failed') {
+        loadFlattener();
+        continue;
+      }
+      const durationMs = speedToDurationMs(cfg.speed, motionMarkCount(section));
       const sig = sigOf(section, deck);
-      mount(section, sig, (settled) => hydrateChart(section, { eager: true, sanitize: sanitizeSlideHtml, style: cfg.style, durationMs, startSettled: settled || reduce }));
+      mount(section, sig, (settled) => hydrateChart(section, { eager: true, sanitize: sanitizeSlideHtml, style: cfg.style, durationMs, startSettled: settled || reduce, prepare: prepareSvg }));
     }
   }
 
   function destroy(): void {
+    destroyed = true;
+    unwatch?.();
+    unwatch = null;
+    watchedFrame = null;
     disposeAll();
   }
 

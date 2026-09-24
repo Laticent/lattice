@@ -1,7 +1,18 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { ANIMA_HOST_SEL, PREHIDE_CLASS, SCENE_SEL } from './anima-host-sel';
+import { ANIMA_HOST_SEL, DIAGRAM_DRAWN_EVENT, PREHIDE_CLASS, SCENE_SEL } from './anima-host-sel';
 import { createAnimaScenes } from './anima-scenes';
+
+// The Mermaid bake the live host lazy-loads. jsdom lays nothing out, so the real flattener cannot
+// place labels here; this stand-in does the part the host depends on — it returns a copy with no
+// `<style>` and no `<foreignObject>`, which is what lets the copy through the sanitizer.
+vi.mock('./standalone-svg.generated.js', () => ({
+  flattenSvgStyles: (svg: Element) => {
+    const copy = svg.cloneNode(true) as Element;
+    for (const el of Array.from(copy.querySelectorAll('style, foreignObject'))) el.remove();
+    return copy;
+  },
+}));
 
 /** A fake frame whose contentDocument is a supplied jsdom document. */
 function frameOf(doc: Document): HTMLIFrameElement {
@@ -322,6 +333,78 @@ describe('createAnimaScenes — deck-level Play (front-matter `motion: on`)', ()
     deck = { play: 'off', style: null, speed: null }; // the author turned Play off
     scenes.rebind();
     expect(doc.querySelector('.scene-live')).toBeNull(); // no longer eligible → disposed
+    scenes.destroy();
+  });
+});
+
+describe('createAnimaScenes — Mermaid diagrams (deck `motion: on`)', () => {
+  const ON = { play: 'on' as const, style: null, speed: null };
+  // A drawn diagram as the runtime leaves it: roles written by `tagMermaidMotion`, plus the
+  // `<style>` and `<foreignObject>` labels a LIVE Mermaid svg carries (`live`), or neither (the
+  // HTML player's already-baked copy).
+  function diagramDoc(live: boolean, state = 'rendered'): Document {
+    const doc = document.implementation.createHTMLDocument('t');
+    const section = doc.createElement('section');
+    const label = live ? '<g class="label"><foreignObject><div>Input</div></foreignObject></g>' : '<text>Input</text>';
+    section.innerHTML =
+      `<pre data-mermaid-state="${state}"></pre>` +
+      '<div class="mermaid"><svg aria-roledescription="flowchart-v2" viewBox="0 0 200 100">' +
+      (live ? '<style>#m{fill:red}</style>' : '') +
+      '<g class="edgePaths"><path data-anima-role="bar" data-anima-order="2" d="M0 0L10 10"/></g>' +
+      `<g class="nodes"><g class="node" data-anima-role="bar" data-anima-order="1"><rect width="10" height="10"/>${label}</g></g>` +
+      '</svg></div>';
+    doc.body.appendChild(section);
+    return doc;
+  }
+
+  it('mounts an already-baked diagram straight away — no bake to wait for', () => {
+    const doc = diagramDoc(false);
+    const scenes = createAnimaScenes({ getFrame: () => frameOf(doc), getDeckMotion: () => ON });
+    scenes.rebind();
+    expect(doc.querySelector('.mermaid .scene-live')).not.toBeNull();
+    scenes.destroy();
+  });
+
+  it('holds a LIVE diagram hidden until the bake loads, then mounts it with no <style> or <foreignObject>', async () => {
+    const doc = diagramDoc(true);
+    const scenes = createAnimaScenes({ getFrame: () => frameOf(doc), getDeckMotion: () => ON });
+    scenes.rebind();
+    // First sighting: the bake is loading, so the diagram is pre-hidden, not shown as a still.
+    expect(doc.querySelector('.scene-live')).toBeNull();
+    expect(doc.querySelector('.mermaid')?.classList.contains(PREHIDE_CLASS)).toBe(true);
+    await vi.waitFor(() => expect(doc.querySelector('.mermaid .scene-live')).not.toBeNull());
+    const stage = doc.querySelector('.mermaid .scene-live') as Element;
+    expect(stage.querySelector('style, foreignObject')).toBeNull();
+    scenes.destroy();
+  });
+
+  it('re-runs itself when the runtime announces a drawn diagram on the <iframe> — no outside rebind needed', () => {
+    const doc = diagramDoc(false, 'pending');
+    const svgHost = doc.querySelector('.mermaid') as Element;
+    const drawn = svgHost.innerHTML;
+    svgHost.innerHTML = ''; // still source: nothing to animate yet
+    // A real <iframe> is an EventTarget that outlives its documents; the runtime fires on it.
+    const frame = Object.assign(new EventTarget(), { contentDocument: doc }) as unknown as HTMLIFrameElement;
+    const scenes = createAnimaScenes({ getFrame: () => frame, getDeckMotion: () => ON });
+    scenes.rebind();
+    expect(doc.querySelector('.scene-live')).toBeNull();
+    // The runtime writes the svg, flips the fence, then announces — synchronously.
+    svgHost.innerHTML = drawn;
+    doc.querySelector('pre')?.setAttribute('data-mermaid-state', 'rendered');
+    frame.dispatchEvent(new Event(DIAGRAM_DRAWN_EVENT));
+    // Mounted INSIDE the dispatch: the still frame never gets a paint.
+    expect(doc.querySelector('.mermaid .scene-live')).not.toBeNull();
+    scenes.destroy();
+    // Unbound on destroy: a later draw does not re-mount into a dead host.
+    frame.dispatchEvent(new Event(DIAGRAM_DRAWN_EVENT));
+    expect(doc.querySelector('.scene-live')).toBeNull();
+  });
+
+  it('leaves a diagram still when the deck does not play motion', () => {
+    const doc = diagramDoc(false);
+    const scenes = createAnimaScenes({ getFrame: () => frameOf(doc), getDeckMotion: () => ({ play: null, style: null, speed: null }) });
+    scenes.rebind();
+    expect(doc.querySelector('.scene-live')).toBeNull();
     scenes.destroy();
   });
 });

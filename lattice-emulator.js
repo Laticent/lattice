@@ -4223,6 +4223,12 @@ async function renderBody(browser, g, closeBrowser) {
       // such dependency (it bakes its colors at render time either way).
       const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenPlayerSvg.toString()};`), 'player capture: inject svg flattener');
+      // The motion roles the live runtime writes on every drawn diagram. The CLI's diagrams come
+      // from the render worker, not the runtime, so they arrive untagged; tagging the baked copy
+      // here is what lets a `motion: on` deck animate its diagrams in the player too.
+      // Closure-free for the same reason the flattener is.
+      const { tagMermaidMotion: tagPlayerSvg } = require('./lib/integrations/mermaid/motion-roles.js');
+      await g(() => page.evaluate(`window.__tagMermaidMotion = ${tagPlayerSvg.toString()};`), 'player capture: inject diagram motion tagger');
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
@@ -4237,7 +4243,9 @@ async function renderBody(browser, g, closeBrowser) {
           // diagram ships as shapes with no words: precisely the defect this bake
           // exists to prevent. Silence there is indistinguishable from success.
           try {
-            copies[i].replaceWith(window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' }));
+            const flat = window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' });
+            window.__tagMermaidMotion(flat);
+            copies[i].replaceWith(flat);
           } catch (_e) { unbaked++; }
         }
         return { html: `<!DOCTYPE html>\n${root.outerHTML}`, unbaked, total: live.length };

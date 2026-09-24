@@ -1214,3 +1214,65 @@ Some types accept both. The rendered CSS class is determined by diagram type, no
 **Marp-vscode preview parser quirk — RETIRED, and this line stated a dead rule as live fact.** It used to say `:not(:has(...))` and `:is(:has(...), :has(...))` were silently broken in the marp-vscode Chromium build. That was HARD RULE #12, retired 2026-07-10 after an empirical retest against a real current Chromium found both forms behave per spec, with no corroborating bug report anywhere — `engineering/decisions/2026-07-10-hard-rule-12-retirement.md`. This page kept asserting it. The preview's engine, now that it is reachable, is Chromium 148 / Electron 42.10.0 (§ 8 of the fence-flash note); the selectors were not re-tested there, and per the retirement record they need no special handling. (Historical note: when the build path injected CSS via Mermaid's `themeCSS` init parameter, two additional limits applied — no CSS comments, no `>` combinator. That path no longer exists; rules now live in `lattice.css` and reach the SVG via host-page cascade, so both restrictions are gone.)
 
 ---
+
+## 5.5 Motion — a diagram builds in like a chart
+
+A deck with `motion: on`, or a slide with `motion-on`, animates its Mermaid diagrams the way it
+animates its charts: the subgraph boxes first, then the nodes, then the arrows between them, then
+the words. `motion-style` (`build` / `together` / `rise`), `motion-speed` and `motion-off` apply
+unchanged, and a viewer who asks the OS to reduce motion sees the diagram settled. It runs in the
+Playground, the Studio, Present and the exported HTML player. The PDF is a still, as it is for every
+chart. Demo: `examples/mermaid-motion.md`.
+
+**How.** The chart motion layer (`chartToScene`, `docs/src/lib/chart-anima.ts`) animates any SVG
+whose parts declare `data-anima-role`. Chart kernels emit that attribute; Mermaid does not, and we
+do not control its output. So `tagMermaidMotion` (`lib/integrations/mermaid/motion-roles.js`) reads
+the classes Mermaid already writes (`g.node`, `g.cluster`, `path.pieCircle`, …) and writes the roles,
+plus a `data-anima-order` sort key. The key exists because Mermaid paints the arrows BEFORE the boxes
+(they sit underneath), so document order would draw the arrows first; a sequence diagram's
+participants also key on their x position, because Mermaid writes them right to left.
+
+| Family | Builds |
+| --- | --- |
+| flowchart, state, class, ER, mindmap (anything with a `g.nodes` group) | subgraphs → nodes → edges → labels |
+| sequence | participants left to right (box, lifeline, box) → messages and notes |
+| pie | the disc at once (sectors reveal together, as for a chart pie) |
+| gantt · XY chart · quadrant · git graph · timeline | tasks · bars, then lines · points · commits, then arrows · events |
+| anything else (journey, …) | nothing — no roles, so it stays a still |
+
+The shared-graph families are found by STRUCTURE, not by name, so a new family on that renderer
+animates with no change.
+
+**Where the roles are written — three producers, one function:**
+
+| Path | Who tags | Why there |
+| --- | --- | --- |
+| Live (Playground, Studio, Present) | the runtime, right after it writes a drawn SVG (`tagDiagramMotion`, `lib/runtime/index.js`) | the only place a live diagram is born |
+| Studio HTML-player export | inherited — the bake reads the runtime's DOM | `flattenSvgStyles` clones with attributes |
+| CLI HTML-player export | `lattice-emulator.js`'s player capture, on the baked copy | the CLI's diagrams come from the render worker, not the runtime |
+
+`tagMermaidMotion` is closure-free because the CLI serializes it into the capture page with
+`toString()`, exactly as it does `flattenSvgStyles`. In the runtime it must never throw: it runs in
+the render queue's success path, where a throw would be caught as a RENDER failure.
+
+**Two things the live host does that a chart never needed.**
+
+1. **It hears the diagram draw.** The runtime draws after the render the host rebinds on, so at
+   rebind time a diagram is still source. The runtime fires `lattice:diagram-drawn` on
+   `window.frameElement` — the host's `<iframe>` element, which survives a srcdoc rewrite while the
+   document does not — and the host rebinds inside that synchronous call, before the browser paints
+   the still. A first cut watched the frame DOCUMENT with a MutationObserver; measured in the
+   Playground, the watch landed on the frame's initial document, the deck's document replaced it,
+   and the diagram showed as a still for ~250 ms before the host's next rebind found it.
+2. **It bakes the live SVG first.** The animated copy passes through `sanitizeSlideHtml` (HARD RULE
+   #22), which removes Mermaid's `<style>` and every `<foreignObject>` label. So the host runs the
+   same `flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' })` bake the HTML player export
+   uses, through the `prepare` hook on `hydrateChart`. The bake is ~21 KB, so it loads on demand —
+   early, when the deck plays motion, because the Playground's frame has no pre-hide rule and a
+   late load would show the still first. The exported player's diagrams are already baked, so the
+   player never loads it.
+
+**What a settled diagram looks like.** Once built, the diagram on screen is the baked copy: the same
+geometry, ink and size, with labels drawn as SVG `<text>` rather than HTML. Chrome renders SVG text
+very slightly heavier than the HTML it replaces. The HTML player export has always shipped this
+bake, so a forwarded deck already looks this way.

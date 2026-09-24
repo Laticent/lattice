@@ -76,16 +76,19 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
       if (preEl.dataset.mermaidState === 'rendering') preEl.dataset.mermaidState = 'pending';
     },
     markFenceDrawn: () => {},
+    // Writes the chart motion roles on a drawn diagram (lib/integrations/mermaid/motion-roles.js).
+    // Motion is not what these cells are about, so it stands in as a no-op.
+    tagDiagramMotion: () => {},
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn) {
+    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, tagDiagramMotion) {
        let renderCounter = 0;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn);
+  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.tagDiagramMotion);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();
