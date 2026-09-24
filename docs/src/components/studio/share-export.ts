@@ -305,9 +305,9 @@ async function sha256Base64(s: string): Promise<string> {
  * Download the current deck as a self-contained `.html` player — the app-side
  * equivalent of the CLI `--player` export. Renders the full deck in-browser,
  * assembles a self-contained document (base64 fonts, full deck CSS), and runs the
- * shared `assemblePlayer` with browser capabilities. Full CSS + full fonts for now
- * (the used-selector / used-family prune is a follow-up, P2b — it needs an
- * offscreen full-deck frame + the css-tree kernel extracted to the browser).
+ * shared `assemblePlayer` with browser capabilities, then prunes the CSS and the
+ * font faces the deck never uses (`player-prune-browser.ts`, P2b). Kept faces ship
+ * whole: nothing glyph-subsets them on this path.
  */
 export async function shareHtmlPlayer(
 	options: SingleSlideOptions,
