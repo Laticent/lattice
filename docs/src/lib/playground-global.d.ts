@@ -31,6 +31,8 @@ export interface LatticePlaygroundEngine {
 	 *  engineering/decisions/2026-08-16-theme-identity-ownership.md. */
 	addThemes: (themes: Array<{ name: string; css: string } | string>) => void;
 	hasTheme: (name: string) => boolean;
+	/** Every link reference definition's target, used or not (lib/engine `referenceTargets`). */
+	referenceTargets?: (markdown: string) => string[];
 	/** Fenced-code grammars this deck asks for that the bundle cannot color.
 	 *  The bundle carries highlight.js's 36-language `common` build; the rest are
 	 *  fetched per deck by docs/src/lib/ensure-hljs-language.ts. */

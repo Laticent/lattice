@@ -24,15 +24,10 @@ verify    — unit + the package e2e specs.
    without a word (`lattice-emulator.js` palette lookup, `lib/packages/render.js`). At least
    warn when a shipped name hides an installed or saved one; longer term, consider a user
    namespace. Owner decision.
-2. **A component's sample slide (`gallery.md` / skeleton) is not gated on import.** A remote
-   `<img>`, markdown image or inline `style="…url()"` in it becomes the user's own deck
-   content on Insert. `findSkeletonHtml` refuses ANY tag, which shipped galleries use, so
-   it cannot simply be switched on; a narrower rule (remote URLs only) is needed. Red team,
-   plausible, not run.
-3. **Motion art keeps remote references** (`<image href>`, `<feImage href>`,
-   `style="fill:url(https://…)"`) through `sanitizeSceneAssets`, and the Library renders it
-   with `dangerouslySetInnerHTML` on the main origin. Pre-existing; #2336 closed the new
-   `.lattice` route to it but not the Library zip route.
+
+Items 2 (gallery gating) and 3 (motion art's remote references) are fixed; the decision note's
+§10 says how. The numbers are kept so a reference to item 4 still means item 4.
+
 4. **A zip that understates its entry sizes still inflates fully** — in the CLI as in the
    Studio (`zip-limits.ts` documents the residual). A streaming inflate with a running cap
    would close it.
@@ -57,3 +52,18 @@ verify    — unit + the package e2e specs.
     #2035 fail too. `studio-instant-shell.spec.ts:539` is flaky on both (1 of 2 on `main`, 1 of
     4 on the branch: "shell 0 vs app 16"). WebKit and Gecko projects were not run: this sandbox
     has Chromium only.
+11. **A DECK may still load remote images, and that is the root of items 2 and 3.**
+    `sanitizeSlideHtml` keeps remote images on purpose, because a deck's own images are
+    legitimately remote, so a deck someone sends you beacons in the preview and in every
+    export. The package gates close the doors where markup rides in under a trusted name;
+    they do not close this one. The fix belongs at the render boundary: an `img-src 'self'
+    data: blob:` policy on the preview frames with a visible "this deck loads N remote images —
+    load them?" switch, and an export option that inlines or strips them. A product call
+    (it changes what a pasted deck shows by default), so it is the owner's. Found by the
+    inversion lens on the continuation PR.
+12. **Workspace restore saves library items with no import gate.** `workspace-backup.ts`
+    `restoreWorkspace` calls `saveStudioComponent` and `saveStudioTheme` directly, so a backup
+    file from someone else skips the CSS gates and the gallery gate. `import-gate.ts` explains
+    why the refusal is scoped to the zip door (a false positive in your OWN backup must not
+    abort your restore), so the fix is a per-item gate with a skip-and-report, not a hard
+    refusal. Pre-existing; off the continuation PR's path.

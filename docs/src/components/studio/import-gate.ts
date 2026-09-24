@@ -97,7 +97,7 @@ export async function refuseImportedTheme(css: string, name: string): Promise<Im
 }
 
 /**
- * Refuse imported COMPONENT css on the same terms.
+ * Refuse an imported COMPONENT on the same terms — its CSS and its sample slide.
  *
  * The component arm of the same `.zip` was ungated while the theme arm was not, which
  * is the same hole in the same file: hostile component CSS reaches the same
@@ -105,10 +105,18 @@ export async function refuseImportedTheme(css: string, name: string): Promise<Im
  * intended workflow — import, then insert the skeleton — is what fires it. `gateCss`
  * already runs on component CSS in Fabricate for live findings, so this is the same
  * "guards a preview, not the library" gap, closed on the same path.
+ *
+ * The skeleton (`gallery.md`) is the other half of that workflow: Insert makes it the
+ * user's own deck content, so a remote `<img>`, markdown image or `url()` in it is the same
+ * beacon. `library/gallery-gate.ts` renders it and reads what would load, with the CLI's
+ * words (`remote-ref.js` `galleryRefusal`). Loaded on demand, like the cores above.
  */
-export async function refuseImportedComponent(css: string, name: string): Promise<ImportRefusal> {
+export async function refuseImportedComponent(css: string, name: string, skeleton = ''): Promise<ImportRefusal> {
 	const { gateCss } = await loadLayoutCore();
 	const findings = gateCss(css, name) as { findings?: Finding[] } | Finding[];
 	const list = Array.isArray(findings) ? findings : findings?.findings;
-	return firstRefusal(list, name);
+	const cssRefusal = firstRefusal(list, name);
+	if (cssRefusal || !skeleton.trim()) return cssRefusal;
+	const { refuseGallery } = await import('./library/gallery-gate');
+	return refuseGallery(skeleton, name);
 }

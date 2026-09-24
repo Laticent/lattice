@@ -2084,7 +2084,7 @@ function withInstalledComponents(source) {
   // a refused component is left out and named, never embedded.
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
-    const why = refusePackage(p.pkg);
+    const why = refusePackage(p.pkg, { forRender: true });
     if (why) console.error(`warning: the installed component ${p.name} is refused and not used: ${why}`);
     else installed.push(p);
   }

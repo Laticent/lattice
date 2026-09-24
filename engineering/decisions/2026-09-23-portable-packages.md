@@ -554,3 +554,55 @@ it is the record of what was wrong.
     "the look" when `base.finish.css` is still what renders.
   What was found and deliberately NOT fixed here is in
   `followups.d/2336-p3-packages-trio-followups.md`.
+- **Remote references in markup: done (follow-up items 2 and 3).** A package carries markup,
+  not only CSS, in two places, and both could reach the network from the Studio origin.
+  `lib/core/remote-ref.js` is the one predicate for both. A target is remote when it names a
+  scheme other than `data:` or is protocol-relative; a relative path is not, because it
+  resolves against the page that shows it. (That is looser than `css-scan.js` `urlIsLocal`,
+  which holds a component STYLESHEET to `#fragment` and `data:` only.)
+  - **A component's sample slide is refused on import when it fetches.** The gate RENDERS the
+    gallery through the engine and parses the result with a spec HTML parser — parse5 in the
+    CLI (`lib/packages/gallery-gate.js`), `DOMParser` in the Studio
+    (`library/gallery-gate.ts`) — then reads every element: an attribute that loads (`src`,
+    `srcset`, `href` on anything but a link, `xlink:href`, `poster`…), a `url()` or string in
+    a style, a presentation attribute or a `<style>` body, a SMIL `<set>`/`<animate>` that
+    sets `href`, a meta refresh, and the text of a Mermaid fence (its `img:` shapes and
+    `themeCSS` load at run time). It also refuses any remote link reference definition, used
+    or not: a definition renders nothing where it is written, yet the first definition of a
+    label wins across the whole deck the slide is inserted into, so it can hand the deck's
+    own `![logo]` a remote target. The engine exposes `referenceTargets()` for that read.
+  - **Why render first.** The first cut scanned the markdown source with regexes, and the
+    red team found eleven spellings it missed, each a place where a regex disagreed with
+    markdown-it, the HTML5 parser or a component transform: a fence closed by a longer
+    fence, an escaped backtick, a reference definition in a blockquote or on the next line,
+    Unicode case folding of a label, `&bsol;` and `&#X3A;`, an `image-set()` string holding
+    a `)`, a `/*` in prose hiding a style attribute, the `logo:` front matter key, and the
+    `video` component's `poster` bullet. The rendered check holds on all of them
+    (`test/unit/core/gallery-remote-refs.test.js` keeps each as a row), and the CSS scan is
+    now a tokenizer rather than a regex for the same reason.
+  - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
+    a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
+    and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked
+    (the engine failed to load or to render) is refused, not waved through. The CLI's render
+    path skips the gallery (`forRender`): it embeds a component's CSS and never its gallery.
+    Fabricate shows the same finding live on the Component tab as a WARNING: your own
+    component still saves, and the warning says a recipient's import will refuse it. All 84
+    shipped galleries pass, in about 20 ms each after a one-time ~300 ms engine load.
+  - **Motion art** keeps `sanitizeSlideHtml`'s profile (which leaves remote references on
+    purpose, since a deck's own images are remote) and then loses every attribute that
+    fetches from another origin (`scene-library.ts` `stripRemoteRefs`). It runs on every
+    save and again on every read, so a record saved before the fix is drawn without its
+    beacon too. Line-art has no use for the network, so nothing legitimate is lost; a
+    same-document `url(#id)` stays. DOMPurify already drops `<set>`, `<animate>` and
+    `<style>` from it.
+  - **What this does not close.** A DECK is still allowed to load remote images: a deck's own
+    images are legitimately remote, so `sanitizeSlideHtml` keeps them, and a deck someone
+    sends you can beacon in the preview and in every export. This change closes the package
+    doors, where the markup rides in under a name the user trusts. The root fix for decks is
+    at the render boundary: an `img-src` policy on the preview frames with a visible "load
+    remote images" switch, and an export option that inlines or strips them. That is
+    recorded in `followups.d/2336-p3-packages-trio-followups.md`, with the workspace
+    restore, which still saves library items without the import gates.
+  The e2e `library-remote-refs.spec.ts` imports both through the real Library and asserts,
+  against a control fetch that proves the log works, that the browser made no request to the
+  beacon host.

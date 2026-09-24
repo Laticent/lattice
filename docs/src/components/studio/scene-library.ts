@@ -26,6 +26,17 @@ import type { PackageCarry } from '@/components/studio/library/package-carry';
 import { parseScene, type Scene } from '@/lib/anima';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 
+// The remote-reference predicate loads ON DEMAND: this module is on the Studio's eager path,
+// and the predicate is only needed once a scene is actually read or written, which is always
+// an async step already. A DEFAULT import: it is a CommonJS leaf
+// (docs/src/plugins/vite-cjs-lib-dev.mjs).
+type RemoteRef = typeof import('../../../../lib/core/remote-ref.js');
+let remoteRefLoad: Promise<RemoteRef> | null = null;
+function loadRemoteRef(): Promise<RemoteRef> {
+	if (!remoteRefLoad) remoteRefLoad = import('../../../../lib/core/remote-ref.js').then((m) => (m as unknown as { default: RemoteRef }).default ?? m);
+	return remoteRefLoad;
+}
+
 /** A saved scene as the Studio uses it. The `spec` is canonical; `poster` is a
  *  regenerable, token-preserving thumbnail (kept as `var(--token)`, never theme-frozen —
  *  §4.1); `art` is the authored SVG line-art for a `source:'svg'` (Vivus) scene. */
@@ -72,11 +83,39 @@ export type StoredScene = { valid: true; scene: StudioScene } | UnreadableScene;
 // (listAssets filters by kind), beside 'theme' / 'component' / 'finish'.
 type SceneAssetRecord = { id: string; kind: 'scene'; name: string; label?: string; description?: string; spec?: unknown; poster?: string; art?: string; addedAt?: number; specVersion?: number; pkg?: PackageCarry };
 
+/** Script-free scene markup with every REMOTE reference taken out: an attribute that
+ *  fetches from another origin (`<image href>`, `<feImage href>`, `xlink:href`) or carries a
+ *  remote `url()` (`style`, `fill`, `filter`) is dropped. `sanitizeSlideHtml` keeps those on
+ *  purpose — a deck's own images are remote — but scene art is line-art: it never needs the
+ *  network, and the Library draws it on the Studio origin, where a remote reference is a
+ *  beacon to whoever sent the package. The predicate is `lib/core/remote-ref.js`, shared with
+ *  the gallery gate. A window-less context has no DOM and no store, so it passes through. */
+function stripRemoteRefs(svg: string, attrIsRemote: RemoteRef['attrIsRemote']): string {
+	if (typeof document === 'undefined') return svg;
+	const t = document.createElement('template');
+	t.innerHTML = svg;
+	let hit = false;
+	for (const el of t.content.querySelectorAll('*')) {
+		for (const a of [...el.attributes]) {
+			if (attrIsRemote(el.localName.toLowerCase(), a.name.toLowerCase(), a.value)) {
+				el.removeAttributeNode(a);
+				hit = true;
+			}
+		}
+	}
+	return hit ? t.innerHTML : svg;
+}
+
 /** Sanitize a scene's UNTRUSTED SVG markup (`poster`/`art`) — the store-boundary chokepoint
  *  (HARD RULE #22). Applied by `saveStudioScene` so no raw markup is ever persisted, whatever
- *  the caller. Exported so the boundary is directly unit-testable without the IndexedDB store. */
-export function sanitizeSceneAssets<T extends { poster?: string; art?: string }>(a: T): T {
-	return { ...a, poster: a.poster ? sanitizeSlideHtml(a.poster) : a.poster, art: a.art ? sanitizeSlideHtml(a.art) : a.art };
+ *  the caller, and on every READ, so a record saved before the remote-reference strip is
+ *  drawn without its beacon too. Exported so the boundary is directly unit-testable without
+ *  the IndexedDB store. */
+export async function sanitizeSceneAssets<T extends { poster?: string; art?: string }>(a: T): Promise<T> {
+	if (!a.poster && !a.art) return a;
+	const { attrIsRemote } = await loadRemoteRef();
+	const clean = (m?: string) => (m ? stripRemoteRefs(sanitizeSlideHtml(m), attrIsRemote) : m);
+	return { ...a, poster: clean(a.poster), art: clean(a.art) };
 }
 
 /** Turn arbitrary text into a valid scene slug, or '' when nothing usable remains. */
@@ -89,14 +128,17 @@ export function slugify(text: string): string {
 		.replace(/-+$/, '');
 }
 
-function toStoredScene(a: SceneAssetRecord): StoredScene {
+async function toStoredScene(a: SceneAssetRecord): Promise<StoredScene> {
 	// The spec is still the source of truth, and a record that fails to parse still never
 	// yields a renderable scene — but it is now REPORTED rather than erased. Fail-closed on
 	// RENDERING, fail-open on EXISTENCE: the two are different guarantees, and conflating them
 	// is what made a schema change able to delete a user's work (frame model §7c).
 	const r = parseScene(a.spec);
 	if (!r.ok) return { valid: false, id: a.id, name: a.name, label: a.label || a.name, description: a.description, reason: r.errors.join('; '), specVersion: a.specVersion, raw: a };
-	return { valid: true, scene: { id: a.id, name: a.name, label: a.label || a.name, description: a.description, spec: r.scene, poster: a.poster, art: a.art, ...(a.pkg ? { pkg: a.pkg } : {}) } };
+	// Re-sanitized on the way OUT as well: a record written before a guard existed keeps what
+	// the guard now removes, and the Library draws `art` with `dangerouslySetInnerHTML`.
+	const { poster, art } = await sanitizeSceneAssets({ poster: a.poster, art: a.art });
+	return { valid: true, scene: { id: a.id, name: a.name, label: a.label || a.name, description: a.description, spec: r.scene, poster, art, ...(a.pkg ? { pkg: a.pkg } : {}) } };
 }
 
 /**
@@ -111,7 +153,7 @@ export async function saveStudioScene(input: { id?: string; name: string; label?
 	const name = slugify(input.name) || `scene-${Date.now().toString(36)}`;
 	// Sanitize the untrusted SVG markup HERE, at the store boundary — so no caller (restore,
 	// faculty save, Library import) can persist raw markup (HARD RULE #22, snapshot-cache pattern).
-	const { poster, art } = sanitizeSceneAssets({ poster: input.poster, art: input.art });
+	const { poster, art } = await sanitizeSceneAssets({ poster: input.poster, art: input.art });
 	const record: SceneAssetRecord = {
 		id: '', // asset-store assigns one (or reuses the existing id for kind+name)
 		kind: 'scene',
@@ -152,7 +194,7 @@ export async function saveStudioScene(input: { id?: string; name: string; label?
  */
 export async function listStoredScenes(): Promise<StoredScene[]> {
 	const rows = (await listAssets('scene')) as SceneAssetRecord[];
-	return rows.map(toStoredScene);
+	return Promise.all(rows.map(toStoredScene));
 }
 
 /** Every RENDERABLE saved scene, newest first. Returns [] when the store is unavailable — the
@@ -189,7 +231,7 @@ export async function putUnreadableScene(raw: unknown): Promise<boolean> {
 	// unreadable would overwrite a WORKING `rotor`, and `scene` is not in VERSIONED_KINDS so there
 	// would be no snapshot to recover from. With the id, a restore updates the same record it came
 	// from and is idempotent across repeated restores.
-	await putAsset({ ...rec, ...sanitizeSceneAssets({ poster: rec.poster, art: rec.art }), kind: 'scene' } as unknown as SceneAssetRecord);
+	await putAsset({ ...rec, ...(await sanitizeSceneAssets({ poster: rec.poster, art: rec.art })), kind: 'scene' } as unknown as SceneAssetRecord);
 	return true;
 }
 

@@ -97,6 +97,21 @@ describe('lattice packages', () => {
     assert.match(r.text, /refused {2}beacon/);
   });
 
+  test('a component whose sample slide loads a remote image is refused; a relative one installs', async () => {
+    const comp = (gallery) => ({
+      'probe.manifest.json': JSON.stringify({ name: 'probe', type: 'component', format: 1 }),
+      'probe.styles.css': 'section.probe { display: grid; }',
+      'probe.gallery.md': gallery,
+    });
+    const store = tmp('store');
+    const bad = await run(['add', await zipOf('probe', comp('<!-- _class: probe -->\n\n<img src="https://evil.test/b.png">')), '--packages', store]);
+    assert.equal(bad.code, 1, bad.text);
+    assert.match(bad.text, /refused {2}probe: its sample slide loads https:\/\/evil\.test\/b\.png/);
+    assert.equal(fs.existsSync(path.join(store, 'component/probe')), false);
+    const ok = await run(['add', await zipOf('probe', comp('<!-- _class: probe -->\n\n![logo](logo.png)\n\n[site](https://ok.test)')), '--packages', store]);
+    assert.equal(ok.code, 0, ok.text);
+  });
+
   test('add refuses to overwrite without --replace, and replaces with it', async () => {
     const store = tmp('store');
     const zip = await zipOf('probe-brand', theme('probe-brand'));
