@@ -57,6 +57,56 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
+<!-- _class: gantt -->
+
+`2026 Q1 .. 2026 Q4`
+
+## Gantt spends the status word on the bar.
+
+- Platform
+  - Control `Q1..Q2`
+  - Migration `Q2..Q3` `at-risk`
+  - Cutover `Q3..Q4` `blocked`
+- Data
+  - Pilot run `Q1..Q2` `pilot`
+  - Launch `Q2..Q4` `live`
+
+*Gantt paints live as running work, apart from done.*
+
+---
+
+<!-- _class: state-chart -->
+
+`Submission lifecycle`
+
+## A state chart puts it on the badge.
+
+1. Draft `start`
+   - `submit => 2`
+2. Submitted `at-risk`
+   - `approve => 3`
+3. Approved `fail` `end`
+
+---
+
+<!-- _class: slope -->
+
+`slope · entity status`
+
+## Slope colors the whole line.
+
+- Northwind `fail`
+  - Before `18`
+  - After `9`
+- Contoso
+  - Before `12`
+  - After `19`
+- Fabrikam `on-track`
+  - Before `10`
+  - After `14`
+
+---
+
 <!-- _class: closing -->
 
 # Same word, same color.
