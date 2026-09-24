@@ -29,8 +29,10 @@ is a place where the shapes can drift apart. Two drifts are already real:
 
 1. **The tour narrator times a sentence differently from the deck.** The deck
    producer calls `buildTrack(text, { pace, acronyms, emphasis, lang, lexicon })`
-   (`lib/core/read-along-build.js:97`). Vetrina's `cadenzaNarrator` calls
-   `buildTrack(text, { pace })` (`docs/src/lib/vetrina-narration/cadenza-narrator.ts:73`).
+   (`lib/core/read-along-build.js:97`). Both of Vetrina's narrators call
+   `buildTrack(text, { pace })`: `cadenzaNarrator` at
+   `docs/src/lib/vetrina-narration/cadenza-narrator.ts:73` and `voicedNarrator`
+   at `:255`.
    So in a tour, acronyms are not expanded, emphasized words get no hold, and a
    non-English line is timed as English.
 2. **Vetrina keeps its own copy of Cadenza's reading rate.** `CAPTION_WPM` in
@@ -161,9 +163,10 @@ major version.
    the points you do not control, run on a clock between them.
 2. **Actions point at a word.** `{cue, word}` instead of a millisecond. When a
    voice re-times the line, the click moves with its word. The two-clock defect
-   recorded in `2026-09-13-vetrina-cursor-caption-narration.md` (a voiced `at`
-   cue lands about 180 ms early, because it is timed on the estimate while the
-   ear hears the clip) disappears by construction rather than by alignment code.
+   the Vetrina README records under §The action lands on the word (a voiced `at`
+   cue "fires ~20% of `startMs` early, on the order of 180ms", because it is
+   timed on the estimate while the ear hears the clip) disappears by
+   construction rather than by alignment code.
 3. **`inputs` plus `source.hash` make staleness detectable.** The tour-vs-deck
    drift in §1 would surface as a mismatch rather than as a sentence that is
    quietly timed two ways.
@@ -221,7 +224,8 @@ points at Cadenza (§6).
 ## 6. Where the code lives
 
 Every one of Cadenza, Suono, Vetrina and Lente is boundary-gated to import
-nothing outside its own folder (`checkCadenzaBoundary` and its siblings in
+nothing outside its own folder except `node:` built-ins, plus `react` in
+Vetrina's adapter (`checkCadenzaBoundary` and its siblings in
 `tools/check-ownership.js`), so they stay spin-off-able. A shared "schema
 package" that two of them import would break that gate for both. So:
 
@@ -270,9 +274,9 @@ Each step ships on its own. The first two change no output bytes.
    Schema, `validateLtt`, and converters to and from `CaptionTrack`, from
    `readAlong` 1.1 and from the player payload. Round-trip tests. Plus the
    one-sentence parity test that pushes the same line through the deck producer
-   and `cadenzaNarrator` and asserts identical timings — which fails today
+   and both Vetrina narrators and asserts identical timings — which fails today
    (§1 drift 1) and is fixed in the same step by passing the deck's inputs
-   through `cadenzaNarrator`'s options.
+   through the narrators' options.
 2. **`stateAt` in Cadenza,** with **conformance fixtures**: sample `.ltt.json`
    files and the expected `stateAt` result at chosen times. The fixtures are
    written against the HTML player's current behavior (slide and section holds,
