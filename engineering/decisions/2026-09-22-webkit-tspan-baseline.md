@@ -262,8 +262,25 @@ attribute, which author CSS would otherwise override.
 
 Worst label after: −0.92px, inside the noise band that §4's untouched labels already occupy.
 
-**What it does not reach.** The Studio pane ships no `lattice.css` (see the note above the rule
-in `mermaid.css`), so a mermaid diagram previewed in the Studio on Safari keeps the drift. The
-same is true of any host that renders mermaid without our stylesheet. And like §6, nothing in
-CI can see a regression: the rule is a CSS line, not a gate, and the audit remains on-demand.
+**Wider than the gallery.** An independent checker re-ran the before/after on 29 decks, both
+diagram galleries plus every `examples/*.md` deck with a mermaid fence, in both engines. Chromium
+moved 0.000px on every `<text>` in a mermaid root, and no label got worse in WebKit.
+`mermaid-sketch-labels` went from 9 to 0 over 3px, `universal-tokens-p3-status` from 5 to 0,
+and the nested `diagram/diagram.gallery.md` from 3 to 0.
+
+**What it does not reach.**
+
+- **The Studio's Read pane.** The Read article pane (`.st-read-article`, `ReadArticle.tsx`)
+  ships no `lattice.css` (see the note above the rule in `mermaid.css`), so a diagram re-hosted
+  there keeps the drift on Safari. The Studio's slide previews load `lattice.css` through
+  `theme-fetch.ts`, so the rule should reach them. That comes from reading the code: neither
+  surface was driven in WebKit.
+- **A second, unrelated WebKit drift.** On `sequence-narration`, `universal-tokens-p2-structural`
+  and `xychart-narration`, WebKit sizes the whole sequence or xychart `<svg>` box differently:
+  305 slide-px tall in Chromium against 275 in WebKit on the same deck. So every label drifts
+  in proportion to its height, up to 32px, and LOW rather than high. This rule neither causes
+  nor fixes that, since the numbers are identical with and without it. It is logged in
+  `followups.d/`, not fixed here (HARD RULE #18).
+- **CI.** As in §6, nothing in CI can see a regression: the rule is a CSS line, not a gate, and
+  the audit remains on-demand.
 
