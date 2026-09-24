@@ -91,15 +91,15 @@ const codeBlockSpec: NodeSpec = {
  *  body line could be read as its CLOSER — a run of the same character at least as long,
  *  then only whitespace.
  *
- *  ANY indent counts, deliberately wider than CommonMark's zero-to-three spaces: Compose's
- *  own fence scanner (`fenceRanges`, slide-directives.ts) reads an indented run as a
- *  closer too, and that scanner decides which slides lock and which directives hoist. A
- *  fence it mis-closes would leave math after it unlocked. Lengthening one line too often
- *  costs nothing; the upstream serializer lengthened on any run at all. */
+ *  Zero to three spaces of indent, as CommonMark reads a closer: a `    ```` body line
+ *  is code, and Compose's own fence scanner (`fenceRanges`, slide-directives.ts) agrees,
+ *  so the author's marker survives. That scanner decides which slides lock and which
+ *  directives hoist, so the two tests must stay in step — a fence it mis-closes would
+ *  leave the math after it unlocked. */
 export function fenceFor(marker: string, body: string): string {
 	const char = marker[0];
 	let len = marker.length;
-	const closer = char === '~' ? /^[ \t]*(~{3,})[ \t]*$/ : /^[ \t]*(`{3,})[ \t]*$/;
+	const closer = char === '~' ? /^ {0,3}(~{3,})[ \t]*$/ : /^ {0,3}(`{3,})[ \t]*$/;
 	for (const line of body.split('\n')) {
 		const m = closer.exec(line);
 		if (m && m[1].length >= len) len = m[1].length + 1;
