@@ -5668,6 +5668,20 @@ html,body{background:var(--bg,#fff)}
    The long form, with the measurements and why the rule is not in the kernel:
    lib/integrations/mermaid/mermaid.css § THE RE-HOSTED FIGURE. */
 #lat-read figure svg[aria-roledescription]{width:auto;max-width:100%}
+/* A WIDE DIAGRAM STOPS SHRINKING AND SCROLLS. The kernel writes each diagram figure's
+   natural width, floor width (a fixed share of natural) and aspect ratio inline, and makes
+   it focusable; the values here are only defaults the inline ones override. The width is
+   the column or the 78vh height cap, whichever binds, clamped between floor and natural,
+   so past the floor the svg overflows and the figure pans instead. Computed outright, not
+   width:auto + min-width: WebKit resolves that pair to the floor even when the diagram fits. The cue is the diagram itself, cut mid-node at the column edge; a
+   scroll-shadow was tried and dropped, since a background paints UNDER the svg and showed
+   only as a smudge below the nodes. Long form: engineering/mermaid.md § "How big the
+   re-hosted diagram is". */
+#lat-read figure.lp-diagram{--lp-fig-w:100%;--lp-fig-min-w:0px;--lp-fig-ratio:auto;overflow-x:auto}
+#lat-read figure.lp-diagram[style] svg[aria-roledescription]{width:clamp(var(--lp-fig-min-w),min(100%,78vh * var(--lp-fig-ratio)),var(--lp-fig-w));height:auto;aspect-ratio:var(--lp-fig-ratio);max-width:none;max-height:none}
+/* PAPER CANNOT SCROLL: in print the floor gives way and the diagram fits the page again,
+   as it did before the floor existed. Otherwise a printed long flowchart loses its last nodes. */
+@media print{#lat-read figure.lp-diagram{overflow:visible}#lat-read figure.lp-diagram[style] svg[aria-roledescription]{width:min(100%,var(--lp-fig-w))}}
 /* display:block + margin-inline:auto on the image, text-align:center on the caption:
    parity with the player's article and the Studio's pane, which both centered a figure
    image and its caption while this one left them ragged against the band's left edge.
@@ -5844,6 +5858,20 @@ async function buildReadingArticleDocument(docHtml, deckScheme) {
     const SCHEME_BY_COLOR_MODE = { dark: 'dark', light: 'light', print: 'light', system: 'light dark' };
     const scheme = SCHEME_BY_COLOR_MODE[deckScheme];
     if (scheme) doc.documentElement.style.setProperty('color-scheme', scheme);
+
+    // A PHONE LAYS THIS OUT AT ITS OWN WIDTH, and only with this tag. The slide render it
+    // started from is a fixed-size stack with no viewport meta, so without one iOS Safari and
+    // Android Chrome lay the article out at a 980px desktop width and zoom the whole page
+    // out: body text and diagram labels alike drew at roughly 40% on an iPhone 15 Pro,
+    // measured in WebKit. Desktop Chromium at a 390px window ignores the tag, which is how
+    // every 390px screenshot of this article looked right while the phone did not. The
+    // player has always carried the same tag (lib/export/player-core.mjs).
+    if (!doc.querySelector('meta[name="viewport" i]')) {
+      const viewport = doc.createElement('meta');
+      viewport.setAttribute('name', 'viewport');
+      viewport.setAttribute('content', 'width=device-width,initial-scale=1');
+      doc.head.appendChild(viewport);
+    }
 
     const style = doc.createElement('style');
     // textContent, never innerHTML: a closing style tag inside the sheet would otherwise

@@ -107,6 +107,18 @@ describe('--read — the deck as prose, and nothing else moves', () => {
 		assert.equal(n, 1, `the deck's text must appear once, not ${n} times — a second copy double-feeds every summarizer`);
 	});
 
+	// A PHONE only lays a page out at its own width when the page says so. The slide render
+	// --read starts from has no viewport meta, and without one iOS Safari and Android Chrome
+	// lay the article out at 980px and zoom the whole page out (measured in WebKit on an
+	// iPhone 15 Pro profile: a 345px figure became 932px). Desktop Chromium at a 390px window
+	// ignores the tag, so no screenshot at that width could ever catch its absence.
+	test('the article carries exactly one device-width viewport meta', { timeout: 900000 }, () => {
+		const html = fs.readFileSync(path.join(dir, 'read.html'), 'utf8');
+		const tags = html.match(/<meta name="viewport"[^>]*>/g) || [];
+		assert.equal(tags.length, 1, `expected one viewport meta, found ${tags.length}`);
+		assert.match(tags[0], /content="width=device-width,initial-scale=1"/);
+	});
+
   // REGRESSION, found by an independent checker, not by this file. The swap used to be a
   // regex over the document and then a replacement of the `main#deck` NODE, and both
   // mis-handled the same input: the engine passes an author's RAW HTML through unescaped,
@@ -278,6 +290,16 @@ describe('--read — the deck as prose, and nothing else moves', () => {
       // broken code too and the assertion could never fail. Measured on main, which has the
       // defect: 0 foreignObject, 0 `<text>`. The LABELS above are the whole test.
       assert.ok(labels.length >= 3, `expected the diagram's own labels, got ${labels.length} text nodes`);
+      // THE FLOOR, on real mmdc output rather than a hand-written svg: a 3-node LR chart is
+      // well past 2:1, so its figure must carry the kernel's inline size, a 12/14 floor and a
+      // tab stop. If mmdc ever stops writing a viewBox, this is the arm that notices.
+      const svg = article.querySelector('svg[aria-roledescription]');
+      const fig = svg.closest('figure');
+      assert.ok(fig.classList.contains('lp-diagram'), `the diagram's figure must be tagged; got class="${fig.className}"`);
+      assert.equal(fig.getAttribute('tabindex'), '0', 'a wide floored figure scrolls, so it must take focus');
+      const vbW = Number(svg.getAttribute('viewBox').trim().split(/[\s,]+/)[2]);
+      const minW = parseFloat(fig.style.getPropertyValue('--lp-fig-min-w'));
+      assert.ok(Math.abs(minW - (vbW * 12) / 14) < 0.1, `floor ${minW}px should be 12/14 of the ${vbW}px viewBox`);
     } finally {
       fs.rmSync(dir5, { recursive: true, force: true });
     }

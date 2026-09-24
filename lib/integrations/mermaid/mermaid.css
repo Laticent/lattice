@@ -90,7 +90,14 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * KEYED ON `aria-roledescription`, which every Mermaid family writes on the svg root and
  * none of our chart SVGs carry — a chart is token-driven and must keep filling its band.
  * `class` is not usable (null on sequence and pie) and neither is the svg id (`lattice-mmd-N`
- * from the CLI, `lattice-mermaid-N` from the browser). */
+ * from the CLI, `lattice-mermaid-N` from the browser).
+ *
+ * THE FLOOR. The contract above scales down without limit, so a wide LR flowchart drew
+ * 3.4px labels on a phone. The prose-projection kernel now writes natural width, floor
+ * (12/14, for a diagram 2:1 or longer either way) and aspect ratio inline on each diagram
+ * figure, and each host clamps the svg's width between them inside a sideways-scrolling
+ * figure. Same one-rule-per-host shape, same reason it is not here.
+ * `engineering/mermaid.md` §"How big the re-hosted diagram is" has the measurements. */
 
 /* ── A LABEL TAKES ITS PARENT'S BASELINE, IN WEBKIT TOO ──
  * Mermaid declares `dominant-baseline` one level ABOVE the glyphs it means to place, and

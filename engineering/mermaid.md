@@ -138,6 +138,65 @@ in `lattice-emulator.js`, `.st-read-article` in `docs/src/components/studio/Read
 kernel rule at (0,1,2) loses to the other two hosts' generic figure rules ((1,1,1) and
 (1,0,2)). `mermaid.css` § THE RE-HOSTED FIGURE carries the long form and the measurements.
 
+**A long diagram stops shrinking at a floor and scrolls sideways.** The `<img>` contract
+has no lower bound, so on a phone a wide LR flowchart kept shrinking: a 1409x67
+eight-stage chart drew its 14px labels at 3.4px in a 390px `--read` export. The
+prose-projection kernel (`diagramFigureAttrs` in `lib/transformers/prose-projection.mjs`)
+now reads each diagram's viewBox and writes its natural width, floor width and aspect ratio
+inline on the `<figure>`:
+
+```html
+<figure class="lp-figure lp-diagram" tabindex="0" style="--lp-fig-w:1409px;--lp-fig-min-w:1207.7px;--lp-fig-ratio:21.0299">
+```
+
+Each host computes the svg's width outright and lets the figure scroll:
+
+```css
+figure.lp-diagram { overflow-x:auto }
+figure.lp-diagram[style] svg[aria-roledescription] {
+  width: clamp(var(--lp-fig-min-w), min(100%, 78vh * var(--lp-fig-ratio)), var(--lp-fig-w));
+  height:auto; aspect-ratio:var(--lp-fig-ratio); max-width:none; max-height:none }
+```
+
+The middle term is the column or the 78vh height cap, whichever binds first; the clamp keeps
+the result between the floor and natural size. Past the floor the svg overflows and the
+figure pans, never the page.
+
+- **The floor is 12/14 of natural size.** Lattice's Mermaid labels set at 14px, and 12px is
+  the smallest label the owner accepted as legible (2026-09-24). It is a ratio, so a family
+  with larger labels keeps its proportions.
+- **Only a long diagram gets one: 2:1 or more, either way.** Panning a flat flowchart reads
+  it in order. Panning a near-square pie shows a cut circle with its legend off-screen, which
+  is worse than small labels, so a diagram between 1:2 and 2:1 gets floor `0px` and scales
+  to the column exactly as before (measured: a 547x450 pie and a 650x371 sequence draw at
+  342x281 and 342x195 at 390px, before and after). A tall TB chart's floor only lengthens the
+  page: a 113x976 chart now draws at 97x837 with 12px labels, where the height cap drew it at
+  76x658 with 9.4px labels.
+- **Computed, not `width:auto` + `min-width`.** That pair was the first cut. WebKit resolves
+  an auto-width svg against a `min-*` to the minimum, so on an iPhone 15 Pro profile a
+  264x67 diagram that fits drew at its 226px floor. Chromium did not, which is why only a
+  WebKit run caught it.
+- **Focusable, like every `<pre>`.** A region that scrolls and cannot take focus cannot be
+  scrolled from the keyboard (axe `scrollable-region-focusable`). The kernel cannot see the
+  column, so every WIDE floored figure takes `tabindex="0"`. A near-square one has no floor
+  and a tall one's floor is far narrower than any column, so neither scrolls sideways and
+  neither takes a tab stop.
+- **Paper cannot scroll.** Each host carries an `@media print` block that drops the floor
+  (`width:min(100%, natural)`, `overflow:visible`), so a printed long flowchart fits the
+  page whole, as it did before the floor. Measured: A4 print of a `--read` and a `--player`
+  article, the 1409x67 chart at 746px and 730px, nothing cut.
+- **No scroll shadow.** The cue is the diagram itself, cut mid-node at the column edge. A
+  gradient scroll-shadow was tried and dropped: a background paints under the svg, so it
+  showed only as a smudge below the nodes.
+- **Each host declares the three properties with defaults** on `figure.lp-diagram`, and the
+  kernel's inline values override them; the width rule is keyed on `[style]`, so a figure
+  that somehow lost its inline values keeps the plain contract above. The declaration is
+  also what keeps the ownership gate's dangling-token check from depending on the
+  uncommitted `player-core.generated.js`.
+- **The desktop cost.** At 1440 the article band is 1100px, so the 1409x67 chart, whose
+  floor is 1207px, now pans about 100px where it used to shrink to 10.9px labels. A
+  diagram whose floor fits the band is unchanged at desktop widths.
+
 Component contract, slots, and the anti-patterns:
 `lib/components/diagram/diagram/diagram.docs.md`.
 

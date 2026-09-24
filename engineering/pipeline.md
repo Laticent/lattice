@@ -92,6 +92,13 @@ canvas (a B&W handout is one), `system` as `light dark` so the reader's OS decid
 `inherited` left alone so it inherits the theme. Why, and what was measured:
 `engineering/decisions/2026-09-20-reader-mode-text-extraction.md`.
 
+**The reading article carries a viewport meta tag** (`width=device-width,initial-scale=1`),
+as the player always has. The slide render it starts from has none, so until 2026-09-24
+a phone laid the article out at a 980px desktop width and zoomed the page out, and every
+390px screenshot missed it because desktop Chromium ignores the tag. A long Mermaid diagram
+in the article also stops shrinking at a legibility floor and scrolls sideways:
+`engineering/mermaid.md` §"How big the re-hosted diagram is".
+
 `.html` is a **full browser render minus the PDF encode**, not a browser-free
 path: the overflow/legibility passes measure laid-out DOM, and the written file
 is the post-split result — an `.html` render pages identically to the same
