@@ -484,7 +484,6 @@
     "video": {
       "surfaces": [],
       "inert": [
-        "eyebrow",
         "heading",
         "table"
       ]

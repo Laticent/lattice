@@ -76,9 +76,10 @@ maker-checker pass caught it (`eyebrow-dot` visibly worked on `kpi`, `code`,
 
 Measured now, and repeatable run to run:
 
-- `eyebrow-*` is inert on 8 components (`contact`, `premise`, `quadrant`,
-  `scatter`, `split-compare`, `split-panel`, `video`, `wifi`); `quadrant` joined
-  after `main`'s #2328 moved it onto the bracketed axis list.
+- `eyebrow-*` is inert on 7 components (`contact`, `premise`, `quadrant`,
+  `scatter`, `split-compare`, `split-panel`, `wifi`). The list moved twice while
+  this work was open: `quadrant` joined after `main`'s #2328 moved it onto the
+  bracketed axis list, and `video` left it after #2329 kept its title in its card.
 - The heading modifiers are inert on 8 (`compare-code`, `contact`, `image`,
   `premise`, `split-compare`, `split-panel`, `video`, `wifi`).
 - `table-*` does nothing to a table an author adds on 4 (`contact`,
