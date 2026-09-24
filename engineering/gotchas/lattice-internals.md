@@ -707,7 +707,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `.chart-body`, the `<p>` around an image or display equation). It skips what narration
   skips (aria-hidden decoration) and no second picture is re-hosted. The figure caption is
   the slide's `.chart-caption` when it has one. An image-split slide (`.image-text`) now
-  finds its eyebrow the way the card components do (`CARD_HEAD_SELECTOR`).
+  finds its eyebrow the way the card components do (`CARD_HEAD_SELECTOR`). The two
+  placeholder charts (`journey`, `state-chart`) never reach that walk — their visual cannot
+  be re-hosted — so `chartCaptions` appends their `.chart-caption` after the placeholder card.
 - **Pinned by:** the "image:", "chart:" and "math:" arms in
   `test/unit/transformers/prose-projection.test.js`, rendered through the real engine.
 

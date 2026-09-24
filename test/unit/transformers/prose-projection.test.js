@@ -1593,3 +1593,14 @@ test('video card: a non-http poster or link is dropped, and a quote cannot leave
 	assert.doesNotMatch(card('https://ok.example/v', "background-image:url(&quot;https://x.example/a'b.jpg&quot;)"), /lp-video-thumb/, 'a poster that could close the CSS string is dropped');
 	assert.match(card('https://ok.example/v?a=&quot;onmouseover=x', ''), /href="https:\/\/ok\.example\/v\?a=&quot;onmouseover=x"/);
 });
+
+// `journey` and `state-chart` take the placeholder branch — their visual cannot be re-hosted — so
+// the media walk never ran for them and the `.chart-caption` under the chart was dropped while
+// narration read it. The placeholder now carries it as prose. Rendered through the real engine.
+test("state-chart: the chart's caption follows the placeholder, once", async () => {
+	const md = '<!-- _class: state-chart -->\n\n## Every contract moves through three states.\n\n1. Draft `start`\n   - `submit => 2`\n2. Signed\n   - `go => 3`\n3. Live `end`\n\n*Rejected drafts return to the account owner.*\n';
+	const { articleHtml } = project(await renderedSections(md));
+	const cap = '<p>Rejected drafts return to the account owner.</p>';
+	assert.equal(articleHtml.split(cap).length - 1, 1, articleHtml);
+	assert.ok(articleHtml.indexOf('lp-figure-note') < articleHtml.indexOf(cap), 'the caption follows the placeholder card');
+});
