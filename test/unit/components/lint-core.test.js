@@ -1201,9 +1201,44 @@ describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () =>
     assert.equal(crowded(deck('`{WM}:tag` `{WM}` `{WM}:chevron-right`')).length, 0);
   });
 
+  test('spans are found the way CommonMark finds them, which is how the engine decodes them', () => {
+    // Double backticks DISPATCH (plugins.js), and a padded span loses one edge space.
+    assert.deepEqual(crowded(deck('One ``{WM}:circle`` double')).map((f) => f.span), ['``{WM}:circle``']);
+    assert.deepEqual(crowded(deck('x ` {AB}:diamond ` y')).map((f) => f.span), ['` {AB}:diamond `']);
+    // An odd run pairs as CommonMark pairs it: the first span is code, the later one a pill.
+    const odd = crowded(deck('Adjacent `{3}:circle``{WM}:circle` and a`{WM}:circle`b``'));
+    assert.equal(odd.length, 1);
+    assert.equal(odd[0].col, 'Adjacent `{3}:circle``{WM}:circle` and a'.length);
+  });
+
+  test('two identical crowded pills on a line carry their own columns', () => {
+    const both = crowded(deck('x `{WM}:circle` y `{WM}:circle`'));
+    assert.deepEqual(both.map((f) => f.col), [2, 18]);
+  });
+
+  test('a slide or deck that switches the grammar off by CLASS gets no finding', () => {
+    assert.equal(crowded(`${FM}## A\n\n---\n\n<!-- _class: inline-code-literal -->\n\n## B \`{WM}:circle\`\n`).length, 0);
+    assert.equal(crowded('---\nmarp: true\nclass: inline-code-literal\n---\n\n## B `{WM}:circle`\n').length, 0);
+  });
+
+  test('a hidden comment draws nothing; a header/footer directive comment does', () => {
+    assert.equal(crowded(deck('<!-- note: speaker `{OK}:circle` -->')).length, 0);
+    assert.equal(crowded(deck('<!-- _footer: "F `{OK}:circle`" -->')).length, 1);
+  });
+
+  test('a front-matter footer pill reports as slide 0, where the editor finds the line', () => {
+    const [f] = crowded('---\nmarp: true\nfooter: "F `{WM}:circle`"\n---\n\n## A\n\ntext\n');
+    assert.equal(f.slide, 0);
+    assert.equal(f.line, 'footer: "F `{WM}:circle`"');
+  });
+
+  test('one glyph is one character, however many code points it takes', () => {
+    for (const one of ['é', '👍🏽', '🇺🇸', '👨‍👩‍👧', '١٢']) assert.equal(core.pillFitsShape(one), true, one);
+  });
+
   test('code, escapes and the literal register draw no pill, so they get no finding', () => {
     assert.equal(crowded(deck('```\n`{WM}:circle`\n```')).length, 0, 'fenced code is quoted material');
-    assert.equal(crowded(deck('`\\{WM}:circle` and ``{WM}:circle``')).length, 0, 'escaped and double-backtick spans are literal');
+    assert.equal(crowded(deck('`\\{WM}:circle`')).length, 0, 'an escaped span is literal');
     assert.equal(crowded('---\nmarp: true\ninline-code: literal\n---\n\n## H\n\n`{WM}:circle`\n').length, 0, 'inline-code: literal draws no pills');
   });
 });
