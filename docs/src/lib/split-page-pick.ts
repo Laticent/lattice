@@ -8,9 +8,12 @@
  * The rule reads TEXT, not structure, so it needs no per-component or per-editor knowledge:
  *   · a caret line whose text is on EVERY page is masthead material (the heading, the eyebrow),
  *     and that belongs to the COVER;
- *   · otherwise the page after the cover whose text contains it (a row). When SEVERAL body
- *     pages carry it, it is repeated trailing material (a claimed insight is repeated in each
- *     page's markup and shown only on the last, #2321), so the LAST of them;
+ *   · otherwise the body page that OWNS it: a page where a block starts with that text beats a
+ *     page that only mentions it mid-sentence, so a card titled "Returns" goes to its own page
+ *     and not to a later row that talks about returns. A tie at the top means the block is
+ *     repeated on several pages (a claimed insight rides every page's markup and shows only on
+ *     the last, #2321), so the LAST of them. Split chrome (the forward pill naming the next row,
+ *     the rail, the footer) is removed first, or every title would also match the page before;
  *   · nothing matches (a blank line, a directive, a word too short to place) → keep the page
  *     already shown, so crossing an empty line between two bullets does not flash the cover.
  *
@@ -38,11 +41,20 @@ export function caretProbe(line: string): string {
 		.slice(0, PROBE_CHARS);
 }
 
-/** A page's visible text, normalized the same way (tags dropped, entities for the common few). */
-export function pageText(html: string): string {
+// Split CHROME is not the page's content: the forward pill names the NEXT row, the rail and the
+// footer repeat on every page. Left in, a row's title matched its own page AND the page before it.
+// `\sclass=` with the leading space, so `data-class` is never read as the class list (#1358).
+const CHROME = /<(div|span|nav)\b[^>]*\sclass="[^"]*\b(?:lat-split-rel|lat-split-rail|cell-footer|marker-rail|fixme-tab|overflow-tab|illegible-tab)\b[^"]*"[^>]*>[\s\S]*?<\/\1>/gi;
+// Block boundaries become line breaks, so a row's text starts a line of its own.
+const BLOCK = /<\/?(?:p|li|h[1-6]|blockquote|td|th|dt|dd|figcaption|div|section|ul|ol|tr)\b[^>]*>/gi;
+
+/** A page's visible text, one line per block, lower-cased; split chrome removed. */
+export function pageLines(html: string): string[] {
 	return String(html || '')
 		.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
-		.replace(/<[^>]+>/g, ' ')
+		.replace(CHROME, ' ')
+		.replace(BLOCK, '\n')
+		.replace(/<[^>]+>/g, '')
 		.replace(/&nbsp;/g, ' ')
 		.replace(/&amp;/g, '&')
 		.replace(/&lt;/g, '<')
@@ -50,9 +62,20 @@ export function pageText(html: string): string {
 		.replace(/&quot;/g, '"')
 		.replace(/&#39;|&rsquo;|&lsquo;/g, "'")
 		.replace(/&[a-z]+;|&#\d+;/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim()
-		.toLowerCase();
+		.split('\n')
+		.map((l) => l.replace(/\s+/g, ' ').trim().toLowerCase())
+		.filter(Boolean);
+}
+
+/** How well a page holds the probe: 2 = a line STARTS with it (it is that block's own text),
+ *  1 = it appears mid-line (a word in someone else's sentence), 0 = absent. */
+function score(lines: readonly string[], probe: string): number {
+	let best = 0;
+	for (const l of lines) {
+		if (l.startsWith(probe)) return 2;
+		if (best === 0 && l.includes(probe)) best = 1;
+	}
+	return best;
 }
 
 /**
@@ -67,10 +90,13 @@ export function pickSplitPage(pages: readonly string[], caret: string | undefine
 	if (n <= 1) return 0;
 	const probe = caretProbe(caret ?? '');
 	if (probe.length < MIN_CHARS) return keep;
-	const texts = pages.map(pageText);
-	const hits = texts.map((t) => t.includes(probe));
-	if (hits.every(Boolean)) return 0; // masthead material: the cover introduces the run
-	const body = hits.map((h, k) => (k > 0 && h ? k : -1)).filter((k) => k > 0);
-	if (body.length) return body.length > 1 ? body[body.length - 1] : body[0];
-	return hits[0] ? 0 : keep;
+	const scores = pages.map((p) => score(pageLines(p), probe));
+	if (scores.every((sc) => sc > 0)) return 0; // on every page: masthead material, the cover introduces the run
+	const top = Math.max(...scores.slice(1));
+	if (top === 0) return scores[0] > 0 ? 0 : keep;
+	const best = scores.map((sc, k) => (k > 0 && sc === top ? k : -1)).filter((k) => k > 0);
+	// One page owns the line → that page. A TIE at the top means the same block is repeated on
+	// several pages (a claimed insight rides every page's markup and shows only on the last, #2321),
+	// so the last of them.
+	return best.length > 1 ? best[best.length - 1] : best[0];
 }

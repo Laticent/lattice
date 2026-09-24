@@ -48,4 +48,18 @@ describe('pickSplitPage', () => {
 		expect(pickSplitPage(RUN, '', 99)).toBe(4);
 		expect(pickSplitPage([COVER], 'anything', 3)).toBe(0);
 	});
+	it('sends a short card title to its own page, not to a later row that mentions the word', () => {
+		const card = (title: string, body: string, next?: string) =>
+			`<section><h2>Levers <span>(cont.)</span></h2><ul><li><p><strong>${title}</strong></p><ul><li>${body}</li></ul></li></ul>${next ? `<div class="lat-split-rel"><span class="lat-split-label">${next}</span></div>` : ''}</section>`;
+		const run = [
+			'<section><h2>Levers</h2><div class="split-cover-lead">Fulfillment →</div></section>',
+			card('Fulfillment', 'Same-day share rose.', 'Returns'),
+			card('Returns', 'Processing time fell.', 'Tooling'),
+			card('Tooling', 'The fulfillment dashboard shipped; returns on it are early.'),
+		];
+		expect(pickSplitPage(run, '- Fulfillment')).toBe(1);
+		expect(pickSplitPage(run, '- Returns')).toBe(2);
+		expect(pickSplitPage(run, '  - The fulfillment dashboard shipped; returns on it are early.')).toBe(3);
+	});
 });
+

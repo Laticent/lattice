@@ -936,8 +936,8 @@ function swapSharedSheet(doc: Document, url: string): void {
  */
 // The page of a split run each preview host last showed, so a caret line that places nowhere (a
 // blank line between bullets) keeps the page instead of flashing the cover. Keyed by host, and
-// scoped to the slide it was picked on.
-const splitPageByHost = new WeakMap<HTMLElement, { slide: number; page: number }>();
+// scoped to the deck and slide it was picked on.
+const splitPageByHost = new WeakMap<HTMLElement, { deck: string; slide: number; page: number }>();
 
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const { themeBase, runtimeUrl, engineUrl, specimen } = opts;
@@ -1606,19 +1606,27 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// the caret line (split-page-pick.ts), narrow back to that page. The slide is stamped
 				// with its real position in the viewed set, so the run reads 2 · 2.2 · 2.3 like the PDF.
 				// A no-op at landscape, for an unsplit slide, and on a bundle without the preprocessor.
+				// OPT-IN BY CARET: only a host that follows a caret passes `caretText` (the Studio editor
+				// preview). Present and the slide-overview tiles also render with a `slideIndex` and have
+				// no caret; splitting there showed only a split slide's cover, the rows unreachable, on
+				// the audience's surface. They keep the whole slide, as before.
 				let splitPage: RenderStatus['page'];
-				if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown) {
+				if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
 					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: opts.slideIndex + 1 });
 					if (r.changed) {
 						const pages = sectionsOf(r.html);
 						const prev = splitPageByHost.get(host);
-						const current = prev && prev.slide === opts.slideIndex ? prev.page : 0;
+						const current = prev && prev.slide === opts.slideIndex && prev.deck === (opts.deckId ?? '') ? prev.page : 0;
 						const k = pickSplitPage(pages, opts.caretText, current);
 						const narrowed = narrowToSlide(r.html, k, pages.length);
 						if (narrowed !== null) {
 							out.html = narrowed;
-							splitPageByHost.set(host, { slide: opts.slideIndex, page: k });
-							splitPage = { index: k, count: pages.length, label: (pages[k].match(/data-lattice-slide="([^"]+)"/) || [])[1] ?? String(k + 1) };
+							splitPageByHost.set(host, { deck: opts.deckId ?? '', slide: opts.slideIndex, page: k });
+							// The number the frame itself PRINTS (`data-lattice-pagination`), so the pill and the
+							// slide cannot disagree — they would on a slide rendered alone (a `split: headings`
+							// deck's fallback), whose engine numbering starts at 1.
+							const printed = (pages[k].match(/\sdata-lattice-pagination="([^"]+)"/) || [])[1];
+							splitPage = { index: k, count: pages.length, label: printed ?? (pages[k].match(/data-lattice-slide="([^"]+)"/) || [])[1] ?? String(k + 1) };
 						}
 					}
 				}
