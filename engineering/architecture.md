@@ -432,6 +432,28 @@ The palette file is resolved as `path.join(__dirname, 'themes', name + '.css')`.
 The lattice engine theme is whatever path argv[2] points to. Examples and
 other files have no fixed location requirement.
 
+## Packages: one shape for themes, components, finishes and motion
+
+`lib/packages/` is the package spine
+(`engineering/decisions/2026-09-23-portable-packages.md`). A package is a folder named
+for the item, holding `<name>.manifest.json` plus role files (`<name>.styles.css`,
+`<name>.css`, …). The manifest's `name` is the identity; the folder name, every file's
+`<name>.` prefix and a theme's `@theme` are projections of it.
+
+| File | Job |
+|---|---|
+| `kinds.js` | one row per type: repo root, layout, required/optional/code/output roles |
+| `read.js` | files → validated package; strict for the repo, lenient for an import |
+| `write.js` | package → files, every projection rewritten from the manifest |
+| `index.js` | the generated index and the in-memory registry (`add` / `list` / `remove`, reserved names) |
+| `fs.js` | the build's one folder walk. Not re-exported by `index.js`, so the rest bundles into the browser |
+
+Themes and components are discovered through `fs.js`: `loadAll`, the theme catalog,
+`listThemeManifests`/`listThemeFiles` and `checkPackageIdentity` all share it, and
+`tools/build-packages-index.js` writes `lib/packages/packages.generated.json` from it.
+Themes are still flat files (`themes/<name>.css`), which is the `flat` layout; moving
+them into folders is phase 5 of the note.
+
 ## The smoke test
 
 `npm test` (defined in `package.json`) builds both example galleries

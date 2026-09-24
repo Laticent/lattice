@@ -1,0 +1,1146 @@
+{
+  "_generated": "by tools/build-packages-index.js from the repo packages — DO NOT EDIT",
+  "format": 1,
+  "counts": {
+    "theme": 33,
+    "component": 71,
+    "finish": 0,
+    "motion": 0
+  },
+  "packages": [
+    {
+      "type": "theme",
+      "name": "a11y-achromatopsia",
+      "path": "themes/a11y-achromatopsia",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "a11y-base",
+      "path": "themes/a11y-base",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "a11y-deuteranopia",
+      "path": "themes/a11y-deuteranopia",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "a11y-protanopia",
+      "path": "themes/a11y-protanopia",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "a11y-tritanopia",
+      "path": "themes/a11y-tritanopia",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "ardesia",
+      "path": "themes/ardesia",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "ardesia-dark",
+      "path": "themes/ardesia-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "atelier",
+      "path": "themes/atelier",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "atelier-dark",
+      "path": "themes/atelier-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "brina",
+      "path": "themes/brina",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "brina-dark",
+      "path": "themes/brina-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "burgundy",
+      "path": "themes/burgundy",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "burgundy-dark",
+      "path": "themes/burgundy-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "carbone",
+      "path": "themes/carbone",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "carbone-dark",
+      "path": "themes/carbone-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "carta",
+      "path": "themes/carta",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "carta-dark",
+      "path": "themes/carta-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "concrete",
+      "path": "themes/concrete",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "concrete-dark",
+      "path": "themes/concrete-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "crepuscolo",
+      "path": "themes/crepuscolo",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "crepuscolo-dark",
+      "path": "themes/crepuscolo-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "cuoio",
+      "path": "themes/cuoio",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "cuoio-dark",
+      "path": "themes/cuoio-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "indaco",
+      "path": "themes/indaco",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "indaco-dark",
+      "path": "themes/indaco-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "laguna",
+      "path": "themes/laguna",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "laguna-dark",
+      "path": "themes/laguna-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "magnolia",
+      "path": "themes/magnolia",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "magnolia-dark",
+      "path": "themes/magnolia-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "mustard",
+      "path": "themes/mustard",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "mustard-dark",
+      "path": "themes/mustard-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "onyx",
+      "path": "themes/onyx",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "theme",
+      "name": "onyx-dark",
+      "path": "themes/onyx-dark",
+      "roles": [
+        "css",
+        "manifest.json"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "actors",
+      "path": "lib/components/inventory/actors",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "agenda",
+      "path": "lib/components/inventory/agenda",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "authority-chain",
+      "path": "lib/components/legal/authority-chain",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "bar",
+      "path": "lib/components/chart/bar",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "big-number",
+      "path": "lib/components/statement/big-number",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "bullet",
+      "path": "lib/components/chart/bullet",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "cards-grid",
+      "path": "lib/components/inventory/cards-grid",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "cards-stack",
+      "path": "lib/components/inventory/cards-stack",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "checklist",
+      "path": "lib/components/inventory/checklist",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "citation-card",
+      "path": "lib/components/legal/citation-card",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "closing",
+      "path": "lib/components/anchor/closing",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "code",
+      "path": "lib/components/code/code",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "compare-code",
+      "path": "lib/components/code/compare-code",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "compare-prose",
+      "path": "lib/components/comparison/compare-prose",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "contact",
+      "path": "lib/components/connect/contact",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "content",
+      "path": "lib/components/statement/content",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "cycle",
+      "path": "lib/components/progression/cycle",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "decision",
+      "path": "lib/components/comparison/decision",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "diagram",
+      "path": "lib/components/diagram/diagram",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "divider",
+      "path": "lib/components/anchor/divider",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "funnel",
+      "path": "lib/components/chart/funnel",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "gantt",
+      "path": "lib/components/chart/gantt",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "glossary",
+      "path": "lib/components/inventory/glossary",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "heatmap",
+      "path": "lib/components/chart/heatmap",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "image",
+      "path": "lib/components/imagery/image",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "inventory",
+      "path": "lib/components/inventory/inventory",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "journey",
+      "path": "lib/components/chart/journey",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "kanban",
+      "path": "lib/components/chart/kanban",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "kpi",
+      "path": "lib/components/evidence/kpi",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "line",
+      "path": "lib/components/chart/line",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "list",
+      "path": "lib/components/inventory/list",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "list-criteria",
+      "path": "lib/components/progression/list-criteria",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "list-steps",
+      "path": "lib/components/progression/list-steps",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "list-tabular",
+      "path": "lib/components/inventory/list-tabular",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "logo-wall",
+      "path": "lib/components/inventory/logo-wall",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "map",
+      "path": "lib/components/chart/map",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "math",
+      "path": "lib/components/math/math",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "matrix-2x2",
+      "path": "lib/components/comparison/matrix-2x2",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "matrix-grid",
+      "path": "lib/components/chart/matrix-grid",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "obligation-matrix",
+      "path": "lib/components/legal/obligation-matrix",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "piechart",
+      "path": "lib/components/chart/piechart",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "policy-recommendation",
+      "path": "lib/components/legal/policy-recommendation",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "premise",
+      "path": "lib/components/statement/premise",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "pricing",
+      "path": "lib/components/comparison/pricing",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "progress",
+      "path": "lib/components/chart/progress",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "q-and-a",
+      "path": "lib/components/inventory/q-and-a",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "quadrant",
+      "path": "lib/components/chart/quadrant",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "quote",
+      "path": "lib/components/statement/quote",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "radar",
+      "path": "lib/components/chart/radar",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "redline",
+      "path": "lib/components/comparison/redline",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "regulatory-update",
+      "path": "lib/components/legal/regulatory-update",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "roadmap",
+      "path": "lib/components/chart/roadmap",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "scatter",
+      "path": "lib/components/chart/scatter",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "scene",
+      "path": "lib/components/imagery/scene",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "slope",
+      "path": "lib/components/chart/slope",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "split-compare",
+      "path": "lib/components/comparison/split-compare",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "split-panel",
+      "path": "lib/components/statement/split-panel",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "stacked-bar",
+      "path": "lib/components/chart/stacked-bar",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "state-chart",
+      "path": "lib/components/chart/state-chart",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "stats",
+      "path": "lib/components/evidence/stats",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "statute-stack",
+      "path": "lib/components/legal/statute-stack",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "table",
+      "path": "lib/components/comparison/table",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "team-profile",
+      "path": "lib/components/inventory/team-profile",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "timeline-list",
+      "path": "lib/components/chart/timeline-list",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "title",
+      "path": "lib/components/anchor/title",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "topic",
+      "path": "lib/components/anchor/topic",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "verdict-grid",
+      "path": "lib/components/comparison/verdict-grid",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "video",
+      "path": "lib/components/imagery/video",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "waterfall",
+      "path": "lib/components/chart/waterfall",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "wifi",
+      "path": "lib/components/connect/wifi",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "word-cloud",
+      "path": "lib/components/chart/word-cloud",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    }
+  ]
+}

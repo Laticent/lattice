@@ -78,6 +78,9 @@ const EXPECTED_UNCOMMITTED = new Set([
 const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
+  // Measured 2026-09-24: its whole write set is lib/packages/packages.generated.json,
+  // which git tracks — the spine's registry reads its reserved names from it.
+  'build-packages-index.js', // lib/packages
   'build-axis-dom-catalog.js', // lib/runtime
   // Measured 2026-09-21 against a timestamped tree: its whole write set is
   // docs/src/components/studio/guide-handles.generated.ts, which git tracks — the Guide

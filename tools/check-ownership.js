@@ -53,6 +53,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { discoverPackages, listFlatPackages } = require('../lib/packages/fs.js');
 
 // ── A WORKING TREE IS NOT A FROZEN TREE ───────────────────────────────────────
 //
@@ -569,8 +570,11 @@ function parseThemeTokens(css) {
  *  cannot be read is a build failure, not a silently skipped file. */
 function listThemeManifests(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const file of fs.readdirSync(themesDir).sort()) {
-    if (!file.endsWith('.manifest.json')) continue;
+  // The package spine owns the enumeration (lib/packages/fs.js), so the theme walks
+  // share one idea of what a theme's files are.
+  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
+    const file = `${stem}.manifest.json`;
+    if (!names.includes(file)) continue;
     const p = path.join(themesDir, file);
     let m;
     try {
@@ -591,9 +595,8 @@ function listThemeManifests(themesDir = THEMES_DIR) {
 /** Theme CSS files on disk, by name. */
 function listThemeFiles(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const file of fs.readdirSync(themesDir).sort()) {
-    if (!file.endsWith('.css')) continue;
-    out.set(file.replace(/\.css$/, ''), fs.readFileSync(path.join(themesDir, file), 'utf8'));
+  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
+    if (names.includes(`${stem}.css`)) out.set(stem, fs.readFileSync(path.join(themesDir, `${stem}.css`), 'utf8'));
   }
   return out;
 }
@@ -938,6 +941,37 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
       `Every palette says \`@import 'lattice'\`, and that import resolves against this name; ` +
       `change it and all 32 palettes silently collapse to scaffold-only CSS.`,
     );
+  }
+}
+
+// ─── Package identity: the manifest owns the name, for EVERY kind ──────────
+// engineering/decisions/2026-09-23-portable-packages.md §3.2. `checkThemeIdentity`
+// above binds a theme's filename, manifest and `@theme`. This generalizes the rule to
+// every package kind through the spine (lib/packages/): the manifest's `name` is the
+// identity, and the folder name and every role file's `<name>.` prefix are projections
+// that must agree with it. Before this, all 71 component folders matched their manifests
+// by discipline alone — a renamed folder, or a `kpi.styles.css` left behind by a rename,
+// passed every gate.
+//
+// It also asserts the spine's discovery is COMPLETE against the manifest-schema sweep:
+// a package the schema gate knows about but the spine can't see would drop out of the
+// generated index silently.
+function checkPackageIdentity(errors, { root } = {}) {
+  const found = discoverPackages(root ? { root } : {});
+  for (const { path: where, result } of found) {
+    for (const e of result.errors) errors.push(`${where}: ${e} (package identity — the manifest owns the name)`);
+  }
+  if (root) return;
+  const { family, listFamilyManifests } = require('./manifest-schemas.js');
+  for (const [type, fam] of [['theme', 'theme'], ['component', 'component']]) {
+    const swept = listFamilyManifests(family(fam)).length;
+    const seen = found.filter((f) => f.type === type).length;
+    if (swept !== seen) {
+      errors.push(
+        `the package spine found ${seen} ${type} package(s) but the manifest-schema sweep found ${swept} — ` +
+          'lib/packages/fs.js and tools/manifest-schemas.js disagree about where these live.',
+      );
+    }
   }
 }
 
@@ -11958,6 +11992,7 @@ function run() {
   checkSectionBoxOwnership(errors);
   checkSizeRegistryOwnership(errors);
   checkThemeIdentity(errors);
+  checkPackageIdentity(errors);
   checkThemeRegistrationCallSites(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
@@ -12069,6 +12104,7 @@ module.exports = {
   themeActualModes,
   splitLightDark,
   listThemeManifests,
+  checkPackageIdentity,
   checkZPlanes,
   definedPlaneTokens,
   collectZIndexDeclarations,

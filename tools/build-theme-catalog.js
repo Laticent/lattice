@@ -32,9 +32,9 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { discoverPackages } = require('../lib/packages/fs.js');
 
 const ROOT = path.join(__dirname, '..');
-const THEMES_DIR = path.join(ROOT, 'themes');
 const OUT = path.join(ROOT, 'docs', 'src', 'lib', 'theme-catalog.generated.ts');
 // The theme GRAPH lives beside the pure resolver that consumes it, not in the docs
 // bundle: the Node CLI, the unit suite and the browser all import it by relative path,
@@ -63,11 +63,15 @@ ${lines}
 `;
 }
 
+// Themes are DISCOVERED THROUGH THE PACKAGE SPINE (lib/packages/fs.js), the one walk
+// the build, the identity gate and the package index share. A theme the spine can't
+// read (a projection that disagrees with its manifest) fails the catalog here rather
+// than being listed under a name nothing else resolves.
 function manifests() {
-  return fs.readdirSync(THEMES_DIR)
-    .filter((f) => f.endsWith('.manifest.json'))
-    .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const found = discoverPackages({ types: ['theme'] });
+  const bad = found.filter((f) => !f.result.ok);
+  if (bad.length) throw new Error(`theme-catalog: unreadable theme package(s):\n${bad.map((b) => `  ${b.path}: ${b.result.errors.join('; ')}`).join('\n')}`);
+  return found.map((f) => f.result.pkg.manifest).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** The picker's own order: curated first, then the rest, then the a11y group. */

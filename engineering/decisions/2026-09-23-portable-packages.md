@@ -394,3 +394,25 @@ it is the record of what was wrong.
   core goes from 255,255,255 to 246,250,252 in light, and a nimbus bloom from
   255,255,255 to 235,243,248. The vignette rim reads 2 to 4 levels lighter than
   before, for the same interpolation reason.
+- **Phase 1, the spine core: done.** `lib/packages/` holds `kinds.js`, `read.js`,
+  `write.js`, `index.js` and the build's walk `fs.js`. Themes and components are
+  discovered through it: `loadAll`, the theme catalog, `listThemeManifests` /
+  `listThemeFiles` and the new `checkPackageIdentity` share the one walk, and
+  `tools/build-packages-index.js` writes the committed `packages.generated.json`
+  (33 themes, 71 components, 28 of them code packages). The component schema accepts
+  `type` and `format`, **optional in the repo**, where the folder implies the type;
+  `write.js` stamps both on every package it writes, so a loose zip says what it is.
+  Stamping all 104 shipped manifests would be churn with no reader today. The THEME
+  schema does not take them yet: `manifest-schema-equivalence.test.js` pins that
+  schema's exact mutation corpus and requires every property to be carried by a
+  shipped theme, so the fields land in phase 5, when every theme manifest is rewritten
+  into its folder anyway. Until then a Studio-exported theme's stamped manifest is a
+  valid package but not yet a valid `themes/` manifest; phase 3 or 5 strips or accepts
+  the two fields.
+  Writing the failing arm of the identity gate found a real gap: a renamed component
+  folder didn't fail anything, it vanished, because the walk only looked for
+  `<folder>/<folder>.manifest.json`. `loadAll` had the same blind spot. The walk now
+  lists a folder's lone manifest whatever its prefix, and the strict read names the
+  mismatch. The rest of the tool walks over `themes/` (contrast audits, the scorecard,
+  the docs portal) still read the folder directly; phase 5 moves them onto the spine
+  when themes become folders.

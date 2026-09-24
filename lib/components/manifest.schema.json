@@ -23,6 +23,14 @@
       "pattern": "^[a-z][a-z0-9-]*$",
       "description": "The `_class` directive value (kebab-case)."
     },
+    "type": {
+      "const": "component",
+      "description": "The package type (engineering/decisions/2026-09-23-portable-packages.md §3.2). Optional in the repo, where the folder implies it; the package spine writes it into every exported package, so a loose zip says what it is."
+    },
+    "format": {
+      "const": 1,
+      "description": "The package format version the spine wrote. Optional in the repo; a newer number is refused on import rather than half-read."
+    },
     "function": {
       "enum": [
         "anchor",

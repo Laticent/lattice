@@ -89,6 +89,9 @@ const STEPS = [
   // The palette picker's groups + swatches, baked from themes/*.manifest.json — the
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
+  // The one index of every shipped package (lib/packages/), walked through the package
+  // spine. Committed, like the catalogs around it: later phases import it as a module.
+  { label: 'package index (lib/packages)', script: 'build-packages-index.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
   // The Guide's rendered-part catalog, baked from every manifest's `handles` block. Committed
   // rather than uncommitted: `present-guide.ts` imports it as an ordinary module, so a missing
