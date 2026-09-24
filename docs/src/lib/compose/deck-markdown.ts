@@ -7,7 +7,7 @@ import {
 	MarkdownSerializerState,
 	schema as mdSchema,
 } from 'prosemirror-markdown';
-import { type Node as PMNode, Schema } from 'prosemirror-model';
+import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 import { commentBlockRule, commentNodeSpec } from './comment-block';
 
@@ -54,11 +54,64 @@ const composeTableNodes = tableNodes({
 	},
 });
 
+// ── Code blocks keep the author's fence ──────────────────────────────────────
+// prosemirror-markdown's `code_block` carries the info string (`params`) and nothing
+// about the fence that wrapped it, and its serializer writes backticks for every block.
+// So a `~~~mermaid` fence came back as ```mermaid on the first edit of its slide — the
+// same render, the same body, different bytes in a file the author wrote on purpose
+// (examples/mermaid-tilde-fences.md). `marker` is the opener exactly as written (`~~~`,
+// ```` ```` ````); empty means "no preference" — an indented block, or a fence the insert
+// door made — and serializes the upstream way.
+const FENCE_MARKER = /^(`{3,}|~{3,})$/;
+const mdCodeBlock = mdSchema.spec.nodes.get('code_block') as NodeSpec;
+const codeBlockSpec: NodeSpec = {
+	...mdCodeBlock,
+	attrs: { params: { default: '' }, marker: { default: '' } },
+	// The clipboard contract (see deck-doc's slide spec): an attr `toDOM`/`parseDOM` do
+	// not carry is an attr a paste re-creates at its default.
+	parseDOM: [
+		{
+			tag: 'pre',
+			preserveWhitespace: 'full',
+			getAttrs: (dom: HTMLElement) => {
+				const marker = dom.getAttribute('data-marker') || '';
+				return { params: dom.getAttribute('data-params') || '', marker: FENCE_MARKER.test(marker) ? marker : '' };
+			},
+		},
+	],
+	toDOM(node) {
+		const attrs: Record<string, string> = {};
+		if (node.attrs.params) attrs['data-params'] = node.attrs.params as string;
+		if (node.attrs.marker) attrs['data-marker'] = node.attrs.marker as string;
+		return ['pre', attrs, ['code', 0]];
+	},
+};
+
+/** The fence to write around `body`: the author's own marker, lengthened only when a
+ *  body line could be read as its CLOSER — a run of the same character at least as long,
+ *  then only whitespace.
+ *
+ *  ANY indent counts, deliberately wider than CommonMark's zero-to-three spaces: Compose's
+ *  own fence scanner (`fenceRanges`, slide-directives.ts) reads an indented run as a
+ *  closer too, and that scanner decides which slides lock and which directives hoist. A
+ *  fence it mis-closes would leave math after it unlocked. Lengthening one line too often
+ *  costs nothing; the upstream serializer lengthened on any run at all. */
+export function fenceFor(marker: string, body: string): string {
+	const char = marker[0];
+	let len = marker.length;
+	const closer = char === '~' ? /^[ \t]*(~{3,})[ \t]*$/ : /^[ \t]*(`{3,})[ \t]*$/;
+	for (const line of body.split('\n')) {
+		const m = closer.exec(line);
+		if (m && m[1].length >= len) len = m[1].length + 1;
+	}
+	return char.repeat(len);
+}
+
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
  *  authoring-comment atom. `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
  *  slide node, so every node spec is identical on both sides of the JSON bridge. */
 export const proseSchema = new Schema({
-	nodes: mdSchema.spec.nodes.append(composeTableNodes).addToEnd('comment', commentNodeSpec),
+	nodes: mdSchema.spec.nodes.update('code_block', codeBlockSpec).append(composeTableNodes).addToEnd('comment', commentNodeSpec),
 	marks: mdSchema.spec.marks,
 });
 
@@ -79,6 +132,8 @@ function alignAttrs(token: any) {
 /** The Lattice markdown parser — Lattice slide prose → ProseMirror document. */
 export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokenizer, {
 	...defaultMarkdownParser.tokens,
+	// `markup` is the opening run exactly as written — `~~~`, ```` ``` ````, ```` ```` ````.
+	fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '', marker: tok.markup || '' }), noCloseToken: true },
 	table: { block: 'table' },
 	// The whole `<!-- … -->` arrives as one token; its `content` is the source bytes.
 	lattice_comment: { node: 'comment', getAttrs: (tok) => ({ text: tok.content }) },
@@ -181,6 +236,18 @@ const latticeNodes = {
 	// That is the point of carrying them on the node: the round-trip has nothing to get wrong.
 	comment(state: SerializerState, node: PMNode) {
 		state.write(node.attrs.text as string);
+		state.closeBlock(node);
+	},
+	// A fence the author wrote comes back with the marker they wrote (see `codeBlockSpec`).
+	// With no marker it is the upstream serializer, byte for byte.
+	code_block(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		const marker = node.attrs.marker as string;
+		if (!marker) return defaultMarkdownSerializer.nodes.code_block(state, node, parent, index);
+		const fence = fenceFor(marker, node.textContent);
+		state.write(`${fence}${(node.attrs.params as string) || ''}\n`);
+		state.text(node.textContent, false);
+		state.write('\n');
+		state.write(fence);
 		state.closeBlock(node);
 	},
 	// GFM tables — the whole grid in one pass (see serializeTable). The row/cell nodes

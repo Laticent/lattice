@@ -5,7 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leadingTag } from './code-commands';
-import { deckToDoc, docToDeck } from './deck-doc';
+import { deckSchema, deckToDoc, docToDeck, serializeSlideNode } from './deck-doc';
+import { fenceFor } from './deck-markdown';
+import { hasLossyConstruct } from './deck-source';
 
 // The fixture the design note promised and the corpus the whole feature rests on.
 // Compose is a SECOND VIEW of the deck source (HARD RULE #1), so its correctness is
@@ -97,14 +99,75 @@ describe('every fence we ship survives the Compose round-trip', () => {
 			const after = fences(docToDeck(deckToDoc(src)));
 			expect(after.map((f) => f.tag)).toEqual(before.map((f) => f.tag));
 			expect(after.map((f) => f.body)).toEqual(before.map((f) => f.body));
-			// TILDE FENCES DO NOT KEEP THEIR MARKER, and the design note used to claim they
-			// did. prosemirror-markdown's serializer emits backticks for every code block,
-			// so `~~~mermaid` comes back as ```mermaid — same render, same body, different
-			// bytes. `emitDeck`'s identity baseline keeps an untouched slide's exact bytes,
-			// so this only shows up on a slide the author actually edits; it is recorded
-			// here rather than claimed away. `examples/mermaid-tilde-fences.md` is the one
-			// file in the corpus that carries them.
-			expect(after.map((f) => f.marker)).toEqual(before.map(() => '`'));
+			// The FENCE CHARACTER comes back too. prosemirror-markdown's serializer writes
+			// backticks for every code block, so until the `marker` attr a `~~~mermaid` came
+			// back as ```mermaid — same render, different bytes — on the first edit of its
+			// slide (decision note § "What this does NOT do", corrected 2026-09-24).
+			expect(after.map((f) => f.marker)).toEqual(before.map((f) => f.marker));
 		});
 	}
 });
+
+describe('a tilde fence survives an edit of its slide, character for character', () => {
+	// The file-level arm above compares fences; this one compares BYTES, on the path an
+	// edit actually takes. `emitDeck` re-emits an untouched slide from its `raw` attr, and
+	// the moment the author touches it the slide runs through `serializeSlideNode` instead —
+	// so for every slide carrying a fence, that serialization has to equal `raw`.
+	const FILE = path.join(ROOT, 'examples/mermaid-tilde-fences.md');
+
+	it('every fenced slide of examples/mermaid-tilde-fences.md re-serializes to its own source', () => {
+		const doc = deckToDoc(fs.readFileSync(FILE, 'utf8'));
+		let fenced = 0;
+		let tilde = 0;
+		doc.forEach((slide) => {
+			const raw = slide.attrs.raw as string;
+			const own = fences(raw);
+			if (!own.length) return;
+			fenced++;
+			if (own.some((f) => f.marker === '~')) tilde++;
+			expect(serializeSlideNode(slide)).toBe(raw);
+		});
+		// Anti-vacuity: the file is what it says it is.
+		expect(fenced).toBeGreaterThanOrEqual(2);
+		expect(tilde).toBeGreaterThanOrEqual(1);
+	});
+
+	it('keeps the author s fence length, and lengthens it only when the body would close it', () => {
+		expect(fenceFor('~~~', 'graph LR\n  A --> B')).toBe('~~~');
+		expect(fenceFor('````', 'no inner fence')).toBe('````');
+		// A body line that is itself a closing run of the same character forces one more.
+		expect(fenceFor('~~~', 'before\n~~~~\nafter')).toBe('~~~~~');
+		expect(fenceFor('```', '```')).toBe('````');
+		// The OTHER character, or a run with an info string after it, closes nothing.
+		expect(fenceFor('~~~', '```\n```js')).toBe('~~~');
+		expect(fenceFor('```', '```js')).toBe('```');
+		// An INDENTED run lengthens too — wider than CommonMark on purpose, because
+		// Compose's own `fenceRanges` reads it as a closer (see `fenceFor`).
+		expect(fenceFor('```', '    ```')).toBe('````');
+		expect(fenceFor('~~~', '\t~~~')).toBe('~~~~');
+	});
+
+	it('an indented closer-shaped body line cannot un-lock the math after the fence', () => {
+		// The checker's reproduction: with a CommonMark-exact closer test the fence came
+		// back as ``` around a `    ``` line, `fenceRanges` closed it there, and the `$…$`
+		// after it stopped counting as a lossy construct — so the slide unlocked.
+		// Valid CommonMark as written: a four-space run is not a closer, so the body is
+		// `    ```` and the fence ends on the last line. Compose's scanner disagrees, and it
+		// is the one that decides the lock — so the edit writes a fence both agree on.
+		const src = '## Slide\n\n```\n    ```\n```\n\nPrice is $x^2$ here\n';
+		const out = docToDeck(deckToDoc(src));
+		expect(out).toContain('````\n    ```\n````');
+		expect(hasLossyConstruct(out.slice(out.indexOf('````')))).toBe(true);
+	});
+
+	it('a fence nobody wrote — the insert door, an indented block — serializes the upstream way', () => {
+		const doc = deckToDoc('## Slide\n\n    indented code\n');
+		expect(docToDeck(doc)).toContain('```\nindented code\n```');
+		// The insert door's node: `code_block.create({ params })`, no marker.
+		const door = deckSchema.nodes.code_block.create({ params: 'mermaid' }, deckSchema.text('graph LR'));
+		expect(door.attrs.marker).toBe('');
+		const slide = deckSchema.nodes.slide.create({}, [door]);
+		expect(serializeSlideNode(slide)).toBe('```mermaid\ngraph LR\n```');
+	});
+});
+

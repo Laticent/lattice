@@ -314,6 +314,14 @@ So Compose colors all three, through the BODY grammar each one declares:
 registry records as each fence's `body`. A test pins the map against that registry, so
 a fourth engine fence cannot arrive uncolored.
 
+**Correction (2026-09-24).** When this section was written the registry listed only
+`functionplot` and `mermaid`, so the claim above held for two of the three fences: the
+pin looped over the registry's entries, and `anima` was not one of them. The
+registry now lists `anima` (`body: "json"`, `usedBy: ["scene"]`) — an entry that
+describes what `animaSceneFences` already did and changes no behavior — and the pin
+asserts the registry and the Lattice group are the SAME set before it checks bodies,
+so a short registry fails instead of passing with nothing checked.
+
 **The general lesson, because it is the second time in this note:** a narrowly-scoped
 CSS rule is not a statement of policy. Both times the fix was to read what the rule
 is scoped TO before generalizing from what its comment says.
@@ -327,15 +335,23 @@ is scoped TO before generalizing from what its comment says.
 - **No new lock.** Fences never locked a slide and still do not.
 - **No new `~~~` support in the door.** The insert door writes backticks, as every
   shipped deck but one does.
-  **A tilde fence does NOT round-trip byte-exact, and an earlier draft of this line
-  claimed it did.** Measured over every fence we ship: 215 fences, tag and body exact
-  in all of them, and the one tilde file — `examples/mermaid-tilde-fences.md` — comes
-  back as ```` ```mermaid ````. prosemirror-markdown's serializer emits backticks for
-  every code block; there is no per-node marker to preserve. The engine renders both
-  identically and `emitDeck`'s identity baseline keeps an untouched slide's exact
-  bytes, so this surfaces only on a slide the author actually edits — but this change
-  ships a one-click way to touch such a slide, so it is recorded rather than claimed
-  away. `fence-round-trip.test.ts` asserts the real behavior, including this.
+  **A fence's character and length round-trip — as of 2026-09-24, and an earlier draft
+  of this line claimed byte-exactness before even that was true.** What still
+  normalizes on an edited slide: an indented opener loses its indent, a closer that
+  differs from its opener is rewritten to match it, and an unclosed fence gains a
+  closer. Measured then over every fence we ship:
+  215 fences, tag and body exact in all of them, and the one tilde file —
+  `examples/mermaid-tilde-fences.md` — came back as ```` ```mermaid ```` on the first
+  edit of its slide, because prosemirror-markdown's serializer emits backticks for every
+  code block and its `code_block` node had nowhere to keep the marker. `code_block` now
+  carries a `marker` attr (the opener exactly as written — `~~~`, ```` ```` ````), the
+  parser fills it from markdown-it's `markup`, and `deck-markdown.ts` writes it back,
+  lengthened only when a body line could read as its closer — at ANY indent, wider than
+  CommonMark, because Compose's own `fenceRanges` reads an indented run as a closer and
+  that scanner decides which slides lock (the checker's catch). A block with
+  no marker (the insert door, an indented block) serializes the upstream way.
+  `fence-round-trip.test.ts` asserts every fence's marker across the corpus and that
+  every fenced slide of the tilde file re-serializes to its own source bytes.
 - **No engine or export change.** `highlightSpans` is a read-only view onto the
   highlighter the engine already runs.
 
@@ -368,6 +384,13 @@ Per HARD RULE #23, every claim below names its surface:
   before assignment, which dropped Compose to its textarea fallback on any deck with a
   fence; and a node view rebuilt on every caret move, which detached the chip the
   popover was anchored to). Plus `tools/screenshot.js` at 1440 / 820 / 390, both modes.
+  The fix for the second defect — a rect captured at click time — had a defect of its
+  own, found after ship: the rect cannot detach, but it cannot move either, so scrolling
+  the editor left the popover where the chip WAS. The anchor now keeps the block's
+  document position and re-finds the live chip on every measurement, with the editor's
+  DOM as Floating UI's `contextElement` so the editor's own scroll container
+  re-positions it (2026-09-24). The spec's `@crosswidth` scroll arm measured
+  `gap 4 → 84` px before, at 1440 and 390.
 - **NOT a demo deck.** HARD RULE #9's trigger is the rendered surface, and this change
   renders none: the engine, the themes, the layouts and the exported bytes are
   untouched, and everything here is editor chrome. An earlier draft of this section

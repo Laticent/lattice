@@ -305,3 +305,84 @@ test('@mobile the chip and the pill picker are both reachable at 390px', async (
 	await expect(page.locator('.cs-codec-trigger')).toBeVisible();
 	await expect(page.locator('.cs-codec-tag')).toHaveText('js');
 });
+
+test('@crosswidth the chip picker rides its block when the editor scrolls under it', async ({ page }) => {
+	// The picker used to anchor to a rect captured at click time. That rect cannot detach
+	// (the node view rebuilds on caret move, so the clicked element does), but it cannot
+	// move either: scroll the deck and the popover stayed where the chip WAS, stranded
+	// over whatever slid under it. The anchor now re-finds the live chip on every
+	// measurement, and the check is geometry — the gap between chip and popover is the
+	// same before and after the scroll, or the popover has hidden with its block.
+	const LONG = [DECK, ...Array.from({ length: 14 }, (_, i) => `\n---\n\n## Filler slide ${i + 1}\n\nA paragraph that gives the editor something to scroll.`)].join('\n');
+	await gotoStudio(page);
+	await seedDeck(page, LONG);
+	await toCompose(page);
+
+	const chip = page.locator('.cs-code-chip').first();
+	await chip.scrollIntoViewIfNeeded();
+	await chip.click();
+	const pop = page.locator('[data-slot=popover-content]');
+	await expect(pop).toBeVisible();
+
+	const gap = () =>
+		page.evaluate(() => {
+			const c = document.querySelector('.cs-code-chip')?.getBoundingClientRect();
+			const p = document.querySelector('[data-slot=popover-content]')?.getBoundingClientRect();
+			return c && p ? Math.round(p.top - c.bottom) : null;
+		});
+	const before = await gap();
+	expect(before).not.toBeNull();
+
+	// Scroll the editor's OWN scroll container — the nearest scrollable ancestor of the
+	// ProseMirror root — which is the one the window-only listener never heard.
+	const scrollBy = (dy: number) =>
+		page.evaluate((d) => {
+			let el: HTMLElement | null = document.querySelector('.cs-host .ProseMirror');
+			while (el && !(el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+			const target = el ?? (document.scrollingElement as HTMLElement);
+			const from = target.scrollTop;
+			target.scrollTop = from + d;
+			return target.scrollTop - from;
+		}, dy);
+	const state = async () => {
+		const hidden = await pop
+			.evaluate((el) => {
+				const w = el.closest('[data-radix-popper-content-wrapper]') as HTMLElement | null;
+				return !el.isConnected || getComputedStyle(w ?? el).visibility === 'hidden' || getComputedStyle(el).visibility === 'hidden';
+			})
+			.catch(() => true);
+		if (hidden) return 'hidden';
+		const now = await gap();
+		return now !== null && before !== null && Math.abs(now - before) <= 2 ? 'anchored' : `stranded (gap ${before} → ${now})`;
+	};
+
+	// A SHORT scroll: the block is still on screen, so the picker must ride it.
+	expect(await scrollBy(80), 'the deck must actually scroll for this arm to mean anything').toBeGreaterThan(40);
+	await expect.poll(state).toBe('anchored');
+
+	// A LONG one: the block has left the editor, so the picker leaves with it rather than
+	// pinning to the viewport edge over slides it has nothing to do with.
+	expect(await scrollBy(1200)).toBeGreaterThan(400);
+	await expect.poll(state).toBe('hidden');
+});
+
+test('a ~~~ fence keeps its tildes when its slide is edited in Compose', async ({ page }) => {
+	// `emitDeck` re-emits an untouched slide's bytes verbatim, so the only way to see this
+	// is to TOUCH the slide: the edit runs it through the serializer, which used to write
+	// backticks for every code block. examples/mermaid-tilde-fences.md is the shipped case.
+	// (The backtick fence rides along because `seedDeck` waits for one to persist.)
+	const TILDE = ['<!-- _class: diagram -->', '', '## A tilde fence', '', '~~~mermaid', 'flowchart LR', '  A --> B', '~~~', '', '```text', 'seed', '```'].join('\n');
+	await gotoStudio(page);
+	await seedDeck(page, TILDE);
+	await toCompose(page);
+
+	const code = page.locator('.cs-host pre.cs-code code').first();
+	await code.click({ position: { x: 4, y: 6 } });
+	await page.keyboard.press('End');
+	await page.keyboard.type(' %% edited');
+
+	await expect.poll(() => deckSource(page)).toContain('%% edited');
+	const src = await deckSource(page);
+	expect(src).toContain('~~~mermaid\nflowchart LR %% edited\n  A --> B\n~~~');
+	expect(src).not.toContain('```mermaid');
+});
