@@ -78,7 +78,16 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   emitters in `state-chart.transform.js` do it themselves; each stylesheet that
   owns a baseline carries a companion `… tspan` rule. Pinned by
   `test/unit/components/svg-tspan-baseline.test.js` at the source level and
-  measured on a real WebKit by `tools/audit-svg-baselines.mjs`.
+  measured on a real WebKit by `tools/audit-svg-baselines.mjs`. **Mermaid's
+  markup is not ours**, so there `mermaid.css` sets `dominant-baseline: inherit`
+  on every attribute-less `g`/`text`/`tspan` inside a mermaid root instead of
+  copying mermaid's classes (#2306).
+- **Second shape — a baseline on a `<g>`:** WebKit also keeps SVG 1.1's "not
+  inherited", where CSS Inline 3 and Chromium inherit, so a
+  `<g dominant-baseline="middle">` does not reach the `<text>` inside it (mermaid
+  architecture labels, −3.54px). That half IS a spec split. `inherit` has to
+  cover every `g` on the way down, not just the `<text>`: an attribute-less group
+  in between computes `auto` and passes that on.
 - **Triggered by:** Any `<text dominant-baseline="…">` whose lines are
   positioned `<tspan>`s — which is every label the wrapping kernel emits.
 - **Removable when:** WebKit ships the spec behavior. Re-measure with
@@ -88,8 +97,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Watch out:** No gate in this repo can see this. `npm test`, the integration
   tier, the PDF path and CI all render through headless Chromium, where the
   drift is 0. The audit tool needs `npx playwright install webkit` first.
-- **Commits:** issue #2297;
-  `engineering/decisions/2026-09-22-webkit-tspan-baseline.md`.
+- **Commits:** issues #2297, #2306;
+  `engineering/decisions/2026-09-22-webkit-tspan-baseline.md` (§8 for mermaid).
 
 ## Sub-pixel rounding diverges across Chromium platforms
 
