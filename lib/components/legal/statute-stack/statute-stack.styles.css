@@ -164,8 +164,8 @@ section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li::marker,
 section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li::marker { content:''; }
 /* Citation chip — first body item, only-child <code>. Non-pill hanging
  * cite: mono, body-heading color, no chrome. */
-section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code,
-section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code,
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   display:block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -185,12 +185,12 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has
  * breaks the virtual-list height measurement): instead of margin-top:auto on the status li,
  * the body item immediately ABOVE the status (a chrome-free prose/citation line) grows to
  * fill the rail's free space, pushing the status to the foot — the flex:1-spacer idiom. */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li > :is(ul, ol) > li:has(+ li:last-child > code:only-child),
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li > :is(ul, ol) > li:has(+ li:last-child > code:only-child) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > code:only-child),
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > code:only-child) {
   flex:1 1 auto;
 }
-section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> code:only-child) > code,
-section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> code:only-child) > code {
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) > code,
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> code:only-child):not(:where([data-prose])) > code {
   display:inline-flex; align-items:center; line-height:1;
   font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking); text-transform:none;

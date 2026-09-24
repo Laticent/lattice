@@ -110,7 +110,7 @@ section.topic {
 section.topic > * { margin: 0; }
 
 /* ── the section eyebrow — pinned, so it holds position as content grows ──── */
-section.topic > p:first-of-type:has(> code:only-child) {
+section.topic > p:first-of-type:has(> code:only-child):not(:where([data-prose])) {
   position: absolute;
   top: var(--sp-xl);
   left: var(--_gutter);
@@ -120,7 +120,7 @@ section.topic > p:first-of-type:has(> code:only-child) {
 }
 /* Inline code carries a filled, bordered CHIP in several themes. Both mono
  * slots must null it explicitly or they render as boxed plates. */
-section.topic > p:has(> code:only-child) > code {
+section.topic > p:has(> code:only-child):not(:where([data-prose])) > code {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 600;
@@ -304,18 +304,18 @@ section.topic.fact > h2 + p {
  * the engine appends a pagination span and the berth divs after the authored
  * content, so `:last-child` never matches and the basis falls through to the
  * default inline-code chip. */
-section.topic.fact > p:last-of-type:has(> code:only-child) {
+section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])) {
   padding: var(--sp-sm) 0 0 0;
   border-top: var(--_hair) solid var(--border);
   max-width: none;
 }
-section.topic.fact > p:last-of-type:has(> code:only-child) > code {
+section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])) > code {
   font-weight: 500;
   letter-spacing: 0.14em;
 }
 /* With no basis authored the claim has no rule to hang from, so it centers in
  * the whole field instead of against an edge that is not there. */
-section.topic.fact > p:not(:has(> code:only-child)):last-of-type { align-content: safe center; }
+section.topic.fact > p:not(:has(> code:only-child):not(:where([data-prose]))):last-of-type { align-content: safe center; }
 
 /* ── no track: the slide composes as one canvas ──────────────────────────────
  * A `topic` slide gets no derived track when its section has fewer than two

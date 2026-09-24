@@ -160,19 +160,26 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
   --sp-fill-rainbow-h: var(--spectrum);
   --sp-fill-rainbow-v: var(--spectrum-vertical);
 }
+/* THE BAR DRAWS IN `--field-accent`, NOT `--accent` (#2305). `--field-accent` is the ink that reads
+   on the frame's own field (base.finish.css): `--accent` on every ordinary slide, so nothing
+   there moves, and `--on-accent` / `--cat-on-fill` on the six split covers that paint the
+   accent or a category tint. Those covers started carrying the deck's `spectrum*` registers
+   when the splitter learned to keep them, and a solid accent bar on an accent field is no bar
+   at all. Measured by the HARD RULE #25 checker, indaco, `spectrum: solid` + `spectrum-edge:
+   left`: the cover's rail and its field were both #006FA8. */
 section {
   /* solid: the theme's DISTINCTIVE hue — --accent for most, a --spectrum-solid override for a
      near-black-accent theme (onyx, concrete) whose accent can't read as a bar. */
-  --sp-fill-solid-h: linear-gradient(90deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
-  --sp-fill-solid-v: linear-gradient(180deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+  --sp-fill-solid-h: linear-gradient(90deg, var(--spectrum-solid, var(--field-accent)), var(--spectrum-solid, var(--field-accent)));
+  --sp-fill-solid-v: linear-gradient(180deg, var(--spectrum-solid, var(--field-accent)), var(--spectrum-solid, var(--field-accent)));
   /* duo: accent → the theme's curated endpoint (--spectrum-end: indaco green, onyx red, cuoio
      gold, laguna coral). Derived from what the theme already curated, never a categorical
      color. Falls back to --accent (a quiet mono) for a theme that names no endpoint. */
-  --sp-fill-duo-h: linear-gradient(90deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
-  --sp-fill-duo-v: linear-gradient(180deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+  --sp-fill-duo-h: linear-gradient(90deg, var(--field-accent) 0%, var(--spectrum-end, var(--field-accent)) 100%);
+  --sp-fill-duo-v: linear-gradient(180deg, var(--field-accent) 0%, var(--spectrum-end, var(--field-accent)) 100%);
   /* mono: a quiet accent tint ramp — accent fading toward the canvas. */
-  --sp-fill-mono-h: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
-  --sp-fill-mono-v: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
+  --sp-fill-mono-h: linear-gradient(90deg, var(--field-accent) 0%, color-mix(in oklab, var(--field-accent) 35%, var(--bg)) 100%);
+  --sp-fill-mono-v: linear-gradient(180deg, var(--field-accent) 0%, color-mix(in oklab, var(--field-accent) 35%, var(--bg)) 100%);
 }
 
 /* The STRUCTURE accent token — read by the in-content accent lines (table-header rails, the

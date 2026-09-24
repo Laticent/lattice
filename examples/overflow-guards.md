@@ -79,7 +79,7 @@ That is the shape of the feature: the blocks that most often cause overflow are 
 
 <!-- _class: closing -->
 
-`guards: loose` is the default
+`guards: loose is the default`
 
 # Nothing changes unless you ask for it.
 

@@ -32,7 +32,7 @@
  * ──────────────────────────────────────────────────────────────────── */
 section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:safe center; }
 /* Hanging citation eyebrow — leading paragraph that is just a `<code>`. */
-section.citation-card > .cell-stage > p:has(> code:only-child) {
+section.citation-card > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   margin:0;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -43,7 +43,7 @@ section.citation-card > .cell-stage > p:has(> code:only-child) {
 /* font-family:inherit — see the note in redline.styles.css: the eyebrow font is named
  * on the parent `<p>`, but `section code` fonts this `<code>` in --font-mono, so the
  * citation eyebrow never wore the label voice. Only visible under `sketch`. */
-section.citation-card > .cell-stage > p:has(> code:only-child) > code {
+section.citation-card > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) > code {
   background:none; border:none; padding:0;
   color:inherit; font-size:inherit; font-family:inherit;
 }
@@ -181,7 +181,7 @@ section.citation-card.margin > .cell-stage {
   grid-template-rows:auto 1fr;
 }
 section.citation-card.margin h2 { grid-column:1 / -1; }
-section.citation-card.margin > .cell-stage > p:has(> code:only-child) {
+section.citation-card.margin > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   grid-column:1; grid-row:2;
   align-self:start;
   text-align:right;
@@ -228,7 +228,7 @@ section.citation-card.triptych > .cell-stage {
   gap:var(--sp-md);
 }
 section.citation-card.triptych h2 { grid-column:1 / -1; }
-section.citation-card.triptych > .cell-stage > p:has(> code:only-child) { grid-column:1 / -1; }
+section.citation-card.triptych > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) { grid-column:1 / -1; }
 section.citation-card.triptych > .cell-stage > blockquote {
   grid-column:1; grid-row:3;
   font-size:var(--fs-body);
@@ -293,15 +293,15 @@ section.citation-card.margin:is([data-orientation="portrait"], [data-orientation
   row-gap: var(--sp-sm);
 }
 section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > h2,
-section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child),
+section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child):not(:where([data-prose])),
 section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > blockquote,
 section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > :is(ul, ol),
 section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > h2,
-section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child),
+section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child):not(:where([data-prose])),
 section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > blockquote,
 section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > :is(ul, ol),
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > h2,
-section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child),
+section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child):not(:where([data-prose])),
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > blockquote,
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > :is(ul, ol) {
   grid-column: 1;
@@ -327,7 +327,7 @@ section.citation-card.margin:is([data-orientation="portrait"], [data-orientation
   padding: var(--sp-md) var(--sp-lg);
   font-size: var(--fs-body);
 }
-section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child) {
+section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   text-align: left;
   padding-top: 0;
 }

@@ -124,9 +124,9 @@ describe('finish-generate', () => {
 	it('intensity + scale flow into the output as numbers', () => {
 		const css = generateFinishCss('a', { wash: { type: 'corner-glow', intensity: 14 }, texture: { type: 'grid', intensity: 9, scale: 32 }, mark: { type: 'none', placement: 'center' }, edge: { type: 'none', intensity: 6 } });
 		// The EXPORT (opaque) wash carries the literal intensity (no rich lift).
-		expect(exportBlocks(css)).toContain('var(--accent) 14%');
+		expect(exportBlocks(css)).toContain('var(--field-accent, var(--accent)) 14%');
 		// The SCREEN (rich) wash lifts the accent a touch (alpha falloff): 14 → 17.
-		expect(screenBlock(css)).toContain('var(--accent) 17%');
+		expect(screenBlock(css)).toContain('var(--field-accent, var(--accent)) 17%');
 		// Scale flows through (face-invariant) on the screen texture.
 		expect(css).toContain('32px');
 	});

@@ -162,6 +162,28 @@ layer. Take one slide out of a deck-wide finish with `<!-- _class: finish-none -
 (the back-compat `backdrop-none` is an alias); a per-slide `finish-<name>`
 **overrides** the deck finish rather than stacking on it.
 
+**A split run keeps the finish on every page.** When a slide splits (a cover, then
+one member per page — or a carousel's re-authored pages), the splitter replaces the
+page's layout class. The canvas axis and the deck's **surface registers** survive that
+swap as classes: `finish`/`finish-*`/`finish-none`, `mode:`, `stamp:`/`tone:`, every
+`spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
+`headline:` and `lift:`. Two registers stay behind, because they describe how ONE
+layout composes and the cover is a different layout: `claim:` and `cards:`. They reach
+the page as `data-split-mods` like any other authored modifier. The list lives in
+`lib/core/surface-registers.js`, built from each register's own token list. The split
+re-injects the `.backdrop` wrapper on the pages it builds, so a cover really paints its
+finish (#2305).
+
+**On an accent-field cover the finish draws in the cover's own ink.** Every preset
+draws in `var(--field-accent)`, which defaults to `var(--accent)`. The six split covers
+paint `var(--accent)` as their field, so the accent would vanish there. Those covers
+set `--field-accent: var(--on-accent)`, and a `cat-N` tinted cover sets
+`var(--cat-on-fill)`. A saved Studio finish reads the same slot, with `var(--accent)`
+as its fallback. `test/integration/invariants/finish-ink-matrix.test.js` holds every
+cover shape × mode × theme at 3:1 or better. `lint:deck`'s `bookend-finish-contrast`
+advice is a house preference for a bookend (`title`/`closing`/`divider`), not a split
+cover. Add `finish-none` to the authored slide to keep its whole run clean.
+
 **Glyph-marks (the ghost monogram / numeral) are author-personalized and never
 appear by default.** A finish's `mark` layer carries the layer *type* (so the
 preset and the Studio designer still offer a monogram/numeral), but its rendered

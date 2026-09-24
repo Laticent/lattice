@@ -54,8 +54,8 @@ section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message)
  * subtitle rule's `balance`. `wrap` resets both halves (mode:wrap, style:auto),
  * which is the reset this wants. Caught by review; the first cut shipped the
  * dead `normal`. */
-section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; text-wrap:wrap; }
-section.closing h2 + p:has(> code:only-child) > code {
+section.closing h2 + p:has(> code:only-child):not(:where([data-prose])) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; text-wrap:wrap; }
+section.closing h2 + p:has(> code:only-child):not(:where([data-prose])) > code {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-style: normal;
