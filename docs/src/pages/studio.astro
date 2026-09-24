@@ -11,6 +11,7 @@
 // Board / Playground; the engine is loaded on demand exactly as those do.
 import '../styles/landing.css';
 import StudioIsland from '../components/studio/StudioIsland.tsx';
+import { packVocabNames } from '../components/studio/lint-vocab-names';
 import { StudioActivityRailSkeleton, StudioChromeSkeleton, StudioEditorPaneSkeleton, StudioPreviewBarSkeleton, StudioPreviewFooterSkeleton } from '../components/studio/StudioChromeSkeleton.tsx';
 import CrashSentinel from '../components/studio/CrashSentinel.astro';
 import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.astro';
@@ -178,7 +179,9 @@ try {
 		// family, …), not a hand-picked few: the editor completes front-matter values from
 		// them (editor-complete.ts `VOCAB_VALUE_FIELDS`) and lint-core validates against
 		// them. A hand-kept subset here silently dropped the newer registers from both.
-		...Object.fromEntries(Object.entries(v).filter(([k, x]) => k.endsWith('Names') && Array.isArray(x)).map(([k, x]) => [k, [...x]])),
+		// Packed into one string to keep this route's HTML inside its budget; StudioIsland
+		// unpacks it (lint-vocab-names.ts).
+		packedNames: packVocabNames(v),
 		capacity: v.capacity || {},
 		sizes: v.sizes || undefined,
 		universalGroups: v.universalGroups || {},

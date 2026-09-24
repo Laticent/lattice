@@ -209,7 +209,7 @@ describe('front-matter registers — keys and values', () => {
 	// while the real editor had no `guards:` values at all. Pin the pass-everything spread.
 	it('the Studio page passes every register value list to the editor', () => {
 		const page = readFileSync(new URL('../../pages/studio.astro', import.meta.url), 'utf8');
-		expect(page).toMatch(/Object\.entries\(v\)\.filter\(\(\[k, x\]\) => k\.endsWith\('Names'\)/);
+		expect(page).toMatch(/packedNames: packVocabNames\(v\)/);
 	});
 
 	// Drift gate: every key the deck Inspector writes must also be completable in the

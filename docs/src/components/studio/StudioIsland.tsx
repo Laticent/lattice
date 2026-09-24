@@ -1,6 +1,7 @@
-import { type ComponentProps, StrictMode } from 'react';
+import { type ComponentProps, StrictMode, useMemo } from 'react';
 import { noteError } from '@/lib/crash-sentinel';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
+import { withUnpackedNames } from './lint-vocab-names';
 import StudioShell from './StudioShell.tsx';
 
 // Astro mounts this wrapper — not StudioShell directly — so StrictMode is an
@@ -13,6 +14,10 @@ import StudioShell from './StudioShell.tsx';
 // nothing and is a no-op in production builds, so shipping it on the island
 // costs nothing at runtime.
 export default function StudioIsland(props: ComponentProps<typeof StudioShell>) {
+	// The page ships the lint vocab's value lists packed into one string (HTML budget —
+	// lint-vocab-names.ts); every consumer below reads arrays. Memoized so the shell sees
+	// ONE vocab object for the island's life, as it did when the prop arrived as-is.
+	const lintVocab = useMemo(() => withUnpackedNames(props.lintVocab), [props.lintVocab]);
 	// The boundary is the ISLAND-LEVEL backstop: a throw anywhere in the shell (render,
 	// a lifecycle, an effect / its cleanup) lands here as a recoverable card instead of
 	// unmounting the whole client:only island to a white screen. A tighter boundary
@@ -25,7 +30,7 @@ export default function StudioIsland(props: ComponentProps<typeof StudioShell>) 
 			    the whole shell had just come down — and this is the fault most likely
 			    to precede the user reloading. */}
 			<ErrorBoundary label="Lattice Studio" onError={(err) => noteError(err, 'studio boundary')}>
-				<StudioShell {...props} />
+				<StudioShell {...props} lintVocab={lintVocab} />
 			</ErrorBoundary>
 		</StrictMode>
 	);
