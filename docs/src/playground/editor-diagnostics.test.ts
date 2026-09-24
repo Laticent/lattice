@@ -1,9 +1,13 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
+import { createRequire } from 'node:module';
 import { Text } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
+import { packVocabNames, withUnpackedNames } from '../components/studio/lint-vocab-names';
 import { buildVocabSets, chunkStartLines, findingsToDiagnostics } from './editor-diagnostics.js';
+
+const require = createRequire(import.meta.url);
 
 const doc = (s: string) => Text.of(s.split('\n'));
 
@@ -46,6 +50,34 @@ describe('buildVocabSets', () => {
 		// catches a typo). Regression guard for the maker-checker #3 finding.
 		expect(sets.modeNames).toEqual(['boardroom', 'sketch']);
 		expect(sets.capacity?.kpi.hard).toBe(4);
+	});
+
+	// The Studio's inline lint and the Coach read the vocab through this builder, and
+	// every `*Names` list gates one `findUnknown*` rule in lint-core. When the builder
+	// forwarded a hand-kept six, fifteen of those rules were dead in the Studio while
+	// `lint:deck` still fired them. So: take the LIVE vocab down the same road
+	// studio.astro ships it (packed, then unpacked by the island), and prove a bad value
+	// on each register's key draws that register's warning.
+	it('forwards every *Names register list, so each findUnknown* rule fires in the Studio', () => {
+		const { loadAll } = require('../../../lib/components/index.js');
+		const { buildVocab } = require('../../../lib/authoring/lint.js');
+		const { lintTextWith } = require('../../../lib/authoring/lint-core.js');
+		const live = buildVocab(loadAll());
+		const shipped = withUnpackedNames({ names: [...live.names], modifiers: [...live.modifiers], packedNames: packVocabNames(live) });
+		const sets = buildVocabSets(shipped) as unknown as Record<string, unknown>;
+		const lists = Object.keys(live).filter((k) => k.endsWith('Names'));
+		expect(lists.length).toBeGreaterThanOrEqual(21);
+		// The front-matter key each list validates: camelCase → kebab-case, with the two
+		// SHAPE registers named for the key rather than the style.
+		const keyFor = (list: string) => ({ stampStyleNames: 'stamp', toneStyleNames: 'tone' })[list] ?? list.replace(/Names$/, '').replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+		const silent = lists.filter((list) => {
+			expect(sets[list], list).toEqual(live[list]);
+			const deck = `---\n${keyFor(list)}: zzqx-not-a-value\n---\n\n# A\n`;
+			// Each register's own rule, `unknown-<key>` — not any `unknown-*`, which a
+			// neighboring rule could satisfy while this one stays dead.
+			return !lintTextWith(deck, sets).some((f: { rule: string }) => f.rule === `unknown-${keyFor(list)}`);
+		});
+		expect(silent, `a bad value on these registers draws no warning in the Studio: ${silent.join(', ')}`).toEqual([]);
 	});
 
 	it('tolerates an empty/missing vocab', () => {

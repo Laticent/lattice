@@ -146,6 +146,20 @@ drifting again. One fails when the Inspector writes a key that autocomplete does
 offer; its first run caught `inline-code:`. The other fails when the lint vocabulary
 publishes a `*Names` value list that the editor does not complete.
 
+**Completing a value and linting it are separate paths, and the lint path had its own
+list.** The Studio's inline lint and the Coach both get the vocab from `buildVocabSets`
+(`docs/src/playground/editor-diagnostics.js`), and it forwarded six named lists (finish,
+mode, split, stamp, tone, spectrum). Each `*Names` list turns on one `findUnknown*` rule
+in `lib/authoring/lint-core.js`, so the other fifteen rules never ran in the Studio. The
+editor would complete `guards: strict` but not flag `guards: strcit`, while
+`npm run lint:deck` did. `buildVocabSets` now forwards every key that ends in `Names`, so
+a register added to `buildVocab` gets checked in the Studio with no second edit. A test in
+`editor-diagnostics.test.ts` sends the live vocab through the packed-string handoff that
+`studio.astro` uses, then asserts that a bad value on each register's key gets a warning.
+A sweep over 430 decks (every tracked Markdown deck, the 16 galleries and the Studio
+starters) found no new warnings, and the Studio's `unknown-*` findings match the CLI's on
+every deck.
+
 ### 2.3 Deliberately NOT front matter — do not add a control
 
 Recorded here so the next audit doesn't "fix" them:

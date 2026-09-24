@@ -177,10 +177,10 @@ try {
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
 		// EVERY register value list (`guardsNames`, `cardsNames`, `claimNames`, the spectrum
 		// family, …), not a hand-picked few: the editor completes front-matter values from
-		// them (editor-complete.ts `VOCAB_VALUE_FIELDS`). A hand-kept subset here left the
-		// newer registers with no values to complete. The Studio's inline LINT still sees
-		// only six of them, because `buildVocabSets` (playground/editor-diagnostics.js)
-		// forwards a subset of its own: followups.d/2322-p1-studio-lint-drops-the-newer-register-lists.md.
+		// them (editor-complete.ts `VOCAB_VALUE_FIELDS`), and the inline lint and the Coach
+		// check them (`buildVocabSets` in playground/editor-diagnostics.js forwards every
+		// `*Names` list). A hand-kept subset here left the newer registers with no values
+		// to complete.
 		// Packed into one string to keep this route's HTML inside its budget; StudioIsland
 		// unpacks it (lint-vocab-names.ts).
 		packedNames: packVocabNames(v),
