@@ -27,6 +27,11 @@ npm --prefix desktop run build:run   # or just the binary, no package
 For live reload, start the docs dev server (`npm --prefix docs run dev`), then run
 `npm --prefix desktop run dev`. The window then loads `http://localhost:4321/studio/`.
 
+## CI
+
+`.github/workflows/desktop.yml` builds the `.deb` whenever `desktop/**` changes, and keeps
+it as a downloadable artifact on the run. It proves the package builds, not that it boots.
+
 ## Where things live
 
 | Path | What |

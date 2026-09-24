@@ -157,21 +157,30 @@ was then booted from `/usr/bin/lattice-studio` to confirm the package itself run
   WebKitGTK (above).
 - **"No Node in v1."** This still holds, and the Studio met it without trying.
 
-## CI: deliberately not added
+## CI: a .deb build, only when the desktop app changes
 
-This change adds no CI job. Building the desktop app on every PR is a CI-contract change,
-and that is the owner's call (CLAUDE.md, second filter, row 2). The costs to weigh, measured
-in this sandbox (4 cores, 15 GB):
+The owner picked this on 2026-09-24 from three options (Rust tests only · full .deb · no CI
+yet). `.github/workflows/desktop.yml` runs on a pull request or a push to `main` that
+touches `desktop/**` or the workflow itself. It installs the WebKitGTK dev packages and
+stable Rust, builds the root bundles and the docs site (`build:e2e`), runs
+`cargo test --locked`, runs `tauri build --bundles deb`, and keeps the `.deb` as a 14-day
+artifact for a manual install test.
+
+- **What it proves:** the Rust compiles, its tests pass, and the package bundles.
+- **What it does not prove:** that the app boots. That still takes a display and a person.
+- **It is not a required check.** A path-filtered workflow never reports on a PR outside
+  its paths, and a required check that never reports blocks every merge.
+- **What a PR that touches only `docs/` does not get:** a desktop build. A Studio change
+  that breaks the desktop app shows up on the next `desktop/**` PR or a manual
+  `workflow_dispatch` run.
+
+The costs the owner weighed, measured in this sandbox (4 cores, 15 GB):
 
 | Step | Time | Output |
 |---|---|---|
 | `cargo build` (debug, cold) | 2m 01s | 192 MB binary |
 | `tauri build` release (cold) | 3m 41s | 27 MB binary |
 | `tauri build --bundles deb` (warm) | 40s | 20.4 MB `.deb`, 27 MB installed |
-
-A runner would also need the Rust toolchain and the WebKitGTK dev packages, plus a docs
-build ahead of it. A cheaper middle ground is `cargo test` and `cargo clippy` only when
-`desktop/**` changes.
 
 ## Next slices, in order of what they unblock
 

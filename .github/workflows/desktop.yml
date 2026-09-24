@@ -1,0 +1,89 @@
+name: desktop
+
+# Builds Lattice Studio's Linux package whenever the desktop app changes.
+#
+# The owner chose this shape on 2026-09-24 (PR #2354): a full .deb build, but only
+# when `desktop/**` changes, so the ~every PR that does not touch the desktop app pays
+# nothing. It proves that the Rust compiles, its tests pass and the package bundles. It
+# does NOT prove the app boots, which still needs a person or a display (see
+# engineering/decisions/2026-09-24-lattice-studio-desktop.md, "CI").
+#
+# Not a required check on purpose: a path-filtered workflow never reports on a PR that
+# does not match its paths, and a required check that never reports blocks the merge.
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deb:
+    # 24.04 is the image the .deb targets: it ships libwebkit2gtk-4.1.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1' # nothing here renders through Puppeteer
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+            desktop/package-lock.json
+      - name: Install the WebKitGTK build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
+      # The runner image already carries rustup; installing through it keeps a
+      # third-party action out of the pipeline for one command.
+      - name: Install Rust (stable)
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: desktop-cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: desktop-cargo-${{ runner.os }}-
+      # The app ships the docs site's own build (tauri.conf.json → ../../docs/dist), and
+      # the docs site needs the root bundles first, the same order as ci.yml's docs-build.
+      # `build:e2e` skips the showcase rasterize check, which needs a browser; the Studio
+      # route it produces is the one the app loads.
+      - name: Build the root bundles
+        run: npm ci && npm run build
+      - name: Build the docs site (the Studio the app loads)
+        run: npm ci && npm run build:e2e
+        working-directory: docs
+      - name: Rust tests
+        run: cargo test --locked
+        working-directory: desktop/src-tauri
+      - name: Build the .deb
+        run: npm ci && npx tauri build --bundles deb
+        working-directory: desktop
+      - name: Keep the .deb for a manual install test
+        uses: actions/upload-artifact@v4
+        with:
+          name: lattice-studio-deb
+          path: desktop/src-tauri/target/release/bundle/deb/*.deb
+          retention-days: 14
+          if-no-files-found: error
