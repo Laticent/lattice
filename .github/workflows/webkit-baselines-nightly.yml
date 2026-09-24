@@ -42,10 +42,13 @@ on:
     # minute like every other cron here: GitHub queues the top of the hour heavily.
     - cron: '53 5 * * *'
   workflow_dispatch:
+  # TRIAL ONLY — throwaway branch, never merged: one real-runner run before #2332 merges.
+  push:
+    branches: [claude/webkit-nightly-trial-jk49yl]
 
 permissions:
   contents: read
-  issues: write # open / append the rolling tracking issue
+  issues: read # TRIAL ONLY — cannot file or comment, so the trial touches no shared state
 
 concurrency:
   group: webkit-baselines-nightly
