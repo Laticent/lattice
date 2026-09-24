@@ -99,6 +99,9 @@ export type RenderStatus = {
 	/** Set when the shown slide SPLIT (portrait/square): which page of its run the frame holds
 	 *  (0-based `index` of `count`) of authored slide `slide`, and that page's number as the PDF prints it (`2.3`). */
 	page?: { index: number; count: number; label: string; slide: number };
+	/** The slide this render showed (`opts.slideIndex`), on a successful slide render, split or not.
+	 *  A host's navigation needs to know a render for the slide it just moved to has landed. */
+	slide?: number;
 };
 
 export type SingleSlideOptions = {
@@ -1830,7 +1833,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage };
+						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage, slide: opts?.slideIndex };
 					}
 					// The live document vanished between the guard and the patch — fall
 					// through to a full write below.
@@ -1907,7 +1910,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage };
+						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage, slide: opts?.slideIndex };
 					}
 					// patchSlideBody failed (the live doc vanished mid-swap) — fall through to a full write.
 				}
@@ -2134,7 +2137,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
 				tFrameStart = performance.now();
-				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage };
+				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage, slide: opts?.slideIndex };
 			})
 			.catch((e) => {
 				// Surface failures in the console (the old landing bridge did; the

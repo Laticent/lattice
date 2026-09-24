@@ -67,9 +67,10 @@ export type DeckPreviewProps = {
 	/** An explicit page of the shown slide's split run, from the host's navigation (a swipe, an
 	 *  arrow key, the ‹ › buttons). Wins over `caretText` while it is set. */
 	pageIndex?: number;
-	/** Reports the split run on show after each render: which page of how many, for which slide.
-	 *  `null` when the shown slide does not split. The host's navigation steps through it. */
-	onSplitPage?: (page: { slide: number; index: number; count: number } | null) => void;
+	/** Reports each definitive render of a slide: which slide it showed, and, when that slide
+	 *  split, which page of how many. `page` is `null` for an unsplit slide and for a failed
+	 *  render. The host's navigation steps through the run, and waits for this after it moves. */
+	onSplitPage?: (report: { slide: number; page: { index: number; count: number } | null }) => void;
 	/** Stable identity for the DECK, not its text. Without it a single-slide deck cannot be
 	 *  told from another single-slide deck, and a switch between two of them is stamped as an
 	 *  edit — see lib/core/swap-kind.mjs. */
@@ -232,6 +233,8 @@ export function DeckPreview({
 	caretRef.current = caretText;
 	const onSplitPageRef = React.useRef(onSplitPage);
 	onSplitPageRef.current = onSplitPage;
+	const slideIndexRef = React.useRef(slideIndex);
+	slideIndexRef.current = slideIndex;
 	const splitCaret = splitPage ? caretText : undefined;
 	// One dot per page of the run, keyed by page position (the run is a fixed sequence, so position IS
 	// the page's identity here).
@@ -614,11 +617,16 @@ export function DeckPreview({
 		// that refuses to stack two sections into a one-section frame would trade a silently
 		// missing slide for a permanently spinning one.
 		if (status) {
+			const isFailure = status.ok === false && status.error !== 'renderer disposed';
 			if (status.ok) {
 				setSplitPage(status.page ?? null);
-				onSplitPageRef.current?.(status.page ? { slide: status.page.slide, index: status.page.index, count: status.page.count } : null);
+				if (typeof status.slide === 'number') onSplitPageRef.current?.({ slide: status.slide, page: status.page ? { index: status.page.index, count: status.page.count } : null });
+			} else if (isFailure) {
+				// A failed render shows no run, so there are no pages to step: say so, or the host keeps
+				// stepping a run that is no longer on screen and the verbs never leave the slide.
+				setSplitPage(null);
+				if (typeof slideIndexRef.current === 'number') onSplitPageRef.current?.({ slide: slideIndexRef.current, page: null });
 			}
-			const isFailure = status.ok === false && status.error !== 'renderer disposed';
 			setFailed(isFailure);
 			setFailedWhy(isFailure ? String(status.error ?? '') : '');
 		}
