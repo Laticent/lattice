@@ -7688,6 +7688,120 @@ function checkVetrinaBoundary(errors) {
   }
 }
 
+// ── The strict package walker (Cadenza, LTT) ───────────────────────────────
+// A boundary gate that only ASKS whether a specifier starts with `./` can be walked around, and the
+// LTT red team (PR #2347) walked around it seven ways: `./../cadenza/x` (starts with `./`, lands
+// outside), a `.mts` / `.cts` file the source walker never listed, a dot folder it skipped, a test
+// file re-exported from production code (tests are skipped), and an `import(\`node:fs\`)` template
+// literal no string pattern reads. So this walker RESOLVES each relative specifier and requires it to
+// land inside the package, lists every source extension, enters dot folders (all but the builders'
+// `.dist.tmp-<pid>` staging, the #2117 race), refuses a production file that imports a `*.test`
+// module, and refuses `import(` / `require(` whose argument is not a plain string.
+const STRICT_SOURCE_EXT = /\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
+const TEST_FILE = /\.test\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
+
+function listPackageSources(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.dist.tmp-')) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listPackageSources(p, out);
+    else if (STRICT_SOURCE_EXT.test(e.name) && !e.name.endsWith('.d.ts')) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Every dynamic `import(…)` / `require(…)` a gate could not read, and every `require` used as a value.
+ *
+ * Read from the TypeScript SYNTAX TREE, not from text. Two text versions of this check each failed:
+ * one accepted `import('./' + '../x')` because it starts with a quote, and the next skipped "string
+ * literals" found by pairing quotes — which a regex literal like `/['’]/` threw off, blinding the gate
+ * across most of three live Cadenza files (checkers, PR #2347). The parser already knows what is a
+ * string, a regex, a comment and code inside a template's `${}`.
+ *
+ * A call is readable only when its FIRST argument is one plain string literal (a second argument —
+ * import attributes — and a trailing comma are fine). `require` anywhere else as a value, such as
+ * `const r = require`, hides the module it loads, so it is refused; a declaration name, a property
+ * name, a type member or an export alias that merely spells `require` is not a use of it.
+ */
+function unreadableModuleCalls(src, fileName = 'x.ts') {
+  let ts;
+  try {
+    ts = require('typescript');
+  } catch {
+    return ['cannot be checked: `typescript` is not installed (a devDependency this gate parses with) — run `npm ci`.'];
+  }
+  const kind = /\.[cm]?jsx?$/.test(fileName) ? ts.ScriptKind.JSX : /x$/.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, kind);
+  const out = [];
+  const readable = (call) => call.arguments.length >= 1 && ts.isStringLiteral(call.arguments[0]);
+  /** True when this `require` identifier NAMES something rather than referring to the function. */
+  const isName = (id) => {
+    const p = id.parent;
+    if (!p) return true;
+    if (ts.isShorthandPropertyAssignment(p)) return false; // { require } PASSES the function along — a value use
+    if (ts.isPropertyAccessExpression(p) && p.name === id) return true; // o.require
+    if (ts.isQualifiedName(p) || ts.isTypeReferenceNode(p)) return true;
+    if (ts.isImportSpecifier(p) || ts.isExportSpecifier(p)) return true;
+    if (ts.isBindingElement(p)) return true; // const { require } = mod — declares a local
+    if ((ts.isPropertyAssignment(p) || ts.isPropertySignature(p) || ts.isMethodSignature(p) || ts.isMethodDeclaration(p) || ts.isPropertyDeclaration(p)) && p.name === id) return true;
+    if (ts.isDeclaration?.(p) && p.name === id) return true;
+    return false;
+  };
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+        if (!readable(node)) out.push('calls import() with something other than one plain string literal, which no gate can read. Use a string literal specifier.');
+      } else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
+        if (!readable(node)) out.push('calls require() with something other than one plain string literal, which no gate can read. Use a string literal specifier.');
+        node.arguments.forEach(visit);
+        return; // the callee is the call itself, not a value use
+      }
+    } else if (ts.isIdentifier(node) && node.text === 'require' && !isName(node)) {
+      out.push('uses `require` as a value, which hides the module it loads from every gate. Call it directly with a string.');
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+/**
+ * Report every import in `dir` that leaves it, except a `node:` built-in when `allowNode` and a bare
+ * specifier named exactly in `allowBare`. `describe(rel, spec)` writes the error for a boundary hit.
+ */
+function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe }) {
+  if (!fs.existsSync(dir)) return;
+  const root = path.resolve(dir);
+  for (const file of listPackageSources(root)) {
+    if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
+    const rel = path.relative(ROOT, file);
+    const raw = fs.readFileSync(file, 'utf8');
+    for (const problem of unreadableModuleCalls(raw, file)) errors.push(`${rel} ${problem}`);
+    const src = stripJsComments(raw);
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        if (seen.has(spec)) continue;
+        seen.add(spec);
+        if (spec.startsWith('.')) {
+          const target = path.resolve(path.dirname(file), spec);
+          if (target !== root && !target.startsWith(root + path.sep)) errors.push(describe(rel, spec));
+          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec)) {
+            errors.push(`${rel} imports '${spec}', a test module. Test files are not gated, so production code may not reach through one.`);
+          }
+          continue;
+        }
+        if (allowNode && spec.startsWith('node:')) continue;
+        if (allowBare.has(spec)) continue;
+        errors.push(describe(rel, spec));
+      }
+    }
+  }
+}
+
 // ── Cadenza (docs/src/lib/cadenza) — the caption/timeline engine ────────────
 // The same self-containment antibody as Vetrina, and stricter: Cadenza is the
 // pure timing/caption core (engineering/decisions/2026-07-07-cadenza-caption-timeline.md)
@@ -7695,28 +7809,28 @@ function checkVetrinaBoundary(errors) {
 // no DOM and has NO peer-dep seam, so EVERY import must resolve inside the folder
 // (`./x`); a bare specifier (npm/Lattice dep) or a `../` escape breaks the "zero
 // Lattice deps / spin-off-able" promise the ADR repeatedly makes.
+//
+// ONE sanctioned dependency, by exact name: `@laticent/ltt`, the timing-track format that owns
+// the `Word` / `Cue` / `CaptionTrack` types Cadenza produces. The owner ruled a shared library we
+// own, carrying the format contract, a sanctioned dependency rather than a breach of the spin-off
+// promise (2026-09-24-lattice-timing-track.md §6 and §9.1, Fork B). Exact match only: a subpath
+// (`@laticent/ltt/x`), a relative `../ltt/` escape, or any other package still fails.
 const CADENZA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'cadenza');
-const CADENZA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
+const CADENZA_SANCTIONED_DEP = '@laticent/ltt';
 
-function checkCadenzaBoundary(errors) {
-  if (!fs.existsSync(CADENZA_DIR)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(CADENZA_DIR)) {
-    const rel = path.relative(ROOT, file);
-    const base = path.basename(file);
-    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
-    const src = fs.readFileSync(file, 'utf8');
-    for (const m of src.matchAll(CADENZA_IMPORT)) {
-      const spec = m[1];
-      if (spec.startsWith('./')) continue; // in-folder relative — fine
-      if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
-      errors.push(
-        `${rel} imports '${spec}', which escapes the Cadenza folder. The caption/timeline engine is ` +
-        `zero-dependency and spin-off-able (2026-07-07-cadenza-caption-timeline.md): every import must ` +
-        `resolve inside docs/src/lib/cadenza/ (\`./x\`). Move shared code into the folder — Cadenza has no ` +
-        `peer-dep seam and must not couple to the host.`,
-      );
-    }
-  }
+// `dir` defaults to the real library; the unit test points it at a scratch folder to prove the
+// gate bites.
+function checkCadenzaBoundary(errors, dir = CADENZA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: true, // node built-ins — allowed (SSR-safe core)
+    allowBare: new Set([CADENZA_SANCTIONED_DEP]), // the LTT format — its one dependency (see above)
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Cadenza folder. The caption/timeline engine is ` +
+      `spin-off-able (2026-07-07-cadenza-caption-timeline.md): every import must resolve inside ` +
+      `docs/src/lib/cadenza/, and its one dependency is '${CADENZA_SANCTIONED_DEP}' by that exact ` +
+      `name (2026-09-24-lattice-timing-track.md §6). Move shared code into the folder — Cadenza has no ` +
+      `peer-dep seam and must not couple to the host.`,
+  });
 }
 
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
@@ -7776,6 +7890,28 @@ function checkSuonoBoundary(errors) {
       }
     }
   }
+}
+
+// ── LTT (docs/src/lib/ltt) — the Lattice Timing Track format ─────────────────
+// The format package every timing library may import (2026-09-24-lattice-timing-track.md §6),
+// which is exactly why it must import NOTHING: a dependency here becomes a dependency of Cadenza
+// today and of Vetrina and Suono when their gates open. So it gets the strictest rule in this file
+// — the Suono pattern set (static, side-effect, dynamic `import()` and `require()`), with no
+// `node:` exemption either, because a format's reference implementation must run anywhere JSON
+// does. In-folder `./x` only.
+const LTT_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'ltt');
+
+// `dir` defaults to the real package; the unit test points it at a scratch folder.
+function checkLttBoundary(errors, dir = LTT_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}'. The LTT format package imports NOTHING outside its own folder — ` +
+      `not an npm package, not a \`node:\` built-in, not a \`../\` sibling — because every timing ` +
+      `library may depend on it, so anything it imports they inherit (2026-09-24-lattice-timing-track.md §6). ` +
+      `Keep the format pure data and pure functions, in docs/src/lib/ltt/.`,
+  });
 }
 
 // ── Anima (docs/src/lib/anima) — the animation core ─────────────────────────
@@ -12058,6 +12194,7 @@ function run() {
   checkCadenzaBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
+  checkLttBoundary(errors);
   checkLenteBoundary(errors);
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
@@ -12312,6 +12449,9 @@ module.exports = {
   SUONO_SPEC_PATTERNS,
   stripJsComments,
   checkSuonoBoundary,
+  checkLttBoundary,
+  LTT_DIR,
+  unreadableModuleCalls,
   checkLenteBoundary,
   checkAudioPlaybackBoundary,
   SANCTIONED_LEGACY_AUDIO,

@@ -237,7 +237,19 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   // Labels are choreographed AFTER the build whatever they're tagged with, so split them out here
   // rather than letting a role-declaring <text> (the funnel labels carry data-anima-role="label")
   // fall into the geometry stagger.
-  const markNodes = candidates.filter((el) => (roleForNode(el) ?? 'bar') !== 'label');
+  // Build order is document order, unless a part declares a `data-anima-order` wave. Mermaid needs
+  // it: it paints edges BEFORE nodes (arrows sit under the boxes), so document order would draw the
+  // arrows first (lib/integrations/mermaid/motion-roles.js). The sort is STABLE and a part with no
+  // order is wave 0, so every chart kernel — none of which emits the attribute — keeps its order.
+  const orderOf = (el: Element): number => {
+    const v = Number(el.getAttribute('data-anima-order'));
+    return Number.isFinite(v) ? v : 0;
+  };
+  const markNodes = candidates
+    .filter((el) => (roleForNode(el) ?? 'bar') !== 'label')
+    .map((el, i) => ({ el, i, o: orderOf(el) }))
+    .sort((a, b) => a.o - b.o || a.i - b.i)
+    .map((x) => x.el);
   // Every label: a plain <text> (role by tag) plus any non-text node the renderer declared a label.
   // One document-order query keeps them unique and ordered; the `processed` set below skips any
   // already handled in the mark loop.

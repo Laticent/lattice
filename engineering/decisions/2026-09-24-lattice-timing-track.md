@@ -5,7 +5,13 @@ summary: One timing format for every Lattice surface that speaks, captions or mo
 
 # The Lattice Timing Track (LTT) — one timing contract for decks, tours and video
 
-> **Proposed.** Nothing here is built. The owner settled all four forks on
+> **Step 1 is built** (2026-09-24): `@laticent/ltt`, the spec at
+> [`engineering/ltt.md`](../ltt.md), the generated schema, `validateLtt`, both
+> encodings and the narrator drift fix. Steps 2–4 are not. The legacy converter
+> (§8 step 1) and the `legacy` basis were dropped: Lattice is not generally
+> available, so no pre-LTT export needs converting (owner ruling, 2026-09-24).
+>
+> **Proposed.** Nothing else here is built. The owner settled all four forks on
 > 2026-09-24 (§9). The adversarial trio (red team, inversion, checker) ran on
 > the first full draft; §12 records what each found and what changed. §8 is the
 > order of work.

@@ -138,6 +138,65 @@ in `lattice-emulator.js`, `.st-read-article` in `docs/src/components/studio/Read
 kernel rule at (0,1,2) loses to the other two hosts' generic figure rules ((1,1,1) and
 (1,0,2)). `mermaid.css` § THE RE-HOSTED FIGURE carries the long form and the measurements.
 
+**A long diagram stops shrinking at a floor and scrolls sideways.** The `<img>` contract
+has no lower bound, so on a phone a wide LR flowchart kept shrinking: a 1409x67
+eight-stage chart drew its 14px labels at 3.4px in a 390px `--read` export. The
+prose-projection kernel (`diagramFigureAttrs` in `lib/transformers/prose-projection.mjs`)
+now reads each diagram's viewBox and writes its natural width, floor width and aspect ratio
+inline on the `<figure>`:
+
+```html
+<figure class="lp-figure lp-diagram" tabindex="0" style="--lp-fig-w:1409px;--lp-fig-min-w:1207.7px;--lp-fig-ratio:21.0299">
+```
+
+Each host computes the svg's width outright and lets the figure scroll:
+
+```css
+figure.lp-diagram { overflow-x:auto }
+figure.lp-diagram[style] svg[aria-roledescription] {
+  width: clamp(var(--lp-fig-min-w), min(100%, 78vh * var(--lp-fig-ratio)), var(--lp-fig-w));
+  height:auto; aspect-ratio:var(--lp-fig-ratio); max-width:none; max-height:none }
+```
+
+The middle term is the column or the 78vh height cap, whichever binds first; the clamp keeps
+the result between the floor and natural size. Past the floor the svg overflows and the
+figure pans, never the page.
+
+- **The floor is 12/14 of natural size.** Lattice's Mermaid labels set at 14px, and 12px is
+  the smallest label the owner accepted as legible (2026-09-24). It is a ratio, so a family
+  with larger labels keeps its proportions.
+- **Only a long diagram gets one: 2:1 or more, either way.** Panning a flat flowchart reads
+  it in order. Panning a near-square pie shows a cut circle with its legend off-screen, which
+  is worse than small labels, so a diagram between 1:2 and 2:1 gets floor `0px` and scales
+  to the column exactly as before (measured: a 547x450 pie and a 650x371 sequence draw at
+  342x281 and 342x195 at 390px, before and after). A tall TB chart's floor only lengthens the
+  page: a 113x976 chart now draws at 97x837 with 12px labels, where the height cap drew it at
+  76x658 with 9.4px labels.
+- **Computed, not `width:auto` + `min-width`.** That pair was the first cut. WebKit resolves
+  an auto-width svg against a `min-*` to the minimum, so on an iPhone 15 Pro profile a
+  264x67 diagram that fits drew at its 226px floor. Chromium did not, which is why only a
+  WebKit run caught it.
+- **Focusable, like every `<pre>`.** A region that scrolls and cannot take focus cannot be
+  scrolled from the keyboard (axe `scrollable-region-focusable`). The kernel cannot see the
+  column, so every WIDE floored figure takes `tabindex="0"`. A near-square one has no floor
+  and a tall one's floor is far narrower than any column, so neither scrolls sideways and
+  neither takes a tab stop.
+- **Paper cannot scroll.** Each host carries an `@media print` block that drops the floor
+  (`width:min(100%, natural)`, `overflow:visible`), so a printed long flowchart fits the
+  page whole, as it did before the floor. Measured: A4 print of a `--read` and a `--player`
+  article, the 1409x67 chart at 746px and 730px, nothing cut.
+- **No scroll shadow.** The cue is the diagram itself, cut mid-node at the column edge. A
+  gradient scroll-shadow was tried and dropped: a background paints under the svg, so it
+  showed only as a smudge below the nodes.
+- **Each host declares the three properties with defaults** on `figure.lp-diagram`, and the
+  kernel's inline values override them; the width rule is keyed on `[style]`, so a figure
+  that somehow lost its inline values keeps the plain contract above. The declaration is
+  also what keeps the ownership gate's dangling-token check from depending on the
+  uncommitted `player-core.generated.js`.
+- **The desktop cost.** At 1440 the article band is 1100px, so the 1409x67 chart, whose
+  floor is 1207px, now pans about 100px where it used to shrink to 10.9px labels. A
+  diagram whose floor fits the band is unchanged at desktop widths.
+
 Component contract, slots, and the anti-patterns:
 `lib/components/diagram/diagram/diagram.docs.md`.
 
@@ -1214,3 +1273,73 @@ Some types accept both. The rendered CSS class is determined by diagram type, no
 **Marp-vscode preview parser quirk — RETIRED, and this line stated a dead rule as live fact.** It used to say `:not(:has(...))` and `:is(:has(...), :has(...))` were silently broken in the marp-vscode Chromium build. That was HARD RULE #12, retired 2026-07-10 after an empirical retest against a real current Chromium found both forms behave per spec, with no corroborating bug report anywhere — `engineering/decisions/2026-07-10-hard-rule-12-retirement.md`. This page kept asserting it. The preview's engine, now that it is reachable, is Chromium 148 / Electron 42.10.0 (§ 8 of the fence-flash note); the selectors were not re-tested there, and per the retirement record they need no special handling. (Historical note: when the build path injected CSS via Mermaid's `themeCSS` init parameter, two additional limits applied — no CSS comments, no `>` combinator. That path no longer exists; rules now live in `lattice.css` and reach the SVG via host-page cascade, so both restrictions are gone.)
 
 ---
+
+## 5.5 Motion — a diagram builds in like a chart
+
+A deck with `motion: on`, or a slide with `motion-on`, animates its Mermaid diagrams the way it
+animates its charts: the subgraph boxes first, then the nodes, then the arrows between them, then
+the words. `motion-style` (`build` / `together` / `rise`), `motion-speed` and `motion-off` apply
+unchanged, and a viewer who asks the OS to reduce motion sees the diagram settled. It runs in the
+Playground, the Studio, Present and the exported HTML player. The PDF is a still, as it is for every
+chart. Demo: `examples/mermaid-motion.md`.
+
+**How.** The chart motion layer (`chartToScene`, `docs/src/lib/chart-anima.ts`) animates any SVG
+whose parts declare `data-anima-role`. Chart kernels emit that attribute; Mermaid does not, and we
+do not control its output. So `tagMermaidMotion` (`lib/integrations/mermaid/motion-roles.js`) reads
+the classes Mermaid already writes (`g.node`, `g.cluster`, `path.pieCircle`, …) and writes the roles,
+plus a `data-anima-order` sort key. The key exists because Mermaid paints the arrows BEFORE the boxes
+(they sit underneath), so document order would draw the arrows first; a sequence diagram's
+participants also key on their x position, because Mermaid writes them right to left.
+
+| Family | Builds |
+| --- | --- |
+| flowchart, state, class, ER, mindmap (anything with a `g.nodes` group) | subgraphs → nodes → edges → labels |
+| sequence | participants left to right (box, lifeline, box) → messages and notes |
+| pie | the disc at once (sectors reveal together, as for a chart pie) |
+| gantt · XY chart · quadrant · git graph · timeline | tasks · bars, then lines · points · commits, then arrows · events |
+| anything else (journey, …) | nothing — no roles, so it stays a still |
+| any diagram with a clickable node (`click A "url" "tooltip"`) | nothing — see below |
+
+The shared-graph families are found by STRUCTURE, not by name, so a new family on that renderer
+animates with no change. A sequence diagram's stick-figure participants (`actor Bob`) key on their
+head's center, so they build in their column like a box.
+
+**Two diagrams stay still on purpose.** A diagram with a clickable node gets no roles: while it
+animates, the host shows a sanitized COPY and hides the original, and Mermaid's tooltip and
+callback listeners live on the original, so animating would silently switch them off. And a very
+large diagram stays still because its baked copy passes `chartToScene`'s 256 KB markup cap —
+measured on Mermaid 11.14, a 60-node flowchart bakes to ~228 KB, so the line sits near 65 nodes.
+
+**Where the roles are written — three producers, one function:**
+
+| Path | Who tags | Why there |
+| --- | --- | --- |
+| Live (Playground, Studio, Present) | the runtime, right after it writes a drawn SVG (`tagDiagramMotion`, `lib/runtime/index.js`) | the only place a live diagram is born |
+| Studio HTML-player export | inherited — the bake reads the runtime's DOM | `flattenSvgStyles` clones with attributes |
+| CLI HTML-player export | `lattice-emulator.js`'s player capture, on the baked copy | the CLI's diagrams come from the render worker, not the runtime |
+
+`tagMermaidMotion` is closure-free because the CLI serializes it into the capture page with
+`toString()`, exactly as it does `flattenSvgStyles`. In the runtime it must never throw: it runs in
+the render queue's success path, where a throw would be caught as a RENDER failure.
+
+**Two things the live host does that a chart never needed.**
+
+1. **It hears the diagram draw.** The runtime draws after the render the host rebinds on, so at
+   rebind time a diagram is still source. The runtime fires `lattice:diagram-drawn` on
+   `window.frameElement` — the host's `<iframe>` element, which survives a srcdoc rewrite while the
+   document does not — and the host rebinds inside that synchronous call, before the browser paints
+   the still. A first cut watched the frame DOCUMENT with a MutationObserver; measured in the
+   Playground, the watch landed on the frame's initial document, the deck's document replaced it,
+   and the diagram showed as a still for ~250 ms before the host's next rebind found it.
+2. **It bakes the live SVG first.** The animated copy passes through `sanitizeSlideHtml` (HARD RULE
+   #22), which removes Mermaid's `<style>` and every `<foreignObject>` label. So the host runs the
+   same `flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' })` bake the HTML player export
+   uses, through the `prepare` hook on `hydrateChart`. The bake is ~21 KB, so it loads on demand —
+   early, when the deck plays motion, because the Playground's frame has no pre-hide rule and a
+   late load would show the still first. The exported player's diagrams are already baked, so the
+   player never loads it.
+
+**What a settled diagram looks like.** Once built, the diagram on screen is the baked copy: the same
+geometry, ink and size, with labels drawn as SVG `<text>` rather than HTML. Chrome renders SVG text
+very slightly heavier than the HTML it replaces. The HTML player export has always shipped this
+bake, so a forwarded deck already looks this way.

@@ -1,4 +1,4 @@
-import { currentSlide, expect, gotoStudio, LIVE_PREVIEW, railButtons, slideCount, test, typeInEditor } from './studio-fixture';
+import { currentSlide, expect, gotoStudio, LIVE_PREVIEW, railButtons, setEditorContent, slideCount, test, typeInEditor } from './studio-fixture';
 
 // Preview navigation + reader lenses. The outer "Slide N / M" label and the rail
 // count are the reliable outer-DOM oracles; the painted slide *changing* is
@@ -132,6 +132,176 @@ test('@parity a touch swipe turns the deck', async ({ page }) => {
 	if (!box) return;
 	await swipeLeft(page, box);
 	await expect(page.getByText(`Slide 2 / ${n}`, { exact: true })).toBeVisible();
+});
+
+// ── A split slide is paged, not skipped ───────────────────────────────────────
+// At portrait a slide with several rows splits into a run (cover, one row per page), and the
+// preview frame shows ONE page of it (#2341). Every verb that turns the deck must walk that
+// run page by page before it leaves the slide: a swipe that jumped to the next slide left the
+// run's other pages unreachable without the editor. `prev` enters a split slide on its LAST
+// page, the way paging back through the PDF does.
+const SPLIT_DECK = `---
+theme: indaco
+size: portrait
+---
+
+<!-- _class: title -->
+
+# A deck
+
+---
+
+<!-- _class: inventory -->
+
+## Four levers moved the quarter.
+
+- **Fulfillment.** Same-day share rose to 71 percent.
+- **Returns.** Processing time fell from six days to two.
+- **Suppliers.** Two regional partners replaced one national.
+- **Staffing.** Weekend coverage now matches weekday demand.
+
+---
+
+<!-- _class: title -->
+
+# The end
+`;
+
+test('@parity every verb pages through a split slide before it leaves it', async ({ page }) => {
+	// A phone shows one pane at a time: seed the deck in Source, then read it in Preview.
+	const phone = (page.viewportSize()?.width ?? 1440) < 600;
+	const paneTab = (name: string) => page.getByRole('button', { name, exact: true }).filter({ visible: true }).first();
+	if (phone) await paneTab('Markdown source').click();
+	await setEditorContent(page, SPLIT_DECK);
+	if (phone) await paneTab('Preview').click();
+	else await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	const pill = page.locator('[data-split-page]');
+	const at = (slide: number) => expect(page.getByText(`Slide ${slide} / 3`, { exact: true })).toBeVisible();
+
+	await page.keyboard.press('Home');
+	await at(1);
+	await page.keyboard.press('ArrowRight');
+	await at(2);
+	await expect(pill).toContainText('2 · 1 of 5');
+	await page.keyboard.press('ArrowRight');
+	await expect(pill).toContainText('2.2 · 2 of 5');
+	await at(2);
+	// The slide navigator is keyed to the AUTHORED slide: paging the run leaves its highlight and
+	// its scroll exactly where they were.
+	const railState = () => page.evaluate(() => {
+		const nav = document.querySelector('nav[aria-label="Slide navigator"]');
+		return `${nav?.querySelector('button[aria-current="true"]')?.getAttribute('aria-label')} @ ${nav?.scrollLeft}`;
+	});
+	const railBefore = await railState();
+	expect(railBefore).toContain('Slide 2');
+
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.wheel(0, 260);
+	await expect(pill).toContainText('2.3 · 3 of 5');
+	if (test.info().project.use.hasTouch) await swipeLeft(page, box);
+	else await page.keyboard.press('PageDown');
+	await expect(pill).toContainText('2.4 · 4 of 5');
+	await page.getByRole('button', { name: 'Next slide' }).first().click();
+	await expect(pill).toContainText('2.5 · 5 of 5');
+	await at(2);
+	expect(await railState()).toBe(railBefore);
+
+	// Past the run's last page: the next slide, which does not split.
+	await page.keyboard.press('ArrowRight');
+	await at(3);
+	await expect(pill).toHaveCount(0);
+	// Back again: onto the run's LAST page, not its cover.
+	await page.keyboard.press('ArrowLeft');
+	await at(2);
+	await expect(pill).toContainText('2.5 · 5 of 5');
+	await page.keyboard.press('ArrowLeft');
+	await expect(pill).toContainText('2.4 · 4 of 5');
+
+	// FAST input, what a held key or two quick swipes send. Two presses on the run both count,
+	// even though the second arrives before the first page has rendered…
+	await page.keyboard.press('Home');
+	await at(1);
+	await page.keyboard.press('ArrowRight');
+	await expect(pill).toContainText('2 · 1 of 5');
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('ArrowRight');
+	await expect(pill).toContainText('2.3 · 3 of 5');
+	// …and a burst that crosses INTO a split slide stays on it instead of skipping to the slide
+	// after, which is where the first cut of the fix landed. Where it lands depends on render
+	// timing: a press that arrives before the slide just entered has rendered waits (one at most,
+	// the rest are dropped), and one that arrives after pages. Either way three presses from slide
+	// 1 cannot get past slide 2's five pages.
+	await page.keyboard.press('Home');
+	await at(1);
+	for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+	await expect(pill).toContainText(/^2(\.[23])? · [123] of 5$/);
+	await at(2);
+});
+
+test('@parity the slide navigator keeps the current slide in view', async ({ page }) => {
+	// The rail under the preview scrolls sideways once the deck outgrows it (always on a phone).
+	// It used to stay put while the deck moved, so the highlighted slide could sit off-screen.
+	const n = await slideCount(page);
+	const inView = () =>
+		page.evaluate(() => {
+			const nav = document.querySelector('nav[aria-label="Slide navigator"]');
+			const on = nav?.querySelector('button[aria-current="true"]');
+			if (!nav || !on) return 'missing';
+			const a = nav.getBoundingClientRect();
+			const b = on.getBoundingClientRect();
+			return b.left >= a.left - 1 && b.right <= a.right + 1 ? 'in view' : `out: pill ${Math.round(b.left)}-${Math.round(b.right)} rail ${Math.round(a.left)}-${Math.round(a.right)}`;
+		});
+	await page.keyboard.press('End');
+	await expect(page.getByText(`Slide ${n} / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	await page.keyboard.press('Home');
+	await expect(page.getByText(`Slide 1 / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+	await expect(page.getByText(`Slide 5 / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+});
+
+test('@parity a slide navigator that remounts comes back centered on the current slide', async ({ page }) => {
+	// Rotating a phone to landscape unmounts the rail and rotating back mounts a fresh one at
+	// scrollLeft 0, while no slide changed. Found by an independent checker; measured before the
+	// fix with the last slide's pill at 855-950px against a rail spanning 172-378px.
+	test.skip((page.viewportSize()?.width ?? 1440) >= 600, 'the landscape-phone layout is the remount a phone can reach');
+	const n = await slideCount(page);
+	const rail = page.locator('nav[aria-label="Slide navigator"]');
+	const inView = () =>
+		page.evaluate(() => {
+			const nav = document.querySelector('nav[aria-label="Slide navigator"]');
+			const on = nav?.querySelector('button[aria-current="true"]');
+			if (!nav || !on) return 'missing';
+			const a = nav.getBoundingClientRect();
+			const b = on.getBoundingClientRect();
+			return b.left >= a.left - 1 && b.right <= a.right + 1 ? 'in view' : `out: pill ${Math.round(b.left)}-${Math.round(b.right)} rail ${Math.round(a.left)}-${Math.round(a.right)}`;
+		});
+	await page.keyboard.press('End');
+	await expect(page.getByText(`Slide ${n} / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	const portrait = page.viewportSize() ?? { width: 390, height: 844 };
+	await page.setViewportSize({ width: portrait.height, height: portrait.width });
+	await expect(rail).toHaveCount(0);
+	await page.setViewportSize(portrait);
+	await expect(rail).toHaveCount(1);
+	await expect.poll(inView).toBe('in view');
+});
+
+test('@parity a burst of presses on a landscape deck moves exactly that many slides', async ({ page }) => {
+	// Split paging must cost an unsplittable deck nothing. A render-ordered queue once made a held
+	// arrow key on a 16:9 deck crawl one slide per render and keep going after release; the seed
+	// deck is landscape, where no step may wait and none may be dropped.
+	const n = await slideCount(page);
+	expect(n).toBeGreaterThanOrEqual(6);
+	await expect(page.getByText(`Slide 1 / ${n}`, { exact: true })).toBeVisible();
+	for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+	await expect(page.getByText(`Slide 6 / ${n}`, { exact: true })).toBeVisible();
+	await expect(page.locator('[data-split-page]')).toHaveCount(0);
 });
 
 // ── Zoom, and the gestures it had to take back (#pinch-zoom) ─────────────────

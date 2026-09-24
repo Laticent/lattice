@@ -186,6 +186,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A pinch on a slide turns the deck (and `preventDefault` in your React handler does nothing)](gotchas/lattice-internals.md#a-pinch-on-a-slide-turns-the-deck-and-preventdefault-in-your-react-handler-does-nothing)
 - [A destructuring default in a plain-JS export erases the rest of its parameter type](gotchas/lattice-internals.md#a-destructuring-default-in-a-plain-js-export-erases-the-rest-of-its-parameter-type)
 - [A card component's eyebrow is missing from the reader view](gotchas/lattice-internals.md#a-card-components-eyebrow-is-missing-from-the-reader-view)
+- [A video slide's lead sentence is missing from the reader view](gotchas/lattice-internals.md#a-video-slides-lead-sentence-is-missing-from-the-reader-view)
 - [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)
 
 ### [Marp / Marpit](gotchas/marp.md)
@@ -210,6 +211,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ### [Mermaid](gotchas/mermaid.md)
 
+- [Mermaid labels are clipped on a plain slide ("Order pl…")](gotchas/mermaid.md#mermaid-labels-are-clipped-on-a-plain-slide-order-pl)
 - [A mermaid `click` directive is inert (and used to be an XSS)](gotchas/mermaid.md#a-mermaid-click-directive-is-inert-and-used-to-be-an-xss)
 - [A diagram with an `%%{init}%%` renders in Mermaid's stock colors (yellow clusters)](gotchas/mermaid.md#a-diagram-with-an-init-renders-in-mermaids-stock-colors-yellow-clusters)
 - [Playground: Mermaid (and all DOM transforms) stop rendering after the first edit](gotchas/mermaid.md#playground-mermaid-and-all-dom-transforms-stop-rendering-after-the-first-edit)

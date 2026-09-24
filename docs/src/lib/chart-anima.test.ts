@@ -459,3 +459,34 @@ describe('radar motion', () => {
     expect(() => parseScene(out!.scene)).not.toThrow();
   });
 });
+
+describe('chartToScene — data-anima-order (the Mermaid build waves)', () => {
+  // Mermaid paints its edges BEFORE its nodes, so document order would draw the arrows first.
+  // `lib/integrations/mermaid/motion-roles.js` declares waves instead; chartToScene must honor them.
+  const DIAGRAM =
+    '<svg viewBox="0 0 200 100">' +
+    '<g class="edgePaths"><path data-anima-role="bar" data-anima-order="2" d="M0 0L10 10"/></g>' +
+    '<g class="nodes"><g data-anima-role="bar" data-anima-order="1"><rect width="10" height="10"/></g>' +
+    '<g data-anima-role="bar" data-anima-order="1"><rect width="10" height="10"/></g></g>' +
+    '<g class="clusters"><g data-anima-role="region"><rect width="50" height="50"/></g></g>' +
+    '</svg>';
+
+  it('builds wave by wave: the wave-0 box, then the nodes, then the edge', () => {
+    const out = chartToScene(DIAGRAM);
+    const starts = out?.scene.elements.map((e) => ({ id: e.id, at: (e.motion?.[0] as { at?: number } | undefined)?.at ?? 0 })) ?? [];
+    expect(starts.map((s) => s.id)).toEqual(['region-0', 'bar-1', 'bar-2', 'bar-3']);
+    // Strictly increasing start times — the stagger follows the sorted order.
+    for (let i = 1; i < starts.length; i++) expect(starts[i].at).toBeGreaterThan(starts[i - 1].at);
+    // Ids are minted from the SORTED position, so they alone prove nothing: identify each part by
+    // its element. The edge — the <path>, first in the document — must be the LAST to start.
+    const asset = new DOMParser().parseFromString(out?.asset ?? '', 'text/html');
+    expect(asset.querySelector('path')?.id).toBe('bar-3');
+    expect(asset.querySelector('.clusters > g')?.id).toBe('region-0');
+  });
+
+  it('is a no-op for a chart that declares no order — document order stands', () => {
+    const plain = chartToScene(FUNNEL);
+    const ids = plain?.scene.elements.filter((e) => e.id.startsWith('bar')).map((e) => e.id);
+    expect(ids).toEqual(['bar-0', 'bar-1']);
+  });
+});

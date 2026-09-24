@@ -128,6 +128,13 @@ export function createEngineBridge(
 			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
 			const out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase });
 			const geom = { w: out.width || 1280, h: out.height || 720 };
+			// Split on STRUCTURE, the way the PDF export does (lib/core/structural-split.js). The
+			// render is one section per authored slide; at portrait/square the export cuts each
+			// multi-member slide into cover → one element per page → closing, and without this the
+			// preview showed the whole slide squeezed onto one tall page instead. The PREVIEW opts in
+			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
+			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
+			const html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
 			// Letterbox the filmstrip in the BRAND background (the pane's `--bg-alt` for the
 			// active palette + mode), not the engine's generic `#0c0c0c`/`#e7e7ea` default: the
 			// preview pane shows solid `--bg-alt` while the engine loads, so matching the iframe
@@ -141,7 +148,7 @@ export function createEngineBridge(
 			}
 			const r = DPref.renderDeck({
 				frame,
-				html: out.html,
+				html,
 				css: out.css,
 				mode: deckMode,
 				geom,

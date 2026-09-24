@@ -167,7 +167,18 @@ function bandSig(bands: SlideBand[]): string {
 	return `${bands.length}:${Math.round(bands[0].height)}:${Math.round(bands[bands.length - 1].top)}`;
 }
 
-function frameBands(frame: HTMLIFrameElement): SlideBand[] {
+/**
+ * The frame's slides as WALK UNITS: one entry per rendered section for a deck walk, and one per
+ * AUTHORED slide for a component tour (`plan`).
+ *
+ * The two differ only when the preview split a slide (lib/core/structural-split.js): at
+ * portrait/square one authored slide renders as a run of pages, numbered `2`, `2.2`, `2.3` on
+ * `data-lattice-slide`. A deck walk counts what it sees (its count comes from the render), so a
+ * page is its unit. A tour's steps are the plan's AUTHORED slides, so step N has to address the
+ * whole run of authored slide N+1, or every step after the first split lands on the wrong page.
+ * An unsplit deck gives one page per slide either way.
+ */
+function walkUnits(frame: HTMLIFrameElement, byAuthored: boolean): HTMLElement[][] {
 	let secs: NodeListOf<HTMLElement> | undefined;
 	try {
 		secs = frame.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
@@ -175,7 +186,26 @@ function frameBands(frame: HTMLIFrameElement): SlideBand[] {
 		return []; // a frame mid-navigation; the next poll gets it
 	}
 	if (!secs) return [];
-	return Array.from(secs, (el) => ({ top: el.offsetTop, height: el.getBoundingClientRect().height }));
+	const all = Array.from(secs);
+	if (!byAuthored) return all.map((el) => [el]);
+	const units: HTMLElement[][] = [];
+	let key = '';
+	all.forEach((el, i) => {
+		const k = (el.getAttribute('data-lattice-slide') || String(i + 1)).split('.')[0];
+		if (units.length && k === key) units[units.length - 1].push(el);
+		else units.push([el]);
+		key = k;
+	});
+	return units;
+}
+
+function frameBands(frame: HTMLIFrameElement, byAuthored = false): SlideBand[] {
+	return walkUnits(frame, byAuthored).map((u) => {
+		const first = u[0];
+		const last = u[u.length - 1];
+		const height = u.length === 1 ? first.getBoundingClientRect().height : last.getBoundingClientRect().bottom - first.getBoundingClientRect().top;
+		return { top: first.offsetTop, height };
+	});
 }
 
 /**
@@ -1258,15 +1288,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const w = walkRef.current;
 		if (!frame || !w || viewRef.current !== 'read') return;
 		const win = frame.contentWindow;
-		const secs = frame.contentDocument?.querySelectorAll('.lattice > section');
-		const target = secs?.[w.index] as HTMLElement | undefined;
+		const target = walkUnits(frame, w.kind === 'plan')[w.index]?.[0];
 		if (!win || !target) return;
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 		const animated = smooth && !reduce;
 		const now = Date.now();
 		// This scroll PLACES the index, so it also defines the geometry the observer may read
 		// it back from.
-		bandSigRef.current = bandSig(frameBands(frame));
+		bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
 		const window_ms = animated ? 1200 : 400;
 		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now };
 		// ARM A TIMER TOO, not just a deadline other code checks when it happens to run. The
@@ -1343,7 +1372,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				const w = walkRef.current;
 				const win = frame?.contentWindow;
 				if (!frame || !w || !win) return 0;
-				const b = frameBands(frame)[w.index];
+				const b = frameBands(frame, walkRef.current?.kind === 'plan')[w.index];
 				if (!b || b.height <= 0) return 0;
 				const seen = Math.min(win.scrollY + win.innerHeight, b.top + b.height) - Math.max(win.scrollY, b.top);
 				return Math.max(0, seen) / b.height;
@@ -1378,7 +1407,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// land that ends while another rescale is already in flight must not read the
 				// index out of the geometry it is about to lose.
 				if (!oursInFlight) reconcileRef.current();
-				if (frame) bandSigRef.current = bandSig(frameBands(frame));
+				if (frame) bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
 				observeReadyRef.current = true;
 				landPendingRef.current = false;
 			};
@@ -1415,7 +1444,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (superseded()) return;
 				const frame = frameRef.current;
 				if (!frame || !walkRef.current || viewRef.current !== 'read' || preempted()) return done();
-				const bands = frameBands(frame);
+				const bands = frameBands(frame, walkRef.current?.kind === 'plan');
 				const win = frame.contentWindow;
 				const lat = frame.contentDocument?.querySelector('.lattice') as HTMLElement | null;
 				const revealed = !!(lat && win && win.getComputedStyle(lat).visibility === 'visible');
@@ -2009,7 +2038,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const w = walkRef.current;
 		const win = frame?.contentWindow;
 		if (!frame || !w || !win || viewRef.current !== 'read') return;
-		const bands = frameBands(frame);
+		const bands = frameBands(frame, walkRef.current?.kind === 'plan');
 		// A FRAME WITH NO SLIDES CARRIES NO POSITION, and reading one out of it is fabricating
 		// one. `readingSlideIndex` returns 0 for an empty deck by contract, so a caller that
 		// does not check writes the title slide over whatever the reader asked for — and the
@@ -2056,7 +2085,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// `w.index` is passed so the rule can KEEP it while its slide is still on screen —
 			// see the hysteresis clause. Without it the counter fights the stepper wherever the
 			// pane shows more than one slide, which on a phone is everywhere.
-			const bands = frameBands(frame);
+			const bands = frameBands(frame, walkRef.current?.kind === 'plan');
 			// An empty frame carries no position — the same refusal `reconcile` makes, for the
 			// same reason: `bandSig([])` is `''`, which matches the initial `bandSigRef`.
 			if (!bands.length) return;

@@ -1,0 +1,33 @@
+{
+  "name": "@laticent/ltt",
+  "version": "0.1.0",
+  "description": "The Lattice Timing Track (LTT) format — the types, the JSON Schema generated from them, a structural validator, and the canonical ↔ packed encodings. The format only: no engine, no audio, no DOM, and no dependencies.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./ltt.schema.json": "./ltt.schema.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "ltt.schema.json",
+    "README.md"
+  ]
+}

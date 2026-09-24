@@ -37,6 +37,13 @@ const ROOT = path.resolve(__dirname, '..');
 const LIB_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'cadenza');
 const DIST_DIR = path.join(LIB_DIR, 'dist');
 const ENTRY = path.join(LIB_DIR, 'index.ts');
+// Cadenza's one dependency: the LTT format package, which owns the `Word` / `Cue` /
+// `CaptionTrack` types and `validateTrack` (2026-09-24-lattice-timing-track.md §6).
+// esbuild inlines it from SOURCE, not from its dist/, so this build never has to wait
+// for build-ltt-lib.js: through the package's `exports` map esbuild would read
+// docs/src/lib/ltt/dist/index.mjs, and tools/build.js runs the library builders in
+// parallel. Inlining keeps Cadenza's bundle self-contained, as it was before the move.
+const LTT_ENTRY = path.join(ROOT, 'docs', 'src', 'lib', 'ltt', 'index.ts');
 const TSC = path.join(ROOT, 'node_modules', '.bin', 'tsc');
 
 const argv = process.argv.slice(2);
@@ -68,7 +75,7 @@ const FORMATS = [
   { format: 'esm', ext: 'mjs' },
 ];
 
-/** Bundle the barrel into a CJS + an ESM file (zero-dep → everything inlines). */
+/** Bundle the barrel into a CJS + an ESM file (`@laticent/ltt` included → everything inlines). */
 async function buildBundles(outDir) {
   for (const { format, ext } of FORMATS) {
     await esbuild.build({
@@ -86,6 +93,7 @@ async function buildBundles(outDir) {
       // making the emitted bytes environment-dependent and flapping the freshness gate
       // in CI. An empty raw config makes the output deterministic everywhere.
       tsconfigRaw: '{}',
+      alias: { '@laticent/ltt': LTT_ENTRY },
       banner: { js: CJS_BANNER },
     });
   }

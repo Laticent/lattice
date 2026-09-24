@@ -147,6 +147,14 @@ const STEPS = [
   { label: 'a11y-textures bundle (docs site)', script: 'build-a11y-textures.js', uncommitted: true },
   { label: 'player-core bundle (docs site)', script: 'build-player-core.js', uncommitted: true },
   { label: 'player-prune bundle (docs site)', script: 'build-player-prune.js', uncommitted: true },
+  // The LTT format package (2026-09-24-lattice-timing-track.md §6). Ordered before Cadenza,
+  // which depends on it — though Cadenza's build inlines it from SOURCE (build-cadenza-lib.js),
+  // so the two run in parallel with no join between them. What reads this dist/ is root CJS
+  // (`require('@laticent/ltt')` from lib/core/) and an npm publish.
+  // Guardrail G1: the LTT JSON Schema is GENERATED from docs/src/lib/ltt/types.ts and
+  // committed, so build:check fails when a type changes without it. Reads source only.
+  { label: 'LTT JSON Schema (docs/src/lib/ltt/ltt.schema.json)', script: 'build-ltt-schema.js' },
+  { label: 'LTT library dist (CJS + .d.ts)', script: 'build-ltt-lib.js', uncommitted: true },
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
   { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js', uncommitted: true },
   { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js', uncommitted: true },
@@ -191,12 +199,13 @@ const STEPS = [
 // was the only one, and it was wrong). Run them in the background as soon as the
 // pipeline starts; join right before the first step that consumes one. Each -lib
 // script stages into its own `${dist}.tmp` sibling and touches only its own lib
-// dir, so the four run collision-free.
+// dir, so the five run collision-free.
 // Conservative scope: just these library dists, not a full 26-step dependency-tier
 // reorg (the other steps' temp-path usage across all 26 scripts isn't
 // audited, so parallelizing further risks output collisions this narrow slice
 // avoids by construction).
 const BACKGROUND_LABELS = new Set([
+  'LTT library dist (CJS + .d.ts)',
   'Cadenza library dist (CJS + .d.ts)',
   'Vetrina library dist (CJS + .d.ts)',
   'Lente library dist (CJS + .d.ts)',
@@ -325,7 +334,7 @@ async function main(argv) {
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
     // BACKGROUND_LABELS first, and this is a dependency, not a speed-up. The main
-    // pipeline starts the four workspace-library dists in the background early and
+    // pipeline starts the five workspace-library dists in the background early and
     // joins them at build-read-along-core.js; a naive in-order serial loop here
     // instead ran build-player-core.js BEFORE build-cadenza-lib.js, and player-core
     // bundles `@laticent/cadenza`, whose entry IS that dist. It failed with
@@ -381,7 +390,7 @@ async function main(argv) {
   // The background steps are only ever AWAITED at a join point. If scoping
   // removed every join step while leaving a background step in, nothing would
   // await it and its failure would be silently discarded — a check that passes
-  // because it stopped looking. Today all four background steps AND both join
+  // because it stopped looking. Today all five background steps AND both join
   // steps are built-not-committed, so they leave together and this never fires; it exists
   // because that is a coincidence of the current tags, not a property anyone
   // enforced, and the failure it guards is invisible.

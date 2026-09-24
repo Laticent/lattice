@@ -85,6 +85,8 @@ const {
   SANCTIONED_DENSITY_EXEMPT,
   checkVetrinaBoundary,
   checkAnimaBoundary,
+  checkCadenzaBoundary,
+  checkLttBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,
   SUONO_SPEC_PATTERNS,
@@ -1782,6 +1784,99 @@ describe('check-ownership', () => {
       const specs = scan("import _ from 'lodash';");
       assert.deepEqual(specs, ['lodash']);
       assert.ok(!'lodash'.startsWith('./') && !'lodash'.startsWith('node:'), 'bare dep would fail');
+    });
+  });
+
+  // The LTT format package imports nothing, and Cadenza's one sanctioned dependency is that
+  // package by exact name (engineering/decisions/2026-09-24-lattice-timing-track.md §6).
+  describe('LTT boundary gate + Cadenza\'s one sanctioned dependency', () => {
+    /** Run `gate` over a scratch folder holding one source file (or several: `{ 'a/b.ts': src }`). */
+    const run = (gate, src) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ltt-gate-'));
+      try {
+        const files = typeof src === 'string' ? { 'x.ts': src } : src;
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        gate(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+
+    test('the live tree is clean for both gates', () => {
+      const errors = [];
+      checkLttBoundary(errors);
+      checkCadenzaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('LTT admits an in-folder import and nothing else — not even node:', () => {
+      assert.deepEqual(run(checkLttBoundary, "import { validateTrack } from './track';"), []);
+      for (const src of [
+        "import { createHash } from 'node:crypto';",
+        "import 'side-effect';",
+        "const x = await import('../cadenza');",
+        "const y = require('@laticent/cadenza');",
+        "import {\n  a,\n} from '../suono';",
+      ]) {
+        assert.equal(run(checkLttBoundary, src).length, 1, `not caught: ${src}`);
+      }
+    });
+
+    // The red team's evasions (PR #2347): each passed the old `startsWith('./')` gate with 0 errors.
+    test('LTT catches every evasion the red team found', () => {
+      const evasions = {
+        'a ./ specifier that climbs out': { 'x.ts': "export * from './../cadenza/index';" },
+        'an .mts file': { 'helper.mts': "import x from 'lodash-es';" },
+        'a .cts file': { 'helper.cts': "import x from 'lodash-es';" },
+        'a dot folder': { 'index.ts': "export * from './.internal/x';", '.internal/x.ts': "import x from 'lodash-es';" },
+        'a test module re-exported from production': { 'index.ts': "export * from './sneak.test';", 'sneak.test.ts': "import fs from 'node:fs';" },
+        'a template-literal dynamic import': { 'x.ts': 'const fs = await import(`node:fs`);' },
+        // The second checker pass (PR #2347): a joined string starts with a quote and still escapes.
+        'a joined-string dynamic import': { 'x.ts': "const m = await import('./' + '../cadenza/index.ts');" },
+        'a joined-string require': { 'x.ts': "const m = require('./' + '../../node_modules/lodash');" },
+        'require held under another name': { 'x.ts': "const r = require; r('node:fs');" },
+        // The third checker pass (PR #2347): a regex literal holding a quote blinded the text scan.
+        'a call after a regex literal holding a quote': { 'x.ts': "const re = /['’]/g;\nconst m = await import(spec);\nconst t = 'a';" },
+        'a call inside a template substitution': { 'x.ts': 'const s = `$' + '{await import(x)}`;' }, // split so it is not read as a template here
+        'require passed along in object shorthand': { 'x.ts': 'const o = { require };' },
+      };
+      for (const [name, files] of Object.entries(evasions)) {
+        assert.ok(run(checkLttBoundary, files).length >= 1, `not caught: ${name}`);
+      }
+    });
+
+    test('LTT does not flag valid code that merely looks like a call', () => {
+      for (const src of [
+        "const m = await import(\n\t'./x.js'\n);", // a formatter-wrapped dynamic import
+        "const m = await import ( './x.js' );",
+        'const a = o.require(1); const b = o.import(x);', // method calls, not module loads
+        "const s = 'call import( later';", // text inside a string
+        "export type T = typeof import('./types.js');",
+        "const m = await import(\n  './x.js',\n);", // trailing comma
+        "const j = await import('./x.json', { with: { type: 'json' } });", // import attributes
+        'const a = { require: 1 }; const { require: r2 } = mod;',
+        'interface X { require(): void }',
+      ]) {
+        assert.deepEqual(run(checkLttBoundary, src), [], src);
+      }
+    });
+
+    test('Cadenza admits @laticent/ltt by exact name, and no subpath or sibling reach', () => {
+      assert.deepEqual(run(checkCadenzaBoundary, "import type { Word } from '@laticent/ltt';"), []);
+      assert.deepEqual(run(checkCadenzaBoundary, "export { validateTrack } from '@laticent/ltt';"), []);
+      for (const src of [
+        "import { x } from '@laticent/ltt/validate';",
+        "import { x } from '../ltt/validate';",
+        "import { validateLtt } from './../ltt/validate';",
+        "import { x } from '@laticent/suono';",
+      ]) {
+        assert.equal(run(checkCadenzaBoundary, src).length, 1, `not caught: ${src}`);
+      }
     });
   });
 

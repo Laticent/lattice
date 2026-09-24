@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://laticent.github.io/lattice/schemas/ltt-1.0.schema.json",
+  "title": "Lattice Timing Track (LTT) 1.0, canonical encoding",
+  "description": "GENERATED from docs/src/lib/ltt/types.ts by tools/build-ltt-schema.js — do not edit. Rebuild: npm run ltt-schema:build. Spec: engineering/ltt.md.",
+  "$ref": "#/$defs/Ltt",
+  "$defs": {
+    "Word": {
+      "description": "One word of a caption: what the viewer reads, what the voice says, and when.",
+      "type": "object",
+      "properties": {
+        "display": {
+          "description": "The glyph group shown in the caption (e.g. \"$4.2M\"). The highlight unit.",
+          "type": "string"
+        },
+        "spoken": {
+          "description": "The spoken expansion timing is computed on (e.g. \"four point two million dollars\").",
+          "type": "string"
+        },
+        "startMs": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "charOffset": {
+          "description": "Index into the source text where `display` begins (best-effort forward scan).",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "weight": {
+          "description": "Emphasis weight, 1 = ordinary. ABSENT for an ordinary word — an unweighted deck therefore serializes exactly as it did before emphasis existed, so no golden or manifest moves.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "display",
+        "spoken",
+        "startMs",
+        "endMs",
+        "charOffset"
+      ],
+      "additionalProperties": false
+    },
+    "Cue": {
+      "description": "One caption line: a sentence, in the words it is shown and spoken in.",
+      "type": "object",
+      "properties": {
+        "display": {
+          "description": "The caption line as shown (the display words joined).",
+          "type": "string"
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Word"
+          }
+        },
+        "startMs": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "charOffset": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "endsParagraph": {
+          "description": "True when a PARAGRAPH / topic boundary (a blank line) follows this cue — so the gap before the next cue is the deeper `PARAGRAPH_PAUSE_MS` beat, not the sentence pause. The clocked player reads this to widen the inter-clip breath (read-aloud.ts). Absent/false for an ordinary sentence break.",
+          "type": "boolean"
+        },
+        "weight": {
+          "description": "The cue's emphasis weight — the MAX over its words, absent when ordinary. This is what buys the extra breath AFTER the cue (`interCueGapMs`), and max is the right reducer because a sentence is as important as the most important thing in it; averaging would let a long sentence dilute its own key phrase into silence. Every consumer computing the inter-cue gap MUST read it from here so the estimate and the clocked player stay in step.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "display",
+        "words",
+        "startMs",
+        "endMs",
+        "charOffset"
+      ],
+      "additionalProperties": false
+    },
+    "CaptionTrack": {
+      "description": "A timed caption track: the cues of one stretch of narration, laid end to end from zero.",
+      "type": "object",
+      "properties": {
+        "cues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Cue"
+          }
+        },
+        "durationMs": {
+          "description": "Total estimated duration (end of the last cue), ms.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        }
+      },
+      "required": [
+        "cues",
+        "durationMs"
+      ],
+      "additionalProperties": false
+    },
+    "LttHash": {
+      "description": "A content hash, written `sha256:` and 64 lowercase hex digits.",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "LttPace": {
+      "description": "Cadenza's reading rate.",
+      "type": "string",
+      "enum": [
+        "slow",
+        "moderate",
+        "fast"
+      ]
+    },
+    "LttDeckPace": {
+      "description": "The deck's `pace:` register (lib/core/resolve-pace.mjs): how long a new slide holds.",
+      "type": "string",
+      "enum": [
+        "brisk",
+        "natural",
+        "deliberate"
+      ]
+    },
+    "LttMotion": {
+      "description": "Vetrina's resolved motion tier.",
+      "type": "string",
+      "enum": [
+        "full",
+        "legible",
+        "still"
+      ]
+    },
+    "LttBasis": {
+      "description": "How far to trust a segment's numbers: Cadenza's text-only `estimate`, or re-timed to a real clip (`measured`).",
+      "type": "string",
+      "enum": [
+        "estimate",
+        "measured"
+      ]
+    },
+    "LttAfter": {
+      "description": "The wait a player honors before a tour stretch starts. Never a time: how long it lasts is unknown until a run is recorded. `awaitUser` waits for the viewer, `until` for a condition in the page, `act` for an asynchronous action to finish.",
+      "type": "string",
+      "enum": [
+        "awaitUser",
+        "until",
+        "act"
+      ]
+    },
+    "LttSource": {
+      "description": "What the file was built from, as a whole.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "deck",
+            "tour"
+          ]
+        },
+        "id": {
+          "description": "The deck's file name or the tour's id — whatever its producer uses to find it again.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ]
+    },
+    "LttViewport": {
+      "description": "The screen a tour was recorded on.",
+      "type": "object",
+      "properties": {
+        "w": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "h": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "w",
+        "h"
+      ]
+    },
+    "LttInputs": {
+      "description": "Every input that changes timing, file-wide. A segment's `hash` covers all of them.",
+      "type": "object",
+      "properties": {
+        "engine": {
+          "description": "Content hash of the timing engine's build — NOT its package version, which has never moved.",
+          "$ref": "#/$defs/LttHash"
+        },
+        "pace": {
+          "$ref": "#/$defs/LttPace"
+        },
+        "deckPace": {
+          "description": "Decks only.",
+          "$ref": "#/$defs/LttDeckPace"
+        },
+        "lang": {
+          "description": "The deck's language tag (Marp `lang:`).",
+          "type": "string"
+        },
+        "lexicon": {
+          "description": "Hash of the deck's `lexicon:` map.",
+          "$ref": "#/$defs/LttHash"
+        },
+        "acronyms": {
+          "description": "Hash of the deck's acronym registry.",
+          "$ref": "#/$defs/LttHash"
+        },
+        "viewport": {
+          "description": "Tours only: the screen a recorded run's timing depended on.",
+          "$ref": "#/$defs/LttViewport"
+        },
+        "motion": {
+          "description": "Tours only: the motion tier a recorded run played at.",
+          "$ref": "#/$defs/LttMotion"
+        },
+        "stagePace": {
+          "description": "Tours only: the stage's `pace` multiplier a recorded run played at.",
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "engine",
+        "pace"
+      ]
+    },
+    "LttVoice": {
+      "description": "What spoke a clip.",
+      "type": "object",
+      "properties": {
+        "model": {
+          "description": "TTS model slug (e.g. \"hexgrad/kokoro-82m\").",
+          "type": "string"
+        },
+        "voice": {
+          "description": "Voice id, model-specific (e.g. \"af_heart\").",
+          "type": "string"
+        },
+        "speed": {
+          "description": "Pace multiplier passed to the voice (1 = natural).",
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "model",
+        "voice",
+        "speed"
+      ]
+    },
+    "LttAudio": {
+      "description": "AUDIO layer (Suono). A reader that does not know it plays silently on the estimate.",
+      "type": "object",
+      "properties": {
+        "src": {
+          "description": "The clip: a path relative to the file, or a `data:` URI.",
+          "type": "string"
+        },
+        "clip": {
+          "description": "Content hash of the clip bytes.",
+          "$ref": "#/$defs/LttHash"
+        },
+        "voice": {
+          "$ref": "#/$defs/LttVoice"
+        },
+        "measuredMs": {
+          "description": "The clip's decoded length.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "leadMs": {
+          "description": "Encoder-inserted leading silence.",
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "src",
+        "clip",
+        "voice",
+        "measuredMs"
+      ]
+    },
+    "LttAction": {
+      "description": "ACTIONS layer (Vetrina). An action is anchored to a WORD, never to a time.",
+      "type": "object",
+      "properties": {
+        "cue": {
+          "description": "Index of the cue in this segment's track.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "word": {
+          "description": "Index of the word in that cue.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "match": {
+          "description": "The word the author named, normalized (case-folded, edge punctuation stripped). `validateLtt` fails when the word at `{cue, word}` no longer normalizes to it.",
+          "type": "string"
+        },
+        "verb": {
+          "description": "What the cursor does (`click`, `type`, …) — Vetrina's verb.",
+          "type": "string"
+        },
+        "target": {
+          "description": "The CSS selector the verb acts on.",
+          "type": "string"
+        },
+        "arrive": {
+          "description": "When the cursor arrives: `on-word` lands it on the word.",
+          "const": "on-word"
+        }
+      },
+      "required": [
+        "cue",
+        "word",
+        "match",
+        "verb"
+      ]
+    },
+    "LttSlideSegment": {
+      "description": "A narrated deck slide: its arrival hold, then its track.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "slide"
+        },
+        "at": {
+          "$ref": "#/$defs/LttSlideAt"
+        },
+        "hash": {
+          "description": "Hash of this slide's narration text plus the file's `inputs`.",
+          "$ref": "#/$defs/LttHash"
+        },
+        "basis": {
+          "$ref": "#/$defs/LttBasis"
+        },
+        "holdMs": {
+          "description": "The hold on arrival. 0 on the first slide.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "track": {
+          "$ref": "#/$defs/CaptionTrack"
+        },
+        "tailMs": {
+          "description": "The breath the player holds after the slide's LAST cue, before it advances. The track ends at the end of its last cue, so this is the one part of a slide's length the track cannot say. A slide lasts `holdMs + track.durationMs + tailMs`.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "audio": {
+          "$ref": "#/$defs/LttAudio"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LttAction"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "at",
+        "hash",
+        "basis",
+        "holdMs",
+        "track",
+        "tailMs"
+      ]
+    },
+    "LttHoldSegment": {
+      "description": "A deck slide with no narration: its arrival hold and nothing else.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "hold"
+        },
+        "at": {
+          "$ref": "#/$defs/LttSlideAt"
+        },
+        "holdMs": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "at",
+        "holdMs"
+      ]
+    },
+    "LttStretchSegment": {
+      "description": "In a tour, the run between two waits.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "stretch"
+        },
+        "at": {
+          "$ref": "#/$defs/LttBeatsAt"
+        },
+        "after": {
+          "description": "The wait before this stretch. Absent: it follows the previous segment at once.",
+          "$ref": "#/$defs/LttAfter"
+        },
+        "waitedMs": {
+          "description": "How long the `after` wait took in a recorded run. Required on every waited stretch of a seekable file, because a seekable file must know every segment's length.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "hash": {
+          "description": "Hash of this stretch's narration text, the storyboard steps it spans, and the file's `inputs`.",
+          "$ref": "#/$defs/LttHash"
+        },
+        "basis": {
+          "$ref": "#/$defs/LttBasis"
+        },
+        "track": {
+          "$ref": "#/$defs/CaptionTrack"
+        },
+        "audio": {
+          "$ref": "#/$defs/LttAudio"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LttAction"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "at",
+        "hash",
+        "basis",
+        "track"
+      ]
+    },
+    "LttSlideAt": {
+      "description": "Where a deck segment sits: its 1-based slide number.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "slide"
+      ]
+    },
+    "LttBeatsAt": {
+      "description": "Where a tour stretch sits: the first and last storyboard beat it spans.",
+      "type": "object",
+      "properties": {
+        "beats": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/LttBeatIndex"
+            },
+            {
+              "$ref": "#/$defs/LttBeatIndex"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "beats"
+      ]
+    },
+    "LttBeatIndex": {
+      "description": "A 0-based storyboard beat index. A named alias because a tuple element carries no doc tag.",
+      "type": "integer",
+      "maximum": 9007199254740991,
+      "minimum": 0
+    },
+    "LttSegment": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LttSlideSegment"
+        },
+        {
+          "$ref": "#/$defs/LttHoldSegment"
+        },
+        {
+          "$ref": "#/$defs/LttStretchSegment"
+        }
+      ]
+    },
+    "Ltt": {
+      "description": "A Lattice Timing Track, in its canonical encoding (`*.ltt.json`).",
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "ltt"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "source": {
+          "$ref": "#/$defs/LttSource"
+        },
+        "inputs": {
+          "$ref": "#/$defs/LttInputs"
+        },
+        "seekable": {
+          "description": "True when every segment's length is known, so the segments lay end to end on one timeline.",
+          "type": "boolean"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LttSegment"
+          }
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "source",
+        "inputs",
+        "seekable",
+        "segments"
+      ]
+    }
+  }
+}

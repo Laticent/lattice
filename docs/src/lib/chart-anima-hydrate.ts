@@ -32,6 +32,12 @@ export interface ChartHydrateOptions extends Omit<HydrateOptions, 'rendererFor'>
   style?: ChartAnimaStyle;
   /** The resolved total duration in ms (from the Speed axis via `speedToDurationMs`). */
   durationMs?: number;
+  /** Turn the section's svg into the markup the scene is built from. Omitted → the svg itself. The
+   *  live hosts pass one for a Mermaid diagram, whose labels are `<foreignObject>` HTML and whose
+   *  paint is an inline `<style>` — both of which the sanitizer below removes. The hook bakes them
+   *  into native `<text>` and inline paint first (the same `flattenSvgStyles` bake the HTML player
+   *  export uses), so the animated copy keeps its words and colors. Return null to stay static. */
+  prepare?: (svg: SVGSVGElement) => Element | null;
 }
 
 /** The funnel's worst outgoing conversion → its band's `data-mark`, so the leak emphasizes. Reads
@@ -67,7 +73,9 @@ export function hydrateChart(section: Element, opts: ChartHydrateOptions = {}): 
   if (!svg) return null;
 
   const sanitize = opts.sanitize ?? ((m: string) => m);
-  const built = chartToScene(sanitize(svg.outerHTML), { style, duration: opts.durationMs, highlightMarks: worstMarks(svg) });
+  const source = opts.prepare ? opts.prepare(svg) : svg;
+  if (!source) return null;
+  const built = chartToScene(sanitize(source.outerHTML), { style, duration: opts.durationMs, highlightMarks: worstMarks(svg) });
   if (!built) return null;
   const parsed = parseScene(built.scene);
   if (!parsed.ok) return null; // a malformed scene simply leaves the static chart standing

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { type DeckMotion, hasAnimatableChart, PREHIDE_CLASS, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, speedToDurationMs } from './anima-host-sel';
+import { type DeckMotion, hasAnimatableChart, isMermaidSvg, motionMarkCount, PREHIDE_CLASS, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, speedToDurationMs } from './anima-host-sel';
 
 const section = (className: string, inner = ''): Element => {
   const s = document.createElement('section');
@@ -85,6 +85,38 @@ describe('hasAnimatableChart', () => {
   });
   it('false for a chart-less section', () => {
     expect(hasAnimatableChart(section('content', '<p>hi</p>'))).toBe(false);
+  });
+  it('true for a Mermaid diagram — roles, no `data-mark`', () => {
+    expect(hasAnimatableChart(section('', DIAGRAM))).toBe(true);
+  });
+  it('false for a chart with roles but no data-mark (a plain line chart) — the role arm is Mermaid-only', () => {
+    const line = '<div class="line-figure"><svg><path data-anima-role="line"/><circle data-anima-role="point"/></svg></div>';
+    expect(hasAnimatableChart(section('line', line))).toBe(false);
+    expect(motionMarkCount(section('line', line))).toBe(0);
+  });
+  it('false for an untagged Mermaid diagram (a family we do not animate)', () => {
+    expect(hasAnimatableChart(section('', '<div class="mermaid"><svg><g class="task"><rect/></g></svg></div>'))).toBe(false);
+  });
+});
+
+const DIAGRAM =
+  '<pre data-mermaid-state="rendered"></pre><div class="mermaid"><svg>' +
+  '<g data-anima-role="bar" data-anima-order="1"><rect/></g><g data-anima-role="bar" data-anima-order="1"><rect/></g>' +
+  '<path data-anima-role="bar" data-anima-order="2"/><g data-anima-role="label"><text>yes</text></g></svg></div>';
+
+describe('motionMarkCount — the auto speed\'s pacing input', () => {
+  it('counts a chart\'s data-mark indices, exactly as before', () => {
+    expect(motionMarkCount(section('funnel', CHART))).toBe(1);
+  });
+  it('counts a diagram\'s non-label roles, since it has no data-mark', () => {
+    expect(motionMarkCount(section('', DIAGRAM))).toBe(3);
+  });
+});
+
+describe('isMermaidSvg', () => {
+  it('true inside the runtime\'s div.mermaid host; false for a chart', () => {
+    expect(isMermaidSvg(section('', DIAGRAM).querySelector('svg') as Element)).toBe(true);
+    expect(isMermaidSvg(section('funnel', CHART).querySelector('svg') as Element)).toBe(false);
   });
 });
 

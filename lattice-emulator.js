@@ -1870,9 +1870,6 @@ function renderMermaid(definition, mode, look, hand = false) {
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor, orientationCss, geometryVarsCss } = require('./lib/engine/css');
-// The ONE family classifier (lib/adaptive/README.md) — the same call the engine's `data-family`
-// stamp makes, so the split gate and the components can never disagree about which box this is.
-const { familyFor } = require('./lib/adaptive/families');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // The one pattern that says "this is a Mermaid fence", shared with the narrator (#1).
 const { matchMermaidFences } = require('./lib/core/mermaid-fences');
@@ -2227,26 +2224,14 @@ const ENGINE_BUILD = pkgVersion() ?? '';
 const AUTOSPLIT = !NO_SPLIT;
 const SPLIT_CAP = (() => {
   if (!AUTOSPLIT) return {};
-  const map = {};
   // Resolve the manifest tree from PKG_ROOT, not the module's __dirname: in
   // the esbuild bundle __dirname is <pkg>/dist/ (no manifests there), which
   // made autosplit a SILENT NO-OP for every npx/npm consumer of the packaged
   // CLI while working in the repo. lib/ ships in the tarball, so the
   // package-root walk lands on the real manifests in both worlds.
-  for (const m of require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components'))) {
-    const axis = m.capacity?.axis ?? m.adapt?.capacity?.axis;
-    // A layout joins the split registry if it can paginate (has a capacity axis) OR
-    // declares a carousel `split` recipe (read-across re-authored as a sequence).
-    // `perPage` is the AUTHORED split pacing — how many members ride one page of a split
-    // run (1 for a heavy member that atomizes). Distinct from `sweet`, which is authoring
-    // comfort; auto-split.js `splitTargetOf` prefers it and falls back to sweet → soft → hard.
-    // `relationship` is the CONNECTED-MEMBER kind (§0b, §8 rule 12a) — the split kernel needs it
-    // to derive each page's "→ next / ↻ back to / governs ↓ / Option N of M" adornment. This
-    // projection is a hand-listed whitelist, so a capacity field absent here reaches the kernel as
-    // `undefined` and the feature is a SILENT no-op (the manifests declared it, every unit test
-    // passed, and the real render emitted nothing — caught only by looking at the render).
-    if (axis || m.split) map[m.name] = { axis: axis ?? null, hard: m.capacity?.hard ?? null, sweet: m.capacity?.sweet ?? null, soft: m.capacity?.soft ?? null, perPage: m.capacity?.perPage ?? null, relationship: m.capacity?.relationship ?? null, split: m.split ?? null };
-  }
+  // The projection itself is shared with the browser bundle (lib/core/structural-split.js
+  // `splitCapacityFrom`), so the CLI and the live preview read the same map.
+  const map = require('./lib/core/structural-split').splitCapacityFrom(require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components')));
   // An empty registry with autosplit requested means the manifests were not
   // found — the exact silent failure this resolver fix closes. Never quiet.
   if (!Object.keys(map).length) {
@@ -2297,13 +2282,13 @@ const slideH         = parseFloat(_geom.height);
 // cannot happen — inline dimensions are not a size value, and the #502 fail-fast rejects an
 // unregistered name before this line runs.)
 //
-// The `Number.isFinite` guard is not defensive noise: both sibling call sites carry it
-// (lib/engine/index.js:171, lib/engine/css.js orientationFor), because `familyFor(NaN)` falls
-// through every band and returns 'strip' — the opposite verdict from the 'wide' those two produce
-// for the same degenerate geometry. Dropping it here is how the gate and the `data-family` stamp
-// would come to disagree about one box, which is exactly what this gate must never do.
-const AUTOSPLIT_APPLIES = AUTOSPLIT
-  && familyFor(Number.isFinite(slideW) && Number.isFinite(slideH) && slideH > 0 ? slideW / slideH : 16 / 9) !== 'wide';
+// The gate is `splitApplies` (lib/core/structural-split.js), shared with the browser preview so
+// the two can never disagree about which box splits. It calls the ONE family classifier
+// (lib/adaptive/families.js `familyFor`), the same call the engine's `data-family` stamp makes,
+// and keeps the `Number.isFinite` guard both sibling call sites carry (lib/engine/index.js,
+// lib/engine/css.js orientationFor): `familyFor(NaN)` falls through every band and returns
+// 'strip', the opposite verdict from the 'wide' those two produce for the same degenerate box.
+const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').splitApplies(slideW, slideH);
 // Orientation scaling/fill (social/mobile portrait + square @sizes). Empty for
 // landscape, so the HD/4K PDF is byte-identical. Same helper the engine
 // scaffold + runtime use, so every render path agrees.
@@ -3734,7 +3719,7 @@ async function renderBody(browser, g, closeBrowser) {
   // does not fit even at one element per page rings, which is the honest terminal: there is no
   // smaller cut left to make.
   if (AUTOSPLIT_APPLIES) {
-    const { splitDoc, applyRails, applyRelationshipSignals, stripDeckChrome, deckChromeFrom } = require('./lib/core/auto-split');
+    const { splitDoc } = require('./lib/core/auto-split');
     const r = splitDoc(cleanDocHtml, SPLIT_CAP);
     if (r.changed) {
       cleanDocHtml = r.html;
@@ -3760,8 +3745,7 @@ async function renderBody(browser, g, closeBrowser) {
     // so cannot tell the deck's repeated band from this slide's own caption. Reading the section
     // deleted the author's caption from every page of a run (measured on portrait-journey and
     // portrait-roadmap, both of which declare a per-slide footer and no deck-level one).
-    const deckChrome = deckChromeFrom(md);
-    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(stripDeckChrome(cleanDocHtml, deckChrome), SPLIT_CAP)));
+    const railed = require('./lib/core/structural-split').railRun(cleanDocHtml, md, SPLIT_CAP);
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);
@@ -4223,6 +4207,12 @@ async function renderBody(browser, g, closeBrowser) {
       // such dependency (it bakes its colors at render time either way).
       const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenPlayerSvg.toString()};`), 'player capture: inject svg flattener');
+      // The motion roles the live runtime writes on every drawn diagram. The CLI's diagrams come
+      // from the render worker, not the runtime, so they arrive untagged; tagging the baked copy
+      // here is what lets a `motion: on` deck animate its diagrams in the player too.
+      // Closure-free for the same reason the flattener is.
+      const { tagMermaidMotion: tagPlayerSvg } = require('./lib/integrations/mermaid/motion-roles.js');
+      await g(() => page.evaluate(`window.__tagMermaidMotion = ${tagPlayerSvg.toString()};`), 'player capture: inject diagram motion tagger');
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
@@ -4237,7 +4227,10 @@ async function renderBody(browser, g, closeBrowser) {
           // diagram ships as shapes with no words: precisely the defect this bake
           // exists to prevent. Silence there is indistinguishable from success.
           try {
-            copies[i].replaceWith(window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' }));
+            const flat = window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' });
+            // Its own try: a tagging failure costs only the motion, never the bake it rides on.
+            try { window.__tagMermaidMotion(flat); } catch (_t) { /* ships as a still */ }
+            copies[i].replaceWith(flat);
           } catch (_e) { unbaked++; }
         }
         return { html: `<!DOCTYPE html>\n${root.outerHTML}`, unbaked, total: live.length };
@@ -5675,6 +5668,20 @@ html,body{background:var(--bg,#fff)}
    The long form, with the measurements and why the rule is not in the kernel:
    lib/integrations/mermaid/mermaid.css § THE RE-HOSTED FIGURE. */
 #lat-read figure svg[aria-roledescription]{width:auto;max-width:100%}
+/* A WIDE DIAGRAM STOPS SHRINKING AND SCROLLS. The kernel writes each diagram figure's
+   natural width, floor width (a fixed share of natural) and aspect ratio inline, and makes
+   it focusable; the values here are only defaults the inline ones override. The width is
+   the column or the 78vh height cap, whichever binds, clamped between floor and natural,
+   so past the floor the svg overflows and the figure pans instead. Computed outright, not
+   width:auto + min-width: WebKit resolves that pair to the floor even when the diagram fits. The cue is the diagram itself, cut mid-node at the column edge; a
+   scroll-shadow was tried and dropped, since a background paints UNDER the svg and showed
+   only as a smudge below the nodes. Long form: engineering/mermaid.md § "How big the
+   re-hosted diagram is". */
+#lat-read figure.lp-diagram{--lp-fig-w:100%;--lp-fig-min-w:0px;--lp-fig-ratio:auto;overflow-x:auto}
+#lat-read figure.lp-diagram[style] svg[aria-roledescription]{width:clamp(var(--lp-fig-min-w),min(100%,78vh * var(--lp-fig-ratio)),var(--lp-fig-w));height:auto;aspect-ratio:var(--lp-fig-ratio);max-width:none;max-height:none}
+/* PAPER CANNOT SCROLL: in print the floor gives way and the diagram fits the page again,
+   as it did before the floor existed. Otherwise a printed long flowchart loses its last nodes. */
+@media print{#lat-read figure.lp-diagram{overflow:visible}#lat-read figure.lp-diagram[style] svg[aria-roledescription]{width:min(100%,var(--lp-fig-w))}}
 /* display:block + margin-inline:auto on the image, text-align:center on the caption:
    parity with the player's article and the Studio's pane, which both centered a figure
    image and its caption while this one left them ragged against the band's left edge.
@@ -5851,6 +5858,20 @@ async function buildReadingArticleDocument(docHtml, deckScheme) {
     const SCHEME_BY_COLOR_MODE = { dark: 'dark', light: 'light', print: 'light', system: 'light dark' };
     const scheme = SCHEME_BY_COLOR_MODE[deckScheme];
     if (scheme) doc.documentElement.style.setProperty('color-scheme', scheme);
+
+    // A PHONE LAYS THIS OUT AT ITS OWN WIDTH, and only with this tag. The slide render it
+    // started from is a fixed-size stack with no viewport meta, so without one iOS Safari and
+    // Android Chrome lay the article out at a 980px desktop width and zoom the whole page
+    // out: body text and diagram labels alike drew at roughly 40% on an iPhone 15 Pro,
+    // measured in WebKit. Desktop Chromium at a 390px window ignores the tag, which is how
+    // every 390px screenshot of this article looked right while the phone did not. The
+    // player has always carried the same tag (lib/export/player-core.mjs).
+    if (!doc.querySelector('meta[name="viewport" i]')) {
+      const viewport = doc.createElement('meta');
+      viewport.setAttribute('name', 'viewport');
+      viewport.setAttribute('content', 'width=device-width,initial-scale=1');
+      doc.head.appendChild(viewport);
+    }
 
     const style = doc.createElement('style');
     // textContent, never innerHTML: a closing style tag inside the sheet would otherwise

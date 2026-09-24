@@ -59,6 +59,21 @@ How a draft moves from author to publication.
 
 ---
 
+<!-- _class: state-chart tb -->
+<!-- _footer: "Top-to-bottom · state-chart tb — States flow top to bottom, whatever the stage." -->
+
+## tb stacks the states top to bottom.
+
+1. Queued `start`
+   - `claim => 2`
+2. Running `live`
+   - `finish => 3`
+   - `crash => 1`
+3. Complete `end`
+
+
+---
+
 <!-- _class: state-chart inline -->
 <!-- _footer: "Inline · state-chart inline — The chart sits beside its prose." -->
 
@@ -209,8 +224,8 @@ How a draft moves from author to publication.
 
 ## When NOT to reach for state-chart.
 
-- More than ~8 states
-  - Vertical stacks of ten or more states stop reading as a machine and start reading as a list. If the system has many states, group them into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
+- More than ~12 states
+  - A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
 - Hierarchical or parallel states
   - v1 grammar is one flat list of states with one outgoing arrow per nested bullet. Composite states, orthogonal regions, history nodes — anything Mermaid's `stateDiagram-v2` does and this layout doesn't — belong in a Mermaid fence via the `diagram` component.
 - Continuous processes

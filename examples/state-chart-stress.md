@@ -194,7 +194,7 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ---
 
 <!-- _class: state-chart -->
-<!-- _footer: "11 — complex TB: skips, converging back-edges, self-loop" -->
+<!-- _footer: "11 — complex machine: skips, converging back-edges, self-loop" -->
 
 ## Incident response.
 
@@ -243,7 +243,7 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ---
 
 <!-- _class: state-chart curved -->
-<!-- _footer: "13 — curved variant (Bézier edges)" -->
+<!-- _footer: "13 — curved variant (rounded corners)" -->
 
 ## Document approval (curved).
 

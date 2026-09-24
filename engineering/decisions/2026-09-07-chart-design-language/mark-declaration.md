@@ -53,11 +53,13 @@ to carry identity. The dots declare a paint role; the path does not.
 
 **`encodes: "none"` means the body carries no datum — which is two different
 marks, deliberately one value.** A mark with no body at all (`paint: "none"`),
-and a mark whose body is a deliberate constant. Three members are the second
-kind, and `state-chart` says why in its own stylesheet: the node fill is always
-neutral so status color lives only in the index badge, or a green on-track node
-blends into a green wash. To a finish both mean the same thing — nothing here is
-load-bearing, set it freely.
+and a mark whose body is a deliberate constant. Three members were the second
+kind when this was written; `state-chart` was the one that said why in its
+stylesheet (the node fill was always neutral so status color lived only in the
+index badge). *(Superseded for state-chart on 2026-09-24: a status now paints
+the node itself, as it does a gantt bar, and the node declares `encodes: "hue"`
+— `2026-09-24-state-chart-fit-and-paint.md`.)* To a finish both mean the same
+thing — nothing here is load-bearing, set it freely.
 
 An earlier revision of the validator made `paint: none ⟺ encodes: none` a
 two-way rule and was wrong about all three. The rule runs **one way only**: no

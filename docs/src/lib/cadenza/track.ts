@@ -5,49 +5,17 @@
 // estimated start/end ms and a char offset back into the source text. This is the
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
+import type { CaptionTrack, Cue, Word } from '@laticent/ltt';
 import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type Pace, pauseAfter } from './cadence';
 import { type AcronymRegistry, dedupeDirection, toSpoken } from './normalize';
 import { splitParagraphs, splitWords } from './segment';
 import type { LexiconMap } from './symbols';
 
-export interface Word {
-  /** The glyph group shown in the caption (e.g. "$4.2M"). The highlight unit. */
-  display: string;
-  /** The spoken expansion timing is computed on (e.g. "four point two million dollars"). */
-  spoken: string;
-  startMs: number;
-  endMs: number;
-  /** Index into the source text where `display` begins (best-effort forward scan). */
-  charOffset: number;
-  /** Emphasis weight, 1 = ordinary. ABSENT for an ordinary word — an unweighted deck therefore
-   *  serializes exactly as it did before emphasis existed, so no golden or manifest moves. */
-  weight?: number;
-}
-
-export interface Cue {
-  /** The caption line as shown (the display words joined). */
-  display: string;
-  words: Word[];
-  startMs: number;
-  endMs: number;
-  charOffset: number;
-  /** True when a PARAGRAPH / topic boundary (a blank line) follows this cue — so the gap before the
-   *  next cue is the deeper `PARAGRAPH_PAUSE_MS` beat, not the sentence pause. The clocked player reads
-   *  this to widen the inter-clip breath (read-aloud.ts). Absent/false for an ordinary sentence break. */
-  endsParagraph?: boolean;
-  /** The cue's emphasis weight — the MAX over its words, absent when ordinary. This is what buys
-   *  the extra breath AFTER the cue (`interCueGapMs`), and max is the right reducer because a
-   *  sentence is as important as the most important thing in it; averaging would let a long
-   *  sentence dilute its own key phrase into silence. Every consumer computing the inter-cue gap
-   *  MUST read it from here so the estimate and the clocked player stay in step. */
-  weight?: number;
-}
-
-export interface CaptionTrack {
-  cues: Cue[];
-  /** Total estimated duration (end of the last cue), ms. */
-  durationMs: number;
-}
+// The data model — `Word`, `Cue`, `CaptionTrack` — is the core of the Lattice Timing Track and
+// lives in `@laticent/ltt`, the one place a type in that format is defined
+// (engineering/decisions/2026-09-24-lattice-timing-track.md §6). Re-exported here so every
+// importer of `./track` and of Cadenza's index keeps compiling unchanged.
+export type { CaptionTrack, Cue, Word };
 
 /** A half-open `[start, end)` range of the source text that carries extra emphasis, and how much.
  *  Char offsets, because `Word.charOffset` already anchors every word back into the source — so a
@@ -223,46 +191,6 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
   return { cues, durationMs: cues.length ? cues[cues.length - 1].endMs : 0 };
 }
 
-/**
- * Check a track's TIMELINE INVARIANTS and report what is wrong, as plain sentences.
- *
- * `buildTrack` cannot produce an invalid track. `cursor.align` can be handed one — it takes
- * numbers a player measured, and a failed decode or a backwards seek used to corrupt the
- * timeline silently, in three different ways (see `cursor.align`'s preconditions). Those are
- * refused at the door now; this is the assertion that says so, for a consumer assembling a
- * track by other means, for a test, and for anyone debugging a caption file that a player
- * rejected without saying why.
- *
- * Returns [] for a valid track, so `if (validateTrack(t).length)` reads naturally. It never
- * throws and never mutates — a diagnostic, not a gate. The three invariants, in the order a
- * defect tends to appear:
- *
- *  1. every time is FINITE — the one that produces `NaN:NaN:NaN.NaN` in a .vtt;
- *  2. every span is FORWARD (`start <= end`) and non-negative;
- *  3. cue starts are MONOTONIC — the sort `makeCursor`'s binary search depends on, and whose
- *     violation makes the cursor return null at every probe rather than fail loudly.
- */
-export function validateTrack(track: CaptionTrack): string[] {
-	const problems: string[] = [];
-	if (!track || !Array.isArray(track.cues)) return ['track has no cues array'];
-	if (!Number.isFinite(track.durationMs)) problems.push(`track durationMs is not finite (${track.durationMs})`);
-	let prevStart = Number.NEGATIVE_INFINITY;
-	track.cues.forEach((cue, i) => {
-		if (!Number.isFinite(cue.startMs) || !Number.isFinite(cue.endMs)) {
-			problems.push(`cue ${i} has a non-finite span (${cue.startMs} to ${cue.endMs})`);
-			return; // the comparisons below are meaningless against NaN — report once, move on
-		}
-		if (cue.startMs < 0) problems.push(`cue ${i} starts before zero (${cue.startMs}ms)`);
-		if (cue.endMs < cue.startMs) problems.push(`cue ${i} ends before it starts (${cue.startMs} to ${cue.endMs})`);
-		if (cue.startMs < prevStart) problems.push(`cue ${i} starts at ${cue.startMs}ms, before cue ${i - 1} at ${prevStart}ms — the cursor cannot binary-search a track whose cues are out of order`);
-		prevStart = cue.startMs;
-		cue.words.forEach((w, j) => {
-			if (!Number.isFinite(w.startMs) || !Number.isFinite(w.endMs)) {
-				problems.push(`cue ${i} word ${j} ("${w.display}") has a non-finite span`);
-			} else if (w.endMs < w.startMs) {
-				problems.push(`cue ${i} word ${j} ("${w.display}") ends before it starts`);
-			}
-		});
-	});
-	return problems;
-}
+// The core check moved to `@laticent/ltt` with the types it checks; `validateLtt` runs it on
+// every segment. Re-exported so `require('@laticent/cadenza').validateTrack` keeps working.
+export { validateTrack } from '@laticent/ltt';

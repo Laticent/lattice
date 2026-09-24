@@ -297,6 +297,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	extraComponentNames?: string[];
 	/** Fired when the cursor crosses into a different slide — drives the preview. */
 	onCursorSlide?: (index: number) => void;
+	/** The caret line's text, fired when it changes. The preview uses it to show the page of a
+	 *  split slide that holds the line being edited (split-page-pick.ts). */
+	onCursorText?: (text: string) => void;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
 	/** Identity of the deck this editor is showing. The undo history is carried across the
@@ -318,13 +321,16 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  an external setSource so callers can react to authoring, not to their own writes. */
 	onUserEdit?: () => void;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onSelectionChange, onUserEdit, onLintCounts, carryKey, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, carryKey, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
 	const onCursorSlideRef = React.useRef(onCursorSlide);
 	onCursorSlideRef.current = onCursorSlide;
+	const onCursorTextRef = React.useRef(onCursorText);
+	onCursorTextRef.current = onCursorText;
+	const lastCursorTextRef = React.useRef<string | null>(null);
 	const onSelectionChangeRef = React.useRef(onSelectionChange);
 	onSelectionChangeRef.current = onSelectionChange;
 	const onUserEditRef = React.useRef(onUserEdit);
@@ -666,6 +672,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 								}
 							}
 								if (u.docChanged || u.selectionSet) {
+									const lineText = u.state.doc.lineAt(u.state.selection.main.head).text;
+									if (lineText !== lastCursorTextRef.current) {
+										lastCursorTextRef.current = lineText;
+										onCursorTextRef.current?.(lineText);
+									}
 									const idx = slideIndexAt(u.state.doc.toString(), u.state.selection.main.head);
 									if (idx !== lastSlideRef.current) {
 										lastSlideRef.current = idx;

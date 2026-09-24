@@ -679,6 +679,23 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `test/unit/transformers/prose-projection.test.js`, which render through the
   real engine.
 
+## A video slide's lead sentence is missing from the reader view
+
+- **Symptom:** the Read · Article view shows a video slide's heading and poster,
+  but not the sentence the author wrote under the heading. Narration still reads it.
+- **Cause:** `video` is in `MEDIA_COMPONENTS`, so `projectDeckToProse`
+  (`lib/transformers/prose-projection.mjs`) sent it to `projectMedia`, which
+  re-hosts only the visual. The video card keeps its prose in the same stage as the
+  poster (`.video-lead > p` in `companion`, a paragraph beside `.video-head` by
+  default), and `projectGeneric` never ran because the figure made the body non-empty.
+- **Fix:** `projectVideo` runs the generic block walk with `.video-embed` skipped,
+  then appends the poster figure. The eyebrow stays the kicker because the walk drops
+  the paragraph that matches it.
+- **Still open:** `image` has the same shape, and a lead paragraph on an `image`
+  slide is still dropped (`followups.d/2350-p2-image-lead-paragraph-missing-from-prose.md`).
+- **Pinned by:** the "video lead paragraph" arms in
+  `test/unit/transformers/prose-projection.test.js`, which render through the real engine.
+
 ## G-gen merge must use non-G file's G-gen block, not the G-file's block
 
 - **Symptom:** After promoting G-files to canonical (merging cuoio-G.css

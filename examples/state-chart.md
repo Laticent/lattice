@@ -21,12 +21,12 @@ Numbered list, inline-code transitions, palette-blind SVG. No Mermaid, no charti
 
 ## What this deck shows.
 
-A finite-state machine authored as an ordered list. Each top-level item is a state; the index becomes a stable ref. Nested bullets carry the outgoing transitions, each a single inline-code arrow like `submit => 2` or `revise => self`. Whitespace inside the inline code is insignificant. The browser measures the laid-out nodes and draws the SVG edges, so it sizes to any content. Two orthogonal modifier classes: direction — `lr` (left-to-right, Mermaid `direction LR`) or the default top-to-bottom — and presentation — `inline` (transitions as chips, no SVG). They compose. `dark` composes on top.
+A finite-state machine authored as an ordered list. Each top-level item is a state; the index becomes a stable ref. Nested bullets carry the outgoing transitions, each a single inline-code arrow like `submit => 2` or `revise => self`. Whitespace inside the inline code is insignificant. The browser measures the laid-out nodes and draws the SVG edges, so it sizes to any content. Two orthogonal modifier classes: direction — `lr` (left-to-right, Mermaid `direction LR`), `tb` (top-to-bottom), or neither, which lets the chart pick whichever direction and row count sets the type largest — and presentation — `inline` (transitions as chips, no SVG). They compose. `dark` composes on top.
 
 ---
 
 <!-- _class: state-chart -->
-<!-- _footer: "Default — vertical stack with SVG edges" -->
+<!-- _footer: "Default — laid out to fit the stage, with SVG edges" -->
 
 `Submission lifecycle`
 
