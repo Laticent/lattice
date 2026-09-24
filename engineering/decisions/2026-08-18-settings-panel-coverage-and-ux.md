@@ -113,6 +113,39 @@ first-class Lattice registers a boardroom author would reach for, and the only w
 set any of them today is to hand-write YAML.** `logo:` is the sharpest: a deck logo
 is table stakes for a client deck, and the Studio has no control for it at all.
 
+### 2.2a The second gap audit (2026-09-24)
+
+A re-run of §2's method against `main` at `6110a1e` found that every row of §2.2 above had
+shipped except the ones listed below, and that four registers added after this note was
+written had no control at all. This pass closed them:
+
+| Key | Control added | Where |
+|---|---|---|
+| `cards:` | **Card rows** — Auto (each component decides) / Center / Stretch / Top / Spread | Look ▸ More |
+| `guards:` | **Text overflow** — Keep all text / Trim to fit | Look ▸ More |
+| `ai-lang:` | **AI writes in** — Auto (follows the deck language) / a language | General |
+| `player-motion:` | **In the exported player** — a toggle, shown only while motion is on | Motion |
+
+The rest of the gap stays keys you type by hand, **on purpose**. Each has editor
+autocomplete, so the editor offers every key the engine reads:
+
+- `captions:` — the per-slide caption control (slide Inspector ▸ Notes) already writes the
+  same read-aloud text as `<!-- caption: -->`, which wins over the map. A second editor
+  for the map would give one slide's caption two controls.
+- `style:` — raw CSS in a block scalar. A text field in a narrow panel is a worse editor
+  than the editor itself.
+- `color:` · `backgroundColor:` · `backgroundImage:` · `backgroundPosition:` ·
+  `backgroundRepeat:` · `backgroundSize:` — Marp-inherited. They bypass the token system
+  that `theme:`, `color-mode:` and `finish:` drive, so a control would steer authors to
+  the palette-blind escape hatch.
+- `validate:` — the Studio reads a workspace setting instead (§4.3), so a deck control
+  would change nothing the author can see here.
+
+Two tests in `docs/src/components/studio/editor-complete.test.ts` keep this list from
+drifting again. One fails when the Inspector writes a key that autocomplete does not
+offer; its first run caught `inline-code:`. The other fails when the lint vocabulary
+publishes a `*Names` value list that the editor does not complete.
+
 ### 2.3 Deliberately NOT front matter — do not add a control
 
 Recorded here so the next audit doesn't "fix" them:

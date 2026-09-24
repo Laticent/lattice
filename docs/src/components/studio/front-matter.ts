@@ -123,6 +123,34 @@ export function getFrontMatter(source: string, key: string): string | undefined 
 }
 
 /**
+ * A REGISTER's value as the engine reads it: `frontMatterName` in
+ * lib/core/front-matter-key.js, mirrored because the docs build cannot import that CJS
+ * module (see the note in `@/lib/deck-theme`). `getFrontMatter` keeps a trailing YAML
+ * comment (#2087), so `guards: strict  # board pack` read as `strict  # board pack`, while
+ * the engine strips the comment and trims. The Inspector showed Keep all text over a deck
+ * the engine trims. This applies the engine's rule instead: a whitespace-preceded `#`
+ * starts a comment, a quoted span is the whole value, and only a bare name
+ * (`[A-Za-z0-9_-]+`) counts. Anything else is `undefined`, which every caller treats as
+ * the default, exactly as the engine treats its `null`. Case is kept: a register that
+ * compares case-sensitively (`player-motion`) must not be lower-cased here.
+ *
+ * Kept separate from `getFrontMatter` on purpose: changing that reader changes every
+ * control at once, which is #2087's own fix, not this one's.
+ */
+export function getFrontMatterName(source: string, key: string): string | undefined {
+	// The RAW line, not `getFrontMatter`'s value: that one is already unquoted, so
+	// `"a # b"` would lose its quotes and then read as `a` plus a comment.
+	const span = frontMatterKeySpan(source, key);
+	if (!span) return undefined;
+	const line = source.slice(span.start, span.end);
+	const t = line.slice(line.indexOf(':') + 1).trim();
+	const quoted = /^(["'])(.*?)\1/.exec(t);
+	const cut = t.search(/[ \t]#/);
+	const value = (quoted ? quoted[2] : cut === -1 ? t : t.slice(0, cut)).trim();
+	return /^[A-Za-z0-9_-]+$/.test(value) ? value : undefined;
+}
+
+/**
  * The character span of ONE flat directive's LINE inside the leading block — enough to
  * rewrite that line and nothing else. Returns the span EXCLUDING any trailing CRLF `\r`
  * (so a splice preserves the file's line endings), plus the line's own indent.
