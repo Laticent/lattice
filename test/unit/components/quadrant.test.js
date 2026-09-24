@@ -598,6 +598,16 @@ describe('quadrant', () => {
     assert.match(html, /Source: survey, n=40/);
   });
 
+  test('chart-family: a list with more members than axes is NOT lifted — nothing is dropped', () => {
+    // The lift's contract: nothing may be lifted and then discarded. A quadrant
+    // reads two members, so a three-member list used to be cut off the slide and
+    // its third member thrown away. It now stays on the slide as text.
+    const inner = '<p><code>[{Effort, 0..10}, {Reach, 0..100}, {Spend KEEPME, 0..5}]</code></p>' +
+      '<h2>X</h2>' + UL_FOUR;
+    const { html } = transformChartSection(inner, 'quadrant bubble');
+    assert.match(html, /Spend KEEPME/);
+  });
+
   test('chart-family: the retired arrow eyebrow stays an eyebrow and names nothing', () => {
     const inner = '<p><code>Effort 0–10 → Reach 0–100</code></p><h2>X</h2>' + UL_FOUR;
     const { html } = transformChartSection(inner, 'quadrant');

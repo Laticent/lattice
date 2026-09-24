@@ -375,6 +375,25 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: quadrant -->\n\n## H\n\n- a\n  - b \`1, 2\`\n\n${retired}\n`).length, 0);
   });
 
+  test('retiredQuadrantAxis keeps what the old parser kept', () => {
+    // `.5` was a number to the old `[\d.]+` range reader.
+    assert.equal(core.retiredQuadrantAxis('Effort 1.5–2.5 → Reach .5–1'), '[{Effort, 1.5..2.5}, {Reach, .5..1}]');
+    // A reversed range was never a domain; it was part of the name.
+    assert.equal(core.retiredQuadrantAxis('Effort 10–0 → Reach 100–0'), '[Effort 10–0, Reach 100–0]');
+    // The author's own quotes survive; the wrapping quote is the other kind.
+    assert.equal(core.retiredQuadrantAxis('Effort "fast", ish 0–10 → Reach'), `[{'Effort "fast", ish', 0..10}, Reach]`);
+  });
+
+  test('quadrant axis rules skip a line inside an HTML comment, like the render', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n<!--\n\`Effort 0–10 → Reach 0–100\`\n-->\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    assert.equal(core.findQuadrantAxisIssues(src).length, 0);
+  });
+
+  test('a list with more members than axes is named: it prints as text, not as the axis', () => {
+    const src = `${FM}<!-- _class: quadrant -->\n\n\`[Effort, Reach, Spend]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    assert.match(ruleFor(src, 'quadrant-axis-part').message, /3 members but a quadrant has two axes/);
+  });
+
   test('quadrant-axis-part names a part the chart ignores', () => {
     const src = `${FM}<!-- _class: quadrant -->\n\n\`[{Effort, 10..0}, {Reach, 0..100, soon}]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
     const f = ruleFor(src, 'quadrant-axis-part');
@@ -1960,6 +1979,13 @@ describe('label-set-above-body — coaching, never refusal', () => {
   // `parseInlineSet` accepts the braced AXIS form as a set, so the rule used to
   // fire on the documented axis itself — and on scatter told the author to
   // delete it. Above the body, only a list naming a KEY member is a misplaced key.
+  test('a state-marker key above a keyless chart is still a misplaced key', () => {
+    // scatter declares no key vocabulary, so the state markers stand in for it.
+    const all = { names: new Set(['scatter']), modifiers: new Set() };
+    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `1` `2`\n';
+    assert.deepEqual(core.lintTextWith(src, all).filter((f) => f.rule === 'label-set-above-body').length, 1);
+  });
+
   test('the braced axis form above the body is an axis, never a misplaced key', () => {
     const all = { names: new Set(['matrix-grid', 'scatter', 'quadrant']), modifiers: new Set() };
     const decks = [

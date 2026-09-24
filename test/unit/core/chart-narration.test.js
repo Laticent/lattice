@@ -397,6 +397,20 @@ test('narrateQuadrant: narrates both axis scales and every item when no eyebrow 
   assert.ok(out.includes('Quick Wins: Weekly signal brief at eight, eighty.'));
 });
 
+test('narrateQuadrant: one threshold draws BOTH lines, so both are spoken', () => {
+  // resolveScale puts the unnamed axis's line at its midpoint; the voice states
+  // the line the picture draws, not only the number the author typed.
+  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100}]`', '', '## X.', '', '- G', '  - I `5, 85`'].join('\n');
+  assert.ok(narrateQuadrant(md).includes('The vertical axis, Reach, runs zero to one hundred, with a threshold at fifty.'));
+});
+
+test('narrateQuadrant: an axis list inside an HTML comment is not the axis', () => {
+  const md = ['<!-- _class: quadrant -->', '', '<!--', '`[{Effort, 0..50}, {Reach, 0..500}]`', '-->', '', '## X.', '', '- G', '  - I `5, 85`'].join('\n');
+  const out = narrateQuadrant(md);
+  assert.ok(!out.includes('Effort'), out);
+  assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
+});
+
 test('narrateQuadrant: an axis with no authored domain speaks the data-derived one', () => {
   const md = ['<!-- _class: quadrant -->', '', '`[{Effort, 0..10}, Reach]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
   const out = narrateQuadrant(md);

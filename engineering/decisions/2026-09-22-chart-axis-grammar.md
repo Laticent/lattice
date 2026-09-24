@@ -234,12 +234,26 @@ the shared lift. What it took, and what was decided along the way:
 - **The list is consumed.** The old eyebrow printed on the slide AND named the
   axes, so every quadrant said its axes twice. This is the same call scatter
   made. A plain eyebrow beside the list survives, which the demo deck shows.
-- **Loss-free, measured.** All 17 decks that authored the old eyebrow were
-  rendered on `main` and on this branch, and the `quadrant-figure` SVGs were
-  compared with render-sequence ids stripped: **53 of 54 are byte-identical**.
-  The one that differs is `examples/adaptive-sweep.md`, which used the ASCII
-  `->`. That spelling never worked, so on `main` its x-axis read
-  "Effort 0-10 -&gt; Reach" on a 0–100 domain; it now reads "Effort" on 0–10.
+- **Loss-free, measured, and the first measurement was too narrow.** Every
+  deck carrying a quadrant slide (21, not only the 17 the migrator edited) was
+  rendered on `main` and on this branch. The `quadrant-figure` SVGs were compared
+  with render ids stripped: **59 of 61 are byte-identical.** The first cut compared only
+  the migrated decks, reported 53 of 54, and missed the second difference. An
+  independent checker found it. The two:
+  - `examples/adaptive-sweep.md` used the ASCII `->`. That spelling never
+    worked, so on `main` its x-axis read "Effort 0-10 -&gt; Reach" on a 0–100
+    domain; it now reads "Effort" on 0–10.
+  - `examples/legend-below-portrait.md` had a plain eyebrow, `Impact vs effort`,
+    which the old parser ALSO drew as the x-axis title. The old grammar took any
+    eyebrow without an arrow as an x-axis name. Its coordinates put impact on x
+    and effort on y, so the title was wrong as well as doubled. The deck now
+    authors `[Impact, Effort]` beside the eyebrow.
+- **A list the component cannot fully read is not its axis.** The checker also
+  found that a three-member list on a two-axis quadrant was lifted and its third
+  member dropped, which is the silent deletion the lift's contract forbids.
+  `axisAcceptor` in `lift-bracket-span.js` now caps the ABOVE slot at the
+  component's declared member count, on all four components. A longer list stays on the slide as text,
+  narration speaks it as text, and `lint:deck` names it on quadrant.
 - **One threshold is enough to turn the lines on.** The old `targets` blob
   needed both numbers. Now either axis's threshold turns them on, and the other
   axis takes its midpoint, which is the "derive numbers" rule from Decision 3.
