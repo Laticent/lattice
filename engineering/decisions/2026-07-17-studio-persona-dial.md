@@ -82,7 +82,7 @@ as a segmented control in the top bar, present and identical at every stop.
 
 | Stop | Shows | The situation it fits |
 |---|---|---|
-| **Read** | Full-bleed live preview + one persistent **"Edit this slide"** button. No activity bar, no panels. | A newcomer who doesn't yet know Markdown — a beautiful deck they already understand how to look at. |
+| **Read** | Full-bleed live preview + one persistent **"Edit this slide"** button (since 2026-09-24 it leads the slide navigator bar, beside **"Read as an article"** — see §Amendment below). No activity bar, no panels. | A newcomer who doesn't yet know Markdown — a beautiful deck they already understand how to look at. |
 | **Write** | `editor \| preview` split + slim header. (This *is* today's loved Focus body, promoted from a transient toggle to a first-class, persisted home.) | The familiar user: "type Markdown, watch slides." |
 | **Build** | Today's full desktop — activity bar + docked Coach + Inspector + editor + preview, Fabricate / Library / everything. | The power user. |
 
@@ -624,3 +624,27 @@ commit per milestone, the adversarial trio after each. Status:
   `continue-on-error`, and `studio-smoke` is absent from the required gate's `needs`
   until a nightly green streak promotes it (#800). The blocking cover is still the
   jsdom tier, which can assert what the header renders and never that it fits.
+
+## Amendment (2026-09-24) — the Read verbs move into the navigator bar
+
+"Edit this slide" no longer floats over the slide as an accent pill. It now leads
+the slide navigator bar under the preview, followed by **"Read as an article"**, a
+divider, and the slide chips. That is the slot the slide-op rail (add, duplicate,
+move, delete) fills at Write and Craft, and it was empty at Read.
+
+- **Why.** The pill covered the bottom of the slide, and it needed two separately
+  positioned overlays (desktop and mobile). In the bar it covers nothing and sits
+  with the navigation it belongs to. The article view had no visible entry at all —
+  only a ⌘K command — so it gets one here.
+- **What stays.** "Edit this slide" is still the accent-filled primary, first in the
+  row, never hover-gated, and it still steps the dial to Write (and swaps a phone to
+  the editor pane). The one-time "this sample deck is yours" hint now anchors above
+  the bar's left edge.
+- **Read-only on purpose.** "Read as an article" is a way to read the deck, so it
+  lives on the reading surface alone: the bar button renders only at the Read stop,
+  and the ⌘K command is offered only there too.
+- **Narrow panes.** Both buttons drop their labels to icons below a 30rem pane (a
+  container query on the preview section); the accessible names stay whole.
+- **Evidence.** `tools/screenshot.js` at 1440, 820 and 390 on the Read stop, and a
+  real Chromium click on the bar button opening the article.
+  `StudioShell.test.tsx` pins the bar placement and the Write-stop absence.

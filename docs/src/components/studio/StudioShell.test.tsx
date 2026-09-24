@@ -441,6 +441,28 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 	});
 
+	it('"Read as an article" is a Read-stop verb: in the navigator bar and ⌘K at Read, absent from both at Write', async () => {
+		// The article is a way to READ the deck, so it lives on the reading surface alone.
+		seedPosture('read');
+		const user = userEvent.setup();
+		const { unmount } = render(<StudioShell options={options} />);
+		const nav = screen.getByRole('navigation', { name: 'Slide navigator' });
+		// Both Read verbs lead the navigator's bar — siblings of the slide chips, not an overlay.
+		const bar = nav.parentElement as HTMLElement;
+		expect(within(bar).getByRole('button', { name: 'Edit this slide' })).toBeInTheDocument();
+		await user.click(within(bar).getByRole('button', { name: 'Read as an article' }));
+		const back = await screen.findByRole('button', { name: /Back to the deck/i }, { timeout: 15000 });
+		await user.click(back);
+		unmount();
+
+		seedPosture('write');
+		render(<StudioShell options={options} />);
+		expect(screen.queryByRole('button', { name: 'Read as an article' })).not.toBeInTheDocument();
+		await user.keyboard('{Meta>}k{/Meta}');
+		await screen.findByPlaceholderText(/Search or run a command/i);
+		expect(screen.queryByRole('option', { name: /Read as an article/ })).not.toBeInTheDocument();
+	});
+
 	it('the ⌘K "Read as an article" command opens the reading view, and it closes back to the deck', async () => {
 		// The point of this view is that the deck's PROSE lands in the top-level document,
 		// where a reader-mode extractor can see it — every other slide surface here sits in a
@@ -448,11 +470,12 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		// wiring: the command reaches a mounted view, and the way out works. That the article
 		// is real extractable prose is a claim about a running browser and is asserted where it
 		// can be measured, not here — jsdom would only be re-running the projection.
+		seedPosture('read');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
 		await user.keyboard('{Meta>}k{/Meta}');
 		await screen.findByPlaceholderText(/Search or run a command/i);
-		await user.click(screen.getByText(/Read as an article/));
+		await user.click(screen.getByRole('option', { name: /Read as an article/ }));
 		// A generous budget on purpose: this crosses a React.lazy boundary, so it waits on Vite
 		// transforming a module rather than on a state update (#1471).
 		const back = await screen.findByRole('button', { name: /Back to the deck/i }, { timeout: 15000 });

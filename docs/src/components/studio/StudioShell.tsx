@@ -4393,7 +4393,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* At the Read stop the preview is the whole surface — strip its editorial
 			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
 			    debug footer) so it reads as "just the slides" (M3 red-team). Only the
-			    live deck + the "Edit this slide" overlay remain. */}
+			    live deck + the navigator, led by the Read verbs, remain. */}
 			{!previewChromeless && (
 			<div data-slot="preview-bar" className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				{/* The band's own name. It earns its place only where the pane is ONE OF TWO —
@@ -4519,7 +4519,43 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
 			    cinema morph (iPhone landscape): the whisper layer carries position instead. */}
 			{!landscapePhone && (
-			<div className="flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
+			<div className="relative flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
+				{/* READ verbs — the Read stop's two actions lead the navigator, in the slot the
+				    slide-op rail holds at Write/Craft. "Edit this slide" stays the accent-filled
+				    primary (the newcomer's one unmissable step to Write, and not hover-gated);
+				    "Read as an article" is Read-only on purpose — it is a way to READ the deck,
+				    so it lives on the reading surface and nowhere else (⌘K offers it only here
+				    too). They used to float over the slide as an overlay pill; in the bar they
+				    cover nothing and sit with the navigation they belong to. Labels drop to
+				    icons on a narrow pane (the section is a size container), and the accessible
+				    name stays whole either way. */}
+				{effectiveStop === 'read' && (
+					<>
+						{!readHintSeen && (
+							<div className="absolute bottom-[calc(100%+8px)] left-3 z-20 flex max-w-[calc(100%-24px)] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+								<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
+								<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
+							</div>
+						)}
+						<button
+							type="button"
+							aria-label="Edit this slide"
+							onClick={() => { dismissReadHint(); if (mobile) setMobilePane('edit'); changePosture('write'); }}
+							className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--on-accent)] shadow-sm transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_88%,var(--text-heading))]"
+						>
+							<PencilLine className="size-3.5" /><span className="hidden @[30rem]:inline">Edit this slide</span>
+						</button>
+						<button
+							type="button"
+							aria-label="Read as an article"
+							onClick={() => setView('article')}
+							className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold text-[var(--text-heading)] transition-colors hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]"
+						>
+							<FileText className="size-3.5" /><span className="hidden @[30rem]:inline">Read as an article</span>
+						</button>
+						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
+					</>
+				)}
 				{composeLens === 'full' && effectiveStop !== 'read' && (
 					<div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
 						<RailOp label="Add slide" onClick={opAddSlide}><Plus className="size-3.5" /></RailOp>
@@ -4928,7 +4964,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				onShare: () => setShareOpen(true),
 				onFeedback: () => setFeedbackOpen(true),
 				onFabricate: () => setView('fabricate'),
-				onReadArticle: () => setView('article'),
+				// Read-only: the article is a way to read the deck, so it is offered on the
+				// reading surface alone — the same place its bar button lives.
+				onReadArticle: effectiveStop === 'read' ? () => setView('article') : undefined,
 				onLibrary: () => { revealCraftDock(); setLibraryOpen(true); },
 				onWorkspace: () => setWorkspaceOpen(true),
 				onReshape: () => { revealCraftDock(); setLensesOpen(true); },
@@ -5443,23 +5481,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<div className="relative min-h-0 flex-1">
 						<div className={cn('absolute inset-0 flex', effPane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={effPane !== 'edit' ? true : undefined}>{editorPane}</div>
 						<div className={cn('absolute inset-0 flex', effPane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={effPane !== 'preview' ? true : undefined}>{previewPane}</div>
-						{/* Mobile Read — the phone newcomer the brief centers (M5). The preview pane
-						    already renders chromeless full-bleed at the Read stop; this adds the one
-						    "Edit this slide" verb + the one-time hint. Tapping it swaps to the edit
-						    pane AND steps the dial to Write — the same Read→Write step as desktop. */}
-						{effectiveStop === 'read' && effPane === 'preview' && (
-							<div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-2.5 px-4">
-								{!readHintSeen && (
-									<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
-										<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
-										<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
-									</div>
-								)}
-								<button type="button" onClick={() => { dismissReadHint(); setMobilePane('edit'); changePosture('write'); }} className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg">
-									<PencilLine className="size-4" />Edit this slide
-								</button>
-							</div>
-						)}
 					</div>
 				</main>
 			) : (
@@ -5578,29 +5599,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</ResizablePanelGroup>
 					</main>
 
-					{/* READ overlay — the one primary verb over the full-bleed preview. Absolutely
-					    positioned in the (relative) spine wrapper, so it is NOT a grid item and
-					    can't affect the #721 track/child count. "Edit this slide" is the single,
-					    unmissable, non-hover-gated action (hover fails on touch); it steps the dial
-					    to Write. The one-time hint carries the banner's one true job (the deck is
-					    yours) as element-attached content that never recurs. */}
-					{effectiveStop === 'read' && (
-						<div className="pointer-events-none absolute inset-x-0 bottom-20 z-20 flex flex-col items-center gap-2.5 px-4">
-							{!readHintSeen && (
-								<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
-									<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
-									<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
-								</div>
-							)}
-							<button
-								type="button"
-								onClick={() => { dismissReadHint(); changePosture('write'); }}
-								className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg transition-transform hover:scale-[1.02]"
-							>
-								<PencilLine className="size-4" />Edit this slide
-							</button>
-						</div>
-					)}
 				</div>
 			)}
 

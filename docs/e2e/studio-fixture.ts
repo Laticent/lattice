@@ -236,6 +236,15 @@ export const CHROME = {
 	 * measured stable at 1100/1280/1440/1920 across all three stops.
 	 */
 	postureStops: ['Read — just the slides', 'Write — editor + preview', 'Craft — every panel'],
+	/**
+	 * The Read stop's two verbs. Since 2026-09-24 both lead the slide navigator bar
+	 * under the preview (they used to be one floating "Edit this slide" pill over the
+	 * slide, plus a ⌘K-only article command). BOTH RENDER AT THE READ STOP ONLY — and
+	 * so does the ⌘K "Read as an article" command — so a spec that wants the article
+	 * steps the dial to Read first (`postureStops[0]`).
+	 */
+	editThisSlide: 'Edit this slide',
+	readArticle: 'Read as an article',
 } as const;
 
 // ── Share-dialog export contract ───────────────────────────────────────────
