@@ -5,8 +5,9 @@ summary: One timing format for every Lattice surface that speaks, captions or mo
 
 # The Lattice Timing Track (LTT) — one timing contract for decks, tours and video
 
-> **Proposed.** Nothing here is built. §9 lists the decisions the owner needs to
-> take; §8 is the order of work once they are taken.
+> **Proposed.** Nothing here is built. The owner settled forks A, C and D on
+> 2026-09-24; fork B (where the code lives) is open, §9.1. §8 is the order of
+> work once it is taken.
 
 ## 1. The symptom
 
@@ -218,8 +219,8 @@ function over the same data.
 **Where it lives matters.** The HTML player is CSP-hashed and cannot import. It
 inlines Cadenza's `makeCursor` by serializing the function's source
 (`player-core.mjs`, `capKernel`). `stateAt` must be inlinable the same way: one
-self-contained function with no imports and no closure over module state. That
-points at Cadenza (§6).
+self-contained function with no imports and no closure over module state. §6
+and fork B (§9.1) decide which package holds it.
 
 ## 6. Where the code lives
 
@@ -227,17 +228,21 @@ Every one of Cadenza, Suono, Vetrina and Lente is boundary-gated to import
 nothing outside its own folder except `node:` built-ins, plus `react` in
 Vetrina's adapter (`checkCadenzaBoundary` and its siblings in
 `tools/check-ownership.js`), so they stay spin-off-able. A shared "schema
-package" that two of them import would break that gate for both. So:
+package" that two of them import would break that gate for both.
+
+The first row depends on fork B, which is open (§9.1). The table shows the
+recommended option 3, a format-only `ltt` package that no library imports.
+The other rows hold under every option.
 
 | Piece | Home | Why |
 |---|---|---|
-| Core types (`CaptionTrack`), the LTT envelope types, `validateLtt`, `stateAt` | **Cadenza** | Cadenza is already the zero-dependency timing engine, and its functions are already inlined into the player. A zero-dependency reference implementation is also what a format someone else adopts needs. Actions stay opaque to Cadenza: it indexes them by word and never interprets a verb. |
+| The LTT types (core, envelope, layers), `validateLtt`, `stateAt` | **A new zero-dependency `ltt` workspace package**, gated to in-folder imports like its siblings | A format someone else adopts needs a reference implementation that is only the format, not a caption engine. No library imports it, so no existing gate changes. The core track type is declared here and in Cadenza, and a type test outside both folders pins them equal. |
 | Producers: deck → LTT, player payload ↔ LTT, `readAlong` 1.1 → LTT | **`lib/core/`** | Beside `read-along-build.js` and `read-along-vtt.js`, which already consume the built Cadenza package from Node. |
-| The actions layer's types | **Vetrina**, as a structural mirror | Vetrina cannot import Cadenza. It declares the same shape, and a test outside both folders checks that Cadenza's type is assignable to Vetrina's — the pattern `pacing.test.ts` already uses for `PACE_WPM`. |
-| Tour recorder (writes a resolved LTT) | **`docs/src/lib/vetrina-narration/`** | It sits above both libraries, where `cadenzaNarrator` already lives. |
+| The actions layer's types | **Vetrina**, as a structural mirror | Vetrina imports nothing outside its folder. It declares the same shape, and a test outside both folders checks that the `ltt` package's type is assignable to Vetrina's — the pattern `pacing.test.ts` already uses for `PACE_WPM`. |
+| Tour recorder (writes a resolved LTT) | **`docs/src/lib/vetrina-narration/`** | It sits above the libraries, where `cadenzaNarrator` already lives. |
 
-No gate changes and no new CI step. The alternative, a new zero-dependency
-`ltt` workspace package that both libraries may import, is §9 fork B.
+No existing gate changes and no new CI step. The new package's own boundary gate
+is a new rule in `tools/check-ownership.js`, which runs inside `build:check`.
 
 ## 7. Size, measured
 
@@ -277,7 +282,7 @@ Each step ships on its own. The first two change no output bytes.
    and both Vetrina narrators and asserts identical timings — which fails today
    (§1 drift 1) and is fixed in the same step by passing the deck's inputs
    through the narrators' options.
-2. **`stateAt` in Cadenza,** with **conformance fixtures**: sample `.ltt.json`
+2. **`stateAt`, in the package fork B picks,** with **conformance fixtures**: sample `.ltt.json`
    files and the expected `stateAt` result at chosen times. The fixtures are
    written against the HTML player's current behavior (slide and section holds,
    breaths, silent-cue holds, lead trim), so step 3 is a refactor, not a
@@ -301,21 +306,58 @@ and in what stops being able to drift.
 
 ## 9. Forks for the owner
 
-- **A. Name and extension.** Proposed: "Lattice Timing Track", `*.ltt.json`, so
-  editors, `JSON.parse` and schema validators work with no setup. The
-  alternative is a bare `.ltt`, which reads as more of a standard and costs every
-  tool a mapping.
-- **B. Where the types and `stateAt` live.** Recommended: Cadenza (§6). The
-  alternative is a new zero-dependency `ltt` workspace package. That is cleaner
-  on paper, but it means changing two boundary gates, and the HTML player would
-  inline from two packages instead of one.
-- **C. One encoding or two.** Recommended: two (§7), canonical and packed. The
-  alternative is one packed encoding everywhere, which is smaller but harder to
-  read and to extend.
-- **D. Whether the HTML export embeds the LTT or references it.** Recommended:
-  embed the packed form inline, because the export's contract is a single
-  self-contained file with no network access. The manifest's `readAlong` then
-  points at the embedded block, and `readAlong` moves to version 2.0.
+The owner settled three of the four on 2026-09-24. Fork B is open.
+
+- **A. Name and extension — settled: `*.ltt.json`.** "Lattice Timing Track".
+  Editors, `JSON.parse` and schema validators work with no setup. A bare `.ltt`
+  was declined because every tool would need to be told it is JSON.
+- **B. Where the types, `validateLtt` and `stateAt` live — OPEN.** Three
+  options, set out in §9.1.
+- **C. One encoding or two — settled: two (§7).** A canonical form with named
+  keys for tools, and a packed form with word tuples for the HTML export.
+  Conversion is lossless both ways and covered by a round-trip test.
+- **D. Embed or reference in the HTML export — settled: embed.** The packed
+  form rides inline, because the export's contract is one self-contained file
+  with no network access. The manifest's `readAlong` points at the embedded
+  block and moves to version 2.0.
+
+### 9.1 Fork B, the three options
+
+The constraint: Cadenza, Suono and Vetrina may import nothing outside their own
+folders (§6). The HTML player cannot import at all; it copies a function's
+source into itself (`capKernel`), so `stateAt` must be one self-contained
+function. For scale, Cadenza's built bundle is 44,582 bytes (15,116 gzipped),
+most of it text normalization, segmentation and the lexicon. `makeCursor`, the
+function the player copies today, is 2,326 bytes of source.
+
+| | 1. Inside Cadenza | 2. New `ltt` package the libraries import | 3. New `ltt` package nothing imports |
+|---|---|---|---|
+| Gate changes | none | Cadenza's, Suono's and Vetrina's gates each admit one sanctioned import | none; the new package gets its own in-folder gate |
+| Copies of the core track type | one (Cadenza's) | one (the `ltt` package's) | two: Cadenza's and the `ltt` package's, pinned equal by a type test |
+| Copies of the actions type | two (Cadenza's opaque one, Vetrina's mirror) | one | two (the `ltt` package's, Vetrina's mirror), pinned by a test |
+| What a third-party player must take | all of Cadenza: the segmenter, the lexicon, the normalizer | only the format | only the format |
+| Libraries stay zero-dependency | yes | no; three of them now depend on `ltt` | yes |
+| Who owns the format | Cadenza, the caption engine | a package that is only the format | a package that is only the format |
+
+**Option 1** is the least work. Its cost is that the format and the caption
+engine become one thing: anyone implementing an LTT player takes the engine
+with it, and Cadenza starts naming concepts (audio, actions) that belong to
+other libraries.
+
+**Option 2** is the cleanest data model: one definition of every type. Its cost
+is the spin-off promise. Each library stops being zero-dependency, and three
+boundary gates change.
+
+**Option 3** separates the format from the engine without touching any existing
+gate. Its cost is a second copy of the core track type, held equal by a type
+test. That is the same pattern `pacing.test.ts` already uses to pin
+`CAPTION_WPM` to Cadenza's `PACE_WPM`.
+
+**Recommendation: option 3.** The goal in §2 is a format others can implement,
+and a player should not need a text segmenter to play a file. Option 3 is the
+only one that gives a format-only package while keeping every library
+zero-dependency. This option surfaced while writing out the first two, so it
+goes back to the owner rather than being taken silently.
 
 ## 10. What "playable anywhere" does and does not mean
 
