@@ -5,11 +5,11 @@
 // so it composes with the primitive and the fluent builder (scene() is defined as
 // storyboard(seed, this.toData()) — one interpreter, no drift).
 
-import { findCueWord, type NarratedWord, type NarrationHandle, type Narrator, SILENT_NARRATOR } from './narrate';
-import { CAPTION_FADE_MS, resolvePacing } from './pacing';
-import { holdUntil } from './recipes';
-import type { RunContext, Walkthrough } from './runner';
-import { type Gesture, isAbortError, type Target, wait } from './stage';
+import { findCueWord, type NarratedWord, type NarrationHandle, type Narrator, SILENT_NARRATOR } from './narrate.js';
+import { CAPTION_FADE_MS, resolvePacing } from './pacing.js';
+import { holdUntil } from './recipes.js';
+import type { RunContext, Walkthrough } from './runner.js';
+import { type Gesture, isAbortError, type Target, wait } from './stage.js';
 
 export interface Step<A> {
 	say?: string;

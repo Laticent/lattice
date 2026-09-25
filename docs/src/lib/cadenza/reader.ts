@@ -8,8 +8,8 @@
 // setInterval) and paints the highlight. This keeps the reader pure and testable
 // with hand-fed times, and lets the SAME driver serve audio-synced and silent modes.
 
-import { type Active, type Cursor, makeCursor } from './cursor';
-import type { CaptionTrack } from './track';
+import { type Active, type Cursor, makeCursor } from './cursor.js';
+import type { CaptionTrack } from './track.js';
 
 export interface ReaderOptions {
   track: CaptionTrack;

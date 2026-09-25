@@ -9,15 +9,15 @@
 // Fluent (thin) front door — chain the SequenceOptions setters then .build()/.play(). Pure
 // house-symmetry over stage.sequence(opts); Suono has no serializable model, so this is
 // discoverability, not new capability. See builder.ts.
-export type { SequenceBuilder } from './builder';
-export { sequence } from './builder';
-export type { BoundedCache, Inflight } from './cache';
-export { createBoundedCache, createInflight } from './cache';
-export { encodeWav, parsePcmContentType, toBlobLike, wrapPcm } from './encode';
-export { clampFadeMs } from './envelope';
-export type { SequenceStage } from './sequence';
-export { makeSequence } from './sequence';
-export { createStage } from './stage';
+export type { SequenceBuilder } from './builder.js';
+export { sequence } from './builder.js';
+export type { BoundedCache, Inflight } from './cache.js';
+export { createBoundedCache, createInflight } from './cache.js';
+export { encodeWav, parsePcmContentType, toBlobLike, wrapPcm } from './encode.js';
+export { clampFadeMs } from './envelope.js';
+export type { SequenceStage } from './sequence.js';
+export { makeSequence } from './sequence.js';
+export { createStage } from './stage.js';
 export type {
 	BlobLike,
 	Bytes,
@@ -34,4 +34,4 @@ export type {
 	StageOptions,
 	StageState,
 	WarmOptions,
-} from './types';
+} from './types.js';

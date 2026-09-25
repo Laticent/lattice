@@ -6,11 +6,11 @@
 // The one authoring/serialization boundary a consumer needs; everything else
 // (playback, highlighting, deciding WHAT to say) is the consumer's job.
 
-export type { Narration } from './builder';
+export type { Narration } from './builder.js';
 // Fluent CONFIG front door — configure once (pace/acronyms/lang/rate/lexicon), emit many
 // (toTrack/toReader/toVtt/toSrt). Pure sugar over buildTrack/makeReader/toVtt/toSrt.
-export { narration } from './builder';
-export type { Pace, PaceName } from './cadence';
+export { narration } from './builder.js';
+export type { Pace, PaceName } from './cadence.js';
 export {
   CLIP_TRAILING_FRACTION,
   clipTrailingMs,
@@ -30,8 +30,8 @@ export {
   SYLLABLE_MS,
   slideBeatMs,
   syllableCount,
-} from './cadence';
-export type { CalibrationState } from './calibrate';
+} from './cadence.js';
+export type { CalibrationState } from './calibrate.js';
 export {
   CALIBRATION_MAX_K,
   CALIBRATION_MIN_K,
@@ -42,19 +42,19 @@ export {
   observe,
   rateScale,
   serializeCalibration,
-} from './calibrate';
-export type { Active, Cursor } from './cursor';
-export { makeCursor } from './cursor';
-export { ENGINE_HASH } from './engine-hash';
-export type { LexDomain } from './lexicon';
-export { LEX_DOMAINS, lookupLexicon } from './lexicon';
-export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize';
-export type { Reader, ReaderOptions } from './reader';
-export { makeReader } from './reader';
+} from './calibrate.js';
+export type { Active, Cursor } from './cursor.js';
+export { makeCursor } from './cursor.js';
+export { ENGINE_HASH } from './engine-hash.js';
+export type { LexDomain } from './lexicon.js';
+export { LEX_DOMAINS, lookupLexicon } from './lexicon.js';
+export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize.js';
+export type { Reader, ReaderOptions } from './reader.js';
+export { makeReader } from './reader.js';
 
-export { splitParagraphs, splitSentences, splitWords } from './segment';
-export type { LexiconMap, ResolveSymbolsOptions } from './symbols';
-export { resolveSymbols, SEPARATOR_GLYPHS, SYMBOL_SPEAK } from './symbols';
-export type { BuildOptions, CaptionTrack, Cue, EmphasisSpan, Word } from './track';
-export { buildTrack, validateTrack } from './track';
-export { formatTimestamp, toSrt, toVtt } from './vtt';
+export { splitParagraphs, splitSentences, splitWords } from './segment.js';
+export type { LexiconMap, ResolveSymbolsOptions } from './symbols.js';
+export { resolveSymbols, SEPARATOR_GLYPHS, SYMBOL_SPEAK } from './symbols.js';
+export type { BuildOptions, CaptionTrack, Cue, EmphasisSpan, Word } from './track.js';
+export { buildTrack, validateTrack } from './track.js';
+export { formatTimestamp, toSrt, toVtt } from './vtt.js';

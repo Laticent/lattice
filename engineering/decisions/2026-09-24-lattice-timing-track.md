@@ -389,7 +389,9 @@ changes inside `build:check`.
 **Publishing.** Cadenza's `package.json` publishes `types: ./index.ts`, so once
 it imports `ltt`, Cadenza's npm consumers need `@laticent/ltt` too, and the two
 publish in lockstep. Cadenza's description ("Zero-dependency") changes to "no
-dependency except `@laticent/ltt`".
+dependency except `@laticent/ltt`". *(Step 2: no workflow publishes the workspace libraries yet, so "lockstep"
+is a requirement on the publish path when it is built, not something that
+happens today — `followups.d/2360-p3-publish-workspace-libraries.md`.)*
 
 ## 7. Size, measured
 

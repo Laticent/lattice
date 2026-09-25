@@ -13,7 +13,7 @@
 // later thread can CALIBRATE the coefficients per-voice against the measured TTS onsets the
 // diagnostics overlay captures — the constants below are the deterministic default.
 
-import { spokenWordCount } from './normalize';
+import { spokenWordCount } from './normalize.js';
 
 export type Pace = 'slow' | 'moderate' | 'fast';
 

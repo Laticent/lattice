@@ -3,8 +3,8 @@
 // hand-roll loop/waitFor/retry and get the abort-safety wrong (§11). Subtract primitives,
 // keep recipes.
 
-import type { RunContext } from './runner';
-import { asElement, type RectSource, type Target, wait } from './stage';
+import type { RunContext } from './runner.js';
+import { asElement, type RectSource, type Target, wait } from './stage.js';
 
 function newAbort(): Error {
 	const e = new Error('vetrina aborted');

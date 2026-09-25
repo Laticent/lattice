@@ -9,9 +9,9 @@
 // `.hold()` / `.step()`. So `.say().point().click().act().hold(900)` is ONE fused step
 // with a single settle — identical pacing to the equivalent storyboard step.
 
-import type { Walkthrough } from './runner';
-import type { Gesture, Target } from './stage';
-import { type Step, storyboard } from './storyboard';
+import type { Walkthrough } from './runner.js';
+import type { Gesture, Target } from './stage.js';
+import { type Step, storyboard } from './storyboard.js';
 
 export interface SceneBuilder<A> {
 	say(text: string): this;

@@ -11,7 +11,11 @@ inject; playback, highlighting, and *deciding what to say* are the caller's job.
 One dependency, [`@laticent/ltt`](../ltt/) — the timing-track format, which defines the
 `Word` / `Cue` / `CaptionTrack` types Cadenza produces (re-exported here) — and otherwise
 framework-free, with `node:`-and-relative imports only (an import-boundary gate enforces
-both) — designed to spin off as its own library, published in lockstep with `@laticent/ltt`. The
+both) — designed to spin off as its own library. **Not yet on npm:** no workflow publishes the
+workspace libraries today. When one does, Cadenza and `@laticent/ltt` must publish together,
+because Cadenza's published types import `ltt`'s
+(`followups.d/2360-p3-publish-workspace-libraries.md`). Each library's packed types are checked
+in a `nodenext` consumer by `test/unit/tools/package-nodenext-types.test.js`. The
 full design contract is
 [`engineering/decisions/2026-07-07-cadenza-caption-timeline.md`](../../../../engineering/decisions/2026-07-07-cadenza-caption-timeline.md).
 

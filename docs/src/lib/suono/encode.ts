@@ -3,7 +3,7 @@
 // correctness. Lifted from voice-model.js's `wavBlob` / `pcmBlobFromResponse` — the two byte
 // layouts a caller feeds Suono (Kokoro returns Float32 PCM; some cloud TTS returns raw PCM).
 
-import type { BlobLike } from './types';
+import type { BlobLike } from './types.js';
 
 /**
  * Wrap an ArrayBuffer as a `BlobLike`. `arrayBuffer()` returns a FRESH COPY (`.slice(0)`) every

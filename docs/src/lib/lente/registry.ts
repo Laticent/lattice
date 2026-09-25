@@ -5,7 +5,7 @@
 // generic front-matter reader on unrelated edits, which is lossless only for this canonical shape —
 // so Lente emits only the canonical shape and never a form the generic reader would mangle.
 
-import { FULL_LENS_ID, type LensBase, type LensDef, type LensKind, type LensRegistry, type WorkspaceLensConfig } from './types';
+import { FULL_LENS_ID, type LensBase, type LensDef, type LensKind, type LensRegistry, type WorkspaceLensConfig } from './types.js';
 
 // Capture greedily and trim in code — a `\s*(.+?)\s*$` shape backtracks polynomially on trailing
 // whitespace (CodeQL js/polynomial-redos); a single greedy group does not.

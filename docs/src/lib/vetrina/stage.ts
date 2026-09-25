@@ -16,8 +16,8 @@
 // those tokens in CSS (light/dark rides its own cascade — the layer inherits from :root)
 // or via the JS `Theme` convenience (theme.ts writes the tokens onto the layer).
 
-import { CAPTION_FADE_MS, type Pacing, resolvePacing } from './pacing';
-import type { ResolvedTheme } from './theme';
+import { CAPTION_FADE_MS, type Pacing, resolvePacing } from './pacing.js';
+import type { ResolvedTheme } from './theme.js';
 
 /** A live source of a rectangle in VIEWPORT coordinates — everything the stage needs to
  *  aim at something. Every `HTMLElement` already satisfies it structurally, so this is a

@@ -4,9 +4,9 @@
 // which re-expresses a lens's membership when its base flips so a bare toggle can't turn written tokens
 // into dead config (design doc §9.1).
 
-import { ladderRungs, lensEligibility, lensEscapees } from './project';
-import { allDirectiveBodies, applyTag, parseSlideTags } from './tags';
-import { type Diagnostic, FULL_LENS_ID, type LensBase, type LensRegistry } from './types';
+import { ladderRungs, lensEligibility, lensEscapees } from './project.js';
+import { allDirectiveBodies, applyTag, parseSlideTags } from './tags.js';
+import { type Diagnostic, FULL_LENS_ID, type LensBase, type LensRegistry } from './types.js';
 
 /** Every `_lens` token (include or `-`exclude) in the deck that names NO registered lens — a typo like
  *  `_lens: brif`, surfaced as an error instead of silently granting membership to a phantom lens

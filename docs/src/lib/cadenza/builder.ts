@@ -11,13 +11,13 @@
 // a decider of what to say": the narration text is the authoring surface. See the design ADR:
 // engineering/decisions/2026-07-07-cadenza-caption-timeline.md
 
-import type { Pace } from './cadence';
-import { type CalibrationState, rateScale as rateScaleFor } from './calibrate';
-import type { AcronymRegistry } from './normalize';
-import { makeReader, type Reader, type ReaderOptions } from './reader';
-import type { LexiconMap } from './symbols';
-import { type BuildOptions, buildTrack, type CaptionTrack, type EmphasisSpan } from './track';
-import { toSrt, toVtt } from './vtt';
+import type { Pace } from './cadence.js';
+import { type CalibrationState, rateScale as rateScaleFor } from './calibrate.js';
+import type { AcronymRegistry } from './normalize.js';
+import { makeReader, type Reader, type ReaderOptions } from './reader.js';
+import type { LexiconMap } from './symbols.js';
+import { type BuildOptions, buildTrack, type CaptionTrack, type EmphasisSpan } from './track.js';
+import { toSrt, toVtt } from './vtt.js';
 
 // ── Compile-time PARITY GATE (no runtime footprint) ───────────────────────────────────────────
 // Every BuildOptions field must be reachable through a config verb. This map binds each verb to the
