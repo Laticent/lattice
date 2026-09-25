@@ -1092,6 +1092,31 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 
 ---
 
+<!-- _class: stats -->
+
+`Credits`
+
+## Created, produced and directed by Sharmarke Aden.
+
+`Script drafted with Claude Opus 5.5, by Anthropic`
+
+1. 65%
+   - of the ideas came from Sharmarke
+2. 1,514
+   - words Sharmarke typed
+3. 8,779
+   - words Claude drafted
+4. 3
+   - full drafts sent back
+5. $79
+   - of model usage
+
+<!--
+One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About two thirds of the ideas came from me: thirty-five of the fifty-four slides, either raised while we built it or pulled from the system I'd already built. I typed about fifteen hundred words to direct it. Claude drafted nearly nine thousand, every slide and every speaker note. I sent back three whole drafts before this one, and the whole thing cost about eighty dollars of model time. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now. The numbers come from the session record as of September twenty-fifth.
+-->
+
+---
+
 <!-- _class: closing -->
 <!-- _paginate: false -->
 <!-- _header: '' -->
