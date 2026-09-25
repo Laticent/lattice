@@ -1201,41 +1201,35 @@ two compositions — equal-share bands (`li { flex: 1 1 0; min-height: 0 }`) at 
 shapes under default/top/center/stretch and all four columns were identical.
 
 **The mechanism.** A list is a single column, so `list` lays its rows out as a one-column
-GRID and reads `align-content: var(--cards-align)`, the same declaration the row forms use.
-In a grid, `align-content` places the rows on the block axis: `center`, `top` (`flex-start`),
-`spread` (`space-evenly`) and `stretch`, which shares the spare height equally across the
-`auto` rows. Nothing in the engine changed; the manifest field and the declaration are the
-whole opt-in (§11).
+GRID and reads `align-content: var(--cards-align)`, the same declaration the row forms use:
+`center`, `top` (`flex-start`) and `spread` (`space-evenly`) place the rows directly.
 
-**Why not a flex column.** A flex column puts the placement on its main axis, so it would
-read `justify-content`, and flex treats `justify-content: stretch` as `flex-start`. An
-intermediate cut added a second engine token (`--cards-grow`, the rows' `flex-grow`) to get
-around that. Once the rows stopped shrinking (next paragraph), the grid did the same job in one
-declaration with no engine change, so the flex column and the extra token went.
+**Each row has a floor and a ceiling: `minmax(min-content, var(--list-row-max))`.**
+- The FLOOR is the row's own content plus `--list-pad` (`--sp-xs` in a pill; nothing in a ruled
+  row, where the line height's half-leading already keeps the glyphs off the rule). Text can
+  never leave its row.
+- The CEILING is a ONE-LINE row with its register's full `--list-air` on each side. When there
+  is room the rows sit at that comfortable height, and when the stage is full the grid shares
+  out what is left, so the air compresses and the text does not. A row that wraps is taller than
+  the ceiling and simply keeps its floor.
+- `min-content`, not `auto`, names the floor, because a grid CLAMPS an item's automatic minimum
+  to a fixed maximum: with `auto`, a wrapped row was capped at the one-line ceiling and spilled.
+- A capped track is not an `auto` track, so `align-content: stretch` does not grow it.
+  `--cards-grow` (1 under `stretch`, else 0) is set by the same eight `[data-cards]` rules in
+  `base.tokens.css` and lifts the ceiling, so `stretch` fills the stage.
 
-**Rows never shrink below their content, and the air comes down by COUNT.** An intermediate
-cut let rows shrink (`flex-shrink` with a content basis, `min-height: 0`) on the theory that
-a proportional shrink comes out of each row's padding. An independent checker disproved it:
-proportional shrink takes the most from the TALLEST row, so on six pills with three wraps
-the wrapped rows still spilled 5px past their border, and because the list never overflowed,
-no overflow check saw it. So rows are plain `auto` grid rows, which never shrink below their
-content: text can never leave its row, and a list that needs more than the stage
-overflows where the probe reports it. What keeps a list at capacity inside the stage is a set
-of dense tiers keyed on the row count (`:has(> li:nth-child(N))`), measured at wide on a
-438px stage:
-
-| Shape | Tier | Row | Spare height |
-|---|---|---|---:|
-| 5 pills | `--sp-xs` padding | 60px | 74px |
-| 6 pills | + `--sp-xs` gap | 60px | 38px |
-| 5 takeaway rows | `--sp-sm` padding | 75px | 64px |
-| 6 takeaway rows | `--sp-xs` padding | 59px | 85px |
-| 6 principles | `--sp-2xs` padding | 65px | 49px |
-| 4 gloss rows | `--sp-xs` padding | 95px | 59px |
-| 5 gloss rows | `--sp-2xs` padding | 87px | 4px |
-
-Every shape in the table measures 0px of text outside its row (live DOM, every line box
-against its row's border box).
+**Three designs this replaced or ruled out, and why.**
+- *Proportional shrink* (`flex: … 1 auto`, `min-height: 0`): an independent checker found it
+  takes the most from the TALLEST row, so six pills with three wraps still spilled 5px, and the
+  list never overflowed, so no probe saw it.
+- *No shrink at all, with dense tiers by row count* (`:has(> li:nth-child(N))`): text was safe,
+  but the air could not compress, and a render of every committed deck with a list slide found
+  8 slides in 6 decks overflowing that fit on `main` (gloss lists with long leads, five wrapped
+  takeaways under a two-line title). The floor-and-ceiling rows fit all 49 decks, and those 8
+  slides among them.
+- `calc-size()` would express "content plus air" directly and was tested (it works on `height`,
+  not on `flex-basis`, in Chromium 131), but Safari and Firefox do not ship it, so the Playground
+  and the desktop app would render differently from the export.
 
 **The row rule is not the heading rule.** Once the rows sat at content height, the
 `takeaway` and `principles` row rules (`1px solid --border`, full width) stacked directly under
@@ -1257,8 +1251,9 @@ there before, and `withCoda: stretch`, like every other governed component.
 
 **Verified on** the real CLI export (`lattice-emulator.js` → PDF → raster), indaco light, at
 1280×720: every list shape under default/top/center/stretch, every register at five and six
-rows, three to five gloss rows, five rows with two wraps, and six rows with two wraps (4px
-into the stage's padding, under the overflow tolerance, no spill). Four 20-word principles
-with two wraps fit with 3px to spare. **Not verified:** the square/tall/strip frames beyond
-the gallery goldens, and the Playground's runtime path (which stamps `data-cards` through the
-same kernel, per §11c-bis).
+rows, three to five gloss rows, and five rows with two wraps. Every one fits, with 0px of text
+outside its row (live DOM, each line box against its row's border box); six rows with two
+20-word wraps overflow by 44px and the export reports it. All 49 committed decks with a list
+slide render with no overflow. **Not verified:** the square/tall/strip frames beyond the
+gallery goldens, and the Playground's runtime path (which stamps `data-cards` through the same
+kernel, per §11c-bis).

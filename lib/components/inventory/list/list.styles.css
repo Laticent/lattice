@@ -31,36 +31,53 @@ section.list {
   --list-ord-fs: calc(var(--list-row-fs) * 1.4);
   --list-ord-w: calc(var(--list-ord-fs) * 1.25);
 }
-section.list.principles { --list-row-fs: var(--fs-emphasis); }
+section.list.principles { --list-row-fs: var(--fs-emphasis); --list-lh: var(--lh-tight); }
 section.list.principles.roman { --list-ord-w: calc(var(--list-ord-fs) * 2.5); }
 
 /* ── Spine: a one-column grid that reads the `cards:` register. ──
  * `align-content: var(--cards-align)` places the rows: `center` (the manifest default at
- * wide) and `top` keep each row at its content height, `spread` (square/tall/strip) shares
- * the spare height out between them, and `stretch` shares it out to the rows.
- * `auto` rows never shrink below their content. The old `flex: 1 1 0; min-height: 0` gave
- * every row the same share whatever it held, so a row that wrapped to two lines spilled out
- * of its pill, and because the list itself never overflowed, no overflow check saw it. A list
- * that needs more than the stage now OVERFLOWS, which the overflow probe reports, and the
- * dense tiers below keep a full list at capacity inside the stage. */
+ * wide) and `top` pack them, `spread` (square/tall/strip) shares the spare height out between
+ * them, and `stretch` hands it to the rows.
+ *
+ * Each row is `minmax(min-content, var(--list-row-max))`. `min-content`, not `auto`: a grid
+ * clamps an item's AUTOMATIC minimum to a fixed maximum, which capped a wrapped row at the
+ * one-line ceiling and spilled its text. The FLOOR is the row's own content with
+ * `--list-pad` of air, so text can never leave its row. The CEILING is a one-line row with its
+ * register's full `--list-air`: rows sit at that comfortable height when there is room, and on
+ * a full stage the grid shares out what is left, so the air compresses and the text does not.
+ * A row that wraps is taller than the ceiling and keeps the floor's air. `stretch` lifts the
+ * ceiling (`--cards-grow`, base.tokens.css § THE COLUMN FORM).
+ * The old `flex: 1 1 0; min-height: 0` gave every row the same share whatever it held, so a
+ * row that wrapped spilled out of its pill, and no overflow check saw it. */
+section.list {
+  --list-pad: var(--sp-xs);
+  --list-air: var(--sp-sm);
+  --list-lh: var(--lh-snug);
+  --list-edge: 0px;
+}
 section.list > .cell-stage > :is(ul,ol) {
   list-style:none; padding:0; margin:0;
+  --list-line: max(calc(var(--list-row-fs) * var(--list-lh)), var(--list-ord-fs));
+  --list-row-max: calc(var(--list-line) + 2 * var(--list-air) + var(--list-edge)
+    + var(--cards-grow, 0) * 10000px);
   display:grid; grid-template-columns:minmax(0, 1fr);
+  grid-auto-rows:minmax(min-content, var(--list-row-max));
   align-content:var(--cards-align);
   flex:1; min-height:0; gap:var(--sp-sm);
 }
 section.list > .cell-stage > :is(ul,ol) > li {
   display:flex; align-items:center; min-width:0;
   font-size:var(--list-row-fs);
-  color:var(--text-body); line-height:var(--lh-snug);
+  color:var(--text-body); line-height:var(--list-lh);
 }
 
 /* ── Default register: accent-edged pills. ── */
+section.list:not(.takeaway, .principles) { --list-edge: 2px; }  /* the pill's top and bottom border */
 section.list > .cell-stage > ul > li {
   background:var(--bg-alt);
   border:1px solid var(--border); border-left:3px solid var(--accent);
   border-radius:var(--radius-md);
-  padding:var(--sp-sm) var(--sp-md);
+  padding:var(--list-pad) var(--sp-md);
 }
 /* Optional second-line detail under a point. */
 section.list > .cell-stage > ul > li > ul { list-style:none; margin:0; padding:0; }
@@ -75,7 +92,7 @@ section.list > .cell-stage > ol { counter-reset:list-counter var(--lat-split-off
 section.list > .cell-stage > ol > li {
   counter-increment:list-counter;
   background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-md); padding:var(--list-pad) var(--sp-md);
   gap:var(--sp-md);
 }
 /* Every counter, in every register, is this box. */
@@ -91,12 +108,16 @@ section.list > .cell-stage > ol > li::before { content:counter(list-counter, dec
 /* ── takeaway register — former `tldr` component (inventory.list.takeaway) ──
  * Hairline-ruled single lines, no pill chrome. `numbered` adds the accent counter on
  * the same centreline. Merged 2026-06-07. */
+/* A ruled row has no box around its air, so the air IS the rhythm between hairlines. */
+section.list.takeaway { --list-air: var(--sp-md); }
+/* A ruled row's floor is no padding at all: the line height's own half-leading (a quarter
+   of the font size at `--lh-snug`) keeps the glyphs off the rule, and a list at capacity
+   needs every pixel of it. */
+section.list:is(.takeaway, .principles) { --list-pad: 0px; }
 section.list.takeaway > .cell-stage > :is(ul,ol) { gap:0; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li {
   background:none; border:none; border-radius:0;
-  /* A ruled row has no box to hold its air, so the block padding IS the rhythm between
-     hairlines once the rows are content height (`cards: center`/`top`). */
-  padding:var(--sp-md) var(--sp-xs);
+  padding:var(--list-pad) var(--sp-xs);
   font-weight:500; color:var(--text-heading);
 }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::before { content:none; }
@@ -115,6 +136,11 @@ section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
  * in the same list sets its lead at the same size and x as one with a gloss.
  * `display:block` + `align-content:center`, NOT a column flex: a flex container makes
  * every inline element its own item, so `Lead **bold** part` broke onto three lines. */
+/* A lead over a gloss is two lines: the ceiling is sized for the pair. */
+section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) {
+  --list-air: var(--sp-sm);
+  --list-line: calc(var(--list-row-fs) * var(--lh-snug) + var(--sp-2xs) + var(--fs-body) * var(--lh-snug));
+}
 section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li {
   display:block; align-content:center;
   font-weight:700; line-height:var(--lh-snug);
@@ -147,10 +173,10 @@ section.list.principles > .cell-stage > ol { counter-reset:list-principle-counte
 section.list.principles > .cell-stage > ol > li {
   counter-increment:list-principle-counter;
   background:none; border:none; border-radius:0;
-  padding:var(--sp-sm) 0;
+  padding:var(--list-pad) 0;
   font-family:var(--font-display, var(--font-body));
   font-weight:500; letter-spacing:-0.01em;
-  line-height:var(--lh-tight); color:var(--text-heading);
+  color:var(--text-heading);
 }
 section.list.principles > .cell-stage > ol > li::before { content:counter(list-principle-counter, decimal-leading-zero); }
 section.list.principles.lettered > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-alpha); }
@@ -182,22 +208,6 @@ section.list:is(.takeaway, .principles) > .cell-stage > :is(ul,ol) > li:not(:las
   background:linear-gradient(var(--list-rule), var(--list-rule))
     right bottom / calc(100% - var(--list-rule-inset)) 1px no-repeat;
 }
-
-/* ── Dense tiers — a list at its capacity still fits the stage. ──
- * Rows never shrink below their content (see the spine), so the air inside them has to come
- * down by COUNT instead. Measured at wide (a 438px stage): six one-line pills need 440px at
- * `--sp-sm` padding and gap, a principle row is as tall as its 1.4x counter, and a lead over
- * a gloss is two lines. Five rows take `--sp-xs` of block padding (`--sp-sm` on a ruled
- * takeaway, which has no pill gap to pay for); six also close the pill gap and the principle
- * padding a step further. Anything past that is too much content for
- * one slide, and it overflows where the probe can see it. */
-section.list > .cell-stage > :is(ul,ol):has(> li:nth-child(5)) > li { padding-block:var(--sp-xs); }
-section.list.takeaway > .cell-stage > :is(ul,ol):has(> li:nth-child(5)):not(:has(> li:nth-child(6)), :has(> li > :is(ul,ol))) > li { padding-block:var(--sp-sm); }
-section.list:not(.takeaway, .principles) > .cell-stage > :is(ul,ol):has(> li:nth-child(6)) { gap:var(--sp-xs); }
-section.list.principles > .cell-stage > ol:has(> li:nth-child(6)) > li { padding-block:var(--sp-2xs); }
-/* A lead over a gloss is two lines, so its list goes dense one row sooner. */
-section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)):has(> li:nth-child(4)) > li { padding-block:var(--sp-xs); }
-section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)):has(> li:nth-child(5)) > li { padding-block:var(--sp-2xs); }
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

@@ -85,13 +85,12 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 ---
 
 <!-- _class: list -->
-<!-- _footer: "Six rows, two wrapping · a full stage shrinks every row in proportion" -->
+<!-- _footer: "Five rows, one wrapping · the wrapped row keeps its text inside, the others give up air" -->
 
 ## A wrapped row stays inside its pill on a full slide.
 
 1. A long line may spend twenty words, and this one spends them to show where the wrap lands.
-2. Short lines give some height back.
-3. The third line is where a reading audience starts skimming instead of reading.
-4. Vary sentence length.
-5. Numbers and names hold attention better.
-6. Six is the most a wide list carries.
+2. Short lines give some air back.
+3. The rows share what the stage has left.
+4. No row ever shrinks below its text.
+5. Five is a comfortable wide list.
