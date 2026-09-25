@@ -27,13 +27,18 @@ Thanks for coming. For the next hour we'll talk about working habits for coding 
 
 `The art of the possible`
 
-## Agents can now carry a ticket all the way to a reviewed pull request.
+## Agents can now take a ticket all the way to review.
 
-1. Plans the change and writes the tests.
-2. Opens the pull request.
-3. Fixes the build until it passes.
-4. Writes a short note on how sure it is, and why.
-5. Waits for a person to approve, then leaves notes for the next session.
+1. Plan
+   - Reads the ticket and plans the change.
+2. Build
+   - Writes code and tests, opens a pull request.
+3. Fix
+   - Fixes whatever breaks the build.
+4. Report
+   - Notes how sure it is, and why.
+5. Hand off
+   - Waits for approval, leaves notes.
 
 > The bottleneck has moved from writing the code to trusting the result.
 
@@ -612,13 +617,18 @@ Orchestration just means coordinating several agents. Instead of one general ass
 
 `Orchestration · Competing designs`
 
-## For a big design question, compare drafts and review only the winner.
+## Compare several drafts, then review only the winner.
 
-1. Three to five agents each draft a design in one continuous session.
-2. A separate critic reviews each design once.
-3. One fact checker checks the claims in all of them.
-4. Judges compare them side by side, and a person picks.
-5. Only the chosen design gets the full three-reviewer check.
+1. Draft
+   - Three to five agents each draft a design.
+2. Critique
+   - One critic reviews each design once.
+3. Fact-check
+   - One checker verifies every draft's claims.
+4. Pick
+   - Judges compare; a person picks.
+5. Review
+   - Only the winner gets three reviewers.
 
 > Spend the expensive review on the design you will actually ship.
 
