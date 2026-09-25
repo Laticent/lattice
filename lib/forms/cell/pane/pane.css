@@ -11,8 +11,18 @@
  * every Cell (design/forms.md §6), and is its own size container so a
  * component's bare container units resolve against the pane. Type does not
  * shrink: the --fs-* tokens are pinned to slide px through --_sec-1cqi. */
+/* THE GUTTER. Proportional — the --sp-* steps scale with the slide — and wide enough that
+ * the spine never hugs a pane with a hard edge (a card row, a table): 32px either side of
+ * it at 1280, where the first cut left 16. `--sp-2xl` is the step compare-prose and kpi
+ * already use between side-by-side panels. A stacked pair spends HEIGHT, which a 16:9
+ * slide has least of, so it takes the next step down: 24px either side. A component with
+ * no hard edge (a chart's own whitespace, a centered number) sits further off; the gutter
+ * is the minimum, never the whole of the space. */
 section.lat-pane-host {
-  --pane-gap: var(--sp-lg);
+  --pane-gap: var(--sp-2xl);
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"] {
+  --pane-gap: var(--sp-xl);
 }
 section.lat-pane-host > .cell-stage > .lat-panes {
   flex: 1 1 auto;

@@ -62,7 +62,12 @@ cell. It is not the recursion that note rejected.
 **A spine marks the seam.** Between the panes the engine draws the chart family's diagram|key
 rule (`buildSpine` in `lib/components/chart/_chart-family/svg-legend.js`) in CSS: an accent fade,
 transparent at both ends, horizontal when the panes stack. It is placed from the ratio, never from
-the content, so it cannot move. It is on by default because it is the family's existing answer to
+the content, so it cannot move. **The gutter is proportional and sized so the spine never hugs a pane.** `--sp-2xl` side by side
+(64px at 1280: 32 either side of the spine, where the first cut's `--sp-lg` left 16 and the spine
+read as stuck to whichever pane had a hard edge) — the step compare-prose and kpi already use
+between side-by-side panels. A stacked pair spends height, which a 16:9 slide has least of, so it
+takes `--sp-xl` (48px, 24 either side). A component with no hard edge (a chart's own whitespace, a
+centered number) sits further off; the gutter is the minimum. It is on by default because it is the family's existing answer to
 "two things share this box"; `no-rule` drops it where a pane's own edge already separates the two
 (a photo).
 

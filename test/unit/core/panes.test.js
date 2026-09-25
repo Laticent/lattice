@@ -208,3 +208,12 @@ test('the spine between panes is on by default and `no-rule` turns it off', () =
   assert.match(off, /<div class="lat-panes" data-panes="side" data-rule="none" style=/);
   assert.equal(count(off, /<lat-pane /g), 2);
 });
+
+test('the gutter is proportional and never lets the spine hug a pane', () => {
+  // Measured on the demo at 1280: 64px side by side (32 either side of the spine, where the
+  // first cut left 16), 48px stacked. Both are --sp-* steps, so they scale with the slide.
+  const css = fs.readFileSync(path.join(ROOT, 'lib/forms/cell/pane/pane.css'), 'utf8');
+  assert.match(css, /section\.lat-pane-host \{\s*--pane-gap: var\(--sp-2xl\);/);
+  assert.match(css, /\[data-panes="stack"\] \{\s*--pane-gap: var\(--sp-xl\);/);
+  assert.match(css, /gap: var\(--pane-gap\);/);
+});
