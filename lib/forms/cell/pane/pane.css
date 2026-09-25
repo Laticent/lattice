@@ -1,0 +1,66 @@
+/* Pane cell — two components' body content on ONE slide (lib/core/panes.js).
+ *
+ * The host slide keeps its one masthead, coda and footer. Its stage holds one
+ * `.lat-panes` row (or column, `stack`), and each `<lat-pane>` is a Cell that
+ * hosts one component's body. Component CSS reaches it because the build widens
+ * every component rule's root from `section` to `:is(section,lat-pane)`.
+ *
+ * Geometry comes from the AUTHORED ratio (--pane-a / --pane-b, 25–75 in 5%
+ * steps), never from content: `flex-basis: 0` + a grow factor per pane, so a
+ * longer table can't push the list over. Each pane clips at its own edge, like
+ * every Cell (design/forms.md §6), and is its own size container so a
+ * component's bare container units resolve against the pane. Type does not
+ * shrink: the --fs-* tokens are pinned to slide px through --_sec-1cqi. */
+section.panes {
+  --pane-gap: var(--sp-lg);
+}
+section.panes > .cell-stage > .lat-panes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: var(--pane-gap);
+}
+section.panes > .cell-stage > .lat-panes[data-panes="stack"] {
+  flex-direction: column;
+}
+.lat-panes > lat-pane {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: clip;
+  container-type: size;
+}
+.lat-panes > lat-pane:first-child {
+  flex-grow: var(--pane-a, 50);
+}
+.lat-panes > lat-pane:last-child {
+  flex-grow: var(--pane-b, 50);
+}
+/* The pane's own stage — the same flex column the slide's stage is
+ * (lib/forms/cell/stage/stage.css), so a component's `> .cell-stage` rules
+ * land on the box they were written for. */
+lat-pane > .cell-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+}
+/* An image pane: the picture fills its Cell, cropped to cover. `image` is a
+ * whole-slide frame, so its pane form is this rule, not the image component. */
+lat-pane[data-pane="image"] > .cell-stage > p {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+lat-pane[data-pane="image"] > .cell-stage > p > img {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}

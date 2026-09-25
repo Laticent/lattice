@@ -49,6 +49,41 @@ On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a r
 
 See `engineering/decisions/2026-09-02-frame-model-for-motion.md` (the current state of record; it carries forward §0.75 of the superseded `2026-07-19-anima-svg-first-cut-zdog.md`).
 
+## Two components on one slide — panes
+
+**Proof of concept.** Put two components' body content on one slide, side by side or stacked.
+The slide keeps its one eyebrow, title, subtitle, Key Insight, below-note, header, footer and page
+number; only the body splits. Mark where each component's body begins:
+
+```markdown
+## Services outgrew licenses for the first time.
+
+<!-- panes: 55/45 -->
+<!-- pane: bar -->
+
+- Licenses `42`
+- Services `47`
+
+<!-- pane: list -->
+
+- Services crossed licenses in March
+- Fold training into services
+
+> The mix shift is structural, not seasonal.
+```
+
+- `<!-- pane: <component> -->` starts a pane; two per slide. Write each pane's body exactly as that
+  component's own slide body, minus the heading.
+- `<!-- panes: 40/60 -->` sets the split, 25–75 in 5% steps (default 50/50);
+  `<!-- panes: stack 35/65 -->` stacks the panes top to bottom.
+- The trailing `> quote` and `— note` belong to the slide, never to the second pane.
+- 43 of the 70 components fit a half; 17 need a 65–75% share or a stacked band (`table`, `gantt`,
+  `roadmap`, `cards-grid`, …); the 10 whole-slide frames (`title`, `divider`, `split-panel`, …) do
+  not go in a pane. `image` has a pane form: the picture covers its pane.
+
+Demo: `examples/panes.md`. Design, audit and the open gaps (chart label size in narrow panes, short
+stacked bands): `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
+
 ## Auto-detected authoring patterns
 
 These work on any slide without a class modifier. Write the markdown,

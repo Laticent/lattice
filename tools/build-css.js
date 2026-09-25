@@ -41,6 +41,7 @@
  * See design/design-system.md §10.
  */
 
+const { widenSectionRoots } = require('./lib/pane-selectors');
 const fs = require('node:fs');
 const path = require('node:path');
 const { minifyCss } = require('./minify-css');
@@ -543,7 +544,9 @@ function bundle() {
   // order — that's why modifiers come after.
   for (const { rel, text } of componentStyles()) {
     parts.push(`/* === ${rel} === */`);
-    parts.push(text);
+    // Widen each rule's `section` root to `:is(section,lat-pane)` so the same rule
+    // styles a component's body in a pane (tools/lib/pane-selectors.js).
+    parts.push(widenSectionRoots(text));
   }
   // Cross-cutting modifiers. AFTER components so equal-specificity
   // collisions resolve to modifier defaults. Component variants that
@@ -562,12 +565,12 @@ function bundle() {
   const chartFamily = readIfExists(CHART_FAMILY_SOURCE);
   if (chartFamily) {
     parts.push(`/* === ${CHART_FAMILY_SOURCE} === */`);
-    parts.push(chartFamily);
+    parts.push(widenSectionRoots(chartFamily));
   }
   const qrGeneral = readIfExists(QR_GENERAL_SOURCE);
   if (qrGeneral) {
     parts.push(`/* === ${QR_GENERAL_SOURCE} === */`);
-    parts.push(qrGeneral);
+    parts.push(widenSectionRoots(qrGeneral));
   }
   const treatments = readIfExists(TREATMENTS_SOURCE);
   if (treatments) {
