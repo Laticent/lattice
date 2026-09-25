@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: Vetrina gets delivery presets (restrained, expressive, somber) that decide how MUCH a narrated deck gestures, a salience budget that decides WHICH moments on a slide earn a gesture, a second gesture family that changes the content itself (recolor a bullet, swap its marker, spotlight a table row, column or cell, emphasize a chart series or bar), word-by-word read-along on the slide text driven by the LTT, and a path into the exported HTML player so a deck sent to a board member or a prospect plays the same way it does in the Studio. Nearly all the addressing already exists (`_focus` axes, chart data attributes, the Guide resolver); the work is a shared kernel, a small gesture extension, one front-matter register and the player wiring. Five forks for the owner in §9.
+status: in-progress
+summary: Vetrina gets delivery presets (restrained, expressive, somber) that decide how MUCH a narrated deck gestures, a salience budget that decides WHICH moments on a slide earn a gesture, a second gesture family that changes the content itself (recolor a bullet, swap its marker, spotlight a table row, column or cell, emphasize a chart series or bar), word-by-word read-along on the slide text driven by the LTT, and a path into the exported HTML player so a deck sent to a board member or a prospect plays the same way it does in the Studio. Nearly all the addressing already exists (`_focus` axes, chart data attributes, the Guide resolver); the work is a shared kernel, a small gesture extension, one front-matter register and the player wiring. The owner settled the five forks on 2026-09-25: three tone presets, model suggestions at authoring time on the user's key, the player embeds the kernel opt-in, decks reuse the LTT actions layer, and foundations (steps 1–4) ship first.
 companion:
   - ./2026-07-05-vetrina-walkthrough-library.md
   - ./2026-08-05-guide-gesture-vocabulary.md
@@ -10,8 +10,10 @@ companion:
 
 # Vetrina delivery presets, content gestures and read-along
 
-> **Proposed.** Nothing here is built. §9 lists the five decisions that are the
-> owner's; §8 is the order of work once they are made.
+> **Proposed; forks settled.** Nothing here is built yet. The owner settled the
+> forks on 2026-09-25 (§9): three tone presets, model suggestions at authoring
+> time, the player embeds the kernel opt-in, decks reuse the LTT `actions`
+> layer, and the first slice is steps 1–4 of §8.
 
 ## 1. The ask, and what it means in this repo
 
@@ -266,6 +268,10 @@ RULE #17) unless it needs the one before it.
 Steps 1–4 are unconditional. 5–10 wait on the forks.
 
 ## 9. Forks for the owner
+
+**Rulings (owner, 2026-09-25):** 1(a), 2(b), 3(a) together with 4(a), and 5(a).
+Fork 4 was asked together with Fork 3 as one question; the answer is also the
+spec owner's G4 sign-off for writing `actions` from the deck producer.
 
 1. **Preset shape.** (a) Three tone presets, venues documented as pairings
    (recommended: one knob, and each venue is a line in the docs); (b) tone ×
