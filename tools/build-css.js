@@ -619,7 +619,11 @@ function bundle() {
   // Stamp the Marp `@size` directives LAST, so `bundle()` remains the single
   // definition of dist/lattice.css — including the directives the Marp-facing
   // artifact must carry (stampSizeDirectives).
-  return stampSizeDirectives(distributeLeadingIs(parts.join('\n')));
+  // The base defaults a pane's body needs (table rules, list rhythm, sketch mode…) live
+  // OUTSIDE the component sheets, as `section … > .cell-stage > …` rules. Widen just those —
+  // a rule that styles STAGE content — so a pane's own stage gets them too; slide-level
+  // rules (padding, backdrop, pagination) never reach a pane (tools/lib/pane-selectors.js).
+  return stampSizeDirectives(distributeLeadingIs(widenSectionRoots(parts.join('\n'), { stageOnly: true })));
 }
 
 function main(argv) {

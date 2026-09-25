@@ -64,10 +64,12 @@ const STRIP_PSEUDO =
 // this a document with no panes kept ~680 pane arms and the Playground snapshot outgrew
 // MAX_UNITS (315K units measured; stored nothing). When the frame holds no `lat-pane`,
 // those arms provably match nothing, so they are dropped exactly, not conservatively.
-const PANE_ARM = /(^|[\s>+~(,])lat-pane\b/;
+// `:is(section,lat-pane)` is the widened form that ALSO matches a slide, so it is not a pane
+// arm; only a `lat-pane` outside that pair is.
+const isPaneArm = (sel) => /\blat-pane\b/.test(sel.replace(/:is\(\s*section\s*,\s*lat-pane\s*\)/g, 'section'));
 
 function selectorMatches(doc, selectorText) {
-	if (PANE_ARM.test(selectorText) && !doc.querySelector('lat-pane')) return false;
+	if (isPaneArm(selectorText) && !doc.querySelector('lat-pane')) return false;
 	const probe = selectorText.replace(STRIP_PSEUDO, '').replace(/\s+/g, ' ').trim();
 	if (!probe || probe === '*') return true;
 	try {
@@ -133,8 +135,8 @@ function collectRules(rules, doc, out, scope) {
 			if (scope) out.push(`${parts.map((s) => scopeSelector(s, scope)).join(',')}{${rule.style.cssText}}`);
 			// Unscoped (the Studio) keeps the rule whole, as it always has — minus pane arms
 			// that cannot match here, so a widened rule costs the snapshot nothing.
-			else if (doc.querySelector('lat-pane') || !all.some((s) => PANE_ARM.test(s))) out.push(rule.cssText);
-			else out.push(`${all.filter((s) => !PANE_ARM.test(s)).join(',')}{${rule.style.cssText}}`);
+			else if (doc.querySelector('lat-pane') || !all.some(isPaneArm)) out.push(rule.cssText);
+			else out.push(`${all.filter((s) => !isPaneArm(s)).join(',')}{${rule.style.cssText}}`);
 		} else if (rule.type === 5 || rule.type === 7 || (rule.constructor && rule.constructor.name === 'CSSPropertyRule')) {
 			// @font-face (5) · @keyframes (7) · @property — position-independent, keep whole
 			out.push(rule.cssText);

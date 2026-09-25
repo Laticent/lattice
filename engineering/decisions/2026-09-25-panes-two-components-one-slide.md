@@ -126,6 +126,16 @@ The rewrite is positional (`css-tree` offsets), so comments and formatting survi
 only a selector whose FIRST compound starts with `section` — or an arm of a leading
 `:is(section.x, figure.x)`, the dual-surface chart head. `section` anywhere else is left alone.
 
+**The base sheets get a narrower version of the same pass.** A pane's body also needs the defaults
+that live outside the component sheets — every table's rules, list rhythm, code, sketch mode, the
+accent finish — written as `section … > :where(.cell-stage) > table td`. The first cut widened only
+component sheets, so a table in a pane lost its rules and fell back to the browser's centered
+headers and bare cells. The whole bundle now takes a `stageOnly` pass: a `section` rule is widened
+only when its selector reaches THROUGH `.cell-stage` (127 selectors, none in any theme). Slide-level
+rules — padding, backdrop, pagination — never reach a pane. Measured on the chart, inventory and
+comparison galleries plus `examples/sketch.md` and `examples/accent-finishes.md` (73 pages, rendered
+with a `main` build and this one): 0 differing pixels.
+
 ### 2.2 The options this replaced
 
 | Option | Why not |
@@ -191,7 +201,7 @@ engine" is not verification (HARD RULE #23).
 
 ## 5. The measured cost
 
-- **CSS size: +23.5% minified, +12.3% gzipped (about 11 KB), if shipped in every bundle.** The
+- **CSS size: +28.4% minified, +15.3% gzipped (about 14 KB), if shipped in every bundle** (against `main` at `83023ea`; +23.5% / +12.3% before the base stage defaults below were widened too). The
   widened text itself is small (+36 KB across the sources). The bundle grows more because
   `distributeLeadingIs` (tools/build-css.js) deliberately splits every leading `:is()` into
   separate selectors so Marp-style scopers can read each arm — so `section.x` becomes

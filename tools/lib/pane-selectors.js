@@ -22,7 +22,12 @@ const csstree = require('css-tree');
 
 const WIDE = ':is(section,lat-pane)';
 
-function widenSectionRoots(cssText) {
+/**
+ * `stageOnly` widens a selector only when it reaches THROUGH `.cell-stage` — the body a pane
+ * holds. The base sheets are applied this way: their stage defaults (tables, lists, code)
+ * must reach a pane's stage, and their slide-level rules must not reach a pane at all.
+ */
+function widenSectionRoots(cssText, { stageOnly = false } = {}) {
   if (!cssText.includes('section')) return cssText;
   const ast = csstree.parse(cssText, {
     positions: true,
@@ -39,11 +44,11 @@ function widenSectionRoots(cssText) {
       rule.prelude.children.forEach((selector) => {
         const first = selector.children.first;
         if (first && first.type === 'TypeSelector' && first.name === 'section' && first.loc) {
-          offsets.push(first.loc.start.offset);
+          if (!stageOnly || /\.cell-stage\b/.test(csstree.generate(selector))) offsets.push(first.loc.start.offset);
         }
         // The dual-surface chart head `:is(section.x, figure.x) …` — widen each arm
         // that itself starts with the `section` type.
-        if (first && first.type === 'PseudoClassSelector' && /^(is|where)$/.test(first.name) && first.children) {
+        if (!stageOnly && first && first.type === 'PseudoClassSelector' && /^(is|where)$/.test(first.name) && first.children) {
           first.children.forEach((list) => {
             if (list.type !== 'SelectorList') return;
             list.children.forEach((arm) => {

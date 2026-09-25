@@ -168,6 +168,14 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(withPane?.css).toContain('lat-pane');
 	});
 
+	it('keeps a widened `:is(section,lat-pane)` rule — it styles the slide too', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>:is(section,lat-pane).title > h1{color:red}</style>';
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).toContain('color: red');
+	});
+
 	it('strips the FIT agent inline transform/margin from the captured slide', () => {
 		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.html).not.toContain('scale(0.3)');

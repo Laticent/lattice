@@ -184,3 +184,19 @@ test('in the bundle, every lat-pane arm sits in the same rule as its section twi
   }
   assert.ok(checked > 1000, `expected the widened bundle; checked ${checked}`);
 });
+
+test('the base stage defaults reach a pane: table rules, but never slide-level rules', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8');
+  // base.elements.css draws every table's rules through `section … > :where(.cell-stage) > table`.
+  // Either form: `:is(section,lat-pane)` as written, or split into its `lat-pane` arm.
+  assert.match(css, /(^|[,}]\s*)(lat-pane|:is\(section,lat-pane\)):where\([^{}]*\)\s*>\s*:where\(\.cell-stage\)\s*>\s*table td\s*[,{]/m);
+  // A rule that does not reach through the stage stays slide-only: nothing roots the slide's
+  // own padding or backdrop at a pane.
+  assert.doesNotMatch(css, /(^|[,}]\s*)lat-pane\s*\{/m);
+});
+
+test('a table in a pane renders with the same table classes as a table slide', () => {
+  const html = render('## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n');
+  const pane = html.slice(html.indexOf('data-pane="table"'));
+  assert.match(pane, /<div class="cell-stage">\s*<table class="lat-row-label(-off)?">/);
+});
