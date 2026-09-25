@@ -1568,6 +1568,16 @@ describe('the chart tiers — a chart cue the text and mark tiers could not plac
 		expect(findCueTarget(d, 'LATAM, six hundred thousand dollars.')?.getAttribute('data-label')).toBe('LATAM');
 	});
 
+	it('a hidden measuring mark hands off to its drawn twin, by data-mark', () => {
+		// state-chart measures in an HTML list and paints in SVG, then hides the list (#2355).
+		const d = doc(
+			`<section><div class="chart-body"><ol style="display:none"><li class="state-node" data-mark="0" data-label="Draft">Draft</li></ol>` +
+				`<svg><rect class="state-node-shape" data-mark="0"></rect><rect class="state-node-shape" data-mark="1"></rect></svg></div></section>`,
+		);
+		expect(findCueTarget(d, 'Draft start.')?.getAttribute('class')).toBe('state-node-shape');
+		expect(findCueTarget(d, 'Draft start.')?.getAttribute('data-mark')).toBe('0');
+	});
+
 	it('a region code leads in the spelled form the narration speaks it in', () => {
 		const d = doc(`<svg><path data-label="GA" data-value="42"></path><path data-label="TX" data-value="30"></path></svg>`);
 		expect(findCueTarget(d, 'G A, forty-two.')?.getAttribute('data-label')).toBe('GA');

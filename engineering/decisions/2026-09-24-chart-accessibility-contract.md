@@ -199,6 +199,27 @@ hundred thousand against a one point four million target — sixty-four percent 
 on plan", 8.9 seconds). Nobody flagged bullet, and its narrator went through four review rounds
 of its own; splitting it is a separate change.
 
+## Round three — the state chart the pointer lost
+
+The owner said the state chart had got worse. The narration had not moved (word for word the
+same as `main`), but the pointer had: on the state-chart gallery it hid on 77 of 144 cues with
+this branch's Guide, and on 99 with `main`'s. The cause landed on `main` in #2355, which draws
+each state as an SVG `<rect class="state-node-shape">` and sets the measuring `<li
+class="state-node">` list to `display: none`. Every tier still found the `<li>` (it holds the
+name, the `data-label` and the manifest handle), and a hidden element has no box to point at.
+
+The fix is general and lives in `findCueTarget`: a target inside a `display: none` subtree hands
+off to the first rendered element in the same chart with the same `data-mark`, which the
+transform already stamps on both. State-chart gallery: 144 of 144 placed, 0 hidden. All 22
+chart galleries: 2,203 of 2,204, the one miss unchanged (an authored `[?]` on a non-chart slide).
+
+The same listen surfaced a narration defect older than this branch: after the transitions,
+`narrateStateChart` read the state list again through the flatten ("Draft start. Submitted
+on-track. In Review at-risk. … Published end."), repeating the machine with its tags as typed.
+A state line now says only what no other sentence does: its status ("Submitted is on track."),
+or that it is an end state ("Published is an end state." — nothing else opens with that state,
+so this is also the pointer's only landing on it). A state with a note keeps its name before it.
+
 ## Left open, on purpose
 
 - A word cloud narrates a ranking — its leader by name, its tail as a range — so the middle words

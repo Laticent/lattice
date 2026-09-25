@@ -1662,8 +1662,9 @@ test('narrateStateChart: a state LABEL loses its tint but the author’s prose k
   ].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('triage goes to Accepted.'), `dirty label in a transition: ${out}`);
-  assert.ok(out.includes('Accepted done.'), `dirty label in the flatten: ${out}`);
-  assert.ok(out.includes('Refused end.'), `two-slot tint survived: ${out}`);
+  // The state list now says only what the machine sentences do not: a status, and an end state.
+  assert.ok(out.includes('Accepted is done, an end state.'), `dirty label in the flatten: ${out}`);
+  assert.ok(out.includes('Refused is an end state.'), `two-slot tint survived: ${out}`);
   // The author's own prose ABOUT the syntax is slide text and must survive untouched.
   assert.ok(out.includes(':::token names a theme token'), `ate the author's prose: ${out}`);
   // The eyebrow still leads — the tint strip is a map, so original line indices are preserved.

@@ -122,15 +122,51 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
  * (`findSpanningTarget`), which is how a label joined to its body finds the thing it names.
  */
 export function findCueTarget(frameDoc: Document | Element | null, text: string): Element | null {
-	return (
+	const found =
 		findCueTargetIn(frameDoc, text) ??
 		findSpanningTarget(frameDoc, text) ??
 		findMarkTarget(frameDoc, text) ??
 		findNamedTarget(frameDoc, text) ??
 		findDetailTarget(frameDoc, text) ??
 		findChartTextTarget(frameDoc, text) ??
-		findFigureTarget(frameDoc, text)
-	);
+		findFigureTarget(frameDoc, text);
+	return found ? drawnTwin(found) : null;
+}
+
+/**
+ * A mark that is not drawn hands off to the one that is.
+ *
+ * A chart may measure in HTML and paint in SVG. state-chart does (#2355): its `<li class="state-node">`
+ * list is the measuring column, set to `display: none` once the runtime has drawn each state as an
+ * SVG `<rect class="state-node-shape">`. Every tier still finds the `<li>` — it carries the name, the
+ * `data-label` and the manifest handle — but a hidden element has no box, so the pointer had nowhere
+ * to go and hid: 77 of 144 cues on the state-chart gallery, every "From Draft, …" among them.
+ *
+ * The two are the same mark, and the transform says so: both carry one `data-mark`. So a target
+ * inside a `display: none` subtree resolves to the first element in the same chart with that
+ * `data-mark` that IS rendered. Nothing changes for a visible target, or for a hidden one with no
+ * drawn twin.
+ */
+function drawnTwin(el: Element): Element {
+	if (!inHiddenSubtree(el)) return el;
+	const mark = el.getAttribute('data-mark');
+	const chart = el.closest('.chart-body, section');
+	if (mark == null || !chart) return el;
+	for (const twin of chart.querySelectorAll('[data-mark]')) {
+		if (twin !== el && twin.getAttribute('data-mark') === mark && !inHiddenSubtree(twin)) return twin;
+	}
+	return el;
+}
+
+/** Is this element, or an ancestor inside its section, `display: none`? */
+function inHiddenSubtree(el: Element): boolean {
+	// A parsed document (DOMParser) has no window of its own; the host's computes its style.
+	const view = el.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : null);
+	if (!view) return false;
+	for (let n: Element | null = el; n && n.tagName !== 'SECTION'; n = n.parentElement) {
+		if (view.getComputedStyle(n).display === 'none') return true;
+	}
+	return false;
 }
 
 /**
