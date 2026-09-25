@@ -6,12 +6,13 @@ summary: >-
   Insight, below-note, header, footer and page number. The engine renders each pane as an
   ordinary one-slide deck of its component, then embeds its body in a `<lat-pane>` Cell; a deck
   WITH panes assembles its stylesheet with a `section lat-pane` twin beside every rule arm that
-  reaches a pane's body (component, base stage and theme rules), in the same rule, so no
-  component is edited and every other deck keeps its exact bytes. The carve runs
-  inside the engine's own markdown-it parse, so slide breaks, fences and directives are the
-  engine's answers. A proof of
-  concept ships with `examples/panes.md`; this note records the audit, the design, the measured
-  costs and the gaps that stand between the proof and a v1.
+  reaches one of its panes (scoped to the components its panes hold: +18 KB, not +305), in the
+  same rule, so no component is edited and every other deck keeps its exact bytes. Each
+  component declares in its manifest whether it goes in a pane and how much one pane holds —
+  budgets measured where the export can find a ceiling, judged and explained where it cannot —
+  and `lint:deck` checks every pane against it. A proof of concept ships with
+  `examples/panes.md`; this note records the audit, the design, the measured costs and the gaps
+  that stand between the proof and a v1.
 ---
 
 # Panes — two components, one slide
@@ -327,8 +328,14 @@ every number above is from the run after the fix.
 
 | Claim | Surface | Evidence |
 |---|---|---|
-| Existing decks render the same markup | engine, every committed deck | 311 decks (every `examples/*.md`, component gallery and baseline deck; `panes.md` excluded): byte-identical HTML between `origin/main` and this branch, each rendered from its own worktree |
-| Existing decks get the same stylesheet, plus only the pane cell's own rules | engine `render().css` | the same 311 decks: every composed sheet differs from `main` by exactly +2,805 bytes, all of it `lib/forms/cell/pane/pane.css` (keyed on `section.lat-pane-host` / `lat-pane`, which no normal slide carries); zero lines removed |
+| Existing decks render the same markup | engine, every committed deck | 303 decks (every `examples/*.md`, component gallery and baseline deck; `panes.md` excluded): byte-identical HTML between `origin/main` (5a12c74) and this branch, each rendered from its own worktree — re-run after the carve moved ahead of the component body rules |
+| Existing decks get the same stylesheet, plus only the pane cell's own rules | engine `render().css` | the same 303 decks: every composed sheet differs from `main` by exactly +3,011 bytes, all of it `lib/forms/cell/pane/pane.css` (keyed on `section.lat-pane-host` / `lat-pane`, which no normal slide carries); zero lines removed |
+| The data-viz showcase gallery is unchanged | CLI PDF, both modes | 23 pages light + 23 dark, 0 differing pixels vs `main`'s committed PDFs, built by `tools/build-showcase-galleries.js` on the rebased branch (an earlier build before the rebase differed on two state-chart pages; that was the older base, not this change) |
+| Scoped pane CSS equals the full widening | CLI export, computed styles in Chromium | every computed property of every element inside every pane identical, scoped vs full, on the demo, the a11y theme and sketch mode (370 elements each); the same comparison between two different decks reports 367 differing |
+| A clipped pane is reported | CLI export | an overfull list pane and an overfull 25-row table pane each print `OVERFLOW … page N` and draw the export's clip tag — the probe reads a pane's stage as a clipping cell |
+| A `_class` on a panes slide no longer runs that component on it | engine + CLI export | `<!-- _class: glossary -->` over a glossary pane: no range pill on the title, and the pane's clip reported (it was hidden before the carve moved) |
+| Each component's pane budget | CLI export, `tools/calibrate-capacity.js --pane side\|stack` | 23 components measured at half their slide density (§3.2); `kpi` and `pricing` clip one element in a stacked band |
+| The linter agrees with the carve | unit | `test/unit/core/pane-contract.test.js`: the carve and lint share one parser and one fit rule; `pane-layout`, `pane-fit`, `pane-overflow`, `pane-crowd`, counted per pane and scaled with the share |
 | Existing decks render the same pixels | CLI PDF export | 81 pages vs a `main` build, 0 differing pixels: `examples/a11y.md`, `sketch.md`, `finish-backdrops.md`, the legal and progression galleries |
 | Export-to-Marp is unchanged | `marpScopableCss` over the shipped `dist/lattice.min.css` | 4 selectors still start with `:is(` (as on `main`; the build-time design left 111), 0 twin arms (the only `lat-pane` selectors are the pane cell's own 14 in `pane.css`) |
 | Two components on one slide, chrome kept | CLI PDF export | `examples/panes.pdf` (light, committed) and a dark render reviewed alongside it, not committed — list+table 40/60, bar+list 55/45, image+text 50/50, table+big-number 70/30, stacked line over stats, piechart+list 45/55 |
@@ -336,7 +343,7 @@ every number above is from the run after the fix.
 | The Studio previews a panes slide | the real Studio (`/studio/`, docs dev server built from this branch), 1440px desktop | the demo deck typed into the editor: one host section, two `lat-pane` cells, list pills and table rules computed as on the CLI, no page errors. An earlier run found the preview's sanitizer **dropping** `<lat-pane>`; `lat-pane` joined `ADD_TAGS` in `lib/core/sanitize-slide-html.mjs` (which also covers the self-contained `.html` export) |
 | A pane is never a slide; slides around it survive | engine | `test/unit/core/panes.test.js`: one `<section>` and one `<h2>` per panes slide; `---` directly under a table, list or comment, and `split: headings`, keep every later slide |
 | Slide ids don't depend on later panes | engine | the same test: a piechart slide's ids are unchanged by a panes slide after it, and a panes slide's ids match between the deck render and a render alone at its offset |
-| Studio / Playground smoke | Playwright `@smoke` | 59/59 locally on the final code |
+| Studio / Playground smoke | Playwright `@smoke` | 59/59 locally on `e70c7bb`; CI `studio-smoke` green on `3118e15` (not re-run on the budget commit yet) |
 
 **Not verified:** the Studio at tablet and phone widths; the Playground UI with a panes deck; the
 PPTX, image-set and player exports; Export-to-Marp OF a panes deck (marp-core cannot carve; §6);
@@ -347,10 +354,22 @@ a Mermaid diagram in a pane. They share the engine, but "shares the engine" is n
 
 ## 5. The measured cost
 
-- **CSS: 0 bytes for a deck without panes** beyond the pane cell's own 2.8 KB of rules. A deck WITH
-  panes composes a widened sheet: 3,353 twin arms on the demo.
-- **Compose time:** composing a theme's sheet takes ~147ms once and is memoized (2.5ms warm). A
-  deck with panes composes a second, widened copy once per theme.
+Measured on the demo (7 slides, 6 of them panes) against the SAME content written as 19 ordinary
+slides, one engine, same machine, median of 15 warm renders (`panebench`, three runs each).
+
+| | ordinary slides | panes | cost |
+|---|---|---|---|
+| engine composed CSS | 869 KB | 887 KB | **+18 KB (+2%)** — was +305 KB before the twins were scoped |
+| pane twins in the sheet | — | 174 | was 3,377 |
+| warm render | 10.7–11.4 ms | 13.2–13.5 ms | +~2 ms: each pane is its own one-slide render |
+| first render (cold) | 167–209 ms | 264–275 ms | +~80 ms: the widening (~50 ms) and a second composed sheet, then memoized |
+| engine heap after render | 3.8 MB | 5.0 MB | +1.2 MB, most of it the second composed sheet |
+| CLI `.html` export | 3,271,933 B | 3,275,887 B | +4 KB raw, +1.7 KB gzipped (0.1%) |
+| browser style recalc · layout | 8–10 ms · 117–146 ms | 4 ms · 106–109 ms | none; the rule count is unchanged (3,760), twins sit inside existing rules |
+
+- **CSS: 0 bytes for a deck without panes** beyond the pane cell's own 3 KB of rules.
+- **Memory is bounded.** The engine keeps at most 8 pane-scoped sheets (`PANE_SHEETS_KEPT`), so an
+  editing session that mints a new pane pairing per keystroke evicts the oldest.
 - **Render time:** one extra markdown-it parser per distinct pane shape (orientation × family),
   memoized. Decks without panes pay one substring test (`pane:`) per render, inside the parse.
 - **The Playground's first-paint snapshot** keeps pane arms only when the captured slide holds a
@@ -379,9 +398,22 @@ code-only paragraph was deleted with the chart stand-in heading (the stand-in is
 hands a lifted pill back), a `_class` inside a pane replaced its component (a directive the engine
 applied stays on the slide), a pane anywhere in the deck cost slide 1 its Playground snapshot,
 deck-wide classes never reached a pane, `lint:deck` read pane markers as narration, plus
-`Object.hasOwn` on `PANE_FORM` and the id pin released in a `finally`. The design was upheld:
+`Object.hasOwn` on the pane-form lookup and the id pin released in a `finally`. The design was upheld:
 normal slides match exactly the rules they matched before (3,712 rules compared), the sanitizer
 change opens nothing, and embedding held across 361 modifiers and 18 registers.
+
+**An independent checker on the rework** (`4def515`) confirmed its claims and found four more: a
+math pane styled wrong in the CLI (a slide rule reaching in through the host won the tie — §2.1), a
+twin one type selector lighter in the CLI than in the engine, a front-matter `style:` block that
+never reached a pane, and a walker that was not string-aware. `3118e15` fixed all four. **A second
+checker on `3118e15`** found no defect in shipped CSS and three walker edge cases on author CSS (a
+`;` in a quoted value, an unterminated string, an apostrophe in an unquoted `url()`), plus pane-cell
+rules the new twins could outrank; all fixed with the budget work.
+
+**The owner then asked for components to opt out, for a pane budget, and for the memory and render
+cost to be justified** — "I question copying". That round added the `pane` manifest contract (§1),
+the measured budgets (§3.2), the scoped twins and the reason a selector twin cannot be avoided
+(§2.1), and the cost table (§5). Measuring the budgets found the `_class` carve-order bug (§2).
 
 ---
 
