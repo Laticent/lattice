@@ -9,9 +9,9 @@ summary: A neutral audit of five months of agent-written Lattice (2,271 commits,
 lives in six researcher chapters under
 [`2026-09-24-agentic-practice-audit/chapters/`](2026-09-24-agentic-practice-audit/chapters/),
 and each claim there carries a path, a commit or a PR number, tagged MEASURED or ESTIMATED.
-**The talk built from it** is [`working-with-coding-agents.md`](2026-09-24-agentic-practice-audit/working-with-coding-agents.md)
-(+ its rendered PDF): a platform-agnostic teaching deck of about 40 slides, with Claude tips and a
-12-slide short-talk view. This note is the evidence behind it; the talk is what you present.
+**The talk built from it** is [`onboard-your-coding-agent.md`](2026-09-24-agentic-practice-audit/onboard-your-coding-agent.md)
+(+ its rendered PDF): a 26-slide, 25-minute talk for junior engineers, told as onboarding a new
+teammate, with Claude tips inside each step. This note is the evidence behind it; the talk is what you present.
 
 ## The answer first
 
