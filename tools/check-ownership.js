@@ -7725,10 +7725,19 @@ const VETRINA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'vetrina');
 const VETRINA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
 const VETRINA_ADAPTER = 'react.ts'; // the sole file allowed to import the peer framework
 const VETRINA_ADAPTER_DEPS = new Set(['react', 'react-dom']);
+// ONE sanctioned dependency for every file, by exact name: `@laticent/ltt`, the timing-track format.
+// LTT step 4 opens the gate to it (2026-09-24-lattice-timing-track.md §8 step 4), on the owner's
+// Fork B ruling that a library we own, carrying the format contract, is a sanctioned dependency
+// (§9.1). It is what lets `Narrator.plan()` return the core's CaptionTrack, actions carry the LTT's
+// own `match`, and the tour recorder write an LTT. Exact match only, as Cadenza's: a subpath or a
+// relative `../ltt/` escape still fails.
+const VETRINA_SANCTIONED_DEP = '@laticent/ltt';
 
-function checkVetrinaBoundary(errors) {
-  if (!fs.existsSync(VETRINA_DIR)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(VETRINA_DIR)) {
+// `dir` defaults to the real library; the unit test points it at a scratch folder to prove the
+// gate bites.
+function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
+  if (!fs.existsSync(dir)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(dir)) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev test runner (a devDep, not host coupling)
@@ -7739,11 +7748,12 @@ function checkVetrinaBoundary(errors) {
       if (spec.startsWith('./')) continue; // in-folder relative — fine
       if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
       if (isAdapter && VETRINA_ADAPTER_DEPS.has(spec)) continue; // the sanctioned peer-dep seam
+      if (spec === VETRINA_SANCTIONED_DEP) continue; // the LTT format — its one dependency (see above)
       errors.push(
         `${rel} imports '${spec}', which escapes the Vetrina folder. The walkthrough library is ` +
         `open-sourceable and MUST stay self-contained (design doc §13): imports resolve inside ` +
-        `docs/src/lib/vetrina/ (\`./x\`) only. The one exception is react/react-dom in the ${VETRINA_ADAPTER} ` +
-        `adapter (the peer-dep seam). Move shared code into the folder, or route host glue through the adapter.`,
+        `docs/src/lib/vetrina/ (\`./x\`) only. The exceptions are '${VETRINA_SANCTIONED_DEP}' by that exact name, and ` +
+        `react/react-dom in the ${VETRINA_ADAPTER} adapter (the peer-dep seam). Move shared code into the folder, or route host glue through the adapter.`,
       );
     }
   }

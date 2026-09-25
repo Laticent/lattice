@@ -108,9 +108,11 @@ export function cadenzaNarrator(options: CadenzaNarratorOptions = {}): Narrator 
 
 	return {
 		voiced: false,
-		plan(text: string): NarratedWord[] | null {
+		plan(text: string): CaptionTrack | null {
 			if (!text.trim()) return null;
-			return trackToWords(trackFor(text));
+			// A copy: the track is cached, and a caller that re-times its plan (the tour recorder
+			// shifts cues onto recorded times) must not re-time the next caller's.
+			return structuredClone(trackFor(text));
 		},
 		speak(text: string, opts: NarrateOptions): NarrationHandle {
 			const track = trackFor(text);
@@ -281,9 +283,11 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 
 	return {
 		voiced: true,
-		plan(text: string): NarratedWord[] | null {
+		plan(text: string): CaptionTrack | null {
 			if (!text.trim()) return null;
-			return trackToWords(trackFor(text));
+			// A copy: the track is cached, and a caller that re-times its plan (the tour recorder
+			// shifts cues onto recorded times) must not re-time the next caller's.
+			return structuredClone(trackFor(text));
 		},
 		speak(text: string, opts: NarrateOptions): NarrationHandle {
 			// Guard FIRST, as the silent rung does. Registering the listener and then checking a

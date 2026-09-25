@@ -5,7 +5,8 @@
 // so it composes with the primitive and the fluent builder (scene() is defined as
 // storyboard(seed, this.toData()) — one interpreter, no drift).
 
-import { findCueWord, type NarratedWord, type NarrationHandle, type Narrator, SILENT_NARRATOR } from './narrate.js';
+import type { CaptionTrack } from '@laticent/ltt';
+import { findCueWord, type NarrationHandle, type Narrator, SILENT_NARRATOR } from './narrate.js';
 import { CAPTION_FADE_MS, resolvePacing } from './pacing.js';
 import { holdUntil } from './recipes.js';
 import type { RunContext, Walkthrough } from './runner.js';
@@ -62,10 +63,16 @@ export interface Step<A> {
 	at?: string;
 }
 
+/** Did an `act` hand back a promise? Only then is it a wait whose length a recording must keep. */
+function isThenable(v: unknown): boolean {
+	return !!v && typeof (v as { then?: unknown }).then === 'function';
+}
+
 /** The pre-model default settle. `pacing.settleMs()` owns this now; the constant stays as the
  *  `'legacy'` model's value and as the number the older tours were tuned against. */
+
 /** Ask a narrator for its timeline, treating a throw as "I have no timeline". */
-function planFor(narrator: Narrator, text: string): NarratedWord[] | null {
+function planFor(narrator: Narrator, text: string): CaptionTrack | null {
 	try {
 		return narrator.plan?.(text) ?? null;
 	} catch (e) {
@@ -120,6 +127,11 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 		// fields and must keep working. `run()` always supplies both.
 		const narrator = ctx.narrator ?? SILENT_NARRATOR;
 		const pacing = ctx.pacing ?? resolvePacing();
+		// THE RECORDER (LTT step 4), when the host asked for one. It sees three things: the stage the
+		// run plays on, each line as it starts speaking, and each beat that waited. Everything it
+		// writes is derived from those, so a run without one is byte-for-byte the run it was.
+		const recorder = ctx.recorder;
+		recorder?.begin(stage);
 
 		// Progress counts TAUGHT beats only — the `instant` plumbing beats (setup / close / jump)
 		// teach nothing and flash by, so counting them would make the ring lurch on beats the
@@ -232,8 +244,14 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 						// unhandled rejection in the host's console.
 						const done = (async () => {
 							if (lineDelay > 0) await wait(lineDelay, signal);
+							if (recorder) {
+								const say = step.say as string;
+								recorder.line(i, say, planFor(narrator, say), cuePlan, step.click ? 'click' : step.point != null ? 'point' : 'act', typeof step.point === 'string' ? step.point : undefined);
+							}
 							const handle: NarrationHandle = narrator.speak(step.say as string, { signal });
 							await handle.done;
+							// An aborted line resolves early; its length is not a measurement.
+							if (!signal.aborted) recorder?.spoken(i);
 						})().catch(() => {});
 						line.done = done;
 					}
@@ -289,9 +307,12 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				// don't need teaching — and it keeps the trust invariant (act is still awaited).
 				if (step.instant) {
 					let actErr: unknown = null;
+					let actWaited = false;
 					if (step.act) {
 						try {
-							await step.act(actions);
+							const ret = step.act(actions);
+							actWaited = isThenable(ret);
+							await ret;
 						} catch (e) {
 							if (isAbortError(e)) throw e;
 							actErr = e;
@@ -300,6 +321,7 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 					if (!actErr && step.type) await ctx.type(step.type.target, step.type.text, { cadence: step.type.cadence, instant: true });
 					if (actErr) throw actErr;
 					if (step.until) await holdUntil(ctx, step.until);
+					if (step.until || actWaited) recorder?.waited(i, step.until ? 'until' : 'act');
 					await wait((step.settle ?? 0) * stage.pace, signal);
 					continue;
 				}
@@ -321,9 +343,12 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				// act (awaited). Success gates the drag drop + the outcome gesture; a rejected act
 				// snaps the drag back (the honest "it didn't happen") and re-throws -> onStop('error').
 				let actErr: unknown = null;
+				let actWaited = false;
 				if (step.act) {
 					try {
-						await step.act(actions);
+						const ret = step.act(actions);
+						actWaited = isThenable(ret);
+						await ret;
 					} catch (e) {
 						if (isAbortError(e)) throw e;
 						actErr = e;
@@ -343,6 +368,9 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				// Advance gate — wait for the app to be ready BEFORE the confirm gesture, so a "look what
 				// rendered" gesture can't play before the thing it confirms exists.
 				if (step.until) await holdUntil(ctx, step.until);
+				// A beat that WAITED — on a condition, or on a promise its `act` returned — is where a
+				// recording's next stretch begins, because that wait's length is known only now.
+				if (step.until || actWaited) recorder?.waited(i, step.until ? 'until' : 'act');
 
 				// gesture — the outcome/confirm, AFTER act (reached only on success: a failed act threw).
 				if (step.gesture != null) {
@@ -399,6 +427,8 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				}
 			}
 		}
+		// The run reached its last beat: only now is the recording whole (an abort returns above).
+		recorder?.end();
 		// A TRAILING cued beat has no next top to clear its hold, and a storyboard is composable —
 		// it can be followed by raw primitives in the same run, which would then play with the
 		// step-aside disabled. (An abort or a throwing `act` leaves by throwing and is covered by

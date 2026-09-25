@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import type { CaptionTrack } from '@/lib/ltt';
 import { resolvePacing } from './pacing';
 import type { RunContext } from './runner';
 import { scene } from './scene';
 import type { Stage } from './stage';
+
+/** A flat word list as the one-cue CaptionTrack a narrator's `plan()` returns. */
+function asTrack(words: { text: string; startMs: number; endMs: number }[]): CaptionTrack {
+	const end = words.length ? words[words.length - 1].endMs : 0;
+	return {
+		durationMs: end,
+		cues: [{ display: words.map((w) => w.text).join(' '), startMs: 0, endMs: end, charOffset: 0, words: words.map((w) => ({ display: w.text, spoken: w.text, startMs: w.startMs, endMs: w.endMs, charOffset: 0 })) }],
+	};
+}
 
 // The rhythm of a TRANSIENT caption, in the architect's words: "the mouse brings the user
 // attention with the usual gesture. the caption appears next to it. the mouse moves the caption
@@ -169,7 +179,7 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 const PLANNER = {
 	voiced: false,
 	speak: () => ({ done: Promise.resolve(), cancel() {} }),
-	plan: (text: string) => text.split(/\s+/).map((w, i) => ({ text: w, index: i, startMs: i * 300, endMs: i * 300 + 280 })),
+	plan: (text: string) => asTrack(text.split(/\s+/).map((w, i) => ({ text: w, index: i, startMs: i * 300, endMs: i * 300 + 280 }))),
 };
 
 describe('a transient caption is never left standing', () => {

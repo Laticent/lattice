@@ -22,12 +22,20 @@ export function canonicalJson(value: unknown): string {
 }
 
 /**
- * The string a segment's hash is taken over: `canonicalJson([text, inputs])`.
+ * The string a segment's hash is taken over: `canonicalJson([text, inputs])`, or
+ * `canonicalJson([text, inputs, emphasis])` when the segment's narration carries emphasis.
  *
  * `text` is the narration the segment's track was built from — exactly the string handed to
  * `buildTrack` — and for a tour stretch the producer appends the storyboard steps it spans (§4.5 of
  * the decision note). `inputs` is the file's `inputs` object.
+ *
+ * `emphasis` is the segment's emphasis spans, one list per line, in line order. Emphasis changes
+ * timing (a weighted word buys an extra hold), so a hash that missed it would call a re-timed
+ * segment fresh. It belongs HERE and not in `inputs` because a span is a character range into one
+ * line: it means nothing file-wide (LTT step 4 settled this, engineering/ltt.md §Staleness). An
+ * absent or empty `emphasis` leaves the string exactly as it was, so no existing hash moves.
  */
-export function segmentHashInput(text: string, inputs: object): string {
-	return canonicalJson([String(text), inputs]);
+export function segmentHashInput(text: string, inputs: object, emphasis?: readonly (readonly unknown[] | undefined)[]): string {
+	const spans = emphasis?.some((line) => line?.length) ? emphasis.map((line) => line ?? []) : null;
+	return canonicalJson(spans ? [String(text), inputs, spans] : [String(text), inputs]);
 }

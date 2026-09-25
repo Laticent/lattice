@@ -1768,7 +1768,7 @@ describe('check-ownership', () => {
         if (/\.test\.[tj]s$/.test(file)) continue;
         if (path.basename(file) === 'react.ts') continue; // the sanctioned peer-dep adapter
         for (const spec of scan(fs.readFileSync(file, 'utf8'))) {
-          assert.ok(spec.startsWith('./') || spec.startsWith('node:'), `${path.relative(VETRINA_DIR, file)} imports '${spec}' — must be in-folder`);
+          assert.ok(spec.startsWith('./') || spec.startsWith('node:') || spec === '@laticent/ltt', `${path.relative(VETRINA_DIR, file)} imports '${spec}' — must be in-folder, or the LTT format by exact name`);
         }
       }
     });
@@ -1778,6 +1778,24 @@ describe('check-ownership', () => {
       assert.ok(specs.includes('../../lib/host'), 'the escape is detected');
       assert.ok(!'../../lib/host'.startsWith('./'), 'and would fail the in-folder rule');
       assert.ok('./stage'.startsWith('./'), 'the in-folder import passes');
+    });
+
+    test('the LTT format is admitted by its exact name only (LTT step 4)', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vetrina-gate-'));
+      try {
+        const gate = (src) => {
+          fs.writeFileSync(path.join(dir, 'x.ts'), src);
+          const errors = [];
+          checkVetrinaBoundary(errors, dir);
+          return errors;
+        };
+        assert.deepEqual(gate("import { isStale } from '@laticent/ltt';"), []);
+        assert.equal(gate("import { isStale } from '@laticent/ltt/stale';").length, 1, 'a subpath is not the package');
+        assert.equal(gate("import { isStale } from '../ltt/stale';").length, 1, 'a relative escape into the package still fails');
+        assert.equal(gate("import { buildTrack } from '@laticent/cadenza';").length, 1, 'Cadenza is not sanctioned');
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     test('the gate bites: a bare npm specifier (e.g. lodash) is caught', () => {

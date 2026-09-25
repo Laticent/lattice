@@ -9,8 +9,8 @@
 //
 // See engineering/decisions/2026-07-05-vetrina-walkthrough-library.md for the contract.
 
-export type { NarratedWord, NarrateOptions, NarrationHandle, Narrator } from './narrate.js';
-export { findCueWord, SILENT_NARRATOR } from './narrate.js';
+export type { CueWord, NarratedWord, NarrateOptions, NarrationHandle, Narrator } from './narrate.js';
+export { findCueWord, normalizeCueWord, SILENT_NARRATOR } from './narrate.js';
 export type { Pacing, PacingModel, Speed } from './pacing.js';
 // Only the model and the one number that is a CROSS-LIBRARY contract (it must equal Cadenza's
 // `PACE_WPM`, and a parity test pins it). The other dozen constants stay module-private: a
@@ -19,6 +19,8 @@ export type { Pacing, PacingModel, Speed } from './pacing.js';
 export { CAPTION_WPM, resolvePacing } from './pacing.js';
 export type { LoopOpts, RetryOpts, WaitForOpts } from './recipes.js';
 export { loop, retry, waitFor } from './recipes.js';
+export type { RecorderInputs, StepShape, TourRecorder, TourRecorderOptions } from './recorder.js';
+export { createTourRecorder, recordedLine, replayNarrator, staleStretches, stretchHashInput } from './recorder.js';
 // `holdUntil` is intentionally NOT public — it's the internal gate behind the descriptor's
 // `Step.until`. Authors use `until` (declarative) or `waitFor` (raw). One public poll-wait.
 export type { AwaitUserOpts, RunContext, RunHandle, RunOptions, StopReason, TypeOps, TypeOpts, Walkthrough } from './runner.js';
