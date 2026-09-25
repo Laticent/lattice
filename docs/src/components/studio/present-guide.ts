@@ -2076,7 +2076,7 @@ function markUnit(el: Element): { unit: Element[]; peers: Element[]; axis: strin
 export function markContent(el: Element, style?: 'spotlight' | 'ring'): () => void {
 	const section = el.closest('section');
 	const found = markUnit(el);
-	if (!section || !found || !found.peers.length) return () => {};
+	if (!section || !found?.peers.length) return () => {};
 	if (section.hasAttribute('data-focus-resolved') && !section.hasAttribute('data-focus-live')) return () => {};
 	// The look `_focus:` would pick for the same axis: a row is ringed so the comparison across
 	// the table stays legible; everything else spotlights.
