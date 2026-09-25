@@ -220,6 +220,30 @@ A state line now says only what no other sentence does: its status ("Submitted i
 or that it is an end state ("Published is an end state." — nothing else opens with that state,
 so this is also the pointer's only landing on it). A state with a note keeps its name before it.
 
+## Heard, not estimated
+
+Every pacing number above was the caption TIMING ESTIMATE; nobody had heard a voice. So the ten
+flagged slides and the state chart were rendered to audio with the Studio's own on-device voice —
+Kokoro-82M (`onnx-community/Kokoro-82M-v1.0-ONNX`, q8, CPU, via `kokoro-js` outside the repo),
+voice `af_heart` — speaking each cue's Cadenza spoken form, joined by the player's breath
+(`interCueGapMs × 0.3`). Measured on the audio itself:
+
+- **Rate:** 119–161 words a minute; journey is the fastest.
+- **Breath:** real silences of 120 ms and longer, 15–48 per slide; between sentences 0.8–0.97 s.
+- **Longest sentence:** two narrator sentences ran long, and both are now split. A heatmap row
+  took 7.4 s ("Jan two thousand twenty-six is highest at M0, one hundred, and lowest at M3,
+  forty-four"). When every row shares its peak, as a retention grid's cohorts all start at one
+  hundred, the peak is now said once, "Every row is highest at M0, at one hundred.", and each row
+  says its low; otherwise a row's high and low are two sentences. Gantt's window took 8 s
+  ("…to two thousand twenty-six fourth quarter, and today is third quarter"); it is now two
+  sentences. After the fix every narrator sentence is 6.5 s or less; the longest cue left, 8.6 s,
+  is the gantt slide's authored subtitle.
+
+What the audio surfaced that is NOT changed here, because it is Cadenza's reading for every deck,
+not a chart's: a year reads "two thousand twenty-six" (the literal reading `FY2026` pins in
+`normalize.test.ts`), and a month abbreviation reads as written ("Jan"). Both are proposed to the
+owner as separate decisions.
+
 ## Left open, on purpose
 
 - A word cloud narrates a ranking — its leader by name, its tail as a range — so the middle words

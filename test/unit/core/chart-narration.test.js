@@ -1752,10 +1752,11 @@ test('narrateDataSeries: a ONE-pill eyebrow is a caption, spoken first, never an
 test('narrateDataSeries: reads a markdown table as a grid, naming each column', () => {
   const out = narrateDataSeries(manifestSample('heatmap'));
   assert.match(out, /Each row runs across M0, M1, M2, and M3\./);
-  assert.match(out, /Jan 2026 is highest at M0, one hundred, and lowest at M3, forty-four\./);
+  // Every cohort peaks at M0 at one hundred, so that is said once and each row says its low.
+  assert.match(out, /Every row is highest at M0, at one hundred\. Jan 2026 is lowest at M3, forty-four\./);
   // An EMPTY cell is a fact the slide shows — say so, rather than emit a short row a
   // listener cannot align. heatmap's own sample leaves Apr/M3 blank.
-  assert.match(out, /Apr 2026 is highest at M0, one hundred, and lowest at M2, fifty-seven\. Apr 2026 has no data for M3\./);
+  assert.match(out, /Apr 2026 is lowest at M2, fifty-seven\. Apr 2026 has no data for M3\./);
 });
 
 test('narrateDataSeries: keeps a row-level pill with its row, then its nested values', () => {
@@ -1941,7 +1942,8 @@ test('narrateDataSeries: the table reader narrates the grid markdown-it BUILDS',
   // A cell PAST the header count is dropped by markdown-it, so the chart never draws it.
   // Narrating it announced a value, under an invented column name, that is not on the slide.
   const extra = t('| Jan | 1 | 2 | 3 |');
-  assert.match(extra, /Jan is highest at M1, two, and lowest at M0, one\./);
+  // One row shares its peak with no other, so its high and low are two sentences.
+  assert.match(extra, /Jan is highest at M1, two\. Jan is lowest at M0, one\./);
   assert.doesNotMatch(extra, /column|three/);
   // A SHORT row is padded by markdown-it, and the chart paints the pad as unmeasured — so it
   // reads the same as an author's explicit empty cell, not as silence.
@@ -2021,7 +2023,7 @@ test('narrateDataSeries: a delimiter row needs a DASH — colons alone are not a
   assert.equal(narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| A | B |\n| : | : |\n| 1 | 2 |'), null);
   assert.match(
     narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| | A | B |\n| --- | --- | --- |\n| Jan | 1 | 2 |'),
-    /Jan is highest at B, two, and lowest at A, one\./,
+    /Jan is highest at B, two\. Jan is lowest at A, one\./,
   );
 });
 
