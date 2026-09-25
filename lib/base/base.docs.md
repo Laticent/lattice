@@ -51,7 +51,7 @@ See `engineering/decisions/2026-09-02-frame-model-for-motion.md` (the current st
 
 ## Two components on one slide — panes
 
-**Proof of concept.** Put two components' body content on one slide, side by side or stacked.
+**Experimental — the syntax may change.** Put two components' body content on one slide, side by side or stacked.
 The slide keeps its one eyebrow, title, subtitle, Key Insight, below-note, header, footer and page
 number; only the body splits. Mark where each component's body begins:
 
@@ -85,8 +85,10 @@ number; only the body splits. Mark where each component's body begins:
   `roadmap`, `cards-grid`, …); the 10 whole-slide frames (`title`, `divider`, `split-panel`, …) do
   not go in a pane. `image` has a pane form: the picture covers its pane.
 
-Demo: `examples/panes.md`. Design, audit and the open gaps (chart label size in narrow panes, short
-stacked bands): `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
+Known limits while it is experimental: a pane clips its content at its edge and nothing warns yet
+(check the PDF), a chart in a narrow pane draws smaller labels, and a short stacked band suits a
+chart or a stat row poorly. Demo: `examples/panes.md`. Design, audit and every open gap:
+`engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
 
 ## Auto-detected authoring patterns
 
