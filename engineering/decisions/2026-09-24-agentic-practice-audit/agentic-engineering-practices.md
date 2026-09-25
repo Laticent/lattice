@@ -817,6 +817,25 @@ Orchestration just means coordinating several agents. Instead of one general ass
 -->
 
 ---
+<!-- _class: compare-prose vertical insight-why -->
+
+`Orchestration · Two trios`
+
+## One trio finds your question. The other checks your answer.
+
+- The additive trio
+  - Seam census, blast radius and contradictions find claims you don't have yet. Run it first.
+- The adversarial trio
+  - Red team, inversion and checker attack a claim you already have. Run it on what ships.
+
+> Checking a wrong answer harder only gives you a better-defended wrong answer.
+
+<!--
+Two kinds of review, and they do opposite jobs. The additive trio works before you have an answer. One agent maps the joins between the parts: what each connection does that neither side does alone. One asks, "if we delete this piece, what dies?" And one lists the tradeoffs the system refuses to make, and what that costs. The adversarial trio checks an answer you already have. A red team tries to break it. An inversion agent asks, "how would we guarantee this fails?", which catches the wrong-problem mistakes that bug hunting never finds. And a checker re-derives every claim from the source. We make that one mandatory for work that's risky and hard to undo, and we run it only on what will actually ship, never on every draft. Here's why you need both. We once ran a full adversarial review on a briefing. Every claim came back stronger, and the argument was still wrong, because the thesis was wrong. The adversarial trio can only check the claims you bring it. A different kind of search found the right thesis. Each trio is three agents, so it counts toward the budget on the next slide.
+-->
+
+---
+
 
 <!-- _class: list-steps insight-verdict -->
 
