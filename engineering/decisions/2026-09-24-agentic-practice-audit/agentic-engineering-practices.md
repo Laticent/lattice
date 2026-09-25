@@ -48,6 +48,21 @@ Let's start with what agents can do today. You give one a ticket. It plans the c
 
 ---
 
+<!-- _class: divider -->
+<!-- _paginate: false -->
+<!-- _header: '' -->
+<!-- _footer: '' -->
+
+`The one rule · Use agents any way you like`
+
+## Reality must match the claim
+
+<!--
+Before any practices, here's the one thing I'd ask you to hold on to. There's no right way to use these tools. Some of you will vibe code a prototype over lunch. Some of you will run five agents on a migration. Both are fine. But one rule doesn't bend: what you ship has to be what you said you shipped. If the pull request says it's tested, it's tested. If the dashboard says the number is right, it's right. Everything else today is a way to keep that promise, and to keep it next year as well as today.
+-->
+
+---
+
 <!-- _class: diagram insight-takeaway -->
 
 `How an agent works`
@@ -695,6 +710,25 @@ These practices came from a web application, but they travel. What changes is wh
 
 ---
 
+<!-- _class: compare-prose chosen insight-why -->
+
+`The one rule · Why it compounds`
+
+## Agents copy what they find, so quality and jank both compound.
+
+- A shortcut
+  - The next agent reads it as the house style and copies it. A month later, it is in ten files.
+- A clean foundation
+  - The next agent copies that instead. Every change starts from firmer ground than the last.
+
+> Every shortcut you ship becomes context for the next agent.
+
+<!--
+Here's why this matters more with agents than it did before. An agent learns how your project works by reading it. If it finds a hack, it assumes that's how things are done here, and it copies it, quickly, everywhere. One shortcut becomes ten in a month. It works the other way too. A clean foundation gets copied just as fast, and every change starts from better ground than the one before. With agents, quality compounds, and so does jank. You choose which one.
+-->
+
+---
+
 <!-- _class: list takeaway numbered insight-the-ask -->
 
 `Your next step`
@@ -708,7 +742,24 @@ These practices came from a web application, but they travel. What changes is wh
 > Pick one move and try it before next Friday.
 
 <!--
-If you try three things this week, try these. Rewrite your agent's instruction file as an index. Add one automated check, then break your code on purpose and watch the check catch it. And start a decision log, with one short dated note every time something goes wrong. In a few months, that log will hold the first draft of your team's rules, and you'll know where each rule came from. Thanks. Let's take questions.
+If you try three things this week, try these. Rewrite your agent's instruction file as an index. Add one automated check, then break your code on purpose and watch the check catch it. And start a decision log, with one short dated note every time something goes wrong. In a few months, that log will hold the first draft of your team's rules, and you'll know where each rule came from.
+-->
+
+---
+
+<!-- _class: closing -->
+<!-- _paginate: false -->
+<!-- _header: '' -->
+<!-- _footer: '' -->
+
+## Make reality match the claim
+
+`Questions`
+
+Quality compounds. So does jank.
+
+<!--
+So here's the one thing to take with you. Use agents however you like. Just make sure that what you ship is what you said you shipped, because with agents, quality compounds, and so does jank. The starter kit is at the end of the deck when you want it. Thanks. Let's take questions.
 -->
 
 ---
@@ -952,14 +1003,3 @@ verify    — the new unit test, then one real export
 <!--
 Last one. Each pending item gets its own small file: why it matters now, where to look, what "done" means, and how to check it. Any session, whether it's a person or an agent, can pick it up cold. And because each item has its own file, two changes never collide over the same list. That's the kit. Take it, adapt it, and let your own mistakes grow it.
 -->
-
----
-
-<!-- _class: closing -->
-<!-- _paginate: false -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
-
-## Build the system around the agent
-
-`Questions`
