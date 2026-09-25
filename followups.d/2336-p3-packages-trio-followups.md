@@ -72,3 +72,18 @@ why. The numbers are kept so a reference to item 5 still means item 5.
     `.lattice` file's deck and manifest are still read with an uncapped `entry.async()`
     (`lattice-file.ts`), behind the declared-size check only; route them through
     `readBudget` too.
+13. **No test pins the render's resolver rule.** `lib/core/offline-chromium.js` passes
+    `--host-resolver-rules=MAP * ~NOTFOUND` as a second layer behind the dead proxy and the
+    WebRTC policy, and nothing fails if it is deleted: the WebRTC arm of
+    `test/integration/export/export-remote-subresource.test.js` uses an IP literal, and no
+    arm observes DNS. Add an arm whose STUN or fetch target is a HOST NAME, with a control,
+    that fails when the rule is removed (a local DNS stub or a packet capture on port 53).
+    Found by the independent checker on #2351.
+14. **A relative script `src` in a gallery can load code the package did not write.** The
+    gallery gate allows an empty `<script>` with a relative `src`, because the shipped diagram
+    gallery loads the vendored Mermaid that way. In the Studio such a path resolves against
+    the Studio origin (any same-origin JS chunk), and in the CLI against the author's disk. It
+    can never load code the PACKAGE wrote, since any script file makes it a code package, so
+    this is low severity. Closing it means an allowlist of the vendored filenames (the
+    Mermaid and KaTeX builds) instead of "any relative path". Found by the independent checker
+    on #2351; recorded in `2026-09-23-portable-packages.md` §10.
