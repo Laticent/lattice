@@ -222,6 +222,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Mermaid's color parser rejects `light-dark()`](gotchas/mermaid.md#mermaids-color-parser-rejects-light-dark)
 - [Mermaid kanban applies a lighten step to cScale](gotchas/mermaid.md#mermaid-kanban-applies-a-lighten-step-to-cscale)
 - [Mermaid timeline + journey are tile-stack, not card-on-band](gotchas/mermaid.md#mermaid-timeline--journey-are-tile-stack-not-card-on-band)
+- [A mindmap node takes another diagram's color cycle](gotchas/mermaid.md#a-mindmap-node-takes-another-diagrams-color-cycle)
 - [~~Mermaid's `%%{init}%%` directive is intolerant of CSS comments~~ (RESOLVED)](gotchas/mermaid.md#mermaids-init-directive-is-intolerant-of-css-comments-resolved)
 - [Mermaid frontmatter must be FIRST; `%%{init}%%` injection comes after](gotchas/mermaid.md#mermaid-frontmatter-must-be-first-init-injection-comes-after)
 - [Mermaid `mermaid.run()` is async; restoration logic must wait](gotchas/mermaid.md#mermaid-mermaidrun-is-async-restoration-logic-must-wait)
