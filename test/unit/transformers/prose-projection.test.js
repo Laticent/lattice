@@ -235,6 +235,42 @@ test('a flow figure captions with the AUTHORED .chart-caption, not the heading a
 	assert.match(project(noCap).articleHtml, /<figcaption>Rollout<\/figcaption>/, 'no caption: the heading still captions');
 });
 
+test('every figure kind captions with the AUTHORED .chart-caption: svg media and spatial too', () => {
+	// followup 2366-p3: the flow branch learned this first; the svg media branch took the
+	// caption as plain text (dropping its markup) and the spatial branch took the heading.
+	// All three now share one rule, `figcaptionFor`.
+	const svg = sections(
+		`<section data-lattice-slide data-class="bar" class="bar chart-frame"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Revenue</h2></div>
+			<div class="chart-body"><svg aria-roledescription="bar chart" viewBox="0 0 10 10"><rect/></svg></div>
+			<p class="chart-caption">Source: <em>audited</em> filings.</p>
+		</div></section>`,
+	);
+	const a = project(svg).articleHtml;
+	assert.match(a, /<figcaption>Source: <em>audited<\/em> filings\.<\/figcaption><\/figure>/, a);
+	assert.doesNotMatch(a, /<figcaption>Revenue<\/figcaption>/, 'the heading is not repeated under the figure');
+	assert.equal(a.split('audited').length - 1, 1, 'the caption prints once, as the caption');
+
+	const spatial = sections(
+		`<section data-lattice-slide data-class="word-cloud" class="word-cloud chart-frame"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Themes</h2></div>
+			<div class="chart-body"><svg viewBox="0 0 10 10"><text>growth</text></svg></div>
+			<p class="chart-caption">From 212 <em>open</em> responses.</p>
+		</div></section>`,
+	);
+	const b = project(spatial).articleHtml;
+	assert.match(b, /lp-spatial[\s\S]*<figcaption>From 212 <em>open<\/em> responses\.<\/figcaption><\/figure>/, b);
+	assert.doesNotMatch(b, /<figcaption>Themes<\/figcaption>/);
+
+	const bare = sections(
+		`<section data-lattice-slide data-class="word-cloud" class="word-cloud chart-frame"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Themes</h2></div>
+			<div class="chart-body"><svg viewBox="0 0 10 10"><text>growth</text></svg></div>
+		</div></section>`,
+	);
+	assert.match(project(bare).articleHtml, /<figcaption>Themes<\/figcaption>/, 'no caption: the heading still captions');
+});
+
 test('flow-height figure class tokens are whitelisted (no attribute break-out)', () => {
 	// The authored class list enters the figure `class="…"` attribute; esc() does not escape the
 	// double-quote, so a stray quote in a class token must be stripped ([a-z0-9-] whitelist).
