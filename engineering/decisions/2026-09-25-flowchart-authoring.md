@@ -7,7 +7,7 @@ summary: The flowchart chart's authoring grammar and rendering rules, decided wi
 
 **Status: proposed.** Nothing here is built. The prototypes that proved each rule
 were throwaway scripts under `.scratch/flow/`, so this note is the record; the
-images in this folder are rendered from real Lattice slides (real theme tokens,
+images in the companion folder `2026-09-25-flowchart-authoring/` are rendered from real Lattice slides (real theme tokens,
 real finish backdrops) by those prototypes.
 
 **The answer in one screen.** A flowchart is written as a Markdown list. This is
@@ -35,8 +35,8 @@ the whole grammar, with every rule used once:
 *SEV1 pages a human inside five minutes; everything else waits for business hours.*
 ```
 
-![The source above, rendered in light mode](01-full-light.jpg)
-![The same slide in dark mode](02-full-dark.jpg)
+![The source above, rendered in light mode](2026-09-25-flowchart-authoring/01-full-light.jpg)
+![The same slide in dark mode](2026-09-25-flowchart-authoring/02-full-dark.jpg)
 
 ---
 
@@ -203,7 +203,7 @@ gradient. A painted knockout can only match a flat, known ground. So:
    render with **zero** fallbacks, so a routing regression cannot hide behind
    chips.
 
-![The label collision the owner found, fixed by ports and reserved room](04-label-collision-fix.jpg)
+![The label collision the owner found, fixed by ports and reserved room](2026-09-25-flowchart-authoring/04-label-collision-fix.jpg)
 
 ## 5. Flow dots
 
@@ -238,14 +238,14 @@ A dotted overlay moving along a line, a separate path above the real edge.
   walk in authored order, never by dagre's cycle breaker; measured sizes are
   quantized before layout. dagre has no `Math.random`.
 
-![The same four sources through dagre (our prototype router) and through ELK](05-elk-comparison.jpg)
+![The same four sources through dagre (our prototype router) and through ELK](2026-09-25-flowchart-authoring/05-elk-comparison.jpg)
 
 ## 7. The four kinds, one grammar
 
 An org chart, a data flow, a decision flow and a system map with a disconnected
 shape, all from the same rules:
 
-![Org chart, data flow, incident, system map](03-four-kinds-light.jpg)
+![Org chart, data flow, incident, system map](2026-09-25-flowchart-authoring/03-four-kinds-light.jpg)
 
 ```markdown
 - Chief executive `:c1`
