@@ -63,7 +63,7 @@ Before any practices, here's the one thing I'd ask you to hold on to. There's no
 
 ---
 
-<!-- _class: compare-prose insight-so-what -->
+<!-- _class: compare-prose vertical insight-so-what -->
 
 `Your role · Floor and ceiling`
 
@@ -103,7 +103,7 @@ A director doesn't run the camera. They watch the take and judge what's actually
 
 ---
 
-<!-- _class: compare-prose chosen insight-so-what -->
+<!-- _class: compare-prose vertical chosen insight-so-what -->
 
 `Your role · The bar`
 
@@ -163,27 +163,28 @@ The set gives us a map for the rest of the hour. The script and shot list are yo
 -->
 
 ---
-
-<!-- _class: diagram insight-takeaway -->
+<!-- _class: cycle insight-takeaway -->
 
 `How an agent works`
 
 ## A coding agent loops until it thinks it is done.
 
-```mermaid
-flowchart LR
-  A["Read what's<br/>in front of it"] --> B["Plan"]
-  B --> C["Change code<br/>or run a tool"]
-  C --> D["Check the result"]
-  D -->|thinks it's not done| A
-  D -->|thinks it's done| E["Report back"]
-```
+- Read
+  - It takes in what's in front of it.
+- Plan
+  - It decides the next step.
+- Act
+  - It changes code or runs a tool.
+- Check
+  - Done? It reports back. If not, it loops.
 
 > Every practice today makes "thinks it is done" match "is done."
 
 <!--
 Here's what's happening inside. The agent reads what's in front of it, makes a plan, changes some code or runs a tool, and checks the result. If it decides it isn't finished, it goes around again. When it decides it's finished, it reports back. Listen for the word "thinks." The loop stops when the agent believes the work is done. Whether the work is actually done depends on what it could see, what it was allowed to do, and how good its checks were. Those are the practices we'll cover.
 -->
+
+---
 
 ---
 
@@ -225,17 +226,20 @@ Quick show of hands. Who has watched an agent confidently call a function that d
 ## An agent sees only its context window, the text in front of it.
 
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
 flowchart LR
+  subgraph OUT["Outside the window"]
+    direction TB
+    E["Team knowledge"]
+    F["Past decisions"]
+    G["Known traps"]
+  end
   subgraph IN["In the window"]
+    direction TB
     A["Standing instructions"]
     B["Files it opened"]
     C["Tool output"]
     D["Your request"]
-  end
-  subgraph OUT["Outside the window"]
-    E["Team knowledge"]
-    F["Past decisions"]
-    G["Known traps"]
   end
   IN --> H["Its next action"]
 ```
@@ -254,6 +258,7 @@ The context window is everything the model can see at one moment. That's its sta
 ## Keep the always-loaded file short, and link to the detail.
 
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
 flowchart LR
   S["Every session loads<br/>the index"] --> I["One line per rule,<br/>each with a link"]
   I -.->|"only when needed"| A["How we merge"]
@@ -364,6 +369,7 @@ Hands up if an agent has ever done more than you asked. Renamed something you li
 ## Two questions decide whether the agent acts or asks.
 
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
 flowchart LR
   A["Next step"] --> B{"Already decided<br/>by a written rule?"}
   B -->|no| F["Ask: options, costs,<br/>a recommendation"]
@@ -442,7 +448,7 @@ Here's a risk that's easy to miss. Agents read things: web pages, issues, pull r
 
 ---
 
-<!-- _class: compare-prose chosen -->
+<!-- _class: compare-prose vertical chosen -->
 
 `Autonomy · How to ask`
 
@@ -492,7 +498,7 @@ One more show of hands. Who has had an agent tell you it was done, and it wasn't
 -->
 ---
 
-<!-- _class: compare-prose insight-bottom-line -->
+<!-- _class: compare-prose vertical insight-bottom-line -->
 
 `Verification · The gap`
 
@@ -535,6 +541,7 @@ So we gave the word "verified" rules. It has to say where the check ran: the rea
 ## Match the amount of checking to the damage a mistake could do.
 
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
 flowchart LR
   A["Routine change<br/>tests and linters"] --> B["Wide impact<br/>a second agent<br/>redoes the work"]
   B --> C["Critical or new<br/>three reviewers,<br/>three jobs"]
@@ -775,7 +782,7 @@ Here's an example of what we call an evidence card. The agent posts one before i
 
 ---
 
-<!-- _class: compare-prose chosen -->
+<!-- _class: compare-prose vertical chosen -->
 
 `Learning · Pending work`
 
@@ -853,7 +860,7 @@ For a big, open design question, like an architecture or a data model, several i
 
 ---
 
-<!-- _class: compare-prose chosen insight-takeaway -->
+<!-- _class: compare-prose vertical chosen insight-takeaway -->
 
 `Orchestration · Cast the model`
 
@@ -989,16 +996,16 @@ These practices came from a web application, but they travel. What changes is wh
 
 ---
 
-<!-- _class: compare-prose chosen insight-our-view -->
+<!-- _class: compare-prose vertical chosen insight-our-view -->
 
 `Across teams · What to share`
 
 ## Share the rule and the loop, and let each team write its own rules.
 
 - One rulebook for everyone
-  - Rules written for one codebase break in another. Nobody knows why a rule exists, so people follow it until it gets in the way.
+  - Rules from one codebase break in another, and nobody remembers why they exist.
 - One loop, local rules
-  - Share the one rule, the loop from mistake to rule, and a few checks. Each team writes its rules from its own mistakes.
+  - Share the rule, the loop and a few checks. Each team writes rules from its own mistakes.
 
 > A rule holds when the team remembers the mistake behind it.
 
@@ -1014,6 +1021,7 @@ Some of you are asking whether we should write one standard for the whole organi
 ## Agents copy what they find, so quality and jank both compound.
 
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
 flowchart LR
   S["A shortcut ships"] --> R1["The next agent reads it<br/>as the house style"] --> T["A month later,<br/>it is in ten files"]
   G["A clean version ships"] --> R2["The next agent<br/>copies that instead"] --> F["Every change starts<br/>from firmer ground"]
@@ -1034,6 +1042,7 @@ Every film crew knows the phrase "we'll fix it in post." It's how shortcuts get 
 ## You stop typing code and start directing a system.
 
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '24px'}}}%%
 mindmap
   root)Reality matches the claim(
     You direct
@@ -1041,7 +1050,7 @@ mindmap
       {{Set the bar}}
       {{Mentor, don't micromanage}}
     Context
-      {{An index, not a manual}}
+      {{Keep the index short}}
       {{Route before work}}
     Autonomy
       {{Can it be undone?}}
