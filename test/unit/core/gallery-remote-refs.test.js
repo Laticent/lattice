@@ -92,6 +92,7 @@ const FETCHES = {
   'a root-relative script (any same-origin chunk in the Studio)': '<script src="/_astro/client.js"></script>',
   'a vendored NAME behind a directory that is not dist/': '<script src="../../elsewhere/mermaid-v11.min.js"></script>',
   'an svg script with a relative href': '<svg><script href="helper.js"></script></svg>',
+  'a vendored name with a trailing no-break space (the browser keeps it)': '<script src="lattice-runtime.js\u00a0"></script>',
   'an inline script with a fetch': '<script>fetch("https://x.example.com/a")</script>',
   'a script with a data: source': '<script src="data:text/javascript,alert(1)"></script>',
   'an svg script with a data: href': '<svg><script href="data:text/javascript,window.PWN=1"></script></svg>',

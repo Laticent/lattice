@@ -12,6 +12,12 @@ import { expect, gotoStudio, openSection, test } from './studio-fixture';
 // image, which must be skipped and named. The deck in it must restore regardless.
 // The oracle is the browser's own network log, with a control that proves the log can see a
 // request to the beacon host from this page at all.
+//
+// THREE ENGINES, because the gate decides by parsing the sample slide with the ENGINE's own
+// DOMParser and restores through the engine's own IndexedDB. `@webkit-tablet` and `@gecko` put
+// it on the WebKit and Firefox projects `studio-e2e-nightly.yml` installs; `@crosswidth` keeps
+// it on `desktop` (whose grepInvert drops a webkit-only title) and adds the 390px `mobile`
+// project, where the Workspace sheet opens its sections from a menu instead of pills.
 
 const BEACON = 'beacon.lattice-e2e.invalid';
 
@@ -47,7 +53,7 @@ async function hostileBackup(): Promise<Buffer> {
 	return zip.generateAsync({ type: 'nodebuffer' });
 }
 
-test('a hostile workspace backup restores everything else and names what it refused', async ({ page }) => {
+test('a hostile workspace backup restores everything else and names what it refused @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	const hits: string[] = [];
 	await page.route(`**://${BEACON}/**`, (route) => {
