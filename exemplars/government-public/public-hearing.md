@@ -47,7 +47,7 @@ A phased development of 620 housing units, 84,000 square feet of ground-floor re
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: short -->
 
 ## What the comprehensive plan requires of any approval here.

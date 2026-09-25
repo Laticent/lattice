@@ -924,18 +924,6 @@ def demo_blocks() -> dict[str, str]:
 
     # ----- PROGRESSION family -----------------------------------------------
 
-    blocks['list-criteria'] = frame([
-        ('left', 'header'),
-        ('left', 'Criteria heading.'),
-        ('blank',),
-        ('left', '01  First criterion — gloss'),
-        ('left', '02  Second criterion — gloss'),
-        ('left', '03  Third criterion — gloss'),
-        ('left', '04  Fourth criterion — gloss'),
-        ('blank',),
-        ('split', 'footer', '1/19'),
-    ])
-
     blocks['list-steps'] = frame([
         ('left', 'header'),
         ('left', 'Step-by-step heading (horizontal).'),

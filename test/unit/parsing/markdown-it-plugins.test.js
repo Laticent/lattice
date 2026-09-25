@@ -1255,8 +1255,8 @@ describe('markdown-it-plugins', () => {
     }
   });
 
-  test('slotLabelLift: fires on timeline, list-criteria, and actors', () => {
-    for (const cls of ['timeline', 'list-criteria', 'actors']) {
+  test('slotLabelLift: fires on timeline, authority-chain, and actors', () => {
+    for (const cls of ['timeline', 'authority-chain', 'actors']) {
       const m = makeHost(plugins.slotLabelLift);
       const md = `<!-- _class: ${cls} -->\n- Lead\n  - body`;
       const { html } = m.render(md);

@@ -978,7 +978,7 @@ describe('markerBox — deriving a bullet nobody can measure', () => {
 	});
 
 	it('finds a `::before` index in the LEFT gutter, spanning the item', () => {
-		// list-criteria: an absolutely-placed number, as tall as the row.
+		// list takeaway numbered (lead + gloss row): an absolutely-placed number, as tall as the row.
 		const { el, line } = li({
 			box: { left: 64, top: 3778, width: 1152, height: 98 },
 			line: { left: 577, top: 3790, width: 182, height: 34 },

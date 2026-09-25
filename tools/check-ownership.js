@@ -8145,8 +8145,10 @@ const LENTE_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lente');
  * NOTE the scope. This is about the ajv LIBRARY, not about schema JSON, which
  * lib/layout/gate.js deliberately requires and ships to the Studio.
  */
-function checkAjvBoundary(errors) {
-  for (const dir of [LIB_DIR, path.join(ROOT, 'docs', 'src')]) {
+// `dirs` exists for the suite: its probes go in a temp dir, never the live tree, because
+// a probe written into lib/ is read (then vanishes) under every parallel test walking lib/.
+function checkAjvBoundary(errors, dirs = [LIB_DIR, path.join(ROOT, 'docs', 'src')]) {
+  for (const dir of dirs) {
     if (!fs.existsSync(dir)) continue;
     for (const file of listSourceFiles(dir)) {
       const rel = path.relative(ROOT, file).split(path.sep).join('/');

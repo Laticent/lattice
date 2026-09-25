@@ -39,7 +39,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 
 `The contract`
 
@@ -66,7 +66,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 
 `Two switches, four files`
 
@@ -93,7 +93,7 @@ The narrator defaults to the voice the deck was rehearsed in, and can be changed
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 
 `Where the audio rides`
 

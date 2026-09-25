@@ -111,7 +111,7 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: full -->
 
 ## Why Managed-A clears every criterion that matters.

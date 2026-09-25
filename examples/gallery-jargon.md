@@ -331,8 +331,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: list-criteria -->
-<!-- _footer: "Numbered criteria · list-criteria" -->
+<!-- _class: list takeaway numbered -->
+<!-- _footer: "Numbered criteria · list takeaway numbered" -->
 
 ## Four requirements every decision system must meet
 

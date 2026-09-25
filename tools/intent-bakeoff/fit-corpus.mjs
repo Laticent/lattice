@@ -81,9 +81,9 @@ export function buildFitCorpus(catalog) {
 			const query = phrase(entry);
 			if (query.length < 20) continue;
 			// Which OTHER component does this anti-pattern point at? Read ONLY backticked
-			// mentions — `list-criteria` — because that is the convention the manifest
+			// mentions — `list-steps` — because that is the convention the manifest
 			// authors actually use (76 of the 90 backticked mentions) and because a bare word cannot be
-			// trusted: `\blist\b` matches inside `list-criteria` (a hyphen is a word
+			// trusted: `\blist\b` matches inside `list-steps` (a hyphen is a word
 			// boundary), and "Unnumbered list" means a bulleted list, not the `list`
 			// component. Bare matching produced 66 mentions, most of them wrong, which
 			// would have put bad ground truth under every number this benchmark reports.

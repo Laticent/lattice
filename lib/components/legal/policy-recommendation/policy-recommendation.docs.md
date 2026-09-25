@@ -6,11 +6,11 @@
 
 **Tags** `recommendation` · `regulation` · `risk` · `takeaway`
 
-Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.
+Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list takeaway numbered`.
 
 ## Agent contract
 
-**Capacity** ~3 items (over 3 overflows) — past that, list-criteria / split across slides. Past three reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three.
+**Capacity** ~3 items (over 3 overflows) — past that, list takeaway numbered / split across slides. Past three reasons the panel reads as a memo, not a recommendation — move the evidence to a `list takeaway numbered` slide and keep the recommendation slide to its strongest three.
 
 **Density** aim ~20 words per item; past ~28 it reads as a wall of text — one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip.
 
@@ -45,7 +45,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 ## When NOT to use
 
 - **Weighing two options.** If the slide compares alternatives before choosing, use `split-compare` — its right zone is a 2-option grid plus a verdict card. policy-recommendation states one already-chosen position.
-- **More than four reasons.** Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list-criteria`.
+- **More than four reasons.** Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list takeaway numbered`.
 - **A recommendation with no ask.** Omitting the closing blockquote leaves the reader with a position but no action. Always name the specific legislative move — the bill, the section, the vote.
 - **A topic-label heading.** `## Breach Notification` is a topic, not a recommendation. Say the action: `## Adopt a 30-day breach-notification deadline.`
 
@@ -162,7 +162,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 - [`split-compare`](../../comparison/split-compare/split-compare.docs.md) — two options weighed before a verdict card
 - [`decision`](../../comparison/decision/decision.docs.md) — naming a chosen path among options already presented
-- [`list-criteria`](../../progression/list-criteria/list-criteria.docs.md) — a flat enumeration of requirements without a stance or an ask
+- [`list`](../../inventory/list/list.docs.md) — `takeaway numbered`: a flat enumeration of requirements without a stance or an ask
 - [`regulatory-update`](../../legal/regulatory-update/regulatory-update.docs.md) — a period digest of what changed, not a recommendation on one measure
 
 ## Demo deck

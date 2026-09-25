@@ -147,7 +147,7 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: full -->
 
 ## The criteria the capital plan was built to meet.

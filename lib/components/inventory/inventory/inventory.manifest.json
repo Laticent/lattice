@@ -136,7 +136,7 @@
     },
     {
       "title": "Ordered steps",
-      "body": "If sequence carries meaning, use list-steps or list-criteria. inventory entries are parallel, of similar weight."
+      "body": "If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight."
     },
     {
       "title": "Nested-bullet authoring",

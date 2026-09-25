@@ -550,7 +550,7 @@ never turn "passed in headless" into "works on iOS."
 
 - **Symptom:** On the live docs playground (`/lattice/playground/`) in mobile
   Safari / iOS / any WebKit browser: numbered components (`list principles`,
-  `list-criteria`) show `00` for every counter instead of `01 02 03…`; charts
+  `list takeaway numbered`) show `00` for every counter instead of `01 02 03…`; charts
   (`state-chart` etc.) render with giant labels overlapping each other; SVG
   state marks (checklist/verdict-grid/obligation-matrix discs) lose their
   in-disc symbol or show as a clipped half-shape. The SAME deck renders

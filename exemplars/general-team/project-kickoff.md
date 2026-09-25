@@ -60,7 +60,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: full -->
 
 ## What "done" must satisfy before we decommission anything.

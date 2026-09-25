@@ -125,7 +125,7 @@
     },
     {
       "title": "Order is decorative",
-      "body": "When sequence carries meaning, use list-steps or list-criteria instead. cards-grid is for parallel options."
+      "body": "When sequence carries meaning, use list-steps or `list takeaway numbered` instead. cards-grid is for parallel options."
     }
   ],
   "antiPatterns": [
@@ -135,7 +135,7 @@
     },
     {
       "title": "Order carries meaning",
-      "body": "Use list-steps or list-criteria. cards-grid is for parallel options, not sequences."
+      "body": "Use list-steps or `list takeaway numbered`. cards-grid is for parallel options, not sequences."
     },
     {
       "title": "Lopsided density",

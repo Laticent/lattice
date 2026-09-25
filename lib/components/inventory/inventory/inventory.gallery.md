@@ -145,7 +145,7 @@ A parallel set of related items of similar weight — one content shape, four in
 - More than six items
   - The looks lose scannability past six entries (the cards/timeline looks past four). Escalate to list-tabular or split across slides.
 - Ordered steps
-  - If sequence carries meaning, use list-steps or list-criteria. inventory entries are parallel, of similar weight.
+  - If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
 - Nested-bullet authoring
   - inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
 - Lopsided density

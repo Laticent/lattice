@@ -18,7 +18,7 @@
   ["board with columns of cards by stage", ["kanban"]],
   ["executive dashboard of key metrics", ["kpi"]],
   ["a bulleted list", ["list"]],
-  ["numbered requirements with reasons", ["list-criteria"]],
+  ["numbered requirements with reasons", ["list"]],
   ["ordered steps of a process", ["list-steps", "cycle"]],
   ["customer logos as proof", ["logo-wall"]],
   ["color countries by a value on a world map", ["map"]],

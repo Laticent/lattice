@@ -5,7 +5,8 @@
  * slide reads edge-to-edge whether it carries three items or the layout's
  * max. Three registers share the spine:
  *   default        — accent-edged pills (a flat set of points)
- *   .takeaway      — hairline-ruled single lines (former tldr)
+ *   .takeaway      — hairline-ruled single lines (former tldr); an item with a
+ *                    nested gloss stacks lead over gloss (former list-criteria)
  *   .principles    — display-weight declarations + large counter (former principles)
  *
  * Type steps up to the message scale (principles to the emphasis/display
@@ -82,6 +83,39 @@ section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
   letter-spacing:0.02em; color:var(--accent); line-height:1;
   flex:0 0 auto; min-width:2.4em;
 }
+/* Lead + gloss — an item with a nested gloss bullet stacks a bold lead over a muted
+ * gloss line (the former `list-criteria` row, absorbed 2026-09-25). The counter keeps
+ * its fixed `--fs-emphasis` size and sits in a left gutter centered on the whole pair,
+ * so it never scales with row height (list-criteria's 55cqh number did — jank.md).
+ *
+ * Keyed on the LIST (`:has(> li > :is(ul,ol))`), not the row, so a row without a gloss
+ * in the same list sets its lead at the same size and x as one with a gloss.
+ * `display:block` + `align-content:center`, NOT a column flex: a flex container makes
+ * every inline element its own item, so `Lead **bold** part` broke onto three lines. */
+section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li {
+  display:block; align-content:center;
+  font-size:var(--fs-body); font-weight:700; line-height:var(--lh-snug);
+}
+section.list.takeaway.numbered > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li {
+  position:relative; padding-left:calc(var(--fs-emphasis) * 2.4 + var(--sp-md));
+}
+section.list.takeaway.numbered > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li::before {
+  position:absolute; left:var(--sp-xs); top:0; bottom:0;
+  display:flex; align-items:center;
+}
+/* The gloss. A numbered sub-list (`1.`) is read as a gloss too, rather than gluing its
+ * text onto the lead's line. */
+section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) {
+  list-style:none; padding:var(--sp-2xs) 0 0; margin:0;
+  font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:var(--lh-base);
+}
+/* inherit, not the default register's `ul > li > ul > li` compact label ink — or a `-`
+ * criteria list would set its gloss smaller and in a different color than a `1.` one. */
+section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) > li {
+  display:block; background:none; border:none; padding:0;
+  font-size:inherit; color:inherit; line-height:inherit;
+}
+section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) > li::before { content:none; }
 
 /* ── principles register — former `principles` component (inventory.list.principles) ──
  * Display-weight declarations with a large accent counter. ol only;

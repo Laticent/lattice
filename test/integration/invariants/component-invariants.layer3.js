@@ -290,10 +290,6 @@ const LAYER3 = {
   },
 
   // ── progression ──
-  'list-criteria': {
-    'each criterion renders a label and its rationale':
-      eachWith('ol > li', ['strong', ':scope > ul'], 3, 'list-criteria did not render labeled criteria'),
-  },
   'list-steps': {
     'renders an ordered sequence of steps, each with detail': async (page, assert, SLIDE) => {
       const f = await page.evaluate((sel) => {

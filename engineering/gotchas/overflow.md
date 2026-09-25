@@ -351,8 +351,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
     stamp is `offsetWidth/100`, the BORDER box (1280). Anchoring one moves it 11%: doing
     that to `.chart-body` took it 3072 → 3456px against a 3110.4px export and made a
     `roadmap` slide's overflow ring vanish.
-- **Still open, one tier down:** `.chart-body`, `.piechart-figure` and
-  `section.list-criteria`'s cell are themselves `container-type: size`, so a `cq*` in
+- **Still open, one tier down:** `.chart-body` and `.piechart-figure` (and, until it was
+  retired on 2026-09-25, `section.list-criteria`'s cell) are themselves `container-type: size`, so a `cq*` in
   THEIR own declarations has the identical self-reference problem, and there is no
   stamped anchor for a non-section container. 50 computed values on the gallery still
   move with the host viewport (down from 631); none of them changes an overflow verdict.

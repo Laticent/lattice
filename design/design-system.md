@@ -177,7 +177,7 @@ independently — so the surfaces can't drift apart.
 | **Statement**  | one declarative claim                              | `big-number`, `quote`, `split-panel`, `content` |
 | **Inventory**  | a parallel set of related items                    | `inventory`, `cards-grid`, `cards-stack`, `list`, `actors`, `agenda`, `glossary`, `list-tabular`, `checklist`, `q-and-a`, `logo-wall` |
 | **Comparison** | how two or more options differ                    | `compare-prose`, `compare-code`, `table`, `verdict-grid`, `decision`, `matrix-2x2` |
-| **Progression**| an ordered movement through stages or time        | `list-steps`, `list-criteria`, `roadmap`, `gantt`, `kanban` |
+| **Progression**| an ordered movement through stages or time        | `list-steps`, `roadmap`, `gantt`, `kanban` |
 | **Evidence**   | data that supports the argument                    | `stats`, `kpi`, `chart-family` (progress, piechart, timeline-list), `radar`, `quadrant`, `word-cloud`, `diagram`, `code` |
 | **Imagery**    | a visual that carries its own meaning              | `image` |
 

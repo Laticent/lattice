@@ -117,7 +117,7 @@ lists the CSS styles.
 
 | Category | Classes | Post-processor |
 |---|---|---|
-| Structured | `cards-grid`, `cards-stack`, `checklist`, `compare-prose`, `compare-code`, `list-criteria`, `list-tabular`, `quadrant`, `radar`, `roadmap`, `split-panel`, `stats`, `verdict-grid`, `word-cloud` | yes — `lattice-emulator.js` rewrites DOM |
+| Structured | `cards-grid`, `cards-stack`, `checklist`, `compare-prose`, `compare-code`, `list-tabular`, `quadrant`, `radar`, `roadmap`, `split-panel`, `stats`, `verdict-grid`, `word-cloud` | yes — `lattice-emulator.js` rewrites DOM |
 | Unstructured | `title`, `divider`, `closing`, `content`, `diagram`, `quote`, `list`, `list-steps`, `big-number`, `image`, `code` | no — CSS-only |
 
 Modifiers (`dark`, `mirror`, image-specific `full` / `contain`, etc.)

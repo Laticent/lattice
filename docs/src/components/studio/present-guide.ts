@@ -405,7 +405,7 @@ function oneMark(els: Element[]): Element | null {
 /**
  * THE DECLARED-PART TIER — a cue whose sentence is on the slide, in a token nothing can find.
  *
- * `findCueTargetIn` searches `BLOCK_SELECTOR`, one hardcoded element list for all 71 components.
+ * `findCueTargetIn` searches `BLOCK_SELECTOR`, one hardcoded element list for every component.
  * A transform that renders its parts as spans is invisible to it: team-profile's roster is
  * `<li class="person">` holding a photo and three `<span>`s, so "Marcus Vale, Program Director:
  * Runs the weekly cadence." matched no block, no piecewise part and no `data-label`, and the
@@ -1097,7 +1097,8 @@ function isTransparent(value: string): boolean {
  * Three shapes, and they are the three Lattice ships:
  *
  *   BLOCK ABOVE — `list-steps.timeline`'s rail disc, a flex child at the top of a centered column.
- *   INLINE LEFT — `list-criteria`'s big index, an absolutely-placed gutter number.
+ *   INLINE LEFT — `list takeaway numbered`'s index on a lead-plus-gloss row, an absolutely-placed
+ *   gutter number (the shape the retired `list-criteria` drew).
  *   THE REAL `::marker` — split-compare's `list-style: disc`, drawn OUTSIDE the item in the list's
  *   own left padding, which is why the gutter is where it has to be looked for.
  *
@@ -1152,7 +1153,7 @@ const NESTED_BLOCK = new Set(['UL', 'OL', 'P', 'DL', 'BLOCKQUOTE', 'TABLE', 'DIV
  * The element's OWN leading text — everything before its first nested block.
  *
  * That is a card's header, whether the engine gave it an element (`<strong>` in split-compare's
- * options, in `list-criteria`, in `list-steps`) or left it as a bare text node (`cards-grid`'s
+ * options, in `list-steps`) or left it as a bare text node (`cards-grid`'s
  * `<li>Title<ul>body</ul></li>`). One range covers both, which is why this is a range and not a
  * `querySelector` for whatever tag a given component happens to use.
  *

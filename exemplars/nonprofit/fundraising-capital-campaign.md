@@ -102,7 +102,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: full -->
 
 ## What your gift funds.

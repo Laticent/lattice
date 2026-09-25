@@ -38,7 +38,7 @@ Compassionate-use cases prove phages can clear resistant infections. But natural
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: short -->
 
 ## What this program must establish, across three aims.

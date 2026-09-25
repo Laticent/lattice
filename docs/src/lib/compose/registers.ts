@@ -232,7 +232,7 @@ const TABLE_UNSUITED = new Set([
  *
  * What KEEPS the door, and why it is the shorter list: `content` (the catch-all body
  * layout), the open list-flow layouts a table can legitimately join (list, list-tabular,
- * list-criteria, list-steps, agenda, actors, checklist, inventory, q-and-a,
+ * list-steps, agenda, actors, checklist, inventory, q-and-a,
  * policy-recommendation, regulatory-update), and the four components whose table IS the
  * content (table, matrix-grid, obligation-matrix, roadmap).
  */
