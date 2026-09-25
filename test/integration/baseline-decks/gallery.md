@@ -342,8 +342,8 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: list-criteria -->
-<!-- _footer: "Numbered criteria · list-criteria" -->
+<!-- _class: list takeaway numbered -->
+<!-- _footer: "Numbered criteria · list takeaway numbered" -->
 
 ## Four requirements every decision system must meet.
 
