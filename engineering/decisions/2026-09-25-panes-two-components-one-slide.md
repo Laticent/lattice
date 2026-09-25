@@ -57,6 +57,14 @@ cell. It is not the recursion that note rejected.
 | `<!-- pane: <component> -->` | Starts a pane. Two per slide in v1; everything before the first marker is the slide's own masthead. |
 | `<!-- panes: 40/60 -->` | Optional split. 25–75 in 5% steps; default 50/50. |
 | `<!-- panes: stack 35/65 -->` | Stack the panes top-to-bottom instead of side by side. |
+| `<!-- panes: 50/50 no-rule -->` | Drop the spine between the panes (on by default). |
+
+**A spine marks the seam.** Between the panes the engine draws the chart family's diagram|key
+rule (`buildSpine` in `lib/components/chart/_chart-family/svg-legend.js`) in CSS: an accent fade,
+transparent at both ends, horizontal when the panes stack. It is placed from the ratio, never from
+the content, so it cannot move. It is on by default because it is the family's existing answer to
+"two things share this box"; `no-rule` drops it where a pane's own edge already separates the two
+(a photo).
 
 **The trailing coda belongs to the slide.** After the second pane, the engine peels the trailing
 run of blockquotes (Key Insight), `— ` paragraphs (below-note) and comments back onto the host

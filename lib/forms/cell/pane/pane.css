@@ -24,6 +24,49 @@ section.lat-pane-host > .cell-stage > .lat-panes {
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"] {
   flex-direction: column;
 }
+/* THE SPINE between the panes — the chart family's diagram|key rule
+ * (buildSpine, lib/components/chart/_chart-family/svg-legend.js), in CSS: an accent
+ * fade, transparent at both ends, so it reads as a quiet seam, not a hard divider.
+ * The SVG copy keeps its own stops only because SVG `fill` cannot take a CSS
+ * gradient; the five stops here are the same five. Keep them in step.
+ *
+ * Placed from the AUTHORED ratio, never from content, so a longer table cannot move
+ * it: the centre of the gap is `(100% - gap) * a/100 + gap/2` along the split axis.
+ * It lives on `.lat-panes` because each pane clips at its own edge (and a pseudo on
+ * a pane would be clipped with it). `no-rule` turns it off. */
+section.lat-pane-host > .cell-stage > .lat-panes {
+  --pane-spine-w: clamp(1px, 0.12cqi, 2px);
+  --pane-spine-at: calc((100% - var(--pane-gap)) * var(--pane-a, 50) / 100 + var(--pane-gap) / 2);
+  position: relative;
+}
+section.lat-pane-host > .cell-stage > .lat-panes:not([data-rule="none"])::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--pane-spine-at) - var(--pane-spine-w) / 2);
+  inline-size: var(--pane-spine-w);
+  border-radius: var(--pane-spine-w);
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 14%,
+    color-mix(in oklab, var(--accent) 60%, transparent) 50%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 86%,
+    transparent 100%);
+  pointer-events: none;
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"]:not([data-rule="none"])::before {
+  inset-block: auto;
+  inset-inline: 0;
+  inset-block-start: calc(var(--pane-spine-at) - var(--pane-spine-w) / 2);
+  inline-size: auto;
+  block-size: var(--pane-spine-w);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 14%,
+    color-mix(in oklab, var(--accent) 60%, transparent) 50%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 86%,
+    transparent 100%);
+}
 .lat-panes > lat-pane {
   display: flex;
   flex-direction: column;

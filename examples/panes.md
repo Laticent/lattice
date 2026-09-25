@@ -63,6 +63,7 @@ footer: "Panes — two components, one slide"
 
 ## The new office opened on time and under budget.
 
+<!-- panes: 50/50 no-rule -->
 <!-- pane: image -->
 
 ![Office](assets/sample-photo-tall.svg)

@@ -134,9 +134,10 @@ test('a slide without panes keeps its ids when a LATER slide has panes', () => {
 });
 
 test('parseLayout accepts 25–75 in 5% steps and stack, and reports the rest', () => {
-  assert.deepEqual(panes.parseLayout('stack 35/65'), { direction: 'stack', a: 35, b: 65 });
-  assert.deepEqual(panes.parseLayout('75/25'), { direction: 'side', a: 75, b: 25 });
-  assert.deepEqual(panes.parseLayout('60 / 40'), { direction: 'side', a: 60, b: 40 });
+  assert.deepEqual(panes.parseLayout('stack 35/65'), { direction: 'stack', a: 35, b: 65, rule: true });
+  assert.deepEqual(panes.parseLayout('75/25'), { direction: 'side', a: 75, b: 25, rule: true });
+  assert.deepEqual(panes.parseLayout('60/40 no-rule'), { direction: 'side', a: 60, b: 40, rule: false });
+  assert.deepEqual(panes.parseLayout('60 / 40'), { direction: 'side', a: 60, b: 40, rule: true });
   for (const bad of ['80/20', '33/67', '60/50', 'wide']) {
     const l = panes.parseLayout(bad);
     assert.equal(l.a, 50, bad);
@@ -199,4 +200,11 @@ test('a table in a pane renders with the same table classes as a table slide', (
   const html = render('## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n');
   const pane = html.slice(html.indexOf('data-pane="table"'));
   assert.match(pane, /<div class="cell-stage">\s*<table class="lat-row-label(-off)?">/);
+});
+
+test('the spine between panes is on by default and `no-rule` turns it off', () => {
+  assert.match(render(DECK), /<div class="lat-panes" data-panes="side" style=/);
+  const off = render(`## T\n\n<!-- panes: 40/60 no-rule -->\n${PANES}\n`);
+  assert.match(off, /<div class="lat-panes" data-panes="side" data-rule="none" style=/);
+  assert.equal(count(off, /<lat-pane /g), 2);
 });

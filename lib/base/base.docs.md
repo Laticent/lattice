@@ -76,6 +76,10 @@ number; only the body splits. Mark where each component's body begins:
   component's own slide body, minus the heading.
 - `<!-- panes: 40/60 -->` sets the split, 25–75 in 5% steps (default 50/50);
   `<!-- panes: stack 35/65 -->` stacks the panes top to bottom.
+- A **spine** marks the seam between the panes: the same accent rule, fading at both ends,
+  that separates a chart from its key. It turns horizontal when the panes stack. Add
+  `no-rule` to drop it (`<!-- panes: 50/50 no-rule -->`) — a photo pane's own edge
+  usually separates it already.
 - The trailing `> quote` and `— note` belong to the slide, never to the second pane.
 - 43 of the 70 components fit a half; 17 need a 65–75% share or a stacked band (`table`, `gantt`,
   `roadmap`, `cards-grid`, …); the 10 whole-slide frames (`title`, `divider`, `split-panel`, …) do
