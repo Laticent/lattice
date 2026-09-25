@@ -62,11 +62,11 @@ const KNOWN_UNCLASSIFIED = new Set([
   // A dated decision doc that ships a rendered companion PDF. A one-off, not a
   // deck family; dated decision notes are not edited after the fact.
   'engineering/decisions/2026-05-12-kpi-candidates.md',
-  // The agentic-practice audit's companion deck, same class as the note above: a
+  // The agentic-coding talk built from the practice audit, same class as the note above: a
   // dated record rendered once, by hand, with `node lattice-emulator.js`. Approving
   // its reader lenses edits only the `lenses:` front matter, which changes no slide,
   // so the committed PDF does not go stale when that happens.
-  'engineering/decisions/2026-09-24-agentic-practice-audit/deck.md',
+  'engineering/decisions/2026-09-24-agentic-practice-audit/working-with-coding-agents.md',
   // The Marp kit's sample deck. Deliberately NOT classifiable: its committed PDF
   // is rendered by real marp-cli against dist/marp-kit — the surface a recipient
   // actually uses — not by Lattice's own renderer. Rebuilding it through the
