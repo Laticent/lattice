@@ -30,6 +30,8 @@
  *   node tools/sweep-guide-gestures.mjs --deck a.md --deck b.md --misses
  *                                                    # measure named decks only, and print
  *                                                    # every cue that resolved to nothing
+ *   node tools/sweep-guide-gestures.mjs --paraphrases # print every cue the paraphrase tier
+ *                                                    # answered, beside the text it named
  *
  * Needs a Chromium (CHROME_PATH or the puppeteer cache) — shape is layout, and layout
  * needs a browser. With none it SKIPS loudly and exits 0, never a false green (#23).
@@ -162,6 +164,7 @@ async function main() {
 	// its slide, which is the list a component owner fixes from; the rate alone names no cue.
 	const named = argv.flatMap((a, i) => (a === '--deck' && argv[i + 1] ? [path.resolve(argv[i + 1])] : []));
 	const showMisses = argv.includes('--misses');
+	const showParaphrases = argv.includes('--paraphrases');
 
 	const chrome = resolveChrome();
 	if (!chrome) {
@@ -308,7 +311,7 @@ async function main() {
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes
 							// dark", which is the question a component owner actually has.
-							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: piecewise, marked, parted, figured, paraphrased, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, held, slide: n, text });
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: piecewise, marked, parted, figured, paraphrased, said: paraphrased ? (d.el.getAttribute?.('data-label') ?? d.el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) : undefined, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, held, slide: n, text });
 						}
 						out.push({ slideDone: true, any, comp });
 					}
@@ -355,6 +358,7 @@ async function main() {
 				if (row.paraphrased) tally.paraphrased += 1;
 				// A cue the WHOLE-FIGURE tier answered is resolved, but only honestly so when the
 				// sentence is about the whole chart. Listed with the misses so that is checkable.
+				if (row.paraphrased && showParaphrases) process.stderr.write(`    para  ${stem} #${row.slide} [${row.comp}]  ${row.text}\n          -> ${row.said}\n`);
 				if (row.whole && showMisses) process.stderr.write(`    whole ${stem} #${row.slide} [${row.comp}]  ${row.text}\n`);
 				if (row.spanned) {
 					tally.spanned += 1;

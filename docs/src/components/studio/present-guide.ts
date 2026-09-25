@@ -798,6 +798,9 @@ function contentKeys(s: string): Map<string, number> {
 
 /** Shared weight a block needs: two words, or one number of two digits or more. */
 const PARAPHRASE_MIN_SHARED = 2;
+
+/** A picture a sentence can be about without naming a block: a chart, a diagram, an image. */
+const FIGURE_SELECTOR = '.chart-body, .mermaid, pre.language-mermaid, figure, img:not(.deck-logo)';
 const PARAPHRASE_MIN_COVERAGE = 1 / 3;
 
 /** The one slide a paraphrase may match inside, or null when that is not knowable. */
@@ -843,7 +846,9 @@ export function findParaphraseTarget(root: Document | Element | null, text: stri
 	let bestLen = Number.POSITIVE_INFINITY;
 	let tied: Element | null = null;
 	for (const el of scope.querySelectorAll(`${BLOCK_SELECTOR}, [data-label]`)) {
-		if (el.closest('.chart-sr-only, template')) continue;
+		// Only what is painted: a chart's accessible description (`[data-lattice-desc]`) restates
+		// every mark in one paragraph, so it shares words with every cue and names none of them.
+		if (el.closest(UNPAINTED)) continue;
 		const said = candidateText(el);
 		const s = score(cue, said);
 		if (s < floor) continue;
@@ -870,8 +875,14 @@ export function findParaphraseTarget(root: Document | Element | null, text: stri
 	// agrees to exit, this is the plan.") names no single block, but it is about the slide's
 	// claim, and a presenter's hand goes to the headline. One word is enough ONLY here: the
 	// headline is one element per slide, so there is nothing for a weak match to be confused with.
+	//
+	// NOT ON A SLIDE WITH A FIGURE. A chart narrator's frame sentence ("Each wedge is that item's
+	// share of the whole.") shares a word with a headline like "Wedges read by value and texture."
+	// and is still about the picture, which the figure tier below names. Measured on the corpus
+	// sample: without this guard every such frame sentence moved from the chart to the headline.
+	if (scope.querySelector(FIGURE_SELECTOR)) return null;
 	const head = scope.querySelector('h1, h2');
-	if (head && !head.closest('.chart-sr-only, template') && score(cue, head.textContent ?? '') >= 1) {
+	if (head && !head.closest(UNPAINTED) && score(cue, head.textContent ?? '') >= 1) {
 		paraphraseHit += 1;
 		return head;
 	}

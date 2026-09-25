@@ -159,6 +159,15 @@ describe('findParaphraseTarget — an authored caption in other words', () => {
 		expect(findCueTarget(d, 'If the board agrees to exit, this is the plan.')?.tagName).toBe('H2');
 	});
 
+	it('leaves a chart slide\'s frame sentence to the figure, not the headline', () => {
+		const d = doc('<h2>Wedges read by value and texture.</h2><div class="chart-body"><svg></svg></div>');
+		expect(findParaphraseTarget(d, "Each wedge is that item's share of the whole.")).toBeNull();
+		expect(findCueTarget(d, "Each wedge is that item's share of the whole.")?.className).toBe('chart-body');
+		// A deck logo is not a figure: the headline fallback still works beside one.
+		const logo = doc('<img class="deck-logo" src="x.svg"><h2>How the exit would run.</h2>');
+		expect(findParaphraseTarget(logo, 'If the board agrees to exit, this is the plan.')?.tagName).toBe('H2');
+	});
+
 	it('names nothing for a sentence with no content on the slide', () => {
 		const d = steps();
 		expect(findParaphraseTarget(d, 'Thank you.')).toBeNull();
