@@ -5647,7 +5647,7 @@ html,body{background:var(--bg,#fff)}
 #lat-read .lp-kicker{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted,#777);padding:0 0 .25em}
 #lat-read .lp-subtitle{font-style:italic;color:var(--text-muted,#777);font-size:1.02rem;padding:0 0 1em}
 #lat-read .lp-video{margin:0;padding:.2em 0 1.2em}
-#lat-read .lp-video-link{display:inline-flex;align-items:center;gap:.75em;max-width:100%;padding:.65em 1.1em .65em .65em;border:1px solid var(--border,#ddd);border-radius:12px;background:var(--bg-alt,#f7f7f7);color:var(--text-heading,#111);font-weight:600;text-decoration:none}
+#lat-read .lp-video-link{display:flex;align-items:center;gap:.75em;width:100%;max-width:24em;box-sizing:border-box;padding:.65em 1.1em .65em .65em;border:1px solid var(--border,#ddd);border-radius:12px;background:var(--bg-alt,#f7f7f7);color:var(--text-heading,#111);font-weight:600;text-decoration:none}
 #lat-read .lp-video-link:hover{border-color:var(--accent,#4338ca)}
 #lat-read .lp-video-link:focus-visible{outline:2px solid var(--accent,#4338ca);outline-offset:2px}
 #lat-read .lp-video-thumb{display:grid;place-items:center;flex:none;width:7.5em;max-width:40%;aspect-ratio:16/9;border-radius:7px;border:1px solid var(--border,#ddd);background:var(--bg,#fff) center/cover no-repeat}
