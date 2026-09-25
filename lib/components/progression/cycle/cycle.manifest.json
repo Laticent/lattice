@@ -77,7 +77,8 @@
         "sweet": 4,
         "hard": 5
       },
-      "note": "Stages around one ring. Judgment: the calibration rig has no element builder for this component."
+      "note": "Stages around one ring. Judgment: the calibration rig has no element builder for this component.",
+      "min": 3
     }
   }
 }

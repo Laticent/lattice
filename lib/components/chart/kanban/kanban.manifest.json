@@ -211,7 +211,8 @@
         "sweet": 3,
         "hard": 4
       },
-      "note": "Each lane is a column of cards. Judgment: the calibration rig has no element builder for this component."
+      "note": "Each lane is a column of cards. Judgment: the calibration rig has no element builder for this component.",
+      "min": 2
     }
   }
 }

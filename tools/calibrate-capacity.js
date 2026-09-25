@@ -69,6 +69,16 @@ if (PANE && PANE !== 'side' && PANE !== 'stack') {
   process.exit(1);
 }
 const SHARE_OVERRIDE = flag('share', null);
+// A share off the 25–75 grid falls back to 50/50 in the carve, so the run would measure one
+// share and report another. And the slide-mode knobs have no pane meaning yet: say so.
+if (SHARE_OVERRIDE && !(Number(SHARE_OVERRIDE) >= 25 && Number(SHARE_OVERRIDE) <= 75 && Number(SHARE_OVERRIDE) % 5 === 0)) {
+  console.error('--share takes 25–75 in steps of 5.');
+  process.exit(1);
+}
+if (PANE && (flag('scale', null) || argv.includes('--eyebrow'))) {
+  console.error('--pane measures at the designed size with the rig\'s own heading; it does not take --scale or --eyebrow.');
+  process.exit(1);
+}
 
 function die(msg) { console.error(msg); process.exit(1); }
 

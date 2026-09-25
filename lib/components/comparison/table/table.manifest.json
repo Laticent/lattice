@@ -163,7 +163,8 @@
         "sweet": 3,
         "hard": 4
       },
-      "note": "Rows at 65% width keep the slide row height; a stacked band halves it. Judgment: the calibration rig has no element builder for this component."
+      "note": "Rows at 65% width keep the slide row height; a stacked band halves it. Judgment: the calibration rig has no element builder for this component.",
+      "min": 2
     }
   }
 }

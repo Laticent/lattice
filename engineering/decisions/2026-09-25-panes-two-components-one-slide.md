@@ -100,19 +100,22 @@ every built-in component by a test so a new one has to decide:
 - **`fit`** — `half` reads in a pane of any share; `wide` needs 65% or more side by side, or a
   stack (a table, a gantt); `none` opts out (a title, a divider, a split panel). **`form`** names
   what a pane renders it AS when that differs (`image` renders through `content`). **`stack:
-  false`** marks a component that does not fit a stacked band: `kpi`, `pricing` and
-  `timeline-list` clip one element in a 50/50 stack (measured, §3).
+  false`** marks a component that does not fit a stacked band: `kpi` and `pricing` clip one
+  element in a 50/50 stack (measured, §3.2).
 - **`budget`** is how many elements one pane holds, on the same axis `capacity` counts: `side` at
   the fit's basis share (50% `half`, 65% `wide`), `stack` at 50/50. A smaller pane scales it down
-  in proportion; a larger one keeps it. `basis: measured` means `hard` is the ceiling
+  in proportion, never below the component's own `min` (a 2x2 is always four — a correct pane is
+  never warned); a larger one keeps it. `basis: measured` means `hard` is the ceiling
   `tools/calibrate-capacity.js --pane` found; `editorial` means judgment, with the reason in
   `note` (a chart scales instead of clipping, so it has no ceiling to measure). A component with
   nothing to count — one number, one quotation — says so in `noBudget` instead.
 - **It warns and never refuses** — the linter's posture. The carve renders an opted-out component
   as `content`; `lint:deck` reports `pane-fit` (opted out, too narrow, stacked when it cannot be),
-  `pane-overflow` (past `hard`) and `pane-crowd` (past `sweet`). The carve and the linter read ONE
-  contract, `lib/core/pane-spec.js`, so they cannot disagree about which pane a line belongs to or
-  what its ratio is. At export, the overflow probe marks a pane that really clips — it already
+  `pane-overflow` (past `hard`) and `pane-crowd` (past `sweet`). The carve and the linter share
+  ONE contract, `lib/core/pane-spec.js` — the marker patterns, the layout parser and the fit rule.
+  They find markers differently (the carve on parsed tokens, the linter line by line, following
+  the same block rules: fence length, indent, HTML blocks, list content), and a test renders each
+  block-level edge case through the engine to prove they name the same panes. At export, the overflow probe marks a pane that really clips — it already
   treats a pane's stage as a clipping cell.
 
 **The ratio range is 25–75 in 5% steps.** Past 75/25 the narrow pane is too thin to hold a line of
@@ -198,7 +201,7 @@ section.list > .cell-stage > ul, section lat-pane.list > .cell-stage > ul { … 
   CLI's inlined sheet — and only when the rendered deck holds a `<lat-pane>`. They are SCOPED to
   the classes the deck's panes carry (`paneClasses`): an arm is twinned only when every plain class
   on its root compound is one of them, so a list-and-table deck gets no `kpi` twin and no
-  `section.print` twin. On the demo that is 174 twins instead of 3,377 (−95%). Verified exact: every
+  `section.print` twin. On the demo that is 183 twins instead of 3,403 (−95%). Verified exact: every
   computed property of every element inside every pane is identical with scoped and full twins, on
   the demo, the a11y theme and sketch mode (370 elements each; the same comparison between two
   different decks reports 367 differing, so it can fail). The engine keeps at most 8 pane-scoped
@@ -335,7 +338,7 @@ every number above is from the run after the fix.
 | A clipped pane is reported | CLI export | an overfull list pane and an overfull 25-row table pane each print `OVERFLOW … page N` and draw the export's clip tag — the probe reads a pane's stage as a clipping cell |
 | A `_class` on a panes slide no longer runs that component on it | engine + CLI export | `<!-- _class: glossary -->` over a glossary pane: no range pill on the title, and the pane's clip reported (it was hidden before the carve moved) |
 | Each component's pane budget | CLI export, `tools/calibrate-capacity.js --pane side\|stack` | 23 components measured at half their slide density (§3.2); `kpi` and `pricing` clip one element in a stacked band |
-| The linter agrees with the carve | unit | `test/unit/core/pane-contract.test.js`: the carve and lint share one parser and one fit rule; `pane-layout`, `pane-fit`, `pane-overflow`, `pane-crowd`, counted per pane and scaled with the share |
+| The linter agrees with the carve | unit | `test/unit/core/pane-contract.test.js`: the carve and lint share the layout parser and fit rule and name the same panes on 10 block-level edge cases (nested fences, list content, HTML blocks, indented code, CRLF); `pane-layout`, `pane-fit`, `pane-overflow`, `pane-crowd`, counted per pane and scaled with the share |
 | Existing decks render the same pixels | CLI PDF export | 81 pages vs a `main` build, 0 differing pixels: `examples/a11y.md`, `sketch.md`, `finish-backdrops.md`, the legal and progression galleries |
 | Export-to-Marp is unchanged | `marpScopableCss` over the shipped `dist/lattice.min.css` | 4 selectors still start with `:is(` (as on `main`; the build-time design left 111), 0 twin arms (the only `lat-pane` selectors are the pane cell's own 14 in `pane.css`) |
 | Two components on one slide, chrome kept | CLI PDF export | `examples/panes.pdf` (light, committed) and a dark render reviewed alongside it, not committed — list+table 40/60, bar+list 55/45, image+text 50/50, table+big-number 70/30, stacked line over stats, piechart+list 45/55 |
@@ -360,7 +363,7 @@ slides, one engine, same machine, median of 15 warm renders (`panebench`, three 
 | | ordinary slides | panes | cost |
 |---|---|---|---|
 | engine composed CSS | 869 KB | 887 KB | **+18 KB (+2%)** — was +305 KB before the twins were scoped |
-| pane twins in the sheet | — | 174 | was 3,377 |
+| pane twins in the sheet | — | 183 | 3,403 unscoped |
 | warm render | 10.7–11.4 ms | 13.2–13.5 ms | +~2 ms: each pane is its own one-slide render |
 | first render (cold) | 167–209 ms | 264–275 ms | +~80 ms: the widening (~50 ms) and a second composed sheet, then memoized |
 | engine heap after render | 3.8 MB | 5.0 MB | +1.2 MB, most of it the second composed sheet |
@@ -408,7 +411,12 @@ twin one type selector lighter in the CLI than in the engine, a front-matter `st
 never reached a pane, and a walker that was not string-aware. `3118e15` fixed all four. **A second
 checker on `3118e15`** found no defect in shipped CSS and three walker edge cases on author CSS (a
 `;` in a quoted value, an unterminated string, an apostrophe in an unquoted `url()`), plus pane-cell
-rules the new twins could outrank; all fixed with the budget work.
+rules the new twins could outrank; all fixed with the budget work. **A third checker on the budget
+work** found no defect in the scoping (every dropped twin matches no element, across 11 deck
+classes) or the carve reorder (219 decks byte-identical), and three in the new data: 14 budgets
+whose comfortable count sat below the component's own minimum (a four-quadrant 2x2 pane was
+warned), a linter that found markers the carve does not (inside a nested fence, a list item, an
+HTML block), and doc claims that contradicted the manifests. All fixed and pinned by tests.
 
 **The owner then asked for components to opt out, for a pane budget, and for the memory and render
 cost to be justified** — "I question copying". That round added the `pane` manifest contract (§1),

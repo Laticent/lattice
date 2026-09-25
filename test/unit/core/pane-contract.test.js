@@ -85,6 +85,34 @@ test('splitPaneMarkdown finds the two panes, and never a marker inside a fence',
   assert.equal(spec.splitPaneMarkdown('## T\n\n<!-- pane: list -->\n\n- a\n'), null);
 });
 
+test('the linter finds exactly the panes the carve renders, on every block-level edge case', () => {
+  // The carve reads parsed tokens; the linter reads lines. Each case is rendered through the
+  // engine and the two must name the same panes — or both none. A marker inside a nested
+  // fence, a list item, an HTML block, a blockquote or an indented code block is not a pane.
+  const e = createEngine();
+  e.addThemes([{ name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8') }]);
+  const it = items(3);
+  const cases = {
+    plain: `<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
+    indent3: `   <!-- pane: list -->\n\n${it}\n\n   <!-- pane: content -->\n\nx`,
+    indent4: `    <!-- pane: list -->\n\n${it}\n\n    <!-- pane: content -->\n\nx`,
+    inList: `- lead\n\n  <!-- pane: list -->\n\n${it}\n\n  <!-- pane: content -->\n\n  x`,
+    inHtml: `<div>\n<!-- pane: list -->\n</div>\n\n${it}\n\n<div>\n<!-- pane: content -->\n</div>\n\nx`,
+    quote: `> <!-- pane: list -->\n\n${it}\n\n> <!-- pane: content -->\n\nx`,
+    tildeFence: `~~~\n<!-- pane: kpi -->\n~~~\n\n<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
+    nestedFence: `\`\`\`\`md\n\`\`\`\n<!-- pane: kpi -->\n\`\`\`\n<!-- pane: kpi -->\n\`\`\`\`\n\n<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
+    crlf: `<!-- pane: list -->\r\n\r\n${it.replace(/\n/g, '\r\n')}\r\n\r\n<!-- pane: content -->\r\n\r\nx`,
+    afterParagraph: `lead text\n<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
+  };
+  for (const [name, body] of Object.entries(cases)) {
+    const slideMd = `## Heading.\n\n${body}\n`;
+    const html = e.render(slideMd).html;
+    const carved = [...html.matchAll(/<lat-pane class="[^"]*" data-pane="([^"]*)"/g)].map((m) => m[1]);
+    const linted = spec.splitPaneMarkdown(slideMd)?.panes.map((p) => p.cls) || [];
+    assert.deepEqual(linted, carved, name);
+  }
+});
+
 test('a pane smaller than its basis scales its budget down, and a larger one never up', () => {
   const b = { side: { sweet: 4, hard: 6 }, stack: { sweet: 3, hard: 4 } };
   const half = { fit: 'half', stack: true };
@@ -130,6 +158,19 @@ test('lint: pane-layout names a ratio off the grid and a third marker', () => {
   assert.match(bad[0].message, /25\/75/);
   const three = lintText(`${slide({ cls: 'list', body: items(2) }, { cls: 'content', body: 'x' })}\n<!-- pane: quote -->\n\n> y\n`).filter((f) => f.rule === 'pane-layout');
   assert.match(three[0].message, /3 pane markers/);
+});
+
+test('lint: a correct pane of a fixed-size component is never warned (a 2x2 is always four)', () => {
+  const quad = '- **A.**\n  - a\n- **B.**\n  - b\n- **C.**\n  - c\n- **D.**\n  - d';
+  for (const layout of ['', '40/60', 'stack', 'stack 35/65']) {
+    assert.deepEqual(paneRules(slide({ cls: 'matrix-2x2', body: quad }, { cls: 'content', body: 'x' }, layout)), [], layout || '50/50');
+  }
+  // Every budget sits at or above its component's own minimum.
+  for (const m of MANIFESTS) {
+    const b = m.pane.budget;
+    if (!b?.min) continue;
+    for (const c of [b.side, b.stack].filter(Boolean)) assert.ok(c.sweet >= b.min, `${m.name}: sweet ${c.sweet} < min ${b.min}`);
+  }
 });
 
 test('lint: a component with no pane row (an installed package) is a half with no budget', () => {

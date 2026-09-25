@@ -881,7 +881,7 @@
         },
         "stack": {
           "const": false,
-          "description": "`false`: this component does not go in a STACKED band, only side by side. Set from measurement, never by taste: `tools/calibrate-capacity.js --pane stack` found one element already clipped in a 50/50 stack (a KPI tile, a pricing card, a timeline). A stacked pane of it is warned, and its budget declares no `stack` counts."
+          "description": "`false`: this component does not go in a STACKED band, only side by side. Set from measurement, never by taste: `tools/calibrate-capacity.js --pane stack` found one element already clipped in a 50/50 stack (a KPI tile, a pricing card). A stacked pane of it is warned, and its budget declares no `stack` counts."
         },
         "budget": {
           "type": "object",
@@ -902,6 +902,11 @@
                 "line"
               ],
               "description": "The collection counted \u2014 the `capacity` axis vocabulary."
+            },
+            "min": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The fewest elements this component is built for \u2014 its `capacity.min` (a 2x2 is always four). No budget count sits below it, and a smaller pane scales its budget down no further than this: a pane too small for the component's own minimum is the export's overflow probe to report, not a count to warn below the shape."
             },
             "basis": {
               "enum": [

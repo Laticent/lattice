@@ -257,7 +257,8 @@
         "sweet": 4,
         "hard": 5
       },
-      "note": "Phase columns: a stacked band is full width. Judgment: the calibration rig has no element builder for this component."
+      "note": "Phase columns: a stacked band is full width. Judgment: the calibration rig has no element builder for this component.",
+      "min": 2
     }
   }
 }

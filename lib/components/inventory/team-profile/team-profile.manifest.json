@@ -196,10 +196,11 @@
         "hard": 8
       },
       "stack": {
-        "sweet": 2,
+        "sweet": 3,
         "hard": 3
       },
-      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 65%: clips at 9; stack 50/50: clips at 4). sweet sits below it."
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 65%: clips at 9; stack 50/50: clips at 4). sweet sits below it.",
+      "min": 3
     }
   }
 }

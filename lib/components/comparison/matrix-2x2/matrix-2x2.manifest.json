@@ -166,14 +166,15 @@
       "axis": "item",
       "basis": "measured",
       "side": {
-        "sweet": 3,
+        "sweet": 4,
         "hard": 4
       },
       "stack": {
-        "sweet": 3,
+        "sweet": 4,
         "hard": 4
       },
-      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 5 words per element, half the slide density (side 50%: clips at 5; stack 50/50: clips at 5). sweet sits below it."
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 5 words per element, half the slide density (side 50%: clips at 5; stack 50/50: clips at 5). sweet sits below it.",
+      "min": 4
     }
   }
 }

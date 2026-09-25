@@ -179,7 +179,8 @@
         "sweet": 2,
         "hard": 3
       },
-      "note": "The slide's own capacity is three reasons, so a pane cannot hold more. Judgment: the calibration rig has no element builder for this component."
+      "note": "The slide's own capacity is three reasons, so a pane cannot hold more. Judgment: the calibration rig has no element builder for this component.",
+      "min": 2
     }
   }
 }
