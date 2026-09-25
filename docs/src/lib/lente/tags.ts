@@ -3,7 +3,7 @@
 // Membership travels ON the slide, so reordering never corrupts it. Case is LOCKED to lowercase so a
 // stray `_Lens` can't both leak into exported HTML and silently drop membership (design doc §7).
 
-import type { LensBase, SlideTags } from './types';
+import type { LensBase, SlideTags } from './types.js';
 
 // The comment structure is scanned with plain `indexOf` / character loops, NOT regex. A regex over an
 // HTML comment (`<!--\s*_lens:([^>]*)-->`) has two unbounded quantifiers CodeQL models as polynomial

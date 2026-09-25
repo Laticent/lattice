@@ -11,10 +11,10 @@
 // There is NO step interpreter here - storyboard()/scene() are library functions that
 // return a Walkthrough.
 
-import { type Narrator, SILENT_NARRATOR } from './narrate';
-import { type Pacing, resolvePacing } from './pacing';
-import { createStage, isAbortError, type Stage, type Target, wait } from './stage';
-import { resolveTheme, type Theme } from './theme';
+import { type Narrator, SILENT_NARRATOR } from './narrate.js';
+import { type Pacing, resolvePacing } from './pacing.js';
+import { createStage, isAbortError, type Stage, type Target, wait } from './stage.js';
+import { resolveTheme, type Theme } from './theme.js';
 
 /** How typed text LANDS in the host (native editor inserts). Omit if a host never types. */
 export interface TypeOps {

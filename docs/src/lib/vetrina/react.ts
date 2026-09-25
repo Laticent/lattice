@@ -5,7 +5,7 @@
 // framework-specific lives here; nothing React leaks into the core.
 
 import * as React from 'react';
-import { type RunHandle, type RunOptions, run, type StopReason } from './index';
+import { type RunHandle, type RunOptions, run, type StopReason } from './index.js';
 
 /** Lifecycle controls for a component-bound walkthrough. */
 export interface WalkthroughControls {

@@ -6,10 +6,10 @@
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
 import type { CaptionTrack, Cue, Word } from '@laticent/ltt';
-import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type Pace, pauseAfter } from './cadence';
-import { type AcronymRegistry, dedupeDirection, toSpoken } from './normalize';
-import { splitParagraphs, splitWords } from './segment';
-import type { LexiconMap } from './symbols';
+import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type Pace, pauseAfter } from './cadence.js';
+import { type AcronymRegistry, dedupeDirection, toSpoken } from './normalize.js';
+import { splitParagraphs, splitWords } from './segment.js';
+import type { LexiconMap } from './symbols.js';
 
 // The data model — `Word`, `Cue`, `CaptionTrack` — is the core of the Lattice Timing Track and
 // lives in `@laticent/ltt`, the one place a type in that format is defined

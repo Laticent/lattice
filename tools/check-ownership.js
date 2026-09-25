@@ -6714,6 +6714,13 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'the editor and the engine, both already boundaries.',
   },
   {
+    file: 'tools/verify-narrated-player.mjs',
+    why: 'reads ONE repo-committed demo deck (examples/ltt-timing-track.md) behind '
+       + '`.gitattributes`, to export it narrated as the export sign-off artifact. The fold is '
+       + 'tolerance for a locally CRLF-saved copy; the verifier asserts on what it renders, so a '
+       + 'wrong palette would fail its own mode check loudly rather than ship anywhere.',
+  },
+  {
     file: 'lib/authoring/notes-core.js',
     why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
        + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '
@@ -7759,9 +7766,24 @@ function listPackageSources(dir, out = []) {
  * string, a regex, a comment and code inside a template's `${}`.
  *
  * A call is readable only when its FIRST argument is one plain string literal (a second argument —
- * import attributes — and a trailing comma are fine). `require` anywhere else as a value, such as
- * `const r = require`, hides the module it loads, so it is refused; a declaration name, a property
- * name, a type member or an export alias that merely spells `require` is not a use of it.
+ * import attributes — and a trailing comma are fine). What else it refuses, and what it lets pass, is
+ * the #2347 checker's list (followups.d/2347-p3-ltt-gate-edge-cases.md, now closed):
+ *
+ *  - `require` behind a property of an object that holds Node's — `module.require(x)`,
+ *    `globalThis.require(x)` — with a non-literal argument, and `import fs = require(x)` with one.
+ *    The spec patterns read a literal in all three. `o.require(1)` on the package's own object is a
+ *    method call and passes.
+ *  - `eval(…)`, `Function(…)` and `new Function(…)` called by those names: code built from a string
+ *    loads whatever the string says, and no gate reads a string (lib/integrations/markdown-it/plugins.js:757
+ *    is the live shape, outside these packages). An ALIAS is out of scope — `const e = eval; e(x)`,
+ *    `(0, eval)(x)`, `globalThis.eval(x)` — because no syntax rule can follow a value; a code review
+ *    has to.
+ *  - `require` used as a VALUE, such as `const r = require`, `f(require)`, `require.call(null, x)`.
+ *
+ * It does NOT count what loads nothing: `typeof require`, `type R = typeof require`, and a property
+ * read such as `require.resolve('a')`, `require.main` or `require.cache` — none of them runs a
+ * module. A declaration name, a property name, a type member or an export alias that merely spells
+ * `require` is not a use of it either.
  */
 function unreadableModuleCalls(src, fileName = 'x.ts') {
   let ts;
@@ -7774,12 +7796,18 @@ function unreadableModuleCalls(src, fileName = 'x.ts') {
   const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, kind);
   const out = [];
   const readable = (call) => call.arguments.length >= 1 && ts.isStringLiteral(call.arguments[0]);
-  /** True when this `require` identifier NAMES something rather than referring to the function. */
+  const LITERAL_ONLY = 'with something other than one plain string literal, which no gate can read. Use a string literal specifier.';
+  /** `require.x` — a property READ off the function, which loads nothing unless it hands the function on. */
+  const HANDS_ON = new Set(['call', 'apply', 'bind']);
+  /** True when this `require` identifier NAMES something, or only inspects the function, rather than
+   *  loading a module through it. */
   const isName = (id) => {
     const p = id.parent;
     if (!p) return true;
     if (ts.isShorthandPropertyAssignment(p)) return false; // { require } PASSES the function along — a value use
-    if (ts.isPropertyAccessExpression(p) && p.name === id) return true; // o.require
+    if (ts.isPropertyAccessExpression(p) && p.name === id) return true; // o.require (its call is checked below)
+    if (ts.isPropertyAccessExpression(p) && p.expression === id) return !HANDS_ON.has(p.name.text); // require.resolve / .main / .cache
+    if (ts.isTypeOfExpression(p) || ts.isTypeQueryNode(p)) return true; // typeof require — reads, never loads
     if (ts.isQualifiedName(p) || ts.isTypeReferenceNode(p)) return true;
     if (ts.isImportSpecifier(p) || ts.isExportSpecifier(p)) return true;
     if (ts.isBindingElement(p)) return true; // const { require } = mod — declares a local
@@ -7787,15 +7815,40 @@ function unreadableModuleCalls(src, fileName = 'x.ts') {
     if (ts.isDeclaration?.(p) && p.name === id) return true;
     return false;
   };
+  // The objects Node's `require` is reachable from. Only these: `o.require(1)` on an object of the
+  // package's own is a method call, and refusing it would flag valid code.
+  const REQUIRE_HOLDERS = new Set(['module', 'globalThis', 'global', 'window', 'self', 'process.mainModule', 'require.main']);
+  /** `(x as any)`, `(x)`, `x!` → `x`: the shapes TypeScript code reaches a holder through. */
+  const bare = (e) => {
+    while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isNonNullExpression(e) || ts.isTypeAssertionExpression?.(e)) e = e.expression;
+    return e;
+  };
+  /** `holder.require` or `holder['require']`, for a holder of Node's `require`. */
+  const holderRequire = (callee) => {
+    const c = bare(callee);
+    const name = ts.isPropertyAccessExpression(c) ? c.name.text : ts.isElementAccessExpression(c) && ts.isStringLiteral(c.argumentExpression) ? c.argumentExpression.text : null;
+    return name === 'require' && REQUIRE_HOLDERS.has(bare(c.expression).getText(sf).replace(/\?\./g, '.'));
+  };
+  const isCodeFromString = (callee) => ts.isIdentifier(callee) && (callee.text === 'eval' || callee.text === 'Function');
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
-      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-        if (!readable(node)) out.push('calls import() with something other than one plain string literal, which no gate can read. Use a string literal specifier.');
-      } else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
-        if (!readable(node)) out.push('calls require() with something other than one plain string literal, which no gate can read. Use a string literal specifier.');
+      const callee = node.expression;
+      if (callee.kind === ts.SyntaxKind.ImportKeyword) {
+        if (!readable(node)) out.push(`calls import() ${LITERAL_ONLY}`);
+      } else if (ts.isIdentifier(callee) && callee.text === 'require') {
+        if (!readable(node)) out.push(`calls require() ${LITERAL_ONLY}`);
         node.arguments.forEach(visit);
         return; // the callee is the call itself, not a value use
+      } else if (holderRequire(callee)) {
+        if (!readable(node)) out.push(`calls ${callee.getText(sf)}() ${LITERAL_ONLY}`);
+      } else if (isCodeFromString(callee)) {
+        out.push(`calls ${callee.text}(), which runs code built from a string — no gate can read what it loads.`);
       }
+    } else if (ts.isNewExpression(node) && isCodeFromString(node.expression)) {
+      out.push('calls new Function(), which runs code built from a string — no gate can read what it loads.');
+    } else if (ts.isExternalModuleReference(node) && !ts.isStringLiteral(node.expression)) {
+      out.push(`writes \`import … = require(…)\` ${LITERAL_ONLY}`);
+      return;
     } else if (ts.isIdentifier(node) && node.text === 'require' && !isName(node)) {
       out.push('uses `require` as a value, which hides the module it loads from every gate. Call it directly with a string.');
     }
@@ -7887,9 +7940,56 @@ const SUONO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'suono');
 // stop the gap-match and let a real host import slip, and (b) an `import … from '…'` sitting INSIDE a
 // block/line comment can't false-positive. (A `//` inside a string like 'http://x' gets truncated,
 // but the import is still flagged — over-catching a security boundary is safe; under-catching isn't.)
+//
+// The literals are found by the TypeScript PARSER, not by a regex. The regex this replaced paired a
+// `/*` inside a STRING with the next real `*/`, and erased the code between them — including any
+// import there, which then escaped every pattern below (#2347 checker, item g); it was doing that in
+// seven live files, player-core.mjs among them. The parser knows a string, a template, a regex
+// literal and JSX text from code, and comments are stripped only between them. Each comment is
+// blanked to spaces, line breaks kept, so the `[\n;{}(]` anchors and line numbers still line up.
+// Without `typescript` installed it falls back to the regex.
 function stripJsComments(src) {
-  return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
+  let ts;
+  try {
+    ts = require('typescript');
+  } catch {
+    return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
+  }
+  if (!src.includes('/*') && !src.includes('//')) return src; // nothing to strip — skip the parse
+  const cached = STRIP_CACHE.get(src);
+  if (cached !== undefined) return cached;
+  // The parser marks only the LITERALS — strings, templates, regexes, JSX text — which is all it has
+  // to know; a comment can only sit outside them. `forEachChild` allocates nothing, so this costs one
+  // parse per file, where a per-token walk (`getChildren`) doubled the whole gate run.
+  const sf = ts.createSourceFile('x.tsx', src, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);
+  const K = ts.SyntaxKind;
+  const LITERAL = new Set([K.StringLiteral, K.NoSubstitutionTemplateLiteral, K.TemplateExpression, K.RegularExpressionLiteral, K.JsxText]);
+  const spans = [];
+  const walk = (node) => {
+    if (LITERAL.has(node.kind)) {
+      spans.push([node.getStart(sf), node.end]);
+      return; // a template's `${}` code is left as it is: over-reading a comment there is the safe side
+    }
+    ts.forEachChild(node, walk);
+  };
+  ts.forEachChild(sf, walk);
+  spans.sort((x, y) => x[0] - y[0]);
+  const blank = (text) => text.replace(/[^\n]/g, ' ');
+  const stripGap = (gap) => gap.replace(/\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*/g, blank);
+  let out = '';
+  let at = 0;
+  for (const [start, end] of spans) {
+    if (start < at) continue;
+    out += stripGap(src.slice(at, start)) + src.slice(start, end);
+    at = end;
+  }
+  out += stripGap(src.slice(at));
+  if (STRIP_CACHE.size > 5000) STRIP_CACHE.clear();
+  STRIP_CACHE.set(src, out);
+  return out;
 }
+// Several gates strip the same file (Ajv and AudioPlayback both walk lib/ and docs/src/).
+const STRIP_CACHE = new Map();
 const SUONO_SPEC_PATTERNS = [
   // import/export … from 'x'. Gap is `[^;=`]*?`: crosses NEWLINES (catches a multi-line `{ … }` wrap)
   // but stops at `;` (statement boundary), `=` (an `export const X = …` assignment, not an import), or

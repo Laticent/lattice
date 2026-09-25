@@ -21,6 +21,9 @@ const SITES = [
 	'docs/src/lib/cadenza/track.ts',
 	'docs/src/components/studio/read-aloud.ts',
 	'docs/src/components/studio/narration-bake.ts',
+	// The deck LTT producer: the breath after a slide's LAST cue (`tailMs`), which the track cannot
+	// carry because it ends at that cue's end (engineering/ltt.md §Segments).
+	'lib/core/ltt-deck.mjs',
 ];
 
 /** Top-level argument count of the first `interCueGapMs(...)` call in `src` after `from`. */

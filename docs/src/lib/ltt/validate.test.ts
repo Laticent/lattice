@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import schema from './ltt.schema.json';
+import { validateTrack } from './track';
 import type { Ltt, LttSlideSegment, LttStretchSegment } from './types';
 import { normalizeMatch, validateLtt } from './validate';
 
@@ -91,7 +92,9 @@ describe('validateLtt', () => {
 		['slides out of order', deck, (l) => { slide(l, 2).at = { slide: 2 }; }, /one per slide, with no gaps/],
 		['a skipped slide', deck, (l) => { slide(l, 2).at = { slide: 4 }; }, /slide 3 comes next/],
 		['a slide without its tail breath', deck, (l) => { delete (slide(l, 0) as Mut).tailMs; }, /tailMs is not a whole/],
-		['a negative voice speed', deck, (l) => { slide(l, 0).audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: -1 }, measuredMs: 900 }; }, /non-negative speed/],
+		['a negative voice speed', deck, (l) => { slide(l, 0).audio = { voice: { model: 'm', voice: 'v', speed: -1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H }] }; }, /non-negative speed/],
+		['a clip for a cue the track does not have', deck, (l) => { slide(l, 0).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 99, src: 'a.mp3', clip: H }] }; }, /which this track does not have/],
+		['two clips for one cue', deck, (l) => { slide(l, 0).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H }, { cue: 0, src: 'b.mp3', clip: H }] }; }, /one per cue at most/],
 		['a repeated id', deck, (l) => { l.segments[1].id = 'd1'; }, /repeats/],
 		['narration on a hold', deck, (l) => { (l.segments[1] as Mut).track = buildTrack('x'); }, /does not belong on a hold/],
 		['a stretch in a deck', deck, (l) => { (l.segments[1] as Mut).kind = 'stretch'; }, /only a tour has/],
@@ -206,11 +209,11 @@ describe('validateLtt agrees with the schema on every enum value and every requi
 	const resolve = (n: Node): Node => (n.$ref ? resolve($defs[n.$ref.replace('#/$defs/', '')]) : n);
 	const full = (): Ltt[] => {
 		const d = deck();
-		slide(d, 0).audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: 1 }, measuredMs: 900, leadMs: 4 };
+		slide(d, 0).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H, measuredMs: 900, leadMs: 4 }] };
 		const t = tour();
 		t.seekable = true;
 		stretch(t, 1).waitedMs = 2300;
-		stretch(t, 1).audio = { src: 'b.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: 1 }, measuredMs: 900 };
+		stretch(t, 1).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 0, src: 'b.mp3', clip: H, measuredMs: 900 }] };
 		return [d, t];
 	};
 	/** Every (path, schema node) pair the fixture actually reaches, with paths in validateLtt's form. */
@@ -321,5 +324,23 @@ describe('the third checker pass (PR #2347)', () => {
 		const { proxy, revoke } = Proxy.revocable({}, {});
 		revoke();
 		expect(() => validateLtt(proxy)).not.toThrow();
+	});
+
+	// The fourth checker pass (PR #2347, followups.d/2347-p3-ltt-gate-edge-cases.md items d and e).
+	it('keeps the reports it found before a throw (e)', () => {
+		const l = deck() as Mut;
+		l.format = 'vtt'; // one real problem, found first
+		Object.defineProperty(l, 'segments', { get() { throw new Error('boom'); } });
+		const out = validateLtt(l);
+		expect(out.join('\n')).toMatch(/format is "vtt"/);
+		expect(out.join('\n')).toMatch(/could not read this file: boom/);
+	});
+
+	it('validateTrack survives a cue list whose length no array can have (d)', () => {
+		// No iterator, so Array.from takes the array-like path and allocates `length` up front.
+		const huge = new Proxy([], { get: (t, k) => (k === 'length' ? 2 ** 32 : k === Symbol.iterator ? undefined : Reflect.get(t, k)) });
+		const track = { cues: huge, durationMs: 0 } as unknown as Parameters<typeof validateTrack>[0];
+		expect(() => validateTrack(track)).not.toThrow();
+		expect(validateTrack(track).join('\n')).toMatch(/could not be read: Invalid array length/);
 	});
 });

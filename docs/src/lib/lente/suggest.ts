@@ -5,9 +5,9 @@
 // review UI writes only the shortest correct tag. Determinism is scoped to the injected catalog: the
 // SAME catalog in gives the SAME proposals out.
 
-import { findDirectiveComment } from './tags';
-import type { ComponentCatalog, ComponentInfo, LensRegistry, Suggestion } from './types';
-import { FULL_LENS_ID } from './types';
+import { findDirectiveComment } from './tags.js';
+import type { ComponentCatalog, ComponentInfo, LensRegistry, Suggestion } from './types.js';
+import { FULL_LENS_ID } from './types.js';
 
 const NAME_RE = /^[A-Za-z0-9-]+$/; // validates a single already-split token; not run on raw input
 

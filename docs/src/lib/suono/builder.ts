@@ -9,7 +9,7 @@
 // parity test proves the pass-through. See the design ADR:
 // engineering/decisions/2026-07-12-suono-audio-library.md
 
-import type { Bytes, Sequence, SequenceItemStart, SequenceOptions, SequenceStateEvent, Stage } from './types';
+import type { Bytes, Sequence, SequenceItemStart, SequenceOptions, SequenceStateEvent, Stage } from './types.js';
 
 // ── Compile-time PARITY GATE (no runtime footprint) ───────────────────────────────────────────
 // The pass-through is only real if EVERY SequenceOptions field is reachable through a setter. This

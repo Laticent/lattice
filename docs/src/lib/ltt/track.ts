@@ -36,7 +36,22 @@ function label(display: unknown): string {
 
 export function validateTrack(track: CaptionTrack): string[] {
 	const problems: string[] = [];
-	if (!track || !Array.isArray(track.cues)) return ['track has no cues array'];
+	// "Never throws" holds for ANY input, not only a parsed one: a Proxy whose `length` is 2^32 or
+	// more makes `Array.from` throw `Invalid array length`, and a getter can throw anything. What was
+	// found before the throw is kept, and the throw becomes one more report.
+	try {
+		checkTrack(track, problems);
+	} catch (e) {
+		problems.push(`the track could not be read: ${e instanceof Error ? e.message : typeof e}`);
+	}
+	return problems;
+}
+
+function checkTrack(track: CaptionTrack, problems: string[]): void {
+	if (!track || !Array.isArray(track.cues)) {
+		problems.push('track has no cues array');
+		return;
+	}
 	if (!Number.isFinite(track.durationMs)) problems.push(`track durationMs is not finite (${num(track.durationMs)})`);
 	let prevStart = Number.NEGATIVE_INFINITY;
 	Array.from(track.cues).forEach((cue, i) => {
@@ -70,5 +85,4 @@ export function validateTrack(track: CaptionTrack): string[] {
 			}
 		});
 	});
-	return problems;
 }

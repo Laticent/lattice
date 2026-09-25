@@ -2,9 +2,9 @@
 // never imports ./suggest). A reader's view is computed ONLY from approved `_lens` tags + the
 // registry. This is the whole engine: (slides, registry, lensId) -> ordered slide subset.
 
-import { sha256Hex } from './hash';
-import { parseSlideTags } from './tags';
-import { FULL_LENS_ID, type LensDef, type LensKind, type LensProjection, type LensRegistry, type LensSlide } from './types';
+import { sha256Hex } from './hash.js';
+import { parseSlideTags } from './tags.js';
+import { FULL_LENS_ID, type LensDef, type LensKind, type LensProjection, type LensRegistry, type LensSlide } from './types.js';
 
 /** Is this slide a member of this lens? Pure function of the slide's approved tags + the lens base. */
 function memberOf(slideSrc: string, lens: LensDef): boolean {

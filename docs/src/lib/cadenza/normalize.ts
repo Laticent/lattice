@@ -11,9 +11,9 @@
 // dependency-free English expansion covering the boardroom cases (money, percent,
 // plain numbers, a small abbreviation set).
 
-import { type LexDomain, lookupLexicon } from './lexicon';
-import { splitWords } from './segment';
-import { type LexiconMap, resolveSymbols, SEPARATOR_GLYPHS } from './symbols';
+import { type LexDomain, lookupLexicon } from './lexicon.js';
+import { splitWords } from './segment.js';
+import { type LexiconMap, resolveSymbols, SEPARATOR_GLYPHS } from './symbols.js';
 
 // Whole-token decorative-separator test, built from the commons' separator set (data lives once
 // in symbols.ts). Applied WHOLE-token only — an embedded "·" is a voice id / URL, left alone.

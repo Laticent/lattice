@@ -195,6 +195,20 @@ test('first envelope node wins when a decoy id="lattice-doc" precedes the real o
 // #1462 item 1 — the section shipped as `{ voice: { rung, model, voice, speed } }`: no
 // `version`, no `audioMode`, and one field that names a code path in this repository.
 describe('buildReadAlong — what narrated the deck, in a document format\'s own vocabulary', () => {
+  test('2.0 points at the embedded timing track, and a captions-only file still gets a section', () => {
+    // LTT step 2 (2026-09-24-lattice-timing-track.md §9, fork D): the section names where the
+    // deck's LTT rides, by the MIME type of its one block. A captions-only export has no voice,
+    // and it must not lose the pointer for lack of one.
+    const withVoice = buildReadAlong({ model: 'm', voice: 'v', speed: 1 }, { hasAudio: true, ltt: { version: '1.0' } });
+    assert.deepEqual(withVoice.timing, { format: 'ltt', version: '1.0', encoding: 'packed', mime: 'application/lattice+ltt' });
+    const captionsOnly = buildReadAlong(null, { ltt: { version: '1.0' } });
+    assert.equal(captionsOnly.version, '2.0');
+    assert.equal(captionsOnly.audioMode, 'regenerate');
+    assert.equal('voice' in captionsOnly, false, 'no voice is invented for a file nothing spoke');
+    assert.equal(buildReadAlong(null, {}), undefined, 'neither a voice nor a track: no section');
+    assert.equal('timing' in buildReadAlong({ model: 'm' }), false, 'no track: no pointer');
+  });
+
   test('always carries a section version, so a future player can migrate rather than guess', () => {
     const ra = buildReadAlong({ rung: 'openrouter', model: 'm', voice: 'v', speed: 1 }, { hasAudio: true });
     assert.equal(ra.version, READ_ALONG_VERSION);

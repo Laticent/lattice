@@ -381,6 +381,27 @@ describe('bakeNarration — complete, or nothing', () => {
 		expect(bake.bytes).toBe(shippedBytes(30_000) + shippedBytes(20_000));
 	});
 
+	it('hands over what the deck LTT is built from: the text, its track, and a hash per clip', async () => {
+		// LTT step 2 (lib/core/ltt-deck.mjs): per slide, the exact string Cadenza timed and the track
+		// it built, index-aligned so `slides[i][j]` is `narrated[i].track.cues[j]`; per clip, a
+		// hash of the bytes that ship.
+		stored.set(keyFor(S1), 30_000);
+		stored.set(keyFor(S2), 20_000);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		bake.slides.forEach((cues, i) => {
+			const n = bake.narrated[i];
+			if (!cues.length) return;
+			expect(n?.track.cues.length).toBe(cues.length);
+			cues.forEach((c, j) => {
+				expect(c.text).toBe(n?.track.cues[j].display);
+			});
+		});
+		const clips = bake.slides.flat();
+		expect(clips.every((c) => /^sha256:[0-9a-f]{64}$/.test(c.clip ?? ''))).toBe(true);
+		expect(new Set(clips.map((c) => c.clip)).size, 'different bytes, different hashes').toBe(clips.length);
+		expect(bake.inputs).toBeTypeOf('object');
+	});
+
 	it('synthesizes only what is missing, and BANKS it as it lands', async () => {
 		stored.set(keyFor(S1), 30_000);
 		script.set(S2, [20_000]);

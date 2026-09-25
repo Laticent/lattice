@@ -278,37 +278,60 @@
       ]
     },
     "LttAudio": {
-      "description": "AUDIO layer (Suono). A reader that does not know it plays silently on the estimate.",
+      "description": "AUDIO layer (Suono). A reader that does not know it plays silently on the estimate. One clip per CUE, not per segment (owner ruling, 2026-09-24): every producer records a sentence at a time, and the transport advances on each clip's end (engineering/ltt.md §The transport, rule 3). A cue with no entry in `clips` has no audio, and a player holds it for its estimate.",
       "type": "object",
       "properties": {
+        "voice": {
+          "description": "What spoke the clips.",
+          "$ref": "#/$defs/LttVoice"
+        },
+        "clips": {
+          "description": "The clips, in cue order, at most one per cue.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LttClip"
+          }
+        }
+      },
+      "required": [
+        "voice",
+        "clips"
+      ]
+    },
+    "LttClip": {
+      "description": "One cue's clip.",
+      "type": "object",
+      "properties": {
+        "cue": {
+          "description": "Index of the cue this clip speaks, in the segment's track.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
         "src": {
-          "description": "The clip: a path relative to the file, or a `data:` URI.",
+          "description": "The clip: a path relative to the file, a `data:` URI, or, inside an HTML export, the fragment `#lp-audio/<block>/<n>` naming entry n of the export's audio block (engineering/ltt.md §Encodings).",
           "type": "string"
         },
         "clip": {
           "description": "Content hash of the clip bytes.",
           "$ref": "#/$defs/LttHash"
         },
-        "voice": {
-          "$ref": "#/$defs/LttVoice"
-        },
         "measuredMs": {
-          "description": "The clip's decoded length.",
+          "description": "The clip's decoded length, once a producer has decoded it.",
           "type": "integer",
           "maximum": 9007199254740991,
           "minimum": 0
         },
         "leadMs": {
-          "description": "Encoder-inserted leading silence.",
+          "description": "Encoder-inserted leading silence. A player starts the clip this far in.",
           "type": "number",
           "minimum": 0
         }
       },
       "required": [
+        "cue",
         "src",
-        "clip",
-        "voice",
-        "measuredMs"
+        "clip"
       ]
     },
     "LttAction": {

@@ -5,7 +5,7 @@
 // driving `cuechange` (native players ignore them — see the ADR). Captions render
 // the DISPLAY glyphs; timings ride the (spoken-derived) word clock underneath.
 
-import type { CaptionTrack } from './track';
+import type { CaptionTrack } from './track.js';
 
 function pad(n: number, width = 2): string {
   return String(n).padStart(width, '0');

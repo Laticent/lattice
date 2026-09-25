@@ -11,9 +11,9 @@
 // `unavailable`, never a silent full-deck substitution. See the design ADR:
 // engineering/decisions/2026-07-13-lente-reader-lenses.md
 
-import { approvalHash, lensEligibility, lensIndices, lensPairs, lensSlides, readerLenses } from './project';
-import { parseLensRegistry } from './registry';
-import { FULL_LENS_ID, type LensDef, type LensProjection, type LensRegistry, type LensSlide } from './types';
+import { approvalHash, lensEligibility, lensIndices, lensPairs, lensSlides, readerLenses } from './project.js';
+import { parseLensRegistry } from './registry.js';
+import { FULL_LENS_ID, type LensDef, type LensProjection, type LensRegistry, type LensSlide } from './types.js';
 
 export interface LensView {
 	/** Set the registry — either a parsed `LensRegistry` or the raw front-matter `lenses:` text

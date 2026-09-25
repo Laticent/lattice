@@ -1,13 +1,16 @@
 ---
-status: proposed
-summary: One timing format for every Lattice surface that speaks, captions or moves — the Lattice Timing Track (LTT). Today the same word timeline exists in five shapes (Cadenza's CaptionTrack, the manifest's readAlong 1.1, the HTML player's compact payload, Vetrina's NarratedWord list and the .vtt sidecar), each with its own converter, and the tour narrator already times the same sentence differently from the deck. The LTT is a versioned JSON contract with a required core (the CaptionTrack, unchanged), optional layers owned by one library each (audio, actions), segments that let a deck and a tour share one shape, and a `seekable` property that holds when every segment's length is known. Two pure functions share the timing math: positionAt(segment, localMs) for any file, and timeline(ltt) for a seekable one; the player's transport stays an explicit, specified state machine. The .vtt becomes a derived view. Nothing is built. The owner settled the four forks on 2026-09-24: *.ltt.json, two encodings, embedded in the HTML export, and a shared @laticent/ltt package the libraries may import. The adversarial trio's findings are folded in (§12).
+status: in-progress
+summary: One timing format for every Lattice surface that speaks, captions or moves — the Lattice Timing Track (LTT). Today the same word timeline exists in five shapes (Cadenza's CaptionTrack, the manifest's readAlong 1.1, the HTML player's compact payload, Vetrina's NarratedWord list and the .vtt sidecar), each with its own converter, and the tour narrator already times the same sentence differently from the deck. The LTT is a versioned JSON contract with a required core (the CaptionTrack, unchanged), optional layers owned by one library each (audio, actions), segments that let a deck and a tour share one shape, and a `seekable` property that holds when every segment's length is known. Two pure functions share the timing math: positionAt(segment, localMs) for any file, and timeline(ltt) for a seekable one; the player's transport stays an explicit, specified state machine. The .vtt becomes a derived view. Steps 1 and 2 are built: the package, the spec, the timing functions, and the HTML player playing from an embedded LTT. The owner settled the four forks on 2026-09-24: *.ltt.json, two encodings, embedded in the HTML export, and a shared @laticent/ltt package the libraries may import. The adversarial trio's findings are folded in (§12).
 ---
 
 # The Lattice Timing Track (LTT) — one timing contract for decks, tours and video
 
-> **Step 1 is built** (2026-09-24): `@laticent/ltt`, the spec at
+> **Steps 1 and 2 are built** (2026-09-24). Step 1: `@laticent/ltt`, the spec at
 > [`engineering/ltt.md`](../ltt.md), the generated schema, `validateLtt`, both
-> encodings and the narrator drift fix. Steps 2–4 are not. The legacy converter
+> encodings and the narrator drift fix. Step 2: `positionAt`, `timeline` and
+> `makeCursor` in the package, the conformance fixtures, and the HTML player
+> playing from an embedded LTT (see "Amendments in step 2" under §8). Steps 3–4
+> are not. The legacy converter
 > (§8 step 1) and the `legacy` basis were dropped: Lattice is not generally
 > available, so no pre-LTT export needs converting (owner ruling, 2026-09-24).
 >
@@ -27,8 +30,8 @@ five shapes:
 | Shape | Where | Carries |
 |---|---|---|
 | `CaptionTrack` | `docs/src/lib/cadenza/track.ts` | Everything: cues, words, `display` and `spoken`, times, `charOffset`, `weight`, `endsParagraph` |
-| `readAlong` 1.1 | `lib/core/lattice-doc.js` (manifest) | The voice and the audio mode. **No timings and no text** — see `READ_ALONG_VERSION`'s comment |
-| Compact per-slide payload | `lib/export/player-core.mjs` `narrationBlocks` | `{t, d, g, a, l, w: [[word, start, end]]}` per cue. Drops `spoken`, `charOffset` and `weight`, and rebases word times on the cue's first word |
+| `readAlong` 1.1 | `lib/core/lattice-doc.js` (manifest) | The voice and the audio mode. **No timings and no text** — see `READ_ALONG_VERSION`'s comment. *(2.0 since step 2, pointing at the embedded LTT.)* |
+| Compact per-slide payload | `lib/export/player-core.mjs` `narrationBlocks` | `{t, d, g, a, l, w: [[word, start, end]]}` per cue. Drops `spoken`, `charOffset` and `weight`, and rebases word times on the cue's first word. *(Retired in step 2: the player plays from the packed LTT.)* |
 | `NarratedWord[]` | `docs/src/lib/vetrina/narrate.ts` | `{index, text, startMs, endMs}`, flattened — no cues, no emphasis, no spoken form |
 | `.vtt` | `lib/core/read-along-vtt.js` via Cadenza `toVtt` | Display text and times only |
 
@@ -386,7 +389,9 @@ changes inside `build:check`.
 **Publishing.** Cadenza's `package.json` publishes `types: ./index.ts`, so once
 it imports `ltt`, Cadenza's npm consumers need `@laticent/ltt` too, and the two
 publish in lockstep. Cadenza's description ("Zero-dependency") changes to "no
-dependency except `@laticent/ltt`".
+dependency except `@laticent/ltt`". *(Step 2: no workflow publishes the workspace libraries yet, so "lockstep"
+is a requirement on the publish path when it is built, not something that
+happens today — `followups.d/2360-p3-publish-workspace-libraries.md`.)*
 
 ## 7. Size, measured
 
@@ -440,8 +445,9 @@ lands in the step named.
   The round-trip test is generated from the schema.
 - **G2 — no function ships without a production caller** (step 2). `positionAt`
   and `timeline` land in the same step as the HTML player calling them.
-- **G3 — staleness has a named function and callers** (step 2, with the first
-  production producer). `isStale` is called by the export pipeline and the
+- **G3 — staleness has a named function and callers** (~~step 2~~ **step 4**,
+  amended 2026-09-24; see "Amendments in step 2" below).
+  *Originally: step 2, with the first production producer.* `isStale` is called by the export pipeline and the
   Studio from the day it lands, with a test that edits the source and asserts
   the stale segment is flagged and the measured data is kept. It cannot land in
   step 1: nothing in production writes an LTT until step 2.
@@ -509,6 +515,37 @@ first that does, and it stops for the owner's sign-off.
 
 What each step does **not** do: none of them changes what a viewer sees on the
 deck path today. That path already passes every input and already looks right.
+
+**Amendments in step 2 (2026-09-24).** The first two are owner rulings. The rest are calls and measurements made while building step 2, recorded here for review.
+
+- **The audio layer is one clip per cue**, not per segment: `audio = { voice,
+  clips[] }`, each clip `{ cue, src, clip, measuredMs?, leadMs? }`. Revised inside
+  1.0 because no file had carried the layer. The per-segment layer would have
+  meant joining clips with the breaths recorded as silence: on a 13-slide,
+  87-sentence deck, 14.2 s of encoded silence (~113 KB at 64 kbps), 4 s of encoder
+  lead at the joins, and a transport that could no longer advance or re-time per
+  sentence (transport rules 3 and 7). `engineering/ltt.md` §Layers.
+- **`isStale` moves to step 4.** Step 2's only producer builds the LTT fresh from
+  source at the moment of export, so a caller in the export pipeline or the
+  Studio could never see a stale segment: a kernel with no real caller, which is
+  what G2 and G3 exist to prevent. It lands with the tour recorder, the first
+  producer that keeps an LTT and holds measured waits that cannot be rebuilt.
+- **`inputs.engine` hashes the engine's source, not its bundle**
+  (`tools/lib/timing-engine-hash.js`): `buildTrack`'s own file and its import
+  closure, because the Studio runs Cadenza from source and never sees the
+  bundle, and because an edit to the validator should not mark measured data
+  stale. It is regenerated by its own script, not by `npm run build`, so CI
+  sees a stale commit instead of repairing it first.
+- **G2 is met for `positionAt`, and not yet for `timeline`.** The exported
+  player calls `positionAt` for every hold, silent cue, breath and crawl frame.
+  `timeline` has no production caller until video export (step 3); in step 2 it
+  is called by tests and the real-browser verifier only.
+- **Measured: the HTML player runs late of `timeline()` by ~100 ms per clip.**
+  Chromium fires `ended` 90–110 ms after the audio stops, and rule 3 advances on
+  `ended`. The HTML export also records no `measuredMs`, so its `timeline()` is
+  an estimate for voiced cues. Both belong to step 3's decision note.
+- **Fork D is built:** the manifest's `readAlong` moves to 2.0 and carries
+  `timing`, naming the LTT block by its MIME type.
 
 ## 9. Forks for the owner
 

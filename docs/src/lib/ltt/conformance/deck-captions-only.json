@@ -1,0 +1,361 @@
+{
+  "name": "deck, captions only",
+  "why": "No clip anywhere, so every cue is held for its estimate with the 300 ms floor (900 ms for a zero-length estimate). Pins: no hold on slide 1, an arrival hold on every later slide, a hold segment for a silent slide, the breath between cues, and the tail breath after a slide's last cue.",
+  "ltt": {
+    "format": "ltt",
+    "version": "1.0",
+    "source": {
+      "kind": "deck",
+      "id": "conformance-captions.md"
+    },
+    "inputs": {
+      "engine": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "pace": "moderate",
+      "deckPace": "natural",
+      "lang": "en"
+    },
+    "seekable": true,
+    "segments": [
+      {
+        "id": "d1",
+        "kind": "slide",
+        "at": {
+          "slide": 1
+        },
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "holdMs": 0,
+        "track": {
+          "cues": [
+            {
+              "display": "Revenue grew.",
+              "words": [
+                {
+                  "display": "Revenue",
+                  "spoken": "revenue",
+                  "startMs": 0,
+                  "endMs": 400,
+                  "charOffset": 0
+                },
+                {
+                  "display": "grew.",
+                  "spoken": "grew",
+                  "startMs": 500,
+                  "endMs": 1000,
+                  "charOffset": 8
+                }
+              ],
+              "startMs": 0,
+              "endMs": 1000,
+              "charOffset": 0
+            },
+            {
+              "display": "Costs held.",
+              "words": [
+                {
+                  "display": "Costs held.",
+                  "spoken": "costs held",
+                  "startMs": 1300,
+                  "endMs": 1800,
+                  "charOffset": 14
+                }
+              ],
+              "startMs": 1300,
+              "endMs": 1800,
+              "charOffset": 14
+            }
+          ],
+          "durationMs": 1800
+        },
+        "tailMs": 500
+      },
+      {
+        "id": "d2",
+        "kind": "hold",
+        "at": {
+          "slide": 2
+        },
+        "holdMs": 2000
+      },
+      {
+        "id": "d3",
+        "kind": "slide",
+        "at": {
+          "slide": 3
+        },
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "holdMs": 1400,
+        "track": {
+          "cues": [
+            {
+              "display": "Yes.",
+              "words": [
+                {
+                  "display": "Yes.",
+                  "spoken": "yes",
+                  "startMs": 0,
+                  "endMs": 120,
+                  "charOffset": 0
+                }
+              ],
+              "startMs": 0,
+              "endMs": 120,
+              "charOffset": 0
+            },
+            {
+              "display": "Hm",
+              "words": [
+                {
+                  "display": "Hm",
+                  "spoken": "hm",
+                  "startMs": 320,
+                  "endMs": 320,
+                  "charOffset": 5
+                }
+              ],
+              "startMs": 320,
+              "endMs": 320,
+              "charOffset": 5
+            },
+            {
+              "display": "Margin doubled.",
+              "words": [
+                {
+                  "display": "Margin",
+                  "spoken": "margin",
+                  "startMs": 520,
+                  "endMs": 700,
+                  "charOffset": 8
+                },
+                {
+                  "display": "doubled.",
+                  "spoken": "doubled",
+                  "startMs": 800,
+                  "endMs": 1020,
+                  "charOffset": 15
+                }
+              ],
+              "startMs": 520,
+              "endMs": 1020,
+              "charOffset": 8
+            }
+          ],
+          "durationMs": 1020
+        },
+        "tailMs": 400
+      }
+    ]
+  },
+  "timeline": {
+    "durationMs": 8200,
+    "segments": [
+      {
+        "id": "d1",
+        "startMs": 0,
+        "lengthMs": 2300
+      },
+      {
+        "id": "d2",
+        "startMs": 2300,
+        "lengthMs": 2000
+      },
+      {
+        "id": "d3",
+        "startMs": 4300,
+        "lengthMs": 3900
+      }
+    ]
+  },
+  "probes": [
+    {
+      "segment": "d1",
+      "localMs": 0,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 0,
+      "why": "slide 1 speaks at once: no hold"
+    },
+    {
+      "segment": "d1",
+      "localMs": 450,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 450,
+      "why": "the pause between two words holds the first"
+    },
+    {
+      "segment": "d1",
+      "localMs": 600,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 1,
+      "trackMs": 600,
+      "why": "the second word"
+    },
+    {
+      "segment": "d1",
+      "localMs": 1100,
+      "phase": "gap",
+      "cueIndex": 0,
+      "wordIndex": 1,
+      "trackMs": 1000,
+      "why": "the breath after cue 0 holds its last word"
+    },
+    {
+      "segment": "d1",
+      "localMs": 1300,
+      "phase": "cue",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 1300,
+      "why": "cue 1 starts after cue 0's 1000 ms and the 300 ms breath"
+    },
+    {
+      "segment": "d1",
+      "localMs": 2000,
+      "phase": "gap",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 1800,
+      "why": "the tail breath after the slide's last cue"
+    },
+    {
+      "segment": "d1",
+      "localMs": 2300,
+      "phase": "end",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 1800,
+      "why": "hold 0 + 1000 + 300 + 500 + tail 500"
+    },
+    {
+      "segment": "d2",
+      "localMs": 10,
+      "phase": "hold",
+      "cueIndex": -1,
+      "wordIndex": -1,
+      "trackMs": 0,
+      "why": "a slide with no narration is its arrival hold"
+    },
+    {
+      "segment": "d2",
+      "localMs": 2000,
+      "phase": "end",
+      "cueIndex": -1,
+      "wordIndex": -1,
+      "trackMs": 0,
+      "why": "and nothing else"
+    },
+    {
+      "segment": "d3",
+      "localMs": 0,
+      "phase": "hold",
+      "cueIndex": -1,
+      "wordIndex": -1,
+      "trackMs": 0,
+      "why": "a later slide waits its arrival hold"
+    },
+    {
+      "segment": "d3",
+      "localMs": 1399,
+      "phase": "hold",
+      "cueIndex": -1,
+      "wordIndex": -1,
+      "trackMs": 0,
+      "why": "still holding"
+    },
+    {
+      "segment": "d3",
+      "localMs": 1400,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 0,
+      "why": "then speaks"
+    },
+    {
+      "segment": "d3",
+      "localMs": 1600,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 120,
+      "why": "a 120 ms cue is held to the 300 ms floor; the crawl stops at the cue's end"
+    },
+    {
+      "segment": "d3",
+      "localMs": 1750,
+      "phase": "gap",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 120,
+      "why": "the breath after a floored cue still shows that cue, not the next one"
+    },
+    {
+      "segment": "d3",
+      "localMs": 1900,
+      "phase": "cue",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 320,
+      "why": "cue 1 starts at 1400 + 300 + 200"
+    },
+    {
+      "segment": "d3",
+      "localMs": 2700,
+      "phase": "cue",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 320,
+      "why": "a zero-length estimate is held 900 ms"
+    },
+    {
+      "segment": "d3",
+      "localMs": 3000,
+      "phase": "cue",
+      "cueIndex": 2,
+      "wordIndex": 0,
+      "trackMs": 520,
+      "why": "cue 2 starts at 1900 + 900 + 200"
+    },
+    {
+      "segment": "d3",
+      "localMs": 3250,
+      "phase": "cue",
+      "cueIndex": 2,
+      "wordIndex": 0,
+      "trackMs": 770,
+      "why": "a pause inside a cue holds the word before it"
+    },
+    {
+      "segment": "d3",
+      "localMs": 3300,
+      "phase": "cue",
+      "cueIndex": 2,
+      "wordIndex": 1,
+      "trackMs": 820,
+      "why": "the next word"
+    },
+    {
+      "segment": "d3",
+      "localMs": 3600,
+      "phase": "gap",
+      "cueIndex": 2,
+      "wordIndex": 1,
+      "trackMs": 1020,
+      "why": "the tail breath"
+    },
+    {
+      "segment": "d3",
+      "localMs": 3900,
+      "phase": "end",
+      "cueIndex": 2,
+      "wordIndex": 1,
+      "trackMs": 1020,
+      "why": "1400 + 300 + 200 + 900 + 200 + 500 + tail 400"
+    }
+  ]
+}

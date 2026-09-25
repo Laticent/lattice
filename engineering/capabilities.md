@@ -80,6 +80,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `docs:spec:check` | Freshness gate for the generated docs-site spec pages (stale vs spec/). |
 | `emulator:build` | Build dist/lattice-emulator.js — the bundled owned-engine CLI (package bin/main). |
 | `emulator:check` | Freshness gate for the emulator bundle. |
+| `engine-hash:build` | Regenerate docs/src/lib/cadenza/engine-hash.ts — ENGINE_HASH, the timing engine's content hash every LTT carries as inputs.engine. Deliberately not part of `npm run build`: a unit test fails when the committed value is stale. |
 | `exemplar-core:build` | Bundle the pure exemplar tier-filter for the browser (Drafting picker length chooser). |
 | `exemplar-core:check` | Freshness gate for the exemplar-core bundle. |
 | `export:marp` | Export a deck as a portable, Marp-native bundle: splits baked to ---, themes, assets, marp-cli config, a README, and (by default) an AI-agent kit (AGENTS.md + component catalog). `<deck.md> <out-dir-or-zip> [palette] [--no-agent]`. |

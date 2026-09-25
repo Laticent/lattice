@@ -7,20 +7,20 @@
 // (lente, Italian: lens — matching vetrina "shop window", cadenza, suono.)
 
 
-export type { LensView } from './builder';
+export type { LensView } from './builder.js';
 // Fluent READ-PATH front door — sugar over ./project (collect (slides, registry, lensId) once, pick
 // a terminal). Read-only by construction: no `.approve()`/`.suggest()`, never imports the suggester.
-export { lens } from './builder';
+export { lens } from './builder.js';
 // Content-hash primitive (exposed for host-side approval flows + tests).
-export { sha256Hex } from './hash';
+export { sha256Hex } from './hash.js';
 // Read path — pure, deterministic, never reaches the suggester.
-export { approvalHash, deeperLens, ladderRungs, lensEligibility, lensEscapees, lensIndices, lensKind, lensPairs, lensSlides, readerLenses } from './project';
+export { approvalHash, deeperLens, ladderRungs, lensEligibility, lensEscapees, lensIndices, lensKind, lensPairs, lensSlides, readerLenses } from './project.js';
 // Registry — parse / emit / upsert the front-matter `lenses:` block (Lente is its sole writer).
-export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry, upsertLensRegistry } from './registry';
+export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry, upsertLensRegistry } from './registry.js';
 // Suggest path — a SEPARATE module; pure, no AI, proposes membership, writes nothing.
-export { catalogFromComponents, suggestMembership } from './suggest';
+export { catalogFromComponents, suggestMembership } from './suggest.js';
 // Tags — the per-slide membership carrier.
-export { applyTag, parseSlideTags, taggedLensIds } from './tags';
+export { applyTag, parseSlideTags, taggedLensIds } from './tags.js';
 export type {
 	ComponentCatalog,
 	ComponentInfo,
@@ -35,7 +35,7 @@ export type {
 	SlideTags,
 	Suggestion,
 	WorkspaceLensConfig,
-} from './types';
-export { FULL_LENS_ID } from './types';
+} from './types.js';
+export { FULL_LENS_ID } from './types.js';
 // Validators + the base-flip rewriter.
-export { rebaseLensTags, unknownLensTokens, validateLadder, validateRegistry } from './validate';
+export { rebaseLensTags, unknownLensTokens, validateLadder, validateRegistry } from './validate.js';

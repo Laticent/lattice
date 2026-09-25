@@ -71,7 +71,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   The parser then never sees a
   `<` (so neither `</script` nor the `<!--` that flips it into script-data-escaped
   state can appear), and `JSON.parse` decodes it back to the real character.
-  `lib/export/player-core.mjs` › `narrationBlocks`.
+  `lib/export/player-core.mjs` › `inertJson` (used by `narrationPayload`).
 
 ## The exported player has no front matter to read
 

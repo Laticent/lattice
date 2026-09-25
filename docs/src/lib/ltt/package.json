@@ -1,7 +1,7 @@
 {
   "name": "@laticent/ltt",
   "version": "0.1.0",
-  "description": "The Lattice Timing Track (LTT) format — the types, the JSON Schema generated from them, a structural validator, and the canonical ↔ packed encodings. The format only: no engine, no audio, no DOM, and no dependencies.",
+  "description": "The Lattice Timing Track (LTT) format — the types, the JSON Schema generated from them, a structural validator, the canonical ↔ packed encodings, and the timing functions that read it (makeCursor, positionAt, timeline). No engine, no audio, no DOM, and no dependencies.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "sideEffects": false,

@@ -600,10 +600,23 @@ export async function shareHtmlPlayer(
 				onStatus?.(p.synthesized ? `Recording narration — ${p.done} of ${p.total} sentences…` : `Reading prepared narration — ${p.done} of ${p.total}…`);
 			},
 		});
-		// Captions OFF means no band and no word timeline in the file — the cues still carry
-		// the text (an audio-only deck still needs its per-sentence spans and breaths), but the
-		// words that would drive a crawl nobody can see are simply not shipped.
-		narrationCues = narration.captions ? result.slides : result.slides.map((cues) => cues.map((c) => ({ ...c, words: [] })));
+		// The deck's narration as the player's LTT is built from it (lib/core/ltt-deck.mjs): per
+		// slide, the text Cadenza timed, its full track, and one clip per cue. Captions OFF ships
+		// the same track — the LTT's core requires the words — and no band or crawl to show them.
+		narrationCues = {
+			captions: narration.captions,
+			voice: result.voice ? { model: result.voice.model, voice: result.voice.voice, speed: result.voice.speed } : null,
+			inputs: result.inputs,
+			slides: result.narrated.map((n, i) =>
+				n
+					? {
+							text: n.text,
+							track: n.track,
+							clips: (result.slides[i] ?? []).map((c) => (c.audio && c.clip ? { audio: c.audio, clip: c.clip, leadMs: c.leadMs } : null)),
+						}
+					: null,
+			),
+		};
 		readAlongVoice = result.voice;
 	}
 
@@ -680,9 +693,9 @@ export async function shareHtmlPlayer(
 			// The auto-glossary term→definition projection, gated on the `glossary: auto` opt-in —
 			// parity with the CLI export's manifest field (#920); omitted otherwise.
 			glossary: resolveGlossaryMode(source) === 'auto' ? glossaryEntries(source) : [],
-			// The baked delivery, per slide. The AUDIO rides in its own inert blocks rather than
-			// in the manifest envelope (see player-core's `narrationBlocks` for why); the manifest
-			// records only the voice, so the artifact can say what narrated it.
+			// The baked delivery, per slide. The timing track and the AUDIO ride in their own inert
+			// blocks rather than in the manifest envelope (see player-core's `narrationPayload` for
+			// why); the manifest records the voice and points at the timing track.
 			narration: narrationCues,
 			readAlong: readAlongVoice ? { voice: readAlongVoice } : undefined,
 			now: Date.now(),

@@ -8,8 +8,8 @@
 // with a fake stage, no real audio device. Lifted from voice-model.js's speak() + warm().
 // See the ADR: engineering/decisions/2026-07-12-suono-audio-library.md
 
-import { createBoundedCache, createInflight } from './cache';
-import type { Bytes, Clip, PlayOptions, PlayResult, Sequence, SequenceOptions, StageState, WarmOptions } from './types';
+import { createBoundedCache, createInflight } from './cache.js';
+import type { Bytes, Clip, PlayOptions, PlayResult, Sequence, SequenceOptions, StageState, WarmOptions } from './types.js';
 
 /** The slice of a Stage the scheduler needs — narrow, so a test injects a fake. */
 export interface SequenceStage {

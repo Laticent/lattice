@@ -9,9 +9,9 @@
 // channel that ignores the hardware ringer switch — whereas a programmatic <audio>.play() after
 // the gesture is gone stays silent. decodeAudioData also handles both MP3 and WAV.
 
-import { clampFadeMs } from './envelope';
-import { makeSequence } from './sequence';
-import type { Bytes, Clip, PlayHandle, PlayOptions, PlayResult, SequenceOptions, Stage, StageOptions, StageState } from './types';
+import { clampFadeMs } from './envelope.js';
+import { makeSequence } from './sequence.js';
+import type { Bytes, Clip, PlayHandle, PlayOptions, PlayResult, SequenceOptions, Stage, StageOptions, StageState } from './types.js';
 
 const DEFAULT_DECODED_LIMIT = 64;
 const DEFAULT_MAX_DECODE_BYTES = 32 * 1024 * 1024; // 32 MiB — decode-bomb guard on the ENCODED input
