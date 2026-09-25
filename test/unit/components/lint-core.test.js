@@ -2392,3 +2392,48 @@ describe('lint-core: its heading-split mirror agrees with the engine', () => {
     assert.deepEqual(off, []);
   });
 });
+
+// `list`'s two modifier sets do not cross over, and `principles` numbers an ordered list
+// only. Each mismatch rendered something plausible and said nothing.
+describe('lint-core: list-modifier-inert', () => {
+  const lVocab = {
+    names: new Set(['list']),
+    modifiers: new Set(['takeaway', 'principles', 'numbered', 'lettered', 'roman', 'bullet']),
+  };
+  const li = (cls, body) =>
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H\n\n${body}\n`, lVocab)
+      .filter((f) => f.rule === 'list-modifier-inert');
+  const UL = '- One.\n- Two.\n- Three.';
+  const OL = '1. One.\n2. Two.\n3. Three.';
+
+  test('principles over `-` bullets', () => {
+    const f = li('list principles', UL);
+    assert.equal(f.length, 1);
+    assert.equal(f[0].classToken, 'principles');
+    assert.equal(f[0].severity, 'warning');
+  });
+
+  test('numbered without takeaway', () => {
+    assert.deepEqual(li('list numbered', OL).map((f) => f.classToken), ['numbered']);
+  });
+
+  test('a principles counter format without principles', () => {
+    assert.deepEqual(li('list takeaway roman', UL).map((f) => f.classToken), ['roman']);
+  });
+
+  test('takeaway over a `1.` list without numbered', () => {
+    assert.deepEqual(li('list takeaway', OL).map((f) => f.classToken), ['takeaway']);
+  });
+
+  test('stays silent on every shape the gallery ships', () => {
+    for (const [cls, body] of [
+      ['list', UL], ['list', OL], ['list takeaway', UL], ['list takeaway numbered', OL],
+      ['list principles', OL], ['list principles lettered', OL], ['list principles bullet', OL],
+    ]) assert.deepEqual(li(cls, body), [], cls);
+  });
+
+  test('reads the TOP-level list, not a nested gloss or fenced code', () => {
+    assert.deepEqual(li('list takeaway', '- Lead\n  1. gloss'), []);
+    assert.deepEqual(li('list principles', '```\n- not a list\n```\n\n1. One.'), []);
+  });
+});

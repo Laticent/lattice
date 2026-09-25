@@ -262,7 +262,9 @@ describe('resolve-cards', () => {
       // below. So find the RULES that read the token and require each to be anchored on this
       // component's own section — which is the only selector shape that can reach its cards.
       const anchor = new RegExp(`(^|[\\s,>+~])section\\.${name}(?![\\w-])`);
-      const reading = cssRules(css).filter((r) => /align-content:\s*var\(\s*--cards-align\s*\)/.test(r.body));
+      // A ROW form reads it as `align-content` (its wrapped lines); a COLUMN form (`list`)
+      // reads it as `justify-content`, its main axis (base.tokens.css § THE COLUMN FORM).
+      const reading = cssRules(css).filter((r) => /(align|justify)-content:\s*var\(\s*--cards-align\s*\)/.test(r.body));
       assert.ok(reading.length > 0,
         `${name} declares a cards composition its CSS never reads — the declaration is a no-op`);
       for (const r of reading) {
@@ -280,6 +282,13 @@ describe('resolve-cards', () => {
         `data-cards="${n}" must map to ${CARDS_CSS[n]}`);
       assert.match(bare, new RegExp(`section\\[data-cards-coda="${n}"\\]:has\\(> \\.cell-coda\\)`),
         `the coda arm must carry ${n} too`);
+      // The column form's grow switch rides the same rules, so it cannot disagree with the
+      // placement: only `stretch` grows the rows.
+      const grow = n === 'stretch' ? 1 : 0;
+      assert.match(bare, new RegExp(`section\\[data-cards="${n}"\\][^{]*\\{[^}]*--cards-grow:\\s*${grow};`),
+        `data-cards="${n}" must set --cards-grow: ${grow}`);
+      assert.match(bare, new RegExp(`section\\[data-cards-coda="${n}"\\][^{]*\\{[^}]*--cards-grow:\\s*${grow};`),
+        `the coda arm must set --cards-grow: ${grow} for ${n}`);
     }
     const rootDefaults = (bare.match(/:root[^{]*\{[^}]*\}/g) || []).filter((b) => /--cards-align\s*:/.test(b));
     assert.deepEqual(rootDefaults, [], 'a :root default would override every component declaration');

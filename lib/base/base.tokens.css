@@ -1557,15 +1557,21 @@ section.flat {
  * value rides along as `data-cards-coda` and the shape test happens here, on the same
  * direct-child `.cell-coda` contract coda.js builds to (`lib/core/coda.js`). The VALUE is the manifest's;
  * only the test is CSS's.
- * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10. */
-section[data-cards="center"]  { --cards-align: center; }
-section[data-cards="stretch"] { --cards-align: stretch; }
-section[data-cards="top"]     { --cards-align: flex-start; }
-section[data-cards="spread"]  { --cards-align: space-evenly; }
-section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center; }
-section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch; }
-section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start; }
-section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; }
+ *
+ * THE COLUMN FORM. A single-column stack (`list`) is a flex COLUMN, where the placement
+ * lives on the main axis: it reads `justify-content: var(--cards-align)`. Flex falls
+ * `justify-content: stretch` back to `flex-start`, so a column cannot fill from that one
+ * value — `--cards-grow` is the rows' `flex-grow` (1 only under `stretch`), set by the same
+ * eight rules so the two can never disagree. A row form ignores it.
+ * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10 and §12. */
+section[data-cards="center"]  { --cards-align: center;       --cards-grow: 0; }
+section[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
+section[data-cards="top"]     { --cards-align: flex-start;   --cards-grow: 0; }
+section[data-cards="spread"]  { --cards-align: space-evenly; --cards-grow: 0; }
+section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center;       --cards-grow: 0; }
+section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
+section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start;   --cards-grow: 0; }
+section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; --cards-grow: 0; }
 
 /* ── Split-page RUNHEAD register — one setting, seven consumers ───────────────────────
  * The runhead is the mark that names the slide a split page came from

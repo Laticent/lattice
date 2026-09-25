@@ -33,8 +33,8 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 ### Common mistakes
 
-- **Combining `numbered` with `principles`, or `lettered`/`roman`/`bullet` with `takeaway`, expecting the counter to change.** `numbered` only composes with `takeaway` (adds its accent counter); `lettered`/`roman`/`bullet` only compose with `principles` (swap ITS counter format) — the two modifier sets don't cross over.
-- **Picking `ol` or `ul` arbitrarily under the default/`takeaway` look, without regard to whether order matters.** For the default and `takeaway` looks, list type is a real authoring signal — `ol` renders a tabular leading number column implying sequence; `ul` doesn't. Use `ol` only when the sequence is load-bearing. This does NOT apply to `principles` (and its `lettered`/`roman`/`bullet` sub-variants) — that family is `ol`-only regardless of whether the tenets are ordered; a `ul` there renders completely unstyled.
+- **Combining `numbered` with `principles`, or `lettered`/`roman`/`bullet` with `takeaway`, expecting the counter to change.** `numbered` only composes with `takeaway` (adds its accent counter); `lettered`/`roman`/`bullet` only compose with `principles` (swap ITS counter format) — the two modifier sets don't cross over. `lint:deck` warns on each mismatch (`list-modifier-inert`).
+- **Picking `ol` or `ul` arbitrarily under the default/`takeaway` look, without regard to whether order matters.** For the default and `takeaway` looks, list type is a real authoring signal — `ol` renders a tabular leading number column implying sequence; `ul` doesn't. Use `ol` only when the sequence is load-bearing. This does NOT apply to `principles` (and its `lettered`/`roman`/`bullet` sub-variants) — that family is `ol`-only regardless of whether the tenets are ordered; a `ul` there falls back to the default pills, and `lint:deck` warns (`list-modifier-inert`).
 
 ## When to use
 

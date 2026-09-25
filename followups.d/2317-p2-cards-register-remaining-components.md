@@ -11,9 +11,10 @@ The first slice of #2317 wired `list-steps` (row), `compare-prose` and `cards-st
 Still open from the issue's scope:
 
 - `split-panel` `proof` / `capstone` / `mirror` — its evidence column is a flex COLUMN of stacked
-  regions, so `align-content` does not apply there; it needs a column-axis design (probably a
-  `byFamily` value) before any code.
-- `cards-stack numbered` — a column stack; same column-axis question.
+  regions, so `align-content` does not apply there. The column-axis mechanism now exists: `list`
+  reads `justify-content: var(--cards-align)` and `flex-grow: var(--cards-grow)`
+  (`base.tokens.css` § THE COLUMN FORM, decision note §12). Still a per-component call on the default.
+- `cards-stack numbered` — a column stack; the same column mechanism applies.
 - `decision`, `split-compare`, `pricing`, `inventory`, `team-profile`, `contact`, `citation-card`,
   `regulatory-update`, `statute-stack`, `agenda cards`, `q-and-a grid` — per-component call.
 - `matrix-2x2`, `kanban` — declare `stretch` explicitly so `cards:` is uniform deck-wide.

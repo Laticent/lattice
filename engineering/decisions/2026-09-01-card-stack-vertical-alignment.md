@@ -1190,3 +1190,53 @@ cell.** An earlier draft of this section said it did — it never has, and the d
 so was corrected. Resolving the arm in one path and riding it along in the other would make
 the two disagree the moment a slide gained or lost a coda after stamping. Byte-identical
 output on both paths is the contract (#1), so the shape test stays in CSS for both.
+
+## 12 · The column form: `list` joins, and what a column needs that a row does not
+
+*(2026-09-25.)* The register was built for ROWS: a wrapped flex row reads
+`align-content: var(--cards-align)`. `list` is a single column, and its stylesheet hard-coded
+two compositions — equal-share bands (`li { flex: 1 1 0; min-height: 0 }`) at wide, and
+`space-evenly` with content-height rows at square/tall/strip. So `cards-top` and
+`cards-center` changed nothing on any list slide: the owner's audit rendered all seven list
+shapes under default/top/center/stretch and all four columns were identical.
+
+**The mechanism.** In a flex column the placement is on the MAIN axis, so `list` reads
+`justify-content: var(--cards-align)`. That gives `center`, `top` (`flex-start`) and `spread`
+(`space-evenly`) directly, but flex treats `justify-content: stretch` as `flex-start`, so
+`stretch` alone would pack the rows at the top. The eight `[data-cards]` rules in
+`base.tokens.css` therefore set a second token, `--cards-grow` (1 under `stretch`, else 0),
+and the rows read it as `flex-grow`. It lives in the same rules as `--cards-align`, so the two
+cannot disagree, and a row form ignores it. The consume test in `resolve-cards.test.js` now
+accepts `justify-content` as well as `align-content`.
+
+**Why not a grid column.** A one-column grid reads `align-content: var(--cards-align)` for all
+four values in one declaration, and the first cut used it. It failed the full-stage case: six
+one-line pills need 536px against a 438px stage, and grid `auto` rows never shrink below their
+content, so every six-item list overflowed. The old equal-share bands had hidden that — a row
+given less than its padding centered its text into the padding. With `minmax(0, auto)` rows
+the grid shrinks, but it shares the space out EQUALLY, so a two-line row is capped at the same
+height as a one-liner and spills: the defect below, back again.
+
+**The flex column shrinks in proportion.** Rows are `flex: var(--cards-grow) 1 auto` with
+`min-height: 0` on the rows and on the list. On a full stage each row gives back height in
+proportion to its own, which comes out of its block padding. Measured in the live DOM on six
+pills with one two-line row (stage 438px): the two-line row renders 78px for 77px of text
+(111px unshrunk), each one-liner 56px for 35px of text (69px unshrunk), so rows land at 70–81%
+of their full height and no text leaves its row.
+The gloss rows are block containers, where `align-content: center` falls back to `start` on
+overflow and the gloss ran out of the bottom; they use `unsafe center`, which splits the
+overflow evenly as a flex row does.
+
+**The defect this removes.** Under the old equal-share bands, a row that wrapped to two lines got
+the same share as a one-liner. With six items that put its second line outside the pill, and on
+`takeaway` onto the rule below. It was within the wide capacity (hard 6), so nothing flagged it.
+
+**The default.** `list` declares `center` at wide (the owner's call: the same default as
+`cards-grid`), `byFamily: spread` on square/tall/strip, which reproduces what the CSS did
+there before, and `withCoda: stretch`, like every other governed component.
+
+**Verified on** the real CLI export (`lattice-emulator.js` → PDF → raster), indaco light, at
+1280×720: every list shape under default/top/center/stretch, six one-line rows in every
+register, five gloss rows, and six rows with two wraps. None overflows. **Not verified:** the
+square/tall/strip frames beyond the gallery goldens, and the Playground's runtime path (which
+stamps `data-cards` through the same kernel, per §11c-bis).
