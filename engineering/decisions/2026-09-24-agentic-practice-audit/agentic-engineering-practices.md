@@ -63,6 +63,65 @@ Before any practices, here's the one thing I'd ask you to hold on to. There's no
 
 ---
 
+<!-- _class: compare-prose insight-so-what -->
+
+`Your role · Floor and ceiling`
+
+## AI raises your floor, but only you can raise your ceiling.
+
+- The floor
+  - Anyone can now produce working-looking code in minutes. That part got cheap, for everyone.
+- The ceiling
+  - Knowing what to build, spotting what is wrong, deciding when it is good enough. That part is still yours.
+
+> Everyone has a camera and a crew now. Not everyone makes a film.
+
+<!--
+So where do you fit in? These tools raise everyone's floor. Anyone in this room can now produce code that runs and looks finished, fast. What they don't raise is the ceiling: knowing what to build, seeing what's wrong with it, and deciding when it's good. A lot of people slip into a familiar role with an agent. They treat it like a chat buddy, or a junior they have to babysit. I'd suggest a different role. Think of a film director. Everyone has a camera and a crew now. Not everyone makes a film.
+-->
+
+---
+
+<!-- _class: list-steps -->
+
+`Your role · The director`
+
+## Direct the work: watch the take, name the problem, give one note.
+
+1. Watch the take
+   - Read the actual change and run it before you react.
+2. Name the problem
+   - Say exactly what is off: "the retry hides the real error."
+3. Give one note
+   - Say it once, clearly, then let the agent work.
+
+<!--
+A director doesn't run the camera. They watch the take and judge what's actually on the screen. For you, that means reading the actual change and running it. Then they name the problem precisely. "The pacing drags" is useful. "Make it better" isn't. Same with an agent: "the retry hides the real error" gets a fix, "this seems off" gets a guess. Then they give one clear note, say it once, and step back so the crew can work.
+-->
+
+---
+
+<!-- _class: table table-fill -->
+
+`Your role · The set`
+
+## Everything on a film set has a counterpart in agentic work.
+
+| On set | With agents | Practice |
+| --- | --- | --- |
+| Script and shot list | The plan and the instruction file | Context |
+| One clear note per take | One precise request | Autonomy |
+| The dailies | Proof from the real thing | Verification |
+| Continuity | Checks that catch jank before it ships | Verification |
+| Production notes | Decision log and follow-up files | Learning |
+| Casting and the final cut | An agent roster; you approve the merge | Orchestration |
+
+<!--
+The set gives us a map for the rest of the hour. The script and shot list are your plan and your instruction file. One clear note per take is one precise request. The dailies are the footage itself. For us, that's proof from the real thing, which beats the agent's description every time. Continuity is the set of checks that catch jank before it ships. Production notes are the decision log. And casting and the final cut are your agent roster and the merge you approve. We'll take these in order.
+-->
+
+---
+
 <!-- _class: diagram insight-takeaway -->
 
 `How an agent works`
@@ -107,7 +166,7 @@ Each practice answers a question you'll hit in your first week with an agent. Wh
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-`Practice 01`
+`Practice 01 · The script and the shot list`
 
 ## Context engineering
 
@@ -238,7 +297,7 @@ If you use Claude Code, each habit maps to a setting. CLAUDE.md is the standing 
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-`Practice 02`
+`Practice 02 · What the crew decides alone`
 
 ## Autonomy with limits
 
@@ -350,7 +409,7 @@ In Claude Code, the reach test becomes settings. The allow list is what the agen
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-`Practice 03`
+`Practice 03 · Watch the dailies`
 
 ## Verification you can trust
 
@@ -478,7 +537,7 @@ A hook is a small script Claude Code runs at a fixed moment, whether or not the 
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-`Practice 04`
+`Practice 04 · Keep continuity`
 
 ## A system that learns
 
@@ -599,7 +658,7 @@ When an agent session ends, anything that lived only in the chat goes with it. S
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-`Practice 05`
+`Practice 05 · Cast the crew`
 
 ## Orchestration
 
@@ -716,15 +775,15 @@ These practices came from a web application, but they travel. What changes is wh
 
 ## Agents copy what they find, so quality and jank both compound.
 
-- A shortcut
-  - The next agent reads it as the house style and copies it. A month later, it is in ten files.
-- A clean foundation
-  - The next agent copies that instead. Every change starts from firmer ground than the last.
+- Fix it in post
+  - The next agent reads the shortcut as the house style and copies it. A month later, it is in ten files.
+- Get it right on set
+  - The next agent copies the clean version instead. Every change starts from firmer ground.
 
 > Every shortcut you ship becomes context for the next agent.
 
 <!--
-Here's why this matters more with agents than it did before. An agent learns how your project works by reading it. If it finds a hack, it assumes that's how things are done here, and it copies it, quickly, everywhere. One shortcut becomes ten in a month. It works the other way too. A clean foundation gets copied just as fast, and every change starts from better ground than the one before. With agents, quality compounds, and so does jank. You choose which one.
+Every film crew knows the phrase "we'll fix it in post." It's how shortcuts get made, and with agents it's more expensive than it used to be. An agent learns how your project works by reading it. If it finds a hack, it assumes that's how things are done here, and it copies it, quickly, everywhere. One shortcut becomes ten in a month. It works the other way too. A clean foundation gets copied just as fast, and every change starts from better ground than the one before. With agents, quality compounds, and so does jank. You choose which one.
 -->
 
 ---
@@ -759,7 +818,7 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 Quality compounds. So does jank.
 
 <!--
-So here's the one thing to take with you. Use agents however you like. Just make sure that what you ship is what you said you shipped, because with agents, quality compounds, and so does jank. The starter kit is at the end of the deck when you want it. Thanks. Let's take questions.
+So here's the one thing to take with you. You're the director. Use agents however you like. Just make sure that what you ship is what you said you shipped, because with agents, quality compounds, and so does jank. The starter kit is at the end of the deck when you want it. Thanks. Let's take questions.
 -->
 
 ---
