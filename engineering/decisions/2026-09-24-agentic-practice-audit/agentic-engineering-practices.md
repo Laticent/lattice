@@ -1034,6 +1034,10 @@ Every film crew knows the phrase "we'll fix it in post." It's how shortcuts get 
 ```mermaid
 mindmap
   root)Reality matches the claim(
+    You direct
+      {{You raise the ceiling}}
+      {{Set the bar}}
+      {{Mentor, don't micromanage}}
     Context
       {{An index, not a manual}}
       {{Route before work}}
@@ -1052,7 +1056,7 @@ mindmap
 ```
 
 <!--
-Here's the whole talk on one page. In the middle is the one rule: what you ship matches what you said you shipped. Around it sit the five practices, and you direct all five. Give the agent the right script. Decide what it can do alone. Check the work where it actually runs. Turn every mistake into a rule, and retire the rule when it stops earning its place. Cast a small crew, and give each member one job. Here's the shift I'd like you to leave with. For most of our careers, the job was writing the code. Now the agent writes most of it, and your job is the system around it: the context, the limits, the checks, the memory. The code is the output. The system around it is what you build now. Get that system right, and every agent you point at it does better work.
+Here's the whole talk on one page. In the middle is the one rule: what you ship matches what you said you shipped. Around it sit the five practices, and your role as the director: raise the ceiling, set the bar, and mentor instead of micromanaging. Give the agent the right script. Decide what it can do alone. Check the work where it actually runs. Turn every mistake into a rule, and retire the rule when it stops earning its place. Cast a small crew, and give each member one job. Here's the shift I'd like you to leave with. For most of our careers, the job was writing the code. Now the agent writes most of it, and your job is the system around it: the context, the limits, the checks, the memory. The code is the output. The system around it is what you build now. Get that system right, and every agent you point at it does better work.
 -->
 
 ---
