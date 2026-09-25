@@ -1895,6 +1895,7 @@ function renderMermaid(definition, mode, look, hand = false) {
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor } = require('./lib/engine/css');
+const { widenForPanes, hasPanes } = require('./lib/core/pane-css');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // The one pattern that says "this is a Mermaid fence", shared with the narrator (#1).
 const { matchMermaidFences } = require('./lib/core/mermaid-fences');
@@ -2500,6 +2501,10 @@ function engineSlides(deckSource = rawMd) {
 // PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
 // to lift the note bodies; the file ships pass 2.
 const slidesAsAuthored = engineSlides();
+// A deck with PANES inlines the pane-widened sheet: every rule arm that reaches a pane's
+// body gains a `lat-pane` twin (lib/core/pane-css.js). Every other deck inlines exactly
+// the stylesheet it always did, so its bytes do not move.
+const DECK_HAS_PANES = slidesAsAuthored.some((sec) => hasPanes(sec));
 
 // ── Speaker notes ──────────────────────────────────────────────────────────
 // A non-directive HTML comment on a slide is that slide's speaker note
@@ -3080,7 +3085,7 @@ if (deckSheet.refused && !QUIET) {
 const deckStyleText = `@page { size: ${slideW}px ${slideH}px; margin: 0; }
 body  { margin: 0; padding: 0; }
 ${sheetStartMark(deckSizeName, paletteName)}
-${deckSheet.css}
+${DECK_HAS_PANES ? widenForPanes(deckSheet.css) : deckSheet.css}
 ${SHEET_END_MARK}
 section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
 ${marpSystemCss}
@@ -4598,7 +4603,7 @@ async function renderBody(browser, g, closeBrowser) {
                 s.textContent = css;
                 document.head.appendChild(s);
                 document.documentElement.style.colorScheme = scheme;
-              }, { css: lookPaletteCss, scheme: lookMode }), 'apply svg-look palette (charts)');
+              }, { css: DECK_HAS_PANES ? widenForPanes(lookPaletteCss) : lookPaletteCss, scheme: lookMode }), 'apply svg-look palette (charts)');
             }
             await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle svg look');
           }

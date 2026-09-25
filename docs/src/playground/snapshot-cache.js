@@ -66,10 +66,10 @@ const STRIP_PSEUDO =
 // those arms provably match nothing, so they are dropped exactly, not conservatively.
 // `:is(section,lat-pane)` is the widened form that ALSO matches a slide, so it is not a pane
 // arm; only a `lat-pane` outside that pair is.
-const isPaneArm = (sel) => /\blat-pane\b/.test(sel.replace(/:is\(\s*section\s*,\s*lat-pane\s*\)/g, 'section'));
+const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel.replace(/:is\(\s*section\s*,\s*lat-pane\s*\)/g, 'section'));
 
-function selectorMatches(doc, selectorText) {
-	if (isPaneArm(selectorText) && !doc.querySelector('lat-pane')) return false;
+function selectorMatches(doc, selectorText, hasPane) {
+	if (isPaneArm(selectorText) && !hasPane) return false;
 	const probe = selectorText.replace(STRIP_PSEUDO, '').replace(/\s+/g, ' ').trim();
 	if (!probe || probe === '*') return true;
 	try {
@@ -120,7 +120,7 @@ function scopeSelector(sel, scope) {
 // When `scope` is set (the Playground path), every kept style rule is scoped under it
 // so the snapshot CSS is inert outside the instant-shell — the Studio path passes no
 // scope and keeps the historical unscoped output (its shell is a full-page overlay).
-function collectRules(rules, doc, out, scope) {
+function collectRules(rules, doc, out, scope, hasPane) {
 	for (const rule of rules) {
 		// @import — DROP. The snapshot CSS is injected into the TOP document (not the
 		// sandboxed preview iframe); a replayed @import would fetch an arbitrary external
@@ -130,12 +130,12 @@ function collectRules(rules, doc, out, scope) {
 		if (rule.selectorText !== undefined && rule.style) {
 			// CSSStyleRule
 			const all = splitTopLevelCommas(rule.selectorText);
-			const parts = all.filter((s) => selectorMatches(doc, s));
+			const parts = all.filter((s) => selectorMatches(doc, s, hasPane));
 			if (!parts.length) continue;
 			if (scope) out.push(`${parts.map((s) => scopeSelector(s, scope)).join(',')}{${rule.style.cssText}}`);
 			// Unscoped (the Studio) keeps the rule whole, as it always has — minus pane arms
 			// that cannot match here, so a widened rule costs the snapshot nothing.
-			else if (doc.querySelector('lat-pane') || !all.some(isPaneArm)) out.push(rule.cssText);
+			else if (hasPane || !all.some(isPaneArm)) out.push(rule.cssText);
 			else out.push(`${all.filter((s) => !isPaneArm(s)).join(',')}{${rule.style.cssText}}`);
 		} else if (rule.type === 5 || rule.type === 7 || (rule.constructor && rule.constructor.name === 'CSSPropertyRule')) {
 			// @font-face (5) · @keyframes (7) · @property — position-independent, keep whole
@@ -143,7 +143,7 @@ function collectRules(rules, doc, out, scope) {
 		} else if (rule.cssRules) {
 			// @media/@container/@supports/@layer{…} — recurse; keep only if non-empty
 			const inner = [];
-			collectRules(rule.cssRules, doc, inner, scope);
+			collectRules(rule.cssRules, doc, inner, scope, hasPane);
 			if (inner.length) {
 				const head = rule.cssText.slice(0, rule.cssText.indexOf('{'));
 				out.push(`${head}{${inner.join('')}}`);
@@ -155,12 +155,15 @@ function collectRules(rules, doc, out, scope) {
 }
 
 /** Critical CSS for the rendered slide in `doc`, from the live CSSOM. `scope`, when
- *  given, confines every rule under that selector (the Playground instant-shell). */
-export function extractCriticalFromDoc(doc, scope) {
+ *  given, confines every rule under that selector (the Playground instant-shell). `root` is
+ *  the part of the document being captured: pane arms are kept only when IT holds a pane —
+ *  a pane on slide 2 says nothing about the slide-1 snapshot. */
+export function extractCriticalFromDoc(doc, scope, root = doc) {
 	const out = [];
+	const hasPane = !!root?.querySelector?.('lat-pane');
 	for (const sheet of doc.styleSheets) {
 		try {
-			collectRules(sheet.cssRules, doc, out, scope);
+			collectRules(sheet.cssRules, doc, out, scope, hasPane);
 		} catch {
 			/* a sheet we can't read (shouldn't happen for same-origin srcdoc) — skip */
 		}
@@ -264,7 +267,7 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		// `:root[data-palette]` token block — injected RAW into the TOP document they
 		// would repaint the whole Playground page and hide the slide. Scoping re-targets
 		// them onto `.pg-ssr-shell` so the slide gets its tokens while the page is untouched.
-		let css = extractCriticalFromDoc(doc, PG_SHELL_SCOPE);
+		let css = extractCriticalFromDoc(doc, PG_SHELL_SCOPE, first);
 		if (!html || !css) return null;
 		// Same relative-font-URL rewrite as captureFromFrame: the replayed CSS lives in
 		// the TOP document (`/playground/`), so `url(fonts/…)` must be made absolute.

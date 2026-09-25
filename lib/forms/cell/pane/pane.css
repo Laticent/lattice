@@ -2,8 +2,9 @@
  *
  * The host slide keeps its one masthead, coda and footer. Its stage holds one
  * `.lat-panes` row (or column, `stack`), and each `<lat-pane>` is a Cell that
- * hosts one component's body. Component CSS reaches it because the build widens
- * every component rule's root from `section` to `:is(section,lat-pane)`.
+ * hosts one component's body. Component CSS reaches it because a deck WITH panes
+ * composes its sheet through lib/core/pane-css.js, which adds a `lat-pane` twin beside
+ * every rule arm that reaches a pane's body; the shipped sheet is never widened.
  *
  * Geometry comes from the AUTHORED ratio (--pane-a / --pane-b, 25–75 in 5%
  * steps), never from content: `flex-basis: 0` + a grow factor per pane, so a

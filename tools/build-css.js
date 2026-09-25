@@ -41,7 +41,6 @@
  * See design/design-system.md §10.
  */
 
-const { widenSectionRoots } = require('./lib/pane-selectors');
 const fs = require('node:fs');
 const path = require('node:path');
 const { minifyCss } = require('./minify-css');
@@ -544,9 +543,7 @@ function bundle() {
   // order — that's why modifiers come after.
   for (const { rel, text } of componentStyles()) {
     parts.push(`/* === ${rel} === */`);
-    // Widen each rule's `section` root to `:is(section,lat-pane)` so the same rule
-    // styles a component's body in a pane (tools/lib/pane-selectors.js).
-    parts.push(widenSectionRoots(text));
+    parts.push(text);
   }
   // Cross-cutting modifiers. AFTER components so equal-specificity
   // collisions resolve to modifier defaults. Component variants that
@@ -565,12 +562,12 @@ function bundle() {
   const chartFamily = readIfExists(CHART_FAMILY_SOURCE);
   if (chartFamily) {
     parts.push(`/* === ${CHART_FAMILY_SOURCE} === */`);
-    parts.push(widenSectionRoots(chartFamily));
+    parts.push(chartFamily);
   }
   const qrGeneral = readIfExists(QR_GENERAL_SOURCE);
   if (qrGeneral) {
     parts.push(`/* === ${QR_GENERAL_SOURCE} === */`);
-    parts.push(widenSectionRoots(qrGeneral));
+    parts.push(qrGeneral);
   }
   const treatments = readIfExists(TREATMENTS_SOURCE);
   if (treatments) {
@@ -619,11 +616,7 @@ function bundle() {
   // Stamp the Marp `@size` directives LAST, so `bundle()` remains the single
   // definition of dist/lattice.css — including the directives the Marp-facing
   // artifact must carry (stampSizeDirectives).
-  // The base defaults a pane's body needs (table rules, list rhythm, sketch mode…) live
-  // OUTSIDE the component sheets, as `section … > .cell-stage > …` rules. Widen just those —
-  // a rule that styles STAGE content — so a pane's own stage gets them too; slide-level
-  // rules (padding, backdrop, pagination) never reach a pane (tools/lib/pane-selectors.js).
-  return stampSizeDirectives(distributeLeadingIs(widenSectionRoots(parts.join('\n'), { stageOnly: true })));
+  return stampSizeDirectives(distributeLeadingIs(parts.join('\n')));
 }
 
 function main(argv) {

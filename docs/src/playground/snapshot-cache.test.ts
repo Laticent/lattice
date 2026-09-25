@@ -168,6 +168,16 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(withPane?.css).toContain('lat-pane');
 	});
 
+	it('a pane on a LATER slide does not keep pane arms in the slide-1 snapshot', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>section.title > :is(h1, h2), lat-pane.title > :is(h1, h2){color:red}</style>';
+		(doc.querySelectorAll('.lattice > section')[1] as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"></lat-pane>');
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).toContain('section.title');
+		expect(snap?.css).not.toContain('lat-pane');
+	});
+
 	it('keeps a widened `:is(section,lat-pane)` rule — it styles the slide too', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;

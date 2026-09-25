@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const panes = require('../../../lib/core/panes.js');
-const { widenSectionRoots } = require('../../../tools/lib/pane-selectors.js');
+const { widenForPanes } = require('../../../lib/core/pane-css.js');
 const { createEngine } = require('../../../lib/engine');
 
 const ROOT = path.join(__dirname, '../../..');
@@ -11,8 +11,11 @@ const ROOT = path.join(__dirname, '../../..');
 function engine() {
   const e = createEngine();
   const dir = path.join(ROOT, 'themes');
-  e.addThemes(fs.readdirSync(dir).filter((f) => f.endsWith('.css'))
-    .map((f) => ({ name: f.replace(/\.css$/, ''), css: fs.readFileSync(path.join(dir, f), 'utf8') })));
+  e.addThemes([
+    { name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8') },
+    ...fs.readdirSync(dir).filter((f) => f.endsWith('.css'))
+      .map((f) => ({ name: f.replace(/\.css$/, ''), css: fs.readFileSync(path.join(dir, f), 'utf8') })),
+  ]);
   return e;
 }
 const render = (md, opts) => engine().render(md, undefined, opts).html;
@@ -145,55 +148,87 @@ test('parseLayout accepts 25–75 in 5% steps and stack, and reports the rest', 
   }
 });
 
-test('widenSectionRoots widens only the root `section` of each selector', () => {
+test('widenForPanes twins each arm that reaches a pane, and nothing else', () => {
   const css = '/* c */ section.list > .cell-stage > ul { a: b }\n'
-    + ':is(section.bar, figure.bar) .x { c: d }\n'
-    + '.z section, section p :has(section) { e: f }\n';
+    + ':is(section.bar, figure.chart-frame) .x { c: d }\n'
+    + 'section.dark { e: f }\n'
+    + 'section:where(:not(.glossary)) > table, section:where(:not(.glossary)) > :where(.cell-stage) > table td { g: h }\n'
+    + '@media print { section.table > .cell-stage > table { i: j } }\n'
+    + '@keyframes k { from { x: 1 } to { x: 2 } }\n'
+    + '.z section, section p { e: f }\n';
   assert.equal(
-    widenSectionRoots(css),
-    '/* c */ :is(section,lat-pane).list > .cell-stage > ul { a: b }\n'
-    + ':is(:is(section,lat-pane).bar, figure.bar) .x { c: d }\n'
-    + '.z section, :is(section,lat-pane) p :has(section) { e: f }\n',
+    widenForPanes(css),
+    '/* c */ section.list > .cell-stage > ul, lat-pane.list > .cell-stage > ul{ a: b }\n'
+    // A leading `:is()` is split first, so every arm is a plain selector (the Marp-safe shape).
+    + 'section.bar .x, figure.chart-frame .x, lat-pane.bar .x{ c: d }\n'
+    // Slide-level, and a class inside `:not()` is an exclusion, not a component.
+    + 'section.dark { e: f }\n'
+    + 'section:where(:not(.glossary)) > table, section:where(:not(.glossary)) > :where(.cell-stage) > table td, lat-pane:where(:not(.glossary)) > :where(.cell-stage) > table td{ g: h }\n'
+    + '@media print { section.table > .cell-stage > table, lat-pane.table > .cell-stage > table{ i: j } }\n'
+    + '@keyframes k { from { x: 1 } to { x: 2 } }\n'
+    + '.z section, section p { e: f }\n',
   );
 });
 
-test('in the bundle, every lat-pane arm sits in the same rule as its section twin', () => {
-  // The cascade invariant: a `lat-pane.x …` selector is `section.x …` with one TYPE swapped
-  // for another, in the SAME rule — so it has the same specificity and the same source order,
-  // and a normal slide matches exactly the rules it matched before.
-  const css = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  let checked = 0;
-  for (const m of css.matchAll(/(^|})\s*([^{}@]*lat-pane[^{}]*)\{/g)) {
-    const arms = [];
-    let depth = 0;
-    let cur = '';
-    for (const ch of m[2]) {
-      if (ch === '(') depth++;
-      if (ch === ')') depth--;
-      if (ch === ',' && depth === 0) {
-        arms.push(cur.trim());
-        cur = '';
-      } else cur += ch;
-    }
-    arms.push(cur.trim());
-    // Only WIDENED rules: lib/forms/cell/pane/pane.css styles `lat-pane` directly, on purpose.
-    if (!arms.some((a) => /^section\b/.test(a))) continue;
-    for (const arm of arms.filter((a) => /^lat-pane\b/.test(a))) {
-      assert.ok(arms.includes(arm.replace(/^lat-pane/, 'section')), `no section twin for: ${arm}`);
-      checked++;
-    }
-  }
-  assert.ok(checked > 1000, `expected the widened bundle; checked ${checked}`);
+test('a comment between two arms hides neither from the widening (base.sketch.css has one)', () => {
+  assert.equal(
+    widenForPanes('section.sketch.cards-stack > ul > li,\n/* mid */\nsection.sketch.quote blockquote { a: b }'),
+    '/* mid */section.sketch.cards-stack > ul > li, lat-pane.sketch.cards-stack > ul > li,\n\nsection.sketch.quote blockquote, lat-pane.sketch.quote blockquote{ a: b }',
+  );
 });
 
-test('the base stage defaults reach a pane: table rules, but never slide-level rules', () => {
-  const css = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8');
-  // base.elements.css draws every table's rules through `section … > :where(.cell-stage) > table`.
-  // Either form: `:is(section,lat-pane)` as written, or split into its `lat-pane` arm.
-  assert.match(css, /(^|[,}]\s*)(lat-pane|:is\(section,lat-pane\)):where\([^{}]*\)\s*>\s*:where\(\.cell-stage\)\s*>\s*table td\s*[,{]/m);
-  // A rule that does not reach through the stage stays slide-only: nothing roots the slide's
-  // own padding or backdrop at a pane.
-  assert.doesNotMatch(css, /(^|[,}]\s*)lat-pane\s*\{/m);
+test('widening a deck\'s sheet never changes what a NORMAL slide matches (every shipped sheet)', () => {
+  // The invariant the whole design rests on: strip the `lat-pane` twins back out and every
+  // rule is the rule it was — same arms, same order, same block. Run over the real bundle and
+  // every theme, because a kernel bug hides in their comments (a `;` inside a comment once
+  // split a prelude and broke the rule defining --sketch-ink on every slide of a panes deck).
+  const csstree = require('css-tree');
+  const { splitSelectorList, leadingIsArms } = require('../../../lib/core/leading-is');
+  const flat = (list) => splitSelectorList(list).flatMap((x) => {
+    const li = leadingIsArms(x.trim());
+    return li ? li.arms.map((a) => a.trim() + li.rest) : [x.trim()];
+  }).map((x) => x.replace(/\s+/g, ' '));
+  const rules = (css, dropTwins) => {
+    const out = [];
+    csstree.walk(csstree.parse(css, { parseValue: false, parseCustomProperty: false, parseAtrulePrelude: false }), {
+      visit: 'Rule',
+      enter(r) {
+        if (r.prelude.type !== 'SelectorList') return;
+        let sels = flat(r.prelude.children.toArray().map((x) => csstree.generate(x)).join(','));
+        if (dropTwins) sels = sels.filter((x) => !(/^lat-pane(?![\w-])/.test(x) && sels.includes(`section${x.slice(8)}`)));
+        out.push(`${sels.join('|')}{${csstree.generate(r.block)}}`);
+      },
+    });
+    return out;
+  };
+  const sheets = ['dist/lattice.css', ...fs.readdirSync(path.join(ROOT, 'themes')).filter((f) => f.endsWith('.css')).map((f) => `themes/${f}`)];
+  for (const f of sheets) {
+    const raw = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.deepEqual(rules(widenForPanes(raw), true), rules(raw, false), f);
+  }
+});
+
+test('the shipped stylesheet carries no pane arms, so Export-to-Marp reads it as before', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(css, /lat-pane\.[a-z]/);
+  assert.doesNotMatch(css, /:is\(section,\s*lat-pane\)/);
+});
+
+test('a deck WITHOUT panes composes the plain sheet; a deck with panes gets the twins', () => {
+  const e = engine();
+  const plain = e.render('## T\n\n- a\n').css;
+  assert.doesNotMatch(plain, /lat-pane\.[a-z]/);
+  const withPanes = e.render(DECK).css;
+  assert.match(withPanes, /lat-pane\.list\b/);
+  // The base stage defaults reach a pane's body — every table's rules …
+  assert.match(withPanes, /lat-pane:where\([^{}]*\)\s*>\s*:where\(\.cell-stage\)\s*>\s*table td/);
+  // … and the plain deck's sheet is unchanged by a panes deck rendered through the same engine.
+  assert.equal(e.render('## T\n\n- a\n').css, plain);
+});
+
+test('theme rules keyed to a component reach a pane (the a11y texture channel)', () => {
+  const css = engine().render(`---\ntheme: a11y-deuteranopia\n---\n\n## T\n\n<!-- pane: piechart -->\n\n- A \`60%\`\n- B \`40%\`\n\n<!-- pane: list -->\n\n- x\n`).css;
+  assert.match(css, /lat-pane\.piechart[^{]*wedge/);
 });
 
 test('a table in a pane renders with the same table classes as a table slide', () => {
