@@ -14,6 +14,7 @@ const {
   collectFontFamilies,
   parseTokenDecls,
   applyCollectedTokens,
+  bakePlan,
 } = require('../../../lib/components/chart/_chart-family/standalone-svg.js');
 
 describe('finalizeStandaloneSvg', () => {
@@ -409,5 +410,24 @@ describe('parseTokenDecls — the shared grammar', () => {
     const domNames = new Set(parseTokenDecls(css).map(([n]) => n));
     assert.deepEqual([...domNames].sort(), [...fileNames].sort());
     for (const n of domNames) assert.notEqual(el.style.getPropertyValue(n), '', `${n} missing from the inline style`);
+  });
+});
+
+// `bakeSvg` is the engine's `baked` delivery mode (2026-09-24-one-style-delivery-spine.md
+// §4.1): flatten, then freeze the tokens onto the clone root. The Studio's rasterizer relies
+// on the freeze being the DEFAULT; the exported player's diagram bake relies on `false`
+// switching it off so its dark/light toggle still moves the tokens. Pinned on the policy,
+// because jsdom resolves no custom property and so cannot watch a freeze happen.
+describe('bakePlan — the baked mode\'s option policy', () => {
+  test('freezes by default, and collects exactly when it freezes', () => {
+    for (const opts of [undefined, {}, { foreignObjectLabels: 'text' }, { freezeTokens: true }]) {
+      const plan = bakePlan(opts);
+      assert.equal(plan.freeze, true, `${JSON.stringify(opts)} must freeze`);
+      assert.equal(plan.flatten.collectTokens, true);
+    }
+  });
+  test('only a literal false turns the freeze off', () => {
+    const plan = bakePlan({ freezeTokens: false, foreignObjectLabels: 'text' });
+    assert.deepEqual(plan, { freeze: false, flatten: { foreignObjectLabels: 'text', collectTokens: false } });
   });
 });

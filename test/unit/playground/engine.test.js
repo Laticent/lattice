@@ -95,7 +95,7 @@ describe('playground engine', () => {
     assert.deepEqual({ width: k.width, height: k.height }, { width: 3840, height: 2160 });
   });
 
-  // `flatCss` is the exported player's stylesheet (render(…, { flatCss: true })). This
+  // `flatCss` is the flat-mode stylesheet (render(…, { styles: 'flat' })). This
   // wrapper rebuilds the engine's result field by field, and it silently dropped the field
   // on the first attempt — the Studio's `?? out.css` fallback then shipped the black
   // Read · Article charts again with nothing failing. Pin the pass-through here.
@@ -104,12 +104,22 @@ describe('playground engine', () => {
     const deck = '---\ntheme: cuoio\n---\n\n# Hi\n';
     const plain = pg.render(deck, 'cuoio');
     assert.equal(plain.flatCss, undefined, 'no flatCss unless the caller asks');
-    const flat = pg.render(deck, 'cuoio', { flatCss: true });
+    const flat = pg.render(deck, 'cuoio', { styles: 'flat' });
+    assert.deepEqual(pg.render(deck, 'cuoio', { styles: 'scoped' }), plain, "'scoped' is the default, named");
     assert.equal(flat.css, plain.css, 'the preview css is unchanged by the option');
     assert.equal(typeof flat.flatCss, 'string');
     // The re-host arm, written as the CLI ships it — the selector Read · Article needs.
     assert.match(flat.flatCss, /,\s*figure\.chart-frame \.radar-ring[,{]/);
     assert.doesNotMatch(flat.css, /,\s*figure\.chart-frame \.radar-ring[,{]/);
+  });
+
+  // An unknown mode must not fall back to 'scoped' — a silent fallback is how #2344 shipped
+  // black charts. 'baked' is a real mode, but not a stylesheet, so it names bakeSvg().
+  test('rejects an unknown styles mode, and points baked at bakeSvg', async () => {
+    const pg = await loadEngine();
+    const deck = '# Hi\n';
+    assert.throws(() => pg.render(deck, 'cuoio', { styles: 'flta' }), /unknown styles mode "flta"/);
+    assert.throws(() => pg.render(deck, 'cuoio', { styles: 'baked' }), /bakeSvg/);
   });
 });
 

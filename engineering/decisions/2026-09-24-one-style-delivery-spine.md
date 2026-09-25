@@ -91,6 +91,26 @@ The change is ownership and naming, not new machinery:
   (roadmap alone has 34 pseudo-element rules). A host that shows HTML charts cannot
   use `baked`; it needs `flat`. That settles the Reading view's options (§7, fork 2).
 
+### 4.1 The host table (built 2026-09-25)
+
+This is the one place a host's mode is recorded. A new surface that shows a slide adds
+a row here and asks for its mode by name; it does not invent a shape.
+
+| Host | Mode | How it asks |
+|---|---|---|
+| Studio preview, Playground, docs embeds | `scoped` | `render(md, theme)`; `scoped` is the default |
+| Studio Webpage player (and its strip-notes re-render) | `flat` | `render(md, theme, { styles: 'flat' })`, ships `flatCss` (`share-export.ts`) |
+| Studio diagram bake (exported player, Reading view) | `baked` | `bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens })` (`deck-export.js`) |
+| Studio PDF/PPTX rasterizer | `baked` | `bakeSvg(svg, win)` (`deck-export.js` `flattenChartSvgs`) |
+| `check:render` baked pass | `baked` | `bakeSvg(svg, win, { freezeTokens })` (`tools/check-viz-render.js`) |
+| Chart "download as SVG" (Studio + `tools/export-chart-svg.js`) | `baked`, to a file | `flattenSvgStyles(…, { collectTokens: true })` + `finalizeStandaloneSvg`; a file takes its tokens in its own `<style>`, not on an element |
+| Studio Reading view | *(fork 2: `flat`, scoped to the article and pruned)* | step 3 |
+| CLI PDF/PNG/HTML/`--player` | *(as written today; fork 3: `flat`)* | step 4 |
+
+`render()` throws on an unknown `styles` name, and on `'baked'` it names `bakeSvg`
+instead. A silent fallback to `scoped` is how #2344 shipped black charts, so an
+unknown mode cannot take it.
+
 ## 5. The gate — `check:render` renders every mode, not one
 
 `tools/check-viz-render.js` (`check:render`) already exists for this bug class. It
@@ -205,6 +225,11 @@ landing.
 
 ## 7. Decisions for the owner
 
+**Decided 2026-09-25**, in one round: fork 1 **yes**; fork 2 **(b) `flat`, scoped and
+pruned**; fork 3 **now, in this line of work** (not "later" as recommended, so step 4
+runs after step 3 and still needs export sign-off); fork 4 **ratchet**. The options
+below are kept as they were put.
+
 1. **Adopt the three named modes, with the engine owning them?**
    - *Recommendation: yes.* The cost is one render option renamed and one
      `baked` function extracted. It buys a place where the next surface has to
@@ -243,7 +268,9 @@ landing.
 1. **Extend `check:render` (§5) first.** It is the evidence for everything after
    it. **Done (§5.1).** The Reading-view pass waits for fork 2.
 2. **Name the modes (§4)** and route the three existing hosts through them. No
-   output changes; the extended gate must pass byte-identically.
+   output changes; the extended gate must pass byte-identically. **Done (§4.1).**
+   `check:render` passed unchanged on the branch: 12 sanctioned findings, flat 7254 and
+   baked 5964 pairs.
 3. **The Reading view** (fork 2). This closes
    `followups.d/2344-p1-studio-reading-view-charts-render-black.md`.
 4. **The CLI** (fork 3), with export sign-off.

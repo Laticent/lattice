@@ -285,8 +285,8 @@ async function collectBlacks() {
 //   · FLAT — the exported player's Read · Article, which lifts each chart out of its
 //     slide into a `<figure>`. It gets the engine's flat pack (`composeCss({ flat })`).
 //     #2344 shipped every chart there black: this pass would have failed on it.
-//   · BAKED — a chart SVG with its computed paint inlined by `flattenSvgStyles` and
-//     its tokens frozen onto the root (`applyCollectedTokens`), shown where there is
+//   · BAKED — a chart SVG passed through `bakeSvg` (standalone-svg.js): computed paint
+//     inlined, tokens frozen onto the root. The same call the Studio makes, shown where there is
 //     NO stylesheet at all: the Studio's PDF/PPTX rasterizer and "download as SVG".
 //
 // THE SLIDE IS THE REFERENCE. Every element in the slide is stamped with an index
@@ -502,8 +502,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
               // later, so there is nothing of it to bake or to compare.
               if (svg.querySelector('path, rect, circle, ellipse, polygon, polyline, line, text, use')) attempted.add(component);
               try {
-                const flatSvg = window.__vrBake.flattenSvgStyles(svg, window, { collectTokens: true });
-                if (freeze) window.__vrBake.applyCollectedTokens(flatSvg);
+                const flatSvg = window.__vrBake.bakeSvg(svg, window, { freezeTokens: freeze });
                 out.push(flatSvg.outerHTML);
               } catch (e) {
                 // The export falls back to the unbaked SVG, which paints black on a host

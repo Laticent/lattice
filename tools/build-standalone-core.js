@@ -36,7 +36,7 @@ import core from './standalone-svg.js';
 export const {
   STYLE_PROPS, INITIAL, SVG_NS,
   flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg,
-  parseTokenDecls, applyCollectedTokens,
+  parseTokenDecls, applyCollectedTokens, bakeSvg,
 } = core;
 `;
 

@@ -695,7 +695,7 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// player ships, and freezing their computed colors would pin them to the
 		// export-time scheme, killing the player's dark/light toggle and Read·Article's
 		// `figure.chart-frame` recolor. Mermaid bakes its colors at render time anyway.
-		const { flattenSvgStyles, applyCollectedTokens } = await import('../../../playground/standalone-svg.generated.js');
+		const { bakeSvg } = await import('../../../playground/standalone-svg.generated.js');
 		const win = frame.contentWindow;
 		// COUNTED, not swallowed. An un-flattenable diagram keeps its `<foreignObject>`, the
 		// player's sanitizer strips it, and the diagram ships as shapes with no words —
@@ -705,8 +705,7 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		const svgs = doc.querySelectorAll('.mermaid-svg > svg, .mermaid > svg');
 		for (const svg of svgs) {
 			try {
-				const flat = flattenSvgStyles(svg, win, { foreignObjectLabels: 'text', collectTokens: freezeTokens });
-				if (freezeTokens) applyCollectedTokens(flat);
+				const flat = bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens });
 				svg.replaceWith(flat);
 			} catch {
 				unbaked++;
@@ -771,7 +770,7 @@ async function sectionsOf(frame) {
 async function flattenChartSvgs(frame, sections) {
 	const win = frame.contentWindow;
 	if (!win) return;
-	const { flattenSvgStyles, applyCollectedTokens } = await import('../../../playground/standalone-svg.generated.js');
+	const { bakeSvg } = await import('../../../playground/standalone-svg.generated.js');
 	for (const sec of sections) {
 		for (const svg of Array.from(sec.querySelectorAll('svg'))) {
 			if (svg.querySelector('style')) continue; // self-styled (Mermaid, function-plot)
@@ -793,8 +792,7 @@ async function flattenChartSvgs(frame, sections) {
 				// is not available here — there is no file — so the definitions go onto the
 				// clone root's own inline style, which the root's attribute clone does carry, and
 				// every descendant inherits from there.
-				const flat = flattenSvgStyles(svg, win, { collectTokens: true });
-				applyCollectedTokens(flat);
+				const flat = bakeSvg(svg, win);
 				flat.setAttribute('width', String(w));
 				flat.setAttribute('height', String(h));
 				flat.style.width = `${w}px`;
