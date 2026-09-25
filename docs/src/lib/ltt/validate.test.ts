@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import schema from './ltt.schema.json';
+import { validateTrack } from './track';
 import type { Ltt, LttSlideSegment, LttStretchSegment } from './types';
 import { normalizeMatch, validateLtt } from './validate';
 
@@ -325,4 +326,21 @@ describe('the third checker pass (PR #2347)', () => {
 		expect(() => validateLtt(proxy)).not.toThrow();
 	});
 
+	// The fourth checker pass (PR #2347, followups.d/2347-p3-ltt-gate-edge-cases.md items d and e).
+	it('keeps the reports it found before a throw (e)', () => {
+		const l = deck() as Mut;
+		l.format = 'vtt'; // one real problem, found first
+		Object.defineProperty(l, 'segments', { get() { throw new Error('boom'); } });
+		const out = validateLtt(l);
+		expect(out.join('\n')).toMatch(/format is "vtt"/);
+		expect(out.join('\n')).toMatch(/could not read this file: boom/);
+	});
+
+	it('validateTrack survives a cue list whose length no array can have (d)', () => {
+		// No iterator, so Array.from takes the array-like path and allocates `length` up front.
+		const huge = new Proxy([], { get: (t, k) => (k === 'length' ? 2 ** 32 : k === Symbol.iterator ? undefined : Reflect.get(t, k)) });
+		const track = { cues: huge, durationMs: 0 } as unknown as Parameters<typeof validateTrack>[0];
+		expect(() => validateTrack(track)).not.toThrow();
+		expect(validateTrack(track).join('\n')).toMatch(/could not be read: Invalid array length/);
+	});
 });

@@ -50,6 +50,9 @@ const ROOT_TYPE = 'Ltt';
  * `@pattern ^x$`; `@integer` and `@closed` carry none). Anything else after a tag is refused, because
  * it used to become the tag's value: `@pattern ^x$ the id` shipped the pattern `^x$ the id`.
  */
+/** The doc comments `docOf` attached to a node, by start offset — so `generate` can refuse any left over. */
+let consumedDocs = new Set();
+
 function docOf(node, sf) {
   const full = sf.getFullText();
   const pos = node.getFullStart();
@@ -58,6 +61,7 @@ function docOf(node, sf) {
     .sort((a, b) => a.pos - b.pos);
   const last = ranges[ranges.length - 1];
   if (!last) return { description: '', tags: {} };
+  consumedDocs.add(last.pos);
   // AMBIGUOUS attachment is refused, never guessed (checker, PR #2347). A doc comment must sit
   // directly against its node — nothing but whitespace between — and when a line break separates
   // them, it must start its own line. `a: number; /** @integer *\/\n b: number` is ambiguous (it
@@ -206,6 +210,7 @@ function objectSchema(members, sf, names, tags) {
 /** Build the whole schema object from the types file's text. Exported for the unit test. */
 function generate(sourceText = fs.readFileSync(SOURCE, 'utf8')) {
   const sf = ts.createSourceFile(SOURCE, sourceText, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
+  consumedDocs = new Set();
   const decls = sf.statements.filter((s) => ts.isInterfaceDeclaration(s) || ts.isTypeAliasDeclaration(s));
   for (const s of sf.statements) {
     if (!decls.includes(s) && !ts.isEmptyStatement(s)) {
@@ -232,6 +237,7 @@ function generate(sourceText = fs.readFileSync(SOURCE, 'utf8')) {
     if (doc.description) schema = { description: doc.description, ...schema };
     $defs[d.name.text] = schema;
   }
+  refuseOrphanDocs(sf);
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     $id: 'https://laticent.github.io/lattice/schemas/ltt-1.0.schema.json',
@@ -241,6 +247,42 @@ function generate(sourceText = fs.readFileSync(SOURCE, 'utf8')) {
     $ref: `#/$defs/${ROOT_TYPE}`,
     $defs,
   };
+}
+
+/**
+ * Refuse a doc comment no declaration or field took. Its tags narrow nothing, so a `@integer` or
+ * `@closed` written there is silently lost: `interface X { /** @closed *\/ }` (a comment alone in
+ * empty braces) generated an open object with no error (#2347 checker, item f). Every `/**` in the
+ * file is found from the token it sits in front of, and each must be one `docOf` attached.
+ */
+function refuseOrphanDocs(sf) {
+  const full = sf.getFullText();
+  const seen = new Set();
+  const walk = (node) => {
+    if (ts.isJSDoc?.(node)) return;
+    const kids = node.getChildren(sf);
+    if (!kids.length) {
+      // Leading AND trailing: a comment on the same line as the token before it is that token's
+      // trailing comment in the compiler's API, which is exactly where `{ /** … */ }` puts it.
+      for (const r of [...(ts.getLeadingCommentRanges(full, node.pos) || []), ...(ts.getTrailingCommentRanges(full, node.end) || [])]) {
+        if (full.slice(r.pos, r.pos + 3) !== '/**' || seen.has(r.pos)) continue;
+        seen.add(r.pos);
+        if (!consumedDocs.has(r.pos)) {
+          const { line } = sf.getLineAndCharacterOfPosition(r.pos);
+          throw new Error(`types.ts:${line + 1}: a doc comment documents nothing — no field or declaration follows it, so its tags would be lost. Put it directly above the field it describes, or make it a // comment`);
+        }
+      }
+    }
+    for (const k of kids) walk(k);
+  };
+  walk(sf);
+  // A doc comment after the last declaration belongs to the end-of-file token, where the compiler
+  // holds it as a JSDoc child rather than trivia, so the walk above does not reach it.
+  for (const r of ts.getLeadingCommentRanges(full, sf.endOfFileToken.pos) || []) {
+    if (full.slice(r.pos, r.pos + 3) === '/**' && !consumedDocs.has(r.pos)) {
+      throw new Error(`types.ts:${sf.getLineAndCharacterOfPosition(r.pos).line + 1}: a doc comment documents nothing — no field or declaration follows it, so its tags would be lost. Put it directly above the field it describes, or make it a // comment`);
+    }
+  }
 }
 
 function render(schema) {

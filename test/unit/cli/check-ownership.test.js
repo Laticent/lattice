@@ -1866,6 +1866,60 @@ describe('check-ownership', () => {
       }
     });
 
+    // The fourth checker pass (PR #2347), followups.d/2347-p3-ltt-gate-edge-cases.md. Each case
+    // below passed (a, c, g) or failed (b) the gate before the fix.
+    test('LTT catches a module load behind a property, eval / new Function, and a non-literal import-equals (a, c)', () => {
+      for (const src of [
+        'const m = module.require(spec);',
+        'const m = globalThis.require(spec);',
+        'const m = global.require(spec);',
+        "const v = eval('1');",
+        "const f = new Function('return 1');",
+        "const f = Function('return 1');",
+        'import fs = require(spec);',
+        // The P3 checker's round: a holder behind a cast, a bracket, an optional chain, or require.main.
+        'const m = require.main.require(spec);',
+        'const m = (globalThis as any).require(spec);',
+        "const m = module['require'](spec);",
+        'const m = process?.mainModule.require(spec);',
+      ]) {
+        assert.equal(run(checkLttBoundary, src).length, 1, `not caught: ${src}`);
+      }
+    });
+
+    test('LTT does not count a use of require that loads nothing (b)', () => {
+      for (const src of [
+        "const hasRequire = typeof require === 'function';",
+        'type R = typeof require;',
+        "const p = require.resolve('./x.js');",
+        'const isMain = require.main === module;',
+        'const c = require.cache;',
+      ]) {
+        assert.deepEqual(run(checkLttBoundary, src), [], src);
+      }
+      // …but handing the function on is still a value use.
+      for (const src of ['const m = require.call(null, spec);', 'const r = require.bind(null);']) {
+        assert.equal(run(checkLttBoundary, src).length, 1, `not caught: ${src}`);
+      }
+    });
+
+    test('a string holding /* no longer blinds the static-import patterns (g)', () => {
+      // The regex comment stripper paired the /* in the string with the */ in the comment and erased
+      // the import between them.
+      const src = "const s = '/* not a comment';\nimport x from 'lodash-es';\n// closes nothing */\n";
+      assert.match(stripJsComments(src), /import x from 'lodash-es'/);
+      assert.equal(run(checkLttBoundary, src).length, 1, 'the import between them is caught');
+      // Real comments are still blanked, line breaks kept, and a regex or template is left alone.
+      const stripped = stripJsComments("/* a\nb */ const r = /x\\/*y/; // import z from 'q'\nconst t = `$" + "{1 /* c */}`;");
+      // (A comment inside a template's `${}` is left in place: over-reading it is the safe side.)
+      assert.doesNotMatch(stripped, /import z|\/\* a/);
+      assert.match(stripped, /const r = \/x\\\/\*y\//);
+      assert.equal(stripped.split('\n').length, 3);
+      // JSX text is text, and a doc comment at the end of a file is still a comment.
+      assert.match(stripJsComments("const j = <b>// x</b>; import q from 'evil';"), /import q from 'evil'/);
+      assert.doesNotMatch(stripJsComments("export {};\n/** import x from 'y' */"), /import x/);
+    });
+
     test('Cadenza admits @laticent/ltt by exact name, and no subpath or sibling reach', () => {
       assert.deepEqual(run(checkCadenzaBoundary, "import type { Word } from '@laticent/ltt';"), []);
       assert.deepEqual(run(checkCadenzaBoundary, "export { validateTrack } from '@laticent/ltt';"), []);

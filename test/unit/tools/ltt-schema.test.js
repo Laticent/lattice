@@ -113,6 +113,20 @@ describe('the generator reads what it is given exactly', () => {
   test('@integer caps at the largest safe integer, as validateLtt does', () => {
     assert.equal(generate('export interface Ltt {\n  /** @integer */\n  a: number;\n}').$defs.Ltt.properties.a.maximum, Number.MAX_SAFE_INTEGER);
   });
+
+  // The fourth checker pass (PR #2347, followups.d/2347-p3-ltt-gate-edge-cases.md item f): a doc
+  // comment that no field takes used to vanish, and its tags with it.
+  test('refuses a doc comment that documents nothing (f)', () => {
+    for (const src of [
+      'export interface Ltt { a: string } export interface E { /** @closed */ }',
+      'export interface Ltt { a: string; /** trailing */ }',
+      '/** stray */\n/** Doc */ export interface Ltt { a: string }',
+      'export interface Ltt { a: string }\n/** at the end of the file */',
+    ]) {
+      assert.throws(() => generate(src), /documents nothing/, src);
+    }
+    assert.doesNotThrow(() => generate());
+  });
 });
 
 describe('the generator refuses what it cannot translate faithfully', () => {

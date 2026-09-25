@@ -207,16 +207,22 @@ export function validateLtt(ltt: unknown): string[] {
 	// The contract is "never throws", and the checks below read whatever they are handed. A value no
 	// JSON parser produces — a getter that throws, a revoked Proxy — can still reach them from a
 	// caller holding a live object, so the last line of defense turns a throw into a report.
+	// What was found before the throw is KEPT: a file with ten real problems and one unreadable
+	// field reports eleven, not one.
+	const out: string[] = [];
 	try {
-		return check(ltt);
+		check(ltt, out);
 	} catch (e) {
-		return [`the validator could not read this file: ${e instanceof Error ? e.message : q(e)}`];
+		out.push(`the validator could not read this file: ${e instanceof Error ? e.message : q(e)}`);
 	}
+	return out;
 }
 
-function check(ltt: unknown): string[] {
-	const out: string[] = [];
-	if (!isRec(ltt)) return ['an LTT is a JSON object'];
+function check(ltt: unknown, out: string[]): string[] {
+	if (!isRec(ltt)) {
+		out.push('an LTT is a JSON object');
+		return out;
+	}
 	if (ltt.format !== 'ltt') out.push(`format is ${q(ltt.format)}; want "ltt"`);
 	if ('encoding' in ltt) out.push(`this file is in the ${q(ltt.encoding)} encoding — unpack it before validating`);
 	if (ltt.version !== '1.0') out.push(`version is ${q(ltt.version)}; this reader knows "1.0"`);
