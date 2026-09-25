@@ -914,14 +914,15 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 	//   · `clip-path`  — the deck's real corner, from `section.corners-rounded`. Evicting
 	//                    the token is what clears it; resetting border-radius does not.
 	//   · `border-radius` — html-to-image DOES honor this when it inlines computed style,
-	//                    and the capture frame's own chrome sets `border-radius:6px` on
-	//                    every section (deck-preview.js — the card look, with its box
-	//                    shadow). That 6px belongs to the PREVIEW, not to the deck, so it
-	//                    must never reach an artifact. A bare `borderRadius:'0'` in
-	//                    captureOptions used to strip it, which is why exports looked
-	//                    square before the corners register existed — but it also could
-	//                    not clear the real clip, which is how the Studio ended up
-	//                    shipping transparent PPTX corners while the CLI baked white.
+	//                    and `section.corners-rounded` sets it alongside the clip. The
+	//                    capture frame's own chrome once added a 6px of its own on every
+	//                    section (deck-preview.js); it no longer does — the preview frames
+	//                    slides with the shared slide frame on `.lattice`, which a capture
+	//                    of one section never paints (lib/core/slide-frame.mjs). The zero
+	//                    below is now a guard, not a fix. A bare `borderRadius:'0'` in
+	//                    captureOptions could never clear the real clip, which is how the
+	//                    Studio once shipped transparent PPTX corners while the CLI baked
+	//                    white.
 	// So: evict the token, and zero the radius unless this is a corner we are KEEPING.
 	const wantsRound = section.classList.contains('corners-rounded');
 	const keepRound = wantsRound && cornerSurvivesExport(cornerTarget);

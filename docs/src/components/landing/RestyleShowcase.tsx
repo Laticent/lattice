@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { nextIndex, type Palette } from '@/lib/restyle-carousel';
 import { createSingleSlideRenderer } from '@/lib/single-slide-render';
+import { slideFrameStyle } from '@/lib/slide-frame';
 
 // "One source, every palette": one slide re-rendered live through every palette,
 // auto-advancing. The swatch rail + the active-name readout are React (shadcn-
@@ -159,22 +160,12 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 				role="img"
 				onMouseEnter={pause}
 				onMouseLeave={resume}
-				// `bg-background`, not `bg-muted`: this section now sits ON a `bg-muted`
-				// band (it inherited the one the absorbed "Bring your own model" section
-				// used to carry), and a muted figure resolves to the EXACT same color as
-				// that band — measured identical in indaco and cuoio, light and dark.
-				// Only the border was left carrying the edge.
-				//
-				// `bg-card` is NOT the fix here even though it reads like one: in this
-				// token bridge `--card` and `--muted` resolve to the same value, so the
-				// swap is a no-op. `bg-background` is the one that genuinely differs on
-				// both sides (light 255,255,255 vs 242,245,250; dark 0,29,51 vs 0,40,71).
-				//
-				// This only shows in the pre-render window — once the engine paints, the
-				// slide's own palette background fills the figure — but that window is
-				// exactly when a slow connection is looking at it.
-				// See 2026-07-30-landing-studio-promotion.md.
-				className="live-host relative m-0 aspect-video w-full overflow-hidden rounded-[14px] border border-border bg-background shadow-lg"
+				// The shared SLIDE FRAME (docs/src/lib/slide-frame.ts): no radius, border or
+				// background of its own, so the slide shows the deck's own corner. The edge is
+				// what separates it from the `bg-muted` band this section sits on.
+				data-slide-frame
+				style={slideFrameStyle('stage')}
+				className="live-host relative m-0 aspect-video w-full overflow-hidden"
 				aria-label="A slide re-rendered through the selected palette"
 			/>
 			<div className="mt-[18px] flex items-center justify-between gap-4">

@@ -26,7 +26,7 @@ vi.mock('@/components/DeckPreview', async () => {
 	};
 });
 
-import { APPLY_MS, BASE_SLOTS, HARD_MAX_SLOTS, PooledThumbFace, PreviewPool, RELEASE_GRACE } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PooledThumbFace, PreviewPool, RELEASE_GRACE } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -466,10 +466,12 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		settle();
 		const b = boxesOf(container, '# 0');
 		expect(b, 'the tile got no slot').not.toBeNull();
-		expect(b?.outer.height, 'the clip box is not the visible slice').toBe(50); // 450..500
-		expect(b?.outer.top).toBe(450);
+		// The clip grows by FRAME_BLEED where nothing clips the tile, so the slide frame's edge
+		// and shadow are not clipped away (docs/src/lib/slide-frame.ts); the panel still cuts it.
+		expect(b?.outer.height, 'the clip box is not the visible slice').toBe(50 + FRAME_BLEED); // (450 - FRAME_BLEED)..500
+		expect(b?.outer.top).toBe(450 - FRAME_BLEED);
 		expect(b?.inner.height, 'the frame was cropped instead of clipped').toBe(90);
-		expect(b?.inner.top, 'the frame was not offset back into place').toBe(0); // 450 - 450
+		expect(b?.inner.top, 'the frame was not offset back into place').toBe(FRAME_BLEED); // 450 - (450 - FRAME_BLEED)
 		unmount();
 	});
 
@@ -485,7 +487,7 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		settle();
 		const b = boxesOf(container, '# 0');
 		expect(b?.outer.top, 'the clip box did not start at the panel').toBe(400);
-		expect(b?.outer.height, 'the clip box is not the visible slice').toBe(50); // 400..450
+		expect(b?.outer.height, 'the clip box is not the visible slice').toBe(50 + FRAME_BLEED); // 400..(450 + FRAME_BLEED)
 		expect(b?.inner.top, 'the frame is offset the wrong way, so it slides off by the cut').toBe(-40);
 		expect(b?.inner.height, 'the frame was cropped instead of clipped').toBe(90);
 		unmount();
@@ -502,7 +504,7 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		intersect(face(container, 0), true);
 		settle();
 		const b = boxesOf(container, '# 0');
-		expect(b?.outer.height, 'the clip was clamped to the viewport').toBe(100);
+		expect(b?.outer.height, 'the clip was clamped to the viewport').toBe(100 + 2 * FRAME_BLEED);
 		unmount();
 	});
 
@@ -577,7 +579,7 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		expect(b, 'the tile got no slot').not.toBeNull();
 		// The panel does not clip it, so the slot is the whole tile. If the outer scroller had been
 		// folded in, this would be 0 — and stale the moment the outer scroller moved.
-		expect(b?.outer.height, 'an ancestor above the pool was folded into the clip').toBe(100);
+		expect(b?.outer.height, 'an ancestor above the pool was folded into the clip').toBe(100 + 2 * FRAME_BLEED);
 		unmount();
 	});
 

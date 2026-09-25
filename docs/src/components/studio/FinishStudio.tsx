@@ -463,7 +463,8 @@ export function FinishStudio({
 							modeOverride={mode}
 							extraCss={previewCss}
 							coalesce
-							className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]"
+							frame="tile"
+							className="relative aspect-video w-full overflow-hidden"
 							aria-label="Finish specimen"
 						/>
 						{canvasHandles.length > 0 && <CanvasHandles handles={canvasHandles} handleStyle={handleStyle} />}

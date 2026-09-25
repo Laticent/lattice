@@ -1,6 +1,7 @@
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
 import { hasMermaid } from './slide-thumb';
 
@@ -96,7 +97,7 @@ export type PooledPreviewProps = {
 type Box = { top: number; left: number; width: number; height: number };
 /** Where a slot's frame goes, and how much of it the reader may see. `clip` is the part of the
  *  tile that its own scrolling ancestors have not hidden — see `visibleBox`. */
-type Rect = Box & { radius?: string; clip?: Box };
+type Rect = Box & { clip?: Box };
 
 /** Does this element CLIP what overflows it? Asked positively, never as `!== 'visible'`: an
  *  unresolved computed style (jsdom answers `''` for a plain div) would otherwise read as clipping,
@@ -106,59 +107,18 @@ function clips(cs: CSSStyleDeclaration): boolean {
 }
 
 /**
- * The rounding a tile's own card imposes on its preview, as a `border-radius` shorthand.
+ * How far a pooled frame's slide-frame filter paints PAST its tile. The pool uses the `flat`
+ * frame — the edge line alone (docs/src/lib/slide-frame.ts) — because these tiles already sit
+ * in a card of their own, and a lift shadow from this layer (which paints ABOVE the grid)
+ * would fall across the card's border and label. The edge reaches ~1.2px, so the clip box
+ * grows by 2 to keep it where nothing else clips the tile.
  *
- * A pooled frame is NOT inside the tile, so the tile's `overflow-hidden rounded-xl` cannot clip
- * it: the slide paints square corners straight over the card's curve. Measured on Present's
- * overview — the tile's gold border curves and the dark slide fills the corner behind it. So the
- * slot clips itself, copying the radius from the nearest ancestor that actually clips.
- *
- * PER CORNER, because a preview is usually not the whole card. In the add-slide gallery the
- * preview sits at the TOP of a card with the component's name under it, so its bottom corners are
- * square and its top ones are not; in the overview the preview IS the card. Comparing the box's
- * own rect against the clipping ancestor's answers that without anyone declaring it. The border
- * width comes off each radius, because a card's inner curve is tighter than its outer one by
- * exactly that much.
+ * This replaced `clipOf`, which copied the tile card's own `border-radius` onto the frame.
+ * That made a thumbnail's corner the Studio's `rounded-xl`, not the deck's: a square deck
+ * showed rounded tiles. The frame now never clips to a radius, and the tile's card no longer
+ * wraps the preview edge to edge — the slide sits in it with its own corner.
  */
-function clipOf(el: HTMLElement): string {
-	if (typeof getComputedStyle !== 'function') return '0px';
-	const box = el.getBoundingClientRect();
-	for (let a = el.parentElement; a; a = a.parentElement) {
-		const cs = getComputedStyle(a);
-		if (!clips(cs)) continue;
-		const r = a.getBoundingClientRect();
-		const bw = (side: string) => parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0;
-		// Only a plain px length can have a border width subtracted from it. A percentage (`50%`)
-		// and an elliptical pair (`10px 20px`) both lose their meaning under `parseFloat`, so they
-		// pass through untouched — slightly rounder than the card's inner curve, which is invisible,
-		// where `parseFloat('50%') + 'px'` would be a different shape altogether.
-		// The two ADJACENT sides decide the inset, not one: an asymmetric border (`border-l-4
-		// border-t`) insets a corner by the smaller of the two it touches.
-		// ONE TOKEN PER CORNER, always, or the four-corner shorthand below is invalid and the browser
-		// drops the whole declaration — which paints SQUARE corners, the exact defect this exists to
-		// stop. An elliptical radius (`10px 20px`) computes as two tokens, so only the horizontal one
-		// survives here; the shape is a hair off and the declaration is legal. A percentage is one
-		// token and passes through, because `parseFloat('50%') + 'px'` would be a different shape
-		// altogether. Only a plain px length can have a border width subtracted from it.
-		// The two ADJACENT sides decide the inset, not one: an asymmetric border (`border-l-4
-		// border-t`) insets a corner by the smaller of the two it touches.
-		const inset = (value: string, a1: string, a2: string) => {
-			const one = value.trim().split(/\s+/)[0] || '0px';
-			return /^[\d.]+px$/.test(one) ? `${Math.max(0, parseFloat(one) - Math.min(bw(a1), bw(a2)))}px` : one;
-		};
-		const near = (x: number, y: number, w: number) => Math.abs(x - y) <= w + 1;
-		const top = near(box.top, r.top, bw('top'));
-		const bottom = near(box.bottom, r.bottom, bw('bottom'));
-		const left = near(box.left, r.left, bw('left'));
-		const right = near(box.right, r.right, bw('right'));
-		const tl = top && left ? inset(cs.borderTopLeftRadius, 'top', 'left') : '0px';
-		const tr = top && right ? inset(cs.borderTopRightRadius, 'top', 'right') : '0px';
-		const br = bottom && right ? inset(cs.borderBottomRightRadius, 'bottom', 'right') : '0px';
-		const bl = bottom && left ? inset(cs.borderBottomLeftRadius, 'bottom', 'left') : '0px';
-		return `${tl} ${tr} ${br} ${bl}`;
-	}
-	return '0px';
-}
+export const FRAME_BLEED = 2;
 
 type Tile = {
 	id: number;
@@ -240,12 +200,12 @@ function identityKey(p: PooledPreviewProps): string {
  * walks the whole chain: ranking wants to know what the reader can actually see, and it is
  * recomputed from scratch on every pass rather than stored.
  */
-function visibleBox(el: HTMLElement, stopAt: HTMLElement | null = null, clampToViewport = true): { top: number; bottom: number; left: number; right: number } {
+function visibleBox(el: HTMLElement, stopAt: HTMLElement | null = null, clampToViewport = true, bleed = 0): { top: number; bottom: number; left: number; right: number } {
 	const b = el.getBoundingClientRect();
-	let top = b.top;
-	let bottom = b.bottom;
-	let left = b.left;
-	let right = b.right;
+	let top = b.top - bleed;
+	let bottom = b.bottom + bleed;
+	let left = b.left - bleed;
+	let right = b.right + bleed;
 	if (typeof getComputedStyle === 'function') {
 		for (let a: HTMLElement | null = el.parentElement; a && a !== stopAt; a = a.parentElement) {
 			const cs = getComputedStyle(a);
@@ -350,13 +310,12 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		// INSIDE this pool leave visible. Without it a frame paints wherever its tile's coordinates
 		// say, even where the tile itself is hidden. Stopping at the wrapper is load-bearing, not an
 		// optimization — see `visibleBox`.
-		const v = visibleBox(el, layer.parentElement, false);
+		const v = visibleBox(el, layer.parentElement, false, FRAME_BLEED);
 		return {
 			top: a.top - b.top,
 			left: a.left - b.left,
 			width: a.width,
 			height: a.height,
-			radius: clipOf(el),
 			clip: { top: v.top - b.top, left: v.left - b.left, width: Math.max(0, v.right - v.left), height: Math.max(0, v.bottom - v.top) },
 		};
 	}, []);
@@ -391,7 +350,6 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 					rect.left === s.rect.left &&
 					rect.width === s.rect.width &&
 					rect.height === s.rect.height &&
-					rect.radius === s.rect.radius &&
 					rect.clip?.top === s.rect.clip?.top &&
 					rect.clip?.left === s.rect.clip?.left &&
 					rect.clip?.width === s.rect.clip?.width &&
@@ -654,7 +612,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 								className="absolute overflow-hidden"
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
-								<div className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, borderRadius: s.rect.radius }}>
+								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
 									{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden /> : null}
 								</div>
 							</div>

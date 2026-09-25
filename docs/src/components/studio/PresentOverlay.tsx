@@ -8,13 +8,13 @@ import { STAGE_CHROME_CSS } from '@/components/studio/present/stage-chrome.js';
 import { createStageController } from '@/components/studio/present/stage-window.js';
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
-import { cornerRadiusCss } from '@/lib/deck-corner';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
+import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
 import { createStage, resolveTheme, type Stage as VetrinaStage } from '@/lib/vetrina';
 import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
@@ -213,10 +213,6 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// current chart, re-pinned after each slide render (onRender → onSlide), plus number-key reveal
 	// routed through the presenter key handler. The card is the positioning stage; the frame lives in it.
 	const cardRef = React.useRef<HTMLDivElement>(null);
-	// The presented deck's own corner, measured off the render by DeckPreview. The card is
-	// unconditionally `aspect-video`, so the pair is built against 16/9 — the CARD's aspect,
-	// which is what the percentages resolve against.
-	const [deckCorner, setDeckCorner] = React.useState(0);
 	const dialogRef = React.useRef<HTMLDivElement>(null);
 	const chartDetailRef = React.useRef<ChartDetailHandle>(null);
 
@@ -1967,16 +1963,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						// The card's CORNER follows the deck, like the editor preview's box (#1649). A
-						// fixed `rounded-2xl` here was 16px, while a rounded slide's own corner is 1.5%
-						// of its width — the two cross over at ~1067px of card width, and this card is
-						// `min(100cqw, 100cqh*16/9)`, so on any desktop Present the SLIDE is rounder
-						// than its card and each corner shows a crescent of `bg-card` between the two
-						// arcs. That is the reported defect exactly — the app's palette poking past the
-						// slide's shape — on the surface an audience is looking at. Found by the Munger
-						// inversion pass, from the arithmetic, before it was ever driven.
-						<div ref={cardRef} style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), borderRadius: cornerRadiusCss(deckCorner, 16 / 9) }} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
-							<DeckPreview focused onCorner={setDeckCorner} options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+						// The card is a SLIDE FRAME (docs/src/lib/slide-frame.ts): no radius, border,
+						// shadow or background of its own. The edge and the lift trace the slide the
+						// engine painted, so the card meets the deck's corner exactly. A fixed
+						// `rounded-2xl` here was 16px against a rounded slide's 1.5% of its width, and
+						// on a desktop Present the two disagreed at every corner (#1649).
+						<div ref={cardRef} data-slide-frame style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), ...slideFrameStyle('stage') }} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden">
+							<DeckPreview focused options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={open} />
@@ -1991,7 +1984,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				{!unavailable && presenterView && (
 					<aside className="pointer-events-auto flex min-h-0 w-[clamp(240px,22vw,340px)] shrink-0 flex-col gap-2 self-stretch py-1" aria-label="Notes and next slide">
 						<div className="text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-muted-foreground">Next</div>
-						<div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border bg-card">
+						{/* A slide frame while it shows a slide; the "End of the deck" note is app
+						    chrome, not a slide, so the note carries a card of its own. */}
+						<div className="relative aspect-video w-full shrink-0 overflow-hidden" data-slide-frame style={nextIdx >= 0 ? slideFrameStyle('tile') : undefined}>
 							{nextIdx >= 0 ? (
 								// The SAME engine render as the main card, one slide on. `active` is tied
 								// to Present being open so a closed overlay is not paying for a second
@@ -2000,7 +1995,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 								// the one place a full rebuild per step would be felt.
 								<DeckPreview options={options} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} slideMarkdown={nextSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
 							) : (
-								<div className="grid size-full place-items-center px-3 text-center text-[12px] text-muted-foreground">End of the deck</div>
+								<div className="grid size-full place-items-center rounded-xl border border-border bg-card px-3 text-center text-[12px] text-muted-foreground">End of the deck</div>
 							)}
 						</div>
 						<div className="text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-muted-foreground">Speaker notes</div>

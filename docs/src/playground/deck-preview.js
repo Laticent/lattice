@@ -55,6 +55,7 @@ import {
 	resolvePrintSheet,
 } from '../../../lib/core/print-sheet.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
@@ -131,8 +132,9 @@ function fitAgent(gap, clamp) {
 		// Clamp the filmstrip to the scaled-content height and CLIP the tail the
 		// last slide leaves: transform scales the paint, not the layout box, so the
 		// final 1280xSH section keeps its full-height box and would otherwise spill
-		// ~SH*(1-sc) of dead scroll space below the deck. overflow-clip-margin lets
-		// the slide drop-shadow still bleed past the clip edge.
+		// ~SH*(1-sc) of dead scroll space below the deck. The slide frame is a filter on
+		// `.lattice` itself, which its own overflow clip never clips; the clip margin is
+		// kept for any author content that paints past a slide's box.
 		clamp
 			? '    if(secs.length){lattice.style.height=(secs.length*SH*sc+(secs.length-1)*GAP)+"px";lattice.style.overflow="clip";lattice.style.overflowClipMargin="40px";}'
 			: '',
@@ -312,10 +314,11 @@ export function buildSrcdoc({
 	contentVisibility = false,
 	cursor = false,
 	activeOutline = null, // accent color string, or null
-	// A HAIRLINE EDGE ON EVERY SLIDE, opt-in, as a CSS color string.
+	// A HAIRLINE EDGE ON EVERY SLIDE, opt-in, as a CSS color string. It is the edge layer of
+	// the shared slide frame (lib/core/slide-frame.mjs), drawn on `.lattice`.
 	//
-	// The drop shadow below is the only thing separating a slide from its surround, and it
-	// is BLACK — which works on a light ground and disappears on a dark one. The Playground
+	// The lift shadow is otherwise the only thing separating a slide from its surround, and
+	// it is BLACK — which works on a light ground and disappears on a dark one. The Playground
 	// letterboxes the filmstrip in the pane's `--bg-alt` on purpose (see playground-engine:
 	// matching the iframe body to the pane means the fade-in has no color shift), and in a
 	// palette where a slide's own background lands near `--bg-alt` the two are simply the
@@ -323,16 +326,16 @@ export function buildSrcdoc({
 	// rgb(30,26,21), border `0px none`, and the only separation a 22%-black shadow nobody
 	// can see. Reported from a real iPhone — "the slide blends into the background".
 	//
-	// OPT-IN, defaulting off, and that is the whole reason it is a parameter rather than an
-	// edit to `sectionRule`. This builder also assembles the PRINT document and the export
-	// capture frame (`deck-export.js`), so a change to the shared rule would alter exported
-	// bytes and owe a sign-off. Off by default, every existing caller is byte-identical.
+	// OPT-IN, defaulting off. This builder also assembles the PRINT document and the export
+	// capture frame (`deck-export.js`); neither paints the frame (print sets `filter:none`,
+	// and a capture clones one section, never `.lattice`), so the edge cannot reach an
+	// exported artifact either way.
 	//
-	// Pass a color, not a boolean, so the ring is the DECK's — `var(--border, …)` resolves
+	// Pass a color, not a boolean, so the edge is the DECK's — `var(--border, …)` resolves
 	// against the theme inside the srcdoc, so it tracks palette and mode without this file
 	// knowing either. The fallback is not decoration: an undefined custom property makes the
-	// whole `box-shadow` declaration invalid at computed-value time, which would drop the
-	// drop shadow too and leave the slide worse off than before.
+	// whole `filter` declaration invalid at computed-value time, which would drop the lift
+	// shadow too and leave the slide worse off than before.
 	slideEdge = /** @type {string|null} */ (null),
 	printRules = false,
 	// { paper, orientation, fit } for buildPrintCss (undefined → auto). Structural type
@@ -394,7 +397,16 @@ export function buildSrcdoc({
 		'.lattice>section{display:block;transform-origin:top left;' +
 		(cursor ? 'cursor:pointer;' : '') +
 		(contentVisibility ? 'content-visibility:auto;contain-intrinsic-size:' + gw + 'px ' + gh + 'px;' : '') +
-		'box-shadow:' + (slideEdge ? '0 0 0 1px ' + slideEdge + ',' : '') + '0 8px 30px rgba(0,0,0,.22);border-radius:6px;}';
+		'}' +
+		// THE SLIDE FRAME (lib/core/slide-frame.mjs) — on the CONTAINER, not the section.
+		// The section keeps the engine's own corner: this frame used to give every slide a
+		// 6px radius of its own, so a square deck previewed rounded. And the edge + shadow
+		// cannot sit on the section, because a `corners-rounded` section clips with
+		// `clip-path`, which clips the element's own filter and box-shadow away with it. A
+		// drop-shadow on `.lattice` traces every slide's painted outline instead: square
+		// or rounded, it meets the corner the engine drew. `.lattice` paints nothing else,
+		// so the only silhouettes it traces are the slides (and the active outline).
+		'.lattice{filter:' + slideFrameFilter('card', { edge: slideEdge || null }) + ';}';
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';

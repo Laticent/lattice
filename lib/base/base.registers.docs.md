@@ -784,24 +784,25 @@ Two implementation notes worth knowing before you touch either:
   clip, and a section cannot query its own container — a bare `cqi` there escapes to the
   host viewport, so the corner would scale with the browser window instead of the slide.
 
-The Studio's live preview follows the rendered slide rather than guessing: it reads the
-radius back off the frame (`docs/src/lib/deck-corner.ts`) as a *fraction* of the slide's
-width, so the corner holds its proportion at every split position and screen size. Before
-this register it clipped at a fixed 12px of its own, which is what made a preview disagree
-with its own export (#1649). The gallery tiles, navigator thumbnails and Fabricate
-specimens deliberately keep their own card corner — a tile is a frame around a slide, not
-the slide — and `DeckPreview` touches no host that has not asked via `onCorner`.
+**Every surface that shows a slide follows the engine's corner, because none of them draws
+one.** The exported player, the Playground, the Studio (editor preview, Present, thumbnails,
+pickers, Fabricate) and the docs site all frame a slide with ONE kernel,
+`lib/core/slide-frame.mjs`: the host box sets no radius, border, shadow or background, and
+its edge and lift are a `filter: drop-shadow()` that traces the slide the engine painted. A
+square deck shows square everywhere and a rounded one rounded, per slide, at every scale —
+with no radius to read back and no timing to race. Before this, each surface picked its own
+corner (12px, 6px, `rounded-xl`, 14px), which rounded square decks and, in the player's no-JS
+view, cut the slide's edge at every corner; the Studio measured the radius back off the frame
+(`deck-corner.ts`, now removed) and reached two of about twelve hosts.
 
-**What sits behind the slide in a preview is the APP, not a stray gray.** The frame's own
-`html, body` is `transparent` (`docs/src/lib/single-slide-render.ts`); it used to paint a
-fixed `#e7e7ea` / `#0c0c0c` belonging to neither the deck nor the app, which a rounded
-corner would have exposed at all four corners by construction. Be precise about what
-replaced it, because "nothing" would be wrong: `iframe.live` still carries
-`background: var(--bg)` (`docs/src/styles/landing.css`) as the pre-paint white-flash guard,
-so the opaque layer behind the slide is the **app's** `--bg`. Under a `paletteOverride` —
-which is the Studio previewing a deck whose theme differs from the app's — that is a
-foreign palette one layer down. It is invisible while the host box and the slide clip to
-the same shape, and it is why they are kept in step rather than left to coincide.
+**What sits behind the slide in a preview is the APP.** The frame's own `html, body` is
+`transparent` (`docs/src/lib/single-slide-render.ts`), and so is `iframe.live`
+(`docs/src/styles/landing.css`): an opaque fill there would make every slide a rectangle to
+the frame's filter. A slide's own canvas is always opaque — every theme's `--bg`,
+`--scheme-dark-bg`, `--brand-canvas` and `--surface-inverse` is a solid color, and
+`test/unit/tools/slide-frame-hosts.test.js` fails on one that is not — so the only place
+the backdrop shows is the arc a rounded corner cuts away. Record:
+`engineering/decisions/2026-09-25-one-slide-frame.md`.
 
 **The Fix-Me berth moves with it.** That author-warning flag sits in the slide's
 bottom-right corner, inside the arc a rounded deck cuts, so it insets by a fraction of

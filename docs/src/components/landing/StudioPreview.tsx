@@ -54,13 +54,19 @@ export default function StudioPreview({ data }: { data: StudioPreviewData }) {
 					<span className="truncate text-[13px] font-semibold text-[var(--text-heading)]">{data.deckTitle}</span>
 					<span className="flex-none font-mono text-[11.5px] text-muted-foreground">{data.slideCount} slides</span>
 				</div>
-				<DeckPreview
-					options={options}
-					sample={data.sample}
-					mermaid={data.mermaid}
-					className="live-host relative m-0 aspect-video w-full overflow-hidden bg-muted"
-					aria-label={`The first slide of the ${data.deckTitle} deck, rendered by Lattice`}
-				/>
+				{/* The slide sits INSET in the window, with its own corner and the shared slide
+				    frame (docs/src/lib/slide-frame.ts) — flush, it was clipped to this card's 14px
+				    corner, so a square deck looked rounded. */}
+				<div className="p-3">
+					<DeckPreview
+						options={options}
+						sample={data.sample}
+						mermaid={data.mermaid}
+						frame="tile"
+						className="live-host relative m-0 aspect-video w-full overflow-hidden"
+						aria-label={`The first slide of the ${data.deckTitle} deck, rendered by Lattice`}
+					/>
+				</div>
 			</figure>
 			<p className="m-0 mt-3 text-[13px] text-muted-foreground">
 				This is the deck the Studio opens on. Edit any slide, or start your own.

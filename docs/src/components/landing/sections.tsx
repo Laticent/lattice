@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import type * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { slideFrameStyle } from '@/lib/slide-frame';
 
 // Static marketing sections — rendered to HTML server-side (NO client:
 // directive → zero JS). They use the bridged shadcn token utilities (bg-card,
@@ -146,9 +147,12 @@ export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: st
 			{cards.map((c) => (
 				<Card key={c.live} className="gap-0 overflow-hidden py-6">
 					<CardContent className="flex flex-col">
-						{/* Live-preview host — filled by FieldCardsLive (data-live-card). */}
+						{/* Live-preview host — filled by FieldCardsLive (data-live-card). A slide
+						    frame (docs/src/lib/slide-frame.ts): it never shapes the slide. */}
 						<div
-							className="live-host relative mb-[18px] aspect-video overflow-hidden rounded-md border border-border bg-muted"
+							className="live-host relative mb-[18px] aspect-video overflow-hidden"
+							data-slide-frame
+							style={slideFrameStyle('tile')}
 							data-live-card={c.live}
 						/>
 						<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">

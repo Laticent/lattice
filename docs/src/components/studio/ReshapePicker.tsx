@@ -128,7 +128,10 @@ function ReshapeTile({ sample, label, actionLabel, badge, active, options, palet
 		>
 			{/* An empty box — the pixels come from a pooled frame positioned over it. These are the
 			    author's OWN slide in each look, so no `specimen`: the authoring alarms belong here. */}
-			<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full" />
+			{/* Inset in the card, so the slide keeps its own corner (docs/src/lib/slide-frame.ts). */}
+			<div className="px-1 pt-1">
+				<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full" />
+			</div>
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{label}</div>
 			{/* `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx), so the
 			    badge needs to be lifted or the frame hides it. */}
