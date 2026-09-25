@@ -35,7 +35,7 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX } from './present-guide';
+import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 
@@ -1055,6 +1055,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// its gesture after a stretch of unresolvable narration on the same block.
 		if (aim && aim === guideAimRef.current && guideShownRef.current) return;
 		const cue = aim ? (onStage ? guideCueInDoc(slideDoc(), text) : guideCueFor(frame, text)) : null;
+		// THE HOLD. A sentence that names nothing ("Thank you.", "No.") on a slide the hand is
+		// already resting on keeps it resting. Hiding there made the pointer blink out and back
+		// between two gestures on the same slide, which reads as a glitch, not as a pause.
+		if (!cue && guideShownRef.current && guideStillShown(guideAimRef.current)) return;
 		setGuideAiming(!!cue);
 		if (!cue) {
 			guidePointRef.current?.abort();

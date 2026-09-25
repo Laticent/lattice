@@ -129,6 +129,7 @@ export function findCueTarget(frameDoc: Document | Element | null, text: string)
 		findNamedTarget(frameDoc, text) ??
 		findDetailTarget(frameDoc, text) ??
 		findChartTextTarget(frameDoc, text) ??
+		findParaphraseTarget(frameDoc, text) ??
 		findFigureTarget(frameDoc, text);
 	return found ? drawnTwin(found) : null;
 }
@@ -720,6 +721,170 @@ export function findFigureTarget(root: Document | Element | null, text: string):
 	figureHit += 1;
 	return bodies[0];
 }
+
+// ── THE PARAPHRASE TIER — an authored caption that SAYS the slide in other words ──────────────
+//
+// A `<!-- caption: -->` is written to be heard, and the slide is written to be read, so the two
+// rarely share a sentence. "First, we announce to customers in November with twelve months'
+// notice." narrates the list item "Announce — November, with twelve months' notice to every SMB
+// account." No block CONTAINS the cue, so every tier above returned null and the pointer hid —
+// on the Q3 board fixture, 26 of 63 cues, including every sentence of five whole slides
+// (`followups.d/2363-p3-studio-component-gestures.md`).
+//
+// The cue and the item share the words that carry the meaning: announce, November, twelve,
+// months, notice. So this tier scores each block by the CONTENT words it shares with the cue and
+// names the best one. It runs after every exact tier, so it can only answer cues they dropped,
+// and it refuses to guess in the three places a guess would point somewhere wrong:
+//
+//   - TOO LITTLE SHARED. At least two content words, at least a third of the cue's own. "We did
+//     look hard at the fix." shares one word with "Why not fix it" and resolves to nothing.
+//   - A TIE BETWEEN STRANGERS. Two unrelated blocks with the same best score is a coin toss, so
+//     it hides. A tie between a block and one nested inside it names the inner one, the same
+//     smallest-wins rule `findCueTargetIn` uses.
+//   - MORE THAN ONE SLIDE IN SCOPE. The frame path can hand over a whole document. Content words
+//     recur across a deck, so the tier narrows to the one slide that is showing, or gives up.
+
+/** Words that carry no identity. English only; on another language the list is inert and the
+ *  two-word and one-third floors do the work alone. */
+const PARAPHRASE_STOP = new Set(
+	('a an and are as at be but by did do does for from had has have he her his i if in into is it its '
+		+ 'just me more most my no not of on or our so than that the their them then there these they '
+		+ 'this those to too up us was we were what when where which who why will with would you your '
+		+ 'one all any each every can could should here now very also about over out off only same '
+		+ 'first second third fourth fifth next last get got take took make made put keep keeps say said').split(' '),
+);
+
+/** Number words to digits, so "twelve months" and "12 months" share a word. Compound and large
+ *  numbers are left alone: the tier needs agreement, not arithmetic. */
+const NUMBER_WORDS: Record<string, string> = Object.fromEntries(
+	('zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen '
+		+ 'sixteen seventeen eighteen nineteen twenty').split(' ').map((w, i) => [w, String(i)]),
+);
+for (const [w, n] of [['thirty', 30], ['forty', 40], ['fifty', 50], ['sixty', 60], ['seventy', 70], ['eighty', 80], ['ninety', 90]] as const) NUMBER_WORDS[w] = String(n);
+
+/** Suffixes stripped before the five-letter key, longest first, so "exiting" meets "exit" and
+ *  "recommendation" meets "recommend". Crude on purpose: two spellings of one word only have to
+ *  agree with each other, not with a dictionary. */
+const SUFFIXES = ['ation', 'ing', 'ion', 'ed', 'es', 's', 'e'];
+
+/**
+ * The content words of a string, each reduced to a key two spellings of one word share: digits
+ * for number words, a stripped suffix, then the first five letters, so "migration" and "migrate"
+ * or "sellers" and "seller" agree. A token carrying a digit is kept whole and, from two
+ * characters up, weighs double: "$2.1M" or "640" names one thing on a slide far more surely than
+ * a common word does.
+ */
+function contentKeys(s: string): Map<string, number> {
+	const keys = new Map<string, number>();
+	for (const raw of loose(s).split(/[\s-]+/)) {
+		let w = raw.replace(/^'+|'+$/g, '').replace(/'s$/, '');
+		if (!w || PARAPHRASE_STOP.has(w)) continue;
+		w = NUMBER_WORDS[w] ?? w;
+		if (/\p{N}/u.test(w)) {
+			keys.set(w, w.length > 1 ? 2 : 1);
+			continue;
+		}
+		if (w.length < 3) continue;
+		for (const suf of SUFFIXES) {
+			if (w.length - suf.length >= 3 && w.endsWith(suf) && !(suf === 's' && w.endsWith('ss'))) {
+				w = w.slice(0, -suf.length);
+				break;
+			}
+		}
+		keys.set(w.length > 5 ? w.slice(0, 5) : w, 1);
+	}
+	return keys;
+}
+
+/** Shared weight a block needs: two words, or one number of two digits or more. */
+const PARAPHRASE_MIN_SHARED = 2;
+const PARAPHRASE_MIN_COVERAGE = 1 / 3;
+
+/** The one slide a paraphrase may match inside, or null when that is not knowable. */
+function paraphraseScope(root: Document | Element): Element | null {
+	if ((root as Element).tagName === 'SECTION') return root as Element;
+	const secs = [...root.querySelectorAll('section')].filter((s) => !s.parentElement?.closest('section'));
+	if (secs.length === 1) return secs[0];
+	const view = (root as Document).defaultView ?? root.ownerDocument?.defaultView ?? null;
+	if (!view) return null;
+	const shown = secs.filter((s) => {
+		const cs = view.getComputedStyle(s);
+		return cs.display !== 'none' && cs.visibility !== 'hidden';
+	});
+	return shown.length === 1 ? shown[0] : null;
+}
+
+/** What a candidate says: a block's painted text, or a chart mark's declared name and value
+ *  (a funnel band is a `<polygon>` with no text, and "We generated 12,400 qualified leads"
+ *  names it through `data-label="Qualified leads" data-value="12,400"`). */
+function candidateText(el: Element): string {
+	if (el.matches(BLOCK_SELECTOR)) return el.textContent ?? '';
+	return `${el.getAttribute('data-label') ?? ''} ${el.getAttribute('data-value') ?? ''}`;
+}
+
+function score(cue: Map<string, number>, text: string): number {
+	const hay = contentKeys(text);
+	let total = 0;
+	for (const [k, w] of cue) if (hay.has(k)) total += w;
+	return total;
+}
+
+export function findParaphraseTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const cue = contentKeys(text);
+	if (!cue.size) return null;
+	const scope = paraphraseScope(root);
+	if (!scope) return null;
+	let cueWeight = 0;
+	for (const w of cue.values()) cueWeight += w;
+	const floor = Math.max(PARAPHRASE_MIN_SHARED, cueWeight * PARAPHRASE_MIN_COVERAGE);
+	let best: Element | null = null;
+	let bestScore = 0;
+	let bestLen = Number.POSITIVE_INFINITY;
+	let tied: Element | null = null;
+	for (const el of scope.querySelectorAll(`${BLOCK_SELECTOR}, [data-label]`)) {
+		if (el.closest('.chart-sr-only, template')) continue;
+		const said = candidateText(el);
+		const s = score(cue, said);
+		if (s < floor) continue;
+		const len = norm(said).length;
+		if (s > bestScore) {
+			best = el;
+			bestScore = s;
+			bestLen = len;
+			tied = null;
+		} else if (s === bestScore && best) {
+			// A nested block with the same score is the same answer, said more precisely.
+			if (best.contains(el) && len <= bestLen) {
+				best = el;
+				bestLen = len;
+			} else if (!el.contains(best)) tied = el;
+		}
+	}
+	if (best && !(tied && !best.contains(tied) && !tied.contains(best))) {
+		paraphraseHit += 1;
+		return best;
+	}
+	if (tied) return null;
+	// THE HEADLINE, on one shared word. A sentence that opens or frames a slide ("If the board
+	// agrees to exit, this is the plan.") names no single block, but it is about the slide's
+	// claim, and a presenter's hand goes to the headline. One word is enough ONLY here: the
+	// headline is one element per slide, so there is nothing for a weak match to be confused with.
+	const head = scope.querySelector('h1, h2');
+	if (head && !head.closest('.chart-sr-only, template') && score(cue, head.textContent ?? '') >= 1) {
+		paraphraseHit += 1;
+		return head;
+	}
+	return null;
+}
+
+/** Did the paraphrase tier answer the last cue? Same shape and reason as `figureHit`. */
+export let paraphraseHit = 0;
+export const resetParaphraseHit = (): number => {
+	const n = paraphraseHit;
+	paraphraseHit = 0;
+	return n;
+};
 
 /**
  * Did one of the three CHART tiers (detail · chart text · figure) answer the last cue? Same
@@ -1765,6 +1930,22 @@ function shownSection(doc: Document | null): Document | Element | null {
 	if (!doc) return null;
 	const secs = Array.from(doc.querySelectorAll('.lattice > section')) as HTMLElement[];
 	return secs.find((sec) => sec.style.visibility !== 'hidden') ?? doc;
+}
+
+/**
+ * Is the element the hand last named still on the slide being shown? `PresentOverlay`'s hold asks
+ * this before it keeps the hand resting through a sentence that names nothing: after a slide
+ * change the old target is detached (the frame re-rendered) or sits in a hidden `<section>` (the
+ * Stage keeps every slide mounted), and a hand resting beside a slide that is gone must hide.
+ */
+export function guideStillShown(el: Element | null): boolean {
+	if (!el?.isConnected) return false;
+	const sec = el.closest('section') as HTMLElement | null;
+	if (!sec) return true;
+	const view = el.ownerDocument?.defaultView;
+	if (!view) return sec.style.visibility !== 'hidden';
+	const cs = view.getComputedStyle(sec);
+	return cs.display !== 'none' && cs.visibility !== 'hidden';
 }
 
 export function guideAimIn(doc: Document | null, text: string): Element | null {

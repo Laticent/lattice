@@ -7,11 +7,13 @@ import {
 	cueDisplayText,
 	findCueTarget,
 	findNamedTarget,
+	findParaphraseTarget,
 	findSpanningTarget,
 	type GuideShape,
 	guideAimFor,
 	guideCueFor,
 	guideCueIn,
+	guideStillShown,
 	hasOwnBoundary,
 	headerRange,
 	markerBox,
@@ -130,6 +132,90 @@ describe('findCueTarget', () => {
 	it('prefers the table cell over the table', () => {
 		const d = doc('<table><tr><td>Net revenue four point six million</td><td>On plan</td></tr></table>');
 		expect(findCueTarget(d, 'Net revenue four point six million')?.tagName).toBe('TD');
+	});
+});
+
+describe('findParaphraseTarget — an authored caption in other words', () => {
+	// The Q3 board fixture's list-steps slide, verbatim: the caption and the items share the words
+	// that carry the meaning and not one whole sentence (followups.d/2363-p3).
+	const steps = () =>
+		doc(`<h2>How the exit would run.</h2><ol>
+			<li>Announce — November, with twelve months' notice to every SMB account.</li>
+			<li>Migrate — the certified partner onboards accounts from January to June.</li>
+			<li>Redeploy — nine sellers join mid-market on 1 December.</li>
+			<li>Report — churn impact at every board meeting until the last account moves.</li></ol>`);
+
+	it('names the item a paraphrase is about, through findCueTarget', () => {
+		const d = steps();
+		const items = [...d.querySelectorAll('li')];
+		expect(findCueTarget(d, "First, we announce to customers in November with twelve months' notice.")).toBe(items[0]);
+		expect(findCueTarget(d, 'Second, the partner migration runs January through June.')).toBe(items[1]);
+		expect(findCueTarget(d, 'Third, the nine sellers move to mid-market on the first of December.')).toBe(items[2]);
+		expect(findCueTarget(d, 'Fourth, we report the churn impact at every board meeting until it closes.')).toBe(items[3]);
+	});
+
+	it('goes to the headline for a framing sentence that shares a word only with it', () => {
+		const d = steps();
+		expect(findCueTarget(d, 'If the board agrees to exit, this is the plan.')?.tagName).toBe('H2');
+	});
+
+	it('names nothing for a sentence with no content on the slide', () => {
+		const d = steps();
+		expect(findParaphraseTarget(d, 'Thank you.')).toBeNull();
+		expect(findParaphraseTarget(d, 'No.')).toBeNull();
+		expect(findParaphraseTarget(d, 'It keeps SOC 2 scope narrow.')).toBeNull();
+	});
+
+	it('refuses one shared word on a block that is not the headline', () => {
+		const d = doc('<h2>Options</h2><ul><li>Why not fix it</li><li>Why not wait</li></ul>');
+		expect(findParaphraseTarget(d, 'We did look hard at the fix.')).toBeNull();
+	});
+
+	it('hides on a tie between two unrelated blocks rather than guessing', () => {
+		const d = doc('<ul><li>Proposal sent 870</li><li>Signed 214</li></ul>');
+		expect(findParaphraseTarget(d, '870 reached a proposal, and 214 signed.')).toBeNull();
+	});
+
+	it('lets a number of two or more digits carry a match on its own', () => {
+		const d = doc('<ol><li>48.6M ARR</li><li>118% Net dollar retention</li></ol>');
+		expect(findParaphraseTarget(d, 'NDR held at 118%.')).toBe(d.querySelectorAll('li')[1]);
+	});
+
+	it("matches a chart mark by its declared name and value when it has no text", () => {
+		const d = doc(`<div class="chart-body"><svg>
+			<polygon data-mark="0" data-label="Qualified leads" data-value="12,400"></polygon>
+			<polygon data-mark="1" data-label="Demo held" data-value="3,100"></polygon></svg></div>`);
+		expect(findParaphraseTarget(d, 'We generated 12,400 qualified leads.')?.getAttribute('data-mark')).toBe('0');
+		expect(findParaphraseTarget(d, '3,100 took a demo.')?.getAttribute('data-mark')).toBe('1');
+	});
+
+	it('gives up when more than one slide is in scope and none is known to be showing', () => {
+		const d = new DOMParser().parseFromString(
+			'<section><ol><li>Announce in November with notice</li></ol></section><section><p>Other</p></section>',
+			'text/html',
+		);
+		expect(findParaphraseTarget(d, 'We announce in November with notice.')).toBeNull();
+	});
+
+	it('leaves every exact match to the tiers above it', () => {
+		// The paraphrase tier runs after them, so an exact containment still names the smallest block.
+		const d = doc('<p>Growth held. Margins rose.</p><p>Growth held steady all year and margins rose.</p>');
+		expect(findCueTarget(d, 'Growth held.')).toBe(d.querySelector('p'));
+	});
+});
+
+describe('guideStillShown — the hold', () => {
+	it('is false for nothing, a detached element, or a slide hidden by the Stage', () => {
+		expect(guideStillShown(null)).toBe(false);
+		expect(guideStillShown(document.createElement('p'))).toBe(false);
+		// Mounted in the test window, so computed style answers the question the Stage asks.
+		const host = document.createElement('div');
+		host.innerHTML = '<section><p>Shown</p></section><section style="visibility:hidden"><p>Gone</p></section>';
+		document.body.append(host);
+		const [shown, gone] = [...host.querySelectorAll('p')];
+		expect(guideStillShown(shown)).toBe(true);
+		expect(guideStillShown(gone)).toBe(false);
+		host.remove();
 	});
 });
 
@@ -1399,7 +1485,12 @@ describe('findNamedTarget — a cue the projection composed out of a part’s ow
 	it('refuses a name that merely RECURS in the sentence', () => {
 		// The lead rule, isolated. A sentence about the team is not a sentence about one person,
 		// and this tier has no value to corroborate with — the lead is the whole defense.
-		expect(findCueTarget(roster(), 'The program is sponsored by Ada Okafor.')).toBeNull();
+		//
+		// Asserted on THIS tier. Through the whole chain the paraphrase tier now answers it with
+		// Ada's card, which is right: the sentence shares her name, her role and "program" with
+		// that card and with nothing else on the slide. The lead rule still has to hold here.
+		expect(findNamedTarget(roster(), 'The program is sponsored by Ada Okafor.')).toBeNull();
+		expect(findCueTarget(roster(), 'The program is sponsored by Ada Okafor.')?.querySelector('.person-name')?.textContent).toBe('Ada Okafor');
 	});
 
 	it('refuses a name that is only a character prefix of the first word', () => {
