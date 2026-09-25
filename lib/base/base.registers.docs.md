@@ -731,15 +731,17 @@ alike whatever the deck asked for. Wired today on `cards-grid`, `verdict-grid`, 
 `compare-prose` panes, `cards-stack horizontal`, and `list` (every register). A single-line flex row ignores
 `align-content`, so those rows set `flex-wrap: wrap`; their zero-basis cards still share one
 line, and each card carries `min-width: 0` so it can never force a second line.
-**`list` is the one COLUMN form wired:** its rows stack top to bottom, so it reads the token as
-`justify-content: var(--cards-align)`, and because a flex column cannot fill from
-`justify-content: stretch`, the same rules set `--cards-grow` (1 under `stretch`, else 0) for
-the rows' `flex-grow`. `list` declares `center` at wide, `spread` on square/tall/strip (what it
-always did there), and `stretch` above a coda. Other column forms
-(`list-steps vertical`/`chevron`/…, the default `cards-stack`, tall and strip frames),
-`list-steps capsule` (already content height) and `compare-prose decision` (its label sits at
-mid-stage) are not governed. All three stretch when a coda follows (`withCoda: stretch`). Other card components still stretch until they opt in (#2317). See
-`engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5.
+**`list` is the one COLUMN form wired:** its rows stack top to bottom in a one-column grid,
+where the same `align-content: var(--cards-align)` places them, and `stretch` shares the spare
+height out to the rows. `list` declares `center` at wide, `spread` on square/tall/strip (what it
+always did there), and `stretch` above a coda. A list row never shrinks below its content,
+so a list that needs more than the stage overflows where the overflow check reports it.
+Not governed: the other column forms (`list-steps vertical`/`chevron`/…, the default
+`cards-stack`, and the row components' tall and strip frames), `list-steps capsule` (already
+content height) and `compare-prose decision` (its label sits at mid-stage). Every governed
+component stretches when a coda follows (`withCoda: stretch`). Other card components still
+stretch until they opt in (#2317). See
+`engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5 and §12.
 
 ## The slide's corner — `corners:`
 

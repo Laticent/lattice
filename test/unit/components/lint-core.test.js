@@ -2437,3 +2437,18 @@ describe('lint-core: list-modifier-inert', () => {
     assert.deepEqual(li('list principles', '```\n- not a list\n```\n\n1. One.'), []);
   });
 });
+
+describe('lint-core: list-modifier-inert reads the list the renderer reads', () => {
+  const lVocab = { names: new Set(['list']), modifiers: new Set(['principles', 'takeaway', 'numbered']) };
+  const li = (cls, body) =>
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H\n\n${body}\n`, lVocab)
+      .filter((f) => f.rule === 'list-modifier-inert');
+
+  test('a list indented up to three spaces is still top-level', () => {
+    assert.equal(li('list principles', '  - One.\n  - Two.').length, 1);
+  });
+
+  test('a longer fence that quotes a shorter one does not swallow the rest of the slide', () => {
+    assert.equal(li('list principles', '````\n```\n````\n\n- One.\n- Two.').length, 1);
+  });
+});
