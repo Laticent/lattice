@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ◐ [2026-09-25-vetrina-delivery-presets.md](2026-09-25-vetrina-delivery-presets.md) — Vetrina gets delivery presets (restrained, expressive, somber) that decide how MUCH a narrated deck gestures, a salience budget that…
 - ☐ [2026-09-24-code-package-contract.md](2026-09-24-code-package-contract.md) — How a shared transform (a code package's `transform.js`) runs — the proposal phase 6 of portable packages starts from.
 - ◐ [2026-09-24-lattice-timing-track.md](2026-09-24-lattice-timing-track.md) — One timing format for every Lattice surface that speaks, captions or moves — the Lattice Timing Track (LTT).
 - ◐ [2026-09-24-one-style-delivery-spine.md](2026-09-24-one-style-delivery-spine.md) — Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decides on its own how the deck's…

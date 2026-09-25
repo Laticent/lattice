@@ -214,10 +214,15 @@ test('with nothing on the slide to point at, the cursor hides and the real point
 // neither depends on catching the cursor at an instant — the mistake the geometry spec and the
 // beat spec each made once (assert on rest, never on a moment).
 
+// `delivery: expressive` so the salience budget does not decide the count. Under the default
+// `restrained` the paragraph (no figure, no emphasis) is cut by the preset's floor and only the
+// heading gestures, at the first cue — before this oracle can attach. What is under test here is
+// the CADENCE (per block, not per sentence); the budget has its own spec, present-delivery.spec.ts.
 const SLIDE_WITH_ONE_PARAGRAPH = [
 	'---',
 	'marp: true',
 	'theme: indaco',
+	'delivery: expressive',
 	'---',
 	'',
 	'## The quarter in one paragraph',

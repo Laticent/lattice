@@ -45,7 +45,11 @@ test('gate.js (browser bundle) vocabularies are the schema enums', () => {
 });
 
 test('focus axes: schema enum == transformers/focus.js == authoring/lint-core.js (hand-written mirrors, sync-gated)', () => {
-  const schemaAxes = schema.properties.capacity.properties.axis.enum;
+  const schemaAxes = schema.properties.focusAxes.items.enum;
+  // The collection axes a capacity counts along are a subset: a chart's `mark` / `series`
+  // are focusable by attribute, but there is no collection of them to budget.
+  const collectionAxes = schema.properties.capacity.properties.axis.enum;
+  assert.deepEqual(collectionAxes.filter((a) => !schemaAxes.includes(a)), [], 'every collection axis must be focusable');
   const focus = require('../../../lib/transformers/focus.js');
   const lintCore = require('../../../lib/authoring/lint-core.js');
   assert.deepEqual([...focus.SUPPORTED_AXES].sort(), [...schemaAxes].sort());
@@ -159,10 +163,12 @@ test('every lib/components/ bucket directory is a schema bucket (deleting an enu
   }
 });
 
-test('the five intra-schema axis-enum copies agree (the schema must not drift against itself)', () => {
+test('the four intra-schema collection-axis copies agree, and focusAxes extends them (the schema must not drift against itself)', () => {
   const axes = schema.properties.capacity.properties.axis.enum;
   assert.deepEqual(schema.properties.density.properties.axis.enum, axes);
-  assert.deepEqual(schema.properties.focusAxes.items.enum, axes);
+  // focusAxes adds the chart axes (`mark`, `series`), which a capacity cannot count along.
+  assert.deepEqual(schema.properties.focusAxes.items.enum.filter((a) => !axes.includes(a)), ['mark', 'series']);
+  assert.deepEqual(schema.properties.focusAxes.items.enum.filter((a) => axes.includes(a)), axes);
   assert.deepEqual(schema.properties.split.properties.axis.enum, axes);
   assert.deepEqual(schema.properties.adapt.properties.capacity.properties.axis.enum, axes);
 });

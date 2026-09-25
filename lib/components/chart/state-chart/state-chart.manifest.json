@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "state-chart",
+  "focusAxes": [
+    "mark"
+  ],
   "adapt": {
     "mode": "reflow",
     "priority": [

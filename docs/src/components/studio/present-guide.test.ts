@@ -6,17 +6,24 @@ import {
 	chooseGesture,
 	cueDisplayText,
 	findCueTarget,
+	findMarkTarget,
 	findNamedTarget,
+	findParaphraseTarget,
 	findSpanningTarget,
 	type GuideShape,
 	guideAimFor,
 	guideCueFor,
 	guideCueIn,
+	guideStillShown,
 	hasOwnBoundary,
 	headerRange,
+	isAside,
+	markContent,
 	markerBox,
 	POINTER_BOX,
+	planSlide,
 	pointerAnchor,
+	salience,
 	sentenceRange,
 } from './present-guide';
 
@@ -130,6 +137,314 @@ describe('findCueTarget', () => {
 	it('prefers the table cell over the table', () => {
 		const d = doc('<table><tr><td>Net revenue four point six million</td><td>On plan</td></tr></table>');
 		expect(findCueTarget(d, 'Net revenue four point six million')?.tagName).toBe('TD');
+	});
+});
+
+describe('findParaphraseTarget — an authored caption in other words', () => {
+	// The Q3 board fixture's list-steps slide, verbatim: the caption and the items share the words
+	// that carry the meaning and not one whole sentence (followups.d/2363-p3).
+	const steps = () =>
+		doc(`<h2>How the exit would run.</h2><ol>
+			<li>Announce — November, with twelve months' notice to every SMB account.</li>
+			<li>Migrate — the certified partner onboards accounts from January to June.</li>
+			<li>Redeploy — nine sellers join mid-market on 1 December.</li>
+			<li>Report — churn impact at every board meeting until the last account moves.</li></ol>`);
+
+	it('names the item a paraphrase is about, through findCueTarget', () => {
+		const d = steps();
+		const items = [...d.querySelectorAll('li')];
+		expect(findCueTarget(d, "First, we announce to customers in November with twelve months' notice.")).toBe(items[0]);
+		expect(findCueTarget(d, 'Second, the partner migration runs January through June.')).toBe(items[1]);
+		expect(findCueTarget(d, 'Third, the nine sellers move to mid-market on the first of December.')).toBe(items[2]);
+		expect(findCueTarget(d, 'Fourth, we report the churn impact at every board meeting until it closes.')).toBe(items[3]);
+	});
+
+	it('goes to the headline for a framing sentence that shares a word only with it', () => {
+		const d = steps();
+		expect(findCueTarget(d, 'If the board agrees to exit, this is the plan.')?.tagName).toBe('H2');
+	});
+
+	it('leaves a chart slide\'s frame sentence to the figure, not the headline', () => {
+		const d = doc('<h2>Wedges read by value and texture.</h2><div class="chart-body"><svg></svg></div>');
+		expect(findParaphraseTarget(d, "Each wedge is that item's share of the whole.")).toBeNull();
+		expect(findCueTarget(d, "Each wedge is that item's share of the whole.")?.className).toBe('chart-body');
+		// A deck logo is not a figure: the headline fallback still works beside one.
+		const logo = doc('<img class="deck-logo" src="x.svg"><h2>How the exit would run.</h2>');
+		expect(findParaphraseTarget(logo, 'If the board agrees to exit, this is the plan.')?.tagName).toBe('H2');
+	});
+
+	it('names nothing for a sentence with no content on the slide', () => {
+		const d = steps();
+		expect(findParaphraseTarget(d, 'Thank you.')).toBeNull();
+		expect(findParaphraseTarget(d, 'No.')).toBeNull();
+		expect(findParaphraseTarget(d, 'It keeps SOC 2 scope narrow.')).toBeNull();
+	});
+
+	it('refuses one shared word on a block that is not the headline', () => {
+		const d = doc('<h2>Options</h2><ul><li>Why not fix it</li><li>Why not wait</li></ul>');
+		expect(findParaphraseTarget(d, 'We did look hard at the fix.')).toBeNull();
+	});
+
+	it('hides on a tie between two unrelated blocks rather than guessing', () => {
+		const d = doc('<ul><li>Proposal sent 870</li><li>Signed 214</li></ul>');
+		expect(findParaphraseTarget(d, '870 reached a proposal, and 214 signed.')).toBeNull();
+	});
+
+	it('reads an amount spelled out in the caption as the digits on the slide', () => {
+		const d = doc('<ul><li>Hiring continued on plan.</li><li>ARR closed at $48.6M, ahead of plan.</li><li>Proposal sent 870</li><li>Qualified leads 12,400</li></ul>');
+		const li = [...d.querySelectorAll('li')];
+		expect(findParaphraseTarget(d, 'Recurring revenue closed at forty-eight point six million dollars, ahead of plan.')).toBe(li[1]);
+		expect(findParaphraseTarget(d, 'Only eight hundred seventy got a proposal.')).toBe(li[2]);
+		expect(findParaphraseTarget(d, 'We generated twelve thousand four hundred qualified leads.')).toBe(li[3]);
+	});
+
+	it('lets a number of two or more digits carry a match on its own', () => {
+		const d = doc('<ol><li>48.6M ARR</li><li>118% Net dollar retention</li></ol>');
+		expect(findParaphraseTarget(d, 'NDR held at 118%.')).toBe(d.querySelectorAll('li')[1]);
+	});
+
+	it("matches a chart mark by its declared name and value when it has no text", () => {
+		const d = doc(`<div class="chart-body"><svg>
+			<polygon data-mark="0" data-label="Qualified leads" data-value="12,400"></polygon>
+			<polygon data-mark="1" data-label="Demo held" data-value="3,100"></polygon></svg></div>`);
+		expect(findParaphraseTarget(d, 'We generated 12,400 qualified leads.')?.getAttribute('data-mark')).toBe('0');
+		expect(findParaphraseTarget(d, '3,100 took a demo.')?.getAttribute('data-mark')).toBe('1');
+	});
+
+	it('gives up when more than one slide is in scope and none is known to be showing', () => {
+		const d = new DOMParser().parseFromString(
+			'<section><ol><li>Announce in November with notice</li></ol></section><section><p>Other</p></section>',
+			'text/html',
+		);
+		expect(findParaphraseTarget(d, 'We announce in November with notice.')).toBeNull();
+	});
+
+	it('leaves every exact match to the tiers above it', () => {
+		// The paraphrase tier runs after them, so an exact containment still names the smallest block.
+		const d = doc('<p>Growth held. Margins rose.</p><p>Growth held steady all year and margins rose.</p>');
+		expect(findCueTarget(d, 'Growth held.')).toBe(d.querySelector('p'));
+	});
+});
+
+describe('planSlide — the salience budget', () => {
+	// The Q3 board fixture's KPI slide in miniature: a headline, a number, two plain lines.
+	const slide = () =>
+		doc(`<h2>Revenue ahead of plan; payback is slipping.</h2><ul>
+			<li>Hiring continued on plan across every team.</li>
+			<li>ARR closed at $48.6M, ahead of plan.</li>
+			<li>The office move finished in August.</li>
+			<li>CAC payback stretched to <strong>19 months</strong>.</li></ul>`);
+	const cues = [
+		'Revenue ahead of plan; payback is slipping.',
+		'Hiring continued on plan across every team.',
+		'ARR closed at $48.6M, ahead of plan.',
+		'The office move finished in August.',
+		'CAC payback stretched to 19 months.',
+	];
+	const aimIn = (d: Document) => (t: string) => findCueTarget(d, t);
+
+	it('spends the budget on the salient moments, not on the first ones spoken', () => {
+		const plan = planSlide(cues, aimIn(slide()), 2);
+		// The number with emphasis outranks the bare number, which outranks the headline and prose.
+		expect([...plan.gesture].sort()).toEqual([2, 4]);
+		expect(plan.top).toBe(4);
+		expect(plan.aimed.size).toBe(5);
+	});
+
+	it('spends in spoken order when nothing is salient', () => {
+		const d = doc('<ul><li>We met the team.</li><li>We toured the site.</li><li>We had lunch.</li></ul>');
+		const plan = planSlide(['We met the team.', 'We toured the site.', 'We had lunch.'], aimIn(d), 1);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('holds plain prose to one move under a floor, and lets a teaching preset walk it', () => {
+		const d = doc('<h2>Section 01</h2><ul><li>We met the team.</li><li>We toured the site.</li></ul>');
+		const texts = ['We met the team.', 'We toured the site.'];
+		expect(planSlide(texts, aimIn(d), 2, 1).gesture.size).toBe(1);
+		expect(planSlide(texts, aimIn(d), 2, 0).gesture.size).toBe(2);
+	});
+
+	it('never cuts an authored _focus moment, even past the budget', () => {
+		const d = slide();
+		d.querySelectorAll('li')[0].classList.add('lat-focus');
+		const plan = planSlide(cues, aimIn(d), 1);
+		expect(plan.gesture.has(1)).toBe(true);
+		expect(plan.top).toBe(1);
+	});
+
+	it('counts an authored series as one moment, not one per point', () => {
+		const d = doc(`<div class="chart-body"><svg>
+			<circle class="lat-focus" data-series="2" data-label="Q1" data-value="1.2"/>
+			<circle class="lat-focus" data-series="2" data-label="Q2" data-value="1.6"/>
+			<circle class="lat-focus" data-series="2" data-label="Q3" data-value="2.3"/></svg></div>`);
+		const dots = [...d.querySelectorAll('circle')];
+		const plan = planSlide(['a', 'b', 'c'], (t) => dots['abc'.indexOf(t)], 2, 1);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('scores a chart frame below the bar the headline names', () => {
+		const d = doc(`<h2>EMEA is where the quarter was won.</h2><div class="chart-body"><svg>
+			<rect data-mark="0" data-label="LATAM" data-value="$1.2M"/><rect data-mark="1" data-label="EMEA" data-value="$6.8M"/>
+			<rect data-mark="2" data-label="APAC" data-value="$2.9M"/><text>EMEA $6.8M</text></svg></div>`);
+		const body = d.querySelector('.chart-body') as Element;
+		expect(salience(body)).toBeLessThan(salience(d.querySelectorAll('rect')[1]));
+	});
+
+	it('gestures a focused series on its own cue, not on the chart frame spoken first', () => {
+		const d = new DOMParser().parseFromString(`<section data-focus="series 1"><div class="chart-body"><svg>
+			<path class="lat-focus" data-series="0"/><path class="lat-recede" data-series="1"/></svg></div></section>`, 'text/html');
+		const [body, path] = [d.querySelector('.chart-body') as Element, d.querySelector('path') as Element];
+		const plan = planSlide(['frame', 'series'], (t) => (t === 'frame' ? body : path), 1, 1);
+		expect([...plan.gesture]).toEqual([1]);
+	});
+
+	it('counts the rows of a focused column as one moment', () => {
+		const d = new DOMParser().parseFromString(`<section data-focus="col 2"><table><tbody>
+			<tr><td>Speed</td><td class="lat-focus">yes</td></tr><tr><td>Audit</td><td class="lat-focus">no</td></tr>
+			<tr><td>Adoption</td><td class="lat-focus">yes</td></tr></tbody></table></section>`, 'text/html');
+		const rows = [...d.querySelectorAll('tr')];
+		const plan = planSlide(['a', 'b', 'c'], (t) => rows['abc'.indexOf(t)], 2, 1);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('gestures only on the first cue that names a target', () => {
+		const d = doc('<p>Growth held. Margins rose to 40%.</p>');
+		const plan = planSlide(['Growth held.', 'Margins rose to 40%.'], aimIn(d), 4);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('ranks the bar the headline names above the smallest bar spoken first', () => {
+		const d = doc(`<h2>EMEA is where the quarter was won.</h2><div class="chart-body"><svg>
+			<rect data-mark="0" data-label="North America" data-value="$4.1M"/><rect data-mark="1" data-label="LATAM" data-value="$1.2M"/>
+			<rect data-mark="2" data-label="EMEA" data-value="$6.8M"/><rect data-mark="3" data-label="APAC" data-value="$2.9M"/></svg></div>`);
+		const [, latam, emea] = [...d.querySelectorAll('rect')];
+		expect(salience(emea)).toBeGreaterThan(salience(latam));
+	});
+
+	it('scores a chart extreme above its peers', () => {
+		const d = doc(`<div class="chart-body"><svg>
+			<rect data-mark="0" data-label="North" data-value="4.1"/><rect data-mark="1" data-label="LATAM" data-value="2.2"/>
+			<rect data-mark="2" data-label="EMEA" data-value="6.8"/><rect data-mark="3" data-label="APAC" data-value="2.9"/></svg></div>`);
+		const [north, , emea, apac] = [...d.querySelectorAll('rect')];
+		expect(salience(emea)).toBeGreaterThan(salience(north));
+		expect(salience(apac)).toBe(salience(north));
+	});
+});
+
+describe('markContent — the live content gesture', () => {
+	it('spotlights the top-level item a nested bullet belongs to, and undoes itself cleanly', () => {
+		const d = doc('<ul><li>One<ul><li>detail</li></ul></li><li>Two</li><li>Three</li></ul>');
+		const sec = d.querySelector('section') as Element;
+		const [one, detail, two, three] = [...d.querySelectorAll('li')];
+		const undo = markContent(detail);
+		expect(one.classList.contains('lat-focus')).toBe(true);
+		expect([two, three].every((li) => li.classList.contains('lat-recede'))).toBe(true);
+		expect(detail.classList.length).toBe(0);
+		expect(sec.getAttribute('data-focus-axis')).toBe('item');
+		expect(sec.getAttribute('data-focus-style')).toBe('spotlight');
+		undo();
+		expect([one, two, three].some((li) => li.className)).toBe(false);
+		expect(sec.hasAttribute('data-focus-resolved')).toBe(false);
+		// The live scope stays so the peers fade back instead of snapping.
+		expect(sec.hasAttribute('data-focus-live')).toBe(true);
+	});
+
+	it('rings a table body row, as `_focus: row` would', () => {
+		const d = doc('<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>r1</td></tr><tr><td>r2</td></tr></tbody></table>');
+		const [r1, r2] = [...d.querySelectorAll('tbody tr')];
+		markContent(r2.querySelector('td') as Element);
+		expect(r2.classList.contains('lat-focus')).toBe(true);
+		expect(r1.classList.contains('lat-recede')).toBe(true);
+		expect(d.querySelector('section')?.getAttribute('data-focus-style')).toBe('ring');
+	});
+
+	it('marks every twin of a chart mark and recedes the other marks', () => {
+		const d = doc(`<div class="chart-body"><svg><rect data-mark="0"/><rect data-mark="1"/><rect data-mark="2"/></svg>
+			<template class="chart-detail" data-mark="1"></template></div>`);
+		const [a, b, c] = [...d.querySelectorAll('rect')];
+		markContent(b);
+		expect(b.classList.contains('lat-focus')).toBe(true);
+		expect([a, c].every((r) => r.classList.contains('lat-recede'))).toBe(true);
+		expect(d.querySelector('template')?.className).toBe('chart-detail');
+		expect(d.querySelector('section')?.getAttribute('data-focus-axis')).toBe('mark');
+	});
+
+	it('leaves a slide the deck already focused alone', () => {
+		const d = doc('<ul><li class="lat-focus">One</li><li class="lat-recede">Two</li></ul>');
+		d.querySelector('section')?.setAttribute('data-focus-resolved', '');
+		const two = d.querySelectorAll('li')[1];
+		markContent(two)();
+		expect(two.className).toBe('lat-recede');
+		expect(d.querySelector('li')?.className).toBe('lat-focus');
+	});
+
+	it('does nothing to a plain paragraph', () => {
+		const d = doc('<h2>Title</h2><p>Growth held.</p>');
+		markContent(d.querySelector('p') as Element)();
+		expect(d.querySelector('section')?.hasAttribute('data-focus-live')).toBe(false);
+	});
+});
+
+describe('isAside — which empty sentences the hand holds through', () => {
+	it('holds through a short aside and leaves on commentary the slide does not carry', () => {
+		expect(isAside('Thank you.')).toBe(true);
+		expect(isAside('No.')).toBe(true);
+		expect(isAside('We did look hard at the fix.')).toBe(true);
+		expect(isAside('The commentary for this slide lives only in the speaker notes and appears nowhere on the slide itself.')).toBe(false);
+	});
+});
+
+describe('the checker round (#2371)', () => {
+	it('never reads the Guide\'s own live mark back as authored focus', () => {
+		const d = doc('<ul><li>We met the team.</li><li>We toured the site.</li><li>We had lunch.</li></ul>');
+		const [a, , c] = [...d.querySelectorAll('li')];
+		expect(salience(a)).toBe(0);
+		markContent(a);
+		expect(salience(a)).toBe(0);
+		const plan = planSlide(['We met the team.', 'We toured the site.', 'We had lunch.'], (t) => findCueTarget(d, t), 1, 0);
+		expect(plan.top).toBe(0);
+		expect(salience(c)).toBe(0);
+	});
+
+	it('does not take radar\'s container, which counts series, for a series', () => {
+		const d = doc(`<div class="chart-body radar-figure" data-series="2"><svg>
+			<polygon data-series="0"/><polygon data-series="1"/><text class="key">Enterprise tier</text></svg></div>`);
+		const undo = markContent(d.querySelector('text') as Element);
+		expect(d.querySelector('.radar-figure')?.classList.contains('lat-focus')).toBe(false);
+		expect(d.querySelectorAll('.lat-recede').length).toBe(0);
+		undo();
+	});
+
+	it('skips the paraphrase tier on a deck in another language', () => {
+		const d = new DOMParser().parseFromString('<html lang="it"><body><section><h1>Il piano per crescere</h1></section></body></html>', 'text/html');
+		expect(findParaphraseTarget(d, 'Grazie per la vostra attenzione')).toBeNull();
+	});
+
+	it('wants a substantial shared word before it claims the headline', () => {
+		const d = doc('<h1>Revenue grew in every region</h1><p>Other text.</p>');
+		expect(findParaphraseTarget(d, 'Every region has a new lead.')).toBeNull();
+		expect(findParaphraseTarget(d, 'Revenue is the story this quarter.')?.tagName).toBe('H1');
+	});
+
+	it('counts amounts as figures and indexes as not', () => {
+		const li = (t: string) => doc(`<ul><li>${t}</li></ul>`).querySelector('li') as Element;
+		for (const t of ['3 million users', '40 percent churn', '$4.2M', '118%', '19 mo']) expect(salience(li(t)), t).toBe(3);
+		for (const t of ['Section 01', '2.1 Scope and goals', 'in 2026']) expect(salience(li(t)), t).toBe(0);
+	});
+});
+
+describe('guideStillShown — the hold', () => {
+	it('is false for nothing, a detached element, or a slide hidden by the Stage', () => {
+		expect(guideStillShown(null)).toBe(false);
+		expect(guideStillShown(document.createElement('p'))).toBe(false);
+		// Mounted in the test window, so computed style answers the question the Stage asks.
+		const host = document.createElement('div');
+		host.innerHTML = '<section><p>Shown</p></section><section style="visibility:hidden"><p>Gone</p></section>';
+		document.body.append(host);
+		const [shown, gone] = [...host.querySelectorAll('p')];
+		expect(guideStillShown(shown)).toBe(true);
+		expect(guideStillShown(gone)).toBe(false);
+		host.remove();
 	});
 });
 
@@ -1256,8 +1571,11 @@ describe('findMarkTarget — a cue whose words are not on the slide at all', () 
 		// refuse it — a sentence ABOUT the funnel is not a sentence about one band. Written
 		// because the first version of the test above was killed by the value guard instead,
 		// and relaxing the lead rule to `includes` left it green.
+		//
+		// Asserted on THIS tier. Through the whole chain the paraphrase tier now names the Visitors
+		// band, which is right: the sentence says its label and its value.
 		const d = doc(FUNNEL);
-		expect(findCueTarget(d, 'In total, Visitors reached twelve thousand.')).toBeNull();
+		expect(findMarkTarget(d, 'In total, Visitors reached twelve thousand.')).toBeNull();
 	});
 
 	it('hides rather than guesses when two marks both pass', () => {
@@ -1399,7 +1717,12 @@ describe('findNamedTarget — a cue the projection composed out of a part’s ow
 	it('refuses a name that merely RECURS in the sentence', () => {
 		// The lead rule, isolated. A sentence about the team is not a sentence about one person,
 		// and this tier has no value to corroborate with — the lead is the whole defense.
-		expect(findCueTarget(roster(), 'The program is sponsored by Ada Okafor.')).toBeNull();
+		//
+		// Asserted on THIS tier. Through the whole chain the paraphrase tier now answers it with
+		// Ada's card, which is right: the sentence shares her name, her role and "program" with
+		// that card and with nothing else on the slide. The lead rule still has to hold here.
+		expect(findNamedTarget(roster(), 'The program is sponsored by Ada Okafor.')).toBeNull();
+		expect(findCueTarget(roster(), 'The program is sponsored by Ada Okafor.')?.querySelector('.person-name')?.textContent).toBe('Ada Okafor');
 	});
 
 	it('refuses a name that is only a character prefix of the first word', () => {

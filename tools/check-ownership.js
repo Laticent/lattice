@@ -6385,6 +6385,14 @@ const SANCTIONED_FM_SCALAR_READERS = [
       + 'test/unit/core/pace-names.test.js, which drives both over the same shapes.',
   },
   {
+    file: 'lib/core/resolve-delivery.mjs',
+    why:
+      'Same ESM/Rollup constraint as resolve-pace.mjs — the docs site imports it directly '
+      + '(PresentOverlay via docs/src/lib/resolve-delivery.js). Sync-gated by '
+      + '`delivery-parse-parity` in test/unit/core/delivery-names.test.js, which drives this '
+      + 'parse and lint-core\'s frontMatterScalar-based rule over the same lines.',
+  },
+  {
     file: 'lib/core/glossary-auto.mjs',
     why:
       'Same ESM/Rollup constraint as resolve-pace.mjs — the docs site imports it directly '

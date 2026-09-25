@@ -148,3 +148,42 @@ section[data-focus-style="list-fill"] tr.lat-focus > :is(td, th) {
   background: var(--focus-fill);
   font-weight: 600;
 }
+
+/* ── chart marks and series — the `mark` / `series` axes ───────────────────── */
+/* Spotlight (the default for both) needs no rule of its own: the generic
+ * `.lat-recede` opacity above dims every peer mark and series, and the SVG
+ * shapes take opacity like any element. What spotlight alone cannot say on a
+ * LINE is which series is the subject once the others are faint, so the
+ * focused path also gains weight. */
+section[data-focus-axis="series"] path.lat-focus { stroke-width: 2.6; }
+/* A receded MARK is shape, not text: the funnel's taper or the bars' ranking is
+ * the context that makes the focused one mean something. At the text dim (0.24)
+ * a soft fill on a dark canvas all but disappears, so the chart axes recede less. */
+section[data-focus-axis="mark"],
+section[data-focus-axis="series"] { --focus-dim: 0.4; }
+/* Ring on a mark: an accent edge drawn BEHIND the fill (`paint-order`), so the
+ * bar, wedge or band keeps its own hue and the fill still covers its exact
+ * extent. Half the stroke sits under the fill, so the width is double what
+ * shows: 5 user units reads as a 2.5-unit edge, which is what it takes to
+ * separate from the hairline every other mark already carries. */
+section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
+  stroke: var(--focus-ring);
+  stroke-width: 5;
+  paint-order: stroke;
+}
+
+/* ── the live mark — the Present Guide's content gesture ───────────────────── */
+/* The Guide applies the classes above while narration names a list item, a row,
+ * a chart mark or a series, and scopes the section `data-focus-live` so the change
+ * FADES instead of snapping. No render path writes that attribute, so a PDF, a
+ * PPTX and an exported slide are unchanged. */
+section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) {
+  transition: opacity 320ms ease-out, stroke-width 320ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) { transition: none; }
+}
+/* No weight change live. Bold text is wider, so a list item or an auto-layout
+ * table column would rewrap and move in front of the audience mid-sentence;
+ * opacity and the ring carry the mark on their own, and neither moves a box. */
+section[data-focus-live][data-focus-resolved] :is(.lat-focus, .lat-focus > td, .lat-focus > th) { font-weight: inherit; }

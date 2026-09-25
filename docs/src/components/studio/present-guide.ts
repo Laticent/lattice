@@ -129,6 +129,7 @@ export function findCueTarget(frameDoc: Document | Element | null, text: string)
 		findNamedTarget(frameDoc, text) ??
 		findDetailTarget(frameDoc, text) ??
 		findChartTextTarget(frameDoc, text) ??
+		findParaphraseTarget(frameDoc, text) ??
 		findFigureTarget(frameDoc, text);
 	return found ? drawnTwin(found) : null;
 }
@@ -721,6 +722,267 @@ export function findFigureTarget(root: Document | Element | null, text: string):
 	return bodies[0];
 }
 
+// ── THE PARAPHRASE TIER — an authored caption that SAYS the slide in other words ──────────────
+//
+// A `<!-- caption: -->` is written to be heard, and the slide is written to be read, so the two
+// rarely share a sentence. "First, we announce to customers in November with twelve months'
+// notice." narrates the list item "Announce — November, with twelve months' notice to every SMB
+// account." No block CONTAINS the cue, so every tier above returned null and the pointer hid —
+// on the Q3 board fixture, 26 of 63 cues, including every sentence of five whole slides
+// (`followups.d/2363-p3-studio-component-gestures.md`).
+//
+// The cue and the item share the words that carry the meaning: announce, November, twelve,
+// months, notice. So this tier scores each block by the CONTENT words it shares with the cue and
+// names the best one. It runs after every exact tier, so it can only answer cues they dropped,
+// and it refuses to guess in the three places a guess would point somewhere wrong:
+//
+//   - TOO LITTLE SHARED. At least two content words, at least a third of the cue's own. "We did
+//     look hard at the fix." shares one word with "Why not fix it" and resolves to nothing.
+//   - A TIE BETWEEN STRANGERS. Two unrelated blocks with the same best score is a coin toss, so
+//     it hides. A tie between a block and one nested inside it names the inner one, the same
+//     smallest-wins rule `findCueTargetIn` uses.
+//   - MORE THAN ONE SLIDE IN SCOPE. The frame path can hand over a whole document. Content words
+//     recur across a deck, so the tier narrows to the one slide that is showing, or gives up.
+
+/** Words that carry no identity. English only; on another language the list is inert and the
+ *  two-word and one-third floors do the work alone. */
+const PARAPHRASE_STOP = new Set(
+	('a an and are as at be but by did do does for from had has have he her his i if in into is it its '
+		+ 'just me more most my no not of on or our so than that the their them then there these they '
+		+ 'this those to too up us was we were what when where which who why will with would you your '
+		+ 'one all any each every can could should here now very also about over out off only same '
+		+ 'first second third fourth fifth next last get got take took make made put keep keeps say said '
+		+ 'dollar dollars percent').split(' '),
+);
+
+/** Number words to digits, so "twelve months" and "12 months" share a word. Compound and large
+ *  numbers are left alone: the tier needs agreement, not arithmetic. */
+const NUMBER_WORDS: Record<string, string> = Object.fromEntries(
+	('zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen '
+		+ 'sixteen seventeen eighteen nineteen twenty').split(' ').map((w, i) => [w, String(i)]),
+);
+for (const [w, n] of [['thirty', 30], ['forty', 40], ['fifty', 50], ['sixty', 60], ['seventy', 70], ['eighty', 80], ['ninety', 90]] as const) NUMBER_WORDS[w] = String(n);
+
+/**
+ * Fold a SPELLED amount into the key its digits make. An authored caption is written to be heard,
+ * so it says "forty-eight point six million" where the slide says `$48.6M`, and "eight hundred
+ * seventy" where it says `870`. `loose` reduces `$48.6M` to `486m` and `12,400` to `12400`, so a
+ * spoken run is reduced the same way: "forty eight point six million" → `486m`, "twelve thousand
+ * four hundred" → `12400`. Measured on a test deck: without this, a funnel narrated in words never
+ * reached a single stage, and a KPI line lost its gesture to a plain one.
+ */
+function spelledAmounts(words: readonly string[]): string[] {
+	const out: string[] = [];
+	const num = (w: string | undefined) => (w !== undefined && w in NUMBER_WORDS ? Number(NUMBER_WORDS[w]) : Number.NaN);
+	for (let i = 0; i < words.length; ) {
+		if (Number.isNaN(num(words[i]))) {
+			out.push(words[i]);
+			i += 1;
+			continue;
+		}
+		let total = 0;
+		let cur = 0;
+		let dec = '';
+		let suffix = '';
+		let j = i;
+		let parts = 0;
+		for (; j < words.length; j++) {
+			const w = words[j];
+			const n = num(w);
+			if (dec === '' && !Number.isNaN(n)) cur += n;
+			else if (dec !== '' && !Number.isNaN(n) && n < 10) dec += String(n);
+			else if (w === 'point' && dec === '' && num(words[j + 1]) < 10) dec = '.';
+			else if (w === 'hundred') cur *= 100;
+			else if (w === 'thousand') {
+				total += cur * 1000;
+				cur = 0;
+			} else if (w === 'million' || w === 'billion') {
+				suffix = w[0];
+				j += 1;
+				parts += 1;
+				break;
+			} else break;
+			parts += 1;
+		}
+		const value = total + cur;
+		// A lone "one" is an article more often than an amount ("one segment needs a decision").
+		if (parts === 1 && value === 1) out.push('one');
+		else out.push(`${value}${dec.replace('.', '')}${suffix}`);
+		i = j;
+	}
+	return out;
+}
+
+/** Suffixes stripped before the five-letter key, longest first, so "exiting" meets "exit" and
+ *  "recommendation" meets "recommend". Crude on purpose: two spellings of one word only have to
+ *  agree with each other, not with a dictionary. */
+const SUFFIXES = ['ation', 'ing', 'ion', 'ed', 'es', 's', 'e'];
+
+/**
+ * The content words of a string, each reduced to a key two spellings of one word share: digits
+ * for number words, a stripped suffix, then the first five letters, so "migration" and "migrate"
+ * or "sellers" and "seller" agree. A token carrying a digit is kept whole and, from two
+ * characters up, weighs double: "$2.1M" or "640" names one thing on a slide far more surely than
+ * a common word does.
+ */
+function contentKeys(s: string): Map<string, number> {
+	const keys = new Map<string, number>();
+	const words = loose(s)
+		.split(/[\s-]+/)
+		.map((raw) => raw.replace(/^'+|'+$/g, '').replace(/'s$/, ''));
+	for (const token of spelledAmounts(words)) {
+		let w = token;
+		if (!w || PARAPHRASE_STOP.has(w)) continue;
+		w = NUMBER_WORDS[w] ?? w;
+		if (/\p{N}/u.test(w)) {
+			keys.set(w, w.length > 1 ? 2 : 1);
+			continue;
+		}
+		if (w.length < 3) continue;
+		for (const suf of SUFFIXES) {
+			if (w.length - suf.length >= 3 && w.endsWith(suf) && !(suf === 's' && w.endsWith('ss'))) {
+				w = w.slice(0, -suf.length);
+				break;
+			}
+		}
+		keys.set(w.length > 5 ? w.slice(0, 5) : w, 1);
+	}
+	return keys;
+}
+
+/** Shared weight a block needs: two words, or one number of two digits or more. */
+const PARAPHRASE_MIN_SHARED = 2;
+
+/** A picture a sentence can be about without naming a block: a chart, a diagram, an image. */
+const FIGURE_SELECTOR = '.chart-body, .mermaid, pre.language-mermaid, figure, img:not(.deck-logo)';
+const PARAPHRASE_MIN_COVERAGE = 1 / 3;
+
+/** The one slide a paraphrase may match inside, or null when that is not knowable. */
+function paraphraseScope(root: Document | Element): Element | null {
+	if ((root as Element).tagName === 'SECTION') return root as Element;
+	const secs = [...root.querySelectorAll('section')].filter((s) => !s.parentElement?.closest('section'));
+	if (secs.length === 1) return secs[0];
+	const view = (root as Document).defaultView ?? root.ownerDocument?.defaultView ?? null;
+	if (!view) return null;
+	const shown = secs.filter((s) => {
+		const cs = view.getComputedStyle(s);
+		return cs.display !== 'none' && cs.visibility !== 'hidden';
+	});
+	return shown.length === 1 ? shown[0] : null;
+}
+
+/** What a candidate says: a block's painted text, or a chart mark's declared name and value
+ *  (a funnel band is a `<polygon>` with no text, and "We generated 12,400 qualified leads"
+ *  names it through `data-label="Qualified leads" data-value="12,400"`). */
+function candidateText(el: Element): string {
+	if (el.matches(BLOCK_SELECTOR)) return el.textContent ?? '';
+	return `${el.getAttribute('data-label') ?? ''} ${el.getAttribute('data-value') ?? ''}`;
+}
+
+/** Does the sentence corroborate a mark's declared value? True when it says no number at all. */
+function valueSaid(cue: Map<string, number>, value: string): boolean {
+	const said = [...cue.keys()].filter((k) => /\p{N}/u.test(k));
+	if (!said.length) return true;
+	return [...contentKeys(value).keys()].filter((k) => /\p{N}/u.test(k)).every((k) => cue.has(k));
+}
+
+function score(cue: Map<string, number>, text: string): number {
+	const hay = contentKeys(text);
+	let total = 0;
+	for (const [k, w] of cue) if (hay.has(k)) total += w;
+	return total;
+}
+
+export function findParaphraseTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	// ENGLISH ONLY. The stop list is English, so on another language every article and preposition
+	// counts as a content word, and "Grazie per la vostra attenzione" matched a headline on "per".
+	// A deck that declares another language keeps the exact tiers and hides where they miss.
+	const lang = ((root as Document).documentElement ?? root.ownerDocument?.documentElement)?.getAttribute('lang') ?? '';
+	if (lang && !/^en\b/i.test(lang)) return null;
+	const cue = contentKeys(text);
+	if (!cue.size) return null;
+	const scope = paraphraseScope(root);
+	if (!scope) return null;
+	let cueWeight = 0;
+	for (const w of cue.values()) cueWeight += w;
+	const floor = Math.max(PARAPHRASE_MIN_SHARED, cueWeight * PARAPHRASE_MIN_COVERAGE);
+	let best: Element | null = null;
+	let bestScore = 0;
+	let bestLen = Number.POSITIVE_INFINITY;
+	let tied: Element | null = null;
+	for (const el of scope.querySelectorAll(`${BLOCK_SELECTOR}, [data-label]`)) {
+		// Only what is painted: a chart's accessible description (`[data-lattice-desc]`) restates
+		// every mark in one paragraph, so it shares words with every cue and names none of them.
+		if (el.closest(UNPAINTED)) continue;
+		const said = candidateText(el);
+		// A MARK THAT DECLARES A VALUE must be corroborated whenever the sentence says a number:
+		// every number in its value has to be said. Otherwise "Northwind: nineteen percent" would
+		// name the Northwind line stamped `31% to 24%` — the value check the mark tier exists for.
+		if (!el.matches(BLOCK_SELECTOR) && el.hasAttribute('data-value') && !valueSaid(cue, el.getAttribute('data-value') ?? '')) continue;
+		const s = score(cue, said);
+		if (s < floor) continue;
+		const len = norm(said).length;
+		if (s > bestScore) {
+			best = el;
+			bestScore = s;
+			bestLen = len;
+			tied = null;
+		} else if (s === bestScore && best) {
+			// A nested block with the same score is the same answer, said more precisely.
+			if (best.contains(el) && len <= bestLen) {
+				best = el;
+				bestLen = len;
+			} else if (!el.contains(best)) tied = el;
+		}
+	}
+	if (best && !(tied && !best.contains(tied) && !tied.contains(best))) {
+		paraphraseHit += 1;
+		return best;
+	}
+	if (tied) return null;
+	// THE HEADLINE, on one shared word. A sentence that opens or frames a slide ("If the board
+	// agrees to exit, this is the plan.") names no single block, but it is about the slide's
+	// claim, and a presenter's hand goes to the headline. One word is enough ONLY here: the
+	// headline is one element per slide, so there is nothing for a weak match to be confused with.
+	//
+	// NOT ON A SLIDE WITH A FIGURE. A chart narrator's frame sentence ("Each wedge is that item's
+	// share of the whole.") shares a word with a headline like "Wedges read by value and texture."
+	// and is still about the picture, which the figure tier below names. Measured on the corpus
+	// sample: without this guard every such frame sentence moved from the chart to the headline.
+	if (scope.querySelector(FIGURE_SELECTOR)) return null;
+	const head = scope.querySelector('h1, h2');
+	// One shared word, and a substantial one: its STEM must keep four letters. "region" stems to
+	// "reg", so "Every region has a new lead." does not claim the headline "Revenue grew in every
+	// region"; "exit" keeps all four, so "If the board agrees to exit" still finds "How the exit
+	// would run." A bare number is never enough.
+	const headKeys = head && !head.closest(UNPAINTED) ? contentKeys(head.textContent ?? '') : null;
+	if (head && headKeys && [...cue.keys()].some((k) => headKeys.has(k) && k.length >= 4 && !/^\p{N}+$/u.test(k))) {
+		paraphraseHit += 1;
+		return head;
+	}
+	return null;
+}
+
+/**
+ * Is this sentence an ASIDE — too short to be about anything a slide could show? ("Thank you.",
+ * "No.", "We did look hard at the fix.") The hold keeps the hand resting through an aside; a
+ * longer sentence that names nothing on the slide is commentary the slide does not carry, and the
+ * hand must leave rather than claim the last thing it named is what is being said.
+ */
+export function isAside(text: string): boolean {
+	return contentKeys(text).size <= ASIDE_MAX_WORDS;
+}
+const ASIDE_MAX_WORDS = 3;
+
+/** Did the paraphrase tier answer the last cue? Same shape and reason as `figureHit`. */
+export let paraphraseHit = 0;
+export const resetParaphraseHit = (): number => {
+	const n = paraphraseHit;
+	paraphraseHit = 0;
+	return n;
+};
+
 /**
  * Did one of the three CHART tiers (detail · chart text · figure) answer the last cue? Same
  * shape and same reason as `markHit`: the sweep must be able to tell them apart from the
@@ -936,9 +1198,19 @@ export const sentenceRects = (block: Element, text: string): DOMRect[] | null =>
  *  deck said "row 4", so pointing at the table would be ignoring it. Escalation then falls out
  *  of the vocabulary — a smaller box picks a stronger gesture through `chooseGesture` — rather
  *  than being a second knob bolted beside it. */
+/** An AUTHORED `.lat-focus`, never the Guide's own live mark: `markContent` writes the same class,
+ *  and reading it back as the deck's call-out made the marked item "notable" and exempt from the
+ *  budget. A live mark lives only in a `section[data-focus-live]`, which a deck-focused slide never
+ *  becomes (`markContent` refuses one). */
+function authoredFocusOf(el: Element): { self: boolean; inner: Element | null } {
+	const self = !!el.closest('.lat-focus') && !el.closest('section[data-focus-live]');
+	return { self, inner: el.closest('section[data-focus-live]') ? null : el.querySelector('.lat-focus') };
+}
+
 export function aimTarget(block: Element, text = ''): { el: Element; notable: boolean } {
-	if (block.classList.contains('lat-focus') || block.closest('.lat-focus')) return { el: block, notable: true };
-	const inner = block.querySelector('.lat-focus');
+	const focus = authoredFocusOf(block);
+	if (focus.self) return { el: block, notable: true };
+	const inner = focus.inner;
 	// THE REFINED AIM MUST STILL HOLD THE SPOKEN WORDS. `_focus:` names an ordinal — `row 4`,
 	// `item 3`, `line 8-9` — with no relation to which sentence is being read, so an unconditional
 	// re-aim is the one path in this whole feature that can point at text nobody is saying. That is
@@ -1765,6 +2037,242 @@ function shownSection(doc: Document | null): Document | Element | null {
 	if (!doc) return null;
 	const secs = Array.from(doc.querySelectorAll('.lattice > section')) as HTMLElement[];
 	return secs.find((sec) => sec.style.visibility !== 'hidden') ?? doc;
+}
+
+// ── THE SALIENCE PLAN — which moments on a slide earn a gesture ─────────────────────────────
+//
+// Guide used to gesture on every block change, so a dense slide got a move per paragraph whether
+// or not the paragraph mattered. A presenter names two things on a board slide, not six. So the
+// plan runs once per slide, before the first sentence: it resolves every cue to its target, ranks
+// the distinct targets, and lets only the top `budget` of them gesture — each on the FIRST cue
+// that names it. Every other cue holds the hand still (engineering/decisions/
+// 2026-09-25-vetrina-delivery-presets.md §4, §6).
+//
+// A preset sets the budget; it never decides the ranking. What matters on a slide is a fact
+// about the content, so every signal below reads the slide, and each is deterministic.
+
+/** A measured amount: currency, a percentage, a magnitude or duration unit, a decimal,
+ *  thousands, or three or more digits that are not a year. */
+const FIGURE = /[$€£¥]\s?\d|\d\s?%|\d\s?(?:percent|pts?|million|billion|thousand|[kKmMbB]|bn|pp|x|mo|months?|weeks?|days?|years?|yrs?|hours?|hrs?)\b|\d[.,]\d(?!\S*\s+\p{Lu}\p{Ll})|\b(?!(?:19|20)\d\d\b)\d{3,}\b/u;
+
+/** How much a target matters. Authored focus dominates everything else, so it is never cut. */
+export function salience(el: Element): number {
+	let score = 0;
+	// AUTHORED. The deck said this with `_focus:`, which tags `.lat-focus` (decision 2026-08-05
+	// §4.1 already treats it as the one meaning of "notable"). It is spent first and never cut.
+	const focus = authoredFocusOf(el);
+	if (focus.self || focus.inner) score += 100;
+	// A CONTAINER OF MARKS is the chart's frame, not a datum. Its text holds every bar's value and
+	// label, so scoring it like a block handed "Here is revenue by region." the EMEA bar's figure
+	// and headline bonus, and under somber — where a whole chart cannot be marked — the bar the
+	// slide is about was never marked at all.
+	if (!el.matches('[data-mark], [data-series]') && el.querySelector('[data-mark], [data-series]')) return score;
+	const said = el.matches('[data-label]') ? `${el.getAttribute('data-label') ?? ''} ${el.getAttribute('data-value') ?? ''}` : (el.textContent ?? '');
+	// A FIGURE. What a board remembers is a measured number, so a claim that carries one ranks
+	// high. An index is not a figure: "Section 01", "step 3", "1 December" and a bare year carry
+	// digits and say nothing, and counting them spent the Q3 fixture's budget on every divider's
+	// kicker. So only an amount counts.
+	if (FIGURE.test(said)) score += 3;
+	// A CHART MARK is a datum the narration is naming, not prose about it.
+	if (el.matches('[data-mark], [data-series]')) score += 2;
+	// EMPHASIS the author typed: **strong**, a <mark>.
+	if (el.matches('strong, b, mark') || el.querySelector('strong, b, mark') || el.closest('strong, b')) score += 2;
+	// THE EXTREME of its chart: the tallest bar or largest wedge outranks the smallest.
+	score += chartExtreme(el);
+	// NAMED BY THE HEADLINE. The headline is the slide's claim, so a mark or item it names ("EMEA
+	// is where the quarter was won") is the moment the slide exists for. Measured in the built
+	// Studio: without this, a somber bar chart marked LATAM, the smallest bar, spoken first.
+	// It also outweighs being the chart's largest mark (+2): "Deals stall between the demo and the
+	// proposal" is about those two stages, not about the widest one.
+	if (namedByHeadline(el)) score += 3;
+	// THE HEADLINE is the slide's claim, so it outranks plain prose but not a number.
+	if (el.matches('h1, h2')) score += 1;
+	return score;
+}
+
+/** Is this chart mark the largest or smallest value among the marks it sits with? */
+/** A mark's declared value as a number: the FIRST amount, scaled by its magnitude, so "900K"
+ *  ranks below "1.2M" and slope's "10 to 20" reads as 10 rather than 1020. */
+function amountOf(raw: string | null): number {
+	const m = /(-?\d[\d,]*(?:\.\d+)?)\s*([kmb]|bn)?/i.exec(raw ?? '');
+	if (!m) return Number.NaN;
+	const scale: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9, bn: 1e9 };
+	return parseFloat(m[1].replace(/,/g, '')) * (scale[(m[2] ?? '').toLowerCase()] ?? 1);
+}
+
+/** 2 for the chart's largest mark, 1 for its smallest, else 0. */
+function chartExtreme(el: Element): number {
+	const own = amountOf(el.getAttribute('data-value'));
+	if (!Number.isFinite(own)) return 0;
+	const chart = el.closest('.chart-body');
+	if (!chart) return 0;
+	const values = [...chart.querySelectorAll('[data-mark][data-value]:not(template)')]
+		.map((m) => amountOf(m.getAttribute('data-value')))
+		.filter(Number.isFinite);
+	if (values.length < 3) return 0;
+	return own === Math.max(...values) ? 2 : own === Math.min(...values) ? 1 : 0;
+}
+
+/** Does the slide's headline share a content word with this (non-headline) target? */
+function namedByHeadline(el: Element): boolean {
+	const head = el.closest('section')?.querySelector('h1, h2');
+	if (!head || head === el || head.contains(el) || el.contains(head)) return false;
+	const said = el.matches('[data-label]') ? (el.getAttribute('data-label') ?? '') : (el.textContent ?? '');
+	const headKeys = contentKeys(head.textContent ?? '');
+	return [...contentKeys(said).keys()].some((k) => headKeys.has(k) && !/\p{N}/u.test(k));
+}
+
+/** The authored focus unit `el` belongs to, as a key, or null: a series or mark index for chart
+ *  marks (every twin shares it), the whole call-out for a block that merely CONTAINS focus, else
+ *  the `.lat-focus` element itself. */
+function authoredUnit(el: Element): string | Element | null {
+	const focus = authoredFocusOf(el);
+	const spec = `focus:${el.closest('section')?.getAttribute('data-focus') ?? ''}`;
+	// A CONTAINER of the call-out — each row under `_focus: col 5` holds one focused cell, a chart
+	// holds its focused series — is part of one moment with it. Without this every row's sentence,
+	// and the chart's frame sentence beside the series, won an exempt gesture of its own.
+	if (!focus.self) return focus.inner ? spec : null;
+	// A chart mark or series is one moment however many elements carry it.
+	if (el.closest('.lat-focus[data-series], .lat-focus[data-mark]')) return spec;
+	return el.closest('.lat-focus');
+}
+
+export type SlidePlan = {
+	/** Cue indices that gesture: the first cue naming each chosen target. */
+	gesture: Set<number>;
+	/** The cue index of the top-ranked chosen target, or -1 when nothing was chosen. */
+	top: number;
+	/** Cue indices that resolved to a target when the plan was made. */
+	aimed: Set<number>;
+};
+
+/**
+ * Plan one slide's gestures.
+ *
+ * `aim` resolves a cue's text to the element it would name (`guideAimFor` / `guideAimIn`, which
+ * read no layout), so the plan costs text matching only. Ties go to the earlier target, so a
+ * slide with nothing salient spends its budget in the order it is spoken — as far as `floor`
+ * (the preset's minimum salience after the first gesture) lets it.
+ */
+export function planSlide(texts: readonly string[], aim: (text: string) => Element | null, budget: number, floor = 0): SlidePlan {
+	// One entry per MOMENT. An authored focus unit is one moment however many elements carry it:
+	// `_focus: series 3` tags every dot of the series, and a narration that reads the series point
+	// by point would otherwise spend seven budget-exempt gestures on one call-out (measured on
+	// examples/focus-chart-marks.md slide 7 before this).
+	const first = new Map<Element | string, { el: Element; cue: number }>();
+	const aimed = new Set<number>();
+	texts.forEach((t, i) => {
+		const el = t ? aim(t) : null;
+		if (!el) return;
+		aimed.add(i);
+		const key = authoredUnit(el) ?? el;
+		const had = first.get(key);
+		// One moment, gestured on its MOST SPECIFIC cue: the focused series itself beats the chart
+		// frame that holds it, even when the frame is spoken first.
+		if (!had || (!authoredFocusOf(had.el).self && authoredFocusOf(el).self)) first.set(key, { el, cue: i });
+	});
+	const ranked = [...first.values()]
+		.map(({ el, cue }) => ({ cue, score: salience(el) }))
+		.sort((a, b) => b.score - a.score || a.cue - b.cue);
+	// The top moment always gestures, so a slide of plain prose still gets one move; after it, a
+	// moment has to clear the preset's floor, and authored focus clears everything.
+	const chosen = ranked.filter((r, i) => r.score >= 100 || (i < budget && (i === 0 || r.score >= floor)));
+	return { gesture: new Set(chosen.map((r) => r.cue)), top: chosen[0]?.cue ?? -1, aimed };
+}
+
+// ── CONTENT MARKS — the gesture that changes the slide rather than drawing on it ─────────────
+//
+// Ink draws over the content; a content mark sets a state ON it: the named list item, table row,
+// chart mark or series stays full while its peers recede. It is the `_focus:` treatment, applied
+// live — the same `.lat-focus` / `.lat-recede` classes and `data-focus-*` section attributes, so
+// every look comes from `lib/base/base.focus.css` and every theme gets it with no new CSS color
+// (HARD RULE #3). `data-focus-live` is the one addition: it scopes a fade to the live surface,
+// so a PDF, which never carries it, stays byte-identical.
+//
+// Two rules keep it honest. It never marks a slide the DECK already focused (`_focus:` resolved
+// there), because the author's focus outranks the Guide's. And it always returns its own undo,
+// which the caller runs on the next gesture, on a slide change, and when Guide switches off: a
+// mark left behind would be a lie about what is being said.
+
+const SERIES_SHAPES = ['path', 'polygon', 'polyline', 'circle', 'line'];
+
+/** The unit a content mark names for `el`, its peers, and the `_focus` axis it matches. */
+function markUnit(el: Element): { unit: Element[]; peers: Element[]; axis: string } | null {
+	const section = el.closest('section');
+	if (!section) return null;
+	const chart = el.closest('.chart-body') ?? section;
+	for (const attr of ['data-mark', 'data-series'] as const) {
+		// A series is its SHAPES: radar's container `<div>` also writes `data-series`, as a count,
+		// and slope's labels write a palette slot. `focus.js` draws the same line.
+		const sel = attr === 'data-series' ? SERIES_SHAPES.map((t) => `${t}[data-series]`).join(', ') : '[data-mark]:not(template)';
+		const v = el.closest(sel)?.getAttribute(attr);
+		if (v == null) continue;
+		const all = [...chart.querySelectorAll(sel)].filter((m) => !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
+		const unit = all.filter((m) => m.getAttribute(attr) === v);
+		return { unit, peers: all.filter((m) => !unit.includes(m)), axis: attr === 'data-mark' ? 'mark' : 'series' };
+	}
+	const row = el.closest('tbody > tr');
+	if (row?.parentElement) return { unit: [row], peers: [...row.parentElement.children].filter((r) => r !== row), axis: 'row' };
+	const li = el.closest('li');
+	if (li?.parentElement && /^(UL|OL)$/.test(li.parentElement.tagName)) {
+		// The TOP-level item: a nested bullet names its card, as `_focus: item` does.
+		let top: Element = li;
+		for (let up = top.parentElement?.closest('li'); up && section.contains(up); up = up.parentElement?.closest('li')) top = up;
+		const list = top.parentElement as Element;
+		return { unit: [top], peers: [...list.children].filter((c) => c !== top && c.tagName === 'LI'), axis: 'item' };
+	}
+	return null;
+}
+
+/**
+ * Mark the content `el` names, and return the undo. A no-op (with a no-op undo) when `el` is not
+ * part of a list, a table body, or a chart's marks, or when the deck already focused the slide.
+ */
+export function markContent(el: Element, style?: 'spotlight' | 'ring'): () => void {
+	const section = el.closest('section');
+	const found = markUnit(el);
+	if (!section || !found?.peers.length) return () => {};
+	if (section.hasAttribute('data-focus-resolved') && !section.hasAttribute('data-focus-live')) return () => {};
+	// The look `_focus:` would pick for the same axis: a row is ringed so the comparison across
+	// the table stays legible; everything else spotlights.
+	const look = style ?? (found.axis === 'row' ? 'ring' : 'spotlight');
+	const attrs = { 'data-focus-live': '', 'data-focus-resolved': '', 'data-focus-axis': found.axis, 'data-focus-style': look };
+	const before = Object.fromEntries(Object.keys(attrs).map((k) => [k, section.getAttribute(k)]));
+	for (const [k, v] of Object.entries(attrs)) section.setAttribute(k, v);
+	const added: [Element, string][] = [];
+	const tag = (e: Element, cls: string) => {
+		if (e.classList.contains(cls)) return;
+		e.classList.add(cls);
+		added.push([e, cls]);
+	};
+	for (const e of found.unit) tag(e, 'lat-focus');
+	for (const e of found.peers) tag(e, 'lat-recede');
+	return () => {
+		for (const [e, cls] of added) e.classList.remove(cls);
+		// `data-focus-live` stays until the slide changes, so the peers FADE back rather than snap:
+		// the transition rule is scoped on it. Everything else returns to what the deck had.
+		for (const [k, v] of Object.entries(before)) {
+			if (k === 'data-focus-live') continue;
+			if (v == null) section.removeAttribute(k);
+			else section.setAttribute(k, v);
+		}
+	};
+}
+
+/**
+ * Is the element the hand last named still on the slide being shown? `PresentOverlay`'s hold asks
+ * this before it keeps the hand resting through a sentence that names nothing: after a slide
+ * change the old target is detached (the frame re-rendered) or sits in a hidden `<section>` (the
+ * Stage keeps every slide mounted), and a hand resting beside a slide that is gone must hide.
+ */
+export function guideStillShown(el: Element | null): boolean {
+	if (!el?.isConnected) return false;
+	const sec = el.closest('section') as HTMLElement | null;
+	if (!sec) return true;
+	const view = el.ownerDocument?.defaultView;
+	if (!view) return sec.style.visibility !== 'hidden';
+	const cs = view.getComputedStyle(sec);
+	return cs.display !== 'none' && cs.visibility !== 'hidden';
 }
 
 export function guideAimIn(doc: Document | null, text: string): Element | null {

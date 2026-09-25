@@ -30,6 +30,11 @@
  *   node tools/sweep-guide-gestures.mjs --deck a.md --deck b.md --misses
  *                                                    # measure named decks only, and print
  *                                                    # every cue that resolved to nothing
+ *   node tools/sweep-guide-gestures.mjs --paraphrases # print every cue the paraphrase tier
+ *                                                    # answered, beside the text it named
+ *   node tools/sweep-guide-gestures.mjs --delivery restrained --plan
+ *                                                    # replay a preset's salience budget, and
+ *                                                    # print every cue that still gestures
  *
  * Needs a Chromium (CHROME_PATH or the puppeteer cache) — shape is layout, and layout
  * needs a browser. With none it SKIPS loudly and exits 0, never a false green (#23).
@@ -162,6 +167,14 @@ async function main() {
 	// its slide, which is the list a component owner fixes from; the rate alone names no cue.
 	const named = argv.flatMap((a, i) => (a === '--deck' && argv[i + 1] ? [path.resolve(argv[i + 1])] : []));
 	const showMisses = argv.includes('--misses');
+	const showParaphrases = argv.includes('--paraphrases');
+	const showPlan = argv.includes('--plan');
+	// `--delivery <name>` replays the salience plan under that preset's budget, the way Present
+	// does (lib/core/resolve-delivery.mjs). Without it the sweep measures the unbudgeted cadence.
+	const deliveryName = argv.includes('--delivery') ? argv[argv.indexOf('--delivery') + 1] : null;
+	const preset = deliveryName ? (await import('../lib/core/resolve-delivery.mjs')).resolveDelivery(deliveryName) : null;
+	const budget = preset?.budget ?? 0;
+	const floor = preset?.floor ?? 0;
 
 	const chrome = resolveChrome();
 	if (!chrome) {
@@ -173,7 +186,9 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { byComponent: {}, marked: 0, parted: 0, figured: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	// Gestures per narrated slide, which is the number a preset's budget caps.
+	const perSlide = new Map();
+	const tally = { byComponent: {}, marked: 0, parted: 0, figured: 0, paraphrased: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, holds: 0, skipped: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	const comps = componentNames();
 	if (!comps.length) console.error('  note: dist/docs/components.json is missing — per-component attribution will report everything as (none). Run `npm run build`.');
@@ -219,7 +234,7 @@ async function main() {
 				continue;
 			}
 			const rows = await page.evaluate(
-				(cueEntries, halfParent, presentWidth, compNames) => {
+				(cueEntries, halfParent, presentWidth, compNames, budget, floor) => {
 					const G = window.LatticeGuide;
 					const known = new Set(compNames);
 					// WHICH COMPONENT IS THIS SLIDE? The `_class:` directive lands as classes on the
@@ -266,11 +281,19 @@ async function main() {
 						// resolves to the element the last one did, so a per-cue tally describes a
 						// population no viewer sees. `prev` reproduces `PresentOverlay`'s rest guard.
 						let prev = null;
-						for (const text of cues) {
+						// THE PLAN, replayed: only the first cue naming each of the slide's top `budget`
+						// targets gestures; the rest hold (PresentOverlay's THE PLAN).
+						const plan = budget ? G.planSlide(cues, (t) => { const b = G.findCueTarget(sec, t); return b ? G.aimTarget(b, t).el : null; }, budget, floor) : null;
+						for (const [ci, text] of cues.entries()) {
 							const d = G.guideCueIn(sec, text, frame, half, half + 5);
+							const held = !d && prev !== null && G.isAside(text);
+							const skipped = !!d && d.el !== prev && !!plan && !plan.gesture.has(ci);
 							if (d) any = true;
 							const rest = !!d && d.el === prev;
-							prev = d ? d.el : null;
+							// A cue that names nothing HOLDS the hand where it was (PresentOverlay's hold), so
+							// the next cue naming the same element is still a rest, not a fresh gesture. So does
+							// a cue the plan skipped.
+							prev = d && !skipped ? d.el : prev;
 							const spanned = !hasBlock(sec, text);
 							// ROUND TWO'S CROSS-CHECK, RESTORED. It measured that relaxing the matcher bought
 							// reach by landing on elements holding a fraction of the sentence, and refused the
@@ -290,7 +313,9 @@ async function main() {
 							const parted = G.resetPartHit?.() > 0;
 							// AND THE CHART TIERS (detail · chart text · figure), for the same reason.
 							const figured = G.resetFigureHit?.() > 0;
-							const piecewise = spanned && !marked && !parted && !figured;
+							// AND THE PARAPHRASE TIER: an authored caption that says the slide in other words.
+							const paraphrased = G.resetParaphraseHit?.() > 0;
+							const piecewise = spanned && !marked && !parted && !figured && !paraphrased;
 							// RESET UNCONDITIONALLY, READ CONDITIONALLY. `findSpanningTarget` bumps
 							// `spanPartial` on every entry to its partial branch — including the ones that
 							// return null and fall through to a later tier — so reading it only on a
@@ -303,9 +328,9 @@ async function main() {
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes
 							// dark", which is the question a component owner actually has.
-							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: piecewise, marked, parted, figured, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, slide: n, text });
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, skipped, spanned: piecewise, marked, parted, figured, paraphrased, said: paraphrased ? (d.el.getAttribute?.('data-label') ?? d.el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) : undefined, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, held, slide: n, text });
 						}
-						out.push({ slideDone: true, any, comp });
+						out.push({ slideDone: true, any, comp, planned: plan ? plan.gesture.size : null });
 					}
 					return out;
 				},
@@ -313,6 +338,8 @@ async function main() {
 				HALF_PARENT,
 				PRESENT_WIDTH,
 				comps,
+				budget,
+				floor,
 			);
 			await page.close();
 
@@ -332,7 +359,8 @@ async function main() {
 				const c = comp(row.comp);
 				c.cues += 1;
 				if (row.miss) {
-					tally.hides += 1;
+					if (row.held) tally.holds += 1;
+					else tally.hides += 1;
 					if (showMisses) process.stderr.write(`    miss  ${stem} #${row.slide} [${row.comp}]  ${row.text}\n`);
 					continue;
 				}
@@ -346,8 +374,10 @@ async function main() {
 				if (row.marked) tally.marked += 1;
 				if (row.parted) tally.parted += 1;
 				if (row.figured) tally.figured += 1;
+				if (row.paraphrased) tally.paraphrased += 1;
 				// A cue the WHOLE-FIGURE tier answered is resolved, but only honestly so when the
 				// sentence is about the whole chart. Listed with the misses so that is checkable.
+				if (row.paraphrased && showParaphrases) process.stderr.write(`    para  ${stem} #${row.slide} [${row.comp}]  ${row.text}\n          -> ${row.said}\n`);
 				if (row.whole && showMisses) process.stderr.write(`    whole ${stem} #${row.slide} [${row.comp}]  ${row.text}\n`);
 				if (row.spanned) {
 					tally.spanned += 1;
@@ -361,7 +391,13 @@ async function main() {
 					tally.rests += 1;
 					continue;
 				}
+				if (row.skipped) {
+					tally.skipped += 1;
+					continue;
+				}
+				if (showPlan) process.stderr.write(`    gest  ${stem} #${row.slide} [${row.comp}] ${row.kind}${row.notable ? '!' : ''}  ${row.text}\n`);
 				tally.gestures += 1;
+				perSlide.set(`${stem}#${row.slide}`, (perSlide.get(`${stem}#${row.slide}`) ?? 0) + 1);
 				tally.byGesture[row.kind] = (tally.byGesture[row.kind] ?? 0) + 1;
 				if (row.fellBack) tally.gFellBack += 1;
 			}
@@ -384,12 +420,20 @@ async function main() {
 	console.log(`  answered by a MARK (data-label / data-value)   ${tally.marked} (${pct(tally.marked, tally.resolved)})`);
 	console.log(`  answered by a DECLARED PART (manifest \`handles\`)     ${tally.parted} (${pct(tally.parted, tally.resolved)})`);
 	console.log(`  answered by a CHART tier (detail · chart text · whole figure)  ${tally.figured} (${pct(tally.figured, tally.resolved)})`);
+	console.log(`  answered by a PARAPHRASE (an authored caption in other words)  ${tally.paraphrased} (${pct(tally.paraphrased, tally.resolved)})`);
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
 	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);
 	console.log(`  handle:  ${Object.entries(tally.byRole).map(([k, v]) => `${k} ${v} (${pct(v, tally.resolved)})`).join(' · ')}`);
 	console.log(`\n  THE CADENCE — what a viewer actually sees:`);
-	console.log(`    gestures ${tally.gestures} · rests ${tally.rests} (${pct(tally.rests, tally.resolved)} of resolved cues) · hides ${tally.hides}`);
+	console.log(`    gestures ${tally.gestures} · rests ${tally.rests} (${pct(tally.rests, tally.resolved)} of resolved cues) · holds ${tally.holds} (an aside naming nothing; the hand stays) · hides ${tally.hides}`);
+	{
+		const counts = [...perSlide.values()].sort((a, b) => a - b);
+		const at = (q) => counts[Math.min(counts.length - 1, Math.floor(q * counts.length))] ?? 0;
+		const mean = counts.length ? (counts.reduce((a, b) => a + b, 0) / counts.length).toFixed(2) : '0';
+		console.log(`    gestures per gesturing slide — mean ${mean} · median ${at(0.5)} · p90 ${at(0.9)} · max ${counts.at(-1) ?? 0}`);
+	}
+	if (budget) console.log(`    under delivery: ${deliveryName} (budget ${budget}) — ${tally.skipped} resolved cues held because the plan spent the slide's budget elsewhere`);
 	console.log(`    rest fell back, per GESTURE   ${tally.gFellBack} (${pct(tally.gFellBack, tally.gestures)})`);
 	console.log('\n  vocabulary          per CUE            per GESTURE');
 	const kinds = new Set([...Object.keys(tally.byKind), ...Object.keys(tally.byGesture)]);
