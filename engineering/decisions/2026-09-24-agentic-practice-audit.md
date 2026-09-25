@@ -12,7 +12,8 @@ and each claim there carries a path, a commit or a PR number, tagged MEASURED or
 **The talk built from it** is [`agentic-engineering-practices.md`](2026-09-24-agentic-practice-audit/agentic-engineering-practices.md)
 (+ its rendered PDF): a 60-minute lunch-and-learn in five ten-minute sections, one per practice
 (context engineering, autonomy with a reach limit, verification, a system that learns, orchestration),
-with Claude Code settings for each. This note is the evidence behind it; the talk is what you present.
+with Claude Code settings for each, closing on a copy-paste starter kit whose files live in
+[`kit/`](2026-09-24-agentic-practice-audit/kit/README.md). This note is the evidence behind it; the talk is what you present.
 
 ## The answer first
 
