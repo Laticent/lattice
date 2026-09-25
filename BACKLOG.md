@@ -7,7 +7,7 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **342 open** items.
+only *status*. **343 open** items.
 Pending work that has no issue is not here: it lives in [`followups.d/`](followups.d/README.md)
 (`npm run followups` lists it).
 
@@ -345,7 +345,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2278](https://github.com/Laticent/lattice/issues/2278) word-cloud's SVG &lt;desc&gt; still reads counts where the caption reads rank
 - [#2337](https://github.com/Laticent/lattice/issues/2337) handoff(axis): lint body boundary from tokens, gantt window narration, over-cap lint (after #2328)
 
-## Ready (12)
+## Ready (13)
 
 - [#1437](https://github.com/Laticent/lattice/issues/1437) Configure Release Pipeline — critical · infra
 - [#287](https://github.com/Laticent/lattice/issues/287) refactor(engine): LPM Phase 1 — manifest `render` block + `transformSection` adapter; migrate the chart kernels — high · engine
@@ -359,6 +359,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2296](https://github.com/Laticent/lattice/issues/2296) Handoff — Compose fenced code: three off-path findings from #2289 — medium · website
 - [#2299](https://github.com/Laticent/lattice/issues/2299) infra(context): close the gotchas index row-cap gap, and settle the thinking-token default — medium · infra
 - [#2301](https://github.com/Laticent/lattice/issues/2301) Handoff — Context cost: the thinking-cap decision, an n=1 re-measure, and build.js's stale-vs-refused wording — medium · infra
+- [#2349](https://github.com/Laticent/lattice/issues/2349) handoff(chart): one style-delivery spine — engine-owned modes, the Reading view, the lost Read · Article paints (after #2344) — medium · chart
 
 ## In progress (0)
 
