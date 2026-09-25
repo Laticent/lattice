@@ -223,7 +223,7 @@ scale, the tool checks the table rather than the manifest's designed-size `hard`
   handles them, and the SCALE line names them.
 - **The live preview shows no marker on a stepped slide.** The slide fits, so there is no
   ring; the export line and the `data-lattice-scale-step` attribute are the channels. A
-  small author-mode tab is a follow-up (`followups.d/scale-step-preview-tab.md`).
+  small author-mode tab is a follow-up (`followups.d/2378-p3-scale-step-preview-tab.md`).
 - **When `guards: strict` and a scale are both on**, the embedded watcher can re-run STEP after
   the emulator's TRIM on a resize and land one rung higher than the SCALE line reported.
   The slide still fits in both states.
