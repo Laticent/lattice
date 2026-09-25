@@ -834,6 +834,11 @@ function score(cue: Map<string, number>, text: string): number {
 
 export function findParaphraseTarget(root: Document | Element | null, text: string): Element | null {
 	if (!root) return null;
+	// ENGLISH ONLY. The stop list is English, so on another language every article and preposition
+	// counts as a content word, and "Grazie per la vostra attenzione" matched a headline on "per".
+	// A deck that declares another language keeps the exact tiers and hides where they miss.
+	const lang = ((root as Document).documentElement ?? root.ownerDocument?.documentElement)?.getAttribute('lang') ?? '';
+	if (lang && !/^en\b/i.test(lang)) return null;
 	const cue = contentKeys(text);
 	if (!cue.size) return null;
 	const scope = paraphraseScope(root);
@@ -882,12 +887,28 @@ export function findParaphraseTarget(root: Document | Element | null, text: stri
 	// sample: without this guard every such frame sentence moved from the chart to the headline.
 	if (scope.querySelector(FIGURE_SELECTOR)) return null;
 	const head = scope.querySelector('h1, h2');
-	if (head && !head.closest(UNPAINTED) && score(cue, head.textContent ?? '') >= 1) {
+	// One shared word, and a substantial one: its STEM must keep four letters. "region" stems to
+	// "reg", so "Every region has a new lead." does not claim the headline "Revenue grew in every
+	// region"; "exit" keeps all four, so "If the board agrees to exit" still finds "How the exit
+	// would run." A bare number is never enough.
+	const headKeys = head && !head.closest(UNPAINTED) ? contentKeys(head.textContent ?? '') : null;
+	if (head && headKeys && [...cue.keys()].some((k) => headKeys.has(k) && k.length >= 4 && !/^\p{N}+$/u.test(k))) {
 		paraphraseHit += 1;
 		return head;
 	}
 	return null;
 }
+
+/**
+ * Is this sentence an ASIDE — too short to be about anything a slide could show? ("Thank you.",
+ * "No.", "We did look hard at the fix.") The hold keeps the hand resting through an aside; a
+ * longer sentence that names nothing on the slide is commentary the slide does not carry, and the
+ * hand must leave rather than claim the last thing it named is what is being said.
+ */
+export function isAside(text: string): boolean {
+	return contentKeys(text).size <= ASIDE_MAX_WORDS;
+}
+const ASIDE_MAX_WORDS = 3;
 
 /** Did the paraphrase tier answer the last cue? Same shape and reason as `figureHit`. */
 export let paraphraseHit = 0;
@@ -1112,9 +1133,19 @@ export const sentenceRects = (block: Element, text: string): DOMRect[] | null =>
  *  deck said "row 4", so pointing at the table would be ignoring it. Escalation then falls out
  *  of the vocabulary — a smaller box picks a stronger gesture through `chooseGesture` — rather
  *  than being a second knob bolted beside it. */
+/** An AUTHORED `.lat-focus`, never the Guide's own live mark: `markContent` writes the same class,
+ *  and reading it back as the deck's call-out made the marked item "notable" and exempt from the
+ *  budget. A live mark lives only in a `section[data-focus-live]`, which a deck-focused slide never
+ *  becomes (`markContent` refuses one). */
+function authoredFocusOf(el: Element): { self: boolean; inner: Element | null } {
+	const self = !!el.closest('.lat-focus') && !el.closest('section[data-focus-live]');
+	return { self, inner: el.closest('section[data-focus-live]') ? null : el.querySelector('.lat-focus') };
+}
+
 export function aimTarget(block: Element, text = ''): { el: Element; notable: boolean } {
-	if (block.classList.contains('lat-focus') || block.closest('.lat-focus')) return { el: block, notable: true };
-	const inner = block.querySelector('.lat-focus');
+	const focus = authoredFocusOf(block);
+	if (focus.self) return { el: block, notable: true };
+	const inner = focus.inner;
 	// THE REFINED AIM MUST STILL HOLD THE SPOKEN WORDS. `_focus:` names an ordinal — `row 4`,
 	// `item 3`, `line 8-9` — with no relation to which sentence is being read, so an unconditional
 	// re-aim is the one path in this whole feature that can point at text nobody is saying. That is
@@ -1957,14 +1988,15 @@ function shownSection(doc: Document | null): Document | Element | null {
 
 /** A measured amount: currency, a percentage, a magnitude or duration unit, a decimal,
  *  thousands, or three or more digits that are not a year. */
-const FIGURE = /[$€£¥]\s?\d|\d\s?%|\d[.,]\d|\d\s?(?:[kKmMbB]|bn|pp|x|mo|months?|weeks?|days?|years?|yrs?|hours?|hrs?)\b|\b(?!(?:19|20)\d\d\b)\d{3,}\b/;
+const FIGURE = /[$€£¥]\s?\d|\d\s?%|\d\s?(?:percent|pts?|million|billion|thousand|[kKmMbB]|bn|pp|x|mo|months?|weeks?|days?|years?|yrs?|hours?|hrs?)\b|\d[.,]\d(?!\S*\s+\p{Lu}\p{Ll})|\b(?!(?:19|20)\d\d\b)\d{3,}\b/u;
 
 /** How much a target matters. Authored focus dominates everything else, so it is never cut. */
 export function salience(el: Element): number {
 	let score = 0;
 	// AUTHORED. The deck said this with `_focus:`, which tags `.lat-focus` (decision 2026-08-05
 	// §4.1 already treats it as the one meaning of "notable"). It is spent first and never cut.
-	if (el.closest('.lat-focus') || el.querySelector('.lat-focus')) score += 100;
+	const focus = authoredFocusOf(el);
+	if (focus.self || focus.inner) score += 100;
 	const said = el.matches('[data-label]') ? `${el.getAttribute('data-label') ?? ''} ${el.getAttribute('data-value') ?? ''}` : (el.textContent ?? '');
 	// A FIGURE. What a board remembers is a measured number, so a claim that carries one ranks
 	// high. An index is not a figure: "Section 01", "step 3", "1 December" and a bare year carry
@@ -1983,13 +2015,22 @@ export function salience(el: Element): number {
 }
 
 /** Is this chart mark the largest or smallest value among the marks it sits with? */
+/** A mark's declared value as a number: the FIRST amount, scaled by its magnitude, so "900K"
+ *  ranks below "1.2M" and slope's "10 to 20" reads as 10 rather than 1020. */
+function amountOf(raw: string | null): number {
+	const m = /(-?\d[\d,]*(?:\.\d+)?)\s*([kmb]|bn)?/i.exec(raw ?? '');
+	if (!m) return Number.NaN;
+	const scale: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9, bn: 1e9 };
+	return parseFloat(m[1].replace(/,/g, '')) * (scale[(m[2] ?? '').toLowerCase()] ?? 1);
+}
+
 function isChartExtreme(el: Element): boolean {
-	const own = parseFloat((el.getAttribute('data-value') ?? '').replace(/[^0-9.-]/g, ''));
+	const own = amountOf(el.getAttribute('data-value'));
 	if (!Number.isFinite(own)) return false;
 	const chart = el.closest('.chart-body');
 	if (!chart) return false;
 	const values = [...chart.querySelectorAll('[data-mark][data-value]:not(template)')]
-		.map((m) => parseFloat((m.getAttribute('data-value') ?? '').replace(/[^0-9.-]/g, '')))
+		.map((m) => amountOf(m.getAttribute('data-value')))
 		.filter(Number.isFinite);
 	if (values.length < 3) return false;
 	return own === Math.max(...values) || own === Math.min(...values);
@@ -2044,15 +2085,20 @@ export function planSlide(texts: readonly string[], aim: (text: string) => Eleme
 // which the caller runs on the next gesture, on a slide change, and when Guide switches off: a
 // mark left behind would be a lie about what is being said.
 
+const SERIES_SHAPES = ['path', 'polygon', 'polyline', 'circle', 'line'];
+
 /** The unit a content mark names for `el`, its peers, and the `_focus` axis it matches. */
 function markUnit(el: Element): { unit: Element[]; peers: Element[]; axis: string } | null {
 	const section = el.closest('section');
 	if (!section) return null;
 	const chart = el.closest('.chart-body') ?? section;
 	for (const attr of ['data-mark', 'data-series'] as const) {
-		const v = el.closest(`[${attr}]:not(template)`)?.getAttribute(attr);
+		// A series is its SHAPES: radar's container `<div>` also writes `data-series`, as a count,
+		// and slope's labels write a palette slot. `focus.js` draws the same line.
+		const sel = attr === 'data-series' ? SERIES_SHAPES.map((t) => `${t}[data-series]`).join(', ') : '[data-mark]:not(template)';
+		const v = el.closest(sel)?.getAttribute(attr);
 		if (v == null) continue;
-		const all = [...chart.querySelectorAll(`[${attr}]`)].filter((m) => !m.closest('template') && !m.closest(UNPAINTED));
+		const all = [...chart.querySelectorAll(sel)].filter((m) => !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
 		const unit = all.filter((m) => m.getAttribute(attr) === v);
 		return { unit, peers: all.filter((m) => !unit.includes(m)), axis: attr === 'data-mark' ? 'mark' : 'series' };
 	}

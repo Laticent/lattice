@@ -37,6 +37,7 @@ import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown,
+	isAside,
 	markContent, POINTER_BOX, planSlide, type SlidePlan } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
@@ -944,7 +945,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	 *  resolves to the same element is a rest, not another trip. */
 	const guideAimRef = React.useRef<Element | null>(null);
 	// The current slide's salience plan, keyed on the slide and its track (see THE PLAN below).
-	const guidePlanRef = React.useRef<{ slide: number; track: unknown; plan: SlidePlan } | null>(null);
+	const guidePlanRef = React.useRef<{ slide: number; track: unknown; delivery: string; plan: SlidePlan } | null>(null);
 	// The undo of the content mark in force (`markContent`), run on every retarget, hide and teardown.
 	const guideMarkRef = React.useRef<(() => void) | null>(null);
 	const unmarkGuide = React.useCallback(() => {
@@ -1018,6 +1019,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// `motion: 'system'` for a full-motion preset, so a reduced-motion device still lands on
 		// `legible`: a preset may ask for less motion than the viewer's setting, never more.
 	}, [guideLive, guideRoot, delivery.motion, unmarkGuide]);
+	// A preset change to one with no ink (restrained → somber, mid-present) takes the cursor down
+	// now, rather than leaving the last one up until a slide change rebuilds the stage.
+	React.useEffect(() => {
+		if (delivery.ink) return;
+		guidePointRef.current?.abort();
+		guideStageRef.current?.setCursorVisible(false);
+		setGuideAiming(false);
+	}, [delivery.ink]);
 
 	// Move on the reader's beat — but on the BLOCK, not on the sentence.
 	//
@@ -1078,13 +1087,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		let top = false;
 		if (aim) {
 			let entry = guidePlanRef.current;
-			if (!entry || entry.slide !== narration.idx || entry.track !== reader.track || !entry.plan.aimed.has(activeCue)) {
+			if (!entry || entry.slide !== narration.idx || entry.track !== reader.track || entry.delivery !== delivery.name || !entry.plan.aimed.has(activeCue)) {
 				const aimOf = (t: string) => (onStage ? guideAimIn(slideDoc(), t) : guideAimFor(frame, t));
-				entry = { slide: narration.idx, track: reader.track, plan: planSlide(reader.track.cues.map(cueDisplayText), aimOf, delivery.budget, delivery.floor) };
+				entry = { slide: narration.idx, track: reader.track, delivery: delivery.name, plan: planSlide(reader.track.cues.map(cueDisplayText), aimOf, delivery.budget, delivery.floor) };
 				guidePlanRef.current = entry;
 			}
 			top = entry.plan.top === activeCue;
 			if (!entry.plan.gesture.has(activeCue)) {
+				// The narration moved to a block the plan did not choose. A mark must not stay on the
+				// last one: it would recede the very thing being read. The hand itself only idles.
+				unmarkGuide();
 				// A stroke still drawing finishes; a resting hand keeps resting; a hand whose target
 				// left with the last slide hides.
 				if (guidePointRef.current && !guidePointRef.current.signal.aborted && !guideShownRef.current) return;
@@ -1100,10 +1112,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			}
 		}
 		const cue = aim ? (onStage ? guideCueInDoc(slideDoc(), text) : guideCueFor(frame, text)) : null;
-		// THE HOLD. A sentence that names nothing ("Thank you.", "No.") on a slide the hand is
-		// already resting on keeps it resting. Hiding there made the pointer blink out and back
-		// between two gestures on the same slide, which reads as a glitch, not as a pause.
-		if (!cue && guideShownRef.current && guideStillShown(guideAimRef.current)) return;
+		// THE HOLD. An ASIDE that names nothing ("Thank you.", "No.") on a slide the hand is
+		// already resting on keeps it resting: hiding there made the pointer blink out and back
+		// between two gestures on the same slide, which reads as a glitch, not as a pause. A longer
+		// sentence that names nothing is commentary the slide does not carry, and the hand leaves —
+		// resting on the last thing named would claim that thing is what is being said.
+		// `text` must be a real sentence: an empty one means narration ended or the slide changed
+		// (`activeCue` -1), and a hand held then rests beside a slide that is gone.
+		if (!cue && text && isAside(text) && guideShownRef.current && guideStillShown(guideAimRef.current)) return;
 		// A preset with no ink (somber) shows no cursor, so the viewer's own pointer stays.
 		setGuideAiming(!!cue && delivery.ink);
 		if (!cue) {

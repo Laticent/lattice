@@ -1217,7 +1217,9 @@ so `mark N` names the Nth item in the order you wrote the list, and
 `series N` names the Nth series under each category. Nothing is tagged by
 hand, and the same line works on bar, pie, funnel, waterfall, heatmap,
 gantt, state-chart, stacked-bar, scatter, slope, quadrant, bullet, map and
-radar (`mark`), and line, radar, scatter and slope (`series`). The default
+radar (`mark`), and line and radar (`series`). Scatter and slope take `mark`
+only: a scatter's series is its dots, which carry no series index, and slope
+numbers its lines by palette slot rather than by entity. The default
 look is spotlight, and a receded mark keeps 40% rather than text's 24%,
 because a chart's other marks are the context the focused one is read
 against. A focused line also gains weight. `_focusStyle: ring` keeps every

@@ -20,8 +20,18 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 test.describe.configure({ timeout: 180_000 });
 
 /** A roster with no image references, so the monogram path renders and nothing 404s in a
- *  preview served from the Studio's own origin. The anatomy under test is the text spans. */
-const ROSTER = `<!-- _class: team-profile -->
+ *  preview served from the Studio's own origin. The anatomy under test is the text spans.
+ *
+ *  `delivery: expressive` so the salience budget does not decide whether a person is named at
+ *  all: under the default `restrained`, a roster (no figures, no emphasis) spends its one move
+ *  on the headline. What is under test is WHERE the ink lands on a person, not whether the
+ *  budget reaches one; the budget has its own spec, present-delivery.spec.ts. */
+const ROSTER = `---
+marp: true
+delivery: expressive
+---
+
+<!-- _class: team-profile -->
 
 ## The people on this program.
 

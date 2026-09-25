@@ -286,7 +286,7 @@ async function main() {
 						const plan = budget ? G.planSlide(cues, (t) => { const b = G.findCueTarget(sec, t); return b ? G.aimTarget(b, t).el : null; }, budget, floor) : null;
 						for (const [ci, text] of cues.entries()) {
 							const d = G.guideCueIn(sec, text, frame, half, half + 5);
-							const held = !d && prev !== null;
+							const held = !d && prev !== null && G.isAside(text);
 							const skipped = !!d && d.el !== prev && !!plan && !plan.gesture.has(ci);
 							if (d) any = true;
 							const rest = !!d && d.el === prev;
@@ -426,7 +426,7 @@ async function main() {
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);
 	console.log(`  handle:  ${Object.entries(tally.byRole).map(([k, v]) => `${k} ${v} (${pct(v, tally.resolved)})`).join(' · ')}`);
 	console.log(`\n  THE CADENCE — what a viewer actually sees:`);
-	console.log(`    gestures ${tally.gestures} · rests ${tally.rests} (${pct(tally.rests, tally.resolved)} of resolved cues) · holds ${tally.holds} (a cue naming nothing; the hand stays) · hides ${tally.hides}`);
+	console.log(`    gestures ${tally.gestures} · rests ${tally.rests} (${pct(tally.rests, tally.resolved)} of resolved cues) · holds ${tally.holds} (an aside naming nothing; the hand stays) · hides ${tally.hides}`);
 	{
 		const counts = [...perSlide.values()].sort((a, b) => a - b);
 		const at = (q) => counts[Math.min(counts.length - 1, Math.floor(q * counts.length))] ?? 0;

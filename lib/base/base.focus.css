@@ -183,3 +183,7 @@ section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) {
 @media (prefers-reduced-motion: reduce) {
   section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) { transition: none; }
 }
+/* No weight change live. Bold text is wider, so a list item or an auto-layout
+ * table column would rewrap and move in front of the audience mid-sentence;
+ * opacity and the ring carry the mark on their own, and neither moves a box. */
+section[data-focus-live][data-focus-resolved] :is(.lat-focus, .lat-focus > td, .lat-focus > th) { font-weight: inherit; }

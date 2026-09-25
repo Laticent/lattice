@@ -2,8 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "slope",
   "focusAxes": [
-    "mark",
-    "series"
+    "mark"
   ],
   "function": "evidence",
   "form": "canvas",

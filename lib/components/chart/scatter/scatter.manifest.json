@@ -2,8 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "scatter",
   "focusAxes": [
-    "mark",
-    "series"
+    "mark"
   ],
   "adapt": {
     "mode": "reflow",

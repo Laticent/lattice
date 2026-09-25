@@ -217,3 +217,33 @@ describe('focus — chart axes (mark, series)', () => {
     assert.equal(dom.window.document.querySelector('template').innerHTML, '<li data-mark="1">note</li>');
   });
 });
+
+describe('focus — chart axes, the checker round (#2371)', () => {
+  test('a self-closing mark with no class keeps its slash last', () => {
+    const out = focus.applyToHtml('<section data-focus="mark 1" class="bar"><svg><rect data-mark="0"/><rect data-mark="1"/></svg></section>');
+    assert.match(out, /<rect data-mark="0" class="lat-focus"\/>/);
+    assert.match(out, /<rect data-mark="1" class="lat-recede"\/>/);
+    assert.doesNotMatch(out, /\/ class=/);
+  });
+
+  test('a line chart\'s invisible hit columns are never tagged', () => {
+    const html = '<section data-focus="mark 1" class="line"><svg><rect class="line-hit" data-mark="0"/><circle class="dot" data-mark="0"/></svg></section>';
+    const out = focus.applyToHtml(html);
+    assert.match(out, /<rect class="line-hit" data-mark="0"\/>/);
+    const dom = new JSDOM(`<body>${html}</body>`);
+    focus.applyToDom(dom.window.document.body);
+    assert.equal(dom.window.document.querySelector('.line-hit').getAttribute('class'), 'line-hit');
+  });
+
+  test('the DOM path ignores an empty or padded index, as the string path does', () => {
+    const dom = new JSDOM('<body><section data-focus="mark 1"><svg><rect data-mark=""/><rect data-mark=" 0 "/><rect data-mark="0"/></svg></section></body>');
+    focus.applyToDom(dom.window.document.body);
+    const cls = [...dom.window.document.querySelectorAll('rect')].map((r) => r.getAttribute('class'));
+    assert.deepEqual(cls, [null, null, 'lat-focus']);
+  });
+
+  test('series never tags a text label, which some charts number by palette slot', () => {
+    const out = focus.applyToHtml('<section data-focus="series 1" class="slope"><svg><line data-series="0"/><text data-series="0">A</text></svg></section>');
+    assert.match(out, /<text data-series="0">A/);
+  });
+});

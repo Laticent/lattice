@@ -16,6 +16,7 @@ import {
 	guideStillShown,
 	hasOwnBoundary,
 	headerRange,
+	isAside,
 	markContent,
 	markerBox,
 	POINTER_BOX,
@@ -329,6 +330,54 @@ describe('markContent — the live content gesture', () => {
 		const d = doc('<h2>Title</h2><p>Growth held.</p>');
 		markContent(d.querySelector('p') as Element)();
 		expect(d.querySelector('section')?.hasAttribute('data-focus-live')).toBe(false);
+	});
+});
+
+describe('isAside — which empty sentences the hand holds through', () => {
+	it('holds through a short aside and leaves on commentary the slide does not carry', () => {
+		expect(isAside('Thank you.')).toBe(true);
+		expect(isAside('No.')).toBe(true);
+		expect(isAside('We did look hard at the fix.')).toBe(true);
+		expect(isAside('The commentary for this slide lives only in the speaker notes and appears nowhere on the slide itself.')).toBe(false);
+	});
+});
+
+describe('the checker round (#2371)', () => {
+	it('never reads the Guide\'s own live mark back as authored focus', () => {
+		const d = doc('<ul><li>We met the team.</li><li>We toured the site.</li><li>We had lunch.</li></ul>');
+		const [a, , c] = [...d.querySelectorAll('li')];
+		expect(salience(a)).toBe(0);
+		markContent(a);
+		expect(salience(a)).toBe(0);
+		const plan = planSlide(['We met the team.', 'We toured the site.', 'We had lunch.'], (t) => findCueTarget(d, t), 1, 0);
+		expect(plan.top).toBe(0);
+		expect(salience(c)).toBe(0);
+	});
+
+	it('does not take radar\'s container, which counts series, for a series', () => {
+		const d = doc(`<div class="chart-body radar-figure" data-series="2"><svg>
+			<polygon data-series="0"/><polygon data-series="1"/><text class="key">Enterprise tier</text></svg></div>`);
+		const undo = markContent(d.querySelector('text') as Element);
+		expect(d.querySelector('.radar-figure')?.classList.contains('lat-focus')).toBe(false);
+		expect(d.querySelectorAll('.lat-recede').length).toBe(0);
+		undo();
+	});
+
+	it('skips the paraphrase tier on a deck in another language', () => {
+		const d = new DOMParser().parseFromString('<html lang="it"><body><section><h1>Il piano per crescere</h1></section></body></html>', 'text/html');
+		expect(findParaphraseTarget(d, 'Grazie per la vostra attenzione')).toBeNull();
+	});
+
+	it('wants a substantial shared word before it claims the headline', () => {
+		const d = doc('<h1>Revenue grew in every region</h1><p>Other text.</p>');
+		expect(findParaphraseTarget(d, 'Every region has a new lead.')).toBeNull();
+		expect(findParaphraseTarget(d, 'Revenue is the story this quarter.')?.tagName).toBe('H1');
+	});
+
+	it('counts amounts as figures and indexes as not', () => {
+		const li = (t: string) => doc(`<ul><li>${t}</li></ul>`).querySelector('li') as Element;
+		for (const t of ['3 million users', '40 percent churn', '$4.2M', '118%', '19 mo']) expect(salience(li(t)), t).toBe(3);
+		for (const t of ['Section 01', '2.1 Scope and goals', 'in 2026']) expect(salience(li(t)), t).toBe(0);
 	});
 });
 
