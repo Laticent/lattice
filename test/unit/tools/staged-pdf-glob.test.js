@@ -66,7 +66,7 @@ const KNOWN_UNCLASSIFIED = new Set([
   // dated record rendered once, by hand, with `node lattice-emulator.js`. Approving
   // its reader lenses edits only the `lenses:` front matter, which changes no slide,
   // so the committed PDF does not go stale when that happens.
-  'engineering/decisions/2026-09-24-agentic-practice-audit/onboard-your-coding-agent.md',
+  'engineering/decisions/2026-09-24-agentic-practice-audit/agentic-engineering-practices.md',
   // The Marp kit's sample deck. Deliberately NOT classifiable: its committed PDF
   // is rendered by real marp-cli against dist/marp-kit — the surface a recipient
   // actually uses — not by Lattice's own renderer. Rebuilding it through the
