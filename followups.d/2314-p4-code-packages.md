@@ -34,9 +34,10 @@ instead of a Node child process. It leaves three decisions to the owner (§6 of 
 
 **Owner decided (2026-09-25):** (1) toolkit shape A, a frozen copy inside the sandbox;
 (2) the CLI runs code packages in a locked Chromium page, not a Node process. (3) Toolkit v1's
-membership: the owner first picked the small v1 (the eight most-used helpers plus `measure`), then
-REOPENED it with a better test (below). Phase 6's first step, the CSP network-log proof, needs only
-(2) and can start now; nothing that depends on (1) or (3) should be built until the rethink lands.
+membership: the owner first picked the small v1, then reopened it (below), then DECIDED
+(2026-09-25): **self-contained packages** — no shared toolkit; the export bundles, minifies and
+freezes exactly the helpers each package uses, automatically, and the sandbox provides only
+`measure`. The contract note's §8 records it and supersedes (1) and (3).
 
 ## Rethink: what the sandbox offers must cover what we let people export (owner, 2026-09-25)
 
@@ -73,8 +74,11 @@ module, which pulls Node built-ins. Any design must say what happens to them.
 3. **Small toolkit plus carried extras.** The core eight are shared and versioned; anything else
    a package uses is bundled into it as in (1). Mixed promise, mixed size.
 
-**Done when:** the owner has picked a shape; the contract note
-(`engineering/decisions/2026-09-24-code-package-contract.md` §3 and §6) is updated to it; a test
-proves every shipped transform can be exported as a package and run in the sandbox shape chosen
-(QR components included, or explicitly excluded with the reason).
+**Decided (owner, 2026-09-25): shape 1, self-contained, decided automatically at export.** No
+exporter-facing choice. See the contract note's §8.
+
+**Done when:** the export step bundles, minifies and freezes each code package's helpers; a test
+exports every shipped transform as a package and runs it in the sandbox with only `measure`
+provided, and it matches the in-repo render; the QR components (`contact`, `wifi`, `video`) are
+bundled through a browser-safe path or excluded from code-package export with the reason stated.
 

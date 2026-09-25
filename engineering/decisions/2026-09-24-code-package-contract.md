@@ -84,6 +84,10 @@ and each call is a `postMessage` round-trip.
 **Recommendation: A.** It is the only shape whose security surface doesn't grow with the
 toolkit, and freezing a version is what a published API needs anyway.
 
+> **Superseded (owner, 2026-09-25): per-package bundling, §8.** A, B and C all assumed one
+> shared set of helpers. The owner's test was what we let people export: a sandbox that lacks
+> a helper one of our own components uses breaks that component the moment it is exported.
+
 ## 4. Where the sandbox runs
 
 §3.5 designed a sandboxed iframe for the Studio and a Node child process under
@@ -145,10 +149,42 @@ export default function transform(slide, kit) → string
    own requires, and `measure`. The long tail joins in v2 when a real package needs it,
    so v1 publishes only what 28 shipped transforms prove is needed.
 
+**Decided (owner, 2026-09-25).** (2) the Chromium page, as recommended. (1) and (3) are
+replaced by one answer: no shared toolkit; every package is self-contained (§8).
+
 ## 7. What happens next
 
-Once the three are decided, phase 6 starts with the unverified claim in §4 (a network log
+The three are decided (§6, §8). Phase 6 starts with the unverified claim in §4 (a network log
 from a hostile transform in the CLI's page and in the Studio's iframe, on the real
 surfaces), then the toolkit build, then consent and the doors. It gets the full
 adversarial trio on what ships (HARD RULE #25). The follow-up that tracks it is
 `followups.d/2314-p4-code-packages.md`.
+
+## 8. Decided: self-contained packages, bundled at export (owner, 2026-09-25)
+
+**What.** Exporting a code package bundles, minifies and freezes exactly the helpers its
+transform imports into the package itself. There is no shared toolkit and no version of one.
+The person exporting is not asked: the export always does this. The sandbox provides one
+thing, `measure(text, font)`, because text measurement needs a page and the sandbox is one.
+
+**Why.** Three properties no shared toolkit gives together: export of any component we ship
+always works (the package brings what it needs); the receiver needs nothing but a Lattice
+that runs code packages; and we promise nothing about our internal helpers, which stay free
+to change. A shared toolkit would make every helper in it a permanent API and a review
+surface, and an exporter cannot know which toolkit version the receiver runs.
+
+**What it costs, measured** (esbuild bundle + minify of each shipped `*.transform.js` with
+its own require closure, 2026-09-25): 15–18 KB gzip for a typical chart, 22–23 KB for the
+heaviest ordinary charts, 74 KB for `map` (its basemap data), ~2 KB for simple components.
+Copies are duplicated across packages, and a later fix to a helper never reaches a package
+already exported (a frozen toolkit has the same property). Removing duplicate helpers when
+several packages are exported together is a possible later optimization, still automatic.
+
+**The contract changes from §5.** `transform(slide, kit)` stays, but `kit` is only
+`{ measure }`; helpers are ordinary imports the export bundles. A stranger writes a package
+the same way: import from Lattice's helpers, and the export freezes them in.
+
+**Open inside this decision.** `contact`, `wifi` and `video` do not bundle for a neutral
+platform today: their shared QR-card module pulls Node built-ins. The build step has to
+bundle a browser-safe path for them or exclude them from code-package export with the reason
+stated. Tracked in `followups.d/2314-p4-code-packages.md`.
