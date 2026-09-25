@@ -851,26 +851,28 @@ For a big, open design question, like an architecture or a data model, several i
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- _class: stacked-bar row -->
 
 `Orchestration · Pick the model`
 
 ## The cheaper model costs more once the rework starts.
 
-- Simple · stronger
-  - First try `2`
-  - Rework `0`
-- Simple · cheaper
-  - First try `1`
-  - Rework `0`
-- Complex · stronger
-  - First try `2`
-  - Rework `2`
-- Complex · cheaper
-  - First try `1`
-  - Rework `5`
+`Cost per task: first try plus rework`
 
-*Illustrative: one pass on the cheaper model costs 1, and on the stronger model 2. On complex work, every correction reruns the job, so judge the cost of the finished task.*
+- Simple, stronger `$0.40`
+  - First try `$0.40`
+  - Rework `$0`
+- Simple, cheaper `$0.20`
+  - First try `$0.20`
+  - Rework `$0`
+- Complex, stronger `$0.80`
+  - First try `$0.40`
+  - Rework `$0.40`
+- Complex, cheaper `$1.20`
+  - First try `$0.20`
+  - Rework `$1.00`
+
+*Illustrative: a typical agent pass reads about 60K tokens and writes 8K, which costs about $0.20 on the cheaper model and $0.40 on the stronger one. On complex work, every correction reruns the job, so judge the cost of the finished task.*
 
 <!--
 Here's a question every team hits: which model should the agent run on? The cheaper one looks like the obvious pick. Per request, the stronger model can cost up to twice as much. And on simple work, the cheaper model is the right call. It gets the basics right the first time. But watch what happens as the work gets harder. It starts well, then drifts somewhere in the middle. You notice, you explain, it tries again. Each of those rounds reruns the work, and you pay for every one. The numbers here are illustrative, but the shape matches what I see every day: by the time the cheaper model gets a complex task right, it has cost more than the stronger model did, and that's before you count your own time spent writing the corrections. Anthropic's own guidance says it plainly: judge the cost per completed task, not per request. For me, that means I run the stronger model even though it costs more per token, because it gets it right with less rework. Your answer may differ. Measure a few of your real tasks, first try plus every fix, and decide from that.
