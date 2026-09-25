@@ -1534,3 +1534,130 @@ for (const [name, md] of [
 		assert.equal(articleHtml.split('Watch on YouTube').length - 1, 1, "the poster's label is not also projected as prose");
 	});
 }
+
+// The masthead seats a subtitle AFTER the heading in `.masthead-lede`, and `eyebrowOf` took the
+// lede's FIRST paragraph — so a lone subtitle became the kicker, above the heading in the article
+// and read before it in narration ("A subtitle. Heading here."), and with an eyebrow present the
+// subtitle was dropped outright, since it sits outside `.cell-stage` where the body walk looks
+// (followup 2350-p1). Rendered through the real engine, so the arms follow masthead-lift's markup.
+for (const [name, md, eyebrow] of [
+	['subtitle only', '## Heading here.\n\n`A subtitle`\n\n- one\n- two\n', null],
+	['eyebrow and subtitle', '`Kicker`\n\n## Heading here.\n\n`A subtitle`\n\nBody para.\n', 'Kicker'],
+	['stats layout', '<!-- _class: stats -->\n\n## Heading here.\n\n`A subtitle`\n\n1. **73%**\n   - faster\n', null],
+	// A chart's plain-text line under the heading becomes `.chart-subtitle`, hoisted into the lede.
+	['chart subtitle (radar)', '<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## Heading here.\n\nA subtitle\n\n- Meridian\n  - Speed `9`\n  - Price `7`\n  - Support `8`\n', 'Scale · 0–10'],
+]) {
+	test(`subtitle: ${name} projects after the heading, never as the kicker`, async () => {
+		const secs = await renderedSections(md);
+		const { articleHtml } = project(secs);
+		const lead = `${eyebrow ? `<p class="lp-kicker">${eyebrow}</p>\n` : ''}<h2 id="lp-sec-0">Heading here.</h2>\n<p class="lp-subtitle">A subtitle</p>\n`;
+		assert.ok(articleHtml.startsWith(lead), articleHtml.slice(0, 300));
+		assert.equal(articleHtml.split('A subtitle').length - 1, 1, 'the subtitle is projected once');
+		const text = script(secs)[0].text;
+		const said = `${eyebrow ? `${eyebrow}. ` : ''}Heading here. A subtitle.`;
+		assert.ok(text === said || text.startsWith(`${said}\n\n`), text);
+		assert.equal(text.split('A subtitle').length - 1, 1, 'the subtitle is read once');
+	});
+}
+
+
+test('subtitle equal to the eyebrow is projected and read once', async () => {
+	const secs = await renderedSections('`Q3 review`\n\n## Revenue grew\n\n`Q3 review`\n\n- one\n');
+	assert.equal(project(secs).articleHtml.split('Q3 review').length - 1, 1);
+	assert.equal(script(secs)[0].text.split('Q3 review').length - 1, 1);
+});
+
+// A media slide re-hosted ONLY its visual, so the prose around it never reached the article while
+// narration read all of it (followup 2350-p2). The rule for every MEDIA component: prose in slide
+// order, the visual re-hosted as a figure where it stood. Rendered through the real engine.
+test('image: the lead paragraph projects once, after the heading and before the figure; the eyebrow is the kicker', async () => {
+	const secs = await renderedSections('<!-- _class: image -->\n\n`Offsite`\n\n## Pic\n\nA lead paragraph here.\n\n![alt](https://example.com/a.png)\n\nTrailing words.\n');
+	const { articleHtml } = project(secs);
+	assert.ok(articleHtml.startsWith('<p class="lp-kicker">Offsite</p>\n<h2 id="lp-sec-0">Pic</h2>\n<p>A lead paragraph here.</p>\n<figure'), articleHtml);
+	assert.ok(articleHtml.indexOf('</figure>') < articleHtml.indexOf('<p>Trailing words.</p>'), 'prose after the picture stays after it');
+	assert.equal(articleHtml.split('A lead paragraph here.').length - 1, 1, 'the lead is projected once');
+	assert.equal(articleHtml.split('<img').length - 1, 1, 'the picture is re-hosted once');
+	assert.ok(script(secs)[0].text.startsWith('Offsite. Pic.\n\n'), 'narration leads with the eyebrow');
+});
+
+test("chart: the slide's own caption is the figure caption, not a repeat of the heading", async () => {
+	const md = '<!-- _class: bullet -->\n\n## Two of five KPIs cleared the plan line.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n\n*Actual against target inside a qualitative band.*\n';
+	const { articleHtml } = project(await renderedSections(md));
+	assert.match(articleHtml, /<figcaption>Actual against target inside a qualitative band\.<\/figcaption><\/figure>/, articleHtml);
+	assert.equal(articleHtml.split('Actual against target').length - 1, 1, 'the caption is projected once');
+	assert.equal(articleHtml.split('Two of five KPIs').length - 1, 1, 'the heading is not repeated as the caption');
+});
+
+test('math: the variable legend and a second equation reach the article', async () => {
+	const md = '<!-- _class: math -->\n\n## The closed-form estimator.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $X$ — design matrix\n- $y$ — response vector\n\n$$ e = y - X\\hat\\beta $$\n';
+	const { articleHtml } = project(await renderedSections(md));
+	assert.equal((articleHtml.match(/class="katex-display"/g) || []).length, 2, 'both display equations are projected');
+	assert.ok(articleHtml.includes('— design matrix'), articleHtml);
+	assert.ok(articleHtml.indexOf('<figure') < articleHtml.indexOf('— design matrix'), 'the legend follows the first equation');
+});
+
+
+test('small multiples: the chart is re-hosted once, not the first mini plus raw siblings', async () => {
+	const fs = require('node:fs');
+	const src = fs.readFileSync(require.resolve('../../../examples/chart-family-all-svg.md'), 'utf8');
+	const engine = require('../../../lib/engine');
+	const { html } = await engine.render(src);
+	const secs = [...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('article > section')];
+	const s = secs.find((x) => x.textContent.includes('Four minis, four names, one drawing each.'));
+	assert.ok(s, 'fixture slide present');
+	const { articleHtml } = project([s]);
+	assert.equal((articleHtml.match(/<figure/g) || []).length, 1, articleHtml.replace(/<svg[\s\S]*?<\/svg>/g, '<svg/>'));
+});
+
+test("math: an inline equation's glyph svg does not displace the display equation or its sentence", () => {
+	const secs = sections(
+		'<section data-lattice-slide class="math form" data-class="math"><div class="cell-stage">' +
+			'<p>The root term <span class="katex"><svg id="g"></svg></span> matters here.</p>' +
+			'<p><span class="katex-display"><span class="katex">E</span></span></p><p>Closing note.</p></div></section>',
+	);
+	const { articleHtml } = project(secs);
+	assert.ok(articleHtml.includes('The root term'), articleHtml);
+	assert.match(articleHtml, /<figure class="lp-figure"><span class="katex-display">/, articleHtml);
+});
+
+// The video's poster is an `<a>` with its picture as an inline `background-image`, styled only
+// under `section.video` — re-hosted as a breakout figure it read as a bare link left of the column
+// with the heading repeated under it (followup 2350-p3). It projects as an in-column link card.
+test('video: a placeholder poster projects as an in-column link card, not a breakout figure', async () => {
+	const { articleHtml } = project(await renderedSections('<!-- _class: video -->\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n'));
+	assert.match(articleHtml, /<figure class="lp-video"><a class="lp-video-link" href="https:\/\/www\.youtube\.com\/watch\?v=aqz-KE-bpKQ" target="_blank" rel="noreferrer noopener"><span class="lp-video-play" aria-hidden="true"><\/span><span class="lp-video-label">Watch on YouTube<\/span><\/a><\/figure>/, articleHtml);
+	assert.doesNotMatch(articleHtml, /lp-figure/, 'no breakout figure');
+	assert.equal(articleHtml.split('Watch the tour.').length - 1, 1, 'the heading is not repeated as a caption');
+});
+
+// The poster is a CSS background on a tile, never an `<img>`: the player's CSP (`img-src data:`)
+// blocks a remote poster, and a blocked `<img>` painted a broken-image icon in the card.
+test("video: a poster becomes the card's thumbnail tile and the author's caption its figcaption", async () => {
+	const md = '<!-- _class: video -->\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- https://example.com/poster.jpg `poster`\n- Two minutes, no sound needed. `caption`\n';
+	const { articleHtml } = project(await renderedSections(md));
+	assert.match(articleHtml, /<a class="lp-video-link"[^>]*><span class="lp-video-thumb" style="background-image:url\('https:\/\/example\.com\/poster\.jpg'\)" aria-hidden="true"><span class="lp-video-play" aria-hidden="true"><\/span><\/span>/, articleHtml);
+	assert.doesNotMatch(articleHtml, /<img/, 'no <img> for the poster');
+	assert.match(articleHtml, /<\/a><figcaption>Two minutes, no sound needed\.<\/figcaption><\/figure>/, articleHtml);
+	assert.equal((articleHtml.match(/<figcaption>/g) || []).length, 1, 'one caption, not two');
+});
+
+test('video card: a non-http poster or link is dropped, and a quote cannot leave the attribute', () => {
+	const card = (href, style) => project(sections(
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed"><a class="video-poster" href="${href}" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
+	)).articleHtml;
+	assert.doesNotMatch(card('javascript:alert(1)', ''), /lp-video/, 'a javascript: link projects no card');
+	assert.doesNotMatch(card('https://ok.example/v', "background-image:url('javascript:alert(1)')"), /lp-video-thumb/, 'a javascript: poster projects no thumbnail');
+	assert.doesNotMatch(card('https://ok.example/v', "background-image:url(&quot;https://x.example/a'b.jpg&quot;)"), /lp-video-thumb/, 'a poster that could close the CSS string is dropped');
+	assert.match(card('https://ok.example/v?a=&quot;onmouseover=x', ''), /href="https:\/\/ok\.example\/v\?a=&quot;onmouseover=x"/);
+});
+
+// `journey` and `state-chart` take the placeholder branch — their visual cannot be re-hosted — so
+// the media walk never ran for them and the `.chart-caption` under the chart was dropped while
+// narration read it. The placeholder now carries it as prose. Rendered through the real engine.
+test("state-chart: the chart's caption follows the placeholder, once", async () => {
+	const md = '<!-- _class: state-chart -->\n\n## Every contract moves through three states.\n\n1. Draft `start`\n   - `submit => 2`\n2. Signed\n   - `go => 3`\n3. Live `end`\n\n*Rejected drafts return to the account owner.*\n';
+	const { articleHtml } = project(await renderedSections(md));
+	const cap = '<p>Rejected drafts return to the account owner.</p>';
+	assert.equal(articleHtml.split(cap).length - 1, 1, articleHtml);
+	assert.ok(articleHtml.indexOf('lp-figure-note') < articleHtml.indexOf(cap), 'the caption follows the placeholder card');
+});

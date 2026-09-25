@@ -67,6 +67,17 @@ const READ_ARTICLE_CSS = `
 .st-read-article blockquote{border-left:3px solid var(--accent);padding:.15em 0 .15em 1em;color:var(--text-heading)}
 .st-read-article .lp-cite{color:var(--text-muted);font-size:.88rem;padding:0 0 1em}
 .st-read-article .lp-kicker{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);padding:0 0 .25em}
+/* The slide's subtitle: the line the masthead seats under the heading, read as its dek. */
+.st-read-article .lp-subtitle{font-style:italic;color:var(--text-muted);font-size:1.02rem;padding:0 0 1em}
+/* A video: a link card in the prose column, the play mark drawn (HARD RULE #29), never typed. */
+.st-read-article .lp-video{margin:0;padding:.2em 0 1.2em}
+.st-read-article .lp-video-link{display:flex;align-items:center;gap:.75em;width:100%;max-width:24em;box-sizing:border-box;padding:.65em 1.1em .65em .65em;border:1px solid var(--border);border-radius:12px;background:var(--bg-alt);color:var(--text-heading);font-weight:600;text-decoration:none}
+.st-read-article .lp-video-link:hover{border-color:var(--accent)}
+.st-read-article .lp-video-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.st-read-article .lp-video-thumb{display:grid;place-items:center;flex:none;width:7.5em;max-width:40%;aspect-ratio:16/9;border-radius:7px;border:1px solid var(--border);background:var(--bg) center/cover no-repeat}
+.st-read-article .lp-video-play{position:relative;flex:none;width:2em;height:2em;border-radius:50%;background:var(--accent)}
+.st-read-article .lp-video-play::after{content:"";position:absolute;left:54%;top:50%;width:.62em;height:.72em;transform:translate(-50%,-50%);background:var(--on-accent);clip-path:polygon(0 0,100% 50%,0 100%)}
+.st-read-article .lp-video figcaption{text-align:left;padding:.5em 0 0;font-size:.88em;color:var(--text-muted)}
 /* Value/label pairs, two columns — a <dl> alternates dt,dd, so auto 1fr puts the
    number and its label on one baseline instead of flowing each into its own cell. */
 .st-read-article .lp-stats{display:grid;grid-template-columns:auto 1fr;gap:.35em 1em;align-items:baseline;padding:0 0 1.2em}
@@ -164,6 +175,12 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<style>{READ_ARTICLE_CSS}</style>
+			{/* KaTeX's stylesheet, only for an article that carries math. Without it `.katex-mathml` is
+			    not clipped, so every equation and every legend symbol printed twice — once as MathML
+			    text and once as KaTeX's HTML. The player inlines this sheet and the `--read` shell
+			    links it; this pane was the one host that never loaded it. `katexUrl` is the
+			    site-vendored copy the Stage path already uses, never a CDN. */}
+			{options.katexUrl && html.includes('class="katex') ? <link rel="stylesheet" href={options.katexUrl} /> : null}
 			<div className="flex flex-none items-center gap-2 border-b px-4 py-2">
 				<button
 					type="button"

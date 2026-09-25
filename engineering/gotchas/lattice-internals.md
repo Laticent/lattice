@@ -689,12 +689,79 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   poster (`.video-lead > p` in `companion`, a paragraph beside `.video-head` by
   default), and `projectGeneric` never ran because the figure made the body non-empty.
 - **Fix:** `projectVideo` runs the generic block walk with `.video-embed` skipped,
-  then appends the poster figure. The eyebrow stays the kicker because the walk drops
-  the paragraph that matches it.
-- **Still open:** `image` has the same shape, and a lead paragraph on an `image`
-  slide is still dropped (`followups.d/2350-p2-image-lead-paragraph-missing-from-prose.md`).
+  then appends the video as a link card (below). The eyebrow stays the kicker because
+  the walk drops the paragraph that matches it.
 - **Pinned by:** the "video lead paragraph" arms in
   `test/unit/transformers/prose-projection.test.js`, which render through the real engine.
+
+## A media slide's prose is missing from the reader view
+
+- **Symptom:** Read · Article shows a chart, image, diagram or equation slide as its
+  heading and the picture alone. The paragraph above an image, a chart's caption, a math
+  slide's variable legend and its second equation are gone, though narration reads them.
+  The figure's caption repeats the heading printed just above it.
+- **Cause:** `projectDeckToProse` sent every `MEDIA_COMPONENTS` slide to `projectMedia`,
+  which re-hosts the FIRST visual and nothing else, and captions it with the heading.
+- **Fix:** `projectMediaSlide` walks the stage's prose in slide order through
+  `projectGeneric` and puts the figure where the visual's block stood (a chart's
+  `.chart-body`, the `<p>` around an image or display equation). It skips what narration
+  skips (aria-hidden decoration) and no second picture is re-hosted. The figure caption is
+  the slide's `.chart-caption` when it has one. An image-split slide (`.image-text`) now
+  finds its eyebrow the way the card components do (`CARD_HEAD_SELECTOR`). The two
+  placeholder charts (`journey`, `state-chart`) never reach that walk — their visual cannot
+  be re-hosted — so `chartCaptions` appends their `.chart-caption` after the placeholder card.
+- **Pinned by:** the "image:", "chart:" and "math:" arms in
+  `test/unit/transformers/prose-projection.test.js`, rendered through the real engine.
+
+## A video in the reader view is a bare link outside the prose column
+
+- **Symptom:** Read · Article shows a video as "Watch on YouTube" in plain link text, left
+  of the prose column at 1440 and 820, with the heading repeated as a centered caption.
+- **Cause:** the poster is an `<a>` whose picture is an inline `background-image`, and
+  everything that sizes it is scoped to `section.video`. Re-hosted as a breakout
+  `.lp-figure` it lost all of that.
+- **Fix:** `videoCard` rebuilds it as `<figure class="lp-video">` in the column: the link
+  (http(s) or relative only), the provider label, the poster, and the author's `caption` as
+  the only figcaption. The poster is a CSS background on a tile, NOT an `<img>`: the
+  self-contained player's CSP is `img-src data:` and bakes only local `file://` assets, so a
+  remote poster is blocked there, and a blocked `<img>` paints a broken-image icon. A blocked
+  background leaves a plain tile with the play mark, as the slide itself does. The play mark is drawn with `clip-path`, never
+  typed (HARD RULE #29). `.lp-video` is styled in all three article hosts.
+- **Pinned by:** the "video:" and "video card:" arms in
+  `test/unit/transformers/prose-projection.test.js`.
+
+## A slide's subtitle shows as the kicker, or vanishes, in the reader view
+
+- **Symptom:** in Read · Article, a slide's subtitle sits ABOVE its heading in
+  kicker type, and narration reads it first ("A subtitle. Heading here."). When
+  the slide also has an eyebrow, the subtitle is missing from both.
+- **Cause:** the masthead seats an eyebrow, the heading and a subtitle in
+  `.masthead-lede`, in that order (`masthead-lift.js`). `eyebrowOf` in
+  `lib/transformers/prose-projection.mjs` took the lede's FIRST paragraph, so a
+  lone subtitle won the kicker slot. With an eyebrow present the subtitle was
+  never read at all: it sits outside `.cell-stage`, where the body walk looks.
+- **Fix:** `ledeParts` splits the lede at its heading. The paragraph before is the
+  kicker; the paragraph after is the subtitle, which the article emits as
+  `<p class="lp-subtitle">` right after the heading and narration reads as the
+  last sentence of the title unit. `.masthead-lede` is in `SKIP_SELECTOR`, so no
+  body walk reads a lede paragraph a second time.
+- **Pinned by:** the "subtitle:" arms in
+  `test/unit/transformers/prose-projection.test.js`, rendered through the real engine.
+
+## A code block or a prose line after a heading is pulled into the masthead band
+
+- **Symptom:** in the engine HTML, `.masthead-lede` holds a `<pre>`, or a paragraph
+  that mixes code spans and text, under the heading. In the first case the stage
+  and any closing note end up inside the band too. The runtime (DOM) path leaves
+  the same slide alone.
+- **Cause:** `extractSubtitleP` in `lib/forms/cell/masthead/masthead.transform.js`
+  matched `<p[^>]*>`, which also matches `<pre>`, and its lazy body ran on to the
+  next `</code></p>` it could find. A slide with a mermaid fence after the heading
+  and a code-only note below it had everything in between lifted.
+- **Fix:** the match now needs a real `<p>` holding one code span and nothing
+  else, the same test the DOM twin makes (`tagName === 'P'`, one child).
+- **Pinned by:** the "is not lifted as a subtitle — string and DOM paths agree"
+  arms in `test/unit/transformers/masthead-lift.test.js`.
 
 ## G-gen merge must use non-G file's G-gen block, not the G-file's block
 
