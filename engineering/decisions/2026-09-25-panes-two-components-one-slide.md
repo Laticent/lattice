@@ -197,6 +197,13 @@ engine" is not verification (HARD RULE #23).
   separate selectors so Marp-style scopers can read each arm — so `section.x` becomes
   `section.x, lat-pane.x`. An earlier estimate in the design conversation (+6.1% / +1.5%) measured
   the widening without that pass; this line corrects it.
+- **Fixed-size budgets feel it first.** The Playground's first-paint snapshot stores the CSS a
+  slide uses under a 240K-unit cap. Its capture keeps any selector arm it cannot evaluate, and the
+  pane arms rode along: 315K units on a deck with no panes, so nothing was stored and CI's
+  `studio-smoke` caught the Playground reload tests. The capture now drops pane arms whenever the
+  frame holds no `lat-pane` (exact, since they cannot match): 223K. Any other surface that
+  serializes the bundle against a budget should be read with the same question — §6.1 removes the
+  question by not shipping the arms to decks without panes.
 - **Render time:** one extra markdown-it parser per distinct pane shape (orientation × family), memoized.
   Decks without panes pay one substring test (`pane:`) per render, inside the parse.
 

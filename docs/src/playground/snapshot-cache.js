@@ -58,7 +58,16 @@ const MAX_UNITS = 240 * 1024;
 const STRIP_PSEUDO =
 	/::[a-z-]+(\([^)]*\))?|:(hover|focus|focus-within|focus-visible|active|visited|target|checked|disabled|enabled|first-child|last-child|only-child|first-of-type|last-of-type|nth-child\([^)]*\)|nth-of-type\([^)]*\)|not\([^)]*\)|is\([^)]*\)|where\([^)]*\)|has\([^)]*\))/gi;
 
+// A PANE arm (`lat-pane.x …`, lib/core/panes.js) can only match inside a pane, and the
+// build gives every component rule one beside its `section` twin. The probe below keeps an
+// arm it cannot evaluate, and stripping `:is(ul, ol)` leaves many probes invalid, so without
+// this a document with no panes kept ~680 pane arms and the Playground snapshot outgrew
+// MAX_UNITS (315K units measured; stored nothing). When the frame holds no `lat-pane`,
+// those arms provably match nothing, so they are dropped exactly, not conservatively.
+const PANE_ARM = /(^|[\s>+~(,])lat-pane\b/;
+
 function selectorMatches(doc, selectorText) {
+	if (PANE_ARM.test(selectorText) && !doc.querySelector('lat-pane')) return false;
 	const probe = selectorText.replace(STRIP_PSEUDO, '').replace(/\s+/g, ' ').trim();
 	if (!probe || probe === '*') return true;
 	try {
@@ -118,10 +127,14 @@ function collectRules(rules, doc, out, scope) {
 		if (rule.type === 3) continue;
 		if (rule.selectorText !== undefined && rule.style) {
 			// CSSStyleRule
-			const parts = splitTopLevelCommas(rule.selectorText).filter((s) => selectorMatches(doc, s));
+			const all = splitTopLevelCommas(rule.selectorText);
+			const parts = all.filter((s) => selectorMatches(doc, s));
 			if (!parts.length) continue;
 			if (scope) out.push(`${parts.map((s) => scopeSelector(s, scope)).join(',')}{${rule.style.cssText}}`);
-			else out.push(rule.cssText);
+			// Unscoped (the Studio) keeps the rule whole, as it always has — minus pane arms
+			// that cannot match here, so a widened rule costs the snapshot nothing.
+			else if (doc.querySelector('lat-pane') || !all.some((s) => PANE_ARM.test(s))) out.push(rule.cssText);
+			else out.push(`${all.filter((s) => !PANE_ARM.test(s)).join(',')}{${rule.style.cssText}}`);
 		} else if (rule.type === 5 || rule.type === 7 || (rule.constructor && rule.constructor.name === 'CSSPropertyRule')) {
 			// @font-face (5) · @keyframes (7) · @property — position-independent, keep whole
 			out.push(rule.cssText);
