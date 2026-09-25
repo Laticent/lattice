@@ -727,37 +727,57 @@ whatever the author asked for, in this order:
 
 1. a per-slide `_class: cards-*`
 2. the deck's `cards:`
-3. the manifest's `withCoda`, then `byFamily[family]`, then `default`
+3. the manifest's `withCoda`, then `byClass[variant]`, then `byFamily[family]`, then `default`
+
+`byClass` is for a component whose variants are different shapes: `split-panel` declares
+`"default": "spread"` for its plain evidence list and `"byClass": { "proof": "stretch" }` for
+the proof grid, whose equal rows are its design.
 
 The engine stamps the answer as `data-cards`, `base.tokens.css` turns that into
 `--cards-align`, and each card row reads it in **one** declaration. **No component encodes a
 default in CSS.**
 
 **To opt a new component in**, two things: add `"cards": { "default": … }` to its manifest,
-and make its card-row rule read `align-content: var(--cards-align)`. The field alone does
-nothing — the attribute lands and the variable is set, but a stylesheet that still hard-codes
-its own value ignores it — so a unit test fails any component that declares a composition its
-CSS never reads. A component that declares nothing is not governed at all: nothing is stamped
-and its stylesheet is untouched. The split-page
-rules override `align-content` outright at higher specificity, so a run's pages still look
-alike whatever the deck asked for. Wired today on `cards-grid`, `verdict-grid`, the
-`list-steps` row (every variant that lays its steps out side by side), the two
-`compare-prose` panes, `cards-stack horizontal`, and `list` (every register). A single-line flex row ignores
-`align-content`, so those rows set `flex-wrap: wrap`; their zero-basis cards still share one
-line, and each card carries `min-width: 0` so it can never force a second line.
-**`list` is the one COLUMN form wired:** its rows stack top to bottom in a one-column grid,
-where the same `align-content: var(--cards-align)` places them. Each row is capped at a
-comfortable one-line height, so `stretch` also needs `--cards-grow` (1 under `stretch`, set by
-the same `[data-cards]` rules) to lift the cap. `list` declares `center` at wide, `spread` on
-square/tall/strip (where a split page's lone member still fills the page), and `stretch` above a coda. A row never shrinks
-below its text: on a full stage the rows give up their air, and a list with more than the stage
-holds overflows where the overflow check reports it.
-Not governed: the other column forms (`list-steps vertical`/`chevron`/…, the default
-`cards-stack`, and the row components' tall and strip frames), `list-steps capsule` (already
-content height) and `compare-prose decision` (its label sits at mid-stage). Every governed
-component stretches when a coda follows (`withCoda: stretch`). Other card components still
-stretch until they opt in (#2317). See
-`engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5 and §12.
+and make its card container read the token. The field alone does nothing — the attribute lands
+and the variable is set, but a stylesheet that still hard-codes its own value ignores it — so a
+unit test fails any component that declares a composition its CSS never reads. A component that
+declares nothing is not governed at all: nothing is stamped and its stylesheet is untouched.
+The split-page rules override the composition outright at higher specificity, so a run's pages
+still look alike whatever the deck asked for. How the container reads the token depends on its
+shape:
+
+| Shape | Reads | Examples |
+|---|---|---|
+| **Row** — a wrapped flex row | `align-content: var(--cards-align)`; the row sets `flex-wrap: wrap`, its zero-basis cards still share one line, and each carries `min-width: 0` | `cards-grid`, `verdict-grid`, `decision`, `pricing`, `statute-stack`, `compare-prose`, `cards-stack horizontal`, the `list-steps` row, `team-profile` |
+| **Grid** | `align-content: var(--cards-align)` on the grid; auto rows size to their cards | `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--cards-track)`: `1fr` under `stretch`, `auto` otherwise) |
+| **Two-by-two** | as a row, but each cell is exactly half the list under `stretch` and its content otherwise (`min-height`/`max-height` keyed on `--cards-grow`); `q-and-a grid` draws its dividing cross only under `stretch` | `matrix-2x2`, `q-and-a grid` |
+| **Flex column** | `justify-content: var(--cards-align)`; each card grows only under `stretch` (`--cards-grow`). Where the old column shared the stage equally (`flex: 1`), the card is `flex: var(--cards-grow) 1 var(--cards-basis)` — equal shares under `stretch`, content height otherwise, still giving way on a full stage (the default `cards-stack` at wide, `decision` and `matrix-2x2` at tall/strip); where its cards were already content height, only `flex-grow` switches | the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` at the frames where they stack |
+| **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `agenda cards`, `citation-card` (default form) |
+| **One-column grid with a ceiling** | `align-content`, rows `minmax(min-content, <ceiling>)`, `--cards-grow` lifts the ceiling | `list` (every register) |
+
+`--cards-grow`, `--cards-basis` and `--cards-track` are set by the same eight `[data-cards]`
+rules in `base.tokens.css` as `--cards-align`, so they can never disagree with it.
+
+**Defaults.** Every governed component declares `center`, except: `matrix-2x2` and
+`q-and-a` declare `stretch` (four equal quadrants are the layout; `q-and-a`'s single tall/strip
+column centers); `split-compare` declares `stretch` (its recommendation card sits under the
+options, inside the panel); `split-panel` spreads its evidence list and stretches `proof` and
+`capstone`; and `cards-grid`, `list`, `cards-stack` and `statute-stack` spread at the frames
+where they stack into one column, which is what they did before. A component stretches above a
+key-insight coda cell (`withCoda: stretch`) except those that already centered there on `main`
+(`team-profile`, `inventory`, `agenda`, `citation-card`, which declare no `withCoda`). The coda
+arm only fires where a `.cell-coda` forms: `split-compare`, `split-panel`, `inventory` and
+`citation-card` keep their blockquote inside the stage, so their slides never have one. A row never shrinks below its text: a slide with more than the stage holds overflows
+where the overflow check reports it.
+
+**Not governed, by design:** `kanban` (a chart — a column's height is its queue length, the WIP
+signal, and stretching or equalizing columns would erase it), `contact` (one self-sized card,
+pinned so the overflow probe can see an overstuffed one), `split-panel capstone` (its quote is
+centered above pillars on the baseline — a designed composition), the `citation-card` split,
+pull-quote, margin and triptych forms, `regulatory-update timeline`, `statute-stack`'s
+hierarchy/bands/preemption/lane forms, the `list-steps` column variants (`vertical`, `chevron`, …), `list-steps capsule` (already content height) and
+`compare-prose decision` (its label sits at mid-stage). See
+`engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5, §12 and §13.
 
 ## The slide's corner — `corners:`
 

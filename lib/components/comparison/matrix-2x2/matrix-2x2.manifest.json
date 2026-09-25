@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "matrix-2x2",
+  "cards": {
+    "default": "stretch",
+    "withCoda": "stretch"
+  },
   "function": "comparison",
   "form": "matrix",
   "substance": "structure",

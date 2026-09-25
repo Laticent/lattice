@@ -159,7 +159,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · scatter" -->
 
 ## When NOT to reach for scatter.

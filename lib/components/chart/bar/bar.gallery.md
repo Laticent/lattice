@@ -144,7 +144,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · bar" -->
 
 ## When NOT to reach for bar.

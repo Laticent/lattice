@@ -171,7 +171,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · pricing" -->
 
 ## When NOT to reach for pricing.

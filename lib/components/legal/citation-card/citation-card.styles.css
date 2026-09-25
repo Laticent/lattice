@@ -31,6 +31,17 @@
  * Variants: .split, .pull-quote, .margin, .triptych.
  * ──────────────────────────────────────────────────────────────────── */
 section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:safe center; }
+/* ── `cards:` register (#2317) ── the default form only; split, pull-quote, margin and
+ * triptych are their own compositions. The stage centers the quote + list block, so the
+ * register reads there as `justify-content`: the manifest's `center` is what it always did
+ * (`safe`, as `list` does, so an overfull slide overflows downward), `top` seats the block
+ * under the headline rule, and under `stretch` the list and its cards grow (`--cards-grow`). */
+section.citation-card:not(.split, .pull-quote, .margin, .triptych) > .cell-stage { justify-content:var(--cards-align); }
+section.citation-card:not(.split, .pull-quote, .margin, .triptych)[data-cards="center"] > .cell-stage { justify-content:safe center; }
+section.citation-card:not(.split, .pull-quote, .margin, .triptych)[data-cards-coda]:has(> .cell-coda) > .cell-stage { justify-content:var(--cards-align); }
+section.citation-card:not(.split, .pull-quote, .margin, .triptych)[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage { justify-content:safe center; }
+section.citation-card:not(.split, .pull-quote, .margin, .triptych) > .cell-stage > :is(ul, ol),
+section.citation-card:not(.split, .pull-quote, .margin, .triptych) > .cell-stage > :is(ul, ol) > li { flex-grow:var(--cards-grow); }
 /* Hanging citation eyebrow — leading paragraph that is just a `<code>`. */
 section.citation-card > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) {
   margin:0;

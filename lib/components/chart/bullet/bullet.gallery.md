@@ -122,7 +122,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · bullet" -->
 
 ## When NOT to reach for bullet.

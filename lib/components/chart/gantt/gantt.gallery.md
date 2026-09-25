@@ -129,7 +129,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · gantt" -->
 
 ## When NOT to reach for gantt.

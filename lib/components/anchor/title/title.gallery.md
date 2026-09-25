@@ -39,7 +39,7 @@ The title echoes the same six-step story the deck's own components carry.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · title" -->
 
 ## When NOT to reach for title.

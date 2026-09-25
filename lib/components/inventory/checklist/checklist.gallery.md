@@ -94,7 +94,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · checklist" -->
 
 ## When NOT to reach for checklist.

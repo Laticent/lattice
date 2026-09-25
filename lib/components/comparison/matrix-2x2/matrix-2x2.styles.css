@@ -25,7 +25,9 @@ section.matrix-2x2 > .cell-stage { display:flex; flex-direction:column; }
  * definite (flex:1, min-height:0) height (gotcha 2). */
 section.matrix-2x2 > .cell-stage > ul,
 section.matrix-2x2 > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content:stretch;
+  /* The rows sit where the `cards:` register puts them (#2317). The manifest declares
+   * `stretch`: four equal quadrants are the matrix, so a deck that says nothing keeps them. */
+  display:flex; flex-wrap:wrap; align-content:var(--cards-align);
   gap:var(--sp-md); flex:1;
   /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
    * cards-stack carry). This list is a flex item of `.cell-stage`, a bounded clipping
@@ -54,7 +56,11 @@ section.matrix-2x2 > .cell-stage > ul > li,
 section.matrix-2x2 > .cell-stage > ol > li {
   box-sizing:border-box;
   width:calc(50% - var(--sp-md) / 2);
-  height:calc(50% - var(--sp-md) / 2);
+  /* Exactly half the list under `stretch` (min and max meet, `--cards-grow` 1), the old fixed
+   * `height`; its own content under every other `cards:` value (min 0, max out of reach). */
+  height:auto;
+  min-height:calc(var(--cards-grow) * (50% - var(--sp-md) / 2));
+  max-height:calc(50% - var(--sp-md) / 2 + (1 - var(--cards-grow)) * 10000px);
   background:var(--bg-alt);
   border:1px solid var(--border);
   border-radius:var(--radius-md);
@@ -115,13 +121,17 @@ section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"])
 section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   flex-direction: column;
   flex-wrap: nowrap;
+  justify-content: var(--cards-align);
 }
 section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
 section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
   width: 100%;
   height: auto;
-  flex: 1;
+  /* A COLUMN places its cards along the main axis: each grows only under `stretch` (equal
+   * shares from a zero `--cards-basis`), and otherwise sits at its content height. */
+  flex: var(--cards-grow) 1 var(--cards-basis);
   min-height: 0;
+  max-height: none;
 }
 
 

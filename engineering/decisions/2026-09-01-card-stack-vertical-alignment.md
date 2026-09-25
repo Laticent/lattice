@@ -1273,3 +1273,141 @@ outside its row (live DOM, each line box against its row's border box); six rows
 slide render with no overflow. **Not verified:** the square/tall/strip frames beyond the
 gallery goldens, and the Playground's runtime path (which stamps `data-cards` through the same
 kernel, per §11c-bis).
+
+## 13 · The rest of the catalog joins, and the shapes a column comes in
+
+*(2026-09-25.)* §12 gave `list` a column form. This section opts in every other card component
+#2317 named, and settles each one's default, because "center everywhere" is the owner's rule for
+card ROWS and several of these are not rows.
+
+**What joined, by shape.**
+
+| Shape | How the container reads `--cards-align` | Components |
+|---|---|---|
+| Row | `flex-wrap: wrap; align-content` | `decision` (wide/square), `pricing` (wide/square), `statute-stack` rails (wide), `team-profile` |
+| Grid | `align-content` on the grid | `split-compare` options, `regulatory-update cards`, `split-panel proof` |
+| Two-by-two | as a row; cells half the list under `stretch`, content otherwise | `matrix-2x2`, `q-and-a grid` |
+| Flex column | `justify-content`; cards grow by `--cards-grow` (`flex: var(--cards-grow) 1 var(--cards-basis)` where the old column shared the stage equally, `flex-grow` alone where its cards were already content height) | default `cards-stack`, `split-panel` evidence list, `regulatory-update`, and the stacked frames of `decision`, `pricing`, `statute-stack`, `matrix-2x2`, `q-and-a grid` |
+| Centered stage block | the stage's `justify-content` (`safe center` for inventory and citation-card, which already used it; plain `center` for agenda, which did not) | `inventory cards`, `agenda cards`, default `citation-card` |
+
+**A flex column needs a basis switch, not a floor, and the first attempt proved it.** The
+first column recipe was `flex: var(--cards-grow) 1 0%; min-height: min-content` — equal shares
+under `stretch`, content height otherwise. On the agenda gallery's four-card anti-patterns
+slide (`cards-stack compact`) it clipped the stage by **15.3px** under `top` and `stretch`,
+where `main` clipped nothing. Measured in the live DOM: `main` gives each card 104.1px while
+its two longest cards need 108 — they already spilled **6px** into their own bottom padding,
+silently, which is what let the stack fit. The `min-content` floor refused that squeeze. The
+recipe that shipped switches the BASIS instead: `--cards-basis` is `0%` under `stretch` (the
+old `flex: 1` exactly — the same 104.1px cards, byte-for-byte the old slide) and `auto`
+otherwise, so a card sits at its content height and, on a stage too full for that, still
+gives way. Under `top` and `center` that slide now fits with **0px** of spill in any card
+(117.7 / 90.4 / 90.4 / 117.7 against contents of 116 / 88 / 88 / 116) — better than `main`.
+
+**Three tokens ride with `--cards-align`, set by the same eight `[data-cards]` rules**, so none
+can disagree with the placement: `--cards-grow` (§12), `--cards-basis` (above), and
+`--cards-track` — `1fr` under `stretch`, `auto` otherwise — for `split-panel proof`, whose
+equal rows are its design and whose `1fr` tracks would otherwise absorb every pixel the
+register tried to place. A number cannot switch a track keyword, which is why this one is a
+keyword.
+
+**`byClass`: variants that are different shapes.** `split-panel`'s plain evidence list
+spreads its items (`space-evenly`, what it always did); its `proof` grid fills the column with
+equal rows. One manifest `default` cannot say both, so the manifest gained a per-variant
+override, `"byClass": { "proof": "stretch" }`, resolved in `lib/core/resolve-cards.js` after
+`withCoda` and before `byFamily`. It rides in the same generated catalog, so both render
+paths resolve it through the one kernel (#1).
+
+**The defaults, and why each is not `center`.**
+- `matrix-2x2` and `q-and-a` declare **`stretch`**: four equal quadrants are the layout. Under
+  any other value `q-and-a grid` drops its dividing cross, because the middle of the list is
+  no longer between the rows. `q-and-a` declares `center` at tall/strip, which is what its
+  single column already did.
+- `split-panel` declares **`spread`** (the evidence list) with `byClass` `proof: stretch` and
+  `capstone: stretch`. `capstone` is a designed composition (a quote centered above pillars on
+  the baseline) whose `1fr auto` rows absorb the free space; it is listed because the engine
+  adds `proof` to a capstone slide only after the exporter has stamped it, and without the
+  entry the exporter stamped `spread` while the runtime re-stamped `stretch` — two paths, two
+  answers (#1), caught by the checker.
+- `split-compare` declares **`stretch`**: its recommendation card sits in the right panel
+  under the options grid, and it claims the blockquote, so no coda cell forms and `withCoda`
+  can never fire. Centered, the grid floated away from the card it leads to — the detachment
+  `withCoda` exists to prevent, caught by the checker on the gallery's default slide.
+- `cards-stack` and `statute-stack` declare **`spread`** at square/tall/strip, the
+  `space-evenly` their stacked frames always had.
+- Everything else declares **`center`**. That is a visible change at wide for the default
+  `cards-stack`, `decision`, `pricing` and `statute-stack` — cards sized to their text and
+  centered, as `cards-grid` became in §10; `cards: stretch` restores the old fill exactly — and
+  for `regulatory-update`, whose rows were packed at the top on `main`, so `cards: top` is
+  what restores it there. `team-profile`, `inventory cards`, `agenda cards` and
+  `citation-card` already centered, and they declare no `withCoda`, because on `main` they
+  centered above a coda too; adding one changed those slides (the checker measured
+  6,957–44,992 px of drift on coda slides).
+- `q-and-a`'s fallback form (questions not wrapped in bold) resets the quadrant cell's
+  half-height pin as well as its height; without that its rows each took half the list and
+  overran the stage by 200%, which the checker found by unwrapping the questions.
+
+**Card gutters stay equal, and `inventory cards` now matches its siblings.** No register value
+changes a gap: every row and grid form keeps its row gap equal to its column gap (measured on the
+test deck: 24/24 on decision, pricing, statute-stack, matrix-2x2, split-panel proof; 16/16 on
+cards-stack, split-compare, agenda, citation-card), and only `spread` widens the row gap, on
+purpose. The owner's review of a Playground render found `inventory cards` cramped: its gutter was
+`--sp-xs` (8px), a third of the other grids', tightened long ago so a 2×2 grid plus its pull-quote
+fits the stage. Identical on `main`, so pre-existing, but on this change's path once the grid sat
+centered in free space. It now takes `--sp-md`, and keeps `--sp-xs` only under
+`ul:has(+ blockquote)`, where the pull-quote needs it (`examples/inventory.md` and
+`inventory-insight-fit.md`, both with a pull-quote, render unchanged).
+
+**Not governed, and why.** `kanban` is a chart: a column's height is its queue length, the WIP
+signal, and equalizing columns would erase it. `contact` is one self-sized card, pinned so the
+overflow probe can see an overstuffed one. `citation-card`'s split/pull-quote/margin/triptych,
+`regulatory-update timeline` and `statute-stack`'s hierarchy/bands/preemption/lane forms are
+their own compositions. #2317 asked for `kanban` to declare `stretch` explicitly; declaring a
+value its CSS does not honor fails the consumption test, and honoring it would equalize the
+queues, so it stays ungoverned.
+
+**Two defects the sweep found on the way.**
+- **`banner-tag` spilled its body on `main`.** Its body is `flex: 1 1 0`, so when a card sizes
+  to its content (`compare-prose` has been centered since §10) the body contributes nothing and
+  the text runs out under the banner — visible on the `compare-prose` gallery's banner-tag slide
+  on `main`. Now `flex: 1 1 auto`, which is identical when the card is stretched (the body is its
+  one growing item).
+- The first column recipe's `min-content` floor (above).
+
+**The generated anti-patterns slides stay stretched.** Every component gallery ends in a
+"When NOT to reach for X" slide built by `tools/build-component-docs.js` as `cards-stack
+compact`, so the `center` default reached all of them. On `kpi`'s the four cards need more than
+the stage, and the overflow corpus check flagged it as a newly clipped slide. It was already
+broken on `main`: stretched to equal 104px shares, the second card's 223px of text lost
+**121px** with no tag, because no box left the stage. Centered, the overrun moved into the last
+two cards and became visible. These slides are dense prose cards designed to fill the stage, so
+the generator stamps `cards-stretch` on them, which renders every gallery's anti-patterns slide
+exactly as before. The hidden kpi overrun itself is pre-existing content and is logged in
+`followups.d/2317-p3-kpi-anti-patterns-overrun.md`.
+
+**Verified on** the real CLI export (`lattice-emulator.js` → PDF → raster), indaco, at
+1280×720, each component's own gallery rendered five ways — `main`, then the branch with no
+`cards:`, `top`, `center` and `stretch` — light and dark (every gallery carries a `dark`
+slide). `stretch` renders identically to `main` on every row and grid form checked, and the
+default renders identically to `main` wherever the manifest default is the old behavior. The
+stacked forms were rendered at `size: square` and `size: portrait`, where every gallery
+auto-splits one member per page. At portrait those pages are identical to `main` under all four
+values. At square, `stretch` and the default match `main`, but `top`/`center`/`spread` change the
+`q-and-a` and `matrix-2x2` split pages: the lone pair loses the dividing cross `main` drew over
+it, and a lone matrix card fills the page where `main` showed it at half height. Both read as
+improvements, but the split rules do not hold those pages fixed. No gallery overflows on the branch that did not overflow on `main`, at any of the three
+sizes. **The runtime path, verified after the checker.** `test/integration/parity/runtime-cards-align.test.js`
+now renders `test/fixtures/runtime-cards-parity.md` — one slide per governed component and
+variant, a coda slide, an author override and an ungoverned control — through the real
+exporter, strips `data-cards`/`data-cards-coda` from its HTML, boots the shipped
+`dist/lattice-runtime.js` on that exact markup and requires every section back with the
+exporter's stamps (25/25 agree). It fails if the fixture misses a governed component, and it
+walks every catalog component and `byClass` variant against the kernel at all four families.
+Removing `capstone` from `split-panel`'s `byClass` makes it fail with the checker's exact
+signature — exporter `spread`, runtime `stretch`. **And on the real surface.** The same fixture was then loaded into the
+live Playground on the branch's deployed docs preview, in headless Chromium at 1440×900: typed into
+the Studio's source editor, stepped slide by slide through the strip, `data-cards` and
+`data-cards-coda` read off each rendered section in the preview frame. **25/25 match the
+exporter**, capstone included. (The fixture's coda slide clips in both, and identically on
+`main`: four cards plus an insight is more than the stage holds, and the fixture is not in the
+overflow corpus.) **Not verified:** `size: story` (strip) beyond what the square and portrait
+renders imply, and the Marp VS Code webview.

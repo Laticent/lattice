@@ -129,7 +129,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · verdict-grid" -->
 
 ## When NOT to reach for verdict-grid.

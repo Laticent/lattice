@@ -155,11 +155,11 @@ section.cards-stack :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    not flex:1 balloons. Mirrors the list de-balloon; keyed on data-orientation. */
 section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol),
 section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) {
-  justify-content: space-evenly;
+  justify-content: var(--cards-align);
 }
 section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol) > li,
 section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
-  flex: 0 0 auto;
+  flex: var(--cards-grow) 0 auto;
 }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
  * strip (≤1.05) de-balloon the cards to content height and distribute them, keyed
@@ -167,10 +167,10 @@ section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
  * Doubled class matches the [data-orientation]
  * reflow's specificity. */
 section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) {
-  justify-content: space-evenly;
+  justify-content: var(--cards-align);
 }
 section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) > li {
-  flex: 0 0 auto;
+  flex: var(--cards-grow) 0 auto;
 }
 
 
@@ -188,9 +188,23 @@ section.cards-stack .cards-stack-inner {
   padding: var(--elevation-berth);
 }
 
-/* ── `cards:` register (#2317) ── `horizontal` only; the default stack is a column,
- * where the cross axis is width, so the register has nothing to say there. The row wraps so
- * `align-content` applies; the zero-basis cards still share one line. */
+/* ── `cards:` register (#2317) ── the default stack is a COLUMN, which places its cards
+ * along the main axis, so it reads the token as `justify-content`; a card grows only under
+ * `stretch` (`--cards-grow`, from a zero `--cards-basis`, so the stage is shared out equally
+ * as `flex:1` always did); otherwise it sits at its content height (`--cards-basis: auto`) and
+ * still gives way on a stage too full for that. At square, tall
+ * and strip the family rules above read it the same way, and the manifest's `spread` there
+ * is the `space-evenly` they always had.
+ * `horizontal` is a ROW: it wraps so `align-content` applies; the zero-basis cards still
+ * share one line. */
+section.cards-stack:not(.horizontal) > .cell-stage > :is(ul, ol),
+section.cards-stack:not(.horizontal) .cards-stack-inner {
+  justify-content: var(--cards-align);
+}
+section.cards-stack:not(.horizontal):not(:where([data-family="square"], [data-family="tall"], [data-family="strip"], [data-orientation="portrait"], [data-orientation="square"])) > .cell-stage > :is(ul, ol) > li,
+section.cards-stack:not(.horizontal):not(:where([data-family="square"], [data-family="tall"], [data-family="strip"], [data-orientation="portrait"], [data-orientation="square"])) .cards-stack-inner > .card {
+  flex: var(--cards-grow) 1 var(--cards-basis); min-height: 0;
+}
 section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
 section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner {
   flex-wrap: wrap; align-content: var(--cards-align);

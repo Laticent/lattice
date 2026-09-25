@@ -125,7 +125,7 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · split-compare" -->
 
 ## When NOT to reach for split-compare.

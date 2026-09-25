@@ -327,10 +327,18 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) {
   display: flex;
   flex-direction: row;   /* override the base column stream — the quadrant tiles in rows */
   flex-wrap: wrap;
-  align-content: stretch;
+  /* The rows sit where the `cards:` register puts them (#2317); the manifest declares
+   * `stretch`, the full quadrant this always was. The cells' own sizing and the cross
+   * below follow `--cards-grow`. */
+  align-content: var(--cards-align);
   gap: var(--sp-xl) var(--sp-2xl);
   position: relative;
 }
+/* The dividing cross marks the quadrant's middle. When the cells pack (center/top/spread)
+ * there is no quadrant — the middle of the list is no longer between the rows — so the
+ * cross draws only under `stretch`. */
+section.q-and-a.grid > .cell-stage > :is(ul, ol)::before,
+section.q-and-a.grid > .cell-stage > :is(ul, ol)::after { opacity: var(--cards-grow); }
 section.q-and-a.grid > .cell-stage > :is(ul, ol)::before {
   content: "";
   position: absolute;
@@ -354,7 +362,11 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol)::after {
 section.q-and-a.grid > .cell-stage > :is(ul, ol) > li {
   box-sizing: border-box;
   width: calc(50% - var(--sp-2xl) / 2);
-  height: calc(50% - var(--sp-xl) / 2);
+  /* Exactly half the list under `stretch` (min and max meet), its own content otherwise —
+   * the matrix-2x2 recipe. */
+  height: auto;
+  min-height: calc(var(--cards-grow) * (50% - var(--sp-xl) / 2));
+  max-height: calc(50% - var(--sp-xl) / 2 + (1 - var(--cards-grow)) * 10000px);
   /* a COLUMN, so the ledger's index column becomes a numeral sitting directly over its
    * own question — it was an absolutely-positioned mark in a gutter the quadrant cell
    * never uses, stranded up to 42px above the question it belongs to. */
@@ -397,6 +409,9 @@ section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > str
   justify-content: flex-start;
   width: auto;
   height: auto;
+  /* …and the quadrant cell's `cards:` half-height pin (the grid rule above). */
+  min-height: 0;
+  max-height: none;
   padding-left: var(--sp-xs);
 }
 section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li::before {
@@ -472,12 +487,12 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: var(--cards-align);
   align-items: stretch;
   gap: var(--sp-lg);
 }
 /* release the quadrant cell sizing — natural-height pairs in the single column. */
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before,
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::after { display: none; }
 /* rail columns → the ledger's hanging-index block so Q and A stack legibly. */

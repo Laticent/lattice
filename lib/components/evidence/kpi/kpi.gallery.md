@@ -223,7 +223,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · kpi" -->
 
 ## When NOT to reach for kpi.

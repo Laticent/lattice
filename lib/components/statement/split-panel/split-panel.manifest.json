@@ -1,6 +1,14 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "split-panel",
+  "cards": {
+    "default": "spread",
+    "byClass": {
+      "capstone": "stretch",
+      "proof": "stretch"
+    },
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "reflow",
     "priority": [

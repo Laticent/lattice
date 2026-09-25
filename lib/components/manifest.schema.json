@@ -921,7 +921,19 @@
             "top",
             "spread"
           ],
-          "description": "The composition to use when the slide ends in a CODA (a key-insight or below-note panel). `--coda-step` is measured from the stage, so shrinking the cards adds the freed height to that step and the panel stops reading as a comment on the cards above it. Overrides `default` and `byFamily`."
+          "description": "The composition to use when the slide ends in a CODA (a key-insight or below-note panel). `--coda-step` is measured from the stage, so shrinking the cards adds the freed height to that step and the panel stops reading as a comment on the cards above it. Overrides `default`, `byFamily` and `byClass`."
+        },
+        "byClass": {
+          "type": "object",
+          "description": "Per-VARIANT overrides, keyed by a class on the slide, for a component whose variants are different shapes. split-panel's `proof` fills its evidence column with equal cards (`stretch`) while its plain evidence list spreads its items (`spread`). Beats `byFamily` and `default`; `withCoda` and every author override beat it. Keys are checked in sorted order.",
+          "additionalProperties": {
+            "enum": [
+              "center",
+              "stretch",
+              "top",
+              "spread"
+            ]
+          }
         }
       }
     },

@@ -161,6 +161,20 @@ describe('resolve-cards', () => {
     assert.equal(resolveCardsAlign({ classes: ['cards-grid'], family: 'tall', hasCoda: true }), 'stretch');
   });
 
+  test('byClass beats byFamily and default, and withCoda and the author beat it', () => {
+    // split-panel: the plain evidence list spreads its items; a `proof` fills its column.
+    assert.equal(resolveCardsAlign({ classes: ['split-panel'] }), 'spread');
+    assert.equal(resolveCardsAlign({ classes: ['split-panel', 'proof'] }), 'stretch');
+    assert.equal(resolveCardsAlign({ classes: ['split-panel', 'proof'], family: 'tall' }), 'stretch');
+    // The engine adds `proof` to a capstone slide only AFTER the exporter stamps it, while the
+    // runtime re-stamps from the final class list: both must land on the same answer (#1).
+    assert.equal(resolveCardsAlign({ classes: ['split-panel', 'capstone'] }),
+      resolveCardsAlign({ classes: ['split-panel', 'capstone', 'proof'] }));
+    assert.equal(resolveCardsAlign({ classes: ['split-panel', 'proof', 'cards-top'] }), 'top');
+    assert.equal(componentCardsAlign('split-panel', { classes: ['proof'] }), 'stretch');
+    assert.equal(componentCardsAlign('split-panel', {}), 'spread', 'no classes → no byClass');
+  });
+
   test('an absent family reads as wide, which is how the engine stamps it', () => {
     assert.equal(resolveCardsAlign({ classes: ['cards-grid'] }),
       resolveCardsAlign({ classes: ['cards-grid'], family: 'wide' }));
@@ -213,6 +227,10 @@ describe('resolve-cards', () => {
     for (const [name, entry] of Object.entries(CATALOG)) {
       assert.equal(entry.default, fromManifests[name].default, `${name} default drifted from its manifest`);
       assert.equal(entry.withCoda, fromManifests[name].withCoda, `${name} withCoda drifted`);
+      assert.deepEqual(entry.byClass || {}, fromManifests[name].byClass || {}, `${name} byClass drifted`);
+      for (const [cls, v] of Object.entries(entry.byClass || {})) {
+        assert.ok(CARDS_NAMES.includes(v), `${name}.byClass.${cls} value`);
+      }
     }
   });
 
@@ -262,7 +280,9 @@ describe('resolve-cards', () => {
       // below. So find the RULES that read the token and require each to be anchored on this
       // component's own section — which is the only selector shape that can reach its cards.
       const anchor = new RegExp(`(^|[\\s,>+~])section\\.${name}(?![\\w-])`);
-      const reading = cssRules(css).filter((r) => /align-content:\s*var\(\s*--cards-align\s*\)/.test(r.body));
+      // A ROW or GRID reads it as `align-content`; a flex COLUMN places its cards along the main
+      // axis, so it reads the same token as `justify-content` (decision note §13).
+      const reading = cssRules(css).filter((r) => /(align|justify)-content:\s*var\(\s*--cards-align\s*\)/.test(r.body));
       assert.ok(reading.length > 0,
         `${name} declares a cards composition its CSS never reads — the declaration is a no-op`);
       for (const r of reading) {
@@ -287,6 +307,15 @@ describe('resolve-cards', () => {
         `data-cards="${n}" must set --cards-grow: ${grow}`);
       assert.match(bare, new RegExp(`section\\[data-cards-coda="${n}"\\][^{]*\\{[^}]*--cards-grow:\\s*${grow};`),
         `the coda arm must set --cards-grow: ${grow} for ${n}`);
+      // …and so does the equal-rows grid's track keyword (split-panel proof).
+      const track = n === 'stretch' ? '1fr' : 'auto';
+      const basis = n === 'stretch' ? '0%' : 'auto';
+      for (const attr of ['data-cards', 'data-cards-coda']) {
+        assert.match(bare, new RegExp(`section\\[${attr}="${n}"\\][^{]*\\{[^}]*--cards-track:\\s*${track};`),
+          `${attr}="${n}" must set --cards-track: ${track}`);
+        assert.match(bare, new RegExp(`section\\[${attr}="${n}"\\][^{]*\\{[^}]*--cards-basis:\\s*${basis};`),
+          `${attr}="${n}" must set --cards-basis: ${basis}`);
+      }
     }
     const rootDefaults = (bare.match(/:root[^{]*\{[^}]*\}/g) || []).filter((b) => /--cards-align\s*:/.test(b));
     assert.deepEqual(rootDefaults, [], 'a :root default would override every component declaration');

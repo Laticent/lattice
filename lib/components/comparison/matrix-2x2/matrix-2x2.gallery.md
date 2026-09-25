@@ -125,7 +125,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · matrix-2x2" -->
 
 ## When NOT to reach for matrix-2x2.

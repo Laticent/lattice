@@ -54,7 +54,11 @@ section.team-profile > .cell-stage > ul.team-roster {
   flex-wrap: wrap;
   column-gap: var(--person-col-gap);
   row-gap: var(--person-row-gap);
-  align-content: center;
+  /* Rows of portraits sit where the `cards:` register puts them (#2317); the manifest's
+   * `center` is the centered cluster this always was. A portrait keeps its natural height
+   * (`align-items: start`), so `stretch` hands the spare height to the rows' tracks and
+   * each row of portraits starts at the top of its share. */
+  align-content: var(--cards-align);
   justify-content: center;
   align-items: start;
 }
@@ -360,7 +364,7 @@ section.team-profile.lead > .cell-stage {
 }
 
 section.team-profile.lead > .cell-stage > ul.team-roster {
-  align-content: center;
+  align-content: var(--cards-align);
   row-gap: var(--sp-xl);
 }
 

@@ -148,7 +148,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · cards-grid" -->
 
 ## When NOT to reach for cards-grid.

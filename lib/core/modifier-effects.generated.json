@@ -19,7 +19,12 @@
     "agenda": {
       "surfaces": [
         "heading"
-      ]
+      ],
+      "variants": {
+        "cards": [
+          "card-row"
+        ]
+      }
     },
     "authority-chain": {
       "surfaces": [
@@ -73,6 +78,7 @@
     },
     "citation-card": {
       "surfaces": [
+        "card-row",
         "card-surface",
         "eyebrow",
         "heading"
@@ -130,6 +136,7 @@
     },
     "decision": {
       "surfaces": [
+        "card-row",
         "card-surface",
         "heading"
       ]
@@ -188,6 +195,7 @@
       ],
       "variants": {
         "cards": [
+          "card-row",
           "card-surface"
         ]
       }
@@ -265,6 +273,7 @@
     },
     "matrix-2x2": {
       "surfaces": [
+        "card-row",
         "card-surface",
         "heading"
       ]
@@ -306,6 +315,7 @@
     "pricing": {
       "surfaces": [
         "card-rail",
+        "card-row",
         "card-surface",
         "heading"
       ]
@@ -320,7 +330,12 @@
       "surfaces": [
         "eyebrow",
         "heading"
-      ]
+      ],
+      "variants": {
+        "grid": [
+          "card-row"
+        ]
+      }
     },
     "quadrant": {
       "surfaces": [
@@ -352,6 +367,7 @@
     },
     "regulatory-update": {
       "surfaces": [
+        "card-row",
         "card-surface",
         "eyebrow",
         "heading"
@@ -388,6 +404,7 @@
     },
     "split-compare": {
       "surfaces": [
+        "card-row",
         "card-surface"
       ],
       "inert": [
@@ -397,7 +414,9 @@
       ]
     },
     "split-panel": {
-      "surfaces": [],
+      "surfaces": [
+        "card-row"
+      ],
       "inert": [
         "eyebrow",
         "heading"
@@ -435,6 +454,7 @@
     },
     "statute-stack": {
       "surfaces": [
+        "card-row",
         "card-surface",
         "heading"
       ]
@@ -447,6 +467,7 @@
     },
     "team-profile": {
       "surfaces": [
+        "card-row",
         "eyebrow",
         "heading"
       ]

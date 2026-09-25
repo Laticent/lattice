@@ -162,7 +162,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · logo-wall" -->
 
 ## When NOT to reach for logo-wall.

@@ -1,6 +1,14 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "q-and-a",
+  "cards": {
+    "default": "stretch",
+    "byFamily": {
+      "tall": "center",
+      "strip": "center"
+    },
+    "withCoda": "stretch"
+  },
   "focusAxes": [
     "item"
   ],

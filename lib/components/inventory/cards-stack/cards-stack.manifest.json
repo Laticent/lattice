@@ -19,6 +19,11 @@
   },
   "cards": {
     "default": "center",
+    "byFamily": {
+      "square": "spread",
+      "tall": "spread",
+      "strip": "spread"
+    },
     "withCoda": "stretch"
   },
   "density": {

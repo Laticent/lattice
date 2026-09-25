@@ -172,7 +172,7 @@ return signals;
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · compare-code" -->
 
 ## When NOT to reach for compare-code.

@@ -72,6 +72,18 @@ section.statute-stack > .cell-stage > ol > li {
   line-height:var(--lh-base);
   font-weight:400;
 }
+/* ── `cards:` register (#2317) ── the default three-rail form only; hierarchy, bands,
+ * preemption and lane are their own compositions. At wide the rails are a ROW: it wraps so
+ * `align-content` applies, and the zero-basis rails still share one line and stay equal
+ * height (`align-items` stretches them to the line). At square/tall/strip the rails stack
+ * into a COLUMN (below) and the register reads there as `justify-content`; the manifest's
+ * `spread` at those families is the `space-evenly` the column always had. */
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) {
+  flex-wrap: wrap; align-content: var(--cards-align);
+}
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li {
+  max-height: 100%; box-sizing: border-box;
+}
 section.statute-stack > .cell-stage > ul > li::marker,
 section.statute-stack > .cell-stage > ol > li::marker { content:''; }
 /* Three-jurisdiction hue rotation. Federal = warm cobalt, State = warm
@@ -399,12 +411,12 @@ section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption)
 section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   /* portrait → single column of content-height cards, evenly distributed (flex mirror
      of `grid-auto-rows:auto; align-content:space-evenly`). */
-  flex-direction: column;
-  justify-content: space-evenly;
+  flex-direction: column; flex-wrap: nowrap;
+  justify-content: var(--cards-align);
 }
 section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
 section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
-  flex: 0 0 auto;
+  flex: var(--cards-grow) 0 auto;
 }
 /* Header-pill authoring already carries the citation + status on the label row, so the
    portrait card needs no pill-lift — just breathing room between that row and the gloss. */

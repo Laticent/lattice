@@ -1563,16 +1563,22 @@ section.flat {
  * one-line row with its full air), so they sit at a comfortable height and compress on a full
  * stage, and a capped track is not an `auto` track, which `align-content: stretch` stretches.
  * `--cards-grow` (1 only under `stretch`) lifts that ceiling, and it is set by the same eight
- * rules so the two can never disagree. A row form ignores it.
- * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10 and §12. */
-section[data-cards="center"]  { --cards-align: center;       --cards-grow: 0; }
-section[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
-section[data-cards="top"]     { --cards-align: flex-start;   --cards-grow: 0; }
-section[data-cards="spread"]  { --cards-align: space-evenly; --cards-grow: 0; }
-section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center;       --cards-grow: 0; }
-section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
-section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start;   --cards-grow: 0; }
-section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; --cards-grow: 0; }
+ * rules so the two can never disagree. A row form ignores it. A flex COLUMN (cards-stack,
+ * decision at tall) reads the same token as `justify-content` and grows each card by
+ * `--cards-grow` from a basis of `--cards-basis`: `0%` under `stretch`, where the cards share
+ * the stage equally exactly as `flex: 1` always did, and `auto` otherwise, so a card sits at
+ * its content height and, on a stage too full for that, still gives way as it did before. A grid whose EQUAL rows are its
+ * design (split-panel `proof`) needs a track keyword rather than a number, `--cards-track`:
+ * `1fr` under `stretch`, `auto` otherwise.
+ * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10, §12 and §13. */
+section[data-cards="center"]  { --cards-align: center;       --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
+section[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; --cards-track: 1fr;  --cards-basis: 0%; }
+section[data-cards="top"]     { --cards-align: flex-start;   --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
+section[data-cards="spread"]  { --cards-align: space-evenly; --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
+section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center;       --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
+section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; --cards-track: 1fr;  --cards-basis: 0%; }
+section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start;   --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
+section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
 
 /* ── Split-page RUNHEAD register — one setting, seven consumers ───────────────────────
  * The runhead is the mark that names the slide a split page came from

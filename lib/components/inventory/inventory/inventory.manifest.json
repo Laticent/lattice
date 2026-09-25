@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "inventory",
+  "cards": {
+    "default": "center"
+  },
   "focusAxes": [
     "item"
   ],

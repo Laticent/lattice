@@ -91,7 +91,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · table" -->
 
 ## When NOT to reach for table.
