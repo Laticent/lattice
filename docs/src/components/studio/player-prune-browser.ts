@@ -52,7 +52,9 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 		}
 		if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
 	}
-	const bases = target && target.css.length >= 50000 ? collectBaseSelectors(target.css) : [];
+	// `legacyPseudoElements`: the Studio's engine bundle ships `lattice.css` minified, which
+	// writes `::before` as `:before`. The CLI twin opts in for the same reason.
+	const bases = target && target.css.length >= 50000 ? collectBaseSelectors(target.css, { legacyPseudoElements: true }) : [];
 	if (!bases.length && !fontBlock) return { html: playerHtml, applied: false };
 
 	// Mount the player in an offscreen, laid-out (not display:none, or fonts never load)
@@ -122,7 +124,7 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 					usedSet.add(s); // an invalid selector for querySelector → keep (conservative)
 				}
 			}
-			const pruned = prunePlayerCss(target.css, (b: string) => usedSet.has(b)) as typeof cssResult;
+			const pruned = prunePlayerCss(target.css, (b: string) => usedSet.has(b), { legacyPseudoElements: true }) as typeof cssResult;
 			cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { css: '', applied: false, totalRules: 0, keptRules: 0 };
 		}
 

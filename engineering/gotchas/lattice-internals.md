@@ -487,6 +487,15 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   rendering through `lattice-emulator.js`.
 - **Removable when:** The emulator switches to a real Marpit/Marp
   engine. Tracked separately.
+- **Since the CLI ships the engine's flat sheet (2026-09-25):** the palette's
+  `:root` tokens are declared on every slide as well as at the root, so an
+  author `:root{--token:…}` at the root alone would lose on the slide.
+  `packAuthorCss` (`lib/export/cli-deck-sheet.js`) keeps the `style:` block and
+  every top-level `<style>` as written and copies their `:root` custom
+  properties onto the slides after the sheet. `color-scheme` and other plain
+  properties stay at the root, where `a11y-base`'s `:root:root` pin outranks
+  them. A bare `section{--token:…}` override loses to a palette `:root` token,
+  as it does in Marp and every other host: write it at `:root` or on a class.
 - **Commits:** `6276665`.
 
 ## Mermaid diagrams render at HD size inside 4K slides in VS Code preview

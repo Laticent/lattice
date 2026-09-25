@@ -1,13 +1,13 @@
 ---
 status: in-progress
-summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decides on its own how the deck's stylesheet reaches it, and there are five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. Proposal — the engine owns style delivery as three named modes (scoped, flat, baked), every surface asks for one by name, and `check:render` renders every mode instead of only the preview's. Step 1, the gate, is built (§5.1): it compares 7,218 Read · Article and 5,964 baked element pairs per run and would have failed #2344 with 309 distinct losses. The modes and the Reading view are not built; four forks go to the owner (§7).
+summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decided on its own how the deck's stylesheet reached it, and there were five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. The engine now owns style delivery as three named modes (scoped, flat, baked), every host asks for one by name (§4.1), and `check:render` renders every mode. Steps 1–3 shipped in #2344 and #2366; step 4, the CLI onto the flat sheet, is built (§8.3) and waits on the owner's export sign-off.
 ---
 
 # One style-delivery spine — every surface gets the deck's CSS the same way
 
-> **In progress.** Step 1 of §8, the gate, is built (§5.1), in #2344 at the owner's
-> request. #2344 also fixed one instance and added the `flat` mode this note builds on.
-> Steps 2–4 are not built. §7 lists the four decisions that are the owner's.
+> **In progress.** Steps 1–3 of §8 shipped: the gate (§5.1, #2344), the named modes and the
+> Reading view (§4.1, §8.1, #2366). Step 4, the CLI export onto the flat sheet, is built
+> (§8.3) and waits on the owner's export sign-off. §4.1 is the host table.
 
 ## 1. The symptom
 
@@ -105,7 +105,7 @@ a row here and asks for its mode by name; it does not invent a shape.
 | `check:render` baked pass | `baked` | `bakeSvg(svg, win, { freezeTokens })` (`tools/check-viz-render.js`) |
 | Chart "download as SVG" (Studio + `tools/export-chart-svg.js`) | `baked`, to a file | `flattenSvgStyles(…, { collectTokens: true })` + `finalizeStandaloneSvg`; a file takes its tokens in its own `<style>`, not on an element |
 | Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')`, then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |
-| CLI PDF/PNG/HTML/`--player` | *(as written today; fork 3: `flat`)* | step 4 |
+| CLI PDF/PNG/HTML/`--player` | `flat`, wrapper stripped, covered faces dropped | `cliDeckSheet(cliThemeStore(layout, palettes), { theme, sizeName, covered })` (`lib/export/cli-deck-sheet.js`), shared with `tools/palette-sweep.js` (§8.3) |
 
 `render()` throws on an unknown `styles` name, and on `'baked'` it names `bakeSvg`
 instead. A silent fallback to `scoped` is how #2344 shipped black charts, so an
@@ -275,7 +275,69 @@ below are kept as they were put.
    `followups.d/2344-p1-studio-reading-view-charts-render-black.md`. **Done (§8.1).**
 4. **The CLI** (fork 3), with export sign-off. It also carries the player prune's one-colon
    fix (§8.1), which changes export bytes for the same reason. **Measured, and paused
-   (§8.2).** The owner asked for the one divergence it found to be fixed first.
+   (§8.2).** The owner asked for the one divergence it found to be fixed first. #2366 shipped
+   that fix. **Built (§8.3)**, waiting on the owner's export sign-off.
+
+### 8.3 What step 4 built (2026-09-25)
+
+- **The sheet.** `lib/export/cli-deck-sheet.js` is the one builder. `cliThemeStore` registers
+  the layout sheet (imports flattened) as `lattice` and each palette in the chain by name.
+  `cliDeckSheet` asks that store for `cssFor(theme, size, { flat: true })`, unwraps it, and
+  drops the faces the document supplies another way (`dropCoveredSheetFaces`, the engine's
+  base64 block and KaTeX's `<link>`). A caller's `--css` sheet registers as `lattice` too: the CLI
+  treats it as the layout engine, and `composeCss` inlines the base only under that name. A
+  palette that imports no theme at all (an installed package may omit `@import 'lattice'`) gets
+  the import, because the unpacked CLI always had the layout sheet under the palette.
+- **Unwrapped, not stripped.** The Studio's Webpage player deletes `article.lattice > `, which
+  turns "a slide" into "any section": a `<section>` an author nests in a slide took the 1280×720
+  box and the light tokens, and clipped. The CLI rewrites the prefix to
+  `section:where(:not(section *))`, the same specificity as plain `section`, matching top-level
+  slides only. The Studio player still strips (followup).
+- **The deck's own CSS keeps working.** A red team, an inversion pass and the checker each found
+  it: the flat sheet declares every palette `:root` token on the slides too, so an author's
+  `style: ":root{--accent:…}"`, or the same in a body `<style>`, reached `<html>` and lost on
+  every slide. `packAuthorCss` keeps the author's CSS as written and appends a copy of its `:root`
+  custom properties packed onto the slides. Only `--*` is copied: `a11y-base` pins
+  `color-scheme: light` at `:root:root` to outrank a deck's `:root{color-scheme:dark}`, and a
+  slide-level copy of that turned the a11y palettes' white canvas black. What still differs: a
+  bare `section{--accent:…}` override loses to a palette `:root` token, as in Marp and every
+  other host. It is in the changelog as breaking.
+- **One owner for geometry.** The emulator stopped emitting its own `geometryVarsCss` and
+  `orientationCss`. `composeCss` appends both for the same `resolveSize(deckSizeName)`.
+- **The unpacked sheet stays for the token readers.** `PALETTE_VARS` and the look's scratch
+  document parse `:root` blocks as text, which the pack would hide behind rewritten selectors.
+  They read the same bytes as before.
+- **The sweep swaps the whole sheet.** The pack inlines the base at the palette's
+  `@import 'lattice'` and strips every comment, so no palette-only span is left to splice. The
+  sentinels (`lib/core/export-shell-marks.js`) now bracket the whole sheet, and the start mark
+  names the deck's size. `tools/palette-sweep.js` composes each palette's replacement with the
+  same builder, so the bytes it measures are the bytes the CLI writes for that palette.
+  `palette-cascade-order.test.js` pins that equality on a real render. Its vacuity guard
+  now swaps in a sheet composed with the base AFTER the palette, rather than cutting and
+  pasting two banner-delimited spans.
+- **Both player prunes read one-colon pseudo-elements** (§8.1). The CLI's and the Studio's
+  (`player-prune-browser.ts`) pass `legacyPseudoElements`. The computed-style gate behind each
+  prune is unchanged, so a wrong prune still falls back to the full sheet.
+- **The engine's comment stripper is quote-aware.** `composeCss` read a `/*` inside a CSS string
+  as an opener, so a custom `--css` sheet with `content: "/*"` lost every rule after it. It now
+  uses `stripCssComments`, byte-identical on `dist/lattice.css` and every shipped theme.
+- **What it measured.**
+  - `npm run regress`, base against branch: 443 targets (every gallery and committed deck, light and dark),
+    identical verdicts: 73 drift against their goldens in both runs, on the same pages, because
+    those goldens are stale on `main` (followups.d/2317-p2). Two targets moved below the
+    tolerance, both the page number on a print slide: `print-mode` (0.02143 → 0.02148 of the
+    page) and `finish-canvas-print-face` (0 → 0.00005).
+  - Direct base-against-branch renders, every page pixel-diffed: the 117-slide gallery 0 of 116
+    pages; `board-update` light and dark 0 of 12 each; `accent-finishes` 0; `print-mode` one
+    page, the page number (slate → print gray); `finish-canvas-print-face` its print-face page
+    numbers, for the same reason.
+  - Author CSS, computed on the slide, base → branch: `style: ":root{--accent;--bg}"` and the
+    same in a body `<style>` paint as before; `:root{color-scheme:dark}` as before on indaco and
+    on `a11y-base` (stays light); bare `section{--accent}` now loses (the breaking line).
+  - Cost: composing the sheet is about 100 ms per export; the gallery render went 9.36 s →
+    9.67–9.81 s on a loaded 4-core box. The `--player` export of `print-mode` grew 624,571 →
+    657,371 bytes (+5.3%): the flat arms double some selectors. The HTML sidecar shrank 45%,
+    because the composed sheet carries no comments.
 
 ### 8.2 What step 4 measured, and the fix it needed first (2026-09-25)
 

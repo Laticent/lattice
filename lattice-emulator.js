@@ -805,7 +805,8 @@ const {
   withPrintColorMode, deckColorModeToken, classTokens, readFrontMatterColorMode,
 } = require('./lib/core/resolve-color-mode');
 const { frontMatterValue } = require('./lib/core/front-matter-key');
-const { PALETTE_END_MARK } = require('./lib/core/export-shell-marks');
+const { sheetStartMark, SHEET_END_MARK } = require('./lib/core/export-shell-marks');
+const { cliThemeStore, cliDeckSheet, katexFamilies, packAuthorCss, packInlineStyles } = require('./lib/export/cli-deck-sheet');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
 const md = WANT_PRINT ? withPrintColorMode(mdRaw) : mdRaw;
 
@@ -898,7 +899,7 @@ const { resolveDiagramLook, resolveDiagramHandType, paletteUsesTextureChannel } 
 // the other font plumbing further down, these were in the TDZ when `warnOnUnloadedFaces`
 // fired — the same trap `escAttrLocal` documents a few hundred lines below, and it
 // surfaced the same way: a misleading "Mermaid render failed" for a bug in our own code.
-const { fontFaceCss, emittedFamilies, scanFontFaceRules, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { TEXT_FACES } = require('./lib/fonts/text-faces.js');
 // THE diagram render kernel — it walks the deck and calls this path back (#1332
 // step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
@@ -1117,13 +1118,7 @@ const layoutCSSLinked = flattenCssImports(cssFile, {
 // throw at module scope kills every CLI invocation before an argument is even validated.
 // `lib/export/html-player.js` wraps this exact read for this exact reason; matched here.
 // Losing the list is safe — the sheet's KaTeX faces then stay in place, inert, as before.
-const KATEX_FAMILIES = (() => {
-  if (!katexCssAbsPath) return [];
-  try {
-    return [...new Set(scanFontFaceRules(fs.readFileSync(katexCssAbsPath, 'utf8'))
-      .map((r) => r.family).filter(Boolean))];
-  } catch (_e) { return []; }
-})();
+const KATEX_FAMILIES = katexFamilies(katexCssAbsPath);
 // THE FACES THE BASE64 BLOCK ACTUALLY EMITS, not the families the manifest lists.
 // `fontFaceCss` skips any face whose woff2 is missing from disk, so a `covered` list built
 // from `TEXT_FACES` alone could claim a family the block does not in fact supply — and this
@@ -1136,10 +1131,11 @@ const KATEX_FAMILIES = (() => {
 // (Second HARD RULE #25 checker; see the PR's ## Performance section.)
 const embeddedFaceCss = fontFaceCss(PKG_ROOT);
 const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
+// A family is COVERED when this document supplies it another way: the engine's own
+// faces via the base64 block, KaTeX's via the `<link>`.
+const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
-  // A family is COVERED when this document supplies it another way: the engine's own
-  // faces via the base64 block, KaTeX's via the `<link>`.
-  covered: [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES],
+  covered: COVERED_FAMILIES,
   // SECOND-OPINION EVERY SPAN WITH css-tree — but only for a sheet we have not already
   // pinned. The bundled `dist/lattice.css` is fixed bytes whose exact drop behavior is
   // asserted at build time by that same oracle (`inlined-sheet-faces.test.js`: 37 rules
@@ -1158,28 +1154,26 @@ if (inlinedFaces.refused && !QUIET) {
     + ' otherwise unaffected. Please report the stylesheet that triggered this.');
 }
 const layoutCSS = inlinedFaces.css;
-// THE CASCADE, in the order every theme declares it (#1527). The engine sheet
-// FIRST, the palette chain LAST, so a palette's `:root` beats the base's at equal
-// specificity — which is exactly what `@import 'lattice';` at the top of every
-// theme file means, and what `loadPaletteWithImports` strips out before we get here.
+// THE DECK SHEET IS THE ENGINE'S FLAT SHEET (one-style-delivery spine §8 step 4).
 //
-// This file held the opposite order for the whole life of the export path, and it was
-// the ONLY one of four sites that did: the Mermaid token reader below parses
-// `layoutCSS + paletteCSS` and cites the `@import` rationale in as many words,
-// `engine.addThemes` hands the layout first, and `lib/engine`'s `composeCss` inlines
-// the base AT the theme's own `@import` position. So a deck looked one way in the
-// Playground and another in the PDF it exported, on all 32 themes — 925 palette
-// declarations across 37 tokens resolved to the base's value on this path and painted
-// nothing the palette's author wrote. Measured, swept and signed off across every theme
-// in both modes before it moved: engineering/decisions/2026-08-10-palette-concat-order.md,
-// 2026-08-11-palette-concat-signoff.md, 2026-08-24-palette-cascade-flip.md.
+// This path used to inline `layoutCSS + paletteCSS` UNPACKED — the one host whose CSS the
+// engine did not produce. The order was already right (#1527: the engine sheet first, the
+// palette last, what every theme's `@import 'lattice';` declares), but the SHAPE was not:
+// unpacked, a `:root` token resolves once at the document root, while every other host
+// ships the engine's pack, where `:root` also lands on each slide and a derived token
+// follows the slide's own overrides. `print-mode`'s page number is the slide that showed
+// it — it takes `var(--text-muted)`, print re-inks that on the slide, and only the pack
+// follows. Now the CLI asks the engine for the same `flat` sheet the Studio's Webpage
+// player ships, through ONE builder shared with `tools/palette-sweep.js`
+// (lib/export/cli-deck-sheet.js). The layout sheet goes in with its imports flattened and
+// its covered faces are dropped from the composed result, as before.
+// engineering/decisions/2026-09-24-one-style-delivery-spine.md §4.1, §8.2.
 //
-// PALETTE_END_MARK closes the palette region for `tools/palette-sweep.js`, which
-// overwrites that exact byte range in a rendered deck to re-theme it in place. Before
-// the flip the region was bounded by the two sheets' own opening banners; with the
-// palette last there is no banner after it, and a sweep that guessed the end would be
-// measuring a hybrid. The sentinel is emitted here, beside the concat it describes.
-const css = layoutCSS + '\n' + paletteCSS + '\n' + PALETTE_END_MARK + '\n';
+// `layoutCSS` above (unpacked, faces dropped) stays for the TOKEN READERS below — they
+// parse `:root` blocks as text, which the pack would hide behind its rewritten selectors.
+const CLI_THEMES = cliThemeStore(layoutCSSLinked, paletteChain.map((n, i) => ({
+  name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`),
+})));
 
 // ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
 // This file used to carry four hand-written copies of "match the front matter" and three of
@@ -1898,7 +1892,7 @@ function renderMermaid(definition, mode, look, hand = false) {
 // (`renderMermaidOne`).
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
-const { resolveSize, orientationFor, orientationCss, geometryVarsCss } = require('./lib/engine/css');
+const { resolveSize, orientationFor } = require('./lib/engine/css');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // The one pattern that says "this is a Mermaid fence", shared with the narrator (#1).
 const { matchMermaidFences } = require('./lib/core/mermaid-fences');
@@ -2296,7 +2290,7 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // `size:` directive through the engine's own `resolveSize`, the same lookup the
 // scaffold bakes into `@page`. It reads the engine's size REGISTRY
 // (lib/engine/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
-// (resolveSize / orientationCss required above, before preprocessMermaid.)
+// (resolveSize required above, before preprocessMermaid.)
 const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
 const _geom          = resolveSize(deckSizeName);
 const slideW         = parseFloat(_geom.width);
@@ -2326,19 +2320,10 @@ const slideH         = parseFloat(_geom.height);
 // lib/engine/css.js orientationFor): `familyFor(NaN)` falls through every band and returns
 // 'strip', the opposite verdict from the 'wide' those two produce for the same degenerate box.
 const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').splitApplies(slideW, slideH);
-// Orientation scaling/fill (social/mobile portrait + square @sizes). Empty for
-// landscape, so the HD/4K PDF is byte-identical. Same helper the engine
-// scaffold + runtime use, so every render path agrees.
-const orientationStyle = orientationCss(_geom);
-// The slide's own 1%, emitted from the SAME geometry the page box uses (one
-// helper, shared with the engine scaffold — HARD RULE #1). Without it the export
-// left `--_sec-1cqi` unset, so every token written as `calc(N * var(--_sec-1cqi,
-// 1cqi))` fell back to a bare `cq*`: the section's own properties resolved
-// against the ICB (right only because the PDF viewport IS the slide, wrong the
-// moment a human opens the HTML sidecar at any other size) and stage descendants
-// resolved against the section's CONTENT box, rendering ~11% smaller than the
-// token coefficients are defined for. See lib/engine/css.js geometryVarsCss.
-const geometryStyle = geometryVarsCss(_geom);
+// Orientation scaling/fill and the slide's own 1% (`--_sec-1cqi`) used to be emitted HERE,
+// beside the deck sheet. The engine's flat sheet now carries both for `deckSizeName`
+// (composeCss appends `geometryVarsCss` + `orientationCss` from the same `resolveSize`), so
+// the export takes them from the ONE owner instead of emitting a second copy.
 // Deck-wide `style:` directive — Marp injects this CSS verbatim into the
 // rendered output. Authors use it for ad-hoc overrides like
 // `style: ":root{color-scheme:dark}"` without needing a custom theme.
@@ -2361,7 +2346,10 @@ function readGlobalStyle(fmText) {
   }
   return '';
 }
-const globalStyle = readGlobalStyle(fm);
+// The deck's own CSS gets its `:root` arms written onto the slides too, where the flat deck
+// sheet declares the palette's tokens; otherwise a `style: ":root{--accent:…}"` override lands
+// on <html> alone and every slide shadows it (lib/export/cli-deck-sheet.js `packAuthorCss`).
+const globalStyle = packAuthorCss(readGlobalStyle(fm));
 
 // `![bg …]` half-canvas image handling — the engine path uses liftBgImages
 // (markdown pre-pass) + wrapImageText (HTML post-pass) to reproduce the
@@ -2880,7 +2868,9 @@ const highlightedSlides = slidesWithNotes.map(s => applyHighlighting(s));
 //
 // One injector, one call site. Nothing to re-run post-stamp, because nothing in the
 // logo path reads `data-lattice-slide` any more.
-const slidesWithMeta2 = highlightedSlides.join('\n');
+// Top-level `<style>` blocks in the deck body get the same `:root` treatment as `style:`
+// above; a `<style>` inside an `<svg>` (Mermaid's) is left as written (`packInlineStyles`).
+const slidesWithMeta2 = packInlineStyles(highlightedSlides.join('\n'));
 // `data-lattice-slide-bake` USED TO BE STAMPED HERE, and its removal is the
 // acceptance test #1332 set for the inversion above: "a correct fix should let us
 // DELETE the reconciliation devices, not accumulate more."
@@ -3054,15 +3044,26 @@ const deckTitle =
 // The page's single deck `<style>`, assembled as ONE string so the whole element body
 // goes through `sanitizeStyleText` at the point it is embedded, rather than each
 // caller-influenced piece being remembered separately. Three of the pieces below are
-// caller-supplied — `css` (the palette chain + the `--css` layout sheet) and
-// `globalStyle` (the deck's own front-matter `style:` block) — and a `</style>` in any
-// of them ends the element for the parser, comment or no comment (HARD RULE #22).
+// caller-supplied — the deck sheet (composed from the palette chain + the `--css` layout
+// sheet) and `globalStyle` (the deck's own front-matter `style:` block) — and a `</style>`
+// in any of them ends the element for the parser, comment or no comment (HARD RULE #22).
+//
+// The deck sheet already carries the slide geometry tokens and the orientation CSS for
+// `deckSizeName` (composeCss appends both), so this string does not emit them a second
+// time. The sentinels around it bracket the region `tools/palette-sweep.js` overwrites to
+// re-theme the export in place (lib/core/export-shell-marks.js).
+const deckSheet = cliDeckSheet(CLI_THEMES, { theme: paletteName, sizeName: deckSizeName, covered: COVERED_FAMILIES });
+if (deckSheet.refused && !QUIET) {
+  console.warn(`  ⚠ ${deckSheet.refused} @font-face rule(s) in the deck sheet could not be`
+    + ' verified as whole rules and were left in place. They will fail to load; the export is'
+    + ' otherwise unaffected. Please report the stylesheet that triggered this.');
+}
 const deckStyleText = `@page { size: ${slideW}px ${slideH}px; margin: 0; }
 body  { margin: 0; padding: 0; }
-${css}
+${sheetStartMark(deckSizeName, paletteName)}
+${deckSheet.css}
+${SHEET_END_MARK}
 section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
-${geometryStyle}
-${orientationStyle}
 ${marpSystemCss}
 /* Skip link — the keyboard bypass for a deck that is otherwise a flat pile of
    slides (WCAG 2.4.1). Off-screen rather than hidden, so it stays in the tab
@@ -5168,7 +5169,11 @@ async function prunePlayerCssInPage(playerHtml) {
     }
     if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
   }
-  const bases = target && target.css.length >= 50000 ? collectBaseSelectors(target.css) : [];
+  // `legacyPseudoElements`: KaTeX's sheet writes `:before`/`:after` with one colon, which
+  // css-tree reads as a pseudo-CLASS, so the prune would test `.x:before`, match nothing and
+  // drop the rule (lib/export/player-prune.js LEGACY_PSEUDO_ELEMENTS). The computed-style
+  // gate below would then refuse the whole prune and ship the full sheet.
+  const bases = target && target.css.length >= 50000 ? collectBaseSelectors(target.css, { legacyPseudoElements: true }) : [];
   // Nothing to do without a browser-backed pass? Only bail if BOTH prunes are moot.
   if (!bases.length && !fontBlock) return { applied: false };
 
@@ -5231,7 +5236,7 @@ async function prunePlayerCssInPage(playerHtml) {
         return out;
       }, bases);
       const usedSet = new Set(used);
-      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b));
+      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b), { legacyPseudoElements: true });
       cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { applied: false };
     }
 

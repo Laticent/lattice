@@ -12,6 +12,7 @@
  * full render+screenshot cycle is under 5 s.
  */
 
+const { readStartMark } = require('../../../lib/core/export-shell-marks.js');
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path   = require('path');
@@ -126,11 +127,11 @@ describe('screenshot', () => {
   test('integration: emulator HTML sidecar contains expected palette declaration', { timeout: TIMEOUT }, () => {
     const { html } = renderFixture();
     const text = fs.readFileSync(html, 'utf8');
-    // Fixture declares `theme: indaco`; the emulator should embed the
-    // indaco palette CSS, which carries `@theme indaco` at the top.
-    assert.match(text, /@theme indaco/);
-    // And the layout engine, which carries `@theme lattice`.
-    assert.match(text, /@theme lattice/);
+    // Fixture declares `theme: indaco`. The deck sheet is the engine's composed flat sheet,
+    // which strips the palette's `/* @theme` banner, so its start mark names the palette.
+    assert.equal(readStartMark(text)?.theme, 'indaco');
+    // And the layout engine is inside it: a token only the base declares resolves in it.
+    assert.match(text, /--fs-body\s*:/);
   });
 
   test('integration: emulator produces 3 sections for the 3-slide fixture', { timeout: TIMEOUT }, () => {

@@ -23,6 +23,7 @@ const path   = require('path');
 const fs     = require('fs');
 const os     = require('os');
 const { spawnSync } = require('child_process');
+const { readStartMark } = require('../../../lib/core/export-shell-marks.js');
 
 describe('mermaid-smoke', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
@@ -81,25 +82,29 @@ describe('mermaid-smoke', () => {
     assert.match(html, /flowchart-v2/);
   });
 
+  // The deck sheet is the engine's composed flat sheet, which strips comments — the palette's
+  // own `/* @theme <name>` banner included. The sheet's start mark names the palette it was
+  // composed for (lib/core/export-shell-marks.js), so that is what these read.
   test('mermaid: deck declared theme:indaco is honored (palette in HTML)', { timeout: TIMEOUT }, () => {
     const html = render();
-    assert.match(html, /@theme indaco/);
+    assert.equal(readStartMark(html)?.theme, 'indaco');
   });
 
-  test('mermaid: explicit cuoio palette override changes the @theme declaration', { timeout: TIMEOUT }, () => {
+  test('mermaid: explicit cuoio palette override changes the composed sheet', { timeout: TIMEOUT }, () => {
     const html = render('cuoio');
-    assert.match(html, /@theme cuoio/);
-    assert.doesNotMatch(html, /@theme indaco/);
+    assert.equal(readStartMark(html)?.theme, 'cuoio');
   });
 
-  test('mermaid: SVG carries inline color directives (theme variables resolved)', { timeout: TIMEOUT }, () => {
+  test('mermaid: SVG carries resolved color directives (theme variables resolved)', { timeout: TIMEOUT }, () => {
     const html = render();
-    // Mermaid emits per-element styling as `style="fill: …"` /
-    // `style="stroke: …"` rather than bare attributes. Prove the theme
-    // cascade reached the renderer by asserting at least one inline
-    // color directive lives somewhere in the document.
-    const hasFill   = /style="[^"]*fill\s*:\s*(?:#[0-9A-Fa-f]{3,8}|rgb\()/i.test(html);
-    const hasStroke = /style="[^"]*stroke\s*:\s*(?:#[0-9A-Fa-f]{3,8}|rgb\()/i.test(html);
-    assert.ok(hasFill || hasStroke, 'expected at least one inline fill/stroke directive in SVG');
+    // Mermaid resolves its theme variables into the `<style>` it ships INSIDE the diagram's
+    // own `<svg>`. Read THAT sheet: an earlier version of this test searched the whole
+    // document for `style="fill:#…"` and passed only because a CSS comment in lattice.css
+    // quoted one, so it proved nothing about the diagram.
+    const at = html.indexOf('aria-roledescription="flowchart');
+    assert.ok(at > 0, 'no flowchart svg in the export');
+    const svg = html.slice(html.lastIndexOf('<svg', at), html.indexOf('</svg>', at));
+    const sheet = (svg.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+    assert.match(sheet, /(?:fill|stroke)\s*:\s*#[0-9A-Fa-f]{3,8}/, "expected a resolved fill/stroke in the diagram's own stylesheet");
   });
 });

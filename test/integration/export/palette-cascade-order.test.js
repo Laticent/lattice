@@ -34,7 +34,9 @@ const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const puppeteer = require('puppeteer');
 
-const { PALETTE_END_MARK, PALETTE_START_MARK, BASE_MARK } = require('../../../lib/core/export-shell-marks.js');
+const { SHEET_START_MARK, SHEET_END_MARK, readStartMark } = require('../../../lib/core/export-shell-marks.js');
+const { cliThemeStore, cliDeckSheet } = require('../../../lib/export/cli-deck-sheet.js');
+const { sheetFor } = require('../../../tools/palette-sweep.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
@@ -102,17 +104,26 @@ describe('the palette wins the cascade on the export path', () => {
     return html;
   };
 
-  test('the engine bundle is emitted BEFORE the palette, and the region is closed', { timeout: TIMEOUT }, () => {
+  // The deck sheet between the two sentinels is the engine's flat sheet since the CLI moved
+  // onto it (one-style-delivery spine §8 step 4). Its ORDER is no longer a concat in this
+  // file — `composeCss` inlines the base at the palette's own `@import 'lattice'` — so the
+  // text test that used to live here (bundle banner before palette banner) has nothing to
+  // read: the pack strips both banners. What the text CAN pin is that the region is closed
+  // and that `tools/palette-sweep.js` would swap in exactly these bytes for this palette. A
+  // sweep that composes its replacement any other way measures a sheet that never ships.
+  test('the deck sheet is marked, closed, and is the sheet palette-sweep composes', { timeout: TIMEOUT }, () => {
     const doc = render();
-    const base = doc.indexOf(BASE_MARK);
-    const palette = doc.indexOf(PALETTE_START_MARK);
-    const end = doc.indexOf(PALETTE_END_MARK);
-    assert.ok(base >= 0, `the engine bundle banner ${BASE_MARK} is missing from the export`);
-    assert.ok(palette >= 0, `the palette banner ${PALETTE_START_MARK} is missing from the export`);
-    assert.ok(base < palette, 'the engine bundle must come FIRST so the palette overrides it (#1527)');
-    // The sentinel is what `tools/palette-sweep.js` overwrites up to; a missing or
-    // misplaced one sends that tool back to guessing where the palette ends.
-    assert.ok(end > palette, `${PALETTE_END_MARK} must close the palette region, after it`);
+    const start = doc.indexOf(SHEET_START_MARK);
+    const end = doc.indexOf(SHEET_END_MARK);
+    assert.ok(start >= 0, `the sheet sentinel ${SHEET_START_MARK} is missing from the export`);
+    assert.ok(end > start, `${SHEET_END_MARK} must close the sheet region, after it`);
+    const mark = readStartMark(doc);
+    assert.deepEqual(mark, { size: 'hd', theme: 'indaco' }, 'the start mark must name the size and palette the sheet was composed for');
+    const { size } = mark;
+    const region = doc.slice(doc.indexOf('*/', start) + 2, end).trim();
+    assert.ok(region.length > 100000, `the sheet region is ${region.length} bytes — the engine sheet is missing`);
+    assert.equal(region, sheetFor('indaco', size).trim(),
+      'the CLI wrote a different sheet than palette-sweep composes for the same palette and size');
   });
 
   test('REAL RENDER — a disputed token resolves to the palette, not the base', { timeout: TIMEOUT }, async () => {
@@ -138,6 +149,14 @@ describe('the palette wins the cascade on the export path', () => {
         const s = getComputedStyle(document.querySelector('section'));
         return Object.fromEntries(names.map((n) => [n, s.getPropertyValue(n).trim()]));
       }, disputed.map((d) => d.token));
+      // The document root too. The flat sheet writes each `:root` arm onto the slides AND as
+      // written, and the written arm is what content outside any slide resolves against (the
+      // player's Read · Article). A base `:root` landing after the palette's at the <html>
+      // level would leave every slide right and that content wrong.
+      const resolvedRoot = await page.evaluate((names) => {
+        const s = getComputedStyle(document.documentElement);
+        return Object.fromEntries(names.map((n) => [n, s.getPropertyValue(n).trim()]));
+      }, disputed.map((d) => d.token));
 
       // THE VACUITY GUARD, measured rather than assumed — and an earlier cut of this
       // got it wrong in a way worth keeping. It counted tokens the two FILES spell
@@ -154,23 +173,34 @@ describe('the palette wins the cascade on the export path', () => {
       // as belt-and-braces. The guard below stays exactly as it is: it does not care
       // WHICH tokens discriminate, only that enough of them do.
       //
-      // So the discriminators are found by inverting the real document: move the palette
-      // region back in front of the engine bundle, re-read, and count what actually
-      // moved. That is the property this test needs — the render must be order-SENSITIVE
-      // at all — and it cannot be satisfied by a token that merely looks disputed.
-      const inverted = await page.evaluate((marks, names) => {
+      // So the discriminators are found by inverting the real document: swap in a sheet
+      // composed with the base AFTER the palette (the palette's `@import 'lattice'` moved to
+      // its end, where `composeCss` then inlines the base), re-read, and count what actually
+      // moved. That is the property this test needs — the render must be order-SENSITIVE at
+      // all — and it cannot be satisfied by a token that merely looks disputed.
+      const read = (f) => fs.readFileSync(f, 'utf8');
+      const indaco = read(path.join(ROOT, 'themes', 'indaco.css'));
+      // Comments first: indaco mentions `@import 'lattice';` in its header prose, and a
+      // non-global replace would strip that mention and leave the live import in place.
+      const invertedTheme = `${indaco.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import\s*(['"])lattice\1\s*;?/g, '')}\n@import 'lattice';\n`;
+      assert.equal((invertedTheme.match(/@import\s*(['"])lattice\1/g) || []).length, 1, 'the inverted theme must import the base exactly once, after the palette');
+      const store = cliThemeStore(read(path.join(ROOT, 'dist', 'lattice.css')), [{ name: 'inverted', css: invertedTheme }]);
+      const invertedSheet = cliDeckSheet(store, { theme: 'inverted', sizeName: 'hd' }).css;
+      const inverted = await page.evaluate((marks, sheet, names) => {
         const el = [...document.querySelectorAll('style')].find((n) =>
-          n.textContent.includes(marks.base) && n.textContent.includes(marks.start) && n.textContent.includes(marks.end));
+          n.textContent.includes(marks.start) && n.textContent.includes(marks.end));
         if (!el) return null;
         const t = el.textContent;
-        const iBase = t.indexOf(marks.base), iPal = t.indexOf(marks.start), iEnd = t.indexOf(marks.end);
-        if (!(iBase >= 0 && iBase < iPal && iPal < iEnd)) return null;
-        el.textContent = t.slice(0, iBase) + t.slice(iPal, iEnd) + '\n' + t.slice(iBase, iPal) + t.slice(iEnd);
+        const iStart = t.indexOf(marks.start);
+        const iOpen = t.indexOf('*/', iStart) + 2;
+        const iEnd = t.indexOf(marks.end);
+        if (!(iStart >= 0 && iOpen < iEnd)) return null;
+        el.textContent = `${t.slice(0, iOpen)}\n${sheet}\n${t.slice(iEnd)}`;
         const s = getComputedStyle(document.querySelector('section'));
         return Object.fromEntries(names.map((n) => [n, s.getPropertyValue(n).trim()]));
-      }, { base: BASE_MARK, start: PALETTE_START_MARK, end: PALETTE_END_MARK }, disputed.map((d) => d.token));
+      }, { start: SHEET_START_MARK, end: SHEET_END_MARK }, invertedSheet, disputed.map((d) => d.token));
 
-      assert.ok(inverted, 'could not invert the palette region in the rendered document — the markers moved');
+      assert.ok(inverted, 'could not swap the inverted sheet into the rendered document — the sheet markers moved');
       const discriminators = disputed.filter((d) => resolved[d.token] !== inverted[d.token]).map((d) => d.token);
       assert.ok(discriminators.length >= 3,
         `only ${discriminators.length} of the probed tokens change when the cascade is inverted `
@@ -186,7 +216,45 @@ describe('the palette wins the cascade on the export path', () => {
           ? `${token} resolved to the BASE's ${base} — the concat order is inverted again (#1527)`
           : `${token} resolved to ${resolved[token]}, which is neither the theme's ${theme} nor the base's ${base}`);
       }
+      for (const { token, theme } of disputed) {
+        const got = resolvedRoot[token].replace(/\s+/g, '');
+        if (got !== theme.replace(/\s+/g, '')) wrong.push(`${token} resolved to ${resolvedRoot[token]} on <html>, not the theme's ${theme}`);
+      }
       assert.deepEqual(wrong, [], wrong.join('; '));
+    } finally {
+      await browser.close();
+    }
+  });
+
+  // A deck's OWN `:root` override — front-matter `style:` or an in-body `<style>` — must still
+  // reach the slides. The flat sheet declares each palette token on every slide, so an
+  // unpacked author `:root` landed on <html> alone and lost (measured: indaco's accent and a
+  // white canvas under `style: ":root{--accent:#f00;--bg:#0f0}"`). `packAuthorCss` writes the
+  // author's `:root` arms onto the slides too.
+  test('REAL RENDER — a deck\'s own :root override paints its slides', { timeout: TIMEOUT }, async () => {
+    const exe = resolveChrome();
+    if (!exe) assert.fail('no Chromium — set CHROME_PATH.');
+    const decks = {
+      'style directive': '---\ntheme: indaco\nstyle: ":root{--accent:#ff0000;--bg:#00ff00}"\n---\n\n# Override\n\ntext\n',
+      'in-body style': '---\ntheme: indaco\n---\n\n# Override\n\n<style>\n:root{--accent:#ff0000;--bg:#00ff00}\n</style>\n\ntext\n',
+    };
+    const browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox'] });
+    try {
+      for (const [name, md] of Object.entries(decks)) {
+        const f = path.join(dir, `${name.replace(/\W+/g, '-')}.md`);
+        const o = f.replace(/\.md$/, '.html');
+        fs.writeFileSync(f, md);
+        const r = spawnSync(process.execPath, [EMULATOR, f, o, '--quiet'], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
+        assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+        const page = await browser.newPage();
+        await page.goto(`file://${o}`, { waitUntil: 'load', timeout: TIMEOUT });
+        const got = await page.evaluate(() => {
+          const cs = getComputedStyle(document.querySelector('section'));
+          return { accent: cs.getPropertyValue('--accent').trim(), bg: cs.backgroundColor };
+        });
+        assert.deepEqual(got, { accent: '#ff0000', bg: 'rgb(0, 255, 0)' }, `${name}: the author's :root override did not reach the slide`);
+        await page.close();
+      }
     } finally {
       await browser.close();
     }
