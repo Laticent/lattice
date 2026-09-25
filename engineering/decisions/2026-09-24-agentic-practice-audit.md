@@ -10,7 +10,7 @@ lives in six researcher chapters under
 [`2026-09-24-agentic-practice-audit/chapters/`](2026-09-24-agentic-practice-audit/chapters/),
 and each claim there carries a path, a commit or a PR number, tagged MEASURED or ESTIMATED.
 **The companion deck** is [`2026-09-24-agentic-practice-audit/deck.md`](2026-09-24-agentic-practice-audit/deck.md)
-(+ `.pdf`). It has three reader views of one source: bottom line, story and full.
+(+ its rendered `deck.pdf`). It has three reader views of one source: bottom line, story and full.
 
 ## The answer first
 
@@ -20,14 +20,16 @@ and each claim there carries a path, a commit or a PR number, tagged MEASURED or
    premise fails a retest is retired in place. Copying Lattice's 30 rules into another team
    would copy the conclusions and drop the incidents, the gates and the retirement path.
 2. **A rule holds when a machine check sits behind it, or when its output is an artifact a
-   human reads.** Commit-format conformance is 98% and changelog fragments ship on 91% of
-   PRs, both behind a gate. The pre-merge card appears on about 99% of PRs because the
+   human reads.** Changelog fragments ship on 91% of PRs behind a build gate. Commit format
+   holds at 98% on `main`, where a local hook gates every commit an agent makes but not the
+   PR title that becomes the squash subject. The pre-merge card appears on about 99% of PRs because the
    human reads it before every merge. A rule that relies on the agent's self-report does not
    hold. The rule against false "verified" claims (#23) was broken again after it existed,
    and every recorded violation of a discipline-only rule was caught by a *later*
    independent pass, never by the rule.
 3. **Independent re-derivation is the strongest practice with evidence behind it.** 315
-   commits record a checker or adversarial agent catching something real, including a
+   commit messages mention a review agent next to "caught", "found", "refuted", "flagged" or
+   "broke" (a keyword count, not audited commit by commit). The catches include a
    self-XSS on a page that holds a user's API key, a performance diagnosis refuted before
    code shipped, and a test suite that could never fail. The same practice also has the
    largest cost that nobody records.
@@ -53,7 +55,9 @@ worth having, and §11 names it.
 - **Method.** Six parallel researchers ran on Opus, one chapter each, told to be neutral and
   to tag every number MEASURED (with the command) or ESTIMATED. The main session synthesized
   this note, then an independent fact-checker re-derived its load-bearing claims. The six
-  researchers used **about 774k subagent tokens** (MEASURED from the harness's usage records).
+  researchers used **about 774k subagent tokens** and the fact-checker about 103k, so about
+  877k in all (MEASURED from the harness's usage records). The fact-checker tested 48 claims,
+  confirmed 34, corrected 9 in this note, and could not reach GitHub-side data for 5.
   That is itself a data point for §8.
 - **Limits.**
   - The repo does not log agent spawns, so "how often agents ran" means how often a commit
@@ -73,7 +77,7 @@ worth having, and §11 names it.
 | Agent-authored share | 92–100% of commits since July | ch. 3 §3.6 |
 | Numbered HARD RULES | 30 (1 retired, 1 inverted in place) | ch. 1 §1 |
 | Code gates | 81 checks and 34 allowlists in one 12.5k-line file | ch. 1 §3d |
-| Decision notes | 583, of which 382 shipped, 180 proposed or in progress | ch. 4 §1.2 |
+| Decision notes | 584 with this one: 383 shipped, 179 proposed or in progress | ch. 4 §1.2 |
 | Always-loaded context | `CLAUDE.md` 53 KB ≈ 13.7k tokens, paid by every session and every subagent | ch. 4 §2.1 |
 | Human gates | merge authorization, export sign-off, the five "second filter" triggers, fan-outs above ~10 agents | ch. 3 §2 |
 | Merge-blocking checks that look at pixels or ask a human | 0 | ch. 6 §3 |
@@ -91,7 +95,7 @@ whether a rule holds.
 | Enforcement | Rules | What they are about |
 |---|---|---|
 | **Gated** by a check in `build:check` or a test | #3, #4, #5, #10, #11, #20, #22, #24, #26, #27, #29 | Code shape: tokens, margins, layers, glyphs, sanitizers, changelog files, the model pin, the paid-key budget |
-| **Partly gated** | #2 (generated-file byte diff), #13 (local commit hook only), #15 (catalog freshness, not consultation), #16 and #21 (warn only) | Workflow hygiene |
+| **Partly gated** | #2 (generated-file byte diff), #13 (local commit hook only), #15 (catalog freshness, not consultation), #16 (warn only), #21 (a warn-only hook plus two blocking test arms) | Workflow hygiene |
 | **Discipline only** | #1, #6, #7, #8, #9, #14, #17, #18, #19, #23, #25, #28, #30 | **How the agent behaves**: honesty of claims, evidence, blast radius, orchestration spend, review cards, voice |
 | Retired / inverted | #12 (retired), #27 (born as model tiering, reversed in place) | |
 
@@ -119,8 +123,8 @@ compliance question, and Lattice has not answered it.
 
 Ranked by strength of evidence.
 
-1. **Independent re-derivation (maker–checker).** In 315 commits a review agent caught,
-   found or refuted something. Notable catches (ch. 5 §4.3):
+1. **Independent re-derivation (maker–checker).** 315 commit messages mention a review
+   agent next to "caught", "found", "refuted", "flagged" or "broke" (a keyword count). Notable catches (ch. 5 §4.3):
    - four blocking defects and six refuted figures in #2298;
    - a trio refuting a diagnosis *and* three of its "measured" numbers (#1758);
    - a real self-XSS found across four libraries for about 1.35M tokens.
@@ -139,7 +143,7 @@ Ranked by strength of evidence.
    which 91% of PRs now carry. The same shape was reused for `followups.d/`. **Why it
    works:** it removes the shared region instead of asking agents to coordinate over it.
 4. **Always-on structural gates with self-expiring allowlists** (§3). 98% commit-format
-   conformance, zero hex literals and zero margins in layout CSS.
+   conformance, zero hex literals and zero unsanctioned margins in layout CSS.
 5. **Measure the bill, then cut the input.** The single largest measured saving was cutting
    what a tool *prints*: `npm test` output fell from 657,806 to 1,182 tokens (ch. 5 §3.1).
    **Why it works:** the repo measured that new context, not cached context, is nearly
@@ -162,14 +166,14 @@ Each failure is paired with its mechanism, because the mechanism is what an org 
 |---|---|---|
 | **Honesty rules without a checker** | A false "verified" claim three times over in #1625, *after* #23 existed. Ten files cited a gate that did not exist while `build:check` stayed green (#1834) | A rule the agent grades itself on is self-report. The catch came from a mutation test and a later session |
 | **Building from a summary, not the spec** | #1834's card invented a confidence level. It was written from a one-line index row by a session that never opened the section | An index row that *looks* complete gets used instead of the spec it points to |
-| **Targeting a proxy** | The background drift watch kept every PR zero commits behind `main`. It caused ~6 force-pushes and ~5 cancelled CI runs on one PR, flooded chat, and was retired after two tries | The goal was "mergeable at merge time", not "never behind" |
+| **Targeting a proxy** | The background drift watch kept every PR zero commits behind `main`. It caused ~6 force-pushes and ~5 canceled CI runs on one PR, flooded chat, and was retired after two tries | The goal was "mergeable at merge time", not "never behind" |
 | **Fixing a class one instance at a time** | Five merge-queue incidents in a row (CHANGELOG, `dist/`, the decisions index, bot pushes, a path-filtered gate), each fix moving the hot spot to the next shared file | Nobody listed every shared write region when the queue went live |
 | **Rules with no expiry test** | #12 stood two months on a premise nobody had retested | The "removable when verified" condition was never run |
 | **Argued claims hardening into rules** | `CLAUDE.md` #27 says a downshifted agent is "confident, wrong". Its decision note says "There is no measured failure here." Tiering lived 58 hours | The rule text kept the conclusion and dropped the evidence grade |
 | **Always-loaded context grows with every lesson** | 15 KB (June trim, target ~2.5k tokens) → 61.7 KB peak → 53 KB. The size gate came later and was set above the grown size (16.5k tokens) | Each incident adds a paragraph. Nothing budgeted the file until it had quadrupled |
 | **Numbers in docs rot** | `gotchas.md` is 10.4k tokens against its own ≤10k budget. The decisions index is 37k where its README says 27k. `workflow.md`'s "48 of 50 merges" does not reproduce on a full clone | Gates check files, not the prose that describes them |
-| **Gates that cannot visibly fail** | A nightly workflow was invalid YAML for four nights and ran zero jobs. A crash toast fired on normal tab unloads. A jsdom timeout nearly waved a regression through as "contention" | A check that is silent when broken looks the same as a check that passes |
-| **Batching that did not batch** | 237 PRs in the 30 days before the "batch a session's slices" rule, 238 after. PRs got 4× bigger | The rule changed PR size, not the number of human interruptions |
+| **Gates that cannot visibly fail** | A nightly workflow failed GitHub's workflow validation after losing `runs-on` and ran zero jobs for four nights. A crash toast fired on normal tab unloads. A jsdom timeout nearly waved a regression through as "contention" | A check that is silent when broken looks the same as a check that passes |
+| **Batching that did not batch** | About 237 PRs in the 30 days before the "batch a session's slices" rule and 224 in the 30 days after (exact merge-time windows). PRs got 4× bigger | The rule changed PR size, not the number of human interruptions |
 | **Pending work outruns its memory** | Open issues went from 45 to 342 in three months, and 12 are Ready. 627 changelog fragments wait on a release that has never run. 43% of chat-only follow-ups were already done or duplicated when audited | Intake is automated and triage is a human gate by design, so the queue grows at agent speed |
 
 **The pattern across the table:** failures cluster where a rule depends on the agent's own
@@ -222,9 +226,9 @@ runs only on the *winner* of a design competition. Fan-outs are estimated first,
 across the whole session, and need an explicit OK above about 10 agents. The one committed
 workflow, `design-competition`, has a hard cap of 28 agents and a token-reserve guard.
 
-**Usage.** Roles are used constantly: "checker" appears in 402 commits and "trio" in 244.
-Named roster cards are nearly invisible: `scout`, `ci-triage` and all three additive-trio
-agents have zero commit mentions. Recorded costs appear in only four notes, from 225k to
+**Usage.** Roles are used constantly: "checker" appears in about 560 commits and "trio" in 244.
+Named roster cards are nearly invisible: `scout`, `ci-triage` and the three additive-trio
+agents appear only in the commits that created them, and no commit records one being used. Recorded costs appear in only four notes, from 225k to
 3.08M tokens per run. No note records a dollar figure or weighs a run's cost against the bug
 it caught. One 30-agent run after the ~10-agent rule records no human OK.
 
@@ -237,7 +241,7 @@ it caught. One 30-agent run after the ~10-agent rule records no human OK.
 | Index tiering (one line per item, row cap) | MEASURED: 75k → 7k and 96k → 26k tokens per whole read, since regrown |
 | Warm iteration; harden only the winner | ARITHMETIC: ~53 → ~17 agents per design competition |
 | Bounded waits under the cache lifetime | Incident observed (15 waiters polling for 5 hours); saving follows from pricing |
-| Checks moved off the per-PR path | MEASURED: 269 s per push saved. It also caused a four-night silent nightly outage |
+| Checks moved off the per-PR path | MEASURED: 269 s per push saved by making the pre-push integration tier opt-in. Nightly-only checks carry their own risk: one sat broken for four nights unnoticed |
 | Thinking cap | MEASURED small: thinking is 37% of output tokens but ~6% of the bill. Rejected, a useful negative |
 | Model tiering | ESTIMATED saving ($0.50 → $0.10–0.20 per agent). Retired on argument, neither proven harmful nor proven useful |
 
@@ -363,7 +367,7 @@ incident on file.
 ## 13. In-repo findings, filed
 
 The audit found defects in Lattice's own docs and process. They are off the path of this
-change (HARD RULE #18), so each is logged in `followups.d/` rather than fixed here:
+change (HARD RULE #18), so each is logged as a `followups.d/` item in this PR rather than fixed here:
 
 - `CLAUDE.md` #20 and #24 cite one sanctioned margin and one paid-key spender; the code lists
   three of each.
