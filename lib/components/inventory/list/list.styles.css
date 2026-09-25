@@ -57,7 +57,7 @@ section.list {
 }
 section.list > .cell-stage > :is(ul,ol) {
   list-style:none; padding:0; margin:0;
-  --list-line: max(calc(var(--list-row-fs) * var(--list-lh)), var(--list-ord-fs));
+  --list-line: max(calc(var(--list-row-fs) * var(--list-lh)), var(--list-ord-h, 0px));
   --list-row-max: calc(var(--list-line) + 2 * var(--list-air) + var(--list-edge)
     + var(--cards-grow, 0) * 10000px);
   display:grid; grid-template-columns:minmax(0, 1fr);
@@ -65,6 +65,15 @@ section.list > .cell-stage > :is(ul,ol) {
   align-content:var(--cards-align);
   flex:1; min-height:0; gap:var(--sp-sm);
 }
+/* A counter row's one line is as tall as the counter when the counter is the taller of the two
+   (principles). Only rows that PAINT a counter count it. */
+section.list:not(.takeaway) > .cell-stage > ol,
+section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { --list-ord-h: var(--list-ord-fs); }
+/* A member ALONE on a split page fills that page (base.modifiers.css § Split BODY pages). That
+   rule grows the row with `flex` and `align-content: stretch`, neither of which reaches a
+   capped grid track, so the lone member lifts the ceiling itself. Without this, every list at
+   square/tall/strip (which split one member per page) sat as a pill atop an empty page. */
+section.list.lat-split-native > .cell-stage > :is(ul,ol):has(> li:only-child) { --cards-grow: 1; }
 section.list > .cell-stage > :is(ul,ol) > li {
   display:flex; align-items:center; min-width:0;
   font-size:var(--list-row-fs);
@@ -110,9 +119,9 @@ section.list > .cell-stage > ol > li::before { content:counter(list-counter, dec
  * the same centreline. Merged 2026-06-07. */
 /* A ruled row has no box around its air, so the air IS the rhythm between hairlines. */
 section.list.takeaway { --list-air: var(--sp-md); }
-/* A ruled row's floor is no padding at all: the line height's own half-leading (a quarter
-   of the font size at `--lh-snug`) keeps the glyphs off the rule, and a list at capacity
-   needs every pixel of it. */
+/* A ruled row's floor is no padding at all: the line height's own half-leading (a quarter of
+   the font size at `--lh-snug`; a tenth at principles' `--lh-tight`, which renders with the ink
+   still clear of the rule) keeps the glyphs off it, and a list at capacity needs every pixel. */
 section.list:is(.takeaway, .principles) { --list-pad: 0px; }
 section.list.takeaway > .cell-stage > :is(ul,ol) { gap:0; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li {
@@ -197,7 +206,8 @@ section.list.list:where([data-family="strip"]) > .cell-stage > :is(ul,ol) { gap:
  * counter, so it reads as belonging to the rows rather than the page. The below-note keeps its
  * own accent fade, so each of the three lines has one look.
  * Drawn as a background, not a border: a border cannot start partway along its edge.
- * `base.sketch.css` clears it under the sketch finish, which draws its own rough rule. */
+ * Under the sketch finish, `principles` swaps it for a rough rule (`base.sketch.css`);
+ * `takeaway` has no rough rule, so it keeps this one. */
 section.list:is(.takeaway, .principles) {
   --list-rule: color-mix(in srgb, var(--border) 55%, transparent);
   --list-rule-inset: 0px;

@@ -1202,7 +1202,9 @@ shapes under default/top/center/stretch and all four columns were identical.
 
 **The mechanism.** A list is a single column, so `list` lays its rows out as a one-column
 GRID and reads `align-content: var(--cards-align)`, the same declaration the row forms use:
-`center`, `top` (`flex-start`) and `spread` (`space-evenly`) place the rows directly.
+`center`, `top` (`flex-start`) and `spread` (`space-evenly`) place the rows directly. (`spread`
+is what square/tall/strip declare, but at those frames a list is usually SPLIT one member per
+page, so it shows only on an unsplit page.)
 
 **Each row has a floor and a ceiling: `minmax(min-content, var(--list-row-max))`.**
 - The FLOOR is the row's own content plus `--list-pad` (`--sp-xs` in a pill; nothing in a ruled
@@ -1214,6 +1216,11 @@ GRID and reads `align-content: var(--cards-align)`, the same declaration the row
   the ceiling and simply keeps its floor.
 - `min-content`, not `auto`, names the floor, because a grid CLAMPS an item's automatic minimum
   to a fixed maximum: with `auto`, a wrapped row was capped at the one-line ceiling and spilled.
+- A member ALONE on a split page must fill the page (`base.modifiers.css` § Split BODY pages),
+  and that rule grows it with `flex` and `align-content: stretch`, which a capped track ignores.
+  An independent checker caught it: at square/tall/strip every list splits one member per page,
+  and each lone row sat 139px tall atop an 860px stage (main: filled). The list lifts its own
+  ceiling for a lone split member.
 - A capped track is not an `auto` track, so `align-content: stretch` does not grow it.
   `--cards-grow` (1 under `stretch`, else 0) is set by the same eight `[data-cards]` rules in
   `base.tokens.css` and lifts the ceiling, so `stretch` fills the stage.
@@ -1237,8 +1244,8 @@ the masthead rule, which is the same stroke, and the owner found the two indisti
 Five treatments were rendered side by side (soft, fade-ended, inset, dotted, soft + inset), and
 the owner picked **soft + inset**: `--border` at 55%, starting at the row's text column past
 the counter. It is drawn as a background on `li:not(:last-child)`, because a border cannot
-start partway along its edge, and `base.sketch.css` clears it under the sketch finish, which
-draws its own rough rule. Now the full-width heading rule marks the page, the inset rule marks
+start partway along its edge. Under the sketch finish, `principles` swaps it for a rough rule
+(`base.sketch.css`); `takeaway`, which sketch does not redraw, keeps it. Now the full-width heading rule marks the page, the inset rule marks
 the rows, and the accent fade marks the closing note.
 
 **The defect this removes.** Under the old equal-share bands, a row that wrapped to two lines got

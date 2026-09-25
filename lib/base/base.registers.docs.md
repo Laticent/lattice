@@ -735,7 +735,7 @@ line, and each card carries `min-width: 0` so it can never force a second line.
 where the same `align-content: var(--cards-align)` places them. Each row is capped at a
 comfortable one-line height, so `stretch` also needs `--cards-grow` (1 under `stretch`, set by
 the same `[data-cards]` rules) to lift the cap. `list` declares `center` at wide, `spread` on
-square/tall/strip (what it always did there), and `stretch` above a coda. A row never shrinks
+square/tall/strip (where a split page's lone member still fills the page), and `stretch` above a coda. A row never shrinks
 below its text: on a full stage the rows give up their air, and a list with more than the stage
 holds overflows where the overflow check reports it.
 Not governed: the other column forms (`list-steps vertical`/`chevron`/…, the default
