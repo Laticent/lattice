@@ -491,6 +491,21 @@ In Claude Code, the reach test becomes settings. The allow list is what the agen
 One more show of hands. Who has had an agent tell you it was done, and it wasn't? Right. That gap between done and actually done is what this section closes.
 -->
 ---
+<!-- _class: topic -->
+<!-- _header: '' -->
+
+`Practice 03 · Verification`
+
+## Proof
+
+An agent's report is a belief until something checks it.
+
+<!--
+Verification comes in three parts. First, proof: why an agent's report isn't the same as the truth, and how much checking each change deserves.
+-->
+
+---
+
 
 <!-- _class: compare-prose vertical insight-bottom-line -->
 
@@ -547,6 +562,21 @@ Not every change needs the same scrutiny. Routine work gets the automated tests 
 -->
 
 ---
+<!-- _class: topic -->
+<!-- _header: '' -->
+
+`Practice 03 · Verification`
+
+## Tests
+
+A test earns trust only when it can fail.
+
+<!--
+Second, tests: the kinds that catch what ordinary tests miss, and how to tell a test that can fail from one that can't.
+-->
+
+---
+
 <!-- _class: list takeaway insight-why -->
 
 `Verification · Tests that look at reality`
@@ -624,6 +654,21 @@ For anything people look at, the final test is looking at it. Render the real ou
 -->
 
 ---
+<!-- _class: topic -->
+<!-- _header: '' -->
+
+`Practice 03 · Verification`
+
+## Hands off
+
+Checks that run themselves let you leave the room.
+
+<!--
+Third, hands off: the checks that run without you, and what that buys you.
+-->
+
+---
+
 <!-- _class: list takeaway -->
 
 `Verification · In Claude Code`
@@ -955,6 +1000,21 @@ Now let's watch all five practices work on one task. Before the talk, pick a sma
 -->
 
 ---
+<!-- _class: divider -->
+<!-- _paginate: false -->
+<!-- _header: '' -->
+<!-- _footer: '' -->
+
+`That's a wrap · What to do next`
+
+## Make it stick
+
+<!--
+That's the five practices. The rest of the talk is about making them stick: where to start, how they carry to your kind of work, what to share across teams, and why it matters more with agents than it did without them.
+-->
+
+---
+
 
 <!-- _class: roadmap -->
 
