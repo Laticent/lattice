@@ -164,7 +164,7 @@ Hartley & Stone on 9 October; the management letter had no findings.
 
 <!-- _class: compare-prose -->
 
-<!-- caption: Two serious options are on the table. Fix it: a guided setup, a lighter tier, and pooled support, for about $2.1M next year. Or exit: stop selling to new SMB accounts, migrate the existing 640 to a partner, and put the sales capacity into mid-market. No. We are not proposing to keep things as they are. -->
+<!-- caption: Two serious options are on the table. Fix it: a guided setup, a lighter tier, and pooled support, for about $2.1M next year. Or exit: stop selling to new SMB accounts, migrate the existing 640 to a partner, and put the sales capacity into mid-market. Keeping things as they are is not on the table. -->
 
 ## Fixing SMB costs $2.1M; exiting frees nine sellers for mid-market.
 
