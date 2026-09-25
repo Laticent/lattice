@@ -18,7 +18,7 @@ header: "Agentic engineering · Practices that hold up"
 Coding agents are fast. These five practices make them reliable.
 
 <!--
-Today is about practices, the working habits that turn a coding agent from an impressive demo into something you can trust with real work. They come from a project where agents wrote nearly all of the code for five months, under one set of habits that kept being tested and revised. Every practice here earned its place by fixing something that went wrong. Five sections, about ten minutes each, and time for questions at the end.
+Thanks for coming. For the next hour we'll talk about working habits for coding agents: the tools that read your code, change it, and run it for you. The habits come from a project where agents wrote almost all of the code for five months. Each one is here because something went wrong without it. We'll cover five practices, about ten minutes each, then take questions.
 -->
 
 ---
@@ -32,29 +32,52 @@ Today is about practices, the working habits that turn a coding agent from an im
 1. Plans the change and writes the tests.
 2. Opens the pull request.
 3. Fixes the build until it passes.
-4. Writes an evidence card on how sure it is.
-5. Waits for a person to decide, then writes hand-off notes.
+4. Writes a short note on how sure it is, and why.
+5. Waits for a person to approve, then leaves notes for the next session.
 
 > The bottleneck has moved from writing the code to trusting the result.
 
 <!--
-Start with what is possible today. An agent can take a ticket, plan it, write the code and the tests, open the pull request, watch the build, fix what breaks, and then write a short evidence card that tells a human how confident it is and why. A person makes the one decision that matters, the merge. Then the agent writes hand-off notes so the next session starts where this one stopped. None of that is science fiction. The hard part is not getting an agent to do this. The hard part is being able to trust it when it does. That is what the five practices are for.
+Let's start with what agents can do today. You give one a ticket. It plans the change, writes the code and the tests, and opens a pull request, which is a proposed change for someone to review. It watches the automated build, fixes whatever breaks, and writes a short note saying how confident it is and why. Then it waits. A person decides whether to merge. Afterward, the agent leaves notes so the next session can pick up where this one stopped. Getting an agent to do all of this is the easy part now. Knowing when to trust it is harder, and that's what the rest of the hour is about.
+-->
+
+---
+
+<!-- _class: diagram insight-takeaway -->
+
+`How an agent works`
+
+## A coding agent loops until it thinks it is done.
+
+```mermaid
+flowchart LR
+  A["Read what's<br/>in front of it"] --> B["Plan"]
+  B --> C["Change code<br/>or run a tool"]
+  C --> D["Check the result"]
+  D -->|thinks it's not done| A
+  D -->|thinks it's done| E["Report back"]
+```
+
+> Every practice today makes "thinks it is done" match "is done."
+
+<!--
+Here's what's happening inside. The agent reads what's in front of it, makes a plan, changes some code or runs a tool, and checks the result. If it decides it isn't finished, it goes around again. When it decides it's finished, it reports back. Listen for the word "thinks." The loop stops when the agent believes the work is done. Whether the work is actually done depends on what it could see, what it was allowed to do, and how good its checks were. Those are the practices we'll cover.
 -->
 
 ---
 
 <!-- _class: agenda -->
 
-## Five practices make that loop trustworthy.
+## Five practices, one for each question you will face.
 
-1. Context engineering: control what the agent sees
-2. Autonomy with a reach limit: decide what it may do alone
-3. Verification you can trust: make every claim prove itself
-4. A system that learns: turn incidents into rules
+1. Context: control what the agent sees
+2. Autonomy: decide what it may do alone
+3. Verification: make every claim prove itself
+4. Learning: turn mistakes into rules
 5. Orchestration: use many agents without losing control
 
 <!--
-Here are the five. Each one answers a question you will face the first week you use an agent seriously. What does it know? What may it do? How do I know it worked? How do we stop repeating mistakes? And how do I use more than one agent without the cost or the chaos running away? We take them in that order.
+Each practice answers a question you'll hit in your first week with an agent. What does it know? What may it do on its own? How do I know it worked? How do we stop repeating mistakes? And how do I use several agents without the cost getting away from me?
 -->
 
 ---
@@ -74,11 +97,11 @@ Here are the five. Each one answers a question you will face the first week you 
 
 `Context · The core idea`
 
-## Whatever sits outside the context window does not exist for the agent.
+## An agent sees only its context window, the text in front of it.
 
 ```mermaid
 flowchart LR
-  subgraph IN["Inside the window"]
+  subgraph IN["In the window"]
     A["Standing instructions"]
     B["Files it opened"]
     C["Tool output"]
@@ -92,10 +115,10 @@ flowchart LR
   IN --> H["Its next action"]
 ```
 
-> Most of an agent's quality is decided by what you put in this window.
+> What you put in this window decides most of the agent's quality.
 
 <!--
-The context window is everything the model can see at once: its standing instructions, the files it has opened, the output of its tools, and your request. Everything else, your team's knowledge, the reasons behind past decisions, the traps everyone knows about, does not exist for it. So a large share of agent quality is a design question: what do you put in that window, and what do you keep out? That is context engineering.
+The context window is everything the model can see at one moment. That's its standing instructions, the files it has opened, whatever its tools printed, and your request. Everything else might as well not exist: what your team knows, why past decisions were made, the traps everyone has learned to avoid. So a lot of agent quality comes down to one design question. What goes into that window, and what stays out? That's context engineering.
 -->
 
 ---
@@ -109,10 +132,10 @@ The context window is everything the model can see at once: its standing instruc
 - A manual
   - Every rule with its full explanation. It grows with each incident, and every session pays to read all of it.
 - An index
-  - One line per rule and a pointer to the document that explains it. The agent opens the detail only when the task needs it.
+  - One line per rule and a link to the document that explains it. The agent opens the detail only when the task needs it.
 
 <!--
-Every agent tool loads some standing instructions at the start of each session. The natural instinct is to write a manual. The better shape is an index: one line per rule, plus a pointer to the longer explanation. It keeps the always-loaded cost low, and it makes the agent go read the real document instead of working from a summary. We learned this the expensive way: our instruction file grew twelvefold in four months before we reshaped it.
+Most agent tools load a file of standing instructions at the start of every session. The instinct is to write a manual. An index works better: one line per rule, with a link to the longer explanation. The agent reads less by default, and when it does need the detail, it reads the real document instead of a summary. We learned this the expensive way. Our instruction file grew twelvefold in four months before we changed its shape.
 -->
 
 ---
@@ -124,7 +147,7 @@ Every agent tool loads some standing instructions at the start of each session. 
 ## Route the agent to the right document before it starts work.
 
 ```markdown
-## Read the canonical doc before working in its area
+## Read these before working in an area
 
 | Working on…                  | Read first                   |
 | ---------------------------- | ---------------------------- |
@@ -136,7 +159,7 @@ Every agent tool loads some standing instructions at the start of each session. 
 ```
 
 <!--
-This is a real pattern from our instruction file. A routing table maps the kind of work to the document the agent must read before it starts. Two rows do a lot of work. The capabilities file lists every script and tool we already have, so the agent reuses instead of reinventing. The gotchas file is an index of symptoms, so when something behaves strangely the agent looks up the known cause first. The table is short, and the knowledge it points to can be as deep as you like.
+This table comes straight from our instruction file. Each row maps a kind of work to the document the agent has to read before starting. Two rows pull a lot of weight. The capabilities file lists every script and tool we already have, so the agent reuses them instead of writing new ones. The gotchas file lists symptoms with their known causes, so when something acts strangely, the agent checks there first. The table stays short, and the documents behind it can go as deep as you need.
 -->
 
 ---
@@ -145,31 +168,30 @@ This is a real pattern from our instruction file. A routing table maps the kind 
 
 `Context · Habits`
 
-## Four habits keep the window full of signal.
+## Four habits keep the window full of what matters.
 
 - Read sections, not files: list the headings, then open only what you need.
 - Delegate big reads: a helper agent reads the log and returns a summary.
 - Quiet the tools: print failures in full and successes as a dot.
-- Measure the cost: count tokens from real sessions before optimizing.
+- Measure first: check what real sessions load before you optimize.
 
 <!--
-Four habits. Read sections, not whole files: a large design document may be thirty thousand tokens, and the part you need is often one thousand. Delegate big reads: a helper agent can read a two-megabyte log and hand back a paragraph, and only the paragraph enters your main session. Quiet your tools. And measure before you optimize, because intuition about where the cost goes is usually wrong.
+Four habits. First, read sections instead of whole files. A big design document can be thirty times longer than the part you actually need. Second, hand big reads to a helper agent. It reads the two-megabyte log and gives back a paragraph, and only the paragraph lands in your session. Third, make your tools quieter. And fourth, measure before you optimize, because our guesses about where the cost was were usually wrong.
 -->
 
 ---
 
 <!-- _class: bar row -->
 
-`Context · Why quiet tools matter`
+`Context · Measured in tokens, about three quarters of a word each`
 
-## One quieter test reporter cut a session's biggest cost by 99.8 percent.
+## A quieter test report cut what the agent reads by 99.8 percent.
 
 - Test output, one line per test `657,806`
-- Test output, dots and failures only `1,182`
-
+- Test output, failures only `1,182`
 
 <!--
-This is the most striking number in the whole practice. Measured in tokens, the unit models read and bill in, our test runner printed about 658,000 tokens per run into the agent's context. Switching to a reporter that prints a dot per passing test and full detail only for failures brought it to about 1,200. The tests and the information were the same. When people look for cost savings they reach for a cheaper model first. Look at what your tools print first.
+This is the biggest single saving we found. Models read and bill in tokens, and a token is roughly three quarters of a word. Our test runner printed a line for every passing test, and the agent read about six hundred and fifty-eight thousand tokens of it on every run. We switched to a report that shows a dot for each pass and full detail only for failures. That brought it down to about twelve hundred. Same tests, same information. When people want to cut agent costs, they usually look at the model first. Look at what your tools print before you do.
 -->
 
 ---
@@ -178,17 +200,17 @@ This is the most striking number in the whole practice. Measured in tokens, the 
 
 `Context · In Claude Code`
 
-## Claude Code gives you a control for each of these habits.
+## Claude Code gives you a setting for each of these habits.
 
 | Practice | In Claude Code |
 | --- | --- |
-| Standing instructions as an index | `CLAUDE.md`, with `@path` imports for detail |
+| Standing instructions as an index | `CLAUDE.md`, linking detail docs with `@docs/file.md` |
 | Guidance that loads only when relevant | A skill in `.claude/skills/<name>/SKILL.md` |
-| Big reads outside the main session | A subagent in `.claude/agents/` |
+| Big reads outside the main session | A helper agent (subagent) in `.claude/agents/` |
 | See what fills the window | `/context`, and `/usage` for the bill |
 
 <!--
-If you use Claude Code, each habit has a direct control. CLAUDE.md is the standing instruction file; keep it short and pull in detail with at-sign imports. Skills hold longer guidance that loads only when a task calls for it. Subagents do large reads in their own context. And slash context shows what is filling the window, while slash usage shows where the tokens went.
+If you use Claude Code, each habit maps to a setting. CLAUDE.md is the standing instruction file. Keep it short, and link to detail documents with an at sign followed by the file path. Skills hold longer guidance that only loads when a task needs it. Subagents are helper agents that do big reads in their own window. And slash context shows what's filling the window, while slash usage shows where the tokens went.
 -->
 
 ---
@@ -200,7 +222,7 @@ If you use Claude Code, each habit has a direct control. CLAUDE.md is the standi
 
 `Practice 02`
 
-## Autonomy with a reach limit
+## Autonomy with limits
 
 ---
 
@@ -212,15 +234,15 @@ If you use Claude Code, each habit has a direct control. CLAUDE.md is the standi
 
 ```mermaid
 flowchart LR
-  A["Next step"] --> B{"Already dictated<br/>by our process?"}
+  A["Next step"] --> B{"Already decided<br/>by a written rule?"}
   B -->|no| F["Ask: options, costs,<br/>a recommendation"]
-  B -->|yes| C{"Reversible, and<br/>stays on its branch?"}
+  B -->|yes| C{"Easy to undo, and<br/>affects only its own work?"}
   C -->|yes| D["Act, then report"]
   C -->|no| F
 ```
 
 <!--
-We run agents with a default of action. If our written process already says what the next step is, the agent does it without asking: open the pull request, fix the failing build, update the docs. Asking permission for a step that is already decided just wastes your attention. But a second question runs after the first: is this step reversible, and does it stay inside this branch? If not, the agent stops and puts options to a person, even if the process pointed at the step. The first question removes hesitation. The second limits reach.
+We set our agents up to act by default. If a written rule already says what the next step is, the agent takes it without asking: open the pull request, fix the failing build, update the docs. Asking permission for something that's already decided just uses up your attention. Then a second question: is this step easy to undo, and does it affect only the agent's own work? If either answer is no, the agent stops and brings you options, even when a rule pointed it that way.
 -->
 
 ---
@@ -229,15 +251,15 @@ We run agents with a default of action. If our written process already says what
 
 `Autonomy · The reach test`
 
-## Risk comes from reversibility and reach, not difficulty.
+## Risk comes from what you can't undo and who it touches.
 
-- **Easy to undo · Stays on the branch.**
+- **Easy to undo · Only its own work.**
   - Code, tests, docs
   - The agent acts
 - **Easy to undo · Reaches others.**
   - Shared labels, team settings
   - The agent proposes
-- **Hard to undo · Stays on the branch.**
+- **Hard to undo · Only its own work.**
   - Deleted work, exported files
   - The agent shows the result first
 - **Hard to undo · Reaches others.**
@@ -247,7 +269,7 @@ We run agents with a default of action. If our written process already says what
 > Others act on shared state before you can undo a mistake there.
 
 <!--
-This grid is the heart of the practice. Notice what is not on it: difficulty. A hard refactor on its own branch is the agent's job, and if it goes wrong you throw the branch away. A one-line change to labels that sixty issues share is not the agent's call, however trivial it looks, because other people and other agents act on it before you can undo it. One agent in our project changed sixty issues when it was asked for about twelve. That is the bottom-right risk wearing a top-left disguise.
+Two things decide the risk: how hard the change is to undo, and who else it touches. How difficult the work is doesn't matter. A tricky refactor on the agent's own branch is fine, because if it goes wrong you throw the branch away. A one-line change to labels the whole team relies on is different. Other people, and other agents, act on it before you notice. We saw this firsthand. We asked an agent to mark about twelve issues as ready, and it marked sixty.
 -->
 
 ---
@@ -260,12 +282,12 @@ This grid is the heart of the practice. Notice what is not on it: difficulty. A 
 
 - Shared state: labels, boards and settings other people read.
 - The build pipeline: every future change pays for a new step.
-- A number a person set: "about twelve" was a decision.
+- A number a person set: we asked for twelve and got sixty.
 - A core document's meaning: rewriting rules differs from following them.
 - Anything irreversible or public: merges, releases, comments on others' work.
 
 <!--
-We turned the grid into a short, explicit list. Five kinds of change always come back to a person, even when the process points at them. Shared state. The build pipeline, because a bad step taxes every future change. Any number a person set: if the brief says about twelve and the agent thinks sixty is better, that is a question, not a decision. The meaning of a core document. And anything irreversible or public. When the agent does ask, it brings options with costs and a recommendation, all in one round, so the person decides once.
+We turned the grid into a short list. These five kinds of change always come back to a person, even when a rule points at them. Shared state. The build pipeline, because one bad step slows down every future change. Any number a person set: when we said about twelve, twelve was the decision. The meaning of a core document. And anything you can't take back or that the public sees. When the agent does ask, it puts every question into one message, so you only have to decide once.
 -->
 
 ---
@@ -277,12 +299,12 @@ We turned the grid into a short, explicit list. Five kinds of change always come
 ## When the agent asks, it brings measured options and a recommendation.
 
 - A weak question
-  - "Should I add this check to CI?" The person now has to do the analysis.
+  - "Should I add this check to the build?" Now you have to do the analysis.
 - A strong question
-  - "Adding it costs 0.52 seconds per run and catches this class of bug. I recommend yes." The person just decides.
+  - "This check adds half a second to each build and catches the bug we hit last week. I recommend adding it." You just decide.
 
 <!--
-How the agent asks matters as much as when. A weak question pushes the analysis back onto the person. A strong one arrives with options, what each costs, what each buys, and a recommendation. And the costs are measured, not guessed: in one of our sessions, a guess of "about five seconds" turned out to be half a second when someone measured it, and the guess had argued for the wrong option. If a number can be measured in a minute, measure it.
+How the agent asks matters as much as when. A weak question hands the analysis back to you. A strong one comes with the options, what each one costs, and a recommendation. And the costs should be measured. In one of our sessions, the agent guessed an option would cost about five seconds. Measured, it was half a second, and the guess had pointed toward the wrong choice. If a number takes a minute to measure, measure it.
 -->
 
 ---
@@ -295,12 +317,12 @@ How the agent asks matters as much as when. A weak question pushes the analysis 
 
 | Practice | In Claude Code |
 | --- | --- |
-| Act freely on safe commands, never on risky ones | The allow, ask and deny lists in `.claude/settings.json` |
+| Run safe commands freely, never risky ones | The allow, ask and deny lists in `.claude/settings.json` |
 | Show the plan before touching anything | Plan mode: `Shift+Tab` |
-| The same limits for every developer | Managed settings, deployed org-wide |
+| The same limits for every developer | Managed settings, rolled out org-wide |
 
 <!--
-In Claude Code, the reach test becomes configuration. Allow, ask and deny lists decide what the agent may run freely, what needs a yes, and what it may never run. Plan mode makes it propose before it acts, which suits anything in the risky quadrants. And managed settings apply the same limits across the organization, so safety does not depend on each person's setup.
+In Claude Code, the reach test becomes settings. The allow list is what the agent may run freely, the ask list needs your yes, and the deny list it can never run. Plan mode makes the agent propose before it acts, which is what you want for anything in the riskier corners of the grid. Managed settings apply the same limits to everyone in the organization, so nobody's safety depends on their personal setup.
 -->
 
 ---
@@ -320,17 +342,17 @@ In Claude Code, the reach test becomes configuration. Allow, ask and deny lists 
 
 `Verification · The gap`
 
-## Agents report what they believe, and belief is not evidence.
+## Agents report what they believe, and that can differ from what is true.
 
 - What the agent reported
   - "Verified with a real browser," in the pull request, the commit message and the design note.
 - What was true
-  - The test passed with the fix deleted. It could not fail, so it proved nothing.
+  - The test still passed with the fix deleted. It could never fail, so it proved nothing.
 
-> A rule the agent grades itself on is a hope. An independent check is evidence.
+> Rules an agent checks on itself are weak. A second, independent check catches what they miss.
 
 <!--
-Here is the gap every team hits. An agent reported a fix as verified, in three places. A second agent, asked to try to break the test, deleted the fix and ran it again. It still passed. The first agent was not lying; it believed it. That is the core problem of verification with agents: the report and the reality can separate, and the agent cannot see the gap from where it stands. We had a written rule against unverified claims at the time. The rule did not catch it. An independent check did.
+Every team runs into this. One of our agents reported a fix as verified, in three places. We asked a second agent to try to break the test. It deleted the fix, ran the test again, and the test still passed. The first agent wasn't lying. It believed the fix worked. That's the core problem: the report and the reality can drift apart, and the agent can't see the gap from where it sits. We even had a written rule against unverified claims at the time. The rule didn't catch it. The second agent did.
 -->
 
 ---
@@ -339,15 +361,15 @@ Here is the gap every team hits. An agent reported a fix as verified, in three p
 
 `Verification · The claim rule`
 
-## Every "verified" names the surface it ran on and carries proof from it.
+## Every "verified" says where it ran and shows proof from there.
 
-- Name the surface: the real browser, the real export, the real device.
-- Attach the artifact: a screenshot, a log or a number from that surface.
-- Say "unverified" out loud when the real surface is out of reach.
-- Treat "CI is green" as partial: it proves only what CI runs.
+- Say where: the real browser, the real export, the real device.
+- Show proof: a screenshot, a log or a number from that place.
+- Say "unverified" out loud when the real thing is out of reach.
+- Treat a passing build as partial: it proves only what the build runs.
 
 <!--
-So we made verification a claim with a shape. Any "verified" must say where it ran: the real browser, the real export, not an emulator standing in for them. It must carry an artifact from that surface. When the agent cannot reach the real thing, it writes the word "unverified", and we treat that as a good answer, not a failure. And "the build is green" is never the whole story, because the build only checks what it runs.
+So we gave the word "verified" rules. It has to say where the check ran: the real browser or the real export, and not a simulator standing in for them. It has to come with proof from that place. When the agent can't reach the real thing, it writes "unverified," and we count that as a good answer. And a passing build is never the whole story, because the build only checks what it runs.
 -->
 
 ---
@@ -356,38 +378,38 @@ So we made verification a claim with a shape. Any "verified" must say where it r
 
 `Verification · The ladder`
 
-## Scale the checking with the damage a mistake could do.
+## Match the amount of checking to the damage a mistake could do.
 
 ```mermaid
 flowchart LR
-  A["Routine change<br/>tests and linters"] --> B["Real reach<br/>a second agent<br/>redoes the work"]
-  B --> C["Critical or novel<br/>three adversarial<br/>reviewers"]
-  C --> D["Irreversible<br/>a person decides"]
+  A["Routine change<br/>tests and linters"] --> B["Wide impact<br/>a second agent<br/>redoes the work"]
+  B --> C["Critical or new<br/>three reviewers,<br/>three jobs"]
+  C --> D["Can't be undone<br/>a person decides"]
 ```
 
 <!--
-Not every change deserves the same scrutiny. Routine work gets the automated checks. Anything with real reach gets a second agent that redoes the work from scratch; we call it maker-checker. Reading the first agent's summary does not count, because a summary carries the same blind spots. Critical or genuinely new work gets three adversarial reviewers. And anything irreversible goes to a person. The ladder keeps the expensive reviews for the changes that deserve them.
+Not every change needs the same scrutiny. Routine work gets the automated tests and linters. Anything with wide impact gets a second agent that redoes the work from scratch. Reading the first agent's summary doesn't count, because a summary carries the same blind spots. Critical or brand-new work gets three reviewers, each with a different job. And anything that can't be undone goes to a person. The expensive checks go where they matter.
 -->
 
 ---
 
 <!-- _class: cards-grid three insight-our-view -->
 
-`Verification · The adversarial trio`
+`Verification · Three reviewers`
 
-## Three reviewers, each with a different job, find different failures.
+## Three reviewers with different jobs catch different failures.
 
 - Red team
-  - Attacks the change: edge cases, abuse, the input nobody tried.
-- Inversion
-  - Asks how this could be the wrong answer to the wrong question.
-- Checker
+  - Tries to break it: edge cases, misuse, the input nobody tried.
+- Skeptic
+  - Asks whether we are solving the right problem at all.
+- Fact checker
   - Re-derives every fact and number from the source.
 
-> Correctness reviewers cannot see a wrong goal, so give one reviewer that job alone.
+> Reviewers who check correctness miss a wrong goal. Give that job to one reviewer.
 
 <!--
-The top rung is three reviewers with deliberately different jobs. The red team tries to break it. The inversion reviewer, named after Charlie Munger's habit of inverting a problem, asks how the whole approach could be wrong. And the checker re-derives every fact and number from the source. The jobs differ because the failures differ. In one of our reviews, two checkers confirmed a change was correct, and it was, but only the inversion reviewer saw that it solved the wrong problem.
+At the top of the ladder, three reviewers each get a different job. The red team tries to break the change. The skeptic asks whether we're solving the right problem at all. And the fact checker re-derives every fact and number from the source. The jobs are different because the failures are different. In one review, two checkers confirmed a change was correct. They were right: it was correct. Only the skeptic noticed it solved the wrong problem.
 -->
 
 ---
@@ -396,21 +418,21 @@ The top rung is three reviewers with deliberately different jobs. The red team t
 
 `Verification · Checks that can fail`
 
-## A check earns trust only by proving it can fail.
+## A check earns trust by proving it can fail.
 
-- Allow zero
-  - The limit is none, and each exception carries a written reason.
-- Expire exceptions
-  - An exception that no longer matches anything fails the build.
-- Plant a defect
-  - Each run plants a known bug and fails if the check misses it.
+- Reasons for exceptions
+  - Every exception to a rule has a written reason.
+- Unused exceptions fail
+  - An exception that no longer applies breaks the build.
+- Plant a known bug
+  - Each run plants a bug and fails if the check misses it.
 - Warn, then block
-  - A new check blocks merges only after a clean track record.
+  - A new check blocks merges only after a clean record.
 
 > A check that always passes looks exactly like a check that works.
 
 <!--
-Automated checks need the same skepticism. One of our core checks could never fail, for any component, and nobody noticed for months, because a check that always passes looks exactly like a check that works. Four patterns fixed that. Set the allowed count to zero and list each exception with a reason. Make stale exceptions fail the build, so the list cannot rot. Plant a known defect on every run and require the check to catch it. And let a new check warn before it blocks, until it has earned trust.
+Automated checks need the same skepticism. One of our main checks could never fail, for any component, and nobody noticed for months. A check that always passes looks just like one that works. Four habits fixed that. Every exception to a rule gets a written reason. An exception that no longer applies breaks the build, so the list can't quietly grow stale. Each run plants a known bug, and the check has to catch it. And a new check starts by warning. It only starts blocking merges once it has a clean track record.
 -->
 
 ---
@@ -419,16 +441,16 @@ Automated checks need the same skepticism. One of our core checks could never fa
 
 `Verification · In Claude Code`
 
-## Hooks and subagents make verification automatic.
+## Hooks and helper agents run the checks without being asked.
 
 | Practice | In Claude Code |
 | --- | --- |
-| Run checks after every edit | A `PostToolUse` hook |
-| Refuse "done" until the tests pass | A `Stop` hook that exits with code 2 |
-| An independent reviewer | A read-only subagent, or `/code-review` |
+| Run checks after every edit | A hook that runs after each edit (`PostToolUse`) |
+| Refuse "done" until the tests pass | A hook that runs when it tries to finish (`Stop`, exit code 2) |
+| An independent reviewer | A read-only helper agent, or `/code-review` |
 
 <!--
-In Claude Code, hooks are scripts that run at fixed points whether or not the agent remembers. A post-tool-use hook can run your linter after every edit. A stop hook runs when the agent tries to finish, and if it exits with code two the agent has to keep going, for example until the tests pass. For maker-checker, define a reviewer subagent that can read but not edit, or run slash code-review on the change.
+A hook is a small script Claude Code runs at a fixed moment, whether or not the agent remembers to. One kind runs after every edit, so your linter always runs. Another runs when the agent tries to finish. If that script exits with code two, the agent has to keep working, for example until the tests pass. For a second opinion, set up a reviewer agent that can read but not edit, or run slash code-review on the change.
 -->
 
 ---
@@ -448,23 +470,23 @@ In Claude Code, hooks are scripts that run at fixed points whether or not the ag
 
 `Learning · The loop`
 
-## Every rule should travel one loop, from incident to retirement.
+## Every rule should travel one loop, from mistake to retirement.
 
-- Incident
-  - Something breaks, or an agent oversteps.
-- Decision note
-  - A dated record: symptom, cause, decision.
-- Numbered rule
-  - One line, tagged with what enforces it.
-- Check
-  - A script enforces it where it can.
+- Something breaks
+  - A bug ships, or an agent oversteps.
+- Write it down
+  - A dated note: what happened, why, what we decided.
+- Make a rule
+  - One line, marked with what enforces it.
+- Add a check
+  - A script enforces the rule where it can.
 - Retest
-  - Retire the rule if its reason no longer holds.
+  - Retire the rule once its reason no longer holds.
 
-> Copy the loop, and let your own incidents write your rules.
+> Copy the loop, and let your own mistakes write your rules.
 
 <!--
-This loop is how the whole system gets better. An incident happens. Someone writes a short dated note: what broke, why, and what we decided. The decision becomes a numbered rule, one line, tagged with what enforces it: a script, or only the agent's discipline. Where possible a check enforces it. And rules get retested. We retired one rule after two months when a retest showed its premise had never been true. Numbers are never reused, so every reference stays stable, and the history stays visible.
+This loop is how the whole system improves. Something breaks. Someone writes a short, dated note: what happened, why, and what we decided. The decision becomes a one-line rule that says what enforces it, either a script or just the agent's own discipline. Where we can, a script does the enforcing. Then, every so often, we retest the rules. We retired one rule after two months when a retest showed it had never been true. Don't copy our rules. Copy the loop, and your own mistakes will write rules that fit your team.
 -->
 
 ---
@@ -478,19 +500,19 @@ This loop is how the whole system gets better. An incident happens. Someone writ
 ```markdown
 ---
 status: shipped
-summary: Retire the :has() ban; a retest passed 5 of 5
+summary: Allow real database calls in tests; the ban had no evidence
 ---
 
-# Retire rule 12
+# Retire the rule against database calls in tests
 
-Symptom   A ban blocked valid CSS for two months
-Claim     One browser mishandles :has()
-Evidence  Retested on current Chromium: 5 of 5 pass
+Symptom   The rule forced slow, fragile mocks for two months
+Claim     Real database calls make tests flaky
+Evidence  500 runs against a test database: 0 flaky
 Decision  Retire the rule; keep its number unused
 ```
 
 <!--
-Here is the shape of a decision note, trimmed from a real one. A status the tooling can read. A one-line summary. Then the symptom, the claim behind the old rule, the evidence, and the decision. It takes ten minutes to write. Its value shows up months later, when someone, human or agent, asks why things are the way they are and gets an answer instead of a guess. Agents read these notes before working in an area, so the team's reasoning travels to every session.
+Here's what a decision note looks like. This example mirrors a real one: a rule that sat in place for two months on a claim nobody had tested. It has a status the tools can read and a one-line summary, then the symptom, the claim behind the rule, the evidence, and the decision. It takes ten minutes to write. It pays off months later, when someone asks why things are the way they are and finds an answer instead of guessing. Agents read these notes too, so the team's reasoning follows every session.
 -->
 
 ---
@@ -504,11 +526,11 @@ Here is the shape of a decision note, trimmed from a real one. A status the tool
 | Document | Answers | When it expires |
 | --- | --- | --- |
 | Proposal | Which option should we pick? | Once someone decides |
-| Decision record | Why is it this way? | Never; a newer record supersedes it |
+| Decision record | Why is it this way? | Never; a newer record replaces it |
 | Spec | What must every implementation do? | Never; you edit it to stay true |
 
 <!--
-It helps to know which kind of document you are writing, because each ages differently. A proposal lays out options before a decision and expires once someone decides. A decision record explains why something is the way it is; you never edit it to match later reality, you write a new record that supersedes it. A spec is the contract others build against, and you keep it true. Give each document a type as well as a status. We did not, and dozens of our notes still read "proposed" long after they were decided.
+It helps to know which kind of document you're writing, because each one ages differently. A proposal lays out options before a decision, and it expires once someone decides. A decision record explains why things are the way they are. You don't edit it later to match what happened; you write a new record that replaces it. A spec is the contract other people build against, and you keep editing it so it stays true. Mark each document with its type as well as its status. We didn't, and dozens of our notes still say "proposed" long after they were decided.
 -->
 
 ---
@@ -517,7 +539,7 @@ It helps to know which kind of document you are writing, because each ages diffe
 
 `Learning · The evidence card`
 
-## Before every merge, the agent grades its own confidence by its weakest point.
+## Before every merge, the agent grades its confidence by its weakest point.
 
 ```text
 Pre-merge: add retry to failed exports
@@ -525,14 +547,14 @@ WHAT        One automatic retry on a failed export
 EVIDENCE    Real export run 20 times: 0 failures
 RISK        Export path only · revert: one commit
 UNVERIFIED  Safari's download dialog
-CONFIDENCE  high, set by the evidence axis
+CONFIDENCE  high, limited by the evidence
             raise it by: run the export in Safari
 ```
 
-> Grade by the weakest axis, and always name the one thing that would raise it.
+> Grade by the weakest area, and always name the one thing that would raise it.
 
 <!--
-This is an example of the card every change carries: the agent posts it before asking a person to merge. The rule that makes it work: confidence is the lowest of five axes, evidence, reach, reversibility, unknowns and independent review, never an average. And the last line names the one thing that would raise it. That turns "are you sure?" into a decision: merge now, or spend ten minutes on the raise-path. In our experience agents act on that line, and the card is the review artifact people actually read.
+Here's an example of what we call an evidence card. The agent posts one before it asks a person to merge. Confidence is set by the weakest of five areas: evidence, reach, how easy it is to undo, unknowns, and whether an independent review ran. It is never an average. The last line names the one thing that would raise the grade. So instead of asking "are you sure?", you can choose: merge now, or spend ten minutes running the export in Safari. Agents act on that line, and the card is what people actually read before they merge.
 -->
 
 ---
@@ -544,12 +566,12 @@ This is an example of the card every change carries: the agent posts it before a
 ## Keep pending work in the repository, one file per item.
 
 - In chat
-  - Invisible to the next session. When we finally checked, nearly half of our chat-only to-dos were already done or duplicated.
+  - Gone when the session ends. When we finally checked, nearly half of our chat-only to-dos were already done or duplicated.
 - In the repository
-  - One small file per item, with a priority and a "done when". Any session can pick it up cold.
+  - One small file per item, with a priority and a "done when." Any session can pick it up cold.
 
 <!--
-Agent sessions end, and whatever lived only in the chat ends with them. So every piece of pending work gets a small file in the repository, with a priority and a clear "done when". One file per item, rather than one shared list, for a practical reason: two changes in flight never edit the same lines, so they never collide when they merge. The same trick fixed our changelog. Instead of every change editing one shared file, each change adds its own small fragment.
+When an agent session ends, anything that lived only in the chat goes with it. So every piece of unfinished work gets its own small file in the repository, with a priority and a clear "done when." We use one file per item instead of one shared list, and the reason is practical. Two changes in progress never edit the same lines, so they never collide when they merge. We fixed our changelog the same way. Every change adds its own small entry file instead of editing one shared file.
 -->
 
 ---
@@ -574,14 +596,14 @@ Agent sessions end, and whatever lived only in the chat ends with them. So every
 | Agent | Its one job |
 | --- | --- |
 | Scout | Find where things live and how they work |
-| Fact-checker | Confirm or refute each claim against the source |
-| CI triage | Find why a check is red, and fix the cause |
+| Fact checker | Confirm or refute each claim against the source |
+| Build fixer | Find why a check failed, and fix the cause |
 | Red team | Break the change before users do |
-| Checker | Re-derive every number with fresh eyes |
+| Skeptic | Ask whether we are solving the right problem |
 | Prose checker | Catch unclear or machine-sounding writing |
 
 <!--
-Instead of one general assistant, keep a small roster of named agents, each defined by a short card with one job and only the tools that job needs. A reviewer, for example, can read but cannot edit. You choose the agent by its job, and its instructions are tuned for that job. In Claude Code these cards live in the agents folder of your repository, so the whole team shares the same roster.
+Orchestration just means coordinating several agents. Instead of one general assistant, keep a small roster of named agents. Each one has a short definition: one job, and only the tools that job needs. A reviewer, for example, can read but can't edit. You pick an agent by the job you need done, and its instructions are written for that job. In Claude Code these definitions live in the agents folder of your repository, so the whole team shares one roster.
 -->
 
 ---
@@ -590,18 +612,18 @@ Instead of one general assistant, keep a small roster of named agents, each defi
 
 `Orchestration · Competing designs`
 
-## For a wide-open design question, run competing designs and harden only the winner.
+## For a big design question, compare drafts and review only the winner.
 
-1. Three to five design tracks, each iterating in one session.
-2. One fresh critic per track.
-3. One shared fact-checker across all tracks.
-4. Judges compare side by side, and a person picks.
-5. Full adversarial review on the winner only.
+1. Three to five agents each draft a design in one continuous session.
+2. A separate critic reviews each design once.
+3. One fact checker checks the claims in all of them.
+4. Judges compare them side by side, and a person picks.
+5. Only the chosen design gets the full three-reviewer check.
 
-> Spend the expensive review on the one design you will ship.
+> Spend the expensive review on the design you will actually ship.
 
 <!--
-When the question is genuinely wide, an architecture, a data model, a core user experience, several independent attempts beat one attempt refined many times. Each track iterates inside one agent session, which keeps its context warm instead of paying to reload it every round. One fresh critic per track, one shared fact-checker, then judges compare the designs side by side. A person picks. And only then does the winner get the full adversarial review. Our first attempt at this used fifty-three agents and reviewed every candidate; this shape does the same job with about seventeen.
+For a big, open design question, like an architecture or a data model, several independent drafts beat one draft revised many times. Each agent works on its design in one continuous session, so it doesn't pay to reload everything each round. A separate critic reviews each design once. One fact checker covers them all. Then judges compare the designs side by side, and a person picks. Only the chosen design gets the full three-reviewer check. The first time we tried this, we reviewed every candidate and used fifty-three agents. This way takes about seventeen.
 -->
 
 ---
@@ -612,14 +634,14 @@ When the question is genuinely wide, an architecture, a data model, a core user 
 
 ## Treat agent count like money: estimate it, cap it, and stop early.
 
-- Estimate agents and rough tokens before you launch.
+- Estimate how many agents and roughly what it will cost before you start.
 - Count across the whole session; small runs add up.
 - Past about ten agents, a person approves.
 - Stop when a round changes nothing, usually by round three.
 - Record what it cost, so you learn what it was worth.
 
 <!--
-More agents is not automatically better; it is automatically more expensive. So we budget them like money. Estimate before launch. Count across the whole session, because ten small runs add up. Past about ten agents, a person approves. Stop refining when a round changes nothing; in practice about three rounds does it. And record what it cost. That last one is where we are weakest ourselves: almost none of our big runs recorded their cost, so we cannot say which ones were worth it.
+Each extra agent costs money, and it doesn't always make the result better. So we budget agents like money. Estimate before you start. Count across the whole session, because a lot of small runs add up. Past about ten agents, a person signs off. Stop refining once a round changes nothing, which usually happens by the third round. And write down what it cost. That last one is where we're weakest ourselves. Almost none of our big runs recorded their cost, so we can't tell which ones were worth it.
 -->
 
 ---
@@ -635,12 +657,12 @@ More agents is not automatically better; it is automatically more expensive. So 
 | Practice | Week 1 | Month 1 | Quarter 1 |
 | --- | --- | --- | --- |
 | Context | [ ] A one-page index file | [ ] Linked detail docs | [ ] Measure what sessions load |
-| Autonomy | [ ] Allow and deny lists | [ ] A written stop list | [ ] Human gate in the platform |
+| Autonomy | [ ] Allow and deny lists | [ ] A written stop list | [ ] Human approval in the platform |
 | Verification | [ ] Tests on every change | [ ] A check that plants a bug | [ ] A second agent on risky work |
 | Learning | [ ] A decision log | [ ] Pending work as files | [ ] Retest your oldest rules |
 
 <!--
-None of this needs to arrive at once. In week one: a short index file, basic allow and deny lists, tests on every change, and a decision log. In month one: linked detail documents, a written stop list, one check that proves it can fail, and pending work kept as files. By the end of the quarter: measure what your sessions load, put the human gate into your platform itself, add a second reviewing agent for risky work, and retest your oldest rules. Orchestration comes last, once these four are solid.
+You don't need all of this at once. In week one: a short index file, basic allow and deny lists, tests on every change, and a decision log. By the end of the first month: linked detail documents, a written stop list, one check that proves it can fail, and pending work kept as files. By the end of the quarter: measure what your sessions load, make merge approval a setting in your platform, add a second reviewing agent for risky work, and retest your oldest rules. Leave orchestration until these four are solid.
 -->
 
 ---
@@ -649,18 +671,18 @@ None of this needs to arrive at once. In week one: a short index file, basic all
 
 `Getting started · Your kind of work`
 
-## The practices carry over, but the real surface changes with the work.
+## The practices carry over, but what counts as "the real thing" changes.
 
-| Work | The real surface to verify | A check that proves it can fail |
+| Work | The real thing to check | A check that proves it can fail |
 | --- | --- | --- |
 | Data science | A fixed, versioned evaluation set | Plant an input that leaks the answer |
 | Data engineering | The target warehouse | Insert a known-bad row |
 | Analytics and BI | The published dashboard | Plant a mismatch with the source |
 | Services | Staging, or a slice of live traffic | Break a contract on purpose |
-| Tools and CLIs | The built binary's output | A saved expected output that must change |
+| Tools and CLIs | The built program's output | A saved expected output that must change |
 
 <!--
-These practices came from a web application, but they travel. What changes is what counts as the real surface. For data science it is a fixed, versioned evaluation set. For data engineering, the target warehouse. For analytics, the dashboard people actually open. For services, staging or a small slice of live traffic. And in every case you can plant a known problem to prove your check catches it. Two cautions for data work: keep agents away from production data and give them a safe copy, and expect results to vary run to run, so compare against a range.
+These practices came from a web application, but they travel. What changes is what counts as the real thing. In data science, it's a fixed, versioned evaluation set. In data engineering, it's the target warehouse. In analytics, it's the dashboard people actually open. For services, it's staging or a small slice of live traffic. In every case, you can plant a known problem to prove your check catches it. Two cautions for data work: give agents a safe copy instead of production data, and expect results to vary from run to run, so compare against a range.
 -->
 
 ---
@@ -678,7 +700,7 @@ These practices came from a web application, but they travel. What changes is wh
 > Pick one move and try it before next Friday.
 
 <!--
-If you try three things this week, try these. Rewrite your agent's instruction file as an index. Add one automated check, then break your code on purpose and watch the check catch it. And start a decision log: one short, dated note every time something goes wrong. Within a quarter that log will hold the first draft of your team's rules, and you will know where each one came from. Thank you. Let's take questions.
+If you try three things this week, try these. Rewrite your agent's instruction file as an index. Add one automated check, then break your code on purpose and watch the check catch it. And start a decision log, with one short dated note every time something goes wrong. In a few months, that log will hold the first draft of your team's rules, and you'll know where each rule came from. Thanks. Let's take questions.
 -->
 
 ---
@@ -696,6 +718,27 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 
 <!-- _class: table table-fill -->
 
+`Starter kit · Six terms`
+
+## Six terms from this talk, in plain words.
+
+| Term | What it means |
+| --- | --- |
+| Context window | Everything the model can see at one moment |
+| Token | A chunk of text, about three quarters of a word |
+| Session | One conversation with an agent, from start to finish |
+| Pull request | A proposed change, waiting for review before it merges |
+| CI, the build | Automated checks that run on every proposed change |
+| Hook | A script the agent tool runs at a fixed moment |
+
+<!--
+For anyone reading this later, here are the six terms we leaned on most, in plain words.
+-->
+
+---
+
+<!-- _class: table table-fill -->
+
 `Starter kit · What is in it`
 
 ## Seven files put all five practices into a repository in five minutes.
@@ -706,11 +749,11 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 | Settings | `.claude/settings.json` | Autonomy, verification |
 | Stop hook | `.claude/hooks/` | Verification |
 | Reviewer agent | `.claude/agents/checker.md` | Verification, orchestration |
-| Evidence card | PR template | A system that learns |
-| Decision note, follow-up file | `docs/decisions/`, `followups/` | A system that learns |
+| Evidence card | PR template | Learning |
+| Decision note, follow-up file | `docs/decisions/`, `followups/` | Learning |
 
 <!--
-Everything in this last section is in a kit folder next to this deck, ready to copy. Seven files. Together they set up all five practices in a repository in about five minutes. I'll show each one briefly so you know what you're getting; you don't need to read them now.
+Everything in this last section is in a kit folder next to this deck, ready to copy. There are seven files, and together they set up all five practices in about five minutes. I'll show each one quickly so you know what's there. You don't need to read them now.
 -->
 
 ---
@@ -719,13 +762,13 @@ Everything in this last section is in a kit folder next to this deck, ready to c
 
 `Starter kit · 1 of 7`
 
-## The instruction file states the rules once and points to the detail.
+## The instruction file states the rules once and links to the detail.
 
 ```markdown
 ## Always
 - Run the tests before you say anything is done.
 - Failing test first, then the fix, then the same test passing.
-- "Verified" names where it ran and attaches proof from there.
+- "Verified" says where it ran and shows proof from there.
   Otherwise, write UNVERIFIED.
 
 ## Ask first, even when a rule points at it
@@ -737,7 +780,7 @@ Everything in this last section is in a kit folder next to this deck, ready to c
 ```
 
 <!--
-This is the core of the instruction file. The "Always" rules cover verification. The "Ask first" list is the stop list from the autonomy section, word for word. The full file also has a short routing table, so the agent reads the right document before it starts. Keep it to one page.
+This is the heart of the instruction file. The "Always" section covers verification. The "Ask first" section is the stop list from earlier, word for word. The full file also has a short routing table, so the agent reads the right document before it starts. Keep the whole thing to one page.
 -->
 
 ---
@@ -764,7 +807,7 @@ This is the core of the instruction file. The "Always" rules cover verification.
 ```
 
 <!--
-The settings file does two jobs. The permission lists decide what the agent may run freely, what needs a yes, and what it may never do, such as force-pushing or reading your secrets file. And the hooks section wires in the stop hook on the next slide. Swap in your own test command.
+The settings file does two things. The permission lists say what the agent may run freely, what needs your yes, and what it can never do, like force-pushing over shared history or reading your secrets file. The hooks section connects the stop hook on the next slide. Swap in your own test command.
 -->
 
 ---
@@ -791,7 +834,7 @@ fi
 ```
 
 <!--
-This small script runs every time the agent tries to finish. If the tests fail, it exits with code two, which sends the failure back to the agent and keeps it working. The check at the top stops it from looping forever: if the hook already sent the agent back once, it lets it stop and report. We ran it against failing and passing test suites before putting it in the kit.
+This short script runs whenever the agent tries to finish. If the tests fail, it exits with code two. That sends the failure back to the agent and keeps it working. The check near the top prevents an endless loop: if the hook has already sent the agent back once, it lets it stop and report. We ran it against failing and passing test suites before putting it in the kit.
 -->
 
 ---
@@ -817,7 +860,7 @@ Treat "I believe it works" and "CI is green" as unverified.
 ```
 
 <!--
-This is the maker-checker reviewer as a file. It has read and search tools but no edit tool, so it can only report. Its instructions tell it to find evidence itself instead of trusting the author's summary, and to check that each test fails when the fix is removed, which is exactly the check that catches a test that proves nothing.
+This is the second-opinion reviewer as a file. It can read and search, but it has no tool for editing, so all it can do is report. Its instructions tell it to find the evidence itself instead of trusting the author's summary, and to confirm each test fails when the fix is removed. That one check would have caught the test that proved nothing.
 -->
 
 ---
@@ -832,17 +875,17 @@ This is the maker-checker reviewer as a file. It has read and search tools but n
 Pre-merge: <PR title>
 WHAT        <one line: what actually lands>
 WHY         <one line: the problem it solves>
-EVIDENCE    <what was run or measured, and on which surface>
+EVIDENCE    <what was run or measured, and where>
 RISK        <what breaks if wrong> · revert: <how>
 UNVERIFIED  <caveats that bear on this decision, or none>
-CONFIDENCE  <low | medium | high | very high>: <weakest axis>
+CONFIDENCE  <low | medium | high | very high>: <weakest area>
             raise it by: <the one thing that would raise it>
 
-Axes: evidence · reach · reversibility · unknowns · review
+Areas: evidence · reach · undo · unknowns · review
 ```
 
 <!--
-Here is the evidence card as a blank template. The rule that matters is on the last line: confidence is the weakest of the five axes, never an average. The full template in the kit spells out what each level means, so every agent grades the same way.
+Here's the evidence card as a blank template. The rule that matters is on the last line: confidence comes from the weakest of the five areas, never an average. The full template in the kit spells out what each level means, so every agent grades the same way.
 -->
 
 ---
@@ -869,7 +912,7 @@ Retest when. When we check that this still holds.
 ```
 
 <!--
-The decision note template carries two lessons we learned the hard way. It has a type as well as a status, so a proposal can't linger looking like a decision. And it asks how we know the cause, measured, observed or argued, plus when to retest, so a guess can't quietly harden into a permanent rule.
+The decision note template bakes in two lessons we learned the hard way. It records the type as well as the status, so a proposal can't sit around looking like a decision. And it asks how we know the cause, whether measured, observed, or just argued, and when to retest, so a guess doesn't quietly become a permanent rule.
 -->
 
 ---
@@ -895,7 +938,7 @@ verify    — the new unit test, then one real export
 ```
 
 <!--
-Last piece. One small file per pending item, with why it matters now, where to look, what "done" means and how to verify it. Any session, human or agent, can pick it up cold. And because each item is its own file, two changes never collide editing the same list. That's the kit. Take it, adapt it, and let your own incidents grow it.
+Last one. Each pending item gets its own small file: why it matters now, where to look, what "done" means, and how to check it. Any session, whether it's a person or an agent, can pick it up cold. And because each item has its own file, two changes never collide over the same list. That's the kit. Take it, adapt it, and let your own mistakes grow it.
 -->
 
 ---
