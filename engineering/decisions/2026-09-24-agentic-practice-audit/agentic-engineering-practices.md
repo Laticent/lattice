@@ -141,20 +141,16 @@ This is a real pattern from our instruction file. A routing table maps the kind 
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway -->
 
 `Context · Habits`
 
 ## Four habits keep the window full of signal.
 
-1. Read sections, not whole files
-   - List a document's headings, then open only the part you need.
-2. Delegate big reads
-   - A helper agent reads the long log and returns a summary.
-3. Quiet the tools
-   - Print failures in full and successes as a single dot.
-4. Measure the cost
-   - Count tokens from real sessions before you optimize anything.
+- Read sections, not files: list the headings, then open only what you need.
+- Delegate big reads: a helper agent reads the log and returns a summary.
+- Quiet the tools: print failures in full and successes as a dot.
+- Measure the cost: count tokens from real sessions before optimizing.
 
 <!--
 Four habits. Read sections, not whole files: a large design document may be thirty thousand tokens, and the part you need is often one thousand. Delegate big reads: a helper agent can read a two-megabyte log and hand back a paragraph, and only the paragraph enters your main session. Quiet your tools. And measure before you optimize, because intuition about where the cost goes is usually wrong.
@@ -256,22 +252,17 @@ This grid is the heart of the practice. Notice what is not on it: difficulty. A 
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway -->
 
 `Autonomy · The stop list`
 
 ## Five kinds of change always come back to a person.
 
-1. Shared state outside the branch
-   - Labels, boards, settings other people read.
-2. The build and test pipeline
-   - Every future change pays for a new step.
-3. A number a person set
-   - "About twelve" was a decision, not a suggestion.
-4. The meaning of a core document
-   - Rewriting the rules differs from following them.
-5. Anything irreversible or public
-   - Merges, releases, comments on someone else's work.
+- Shared state: labels, boards and settings other people read.
+- The build pipeline: every future change pays for a new step.
+- A number a person set: "about twelve" was a decision.
+- A core document's meaning: rewriting rules differs from following them.
+- Anything irreversible or public: merges, releases, comments on others' work.
 
 <!--
 We turned the grid into a short, explicit list. Five kinds of change always come back to a person, even when the process points at them. Shared state. The build pipeline, because a bad step taxes every future change. Any number a person set: if the brief says about twelve and the agent thinks sixty is better, that is a question, not a decision. The meaning of a core document. And anything irreversible or public. When the agent does ask, it brings options with costs and a recommendation, all in one round, so the person decides once.
@@ -344,20 +335,16 @@ Here is the gap every team hits. An agent reported a fix as verified, in three p
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway -->
 
 `Verification · The claim rule`
 
 ## Every "verified" names the surface it ran on and carries proof from it.
 
-1. Name the surface
-   - The real browser, the real export, the real device.
-2. Attach the artifact
-   - A screenshot, a log, a measured number from that surface.
-3. Say "unverified" out loud
-   - When the real surface is out of reach, write it down.
-4. Treat "CI is green" as partial
-   - It proves only what CI actually runs.
+- Name the surface: the real browser, the real export, the real device.
+- Attach the artifact: a screenshot, a log or a number from that surface.
+- Say "unverified" out loud when the real surface is out of reach.
+- Treat "CI is green" as partial: it proves only what CI runs.
 
 <!--
 So we made verification a claim with a shape. Any "verified" must say where it ran: the real browser, the real export, not an emulator standing in for them. It must carry an artifact from that surface. When the agent cannot reach the real thing, it writes the word "unverified", and we treat that as a good answer, not a failure. And "the build is green" is never the whole story, because the build only checks what it runs.
@@ -619,22 +606,17 @@ When the question is genuinely wide, an architecture, a data model, a core user 
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 
 `Orchestration · Budget`
 
 ## Treat agent count like money: estimate it, cap it, and stop early.
 
-1. Estimate before you launch
-   - Agents and rough tokens, stated up front.
-2. Count across the whole session
-   - Ten small fan-outs cost as much as one big one.
-3. Ask past about ten agents
-   - A person approves anything bigger.
-4. Stop when a round changes nothing
-   - About three rounds is usually enough.
-5. Record what it cost
-   - Otherwise nobody learns what it was worth.
+- Estimate agents and rough tokens before you launch.
+- Count across the whole session; small runs add up.
+- Past about ten agents, a person approves.
+- Stop when a round changes nothing, usually by round three.
+- Record what it cost, so you learn what it was worth.
 
 <!--
 More agents is not automatically better; it is automatically more expensive. So we budget them like money. Estimate before launch. Count across the whole session, because ten small runs add up. Past about ten agents, a person approves. Stop refining when a round changes nothing; in practice about three rounds does it. And record what it cost. That last one is where we are weakest ourselves: almost none of our big runs recorded their cost, so we cannot say which ones were worth it.
@@ -683,18 +665,15 @@ These practices came from a web application, but they travel. What changes is wh
 
 ---
 
-<!-- _class: list-criteria insight-the-ask -->
+<!-- _class: list takeaway numbered insight-the-ask -->
 
 `Your next step`
 
 ## Three moves this week put all five practices in motion.
 
-1. Rewrite your instruction file as an index
-   - One line per rule, a link to the detail.
-2. Add one check, then break it on purpose
-   - Watch it fail before you trust it.
-3. Start a decision log
-   - One dated note each time something goes wrong.
+- Rewrite your instruction file as an index, one line per rule.
+- Add one check, then break your code on purpose and watch it catch the bug.
+- Start a decision log: one dated note each time something goes wrong.
 
 > Pick one move and try it before next Friday.
 
