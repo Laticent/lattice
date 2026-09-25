@@ -315,9 +315,12 @@ are siblings of the registers above (`lib/core/resolve-spectrum.js`), propagated
 and overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge` /
 `unknown-spectrum-trim`.
 
-**`spectrum:` — the STYLE (the gradient identity).** Redefines the `--spectrum` token at the
-section level. It always drives the brand bar; with `spectrum-trim: on` it drives the structural
-accents too. White-label lives here: pick a client's single color with `solid` and set the
+**`spectrum:` — the STYLE (the gradient identity).** Sets `--spectrum-style` at the section
+level, and the bar reads `--spectrum-bar` (the STYLE when one is set, else the theme's ribbon). It
+always drives the brand bar; with `spectrum-trim: on` it drives the structural accents too.
+`--spectrum` itself stays the theme's own ribbon on every element, which is what lets
+`spectrum-card: rainbow` pin that ribbon on a `solid` deck in every host. Custom CSS that wants
+the slide's bar should read `var(--spectrum-bar)`; `var(--spectrum)` is the theme's. White-label lives here: pick a client's single color with `solid` and set the
 theme's `--accent` to their brand.
 
 | `spectrum:` value | Token | Effect |

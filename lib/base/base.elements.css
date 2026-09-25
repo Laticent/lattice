@@ -70,7 +70,7 @@ section {
   font-family:var(--font-body); font-size:var(--fs-body); line-height:var(--lh-base);
   -webkit-print-color-adjust:exact; print-color-adjust:exact;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility;
-  border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
+  border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum-bar); border-image-slice: 1;
 }
 
 /* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the

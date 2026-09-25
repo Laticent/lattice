@@ -274,7 +274,37 @@ below are kept as they were put.
 3. **The Reading view** (fork 2). This closes
    `followups.d/2344-p1-studio-reading-view-charts-render-black.md`. **Done (§8.1).**
 4. **The CLI** (fork 3), with export sign-off. It also carries the player prune's one-colon
-   fix (§8.1), which changes export bytes for the same reason.
+   fix (§8.1), which changes export bytes for the same reason. **Measured, and paused
+   (§8.2).** The owner asked for the one divergence it found to be fixed first.
+
+### 8.2 What step 4 measured, and the fix it needed first (2026-09-25)
+
+- **The prototype.** The CLI took `themes.cssFor(theme, size, { flat: true })` with the
+  wrapper stripped and the covered font faces dropped, in place of `layoutCSS + paletteCSS`,
+  behind an environment flag. `npm run regress` over all 277 committed decks drifted on 50, and
+  a flag-off re-render of each showed that 48 of them drift identically without the flag.
+  Those 48 are stale goldens, and `main` itself drifts on the same decks (checked on two).
+- **Two slides really moved.** `print-mode`'s page number went gray. It takes
+  `--marp-slide-pagination-color: var(--text-muted)`, captured at `:root`, and print
+  overrides `--text-muted` on the slide, so the packed sheet is right and today's CLI is wrong.
+  `accent-finishes` slide 11 lost its pinned rainbow rail, and there the packed sheet was
+  wrong.
+- **Why the two go opposite ways.** 50 of the pack's 199 `:root` token declarations derive
+  from a token some `section` rule overrides. Unpacked, `var()` resolves once at the root;
+  packed, it resolves on each slide and follows the slide's overrides. Most of the 50 want to
+  follow (the `--on-accent-*` family on a dark slide, the `--seq-*` ramp). The rainbow capture
+  was written to NOT follow, and so worked only in the CLI. The Studio preview, the Playground
+  and the Studio player have drawn `spectrum-card: rainbow` on a `solid`/`duo`/`mono` deck as
+  the quieter bar all along.
+- **The fix, shipped first (owner, 2026-09-25).** A STYLE class sets `--spectrum-style` instead
+  of redefining `--spectrum`, and the bar and every rail read `--spectrum-bar`. `--spectrum`
+  stays the theme's ribbon on every element, so the capture reads it in both shapes. `print`
+  still redefines `--spectrum`, because paper is grayscale and a pinned rainbow on it should
+  turn gray. Pinned by `test/unit/css/spectrum-root-capture.test.js`. The CLI renders
+  `accent-finishes` pixel-identical before and after, the flat-sheet prototype now matches
+  it (0 px), and the Studio preview shows the rainbow rail.
+- **Still to decide:** whether the CLI now converges. The measured cost after the fix is one
+  slide, `print-mode`'s page number, which moves to the correct ink.
 
 Step 1 rode #2344 at the owner's request. Steps 2 to 4 ride #2366, one commit each, the
 line of work the owner asked for on 2026-09-25.

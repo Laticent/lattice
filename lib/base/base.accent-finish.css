@@ -185,7 +185,7 @@ section:is(.head-center, .head-right) .below-note {
 
 /* CARD STYLE — enable the rail and source its fill (both orientations, -h/-v). `auto` follows
  * the section bar via --spectrum(-vertical); the pins read the orientation-independent fills. */
-section.spectrum-card         { --sp-card-h: var(--spectrum); --sp-card-v: var(--spectrum-vertical, var(--spectrum)); }
+section.spectrum-card         { --sp-card-h: var(--spectrum-bar); --sp-card-v: var(--spectrum-bar-vertical); }
 section.spectrum-card-solid   { --sp-card-h: var(--sp-fill-solid-h);   --sp-card-v: var(--sp-fill-solid-v); }
 section.spectrum-card-duo     { --sp-card-h: var(--sp-fill-duo-h);     --sp-card-v: var(--sp-fill-duo-v); }
 section.spectrum-card-mono    { --sp-card-h: var(--sp-fill-mono-h);    --sp-card-v: var(--sp-fill-mono-v); }

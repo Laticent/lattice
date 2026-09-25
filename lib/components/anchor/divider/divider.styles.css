@@ -35,7 +35,7 @@ section.divider {
    * divider's own lede ran 1.02:1, near-black body ink on the dark canvas. `.light` REPLACES
    * this canvas below, so it puts the scheme back with it. */
   color-scheme: dark;
-  background-image: var(--spectrum-vertical, var(--spectrum));
+  background-image: var(--spectrum-bar-vertical);
   background-position: left;
   background-size: calc(var(--_sec-1cqi,1cqi)*0.46875) 100%;
   background-repeat: no-repeat;

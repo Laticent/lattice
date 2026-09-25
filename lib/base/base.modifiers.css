@@ -695,7 +695,7 @@ section.dark {
  * ordinary members of the set rather than the exception they used to be. */
 section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover)) {
   background-color: var(--bg);
-  background-image: var(--spectrum);
+  background-image: var(--spectrum-bar);
   background-position: top;
   background-size: 100% 1px;
   background-repeat: no-repeat;
@@ -855,6 +855,7 @@ section.print {
   --hljs-tag: var(--print-text-body);
   --hljs-punctuation: var(--print-text-secondary);
   --spectrum: var(--print-border);  /* the rainbow ribbon → a flat gray rule (code panel edge, etc.) */
+  --spectrum-style: var(--print-border);  /* and over any STYLE, as when STYLE redefined --spectrum itself */
   /* Paper is a LIGHT canvas, so the mark takes the light-canvas treatment even on a
    * `dark print` slide. `initial` makes a custom property the guaranteed-invalid value,
    * which is what sends `var(--deck-logo-filter, ‹light›)` to its fallback — the reset

@@ -34,7 +34,7 @@ section.split-compare .compare-left::after {
 /* Background, not a positioned pseudo: `<footer>` is a CHILD of `.compare-right`, so
  * `position: relative` here would re-parent it (see the long note in split-panel). */
 section.split-compare .compare-right {
-  background-image: var(--spectrum);
+  background-image: var(--spectrum-bar);
   background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125);
   background-position: right top;
   background-repeat: no-repeat;
