@@ -516,6 +516,80 @@ Automated checks need the same skepticism. One of our main checks could never fa
 
 <!-- _class: table table-fill -->
 
+`Verification · Tests that look at reality`
+
+## Beyond unit tests, each kind of test answers a different question.
+
+| Test | The question it answers |
+| --- | --- |
+| Mutation test | If I break the code on purpose, does a test fail? |
+| Metamorphic test | If I change the input in a known way, does the output change the way it should? |
+| Visual diff | Does the output look the same as before, unless I meant it to change? |
+| Benchmark against a baseline | Did it get slower, and by how much? |
+| Fuzz test | Does strange or random input break it? |
+
+<!--
+Unit, integration and end-to-end tests are the starting point. These five go further, and each one answers a question the usual tests can't. A mutation test breaks your code on purpose and checks that some test notices. A metamorphic test changes the input in a known way and checks the output moves the way it should. For example, adding a sentence to a slide must never move its title. A visual diff compares the output to the last approved picture. A benchmark runs against a committed baseline, so "it feels slower" becomes a number. And a fuzz test throws strange input at the code to see what breaks.
+-->
+
+---
+
+<!-- _class: compare-code insight-why -->
+
+`Verification · Tests that can fail`
+
+## A test that compares the code to itself can never fail.
+
+`Can't fail`
+
+```js
+test('formats a price', () => {
+  const out = formatPrice(1999);
+  expect(out).toEqual(formatPrice(1999));
+});
+```
+
+`Can fail`
+
+```js
+test('formats a price', () => {
+  expect(formatPrice(1999)).toBe('$19.99');
+});
+```
+
+> Agents write tests that pass. Your job is to make sure they can fail.
+
+<!--
+Here's the most common bad test an agent writes. The one on the left calls the function and then compares the result to calling the function again. It will pass forever, whatever the code does. The one on the right compares the result to the answer a person expects. We've shipped the left kind ourselves: a cleanup once turned a real test into exactly this. A reviewer caught it. The test suite had no way to. That's why mutation testing matters. Break the code, and if nothing fails, the tests weren't testing anything.
+-->
+
+---
+
+<!-- _class: list-steps insight-our-view -->
+
+`Verification · Look at it`
+
+## Nothing proves it looks right like rendering it and looking.
+
+1. Render
+   - Produce the real output: the page, the PDF, the chart.
+2. Compare
+   - Diff it against the last approved image.
+3. Inspect
+   - Look at every difference, at full size.
+4. Approve
+   - Accept a new baseline only on purpose.
+
+> Tests check what you thought to check. A rendered picture shows everything.
+
+<!--
+For anything people look at, the final test is looking at it. Render the real output, whether that's the page, the PDF or the chart. Compare it to the last image someone approved, and look at every difference at full size. A shrunk thumbnail hides exactly the problems you're looking for. When a difference is intended, approve the new baseline on purpose, so it becomes the next reference. Tests only check the things you thought to check. The picture shows you everything else, including the jank nobody wrote a test for.
+-->
+
+---
+
+<!-- _class: table table-fill -->
+
 `Verification · In Claude Code`
 
 ## Hooks and helper agents run the checks without being asked.
