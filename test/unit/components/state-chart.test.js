@@ -1446,6 +1446,27 @@ describe('dagre re-ranking (fake DOM)', () => {
     }
   });
 
+  // THE TEXT FLOOR READS THE SAME WITH OR WITHOUT `@property`. The token is
+  // `calc(11px * var(--canvas-scale, 1))`, registered so the computed value comes back
+  // as px. An engine that ignores the registration returns the calc() text instead,
+  // and the pass used to read that as NaN and fall back to 11px: on a story-sized
+  // deck the ordinals set at 11px against a 19.2px floor and the self-loop labels
+  // landed on their loops (measured by stripping the rule from the exported HTML).
+  // Both shapes must draw the identical figure.
+  test('the chart-text floor resolves the same registered or not', { skip: !hasDagre }, () => {
+    const spec = { dir: 'tb', nodes: [n(1, 'Draft', 'start'), n(2, 'Review'), n(3, 'Done')],
+      transitions: [e(1, 2, 'submit'), e(2, 2, 'revise'), e(2, 3, 'approve'), e(2, 1, 'reject')] };
+    const drawWith = (value) => {
+      const had = Object.hasOwn(globalThis, 'getComputedStyle');
+      const prev = globalThis.getComputedStyle;
+      globalThis.getComputedStyle = () => ({ getPropertyValue: (k) => (k === '--chart-text-min' ? value : ''), fontSize: '' });
+      try { return run(spec).svg; } finally { if (had) globalThis.getComputedStyle = prev; else delete globalThis.getComputedStyle; }
+    };
+    const registered = drawWith('24.09px');
+    assert.equal(drawWith('calc(11px * 2.19)'), registered);
+    assert.notEqual(drawWith('11px'), registered, 'the fixture must be sensitive to the floor');
+  });
+
   const FAN = {
     dir: 'tb',
     nodes: [n(1, 'Intake', 'start'), n(2, 'Triage'), n(3, 'Fast'), n(4, 'Deep'), n(5, 'Hold')],

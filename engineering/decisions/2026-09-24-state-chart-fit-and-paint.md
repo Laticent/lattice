@@ -235,6 +235,12 @@ state charts: edge labels and ordinals at 10.8px against a 19.2px floor (1% of a
    so it keeps 11px: all 13 other state-chart decks rendered pixel-identical at this
    step. The roadmap phase tags on portrait decks read the same token and grow from
    specks to legible (`autosplit-coverage` pages 21 to 23).
+   **The fit pass does not depend on `@property`.** It reads the token through
+   `readTextMin`, which also evaluates the unregistered `calc(11px * N)` text an
+   engine hands back when it ignores the registration. With the rule stripped from
+   the exported HTML, the previous read fell back to 11px: ordinals at 11px against a
+   19.2px floor, and `revise` and `escalate` on their loops. Now both shapes draw the
+   identical figure (a unit test pins it), and the registered render is pixel-identical.
 2. **The fit pass budgeted sizes at the wrong scale.** The ordinal's floor used
    the candidate's raw k (2.13), and `applyFit` then clamped the figure to the 1.6x
    upscale ceiling; `paintK` now takes `min(k, fitCeil)`, the ceiling `applyFit`
