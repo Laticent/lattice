@@ -141,6 +141,7 @@ const SCRIPT_META = {
   'vetrina-lib:check':        ['Build & bundle', 'Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts).'],
   'lente-lib:build':          ['Build & bundle', 'Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/lente\') and npm publish resolve — the fourth spin-off sibling\'s consumable artifact.'],
   'lente-lib:check':          ['Build & bundle', 'Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts).'],
+  'engine-hash:build':       ['Build & bundle', 'Regenerate docs/src/lib/cadenza/engine-hash.ts — ENGINE_HASH, the timing engine\'s content hash every LTT carries as inputs.engine. Deliberately not part of `npm run build`: a unit test fails when the committed value is stale.'],
   'ltt-lib:build':            ['Build & bundle', 'Build the LTT format package dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require(\'@laticent/ltt\') resolves from root CJS and an npm publish — the Lattice Timing Track types, validator and encodings.'],
   'ltt-lib:check':            ['Build & bundle', 'Freshness gate for the LTT library dist/ (stale vs docs/src/lib/ltt/*.ts).'],
   'ltt-schema:build':         ['Build & bundle', 'Generate docs/src/lib/ltt/ltt.schema.json (JSON Schema 2020-12) FROM docs/src/lib/ltt/types.ts with the TypeScript parser — guardrail G1: the types are the one source of the LTT schema.'],

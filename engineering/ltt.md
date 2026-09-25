@@ -18,6 +18,11 @@ named `*.ltt.json`.
 | The validator | `validateLtt` in `docs/src/lib/ltt/validate.ts` |
 | The two encodings | `pack` / `unpack` in `docs/src/lib/ltt/encode.ts` |
 | The staleness hash's input | `segmentHashInput` in `docs/src/lib/ltt/hash.ts` |
+| The cursor (time → word, and re-timing to a clip) | `makeCursor` in `docs/src/lib/ltt/cursor.ts`. Cadenza re-exports it. |
+| The timing functions | `positionAt` and `timeline` in `docs/src/lib/ltt/position.ts` |
+| The conformance fixtures | `docs/src/lib/ltt/conformance/*.json`: sample files, each with its expected timeline and the expected position at chosen times |
+| The deck producer | `deckLtt` in `lib/core/ltt-deck.mjs`, called by the HTML export (`narrationPayload` in `lib/export/player-core.mjs`) |
+| The timing engine's hash | `ENGINE_HASH` in `docs/src/lib/cadenza/engine-hash.ts`, written by `tools/lib/timing-engine-hash.js` |
 
 `@laticent/ltt` imports nothing outside its own folder, including no `node:`
 built-ins. A boundary gate (`checkLttBoundary` in `tools/check-ownership.js`)
@@ -26,10 +31,16 @@ from the step that first needs it.
 
 ## What is built, and what is not yet
 
-Built (step 1): the types, the schema, `validateLtt` and both encodings. Not built yet: `positionAt`, `timeline` and `isStale`. Each
-lands in the same step as its first production caller (step 2, guardrails G2 and
-G3), and nothing in production writes an LTT before then. The decision note's §8
-lists the steps.
+Built in step 1: the types, the schema, `validateLtt` and both encodings. Built
+in step 2: `makeCursor` (moved in from Cadenza), `positionAt`, `timeline`, the
+conformance fixtures, and the first producer and reader. The Studio's HTML export
+writes a deck's LTT, and the exported player plays from it (guardrail G2).
+
+Not built yet: `isStale`. Step 2's only producer builds the LTT fresh from source
+at the moment of export, so no caller could ever see a stale segment. It lands
+with the first producer that keeps an LTT and holds data that cannot be rebuilt,
+the Vetrina tour recorder in step 4 (owner ruling, 2026-09-24, amending G3). The
+decision note's §8 lists the steps.
 
 ## The file
 
@@ -62,16 +73,40 @@ milliseconds, and `validateLtt` refuses a fraction.
 find it again.
 
 **`inputs`.** Every input that changes timing, for the whole file: `engine` (a
-content hash of the timing engine's build, never its package version), `pace`,
+content hash of the timing engine, never its package version), `pace`,
 and optionally `lang`, `lexicon` and `acronyms`. A deck may also carry
 `deckPace`. A tour may also carry `viewport`, `motion` and `stagePace`, the
 screen and motion a recorded run depended on. A deck never carries the tour
 inputs, and a tour never carries `deckPace`.
 
+**One input is not covered yet: emphasis.** Cadenza takes per-slide emphasis
+spans (what the author marked important), and they change a track's timing, but
+neither `inputs` nor a segment's hashed text carries them. So an emphasis-only
+edit leaves a segment's `hash` unchanged. Step 4, which lands `isStale`, decides
+where they go (`followups.d/2339-p4-…`).
+
+`engine` hashes the SOURCE the estimate is computed from: Cadenza's `track.ts`
+(`buildTrack`) and every file it reaches through relative imports, in name
+order, each preceded by its path (`tools/lib/timing-engine-hash.js`). The import
+graph picks the files, so an edit to the cursor, the validator or a comment
+elsewhere does not mark every measured segment stale. Source rather than the
+bundled build, because the Studio runs Cadenza from source and never sees the
+bundle, and because a bundler upgrade that reprints the same code should not
+mark every measured segment stale. `npm run engine-hash:build` regenerates the
+constant, and a unit test fails when the committed one is stale.
+
 **`seekable`.** True when every segment's length is known, so the segments lay
 end to end on one timeline. A deck is always seekable. A tour is seekable only
 once a run has been recorded, and every waited stretch then records how long its
 wait took in `waitedMs`.
+
+"Known" means known to the precision of the segment's `basis`. A clip's length
+is the estimate until a producer records its `measuredMs`, and the HTML export's
+producer does not decode clips, so its file is `basis: "estimate"` throughout:
+`timeline()` on it is exact for a captions-only export and an estimate for a
+voiced one. The player itself follows the real clips (rule 3). A consumer that
+needs the voiced timeline exactly, such as video export, decodes the clips and
+fills in `measuredMs` first.
 
 ## Segments
 
@@ -120,18 +155,24 @@ A layer is an optional block on a segment, owned by one library.
 
 | Layer | Owner | A reader that does not know it… |
 |---|---|---|
-| `audio` — `src`, `clip` (hash of the bytes), `voice`, `measuredMs`, `leadMs` | Suono | plays silently on the estimate |
+| `audio` — `voice`, and `clips[]`: one per cue at most, each `{ cue, src, clip, measuredMs?, leadMs? }` | Suono | plays silently on the estimate |
 | `actions` — `{ cue, word, match, verb, target?, arrive? }` | Vetrina | skips it; captions and audio still play |
 
 Everything outside the core is **open**. A reader skips a key it does not know,
 and `validateLtt` ignores one, so a file written with a later layer still plays
 in an older reader.
 
-**The audio layer's clip granularity is not settled.** 1.0 defines one clip per
-segment, but the HTML player ships one clip per **cue** and advances on each
-clip's end (transport rule 3). Step 2 settles which one the layer carries, with
-the owner, before any player reads it
-(`followups.d/2339-p2-ltt-timing-functions-and-html-player.md`).
+**The audio layer holds one clip per cue** (owner ruling, 2026-09-24; revised
+inside 1.0, because no file had carried the layer). Every producer records a
+sentence at a time, and the transport advances on each clip's end (rule 3), so
+the file describes the audio as it exists. A cue with no entry in `clips` has no
+audio. `clips` run in cue order. `cue` is the index of the cue a clip speaks,
+`clip` is a hash of its bytes, `measuredMs` is its decoded length once a
+producer has decoded it, and `leadMs` is the encoder silence at its head (rule
+7). The rejected alternative, one clip per segment, meant joining the clips
+with the breaths recorded as silence: on a 13-slide, 87-sentence deck, 14.2 s
+of encoded silence (~113 KB at the bake's 64 kbps), 4 s of encoder lead at the
+joins, and a transport that could no longer advance or re-time per sentence.
 
 An action is anchored to a **word**, never to a time. `match` is the word the
 author named, normalized: case-folded, with edge punctuation stripped
@@ -157,6 +198,8 @@ relate, so a file can pass the schema and still fail `validateLtt`. Validate wit
   one's hold is 0;
 - tour stretches run forward through the storyboard's beats;
 - a seekable tour records `waitedMs` on every waited stretch;
+- each audio clip names a cue the track has, clips run in cue order, and no cue
+  has two;
 - the timeline: cue starts in order, each word inside its cue, words running
   forward, cues not overlapping, and `durationMs` equal to the last cue's end;
 - each action's `match` still names the word at `{cue, word}`;
@@ -195,6 +238,21 @@ decision note's §7, the packed form is 4,432 bytes (833 gzipped) against the
 canonical form's 13,718 (2,391 gzipped). The note measured 4,400 (856) for an
 earlier tuple layout; the test pins only the ratio, at least 2.5x gzipped.
 
+**In an HTML export** the player resolves each clip by its `src`: the fragment
+below, or a `data:` URI carried in place. Any other `src` plays nothing, because
+the export is self-contained and offline.
+
+The packed LTT rides in one inert block,
+`<script type="application/lattice+ltt" data-lp-ltt>`, with every `<` written as
+`\u003c`. The clip bytes do not ride in it: each slide with audio gets its own
+`<script type="application/lattice+audio" data-lp-audio="<n>">`, a JSON array of
+`data:` URIs, where `n` is the slide's 0-based index. A clip's `src` in the LTT
+names its place there as the fragment `#lp-audio/<n>/<k>`: entry `k` of block
+`n`. The split exists because a viewer pays for what is parsed. The LTT is a few
+kilobytes and the transport needs all of it at Play; the clips are megabytes and
+the player needs one slide's at a time (`narrationPayload` in
+`lib/export/player-core.mjs`).
+
 The round-trip test in `encode.test.ts` is generated from the schema. It builds
 a file with every field the schema defines, so a field added to the types but not
 to `packTrack` fails the test (G1).
@@ -214,7 +272,60 @@ to `packTrack` fails the test (G1).
 - On a mismatch, a reader marks the segment **stale**. An `estimate` segment may
   be rebuilt freely. A `measured` segment or a recorded wait is flagged and
   kept, because it cannot be rebuilt from text. `isStale(ltt, source)` lands in
-  step 2 with its callers.
+  step 4 with its callers (see §What is built).
+
+## The timing functions
+
+`positionAt(segment, localMs, cursor?)` says where a player is, `localMs` after
+a segment starts: the phase (`wait`, `hold`, `cue`, `gap` or `end`), the cue,
+the word to show as spoken, the time on the track the crawl reads, each cue's
+onset, the segment's length, and the actions whose word has been reached. It
+lays the segment out as the transport plays it:
+
+- a slide first holds for `holdMs`, and a stretch for its `waitedMs` (0 if none);
+- a cue with a clip plays for its measured speech, `measuredMs − leadMs`, or its
+  estimate when no measurement is recorded. Its words are re-timed to that
+  length (`cursor.align`), which moves every later cue;
+- a cue with no clip plays for its estimate, but never less than 300 ms, and
+  900 ms when the estimate is 0 (rule 4). Its words still run on the estimate,
+  and the last one is held through the rest of the floor;
+- then the breath: the track's gap to the next cue, or after a slide's last cue,
+  `tailMs`. A stretch has no tail.
+
+The word lookup is the cursor's own (`makeCursor`), so there is one answer to
+"which word now". A caller holding a cursor it has already re-timed passes it,
+and `positionAt` uses it as it stands. The exported player always does.
+
+`timeline(ltt)` lays a seekable file's segments end to end and returns each
+one's start and length. It throws on a file that is not seekable, because a
+wait of unknown length has no place on a timeline.
+
+`positionAt` also returns the layout it computed — `waitMs`, and each cue's
+`onsets`, `played` and `gaps` — and **the exported player arms every timer from
+it**: the arrival hold, a silent cue's length and every breath. The transport
+restates no timing rule of its own. The one length it does not take from
+`positionAt` is a clip's, which ends when the audio does (rule 3).
+
+**The conformance fixtures** (`docs/src/lib/ltt/conformance/*.json`) pin the
+arithmetic: no hold on slide 1, an arrival hold on every later slide, `hold`
+segments, the breath between cues and after the last one, the silent-cue floor,
+and lead trim. Four checks hold `positionAt` and the player to them:
+
+| Check | What it runs |
+|---|---|
+| `docs/src/lib/ltt/position.test.ts` | the fixtures, against the source |
+| `test/unit/export/ltt-conformance.test.js` | the fixtures, against the inlined copy the player ships, plain and after an esbuild minify |
+| `docs/src/lib/ltt/inlined.test.ts` | the fixtures, after rolldown (Vite 8's bundler) minifies the package on its own. Not the whole app bundle, which only the Studio e2e reaches |
+| `test/unit/export/ltt-player-transport.test.js` | the real exported player, in jsdom on a fake clock: every slide must arrive when `timeline()` says, to the millisecond, and narration must stop when the last segment ends |
+
+A real-browser run (`tools/verify-narrated-player.mjs`, on demand) plays exports
+with clips, including clips 1.3× and 0.7× their estimate, and checks arrivals
+against `timeline()` with the real lengths filled in.
+
+**Inlining.** The exported player's script is CSP-hashed and cannot import, so
+it carries `unpackTrack`, `makeCursor` and `positionAt` as source text. Each is
+self-contained. `positionAt`'s one module-scope reference is in the branch that
+builds its own cursor, which is why the player must always pass one.
 
 ## The transport
 
@@ -230,16 +341,23 @@ player, including the video renderer's simulated one, must follow them.
    hold.
 3. **Advance on clip end.** With audio, the next cue starts when the clip ends
    (`onended`), never at a computed time. The breath after a cue is held after
-   that.
+   that. **Measured cost:** headless Chromium 131 fires `ended` 90–110 ms after
+   the audio content stops, so a voiced HTML export runs late of any computed
+   timeline by about that much per clip: roughly 8 s over an 87-sentence deck.
+   WebKitGTK 2.52 measured 51–76 ms per clip on the same real-speech deck. A
+   simulated transport (video export) has no such latency, so the two
+   disagree on voiced segment lengths by that amount until one of them changes.
+   Firefox's figure is not measured: this sandbox's only audio device is a
+   PulseAudio null sink, which plays about 1.6× slow.
 4. **A cue with no clip** shows its caption and holds for its estimated length,
    but never less than 300 ms (and 900 ms when the estimate is missing). The
    caption crawl still runs on the estimate itself. So in a captions-only
    export, a cue shorter than 300 ms plays longer than its track says, and a
-   timeline for such a file must apply the same floor. **A clip that fails to
-   decode** must be treated the same way. **The HTML player does not do this
-   yet.** Its `onerror` starts the fallback, but the rejected `play()` promise
-   then stops narration outright (reproduced in Chrome 131). A followup
-   tracks the player fix, which changes export bytes.
+   timeline for such a file applies the same floor (`positionAt` does). **A
+   clip that fails to decode** is treated the same way. The HTML player reads
+   both signals a decode failure sends, the element's `error` event and a
+   `play()` rejection that is not `NotAllowedError`, and falls back once. Only
+   `NotAllowedError`, an autoplay refusal, stops narration.
 5. **Pause restarts the slide** rather than resuming mid-word.
 6. **Manual navigation re-anchors** on the chosen slide and speaks it with no
    hold.
@@ -248,7 +366,13 @@ player, including the video renderer's simulated one, must follow them.
    playback. **Lead trim:** a clip whose encoder added leading silence (`leadMs`)
    starts playing `leadMs` in, and the cue is aligned to the clip's length
    **minus** `leadMs`, the speech alone. A player that skips the trim lets the
-   crawl lag the voice by that much on every cue.
+   crawl lag the voice by that much on every cue. The crawl's clock inside the
+   cue is the clip's `currentTime` minus `leadMs`, so it starts at the first
+   word, not `leadMs` into it. The seek and the re-timing wait for a **known** duration
+   longer than `leadMs`: WebKit can report `loadedmetadata` before it knows an
+   MP3's length, and a seek then makes it end the clip at once, skipping the
+   sentence in silence (measured on WebKitGTK 2.52). A player anchors on
+   `durationchange` when the length arrives late.
 
 ## What video export guarantees (G5)
 

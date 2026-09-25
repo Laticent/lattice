@@ -1,0 +1,234 @@
+{
+  "name": "deck, with audio and lead trim",
+  "why": "A cue with a clip plays for its measured speech, measuredMs minus leadMs, and its words are re-timed to it (cursor.align), shifting every later cue. A clip with no measurement plays on the estimate. A cue without a clip beside one with a clip still gets the floor.",
+  "ltt": {
+    "format": "ltt",
+    "version": "1.0",
+    "source": {
+      "kind": "deck",
+      "id": "conformance-audio.md"
+    },
+    "inputs": {
+      "engine": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "pace": "moderate",
+      "deckPace": "natural",
+      "lang": "en"
+    },
+    "seekable": true,
+    "segments": [
+      {
+        "id": "d1",
+        "kind": "slide",
+        "at": {
+          "slide": 1
+        },
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "holdMs": 0,
+        "track": {
+          "cues": [
+            {
+              "display": "Fast growth.",
+              "words": [
+                {
+                  "display": "Fast",
+                  "spoken": "fast",
+                  "startMs": 0,
+                  "endMs": 500,
+                  "charOffset": 0
+                },
+                {
+                  "display": "growth.",
+                  "spoken": "growth",
+                  "startMs": 500,
+                  "endMs": 1000,
+                  "charOffset": 5
+                }
+              ],
+              "startMs": 0,
+              "endMs": 1000,
+              "charOffset": 0
+            },
+            {
+              "display": "Good.",
+              "words": [
+                {
+                  "display": "Good.",
+                  "spoken": "good",
+                  "startMs": 1250,
+                  "endMs": 1450,
+                  "charOffset": 13
+                }
+              ],
+              "startMs": 1250,
+              "endMs": 1450,
+              "charOffset": 13
+            }
+          ],
+          "durationMs": 1450
+        },
+        "tailMs": 300,
+        "audio": {
+          "voice": {
+            "model": "m",
+            "voice": "v",
+            "speed": 1
+          },
+          "clips": [
+            {
+              "cue": 0,
+              "src": "a.mp3",
+              "clip": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+              "measuredMs": 1546,
+              "leadMs": 46
+            }
+          ]
+        }
+      },
+      {
+        "id": "d2",
+        "kind": "slide",
+        "at": {
+          "slide": 2
+        },
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "holdMs": 1400,
+        "track": {
+          "cues": [
+            {
+              "display": "Onward.",
+              "words": [
+                {
+                  "display": "Onward.",
+                  "spoken": "onward",
+                  "startMs": 0,
+                  "endMs": 800,
+                  "charOffset": 0
+                }
+              ],
+              "startMs": 0,
+              "endMs": 800,
+              "charOffset": 0
+            }
+          ],
+          "durationMs": 800
+        },
+        "tailMs": 0,
+        "audio": {
+          "voice": {
+            "model": "m",
+            "voice": "v",
+            "speed": 1
+          },
+          "clips": [
+            {
+              "cue": 0,
+              "src": "b.mp3",
+              "clip": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+              "leadMs": 46
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "timeline": {
+    "durationMs": 4550,
+    "segments": [
+      {
+        "id": "d1",
+        "startMs": 0,
+        "lengthMs": 2350
+      },
+      {
+        "id": "d2",
+        "startMs": 2350,
+        "lengthMs": 2200
+      }
+    ]
+  },
+  "probes": [
+    {
+      "segment": "d1",
+      "localMs": 600,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 600,
+      "why": "re-timed to 1500 ms of speech, the second word now starts at 750, not 500"
+    },
+    {
+      "segment": "d1",
+      "localMs": 800,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 1,
+      "trackMs": 800,
+      "why": "the second word, on the measured timeline"
+    },
+    {
+      "segment": "d1",
+      "localMs": 1600,
+      "phase": "gap",
+      "cueIndex": 0,
+      "wordIndex": 1,
+      "trackMs": 1500,
+      "why": "the clip's speech ended at 1546 - 46 = 1500"
+    },
+    {
+      "segment": "d1",
+      "localMs": 1750,
+      "phase": "cue",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 1750,
+      "why": "the silent cue moved 500 ms later with the re-timed one"
+    },
+    {
+      "segment": "d1",
+      "localMs": 2000,
+      "phase": "cue",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 1950,
+      "why": "a 200 ms silent cue is held to 300 ms"
+    },
+    {
+      "segment": "d1",
+      "localMs": 2100,
+      "phase": "gap",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 1950,
+      "why": "then its 300 ms tail"
+    },
+    {
+      "segment": "d1",
+      "localMs": 2350,
+      "phase": "end",
+      "cueIndex": 1,
+      "wordIndex": 0,
+      "trackMs": 1950,
+      "why": "1500 + 250 + 300 + 300"
+    },
+    {
+      "segment": "d2",
+      "localMs": 1400,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 0,
+      "why": "a clip with no measurement plays on the estimate"
+    },
+    {
+      "segment": "d2",
+      "localMs": 2200,
+      "phase": "end",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 800,
+      "why": "1400 + 800, tail 0"
+    }
+  ]
+}

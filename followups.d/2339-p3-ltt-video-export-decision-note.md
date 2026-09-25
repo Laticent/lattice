@@ -14,7 +14,10 @@ where     — engineering/decisions/2026-09-24-lattice-timing-track.md §5 (the 
 done when — a decision note (status: proposed) choosing the encoder, muxer and frame rate,
             describing the simulated transport over `timeline` + `positionAt`, and stating
             what video export guarantees and does not (guardrail G5: no Anima motion, no
-            mid-travel cursor position in 1.0), with the forks put to the owner.
+            mid-travel cursor position in 1.0), with the forks put to the owner. Since step 2,
+            the deck's LTT is embedded in every narrated HTML export and the audio layer is
+            one clip per cue (engineering/ltt.md §Layers, §Encodings), so the renderer can
+            read the timeline straight out of an exported file.
 evidence  — a measured spike: one short narrated deck rendered to MP4 plus `.vtt`, sent via
             SendUserFile, with the frame-accurate caption timing checked against the LTT.
 verify    — tier 2 adversarial trio, because it brings a new external dependency (a muxer)

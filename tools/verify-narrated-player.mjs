@@ -15,6 +15,7 @@
 // Run: node tools/verify-narrated-player.mjs   (writes .scratch/out/)
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -22,6 +23,8 @@ import { chromium } from '../docs/node_modules/@playwright/test/index.mjs'; // t
 
 const require = createRequire(import.meta.url);
 const { buildPlayerHtml } = require('../lib/export/html-player.js');
+const { buildTrack } = require('@laticent/cadenza');
+const { timeline, unpack } = require('@laticent/ltt');
 
 /** A real, decodable WAV of `ms` milliseconds — a quiet 440 Hz tone, 8 kHz mono 16-bit. */
 function wavDataUri(ms) {
@@ -61,24 +64,33 @@ const docHtml = `<!DOCTYPE html>
 // here because the PLAYER's floor has to hold anyway: a clip that will not decode on the
 // recipient's browser lands in exactly this state at runtime, and the deck must keep its
 // caption, hold its beat and move on rather than strand the delivery.
-/** A cue with per-word estimate timings, exactly as `buildTrack` produces them. */
-function cue(text, ms, audio) {
-  const parts = text.split(' ');
-  const per = ms / parts.length;
-  return {
-    text,
-    estimateMs: ms,
-    gapMs: 100,
-    audio,
-    words: parts.map((display, i) => ({ display, startMs: Math.round(i * per), endMs: Math.round((i + 1) * per) })),
-  };
+//
+// The shape is what the Studio's bake hands the assembler (share-export.ts): per slide, the text
+// Cadenza timed, the track it built, and one clip per cue. The clips are real, decodable WAVs,
+// each as long as its sentence's estimate.
+const VOICE = { model: 'verify/tone', voice: '440hz', speed: 1 };
+const clipHash = (uri) => `sha256:${createHash('sha256').update(Buffer.from(uri.split(',')[1], 'base64')).digest('hex')}`;
+/** A narrated slide. `audio[k]` is true for a real clip on cue k, a string for that exact data
+ *  URI, and false/absent for none. */
+function said(text, audio = []) {
+  const track = buildTrack(text);
+  const clips = track.cues.map((c, k) => {
+    const a = audio[k];
+    if (!a) return null;
+    const uri = typeof a === 'string' ? a : wavDataUri(Math.max(200, c.endMs - c.startMs));
+    return { audio: uri, clip: clipHash(uri) };
+  });
+  return { text, track, clips };
 }
 
-const narration = [
-  [cue('The first thing we need to talk about.', 900, wavDataUri(900)), cue('And the second.', 500, wavDataUri(500))],
-  [cue('A section opens here.', 600, wavDataUri(600))],
-  [cue('This sentence was never prepared, so it is captioned and silent.', 700, null)],
-];
+const narration = {
+  voice: VOICE,
+  slides: [
+    said('The first thing we need to talk about. And the second.', [true, true]),
+    said('A section opens here.', [true]),
+    said('This sentence was never prepared, so it is captioned and silent.', []),
+  ],
+};
 
 // `pace: brisk` so the run is quick; the beats are asserted against brisk's real numbers.
 const source = '---\ntheme: indaco\npace: brisk\n---\n\n# Slide one\n';
@@ -239,28 +251,62 @@ check('no CSP refusal, page error, or network attempt', problems.length === 0, p
 // nothing asserted anything about the images. The gate's evidence was false while its label
 // said otherwise, which is worse than having no evidence.
 //
-// So the sign-off is taken from the REAL committed demo deck, exported through the REAL CLI
-// player path — a themed 16:9 board deck, not a stand-in — and the two modes are ASSERTED to
-// differ before either is offered as evidence.
-const deckOut = path.resolve('.scratch/out/signoff-deck');
-execFileSync(process.execPath, ['lattice-emulator.js', 'examples/shared-deck-voice.md', deckOut, '--player'], { stdio: 'pipe' });
-const signoff = `${deckOut}.html`;
-const shot = await ctx.newPage();
-await shot.goto(`file://${signoff}`);
-await shot.waitForSelector('#lp-stage');
+// So the sign-off is taken from a REAL committed demo deck, rendered by the REAL CLI, and — since
+// LTT step 2 — exported NARRATED, the way the Studio exports it: the deck's own captions timed by
+// Cadenza, a clip per sentence, the packed LTT in the file. The screenshots are taken mid-caption,
+// in both modes, and the two modes are ASSERTED to differ before either is offered as evidence.
+// The clips are tones, not a voice: there is no TTS here, and the timing path does not care what
+// the audio says. The dark file is then played end to end.
+const DEMO = 'examples/ltt-timing-track.md';
+const demoOut = path.resolve('.scratch/out/ltt-demo');
+execFileSync(process.execPath, ['lattice-emulator.js', DEMO, demoOut, '--quiet'], { stdio: 'pipe' });
+// Folded like every deck read (#1349): a BOM or a CRLF would defeat the `^---` anchor below.
+const demoSource = (await import('node:fs')).readFileSync(DEMO, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+const demoDoc = (await import('node:fs')).readFileSync(`${demoOut}.html`, 'utf8');
+// One inline caption per slide is how this deck is authored; the Studio resolves the same text
+// through its narration ladder, where an inline caption is the first rung.
+const demoSlides = demoSource
+  .replace(/^---\n[\s\S]*?\n---\n/, '')
+  .split(/\n---\n/)
+  .map((md) => /<!--\s*caption:\s*([\s\S]*?)\s*-->/.exec(md)?.[1] ?? '');
+const demoNarration = { voice: VOICE, slides: demoSlides.map((text) => (text ? said(text, text.split(/(?<=[.!?])\s+/).map(() => true)) : null)) };
+const signoffFiles = {};
 const ground = {};
+const shot = await ctx.newPage();
 for (const mode of ['light', 'dark']) {
-  await shot.evaluate((m) => {
-    document.documentElement.setAttribute('data-lp-scheme', m);
-    document.documentElement.style.setProperty('color-scheme', m);
-  }, mode);
-  await shot.waitForTimeout(250);
+  const { html: demoHtml } = await buildPlayerHtml({ docHtml: demoDoc, source: demoSource, title: 'One timing track for every player', now: 0, narration: demoNarration, theme: { name: 'indaco', mode } });
+  const f = path.resolve(`.scratch/out/ltt-timing-track-${mode}.html`);
+  writeFileSync(f, demoHtml);
+  signoffFiles[mode] = f;
+  await shot.goto(`file://${f}`);
+  await shot.waitForSelector('#lp-play');
   ground[mode] = await shot.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  await shot.screenshot({ path: `.scratch/out/narrated-player-${mode}.png` });
+  // Slide 3 (the list-steps slide) mid-caption: the crawl, the band and the slide together.
+  await shot.keyboard.press('ArrowRight');
+  await shot.keyboard.press('ArrowRight');
+  await shot.click('#lp-play');
+  await shot.waitForFunction(() => document.querySelectorAll('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').length >= 2, null, { timeout: 8000 });
+  await shot.screenshot({ path: `.scratch/out/ltt-timing-track-${mode}.png` });
+  await shot.click('#lp-play');
 }
 check('the sign-off artifacts are genuinely two different modes', ground.light !== ground.dark, `light ${ground.light} vs dark ${ground.dark}`);
+// End to end: Play from slide 1 and let the deck run itself to the closing slide.
+{
+  const p = await ctx.newPage();
+  const seen = [];
+  p.on('pageerror', (e) => seen.push(`pageerror: ${e.message}`));
+  await p.goto(`file://${signoffFiles.dark}`);
+  await p.waitForSelector('#lp-play');
+  const t0 = Date.now();
+  await p.click('#lp-play');
+  const total = demoSlides.length;
+  await p.waitForFunction((n) => document.getElementById('lp-count').textContent.trim().startsWith(`${n} `), total, { timeout: 180000 });
+  await p.waitForFunction(() => document.getElementById('lp-play').getAttribute('aria-pressed') === 'false', null, { timeout: 30000 });
+  check('the narrated demo deck plays itself end to end and stops on its closing slide', seen.length === 0, `${total} slides in ${((Date.now() - t0) / 1000).toFixed(1)} s${seen.length ? ` — ${seen.join(' | ')}` : ''}`);
+  await p.close();
+}
 await shot.close();
-console.log(`wrote .scratch/out/narrated-player-{light,dark}.png from ${signoff}`);
+console.log(`wrote .scratch/out/ltt-timing-track-{light,dark}.{html,png} from ${DEMO}`);
 
 // ── the other two states the export panel's switches produce ──────────────────────────────
 //
@@ -289,7 +335,7 @@ async function variant(label, cues, drive) {
 // AUDIO ONLY — the deck speaks and advances itself with no band on screen at all.
 await variant(
   'audio-only',
-  narration.map((cues) => cues.map((c) => ({ ...c, words: [] }))),
+  { ...narration, captions: false },
   async (p) => {
     check('audio-only: no caption band is in the document', (await p.locator('#lp-caption').count()) === 0);
     await p.click('#lp-play');
@@ -308,23 +354,128 @@ await variant(
 );
 
 // CAPTIONS ONLY — a teleprompter read-along on the player's own wall clock, no audio at all.
-await variant(
-  'captions-only',
-  narration.map((cues) => cues.map((c) => ({ ...c, audio: null }))),
-  async (p) => {
-    check('captions-only: the band is there', (await p.locator('#lp-caption').count()) === 1);
+// With no clip anywhere, every length is known before Play, so this is also where the player's
+// own timing is checked against the LTT's: each slide must ARRIVE when `timeline()` says it
+// starts (engineering/ltt.md §The transport; the conformance fixtures pin the same arithmetic).
+const captionsOnly = { ...narration, voice: null, slides: narration.slides.map((s) => ({ ...s, clips: [] })) };
+await variant('captions-only', captionsOnly, async (p) => {
+  check('captions-only: the band is there', (await p.locator('#lp-caption').count()) === 1);
+  const ltt = await p.evaluate(() => JSON.parse(document.querySelector('script[data-lp-ltt]').textContent));
+  const plan = timeline(unpack(ltt));
+  // Record when each slide arrives, measured in the page from the click that starts Play.
+  await p.evaluate(() => {
+    window.__arrivals = [];
+    const count = document.querySelector('body > #lp-bar > #lp-count');
+    let last = count.textContent;
+    new MutationObserver(() => {
+      if (count.textContent !== last) {
+        last = count.textContent;
+        window.__arrivals.push(performance.now() - window.__t0);
+      }
+    }).observe(count, { childList: true, characterData: true, subtree: true });
+    document.getElementById('lp-play').addEventListener('click', () => { window.__t0 = performance.now(); }, { capture: true, once: true });
+  });
+  await p.click('#lp-play');
+  await p.waitForFunction(() => document.querySelector('#lp-caption .lp-cap-line.lp-now'), null, { timeout: 4000 });
+  check('captions-only: the first line lights up', (await p.textContent('#lp-caption .lp-cap-line.lp-now')).trim() === 'The first thing we need to talk about.');
+  // The wall clock is the whole mechanism here — with no media element to read, the crawl
+  // times off `silentFrom`. If that path were broken the highlight would sit on word one.
+  const before = await p.locator('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').count();
+  await p.waitForTimeout(400);
+  const after = await p.locator('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').count();
+  check('captions-only: the highlight advances on the wall clock', after > before, `${before} -> ${after} words lit`);
+  check('captions-only: no audio element is ever created', (await p.locator('audio').count()) === 0);
+  await p.waitForFunction(() => window.__arrivals.length >= 2, null, { timeout: 20000 });
+  const arrivals = await p.evaluate(() => window.__arrivals);
+  // The player advances FIRST and then holds, so slide n+1 arrives the moment slide n's segment
+  // ends, which is where timeline() starts slide n+1 (its hold is the head of its own segment).
+  const expected = plan.segments.slice(1).map((s) => Math.round(s.startMs));
+  const drift = arrivals.slice(0, 2).map((a, i) => Math.round(a - expected[i]));
+  // Timers only ever fire LATE, by a few ms each; this deck arms ~8 of them before slide 3.
+  check('captions-only: each slide arrives when the LTT timeline says', drift.every((d) => d >= -5 && d < 120), `expected ${expected.slice(0, 2).join(', ')} ms, arrived ${arrivals.slice(0, 2).map(Math.round).join(', ')} ms (drift ${drift.join(', ')} ms)`);
+});
+
+// CLIPS THAT ARE NOT THE LENGTH THE ESTIMATE SAID. Every clip above is generated at exactly its
+// cue's estimate, which hides the one thing the voice path does that captions never do: re-time the
+// crawl to the clip it got (cursor.align) and advance when the clip ENDS (rule 3), not when the
+// estimate says. So these clips run 1.3x and 0.7x their estimate and each carries a 46 ms encoder
+// lead (rule 7). The expected arrivals are timeline() over the file's own LTT with each clip's real
+// length filled in as measuredMs — what a producer that decoded the clips would have written.
+{
+  const factors = [1.3, 0.7, 1.3];
+  const LEAD = 46;
+  const lengths = [];
+  const odd = {
+    voice: VOICE,
+    slides: narration.slides.map((sl, i) => {
+      if (!sl) return null;
+      return {
+        ...sl,
+        clips: sl.track.cues.map((c, k) => {
+          const ms = Math.round(Math.max(200, c.endMs - c.startMs) * factors[(i + k) % factors.length]) + LEAD;
+          lengths.push({ i, k, ms });
+          const uri = wavDataUri(ms);
+          return { audio: uri, clip: clipHash(uri), leadMs: LEAD };
+        }),
+      };
+    }),
+  };
+  await variant('measured-clips', odd, async (p) => {
+    const packed = await p.evaluate(() => JSON.parse(document.querySelector('script[data-lp-ltt]').textContent));
+    const ltt = unpack(structuredClone(packed)); // unpack copies shallowly: keep `packed` estimate-only
+    for (const { i, k, ms } of lengths) {
+      const clip = ltt.segments[i].audio.clips.find((c) => c.cue === k);
+      clip.measuredMs = ms;
+    }
+    const plan = timeline(ltt);
+    await p.evaluate(() => {
+      window.__arrivals = [];
+      const count = document.querySelector('body > #lp-bar > #lp-count');
+      let last = count.textContent;
+      new MutationObserver(() => {
+        if (count.textContent !== last) {
+          last = count.textContent;
+          window.__arrivals.push(performance.now() - window.__t0);
+        }
+      }).observe(count, { childList: true, characterData: true, subtree: true });
+      document.getElementById('lp-play').addEventListener('click', () => { window.__t0 = performance.now(); }, { capture: true, once: true });
+    });
     await p.click('#lp-play');
-    await p.waitForFunction(() => document.querySelector('#lp-caption .lp-cap-line.lp-now'), null, { timeout: 4000 });
-    check('captions-only: the first line lights up', (await p.textContent('#lp-caption .lp-cap-line.lp-now')).trim() === 'The first thing we need to talk about.');
-    // The wall clock is the whole mechanism here — with no media element to read, the crawl
-    // times off `silentFrom`. If that path were broken the highlight would sit on word one.
-    const before = await p.locator('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').count();
-    await p.waitForTimeout(400);
-    const after = await p.locator('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').count();
-    check('captions-only: the highlight advances on the wall clock', after > before, `${before} -> ${after} words lit`);
-    check('captions-only: no audio element is ever created', (await p.locator('audio').count()) === 0);
-    await p.waitForFunction(() => document.getElementById('lp-count').textContent.trim().startsWith('2'), null, { timeout: 12000 });
-    check('captions-only: the deck still advances itself', true);
+    await p.waitForFunction(() => window.__arrivals.length >= 2, null, { timeout: 30000 });
+    const arrivals = await p.evaluate(() => window.__arrivals);
+    const expected = plan.segments.slice(1, 3).map((s) => Math.round(s.startMs));
+    const drift = arrivals.slice(0, 2).map((a, n) => Math.round(a - expected[n]));
+    // THE DRIFT BUDGET IS PER CLIP, and it is measured, not guessed. Chromium fires a media
+    // element's `ended` 90–110 ms after the audio content stops (1,000 ms of speech: \`playing\` at
+    // 21 ms, \`ended\` at 1,124 ms — .scratch/latency.mjs in the step-2 PR), and rule 3 advances on
+    // `ended`. So the HTML player runs late of any computed timeline by about that much per clip.
+    // Slide 2 arrives after two clips and slide 3 after three.
+    const clipsBefore = [2, 3];
+    const PER_CLIP = 130;
+    check('measured-clips: the deck advances on the clips\' REAL ends, where timeline() puts them with measuredMs', drift.every((d, n) => d >= -20 && d < clipsBefore[n] * PER_CLIP), `expected ${expected.join(', ')} ms, arrived ${arrivals.slice(0, 2).map(Math.round).join(', ')} ms (drift ${drift.join(', ')} ms, budget ${clipsBefore.map((c) => c * PER_CLIP).join(', ')} ms: ~100 ms of \`ended\` latency per clip)`);
+    // The estimate-only timeline would be off by the clips' length error — show that it is.
+    const estimated = timeline(unpack(structuredClone(packed))).segments.slice(1, 3).map((s) => Math.round(s.startMs));
+    check('measured-clips: and NOT where the estimate-only timeline puts them', Math.abs(arrivals[0] - estimated[0]) > 300, `estimate says ${estimated.join(', ')} ms`);
+  });
+}
+
+// A CLIP THAT WILL NOT DECODE (followups.d/2347-p2-…, engineering/ltt.md transport rule 4). The
+// PR #2347 checker's repro: the first cue carries a truncated WAV header. The player used to stop
+// on it — aria-pressed false from the first sample, caption empty, never leaving slide 1 — because
+// the rejected play() ran the autoplay-refusal branch and cleared the fallback. It must instead
+// show the caption, crawl on the estimate, hold its beat and carry on.
+await variant(
+  'decode-failure',
+  { ...narration, slides: [said('This clip is corrupt. The next one plays.', ['data:audio/wav;base64,UklGRg==', true]), ...narration.slides.slice(1)] },
+  async (p) => {
+    await p.click('#lp-play');
+    await p.waitForTimeout(250);
+    check('decode-failure: narration keeps playing', (await p.getAttribute('#lp-play', 'aria-pressed')) === 'true');
+    check('decode-failure: the failed cue still shows its caption', ((await p.textContent('#lp-caption .lp-cap-line.lp-now')) || '').trim() === 'This clip is corrupt.');
+    await p.waitForFunction(() => { const e = document.querySelector('#lp-caption .lp-cap-line.lp-now'); return e?.textContent.trim() === 'The next one plays.'; }, null, { timeout: 6000 });
+    check('decode-failure: it moves on to the next cue, which plays its real clip', await p.evaluate(() => !!document.querySelector('audio') && document.querySelector('audio').currentSrc.startsWith('data:audio/wav')));
+    await p.waitForFunction(() => document.getElementById('lp-count').textContent.trim().startsWith('2'), null, { timeout: 10000 });
+    check('decode-failure: and the deck still advances itself', true);
   },
 );
 

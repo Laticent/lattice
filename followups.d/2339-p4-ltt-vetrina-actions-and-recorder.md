@@ -15,7 +15,12 @@ where     — engineering/decisions/2026-09-24-lattice-timing-track.md §4.6, §
 done when — Vetrina's boundary gate admits `@laticent/ltt`; actions are defined in `ltt`
             with `{cue, word, match}`; `validateLtt` fails when `match` no longer names the
             word; `Narrator.plan()` returns the core's cue and word shape; the recorder
-            writes a seekable LTT carrying `viewport`, `motion` and `stagePace`.
+            writes a seekable LTT carrying `viewport`, `motion` and `stagePace`; and
+            `isStale(ltt, source)` lands with the recorder as its first caller (moved here
+            from step 2 by owner ruling, 2026-09-24 — guardrail G3), with a test that edits
+            the source and asserts the stale segment is flagged and its measured data kept.
+            Decide there whether `emphasis` (Cadenza's per-slide spans, which change timing)
+            belongs in `inputs` or in the hashed text: today neither covers it.
 evidence  — a recorded tour replayed from its LTT at 1440, 820 and 390 px via
             tools/screenshot.js, showing the click lands on its word at the recorded
             viewport and the lead is recomputed at the others.

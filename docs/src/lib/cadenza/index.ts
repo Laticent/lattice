@@ -45,6 +45,7 @@ export {
 } from './calibrate';
 export type { Active, Cursor } from './cursor';
 export { makeCursor } from './cursor';
+export { ENGINE_HASH } from './engine-hash';
 export type { LexDomain } from './lexicon';
 export { LEX_DOMAINS, lookupLexicon } from './lexicon';
 export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize';

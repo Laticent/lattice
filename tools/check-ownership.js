@@ -6714,6 +6714,13 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'the editor and the engine, both already boundaries.',
   },
   {
+    file: 'tools/verify-narrated-player.mjs',
+    why: 'reads ONE repo-committed demo deck (examples/ltt-timing-track.md) behind '
+       + '`.gitattributes`, to export it narrated as the export sign-off artifact. The fold is '
+       + 'tolerance for a locally CRLF-saved copy; the verifier asserts on what it renders, so a '
+       + 'wrong palette would fail its own mode check loudly rather than ship anywhere.',
+  },
+  {
     file: 'lib/authoring/notes-core.js',
     why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
        + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '

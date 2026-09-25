@@ -134,16 +134,31 @@ export interface LttVoice {
 	speed: number;
 }
 
-/** AUDIO layer (Suono). A reader that does not know it plays silently on the estimate. */
+/** AUDIO layer (Suono). A reader that does not know it plays silently on the estimate.
+ *
+ *  One clip per CUE, not per segment (owner ruling, 2026-09-24): every producer records a sentence
+ *  at a time, and the transport advances on each clip's end (engineering/ltt.md §The transport,
+ *  rule 3). A cue with no entry in `clips` has no audio, and a player holds it for its estimate. */
 export interface LttAudio {
-	/** The clip: a path relative to the file, or a `data:` URI. */
+	/** What spoke the clips. */
+	voice: LttVoice;
+	/** The clips, in cue order, at most one per cue. */
+	clips: LttClip[];
+}
+
+/** One cue's clip. */
+export interface LttClip {
+	/** Index of the cue this clip speaks, in the segment's track. @integer @minimum 0 */
+	cue: number;
+	/** The clip: a path relative to the file, a `data:` URI, or, inside an HTML export, the
+	 *  fragment `#lp-audio/<block>/<n>` naming entry n of the export's audio block (engineering/ltt.md
+	 *  §Encodings). */
 	src: string;
 	/** Content hash of the clip bytes. */
 	clip: LttHash;
-	voice: LttVoice;
-	/** The clip's decoded length. @integer @minimum 0 */
-	measuredMs: number;
-	/** Encoder-inserted leading silence. @minimum 0 */
+	/** The clip's decoded length, once a producer has decoded it. @integer @minimum 0 */
+	measuredMs?: number;
+	/** Encoder-inserted leading silence. A player starts the clip this far in. @minimum 0 */
 	leadMs?: number;
 }
 

@@ -135,18 +135,37 @@ function checkCore(track: unknown, where: string, out: string[]): void {
 	for (const p of validateTrack(track as unknown as CaptionTrack)) out.push(`${where}.track: ${p}`);
 }
 
-function checkAudio(audio: unknown, where: string, out: string[]): void {
+function checkAudio(audio: unknown, track: unknown, where: string, out: string[]): void {
 	if (!isRec(audio)) {
 		out.push(`${where}.audio is not an object`);
 		return;
 	}
-	if (!isStr(audio.src) || !audio.src) out.push(`${where}.audio.src is empty`);
-	checkHash(audio.clip, `${where}.audio.clip`, out);
 	if (!isRec(audio.voice) || !isStr(audio.voice.model) || !isStr(audio.voice.voice) || !Number.isFinite(audio.voice.speed) || (audio.voice.speed as number) < 0) {
 		out.push(`${where}.audio.voice needs model, voice and a non-negative speed`);
 	}
-	if (!isMs(audio.measuredMs)) out.push(`${where}.audio.measuredMs is not a whole, non-negative number`);
-	if ('leadMs' in audio && !(Number.isFinite(audio.leadMs) && (audio.leadMs as number) >= 0)) out.push(`${where}.audio.leadMs is not a non-negative number`);
+	if (!Array.isArray(audio.clips)) {
+		out.push(`${where}.audio.clips is not an array`);
+		return;
+	}
+	// One clip per CUE, in cue order, at most one each (engineering/ltt.md §Layers). A player
+	// advances on each clip's end, so a clip naming a cue the track does not have would speak a
+	// sentence no caption shows.
+	const cueCount = isRec(track) && Array.isArray(track.cues) ? track.cues.length : 0;
+	let last = -1;
+	Array.from(audio.clips as unknown[]).forEach((c: unknown, i: number) => {
+		const at = `${where}.audio.clips[${i}]`;
+		if (!isRec(c)) {
+			out.push(`${at} is not an object`);
+			return;
+		}
+		if (!isMs(c.cue) || c.cue >= cueCount) out.push(`${at}.cue is ${q(c.cue)}, which this track does not have (${cueCount} cues)`);
+		else if (c.cue <= last) out.push(`${at}.cue is ${c.cue}, not after the clip ahead of it at cue ${last} — clips run in cue order, one per cue at most`);
+		else last = c.cue;
+		if (!isStr(c.src) || !c.src) out.push(`${at}.src is empty`);
+		checkHash(c.clip, `${at}.clip`, out);
+		if ('measuredMs' in c && !isMs(c.measuredMs)) out.push(`${at}.measuredMs is not a whole, non-negative number`);
+		if ('leadMs' in c && !(Number.isFinite(c.leadMs) && (c.leadMs as number) >= 0)) out.push(`${at}.leadMs is not a non-negative number`);
+	});
 }
 
 function checkActions(actions: unknown, track: unknown, where: string, out: string[]): void {
@@ -299,7 +318,7 @@ function check(ltt: unknown): string[] {
 		checkHash(seg.hash, `${where}.hash`, out);
 		checkEnum(seg.basis, BASES, `${where}.basis`, out);
 		checkCore(seg.track, where, out);
-		if ('audio' in seg) checkAudio(seg.audio, where, out);
+		if ('audio' in seg) checkAudio(seg.audio, seg.track, where, out);
 		if ('actions' in seg) checkActions(seg.actions, seg.track, where, out);
 	});
 

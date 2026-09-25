@@ -1,0 +1,173 @@
+{
+  "name": "tour, recorded waits",
+  "why": "A stretch has no hold and no tail. Its recorded wait comes first, as phase 'wait'. A stretch with no wait starts at once.",
+  "ltt": {
+    "format": "ltt",
+    "version": "1.0",
+    "source": {
+      "kind": "tour",
+      "id": "conformance-tour"
+    },
+    "inputs": {
+      "engine": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "pace": "moderate",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "motion": "full",
+      "stagePace": 1
+    },
+    "seekable": true,
+    "segments": [
+      {
+        "id": "s1",
+        "kind": "stretch",
+        "at": {
+          "beats": [
+            0,
+            1
+          ]
+        },
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "track": {
+          "cues": [
+            {
+              "display": "Open it.",
+              "words": [
+                {
+                  "display": "Open",
+                  "spoken": "open",
+                  "startMs": 0,
+                  "endMs": 250,
+                  "charOffset": 0
+                },
+                {
+                  "display": "it.",
+                  "spoken": "it",
+                  "startMs": 250,
+                  "endMs": 500,
+                  "charOffset": 5
+                }
+              ],
+              "startMs": 0,
+              "endMs": 500,
+              "charOffset": 0
+            }
+          ],
+          "durationMs": 500
+        },
+        "actions": [
+          {
+            "cue": 0,
+            "word": 1,
+            "match": "it",
+            "verb": "click",
+            "target": "#open",
+            "arrive": "on-word"
+          }
+        ]
+      },
+      {
+        "id": "s2",
+        "kind": "stretch",
+        "at": {
+          "beats": [
+            2,
+            2
+          ]
+        },
+        "after": "awaitUser",
+        "waitedMs": 2000,
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "track": {
+          "cues": [
+            {
+              "display": "Done.",
+              "words": [
+                {
+                  "display": "Done.",
+                  "spoken": "done",
+                  "startMs": 0,
+                  "endMs": 400,
+                  "charOffset": 0
+                }
+              ],
+              "startMs": 0,
+              "endMs": 400,
+              "charOffset": 0
+            }
+          ],
+          "durationMs": 400
+        }
+      }
+    ]
+  },
+  "timeline": {
+    "durationMs": 2900,
+    "segments": [
+      {
+        "id": "s1",
+        "startMs": 0,
+        "lengthMs": 500
+      },
+      {
+        "id": "s2",
+        "startMs": 500,
+        "lengthMs": 2400
+      }
+    ]
+  },
+  "probes": [
+    {
+      "segment": "s1",
+      "localMs": 100,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 100,
+      "why": "a stretch starts at once",
+      "due": 0
+    },
+    {
+      "segment": "s1",
+      "localMs": 300,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 1,
+      "trackMs": 300,
+      "why": "the action's word is reached",
+      "due": 1
+    },
+    {
+      "segment": "s1",
+      "localMs": 500,
+      "phase": "end",
+      "cueIndex": 0,
+      "wordIndex": 1,
+      "trackMs": 500,
+      "why": "no tail on a stretch",
+      "due": 1
+    },
+    {
+      "segment": "s2",
+      "localMs": 1000,
+      "phase": "wait",
+      "cueIndex": -1,
+      "wordIndex": -1,
+      "trackMs": 0,
+      "why": "the recorded wait comes first"
+    },
+    {
+      "segment": "s2",
+      "localMs": 2100,
+      "phase": "cue",
+      "cueIndex": 0,
+      "wordIndex": 0,
+      "trackMs": 100,
+      "why": "then the stretch speaks"
+    }
+  ]
+}

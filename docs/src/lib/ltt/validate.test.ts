@@ -91,7 +91,9 @@ describe('validateLtt', () => {
 		['slides out of order', deck, (l) => { slide(l, 2).at = { slide: 2 }; }, /one per slide, with no gaps/],
 		['a skipped slide', deck, (l) => { slide(l, 2).at = { slide: 4 }; }, /slide 3 comes next/],
 		['a slide without its tail breath', deck, (l) => { delete (slide(l, 0) as Mut).tailMs; }, /tailMs is not a whole/],
-		['a negative voice speed', deck, (l) => { slide(l, 0).audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: -1 }, measuredMs: 900 }; }, /non-negative speed/],
+		['a negative voice speed', deck, (l) => { slide(l, 0).audio = { voice: { model: 'm', voice: 'v', speed: -1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H }] }; }, /non-negative speed/],
+		['a clip for a cue the track does not have', deck, (l) => { slide(l, 0).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 99, src: 'a.mp3', clip: H }] }; }, /which this track does not have/],
+		['two clips for one cue', deck, (l) => { slide(l, 0).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H }, { cue: 0, src: 'b.mp3', clip: H }] }; }, /one per cue at most/],
 		['a repeated id', deck, (l) => { l.segments[1].id = 'd1'; }, /repeats/],
 		['narration on a hold', deck, (l) => { (l.segments[1] as Mut).track = buildTrack('x'); }, /does not belong on a hold/],
 		['a stretch in a deck', deck, (l) => { (l.segments[1] as Mut).kind = 'stretch'; }, /only a tour has/],
@@ -206,11 +208,11 @@ describe('validateLtt agrees with the schema on every enum value and every requi
 	const resolve = (n: Node): Node => (n.$ref ? resolve($defs[n.$ref.replace('#/$defs/', '')]) : n);
 	const full = (): Ltt[] => {
 		const d = deck();
-		slide(d, 0).audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: 1 }, measuredMs: 900, leadMs: 4 };
+		slide(d, 0).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H, measuredMs: 900, leadMs: 4 }] };
 		const t = tour();
 		t.seekable = true;
 		stretch(t, 1).waitedMs = 2300;
-		stretch(t, 1).audio = { src: 'b.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: 1 }, measuredMs: 900 };
+		stretch(t, 1).audio = { voice: { model: 'm', voice: 'v', speed: 1 }, clips: [{ cue: 0, src: 'b.mp3', clip: H, measuredMs: 900 }] };
 		return [d, t];
 	};
 	/** Every (path, schema node) pair the fixture actually reaches, with paths in validateLtt's form. */
@@ -322,4 +324,5 @@ describe('the third checker pass (PR #2347)', () => {
 		revoke();
 		expect(() => validateLtt(proxy)).not.toThrow();
 	});
+
 });

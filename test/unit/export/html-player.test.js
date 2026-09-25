@@ -1796,70 +1796,125 @@ const NARRATION_DOC = `<!DOCTYPE html>
 <section data-lattice-slide="2" id="2" class="divider"><h2>Two</h2></section>
 </body></html>`;
 
-/** The word timeline the caption crawl highlights against — the presence of one is what
- *  tells the assembler this export ships captions (see `hasCaptions`). */
-const wordsOf = (text) => text.split(' ').map((display, i) => ({ display, startMs: i * 300, endMs: i * 300 + 280 }));
-
-/** Two slides of cues, the second silent, for the carrier tests. Captioned by default,
- *  because the common export ships both halves; `cue(text, audio, [])` is the audio-only
- *  shape the panel produces when the captions switch is off. */
-const cue = (text, audio, words) => ({ text, estimateMs: 900, gapMs: 120, audio, words: words ?? wordsOf(text) });
-const NARRATION = [
-	[cue('First line.', 'data:audio/mpeg;base64,AAAA'), cue('Second line.', null)],
-	[cue('On the divider.', 'data:audio/mpeg;base64,BBBB')],
-];
-/** The same delivery with no word timings — an export whose captions switch was off. */
-const NARRATION_NO_CAPTIONS = NARRATION.map((cues) => cues.map((c) => ({ ...c, words: [] })));
+/** One narrated slide as the Studio's bake hands it over: the narration text, the Cadenza track
+ *  built from it, and one clip per cue (null for a cue with no audio). */
+const { buildTrack } = require('@laticent/cadenza');
+const { unpack, validateLtt } = require('@laticent/ltt');
+const CLIP_HASH = `sha256:${'ab'.repeat(32)}`;
+const VOICE = { model: 'm', voice: 'v', speed: 1 };
+const said = (text, clips = []) => ({ text, track: buildTrack(text), clips });
+const clip = (audio, extra = {}) => ({ audio, clip: CLIP_HASH, ...extra });
+/** Two slides: the first with a clip on its first sentence only, the second (a divider) spoken. */
+const NARRATION = {
+	voice: VOICE,
+	slides: [said('First line. Second line.', [clip('data:audio/mpeg;base64,AAAA'), null]), said('On the divider.', [clip('data:audio/mpeg;base64,BBBB')])],
+};
+/** The same delivery with its captions switch off. */
+const NARRATION_NO_CAPTIONS = { ...NARRATION, captions: false };
 /** Captions with no clips — the read-along a player would have to synthesize to hear. */
-const NARRATION_NO_AUDIO = NARRATION.map((cues) => cues.map((c) => ({ ...c, audio: null })));
+const NARRATION_NO_AUDIO = { voice: null, slides: NARRATION.slides.map((s) => ({ ...s, clips: [] })) };
 
 async function narratedPlayer(extra = {}) {
 	return buildPlayerHtml({ docHtml: NARRATION_DOC, source: '---\ntheme: indaco\n---\n\n# One\n', title: 'Spoken', now: 0, narration: NARRATION, ...extra });
 }
 
-test('narration: the carrier is one inert block per narrated slide, and it round-trips', async () => {
-	const { html } = await narratedPlayer();
+/** The embedded LTT, unpacked, and each audio block's clip list, keyed by block index. */
+function carriers(html) {
 	const { JSDOM } = require('jsdom');
 	const doc = new JSDOM(html).window.document;
-	const blocks = [...doc.querySelectorAll('script[type="application/lattice+audio"]')];
-	assert.equal(blocks.length, 2, 'one block per narrated slide');
-	assert.deepEqual(blocks.map((b) => b.getAttribute('data-lp-audio')), ['0', '1'], 'blocks are keyed by slide index');
-	const first = JSON.parse(blocks[0].textContent);
-	assert.equal(first.length, 2);
-	assert.equal(first[0].t, 'First line.');
-	assert.equal(first[0].a, 'data:audio/mpeg;base64,AAAA');
-	assert.equal(first[1].a, null, 'a sentence with no clip ships as a caption with no sound');
-	assert.equal(first[1].d, 900, 'and keeps its estimated read time, so the deck still paces');
-	assert.equal(first[0].g, 120, 'the inter-sentence breath rides along');
+	const lttBlock = doc.querySelector('script[type="application/lattice+ltt"]');
+	const audio = Object.fromEntries([...doc.querySelectorAll('script[type="application/lattice+audio"]')].map((b) => [b.getAttribute('data-lp-audio'), JSON.parse(b.textContent)]));
+	return { doc, lttBlock, packed: lttBlock && JSON.parse(lttBlock.textContent), ltt: lttBlock && unpack(JSON.parse(lttBlock.textContent)), audio };
+}
+
+test('narration: the deck ships ONE packed LTT that validates, and one clip block per slide with audio', async () => {
+	const { html } = await narratedPlayer();
+	const { packed, ltt, audio } = carriers(html);
+	assert.equal(packed.encoding, 'packed', 'the HTML export embeds the packed encoding (engineering/ltt.md §Encodings)');
+	assert.deepEqual(validateLtt(ltt), [], 'and it is a valid LTT once unpacked');
+	assert.deepEqual(ltt.segments.map((s) => [s.kind, s.at.slide, s.holdMs]), [
+		['slide', 1, 0],
+		['slide', 2, 2600],
+	], 'one segment per slide: no hold on slide 1, and the divider waits the section hold on arrival');
+	assert.equal(ltt.segments[0].track.cues.length, 2);
+	assert.deepEqual(ltt.segments[0].audio.clips, [{ cue: 0, src: '#lp-audio/0/0', clip: CLIP_HASH }], 'one clip per CUE; the silent sentence has none');
+	assert.deepEqual(audio, { 0: ['data:audio/mpeg;base64,AAAA'], 1: ['data:audio/mpeg;base64,BBBB'] }, 'each src names its place in the clip blocks');
+	assert.ok(ltt.segments[0].tailMs > 0, 'the breath after the last sentence rides as tailMs');
+	assert.match(ltt.segments[0].hash, /^sha256:[0-9a-f]{64}$/);
+	assert.equal(ltt.inputs.engine, require('@laticent/cadenza').ENGINE_HASH, 'inputs.engine is the timing engine hash');
 });
 
-test('narration: a slide with no cues gets no block at all', async () => {
-	const { html } = await buildPlayerHtml({ docHtml: NARRATION_DOC, source: '# x', now: 0, narration: [[], [cue('Only this.', 'data:audio/mpeg;base64,CC')]] });
-	const { JSDOM } = require('jsdom');
-	const blocks = [...new JSDOM(html).window.document.querySelectorAll('script[type="application/lattice+audio"]')];
-	assert.equal(blocks.length, 1);
-	assert.equal(blocks[0].getAttribute('data-lp-audio'), '1', 'the surviving block keeps its ORIGINAL slide index');
+test('narration: the pre-LTT array shape fails loudly instead of shipping a mute deck', async () => {
+	await assert.rejects(
+		buildPlayerHtml({ docHtml: NARRATION_DOC, source: '# x', now: 0, narration: [[{ text: 'Old.', estimateMs: 900, gapMs: 100, audio: null, words: [] }]] }),
+		/an array of cue lists is the old shape/,
+	);
+});
+
+test('narration: a slide with no narration is a hold segment and gets no clip block', async () => {
+	const { html } = await buildPlayerHtml({ docHtml: NARRATION_DOC, source: '# x', now: 0, narration: { voice: VOICE, slides: [null, said('Only this.', [clip('data:audio/mpeg;base64,CC')])] } });
+	const { ltt, audio } = carriers(html);
+	assert.deepEqual(ltt.segments.map((s) => s.kind), ['hold', 'slide']);
+	assert.deepEqual(Object.keys(audio), ['1'], 'the surviving block keeps its ORIGINAL slide index');
+	assert.equal(ltt.segments[1].audio.clips[0].src, '#lp-audio/1/0');
 });
 
 test('narration: hostile caption text cannot break out of its block', async () => {
 	// The manifest envelope buys this property with whole-payload base64 (lattice-doc.js
-	// §Security). This payload carries deck TEXT, so it buys the same property by emitting
-	// every `<` as the JSON escape — the HTML parser never sees one, and JSON.parse gives
-	// the original characters back.
-	const nasty = '</script><script>alert(1)</script> and <!-- a comment --> & an ampersand';
-	const { html } = await buildPlayerHtml({ docHtml: NARRATION_DOC, source: '# x', now: 0, narration: [[cue(nasty, 'data:audio/mpeg;base64,AA')]] });
-	const { JSDOM } = require('jsdom');
-	const doc = new JSDOM(html).window.document;
-	// Exactly three script elements: the one hashed player script, our data block, and the
-	// manifest envelope. Critically, only ONE of them is executable — an injected
+	// §Security). The LTT carries deck TEXT, so it buys the same property by emitting every `<`
+	// as the JSON escape — the HTML parser never sees one, and JSON.parse gives the original
+	// characters back.
+	const nasty = '</script><script>alert(1)</script> and <!-- a comment --> & an ampersand.';
+	const { html } = await buildPlayerHtml({ docHtml: NARRATION_DOC, source: '# x', now: 0, narration: { voice: VOICE, slides: [said(nasty, [clip('data:audio/mpeg;base64,AA')])] } });
+	const { doc, lttBlock, ltt } = carriers(html);
+	// Exactly four script elements: the one hashed player script, the LTT, the clip block, and
+	// the manifest envelope. Critically, only ONE of them is executable — an injected
 	// `<script>alert(1)</script>` would show up as a second type-less script.
 	const scripts = [...doc.querySelectorAll('script')];
-	assert.equal(scripts.length, 3, 'no injected extra script element');
+	assert.equal(scripts.length, 4, 'no injected extra script element');
 	assert.equal(scripts.filter((s) => !s.getAttribute('type')).length, 1, 'exactly one executable script');
 	assert.doesNotMatch(html, /alert\(1\)<\/script>/, 'the payload never reaches the parser as markup');
-	const block = doc.querySelector('script[type="application/lattice+audio"]');
-	assert.equal(JSON.parse(block.textContent)[0].t, nasty, 'the caption survives verbatim — including its ampersand');
-	assert.doesNotMatch(block.textContent, /</, 'not one raw `<` inside the block');
+	assert.equal(ltt.segments[0].track.cues.map((c) => c.display).join(' '), buildTrack(nasty).cues.map((c) => c.display).join(' '), 'the caption survives verbatim — including its ampersand');
+	assert.doesNotMatch(lttBlock.textContent, /</, 'not one raw `<` inside the block');
+});
+
+test('narration: each clip src names its own place in the block, whatever cue it speaks', async () => {
+	// Cue 0 silent, cues 1 and 2 voiced: the block holds two clips, and each src names its entry.
+	const { html } = await buildPlayerHtml({
+		docHtml: NARRATION_DOC,
+		source: '# x',
+		now: 0,
+		narration: { voice: VOICE, slides: [said('A. B. C.', [null, clip('data:audio/mpeg;base64,BB'), clip('data:audio/mpeg;base64,CC')])] },
+	});
+	const { ltt, audio } = carriers(html);
+	assert.deepEqual(ltt.segments[0].audio.clips.map((c) => [c.cue, c.src]), [
+		[1, '#lp-audio/0/0'],
+		[2, '#lp-audio/0/1'],
+	]);
+	assert.deepEqual(audio[0], ['data:audio/mpeg;base64,BB', 'data:audio/mpeg;base64,CC']);
+	// And the player resolves a clip BY that src, not by its position in the list.
+	assert.match(html, /function clipUri\(src,i,uris\)/);
+});
+
+test('narration: audio the LTT cannot place does not ship', async () => {
+	// A bake one slide longer than the rendered deck, and a clip past its track's last cue: both
+	// used to ship their bytes (and a media-src grant) with nothing to play them.
+	const { html } = await buildPlayerHtml({
+		docHtml: NARRATION_DOC,
+		source: '# x',
+		now: 0,
+		narration: {
+			voice: VOICE,
+			slides: [
+				said('Only one sentence.', [null, clip('data:audio/mpeg;base64,ORPHANCUE')]),
+				said('Two.', []),
+				said('A third slide the deck does not render.', [clip('data:audio/mpeg;base64,ORPHANSLIDE')]),
+			],
+		},
+	});
+	assert.doesNotMatch(html, /ORPHAN/);
+	assert.doesNotMatch(html, /media-src/);
+	assert.equal(carriers(html).ltt.segments.length, 2);
 });
 
 test('narration: only a data: URI is allowed through — the file stays network-free', async () => {
@@ -1869,11 +1924,12 @@ test('narration: only a data: URI is allowed through — the file stays network-
 		docHtml: NARRATION_DOC,
 		source: '# x',
 		now: 0,
-		narration: [[cue('a', 'https://example.com/a.mp3'), cue('b', 'blob:http://x/y'), cue('c', 'data:audio/mpeg;base64,AA')]],
+		narration: { voice: VOICE, slides: [said('A. B. C.', [clip('https://example.com/a.mp3'), clip('blob:http://x/y'), clip('data:audio/mpeg;base64,AA')])] },
 	});
-	const { JSDOM } = require('jsdom');
-	const parsed = JSON.parse(new JSDOM(html).window.document.querySelector('script[type="application/lattice+audio"]').textContent);
-	assert.deepEqual(parsed.map((c) => c.a), [null, null, 'data:audio/mpeg;base64,AA']);
+	const { ltt, audio } = carriers(html);
+	assert.deepEqual(audio, { 0: ['data:audio/mpeg;base64,AA'] });
+	assert.deepEqual(ltt.segments[0].audio.clips.map((c) => c.cue), [2], 'the two refused clips play as silent cues');
+	assert.doesNotMatch(html, /example\.com|blob:/);
 });
 
 test('narration: the CSP gains media-src ONLY when audio actually ships', async () => {
@@ -1904,32 +1960,30 @@ test('narration: audio with captions OFF ships the voice and no band at all', as
 	const { html } = await narratedPlayer({ narration: NARRATION_NO_CAPTIONS });
 	assert.match(html, /id="lp-play"/, 'the delivery still has a transport');
 	assert.match(html, /media-src data:/, 'and may still play its audio');
-	// The player script still LOOKS for a band (`getElementById('lp-caption')`) — that one
-	// runtime reference is exactly what makes the crawl no-op here. What must be absent is the
-	// element and its stylesheet.
+	// The player script still LOOKS for a band — that one runtime reference is exactly what makes
+	// the crawl no-op here. What must be absent is the element and its stylesheet.
 	assert.doesNotMatch(html, /id="lp-caption"/, 'but no band element');
 	assert.doesNotMatch(html, /#lp-caption\{/, 'and no stylesheet for one');
 	assert.doesNotMatch(html, /\.lp-cap-track\{/, 'nor any of the crawl’s own rules');
-	// The crawl's own FUNCTIONS stay in the script — they are a few hundred bytes and they
-	// no-op without a band, and one shape is worth more than a second conditional-emission
-	// seam that can rot. The KERNEL is the part worth gating: several KB of inlined Cadenza
-	// source that a deck with nothing to highlight has no use for.
-	assert.doesNotMatch(html, /var makeCursor=/, 'and not one byte of the caption cursor');
-	const { JSDOM } = require('jsdom');
-	const parsed = JSON.parse(new JSDOM(html).window.document.querySelector('script[type="application/lattice+audio"]').textContent);
-	assert.deepEqual(parsed.map((c) => c.w), [[], []], 'the words are not shipped either');
-	assert.equal(parsed[0].t, 'First line.', 'the cue text still rides — it is what carries the beat');
+	// The LTT kernels ship anyway. The transport times every cue, breath and hold through
+	// positionAt, so an audio-only export needs them as much as one with a band: the alternative
+	// was a second, hand-written copy of the timing rules for this one case, which is exactly the
+	// copy that drifts (the step-2 inversion pass).
+	assert.match(html, /var unpackTrack=/);
+	assert.match(html, /var makeCursor=/);
+	assert.match(html, /var positionAt=/);
 });
 
 test('narration: captions with audio OFF ship a read-along that costs kilobytes', async () => {
 	// A captions-only export is a working teleprompter, not a degraded narration: the player
 	// crawls it on its own wall clock (narrationJs › crawlClock's `silentFrom` path).
-	const silentCues = NARRATION.map((cues) => cues.map((c) => ({ ...c, audio: null })));
-	const { html } = await narratedPlayer({ narration: silentCues });
+	const { html } = await narratedPlayer({ narration: NARRATION_NO_AUDIO });
 	assert.match(html, /id="lp-caption"/, 'the band ships');
 	assert.match(html, /var makeCursor=/, 'and the cursor that drives it');
+	assert.match(html, /var positionAt=/, 'and positionAt, which reads it');
 	assert.doesNotMatch(html, /media-src/, 'but nothing is granted for audio the file does not have');
 	assert.doesNotMatch(html, /data:audio\//, 'and not one clip rides along');
+	assert.doesNotMatch(html, /application\/lattice\+audio/, 'nor an empty clip block');
 });
 
 test('narration: the player binds to its OWN chrome, not to a deck element wearing the same id', async () => {
@@ -2308,28 +2362,32 @@ test('narration: an encoded clip carries its lead, and the player seeks past it'
 	// clip WE compress and no decoder trims it. Left in, audio starts after its own caption on
 	// every sentence and the tuned breath grows ~28% — the defect that drove compression off the
 	// live reading path, delivered instead to the recipient's copy. So the bake ships the figure
-	// and the player skips it.
-	const withLead = NARRATION.map((cues) => cues.map((c) => ({ ...c, leadMs: 46 })));
+	// and the player skips it (engineering/ltt.md §The transport, rule 7).
+	const withLead = { ...NARRATION, slides: NARRATION.slides.map((s) => ({ ...s, clips: s.clips.map((c) => c && { ...c, leadMs: 46 }) })) };
 	const { html } = await narratedPlayer({ narration: withLead });
-	assert.match(html, /"l":46/, 'the lead travels in the cue block');
+	assert.equal(carriers(html).ltt.segments[0].audio.clips[0].leadMs, 46, 'the lead travels in the audio layer');
 	assert.match(html, /a\.currentTime=lead\/1000/, 'and the player seeks past it before playing');
 	assert.match(html, /a\.duration\*1000-lead/, 'and re-anchors the crawl to the real speech duration, not the padded one');
+	assert.match(html, /au\.currentTime\*1000-cueLead/, 'and its crawl clock subtracts the silent head it skipped');
 
 	// A clip that arrived already compressed carries none, and must not pay for a key.
-	const noLead = (await narratedPlayer()).html;
-	assert.doesNotMatch(noLead, /"l":/, 'no lead key when there is no encoder silence');
+	assert.equal('leadMs' in carriers((await narratedPlayer()).html).ltt.segments[0].audio.clips[0], false, 'no lead key when there is no encoder silence');
 });
 
-test('narration: the deck’s own pace is baked, because the player cannot read front matter', async () => {
+test('narration: the deck’s own pace is baked into the holds, because the player cannot read front matter', async () => {
 	// The assembler strips every non-envelope <script>, so the baked
 	// `application/lattice-front-matter` block never reaches the player — and a shared file
-	// has no workspace preset to fall back on. The number has to be resolved here.
-	const deliberate = (await narratedPlayer({ source: '---\npace: deliberate\n---\n\n# One\n' })).html;
-	assert.match(deliberate, /NAR_BEAT=\{"slide":2200,"section":4000\}/, 'the author’s declared rhythm travels');
-	const plain = (await narratedPlayer({ source: '---\ntheme: indaco\n---\n\n# One\n' })).html;
-	assert.match(plain, /NAR_BEAT=\{"slide":1400,"section":2600\}/, 'and an undeclared deck gets `natural`');
-	const typo = (await narratedPlayer({ source: '---\npace: delibrate\n---\n\n# One\n' })).html;
-	assert.match(typo, /NAR_BEAT=\{"slide":1400,"section":2600\}/, 'a typo falls through to the default, as the register documents');
+	// has no workspace preset to fall back on. The number has to be resolved here, and it rides
+	// in the LTT as the arriving slide's holdMs (slide 2 of the fixture is a divider).
+	const holdOf = async (source) => carriers((await narratedPlayer({ source })).html).ltt;
+	const deliberate = await holdOf('---\npace: deliberate\n---\n\n# One\n');
+	assert.equal(deliberate.segments[1].holdMs, 4000, 'the author’s declared rhythm travels');
+	assert.equal(deliberate.inputs.deckPace, 'deliberate');
+	const plain = await holdOf('---\ntheme: indaco\n---\n\n# One\n');
+	assert.equal(plain.segments[1].holdMs, 2600, 'and an undeclared deck gets `natural`');
+	assert.equal('deckPace' in plain.inputs, false, 'with no deckPace claimed for it');
+	const typo = await holdOf('---\npace: delibrate\n---\n\n# One\n');
+	assert.equal(typo.segments[1].holdMs, 2600, 'a typo falls through to the default, as the register documents');
 });
 
 test('narration: the manifest carries the read-along track, and NOT the audio bytes', async () => {
@@ -2347,6 +2405,8 @@ test('narration: the manifest carries the read-along track, and NOT the audio by
 		version: READ_ALONG_VERSION,
 		audioMode: 'embedded',
 		voice: { engine: 'cloud', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
+		// It points at the deck's timing track, which rides beside the envelope, not in it.
+		timing: { format: 'ltt', version: '1.0', encoding: 'packed', mime: 'application/lattice+ltt' },
 	});
 	assert.doesNotMatch(JSON.stringify(manifest), /base64/, 'no audio payload inside the envelope');
 });

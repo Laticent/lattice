@@ -38,7 +38,7 @@ function tour() {
       {
         id: 's1', kind: 'stretch', at: { beats: [0, 1] }, after: 'awaitUser', waitedMs: 1200, hash: H, basis: 'measured',
         track: buildTrack('Now click Publish.'),
-        audio: { src: 'audio/s1.mp3', clip: H, voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, measuredMs: 1300, leadMs: 46 },
+        audio: { voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, clips: [{ cue: 0, src: 'audio/s1.mp3', clip: H, measuredMs: 1300, leadMs: 46 }] },
         actions: [{ cue: 0, word: 2, match: 'publish', verb: 'click', target: '#publish', arrive: 'on-word' }],
       },
     ],
@@ -72,7 +72,7 @@ describe('the schema and validateLtt agree', () => {
     'an unknown segment kind': (l) => { l.segments[1].kind = 'pause'; },
     'an unknown basis': (l) => { l.segments[0].basis = 'guessed'; },
     'the wrong version': (l) => { l.version = '1.1'; },
-    'a negative voice speed': (l) => { l.segments[0].audio = { src: 'a.mp3', clip: H, voice: { model: 'm', voice: 'v', speed: -1 }, measuredMs: 900 }; },
+    'a negative voice speed': (l) => { l.segments[0].audio = { voice: { model: 'm', voice: 'v', speed: -1 }, clips: [{ cue: 0, src: 'a.mp3', clip: H }] }; },
     'a slide without its tail breath': (l) => { delete l.segments[0].tailMs; },
   };
   for (const [name, edit] of Object.entries(breaks)) {

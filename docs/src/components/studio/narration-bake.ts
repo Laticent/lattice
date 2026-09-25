@@ -28,7 +28,7 @@
 // is canceled or that fails on sentence 280 is not wasted work either way: the next attempt
 // in the same voice starts from what the first one paid for.
 
-import { buildTrack, interCueGapMs } from '@/lib/cadenza';
+import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
@@ -60,6 +60,9 @@ export type BakedCue = {
 	 *  after its own caption on every sentence and the tuned sentence breath grows by ~28%.
 	 *  See ENCODER_LEAD_SAMPLES. */
 	leadMs?: number;
+	/** SHA-256 of the clip bytes as shipped, `sha256:` + hex — the LTT audio layer's `clip`
+	 *  (engineering/ltt.md §Layers). Set with `audio`. */
+	clip?: string;
 	/** A complete `data:` URI. Never null on a bake that RESOLVED — an incomplete set throws
 	 *  rather than returning one (see `BakeIncompleteError`). Null only when the caller asked
 	 *  for captions with no audio. */
@@ -69,6 +72,12 @@ export type BakedCue = {
 export type NarrationBake = {
 	/** Index-aligned to the deck's slides. A slide with no narration has an empty row. */
 	slides: BakedCue[][];
+	/** What the deck's LTT is built from (lib/core/ltt-deck.mjs), index-aligned to the deck's
+	 *  slides: the exact text handed to `buildTrack`, and the track it built. Null for a slide
+	 *  with no narration. `slides[i]` is index-aligned to `narrated[i].track.cues`. */
+	narrated: ({ text: string; track: CaptionTrack } | null)[];
+	/** The deck-wide inputs that change timing, for the LTT's `inputs` (the maps are hashed there). */
+	inputs: { lang?: string; lexicon?: Record<string, string>; acronyms?: Record<string, string> };
 	/** What the deck was narrated with — recorded so the artifact can say so. */
 	voice: BakeVoice | null;
 	/** Sentences shipped, and sentences in total. Equal on any bake that returns with audio. */
@@ -429,7 +438,18 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 	// fallback rung above then reproduces exactly what Present does with the same input — so
 	// the count is honest either way. What is NOT honest is a measurement taken with no
 	// projection at all, because then we cannot know which of the two Present resolved through.
-	return { slides, tracks, perSlide, projectionUsed: Array.isArray(projected) };
+	return {
+		slides,
+		tracks,
+		texts,
+		perSlide,
+		projectionUsed: Array.isArray(projected),
+		inputs: {
+			...(lang ? { lang } : {}),
+			...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
+			...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
+		},
+	};
 }
 
 // The three per-slide readers Present resolves through, each wrapped so one malformed slide
@@ -610,8 +630,9 @@ export async function bakeNarration(
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { tracks, perSlide } = resolveDeck(source, projected, opts.projectedEmphasis);
+	const { tracks, texts, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
+	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track } : null));
 
 	// The cue skeleton — text, estimate, breath, word timings. Identical whether or not audio
 	// ships, because it is the same delivery either way; only the clips differ.
@@ -638,7 +659,7 @@ export async function bakeNarration(
 
 	if (!audio || !total) {
 		onProgress?.({ done: total, total, synthesized: 0, phase: 'assembling' });
-		return { slides, voice: audio ? voice : null, covered: 0, total, bytes: 0, synthesized: 0, failures: [] };
+		return { slides, narrated, inputs, voice: audio ? voice : null, covered: 0, total, bytes: 0, synthesized: 0, failures: [] };
 	}
 
 	const keys = await bakeClipKeys(perSlide, voice);
@@ -714,11 +735,16 @@ export async function bakeNarration(
 		// whole thing this design moved compression out of the rung to avoid. The cache holds
 		// what the voice produced; the file holds what the author chose to ship. Cost: a deck
 		// recorded on an uncompressed voice re-encodes each export (~107 ms per sentence).
-		const uri = `data:${safeMime(shipped.type)};base64,${toBase64(new Uint8Array(await shipped.arrayBuffer()))}`;
+		const raw = new Uint8Array(await shipped.arrayBuffer());
+		const uri = `data:${safeMime(shipped.type)};base64,${toBase64(raw)}`;
+		// The clip's identity in the LTT: a hash of the bytes that ship, so a re-voiced clip reads as
+		// a different clip even when its text did not change (2026-09-24-lattice-timing-track.md §4.5).
+		const clip = `sha256:${Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', raw)), (b) => b.toString(16).padStart(2, '0')).join('')}`;
 		// The encoder's leading silence travels with the clip, so the player can seek past it.
 		const leadMs = compressed ? ((compressed as { leadMs?: number }).leadMs ?? 0) : 0;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;
+			slides[at.i][at.j].clip = clip;
 			slides[at.i][at.j].leadMs = leadMs;
 			bytes += uri.length;
 		}
@@ -871,7 +897,7 @@ export async function bakeNarration(
 	// error pushes ONE summary row standing for N unreached sentences, so subtracting rows
 	// counted six silent sentences as covered: the field documented as "sentences shipped"
 	// reported the inverse of the truth on the one path where it mattered.
-	return { slides, voice, covered: done, total, bytes, synthesized, failures };
+	return { slides, narrated, inputs, voice, covered: done, total, bytes, synthesized, failures };
 }
 
 /** An abortable pause. Resolves early on abort so the worker's own guard decides what to do,

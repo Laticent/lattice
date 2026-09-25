@@ -93,7 +93,7 @@ test('a front-matter scalar cannot break out of the player script', async () => 
 	// attacker markup in the exported document, AND it truncates the script text so its
 	// sha256 CSP hash stops matching — which blocks the whole player and hands every
 	// recipient a dead deck. Escaping `<` is the repo's standing idiom for this (see
-	// `narrationBlocks` in the same file, and lib/core/data-block.js).
+	// `inertJson` in the same file, and lib/core/data-block.js).
 	const evil = '</script><h1 id=pwned>INJECTED</h1><script>';
 	const js = await playerJs('', null, false, undefined, {
 		js: ANIMA_CHART_JS,

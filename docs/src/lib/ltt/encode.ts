@@ -42,19 +42,6 @@ function packWord(w: Word, cue: Cue): PackedWord {
 	return Object.keys(extra).length ? [...head, extra] : head;
 }
 
-function unpackWord(p: PackedWord, cue: Cue): Word {
-	const extra = p[4];
-	const w: Word = {
-		display: p[0],
-		spoken: extra && 's' in extra ? (extra.s as string) : p[0],
-		startMs: cue.startMs + p[1],
-		endMs: cue.startMs + p[2],
-		charOffset: cue.charOffset + p[3],
-	};
-	if (extra && 'w' in extra) w.weight = extra.w;
-	return w;
-}
-
 /** A caption track → its packed tuples. */
 export function packTrack(track: CaptionTrack): PackedTrack {
 	return [
@@ -75,15 +62,30 @@ export function packTrack(track: CaptionTrack): PackedTrack {
 	];
 }
 
-/** Packed tuples → the caption track they encode, with keys in the order `buildTrack` writes. */
+/** Packed tuples → the caption track they encode, with keys in the order `buildTrack` writes.
+ *
+ *  SELF-CONTAINED: the exported HTML player inlines this function's source (`.toString()`), so it
+ *  may reference no module-scope binding — the word unpacking is written out here rather than
+ *  called (test/unit/export/inlinable-kernels.test.js). */
 export function unpackTrack(packed: PackedTrack): CaptionTrack {
-	const [durationMs, cues] = packed;
+	const durationMs = packed[0];
 	return {
-		cues: cues.map((p) => {
+		cues: packed[1].map((p) => {
 			const extra = p[5];
 			// `words` is filled after the cue exists, because a word's times are relative to it.
 			const cue: Cue = { display: p[0], words: [], startMs: p[1], endMs: p[1] + p[2], charOffset: p[3] };
-			cue.words = p[4].map((w) => unpackWord(w, cue));
+			cue.words = p[4].map((pw) => {
+				const wx = pw[4];
+				const w: Word = {
+					display: pw[0],
+					spoken: wx && 's' in wx ? (wx.s as string) : pw[0],
+					startMs: cue.startMs + pw[1],
+					endMs: cue.startMs + pw[2],
+					charOffset: cue.charOffset + pw[3],
+				};
+				if (wx && 'w' in wx) w.weight = wx.w;
+				return w;
+			});
 			if (extra && 'e' in extra) cue.endsParagraph = extra.e;
 			if (extra && 'w' in extra) cue.weight = extra.w;
 			return cue;

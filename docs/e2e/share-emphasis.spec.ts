@@ -85,8 +85,28 @@ test('the Captions (.vtt) download carries the emphasis hold', async ({ page }) 
 	for (const d of deltas.slice(first)) expect(d, `deltas=${deltas}`).toBe(250);
 });
 
+/**
+ * Every breath the exported player will hold, in play order: the gap after each cue, and after a
+ * slide's last cue its `tailMs`. Read from the deck's timing track — the packed LTT the player
+ * plays from since LTT step 2 (engineering/ltt.md §Encodings) — where a packed cue is
+ * `[display, startMs, durationMs, charOffset, words, extra?]`.
+ */
+function gapsOf(html: string): number[] {
+	const block = /<script type="application\/lattice\+ltt"[^>]*>([\s\S]*?)<\/script>/.exec(html);
+	if (!block) return [];
+	const ltt = JSON.parse(block[1]) as { segments: { track?: [number, [string, number, number, ...unknown[]][]]; tailMs?: number }[] };
+	const out: number[] = [];
+	for (const seg of ltt.segments) {
+		if (!seg.track) continue;
+		const cues = seg.track[1];
+		cues.forEach((c, k) => {
+			out.push(k < cues.length - 1 ? cues[k + 1][1] - (c[1] + c[2]) : (seg.tailMs ?? 0));
+		});
+	}
+	return out;
+}
+
 test('the Webpage (.html) player bakes the emphasis hold into its gaps', async ({ page }) => {
-	const gapsOf = (html: string) => [...html.matchAll(/"g":(\d+)/g)].map((m) => Number(m[1]));
 	const plain = gapsOf(await download(page, DECK('Retention reached 118 percent'), /Webpage/, /Download webpage/));
 	const bold = gapsOf(await download(page, DECK('**Retention reached 118 percent**'), /Webpage/, /Download webpage/));
 	expect(plain.length).toBeGreaterThan(3);
@@ -116,7 +136,6 @@ ${coda}
 `;
 
 test('the player holds a beat after the closing quote', async ({ page }) => {
-	const gapsOf = (html: string) => [...html.matchAll(/"g":(\d+)/g)].map((m) => Number(m[1]));
 	// Without the quote there is no coda at all; with it, the closing line is spoken AND weighted,
 	// so the deck gains one hold — the extra sentence's own gap, plus the 250 ms emphasis hold.
 	const none = gapsOf(await download(page, CODA_DECK(''), /Webpage/, /Download webpage/));
