@@ -221,3 +221,37 @@ Put to the owner, and settled by the owner (2026-09-24):
   and an edge climbing back a line — that crossing is geometry. And a very dense
   channel (the stress deck's incident machine) is legible but busy; a real fix
   would reorder states, which the numbered authoring deliberately does not.
+
+## 6. Follow-up: the portrait type floor (followups.d 2355-p3, closed)
+
+The story-sized `examples/portrait-gantt-statechart.md` printed TYPE FLOOR on both
+state charts: edge labels and ordinals at 10.8px against a 19.2px floor (1% of a
+1920px slide). Three causes, each measured on the export:
+
+1. **The family floor ignored the deck's type magnitude.** `--chart-text-min` was a
+   bare 11px, while every `--fs-*` role carries `--canvas-scale` (2.19 on `story`).
+   It is now `calc(11px * var(--canvas-scale, 1))`, registered with `@property` as a
+   `<length>` so the fit pass still reads px. Landscape leaves `--canvas-scale` unset,
+   so it keeps 11px: all 13 other state-chart decks rendered pixel-identical at this
+   step. The roadmap phase tags on portrait decks read the same token and grow from
+   specks to legible (`autosplit-coverage` pages 21 to 23).
+2. **The fit pass budgeted sizes at the wrong scale.** The ordinal's floor used
+   the candidate's raw k (2.13), and `applyFit` then clamped the figure to the 1.6x
+   upscale ceiling; `paintK` now takes `min(k, fitCeil)`, the ceiling `applyFit`
+   applies, which moved the ordinals from 18.1px to 24.1px. The label geometry had
+   the mirror-image fault: it assumed a label paints at floor / k, but `applyFit`
+   only raises the floor when it SHRINKS the figure, so on an upscaled chart a label
+   paints at the full floor in drawing units. `labelScaleFor` now uses `min(k, 1)`.
+   On landscape (floor 11px, S = 1) that gives 1 for every k >= 1, exactly as before.
+3. **A larger label landed on its own self-loop.** The self-loop label's center was
+   a fixed fraction of the loop's reach off the node's corner, inside the loop's own
+   vertical span. At 16:9 `revise` already touched its arc; on the portrait deck it
+   sat on it. `selfPeak` now rides the label scale, and `selfLabel` measures the
+   arc's extreme under the label's width and lifts the label just clear of it. The
+   canvas reserves the lifted label's reach (`selfReach`) on both the grid and dagre
+   paths, so a lift cannot leave the drawing (the maker-checker's finding). This
+   moved self-loop labels on 19 landscape pages, each from touching the arc to clear
+   of it. A label-collision probe over all 14 state-chart decks (every edge label
+   against every other label, every line, every node, and the viewBox) counted 30
+   hits on `main` and 16 after; no deck gained one. The 16 left are pre-existing
+   (labels on the column router's lines and the long-labels slide).

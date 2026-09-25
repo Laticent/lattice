@@ -1515,6 +1515,29 @@ describe('dagre re-ranking (fake DOM)', () => {
 
     const LOOPY = chain(8, [e(3, 1, 'reject'), e(3, 3, 'revise'), e(2, 5, 'fast track'), e(7, 3, 'reopen')]);
 
+    // A SELF-LOOP'S LABEL CLEARS ITS OWN ARC. The label used to be centered at a fixed
+    // fraction of the loop's reach off the node's corner, inside the loop's vertical
+    // span, so at 16:9 `revise` touched its arc and on a story-sized portrait deck it
+    // sat on it. Checked in both flows: no arc point under the label's width falls
+    // inside its line box (13px at S = 1, the unscaled `labelLine`).
+    for (const view of [WIDE, TALL]) {
+      test(`a self-loop label sits off its arc (${view === WIDE ? 'wide' : 'tall'} stage)`, () => {
+        const r = run({ ...chain(4, [e(3, 3, 'revise')]), fit: true, view });
+        const loop = r.svg.match(/<path class="state-edge"[^>]*data-self="true" d="([^"]+)"/);
+        const lab = r.svg.match(/<text class="state-edge-label" data-dir="self" x="([-\d.]+)" y="([-\d.]+)"[^>]*>revise</);
+        assert.ok(loop && lab, 'the fixture draws a labeled self-loop');
+        const x = +lab[1], y = +lab[2], halfW = ('revise'.length * 6.6) / 2, halfH = 13 / 2;
+        const c = loop[1].match(/-?\d+(?:\.\d+)?/g).map(Number); // M x y C x1 y1 x2 y2 x y
+        const pts = Array.from({ length: 33 }, (_, i) => {
+          const u = i / 32, v = 1 - u;
+          const at = (k) => v * v * v * c[k] + 3 * v * v * u * c[k + 2] + 3 * v * u * u * c[k + 4] + u * u * u * c[k + 6];
+          return [at(0), at(1)];
+        });
+        const inside = pts.filter(([px, py]) => Math.abs(px - x) <= halfW && Math.abs(py - y) < halfH);
+        assert.deepEqual(inside, [], `arc points inside the label box at ${x},${y}`);
+      });
+    }
+
     test('a wrapped chain keeps every mark and route inside its viewBox', () => {
       const r = run({ ...LOOPY, fit: true, view: WIDE });
       assert.ok(r.lines >= 2, 'the fixture must actually wrap');
@@ -2458,4 +2481,21 @@ describe('state-chart parsing stays linear on adversarial author text', () => {
         `${large.toFixed(1)}ms) — that is polynomial backtracking, not linear scanning`);
     });
   }
+});
+
+// The family's chart-text floor rides the deck's type magnitude. At a bare 11px it
+// set every state-chart edge label and ordinal at 0.56% of a story-sized slide's
+// height while the state names took the scaled `--fs-*` size, and the export printed
+// TYPE FLOOR. `@property` keeps the computed value a resolved length, which the fit
+// pass parses with `parseFloat`; an unregistered `calc()` would read back as text.
+describe('chart-text floor follows --canvas-scale', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/_chart-family/chart-family.css'), 'utf8');
+  test('the floor is 11px times the canvas scale, 11px on landscape', () => {
+    assert.match(css, /--chart-text-min:\s*calc\(11px \* var\(--canvas-scale, 1\)\);/);
+  });
+  test('the token is registered as a <length>', () => {
+    assert.match(css, /@property --chart-text-min \{ syntax: "<length>"; inherits: true; initial-value: 11px; \}/);
+  });
 });

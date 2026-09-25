@@ -719,9 +719,19 @@ section.chart-frame,
    * Used as a floor via `max()`, never a cap: growing with the slide is the
    * whole point of sizing in cqi, so only the small end needs defending.
    * Deliberately NOT named `--fs-*`: the 12-token role scale is closed
-   * (checkTypographyTokens), and this is a minimum, not a role. */
-  --chart-text-min: 11px;
+   * (checkTypographyTokens), and this is a minimum, not a role.
+   *
+   * TIMES `--canvas-scale`, which the engine sets on a portrait or square deck (2.19
+   * on `story`) and leaves unset on landscape, so landscape stays exactly 11px. The
+   * `--fs-*` roles all carry that factor, and this floor did not: on the story-sized
+   * portrait gantt/state-chart deck the state names set at the scaled role size while
+   * every edge label and ordinal sat at the bare 11px, 0.56% of the slide's height,
+   * and the export printed TYPE FLOOR on both state charts. Registered as a
+   * `<length>` below, so `getComputedStyle` hands state-chart's fit pass a resolved
+   * px value rather than the unparsed `calc()` text. */
+  --chart-text-min: calc(11px * var(--canvas-scale, 1));
 }
+@property --chart-text-min { syntax: "<length>"; inherits: true; initial-value: 11px; }
 
 /* .viz-frame merge (2026-07-15-viz-frame-merge.md): the chart chrome (eyebrow + h2 +
  * subtitle) now HOISTS into the standard `.cell-masthead > .masthead-lede` band — charts
