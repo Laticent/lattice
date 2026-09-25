@@ -1605,6 +1605,10 @@ for (const [name, md, eyebrow] of [
 	['stats layout', '<!-- _class: stats -->\n\n## Heading here.\n\n`A subtitle`\n\n1. **73%**\n   - faster\n', null],
 	// A chart's plain-text line under the heading becomes `.chart-subtitle`, hoisted into the lede.
 	['chart subtitle (radar)', '<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## Heading here.\n\nA subtitle\n\n- Meridian\n  - Speed `9`\n  - Price `7`\n  - Support `8`\n', 'Scale · 0–10'],
+	// followup 2366-p4: the matrix-grid slide of examples/read-article-chart-paints.md, whose
+	// subtitle #2366's screenshots showed as an all-caps kicker. #2358 had already fixed it; the
+	// screenshots predate the rebase. Pinned on the exact shape that was reported.
+	['chart subtitle (matrix-grid)', '<!-- _class: matrix-grid -->\n\n## Heading here.\n\nA subtitle\n\n`[Wider reach, Deeper cognition]`\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Create | [ ] | [x] Senior |\n', null],
 ]) {
 	test(`subtitle: ${name} projects after the heading, never as the kicker`, async () => {
 		const secs = await renderedSections(md);
