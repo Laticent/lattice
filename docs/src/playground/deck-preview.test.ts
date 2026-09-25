@@ -23,29 +23,21 @@ describe('buildSrcdoc — the slide edge', () => {
 	// — every palette, not one — against 10.3-19.3 in light. Reported from a real iPhone.
 	const html = '<section id="1"><h1>Hi</h1></section>';
 
-	it('is OFF by default: the frame is the lift shadow alone', () => {
+	it('is OFF by default: the frame is the lift alone, and the engine edge gets no scale', () => {
 		// This builder also assembles the print document and the export capture frame
-		// (`deck-export.js`), so the edge stays a parameter. The frame rides on `.lattice`,
-		// which neither print (print-sheet.mjs sets `filter:none`) nor a capture of one
-		// section ever paints.
+		// (`deck-export.js`), so the edge stays opt-in. The edge itself is the ENGINE's
+		// (base.modifiers.css) and only draws once a host hands it --slide-edge-k.
 		const doc = buildSrcdoc({ ...base, html });
-		expect(doc).toContain(`.lattice{filter:${slideFrameFilter('card', { edge: null })};}`);
-		expect(doc).not.toContain('drop-shadow(1px 0 0');
+		expect(doc).toContain(`.lattice{filter:${slideFrameFilter('card')};}`);
+		expect(doc).not.toContain('window.__SLIDE_EDGE=1');
 	});
 
-	it('draws the edge in front of the lift shadow when asked, as the shared slide frame', () => {
+	it('hands the engine its on-screen scale when asked, so the deck draws its own edge', () => {
+		// The FIT agent stamps slide-percent-per-screen-pixel (100 / width) — the one number
+		// the engine's keyline needs to stay a true 1px through the scale.
 		const doc = buildSrcdoc({ ...base, html, slideEdge: 'var(--border, red)' });
-		expect(doc).toContain(`.lattice{filter:${slideFrameFilter('card', { edge: 'var(--border, red)' })};}`);
-	});
-
-	it('takes a COLOR, so the edge resolves against the deck theme rather than this file', () => {
-		// Passing a color rather than a boolean is what lets the edge track palette AND mode
-		// without this module knowing either — `var(--border)` resolves inside the srcdoc.
-		// The fallback in the caller's value is load-bearing: an undefined custom property
-		// invalidates the WHOLE `filter` at computed-value time, which would drop the lift
-		// shadow too and leave the slide worse off than with no edge at all.
-		const doc = buildSrcdoc({ ...base, html, slideEdge: 'rgb(1,2,3)' });
-		expect(doc).toContain('drop-shadow(1px 0 0 rgb(1,2,3))');
+		expect(doc).toContain('window.__SLIDE_EDGE=1');
+		expect(doc).toContain('--slide-edge-k');
 	});
 
 	it('never shapes the slide: no radius, border or box-shadow on the section', () => {

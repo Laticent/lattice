@@ -949,6 +949,9 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 	try {
 		if (hadRounded) section.classList.remove('corners-rounded');
 		if (!keepRound) section.style.borderRadius = '0';
+		// The engine's slide EDGE (a host keyline, base.modifiers.css) is screen chrome: an
+		// exported artifact never carries it, whatever the capture frame's host scale said.
+		section.style.setProperty('--slide-edge-k', '0');
 		// Defeat the preview's lazy-render gates (content-visibility virtualization +
 		// the `.lattice` visibility reveal) so html-to-image rasterizes a laid-out,
 		// painted slide even when the preview was never shown (phone Edit-tab export).
@@ -967,6 +970,7 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 		if (!hadExporting) section.classList.remove('lattice-exporting');
 		if (hadRounded) section.classList.add('corners-rounded');
 		if (!keepRound) section.style.borderRadius = prevRadius;
+		section.style.removeProperty('--slide-edge-k');
 	}
 }
 

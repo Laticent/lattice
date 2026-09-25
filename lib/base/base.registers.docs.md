@@ -787,13 +787,20 @@ Two implementation notes worth knowing before you touch either:
 **Every surface that shows a slide follows the engine's corner, because none of them draws
 one.** The exported player, the Playground, the Studio (editor preview, Present, thumbnails,
 pickers, Fabricate) and the docs site all frame a slide with ONE kernel,
-`lib/core/slide-frame.mjs`: the host box sets no radius, border, shadow or background, and
-its edge and lift are a `filter: drop-shadow()` that traces the slide the engine painted. A
-square deck shows square everywhere and a rounded one rounded, per slide, at every scale —
-with no radius to read back and no timing to race. Before this, each surface picked its own
-corner (12px, 6px, `rounded-xl`, 14px), which rounded square decks and, in the player's no-JS
-view, cut the slide's edge at every corner; the Studio measured the radius back off the frame
-(`deck-corner.ts`, now removed) and reached two of about twelve hosts.
+`lib/core/slide-frame.mjs`: the host box sets no radius, border or background, and adds only a
+lift shadow. Before this, each surface picked its own corner (12px, 6px, `rounded-xl`, 14px),
+which rounded square decks and, in the player's no-JS view, cut the slide's edge at every
+corner; the Studio measured the radius back off the frame (`deck-corner.ts`, now removed) and
+reached two of about twelve hosts.
+
+**The slide's EDGE is the engine's too.** On a surface that shows a slide on a page, the engine
+draws a 1px keyline in the deck's own `--border` — on a `.slide-edge` berth above the slide's
+content, inside the slide so no host box can clip it, following this corner, and switched off
+on whichever side carries the spectrum (the bar is that side's edge). A host turns it on by
+stating its scale, `--slide-edge-k: 100 / <on-screen width in px>`; exports and print never
+set it, so no exported artifact carries a keyline. A frame that drops or moves the top bar
+says which edge it now owns with `--_edge-t` / `-r` / `-b` / `-l` in the same rule — see
+base.modifiers.css, "The slide's EDGE".
 
 **What sits behind the slide in a preview is the APP.** The frame's own `html, body` is
 `transparent` (`docs/src/lib/single-slide-render.ts`), and so is `iframe.live`

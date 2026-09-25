@@ -45,6 +45,8 @@ section.compact {
 section.accent:not(.split-panel, .split-compare) {
   border-top: calc(0.3125 * var(--_sec-1cqi, 1cqi)) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image: none;
+  --_edge-t: 0; /* this bar is the top edge, even in a `spectrum: off` deck (base.modifiers.css) */
+  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
 }
 section.accent h2 { color: var(--accent); }
 /* On the dark canvas the rainbow border is suppressed entirely; the accent
@@ -81,6 +83,8 @@ section.accent.dark {
   background-size: 100% calc(0.3125 * var(--_sec-1cqi, 1cqi));
   background-repeat: no-repeat;
   border-top: none;
+  --_edge-t: 0; /* the stripe is the top edge (base.modifiers.css, "The slide's EDGE") */
+  --_bar-t: 0px; /* …painted as a background, so it takes no border room */
 }
 section.accent.dark h2 { color: var(--accent); }
 

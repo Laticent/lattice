@@ -19,7 +19,8 @@ section.split-compare .compare-left { width:30%; flex-shrink:0; background:var(-
  * segments, anchored to the PANEL BOXES so the transition lands on the real
  * seam whatever `width` + padding resolve to.
  * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
-section.split-compare { border-top: none; }
+/* The two-segment bar below IS the top edge, so the engine keyline yields to it (base.modifiers.css). */
+section.split-compare { border-top: none; --_edge-t: 0; --_bar-t: 0px; }
 section.split-compare .compare-left::after {
   content: ''; position: absolute; top: 0; left: 0; right: 0;
   height: calc(var(--_sec-1cqi, 1cqi) * 0.3125); /* section-OWN cqi: route through --_sec-1cqi */

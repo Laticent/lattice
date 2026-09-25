@@ -33,7 +33,7 @@ import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
-import { slideFrameFilter } from '@/lib/slide-frame';
+import { slideFrameShadow } from '@/lib/slide-frame';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
@@ -4676,9 +4676,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    so removing the cap outright is what makes the drag continuous in BOTH
 				    directions without reintroducing the gutter it was added to prevent. */}
 				{/* THE SLIDE FRAME (docs/src/lib/slide-frame.ts): this box never shapes the slide.
-				    No radius, border, shadow or background of its own — the edge and the lift are
-				    a drop-shadow filter that traces the slide the engine painted, so it meets the
-				    deck's own corner (`corners:`), square or rounded, per slide. A fixed
+				    No radius, border or background of its own. The ENGINE draws the slide's edge
+				    (a 1px keyline in the deck's --border, following its own corner and leaving the
+				    spectrum whole); this box adds only the lift shadow. A fixed
 				    `rounded-xl` here once rounded every square deck (#1649); copying a measured
 				    radius back fixed that but needed a timing backoff and reached two of a dozen
 				    hosts. On an iPhone in landscape the slide is the whole show, so the frame
@@ -4699,7 +4699,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						width: previewPaneSize
 							? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px`
 							: '100%',
-						filter: landscapePhone ? 'none' : slideFrameFilter('card'),
+						boxShadow: landscapePhone ? 'none' : slideFrameShadow('card'),
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
 					    measure-and-track controller). Being a normal layout child, the browser keeps

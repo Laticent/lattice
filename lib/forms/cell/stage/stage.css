@@ -558,6 +558,8 @@ section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video)
   --frame-y: 0px;
   --footer-reserve: 0px;
   border-top: 0;                     /* kill the top spectrum only where it bleeds */
+  --_edge-t: 1;                      /* so the engine keyline draws the top edge (base.modifiers.css) */
+  --_bar-t: 0px;
 }
 /* Chrome recede — the footer text, rail, and meta bay recede on EVERY bleed
  * slide (as hero). Title + page number stay unless the layout is edge-media. */

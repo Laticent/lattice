@@ -1962,10 +1962,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						// Tradeoff, by design: in-slide links and the video-bridge lightbox do NOT fire in
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
-						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						// The card is a SLIDE FRAME (docs/src/lib/slide-frame.ts): no radius, border,
-						// shadow or background of its own. The edge and the lift trace the slide the
-						// engine painted, so the card meets the deck's corner exactly. A fixed
+						// preview, not the delivery view.
+						// The card is a SLIDE FRAME (docs/src/lib/slide-frame.ts): no radius, border or
+						// background of its own. The engine draws the slide's edge and corner; the card
+						// adds only the lift shadow. A fixed
 						// `rounded-2xl` here was 16px against a rounded slide's 1.5% of its width, and
 						// on a desktop Present the two disagreed at every corner (#1649).
 						<div ref={cardRef} data-slide-frame style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), ...slideFrameStyle('stage') }} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden">

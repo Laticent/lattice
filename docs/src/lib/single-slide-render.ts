@@ -24,6 +24,7 @@
 
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
 import {
@@ -1163,10 +1164,23 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// element's CSS pins it to HD by default, so a non-HD deck also needs the
 		// element resized to its real box here before the transform fits it.
 		const geom = (host as LiveHost).__latticeGeom || { width: DEFAULT_W, height: DEFAULT_H };
+		// Armed on EVERY fit, not only at reveal: faces that land between the gate's backstop and
+		// the reveal would otherwise announce themselves to no one (the handler ignores a frame
+		// that is not yet visible, so arming early costs nothing).
+		armLateFonts(fr);
 		fr.style.width = geom.width + 'px';
 		fr.style.height = geom.height + 'px';
 		if (w > 0) {
 			fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
+			// The slide's EDGE is the engine's (base.modifiers.css, "The slide's EDGE"): it draws a
+			// 1px keyline in the deck's own --border, and needs only to know how many slide-percent
+			// one screen pixel is — 100 / the slide's on-screen width (lib/core/slide-frame.mjs).
+			// Stamped on the frame's root on every fit, so a resize or a new document keeps it.
+			try {
+				fr.contentDocument?.documentElement?.style.setProperty('--slide-edge-k', String(slideEdgeK(w)));
+			} catch {
+				/* a torn-down or cross-origin frame has no edge to size */
+			}
 			// Reveal once we have (a) a real width to scale to — else the frame shows UNSCALED
 			// at its intrinsic 1280px and the centered content falls outside the box (blank) —
 			// AND (b) the srcdoc has actually PAINTED its slide, detected by a `.lattice` in the
@@ -1196,6 +1210,37 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// held `pointer-events:none` (below) to not swallow scroll/clicks during the load window.
 				fr.style.pointerEvents = '';
 			}
+		}
+	}
+
+	/**
+	 * The gate's backstop (PREVIEW_FONT_GATE_MS) reveals a frame whose faces have NOT landed —
+	 * a slow phone link can take longer — and when they land the text re-lays out in front of
+	 * the reader: the title "shifts a beat after it appears". The gate reports that case as a
+	 * `lattice:fonts-late` event, and this answers it by dropping the frame to transparent for
+	 * the frame the new layout paints in, then fading it back in over the same 180ms reveal
+	 * transition. A fade instead of a jump; nothing is hidden for longer than one ease.
+	 * Armed once per document.
+	 */
+	function armLateFonts(fr: HTMLIFrameElement) {
+		try {
+			const win = fr.contentWindow as (Window & { __latticeLateArmed?: boolean }) | null;
+			if (!win || win.__latticeLateArmed) return;
+			win.__latticeLateArmed = true;
+			win.addEventListener('lattice:fonts-late', () => {
+				if (disposed || fr.style.opacity !== '1') return;
+				const transition = fr.style.transition;
+				fr.style.transition = 'none';
+				fr.style.opacity = '0';
+				requestAnimationFrame(() =>
+					requestAnimationFrame(() => {
+						fr.style.transition = transition;
+						fr.style.opacity = '1';
+					}),
+				);
+			});
+		} catch {
+			/* a torn-down or cross-realm frame has nothing to re-fade */
 		}
 	}
 

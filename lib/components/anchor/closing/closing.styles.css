@@ -15,7 +15,7 @@
  * Without it this bookend's own accent heading measured 2.06:1 on indaco (light-canvas
  * `--accent` on the dark field), and every unnamed inherited ink was equally exposed. */
 section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
-section.closing { border-top: none; }
+section.closing { border-top: none; --_edge-t: 1; --_bar-t: 0px; }
 section.closing hr { margin:0; }
 /* The shared sovereign-bookend measures (base.tokens.css), mirroring title.
  * They replace a pair of hand-set `cqi` caps that named a fraction of the SLIDE

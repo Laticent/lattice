@@ -124,6 +124,9 @@ function fitAgent(gap, clamp) {
 		'    var SW=window.__SLIDE_W||1280, SH=window.__SLIDE_H||720, GAP=' + gap + ';',
 		'    var secs=lattice.querySelectorAll(":scope>section");',
 		'    var sc=w/SW;',
+		// The engine's slide EDGE needs one number: slide-percent per screen pixel (100 / the
+		// slide's on-screen width). Only when the builder asked for an edge (`slideEdge`).
+		'    if(window.__SLIDE_EDGE) lattice.style.setProperty("--slide-edge-k", String(100/w));',
 		'    for(var i=0;i<secs.length;i++){var s=secs[i];',
 		'      s.style.transformOrigin="top left";',
 		'      s.style.transform="scale("+sc+")";',
@@ -314,8 +317,9 @@ export function buildSrcdoc({
 	contentVisibility = false,
 	cursor = false,
 	activeOutline = null, // accent color string, or null
-	// A HAIRLINE EDGE ON EVERY SLIDE, opt-in, as a CSS color string. It is the edge layer of
-	// the shared slide frame (lib/core/slide-frame.mjs), drawn on `.lattice`.
+	// A 1px EDGE ON EVERY SLIDE, opt-in. The ENGINE draws it (base.modifiers.css, "The slide's
+	// EDGE") in the deck's own --border, so it tracks palette and mode and leaves the spectrum
+	// whole; this flag only makes the FIT agent tell the engine the on-screen scale.
 	//
 	// The lift shadow is otherwise the only thing separating a slide from its surround, and
 	// it is BLACK — which works on a light ground and disappears on a dark one. The Playground
@@ -326,17 +330,11 @@ export function buildSrcdoc({
 	// rgb(30,26,21), border `0px none`, and the only separation a 22%-black shadow nobody
 	// can see. Reported from a real iPhone — "the slide blends into the background".
 	//
-	// OPT-IN, defaulting off. This builder also assembles the PRINT document and the export
-	// capture frame (`deck-export.js`); neither paints the frame (print sets `filter:none`,
-	// and a capture clones one section, never `.lattice`), so the edge cannot reach an
-	// exported artifact either way.
-	//
-	// Pass a color, not a boolean, so the edge is the DECK's — `var(--border, …)` resolves
-	// against the theme inside the srcdoc, so it tracks palette and mode without this file
-	// knowing either. The fallback is not decoration: an undefined custom property makes the
-	// whole `filter` declaration invalid at computed-value time, which would drop the lift
-	// shadow too and leave the slide worse off than before.
-	slideEdge = /** @type {string|null} */ (null),
+	// OPT-IN, defaulting off. This builder also assembles the PRINT document (the engine
+	// zeroes the edge under `@media print`) and the export capture frame (`deck-export.js`
+	// zeroes it on the captured section), so the edge cannot reach an exported artifact.
+	// Any truthy value turns it on; callers pass the old color string, which is now ignored.
+	slideEdge = /** @type {string|boolean|null} */ (null),
 	printRules = false,
 	// { paper, orientation, fit } for buildPrintCss (undefined → auto). Structural type
 	// so a caller's PrintOptions (which also carries `color`) is assignable.
@@ -398,20 +396,19 @@ export function buildSrcdoc({
 		(cursor ? 'cursor:pointer;' : '') +
 		(contentVisibility ? 'content-visibility:auto;contain-intrinsic-size:' + gw + 'px ' + gh + 'px;' : '') +
 		'}' +
-		// THE SLIDE FRAME (lib/core/slide-frame.mjs) — on the CONTAINER, not the section.
-		// The section keeps the engine's own corner: this frame used to give every slide a
-		// 6px radius of its own, so a square deck previewed rounded. And the edge + shadow
-		// cannot sit on the section, because a `corners-rounded` section clips with
-		// `clip-path`, which clips the element's own filter and box-shadow away with it. A
-		// drop-shadow on `.lattice` traces every slide's painted outline instead: square
-		// or rounded, it meets the corner the engine drew. `.lattice` paints nothing else,
-		// so the only silhouettes it traces are the slides (and the active outline).
-		'.lattice{filter:' + slideFrameFilter('card', { edge: slideEdge || null }) + ';}';
+		// THE SLIDE FRAME (lib/core/slide-frame.mjs). The EDGE is the engine's (a 1px keyline in
+		// the deck's --border, base.modifiers.css) and needs only the on-screen scale, which the
+		// FIT agent stamps when `slideEdge` asks for it. The LIFT rides the CONTAINER, not the
+		// section: this frame used to give every slide a 6px radius and a box-shadow of its
+		// own, so a square deck previewed rounded — and a `corners-rounded` section's
+		// `clip-path` clips its own box-shadow away. A drop-shadow on `.lattice` traces each
+		// slide's painted outline instead, square or rounded.
+		'.lattice{filter:' + slideFrameFilter('card') + ';}';
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
 	const printCss = printRules ? buildPrintCss(gw, gh, printOpts) : '';
-	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';';
+	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';' + (slideEdge ? 'window.__SLIDE_EDGE=1;' : '');
 	// srcdoc (a fresh browsing context per write), NOT doc.open()/write()/close():
 	// the latter keeps the iframe window, so lattice-runtime.js's one-shot Mermaid
 	// bootstrap guard survives and every later render short-circuits the runtime —

@@ -34,7 +34,9 @@ function walk(dir, out = []) {
 const DOCS_SRC = walk('docs/src').filter((f) => /\.(tsx|ts|jsx|js|astro)$/.test(f) && !/\.test\.|\.generated\./.test(f));
 
 /** Chrome a slide host may not carry: it would shape, border, shadow or back the slide. */
-const HOST_CHROME = /(^|[\s'"`])(rounded(-[\w[\]./%-]+)?|border(-[\w[\]./%()-]+)?|shadow(-[\w[\]./%(),-]+)?|bg-[\w[\]./%()-]+|ring(-[\w[\]./-]+)?)(?=[\s'"`]|$)/;
+const HOST_CHROME = /(^|[\s'"`])(rounded(-[\w[\]./%-]+)?|border(-[\w[\]./%()-]+)?|shadow(-[\w[\]./%(),-]+)?|drop-shadow(-[\w[\]./%(),-]+)?|bg-[\w[\]./%()-]+|ring(-[\w[\]./-]+)?|outline(-[\w[\]./-]+)?|\[(border|border-radius|box-shadow|filter|outline|background)[:-][^\]]*\])(?=[\s'"`]|$)/;
+/** Inline-style keys a slide host may not set: they shape, border, filter or back the slide. */
+const HOST_STYLE_KEYS = /\b(borderRadius|border(Top|Right|Bottom|Left)?(Width|Style|Color)?|outline\w*|filter|background(Color|Image)?)\s*:/;
 
 /** The opening tag starting at `at`: up to the first `>` outside a `{…}` expression or a string. */
 function openingTag(src, at) {
@@ -44,6 +46,13 @@ function openingTag(src, at) {
 		const c = src[k];
 		if (quote) {
 			if (c === quote && src[k - 1] !== '\\') quote = null;
+		} else if (c === '/' && src[k + 1] === '/') {
+			// A JSX attribute comment: its apostrophes are prose, not strings.
+			const nl = src.indexOf('\n', k);
+			k = nl === -1 ? src.length : nl;
+		} else if (c === '/' && src[k + 1] === '*') {
+			const end = src.indexOf('*/', k + 2);
+			k = end === -1 ? src.length : end + 1;
 		} else if (c === '"' || c === "'" || c === '`') quote = c;
 		else if (c === '{') depth++;
 		else if (c === '}') depth--;
@@ -59,7 +68,7 @@ function classLiterals(tag) {
 	if (m[1].startsWith('"')) return [m[1].slice(1, -1)];
 	const expr = openingTag(`<x ${tag.slice(m.index + 'className='.length)}`, 0);
 	const body = expr.slice(0, expr.indexOf('}') === -1 ? undefined : expr.lastIndexOf('}') + 1);
-	return [...body.matchAll(/'([^']*)'|"([^"]*)"/g)].map((x) => x[1] ?? x[2]);
+	return [...body.matchAll(/'([^']*)'|"([^"]*)"|`([^`]*)`/g)].map((x) => x[1] ?? x[2] ?? x[3]);
 }
 
 /**
@@ -94,8 +103,12 @@ test('every slide host carries no radius, border, shadow or background of its ow
 			const hit = lit.match(HOST_CHROME);
 			if (hit) offenders.push(`${h.where} — "${hit[2]}"`);
 		}
+		// Inline style is the other way to shape a host (`style={{ borderRadius: 16 }}`).
+		const style = h.tag.match(/style=\{\{([\s\S]*?)\}\}/)?.[1] ?? '';
+		const key = style.match(HOST_STYLE_KEYS);
+		if (key) offenders.push(`${h.where} — inline style ${key[1]}`);
 		// A marked host must actually wear the frame, and a landing `live-host` must be marked.
-		if (h.marked && !h.isDeckPreview && !/slideFrame(Style|Filter)\(/.test(h.tag)) offenders.push(`${h.where} — marked data-slide-frame but applies no slide frame`);
+		if (h.marked && !h.isDeckPreview && !/slideFrame(Style|Shadow|Filter)\(/.test(h.tag)) offenders.push(`${h.where} — marked data-slide-frame but applies no slide frame`);
 		if (h.live && !h.marked && !/\bframe="/.test(h.tag)) offenders.push(`${h.where} — a live-host with no slide frame`);
 	}
 	assert.deepEqual(offenders, [], 'a slide host shapes the slide itself — use the slide frame instead (docs/src/lib/slide-frame.ts)');
@@ -107,19 +120,23 @@ test('the slide hosts that wrap their own box use the shared frame, and nothing 
 	const hosts = {
 		'docs/src/components/DeckPreview.tsx': /slideFrameStyle\(frame\)[^\n]*data-slide-frame/,
 		'docs/src/components/studio/preview-pool.tsx': /data-slide-frame[^\n]*slideFrameStyle\('flat'\)/,
-		'docs/src/components/studio/StudioShell.tsx': /data-slide-frame[\s\S]*slideFrameFilter\('card'\)/,
+		'docs/src/components/studio/StudioShell.tsx': /data-slide-frame[\s\S]*slideFrameShadow\('card'\)/,
 		'docs/src/components/studio/PresentOverlay.tsx': /data-slide-frame[^\n]*slideFrameStyle\('stage'\)/,
 		'docs/src/components/landing/RestyleShowcase.tsx': /data-slide-frame\s*style=\{slideFrameStyle\('stage'\)\}/,
 		'docs/src/components/landing/sections.tsx': /data-slide-frame\s*style=\{slideFrameStyle\('tile'\)\}/,
-		'docs/src/playground/specimen.js': /slideFrameFilter\('tile'\)[\s\S]*data-slide-frame/,
-		'docs/src/pages/studio.astro': /\.ssr-slidebox\{[^}]*filter:\$\{slideFrameFilter\('card'\)\}/,
-		'docs/src/playground/deck-preview.js': /slideFrameFilter\('card'/,
-		'lib/export/player-core.mjs': /slideFrameFilter\('stage'\)[\s\S]*slideFrameFilter\('card'\)[\s\S]*slideFrameFilter\('card'\)/,
+		'docs/src/playground/specimen.js': /slideFrameShadow\('tile'\)[\s\S]*data-slide-frame/,
+		'docs/src/pages/studio.astro': /\.ssr-slidebox\{[^}]*box-shadow:\$\{slideFrameShadow\('card'\)\}/,
+		'docs/src/playground/deck-preview.js': /^(?=[\s\S]*slideFrameFilter\('card'\))(?=[\s\S]*"--slide-edge-k")/,
+		'lib/export/player-core.mjs': /slideFrameShadow\('stage'\)[\s\S]*slideFrameShadow\('card'\)[\s\S]*slideFrameShadow\('card'\)/,
+		// The hosts that SCALE a slide hand the engine its scale, so its edge stays a true 1px…
+		'docs/src/lib/single-slide-render.ts': /setProperty\('--slide-edge-k', String\(slideEdgeK\(w\)\)\)/,
+		// …and the exporter that captures from a preview frame takes it away again.
+		'docs/src/components/studio/export/deck-export.js': /section\.style\.setProperty\('--slide-edge-k', '0'\)/,
 	};
 	for (const [rel, re] of Object.entries(hosts)) assert.match(read(rel), re, `${rel} frames its slide with the shared kernel`);
 	// The Studio's pre-hydration box is CSS, not a tag, so it is checked here.
 	const shell = read('docs/src/pages/studio.astro').match(/#studio-ssr-shell \.ssr-slidebox\{[^}]*\}/)?.[0] ?? '';
-	assert.doesNotMatch(shell, /border-radius|box-shadow/, 'the Studio loading box draws no corner of its own');
+	assert.doesNotMatch(shell, /border-radius|filter:/, 'the Studio loading box draws no corner of its own');
 	// The previous fix measured the slide's radius and copied it onto the host box. It is gone;
 	// a host that needs "the deck's corner" gets it from the filter, which needs no radius.
 	const readers = DOCS_SRC.filter((rel) => /deck-corner|slideCornerFraction|cornerRadiusCss/.test(read(rel)));
@@ -136,6 +153,79 @@ test('the Playground and the player never give the slide a radius or frame chrom
 	const rules = [...css.matchAll(/^([^\n{]*(?:\.lp-frame|section\[data-lattice-slide\])[^\n{]*)\{([^}]*)\}/gm)];
 	assert.ok(rules.length >= 5, `found the player's frame + section rules (${rules.length})`);
 	for (const [, sel, body] of rules) assert.doesNotMatch(body, /border-radius|box-shadow|(^|;)\s*border:/, `player rule "${sel.trim()}" shapes the slide`);
+});
+
+test('the ENGINE owns the slide edge: on a berth above content, the spectrum side yields, never exported', () => {
+	// The first cut drew the edge OUTSIDE the slide on each host box, and WebKit clipped it
+	// away wherever that box also clipped. A second cut drew it as the section's own
+	// `outline`, and a split panel's positioned half painted straight over it. It is an
+	// engine berth now; this pins how.
+	assert.ok(require('../../../lib/core/fit-berth.js').BERTHS.includes('slide-edge'), 'every render path berths the edge element');
+	const css = read('lib/base/base.modifiers.css');
+	const rule = css.match(/section > \.slide-edge\[data-lattice-berth\] \{[^}]*\}/)?.[0] ?? '';
+	assert.ok(rule, 'the engine edge rule is where this test expects it');
+	assert.match(css, /section \{\n[^}]*--_edge-w: calc\(var\(--slide-edge-k, 0\) \* var\(--_sec-1cqi, 1cqi\)\);/, "width = the host scale, in the slide's own units; 0 with no host");
+	assert.match(rule, /var\(--_edge-w\)/, 'the berth draws at that width');
+	assert.match(css, /background-size: 100% max\(1px, var\(--_edge-w, 0px\)\)/, "a dark slide's 1px top line is at least one screen pixel where it is the edge");
+	assert.match(rule, /position: absolute;/, 'over the whole slide');
+	assert.match(rule, /z-index: var\(--z-chrome\)/, 'above content');
+	assert.match(rule, /border-radius: var\(--slide-radius, 0px\)/, "the slide's own corner, from the length the clip rounds by");
+	assert.match(rule, /inset: calc\(-1 \* var\(--_bar-t, 0px\)\)/, 'over the whole border box, under the bars');
+	for (const side of ['l', 'r', 't', 'b']) assert.match(rule, new RegExp(`var\\(--_edge-${side}, 1\\)[^,]*var\\(--border\\)`), `side ${side} is flagged, in the deck's --border`);
+	assert.match(css, /@media print \{\n {2}section \{ --slide-edge-k: 0 !important; \}\n\}/, 'print never carries a host keyline');
+	assert.match(read('lib/base/base.elements.css'), /border-image-slice: 1;\n {2}--_edge-t: 0;/, 'the default top bar is the top edge, said in the rule that paints it');
+});
+
+test('every rule that moves or drops the spectrum bar says which edge it now owns', () => {
+	// The keyline yields to the bar on whichever side the bar sits, and the side flags live
+	// IN the rules that place the bar. A rule that drops the top bar without saying who owns
+	// the top edge leaves that slide edgeless or doubled there; one that paints a side bar
+	// without silencing that keyline draws a double line. Parsed with css-tree, not a regex,
+	// so a selector inside `:is()`, a rule inside `@media`, `border-top: 0` and a bar painted
+	// as a section BACKGROUND are all seen — the shapes an earlier regex version missed.
+	const csstree = require('css-tree');
+	const files = [...walk('lib/base'), ...walk('lib/components'), ...walk('lib/shared'), ...walk('lib/forms'), ...walk('lib/integrations'), ...walk('themes')].filter((f) => f.endsWith('.css'));
+	const offenders = [];
+	let rulesSeen = 0;
+	const targetsSection = (sel) => {
+		// The section ITSELF: a compound selector starting with `section`, no top-level combinator.
+		const kids = sel.children.toArray();
+		return kids[0]?.type === 'TypeSelector' && kids[0].name === 'section' && !kids.some((k) => k.type === 'Combinator' || k.type === 'PseudoElementSelector');
+	};
+	for (const rel of files) {
+		const ast = csstree.parse(read(rel), { parseValue: false, parseCustomProperty: false, onParseError: () => {} });
+		csstree.walk(ast, {
+			visit: 'Rule',
+			enter(rule) {
+				if (rule.prelude?.type !== 'SelectorList') return;
+				const sels = rule.prelude.children.toArray().filter(targetsSection);
+				if (!sels.length) return;
+				const decls = {};
+				for (const d of rule.block.children.toArray()) if (d.type === 'Declaration') decls[d.property] = csstree.generate(d.value).trim();
+				const flag = (side) => `--_edge-${side}` in decls;
+				const zero = (v) => /^(none|0|0px)\b/.test(v ?? '');
+				const where = `${rel}: ${csstree.generate(rule.prelude)}`;
+				rulesSeen++;
+				if ((zero(decls['border-top']) || zero(decls['border-top-width']) || zero(decls.border)) && !flag('t')) offenders.push(`${where} drops the top bar but does not say who owns the top edge (--_edge-t)`);
+				// A rule that PAINTS a top bar (over another rule that dropped it) owns the top edge too.
+				const top = decls['border-top'] ?? '';
+				if (top && !zero(top) && /solid/.test(top) && !flag('t')) offenders.push(`${where} paints a top bar but does not say it is the top edge (--_edge-t: 0)`);
+				for (const [side, s1] of [['left', 'l'], ['right', 'r'], ['bottom', 'b']]) {
+					const v = decls[`border-${side}`] ?? decls[`border-${side}-width`];
+					if (v && !zero(v) && /solid|calc|\d/.test(v) && !flag(s1)) offenders.push(`${where} paints a ${side} bar but keeps that keyline (--_edge-${s1})`);
+				}
+				if (/var\(--spectrum/.test(decls['background-image'] ?? '') && !['t', 'r', 'b', 'l'].some(flag)) offenders.push(`${where} paints a spectrum bar as a background but names no edge flag`);
+				// Every border declaration names that side's bar room in the SAME rule, so the edge
+				// box (which covers the bars to take the true corner) wins the cascade with it.
+				for (const [side, s1] of [['top', 't'], ['right', 'r'], ['bottom', 'b'], ['left', 'l']]) {
+					const touches = `border-${side}` in decls || `border-${side}-width` in decls || 'border' in decls;
+					if (touches && !(`--_bar-${s1}` in decls)) offenders.push(`${where} sets the ${side} border without --_bar-${s1}`);
+				}
+			},
+		});
+	}
+	assert.ok(rulesSeen > 100, `parsed the section rules (${rulesSeen})`);
+	assert.deepEqual(offenders, []);
 });
 
 test('a slide canvas is 100% opaque in every theme', () => {

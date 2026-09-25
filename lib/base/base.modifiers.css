@@ -697,9 +697,14 @@ section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .co
   background-color: var(--bg);
   background-image: var(--spectrum-bar);
   background-position: top;
-  background-size: 100% 1px;
+  /* At least one SCREEN pixel: this hairline is the top edge where a host draws the engine
+     keyline ("The slide's EDGE"), and 1 slide px scaled to a thumbnail is a quarter pixel —
+     the dark slide went edgeless at the top. `--_edge-w` is 0 in every export, so this is 1px there. */
+  background-size: 100% max(1px, var(--_edge-w, 0px));
   background-repeat: no-repeat;
   border-top: none;
+  --_edge-t: 0; /* the hairline is the top edge */
+  --_bar-t: 0px; /* …painted as a background, so it takes no border room */
 }
 
 
@@ -864,6 +869,8 @@ section.print {
   --deck-logo-opacity: initial;
   background: var(--bg);            /* paper white; no spectrum ribbon (saves toner, drops hue) */
   border-top: none;
+  --_edge-t: 1;                     /* so a host's keyline draws the top edge ("The slide's EDGE") */
+  --_bar-t: 0px;
 }
 
 
@@ -3777,7 +3784,13 @@ section.corners-rounded {
      theme-facing token to keep in step. */
   --slide-radius: calc(1.5 * var(--_sec-1cqi, 1cqi));
   clip-path: inset(0 round var(--slide-radius));
-  border-radius: var(--slide-radius);
+  /* The full radius in every export; ZERO wherever a host draws the engine's edge
+     ("The slide's EDGE" below). A `border-radius` also curves the section's OVERFLOW clip,
+     at the padding edge and inset by the top bar, and that curve would cut the edge's
+     keyline off short of the true (clip-path) corner — measured as a ~6px wedge at each top
+     corner at 1280px. `clip-path` alone still rounds everything. The `* 1000` turns any
+     host edge width (≥ 0.001 slide px) into "square"; `--_edge-w` is 0 in every export. */
+  border-radius: max(0px, calc(var(--slide-radius) - var(--_edge-w, 0px) * 1000));
 }
 /* A slide opting OUT of a rounded deck. The propagation kernels already EVICT the
    deck's `corners-rounded` when a slide names `corners-square`, so this rule
@@ -3813,6 +3826,63 @@ section.corners-square {
     clip-path: none;
     border-radius: 0;
   }
+}
+
+/* ── The slide's EDGE — a 1px keyline in the deck's own border color, drawn by the ENGINE ──
+ *
+ * A host that shows a slide on a page (the exported player, the Studio, the Playground, the
+ * docs site) used to draw its own line around it, outside the slide, in the APP's colors. That
+ * line kept breaking: each host drew it differently, a host box that clips cut it off (WebKit
+ * clips a filter to its own overflow — the iPhone report), and it could not know where the
+ * spectrum sat. So the engine owns it, and the host supplies ONE number:
+ *
+ *   --slide-edge-k   how many slide-percent (cqi) one SCREEN pixel is: 100 / the slide's
+ *                    rendered width in CSS px. The host knows its own scale; the engine does
+ *                    not. Unset (every export, every print) → 0 → nothing is painted.
+ *
+ * WHERE IT IS PAINTED. On `.slide-edge`, a berth every render path appends to every slide
+ * (lib/core/fit-berth.js), absolutely positioned over the whole slide at a z above content.
+ * An element and not the section's own paint, because nothing the SECTION paints sits above
+ * a positioned child: an inset box-shadow is under all content, and even an `outline` is
+ * painted before positioned descendants — measured, a split panel's positioned half covered
+ * the section's outline completely. Inside the slide, so no host box can clip it, and its
+ * corner is the section's own (`border-radius: inherit`, `corners-rounded`) — the gantt
+ * accent's lesson: keep the mark inside the shape, so the shape bounds it.
+ *
+ * THE SPECTRUM STAYS THE EDGE on whichever side it sits. The keyline is four one-side inset
+ * shadows, and a side carrying the brand bar turns its shadow off, so the bar is that side's
+ * edge and nothing doubles it. The side flags are set IN THE RULES THAT PLACE THE BAR — the
+ * default top bar here, `spectrum-edge-*` and `spectrum: off` in base.variants.css, the
+ * frames that drop the bar (title, closing, divider, topic, split-panel, split-compare) in
+ * their own styles — so the two can never disagree about where the bar is.
+ * (test/unit/tools/slide-frame-hosts.test.js pins the co-location.)
+ *
+ * Record: engineering/decisions/2026-09-25-one-slide-frame.md */
+section {
+  /* The keyline's width: one SCREEN pixel, in the slide's own units. 0 with no host. */
+  --_edge-w: calc(var(--slide-edge-k, 0) * var(--_sec-1cqi, 1cqi));
+  /* `--_bar-t/r/b/l`: how far each side's BORDER bar reaches in (0 with none), declared in
+     the SAME rule as that side's border, so the two can never disagree under the cascade.
+     The edge box covers them, to take the clip-path's true corner. */
+}
+section > .slide-edge[data-lattice-berth] {
+  position: absolute;
+  /* The whole BORDER box, not the padding box `inset: 0` would give: the part under a bar
+     is clipped away with the bar's own overflow, and what remains takes the clip-path's
+     corner exactly (`--slide-radius`, the same length the clip rounds by). */
+  inset: calc(-1 * var(--_bar-t, 0px)) calc(-1 * var(--_bar-r, 0px)) calc(-1 * var(--_bar-b, 0px)) calc(-1 * var(--_bar-l, 0px));
+  z-index: var(--z-chrome); /* above content, on the chrome plane; below alarms and stamps */
+  pointer-events: none;
+  border-radius: var(--slide-radius, 0px);
+  box-shadow:
+    inset calc(var(--_edge-l, 1) * var(--_edge-w)) 0 0 0 var(--border),
+    inset calc(-1 * var(--_edge-r, 1) * var(--_edge-w)) 0 0 0 var(--border),
+    inset 0 calc(var(--_edge-t, 1) * var(--_edge-w)) 0 0 var(--border),
+    inset 0 calc(-1 * var(--_edge-b, 1) * var(--_edge-w)) 0 0 var(--border);
+}
+/* Print is paper: a host's keyline never reaches it, whichever host printed. */
+@media print {
+  section { --slide-edge-k: 0 !important; }
 }
 
 /* ── Inline pills — `{LABEL}:shape:c4:lg` ──────────────────────────────────────

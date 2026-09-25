@@ -69,7 +69,8 @@ section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--sur
  * The mark uses `::after` because `.pullquote` owns `::before` for its
  * oversized quote glyph.
  * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
-section.split-panel { border-top: none; }
+/* The two-segment bar below IS the top edge, so the engine keyline yields to it (base.modifiers.css). */
+section.split-panel { border-top: none; --_edge-t: 0; --_bar-t: 0px; }
 section.split-panel .panel-left::after {
   content: ''; position: absolute; top: 0; left: 0; right: 0;
   height: calc(var(--_sec-1cqi, 1cqi) * 0.3125); /* section-OWN cqi: route through --_sec-1cqi */
