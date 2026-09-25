@@ -214,8 +214,9 @@ section.list.list:where([data-family="strip"]) > .cell-stage > :is(ul,ol) { gap:
  * counter, so it reads as belonging to the rows rather than the page. The below-note keeps its
  * own accent fade, so each of the three lines has one look.
  * Drawn as a background, not a border: a border cannot start partway along its edge.
- * Under the sketch finish, `principles` swaps it for a rough rule (`base.sketch.css`);
- * `takeaway` has no rough rule, so it keeps this one. */
+ * Under the sketch finish, `principles` swaps it for a rough rule (`base.sketch.css`) drawn
+ * with the same lighter ink and the same `--list-rule-inset`; `takeaway` has no rough rule,
+ * so it keeps this one. */
 section.list:is(.takeaway, .principles) {
   --list-rule: color-mix(in srgb, var(--border) 55%, transparent);
   --list-rule-inset: 0px;

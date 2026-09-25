@@ -434,11 +434,21 @@ section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap)
 }
 /* `list.principles` draws row rules but no frame, so it enrolls on the list
  * itself with kind `rows` — the ol has no border of its own to inherit a
- * width from, hence the explicit 2. */
+ * width from, hence the explicit width.
+ *
+ * A ROW RULE IS NOT THE MASTHEAD RULE, in this finish's line language as in the
+ * plain one (list.styles.css § Row rules). The masthead divider is full-strength
+ * `--sketch-ink` across the measure; the rows take the same 55% ink the plain
+ * rule takes, a lighter pen, and start at the text column past the counter
+ * (`--list-rule-inset`, the plain rule's own inset). The inset reaches the painter
+ * as `--rough-ink-inset`, a registered `<length>` so the measurer reads it back
+ * in px (lib/core/rough-ink-dom.js). */
+@property --rough-ink-inset { syntax: "<length>"; inherits: false; initial-value: 0px; }
 section.sketch.list.principles > ol,
 section.sketch.list.principles > .cell-stage > ol {
-  --rough-ink-stroke: var(--sketch-ink);
-  --rough-ink-width: 2;
+  --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
+  --rough-ink-width: 1.5;
+  --rough-ink-inset: var(--list-rule-inset, 0px);
 }
 
 /* WHY THESE NAME NO COMPONENT. Sketch is CROSS-CUTTING DECORATION over whatever
@@ -513,6 +523,12 @@ section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
   -webkit-mask: var(--sketch-wave) repeat-x center / 140px 7px;
   mask: var(--sketch-wave) repeat-x center / 140px 7px;
   pointer-events: none;
+}
+/* The fallback wave keeps the principles row rule's inset and lighter ink, like the painter. */
+section.sketch.list.principles > ol > li:not(:last-child)::after,
+section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
+  left: var(--list-rule-inset, 0px);
+  background-color: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
 }
 /* The frame already draws the ledger's last edge — drop the last row's rule. */
 section.sketch.list-tabular > ol > li:last-child::after,

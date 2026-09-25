@@ -1,0 +1,1 @@
+- **Sketch `list principles` row rules no longer read as the heading rule.** Under `class: sketch` the hand-drawn row rules now use the same lighter ink (55%) and the same inset to the text column as the plain rule, so the full-strength masthead rule stays the one line that marks the page.

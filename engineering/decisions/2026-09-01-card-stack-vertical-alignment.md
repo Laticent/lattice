@@ -1250,7 +1250,11 @@ Five treatments were rendered side by side (soft, fade-ended, inset, dotted, sof
 the owner picked **soft + inset**: `--border` at 55%, starting at the row's text column past
 the counter. It is drawn as a background on `li:not(:last-child)`, because a border cannot
 start partway along its edge. Under the sketch finish, `principles` swaps it for a rough rule
-(`base.sketch.css`); `takeaway`, which sketch does not redraw, keeps it. Now the full-width heading rule marks the page, the inset rule marks
+(`base.sketch.css`); `takeaway`, which sketch does not redraw, keeps it. *(Follow-up,
+2026-09-25: the sketch rough rule first shipped full width and at full `--sketch-ink`, the
+same collision in the finish's own line language. It now takes the same 55% ink and the same
+inset — the inset reaches the painter as `--rough-ink-inset`, a registered `<length>` the
+measurer reads back in px.)* Now the full-width heading rule marks the page, the inset rule marks
 the rows, and the accent fade marks the closing note.
 
 **The defect this removes.** Under the old equal-share bands, a row that wrapped to two lines got
