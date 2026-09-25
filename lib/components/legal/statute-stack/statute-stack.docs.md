@@ -14,7 +14,7 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one obligation line per statute.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~4 / ~4 / ~3 items of ~16 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~4 / ~4 / ~3 items of ~16 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

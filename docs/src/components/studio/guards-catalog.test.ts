@@ -33,5 +33,7 @@ describe('activeGuards — fit: wins, guards: reads as its new name', () => {
 		expect(activeGuards(null, 'strict').name).toBe('trim');
 		expect(activeGuards(null, 'loose').name).toBe('heal');
 		expect(activeGuards('bogus', null).name).toBe('heal');
+		// An unknown fit: still wins over guards:, as it does in the engine.
+		expect(activeGuards('bogus', 'strict').name).toBe('heal');
 	});
 });

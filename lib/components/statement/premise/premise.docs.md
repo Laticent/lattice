@@ -14,7 +14,7 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 
 **Density** aim ~14 words per item; past ~18 it reads as a wall of text — the description clause plus the trailing question, combined — not a sentence each.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~8 / ~8 / ~6 items of ~14 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~8 / ~8 / ~6 items of ~14 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

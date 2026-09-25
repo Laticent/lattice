@@ -14,7 +14,7 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 **Density** aim ~14 words per item; past ~20 it reads as a wall of text — one statement per line, not a paragraph.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~2 items of ~14 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~2 items of ~14 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

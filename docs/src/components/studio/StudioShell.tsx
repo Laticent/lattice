@@ -1852,7 +1852,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
 	// key. Writing the new key also drops the old one, so a deck never carries both.
 	const guards = activeGuards(getFrontMatterName(source, 'fit'), getFrontMatterName(source, 'guards')).name;
-	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => writeFrontMatterLine(writeFrontMatterLine(s, 'guards', null), 'fit', value === 'heal' ? null : value));
+	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
+		const withoutOld = writeFrontMatterLine(s, 'guards', null);
+		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
+	});
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
 	// along — the asymmetry the audit found. There is no named baseline (an absent key

@@ -14,7 +14,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 
 **Density** aim ~12 words per item; past ~14 it reads as a wall of text — one clause on what this person owns, not a paragraph — and the count includes the name and the image reference beside it, so about four of the allowance is fixed cost before a word of prose.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

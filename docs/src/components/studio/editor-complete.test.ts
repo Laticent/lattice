@@ -449,9 +449,11 @@ describe('front-matter registers — keys and values', () => {
 	it('every front-matter key the Studio Inspector writes is in autocomplete', () => {
 		const shell = readFileSync(new URL('./StudioShell.tsx', import.meta.url), 'utf8');
 		// A write whose value is a literal `null` only DELETES a key (the Fit field drops the old
-		// `guards:` spelling when it writes `fit:`), so it offers nothing to autocomplete.
+		// `guards:` spelling when it writes `fit:`), so it offers nothing to autocomplete. The Fit
+		// field's own `fit` write is a separate statement precisely so this pattern still sees it.
 		const written = new Set([...shell.matchAll(/writeFrontMatterLine\(\w+, '([\w-]+)', (?!null\))/g)].map((m) => m[1]));
 		expect(written.size).toBeGreaterThan(20);
+		expect(written.has('fit'), 'the Fit field\'s write must stay visible to this check').toBe(true);
 		const offered = new Set(FRONT_MATTER_KEYS.map((k) => k.key));
 		expect([...written].filter((k) => !offered.has(k))).toEqual([]);
 	});

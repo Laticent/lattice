@@ -66,7 +66,7 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 
 | `fit:` value | Resolves to | Effect |
 |---|---|---|
-| `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no STEP, no TRIM: a slide that does not fit clips, and the ring and the `⚠ OVERFLOW` line say so. The switch for "this is misbehaving", and for an exact reproduction. |
+| `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no STEP, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
 | `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes, and STEP renders a slide that does not fit the deck's `scale-l/xl/2xl` at the designed size instead. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 

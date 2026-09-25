@@ -285,7 +285,7 @@ function terminated(t) {
  */
 function projectionScaleLine(m, axis) {
   const { SCALE_CAPACITY, CODE_LINES_AT_SCALE } = require('../lib/authoring/lint-core.js');
-  const tail = 'past that, expect the engine to render the slide at a smaller font scale rather than clip it — '
+  const tail = 'past that, expect the engine to render the slide at the designed size (1x) rather than clip it — '
     + '`lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.';
   if (m.name === 'code') {
     const [, l, xl, xxl] = CODE_LINES_AT_SCALE.bare;

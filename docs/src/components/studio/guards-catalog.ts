@@ -50,12 +50,17 @@ export const GUARDS_BY_NAME: Record<string, GuardsEntry> = Object.fromEntries(
 );
 
 /**
- * The active fit entry for a deck's front matter. `fit:` wins; the old `guards:` reads as
- * its new name (`strict` → trim, `loose` → heal); unknown / empty → the `heal` baseline.
+ * The active fit entry for a deck's front matter, resolved exactly as the engine does: any
+ * `fit:` wins (an unknown one reads as `heal`); else the old `guards:` reads as its new name
+ * (`strict` → trim, `loose` → heal); else the `heal` baseline.
  */
 export function activeGuards(fit: string | undefined | null, guards?: string | undefined | null): GuardsEntry {
 	const key = (fit ?? '').trim().toLowerCase();
 	if (GUARDS_BY_NAME[key]) return GUARDS_BY_NAME[key];
+	// A `fit:` the engine does not know still WINS over `guards:` there
+	// (fitClassFromFrontMatter), resolving to the default — so it must here too, or the
+	// picker shows a level the deck does not render.
+	if (key) return GUARDS_BY_NAME.heal;
 	const legacy = (guards ?? '').trim().toLowerCase();
 	if (legacy === 'strict') return GUARDS_BY_NAME.trim;
 	return GUARDS_BY_NAME.heal;

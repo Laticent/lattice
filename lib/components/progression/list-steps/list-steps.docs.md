@@ -14,7 +14,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph. The strip gives every card the tallest card's height, so one long step tightens the whole row, and a body that outgrows the card spills past its bottom edge and is clipped at the stage.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~4 / ~4 / ~3 items of ~14 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~4 / ~4 / ~3 items of ~14 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

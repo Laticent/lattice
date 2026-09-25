@@ -14,7 +14,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 
