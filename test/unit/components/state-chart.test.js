@@ -1415,6 +1415,36 @@ describe('dagre re-ranking (fake DOM)', () => {
   const n = (index, label, kind) => ({ index, label, kind });
   const e = (from, to, event) => ({ from, to, event, isSelf: from === to });
 
+  // A PAIRED EDGE'S LABELS GET THEIR OWN ROOM (followups.d 2355-p3, closed). On `tb`
+  // dagre was told nothing about labels, so `block => 7` beside `unblock => 3` (and
+  // `submit` beside `reject`, `ship` beside `fail`) put two labels in one short
+  // rank gap, on each other and on the nodes. A paired edge now hands dagre its
+  // label box. Boxes are estimated from the anchor the pass emits: a `tb` label
+  // starts at `x` and is one 13px line tall at S = 1.
+  test('a paired edge on a tb dagre machine keeps its labels off each other and the nodes', { skip: !hasDagre }, () => {
+    const r = run({
+      dir: 'tb',
+      nodes: [n(1, 'Draft', 'start'), n(2, 'Review'), n(3, 'In Progress'), n(4, 'QA'), n(5, 'Released'), n(6, 'Closed', 'terminal'), n(7, 'Blocked')],
+      transitions: [e(1, 2, 'submit'), e(2, 3, 'approve'), e(2, 1, 'reject'), e(3, 4, 'ship'), e(3, 7, 'block'),
+        e(4, 5, 'pass'), e(4, 3, 'fail'), e(5, 6, 'close'), e(7, 3, 'unblock')],
+    });
+    assert.equal(r.layout, 'dagre', 'the fixture must be drawn by dagre');
+    const labels = [...r.svg.matchAll(/<text class="state-edge-label"[^>]*x="([-\d.]+)" y="([-\d.]+)" text-anchor="(\w+)"[^>]*>([^<]+)</g)]
+      .map((m) => {
+        const w = m[4].length * 6.6, x = +m[1];
+        const x0 = m[3] === 'start' ? x : m[3] === 'end' ? x - w : x - w / 2;
+        return { t: m[4], x: x0, y: +m[2] - 6.5, w, h: 13 };
+      });
+    const nodes = [...r.svg.matchAll(/<rect class="state-node-shape"[^>]*\bx="([-\d.]+)" y="([-\d.]+)" width="([-\d.]+)" height="([-\d.]+)"/g)]
+      .map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
+    const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    assert.equal(labels.length, 9);
+    for (const a of labels) {
+      for (const b of labels) if (a !== b) assert.ok(!hit(a, b), `"${a.t}" overlaps "${b.t}"`);
+      for (const b of nodes) assert.ok(!hit(a, b), `"${a.t}" overlaps a node`);
+    }
+  });
+
   const FAN = {
     dir: 'tb',
     nodes: [n(1, 'Intake', 'start'), n(2, 'Triage'), n(3, 'Fast'), n(4, 'Deep'), n(5, 'Hold')],
@@ -2207,8 +2237,15 @@ describe('dagre re-ranking (fake DOM)', () => {
       }
     });
 
+    // CROWD's long back-edge is PAIRED with `route to echo team` (7 -> 2 beside
+    // 2 -> 7), so on `tb` dagre now reserves its label room and nothing in SPECS
+    // needs the mirror any more. The same crowd with that edge returning to Intake
+    // (unpaired) still does, so the last-resort branch keeps a live witness.
+    const CROWD_UNPAIRED = { ...CROWD,
+      transitions: CROWD.transitions.map((t) => (t.from === 7 && t.to === 2 ? e(7, 1, t.event) : t)) };
+
     test('the far-side mirror is reachable', { skip: !hasDagre }, () => {
-      const anchors = SPECS.flatMap(([, spec]) =>
+      const anchors = [...SPECS, ['CROWD unpaired', CROWD_UNPAIRED]].flatMap(([, spec]) =>
         [...run(spec).svg.matchAll(/<text class="state-edge-label"[^>]*text-anchor="(\w+)"/g)].map((m) => m[1]));
       assert.ok(anchors.includes('end'),
         'no label was mirrored anywhere in the crowded corpus — a `tb` label on the far side anchors `end`, so its absence means the mirror is unreachable and the last-resort branch is dead code');

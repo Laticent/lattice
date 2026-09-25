@@ -1,0 +1,1 @@
+- A state chart drawn top to bottom by dagre no longer stacks the labels of a paired edge on each other. When two states are joined both ways (`block => 7` and `unblock => 3`), dagre now reserves room for both labels, and a label moves off another edge's line. The machine from the follow-up drew with 15 label collisions pinned to `tb` and now has none.

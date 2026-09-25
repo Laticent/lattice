@@ -497,6 +497,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/spike-card-slack.mjs` | SPIKE — not production tooling, and not wired to any gate. The card-slack |
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |
+| `tools/state-chart-label-probe.js` | state-chart-label-probe — does any state-chart edge label touch another label, a line, a node, or the edge of its drawing? |
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/us-english.js` | The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21). |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
