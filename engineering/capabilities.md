@@ -498,6 +498,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/spike-card-slack.mjs` | SPIKE — not production tooling, and not wired to any gate. The card-slack |
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |
+| `tools/spike-video-export.mjs` | Spike for LTT step 3 (engineering/decisions/2026-09-25-video-export.md): a narrated HTML |
 | `tools/state-chart-label-probe.js` | state-chart-label-probe — does any state-chart edge label touch another label, a line, a node, or the edge of its drawing? |
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/us-english.js` | The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21). |
@@ -505,4 +506,5 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
 | `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player: TOUCH input (#1558) and the deck's |
 | `tools/verify-studio-syntax.js` | Verify the Studio's derived syntax ink tier against the REAL built Studio — every |
+| `tools/verify-tour-recorder.mjs` | Real-surface verification for the Vetrina tour recorder (LTT step 4). |
 | `tools/wait-for.sh` | Wait for one long job — bounded, deduped by job name, and silent until it ends. |

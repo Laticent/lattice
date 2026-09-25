@@ -36,11 +36,11 @@ in step 2: `makeCursor` (moved in from Cadenza), `positionAt`, `timeline`, the
 conformance fixtures, and the first producer and reader. The Studio's HTML export
 writes a deck's LTT, and the exported player plays from it (guardrail G2).
 
-Not built yet: `isStale`. Step 2's only producer builds the LTT fresh from source
-at the moment of export, so no caller could ever see a stale segment. It lands
-with the first producer that keeps an LTT and holds data that cannot be rebuilt,
-the Vetrina tour recorder in step 4 (owner ruling, 2026-09-24, amending G3). The
-decision note's §8 lists the steps.
+Built in step 4: `isStale`, with the Vetrina tour recorder as its first caller
+(`staleStretches` in `docs/src/lib/vetrina/recorder.ts`), the recorder itself, which writes a
+seekable tour LTT, and `Narrator.plan()` returning the core's `CaptionTrack`. Vetrina's gate
+admits `@laticent/ltt` by that exact name, as Cadenza's does. Not built: the video export (step
+3, proposed in `decisions/2026-09-25-video-export.md`) and a reference tour player.
 
 ## The file
 
@@ -79,11 +79,14 @@ and optionally `lang`, `lexicon` and `acronyms`. A deck may also carry
 screen and motion a recorded run depended on. A deck never carries the tour
 inputs, and a tour never carries `deckPace`.
 
-**One input is not covered yet: emphasis.** Cadenza takes per-slide emphasis
-spans (what the author marked important), and they change a track's timing, but
-neither `inputs` nor a segment's hashed text carries them. So an emphasis-only
-edit leaves a segment's `hash` unchanged. Step 4, which lands `isStale`, decides
-where they go (`followups.d/2339-p4-…`).
+**Emphasis goes with the text, not in `inputs`** (settled in step 4). Cadenza takes
+per-line emphasis spans, and they change a track's timing, but a span is a character range into
+one line, so it means nothing file-wide. `segmentHashInput(text, inputs, emphasis)` appends a
+segment's spans, one list per line, when any line has one; with none, the string is exactly what
+it was, so no existing hash moves. The tour recorder hashes them. The deck producer does not yet:
+the HTML export receives no emphasis spans (`narrationPayload` gets text, track and clips), so an
+emphasis-only edit to a deck still leaves its `hash` unchanged. Carrying them changes export
+bytes, so it waits for its own sign-off (`followups.d/2339-p5-deck-emphasis-in-segment-hash.md`).
 
 `engine` hashes the SOURCE the estimate is computed from: Cadenza's `track.ts`
 (`buildTrack`) and every file it reaches through relative imports, in name
@@ -271,8 +274,11 @@ to `packTrack` fails the test (G1).
   `test/unit/tools/ltt-schema.test.js` pins both the string and the digest.
 - On a mismatch, a reader marks the segment **stale**. An `estimate` segment may
   be rebuilt freely. A `measured` segment or a recorded wait is flagged and
-  kept, because it cannot be rebuilt from text. `isStale(ltt, source)` lands in
-  step 4 with its callers (see §What is built).
+  kept, because it cannot be rebuilt from text. `isStale(ltt, current)` takes
+  each segment id mapped to its source's hash now, and returns the stale ones:
+  `changed` or `gone`, each with `keep` true when the segment holds measured data
+  (a recorded wait, a measured clip, a `measured` basis). It never edits the
+  file. Its first caller is the tour recorder's `staleStretches`.
 
 ## The timing functions
 
@@ -337,8 +343,8 @@ player, including the video renderer's simulated one, must follow them.
 1. **Play** speaks the current slide at once, with no hold.
 2. When a slide's narration ends, the player **advances first, then holds on the
    slide that arrived, then speaks it**. The hold is the section or slide hold
-   of the arriving slide. A slide with no narration is on screen for exactly its
-   hold.
+   of the arriving slide. A slide with no narration that the player advanced to is on
+   screen for exactly its hold.
 3. **Advance on clip end.** With audio, the next cue starts when the clip ends
    (`onended`), never at a computed time. The breath after a cue is held after
    that. **Measured cost:** headless Chromium 131 fires `ended` 90–110 ms after
@@ -360,7 +366,13 @@ player, including the video renderer's simulated one, must follow them.
    `NotAllowedError`, an autoplay refusal, stops narration.
 5. **Pause restarts the slide** rather than resuming mid-word.
 6. **Manual navigation re-anchors** on the chosen slide and speaks it with no
-   hold.
+   hold. **Onto a slide with no narration, the player stays** (owner ruling,
+   2026-09-25): narration remains armed, nothing is said, and the next manual move
+   onto a narrated slide speaks it. A viewer who chose a silent slide wants to look
+   at it; speaking it would reach the end of its narration at once and advance, so
+   the slide left as soon as it arrived. A silent **last** slide ends narration
+   instead, as reaching the end does. Play on a silent slide is rule 1, not rule 6:
+   it advances at once and holds on the slide that arrives.
 7. Within a segment, the player may re-time a cue to the decoded clip's
    length (`cursor.align`). That is the only way a measured length enters
    playback. **Lead trim:** a clip whose encoder added leading silence (`leadMs`)
@@ -382,6 +394,9 @@ it does not guarantee:** Anima motion (the player receives that separately as
 `animaJs`), or the cursor's position mid-travel (an `on-word` action records
 where the cursor lands, not where it is in every frame). Either may become a
 layer under G4.
+
+The encoder, muxer, frame rate and simulated transport are proposed in
+[`decisions/2026-09-25-video-export.md`](decisions/2026-09-25-video-export.md).
 
 ## Files written before the LTT
 

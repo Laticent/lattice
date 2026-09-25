@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { CaptionTrack } from '@/lib/ltt';
 import type { NarratedWord, NarrationHandle, Narrator } from './narrate';
 import { resolvePacing } from './pacing';
 import type { RunContext } from './runner';
@@ -11,13 +12,22 @@ import type { Stage } from './stage';
 // arrive, so a rule that only ever delays the ACTION resolves to a zero wait every time.
 // Whichever side is behind has to wait, and these tests fail if that regresses to one side.
 
+/** A flat word list as the one-cue CaptionTrack a narrator's `plan()` returns. */
+function asTrack(words: NarratedWord[]): CaptionTrack {
+	const end = words.length ? words[words.length - 1].endMs : 0;
+	return {
+		durationMs: end,
+		cues: [{ display: words.map((w) => w.text).join(' '), startMs: 0, endMs: end, charOffset: 0, words: words.map((w) => ({ display: w.text, spoken: w.text, startMs: w.startMs, endMs: w.endMs, charOffset: 0 })) }],
+	};
+}
+
 /** A narrator whose timeline is exactly what the test says it is. */
 function fakeNarrator(plan: NarratedWord[] | null, opts: { voiced?: boolean; durationMs?: number } = {}): Narrator & { started: number[] } {
 	const started: number[] = [];
 	return {
 		started,
 		voiced: opts.voiced ?? false,
-		plan: () => plan,
+		plan: () => (plan ? asTrack(plan) : null),
 		speak(): NarrationHandle {
 			started.push(Date.now());
 			return { done: new Promise<void>((r) => setTimeout(r, opts.durationMs ?? 0)), cancel() {} };

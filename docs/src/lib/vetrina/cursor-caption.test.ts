@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { CaptionTrack } from '@/lib/ltt';
 import { normalizeMatch } from '@/lib/ltt';
-import { findCueWord, type NarratedWord, normalizeCueWord } from './narrate';
+import { findCueWord, normalizeCueWord } from './narrate';
 import { run } from './runner';
 import { createStage, placeBubble, type RectLike, type Stage } from './stage';
 import { resolveTheme } from './theme';
@@ -329,12 +330,16 @@ describe('the pacing default reaches the RUN, not just resolveTheme', () => {
 });
 
 describe('findCueWord — naming a moment in a line', () => {
-	const plan: NarratedWord[] = [
-		{ index: 0, text: 'Now', startMs: 0, endMs: 200 },
-		{ index: 1, text: 'click', startMs: 200, endMs: 500 },
-		{ index: 2, text: 'Publish', startMs: 500, endMs: 1000 },
-		{ index: 3, text: 'again.', startMs: 1000, endMs: 1400 },
-	];
+	// The plan is the LTT core: a CaptionTrack. Two sentences, so a cue in the second one proves
+	// the answer carries its cue index as well as its word index.
+	const w = (display: string, startMs: number, endMs: number) => ({ display, spoken: display, startMs, endMs, charOffset: 0 });
+	const plan: CaptionTrack = {
+		durationMs: 2400,
+		cues: [
+			{ display: 'Now click Publish again.', startMs: 0, endMs: 1400, charOffset: 0, words: [w('Now', 0, 200), w('click', 200, 500), w('Publish', 500, 1000), w('again.', 1000, 1400)] },
+			{ display: 'Then Save.', startMs: 1600, endMs: 2400, charOffset: 25, words: [w('Then', 1600, 1900), w('Save.', 1900, 2400)] },
+		],
+	};
 
 	it('finds the word regardless of case', () => {
 		expect(findCueWord(plan, 'publish')?.startMs).toBe(500);
@@ -342,18 +347,22 @@ describe('findCueWord — naming a moment in a line', () => {
 	});
 
 	it('ignores the punctuation the segmenter left attached, on both sides', () => {
-		expect(findCueWord(plan, 'again')?.index).toBe(3);
-		expect(findCueWord(plan, '"Publish"')?.index).toBe(2);
+		expect(findCueWord(plan, 'again')?.word).toBe(3);
+		expect(findCueWord(plan, '"Publish"')?.word).toBe(2);
+	});
+
+	it('answers with the {cue, word, match} an LTT action records', () => {
+		expect(findCueWord(plan, 'Save')).toEqual({ cue: 1, word: 1, match: 'save', text: 'Save.', startMs: 1900, endMs: 2400 });
 	});
 
 	it('returns null for a word the line does not contain, rather than guessing', () => {
-		expect(findCueWord(plan, 'save')).toBeNull();
+		expect(findCueWord(plan, 'delete')).toBeNull();
 		expect(findCueWord(plan, '')).toBeNull();
 		expect(findCueWord(null, 'Publish')).toBeNull();
 	});
 
 	it('takes the FIRST occurrence — a cue names a moment, and the moment is the first one', () => {
-		const twice: NarratedWord[] = [...plan, { index: 4, text: 'Publish', startMs: 1400, endMs: 1900 }];
+		const twice: CaptionTrack = { ...plan, cues: [...plan.cues, { display: 'Publish.', startMs: 2600, endMs: 3000, charOffset: 36, words: [w('Publish.', 2600, 3000)] }] };
 		expect(findCueWord(twice, 'Publish')?.startMs).toBe(500);
 	});
 });
@@ -366,7 +375,8 @@ describe('normalizeCueWord — the same word, in linear time', () => {
 		const long = `x${'-'.repeat(40000)}X`;
 		const t0 = performance.now();
 		expect(normalizeCueWord(`"${long}."`)).toBe(long.toLowerCase());
-		expect(findCueWord([{ index: 0, text: long, startMs: 0, endMs: 1 }], long)?.index).toBe(0);
+		const one = { display: long, spoken: long, startMs: 0, endMs: 1, charOffset: 0 };
+		expect(findCueWord({ durationMs: 1, cues: [{ display: long, startMs: 0, endMs: 1, charOffset: 0, words: [one] }] }, long)?.word).toBe(0);
 		expect(performance.now() - t0).toBeLessThan(200);
 	});
 

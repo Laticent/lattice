@@ -13,6 +13,7 @@
 
 import { type Narrator, SILENT_NARRATOR } from './narrate.js';
 import { type Pacing, resolvePacing } from './pacing.js';
+import type { TourRecorder } from './recorder.js';
 import { createStage, isAbortError, type Stage, type Target, wait } from './stage.js';
 import { resolveTheme, type Theme } from './theme.js';
 
@@ -60,6 +61,8 @@ export interface RunContext<A> {
 	/** The run's duration model (./pacing) — where a beat's reading dwell and settle come from
 	 *  when the narrator supplies no measurement. */
 	pacing: Pacing;
+	/** OPTIONAL: the recorder writing this run down as a seekable LTT (./recorder). */
+	recorder?: TourRecorder;
 }
 
 export type Walkthrough<A> = (ctx: RunContext<A>) => Promise<void>;
@@ -90,6 +93,9 @@ export interface RunOptions<A> {
 	 *  lives outside the library, because these two are separately spin-off-able and the boundary
 	 *  gate is what keeps them that way. */
 	narrate?: Narrator;
+	/** OPTIONAL: record this run as a seekable LTT (./recorder, LTT step 4). The storyboard feeds
+	 *  it; the host reads `recorder.ltt(steps)` once the run ends. */
+	record?: TourRecorder;
 	/** Called AFTER teardown (I7) - the host restores whatever it wants. */
 	onStop?: (reason: StopReason) => void;
 	/** Play the opening flourish (materialize + wave) once at the start. Default true. */
@@ -354,7 +360,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 	// The stage still needs to know, so a host that built its own cursor-anchored stage keeps the
 	// don't-step-aside behavior; `run()` itself has already docked the caption above.
 	stage.setVoiced?.(narrator.voiced);
-	const ctx: RunContext<A> = { stage, actions, signal, type, awaitUser, narrator, pacing };
+	const ctx: RunContext<A> = { stage, actions, signal, type, awaitUser, narrator, pacing, ...(opts.record ? { recorder: opts.record } : {}) };
 
 	const handle: RunHandle = {
 		get active() {

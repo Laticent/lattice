@@ -40,6 +40,10 @@ const DIST_DIR = path.join(LIB_DIR, 'dist');
 const TSC = path.join(ROOT, 'node_modules', '.bin', 'tsc');
 const ENTRIES = ['index.ts', 'react.ts']; // `.` (core) + `./react` (adapter)
 const EXTERNAL = ['react', 'react-dom']; // peer deps — never bundled
+// Vetrina's one dependency: the LTT format package (LTT step 4 opened the gate to it, exactly as
+// Cadenza's). Inlined from SOURCE for the same reason tools/build-cadenza-lib.js gives: the library
+// builders run in parallel, so this build must not wait for build-ltt-lib.js's dist/.
+const LTT_ENTRY = path.join(ROOT, 'docs', 'src', 'lib', 'ltt', 'index.ts');
 
 const argv = process.argv.slice(2);
 const check = argv.includes('--check');
@@ -92,6 +96,7 @@ async function buildBundles(outDir) {
         // whose `extends astro/tsconfigs/strict` resolves unevenly across environments and
         // would flap the freshness gate. See tools/build-cadenza-lib.js for the full note.
         tsconfigRaw: '{}',
+        alias: { '@laticent/ltt': LTT_ENTRY },
         banner: { js: banner(entry) },
       });
     }

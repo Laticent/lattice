@@ -5,6 +5,9 @@ import { findCueWord, SILENT_NARRATOR } from '@/lib/vetrina';
 import { buildReadAlong } from '../../../../lib/core/read-along-build.js';
 import { cadenzaNarrator, trackToWords, voicedNarrator } from './cadenza-narrator';
 
+/** A plan, flattened to the line's words — the shape these assertions read. */
+const flat = (t: ReturnType<NonNullable<ReturnType<typeof cadenzaNarrator>['plan']>> | undefined) => (t ? trackToWords(t) : []);
+
 // The seam. What matters is that it satisfies Vetrina's port using Cadenza's timing and
 // nothing else — and that it does so with NO audio, which is what makes the word cue
 // available to every host rather than only to one holding a TTS key.
@@ -44,13 +47,13 @@ describe('cadenzaNarrator — a timeline without a voice', () => {
 		expect(publish?.endMs).toBeGreaterThan(publish?.startMs ?? 0);
 	});
 
-	it('the plan is Cadenza’s own track, flattened — not a second timing model', () => {
+	it('the plan is Cadenza’s own track — the LTT core, not a second timing model', () => {
 		const text = 'Revenue grew to $4.2M. We beat plan by eight points.';
-		expect(cadenzaNarrator().plan?.(text)).toEqual(trackToWords(buildTrack(text, { pace: 'moderate' })));
+		expect(cadenzaNarrator().plan?.(text)).toEqual(buildTrack(text, { pace: 'moderate' }));
 	});
 
 	it('word start times are monotonic across the sentence boundary', () => {
-		const plan = cadenzaNarrator().plan?.('One two. Three four.') ?? [];
+		const plan = flat(cadenzaNarrator().plan?.('One two. Three four.'));
 		expect(plan.length).toBe(4);
 		for (let i = 1; i < plan.length; i++) expect(plan[i].startMs).toBeGreaterThanOrEqual(plan[i - 1].startMs);
 	});
@@ -60,8 +63,8 @@ describe('cadenzaNarrator — a timeline without a voice', () => {
 	});
 
 	it('a slower pace stretches the same line', () => {
-		const slow = cadenzaNarrator({ pace: 'slow' }).plan?.('Now click Publish.') ?? [];
-		const fast = cadenzaNarrator({ pace: 'fast' }).plan?.('Now click Publish.') ?? [];
+		const slow = flat(cadenzaNarrator({ pace: 'slow' }).plan?.('Now click Publish.'));
+		const fast = flat(cadenzaNarrator({ pace: 'fast' }).plan?.('Now click Publish.'));
 		expect(slow[slow.length - 1].endMs).toBeGreaterThan(fast[fast.length - 1].endMs);
 	});
 });
@@ -71,7 +74,7 @@ describe('cadenzaNarrator — speaking a line against an injected clock', () => 
 		const clock = fakeClock();
 		const n = cadenzaNarrator({ now: clock.now, raf: clock.raf, cancelRaf: clock.cancelRaf });
 		const text = 'Now click Publish.';
-		const plan = n.plan?.(text) ?? [];
+		const plan = flat(n.plan?.(text));
 		const seen: (string | null)[] = [];
 		let done = false;
 		const handle = n.speak(text, { signal: new AbortController().signal, onWord: (w) => seen.push(w?.text ?? null) });
@@ -329,7 +332,7 @@ describe('voicedNarrator — the re-anchor onto the MEASURED clip', () => {
 	] as const) {
 		for (const stretch of [0.5, 1.2, 3]) {
 			it(`${label} at ${stretch}x: every word is reached, in order, at its scaled position`, async () => {
-				const plan = cadenzaNarrator().plan?.(text) ?? [];
+				const plan = flat(cadenzaNarrator().plan?.(text));
 				// The clip is sized from the TRACK's duration, which is what the re-anchor scales by —
 				// not from the last word's end. A track carries the boundary pause after its final
 				// word, so sizing from the word makes every expected position wrong by that pause.
@@ -386,13 +389,13 @@ describe('one sentence times identically through the deck producer and both narr
 	const inputs = { pace, acronyms, lexicon, lang, emphasis: (t: string) => (t === text ? spans : undefined) };
 
 	it('the silent narrator matches the deck word for word', () => {
-		expect(cadenzaNarrator(inputs).plan?.(text)).toEqual(deckWords);
+		expect(cadenzaNarrator(inputs).plan?.(text)).toEqual(deck.slides[0].track);
 	});
 
 	it('the voiced narrator matches the deck word for word', () => {
 		const { stage } = fakeAudio();
 		const v = voicedNarrator({ ...inputs, audio: stage, synthesize: async () => new ArrayBuffer(8) });
-		expect(v.plan?.(text)).toEqual(deckWords);
+		expect(v.plan?.(text)).toEqual(deck.slides[0].track);
 	});
 
 	it('both narrators dispose without throwing', () => {
@@ -404,7 +407,7 @@ describe('one sentence times identically through the deck producer and both narr
 	});
 
 	it('has teeth: each input, dropped, moves the timings — so a narrator that ignores one fails above', () => {
-		const time = (o: Partial<typeof inputs>) => JSON.stringify(cadenzaNarrator({ pace, ...o }).plan?.(text));
+		const time = (o: Partial<typeof inputs>) => JSON.stringify(flat(cadenzaNarrator({ pace, ...o }).plan?.(text)));
 		const all = time(inputs);
 		expect(all).toBe(JSON.stringify(deckWords));
 		for (const drop of ['acronyms', 'lexicon', 'emphasis'] as const) {

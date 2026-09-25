@@ -623,7 +623,8 @@ where an overlay goes to get clipped.
 ## Narration — a port, not an engine
 
 Vetrina does not know how to time text and must not learn: Cadenza already does, and the two are
-separately spin-off-able (an import gate enforces it). So narration arrives the way audio arrives
+separately spin-off-able (an import gate enforces it). Vetrina's one dependency is
+`@laticent/ltt`, the timing-track format both speak: a plan is the format's `CaptionTrack`. So narration arrives the way audio arrives
 in Suono — as something you wire in.
 
 ```ts
@@ -673,7 +674,9 @@ gets its full reading budget — a hung TTS must not hang the tour.
 
 Implement `Narrator` yourself for anything else — `speak(text, { signal, onWord })` returning a
 handle whose `done` resolves at the end of the line, plus an optional `plan(text)` that reports
-the line's word timeline ahead of speaking it.
+the line's word timeline ahead of speaking it, as the LTT core's `CaptionTrack` (one cue per
+sentence, times in ms from the start of the line). `findCueWord(plan, word)` answers with the
+`{cue, word, match}` an LTT action records, plus the word's times.
 
 ### The action lands on the word — `at`
 
@@ -704,6 +707,39 @@ fires ~20% of `startMs` early, on the order of 180ms. Silent (`cadenzaNarrator`)
 The same caveat applies to `onWord`: the `startMs`/`endMs` on a `NarratedWord` are estimate
 times. The highlight itself runs on the re-anchored clock and stays in sync; the numbers handed
 to a host's callback are the pre-align ones.
+
+## Recording a run — a seekable LTT (LTT step 4)
+
+A tour is not seekable until it runs: how long an `until` hold or an awaited `act` takes is known
+only then. Pass a recorder and the storyboard writes the run down:
+
+```ts
+import { createTourRecorder, run } from '@laticent/vetrina';
+
+const record = createTourRecorder({ id: 'publish-demo', inputs: { engine, pace: 'moderate' }, digest });
+run({ root, actions, play: storyboard('', steps), narrate, record, onStop: async () => save(await record.ltt(steps)) });
+```
+
+What it writes (`recorder.ts`):
+
+- one **stretch** per run of lines between two waits. Each line keeps the time it really started,
+  and its words are re-timed to how long it really took, so the track IS the recording;
+- `after` and `waitedMs` on every stretch that follows a wait (an `until`, or an `act` that
+  returned a promise);
+- an **action** for every word cue that resolved, `{cue, word, match, verb, target}`, so
+  `validateLtt` fails when the narration later moves under it;
+- `inputs.viewport`, `inputs.motion` and `inputs.stagePace`, the three things the cursor's lead
+  depends on.
+
+`staleStretches(ltt, steps, inputs, digest)` re-hashes the storyboard and your inputs as they stand now and asks
+`isStale` which recorded stretches it no longer matches. A recording is measured data, so a stale
+stretch is flagged and kept, never rebuilt from text: re-record it. Emphasis spans are hashed with
+each line's text (pass the narrator's `emphasis` function), because a span changes timing.
+
+`replayNarrator(ltt, narrator)` plays a recording back: every line is planned from the LTT, so a
+word cue lands where it was recorded. The cursor's lead is still asked of the live stage, so on a
+different screen the hand recomputes its trip and still arrives on the word. Time before the
+first spoken line is not recorded: the file's timeline starts at the first word.
 
 ## Pacing — where the durations come from
 

@@ -1,0 +1,1 @@
+- In a narrated HTML export, navigating onto a slide with no narration while narration plays now stays on that slide. The player used to leave it as soon as it arrived, so pressing Previous from slide 3 bounced straight back. Narration stays armed and speaks again when the viewer moves to a narrated slide; a silent last slide ends narration, as reaching the end does.

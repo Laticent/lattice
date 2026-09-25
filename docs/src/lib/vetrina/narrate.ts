@@ -6,8 +6,9 @@
 // are separately spin-off-able; that gate IS the contract). So narration arrives the way
 // audio arrives in Suono: as something the HOST wires in.
 //
-// This file is the whole seam. It is types plus one no-op, imports nothing, and touches
-// no DOM. The Cadenza-backed implementation lives outside the library, in
+// This file is the whole seam. It is types plus one no-op and touches no DOM. Its one import is
+// `@laticent/ltt`, the timing-track format: a plan IS the format's CaptionTrack, and a word cue is
+// the same `{cue, word, match}` an LTT action records (LTT step 4). The Cadenza-backed implementation lives outside the library, in
 // docs/src/lib/vetrina-narration/.
 //
 // WHAT A NARRATOR BUYS, BEYOND SOUND. Three things, and only the first needs audio:
@@ -18,7 +19,9 @@
 //      (`Step.at`) — also silent. A caption that says "click Save" while the cursor
 //      clicks Save on the word "Save" is the difference between a tour and a recital.
 
-/** One word of a narrated line, as the narrator reports it. */
+import { type CaptionTrack, normalizeMatch } from '@laticent/ltt';
+
+/** One word of a narrated line, as the narrator reports it while speaking (`onWord`). */
 export interface NarratedWord {
 	/** Position of the word within the line, 0-based. */
 	index: number;
@@ -60,13 +63,14 @@ export interface Narrator {
 	readonly voiced: boolean;
 	/** Begin narrating one line. */
 	speak(text: string, opts: NarrateOptions): NarrationHandle;
-	/** OPTIONAL: the word timeline for `text`, computed AHEAD of speaking it.
+	/** OPTIONAL: the word timeline for `text`, computed AHEAD of speaking it — the LTT core's
+	 *  CaptionTrack, one cue per sentence, times in ms from the start of the line.
 	 *
 	 *  This is what makes a word-cued action land on the beat rather than after it. Knowing
 	 *  that "Save" starts at 1,240 ms lets the cursor leave early enough to ARRIVE there —
 	 *  a presenter's hand is already moving before they say the word. A narrator that cannot
 	 *  see its own future returns null, and the cue degrades to "narrate, then act". */
-	plan?(text: string): NarratedWord[] | null;
+	plan?(text: string): CaptionTrack | null;
 	/** OPTIONAL: release whatever this narrator owns — an `AudioContext`, a decoded-clip
 	 *  cache, a worker.
 	 *
@@ -83,6 +87,23 @@ export interface Narrator {
 	dispose?(): void;
 }
 
+/** A word a `Step.at` cue named, located in a plan: the `{cue, word, match}` an LTT action records,
+ *  plus the word's own times, which a beat aligns the cursor to. */
+export interface CueWord {
+	/** Index of the cue (sentence) in the plan. */
+	cue: number;
+	/** Index of the word in that cue. */
+	word: number;
+	/** The word the author named, normalized the way `validateLtt` compares it (`normalizeMatch`). */
+	match: string;
+	/** The word as displayed. */
+	text: string;
+	/** When the word starts, in ms from the start of the line. */
+	startMs: number;
+	/** When it ends, in ms from the start of the line. */
+	endMs: number;
+}
+
 /** Find the word a `Step.at` cue names, in a plan.
  *
  *  Matching is case-insensitive and ignores surrounding punctuation, so `.at('Save')` finds
@@ -91,35 +112,24 @@ export interface Narrator {
  *  is the first time the line says the thing.
  *
  *  Pure, so it is unit-testable without a narrator. */
-export function findCueWord(plan: NarratedWord[] | null | undefined, word: string): NarratedWord | null {
+export function findCueWord(plan: CaptionTrack | null | undefined, word: string): CueWord | null {
 	if (!plan || !word) return null;
-	const needle = normalizeCueWord(word);
-	if (!needle) return null;
-	for (const w of plan) {
-		if (normalizeCueWord(w.text) === needle) return w;
+	const match = normalizeCueWord(word);
+	if (!match) return null;
+	for (let c = 0; c < plan.cues.length; c++) {
+		const words = plan.cues[c].words;
+		for (let w = 0; w < words.length; w++) {
+			if (normalizeCueWord(words[w].display) === match) return { cue: c, word: w, match, text: words[w].display, startMs: words[w].startMs, endMs: words[w].endMs };
+		}
 	}
 	return null;
 }
 
-const CUE_LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
-
-/** Strip the punctuation a segmenter leaves attached, and case-fold. Kept next to
- *  `findCueWord` because the two must agree on what "the same word" means — and it must agree
- *  with `@laticent/ltt`'s `normalizeMatch` too, which an action's `match` is written with. This
- *  is that function's rule, copied because Vetrina's boundary gate does not admit `ltt` until
- *  LTT step 4 opens it; `cursor-caption.test.ts` pins that the two agree.
- *
- *  A linear scan from each end, not `/[^\p{L}\p{N}]+$/u`: that regex restarts at every
- *  position of a punctuation run that does not reach the end, so it is quadratic in the run's
- *  length — 2,006 ms for a 40k-character run inside a word, against ~2 ms for this scan. */
-export function normalizeCueWord(s: string): string {
-	const chars = Array.from(String(s).toLowerCase());
-	let a = 0;
-	let b = chars.length;
-	while (a < b && !CUE_LETTER_OR_DIGIT.test(chars[a])) a++;
-	while (b > a && !CUE_LETTER_OR_DIGIT.test(chars[b - 1])) b--;
-	return chars.slice(a, b).join('');
-}
+/** Strip the punctuation a segmenter leaves attached, and case-fold. It IS `@laticent/ltt`'s
+ *  `normalizeMatch`, the rule an action's `match` is written with and `validateLtt` checks, so
+ *  "the same word" means one thing on both sides of the format. It was a copy until LTT step 4
+ *  opened Vetrina's gate to the package; the name stays because it is exported API. */
+export const normalizeCueWord: (s: string) => string = normalizeMatch;
 
 /** A narrator that says nothing and knows nothing — the shape of "no narration".
  *

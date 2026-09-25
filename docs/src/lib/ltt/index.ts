@@ -13,6 +13,8 @@ export { pack, packTrack, unpack, unpackTrack } from './encode.js';
 export { canonicalJson, segmentHashInput } from './hash.js';
 export type { LttPhase, LttPosition, LttTimelineEntry } from './position.js';
 export { positionAt, timeline } from './position.js';
+export type { LttStale } from './stale.js';
+export { isStale } from './stale.js';
 export { validateTrack } from './track.js';
 export type {
 	CaptionTrack,
