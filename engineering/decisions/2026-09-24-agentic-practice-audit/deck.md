@@ -150,7 +150,7 @@ Caveat for the room: this is one human plus agents, not a team. Team-scale claim
 - Demo deck, discipline only `49%`
 
 <!--
-Card: ~99% of authored PRs since 2026-08-26. Commit format: 98% on main since June. Fragments: 91% of authored PRs after #1606. Demo deck: share of CSS-touching PRs that ship one; 73% in September, and a ceiling on non-compliance rather than a violation count.
+Card: ~99% of authored PRs since 2026-08-26. Commit format: 98% on main since June; the local hook gates each commit an agent makes, but not the PR title that becomes the squash subject. Fragments: 91% of authored PRs after #1606. Demo deck: share of CSS-touching PRs that ship one; 73% in September, and a ceiling on non-compliance rather than a violation count.
 -->
 
 ---
@@ -161,10 +161,10 @@ Card: ~99% of authored PRs since 2026-08-26. Commit format: 98% on main since Ju
 `Independent re-derivation`
 
 - 315
-  - commits record a separate agent catching a real defect.
+  - commit messages record a review agent catching, refuting or breaking something.
 
 <!--
-Catches include a self-XSS on a page holding a user's API key, a performance diagnosis refuted before code shipped, and a test suite that could never fail. The same practice has the largest unrecorded cost: only four notes record tokens, and none records dollars.
+A keyword count, not audited commit by commit. Catches include a self-XSS on a page holding a user's API key, a performance diagnosis refuted before code shipped, and a test suite that could never fail. The same practice has the largest unrecorded cost: only four notes record tokens, and none records dollars.
 -->
 
 ---
@@ -296,8 +296,8 @@ The June 17 review targeted about 2.5k tokens. Each incident adds a paragraph. T
    - tokens of rules loaded by every agent
 3. 6%
    - of the bill is thinking, so a cap barely helps
-4. 774k
-   - tokens for the six researchers behind this deck
+4. 877k
+   - tokens for the seven agents behind this deck
 
 <!--
 npm test output went from 657,806 tokens to 1,182. Thinking is 37% of output tokens but about 6% of the bill, so a cap saves little. The repo measured that new context, not cached context, is nearly the whole bill.
