@@ -10,3 +10,8 @@
   `stacked-bar-svg` class the reveal layer looks for, so authored per-bar detail was never
   shown on hover or tap. Its `<svg>` now carries `cart-svg stacked-bar-svg`, like every
   other chart's figure class.
+- **Fixed: thin chart marks can be tapped.** A slope chart's marks are its lines, which
+  draw under one screen pixel wide on a phone, so a tap almost never landed on one. When a
+  tap or hover misses every mark, the reveal now takes the nearest mark whose outline is
+  within reach: 22 screen px for touch, 6 for a mouse. A mark the pointer is actually on
+  still wins.

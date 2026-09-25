@@ -386,8 +386,41 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   function sliceAt(clientX, clientY) {
     const d = doc(); const g = frameGeom(); if (!d || !g) return -1;
     // parent viewport → iframe INNER coords: subtract the frame origin, then un-scale.
-    const t = d.elementFromPoint((clientX - g.fr.left) / g.S, (clientY - g.fr.top) / g.S);
-    return markIndex(t?.closest(MARK_SEL));
+    const x = (clientX - g.fr.left) / g.S, y = (clientY - g.fr.top) / g.S;
+    const t = d.elementFromPoint(x, y);
+    const hit = markIndex(t?.closest(MARK_SEL));
+    return hit >= 0 ? hit : nearestMark(chartEl, x, y, reachPx() / g.S);
+  }
+
+  // ── near-miss hit-testing: the THIN-MARK problem ──────────────────────────────
+  // elementFromPoint only finds a mark when the pointer is ON its painted geometry. That is fine
+  // for a bar or a wedge, but a slope chart's marks are its LINES, about 1.5 slide px wide: on a
+  // phone the preview is scaled to roughly a third, so the stroke is under one screen pixel and a
+  // finger practically never lands on it (seen on a real iPhone: tapping a slope line did nothing).
+  // So when a point misses every mark, take the nearest mark whose OUTLINE is within reach, where
+  // reach is set in SCREEN px — a fingertip on touch, a small halo for a mouse. The distance is
+  // measured to points sampled along each mark's outline, not to its box: a slope line's box is
+  // the whole diagonal and overlaps its neighbors', so the box would pick the wrong line at a
+  // crossing. A mark the pointer is actually ON still wins outright (the caller tries that first).
+  const reachPx = () => (COARSE ? 22 : 6);
+  function nearestMark(svg, x, y, reach) {
+    if (!svg || !(reach > 0)) return -1;
+    let best = -1, bestD = reach;
+    for (const m of svg.querySelectorAll(MARK_SEL)) {
+      if (typeof m.getTotalLength !== 'function') continue;
+      let ctm, L;
+      try { ctm = m.getScreenCTM(); L = m.getTotalLength(); } catch { continue; }
+      if (!ctm || !(L > 0)) continue;
+      // One sample every ~3 iframe px along the outline, bounded both ways.
+      const n = Math.max(12, Math.min(240, Math.ceil((L * Math.hypot(ctm.a, ctm.b)) / 3)));
+      for (let k = 0; k <= n; k++) {
+        const p = m.getPointAtLength((L * k) / n);
+        const px = ctm.a * p.x + ctm.c * p.y + ctm.e, py = ctm.b * p.x + ctm.d * p.y + ctm.f;
+        const dd = Math.hypot(px - x, py - y);
+        if (dd < bestD) { bestD = dd; best = markIndex(m); }
+      }
+    }
+    return best;
   }
 
   // ── reveal command (pointer / keys / presenter window all route here) ───────
@@ -733,11 +766,21 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
 
   // ── PREVIEW (hoverAny): listen on the iframe document; reveal the chart under
   // the pointer. No hit-surface, so the author can still scroll/select the slide.
-  function resolveAt(target) {
+  function resolveAt(target, e) {
     const w = target?.closest?.(MARK_SEL);
-    if (!w) return -1;
-    setChart(w.closest('.lattice > section') || w.closest('section'));
-    return interactive() ? markIndex(w) : -1;
+    if (w) {
+      setChart(w.closest('.lattice > section') || w.closest('section'));
+      return interactive() ? markIndex(w) : -1;
+    }
+    // A near miss inside a chart (see nearestMark). Only searched when the pointer is over a
+    // chart's own svg, so moving across the rest of the slide costs nothing.
+    const svg = e && target?.closest?.(CHART_SVG_SEL);
+    if (!svg) return -1;
+    const g = frameGeom();
+    const i = nearestMark(svg, e.clientX, e.clientY, reachPx() / (g?.S || 1));
+    if (i < 0) return -1;
+    setChart(svg.closest('.lattice > section') || svg.closest('section'));
+    return interactive() ? i : -1;
   }
   // Preview events fire on the IFRAME document, so map their iframe-INNER coords into parent-viewport
   // coords (× the frame scale, then + the frame offset) for the cursor anchor.
@@ -773,7 +816,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   function onDocMove(e) {
     // resolveAt → setChart may clear() (which nulls ptr) when the hovered chart
     // changes, so capture the cursor AFTER it, right before reveal snapshots it.
-    const s = resolveAt(e.target);
+    const s = resolveAt(e.target, e);
     ptrFromFrame(e);
     if (s >= 0) { cancelHoverClear(); reveal(s); }
     else if (inHoldZone(e)) cancelHoverClear();
@@ -782,7 +825,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     }
   }
   function onDocTap(e) {
-    const s = resolveAt(e.target);
+    const s = resolveAt(e.target, e);
     ptrFromFrame(e);
     if (s < 0 || s === openSlice) clear(); else reveal(s);
   }
