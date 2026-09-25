@@ -291,6 +291,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A long-lived tab 404s on the next asset it fetches after a deploy](gotchas/studio-playground.md#a-long-lived-tab-404s-on-the-next-asset-it-fetches-after-a-deploy)
 - [A chart's hover card flashes up and vanishes as you sweep onto a mark](gotchas/studio-playground.md#a-charts-hover-card-flashes-up-and-vanishes-as-you-sweep-onto-a-mark)
 - [A CSS comment in ComposeView's stylesheet breaks the whole file, with errors 130 lines away](gotchas/studio-playground.md#a-css-comment-in-composeviews-stylesheet-breaks-the-whole-file-with-errors-130-lines-away)
+- [A notification's button can't be clicked while a Studio sheet is open](gotchas/studio-playground.md#a-notifications-button-cant-be-clicked-while-a-studio-sheet-is-open)
 
 ### [VS Code / marp-vscode](gotchas/vscode.md)
 

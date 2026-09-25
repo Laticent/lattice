@@ -30,5 +30,10 @@ at every door: the Library import, a `.lattice` project, `lattice packages add` 
 `engineering/decisions/2026-09-24-code-package-contract.md` is the design this phase starts
 from. It recommends shipping the helpers INTO the sandbox as a frozen, versioned toolkit, and
 running the CLI's sandbox in a Chromium page under a no-network content-security policy
-instead of a Node child process. It leaves three decisions to the owner (§6 of that note);
-nothing is built until they are made.
+instead of a Node child process. It leaves three decisions to the owner (§6 of that note).
+
+**Owner decided (2026-09-25):** (1) toolkit shape A, a frozen copy inside the sandbox;
+(2) the CLI runs code packages in a locked Chromium page, not a Node process. (3) Toolkit v1's
+membership is still open: the owner asked for the pros and cons of a small v1 (the eight most-used
+helpers plus `measure`) against all ~27, and has not picked yet. Phase 6's first step, the CSP
+network-log proof, needs only (2) and can start now.

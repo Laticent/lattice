@@ -21,6 +21,15 @@ on:
   schedule:
     - cron: '41 4 * * *' # daily 04:41 UTC — between preview-e2e (04:23) and perf (05:37)
   workflow_dispatch:
+    # Optional: run ONE spec (or a folder) across every project instead of the whole suite.
+    # The whole suite overruns the 45-minute step (5 of 6 scheduled runs, 2026-09-20..25), so a
+    # hand-run on a PR branch never reached the spec it was started for (#2373). A filtered run
+    # is a probe, not the nightly: it files nothing on the rolling issue and skips e2e-ai.
+    inputs:
+      spec:
+        description: 'Spec path(s) under docs/, space-separated (e.g. e2e/workspace-backup-size.spec.ts). Empty = the whole suite.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -124,7 +133,13 @@ jobs:
         timeout-minutes: 45
         run: |
           set -uo pipefail
-          if npm run test:e2e -- --grep-invert @perf 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-report.txt"; then
+          # The input is split into words and each must be a path under e2e/, so it can only
+          # ever name specs, never add flags or shell.
+          read -r -a specs <<< "${SPEC:-}"
+          for f in "${specs[@]}"; do
+            case "$f" in e2e/*) ;; *) echo "spec input must name paths under e2e/, got: $f" >&2; exit 2 ;; esac
+          done
+          if npm run test:e2e -- --grep-invert @perf "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-report.txt"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
@@ -132,6 +147,7 @@ jobs:
         working-directory: docs
         env:
           CI: 'true'
+          SPEC: ${{ inputs.spec }}
 
       - name: Upload Playwright report + trace/video artifacts
         if: always()
@@ -154,7 +170,9 @@ jobs:
       # design when specs fail, so `failed` catches that — but a STEP timeout leaves the
       # output unwritten, and that is the case most worth hearing about.
       - name: Open / append regression issue
-        if: always() && (steps.e2e.outputs.failed == 'true' || steps.e2e.outcome != 'success')
+        # Only the real nightly files here: a hand-run on a branch or a filtered probe used to post
+        # "failing on main" for a commit that was not on main (#2035, 2026-09-25).
+        if: always() && (steps.e2e.outputs.failed == 'true' || steps.e2e.outcome != 'success') && github.ref == 'refs/heads/main' && inputs.spec == ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -252,7 +270,7 @@ jobs:
       # ever argues the other side". A comment naming the run and the pass count is the
       # counter-evidence a human needs to make the call the run cannot.
       - name: Report a passing suite on the rolling issue
-        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false' && github.ref == 'refs/heads/main'
+        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false' && github.ref == 'refs/heads/main' && inputs.spec == ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -298,6 +316,8 @@ jobs:
   # armed by the spec as the runaway guard. The spec disables trace + video so
   # the key never reaches an uploaded artifact.
   e2e-ai:
+    # A filtered probe (the `spec` input) runs only the specs it names.
+    if: inputs.spec == ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -371,7 +391,7 @@ jobs:
       # when specs fail, so `failed` catches that — but a STEP timeout leaves the output
       # unwritten, and that is the case most worth hearing about.
       - name: Open / append regression issue
-        if: always() && (steps.ai.outputs.failed == 'true' || steps.ai.outcome != 'success')
+        if: always() && (steps.ai.outputs.failed == 'true' || steps.ai.outcome != 'success') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPEN_ROUTER_KEY: ${{ secrets.OPEN_ROUTER_KEY }}

@@ -13,7 +13,7 @@
 import type { ParsedBundle } from './asset-bundle';
 import type { PackageFiles } from './package-zip';
 import type { SlideComment } from './slide-comments';
-import { assertZipWithinLimits, declaredInflatedBytes, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, readBudget } from './zip-limits';
+import { assertZipWithinLimits, declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, readBudget } from './zip-limits';
 
 // Untrusted-input guards: a `.lattice` is a file from anyone, so reading one must
 // not let a tiny deflate bomb inflate to gigabytes and OOM the tab. Cap both the
@@ -146,7 +146,12 @@ export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 	// is deterministic.
 	const charge = readBudget('That .lattice file is too large to open.');
 	const source = (await charge(deckEntry)) ?? '';
-	const manifest = parseLatticeManifest((await charge(manifestEntry)) ?? '');
+	const manifestText = (await charge(manifestEntry)) ?? '';
+	// Values are counted before the parse: the read budget bounds the bytes, not what
+	// `JSON.parse` builds from them (lib/packages/json-guard.js).
+	const { countJsonValues, MAX_JSON_VALUES } = await jsonGuard();
+	if (countJsonValues(manifestText) > MAX_JSON_VALUES) throw new Error('That .lattice file is too large to open.');
+	const manifest = parseLatticeManifest(manifestText);
 	// The packages ride through the SAME reader as a Library package zip, so they meet the
 	// same spine, the same refusals and the same notes. Saving them is the caller's step,
 	// through the Library's import funnel (library/import-parsed.ts), which runs the gates.

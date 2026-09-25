@@ -129,3 +129,15 @@ describe('lattice-file', () => {
 		await expect(readLatticeFile(new Blob([buf]))).rejects.toThrow(/too large to open/);
 	});
 });
+
+describe('readLatticeFile — the parse cost of what the read budget admits', () => {
+	it('refuses a manifest of a million values before JSON.parse builds them', async () => {
+		const { default: JSZip } = await import('jszip');
+		const { default: guard } = await import('../../../../lib/packages/json-guard.js');
+		const zip = new JSZip();
+		zip.file('deck.md', '# Deck');
+		zip.file('manifest.json', `{"format":"lattice","version":1,"pad":[${'1,'.repeat(guard.MAX_JSON_VALUES)}1]}`);
+		const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+		await expect(readLatticeFile(blob)).rejects.toThrow(/too large to open/);
+	});
+});

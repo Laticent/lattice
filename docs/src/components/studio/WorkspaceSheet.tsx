@@ -49,7 +49,9 @@ import {
 	truncateCodePoints,
 } from './studio-store';
 import { TtsSettings } from './TtsSettings';
-import { downloadBlob, isEvictionProneBrowser, packWorkspace, restoreWorkspace, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup';
+import { DEGRADED_TOAST_MS } from './toast-duration';
+import type { PackReport } from './workspace-backup';
+import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -424,10 +426,18 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		setBusy('backup');
 		try {
 			const now = Date.now();
-			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now));
+			// Loaded on click: pack and restore are off the Studio's eager path.
+			const { backupRestoreGaps, packWorkspace } = await import('./workspace-backup');
+			const report: PackReport = { refdocsBytes: 0 };
+			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report));
 			markBackupTaken(now);
 			setBackupAt(now);
-			notify('Backup downloaded — your whole workspace, yours to keep.');
+			// Still downloaded: a backup you hold beats none. But it must not look like one that will
+			// restore in full when it won't (followups.d/2336 item 17b, the owner's call: warn, still
+			// save), and the warning stays up long enough to read.
+			const gaps = backupRestoreGaps(report);
+			if (gaps.length) notify(`Backup downloaded — but ${gaps.join('; and ')}. Keep the original files, or remove some and back up again.`, { duration: DEGRADED_TOAST_MS });
+			else notify('Backup downloaded — your whole workspace, yours to keep.');
 		} catch (e) {
 			notify(`Backup failed: ${(e as Error)?.message || 'unknown error'}`);
 		} finally {
@@ -437,15 +447,22 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const restoreBackup = async (file: File) => {
 		setBusy('restore');
 		try {
+			const { restoreWorkspace } = await import('./workspace-backup');
 			const s = await restoreWorkspace(file, Date.now());
 			const decks = s.added + s.restoredCopies;
 			const assets = s.themes + s.components + s.finishes + s.scenes;
 			// A library package the backup held but could not be read back is NAMED, never
 			// dropped in silence — the reload below would otherwise hide that it was ever there.
-			const lost = s.refused.length ? { description: `Not restored: ${s.refused.map((r) => `${r.name} (${r.why})`).join('; ')}` } : undefined;
-			notify(`Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in. Reloading…`, lost);
+			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in.`;
 			// The restore touches decks, settings, and the Library across several
 			// stores; a reload is the one honest way to re-derive every view of them.
+			// Always reload at once, while this modal still covers the editor: a tab left live over the
+			// store the restore just rewrote writes its stale deck back on the next keystroke. What was
+			// skipped rides the reload (`stashRestoreReport`) and is shown, until dismissed, once the
+			// Studio has booted on the restored data.
+			const notRestored = s.refused.length ? `Not restored: ${s.refused.map((r) => `${r.name} (${r.why})`).join('; ')}` : '';
+			if (notRestored) stashRestoreReport({ done, notRestored });
+			notify(`${done} Reloading…`, notRestored ? { description: notRestored } : undefined);
 			setTimeout(() => window.location.reload(), 1100);
 		} catch (e) {
 			notify(`Restore failed: ${(e as Error)?.message || 'not a workspace backup'}`);

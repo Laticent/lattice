@@ -221,18 +221,42 @@ export async function listStudioScenes(): Promise<StudioScene[]> {
  * The one thing that is NOT preserved verbatim is the untrusted markup: `poster`/`art` still go
  * through `sanitizeSceneAssets`, because HARD RULE #22's store-boundary guarantee has to hold on
  * EVERY write, and a backup file is exactly the hand-editable input that guarantee exists for.
+ *
+ * Returns whether it wrote: `false` for a junk row, and for a name a working scene already holds.
  */
-export async function putUnreadableScene(raw: unknown): Promise<boolean> {
+export async function putUnreadableScene(raw: unknown, shelf?: Map<string, SceneAssetRecord>): Promise<boolean> {
 	if (!raw || typeof raw !== 'object') return false;
 	const rec = raw as SceneAssetRecord;
-	if (!rec.name) return false;
-	// KEEP the id. Dropping it sent the record down putAsset's no-id path, which resolves
-	// (kind, name) to whatever already holds that name — so restoring a backup whose `rotor` is
-	// unreadable would overwrite a WORKING `rotor`, and `scene` is not in VERSIONED_KINDS so there
-	// would be no snapshot to recover from. With the id, a restore updates the same record it came
-	// from and is idempotent across repeated restores.
-	await putAsset({ ...rec, ...(await sanitizeSceneAssets({ poster: rec.poster, art: rec.art })), kind: 'scene' } as unknown as SceneAssetRecord);
+	// The name becomes a folder and file name in every later backup and export, so it must be one
+	// this store could have written: a slug (`slugify`). An object, or a name with a slash, from a
+	// hand-edited backup is declined, not saved to re-fire as `motion/[object Object]/` or `/`.
+	if (typeof rec.name !== 'string' || !rec.name || slugify(rec.name) !== rec.name) return false;
+	// KEYED BY NAME, never by the backup's own `id` (followups.d/2336 item 16). The id is whatever
+	// the file says, and `putAsset`'s id path is a blind put: a row carrying the id of one of your
+	// saved THEMES replaced that theme with a scene record, and scenes keep no version history.
+	// Looking the name up among scenes can only ever touch a scene. Two cases, both from the
+	// §7c fix: a WORKING scene of this name is kept and the unreadable copy declined (a restore
+	// must not replace a scene that renders with one that does not), and an unreadable one of
+	// this name is updated in place, so a repeated restore stays idempotent.
+	const { id: _fromFile, ...body } = rec;
+	// The spec is kept verbatim (that is the point of this lane); the markup and text fields are
+	// kept only as strings, which is all the store ever writes.
+	const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+	// `shelf` is the caller's one read of the scene shelf, kept current here, so a restore of N rows
+	// reads the shelf once rather than N times (`unreadableSceneShelf`).
+	const same = shelf ? shelf.get(rec.name) : ((await listAssets('scene')) as SceneAssetRecord[]).find((s) => s.name === rec.name);
+	if (same && parseScene(same.spec).ok) return false;
+	const stored = (await putAsset({ ...body, label: str(rec.label), description: str(rec.description), ...(await sanitizeSceneAssets({ poster: str(rec.poster), art: str(rec.art) })), kind: 'scene', ...(same ? { id: same.id } : {}) } as unknown as SceneAssetRecord)) as SceneAssetRecord;
+	shelf?.set(rec.name, stored);
 	return true;
+}
+
+/** The scene shelf keyed by name, read once, for a batch of `putUnreadableScene` calls. */
+export async function unreadableSceneShelf(): Promise<Map<string, SceneAssetRecord>> {
+	const rows = (await listAssets('scene')) as SceneAssetRecord[];
+	const shelf = new Map<string, SceneAssetRecord>();
+	for (const r of rows) if (!shelf.has(r.name)) shelf.set(r.name, r);
+	return shelf;
 }
 
 /** Remove a saved scene by id (no-op if the store is unavailable). */

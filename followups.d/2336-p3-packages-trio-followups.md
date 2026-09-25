@@ -29,9 +29,10 @@ verify    — unit + the package e2e specs.
    and a user namespace as the long-term fix.
 
 Items 2 (gallery gating), 3 (motion art's remote references), 4 (the streaming inflate), 9
-(escaped selectors), 12 (the workspace restore), 13 (the resolver rule's test) and 14 (relative
-scripts) are fixed, and item 6 is declined; the decision note's §10 says how and why. The
-numbers are kept so a reference to item 5 still means item 5.
+(escaped selectors), 12 (the workspace restore), 13 (the resolver rule's test), 14 (relative
+scripts), 15 (the workspace backup's size caps), 16 (the unreadable scene's key) and 17 (the
+parse cost of what the caps admit, and the export warning) are fixed, and item 6 is declined; the decision note's §10 says how and why. The numbers are kept so a
+reference to item 5 still means item 5.
 
 5. **`rgb(from …)` is the repo's first relative-color syntax** (the finish BOTTOM-LAYER
    RULE). It needs Chrome 119+ / Safari 18+; on an older engine (an old WebKitGTK behind
@@ -63,18 +64,14 @@ numbers are kept so a reference to item 5 still means item 5.
     data: blob:` policy on the preview frames with a visible "this deck loads N remote images —
     load them?" switch, and an export option that inlines or strips them. A product call
     (it changes what a pasted deck shows by default), so it is the owner's. Found by the
-    inversion lens on the continuation PR.
-15. **A workspace backup's outer archive has no size cap.** `restoreWorkspace` reads
-    `manifest.json`, `workspace.json`, `library-unreadable-scenes.json` and `refdocs.json` with
-    a plain `async('string')`, and inflates `library.zip` in full with `async('blob')` before
-    `unpackBundle` applies its limits. A backup whose `workspace.json` is a deflate bomb takes
-    the tab down. Item 12 gated the items; this is the size half of the same door. The fix is
-    not simply `readBudget` at the `.lattice` cap: a real backup carries reference docs (up to
-    5 MB each) and can legitimately exceed 64 MB, so the cap needs its own number, measured on
-    a large real workspace. Found by the checker on the continuation PR (2026-09-25).
-16. **The unreadable-scenes lane keeps the backup's own record `id`.** `scene-library.ts`
-    `putUnreadableScene` saves `{ ...rec, kind: 'scene' }`, so a hostile row carrying the `id`
-    of one of your saved themes overwrites that theme with a scene record, and scenes keep no
-    version history. No ungated CSS lands (the kind is forced), so this is data loss, not a
-    gate bypass. Pre-existing; the fix is to key an unreadable scene by its name, as a
-    readable one is. Found by the checker on the continuation PR (2026-09-25).
+    inversion lens on the continuation PR. **Owner decided (2026-09-25): block by default, with
+    the visible "load them?" switch** — a deck you did not write shows placeholders until you
+    choose to load its web images, and exports get the matching option. Whether your own decks
+    are trusted automatically is part of the design, not yet settled.
+18. **A malformed `workspace.json` refuses with a programmer's message.** A backup whose state has
+    the right shape at the top but a wrong type inside (`chats: null`, say) fails in
+    `importStudioState` with "Cannot read properties of null (reading 'welcome')". Nothing is
+    written first, so no data is lost, but the message tells the user nothing. The fix is a shape
+    check on the parsed state before the import, with a message that names the file. Found by the
+    red team on the continuation PR (2026-09-25); pre-existing and off this PR's path.
+

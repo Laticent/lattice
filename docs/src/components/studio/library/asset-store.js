@@ -300,7 +300,9 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
     // clobbering its kind on the way. Matching on kind here refuses that. No caller
     // omits `kind` (all six set it from a literal), so this is unreachable today; it
     // is the safer half of an unreachable pair either way.
-    const all = assets.getAll();
+    // Through the `kind` index, like the uniqueness check above: a bare getAll() deserialized every
+    // record on every save, reference-doc PDFs included, so restoring N rows read the shelf N times.
+    const all = record.kind ? assets.index('kind').getAll(record.kind) : assets.getAll();
     all.onsuccess = () => {
       const rows = (all.result || []).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
       const existing = rows.find((a) => a.kind === record.kind && a.name === record.name);
@@ -312,8 +314,12 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
 /** All assets, newest first; optionally filtered to one kind. */
 export async function listAssets(kind) {
   const db = await openDB();
-  const all = await reqAsPromise(tx(db, 'readonly').getAll());
-  const rows = kind ? all.filter(a => a.kind === kind) : all;
+  // Through the `kind` index when a kind is asked for: a bare getAll() deserializes every record,
+  // and the shelf holds reference docs that are whole PDFs, so listing a few scenes read every
+  // PDF too (measured by the restore red team, 2026-09-25: ~40 ms per unreadable-scene row with
+  // three 6.7 MiB docs on the shelf). putAsset's uniqueness check reads the same index.
+  const store = tx(db, 'readonly');
+  const rows = await reqAsPromise(kind ? store.index('kind').getAll(kind) : store.getAll());
   return rows.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
 }
 

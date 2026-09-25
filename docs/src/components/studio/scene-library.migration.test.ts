@@ -26,6 +26,7 @@ const rows = () => [
 
 beforeEach(() => {
 	listAssets.mockReset();
+	listAssets.mockResolvedValue([]);
 	putAsset.mockClear();
 });
 

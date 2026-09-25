@@ -1536,3 +1536,21 @@ never turn "passed in headless" into "works on iOS."
   choked, not where the string ended. When a template-literal file reports a torrent of
   syntax errors, `grep -c '`'` the section: an odd count is the answer, and `${` in CSS
   content (`content: "${"`) is the same trap wearing a different hat.
+
+## A notification's button can't be clicked while a Studio sheet is open
+
+- **Symptom** — a notice raised with an action (`notifyAction`, `notifySticky` in
+  `docs/src/lib/notify.ts`) shows its button, but clicking it does nothing, and a
+  Playwright `click()` on it times out. The button renders, has its role and name, and is
+  on top.
+- **Cause** — the sheets (`PanelSheet`, and any Radix `Dialog`) are MODAL: while one is
+  open, Radix sets `pointer-events: none` on everything outside the dialog, and the
+  notification region sits outside it. A notice raised from inside an open sheet is
+  therefore unclickable until the sheet closes.
+- **Fix** — close the sheet before raising a notice the user must act on, or raise it where
+  no sheet is open. Closing the sheet is not free: it hands the user back a live editor, and
+  the workspace restore learned that the hard way (a tab left un-reloaded over the store the
+  restore had just rewritten wrote its stale deck back on the next keystroke). The restore now
+  reloads at once and raises its sticky notice after the reload, on the restored Studio
+  (`workspace-backup-meta.ts` `stashRestoreReport`). Found and measured in Chromium on
+  2026-09-25 by `docs/e2e/workspace-restore-gate.spec.ts`.

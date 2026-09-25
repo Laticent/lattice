@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Scene } from '@/lib/anima';
 import { packBundle, packComponent, packFinish, packScene, packTheme, showcaseDeck, unpackBundle } from './asset-bundle';
 import type { StudioComponent } from './component-library';
-import { DEFAULT_RECIPE } from './finish-generate';
+import { coerceRecipe, DEFAULT_RECIPE } from './finish-generate';
 import type { StudioFinish } from './finish-library';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
@@ -349,6 +349,54 @@ describe('asset-bundle — package import edge cases', () => {
 		expect(t.essentials).toEqual({ accent: '#2d4ed8' });
 		expect(t.overrides).toEqual({ 'surface-inverse': { dark: '#101010' } });
 		expect(t.rampStrategy).toBeUndefined();
+	});
+
+	// followups.d/2336 item 17: the value cap on the package-folder path too. A theme's
+	// essentials.json and a finish's recipe.json were parsed with a bare JSON.parse, and the raw
+	// file was carried into the saved record, so a flood persisted into every later backup.
+	it('reads a flooded essentials.json or recipe.json as empty, and does not carry the file', async () => {
+		const { default: JSZip } = await import('jszip');
+		const { default: guard } = await import('../../../../lib/packages/json-guard.js');
+		const flood = `{"essentials":{"accent":"#2d4ed8"},"pad":[${'1,'.repeat(guard.MAX_JSON_VALUES)}1]}`;
+		const zip = new JSZip();
+		zip.file('harbor/harbor.manifest.json', JSON.stringify({ name: 'harbor', type: 'theme', format: 1 }));
+		zip.file('harbor/harbor.css', theme.css);
+		zip.file('harbor/harbor.essentials.json', flood);
+		zip.file('brand/brand.manifest.json', JSON.stringify({ name: 'brand', type: 'finish', format: 1, label: 'Brand' }));
+		zip.file('brand/brand.recipe.json', flood);
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		const t = round.themes[0];
+		expect(t.essentials).toBeNull(); // the accent inside the flood was not read
+		expect(t.pkg?.files?.['essentials.json']).toBeUndefined();
+		const f = round.finishes[0];
+		expect(f.recipe).toEqual(coerceRecipe(undefined)); // the clamped default, as for a missing recipe
+		expect(f.pkg?.files?.['recipe.json']).toBe('');
+	});
+
+	it('refuses a motion package whose scene.json is a flood, before JSON.parse builds it', async () => {
+		const { default: JSZip } = await import('jszip');
+		const { default: guard } = await import('../../../../lib/packages/json-guard.js');
+		const zip = new JSZip();
+		zip.file('orbit/orbit.manifest.json', JSON.stringify({ name: 'orbit', type: 'motion', format: 1 }));
+		zip.file('orbit/orbit.scene.json', `{"source":"svg","pad":[${'1,'.repeat(guard.MAX_JSON_VALUES)}1]}`);
+		const parse = vi.spyOn(JSON, 'parse');
+		try {
+			const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+			expect(round.scenes).toEqual([]);
+			expect(round.refused.map((r) => r.name)).toEqual(['orbit']);
+			// The flood never reached JSON.parse: every call parsed something small.
+			expect(parse.mock.calls.every(([text]) => String(text).length < 1_000_000)).toBe(true);
+		} finally {
+			parse.mockRestore();
+		}
+	});
+
+	it('refuses a legacy (lattice-asset/1) zip whose manifest.json is a flood', async () => {
+		const { default: JSZip } = await import('jszip');
+		const { default: guard } = await import('../../../../lib/packages/json-guard.js');
+		const zip = new JSZip();
+		zip.file('manifest.json', `{"format":"lattice-asset/1","items":[],"pad":[${'1,'.repeat(guard.MAX_JSON_VALUES)}1]}`);
+		await expect(unpackBundle(await zip.generateAsync({ type: 'blob' }))).rejects.toThrow(/too large to import/);
 	});
 
 	it('reads a zip whose manifest sits at the ROOT (the files were zipped, not the folder)', async () => {
