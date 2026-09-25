@@ -9,9 +9,10 @@ summary: A neutral audit of five months of agent-written Lattice (2,271 commits,
 lives in six researcher chapters under
 [`2026-09-24-agentic-practice-audit/chapters/`](2026-09-24-agentic-practice-audit/chapters/),
 and each claim there carries a path, a commit or a PR number, tagged MEASURED or ESTIMATED.
-**The talk built from it** is [`onboard-your-coding-agent.md`](2026-09-24-agentic-practice-audit/onboard-your-coding-agent.md)
-(+ its rendered PDF): a 26-slide, 25-minute talk for junior engineers, told as onboarding a new
-teammate, with Claude tips inside each step. This note is the evidence behind it; the talk is what you present.
+**The talk built from it** is [`agentic-engineering-practices.md`](2026-09-24-agentic-practice-audit/agentic-engineering-practices.md)
+(+ its rendered PDF): a 60-minute lunch-and-learn in five ten-minute sections, one per practice
+(context engineering, autonomy with a reach limit, verification, a system that learns, orchestration),
+with Claude Code settings for each. This note is the evidence behind it; the talk is what you present.
 
 ## The answer first
 
