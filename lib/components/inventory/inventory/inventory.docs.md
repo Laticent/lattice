@@ -14,6 +14,8 @@ Use for a small register of related items where each carries similar weight. Aut
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause of body per part.
 
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~5 / ~4 / ~2 items of ~14 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

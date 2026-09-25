@@ -105,7 +105,18 @@ const BUILDERS = {
   'authority-chain': (w) => `1. ${cap(words(2))}\n   - \`${cap(words(2))}\`\n   - ${cap(words(Math.max(1, w - 4)))}.`,
   'regulatory-update': (w) => `1. ${cap(words(2))}\n   - \`${cap(words(2))}\`\n   - ${cap(words(Math.max(1, w - 6)))}.\n   - \`Effective Mar 2026\``,
   'statute-stack': (w) => `- ${cap(words(1))} \`${cap(words(2))}\`\n  - ${cap(words(Math.max(1, w - 5)))}.\n  - \`${cap(words(2))}\``,
+  // A `code` "element" is one LINE of a single fenced block — `BODY_WRAP.code` puts the
+  // fence around the lines — so the count this measures is the pane's line cap. Short,
+  // fixed lines: the width budget is a separate, derived number (lint-core
+  // CODE_LINE_BUDGET), and a wrapped line would conflate the two.
+  code: () => 'const value = compute(input);',
   pricing: (w) => `- ${cap(words(1))} \`$49 / mo\`\n  - [x] ${cap(words(2))}\n  - ${cap(words(Math.max(1, w - 4)))}.`,
+};
+
+// A component whose elements only render inside a wrapper: the builder writes one
+// element, this wraps the whole body once.
+const BODY_WRAP = {
+  code: (body) => `\`\`\`js\n${body}\n\`\`\``,
 };
 
 // Square-family components this rig deliberately does NOT calibrate, and why.
@@ -156,14 +167,23 @@ function findManifest(name) {
  * heading and holds the component's documented chrome fixed), which the first cannot
  * express because it owns the heading itself.
  */
-function gradedDeck({ comp, size, steps, slideFor }) {
+function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false }) {
   const slides = steps.map((step, i) => {
     const made = slideFor(step);
     if (made.slide != null) return `<!-- _class: ${comp} -->\n\n${made.slide.trim()}\n`;
     const heading = `## Calibration step ${i + 1} — ${made.label}.`;
-    return `<!-- _class: ${comp} -->\n\n${heading}\n\n${made.body}`;
+    // `eyebrow` adds the one-line label most real slides carry above the heading. It is
+    // off by default because `capacity` is measured without it (2026-07-28-capacity-basis.md);
+    // the code pane's scale budget is measured both ways because the eyebrow costs it
+    // one to two whole lines, which is the difference between a warning and silence.
+    const lead = eyebrow ? '`Calibration · eyebrow`\n\n' : '';
+    return `<!-- _class: ${comp} -->\n\n${lead}${heading}\n\n${made.body}`;
   });
-  return `---\nsize: ${size}\n---\n\n${slides.join('\n\n---\n\n')}\n`;
+  // `scale` puts the deck-wide projection multiplier (`class: scale-xl`, typography.md §7)
+  // in the front matter, so a ceiling can be measured at the size a projected deck
+  // actually renders at — see engineering/decisions/2026-09-25-font-scale-fit.md.
+  const cls = scale ? `class: scale-${scale}\n` : '';
+  return `---\nsize: ${size}\n${cls}---\n\n${slides.join('\n\n---\n\n')}\n`;
 }
 
 /**
@@ -201,11 +221,19 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
     }
     const m = log.match(/OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i);
     const pages = m ? m[1].split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean) : [];
+    // A page the engine STEPPED down the font scale did not fit at the scale the deck
+    // asked for (lib/core/scale-fit.js) — it fits only because the engine gave the size
+    // back. For a ceiling measured AT a scale that is an overflow, so it is folded in; a
+    // rig that wants the two apart reads `stepped`. The line groups pages by rung
+    // ("at 1.15x: pages 2, 9; at 1x: page 4"), so every page list on it is collected.
+    const scaleLine = (log.match(/SCALE \u2014[^\n]*/) || [''])[0];
+    const stepped = [...scaleLine.matchAll(/pages?\s+([\d,\s]+)/g)]
+      .flatMap((g) => g[1].split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean));
     handedOver = keep;
-    return { overflowed: new Set(pages), log, out, cleanup };
+    return { overflowed: new Set([...pages, ...stepped]), clipped: new Set(pages), stepped: new Set(stepped), log, out, cleanup };
   } finally {
     if (!handedOver) cleanup();
   }
 }
 
-module.exports = { ROOT, EMULATOR, SIZE_ALIAS, FAMILIES, BUILDERS, NOT_COUNT_CALIBRATABLE, words, cap, findManifest, gradedDeck, renderProbe };
+module.exports = { ROOT, EMULATOR, SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, words, cap, findManifest, gradedDeck, renderProbe };

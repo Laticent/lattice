@@ -277,6 +277,30 @@ function terminated(t) {
   return /[.!?…]$/.test(t) ? t : `${t}.`;
 }
 
+/**
+ * The component's capacity at the projection font scale (typography.md §7), from the
+ * measured tables lint enforces (lib/authoring/lint-core.js SCALE_CAPACITY and
+ * CODE_LINES_AT_SCALE) — printed from the same numbers so the doc and `lint:deck`
+ * cannot disagree. Null for a component the tables do not cover.
+ */
+function projectionScaleLine(m, axis) {
+  const { SCALE_CAPACITY, CODE_LINES_AT_SCALE } = require('../lib/authoring/lint-core.js');
+  const tail = 'past that, expect the engine to render the slide at a smaller font scale rather than clip it — '
+    + '`lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.';
+  if (m.name === 'code') {
+    const [, l, xl, xxl] = CODE_LINES_AT_SCALE.bare;
+    const [, el, exl, exxl] = CODE_LINES_AT_SCALE.eyebrow;
+    return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`) the pane holds ~${l} / ~${xl} / ~${xxl} lines at a wide @size (~${el} / ~${exl} / ~${exxl} under an eyebrow); ${tail}`;
+  }
+  const row = SCALE_CAPACITY[m.name];
+  if (!row) return null;
+  const lengths = Object.keys(row).map(Number).sort((a, b) => a - b);
+  const words = lengths[lengths.length - 1];
+  const [, l, xl, xxl] = row[words];
+  const noun = axisNoun(axis || 'item', 2);
+  return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`) it holds ~${l} / ~${xl} / ~${xxl} ${noun} of ~${words} words at a wide @size; ${tail}`;
+}
+
 function emitAgentContract(m, lines) {
   const capacity = capacityBlock(m);
   const hasCapacity = Boolean(capacity);
@@ -309,6 +333,12 @@ function emitAgentContract(m, lines) {
     const d = m.density;
     const axis = d.axis || capacity?.c.axis || 'item';
     lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${trailingNote(d.note)}`);
+    lines.push('');
+  }
+
+  const scaleLine = projectionScaleLine(m, capacity?.c.axis);
+  if (scaleLine) {
+    lines.push(scaleLine);
     lines.push('');
   }
 

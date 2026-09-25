@@ -10,6 +10,8 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 
 ## Agent contract
 
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) the pane holds ~13 / ~11 / ~10 lines at a wide @size (~11 / ~10 / ~8 under an eyebrow); past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

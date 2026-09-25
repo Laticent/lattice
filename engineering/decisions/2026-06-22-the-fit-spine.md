@@ -134,6 +134,15 @@ A Frame fitting content to a box has **exactly four** moves. They are ordered;
 each fires only when the cheaper one above is exhausted. This closed list *is* the
 solver's policy — there is no fifth move, and crucially **no shrink move.**
 
+> **Amended 2026-09-25 — STEP.** The list is no longer closed at four. TRIM was admitted
+> by owner ruling (`2026-09-07-overflow-guards-trim.md` §10). STEP sits between SPLIT and
+> TRIM: when a deck asks for a projection font scale (`scale-l` / `scale-xl` /
+> `scale-2xl`), a slide that does not fit at it is taken down the same scale ladder, one
+> rung at a time, and **never below the designed size**. That keeps the "no shrink"
+> ruling below: the floor this section names is scale 1, and STEP stops there. It
+> declines an optional enlargement; it does not shrink past the floor.
+> `2026-09-25-font-scale-fit.md` has the record; `lib/core/scale-fit.js` has the kernel.
+
 | # | Move | Owner | Continuous or discrete | Loses content? |
 |---|---|---|---|---|
 | 1 | **Collapse** — give the Tile a narrower Cell (3-col → 1-col) | Frame slicing (CSS keyed on `data-family`) | continuous (CSS, no churn) | no |
