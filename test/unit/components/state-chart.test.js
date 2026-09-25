@@ -501,10 +501,11 @@ describe('buildStateChart (default)', () => {
 
   test('distinct statuses are decoded by a legend band below the chart', () => {
     assert.match(html, /<ol class="state-legend">/);
-    assert.match(html, /class="state-legend-item" data-s="on-track"><span class="state-dot" data-s="on-track"[^>]*><\/span><span class="state-legend-label">on-track<\/span>/);
-    // One legend entry per DISTINCT status (no duplicates).
-    const seen = [...html.matchAll(/class="state-legend-item" data-s="([^"]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(seen, [...new Set(seen)], 'legend lists each status once');
+    // ONE CHIP PER TONE: `on-track` and `done` paint the same green, so they share a
+    // chip; `live` is running work and takes `info`, so it has its own.
+    const chips = [...html.matchAll(/class="state-legend-item" data-s="([^"]+)"><span class="state-dot" data-s="\1"[^>]*><\/span><span class="state-legend-label">([^<]+)<\/span>/g)]
+      .map((m) => m[2]);
+    assert.deepEqual(chips, ['on-track · done', 'live']);
   });
 
   test('serialises the resolved transition list into data-sc-transitions', () => {
@@ -1415,6 +1416,57 @@ describe('dagre re-ranking (fake DOM)', () => {
   const n = (index, label, kind) => ({ index, label, kind });
   const e = (from, to, event) => ({ from, to, event, isSelf: from === to });
 
+  // A PAIRED EDGE'S LABELS GET THEIR OWN ROOM (followups.d 2355-p3, closed). On `tb`
+  // dagre was told nothing about labels, so `block => 7` beside `unblock => 3` (and
+  // `submit` beside `reject`, `ship` beside `fail`) put two labels in one short
+  // rank gap, on each other and on the nodes. A paired edge now hands dagre its
+  // label box. Boxes are estimated from the anchor the pass emits: a `tb` label
+  // starts at `x` and is one 13px line tall at S = 1.
+  test('a paired edge on a tb dagre machine keeps its labels off each other and the nodes', { skip: !hasDagre }, () => {
+    const r = run({
+      dir: 'tb',
+      nodes: [n(1, 'Draft', 'start'), n(2, 'Review'), n(3, 'In Progress'), n(4, 'QA'), n(5, 'Released'), n(6, 'Closed', 'terminal'), n(7, 'Blocked')],
+      transitions: [e(1, 2, 'submit'), e(2, 3, 'approve'), e(2, 1, 'reject'), e(3, 4, 'ship'), e(3, 7, 'block'),
+        e(4, 5, 'pass'), e(4, 3, 'fail'), e(5, 6, 'close'), e(7, 3, 'unblock')],
+    });
+    assert.equal(r.layout, 'dagre', 'the fixture must be drawn by dagre');
+    const labels = [...r.svg.matchAll(/<text class="state-edge-label"[^>]*x="([-\d.]+)" y="([-\d.]+)" text-anchor="(\w+)"[^>]*>([^<]+)</g)]
+      .map((m) => {
+        const w = m[4].length * 6.6, x = +m[1];
+        const x0 = m[3] === 'start' ? x : m[3] === 'end' ? x - w : x - w / 2;
+        return { t: m[4], x: x0, y: +m[2] - 6.5, w, h: 13 };
+      });
+    const nodes = [...r.svg.matchAll(/<rect class="state-node-shape"[^>]*\bx="([-\d.]+)" y="([-\d.]+)" width="([-\d.]+)" height="([-\d.]+)"/g)]
+      .map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
+    const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    assert.equal(labels.length, 9);
+    for (const a of labels) {
+      for (const b of labels) if (a !== b) assert.ok(!hit(a, b), `"${a.t}" overlaps "${b.t}"`);
+      for (const b of nodes) assert.ok(!hit(a, b), `"${a.t}" overlaps a node`);
+    }
+  });
+
+  // THE TEXT FLOOR READS THE SAME WITH OR WITHOUT `@property`. The token is
+  // `calc(11px * var(--canvas-scale, 1))`, registered so the computed value comes back
+  // as px. An engine that ignores the registration returns the calc() text instead,
+  // and the pass used to read that as NaN and fall back to 11px: on a story-sized
+  // deck the ordinals set at 11px against a 19.2px floor and the self-loop labels
+  // landed on their loops (measured by stripping the rule from the exported HTML).
+  // Both shapes must draw the identical figure.
+  test('the chart-text floor resolves the same registered or not', { skip: !hasDagre }, () => {
+    const spec = { dir: 'tb', nodes: [n(1, 'Draft', 'start'), n(2, 'Review'), n(3, 'Done')],
+      transitions: [e(1, 2, 'submit'), e(2, 2, 'revise'), e(2, 3, 'approve'), e(2, 1, 'reject')] };
+    const drawWith = (value) => {
+      const had = Object.hasOwn(globalThis, 'getComputedStyle');
+      const prev = globalThis.getComputedStyle;
+      globalThis.getComputedStyle = () => ({ getPropertyValue: (k) => (k === '--chart-text-min' ? value : ''), fontSize: '' });
+      try { return run(spec).svg; } finally { if (had) globalThis.getComputedStyle = prev; else delete globalThis.getComputedStyle; }
+    };
+    const registered = drawWith('24.09px');
+    assert.equal(drawWith('calc(11px * 2.19)'), registered);
+    assert.notEqual(drawWith('11px'), registered, 'the fixture must be sensitive to the floor');
+  });
+
   const FAN = {
     dir: 'tb',
     nodes: [n(1, 'Intake', 'start'), n(2, 'Triage'), n(3, 'Fast'), n(4, 'Deep'), n(5, 'Hold')],
@@ -1514,6 +1566,29 @@ describe('dagre re-ranking (fake DOM)', () => {
     });
 
     const LOOPY = chain(8, [e(3, 1, 'reject'), e(3, 3, 'revise'), e(2, 5, 'fast track'), e(7, 3, 'reopen')]);
+
+    // A SELF-LOOP'S LABEL CLEARS ITS OWN ARC. The label used to be centered at a fixed
+    // fraction of the loop's reach off the node's corner, inside the loop's vertical
+    // span, so at 16:9 `revise` touched its arc and on a story-sized portrait deck it
+    // sat on it. Checked in both flows: no arc point under the label's width falls
+    // inside its line box (13px at S = 1, the unscaled `labelLine`).
+    for (const view of [WIDE, TALL]) {
+      test(`a self-loop label sits off its arc (${view === WIDE ? 'wide' : 'tall'} stage)`, () => {
+        const r = run({ ...chain(4, [e(3, 3, 'revise')]), fit: true, view });
+        const loop = r.svg.match(/<path class="state-edge"[^>]*data-self="true" d="([^"]+)"/);
+        const lab = r.svg.match(/<text class="state-edge-label" data-dir="self" x="([-\d.]+)" y="([-\d.]+)"[^>]*>revise</);
+        assert.ok(loop && lab, 'the fixture draws a labeled self-loop');
+        const x = +lab[1], y = +lab[2], halfW = ('revise'.length * 6.6) / 2, halfH = 13 / 2;
+        const c = loop[1].match(/-?\d+(?:\.\d+)?/g).map(Number); // M x y C x1 y1 x2 y2 x y
+        const pts = Array.from({ length: 33 }, (_, i) => {
+          const u = i / 32, v = 1 - u;
+          const at = (k) => v * v * v * c[k] + 3 * v * v * u * c[k + 2] + 3 * v * u * u * c[k + 4] + u * u * u * c[k + 6];
+          return [at(0), at(1)];
+        });
+        const inside = pts.filter(([px, py]) => Math.abs(px - x) <= halfW && Math.abs(py - y) < halfH);
+        assert.deepEqual(inside, [], `arc points inside the label box at ${x},${y}`);
+      });
+    }
 
     test('a wrapped chain keeps every mark and route inside its viewBox', () => {
       const r = run({ ...LOOPY, fit: true, view: WIDE });
@@ -2184,8 +2259,15 @@ describe('dagre re-ranking (fake DOM)', () => {
       }
     });
 
+    // CROWD's long back-edge is PAIRED with `route to echo team` (7 -> 2 beside
+    // 2 -> 7), so on `tb` dagre now reserves its label room and nothing in SPECS
+    // needs the mirror any more. The same crowd with that edge returning to Intake
+    // (unpaired) still does, so the last-resort branch keeps a live witness.
+    const CROWD_UNPAIRED = { ...CROWD,
+      transitions: CROWD.transitions.map((t) => (t.from === 7 && t.to === 2 ? e(7, 1, t.event) : t)) };
+
     test('the far-side mirror is reachable', { skip: !hasDagre }, () => {
-      const anchors = SPECS.flatMap(([, spec]) =>
+      const anchors = [...SPECS, ['CROWD unpaired', CROWD_UNPAIRED]].flatMap(([, spec]) =>
         [...run(spec).svg.matchAll(/<text class="state-edge-label"[^>]*text-anchor="(\w+)"/g)].map((m) => m[1]));
       assert.ok(anchors.includes('end'),
         'no label was mirrored anywhere in the crowded corpus — a `tb` label on the far side anchors `end`, so its absence means the mirror is unreachable and the last-resort branch is dead code');
@@ -2458,4 +2540,50 @@ describe('state-chart parsing stays linear on adversarial author text', () => {
         `${large.toFixed(1)}ms) — that is polynomial backtracking, not linear scanning`);
     });
   }
+});
+
+// The family's chart-text floor rides the deck's type magnitude. At a bare 11px it
+// set every state-chart edge label and ordinal at 0.56% of a story-sized slide's
+// height while the state names took the scaled `--fs-*` size, and the export printed
+// TYPE FLOOR. `@property` keeps the computed value a resolved length, which the fit
+// pass parses with `parseFloat`; an unregistered `calc()` would read back as text.
+describe('chart-text floor follows --canvas-scale', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/_chart-family/chart-family.css'), 'utf8');
+  test('the floor is 11px times the canvas scale, 11px on landscape', () => {
+    assert.match(css, /--chart-text-min:\s*calc\(11px \* var\(--canvas-scale, 1\)\);/);
+  });
+  test('the token is registered as a <length>', () => {
+    assert.match(css, /@property --chart-text-min \{ syntax: "<length>"; inherits: true; initial-value: 11px; \}/);
+  });
+});
+
+// THE THREE TONE TABLES AGREE. The stylesheet paints a status, the browser pass
+// picks the tile's gradient (`STATUS_TONE`) and the legend groups words into chips
+// (`LEGEND_TONE`). If one moved alone, a legend chip would merge two words that no
+// longer paint alike, or a tile would take a gradient its accent does not match.
+describe('state-chart status tones — one mapping, three statements', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '../../../lib/components/chart/state-chart');
+  const js = fs.readFileSync(path.join(root, 'state-chart.transform.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'state-chart.styles.css'), 'utf8');
+  const table = (name) => {
+    const body = js.match(new RegExp(`${name} = \\{([\\s\\S]*?)\\};`))[1];
+    return Object.fromEntries([...body.matchAll(/'?([a-z-]+)'?: '([a-z]+)'/g)].map((m) => [m[1], m[2]]));
+  };
+  const fromCss = {};
+  for (const m of css.matchAll(/\.state-dot\)(:is\([^{]*\)|\[data-s="[a-z-]+"\])\s*\{ --fill-hue: var\(--(?:state-([a-z]+)-hue|muted-mark)\)/g)) {
+    for (const w of m[1].matchAll(/data-s="([a-z-]+)"/g)) fromCss[w[1]] = m[2] || 'mute';
+  }
+  test('the legend table equals the browser pass table', () => {
+    assert.deepEqual(table('LEGEND_TONE'), table('STATUS_TONE'));
+  });
+  test('the stylesheet paints every word the tone the tables name', () => {
+    assert.deepEqual(fromCss, table('STATUS_TONE'));
+  });
+  test('live is running work, not done', () => {
+    assert.equal(table('STATUS_TONE').live, 'info');
+  });
 });

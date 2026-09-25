@@ -719,9 +719,19 @@ section.chart-frame,
    * Used as a floor via `max()`, never a cap: growing with the slide is the
    * whole point of sizing in cqi, so only the small end needs defending.
    * Deliberately NOT named `--fs-*`: the 12-token role scale is closed
-   * (checkTypographyTokens), and this is a minimum, not a role. */
-  --chart-text-min: 11px;
+   * (checkTypographyTokens), and this is a minimum, not a role.
+   *
+   * TIMES `--canvas-scale`, which the engine sets on a portrait or square deck (2.19
+   * on `story`) and leaves unset on landscape, so landscape stays exactly 11px. The
+   * `--fs-*` roles all carry that factor, and this floor did not: on the story-sized
+   * portrait gantt/state-chart deck the state names set at the scaled role size while
+   * every edge label and ordinal sat at the bare 11px, 0.56% of the slide's height,
+   * and the export printed TYPE FLOOR on both state charts. Registered as a
+   * `<length>` below, so `getComputedStyle` hands state-chart's fit pass a resolved
+   * px value rather than the unparsed `calc()` text. */
+  --chart-text-min: calc(11px * var(--canvas-scale, 1));
 }
+@property --chart-text-min { syntax: "<length>"; inherits: true; initial-value: 11px; }
 
 /* .viz-frame merge (2026-07-15-viz-frame-merge.md): the chart chrome (eyebrow + h2 +
  * subtitle) now HOISTS into the standard `.cell-masthead > .masthead-lede` band — charts
@@ -1114,14 +1124,16 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
 
 section.chart-frame .chart-caption {
   flex: 0 0 auto;
-  /* flex column so the ::before hairline centers via align-items and its gap to the
-   * caption text is a `gap`, not the pseudo's `margin: 0 auto var(--sp-sm)` (#20). */
-  display: flex;
-  flex-direction: column;
-  /* The caption is framing text — it follows the headline-alignment seam (`headline:`).
-   * `auto`/no register → the fallback `center` (today's centered caption). */
-  align-items: var(--headline-justify, center);
-  gap: var(--sp-sm);
+  /* BLOCK, not a flex column. A caption is ONE paragraph of inline content — text
+   * runs, `<code>`, `<strong>` — and a flex container makes every one of those runs
+   * its own flex item on its own line: "on `lr` and on `tb`" set as five stacked
+   * blocks, and each block took a line of height out of the chart's stage above it
+   * (measured on the branching deck's long-labels slide: a two-code-span caption
+   * stood 237px tall and left the chart a 98px stage; as one paragraph, 73px and 262px). The
+   * flex column only existed to center the `::before` hairline via `align-items`;
+   * the hairline now paints as a positioned background instead (below), so the
+   * caption stays one inline formatting context and `text-align` places both. */
+  display: block;
   box-sizing: border-box;
   width: 100%;
   margin: 0;
@@ -1134,6 +1146,8 @@ section.chart-frame .chart-caption {
    * at x=64 (was 1024 at x=128) — the same box the chart it captions occupies,
    * which is the point; it moved WITH the chart, not away from it. */
   padding-block: var(--sp-sm);
+  /* The caption is framing text — it follows the headline-alignment seam (`headline:`).
+   * `auto`/no register → the fallback `center` (today's centered caption). */
   text-align: var(--headline-align, center);
   font-family: var(--font-label);
   font-size: var(--fs-meta);
@@ -1144,14 +1158,23 @@ section.chart-frame .chart-caption {
 /* Short hairline above the caption — soft separator between chart and
  * chrome. Matches the header hairline's shape (short + solid); the
  * earlier gradient-fade variant was retired with the lucent-strip
- * header for the same reason: decoration belongs in treatments. */
+ * header for the same reason: decoration belongs in treatments.
+ * The pseudo is a full-width block whose BACKGROUND is the 7.5cqi stroke, placed
+ * at `--headline-align` (left / center / right — all valid background-position
+ * keywords), so it follows the text without a flex parent or a centering margin
+ * (#20). Its `padding-bottom` is the gap the flex column's `gap` used to give. */
 section.chart-frame .chart-caption::before {
   content: '';
   display: block;
-  width: 7.5cqi;
   height: var(--chart-hairline);
+  padding-bottom: var(--sp-sm);
   margin: 0;
-  background: color-mix(in oklab, var(--border) 90%, transparent);
+  background:
+    linear-gradient(
+      color-mix(in oklab, var(--border) 90%, transparent),
+      color-mix(in oklab, var(--border) 90%, transparent)
+    )
+    var(--headline-align, center) top / 7.5cqi var(--chart-hairline) no-repeat;
 }
 
 /* The earlier `.minimal` modifier (no gradient, short hairline) is

@@ -143,8 +143,10 @@ section.head-left { --headline-align: left; --headline-justify: flex-start; }
 /* head-center — the missing lever: center the framing CLUSTER on a layout that lefts by default.
  * The masthead-lede is ALWAYS a flex column (masthead-lede.css) that reads --headline-justify, so
  * its eyebrow + heading + heading-rule <hr> center as one unit automatically; here we only flex the
- * OTHER capped framing containers (the trailing key-insight panel, below-note, chart/diagram
- * caption) so their boxes center on one axis too. `text-align:center` (via --headline-align) only
+ * OTHER capped framing containers (the trailing key-insight panel, below-note) so their boxes
+ * center on one axis too. The chart caption is NOT flexed: it is one inline paragraph, and a flex
+ * box would stack its text runs and `<code>` spans as separate lines; it is full-width, so
+ * `--headline-align` alone places its text and hairline (chart-family.css). `text-align:center` (via --headline-align) only
  * centers TEXT within a box — flexing centers the BOX. The key-insight blockquote carries the SAME
  * body-exclusion guard as its base rule (base.modifiers.css) so head-center never centers a BODY
  * blockquote (quote / math / citation-card / redline / inventory / policy-recommendation / layout-*).
@@ -161,8 +163,7 @@ section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card)
 /* The coda Cell arm — a trailing key insight is harvested into `.cell-coda`, which the
    frame seats beside the stage, so neither arm above reaches it any more. */
 section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-coda > blockquote,
-section:is(.head-center, .head-right) .below-note,
-section:is(.head-center, .head-right) .chart-caption {
+section:is(.head-center, .head-right) .below-note {
   display: flex; flex-direction: column; align-items: var(--headline-justify, flex-start);
 }
 

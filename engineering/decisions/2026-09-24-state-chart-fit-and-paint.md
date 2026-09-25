@@ -221,3 +221,73 @@ Put to the owner, and settled by the owner (2026-09-24):
   and an edge climbing back a line — that crossing is geometry. And a very dense
   channel (the stress deck's incident machine) is legible but busy; a real fix
   would reorder states, which the numbered authoring deliberately does not.
+
+## 6. Follow-up: the portrait type floor (followups.d 2355-p3, closed)
+
+The story-sized `examples/portrait-gantt-statechart.md` printed TYPE FLOOR on both
+state charts: edge labels and ordinals at 10.8px against a 19.2px floor (1% of a
+1920px slide). Three causes, each measured on the export:
+
+1. **The family floor ignored the deck's type magnitude.** `--chart-text-min` was a
+   bare 11px, while every `--fs-*` role carries `--canvas-scale` (2.19 on `story`).
+   It is now `calc(11px * var(--canvas-scale, 1))`, registered with `@property` as a
+   `<length>` so the fit pass still reads px. Landscape leaves `--canvas-scale` unset,
+   so it keeps 11px: all 13 other state-chart decks rendered pixel-identical at this
+   step. The roadmap phase tags on portrait decks read the same token and grow from
+   specks to legible (`autosplit-coverage` pages 21 to 23).
+   **The fit pass does not depend on `@property`.** It reads the token through
+   `readTextMin`, which also evaluates the unregistered `calc(11px * N)` text an
+   engine hands back when it ignores the registration. With the rule stripped from
+   the exported HTML, the previous read fell back to 11px: ordinals at 11px against a
+   19.2px floor, and `revise` and `escalate` on their loops. Now both shapes draw the
+   identical figure (a unit test pins it), and the registered render is pixel-identical.
+2. **The fit pass budgeted sizes at the wrong scale.** The ordinal's floor used
+   the candidate's raw k (2.13), and `applyFit` then clamped the figure to the 1.6x
+   upscale ceiling; `paintK` now takes `min(k, fitCeil)`, the ceiling `applyFit`
+   applies, which moved the ordinals from 18.1px to 24.1px. The label geometry had
+   the mirror-image fault: it assumed a label paints at floor / k, but `applyFit`
+   only raises the floor when it SHRINKS the figure, so on an upscaled chart a label
+   paints at the full floor in drawing units. `labelScaleFor` now uses `min(k, 1)`.
+   On landscape (floor 11px, S = 1) that gives 1 for every k >= 1, exactly as before.
+3. **A larger label landed on its own self-loop.** The self-loop label's center was
+   a fixed fraction of the loop's reach off the node's corner, inside the loop's own
+   vertical span. At 16:9 `revise` already touched its arc; on the portrait deck it
+   sat on it. `selfPeak` now rides the label scale, and `selfLabel` measures the
+   arc's extreme under the label's width and lifts the label just clear of it. The
+   canvas reserves the lifted label's reach (`selfReach`) on both the grid and dagre
+   paths, so a lift cannot leave the drawing (the maker-checker's finding). This
+   moved self-loop labels on 19 landscape pages, each from touching the arc to clear
+   of it. A label-collision probe over all 14 state-chart decks (every edge label
+   against every other label, every line, every node, and the viewBox) counted 30
+   hits on `main` and 16 after; no deck gained one. The 16 left are pre-existing
+   (labels on the column router's lines and the long-labels slide).
+
+## 7. Follow-up: paired edges on a `tb` dagre machine (followups.d 2355-p3, closed)
+
+The machine the follow-up describes (`block => 7` beside `unblock => 3`, with
+`submit`/`reject` and `ship`/`fail` pairs too) drew clean as `lr` and as a fitted
+layout, because the wrapped grid won both. Pinned to `tb` it went to dagre, and the
+probe (`tools/state-chart-label-probe.js`) counted 15 collisions on that one slide:
+labels on nodes, on each other, and on the neighbor's line. dagre was told nothing
+about labels, and `tb` sized the rank gap for one label's height, so both labels of
+a pair landed in one short gap.
+
+- **A paired edge hands dagre its label box.** On `tb` only, and only for node pairs
+  joined by more than one edge. dagre reserves the box on the edge's label rank, and
+  the label is anchored at the point dagre reserved. Reserving for every edge was
+  tried first and rejected: it widened a plain fan-out enough that a wrapped grid
+  out-fit it, and the branching deck's "same machine, stacked" slide sprawled.
+- **The walk sees dagre's lines.** `placeLabel` tested other edges' runs on the grid
+  only. It now gets dagre's segments too, clipping a diagonal to the box
+  (Liang-Barsky) instead of testing its bounding box. On a dagre route only OTHER
+  edges' lines count: a label beside a shallow diagonal always crosses its own line,
+  and counting that sent uncrowded labels wandering.
+
+Result: the probe machine has 0 collisions in all three directions. Across the 14
+state-chart decks the only landscape page that moves is `state-chart-stress` page 15,
+where `finish` comes off the line beside it.
+
+**Measured and left open:** also counting a label's own shallow diagonal takes the
+14 decks from 16 collisions to 5 and reads better on the pages it moves, but it moves
+labels that touch nothing else (`hold`, `a` to `d`), so it breaks the rule that an
+uncrowded label keeps its midpoint. That is a separate call, recorded in `followups.d/`.
