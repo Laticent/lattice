@@ -186,14 +186,12 @@ Four habits. First, read sections instead of whole files. A big design document 
 
 ---
 
-<!-- _class: bar row -->
+<!-- _class: big-number -->
 
-`Context · Measured in tokens, about three quarters of a word each`
+`Context · A quieter test report`
 
-## A quieter test report cut what the agent reads by 99.8 percent.
-
-- Test output, one line per test `657,806`
-- Test output, failures only `1,182`
+- 99.8%
+  - less for the agent to read per test run: 657,806 tokens down to 1,182.
 
 <!--
 This is the biggest single saving we found. Models read and bill in tokens, and a token is roughly three quarters of a word. Our test runner printed a line for every passing test, and the agent read about six hundred and fifty-eight thousand tokens of it on every run. We switched to a report that shows a dot for each pass and full detail only for failures. That brought it down to about twelve hundred. Same tests, same information. When people want to cut agent costs, they usually look at the model first. Look at what your tools print before you do.
@@ -726,20 +724,24 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: glossary -->
 
 `Starter kit · Six terms`
 
 ## Six terms from this talk, in plain words.
 
-| Term | What it means |
-| --- | --- |
-| Context window | Everything the model can see at one moment |
-| Token | A chunk of text, about three quarters of a word |
-| Session | One conversation with an agent, from start to finish |
-| Pull request | A proposed change, waiting for review before it merges |
-| CI, the build | Automated checks that run on every proposed change |
-| Hook | A script the agent tool runs at a fixed moment |
+- CI, the build
+  - Automated checks that run on every proposed change.
+- Context window
+  - Everything the model can see at one moment.
+- Hook
+  - A script the agent tool runs at a fixed moment.
+- Pull request
+  - A proposed change, waiting for review before it merges.
+- Session
+  - One conversation with an agent, from start to finish.
+- Token
+  - A chunk of text, about three quarters of a word.
 
 <!--
 For anyone reading this later, here are the six terms we leaned on most, in plain words.
