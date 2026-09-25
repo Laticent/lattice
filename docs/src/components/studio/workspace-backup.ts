@@ -31,6 +31,7 @@ import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './refer
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene } from './scene-library';
 import { exportStudioState, type ImportSummary, importStudioState, requestSourceFlush, resolvedSources, type StudioExport, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
+import { declaredInflatedBytes, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, readBudget, readBytesBudget } from './zip-limits';
 
 export const WORKSPACE_FORMAT = 'lattice-workspace/1';
 export const WORKSPACE_ZIP_NAME = 'lattice-workspace.zip';
@@ -133,6 +134,20 @@ export async function packWorkspace(now: number): Promise<Blob> {
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
+const BACKUP_TOO_LARGE = 'That workspace backup is too large to restore.';
+
+/**
+ * The most `refdocs.json` may inflate to. Reference docs are the one part of a backup that is
+ * legitimately large: a PDF is capped at 5 MB (`reference-doc.ts`) but the Library holds any
+ * number, and a 5 MB PDF rides as a 6.7 MiB data URL. Measured (2026-09-25, Node, random-byte
+ * PDFs): 8 of them make a 53 MiB file, 36 make 240 MiB and take about 6 s and 1.8 GB to read
+ * and parse. 256 MiB keeps 38 maximum-size docs (far more typical ones) and is half of
+ * Chrome's longest string (about 512 MiB), above which the export could not write the file at
+ * all. A backup between the two exports but will not restore, and nothing warns at export yet
+ * (followups.d/2336 item 17).
+ */
+export const MAX_REFDOCS_BYTES = 256 * 1024 * 1024;
+
 /**
  * Restore a workspace zip into the current browser. Merge-by-default (see
  * importStudioState: nothing local is ever overwritten; diverged decks come
@@ -143,17 +158,42 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	const zip = await JSZip.loadAsync(file);
 	const manifestFile = zip.file('manifest.json');
 	if (!manifestFile) throw new Error('Not a Lattice workspace backup — manifest.json missing.');
-	const manifest = JSON.parse(await manifestFile.async('string')) as WorkspaceManifest;
-	if (manifest.format !== WORKSPACE_FORMAT) throw new Error(`Unsupported backup format: ${manifest.format}`);
 	const stateFile = zip.file('workspace.json');
+	const libraryFile = zip.file('library.zip');
+	const unreadableFile = zip.file('library-unreadable-scenes.json');
+	const refdocsFile = zip.file('refdocs.json');
+
+	// Size caps, BEFORE anything inflates or any state is imported (followups.d/2336 item 15).
+	// A backup is a file from anyone, and a few-KB `workspace.json` can inflate to gigabytes.
+	// Three budgets, because the entries differ by orders of magnitude in what is legitimate:
+	// the text the Studio store wrote shares the 64 MB package cap (it came out of
+	// localStorage, whose quota is 5–10 MB); `library.zip` gets the asset-zip cap that
+	// `unpackBundle` enforces anyway; the reference docs get their own, larger number.
+	// Declared sizes refuse an honest bomb before a byte inflates; the running budgets stop a
+	// liar at the cap (`zip-limits.ts`).
+	const text = [manifestFile, stateFile, unreadableFile];
+	const declared = (entries: unknown[]) => entries.reduce((n: number, e) => n + (e ? declaredInflatedBytes(e) : 0), 0);
+	if (declared(text) > MAX_INFLATED_BYTES || declared([libraryFile]) > MAX_ZIP_BYTES || declared([refdocsFile]) > MAX_REFDOCS_BYTES) throw new Error(BACKUP_TOO_LARGE);
+	const readText = readBudget(BACKUP_TOO_LARGE);
+
+	const manifest = JSON.parse((await readText(manifestFile)) as string) as WorkspaceManifest;
+	if (manifest.format !== WORKSPACE_FORMAT) throw new Error(`Unsupported backup format: ${manifest.format}`);
 	if (!stateFile) throw new Error('Backup is missing workspace.json.');
-	const state = JSON.parse(await stateFile.async('string')) as StudioExport;
+	const state = JSON.parse((await readText(stateFile)) as string) as StudioExport;
 
 	// Parse the asset library BEFORE importing any state: `unpackBundle` refuses an
 	// oversized archive (`zip-limits.ts`), and refusing it after the decks and settings
-	// had already been replaced left a half-restored workspace.
-	const libraryFile = zip.file('library.zip');
-	const parsed = libraryFile ? await unpackBundle(await libraryFile.async('blob')) : null;
+	// had already been replaced left a half-restored workspace. The two side files are read
+	// here too, for the same reason: a refusal after the decks are in is a half restore.
+	const libraryBytes = await readBytesBudget(BACKUP_TOO_LARGE, MAX_ZIP_BYTES)(libraryFile);
+	const parsed = libraryBytes ? await unpackBundle(new Blob([libraryBytes])) : null;
+	const unreadableText = await readText(unreadableFile);
+	const refdocsText = await readBudget(BACKUP_TOO_LARGE, MAX_REFDOCS_BYTES)(refdocsFile);
+	// Parsed here as well, not where they are used: a side file that does not parse must refuse
+	// the restore before the decks are in, not after.
+	const unreadableRows = unreadableText === undefined ? [] : (JSON.parse(unreadableText) as unknown);
+	const refdocRecords = refdocsText === undefined ? [] : (JSON.parse(refdocsText) as unknown);
+	if (!Array.isArray(refdocRecords)) throw new Error('Backup has an unreadable refdocs.json.');
 
 	// A backup is a file, and a file can come from someone else. The themes and components in
 	// it meet the SAME gates as a Library `.zip` import (`import-gate.ts`), one item at a time:
@@ -227,26 +267,18 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// Scenes this version could not read go back exactly as they came out. A restore that put back
 	// only the readable ones would lose them on the round trip — the same defect as the export half,
 	// just one step later.
-	const unreadableFile = zip.file('library-unreadable-scenes.json');
-	if (unreadableFile) {
-		const rows = JSON.parse(await unreadableFile.async('string')) as { record?: unknown }[];
-		for (const row of Array.isArray(rows) ? rows : []) {
-			// Count what was actually STORED. `putUnreadableScene` declines a row with no name or
-			// no object, and incrementing regardless would report "N restored" having written
-			// zero — the same "could not read" / "nothing there" conflation this whole change is
-			// about, one file over.
-			if (await putUnreadableScene(row?.record)) summary.unreadableScenes++;
-		}
+	for (const row of (Array.isArray(unreadableRows) ? unreadableRows : []) as { record?: unknown }[]) {
+		// Count what was actually STORED. `putUnreadableScene` declines a row with no name or
+		// no object, and incrementing regardless would report "N restored" having written
+		// zero — the same "could not read" / "nothing there" conflation this whole change is
+		// about, one file over.
+		if (await putUnreadableScene(row?.record)) summary.unreadableScenes++;
 	}
 
-	const refdocsFile = zip.file('refdocs.json');
-	if (refdocsFile) {
-		const records = JSON.parse(await refdocsFile.async('string')) as RefDocRecord[];
-		for (const rec of records) {
-			// saveRefDoc upserts by name — the same path Library import uses.
-			await saveRefDoc(recordToDoc(rec), rec.addedAt ?? now);
-			summary.refdocs++;
-		}
+	for (const rec of refdocRecords as RefDocRecord[]) {
+		// saveRefDoc upserts by name — the same path Library import uses.
+		await saveRefDoc(recordToDoc(rec), rec.addedAt ?? now);
+		summary.refdocs++;
 	}
 	return summary;
 }

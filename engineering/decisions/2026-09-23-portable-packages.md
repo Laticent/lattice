@@ -708,3 +708,27 @@ it is the record of what was wrong.
     Any other relative or root-relative source is refused. A unit test fails if the engine
     grows a runtime script the list lacks. Measured first: 0 of 377 tracked decks and
     galleries trip it.
+- **Trio follow-up 15, the workspace backup's size caps: done (2026-09-25).**
+  `restoreWorkspace` reads every entry through a running budget (`zip-limits.ts`) and checks
+  each entry's declared size before anything inflates, so an honest bomb is refused at once
+  and a liar is stopped at the cap. Three budgets, because the entries differ by orders of
+  magnitude in what is legitimate: the manifest, `workspace.json` and the unreadable-scenes
+  file share the 64 MB package cap (the state came out of localStorage, whose quota is
+  5–10 MB); `library.zip` is read as bytes under the 25 MB asset-zip cap that `unpackBundle`
+  already enforced on it; `refdocs.json` gets `MAX_REFDOCS_BYTES`, 256 MiB. That number is
+  measured, not guessed: a 5 MB PDF, the reference-doc limit, rides as a 6.7 MiB data URL, so
+  eight make 53 MiB and 36 make 240 MiB, which took about 6 s and 1.8 GB of Node memory to
+  read and parse. 256 MiB holds 38 maximum-size docs and is half of Chrome's longest string
+  (about 512 MiB), above which the export could not have written the file at all. Every read,
+  and the parse of both side files, now happens before any state is imported, so a size
+  refusal, or a `refdocs.json` that does not parse or is not a list, no longer leaves a
+  half-restored workspace. The on-disk file itself is not capped: a large file is not an
+  amplification, and JSZip holds it either way. What the caps do NOT bound is the cost of
+  parsing what they admit, and the band between the restore cap and the export's own ceiling:
+  both are item 17 of the follow-ups file. `workspace-backup.size.test.ts` counts the bytes
+  JSZip actually inflates, so it shows each liar stopped within a chunk of its cap, not only
+  refused, and `docs/e2e/workspace-backup-size.spec.ts` drives the same restore through the
+  real Workspace sheet in Chromium: a 196 KB backup that inflates to 192 MiB is refused in
+  3.7 s with the JS heap at 127 MiB, and a 67 MiB-refdocs backup restores all ten docs; the old code also threw on a liar, but after inflating it in full. It also has the
+  declared-size refusal for each entry, the no-half-restore arms, and a control: a real
+  `packWorkspace` backup with 67 MiB of reference docs still restores.

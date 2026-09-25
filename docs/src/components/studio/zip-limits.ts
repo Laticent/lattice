@@ -74,3 +74,16 @@ export function readBudget(message: string, max: number = MAX_INFLATED_BYTES): (
 		return (await zipRead.readEntryCapped(entry as Parameters<typeof zipRead.readEntryCapped>[0], 'string', budget)) as string;
 	};
 }
+
+/**
+ * The same capped inflate as `readBudget`, for an entry read as BYTES: a nested archive (a
+ * workspace backup's `library.zip`) that `async('blob')` would otherwise inflate in full.
+ */
+export function readBytesBudget(message: string, max: number): (entry: ZipEntry | null | undefined) => Promise<Uint8Array<ArrayBuffer> | undefined> {
+	const budget = { used: 0, max, message };
+	return async (entry) => {
+		if (!entry) return undefined;
+		const { default: zipRead } = await import('../../../../lib/packages/zip-read.js');
+		return (await zipRead.readEntryCapped(entry as Parameters<typeof zipRead.readEntryCapped>[0], 'uint8array', budget)) as Uint8Array<ArrayBuffer>;
+	};
+}
