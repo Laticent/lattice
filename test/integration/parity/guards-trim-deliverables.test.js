@@ -131,6 +131,9 @@ before(async () => {
 
 after(async () => { if (browser) await browser.close(); });
 
+// The deck below still says `guards: strict`, the register's OLD spelling, on purpose: it
+// proves the alias reaches TRIM. The console names the level by its new name, `fit: trim`
+// (engineering/decisions/2026-09-25-fit-policy.md).
 describe('guards: strict — what the deliverable carries, and what the console claims', () => {
   test('an .html DELIVERABLE carries no trim, and the console neither claims one nor hides the clip', async () => {
     const err = render('deliverable.html');
@@ -150,9 +153,9 @@ describe('guards: strict — what the deliverable carries, and what the console 
     }
 
     // THE CONSOLE: says so, and does not claim a cut.
-    assert.match(err, /guards: strict NOT APPLIED/,
+    assert.match(err, /fit: trim NOT APPLIED/,
       'the console must say the guard could not be applied to this deliverable');
-    assert.doesNotMatch(err, /TRIMMED — guards: strict cut text/,
+    assert.doesNotMatch(err, /TRIMMED — fit: trim cut text/,
       'the console claimed a cut that exists in no artifact this run wrote');
 
     // AND THE OVERFLOW LINE DESCRIBES THE FILE. This is the half that made the bug
@@ -172,7 +175,7 @@ describe('guards: strict — what the deliverable carries, and what the console 
     const err = render('sidecar.pdf');
     // The PDF pass really did trim: without this the arm below is a test of a
     // feature that never fired.
-    assert.match(err, /TRIMMED — guards: strict cut text on \d+ slide/,
+    assert.match(err, /TRIMMED — fit: trim cut text on \d+ slide/,
       `anti-vacuity: the PDF pass did not trim, so there is no divergence to declare; stderr:\n${err}`);
     assert.match(err, /sidecar does NOT carry the trim/,
       'the divergence between the two deliverables of one export must be stated, not left silent');
@@ -185,7 +188,7 @@ describe('guards: strict — what the deliverable carries, and what the console 
 
   test('--fluid DOES carry it: the viewer re-measures at open and trims the same page', async () => {
     const err = render('viewer.pdf', '--fluid');
-    const trimmedPages = /TRIMMED — guards: strict cut text on \d+ slide\(s\): pages ([\d, ]+)\./.exec(err);
+    const trimmedPages = /TRIMMED — fit: trim cut text on \d+ slide\(s\): pages ([\d, ]+)\./.exec(err);
     assert.ok(trimmedPages, `anti-vacuity: the PDF pass did not trim; stderr:\n${err}`);
     assert.doesNotMatch(err, /sidecar does NOT carry the trim/,
       'the sidecar warning must not fire for a viewer that does carry the trim');
