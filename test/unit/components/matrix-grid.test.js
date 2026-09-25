@@ -265,9 +265,9 @@ describe('matrix-grid column geometry', () => {
     assert.match(
       selector,
       /section\.matrix-grid:where\(/,
-      'the arm must carry `section.matrix-grid:where(…)`. The figure path has no producer ' +
-        '(matrix-grid is absent from FLOW_CHART_COMPONENTS), so dropping the section half ' +
-        'leaves the arm matching nothing and every narrow family back on the fixed layout',
+      'the arm must carry `section.matrix-grid:where(…)`. The figure half only reaches the ' +
+        'Read · Article re-host (matrix-grid is a FLOW figure since 2026-09-25), so dropping the ' +
+        'section half leaves every narrow family on a SLIDE back on the fixed layout',
     );
   });
 

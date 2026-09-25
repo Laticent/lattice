@@ -202,7 +202,12 @@ section {
    hairline moves `--accent`/`--border`, which this derives from. The opt-in `spectrum-trim: on`
    register (→ section.spectrum-trim) points --spectrum-structure at --spectrum to flow the deck's
    full gradient onto the structure too. Design-trio treatment refinement — see
-   2026-07-16-spectrum-structure-default.md. */
+   2026-07-16-spectrum-structure-default.md.
+   `:root` too, for content that sits OUTSIDE any slide: a chart re-hosted as a figure in Read ·
+   Article has no `section` above it, so its header rail read an undefined token and painted
+   nothing (followups.d/2344-p2-chart-paints-lost-in-read-article.md, cause 2). On a slide the
+   `section` declaration is nearer and still wins, so nothing on a slide moves. */
+:root,
 section {
   --spectrum-quiet: color-mix(in oklab, var(--accent) 60%, var(--border));
   --spectrum-structure: linear-gradient(var(--spectrum-quiet), var(--spectrum-quiet));

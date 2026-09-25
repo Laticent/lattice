@@ -176,6 +176,14 @@ change owing a demo deck under HARD RULE #9. Declaring `none` records the gap in
 point is not that every chart re-hosts; it is that every chart SAYS** — and the difference
 between "declares no producer" and "was forgotten" is the entire subject of this note.
 
+**Update 2026-09-25: `matrix-grid` is `flow` now.** `check:render`'s copy-parity pass found
+Read · Article flattening the grid to a plain table and dropping the filled vs outlined cell
+marks, which carry meaning. The kind changed to `flow`, so the whole `.chart-body` re-hosts
+into `figure.matrix-grid` the way roadmap's does, and the demo deck
+`examples/read-article-chart-paints.md` shows it
+(`followups.d/2344-p2-chart-paints-lost-in-read-article.md`; `2026-09-24-one-style-delivery-spine.md`).
+`scene` is still `none`.
+
 `scene` (imagery) is the second `none`, found by the checker when the gate widened past the
 chart bucket. It renders an inline palette-blind SVG, so it plainly has a visual, and it was
 never in `MEDIA_COMPONENTS` — a pre-existing gap of exactly matrix-grid's shape. Declaring
