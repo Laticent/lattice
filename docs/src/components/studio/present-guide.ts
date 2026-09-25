@@ -2050,6 +2050,21 @@ function namedByHeadline(el: Element): boolean {
 	return [...contentKeys(said).keys()].some((k) => headKeys.has(k) && !/\p{N}/u.test(k));
 }
 
+/** The authored focus unit `el` belongs to, as a key, or null: a series or mark index for chart
+ *  marks (every twin shares it), the whole call-out for a block that merely CONTAINS focus, else
+ *  the `.lat-focus` element itself. */
+function authoredUnit(el: Element): string | Element | null {
+	const focus = authoredFocusOf(el);
+	// A CONTAINER of the call-out — each row under `_focus: col 5` holds one focused cell — is
+	// part of one moment: the column. Without this every row's sentence won an exempt gesture.
+	if (!focus.self) return focus.inner ? `holds:${el.closest('section')?.getAttribute('data-focus') ?? ''}` : null;
+	const series = el.closest('[data-series]')?.getAttribute('data-series');
+	if (series != null && el.closest('.lat-focus[data-series]')) return `series:${series}`;
+	const mark = el.closest('[data-mark]')?.getAttribute('data-mark');
+	if (mark != null && el.closest('.lat-focus[data-mark]')) return `mark:${mark}`;
+	return el.closest('.lat-focus');
+}
+
 export type SlidePlan = {
 	/** Cue indices that gesture: the first cue naming each chosen target. */
 	gesture: Set<number>;
@@ -2068,16 +2083,21 @@ export type SlidePlan = {
  * (the preset's minimum salience after the first gesture) lets it.
  */
 export function planSlide(texts: readonly string[], aim: (text: string) => Element | null, budget: number, floor = 0): SlidePlan {
-	const first = new Map<Element, number>();
+	// One entry per MOMENT. An authored focus unit is one moment however many elements carry it:
+	// `_focus: series 3` tags every dot of the series, and a narration that reads the series point
+	// by point would otherwise spend seven budget-exempt gestures on one call-out (measured on
+	// examples/focus-chart-marks.md slide 7 before this).
+	const first = new Map<Element | string, { el: Element; cue: number }>();
 	const aimed = new Set<number>();
 	texts.forEach((t, i) => {
 		const el = t ? aim(t) : null;
 		if (!el) return;
 		aimed.add(i);
-		if (!first.has(el)) first.set(el, i);
+		const key = authoredUnit(el) ?? el;
+		if (!first.has(key)) first.set(key, { el, cue: i });
 	});
-	const ranked = [...first.entries()]
-		.map(([el, cue]) => ({ cue, score: salience(el) }))
+	const ranked = [...first.values()]
+		.map(({ el, cue }) => ({ cue, score: salience(el) }))
 		.sort((a, b) => b.score - a.score || a.cue - b.cue);
 	// The top moment always gestures, so a slide of plain prose still gets one move; after it, a
 	// moment has to clear the preset's floor, and authored focus clears everything.

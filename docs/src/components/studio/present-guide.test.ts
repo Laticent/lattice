@@ -263,6 +263,25 @@ describe('planSlide — the salience budget', () => {
 		expect(plan.top).toBe(1);
 	});
 
+	it('counts an authored series as one moment, not one per point', () => {
+		const d = doc(`<div class="chart-body"><svg>
+			<circle class="lat-focus" data-series="2" data-label="Q1" data-value="1.2"/>
+			<circle class="lat-focus" data-series="2" data-label="Q2" data-value="1.6"/>
+			<circle class="lat-focus" data-series="2" data-label="Q3" data-value="2.3"/></svg></div>`);
+		const dots = [...d.querySelectorAll('circle')];
+		const plan = planSlide(['a', 'b', 'c'], (t) => dots['abc'.indexOf(t)], 2, 1);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('counts the rows of a focused column as one moment', () => {
+		const d = new DOMParser().parseFromString(`<section data-focus="col 2"><table><tbody>
+			<tr><td>Speed</td><td class="lat-focus">yes</td></tr><tr><td>Audit</td><td class="lat-focus">no</td></tr>
+			<tr><td>Adoption</td><td class="lat-focus">yes</td></tr></tbody></table></section>`, 'text/html');
+		const rows = [...d.querySelectorAll('tr')];
+		const plan = planSlide(['a', 'b', 'c'], (t) => rows['abc'.indexOf(t)], 2, 1);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
 	it('gestures only on the first cue that names a target', () => {
 		const d = doc('<p>Growth held. Margins rose to 40%.</p>');
 		const plan = planSlide(['Growth held.', 'Margins rose to 40%.'], aimIn(d), 4);
