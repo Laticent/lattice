@@ -55,6 +55,7 @@ import {
 	resolvePrintSheet,
 } from '../../../lib/core/print-sheet.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
@@ -123,6 +124,9 @@ function fitAgent(gap, clamp) {
 		'    var SW=window.__SLIDE_W||1280, SH=window.__SLIDE_H||720, GAP=' + gap + ';',
 		'    var secs=lattice.querySelectorAll(":scope>section");',
 		'    var sc=w/SW;',
+		// The engine's slide EDGE needs one number: slide-percent per screen pixel (100 / the
+		// slide's on-screen width). Only when the builder asked for an edge (`slideEdge`).
+		'    if(window.__SLIDE_EDGE) lattice.style.setProperty("--slide-edge-k", String(100/w));',
 		'    for(var i=0;i<secs.length;i++){var s=secs[i];',
 		'      s.style.transformOrigin="top left";',
 		'      s.style.transform="scale("+sc+")";',
@@ -131,8 +135,9 @@ function fitAgent(gap, clamp) {
 		// Clamp the filmstrip to the scaled-content height and CLIP the tail the
 		// last slide leaves: transform scales the paint, not the layout box, so the
 		// final 1280xSH section keeps its full-height box and would otherwise spill
-		// ~SH*(1-sc) of dead scroll space below the deck. overflow-clip-margin lets
-		// the slide drop-shadow still bleed past the clip edge.
+		// ~SH*(1-sc) of dead scroll space below the deck. The slide frame is a filter on
+		// `.lattice` itself, which its own overflow clip never clips; the clip margin is
+		// kept for any author content that paints past a slide's box.
 		clamp
 			? '    if(secs.length){lattice.style.height=(secs.length*SH*sc+(secs.length-1)*GAP)+"px";lattice.style.overflow="clip";lattice.style.overflowClipMargin="40px";}'
 			: '',
@@ -312,10 +317,12 @@ export function buildSrcdoc({
 	contentVisibility = false,
 	cursor = false,
 	activeOutline = null, // accent color string, or null
-	// A HAIRLINE EDGE ON EVERY SLIDE, opt-in, as a CSS color string.
+	// A 1px EDGE ON EVERY SLIDE, opt-in. The ENGINE draws it (base.modifiers.css, "The slide's
+	// EDGE") in the deck's own --border, so it tracks palette and mode and leaves the spectrum
+	// whole; this flag only makes the FIT agent tell the engine the on-screen scale.
 	//
-	// The drop shadow below is the only thing separating a slide from its surround, and it
-	// is BLACK — which works on a light ground and disappears on a dark one. The Playground
+	// The lift shadow is otherwise the only thing separating a slide from its surround, and
+	// it is BLACK — which works on a light ground and disappears on a dark one. The Playground
 	// letterboxes the filmstrip in the pane's `--bg-alt` on purpose (see playground-engine:
 	// matching the iframe body to the pane means the fade-in has no color shift), and in a
 	// palette where a slide's own background lands near `--bg-alt` the two are simply the
@@ -323,17 +330,11 @@ export function buildSrcdoc({
 	// rgb(30,26,21), border `0px none`, and the only separation a 22%-black shadow nobody
 	// can see. Reported from a real iPhone — "the slide blends into the background".
 	//
-	// OPT-IN, defaulting off, and that is the whole reason it is a parameter rather than an
-	// edit to `sectionRule`. This builder also assembles the PRINT document and the export
-	// capture frame (`deck-export.js`), so a change to the shared rule would alter exported
-	// bytes and owe a sign-off. Off by default, every existing caller is byte-identical.
-	//
-	// Pass a color, not a boolean, so the ring is the DECK's — `var(--border, …)` resolves
-	// against the theme inside the srcdoc, so it tracks palette and mode without this file
-	// knowing either. The fallback is not decoration: an undefined custom property makes the
-	// whole `box-shadow` declaration invalid at computed-value time, which would drop the
-	// drop shadow too and leave the slide worse off than before.
-	slideEdge = /** @type {string|null} */ (null),
+	// OPT-IN, defaulting off. This builder also assembles the PRINT document (the engine
+	// zeroes the edge under `@media print`) and the export capture frame (`deck-export.js`
+	// zeroes it on the captured section), so the edge cannot reach an exported artifact.
+	// Any truthy value turns it on; callers pass the old color string, which is now ignored.
+	slideEdge = /** @type {string|boolean|null} */ (null),
 	printRules = false,
 	// { paper, orientation, fit } for buildPrintCss (undefined → auto). Structural type
 	// so a caller's PrintOptions (which also carries `color`) is assignable.
@@ -394,12 +395,20 @@ export function buildSrcdoc({
 		'.lattice>section{display:block;transform-origin:top left;' +
 		(cursor ? 'cursor:pointer;' : '') +
 		(contentVisibility ? 'content-visibility:auto;contain-intrinsic-size:' + gw + 'px ' + gh + 'px;' : '') +
-		'box-shadow:' + (slideEdge ? '0 0 0 1px ' + slideEdge + ',' : '') + '0 8px 30px rgba(0,0,0,.22);border-radius:6px;}';
+		'}' +
+		// THE SLIDE FRAME (lib/core/slide-frame.mjs). The EDGE is the engine's (a 1px keyline in
+		// the deck's --border, base.modifiers.css) and needs only the on-screen scale, which the
+		// FIT agent stamps when `slideEdge` asks for it. The LIFT rides the CONTAINER, not the
+		// section: this frame used to give every slide a 6px radius and a box-shadow of its
+		// own, so a square deck previewed rounded — and a `corners-rounded` section's
+		// `clip-path` clips its own box-shadow away. A drop-shadow on `.lattice` traces each
+		// slide's painted outline instead, square or rounded.
+		'.lattice{filter:' + slideFrameFilter('card') + ';}';
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
 	const printCss = printRules ? buildPrintCss(gw, gh, printOpts) : '';
-	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';';
+	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';' + (slideEdge ? 'window.__SLIDE_EDGE=1;' : '');
 	// srcdoc (a fresh browsing context per write), NOT doc.open()/write()/close():
 	// the latter keeps the iframe window, so lattice-runtime.js's one-shot Mermaid
 	// bootstrap guard survives and every later render short-circuits the runtime —

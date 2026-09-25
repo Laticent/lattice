@@ -10,6 +10,7 @@
 // the Fabricate studio. It is ADDITIVE — it does not touch the shipped Drawing
 // Board / Playground; the engine is loaded on demand exactly as those do.
 import '../styles/landing.css';
+import { slideFrameShadow } from '../../../lib/core/slide-frame.mjs';
 import StudioIsland from '../components/studio/StudioIsland.tsx';
 import { packVocabNames } from '../components/studio/lint-vocab-names';
 import { StudioActivityRailSkeleton, StudioChromeSkeleton, StudioEditorPaneSkeleton, StudioPreviewBarSkeleton, StudioPreviewFooterSkeleton } from '../components/studio/StudioChromeSkeleton.tsx';
@@ -318,8 +319,10 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
    letterboxes correctly for ANY aspect — a square/portrait deck binds on height on a wide
    viewport, a landscape deck binds on width on a phone. Mirrors the app's newcomer boot (the
    Read stop's full-bleed preview). The letterbox bands are flat shell background — never
-   Nacre — the invariant that kills the bleed. */
-#studio-ssr-shell .ssr-slidebox{position:relative;width:min(100cqw, calc(100cqh * var(--sb-ar, 1.7778)));aspect-ratio:var(--sb-ratio, 16 / 9);box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
+   Nacre — the invariant that kills the bleed. The box is the SAME slide frame the live preview
+   box wears (lib/core/slide-frame.mjs), so the hand-off does not snap from a rounded 8px card
+   to the deck's own corner. */
+#studio-ssr-shell .ssr-slidebox{position:relative;width:min(100cqw, calc(100cqh * var(--sb-ar, 1.7778)));aspect-ratio:var(--sb-ratio, 16 / 9);box-shadow:${slideFrameShadow('card')};overflow:hidden;}
 /* RECT-REPLAY mode: a returning visitor's seed script (below) resolved the app's OWN last
    preview-box rect from localStorage and set --sb-* to px in the CURRENT viewport. Position
    the box ABSOLUTELY at that rect (its containing block is the position:fixed shell = the

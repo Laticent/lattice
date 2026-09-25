@@ -24,8 +24,11 @@ import { hasMermaid } from './slide-thumb';
 
 function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; slideIndex: number; slideCount: number; slideMarkdown: string; mermaid: boolean; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
 	return (
-		<button type="button" onClick={onClick} aria-current={current ? 'true' : undefined} aria-label={label} className={cn('group relative overflow-hidden rounded-xl border-2 bg-card text-left transition-colors', current ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]')}>
-			{/* An empty box; the pixels arrive from a pooled frame positioned over it. The frame is
+		<button type="button" onClick={onClick} aria-current={current ? 'true' : undefined} aria-label={label} className={cn('group relative text-left outline outline-2 outline-offset-[3px] transition-[outline-color]', current ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}>
+			{/* The tile IS the slide: no card, radius or border of its own, so a square deck shows
+			    square tiles and a rounded deck rounded ones (the pool draws the slide frame —
+			    docs/src/lib/slide-frame.ts). Current and hover are an offset outline around it.
+			    An empty box; the pixels arrive from a pooled frame positioned over it. The frame is
 			    pointer-events:none either way — it is a separate document that would otherwise
 			    swallow this button's click. */}
 			<PooledThumbFace options={options} sample={sample} slideIndex={slideIndex} slideCount={slideCount} slideMarkdown={slideMarkdown} mermaid={mermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full" />
@@ -65,7 +68,9 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 			{/* The scroller and the grid are two elements now, with the pool's frame layer between
 			    them: the layer is `absolute inset-0` over the SCROLL CONTENT, so it scrolls with the
 			    tiles natively and a slot's offset from its tile never has to be re-synced. */}
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 sm:px-6">
+			{/* `pt-2`: the current tile's ring sits 3px OUTSIDE the slide (an offset outline, since
+			    the tile has no card of its own), so the scroller needs room above the first row. */}
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-2 sm:px-6">
 				<PreviewPool>
 					<div className="grid auto-rows-min grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
 						{set.map((s, i) => (

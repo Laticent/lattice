@@ -405,13 +405,14 @@ code {
 .pg-preview-wrap,
 .studio-preview-host { position: relative; }
 
-/* Single-slide preview iframe (Studio DeckPreview, landing showcases, specimens):
-   an <iframe> is OPAQUE WHITE by default until its srcdoc paints — a white flash on a
-   cold load, worst on iOS Safari where the iframe fills before its content renders.
-   Give it the brand background so that gap is on-brand, never white; the slide's own
-   canvas is `--bg` too, so this also underlies any transparent slide area seamlessly. */
+/* Single-slide preview iframe (Studio DeckPreview, landing showcases, specimens): the
+   element paints NOTHING of its own. The slide frame (lib/core/slide-frame.mjs) traces the
+   slide's painted outline, and an opaque element background here would make every slide a
+   rectangle to it — a rounded deck would get a square edge with the app's `--bg` in its
+   corners. The cold-load white flash this fill once guarded is handled by
+   single-slide-render, which keeps the frame at `opacity:0` until its slide has painted. */
 iframe.live {
-	background: var(--bg);
+	background: transparent;
 }
 
 @media (prefers-reduced-motion: no-preference) {

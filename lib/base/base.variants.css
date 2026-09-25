@@ -108,11 +108,13 @@ section.tone-skip { --tone-color: var(--muted-mark); }
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
   --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
+  /* The rail is the left edge, so the engine keyline yields there (base.modifiers.css). */
+  --_edge-l: 0;
 }
 /* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
    drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
 section.tone-rail { --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); }  /* left rail (explicit) */
-section.tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); }  /* full inset ring */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); --_edge-t: 0; --_edge-r: 0; --_edge-b: 0; }  /* full inset ring — it is the edge on every side, so no keyline draws */
 
 /* `tone: edge` RECOLORS the spectrum brand bar (the top border) with the tone color,
    rather than painting a SEPARATE top band that would fight it — the same move the
@@ -124,6 +126,9 @@ section.tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi))
    engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
   --tone-rail: 0 0 transparent;   /* no box-shadow band — the recolored border carries the tone */
+  --_edge-t: 0;                   /* the tone bar is the top edge, even under `spectrum: off` */
+  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
+  --_edge-l: 1;                   /* …and the rail is gone, so the left keyline returns */
   border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--tone-color); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image: none;
 }
@@ -254,6 +259,8 @@ section.spectrum-mono  { --spectrum-style: var(--sp-fill-mono-h);  --spectrum-st
    set (the EDGE rules own the bar then) and on the divider (its --spectrum-vertical left rail
    already follows the style). */
 section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]) {
+  --_edge-t: 0; /* the bar is the top edge — the engine keyline yields to it (base.modifiers.css) */
+  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
   border-image-source: var(--spectrum-bar);
   border-image-slice: 1;
@@ -264,7 +271,7 @@ section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([cl
    --spectrum-structure — quiet by default, or the deck's spectrum under `spectrum-trim: on` —
    so `off` neither adds nor removes a structural rule; the two axes are independent
    (2026-07-03-spectrum-register-white-label.md, 2026-07-16-spectrum-structure-default.md). */
-section.spectrum-off { border-top: none; }
+section.spectrum-off { border-top: none; --_edge-t: 1; --_bar-t: 0px; }
 /* CLEAR THE BAR, NOT THE CANVAS (#2291). These two used to say `background: var(--bg)` and
  * `background: var(--surface-inverse)` -- the shorthand, chosen because it resets every
  * longhand at once, which is what clearing `section.dark`'s hairline or the divider's rail
@@ -298,12 +305,14 @@ section.dark.spectrum-off {
   background-position: 0% 0%;
   background-size: auto;
   background-repeat: repeat;
+  --_edge-t: 1; /* the top line (and an accent stripe) is gone, so the keyline draws the top edge */
 }
 section.divider:not(.light).spectrum-off {
   background-image: none;
   background-position: 0% 0%;
   background-size: auto;
   background-repeat: repeat;
+  --_edge-l: 1; /* the rail is gone, so the engine keyline draws the left edge again */
 }
 
 /* EDGE — move the section-edge bar to a chosen side (per-side border-image, export-safe).
@@ -313,17 +322,25 @@ section.divider:not(.light).spectrum-off {
    The deck-wide "no bar" value (`spectrum-edge: off`) still clears the divider rail below. */
 section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off) {
   border-top: none;
+  --_edge-t: 1;
+  --_bar-t: 0px;
 }
 section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom):not(.divider) { border-image-slice: 1; }
 section.spectrum-edge-left:not(.divider) {
+  --_edge-l: 0; /* the rail is the left edge */
+  --_bar-l: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-left: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid; /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image-source: var(--spectrum-bar-vertical);
 }
 section.spectrum-edge-right:not(.divider) {
+  --_edge-r: 0;
+  --_bar-r: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-right: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
   border-image-source: var(--spectrum-bar-vertical);
 }
 section.spectrum-edge-bottom:not(.divider) {
+  --_edge-b: 0;
+  --_bar-b: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-bottom: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
   border-image-source: var(--spectrum-bar);
 }
@@ -337,6 +354,7 @@ section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom
   background-position: 0% 0%;
   background-size: auto;
   background-repeat: repeat;
+  --_edge-t: 1; /* the top line (and an accent stripe) is gone, so the keyline draws the top edge */
 }
 /* the divider's default is a left rail; edge:off clears it deck-wide. */
 section.divider:not(.light).spectrum-edge-off {
@@ -344,6 +362,7 @@ section.divider:not(.light).spectrum-edge-off {
   background-position: 0% 0%;
   background-size: auto;
   background-repeat: repeat;
+  --_edge-l: 1; /* the rail is gone, so the engine keyline draws the left edge again */
 }
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */

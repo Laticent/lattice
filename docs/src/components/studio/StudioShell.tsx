@@ -24,7 +24,6 @@ import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/to
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
-import { cornerRadiusCss } from '@/lib/deck-corner';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -34,6 +33,7 @@ import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
+import { slideFrameShadow } from '@/lib/slide-frame';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
@@ -1052,10 +1052,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return () => clearTimeout(t);
 	}, [dismissSsrShell]);
 	const previewBoxRef = React.useRef<HTMLDivElement>(null);
-	// The deck's own corner as a FRACTION of the slide's width, measured off the live render
-	// by DeckPreview and published only on change (so not per keystroke). `0` is a square
-	// deck: the default, and every deck predating the `corners:` register.
-	const [deckCorner, setDeckCorner] = React.useState(0);
 
 
 	// Dismiss the instant-shell when the editor preview first renders (its own Nacre loader
@@ -4679,21 +4675,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    drag capped. The letterbox math below already bounds growth (paneH × ratio),
 				    so removing the cap outright is what makes the drag continuous in BOTH
 				    directions without reintroducing the gutter it was added to prevent. */}
-				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden bg-background',
-					// On an iPhone in landscape the slide is the whole show — drop the card border
-					// + shadow. Elsewhere keep the full card.
-					//
-					// The CORNER is no longer a `rounded-xl` this box picks for itself. It used to
-					// be, and that was the defect (#1649): a fixed 12px of the STUDIO's chrome
-					// clipped over a slide the engine renders square, so the preview showed a corner
-					// the exported deck does not have, painted in the app's palette rather than the
-					// deck's — most obvious when the two themes disagree. The engine owns the slide's
-					// corner now (`corners:` front matter), and this box follows what the RENDER
-					// reports (docs/src/lib/deck-corner.ts) rather than re-deriving it from the
-					// source — a source reader cannot see a per-slide `_class: corners-square`, a
-					// deck-wide `class:` opt-in, or a theme's own `--slide-radius`, and would clip
-					// this box over a slide the engine drew square.
-					landscapePhone ? '' : 'border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]')}
+				{/* THE SLIDE FRAME (docs/src/lib/slide-frame.ts): this box never shapes the slide.
+				    No radius, border or background of its own. The ENGINE draws the slide's edge
+				    (a 1px keyline in the deck's --border, following its own corner and leaving the
+				    spectrum whole); this box adds only the lift shadow. A fixed
+				    `rounded-xl` here once rounded every square deck (#1649); copying a measured
+				    radius back fixed that but needed a timing backoff and reached two of a dozen
+				    hosts. On an iPhone in landscape the slide is the whole show, so the frame
+				    drops to nothing. */}
+				<div ref={previewBoxRef} data-slide-frame className="pointer-events-none relative overflow-hidden"
 					// CONTAIN to a clean deck-ratio (usually 16:9) box. Width = the SMALLER of the
 					// pane's measured width and its height-derived width (paneH × ratio) — see
 					// `previewPaneSize` above for why this is JS-measured, not `cqh`. So it fits
@@ -4709,11 +4699,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						width: previewPaneSize
 							? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px`
 							: '100%',
-						// The box and the slide inside it are clipped to ONE shape. A percentage pair
-						// against THIS box's aspect, so the corner is circular and holds its
-						// proportion at every split position; `0px` — a hard corner — whenever the
-						// deck is square, which is the default and every deck predating the register.
-						borderRadius: cornerRadiusCss(deckCorner, previewRatioValue),
+						boxShadow: landscapePhone ? 'none' : slideFrameShadow('card'),
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
 					    measure-and-track controller). Being a normal layout child, the browser keeps
@@ -4731,7 +4717,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
 			</div>

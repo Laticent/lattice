@@ -266,3 +266,17 @@ describe('an author cannot collide with the berth, in either direction', () => {
     assert.notEqual(once, withDecoy, 'and the decoy did not stop the first pass');
   });
 });
+
+test('a slide berthed BEFORE the edge berth existed gains only the edge, never a second marker set', () => {
+  // `hasBerth` matches the whole block, and the block grew a `.slide-edge`. A slide string
+  // berthed by the previous engine ends with the OLD block; re-berthing it must add the one
+  // missing element rather than a duplicate overflow / illegible / fix-me set.
+  const fb = require('../../../lib/core/fit-berth');
+  const edge = '<div class="slide-edge" data-lattice-berth aria-hidden="true"></div>';
+  assert.ok(fb.BERTH_HTML.endsWith(edge), 'the edge berth is the last one');
+  const oldBlock = fb.BERTH_HTML.slice(0, -edge.length);
+  const once = fb.applyToHtml(`<section data-lattice-slide="1"><h1>x</h1>${oldBlock}</section>`);
+  assert.equal(once.split('overflow-tab').length - 1, 1, 'no second overflow tab');
+  assert.equal(once.split('slide-edge').length - 1, 1, 'the edge berth was added once');
+  assert.equal(fb.applyToHtml(once), once, 'and the result is idempotent');
+});

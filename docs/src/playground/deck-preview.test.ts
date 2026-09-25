@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
 import { buildSrcdoc, fitSlideOnSheet, nUpCells, nUpGrid, resolvePrintSheet } from './deck-preview.js';
 
 // The filmstrip srcdoc must inject the heavy third-party assets ONLY when the deck
@@ -22,28 +23,30 @@ describe('buildSrcdoc — the slide edge', () => {
 	// — every palette, not one — against 10.3-19.3 in light. Reported from a real iPhone.
 	const html = '<section id="1"><h1>Hi</h1></section>';
 
-	it('is OFF by default, so the print and export documents are byte-identical', () => {
-		// The whole reason this is a parameter and not an edit to the shared `sectionRule`:
-		// this builder also assembles the print document and the export capture frame
-		// (`deck-export.js`), where a changed rule would alter exported bytes.
+	it('is OFF by default: the frame is the lift alone, and the engine edge gets no scale', () => {
+		// This builder also assembles the print document and the export capture frame
+		// (`deck-export.js`), so the edge stays opt-in. The edge itself is the ENGINE's
+		// (base.modifiers.css) and only draws once a host hands it --slide-edge-k.
 		const doc = buildSrcdoc({ ...base, html });
-		expect(doc).toContain('box-shadow:0 8px 30px rgba(0,0,0,.22)');
-		expect(doc).not.toContain('0 0 0 1px');
+		expect(doc).toContain(`.lattice{filter:${slideFrameFilter('card')};}`);
+		expect(doc).not.toContain('window.__SLIDE_EDGE=1');
 	});
 
-	it('draws a hairline ring in front of the drop shadow when asked', () => {
+	it('hands the engine its on-screen scale when asked, so the deck draws its own edge', () => {
+		// The FIT agent stamps slide-percent-per-screen-pixel (100 / width) — the one number
+		// the engine's keyline needs to stay a true 1px through the scale.
 		const doc = buildSrcdoc({ ...base, html, slideEdge: 'var(--border, red)' });
-		expect(doc).toContain('box-shadow:0 0 0 1px var(--border, red),0 8px 30px rgba(0,0,0,.22)');
+		expect(doc).toContain('window.__SLIDE_EDGE=1');
+		expect(doc).toContain('--slide-edge-k');
 	});
 
-	it('takes a COLOR, so the ring resolves against the deck theme rather than this file', () => {
-		// Passing a color rather than a boolean is what lets the ring track palette AND mode
-		// without this module knowing either — `var(--border)` resolves inside the srcdoc.
-		// The fallback in the caller's value is load-bearing: an undefined custom property
-		// invalidates the WHOLE `box-shadow` at computed-value time, which would drop the
-		// drop shadow too and leave the slide worse off than with no ring at all.
+	it('never shapes the slide: no radius, border or box-shadow on the section', () => {
+		// The engine owns the corner (`corners:`). A frame radius here rounded every slide
+		// of a square deck, and a section box-shadow is clipped away by a rounded slide's
+		// own clip-path.
 		const doc = buildSrcdoc({ ...base, html, slideEdge: 'rgb(1,2,3)' });
-		expect(doc).toContain('0 0 0 1px rgb(1,2,3),');
+		const rule = doc.match(/\.lattice>section\{[^}]*\}/)?.[0] ?? '';
+		expect(rule).not.toMatch(/border-radius|box-shadow/);
 	});
 });
 

@@ -87,6 +87,33 @@ const resolved = (promise) => {
 };
 
 describe('preview font gate — the agent', () => {
+	it('reports faces that land AFTER the backstop revealed, once, and never faces that landed in time', async () => {
+		// The backstop reveals a document whose faces are still in flight (a slow phone link),
+		// and their arrival re-lays the text out in front of the reader. The agent says so with
+		// `lattice:fonts-late`, which single-slide-render answers with a fade through the relayout.
+		let land;
+		const ready = new Promise((r) => {
+			land = r;
+		});
+		const host = runAgent(fontGateAgent(), { fonts: { ready } });
+		const events = [];
+		host.win.dispatchEvent = (e) => events.push(e.type);
+		host.advance(PREVIEW_FONT_GATE_MS);
+		assert.equal(host.win.__latticeFontsSettled, true, 'the backstop revealed');
+		land();
+		await resolved(ready);
+		assert.equal(host.win.__latticeFontsLate, true, 'late faces are flagged');
+		assert.deepEqual(events, ['lattice:fonts-late'], 'and announced exactly once');
+
+		const inTime = runAgent(fontGateAgent(), { fonts: { ready: Promise.resolve() } });
+		const quiet = [];
+		inTime.win.dispatchEvent = (e) => quiet.push(e.type);
+		await resolved(Promise.resolve());
+		inTime.advance(PREVIEW_FONT_GATE_MS);
+		assert.equal(inTime.win.__latticeFontsLate, undefined, 'faces that beat the backstop are not late');
+		assert.deepEqual(quiet, []);
+	});
+
 	it('publishes a promise that resolves once the document fonts settle', async () => {
 		const host = runAgent(fontGateAgent(), { fonts: { ready: Promise.resolve() } });
 		assert.ok(host.win.__latticeFontsReady, 'the agent must publish window.__latticeFontsReady');

@@ -66,6 +66,8 @@ section.topic {
 
   box-sizing: border-box;
   border-top: none;
+  --_edge-t: 1; /* no top bar, so the engine keyline draws the top edge (base.modifiers.css) */
+  --_bar-t: 0px;
   display: flex;
   flex-direction: column;
   justify-content: safe center;

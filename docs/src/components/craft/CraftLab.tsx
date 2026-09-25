@@ -175,7 +175,8 @@ export function CraftLab({
 					extraTheme={extraTheme}
 					extraCss={extraCss}
 					modeOverride={mode}
-					className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]"
+					frame="tile"
+					className="relative aspect-video w-full overflow-hidden"
 					aria-label={`${label} — live preview`}
 				/>
 			</div>

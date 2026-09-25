@@ -528,7 +528,8 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 	const isList = view === 'list';
 	const label = `Insert ${item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
 
-	// The preview face — identical in both views; only its box differs.
+	// The preview face — identical in both views; only its box differs. The box carries no
+	// radius or border: the pool draws the slide frame, so the tile shows the deck's corner.
 	const preview = isBlank ? (
 		<span className="grid aspect-video w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)] text-muted-foreground">
 			<Plus className={isList ? 'size-5' : 'size-7'} />
@@ -562,7 +563,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 		return (
 			<div ref={ref} className={cn(shell, 'flex items-center')}>
 				<button {...insertProps} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
-					<span className="relative w-[184px] shrink-0 overflow-hidden rounded-lg border border-border">
+					<span className={cn('relative w-[184px] shrink-0', isBlank && 'overflow-hidden rounded-lg border border-border')}>
 						{preview}
 						{/* Insert affordance on hover/focus — decorative; the button owns the click.
 						    `z-10` because the pooled preview layer paints ABOVE the grid (see
@@ -584,11 +585,14 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 	return (
 		<div ref={ref} className={cn(shell, 'flex flex-col')}>
 			<button {...insertProps} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
-				<span className="relative block">
+				{/* The slide sits INSET in the card, with its own corner. Flush to the card's
+				    edge it had to be clipped to the card's `rounded-xl`, which made every square
+				    deck look rounded here (docs/src/lib/slide-frame.ts). */}
+				<span className="relative block px-2 pt-2">
 					{preview}
 					{/* Insert affordance on hover/focus — decorative; the button owns the click.
 					    `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx). */}
-					<span className="pointer-events-none absolute inset-x-2 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+					<span className="pointer-events-none absolute inset-x-4 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
 						<Plus className="size-3.5" /> Insert
 					</span>
 				</span>
@@ -644,7 +648,10 @@ function LookTile({ item, token, label, onInsert, options, frontMatter, paletteO
 			aria-label={token ? `Insert ${item.name} · ${label}` : `Insert ${item.name}, default look`}
 			className="group/lk relative overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-[var(--accent)] focus-visible:border-[var(--accent)] focus-visible:outline-none"
 		>
-			<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
+			{/* Inset in the card, so the slide keeps its own corner (docs/src/lib/slide-frame.ts). */}
+			<div className="px-1 pt-1">
+				<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
+			</div>
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{token ? label : 'Default'}</div>
 		</button>
 	);

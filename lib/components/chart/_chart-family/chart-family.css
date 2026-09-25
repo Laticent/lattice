@@ -61,8 +61,11 @@
 section.chart-frame {
   /* Reset section base — chart frame manages its own internal layout.
    * The native border-top spectrum is removed; the lucent strip is the
-   * top chrome instead. */
+   * top chrome instead. It is not an edge line, so the engine keyline draws the top edge
+   * (base.modifiers.css, "The slide's EDGE"). */
   border-top: none;
+  --_edge-t: 1;
+  --_bar-t: 0px;
   background: var(--bg);
 
   /* ── THE CHART'S OUTER INSET, declared ONCE as tokens (design/forms.md §6.1,
@@ -1480,6 +1483,9 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) {
   position: relative;
   padding: 0;
   border: none;
+  /* `border: none` drops EVERY bar, so the keyline draws every side (base.modifiers.css). */
+  --_edge-t: 1; --_edge-r: 1; --_edge-b: 1; --_edge-l: 1;
+  --_bar-t: 0px; --_bar-r: 0px; --_bar-b: 0px; --_bar-l: 0px;
   display: flex;
   flex-direction: column;
   overflow: hidden;

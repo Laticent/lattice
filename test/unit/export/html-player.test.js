@@ -1017,23 +1017,49 @@ test('prev/next dock in a bottom nav row (#lp-nav), not over the slide', async (
 	assert.doesNotMatch(html, /#lp-prev\{left:/, 'the arrows are no longer edge-anchored side overlays');
 });
 
-test('Read·Slides frames the border + shadow on the .lp-frame, not the scaled section', async () => {
-	// Regression: the border + shadow sat on the section, which is transform:scale(~.28),
-	// so the 1px border shrank to a sub-pixel hairline and its outward shadow was clipped
-	// away by the frame's overflow:hidden — a white slide on the white page had NO visible
-	// boundary. On the UNSCALED frame the border is a true 1px and the shadow paints
-	// outside the frame's own box (not clipped by its own overflow), so each slide reads as
-	// a distinct card.
+test('every player view frames the slide with the shared lift and hands the engine its scale, never its own corner', async () => {
+	// The frame carries the edge + shadow, not the scaled section: on the section a 1px
+	// border shrinks to a sub-pixel hairline. And it carries them as the ONE slide-frame
+	// filter (lib/core/slide-frame.mjs), because a frame border + its own 12px radius
+	// rounded every slide of a SQUARE deck and, in the no-JS floor, cut the section's
+	// border at each corner (the gapped corners seen on a phone). The EDGE is the engine's
+	// (base.modifiers.css) and needs only --slide-edge-k; the frame adds the lift shadow.
+	const { slideFrameShadow } = await import('../../../lib/core/slide-frame.mjs');
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
-	const frameRule = (html.match(/\[data-lp-view=read-slides\] \.lp-frame\{[^}]*\}/) || [])[0] || '';
-	assert.match(frameRule, /border:1px solid var\(--border/, 'the frame carries the 1px border');
-	assert.match(frameRule, /box-shadow:0 10px 34px -14px/, 'the frame carries the card shadow');
+	const rule = (re) => (html.match(re) || [])[0] || '';
+	const views = {
+		'read-slides frame': rule(/\[data-lp-view=read-slides\] \.lp-frame\{[^}]*\}/),
+		'present frame': rule(/\.lp-js \[data-lp-view=present\] \.lp-frame\.lp-active\{[^}]*\}/),
+		'no-JS frame': rule(/html:not\(\.lp-js\) \.lp-frame\{[^}]*\}/),
+	};
+	const lift = { 'read-slides frame': 'card', 'present frame': 'stage', 'no-JS frame': 'card' };
+	for (const [name, r] of Object.entries(views)) {
+		assert.ok(r, `${name} rule is present`);
+		assert.ok(r.includes(`box-shadow:${slideFrameShadow(lift[name])}`), `${name} uses the shared lift`);
+		assert.match(r, /--slide-edge-k:calc\(100 \/ \(1280 \* var\(--lp-fit/, `${name} tells the engine its on-screen scale`);
+		assert.doesNotMatch(r, /border-radius|filter:|border:/, `${name} sets no radius, border or filter of its own`);
+	}
 	// flex:none is load-bearing: #lp-stage is a flex COLUMN, so without it each fixed-height
 	// frame would flex-shrink to fit the stage — squishing the frame while the scaled section
 	// stays full height and overflows (clipped). flex:none keeps the height; the stage scrolls.
-	assert.match(frameRule, /\.lp-frame\{flex:none;/, 'the frame does not shrink (the stage scrolls instead of squishing the slides)');
-	const secRule = (html.match(/\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{[^}]*\}/) || [])[0] || '';
-	assert.doesNotMatch(secRule, /box-shadow/, 'the scaled section no longer carries the (clipped, sub-pixel) shadow/border');
+	assert.match(views['read-slides frame'], /\.lp-frame\{flex:none;/, 'the frame does not shrink (the stage scrolls instead of squishing the slides)');
+	for (const re of [/\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{[^}]*\}/, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{[^}]*\}/, /\[data-lp-view=present\] \.lp-frame\.lp-active section\[data-lattice-slide\]\{[^}]*\}/]) {
+		assert.doesNotMatch(rule(re), /border-radius|box-shadow|border:/, 'the scaled section keeps the engine\'s own corner and carries no frame chrome');
+	}
+});
+
+test('the embedded faces are font-display:fallback, so a cold player never shows the fallback solve', async () => {
+	// Every engine face is `swap`, which laid a player's titles out in the fallback face and
+	// re-laid them out a beat later when the real face decoded (the "text shifts after first
+	// render" report, on an iPhone). The player's faces are data URIs already in the file.
+	const withFaces = docHtml.replace(
+		'<head>',
+		'<head><style id="lattice-embedded-fonts">@font-face{font-family:X;font-display:swap;src:url(data:font/woff2;base64,AA)}</style>',
+	);
+	const { html } = await buildPlayerHtml({ docHtml: withFaces, source, now: 0 });
+	const block = html.match(/<style id="lattice-embedded-fonts">[\s\S]*?<\/style>/)?.[0] ?? '';
+	assert.match(block, /font-display:fallback/, 'the embedded faces use a short block period');
+	assert.doesNotMatch(block, /font-display:\s*swap/, 'no embedded face still swaps');
 });
 
 test('present mode ships a speaker-notes sheet reading the baked asides (P3d)', async () => {
@@ -1536,7 +1562,13 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Then the video card's width: the link card sized to its content, so a card with a poster tile
 	// and one without sat at different widths down the article (seen on an iPhone). `.lp-video-link`
 	// now fills the column up to 24em; only that rule moved.
-	assert.equal(sha, 'b8011f11e097659a6a4cec95ea3f9748f57a3419ebd4442b49ae62f267ee4b67', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the ONE slide frame (2026-09-25-one-slide-frame.md): the three
+	// frame rules (present, read-slides, no-JS) drop their own 12px radius, border and
+	// box-shadow for the shared drop-shadow filter from lib/core/slide-frame.mjs, and the
+	// no-JS section loses its own radius + border. CSS only: no markup or script moved.
+	// Re-blessed again for the ENGINE-owned edge: the frames trade the drop-shadow filter
+	// for a box-shadow lift plus --slide-edge-k, and the embedded faces go font-display:block.
+	assert.equal(sha, '22d55acbb76a37059eec33f1c1616aa67594e8fb42c0e197cf941360960bba49', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

@@ -57,7 +57,8 @@ export default function HeroPreview({ data }: { data: HeroData }) {
 						sample={data.sample}
 						mermaid={data.mermaid}
 						active={view === 'preview'}
-						className="live-host relative m-0 aspect-video w-full overflow-hidden rounded-[14px] border border-border bg-muted shadow-lg"
+						frame="stage"
+						className="live-host relative m-0 aspect-video w-full overflow-hidden"
 						aria-label={`A ${data.componentName} slide rendered by Lattice`}
 					/>
 				</TabsContent>

@@ -22,6 +22,9 @@ section.scene {
   overflow: hidden;
   padding: 0;
   border: none;
+  /* `border: none` drops EVERY bar, so the keyline draws every side (base.modifiers.css). */
+  --_edge-t: 1; --_edge-r: 1; --_edge-b: 1; --_edge-l: 1;
+  --_bar-t: 0px; --_bar-r: 0px; --_bar-b: 0px; --_bar-l: 0px;
   background: var(--bg);
   --scene-matte: var(--bg-alt);
   /* Card-lift shadow. ZERO BLUR on purpose (mirrors image's --img-lift): a blurred

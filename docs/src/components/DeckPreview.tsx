@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { getFrontMatter } from '@/components/studio/front-matter';
-import { slideCornerFraction } from '@/lib/deck-corner';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	createSingleSlideRenderer,
 	type SingleSlideOptions,
 	type SingleSlideRenderer,
 } from '@/lib/single-slide-render';
+import { type SlideFrameLift, slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
 import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, watchDiagramDrawn } from '@/playground/anima-host-sel';
 // The Nacre loader's CSS. Imported here beside the loader markup it styles (below). NOTE: this
@@ -116,6 +116,13 @@ export type DeckPreviewProps = {
 	 */
 	coalesce?: boolean;
 	className?: string;
+	/**
+	 * Frame the slide with the shared SLIDE FRAME (docs/src/lib/slide-frame.ts): an edge and
+	 * a lift that trace the slide the engine painted, so the host shows the deck's own corner.
+	 * A host that frames its slide passes this and puts NO `rounded-*`, `border`, `shadow-*` or
+	 * `bg-*` on `className` — the gate in test/unit/tools/slide-frame-hosts.test.js pins it.
+	 */
+	frame?: SlideFrameLift;
 	'aria-label'?: string;
 	/** Hide the whole preview subtree from assistive tech — for a thumbnail whose
 	 *  wrapping control already carries the accessible name (the figure would else
@@ -137,21 +144,6 @@ export type DeckPreviewProps = {
 	 * keep the handler cheap and idempotent.
 	 */
 	onRender?: () => void;
-	/**
-	 * Fired when the DECK'S OWN corner changes — a fraction of the slide's width, measured
-	 * off the real render (`docs/src/lib/deck-corner.ts`). `0` is a square deck: the default,
-	 * and the only thing the engine produced before #1649. Feed it to `cornerRadiusCss` with
-	 * YOUR box's aspect rather than converting to pixels yourself.
-	 *
-	 * STRICTLY OPT-IN — this component touches nothing unless a host passes it. An earlier
-	 * cut wrote the radius onto the `<figure>` inline for every host, on the theory that any
-	 * surface showing a slide should show the deck's corner for free, and quietly flattened
-	 * the marketing landing page's hero card from `rounded-[14px]` to a rectangle: an inline
-	 * `0px` beats a class. A slide inside a decorative product shot is not "the deck you
-	 * would ship", and this component cannot make that judgment for a host it knows nothing
-	 * about. Ask, and you receive.
-	 */
-	onCorner?: (fraction: number) => void;
 	/**
 	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
 	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
@@ -198,10 +190,10 @@ export function DeckPreview({
 	active = true,
 	coalesce = false,
 	className,
+	frame,
 	role,
 	onFirstRender,
 	onRender,
-	onCorner,
 	loader = false,
 	chartDetail = false,
 	specimen = false,
@@ -270,51 +262,6 @@ export function DeckPreview({
 	// enters the render closure's dependency list.
 	const onRenderRef = React.useRef(onRender);
 	onRenderRef.current = onRender;
-	const onCornerRef = React.useRef(onCorner);
-	onCornerRef.current = onCorner;
-	// Last corner PUBLISHED. `null`, not `0`: square is a real value, and seeding with it
-	// would swallow the first publish on the common case — a square deck, i.e. almost every
-	// deck. Publishing is change-guarded off this.
-	const publishedCornerRef = React.useRef<number | null>(null);
-	const cornerTimersRef = React.useRef<number[]>([]);
-	// Measure the rendered slide's corner and hand it to the host, if the host asked and the
-	// value moved. Ref-held so the render closure and the schedule call ONE implementation.
-	const publishCornerRef = React.useRef(() => {});
-	publishCornerRef.current = () => {
-		if (!onCornerRef.current) return; // opt-in: an unasked host is never touched
-		const fraction = slideCornerFraction(stageRef.current);
-		if (fraction === null) return; // unmeasurable — do NOT cache, so a later tick retries
-		if (fraction === publishedCornerRef.current) return;
-		publishedCornerRef.current = fraction;
-		onCornerRef.current(fraction);
-	};
-	// Re-measure on a bounded backoff after each committed render.
-	//
-	// A SCHEDULE rather than a single moment, because there is no single moment to trust. On
-	// the write path the renderer resolves right after assigning `srcdoc`, so measuring at the
-	// commit reads the OUTGOING document — which made every deck wear its predecessor's corner
-	// across a `size:` switch. And a MutationObserver on the frame's style cannot stand in for
-	// it: when a re-render reuses the frame at unchanged geometry, Chromium emits NO mutation
-	// record for an identical CSSOM write, so the one post-parse trigger never fires and a cold
-	// load stayed square (4 of 6 runs under CPU throttle). Re-measuring converges on both,
-	// because the change-guard makes every tick after the right one free.
-	const scheduleCornerRef = React.useRef(() => {});
-	scheduleCornerRef.current = () => {
-		if (!onCornerRef.current) return;
-		for (const t of cornerTimersRef.current) clearTimeout(t);
-		cornerTimersRef.current = [];
-		publishCornerRef.current(); // an in-place update is already correct here
-		for (const ms of [80, 200, 450, 900, 1800, 3200]) {
-			cornerTimersRef.current.push(window.setTimeout(() => publishCornerRef.current(), ms));
-		}
-	};
-	React.useEffect(
-		() => () => {
-			for (const t of cornerTimersRef.current) clearTimeout(t);
-			cornerTimersRef.current = [];
-		},
-		[],
-	);
 
 	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
 	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` starts fading in.
@@ -648,8 +595,6 @@ export function DeckPreview({
 		// Committed-render signal for a parent hosting its own layer over this preview (Present re-pins
 		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
 		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
-		// The deck's own corner. Scheduled, not measured inline — see `scheduleCornerRef`.
-		if (status) scheduleCornerRef.current();
 		if (status) onRenderRef.current?.();
 		return { heavy: status?.writePath === 'write' };
 	};
@@ -792,7 +737,7 @@ export function DeckPreview({
 	// unchanged anchoring).
 	return (
 		<>
-		<figure ref={stageRef} className={cn((loader || failed || chartDetail || splitPage) && 'relative', 'm-0', className)} role={role} {...aria}>
+		<figure ref={stageRef} className={cn((loader || failed || chartDetail || splitPage) && 'relative', 'm-0', className)} style={frame ? slideFrameStyle(frame) : undefined} data-slide-frame={frame ? '' : undefined} role={role} {...aria}>
 			{loader && !failed && (
 				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
 					<span className="nacre-loader__core" />

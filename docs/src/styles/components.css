@@ -231,13 +231,20 @@
 .specimen-face[hidden] {
 	display: none;
 }
-/* Preview face: fixed 1280×720 iframe, CSS-scaled by specimen.js to fit. */
+/* Preview face: fixed 1280×720 iframe, CSS-scaled by specimen.js to fit. The slide sits
+   INSET on the card's `--bg-alt` ground with its own corner: the host carries no radius or
+   background, and specimen.js gives it the shared slide-frame filter
+   (lib/core/slide-frame.mjs). Flush to the card, it was clipped to `--radius-md`, so every
+   square deck read as rounded. */
+.specimen-face.preview {
+	padding: 16px;
+	background: var(--bg-alt);
+}
 .specimen-preview-host {
 	position: relative;
 	width: 100%;
 	aspect-ratio: 16 / 9;
 	overflow: hidden;
-	background: var(--bg-alt);
 }
 .specimen-preview-host iframe.live {
 	position: absolute;

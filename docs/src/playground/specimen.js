@@ -12,6 +12,7 @@
 // preview and createEditor (editor.js) for the source — the same engine + editor
 // the playground uses.
 
+import { slideFrameShadow } from '../../../lib/core/slide-frame.mjs';
 import { createSingleSlideRenderer } from '../lib/single-slide-render';
 import { createEditor } from './editor.js';
 
@@ -30,6 +31,10 @@ export function initSpecimen() {
   const previewFace = root.querySelector('.specimen-face.preview');
   const sourceFace = root.querySelector('.specimen-face.source');
   const previewHost = root.querySelector('.specimen-preview-host');
+  // The shared slide frame (lib/core/slide-frame.mjs): the host never rounds, borders or
+  // backs the slide; the edge and lift trace the slide the engine painted.
+  if (previewHost) previewHost.style.boxShadow = slideFrameShadow('tile');
+  previewHost?.setAttribute('data-slide-frame', '');
   const editorHost = root.querySelector('.specimen-editor-host');
   const statusEl = root.querySelector('.specimen-status');
   const resetBtn = root.querySelector('.specimen-reset');

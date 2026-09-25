@@ -71,6 +71,8 @@ section {
   -webkit-print-color-adjust:exact; print-color-adjust:exact;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility;
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum-bar); border-image-slice: 1;
+  --_edge-t: 0; /* the bar is the top edge: a host's engine keyline yields to it (base.modifiers.css) */
+  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi)); /* how far the bar reaches in — the edge box covers it (base.modifiers.css) */
 }
 
 /* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the
