@@ -157,7 +157,7 @@ First-parent commits on `main` whose body carries `Co-Authored-By: Claude…` / 
 - The card was introduced in #1779 (2026-08-23); HARD RULE #28 followed in #1834 (2026-08-25).
 - GitHub search, merged since 2026-08-26, Dependabot and github-actions authors excluded: **239 PRs, 226 with `"raise it by"` in comments, 226 with `"Pre-merge"`.**
 - About 12 of the 13 without are backlog-mirror PRs (MEASURED: 12 `chore(backlog)…(#N)` commits since 8-26).
-- Estimated conformance on authored PRs: **~99% (ESTIMATED from those two counts).**
+- Estimated conformance on authored PRs: **~99% (ESTIMATED from those two counts).** Re-derived 2026-09-25 by GitHub search: 228 of 241 non-Dependabot PRs merged since 2026-08-26 (95%), and 95%–99.6% of authored PRs once the 12 backlog-mirror merges are set aside. The same pass found zero merged PRs with an approving review across the whole history.
 - Sampled cards all follow the template, with the floor axis and a raise-path: #2329 (`high`), #2241 (`high — evidence`, revised once), #2067 (`medium → high`, revised after acting on the raise-path) and #1961 (`very high`, "nothing outstanding").
 - **The raise-path gets used:** #2067's first card said `medium`, raise by viewing the 19 unreviewed decks. The agent did that with 3 reviewers, found a third defect, and re-carded at `high`.
 - **Timing caveat (SAMPLED, n=1).** On #2329 the card was posted *after* the in-chat authorization, while CI was still running ("CI … still running at the time of this card"). On the PR it therefore acts as a record, not as the pre-decision evidence the doc describes.

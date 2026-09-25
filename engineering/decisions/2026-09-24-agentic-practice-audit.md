@@ -22,7 +22,7 @@ and each claim there carries a path, a commit or a PR number, tagged MEASURED or
 2. **A rule holds when a machine check sits behind it, or when its output is an artifact a
    human reads.** Changelog fragments ship on 91% of PRs behind a build gate. Commit format
    holds at 98% on `main`, where a local hook gates every commit an agent makes but not the
-   PR title that becomes the squash subject. The pre-merge card appears on about 99% of PRs because the
+   PR title that becomes the squash subject. The pre-merge card appears on at least 95% of PRs because the
    human reads it before every merge. A rule that relies on the agent's self-report does not
    hold. The rule against false "verified" claims (#23) was broken again after it existed,
    and every recorded violation of a discipline-only rule was caught by a *later*
@@ -115,7 +115,8 @@ whether a rule holds.
 **The human gates are prompt text, not platform settings.** The branch ruleset requires a PR,
 the merge queue and a green `ci`, and **no reviewer**. `settings.json` pre-approves `git push`
 and `git merge`. Agents post the pre-merge card and arm auto-merge under the owner's account,
-and no merge carries an approving GitHub review (ch. 1 §3c, ch. 3 §2). So "a human approves
+and GitHub search finds zero merged PRs with an approving review across the repo's whole
+history (re-derived 2026-09-25; ch. 1 §3c, ch. 3 §2). So "a human approves
 every merge" is true in chat and invisible on GitHub. For an org, that difference is a
 compliance question, and Lattice has not answered it.
 
@@ -133,7 +134,7 @@ Ranked by strength of evidence.
    confirmed a change was correct, and an inversion pass then showed its framing was wrong.
    **Why it works:** a fresh context has no stake in the maker's claim, and it re-runs the
    work instead of reading the summary.
-2. **Artifacts a human reads at a gate.** The 🚦 pre-merge card appears on about 99% of
+2. **Artifacts a human reads at a gate.** The 🚦 pre-merge card appears on at least 95% of
    authored PRs. It scores confidence as the *lowest* of five axes and ends with a
    `raise it by:` line, and that line changes behavior: #2067 went from medium to high after
    the agent did what its own card said would raise it. **Why it works:** it sits on the
@@ -208,7 +209,7 @@ agent posts a standup and a continuation brief, and pending items go to `followu
 | Commit format #13 | 98% since June. It holds by discipline on `main`, because PR titles pass no gate |
 | Changelog fragments #10 | 91% of authored PRs |
 | Demo deck for a visible change #9 | 49% of CSS-touching PRs overall, 73% in September (a ceiling on non-compliance, not a violation count) |
-| Pre-merge card #28 | ~99% since 2026-08-26 |
+| Pre-merge card #28 | 228 of 241 non-Dependabot PRs merged since 2026-08-26 (95%). The window holds 12 backlog-mirror merges, which carry no card by design, so authored coverage is between 95% and 99.6% (re-derived with GitHub search on 2026-09-25) |
 | "Never a draft PR" | two open drafts, one opened by the bot |
 | Stale PRs | 12 authored PRs untouched past 30 days, and 10 Dependabot majors waiting 46 days |
 
