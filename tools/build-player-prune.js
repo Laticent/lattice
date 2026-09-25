@@ -37,7 +37,7 @@ const ENTRY_CONTENTS = `
 import prune from './player-prune.js';
 export const {
   GATE_PROPS, DYNAMIC_PSEUDO_CLASSES, DYNAMIC_PSEUDO_RE, PLAYER_PRUNE_SAFELIST,
-  baseSelectorString, collectBaseSelectors, prunePlayerCss, normalizeFamily, prunePlayerFontFaces,
+  baseSelectorString, collectBaseSelectors, prunePlayerCss, normalizeFamily, prunePlayerFontFaces, scopeReHostedCss,
 } = prune;
 `;
 

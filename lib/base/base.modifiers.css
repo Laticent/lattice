@@ -695,7 +695,7 @@ section.dark {
  * ordinary members of the set rather than the exception they used to be. */
 section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover)) {
   background-color: var(--bg);
-  background-image: var(--spectrum);
+  background-image: var(--spectrum-bar);
   background-position: top;
   background-size: 100% 1px;
   background-repeat: no-repeat;

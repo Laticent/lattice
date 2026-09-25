@@ -23,7 +23,8 @@ const { evaluate } = require('../../../tools/check-viz-render.js');
 
 // It also runs the COPY-PARITY pass: every chart shown outside its slide — FLAT
 // (the exported player's Read · Article) and BAKED (a stylesheet-free SVG, the
-// Studio rasterizer's shape) — must keep every paint its slide has. #2344 shipped
+// Studio rasterizer's shape) and READING (the Studio's in-app Reading view, whose sheet is
+// the flat pack pruned and fenced to the figures) — must keep every paint its slide has. #2344 shipped
 // the flat copy black; this pass fails on that shape (309 distinct losses measured
 // with the old slide-scoped pack). See
 // engineering/decisions/2026-09-24-one-style-delivery-spine.md.
@@ -38,6 +39,7 @@ test('no unsanctioned black SVG paint on the scoped path, and no lost paint in a
   // clean surface. The first draft of the pass hid the whole article exactly that way.
   assert.ok(compared.flat > 0, 'the flat (Read · Article) copy pass compared 0 element pairs');
   assert.ok(compared.baked > 0, 'the baked (stylesheet-free SVG) copy pass compared 0 element pairs');
+  assert.ok(compared.reading > 0, 'the reading (Studio Reading view) copy pass compared 0 element pairs');
   // Per chart as well: one chart going missing from a copy hides inside a global count.
   assert.deepEqual(
     unpaired.map((u) => `${u.mode} · ${u.component} · ${u.theme} ${u.scheme}`),
@@ -71,25 +73,29 @@ test('no unsanctioned black SVG paint on the scoped path, and no lost paint in a
 // THE ARMS — proof the copy pass FAILS on each shape it guards. A gate that has never
 // been seen to fail is a claim, not a gate. Each arm runs one theme and one scheme (the
 // shapes are theme-independent), and the three run side by side.
-test('the copy pass fails on the #2344, blind-copy and #2210 shapes', async () => {
+test('the copy pass fails on the #2344, blind-copy, #2210 and sheetless-Reading-view shapes', async () => {
   const { collectCopies, uniqueByKey } = require('../../../tools/check-viz-render.js');
   const cheap = { themes: ['indaco'], schemes: ['light'] };
-  const [scopedPack, hidden, unfrozen] = await Promise.all([
+  const [scopedPack, hidden, unfrozen, sheetless] = await Promise.all([
     // #2344: the article gets the preview's slide-scoped pack.
     collectCopies({ ...cheap, flatPack: false }),
     // A copy that is not drawn at all. The first draft of the pass reported this clean.
     collectCopies({ ...cheap, extraFlatCss: '#lp-article svg{display:none!important}' }),
     // #2210: a bake that leaves `var()` behind in a host with no stylesheet.
     collectCopies({ ...cheap, freezeTokens: false }),
+    // The Studio Reading view as it shipped before step 3: no deck sheet at all.
+    collectCopies({ ...cheap, readingSheet: false }),
   ]);
   if (scopedPack.skipped) {
     console.error('viz-black-render arms: SKIPPED — no Chromium.');
     return;
   }
   const count = (r, mode, property) => uniqueByKey(r.lost).filter((f) => f.mode === mode && f.property === property).length;
-  // The clean run sanctions 5 distinct flat losses per theme and scheme (all HTML
-  // backgrounds), so each arm must show losses of a KIND the clean run never has.
+  // The clean run sanctions no chart fill, drawn or baked loss in any mode (its only copy
+  // sanctions are two title-slide prose inks in the reading pass), so each arm must show
+  // losses of a KIND the clean run never has.
   assert.ok(count(scopedPack, 'flat', 'fill') > 10, 'the slide-scoped pack must lose chart fills in the article');
   assert.ok(count(hidden, 'flat', 'drawn') > 10, 'a hidden article copy must be reported as not drawn');
   assert.ok(count(unfrozen, 'baked', 'fill') > 10, 'a bake without frozen tokens must lose fills');
+  assert.ok(count(sheetless, 'reading', 'fill') > 10, 'a Reading view with no deck sheet must lose chart fills');
 });

@@ -1201,8 +1201,11 @@ section.chart-frame .chart-caption::before {
 
 /* Shared status pill vocabulary — used by progress, timeline-list, kanban.
  * Reads as `[s]` data attribute on a chip element so the markup is small
- * and the color mapping lives in one place. */
-section.chart-frame .chart-status {
+ * and the color mapping lives in one place. The `figure.chart-frame` arm is the
+ * re-hosted chart in Read · Article: without it every chip there lost its pill
+ * (followups.d/2344-p2-chart-paints-lost-in-read-article.md, cause 1). `:is()` takes
+ * the highest arm's specificity, so the slide keeps its (0,2,1) exactly. */
+:is(section.chart-frame, figure.chart-frame) .chart-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1258,24 +1261,24 @@ section.chart-frame .chart-status {
   color: var(--text-heading);
 }
 /* One rule per status — canvas-aware --state-* tokens, no `.dark` overrides. */
-section.chart-frame .chart-status[data-s="on-track"],
-section.chart-frame .chart-status[data-s="done"],
-section.chart-frame .chart-status[data-s="live"] {
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="on-track"],
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="done"],
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="live"] {
   --pill-hue: var(--state-pass-hue); --pill-ink: var(--state-pass-ink);
 }
-section.chart-frame .chart-status[data-s="at-risk"],
-section.chart-frame .chart-status[data-s="warn"] {
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="at-risk"],
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="warn"] {
   --pill-hue: var(--state-warn-hue); --pill-ink: var(--state-warn-ink);
 }
-section.chart-frame .chart-status[data-s="blocked"],
-section.chart-frame .chart-status[data-s="fail"] {
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="blocked"],
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="fail"] {
   --pill-hue: var(--state-fail-hue); --pill-ink: var(--state-fail-ink);
 }
-section.chart-frame .chart-status[data-s="pilot"],
-section.chart-frame .chart-status[data-s="decision"] {
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="pilot"],
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="decision"] {
   --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink);
 }
-section.chart-frame .chart-status[data-s="deferred"] {
+:is(section.chart-frame, figure.chart-frame) .chart-status[data-s="deferred"] {
   --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink);
 }
 

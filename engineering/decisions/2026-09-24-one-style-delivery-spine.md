@@ -91,6 +91,26 @@ The change is ownership and naming, not new machinery:
   (roadmap alone has 34 pseudo-element rules). A host that shows HTML charts cannot
   use `baked`; it needs `flat`. That settles the Reading view's options (§7, fork 2).
 
+### 4.1 The host table (built 2026-09-25)
+
+This is the one place a host's mode is recorded. A new surface that shows a slide adds
+a row here and asks for its mode by name; it does not invent a shape.
+
+| Host | Mode | How it asks |
+|---|---|---|
+| Studio preview, Playground, docs embeds | `scoped` | `render(md, theme)`; `scoped` is the default |
+| Studio Webpage player (and its strip-notes re-render) | `flat` | `render(md, theme, { styles: 'flat' })`, ships `flatCss` (`share-export.ts`) |
+| Studio diagram bake (exported player, Reading view) | `baked` | `bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens })` (`deck-export.js`) |
+| Studio PDF/PPTX rasterizer | `baked` | `bakeSvg(svg, win)` (`deck-export.js` `flattenChartSvgs`) |
+| `check:render` baked pass | `baked` | `bakeSvg(svg, win, { freezeTokens })` (`tools/check-viz-render.js`) |
+| Chart "download as SVG" (Studio + `tools/export-chart-svg.js`) | `baked`, to a file | `flattenSvgStyles(…, { collectTokens: true })` + `finalizeStandaloneSvg`; a file takes its tokens in its own `<style>`, not on an element |
+| Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')`, then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |
+| CLI PDF/PNG/HTML/`--player` | *(as written today; fork 3: `flat`)* | step 4 |
+
+`render()` throws on an unknown `styles` name, and on `'baked'` it names `bakeSvg`
+instead. A silent fallback to `scoped` is how #2344 shipped black charts, so an
+unknown mode cannot take it.
+
 ## 5. The gate — `check:render` renders every mode, not one
 
 `tools/check-viz-render.js` (`check:render`) already exists for this bug class. It
@@ -205,6 +225,11 @@ landing.
 
 ## 7. Decisions for the owner
 
+**Decided 2026-09-25**, in one round: fork 1 **yes**; fork 2 **(b) `flat`, scoped and
+pruned**; fork 3 **now, in this line of work** (not "later" as recommended, so step 4
+runs after step 3 and still needs export sign-off); fork 4 **ratchet**. The options
+below are kept as they were put.
+
 1. **Adopt the three named modes, with the engine owning them?**
    - *Recommendation: yes.* The cost is one render option renamed and one
      `baked` function extracted. It buys a place where the next surface has to
@@ -243,9 +268,92 @@ landing.
 1. **Extend `check:render` (§5) first.** It is the evidence for everything after
    it. **Done (§5.1).** The Reading-view pass waits for fork 2.
 2. **Name the modes (§4)** and route the three existing hosts through them. No
-   output changes; the extended gate must pass byte-identically.
+   output changes; the extended gate must pass byte-identically. **Done (§4.1).**
+   `check:render` passed unchanged on the branch: 12 sanctioned findings, flat 7254 and
+   baked 5964 pairs.
 3. **The Reading view** (fork 2). This closes
-   `followups.d/2344-p1-studio-reading-view-charts-render-black.md`.
-4. **The CLI** (fork 3), with export sign-off.
+   `followups.d/2344-p1-studio-reading-view-charts-render-black.md`. **Done (§8.1).**
+4. **The CLI** (fork 3), with export sign-off. It also carries the player prune's one-colon
+   fix (§8.1), which changes export bytes for the same reason. **Measured, and paused
+   (§8.2).** The owner asked for the one divergence it found to be fixed first.
 
-Each remaining step is its own PR. Step 1 rode #2344 at the owner's request.
+### 8.2 What step 4 measured, and the fix it needed first (2026-09-25)
+
+- **The prototype.** The CLI took `themes.cssFor(theme, size, { flat: true })` with the
+  wrapper stripped and the covered font faces dropped, in place of `layoutCSS + paletteCSS`,
+  behind an environment flag. `npm run regress` over all 277 committed decks drifted on 50, and
+  a flag-off re-render of each showed that 48 of them drift identically without the flag.
+  Those 48 are stale goldens, and `main` itself drifts on the same decks (checked on two).
+- **Two slides really moved.** `print-mode`'s page number went gray. It takes
+  `--marp-slide-pagination-color: var(--text-muted)`, captured at `:root`, and print
+  overrides `--text-muted` on the slide, so the packed sheet is right and today's CLI is wrong.
+  `accent-finishes` slide 11 lost its pinned rainbow rail, and there the packed sheet was
+  wrong.
+- **Why the two go opposite ways.** 50 of the pack's 199 `:root` token declarations derive
+  from a token some `section` rule overrides. Unpacked, `var()` resolves once at the root;
+  packed, it resolves on each slide and follows the slide's overrides. Most of the 50 want to
+  follow (the `--on-accent-*` family on a dark slide, the `--seq-*` ramp). The rainbow capture
+  was written to NOT follow, and so worked only in the CLI. The Studio preview, the Playground
+  and the Studio player have drawn `spectrum-card: rainbow` on a `solid`/`duo`/`mono` deck as
+  the quieter bar all along.
+- **The fix, shipped first (owner, 2026-09-25).** A STYLE class sets `--spectrum-style` instead
+  of redefining `--spectrum`, and the bar and every rail read `--spectrum-bar`. `--spectrum`
+  stays the theme's ribbon on every element, so the capture reads it in both shapes. `print`
+  still redefines `--spectrum`, because paper is grayscale and a pinned rainbow on it should
+  turn gray. Pinned by `test/unit/css/spectrum-root-capture.test.js`. The CLI renders
+  `accent-finishes` pixel-identical before and after, the flat-sheet prototype now matches
+  it (0 px), and the Studio preview shows the rainbow rail.
+- **Still to decide:** whether the CLI now converges. The measured cost after the fix is one
+  slide, `print-mode`'s page number, which moves to the correct ink.
+
+Step 1 rode #2344 at the owner's request. Steps 2 to 4 ride #2366, one commit each, the
+line of work the owner asked for on 2026-09-25.
+
+### 8.1 What step 3 built (2026-09-25, #2366)
+
+- **The sheet.** The Reading view asks for the `flat` mode and ships what
+  `scopeReHostedCss` keeps of it. The kernel prunes the pack to the rules the projected
+  article's DOM matches, the same kernel the player's prune uses. Then it rewrites every
+  selector S to `:where(.st-read-article) S:where(.lp-figure, .lp-figure *)`, so a deck rule
+  can only reach a figure of this article, and it turns `:root` into `.lp-figure`, so the
+  palette lands on each figure and not on the app's `<html>`. Measured on the 22-chart
+  gallery: 838 KB of flat pack becomes 93 KB, 296 of 3700 rules. The two css-tree parses
+  took 0.5 s in Node, and the browser adds about 7,500 `querySelector` calls on top. All of
+  it runs on the main thread each time the view re-renders. Browser timing is not measured
+  yet.
+- **What the fence cannot hold is dropped.** A selector fence reaches style rules only. A red
+  team found four ways past it, each observed in Chromium 131: a deck `@font-face` named like an
+  app family takes the app's text (and per-glyph `unicode-range` sources beacon which
+  characters it draws); a deck `@keyframes spin` replaces the app's own; `@property` registers
+  an app custom property with a deck `initial-value`; and a deck `url()` fetches from the app's
+  origin, because the Studio's top-level document carries no subresource CSP (the preview
+  iframe and every export do). So the kernel drops every global-namespace at-rule at any depth
+  (unwrapping a `@layer` block rather than losing its rules), and every declaration that names
+  a remote resource. `data:` and relative urls stay. Figures keep their paint and lose motion
+  and deck-only faces.
+- **Not `@scope`.** That was the first draft, and it cannot work. Inside `@scope (R)` a
+  selector with no `:scope` is read as a descendant of R, so the re-host arms, which start
+  AT the figure (`figure.chart-frame .chart-status`), never match. Every chart painted
+  black.
+- **The one-colon pseudo-elements.** The Studio's engine bundle ships `lattice.css`
+  minified, which writes `::before` as `:before`. css-tree reads that as a pseudo-class, so
+  the prune asked `querySelector` for `.x:before`, matched nothing, and dropped every state
+  marker. `baseSelectorString` can now treat the four CSS 2 pseudo-elements as pseudo-elements,
+  and this sheet opts in. **The player's prune does not, yet.** It has the same blind spot: the
+  CLI's unminified sheet still carries KaTeX's one-colon rules, and the Studio export's prune
+  likely fails its computed-style gate on it and ships the full sheet. Fixing it changes export
+  bytes, so it rides with step 4, which owes export sign-off anyway.
+- **The app's prose rules stay off the charts.** `READ_ARTICLE_CSS`'s element rules
+  (headings, paragraphs, lists, quotes, pre, tables) carry `:where(:not(.lp-figure *))`. Before
+  that, its table rules drew grid lines over the roadmap and padded its markers away. The
+  `:where()` matters: a bare `:not()` took its argument's specificity and moved the article's
+  own kicker, subtitle and roster (a checker measured the kicker's gap going 3 px → 11.5 px).
+- **The gate.** `check:render` has a `reading` pass: the article in a page of its own
+  carrying only this sheet, compared with its slide (7284 pairs). An arm with no sheet (the
+  view as it shipped before) fails it. Four title-slide prose inks are sanctioned: prose
+  takes the app's ink by design. The real surface is
+  `docs/e2e/studio-read-article-charts.spec.ts`: the chart gallery in the built Studio,
+  light and dark. It checks that no chart is mostly black, no status pill has lost its
+  background, no state marker has lost its disc, the app chrome is unchanged with the article
+  open, and the page never scrolls sideways at 1440, 820 and 390. With the one-colon fix
+  reverted, it fails on 15 of 15 roadmap markers.

@@ -94,7 +94,7 @@ section.split-panel .panel-left::after {
  * `#5DB133`). LONGHANDS only (#1528): a `var()` in a multi-layer `background`
  * shorthand invalidates the whole declaration if the token is missing. */
 section.split-panel .panel-right {
-  background-image: var(--spectrum);
+  background-image: var(--spectrum-bar);
   background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125);
   background-position: right top;
   background-repeat: no-repeat;

@@ -44,9 +44,10 @@ export type RenderMarkdownOpts = {
 		 *  every section of the whole deck. */
 		deckSection?: { index: number; total: number };
 	};
-	/** Also return `flatCss`: the stylesheet packed for the exported PLAYER, which shows
-	 *  slide content outside any slide (Read · Article). `css` keeps the preview shape. */
-	flatCss?: boolean;
+	/** The style-delivery mode (engineering/decisions/2026-09-24-one-style-delivery-spine.md
+	 *  §4). `'flat'` also returns `flatCss`, for a host that shows slide content outside any
+	 *  slide (Read · Article); `css` keeps the scoped preview shape either way. */
+	styles?: 'scoped' | 'flat';
 };
 export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 

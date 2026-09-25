@@ -93,7 +93,7 @@ section.topic {
    * it falls back to is now the field it already has. */
   background-color: var(--surface-inverse);
   background-image:
-    var(--spectrum),
+    var(--spectrum-bar),
     linear-gradient(to bottom, transparent 0 75%, var(--_shelf-fill) 75%);
   background-size: 100% var(--_seam), 100% 100%;
   background-position: 0 75%, 0 0;

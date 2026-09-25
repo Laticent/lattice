@@ -21,7 +21,7 @@ export interface LatticePlaygroundEngine {
 		/** `page` supplies the DECK POSITION of a partial-deck document ({ offset, total }),
 		 *  so a single-slide render numbers itself truthfully without a whole-deck parse.
 		 *  Omitted on every full-deck and export path, where numbering is already right. */
-		opts?: { baseUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; flatCss?: boolean },
+		opts?: { baseUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; styles?: 'scoped' | 'flat' },
 	) => { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 	/** Register stylesheets. `{ name, css }` is the contract — identity is GIVEN, so the
 	 *  store never regexes it back out of the sheet (and a directive-less sheet can no

@@ -48,6 +48,10 @@ export type DeckRender = {
 	 *  runtime bundle because inlining it put 25.9 KiB gzipped on every reader of every
 	 *  deck for an engine only a branching machine uses. */
 	dagreUrl?: string;
+	/** The engine's FLAT pack (`styles: 'flat'`), wrapper-stripped, with the local component
+	 *  CSS after it. Present only when the caller asked for the flat mode — a host that shows
+	 *  slide content outside a slide (the Reading view). */
+	flatCss?: string;
 };
 
 function pg(): PG | undefined {
@@ -102,10 +106,18 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
  * image exporters need. This is the single piece of glue Share adds on top of
  * the shared exporters.
  */
-export async function buildDeckRender(options: SingleSlideOptions, source: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<DeckRender> {
+export async function buildDeckRender(
+	options: SingleSlideOptions,
+	source: string,
+	palette: string,
+	mode: 'light' | 'dark',
+	extra?: ExtraTheme,
+	extraCss?: string,
+	styles: 'scoped' | 'flat' = 'scoped',
+): Promise<DeckRender> {
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme);
+	const out = await renderMarkdown(PG, source, theme, styles === 'flat' ? { styles } : undefined);
 	const { previewFontFaceCss } = await import('@/playground/font-embed.js');
 	return {
 		html: out.html,
@@ -118,6 +130,9 @@ export async function buildDeckRender(options: SingleSlideOptions, source: strin
 		fontCss: previewFontFaceCss(),
 		mermaidUrl: options.mermaidUrl,
 		dagreUrl: options.dagreUrl,
+		...(out.flatCss !== undefined
+			? { flatCss: out.flatCss.replace(/article\.lattice\s*>\s*/g, '') + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '') }
+			: {}),
 	};
 }
 
@@ -349,9 +364,10 @@ export async function shareHtmlPlayer(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	// `flatCss`: the player's stylesheet, packed for a document that shows slide content outside
-	// a slide. `out.css` stays the preview shape for the diagram bake's capture frame below.
-	let out = await renderMarkdown(PG, source, theme, { flatCss: true });
+	// `styles: 'flat'`: the player is a document that shows slide content outside a slide, so it
+	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
+	// for the diagram bake's capture frame below.
+	let out = await renderMarkdown(PG, source, theme, { styles: 'flat' });
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -423,7 +439,7 @@ export async function shareHtmlPlayer(
 			new Set(noteRecord.flatMap((r) => r.noteBodies || [])),
 			recordSections,
 			sectionsOf,
-			(src) => renderMarkdown(PG, src, theme, { flatCss: true }),
+			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -642,7 +658,7 @@ export async function shareHtmlPlayer(
 	// …` → `section figure.chart-frame …`) to the inside of one. Every chart in the article
 	// painted SVG's initial black. `flatCss` is the same pack with each re-scoped arm also
 	// shipped as written — see `packSelector` in lib/engine/css.js. `?? out.css` keeps an
-	// engine bundle that predates the option exporting what it did before.
+	// engine bundle that predates the `styles` option exporting what it did before.
 	const deckCss = (out.flatCss ?? out.css).replace(/article\.lattice\s*>\s*/g, '');
 	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
 	const docHtml = buildSelfContainedDoc({

@@ -673,8 +673,7 @@
  *
  * Landscape keeps the generous separation: it has the height, and the key
  * should read as detached from the grid. See #1209. */
-section.roadmap.roadmap:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .roadmap-legend,
-:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.roadmap.roadmap .roadmap-legend {
+section.roadmap.roadmap:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .roadmap-legend {
   padding-top: var(--sp-sm);
   gap: var(--sp-2xs) var(--sp-lg);
   /* Chrome step, not the content step. At portrait `--fs-body-compact` renders
@@ -693,8 +692,7 @@ section.roadmap.roadmap:where([data-family="square"], [data-family="tall"], [dat
  * and the workstream rows tighten so a 3–4 phase roadmap fits without overflow.
  * Keyed on the deck's `data-family` stamp; landscape (N-across) untouched.
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizons {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons {
   /* ONE column is right; the TYPE inside it was the problem. Measured, a
    * 4-workstream card came out 382.4px with its rows already collapsed to one
    * line (54px each), so three of them made 1194.5px of grid inside an 835.6px
@@ -788,12 +786,10 @@ section.chart-frame.roadmap.horizons:where([data-family="tall"], [data-family="s
 /* With the body floored, these can finally hand the height down: `1fr` rows
  * stretch the cards that remain on the page, and the card's own rows spread
  * into it instead of bunching under the header. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizons {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons {
   grid-auto-rows: 1fr;
 }
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-card {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card {
   height: 100%;
   min-height: 0;
 }
@@ -804,8 +800,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * component is, halve the vertical run, and use the width the split just
  * bought. 4 workstreams lay out 2x2, 3 lay out 2+1; `minmax(0, 1fr)` keeps a
  * long workstream name from forcing a track wider than its half. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-rows {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   /* Distributed, not clumped. `center` left the rows as a tight block marooned
@@ -817,39 +812,33 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
 }
 /* The row's height is set by `.row-text`, which carries the glyphs — setting
  * font-size on the <li> does nothing, because both spans declare their own. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .row-text,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .row-text { font-size: var(--fs-meta); }
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .row-text { font-size: var(--fs-meta); }
 /* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
  * (~1.95 here) just like the type does, so card padding, the head rule's
  * clearance and the inter-row gaps are all ~2x their landscape selves — and
  * three cards multiply that. Trimming a step off each is where the remaining
  * height comes from, without pushing any text below the role scale. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-card {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card {
   padding: var(--sp-xs) var(--sp-sm);
   gap: var(--sp-2xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
 }
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-head,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-head {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-head {
   flex-direction: row;
   align-items: baseline;
   gap: var(--sp-sm);
   padding-bottom: var(--sp-2xs);
 }
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-title,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-title { font-size: var(--fs-body-compact); }
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-title { font-size: var(--fs-body-compact); }
 /* The phase pill is the least readable thing on a split page. `0.859375cqi`
  * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
  * drawing it — at 11px, legible but not readable on a 1080-wide page where the
  * body text around it is ~33px. Portrait has fewer inline units, so the
  * coefficient has to grow to hold the same optical size: 1.7cqi lands near
  * 16.5px here, and the floor still catches anything narrower. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-meta,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-meta {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-meta {
   font-size: max(var(--chart-text-min), 1.7cqi);
 }
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-rows { gap: var(--sp-2xs); }
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows { gap: var(--sp-2xs); }
 /* Each workstream row collapses to ONE line (LABEL · value) — halves the card
  * body so 4+ phases stack without overflow. */
 /* Label OVER value, not beside it. The inline `LABEL · value` row was a
@@ -857,8 +846,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
  * lines and nothing breaks. This is the base cell shape — the ≤0.9 override
  * that forced a row is simply gone now that two columns supply the width. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows > li,
-:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-rows > li {
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows > li {
   align-items: start;
 }
 

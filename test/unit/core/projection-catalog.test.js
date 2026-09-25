@@ -66,6 +66,15 @@ const WAS = {
 const ADDED_SINCE = ['heatmap'];
 const plus = (was, added = ADDED_SINCE) => sorted([...was, ...added]);
 
+/**
+ * Flow re-hosts declared SINCE the literals were retired, each a decided rendered-surface
+ * change. `matrix-grid` was the first `none` (2026-09-13-projected-rosters.md: its CSS
+ * carried the `figure.matrix-grid` half and nothing projected into it). It became `flow`
+ * on 2026-09-25 so Read · Article keeps its filled vs outlined cell marks instead of
+ * flattening the grid to a plain table (followups.d/2344-p2-chart-paints-lost-in-read-article.md).
+ */
+const FLOW_ADDED_SINCE = ['matrix-grid'];
+
 const sorted = (a) => [...a].sort();
 
 test('the projected catalog', async (t) => {
@@ -84,7 +93,7 @@ test('the projected catalog', async (t) => {
 	await t.test('the eight unchanged sets are exactly what the literals held', () => {
 		assert.deepEqual(sorted(c.SVG_CHART_LAYOUTS), plus(WAS.CHART_TOKEN_COMPONENTS));
 		assert.deepEqual(sorted(c.MEDIA_COMPONENTS), plus(WAS.MEDIA_COMPONENTS));
-		assert.deepEqual(sorted(c.FLOW_CHART_COMPONENTS), WAS.FLOW_CHART_COMPONENTS);
+		assert.deepEqual(sorted(c.FLOW_CHART_COMPONENTS), plus(WAS.FLOW_CHART_COMPONENTS, FLOW_ADDED_SINCE));
 		assert.deepEqual(sorted(c.SPATIAL_BOUNDED_COMPONENTS), WAS.SPATIAL_BOUNDED_COMPONENTS);
 		assert.deepEqual(sorted(c.SPATIAL_PLACEHOLDER_COMPONENTS), WAS.SPATIAL_PLACEHOLDER_COMPONENTS);
 	});

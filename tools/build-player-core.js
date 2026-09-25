@@ -42,7 +42,7 @@ const silent = argv.includes('--silent') || check;
 // read-aloud path, not just the CLI export (2026-07-11-manifest-speech-contract).
 const ENTRY_CONTENTS = `
 export {
-  assemblePlayer, playerCss, playerJs, buildArticle, minifyCss, escapeText, escapeAttr,
+  assemblePlayer, playerCss, playerJs, buildArticle, minifyCss, escapeText, escapeAttr, rehostContainerCss,
 } from './player-core.mjs';
 export { projectDeckToProse, projectDeckToScript, projectDeckToSpeech } from '../transformers/prose-projection.mjs';
 `;

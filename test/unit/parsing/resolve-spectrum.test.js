@@ -4,7 +4,8 @@
  * Two orthogonal accent-gradient controls, siblings of resolve-finish / resolve-mode /
  * resolve-stamp / resolve-tone-style:
  *   STYLE (`spectrum:`)      — on / solid / duo / mono / off → the gradient IDENTITY, which
- *                              redefines the shared `--spectrum` token so every accent follows.
+ *                              sets `--spectrum-style`; the shared `--spectrum-bar` resolves it,
+ *                              so every accent follows.
  *   EDGE  (`spectrum-edge:`) — top / left / right / bottom / off → the section-edge bar
  *                              PLACEMENT, which touches ONLY the bar.
  * `on` / `top` are the defaults and carry NO token. See
@@ -266,7 +267,7 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
 
   test('CSS contract — the restrained tier holds a single-hue accent ramp (--sp-fill-mono-h)', () => {
     const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
-    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum\)/);
+    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
     assert.match(variants, /section\.spectrum-trim-restrained\s*\{\s*--spectrum-structure:\s*var\(--sp-fill-mono-h\)/);
   });
 
@@ -277,18 +278,18 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
     assert.equal(readFrontMatterSpectrumTrim('---\nspectrum: solid\n---\n'), null);
   });
 
-  test('CSS contract — structural accents read --spectrum-structure; the opt-in flows --spectrum', () => {
+  test('CSS contract — structural accents read --spectrum-structure; the opt-in flows the bar', () => {
     const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
     // The token defaults to a quiet ACCENT-TINT hairline (--spectrum-quiet, a low-intensity blend
     // of --accent + --border), NOT flat neutral; the opt-in points it at the full --spectrum.
     assert.match(variants, /--spectrum-quiet:\s*color-mix\(in oklab, var\(--accent\) \d+%, var\(--border\)\)/);
     assert.match(variants, /--spectrum-structure:\s*linear-gradient\(var\(--spectrum-quiet\), var\(--spectrum-quiet\)\)/);
-    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum\)/);
+    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
     // A representative structural site now reads the STRUCTURE token, not --spectrum directly.
     const elements = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.elements.css'), 'utf8');
     assert.match(elements, /section hr \{[^}]*background:var\(--spectrum-structure\)/);
-    // …while the section-edge BAR still reads --spectrum directly (unchanged).
-    assert.match(elements, /border-image-source:\s*var\(--spectrum\)/);
+    // …while the section-edge BAR reads the resolved bar (the STYLE, else the theme's ribbon).
+    assert.match(elements, /border-image-source:\s*var\(--spectrum-bar\)/);
   });
 
   // Theme-layer guard (maker-checker finding): a theme may OVERRIDE a structural accent (e.g.
@@ -347,7 +348,7 @@ describe('resolve-spectrum — CARD CSS contract (base.accent-finish.css)', () =
   });
 
   test('every CARD STYLE value has a fill mapping (auto follows the bar; the rest pin a fill)', () => {
-    assert.match(block, /section\.spectrum-card\s*\{[^}]*--sp-card-v:\s*var\(--spectrum-vertical/);
+    assert.match(block, /section\.spectrum-card\s*\{[^}]*--sp-card-v:\s*var\(--spectrum-bar-vertical/);
     assert.match(block, /section\.spectrum-card-solid\s*\{[^}]*--sp-fill-solid-v/);
     assert.match(block, /section\.spectrum-card-duo\s*\{[^}]*--sp-fill-duo-v/);
     assert.match(block, /section\.spectrum-card-mono\s*\{[^}]*--sp-fill-mono-v/);
@@ -379,15 +380,21 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
   const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
   const block = css.slice(css.indexOf('── SPECTRUM registers')).split('/* ── STATE')[0];
 
-  test('every STYLE token has a rule; solid/duo/mono redefine the shared token (the consolidation)', () => {
+  // A STYLE sets `--spectrum-style`, which `--spectrum-bar` resolves and every accent reads. It
+  // must NOT redefine `--spectrum` itself: that token is the theme's ribbon, and the `:root`
+  // capture behind `spectrum-card: rainbow` reads it. Redefining it on the slide broke that pin in
+  // every packed host (2026-09-24-one-style-delivery-spine.md §8.2).
+  test('every STYLE token has a rule; solid/duo/mono set the shared STYLE token, never --spectrum', () => {
     for (const cls of SPECTRUM_TOKENS) {
       assert.ok(block.includes(`.${cls}`), `${cls} has no rule in the SPECTRUM block`);
     }
     for (const cls of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono']) {
       const rule = block.match(new RegExp(`section\\.${cls}\\s*\\{[^}]*\\}`))[0];
-      assert.match(rule, /--spectrum\s*:/, `${cls} must redefine --spectrum so all accents follow`);
-      assert.match(rule, /--spectrum-vertical\s*:/, `${cls} must redefine --spectrum-vertical too`);
+      assert.match(rule, /--spectrum-style\s*:/, `${cls} must set --spectrum-style so all accents follow`);
+      assert.match(rule, /--spectrum-style-vertical\s*:/, `${cls} must set --spectrum-style-vertical too`);
+      assert.doesNotMatch(rule, /--spectrum(-vertical)?\s*:/, `${cls} must not redefine --spectrum (the theme's ribbon)`);
     }
+    assert.match(block, /--spectrum-bar:\s*var\(--spectrum-style,\s*var\(--spectrum\)\)/);
   });
 
   test('off is BAR-ONLY — drops the edge bar but does NOT redefine the shared token', () => {
@@ -415,8 +422,8 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
     assert.match(block, /section\.spectrum-edge-right[^{]*\{[^}]*border-right:/);
     assert.match(block, /section\.spectrum-edge-bottom[^{]*\{[^}]*border-bottom:/);
     // left/right read the vertical token; bottom reads the horizontal one.
-    assert.match(block.match(/section\.spectrum-edge-left[^{]*\{[^}]*\}/)[0], /--spectrum-vertical/);
-    assert.match(block.match(/section\.spectrum-edge-bottom[^{]*\{[^}]*\}/)[0], /border-image-source:\s*var\(--spectrum\)/);
+    assert.match(block.match(/section\.spectrum-edge-left[^{]*\{[^}]*\}/)[0], /--spectrum-bar-vertical/);
+    assert.match(block.match(/section\.spectrum-edge-bottom[^{]*\{[^}]*\}/)[0], /border-image-source:\s*var\(--spectrum-bar\)/);
   });
 
   test('a divider is EXEMPT from the per-side edge rail (no doubled bar over its signature rail)', () => {

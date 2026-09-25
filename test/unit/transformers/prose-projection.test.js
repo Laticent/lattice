@@ -212,6 +212,29 @@ test('a FLOW-HEIGHT chart (roadmap) re-hosts its .chart-body into a width-contai
 	assert.doesNotMatch(articleHtml, /lp-figure-note/, 'roadmap is NOT a placeholder any more');
 });
 
+test('a flow figure captions with the AUTHORED .chart-caption, not the heading again', () => {
+	// `liftChartCaption` puts the author's trailing line in `.chart-caption`, a SIBLING of
+	// `.chart-body`, so re-hosting the body alone dropped it. matrix-grid lost its only caveat
+	// the day it became a flow figure (2026-09-25); the heading is already the h2 above.
+	const withCap = sections(
+		`<section data-lattice-slide data-class="matrix-grid" class="matrix-grid chart-frame"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Levels</h2></div>
+			<div class="chart-body"><div class="matrix-grid-figure"><table><tr><td>x</td></tr></table></div></div>
+			<p class="chart-caption">Illustrative — <em>placements</em> vary.</p>
+		</div></section>`,
+	);
+	const a = project(withCap).articleHtml;
+	assert.match(a, /<\/div><figcaption>Illustrative — <em>placements<\/em> vary\.<\/figcaption><\/figure>/);
+	assert.doesNotMatch(a, /<figcaption>Levels<\/figcaption>/);
+	const noCap = sections(
+		`<section data-lattice-slide data-class="roadmap" class="roadmap chart-frame"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Rollout</h2></div>
+			<div class="chart-body"><table><tr><td>x</td></tr></table></div>
+		</div></section>`,
+	);
+	assert.match(project(noCap).articleHtml, /<figcaption>Rollout<\/figcaption>/, 'no caption: the heading still captions');
+});
+
 test('flow-height figure class tokens are whitelisted (no attribute break-out)', () => {
 	// The authored class list enters the figure `class="…"` attribute; esc() does not escape the
 	// double-quote, so a stray quote in a class token must be stripped ([a-z0-9-] whitelist).

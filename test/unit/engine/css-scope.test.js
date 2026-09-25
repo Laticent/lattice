@@ -64,7 +64,7 @@ describe('packTheme selector scoping', () => {
 });
 
 /**
- * FLAT packing — the stylesheet for the exported player (`render(…, { flatCss: true })`).
+ * FLAT packing — the stylesheet for the exported player (`render(…, { styles: 'flat' })`).
  *
  * WHY: the Studio's Webpage export drew every chart in Read · Article black (the radar
  * report, 2026-09-24). The view lifts each chart's figure out of its slide, and the preview
