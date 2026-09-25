@@ -5,8 +5,8 @@ summary: >-
   prose, a chart over a stat row — while the slide keeps its one title, eyebrow, subtitle, Key
   Insight, below-note, header, footer and page number. The engine renders each pane as an
   ordinary one-slide deck of its component, then embeds its body in a `<lat-pane>` Cell; a deck
-  WITH panes assembles its stylesheet with a `lat-pane` twin beside every rule arm that reaches a
-  pane's body (component, base stage and theme rules), same rule and same specificity, so no
+  WITH panes assembles its stylesheet with a `section lat-pane` twin beside every rule arm that
+  reaches a pane's body (component, base stage and theme rules), in the same rule, so no
   component is edited and every other deck keeps its exact bytes. The carve runs
   inside the engine's own markdown-it parse, so slide breaks, fences and directives are the
   engine's answers. A proof of
@@ -127,11 +127,17 @@ So each rule arm that reaches a pane's body gets a TWIN rooted at the pane, in t
 
 ```css
 section.list > .cell-stage > ul { … }                                   /* as shipped */
-section.list > .cell-stage > ul, lat-pane.list > .cell-stage > ul { … } /* a deck with panes */
+section.list > .cell-stage > ul, section lat-pane.list > .cell-stage > ul { … } /* a deck with panes */
 ```
 
 - **Nothing is copied.** The twin sits in the same rule, so it keeps the rule's source order and
-  its declarations, and `lat-pane` is a type selector like `section`, so it keeps its specificity.
+  its declarations.
+- **A pane rule wins a tie against the slide it sits in.** The twin carries one more type
+  selector than its slide rule, the same in the CLI's raw sheet and the engine's packed one. That
+  edge is load-bearing: `section:not(.math) :is(.katex-display)` matches a math pane's equations
+  through the HOST section, and ties `section.math :is(.katex-display)`. The first cut twinned to
+  a bare `lat-pane.math …`, which lost that tie on source order in the CLI and gave a math pane's
+  equations 16px of padding a math slide does not have (measured in Chromium; 0px now).
 - **Only a deck with panes pays.** The twins are added where a deck's stylesheet is assembled —
   the engine's `composeCss` (Studio, Playground, player) and the CLI's inlined sheet — and only
   when the rendered deck holds a `<lat-pane>`. The shipped `dist/lattice.css` is never widened, so
@@ -144,8 +150,10 @@ section.list > .cell-stage > ul, lat-pane.list > .cell-stage > ul { … } /* a d
   pagination) never reach a pane. Coverage: 2,971 of the 3,042 component-sheet arms rooted at
   `section`; the 71 left are `section .functionplot` descendants (which already reach a pane) and
   the auto-split cover/points pages (slide-level).
-- **A leading `:is(section.x, figure.x)` is split into its arms first**, so every arm is judged, and
-  twinned, on its own.
+- **A leading `:is(section.x, figure.x)` is split only to find its arms**, so every arm is judged,
+  and twinned, on its own. The authored selector stays byte for byte.
+- **Quoted strings are text.** The walker skips `content: "/*"` and `[data-x="a{b"]`, so a brace,
+  comment opener or `;` inside a string never splits a rule.
 - **Nothing that counts slides can see a pane.** Pagination, page count, present mode and export all
   look for `section`; a pane is not one.
 - **Shape stamps resolve per pane.** The 234 `data-family` rules and the 105 `:has()` gates sit on
@@ -208,7 +216,7 @@ follow the same pattern.
 | Existing decks render the same markup | engine, every committed deck | 311 decks (every `examples/*.md`, component gallery and baseline deck; `panes.md` excluded): byte-identical HTML between `origin/main` and this branch, each rendered from its own worktree |
 | Existing decks get the same stylesheet, plus only the pane cell's own rules | engine `render().css` | the same 311 decks: every composed sheet differs from `main` by exactly +2,805 bytes, all of it `lib/forms/cell/pane/pane.css` (keyed on `section.lat-pane-host` / `lat-pane`, which no normal slide carries); zero lines removed |
 | Existing decks render the same pixels | CLI PDF export | 81 pages vs a `main` build, 0 differing pixels: `examples/a11y.md`, `sketch.md`, `finish-backdrops.md`, the legal and progression galleries |
-| Export-to-Marp is unchanged | `marpScopableCss` over the shipped `dist/lattice.min.css` | 4 selectors still start with `:is(` (as on `main`; the build-time design left 111), 0 pane arms |
+| Export-to-Marp is unchanged | `marpScopableCss` over the shipped `dist/lattice.min.css` | 4 selectors still start with `:is(` (as on `main`; the build-time design left 111), 0 twin arms (the only `lat-pane` selectors are the pane cell's own 14 in `pane.css`) |
 | Two components on one slide, chrome kept | CLI PDF export | `examples/panes.pdf` (light, committed) and a dark render reviewed alongside it, not committed — list+table 40/60, bar+list 55/45, image+text 50/50, table+big-number 70/30, stacked line over stats, piechart+list 45/55 |
 | Themes, sketch and finishes reach a pane correctly | CLI export, computed styles in Chromium | a11y-deuteranopia: a pie pane's wedge fills `url(#latt-a11y-chart-tex-1)` like a pie slide; `mode: sketch`: a cards pane's card computes the same 2px hand-drawn border as a cards slide; `class: dark` + `finish: atrium`: panes paint no background and no padding |
 | The Studio previews a panes slide | the real Studio (`/studio/`, docs dev server built from this branch), 1440px desktop | the demo deck typed into the editor: one host section, two `lat-pane` cells, list pills and table rules computed as on the CLI, no page errors. An earlier run found the preview's sanitizer **dropping** `<lat-pane>`; `lat-pane` joined `ADD_TAGS` in `lib/core/sanitize-slide-html.mjs` (which also covers the self-contained `.html` export) |
@@ -277,15 +285,18 @@ file (`npm run followups`), so none lives only in this note.
    the demo's first slide). The runtime should re-stamp each pane from its laid-out box.
 3. **Size chart geometry to the pane** (`2376-p2-size-chart-…`). A chart in a narrow pane draws its
    labels below their designed size (the bar values and pie legend in `examples/panes.pdf`).
-4. **Audit the runtime's section-keyed passes** (`2376-p2-audit-…`) — about 17 in `lib/runtime`,
+4. **Author and package CSS in a pane** (`2376-p2-author-css-…`). A panes deck widens the shipped
+   sheet, the theme and the CLI's front-matter `style:`; installed packages and the Studio's
+   `extraCss` are not widened yet, so their `section.<component>` rules skip a pane.
+5. **Audit the runtime's section-keyed passes** (`2376-p2-audit-…`) — about 17 in `lib/runtime`,
    plus sketch's rough-ink pass; Mermaid in a pane is untested.
-5. **A shape family for stacked bands** (`2376-p3-band-…`): a line chart letterboxes, stat tiles
+6. **A shape family for stacked bands** (`2376-p3-band-…`): a line chart letterboxes, stat tiles
    need ~45% of the stage.
-6. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and
+7. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and
    390px and its slide strip ("text"), and Export-to-Marp, which cannot carve and should degrade to
    the two panes' content, stacked.
-7. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
-8. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
+8. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
+9. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
    spec (`docs/src/content/docs/spec/lfm.md`) — once the syntax is no longer experimental.
 
 ---

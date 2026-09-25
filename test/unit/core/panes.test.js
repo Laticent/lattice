@@ -158,13 +158,13 @@ test('widenForPanes twins each arm that reaches a pane, and nothing else', () =>
     + '.z section, section p { e: f }\n';
   assert.equal(
     widenForPanes(css),
-    '/* c */ section.list > .cell-stage > ul, lat-pane.list > .cell-stage > ul{ a: b }\n'
-    // A leading `:is()` is split first, so every arm is a plain selector (the Marp-safe shape).
-    + 'section.bar .x, figure.chart-frame .x, lat-pane.bar .x{ c: d }\n'
+    '/* c */ section.list > .cell-stage > ul, section lat-pane.list > .cell-stage > ul{ a: b }\n'
+    // A leading `:is()` is split only to find its arms: the authored selector stays as written.
+    + ':is(section.bar, figure.chart-frame) .x, section lat-pane.bar .x{ c: d }\n'
     // Slide-level, and a class inside `:not()` is an exclusion, not a component.
     + 'section.dark { e: f }\n'
-    + 'section:where(:not(.glossary)) > table, section:where(:not(.glossary)) > :where(.cell-stage) > table td, lat-pane:where(:not(.glossary)) > :where(.cell-stage) > table td{ g: h }\n'
-    + '@media print { section.table > .cell-stage > table, lat-pane.table > .cell-stage > table{ i: j } }\n'
+    + 'section:where(:not(.glossary)) > table, section:where(:not(.glossary)) > :where(.cell-stage) > table td, section lat-pane:where(:not(.glossary)) > :where(.cell-stage) > table td{ g: h }\n'
+    + '@media print { section.table > .cell-stage > table, section lat-pane.table > .cell-stage > table{ i: j } }\n'
     + '@keyframes k { from { x: 1 } to { x: 2 } }\n'
     + '.z section, section p { e: f }\n',
   );
@@ -173,12 +173,26 @@ test('widenForPanes twins each arm that reaches a pane, and nothing else', () =>
 test('a comment between two arms hides neither from the widening (base.sketch.css has one)', () => {
   assert.equal(
     widenForPanes('section.sketch.cards-stack > ul > li,\n/* mid */\nsection.sketch.quote blockquote { a: b }'),
-    '/* mid */section.sketch.cards-stack > ul > li, lat-pane.sketch.cards-stack > ul > li,\n\nsection.sketch.quote blockquote, lat-pane.sketch.quote blockquote{ a: b }',
+    '/* mid */section.sketch.cards-stack > ul > li, section lat-pane.sketch.cards-stack > ul > li,\n\nsection.sketch.quote blockquote, section lat-pane.sketch.quote blockquote{ a: b }',
   );
 });
 
+test('a quoted string is text to the widening: no brace, comment or semicolon inside it counts', () => {
+  assert.equal(
+    widenForPanes('section.quote::after { content: "/*;{" } section.list[data-x="a{b"] > p { i: j }'),
+    'section.quote::after, section lat-pane.quote::after{ content: "/*;{" } section.list[data-x="a{b"] > p, section lat-pane.list[data-x="a{b"] > p{ i: j }',
+  );
+});
+
+test('a pane rule beats a slide rule reaching into the pane through the host (a math pane)', () => {
+  // `section:not(.math) :is(.katex…)` matches a pane's equations through the HOST section.
+  // The twin carries one more type selector, so the math pane's own rule wins the tie.
+  const out = widenForPanes('section.math .katex { a: b }');
+  assert.equal(out, 'section.math .katex, section lat-pane.math .katex{ a: b }');
+});
+
 test('widening a deck\'s sheet never changes what a NORMAL slide matches (every shipped sheet)', () => {
-  // The invariant the whole design rests on: strip the `lat-pane` twins back out and every
+  // The invariant the whole design rests on: strip the `section lat-pane` twins back out and every
   // rule is the rule it was — same arms, same order, same block. Run over the real bundle and
   // every theme, because a kernel bug hides in their comments (a `;` inside a comment once
   // split a prelude and broke the rule defining --sketch-ink on every slide of a panes deck).
@@ -195,7 +209,7 @@ test('widening a deck\'s sheet never changes what a NORMAL slide matches (every 
       enter(r) {
         if (r.prelude.type !== 'SelectorList') return;
         let sels = flat(r.prelude.children.toArray().map((x) => csstree.generate(x)).join(','));
-        if (dropTwins) sels = sels.filter((x) => !(/^lat-pane(?![\w-])/.test(x) && sels.includes(`section${x.slice(8)}`)));
+        if (dropTwins) sels = sels.filter((x) => !(/^section lat-pane(?![\w-])/.test(x) && sels.includes(`section${x.slice(16)}`)));
         out.push(`${sels.join('|')}{${csstree.generate(r.block)}}`);
       },
     });
@@ -221,7 +235,7 @@ test('a deck WITHOUT panes composes the plain sheet; a deck with panes gets the 
   const withPanes = e.render(DECK).css;
   assert.match(withPanes, /lat-pane\.list\b/);
   // The base stage defaults reach a pane's body — every table's rules …
-  assert.match(withPanes, /lat-pane:where\([^{}]*\)\s*>\s*:where\(\.cell-stage\)\s*>\s*table td/);
+  assert.match(withPanes, /section lat-pane:where\([^{}]*\)\s*>\s*:where\(\.cell-stage\)\s*>\s*table td/);
   // … and the plain deck's sheet is unchanged by a panes deck rendered through the same engine.
   assert.equal(e.render('## T\n\n- a\n').css, plain);
 });

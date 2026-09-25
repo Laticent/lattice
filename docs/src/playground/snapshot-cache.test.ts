@@ -152,14 +152,14 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(snap?.css).not.toMatch(/<\/style/i);
 	});
 
-	// The build widens every component rule to `section.x, lat-pane.x` (lib/core/panes.js).
+	// A panes deck widens every component rule to `section.x, section lat-pane.x` (lib/core/pane-css.js).
 	// A deck with no panes must not pay for the pane arms: keeping them pushed the real
 	// Playground snapshot from 223K to 315K units, past MAX_UNITS, so nothing was stored.
 	it('drops pane arms a document without panes can never match, and keeps them when it has one', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
 		// `:is(h1, h2)` makes the probe unevaluable once stripped — the case that kept both arms.
-		doc.head.innerHTML = '<style>section.title > :is(h1, h2), lat-pane.title > :is(h1, h2){color:red}</style>';
+		doc.head.innerHTML = '<style>section.title > :is(h1, h2), section lat-pane.title > :is(h1, h2){color:red}</style>';
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.css).toContain('section.title');
 		expect(snap?.css).not.toContain('lat-pane');
@@ -171,7 +171,7 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	it('a pane on a LATER slide does not keep pane arms in the slide-1 snapshot', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		doc.head.innerHTML = '<style>section.title > :is(h1, h2), lat-pane.title > :is(h1, h2){color:red}</style>';
+		doc.head.innerHTML = '<style>section.title > :is(h1, h2), section lat-pane.title > :is(h1, h2){color:red}</style>';
 		(doc.querySelectorAll('.lattice > section')[1] as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"></lat-pane>');
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.css).toContain('section.title');

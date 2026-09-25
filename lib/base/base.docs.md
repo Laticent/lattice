@@ -87,7 +87,8 @@ number; only the body splits. Mark where each component's body begins:
 
 Known limits while it is experimental: a pane clips its content at its edge and nothing warns yet
 (check the PDF), a chart in a narrow pane draws smaller labels, and a short stacked band suits a
-chart or a stat row poorly. Demo: `examples/panes.md`. Design, audit and every open gap:
+chart or a stat row poorly. A deck's front-matter `style:` reaches a pane in the CLI export; an
+installed package's CSS and the Studio's extra CSS do not yet. Demo: `examples/panes.md`. Design, audit and every open gap:
 `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
 
 ## Auto-detected authoring patterns

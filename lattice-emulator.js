@@ -3115,7 +3115,7 @@ main#deck{margin:0;padding:0;display:block}
    Fix: make <main> transparent to the flex column — same axis, full width — so the
    slides resolve their percentage against the same box they did before. */
 :root[data-lattice-view="fluid"] main#deck{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;flex:1 0 auto}
-${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}`;
+${globalStyle ? `\n/* Front-matter style: directive */\n${DECK_HAS_PANES ? widenForPanes(globalStyle) : globalStyle}\n` : ''}`;
 
 // The one place the deck's stylesheet exists as a finished string. Compute it
 // once: the <style> body below embeds it, and the texture <defs> are chosen from
