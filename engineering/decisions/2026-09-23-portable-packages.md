@@ -621,6 +621,14 @@ it is the record of what was wrong.
     script loaded by a relative path stays legal: the shipped diagram gallery loads the
     vendored Mermaid that way, and a package cannot supply such a file, since any script file
     makes it a code package.
+  - **Scripts, the seventh pass.** An independent checker on the sixth pass found that the
+    source check read only `src`, while an SVG `<script>` names its file in `href` or
+    `xlink:href`: `<svg><script href="data:text/javascript,…">` passed the gate and ran in
+    Chromium. All three attributes are now read. The same review showed a `<meta
+    http-equiv="refresh">` to a `data:` page running that page's script in a subframe, so a
+    refresh is now refused whatever it points at. Still legal, and recorded rather than closed:
+    a relative script `src` resolves against the Studio origin or the author's disk, so it can
+    load code the package did not supply, though never code the package wrote.
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked

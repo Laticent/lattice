@@ -88,6 +88,9 @@ const FETCHES = {
   'an inline script (a render runs it; WebRTC escapes any proxy)': '<script>new RTCPeerConnection({iceServers:[{urls:"stun:leak.example.com:3478"}]})</script>',
   'an inline script with a fetch': '<script>fetch("https://x.example.com/a")</script>',
   'a script with a data: source': '<script src="data:text/javascript,alert(1)"></script>',
+  'an svg script with a data: href': '<svg><script href="data:text/javascript,window.PWN=1"></script></svg>',
+  'an svg script with a data: xlink:href': '<svg><script xlink:href="data:text/javascript,window.PWN=1"></script></svg>',
+  'a meta refresh to a data: page': '<meta http-equiv="refresh" content="0;url=data:text/html,<script>parent.postMessage(1,\'*\')</script>">\n',
   'an event handler attribute': '<img src="x.png" onerror="fetch(1)">',
   'a javascript: link': '<a href="javascript:fetch(1)">x</a>',
   'an iframe holding a data: document': '<iframe src="data:text/html,<img src=x>"></iframe>',
@@ -186,6 +189,6 @@ describe('remote-ref predicate', () => {
   test('remoteRefsInElements: SMIL and meta refresh, which carry no fetching attribute', () => {
     assert.deepEqual(remoteRefsInElements([{ tag: 'set', attrs: [['attributename', 'href'], ['to', 'https://e/a']] }]), ['https://e/a']);
     assert.deepEqual(remoteRefsInElements([{ tag: 'set', attrs: [['attributename', 'fill'], ['to', 'https://e/a']] }]), []);
-    assert.deepEqual(remoteRefsInElements([{ tag: 'meta', attrs: [['http-equiv', 'Refresh'], ['content', "0; URL='https://e/r'"]] }]), ['https://e/r']);
+    assert.deepEqual(remoteRefsInElements([{ tag: 'meta', attrs: [['http-equiv', 'Refresh'], ['content', "0; URL='https://e/r'"]] }]), ['policy:a <meta http-equiv="refresh">', 'https://e/r']);
   });
 });

