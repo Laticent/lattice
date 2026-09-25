@@ -5558,6 +5558,16 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/workspace-backup-size.spec.ts', ms: 2000, count: 1,
+    why: 'ONE ABSENCE ASSERTION: when a workspace restore skipped something, the "Not restored" '
+       + 'list must survive the reload and then NOT go away on its own, because it is how the user '
+       + 'learns a lane of reference docs was skipped (it used to vanish with the reload after '
+       + '1100ms). There is no signal for a notice that must not disappear; a poll goes green on '
+       + 'its first tick, before an ordinary notice\'s 2600ms default duration would have closed '
+       + 'it. 2000ms is most of that duration and the notice is then asserted visible. The loop '
+       + 'runs it twice (an object flood and a scalar flood), ~4s of the file per project.',
+  },
+  {
     file: 'docs/e2e/preview-font-swap.spec.ts', ms: 1500, count: 1,
     why: 'ONE ABSENCE ASSERTION, and it is the whole point of the spec: after the preview has '
        + 'revealed a layout and the document reports its faces settled, NO SECOND layout may '

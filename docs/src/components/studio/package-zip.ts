@@ -12,6 +12,9 @@
 // imports it), and the spine pulls in the theme parser; pack and unpack are user actions.
 
 import type { Scene } from '@/lib/anima';
+// The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
+// only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
+import jsonGuard from '../../../../lib/packages/json-guard.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
@@ -26,6 +29,8 @@ export type PackageFiles = { type: PackageType; name: string; files: Record<stri
 // Through the esbuild bundle (tools/build-packages-core.js), not lib/packages/ directly: the
 // spine is CommonJS with requires, which the docs dev server can't serve (astro.config.mjs).
 type Spine = typeof import('@/playground/packages-core.generated.js');
+
+const TOO_MANY = 'it holds too many values to read';
 let spineLoad: Promise<Spine> | null = null;
 export function loadSpine(): Promise<Spine> {
 	if (!spineLoad) spineLoad = import('@/playground/packages-core.generated.js');
@@ -69,7 +74,7 @@ export function themePackage(t: StudioTheme): PackageFiles {
 	// essentials.json is what reopens the theme for editing in Fabricate.
 	if (t.essentials && Object.keys(t.essentials).length) {
 		const state = { essentials: t.essentials, ...(t.overrides ? { overrides: t.overrides } : {}), ...(t.rampStrategy ? { rampStrategy: t.rampStrategy } : {}) };
-		files[`${n}.essentials.json`] = carried(t.pkg, 'essentials.json', json(state), (x) => deepEqual(JSON.parse(x), state));
+		files[`${n}.essentials.json`] = carried(t.pkg, 'essentials.json', json(state), (x) => deepEqual(jsonGuard.parseJsonCapped(x, TOO_MANY), state));
 	}
 	return { type: 'theme', name: n, files };
 }
@@ -96,7 +101,7 @@ export function finishPackage(f: StudioFinish): PackageFiles {
 		files: {
 			[`${n}.manifest.json`]: json(manifestFor('finish', n, f.pkg, { label: f.label })),
 			// The CSS is generated from the recipe (§3.6), so it never travels.
-			[`${n}.recipe.json`]: carried(f.pkg, 'recipe.json', json(f.recipe), (x) => deepEqual(coerceRecipe(JSON.parse(x)), coerceRecipe(f.recipe))),
+			[`${n}.recipe.json`]: carried(f.pkg, 'recipe.json', json(f.recipe), (x) => deepEqual(coerceRecipe(jsonGuard.parseJsonCapped(x, TOO_MANY)), coerceRecipe(f.recipe))),
 		},
 	};
 }
@@ -106,7 +111,7 @@ export function motionPackage(s: StudioScene): PackageFiles {
 	const engine = s.spec.source === 'svg' ? 'anime' : 'zdog';
 	const files: Record<string, string> = {
 		[`${n}.manifest.json`]: json(manifestFor('motion', n, s.pkg, { label: s.label, ...(s.description ? { description: s.description } : {}), engine })),
-		[`${n}.scene.json`]: carried(s.pkg, 'scene.json', json(s.spec), (x) => deepEqual(JSON.parse(x), s.spec)),
+		[`${n}.scene.json`]: carried(s.pkg, 'scene.json', json(s.spec), (x) => deepEqual(jsonGuard.parseJsonCapped(x, TOO_MANY), s.spec)),
 	};
 	if (s.poster) files[`${n}.poster.svg`] = s.poster;
 	if (s.art) files[`${n}.art.svg`] = s.art;
@@ -212,7 +217,7 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 		// A component's images and data files (its assets) are not carried into the Studio's
 		// record yet, so they are named as left out rather than lost in silence.
 		const notes = [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(r.pkg.assets?.length ? [`left out ${r.pkg.assets.length} asset file(s): ${r.pkg.assets.join(', ')}`] : [])];
-		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: JSON.parse(roles['manifest.json']), roles, code: !!norm.pkg.code, notes });
+		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, notes });
 	}
 	return { packages, refused };
 }
@@ -228,12 +233,15 @@ const labelOf = (m: Record<string, unknown>, name: string) => (typeof m.label ==
 
 export function themeFromPackage(p: ReadPackage): { name: string; label: string; essentials: Record<string, string> | null; overrides?: Record<string, unknown>; rampStrategy?: string; css: string; pkg: PackageCarry } {
 	let state: { essentials?: Record<string, string>; overrides?: Record<string, unknown>; rampStrategy?: string } = {};
-	const raw = p.roles['essentials.json'];
+	// Carried verbatim into the saved theme, and so into every later export and backup, ONLY when
+	// it parsed: a file the value cap refused, or that is not JSON, is dropped, not kept to re-fire.
+	let raw: string | undefined = p.roles['essentials.json'];
 	if (raw) {
 		try {
-			state = JSON.parse(raw);
+			state = (jsonGuard.parseJsonCapped(raw, TOO_MANY) as typeof state) ?? {};
 		} catch {
 			state = {};
+			raw = undefined;
 		}
 	}
 	const overrides = overridesMap(state.overrides);
@@ -262,14 +270,18 @@ export function componentFromPackage(p: ReadPackage): { name: string; bucket: st
 
 export function finishFromPackage(p: ReadPackage): { name: string; label: string; recipe: FinishRecipe; pkg: PackageCarry } {
 	let parsed: unknown;
+	let raw = p.roles['recipe.json'] ?? '';
 	try {
-		parsed = JSON.parse(p.roles['recipe.json'] ?? '');
+		parsed = jsonGuard.parseJsonCapped(raw, TOO_MANY);
 	} catch {
+		// Refused by the value cap, or not JSON: the finish still imports from the clamped default
+		// recipe, but the file is not carried into the saved record (see themeFromPackage).
 		parsed = undefined;
+		raw = '';
 	}
 	// coerceRecipe clamps every number and enum-checks every keyword, so a recipe from a
 	// stranger can only describe a finish the vocabulary can draw.
-	return { name: p.name, label: labelOf(p.manifest, p.name), recipe: coerceRecipe(parsed), pkg: { manifest: p.manifest, files: { 'recipe.json': p.roles['recipe.json'] ?? '' } } };
+	return { name: p.name, label: labelOf(p.manifest, p.name), recipe: coerceRecipe(parsed), pkg: { manifest: p.manifest, files: { 'recipe.json': raw } } };
 }
 
 export function motionFromPackage(p: ReadPackage): { name: string; label: string; description?: string; specText: string; poster?: string; art?: string; pkg: PackageCarry } {

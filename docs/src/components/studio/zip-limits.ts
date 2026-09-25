@@ -87,3 +87,14 @@ export function readBytesBudget(message: string, max: number): (entry: ZipEntry 
 		return (await zipRead.readEntryCapped(entry as Parameters<typeof zipRead.readEntryCapped>[0], 'uint8array', budget)) as Uint8Array<ArrayBuffer>;
 	};
 }
+
+/**
+ * The JSON value cap (`lib/packages/json-guard.js`, shared with the package reader the CLI
+ * uses): `parseJsonCapped` refuses a text holding more than `MAX_JSON_VALUES` values before
+ * `JSON.parse` builds them. Loaded on first use, like the read budget's inflater: this module
+ * is on the Studio's eager path (the route budget in docs/route-budget.json), and every caller
+ * is already async, opening a file.
+ */
+export async function jsonGuard(): Promise<{ MAX_JSON_VALUES: number; countJsonValues: (text: string, limit?: number) => number; parseJsonCapped: (text: string, message: string) => unknown }> {
+	return (await import('../../../../lib/packages/json-guard.js')).default;
+}

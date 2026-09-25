@@ -82,8 +82,12 @@ test('a hostile workspace backup restores everything else and names what it refu
 	expect(toastText).not.toContain('Probe clean theme');
 	expect(toastText).toMatch(/1 deck \+ 2 library assets in/);
 
-	// The restore reloads the page; the Library read afterwards is what is really stored.
+	// The restore reloads at once; what it refused rides the reload and is shown again on the
+	// restored Studio, until dismissed. The Library read afterwards is what is really stored.
 	await page.waitForEvent('load', { timeout: 15_000 });
+	const after = page.locator('[data-sonner-toast]').filter({ hasText: 'Some items were not restored' }).first();
+	await expect(after).toContainText('Probe beacon theme', { timeout: 15_000 });
+	await after.getByRole('button', { name: 'OK' }).click();
 	const shelf = await page.evaluate(async () => {
 		const open = indexedDB.open('lattice-workbench');
 		const db: IDBDatabase = await new Promise((res, rej) => {

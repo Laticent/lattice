@@ -32,7 +32,7 @@ const packageZip = () => import('./package-zip');
 
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
-import { assertZipWithinLimits, MAX_ZIP_BYTES, readBudget } from './zip-limits';
+import { assertZipWithinLimits, jsonGuard, MAX_ZIP_BYTES, readBudget } from './zip-limits';
 
 const TOO_LARGE = 'That asset zip is too large to import.';
 
@@ -302,6 +302,7 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
  *  Exported for the `.lattice` reader, whose `packages/` folders are the same thing. */
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 export async function unpackPackages(zip: any, read: (path: string | undefined) => Promise<string | undefined>): Promise<ParsedBundle> {
+	const { parseJsonCapped } = await jsonGuard();
 	// The declared size of every entry a package folder holds; loose files beside the folders
 	// (a README, a showcase PDF) are never read and don't count.
 	const inFolders = Object.keys(zip.files).filter((p) => !zip.files[p].dir && p.includes('/') && !p.startsWith('showcases/'));
@@ -331,7 +332,7 @@ export async function unpackPackages(zip: any, read: (path: string | undefined) 
 			// refused, never coerced (there is no safe default scene).
 			let r: ReturnType<typeof parseScene> = { ok: false, errors: ['unreadable scene spec'] };
 			try {
-				r = parseScene(JSON.parse(m.specText));
+				r = parseScene(parseJsonCapped(m.specText, TOO_LARGE));
 			} catch {
 				/* malformed JSON → refused below */
 			}
@@ -345,11 +346,12 @@ export async function unpackPackages(zip: any, read: (path: string | undefined) 
 /** The pre-2026-09 `lattice-asset/1` envelope. Read-only: nothing writes this format any more. */
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 async function unpackLegacy(zip: any, read: (path: string | undefined) => Promise<string | undefined>): Promise<ParsedBundle> {
+	const { parseJsonCapped } = await jsonGuard();
 	// The entry count, and the manifest's own declared size, before reading anything.
 	assertZipWithinLimits(zip, TOO_LARGE, ['manifest.json']);
 	const manifestFile = zip.file('manifest.json');
 	if (!manifestFile) throw new Error('Not a Lattice asset zip — no package folder and no manifest.json.');
-	const manifest = JSON.parse((await read('manifest.json')) || '') as AssetManifest;
+	const manifest = parseJsonCapped((await read('manifest.json')) || '', TOO_LARGE) as AssetManifest;
 	if (manifest?.format !== ASSET_FORMAT) throw new Error(`Unsupported asset format: ${manifest?.format}`);
 	if (!Array.isArray(manifest.items)) throw new Error('Not a Lattice asset zip — manifest.json lists no items.');
 	// Then the declared size of exactly the entries this import reads. Showcase PDFs ride
@@ -379,7 +381,7 @@ async function unpackLegacy(zip: any, read: (path: string | undefined) => Promis
 				// coerceRecipe clamps a missing/garbled recipe to the closed vocab, so a
 				// finish always re-imports renderable even if the recipe JSON is absent.
 				let parsed: unknown;
-				try { parsed = recipeText ? JSON.parse(recipeText) : undefined; } catch { parsed = undefined; }
+				try { parsed = recipeText ? parseJsonCapped(recipeText, TOO_LARGE) : undefined; } catch { parsed = undefined; }
 				out.finishes.push({ name: item.name, label: item.label, css, recipe: coerceRecipe(parsed) });
 			}
 		} else if (item.kind === 'scene') {
@@ -393,7 +395,7 @@ async function unpackLegacy(zip: any, read: (path: string | undefined) => Promis
 			// recursion-bomb, but the try/catch keeps any future validator throw contained too).
 			let r: ReturnType<typeof parseScene> = { ok: false, errors: ['unreadable scene spec'] };
 			try {
-				r = parseScene(specText ? JSON.parse(specText) : undefined);
+				r = parseScene(specText ? parseJsonCapped(specText, TOO_LARGE) : undefined);
 			} catch {
 				/* malformed JSON or a validator throw → drop this scene */
 			}

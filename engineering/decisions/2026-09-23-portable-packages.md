@@ -725,11 +725,12 @@ it is the record of what was wrong.
   half-restored workspace. The on-disk file itself is not capped: a large file is not an
   amplification, and JSZip holds it either way. What the caps do NOT bound is the cost of
   parsing what they admit, and the band between the restore cap and the export's own ceiling:
-  both are item 17 of the follow-ups file. `workspace-backup.size.test.ts` counts the bytes
-  JSZip actually inflates, so it shows each liar stopped within a chunk of its cap, not only
-  refused, and `docs/e2e/workspace-backup-size.spec.ts` drives the same restore through the
-  real Workspace sheet in Chromium: a 196 KB backup that inflates to 192 MiB is refused in
-  3.7 s with the JS heap at 127 MiB, and a 67 MiB-refdocs backup restores all ten docs; the old code also threw on a liar, but after inflating it in full. It also has the
+  follow-up 17, below, closes both. `workspace-backup.size.test.ts` counts the bytes JSZip
+  actually inflates, so it shows each liar stopped within a chunk of its cap, not only
+  refused; the old code also threw on a liar, but after inflating it in full.
+  `docs/e2e/workspace-backup-size.spec.ts` drives the same restore through the real Workspace
+  sheet: a 196 KB backup that inflates to 192 MiB is refused in about 3 s with Chromium's JS
+  heap at 126 MiB, and a 67 MiB-refdocs backup restores all ten docs. It also has the
   declared-size refusal for each entry, the no-half-restore arms, and a control: a real
   `packWorkspace` backup with 67 MiB of reference docs still restores.
 - **Trio follow-up 16, the unreadable scene's key: done (2026-09-25).** `scene-library.ts`
@@ -743,3 +744,66 @@ it is the record of what was wrong.
   surface, `workspace-backup-size.spec.ts` restores a row carrying a seeded theme's id through
   the Workspace sheet in Chromium: the theme survives, and on the previous build it came back
   as a scene record.
+- **Trio follow-up 17, what the caps admit: done (2026-09-25).** Found by the checker on item
+  15, then hardened by a second checker and the full adversarial trio (red team, inversion,
+  checker) on the same PR.
+  - **Parse cost.** The byte caps bound the inflate, not what `JSON.parse` builds, and a value
+    can be two bytes: 64 MiB of `{},` is 22 million objects (1.4 GB of Node heap), and 256 MiB
+    of `1,` is 134 million numbers, which real Chromium built in 4 s at the edge of a tab
+    crash. `lib/packages/json-guard.js` `parseJsonCapped` counts every object, array and comma
+    outside a string first, in one pass, and refuses past `MAX_JSON_VALUES`, one million. It is
+    a CommonJS leaf so every door shares it: each JSON file a workspace restore reads, a
+    `.lattice` manifest, every package manifest, and a package's `essentials.json`,
+    `recipe.json` and scene spec, in the Studio (`package-zip.ts`, `asset-bundle.ts`, which
+    also reach a backup's nested `library.zip`) and in the CLI's package reader (`read.js`,
+    `gate.js`). The first cut counted only objects and arrays, which let a scalar array
+    through, and missed `essentials.json` and `recipe.json` on the package-folder path, whose
+    raw file was also carried into the saved record and so into every later backup; both are
+    fixed, and a refused file is no longer carried. The Studio loads the guard on first use
+    (`zip-limits.ts` `jsonGuard`): a static import put it on the eager path and over the route
+    budget by 0.1 KB. Measured: 200 decks at the store's chat cap (`CHAT_CAP`, 60) is 36,201
+    values, 1/28 of the cap; the scan stops a 64 MiB flood in about 60 ms; the real CLI refuses
+    a 58 KB package whose manifest is 30 million values in 0.6 s at its 109 MiB baseline, where
+    a plain `JSON.parse` of the same text takes 787 MiB.
+  - **The core refuses, the side lanes degrade.** `manifest.json`, `workspace.json` and
+    `library.zip` still refuse the whole restore before anything is written. The reference docs
+    and the unreadable scenes are side lanes (`readLane`): one that is oversized, not JSON, not
+    a list, over the value cap or longer than `MAX_BACKUP_ROWS` (2,000; each row is an
+    IndexedDB write) is skipped and named in the restore's "Not restored" list, and the decks
+    and library still restore. The first cut refused the whole restore for these, which swapped
+    the old partial restore for none on the one path a backup exists for (the inversion's
+    finding). Every unreadable-scene row the restore does not store is named, junk rows
+    included, and one whose name is not a slug is declined rather than saved, since the name
+    becomes a folder in every later backup; a poster or art that is not text is stripped and
+    the scene kept. A refdocs row that is not a named record is skipped without a write. The
+    refusals name the part that failed, the library included. The unreadable-scenes lane now
+    has its own 64 MiB budget rather than sharing one with `workspace.json`, which raises the
+    most a hostile restore can inflate from about 409 MiB to about 473 MiB (64 of text, 25 of
+    `library.zip`, the library's own 64 once unpacked, 256 of reference docs, 64 of unreadable
+    scenes).
+    The "Not restored" list used to be shown for about a second, until the automatic reload
+    cleared it, which made a skipped lane of reference docs effectively silent. It now rides
+    the reload in `sessionStorage` (`workspace-backup-meta.ts`) and is shown again on the
+    restored Studio until dismissed. A first cut instead skipped the reload until the user
+    clicked; the final checker found that this left a live editor over the store the restore
+    had just rewritten, where one keystroke wrote the stale deck back, so the reload stays
+    immediate (`engineering/gotchas/studio-playground.md`).
+  - **Two store reads that scaled with the shelf.** `asset-store.js` `listAssets(kind)` and
+    `putAsset`'s name lookup read the whole store and filtered in memory, reference-doc PDFs
+    included, so each unreadable-scene row read every PDF; the restore's per-row lookup made
+    that 41 ms a row with three 6.7 MiB docs on the shelf. Both now read through the `kind`
+    index, and the restore reads the scene shelf once (`unreadableSceneShelf`): 50 rows went
+    from 2,072 ms to 15 ms (fake-indexeddb, measured with the red team's scripts; not a bench
+    scenario). It speeds every save of a new asset too. `workspace-backup.size.test.ts` counts
+    IndexedDB reads during a 30-row restore: no whole-store read, and one index read per row.
+  - **The warning, the owner's call: warn, and still save.** `packWorkspace` reports what it
+    wrote (the `refdocs.json` size in UTF-8 bytes, the unit of the size the zip declares, and
+    its row count; `library.zip`'s packed size, file count and unpacked total; the state's
+    size), and `backupRestoreGaps` names every SIZE limit a restore would hit, so no warning
+    means no size limit will refuse the file. The first cut checked only the library's packed
+    size, and missed a library that packs small and unpacks past the 64 MiB cap (the last
+    checker's finding). The value cap is not checked: nothing the Studio writes comes near it.
+    The Workspace sheet shows it for 15 s (`DEGRADED_TOAST_MS`). Measured on the real surface
+    with 40 docs, 260 MiB in all. Found on the way: Chromium kills the tab on a single
+    IndexedDB value of 256 MiB or more; no real reference doc gets near that (the import caps
+    a doc at 5 MB), so it constrains test fixtures, not users.

@@ -30,8 +30,8 @@ verify    — unit + the package e2e specs.
 
 Items 2 (gallery gating), 3 (motion art's remote references), 4 (the streaming inflate), 9
 (escaped selectors), 12 (the workspace restore), 13 (the resolver rule's test), 14 (relative
-scripts), 15 (the workspace backup's size caps) and 16 (the unreadable scene's key) are fixed,
-and item 6 is declined; the decision note's §10 says how and why. The numbers are kept so a
+scripts), 15 (the workspace backup's size caps), 16 (the unreadable scene's key) and 17 (the
+parse cost of what the caps admit, and the export warning) are fixed, and item 6 is declined; the decision note's §10 says how and why. The numbers are kept so a
 reference to item 5 still means item 5.
 
 5. **`rgb(from …)` is the repo's first relative-color syntax** (the finish BOTTOM-LAYER
@@ -65,16 +65,10 @@ reference to item 5 still means item 5.
     load them?" switch, and an export option that inlines or strips them. A product call
     (it changes what a pasted deck shows by default), so it is the owner's. Found by the
     inversion lens on the continuation PR.
-17. **The workspace backup's size caps bound the inflate, not what comes after it.** Item 15
-    capped every read. Two gaps remain, both found by the checker on that fix (2026-09-25).
-    (a) **Parse cost.** A `refdocs.json` of `[{},{},…]` compresses about 1000:1, so the 256 MiB
-    cap admits a few-hundred-KB file whose `JSON.parse` builds tens of millions of objects:
-    64 MiB of `{},` took 26 s and 1.4 GB of Node heap, and the restore would then call
-    `saveRefDoc` once per object. The 64 MiB text budget carries the same exposure, and so does
-    `.lattice` import, which has shipped with it. A record-count or compression-ratio check
-    would close it. (b) **The export/restore band.** `packWorkspace` writes any `refdocs.json`
-    up to V8's longest string (about 512 MiB on Chrome), and the restore refuses one over
-    256 MiB, so a Library holding roughly 39 to 76 maximum-size PDFs exports a backup that will
-    not restore, with no warning. The fix is a warning, or a refusal, at export; which one is a
-    product call, so it is the owner's.
+18. **A malformed `workspace.json` refuses with a programmer's message.** A backup whose state has
+    the right shape at the top but a wrong type inside (`chats: null`, say) fails in
+    `importStudioState` with "Cannot read properties of null (reading 'welcome')". Nothing is
+    written first, so no data is lost, but the message tells the user nothing. The fix is a shape
+    check on the parsed state before the import, with a message that names the file. Found by the
+    red team on the continuation PR (2026-09-25); pre-existing and off this PR's path.
 

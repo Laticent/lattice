@@ -29,7 +29,7 @@ import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
-import { dismissNotice, notify, notifyAction } from '@/lib/notify';
+import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -110,7 +110,7 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 import { TOURS } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
-import { isEvictionProneBrowser } from './workspace-backup';
+import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
@@ -1508,6 +1508,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// re-trigger a saveSource for the deck id that was JUST cleared, silently
 	// orphaning fresh content the reload can't undo. clearAllDecks dispatches
 	// this the instant it finishes; every saveSource call below checks it first.
+	// A workspace restore that skipped something stashes what, reloads, and the list is shown
+	// here once, on the restored data, until the user dismisses it (workspace-backup-meta.ts).
+	React.useEffect(() => {
+		const report = takeRestoreReport();
+		if (report) notifySticky(`${report.done} Some items were not restored.`, { description: report.notRestored, label: 'OK', onClick: () => {} });
+	}, []);
+
 	const decksClearedRef = React.useRef(false);
 	React.useEffect(() => {
 		const onCleared = () => { decksClearedRef.current = true; };
