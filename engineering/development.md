@@ -935,6 +935,12 @@ npm run test:e2e -- e2e/inspector.spec.ts --project=desktop   # one spec
 npx playwright test --project=desktop --grep @perf             # preview render-path perf
 ```
 
+**WebKit and Firefox are not installed in the sandbox.** To run a spec on them, start the
+nightly by hand on your branch with its `spec` input (Actions → Studio E2E nightly → Run
+workflow, or `workflow_dispatch` with `spec: e2e/<name>.spec.ts`). It runs only those specs,
+across every project, in minutes instead of the whole suite's 45-plus, and it files nothing on
+the rolling issue (only a scheduled or unfiltered run on `main` does).
+
 **`@perf` — the preview render-path measurement** (`e2e/studio-preview-perf.spec.ts`). Reports
 raw per-render RENDER / FRAME / TOTAL for the two interactions that drive a preview render —
 slide NAVIGATION and TYPING — at 4× CPU, over both a prose deck and 40 gallery slides, because
