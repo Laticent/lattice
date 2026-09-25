@@ -732,3 +732,14 @@ it is the record of what was wrong.
   3.7 s with the JS heap at 127 MiB, and a 67 MiB-refdocs backup restores all ten docs; the old code also threw on a liar, but after inflating it in full. It also has the
   declared-size refusal for each entry, the no-half-restore arms, and a control: a real
   `packWorkspace` backup with 67 MiB of reference docs still restores.
+- **Trio follow-up 16, the unreadable scene's key: done (2026-09-25).** `scene-library.ts`
+  `putUnreadableScene` drops the `id` the backup row carries and looks the name up among
+  scenes. `putAsset`'s id path is a blind put, so the kept id let a row naming one of your
+  themes' ids replace that theme with a scene record, and scenes are not versioned. The §7c
+  intent that made the id worth keeping still holds: a working scene of the same name is kept
+  and the unreadable copy declined, and an unreadable one of the same name is updated in
+  place, so a repeated restore leaves one record. `scene-library.unreadable-id.test.ts` runs
+  the three cases on a fake-indexeddb store; all three fail at the previous code. On the real
+  surface, `workspace-backup-size.spec.ts` restores a row carrying a seeded theme's id through
+  the Workspace sheet in Chromium: the theme survives, and on the previous build it came back
+  as a scene record.

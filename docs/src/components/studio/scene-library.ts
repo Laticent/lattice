@@ -221,17 +221,24 @@ export async function listStudioScenes(): Promise<StudioScene[]> {
  * The one thing that is NOT preserved verbatim is the untrusted markup: `poster`/`art` still go
  * through `sanitizeSceneAssets`, because HARD RULE #22's store-boundary guarantee has to hold on
  * EVERY write, and a backup file is exactly the hand-editable input that guarantee exists for.
+ *
+ * Returns whether it wrote: `false` for a junk row, and for a name a working scene already holds.
  */
 export async function putUnreadableScene(raw: unknown): Promise<boolean> {
 	if (!raw || typeof raw !== 'object') return false;
 	const rec = raw as SceneAssetRecord;
 	if (!rec.name) return false;
-	// KEEP the id. Dropping it sent the record down putAsset's no-id path, which resolves
-	// (kind, name) to whatever already holds that name — so restoring a backup whose `rotor` is
-	// unreadable would overwrite a WORKING `rotor`, and `scene` is not in VERSIONED_KINDS so there
-	// would be no snapshot to recover from. With the id, a restore updates the same record it came
-	// from and is idempotent across repeated restores.
-	await putAsset({ ...rec, ...(await sanitizeSceneAssets({ poster: rec.poster, art: rec.art })), kind: 'scene' } as unknown as SceneAssetRecord);
+	// KEYED BY NAME, never by the backup's own `id` (followups.d/2336 item 16). The id is whatever
+	// the file says, and `putAsset`'s id path is a blind put: a row carrying the id of one of your
+	// saved THEMES replaced that theme with a scene record, and scenes keep no version history.
+	// Looking the name up among scenes can only ever touch a scene. Two cases, both from the
+	// §7c fix: a WORKING scene of this name is kept and the unreadable copy declined (a restore
+	// must not replace a scene that renders with one that does not), and an unreadable one of
+	// this name is updated in place, so a repeated restore stays idempotent.
+	const { id: _fromFile, ...body } = rec;
+	const same = ((await listAssets('scene')) as SceneAssetRecord[]).find((s) => s.name === rec.name);
+	if (same && parseScene(same.spec).ok) return false;
+	await putAsset({ ...body, ...(await sanitizeSceneAssets({ poster: rec.poster, art: rec.art })), kind: 'scene', ...(same ? { id: same.id } : {}) } as unknown as SceneAssetRecord);
 	return true;
 }
 

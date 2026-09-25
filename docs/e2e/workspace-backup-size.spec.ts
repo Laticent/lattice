@@ -116,3 +116,53 @@ test('a real-shaped backup with 67 MiB of reference docs still restores', async 
 	expect(refdocNames).toHaveLength(10);
 	record('control', { backupBytes: fs.statSync(file).size, refdocsJsonMiB: +(refdocs.length / MIB).toFixed(1), toast: toastText, msToRestored: ms, refdocsStored: refdocNames.length });
 });
+
+// Trio follow-up 16, on the real surface: an unreadable-scene row that carries the id of a saved
+// THEME must not replace that theme. The theme is seeded straight into the Studio's IndexedDB
+// store (the claim under test is the restore, not the Library's save path).
+test("an unreadable scene carrying a saved theme's id cannot replace that theme", async ({ page }) => {
+	const badSpec = { source: 'built', duration: -1, hero: 5, elements: [] };
+	const file = await writeZip({
+		'manifest.json': manifest,
+		'workspace.json': state('deck-scene', 'Scene key probe'),
+		'library-unreadable-scenes.json': JSON.stringify([{ name: 'old-scene', reason: 'probe', record: { id: 'theme-victim', kind: 'scene', name: 'old-scene', spec: badSpec } }]),
+	});
+	await gotoStudio(page);
+	const idb = (op: 'seed' | 'read') =>
+		page.evaluate(async (op) => {
+			const open = indexedDB.open('lattice-workbench');
+			const db: IDBDatabase = await new Promise((res, rej) => {
+				open.onsuccess = () => res(open.result);
+				open.onerror = () => rej(open.error);
+			});
+			const tx = db.transaction('assets', op === 'seed' ? 'readwrite' : 'readonly');
+			const store = tx.objectStore('assets');
+			if (op === 'seed') {
+				store.put({ id: 'theme-victim', kind: 'theme', name: 'victim', label: 'Victim', essentials: {}, css: "/* @theme victim */\n@import 'lattice';", addedAt: 1 });
+				await new Promise((res) => {
+					tx.oncomplete = res;
+				});
+				db.close();
+				return [];
+			}
+			const all: { id: string; kind: string; name: string }[] = await new Promise((res) => {
+				const r = store.getAll();
+				r.onsuccess = () => res(r.result);
+			});
+			db.close();
+			return all.filter((a) => a.kind === 'theme' || a.kind === 'scene').map((a) => ({ id: a.id, kind: a.kind, name: a.name }));
+		}, op);
+	await idb('seed');
+
+	await restore(page, file);
+	const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Workspace restored' }).first();
+	await expect(toast).toContainText(/1 deck/, { timeout: 30_000 });
+	await page.waitForEvent('load', { timeout: 15_000 });
+
+	const shelf = await idb('read');
+	expect(shelf).toContainEqual({ id: 'theme-victim', kind: 'theme', name: 'victim' });
+	const scene = shelf.find((a) => a.kind === 'scene' && a.name === 'old-scene');
+	expect(scene?.id).toBeTruthy();
+	expect(scene?.id).not.toBe('theme-victim');
+	record('scene-key', { shelf });
+});
