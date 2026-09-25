@@ -34,6 +34,7 @@
     ]
   },
   "projection": {
+    "frame": "each bar fills to how complete its item is",
     "figure": "flow",
     "data": true
   },

@@ -1555,3 +1555,146 @@ describe('anchorFor — a declared part beats the header heuristic, and loses to
 		expect(anchorFor(d.querySelector('.person') as Element, null, 1).role).not.toBe('part');
 	});
 });
+
+describe('the chart tiers — a chart cue the text and mark tiers could not place (2026-09-24 audit)', () => {
+	// Measured on the 22 chart galleries before these existed: the pointer hid on 49% of chart
+	// cues. Each `it` below is one of the shapes the misses fell into, rebuilt from the markup the
+	// transform really emits.
+
+	it('corroborates a value SPOKEN BY VALUE, as chart narration says it', () => {
+		// `$0.6M` is "six hundred thousand dollars" to `spokenValue` and "zero point six million"
+		// to `toSpokenText`. The check knew only the second, so it REJECTED the right bar.
+		const d = doc(`<svg><rect data-label="LATAM" data-value="$0.6M"></rect><rect data-label="APAC" data-value="$1.8M"></rect></svg>`);
+		expect(findCueTarget(d, 'LATAM, six hundred thousand dollars.')?.getAttribute('data-label')).toBe('LATAM');
+	});
+
+	it('a hidden measuring mark hands off to its drawn twin, by data-mark', () => {
+		// state-chart measures in an HTML list and paints in SVG, then hides the list (#2355).
+		const d = doc(
+			`<section><div class="chart-body"><ol style="display:none"><li class="state-node" data-mark="0" data-label="Draft">Draft</li></ol>` +
+				`<svg><rect class="state-node-shape" data-mark="0"></rect><rect class="state-node-shape" data-mark="1"></rect></svg></div></section>`,
+		);
+		expect(findCueTarget(d, 'Draft start.')?.getAttribute('class')).toBe('state-node-shape');
+		expect(findCueTarget(d, 'Draft start.')?.getAttribute('data-mark')).toBe('0');
+	});
+
+	it('a region code leads in the spelled form the narration speaks it in', () => {
+		const d = doc(`<svg><path data-label="GA" data-value="42"></path><path data-label="TX" data-value="30"></path></svg>`);
+		expect(findCueTarget(d, 'G A, forty-two.')?.getAttribute('data-label')).toBe('GA');
+	});
+
+	it('a whole number does not corroborate the head of a longer one said aloud', () => {
+		// A line's three `Q1 2026` dots: 3.6, 4.3 and 4.0. "four" is a whole word inside "four point
+		// three", so the 4.0 dot corroborated the Mid-market sentence too, the two tied, and the
+		// pointer fell back to the axis label. The sentence names ONE dot.
+		const d = doc(
+			`<svg><circle data-label="Q1 2026" data-value="3.6"></circle><circle data-label="Q1 2026" data-value="4.3"></circle>` +
+				`<circle data-label="Q1 2026" data-value="4.0"></circle><text data-label="Q1 2026">Q1 2026</text></svg>`,
+		);
+		expect(findCueTarget(d, 'Q1 2026, four point three.')?.getAttribute('data-value')).toBe('4.3');
+		expect(findCueTarget(d, 'Q1 2026, four.')?.getAttribute('data-value')).toBe('4.0');
+	});
+
+	it('corroborates a signed value the way a waterfall step is said', () => {
+		const d = doc(`<svg><rect data-label="FX" data-value="−0.3M"></rect></svg>`);
+		expect(findCueTarget(d, 'FX, down three hundred thousand.')?.getAttribute('data-label')).toBe('FX');
+	});
+
+	it('corroborates a RANGE when both ends are said, with words between them', () => {
+		// slope stamps `31% to 24%`; the voice puts the two years between the numbers.
+		const d = doc(`<svg><polyline data-label="Northwind" data-value="31% to 24%"></polyline></svg>`);
+		expect(findCueTarget(d, 'Northwind: 2023, thirty-one percent; 2026, twenty-four percent.')?.getAttribute('data-label')).toBe('Northwind');
+		// …and still refuses when one end is not said.
+		expect(findCueTarget(d, 'Northwind: 2023, thirty-one percent; 2026, nineteen percent.')).toBeNull();
+	});
+
+	it('corroborates gantt`s drawn span `Q1–Q2` against "Q1 to Q2"', () => {
+		const d = doc(`<svg><rect data-label="Signal taxonomy" data-value="Q1–Q2"></rect></svg>`);
+		expect(findCueTarget(d, 'Signal taxonomy, Q1 to Q2, done.')?.getAttribute('data-label')).toBe('Signal taxonomy');
+	});
+
+	it('treats pieces of ONE mark as one thing, and still refuses two different marks', () => {
+		// A map highlight group: ten outlines, one `data-mark`, one label.
+		const one = doc(`<svg><path data-mark="1" data-label="ASEAN" data-value="Tier 1"></path><path data-mark="1" data-label="ASEAN" data-value="Tier 1"></path></svg>`);
+		expect(findCueTarget(one, 'ASEAN, Tier one.')?.getAttribute('data-mark')).toBe('1');
+		const two = doc(`<svg><path data-mark="1" data-label="ASEAN" data-value="Tier 1"></path><path data-mark="2" data-label="ASEAN" data-value="Tier 1"></path></svg>`);
+		expect(findCueTarget(two, 'ASEAN, Tier one.')).toBeNull();
+	});
+
+	it('lets a category label answer for two tied bars that share its name', () => {
+		// A grouped bar: "Americas" is both bars AND the axis label under them. The sentence names
+		// the category, so the category label — unique, valueless — is the answer.
+		const d = doc(`<svg>
+			<rect data-mark="0" data-label="Americas" data-value="3.2"></rect>
+			<rect data-mark="3" data-label="Americas" data-value="3.9"></rect>
+			<text class="cart-cat" data-label="Americas">Americas</text>
+		</svg>`);
+		expect(findCueTarget(d, 'Americas: Plan, three point two; Actual, three point nine.')?.classList.contains('cart-cat')).toBe(true);
+	});
+
+	it('points a mark`s spoken DETAIL note at the mark it belongs to', () => {
+		const d = doc(`<div class="chart-body"><svg><rect data-mark="0" data-label="North America" data-value="$4.2M"></rect></svg>
+			<div class="chart-details" hidden><template class="chart-detail" data-mark="0"><li>Two enterprise renewals landed in Q4</li></template></div></div>`);
+		expect(findCueTarget(d, 'Two enterprise renewals landed in Q4.')?.getAttribute('data-label')).toBe('North America');
+	});
+
+	it('finds chart words drawn in a div, and in spans the voice spaced apart', () => {
+		const d = doc(`<div class="chart-body"><div class="horizon-head"><span>Phase 01</span><span>Horizon 1</span><span>Now</span></div>
+			<div class="progress-note">Waiting on the vendor contract</div></div>`);
+		expect(findCueTarget(d, 'Waiting on the vendor contract.')?.className).toBe('progress-note');
+		expect(findCueTarget(d, 'Phase 01 Horizon 1 Now.')?.className).toBe('horizon-head');
+	});
+
+	it('never points at screen-reader-only text', () => {
+		const d = doc(`<div class="chart-body"><svg></svg><table class="chart-sr-only"><tr><th>Jan 2026 M1 sixty-two</th></tr></table></div>`);
+		// Only the whole-figure tier may answer, never the hidden cell.
+		expect(findCueTarget(d, 'Jan 2026 M1 sixty-two.')?.className).toBe('chart-body');
+	});
+
+	it('points a sentence about the WHOLE chart at the chart, and only on a chart slide', () => {
+		const chart = doc(`<h2>Revenue</h2><div class="chart-body"><svg></svg></div>`);
+		expect(findCueTarget(chart, "Each bar's length is its value, measured from zero.")?.className).toBe('chart-body');
+		const prose = doc(`<h2>Revenue</h2><p>Growth held.</p>`);
+		expect(findCueTarget(prose, "Each bar's length is its value, measured from zero.")).toBeNull();
+	});
+
+	it('names a state from a transition that opens "From <state>"', () => {
+		const d = doc(`<section class="state-chart"><ol><li class="state-node" data-label="Approved" data-value="at-risk"><span class="state-label">Approved</span></li></ol></section>`);
+		// The mark tier refuses it (the sentence never says the state's status); the handle tier
+		// takes it by the declared part.
+		const el = findNamedTarget(d, 'From Approved, publish goes to Published.');
+		expect(el?.classList.contains('state-node')).toBe(true);
+	});
+});
+
+describe('guideCueIn — a mark with extent in ONE direction is still a target', () => {
+	it('keeps a dumbbell bar, which a browser measures zero pixels tall', () => {
+		// SVG geometry is measured without its stroke, so a horizontal `<line>` has no height,
+		// and the "does it have an area" guard threw away a mark the matcher had found.
+		const d = doc(`<div class="chart-body"><svg><line class="slope-bar" data-label="Platform" data-value="48 to 55"></line></svg></div>`);
+		const line = d.querySelector('line') as Element;
+		line.getBoundingClientRect = () => ({ left: 100, top: 200, width: 60, height: 0, right: 160, bottom: 200, x: 100, y: 200, toJSON() {} }) as DOMRect;
+		const cue = guideCueIn(d.querySelector('section') as Element, 'Platform: Plan, forty-eight; Actual, fifty-five.', { left: 0, top: 0, width: 1280, height: 720 }, 14);
+		expect(cue?.el).toBe(line);
+		expect(cue?.box.height).toBeGreaterThan(0);
+	});
+});
+
+describe('the chart tiers — the limits an independent checker asked for', () => {
+	it('does not take a short cue that merely APPEARS in a detail note as that note', () => {
+		const d = doc(`<div class="chart-body"><svg><rect data-mark="0" data-label="North America" data-value="$4.2M"></rect></svg>
+			<div class="chart-details" hidden><template class="chart-detail" data-mark="0"><li>Enterprise renewals landed in Q4 after a long procurement cycle</li></template></div></div>`);
+		// Only the whole-figure tier may answer "Enterprise renewals." — never the bar.
+		expect(findCueTarget(d, 'Enterprise renewals.')?.className).toBe('chart-body');
+	});
+
+	it('does not resolve a cue to the svg because its hidden <desc> contains it', () => {
+		const d = doc(`<div class="chart-body"><svg role="img"><desc>North America 4.2 million leads every region</desc><text>NA</text></svg></div>`);
+		expect(findCueTarget(d, 'North America 4.2 million leads every region.')?.tagName.toLowerCase()).not.toBe('svg');
+	});
+
+	it('does not guess between two charts — the whole-figure tier needs exactly one', () => {
+		const d = doc(`<div class="chart-body"><svg></svg></div><div class="chart-body"><svg></svg></div>`);
+		expect(findCueTarget(d, "Each bar's length is its value, measured from zero.")).toBeNull();
+	});
+});

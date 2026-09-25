@@ -421,6 +421,13 @@ describe('say-as lexicon — expand / word / spell (§14)', () => {
     expect(toSpoken('mau')).toBe('mau'); // the name "Mau" stays safe (cased key)
     expect(toSpokenText('reap what you sow')).toBe('reap what you sow'); // SOW never always-on
   });
+
+  it('GA is a release stage in the house domain, cased so prose "ga" never fires', () => {
+    expect(toSpokenText('GA, a milestone at Q4.')).toBe('general availability, a milestone at fourth quarter.');
+    expect(toSpoken('ga')).toBe('ga');
+    // The author's registry beats the built-in: a US map authored by postal code declares it.
+    expect(toSpoken('GA', { acronyms: new Map([['GA', 'Georgia']]) })).toBe('Georgia');
+  });
 });
 
 // ── Bracketing punctuation — 2026-09-20-narration-audit.md Finding 3 ─────────────────

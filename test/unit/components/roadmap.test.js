@@ -150,9 +150,9 @@ describe('roadmap', () => {
     // the light state styling via CSS.
     const tagged = applyStatusMarkers(STATUS_TABLE);
     const out = applyHorizons(tagged);
-    assert.match(out, /<li class="cell-state state-shipped">/);
-    assert.match(out, /<li class="cell-state state-wip">/);
-    assert.match(out, /<li class="cell-state state-planned">/);
+    assert.match(out, /<li class="cell-state state-shipped"[ >]/);
+    assert.match(out, /<li class="cell-state state-wip"[ >]/);
+    assert.match(out, /<li class="cell-state state-planned"[ >]/);
   });
 
   // ── applyToRenderedHtml — section dispatch ─────────────────────────────
@@ -376,8 +376,8 @@ describe('the two answers roadmap gained: missed and uncertain', () => {
     // `[!]`/`[?]` rows, and its lazy text match cut the commitment at the first span.
     const { html } = transformSection(GRID,
       { ...CTX, cls: 'roadmap horizons', classTokens: ['roadmap', 'horizons'] });
-    assert.match(html, /<li class="cell-state state-missed">/);
-    assert.match(html, /<li class="cell-state state-unknown">/);
+    assert.match(html, /<li class="cell-state state-missed"[ >]/);
+    assert.match(html, /<li class="cell-state state-unknown"[ >]/);
     assert.match(html, /Metering, cut for Q4/);
     assert.match(html, /Audit log/);
   });

@@ -2,6 +2,7 @@ import { GUIDE_HANDLES } from '@/components/studio/guide-handles.generated.js';
 import { toSpokenText } from '@/lib/cadenza';
 import { type Gesture, gestureRest, type RectSource } from '@/lib/vetrina';
 import { frameGeom, innerRectToParent } from '@/playground/frame-geom.js';
+import { spokenValue } from '@/playground/read-along-core.generated.js';
 
 // THE GUIDE RUNG — pointing at the part of the slide currently being narrated (#1397),
 // with the deictic gesture vocabulary that stopped it being a karaoke follower (#1404).
@@ -111,14 +112,6 @@ function leadsWord(hay: string, sub: string): boolean {
 	return !!sub && hay.startsWith(sub) && boundedAt(hay, sub, 0);
 }
 
-/** Does `hay` contain `sub` as whole words, anywhere? */
-function containsWord(hay: string, sub: string): boolean {
-	if (!sub) return false;
-	for (let at = hay.indexOf(sub); at !== -1; at = hay.indexOf(sub, at + 1)) {
-		if (boundedAt(hay, sub, at)) return true;
-	}
-	return false;
-}
 
 const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, th, td, code';
 
@@ -129,7 +122,51 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
  * (`findSpanningTarget`), which is how a label joined to its body finds the thing it names.
  */
 export function findCueTarget(frameDoc: Document | Element | null, text: string): Element | null {
-	return findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text) ?? findMarkTarget(frameDoc, text) ?? findNamedTarget(frameDoc, text);
+	const found =
+		findCueTargetIn(frameDoc, text) ??
+		findSpanningTarget(frameDoc, text) ??
+		findMarkTarget(frameDoc, text) ??
+		findNamedTarget(frameDoc, text) ??
+		findDetailTarget(frameDoc, text) ??
+		findChartTextTarget(frameDoc, text) ??
+		findFigureTarget(frameDoc, text);
+	return found ? drawnTwin(found) : null;
+}
+
+/**
+ * A mark that is not drawn hands off to the one that is.
+ *
+ * A chart may measure in HTML and paint in SVG. state-chart does (#2355): its `<li class="state-node">`
+ * list is the measuring column, set to `display: none` once the runtime has drawn each state as an
+ * SVG `<rect class="state-node-shape">`. Every tier still finds the `<li>` — it carries the name, the
+ * `data-label` and the manifest handle — but a hidden element has no box, so the pointer had nowhere
+ * to go and hid: 77 of 144 cues on the state-chart gallery, every "From Draft, …" among them.
+ *
+ * The two are the same mark, and the transform says so: both carry one `data-mark`. So a target
+ * inside a `display: none` subtree resolves to the first element in the same chart with that
+ * `data-mark` that IS rendered. Nothing changes for a visible target, or for a hidden one with no
+ * drawn twin.
+ */
+function drawnTwin(el: Element): Element {
+	if (!inHiddenSubtree(el)) return el;
+	const mark = el.getAttribute('data-mark');
+	const chart = el.closest('.chart-body, section');
+	if (mark == null || !chart) return el;
+	for (const twin of chart.querySelectorAll('[data-mark]')) {
+		if (twin !== el && twin.getAttribute('data-mark') === mark && !inHiddenSubtree(twin)) return twin;
+	}
+	return el;
+}
+
+/** Is this element, or an ancestor inside its section, `display: none`? */
+function inHiddenSubtree(el: Element): boolean {
+	// A parsed document (DOMParser) has no window of its own; the host's computes its style.
+	const view = el.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : null);
+	if (!view) return false;
+	for (let n: Element | null = el; n && n.tagName !== 'SECTION'; n = n.parentElement) {
+		if (view.getComputedStyle(n).display === 'none') return true;
+	}
+	return false;
 }
 
 /**
@@ -148,6 +185,9 @@ function findCueTargetIn(frameDoc: Document | Element | null, text: string): Ele
 	let best: Element | null = null;
 	let bestLen = Number.POSITIVE_INFINITY;
 	for (const el of frameDoc.querySelectorAll(BLOCK_SELECTOR)) {
+		// Screen-reader-only text paints nothing, so it is never a place to point: a chart's
+		// hidden data table (`buildSrDataTable`) is all `th`/`td`, which this selector lists.
+		if (el.closest('.chart-sr-only')) continue;
 		const hay = loose(el.textContent ?? '');
 		if (!hay) continue;
 		// CONTAINMENT ONE WAY ONLY: the block must contain the sentence. The reverse — a block
@@ -239,20 +279,17 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 	if (needle.length < 3 || !/[\p{L}\p{N}]/u.test(needle)) return null;
 	const passed: { el: Element; labelLen: number; corroborated: boolean }[] = [];
 	for (const el of root.querySelectorAll('[data-label]')) {
-		const label = loose((el as HTMLElement).dataset?.label ?? el.getAttribute('data-label') ?? '');
+		const rawLabel = (el as HTMLElement).dataset?.label ?? el.getAttribute('data-label') ?? '';
+		// A region CODE (`GA`, `USA`) is spoken spelled, "G A" (`narrateDataSeries` spells it so the
+		// read-aloud lexicon cannot expand it), so the code leads in that form too.
+		const spelled = /^[A-Z]{2,3}$/.test(rawLabel.trim()) ? loose(rawLabel.trim().split('').join(' ')) : '';
+		const label = spelled && leadsWord(needle, spelled) ? spelled : loose(rawLabel);
 		// A one-character label identifies nothing and would lead half the cues on the slide.
 		if (label.length < 2 || !leadsWord(needle, label)) continue;
 		const raw = (el as HTMLElement).dataset?.value ?? el.getAttribute('data-value') ?? '';
 		let corroborated = false;
 		if (raw) {
-			const digits = loose(raw);
-			let spoken = '';
-			try {
-				spoken = loose(toSpokenText(raw));
-			} catch {
-				spoken = '';
-			}
-			corroborated = containsWord(needle, spoken) || containsWord(needle, digits);
+			corroborated = corroborates(needle, raw);
 			// A mark that declares a value the cue never says, in either spelling, is not this cue's.
 			if (!corroborated) continue;
 		}
@@ -268,9 +305,101 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 	const [top, next] = passed;
 	// Equal length means IDENTICAL label text — every candidate leads the same needle — so this
 	// two-element check is complete for the label dimension rather than a shortcut.
-	if (next && next.labelLen === top.labelLen && next.corroborated === top.corroborated) return null;
+	if (next && next.labelLen === top.labelLen && next.corroborated === top.corroborated) {
+		const tied = passed.filter((p) => p.labelLen === top.labelLen && p.corroborated === top.corroborated);
+		// A GROUP answers for its members. A grouped bar's sentence names the CATEGORY —
+		// "Americas: Plan, three point two; Actual, three point nine." — and both of its bars
+		// lead with "Americas" and corroborate, so they tie as two different marks. The one
+		// element that sentence is about is the category itself: the axis label carrying the same
+		// name and no value of its own. Taken only when it is UNIQUE; otherwise nothing, as ever.
+		const group = passed.filter((p) => p.labelLen === top.labelLen && !p.corroborated && !p.el.hasAttribute('data-value'));
+		const one = oneMark(tied.map((p) => p.el)) ?? (group.length === 1 ? group[0].el : null);
+		if (!one) return null;
+		markHit += 1;
+		return one;
+	}
 	markHit += 1;
 	return top.el;
+}
+
+/**
+ * Does the cue SAY the mark's declared value, in any spelling a producer uses for it?
+ *
+ * THREE spellings, because three producers say a value and each spells it its own way:
+ *   - as typed (`data-value="92%"` is also what a caption may display verbatim);
+ *   - through `toSpokenText`, Cadenza's normalizer (`12,000` → "twelve thousand");
+ *   - through `spokenValue`, which is how `chart-narration.js` SAYS a chart pill — by its value,
+ *     magnitude applied (`$0.6M` → "six hundred thousand dollars", `−0.3M` → "down three hundred
+ *     thousand"). Before it was here, the check only knew the second spelling, so it REJECTED the
+ *     right bar on every sub-unit or signed value: LATAM's `$0.6M` never matched "LATAM, six
+ *     hundred thousand dollars", and a waterfall's negative steps hid the pointer.
+ *
+ * A RANGE is confirmed when BOTH ends are said. Two charts declare one: gantt's drawn span
+ * (`Q1–Q2`, said "Q1 to Q2") and slope's before/after (`31% to 24%`, said "2023, thirty-one
+ * percent; 2026, twenty-four percent" — the years sit between the two numbers, so the range was
+ * never a contiguous phrase and every slope cue failed the check it was built to pass).
+ */
+function corroborates(needle: string, raw: string): boolean {
+	if (valueSpellings(raw).some((v) => saysValue(needle, v))) return true;
+	const ends = raw.split(/\s*(?:[–—]|\.\.|\bto\b)\s*/).filter((p) => p.trim());
+	return ends.length > 1 && ends.every((end) => valueSpellings(end).some((v) => saysValue(needle, v)));
+}
+
+/**
+ * A spoken value is said only when it is the WHOLE number, not the head of a longer one. "four"
+ * is a whole word inside "four point three" and inside "four hundred", so a whole-word test alone
+ * let a line's `4.0` dot corroborate the Mid-market sentence "Q1 2026, four point three." — two
+ * dots tied and the pointer fell back to the axis label (found by the round-two checker).
+ */
+const CONTINUES_NUMBER = /^ (?:point|hundred|thousand|million|billion|trillion)\b/;
+function saysValue(hay: string, sub: string): boolean {
+	if (!sub) return false;
+	for (let at = hay.indexOf(sub); at !== -1; at = hay.indexOf(sub, at + 1)) {
+		if (boundedAt(hay, sub, at) && !CONTINUES_NUMBER.test(hay.slice(at + sub.length))) return true;
+	}
+	return false;
+}
+
+function valueSpellings(raw: string): string[] {
+	const forms = new Set<string>();
+	for (const speak of [(r: string) => r, (r: string) => toSpokenText(r), (r: string) => spokenValue(r, toSpokenText)]) {
+		try {
+			const v = loose(speak(raw));
+			if (v) forms.add(v);
+		} catch {
+			/* a speller that throws on this token simply offers no spelling */
+		}
+	}
+	return [...forms];
+}
+
+/**
+ * Several marks that tie are still ONE thing when they are one mark drawn in pieces.
+ *
+ * A map's highlight group is the case that forced this: `ASEAN` is ten country outlines, each
+ * stamped `data-mark="1" data-label="ASEAN"`, so every ASEAN cue tied ten ways and the tie rule —
+ * rightly, for two DIFFERENT marks with one label — hid the pointer. Pieces of one mark share its
+ * `data-mark` inside one chart; that is the transform saying they are the same thing. Point at
+ * the largest piece, which is where a presenter's hand would go.
+ *
+ * Anything else — different marks, or no `data-mark` to prove sameness — is a real ambiguity
+ * and still resolves to nothing.
+ */
+function oneMark(els: Element[]): Element | null {
+	const mark = els[0]?.getAttribute('data-mark');
+	const chart = els[0]?.closest('svg, .chart-body');
+	if (mark == null || !els.every((e) => e.getAttribute('data-mark') === mark && e.closest('svg, .chart-body') === chart)) return null;
+	let best = els[0];
+	let bestArea = -1;
+	for (const e of els) {
+		const r = e.getBoundingClientRect?.();
+		const area = r ? r.width * r.height : 0;
+		if (area > bestArea) {
+			best = e;
+			bestArea = area;
+		}
+	}
+	return best;
 }
 
 /**
@@ -314,7 +443,11 @@ export function findNamedTarget(root: Document | Element | null, text: string): 
 		for (const part of root.querySelectorAll(row.part)) {
 			const name = loose(part.querySelector(row.names)?.textContent ?? '');
 			// A one-character name identifies nothing and would lead half the cues on the slide.
-			if (name.length < 2 || !leadsWord(needle, name)) continue;
+			// OR LEADS AFTER "from". A transition is said from its source — "From Approved, publish
+			// goes to Published." (`narrateStateTransitions`) — so the state it names is the second
+			// word, not the first. Only here, not in the mark tier: a mark there may declare a value
+			// the sentence never says (a state's status), and would be rejected anyway.
+			if (name.length < 2 || !(leadsWord(needle, name) || leadsWord(needle, `from ${name}`))) continue;
 			passed.push({ el: part, nameLen: name.length });
 		}
 	}
@@ -462,6 +595,141 @@ export let partHit = 0;
 export const resetPartHit = (): number => {
 	const n = partHit;
 	partHit = 0;
+	return n;
+};
+
+// ── Three tiers for a CHART slide, run after every other tier has declined ─────────────────
+//
+// Measured before they existed, over the 22 chart galleries (`sweep-guide-gestures.mjs --deck
+// … --misses`): the pointer hid on 49% of chart cues, and the misses fell into three shapes no
+// earlier tier can answer. Each tier below is one of them, and each is narrow on purpose: it
+// only ever answers a cue the rest dropped, so it adds reach without moving an existing target.
+
+/**
+ * THE DETAIL TIER — a mark's reveal note, spoken as its own sentence.
+ *
+ * A chart mark may carry a nested detail bullet (mark-detail.js): the hover popover on screen, a
+ * speaker note in the PDF, and — because narration speaks what the slide authors — a sentence of
+ * its own after the mark's reading. "Two enterprise renewals landed in Q4." is that sentence. The
+ * text sits only in an inert `<template class="chart-detail" data-mark="i">`, which renders
+ * nothing, so no block matched it and the pointer hid mid-bar. The template names its mark, so
+ * the answer is the mark it belongs to.
+ */
+export function findDetailTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const needle = loose(text);
+	if (needle.length < 8 || !/[\p{L}\p{N}]/u.test(needle)) return null;
+	for (const tpl of root.querySelectorAll('template.chart-detail[data-mark]')) {
+		const content = (tpl as HTMLTemplateElement).content;
+		const items = content ? [...content.querySelectorAll('li')] : [];
+		const texts = items.length ? items.map((li) => li.textContent ?? '') : [content?.textContent ?? ''];
+		// Most of the note, not a word of it: a short cue that merely APPEARS in a note ("Enterprise.")
+		// is not that note being read. Half is the floor because Cadenza may split a long note into
+		// two sentences, and each half must still find its mark.
+		if (!texts.some((t) => {
+			const hay = loose(t);
+			return hay.includes(needle) && needle.length * 2 >= hay.length;
+		})) continue;
+		const chart = tpl.closest('.chart-body') ?? tpl.parentElement?.parentElement ?? root;
+		const mark = tpl.getAttribute('data-mark');
+		const el =
+			chart.querySelector(`[data-mark="${mark}"][data-label]:not(template)`) ??
+			chart.querySelector(`[data-mark="${mark}"]:not(template)`);
+		if (el) {
+			figureHit += 1;
+			return el;
+		}
+	}
+	return null;
+}
+
+/**
+ * THE CHART-TEXT TIER — words that ARE on the chart, in an element `BLOCK_SELECTOR` does not list.
+ *
+ * A flow chart draws its text in `<div>`s (a progress note, a kanban card body, a timeline
+ * milestone's body line) and an SVG chart draws it in `<text>`. `BLOCK_SELECTOR` deliberately
+ * lists only prose blocks — widening it to `div` would make every layout wrapper on every slide a
+ * candidate. So this looks INSIDE `.chart-body` only, with the same one-way containment and the
+ * same smallest-wins rule `findCueTargetIn` uses, skipping anything that is not painted (the
+ * inert detail payload, screen-reader-only text, a hidden description).
+ */
+export function findChartTextTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const needle = loose(text);
+	if (needle.length < 8 || !/[\p{L}\p{N}]/u.test(needle)) return null;
+	// SPACES OUT OF BOTH SIDES. A chart draws a phrase as sibling spans — roadmap's card head is
+	// `Phase 01` · `Horizon 1` · `Now` — and `textContent` welds them ("Phase 01Horizon 1Now")
+	// while the narration, built by a walker that separates element siblings, says them spaced.
+	// Scoped to the chart body and to a needle of eight or more characters, so the looser test
+	// cannot reach prose.
+	const tight = needle.replace(/ /g, '');
+	let best: Element | null = null;
+	let bestLen = Number.POSITIVE_INFINITY;
+	for (const body of root.querySelectorAll('.chart-body')) {
+		for (const el of body.querySelectorAll('*')) {
+			if (el.closest(UNPAINTED)) continue;
+			// PAINTED text only, all the way down: an `<svg>`'s `textContent` includes its `<desc>`,
+			// so without this a cue that is a substring of the description resolved to the svg.
+			const hay = loose(paintedText(el)).replace(/ /g, '');
+			if (!hay.includes(tight)) continue;
+			if (hay.length < bestLen || (hay.length === bestLen && (best as Element | null)?.contains(el))) {
+				best = el;
+				bestLen = hay.length;
+			}
+		}
+	}
+	if (best) figureHit += 1;
+	return best;
+}
+
+/** Chart text nothing paints: the inert detail payload, screen-reader-only text, descriptions. */
+const UNPAINTED = 'template, [hidden], .chart-sr-only, [data-lattice-desc], title, desc';
+
+/** An element's text, less every descendant `UNPAINTED` names. */
+function paintedText(el: Element): string {
+	let out = '';
+	for (const node of el.childNodes) {
+		if (node.nodeType === 3) out += node.nodeValue ?? '';
+		else if (node.nodeType === 1 && !(node as Element).matches(UNPAINTED)) out += paintedText(node as Element);
+	}
+	return out;
+}
+
+/**
+ * THE FIGURE TIER — a sentence about the WHOLE chart.
+ *
+ * A chart narrator speaks sentences that belong to no single mark: its frame ("Each bar's length
+ * is its value, measured from zero."), an axis ("The horizontal axis, Effort, runs zero to ten."),
+ * a computed summary ("Three of seven cleared the plan line."). None of them is on the slide as
+ * text — they are the narrator explaining the picture — so no tier found them and the pointer
+ * hid at exactly the moment the voice said "look at this chart". The chart itself is the honest
+ * target, and it is the one element on the slide that every such sentence is about.
+ *
+ * LAST, so it cannot take a cue from any tier above. It is scoped to a slide that HAS a chart
+ * body; on any other slide a cue nothing matched still hides, as before.
+ */
+export function findFigureTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const needle = loose(text);
+	if (needle.length < 3 || !/[\p{L}\p{N}]/u.test(needle)) return null;
+	// EXACTLY ONE chart in scope. This tier accepts any sentence, so it must not guess between
+	// charts: a root holding several slides (the console path hands over a whole document) or a
+	// slide with two charts has no single "the chart", and the cue hides as it did before.
+	const bodies = root.querySelectorAll('.chart-body');
+	if (bodies.length !== 1) return null;
+	figureHit += 1;
+	return bodies[0];
+}
+
+/**
+ * Did one of the three CHART tiers (detail · chart text · figure) answer the last cue? Same
+ * shape and same reason as `markHit`: the sweep must be able to tell them apart from the
+ * piecewise row, and from each other would be a refinement it does not yet need.
+ */
+export let figureHit = 0;
+export const resetFigureHit = (): number => {
+	const n = figureHit;
+	figureHit = 0;
 	return n;
 };
 
@@ -975,7 +1243,7 @@ export function anchorFor(el: Element, sentence: Range | null, coverage: number)
 	if (header && headRects) return { role: 'header', box: hull(headRects), rects: headRects, range: header, markerOffset: null };
 	const range = sentence ?? own;
 	const rects = sentence ? rectsOf(sentence) : ownRects;
-	return { role: 'body', box: rects ? hull(rects) : boxOf(el.getBoundingClientRect()), rects, range, markerOffset: null };
+	return { role: 'body', box: rects ? hull(rects) : elBox(el), rects, range, markerOffset: null };
 }
 
 /** The bounding box of a set of rects. */
@@ -1181,6 +1449,28 @@ function lineHeightOf(el: Element): number {
 const overlapsAny = (b: Box, obstacles: readonly Box[]) => obstacles.some((o) => overlaps(b, o));
 const boxOf = (r: DOMRect | { left: number; top: number; width: number; height: number }): Box => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 
+/** The thinnest a mark is ever measured, in CSS px. See `elBox`. */
+const MIN_MARK_THICKNESS = 4;
+
+/**
+ * An element's box, with a LINE given a thickness.
+ *
+ * `getBoundingClientRect()` measures SVG geometry without its stroke, so a horizontal `<line>` is
+ * zero pixels tall and a vertical one zero wide. A dumbbell's bar is exactly that shape: the mark
+ * tier found it — "Platform: Plan, forty-eight; Actual, fifty-five." led its label and
+ * corroborated both ends — and then `guideCueIn`'s "does it have an area" guard threw it away,
+ * so five of five dumbbell cues hid. The guard is right about a box with NO extent (a detached
+ * or `display:none` node); it was wrong about one with extent in one direction only. So a box
+ * that is long in one axis and flat in the other is widened, about its own center, to
+ * `MIN_MARK_THICKNESS` — the stroke a viewer actually sees — and every other box is untouched.
+ */
+function elBox(el: Element): Box {
+	const b = boxOf(el.getBoundingClientRect());
+	if (b.width > 0 && b.height === 0) return { ...b, top: b.top - MIN_MARK_THICKNESS / 2, height: MIN_MARK_THICKNESS };
+	if (b.height > 0 && b.width === 0) return { ...b, left: b.left - MIN_MARK_THICKNESS / 2, width: MIN_MARK_THICKNESS };
+	return b;
+}
+
 export type GuideCue = {
 	/** The element being named — the identity the BLOCK-change cadence compares on. */
 	el: Element;
@@ -1252,7 +1542,7 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 	// sentence's rects are not inside it — using them would paint ink outside the thing being
 	// named. The deck's own call-out is the target now; the box is the whole cue.
 	const range = el === block ? sentenceRange(block, text) : null;
-	const t0 = boxOf(el.getBoundingClientRect());
+	const t0 = elBox(el);
 	if (!(t0.width > 0 && t0.height > 0)) return null;
 
 	// THE HANDLE. What the ink actually goes on: the cue's own words when it is a phrase, else the
@@ -1305,7 +1595,7 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 	// small handle onto the fallback search. Line rects put the check on the ink.
 	const obstacles: Box[] = [];
 	for (const node of root.querySelectorAll(BLOCK_SELECTOR)) {
-		if (!(node.textContent ?? '').trim()) continue;
+		if (!(node.textContent ?? '').trim() || node.closest('.chart-sr-only')) continue;
 		const lines = rectsOf(contentRange(node));
 		if (lines) for (const r of lines) obstacles.push(boxOf(r));
 		else {
@@ -1406,7 +1696,7 @@ export function guideCueFor(getFrame: () => HTMLIFrameElement | null, text: stri
 	// solved once. That keeps it live under scroll and reflow — the property `frameRectSource`
 	// exists for — without a `getComputedStyle` on every animation frame.
 	const innerBox = (): { left: number; top: number; width: number; height: number } | null => {
-		const r = el.getBoundingClientRect();
+		const r = elBox(el);
 		if (markerOffset) return { left: r.left + markerOffset.dx, top: r.top + markerOffset.dy, width: markerOffset.width, height: markerOffset.height };
 		if (role === 'phrase') return r;
 		const live = rectsOf(inkRange);
@@ -1520,7 +1810,7 @@ export function guideCueInDoc(doc: Document | null, text: string): GuideCue | nu
 	// keeps its block (the cursor must clear the words that follow), a marker rides its element's
 	// box plus the offset the classifier solved once, and everything else is its ink's hull.
 	const liveBox = (): Box | null => {
-		const r = el.getBoundingClientRect();
+		const r = elBox(el);
 		if (markerOffset) return { left: r.left + markerOffset.dx, top: r.top + markerOffset.dy, width: markerOffset.width, height: markerOffset.height };
 		if (role === 'phrase') return { left: r.left, top: r.top, width: r.width, height: r.height };
 		const live = rectsOf(inkRange);

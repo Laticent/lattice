@@ -319,6 +319,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-24-chart-accessibility-contract.md](2026-09-24-chart-accessibility-contract.md) — An audit of all 22 charts against their three non-sighted readers — screen readers, Cadenza narration, and the Present Guide — measured on…
 - ☑ [2026-09-24-positional-class-completion.md](2026-09-24-positional-class-completion.md) — The Studio's `_class:` autocomplete offered every component, every finish and all 139 universal modifiers at every position on the line.
 - ☑ [2026-09-24-state-chart-fit-and-paint.md](2026-09-24-state-chart-fit-and-paint.md) — The state chart was janky three ways — it snapped after every edit and redrew forever while idle, it painted a plain slate stripe down…
 - ☑ [2026-09-22-canvas-ownership-declare-what-you-mean.md](2026-09-22-canvas-ownership-declare-what-you-mean.md) — Four rules in three files had been flattening a frame's own section canvas, and three of them were never trying to paint one.

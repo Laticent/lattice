@@ -51,6 +51,7 @@
     ]
   },
   "projection": {
+    "frame": "each bar spans a task's dates, and a diamond marks a single moment",
     "figure": "flow",
     "data": true
   },

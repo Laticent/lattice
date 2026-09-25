@@ -46,11 +46,11 @@ describe('chart-family', () => {
 
   test('progress slide emits progress-bars with one row per item', { timeout: 180000 }, () => {
     const html = getHtml();
-    assert.match(html, /<div class="progress-bars">/);
+    assert.match(html, /<div class="progress-bars"[^>]*>/);
     // Five rows in the first progress slide
     const firstProgress = html.match(/<section[^>]*class="progress form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(firstProgress, 'first progress section not found');
-    const rows = (firstProgress[0].match(/<div class="progress-row">/g) || []).length;
+    const rows = (firstProgress[0].match(/<div class="progress-row"[^>]*>/g) || []).length;
     assert.equal(rows, 5, `expected 5 progress-row, got ${rows}`);
     // Status data attribute carries the pill token through to the fill
     assert.match(firstProgress[0], /<div class="progress-fill" data-s="on-track"/);
@@ -67,10 +67,10 @@ describe('chart-family', () => {
 
   test('timeline-list emits a spine with date pills + status pills + body', { timeout: 180000 }, () => {
     const html = getHtml();
-    assert.match(html, /<div class="timeline-spine">/);
+    assert.match(html, /<div class="timeline-spine"[^>]*>/);
     const tl = html.match(/<section[^>]*class="timeline-list form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(tl, 'timeline-list section not found');
-    const items = (tl[0].match(/<div class="timeline-item">/g) || []).length;
+    const items = (tl[0].match(/<div class="timeline-item"[^>]*>/g) || []).length;
     assert.equal(items, 4, `expected 4 timeline-item, got ${items}`);
     // Date pills
     assert.match(tl[0], /<div class="timeline-pill">2024 Q3<\/div>/);
@@ -100,7 +100,7 @@ describe('chart-family', () => {
     assert.equal(wedges, 5, `expected 5 wedges, got ${wedges}`);
     // Native Anima role on every wedge — the renderer declares `sector` so the chart-anima on-ramp
     // choreographs by the role, not by class-guessing (2026-07-19 §0.75). Attribute-only, non-painting.
-    const roled = (pc[0].match(/<path class="wedge" data-mark="\d+" data-anima-role="sector"/g) || []).length;
+    const roled = (pc[0].match(/<path class="wedge" data-mark="\d+"[^>]*? data-anima-role="sector"/g) || []).length;
     assert.equal(roled, 5, `expected 5 sector-roled wedges, got ${roled}`);
     assert.equal(swatches, 5, `expected 5 legend swatches, got ${swatches}`);
     assert.equal(labels, 5, `expected 5 legend labels, got ${labels}`);

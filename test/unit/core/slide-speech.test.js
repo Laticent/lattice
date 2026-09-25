@@ -141,3 +141,21 @@ test('headings, blockquotes and nested bullets still shed their markers', () => 
   assert.equal(slideToSpeech('> A quoted claim\n\nAnd prose.'), 'A quoted claim. And prose.');
   assert.equal(slideToSpeech('- Meridian\n  - Performance `9`\n    - A note'), 'Meridian. Performance 9. A note.');
 });
+
+// ── A GFM table reads as rows (2026-09-24) ──────────────────────────────────
+// This is the only reader of a slide's raw Markdown, and Present speaks it until the rendered
+// projection lands. Measured on roadmap and matrix-grid before: ", ---------- , :--, , [ ] , - ,".
+
+test('a GFM table reads as its cells, a row per sentence, with no pipes or delimiter row', () => {
+  const out = slideToSpeech('## Plan\n\n| Workstream | Q2 | Q3 |\n| ---------- | :--: | --: |\n| Framework | [x] Taxonomy | [-] Scoring |');
+  assert.equal(out, 'Plan. Workstream, Q2, Q3. Framework, Taxonomy, Scoring.');
+});
+
+test('a table without outer pipes is still a table', () => {
+  assert.equal(slideToSpeech('A | B\n--- | ---\none | two'), 'A, B. one, two.');
+});
+
+test('a pipe in prose, or a heading over a rule, is not a table', () => {
+  assert.equal(slideToSpeech('Plain a | b prose.'), 'Plain a | b prose.');
+  assert.ok(!slideToSpeech('Setext | heading\n---\n\nx').includes(','), 'cell counts must match, as GFM requires');
+});

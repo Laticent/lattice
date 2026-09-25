@@ -27,6 +27,9 @@
  *   node tools/sweep-guide-gestures.mjs              # the whole corpus
  *   node tools/sweep-guide-gestures.mjs --limit 8    # a fast sample while iterating
  *   node tools/sweep-guide-gestures.mjs --json out.json
+ *   node tools/sweep-guide-gestures.mjs --deck a.md --deck b.md --misses
+ *                                                    # measure named decks only, and print
+ *                                                    # every cue that resolved to nothing
  *
  * Needs a Chromium (CHROME_PATH or the puppeteer cache) — shape is layout, and layout
  * needs a browser. With none it SKIPS loudly and exits 0, never a false green (#23).
@@ -154,6 +157,11 @@ async function main() {
 	const limit = argv.includes('--limit') ? Number(argv[argv.indexOf('--limit') + 1]) : Infinity;
 	const jsonAt = argv.includes('--json') ? argv[argv.indexOf('--json') + 1] : null;
 	const reuse = argv.includes('--reuse');
+	// `--deck <file>` (repeatable) replaces the corpus, so one component family's own galleries
+	// can be measured without paying for ~124 renders. `--misses` prints each unresolved cue with
+	// its slide, which is the list a component owner fixes from; the rate alone names no cue.
+	const named = argv.flatMap((a, i) => (a === '--deck' && argv[i + 1] ? [path.resolve(argv[i + 1])] : []));
+	const showMisses = argv.includes('--misses');
 
 	const chrome = resolveChrome();
 	if (!chrome) {
@@ -165,12 +173,12 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { byComponent: {}, marked: 0, parted: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { byComponent: {}, marked: 0, parted: 0, figured: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	const comps = componentNames();
 	if (!comps.length) console.error('  note: dist/docs/components.json is missing — per-component attribution will report everything as (none). Run `npm run build`.');
 	try {
-		for (const md of decks().slice(0, limit)) {
+		for (const md of (named.length ? named : decks()).slice(0, limit)) {
 			const stem = path.basename(md, '.md').replace(/[^\w.-]/g, '_');
 			const base = path.join(OUT, stem);
 			// `--reuse` skips the render when the sidecar is already on disk. A full pass is ~124
@@ -280,7 +288,9 @@ async function main() {
 							// row — the exact mis-attribution the mark tier had to fix. A tier the instrument
 							// cannot tell apart cannot be measured.
 							const parted = G.resetPartHit?.() > 0;
-							const piecewise = spanned && !marked && !parted;
+							// AND THE CHART TIERS (detail · chart text · figure), for the same reason.
+							const figured = G.resetFigureHit?.() > 0;
+							const piecewise = spanned && !marked && !parted && !figured;
 							// RESET UNCONDITIONALLY, READ CONDITIONALLY. `findSpanningTarget` bumps
 							// `spanPartial` on every entry to its partial branch — including the ones that
 							// return null and fall through to a later tier — so reading it only on a
@@ -293,7 +303,7 @@ async function main() {
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes
 							// dark", which is the question a component owner actually has.
-							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: piecewise, marked, parted, partial, ratio } : { comp, miss: true });
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: piecewise, marked, parted, figured, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, slide: n, text });
 						}
 						out.push({ slideDone: true, any, comp });
 					}
@@ -323,6 +333,7 @@ async function main() {
 				c.cues += 1;
 				if (row.miss) {
 					tally.hides += 1;
+					if (showMisses) process.stderr.write(`    miss  ${stem} #${row.slide} [${row.comp}]  ${row.text}\n`);
 					continue;
 				}
 				c.resolved += 1;
@@ -334,6 +345,10 @@ async function main() {
 				tally.byRole[row.role] = (tally.byRole[row.role] ?? 0) + 1;
 				if (row.marked) tally.marked += 1;
 				if (row.parted) tally.parted += 1;
+				if (row.figured) tally.figured += 1;
+				// A cue the WHOLE-FIGURE tier answered is resolved, but only honestly so when the
+				// sentence is about the whole chart. Listed with the misses so that is checkable.
+				if (row.whole && showMisses) process.stderr.write(`    whole ${stem} #${row.slide} [${row.comp}]  ${row.text}\n`);
 				if (row.spanned) {
 					tally.spanned += 1;
 					if (row.partial) tally.spanPartial += 1;
@@ -368,6 +383,7 @@ async function main() {
 	const q = (f) => (ratios.length ? ratios[Math.min(ratios.length - 1, Math.floor(f * ratios.length))].toFixed(2) : 'n/a');
 	console.log(`  answered by a MARK (data-label / data-value)   ${tally.marked} (${pct(tally.marked, tally.resolved)})`);
 	console.log(`  answered by a DECLARED PART (manifest \`handles\`)     ${tally.parted} (${pct(tally.parted, tally.resolved)})`);
+	console.log(`  answered by a CHART tier (detail · chart text · whole figure)  ${tally.figured} (${pct(tally.figured, tally.resolved)})`);
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
 	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);

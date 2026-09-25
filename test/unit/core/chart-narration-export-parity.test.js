@@ -66,7 +66,7 @@ test('each chart block narrates the computed-fact text via the shared narrateCha
   assert.ok(funnel.includes('Signups: four thousand eight hundred, forty percent of the prior stage.'));
   const radar = narrateChart(blocks[2]);
   assert.ok(radar.includes('On a scale of zero to ten.'));
-  assert.ok(radar.includes('Lattice: Performance, nine; Pricing, seven.'));
+  assert.ok(radar.includes('Lattice is strongest on Performance, at nine. Lattice is weakest on Pricing, at seven.'), radar);
 });
 
 // Default `split: headings` deck with NO explicit `---` — the recovered split must

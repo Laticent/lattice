@@ -66,6 +66,15 @@ const FIXTURES = {
 	// documented minimum. It reaches `speakLeftover` like every narrator above, which is the
 	// path the leak came through.
 	narrateDataSeries: ['bar', '- North America `4.2`\n- EMEA `3.1`'],
+	// The four FLOW narrators. Each fully replaces the slide's narration and hands its
+	// unspoken lines to `speakLeftover` twice (before and after its list), so each is on the
+	// leak path twice over.
+	narrateProgress: ['progress', '- Signal Intake `92%` `on-track`\n- Adoption `12%` `blocked`'],
+	narrateTimelineList: ['timeline-list', '1. `Q1` First milestone\n   - What changed.\n2. `Q2` Second milestone `decision`'],
+	narrateKanban: ['kanban', '- Backlog\n  - Waiting cards `S`\n- Done\n  - Shipped work `L`'],
+	narrateGantt: ['gantt', '- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - GA `Q4` `after: Signal taxonomy`'],
+	narrateMatrixGrid: ['matrix-grid', '| Verb | Self | Team |\n| --- | :-: | :-: |\n| Apply | [-] | [x] Senior |\n| Remember | [x] Junior | [-] |'],
+	narrateRoadmapHorizons: ['roadmap horizons', '| Workstream | Horizon 1 `Now` | Horizon 2 `Next` |\n| --- | --- | --- |\n| Intake | [x] Connector | [-] Dedupe |'],
 };
 
 const NARRATORS = Object.keys(CN).filter((k) => k.startsWith('narrate') && k !== 'narrateChart');

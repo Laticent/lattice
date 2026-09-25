@@ -38,6 +38,7 @@
     ]
   },
   "projection": {
+    "frame": "each column is a stage, and each card sits in the stage it has reached",
     "figure": "flow",
     "data": true
   },

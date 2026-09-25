@@ -571,7 +571,9 @@ describe('line — defects the adversarial trio confirmed', () => {
     // The run is BOUNDED: a literal prefix followed by an unbounded `[^>]*`
     // restarts at every occurrence of the prefix, which backtracks
     // polynomially (CodeQL js/polynomial-redos).
-    const xs = [...html.matchAll(/class="cart-cat"[^<>]{0,80}><tspan x="([-\d.]+)"/g)]
+    // 240, not 80: a category label now also carries its `data-label` (the Present Guide's
+    // handle for a per-category sentence), and a 30-character name pushed the tag past 80.
+    const xs = [...html.matchAll(/class="cart-cat"[^<>]{0,240}><tspan x="([-\d.]+)"/g)]
       .map((m) => Number(m[1]));
     assert.ok(xs.length >= 2, 'the edge labels survive the cull');
     for (const x of xs) assert.ok(x >= 0 && x <= 320, `a category label anchored at ${x}`);

@@ -38,6 +38,7 @@
     ]
   },
   "projection": {
+    "frame": "each milestone sits on the spine in date order",
     "figure": "flow",
     "data": true
   },

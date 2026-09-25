@@ -49,7 +49,7 @@ describe('matrix-grid cells — parse', () => {
   test('cellHtml wraps label + hidden state name', () => {
     assert.equal(
       kernel.cellHtml(kernel.parseCell('[x] Senior')),
-      '<span class="cell cell-filled">Senior</span>',
+      '<span class="cell cell-filled" data-label="Senior">Senior</span>',
     );
     assert.equal(
       kernel.cellHtml(kernel.parseCell('[-]')),
@@ -63,10 +63,10 @@ describe('matrix-grid cells — parse', () => {
   test('cellHtml escapes the label, so both paths keep text as text', () => {
     assert.equal(
       kernel.cellHtml(kernel.parseCell('[x] Fees & Duties')),
-      '<span class="cell cell-filled">Fees &amp; Duties</span>',
+      '<span class="cell cell-filled" data-label="Fees &amp; Duties">Fees &amp; Duties</span>',
     );
     const html = kernel.cellHtml(kernel.parseCell('[x] <b>Tier 1</b>'));
-    assert.equal(html, '<span class="cell cell-filled">&lt;b&gt;Tier 1&lt;/b&gt;</span>');
+    assert.equal(html, '<span class="cell cell-filled" data-label="&lt;b&gt;Tier 1&lt;/b&gt;">&lt;b&gt;Tier 1&lt;/b&gt;</span>');
     // …and the node path already agreed — same visible text, no element created.
     const doc = new JSDOM('<span></span>').window.document;
     const node = kernel.cellNode(doc, kernel.parseCell('[x] <b>Tier 1</b>'));
@@ -137,8 +137,10 @@ describe('matrix-grid cells — the two render paths agree', () => {
       '| Create | [ ] | [x] Distinguished |', '| Apply | [-] | [ ] |', '',
     ].join('\n');
     const engineHtml = latticeEngine.createEngine().render(deck).html;
-    const engineCells = [...engineHtml.matchAll(/<span class="cell ([\w-]+)">([^<]*)/g)]
-      .map((m) => `${m[1]}:${m[2]}`);
+    // The filled cell's `data-label` (its identity for the Present Guide) is part of what must
+    // agree: a path that dropped it would leave the pointer with nothing to find on that surface.
+    const engineCells = [...engineHtml.matchAll(/<span class="cell ([\w-]+)"(?: data-label="([^"]*)")?>([^<]*)/g)]
+      .map((m) => `${m[1]}:${m[2] ?? ''}:${m[3]}`);
     assert.ok(engineCells.length >= 4, 'the engine path emitted cells at all');
 
     // Same table, but as the RAW markup marp-core produces (no Lattice plugins).
@@ -150,7 +152,7 @@ describe('matrix-grid cells — the two render paths agree', () => {
     ).window.document;
     kernel.applyToDom(doc);
     const domCells = [...doc.querySelectorAll('.cell')]
-      .map((el) => `${el.className.replace('cell ', '')}:${el.querySelector('.cell-sr-label') ? '' : el.textContent}`);
+      .map((el) => `${el.className.replace('cell ', '')}:${el.getAttribute('data-label') ?? ''}:${el.querySelector('.cell-sr-label') ? '' : el.textContent}`);
     assert.deepEqual(domCells, engineCells);
   });
 });
