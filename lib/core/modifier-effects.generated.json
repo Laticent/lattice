@@ -225,6 +225,7 @@
     },
     "list": {
       "surfaces": [
+        "card-row",
         "card-surface",
         "heading"
       ]

@@ -1190,3 +1190,82 @@ cell.** An earlier draft of this section said it did — it never has, and the d
 so was corrected. Resolving the arm in one path and riding it along in the other would make
 the two disagree the moment a slide gained or lost a coda after stamping. Byte-identical
 output on both paths is the contract (#1), so the shape test stays in CSS for both.
+
+## 12 · The column form: `list` joins, and what a column needs that a row does not
+
+*(2026-09-25.)* The register was built for ROWS: a wrapped flex row reads
+`align-content: var(--cards-align)`. `list` is a single column, and its stylesheet hard-coded
+two compositions — equal-share bands (`li { flex: 1 1 0; min-height: 0 }`) at wide, and
+`space-evenly` with content-height rows at square/tall/strip. So `cards-top` and
+`cards-center` changed nothing on any list slide: the owner's audit rendered all seven list
+shapes under default/top/center/stretch and all four columns were identical.
+
+**The mechanism.** A list is a single column, so `list` lays its rows out as a one-column
+GRID and reads `align-content: var(--cards-align)`, the same declaration the row forms use:
+`center`, `top` (`flex-start`) and `spread` (`space-evenly`) place the rows directly. (`spread`
+is what square/tall/strip declare, but at those frames a list is usually SPLIT one member per
+page, so it shows only on an unsplit page.)
+
+**Each row has a floor and a ceiling: `minmax(min-content, var(--list-row-max))`.**
+- The FLOOR is the row's own content plus `--list-pad` (`--sp-xs` in a pill; nothing in a ruled
+  row, where the line height's half-leading already keeps the glyphs off the rule). Text can
+  never leave its row.
+- The CEILING is a ONE-LINE row with its register's full `--list-air` on each side. When there
+  is room the rows sit at that comfortable height, and when the stage is full the grid shares
+  out what is left, so the air compresses and the text does not. A row that wraps is taller than
+  the ceiling and simply keeps its floor.
+- `min-content`, not `auto`, names the floor, because a grid CLAMPS an item's automatic minimum
+  to a fixed maximum: with `auto`, a wrapped row was capped at the one-line ceiling and spilled.
+- A member ALONE on a split page must fill the page (`base.modifiers.css` § Split BODY pages),
+  and that rule grows it with `flex` and `align-content: stretch`, which a capped track ignores.
+  An independent checker caught it: at square/tall/strip every list splits one member per page,
+  and each lone row sat 139px tall atop an 860px stage (main: filled). The list lifts its own
+  ceiling for a lone split member.
+- A capped track is not an `auto` track, so `align-content: stretch` does not grow it.
+  `--cards-grow` (1 under `stretch`, else 0) is set by the same eight `[data-cards]` rules in
+  `base.tokens.css` and lifts the ceiling, so `stretch` fills the stage.
+
+- A centered list that overflows must overflow DOWNWARD: plain `center` split the overflow both
+  ways, and the gallery's 8-line stress slide (past the wide `hard: 6`) lost its first row above
+  the stage. `list` applies `safe center` itself, mirroring the coda precedence in
+  `base.tokens.css`, rather than changing the shared `center` mapping every card row reads.
+
+**Three designs this replaced or ruled out, and why.**
+- *Proportional shrink* (`flex: … 1 auto`, `min-height: 0`): an independent checker found it
+  takes the most from the TALLEST row, so six pills with three wraps still spilled 5px, and the
+  list never overflowed, so no probe saw it.
+- *No shrink at all, with dense tiers by row count* (`:has(> li:nth-child(N))`): text was safe,
+  but the air could not compress, and a render of every committed deck with a list slide found
+  8 slides in 6 decks overflowing that fit on `main` (gloss lists with long leads, five wrapped
+  takeaways under a two-line title). The floor-and-ceiling rows fit all 49 decks, and those 8
+  slides among them.
+- `calc-size()` would express "content plus air" directly and was tested (it works on `height`,
+  not on `flex-basis`, in Chromium 131), but Safari and Firefox do not ship it, so the Playground
+  and the desktop app would render differently from the export.
+
+**The row rule is not the heading rule.** Once the rows sat at content height, the
+`takeaway` and `principles` row rules (`1px solid --border`, full width) stacked directly under
+the masthead rule, which is the same stroke, and the owner found the two indistinguishable.
+Five treatments were rendered side by side (soft, fade-ended, inset, dotted, soft + inset), and
+the owner picked **soft + inset**: `--border` at 55%, starting at the row's text column past
+the counter. It is drawn as a background on `li:not(:last-child)`, because a border cannot
+start partway along its edge. Under the sketch finish, `principles` swaps it for a rough rule
+(`base.sketch.css`); `takeaway`, which sketch does not redraw, keeps it. Now the full-width heading rule marks the page, the inset rule marks
+the rows, and the accent fade marks the closing note.
+
+**The defect this removes.** Under the old equal-share bands, a row that wrapped to two lines got
+the same share as a one-liner. With six items that put its second line outside the pill, and on
+`takeaway` onto the rule below. It was within the wide capacity (hard 6), so nothing flagged it.
+
+**The default.** `list` declares `center` at wide (the owner's call: the same default as
+`cards-grid`), `byFamily: spread` on square/tall/strip, which reproduces what the CSS did
+there before, and `withCoda: stretch`, like every other governed component.
+
+**Verified on** the real CLI export (`lattice-emulator.js` → PDF → raster), indaco light, at
+1280×720: every list shape under default/top/center/stretch, every register at five and six
+rows, three to five gloss rows, and five rows with two wraps. Every one fits, with 0px of text
+outside its row (live DOM, each line box against its row's border box); six rows with two
+20-word wraps overflow by 44px and the export reports it. All 49 committed decks with a list
+slide render with no overflow. **Not verified:** the square/tall/strip frames beyond the
+gallery goldens, and the Playground's runtime path (which stamps `data-cards` through the same
+kernel, per §11c-bis).

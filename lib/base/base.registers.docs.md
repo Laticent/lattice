@@ -728,13 +728,22 @@ and its stylesheet is untouched. The split-page
 rules override `align-content` outright at higher specificity, so a run's pages still look
 alike whatever the deck asked for. Wired today on `cards-grid`, `verdict-grid`, the
 `list-steps` row (every variant that lays its steps out side by side), the two
-`compare-prose` panes, and `cards-stack horizontal`. A single-line flex row ignores
+`compare-prose` panes, `cards-stack horizontal`, and `list` (every register). A single-line flex row ignores
 `align-content`, so those rows set `flex-wrap: wrap`; their zero-basis cards still share one
-line, and each card carries `min-width: 0` so it can never force a second line. Column forms
-(`list-steps vertical`/`chevron`/…, the default `cards-stack`, tall and strip frames),
-`list-steps capsule` (already content height) and `compare-prose decision` (its label sits at
-mid-stage) are not governed. All three stretch when a coda follows (`withCoda: stretch`). Other card components still stretch until they opt in (#2317). See
-`engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5.
+line, and each card carries `min-width: 0` so it can never force a second line.
+**`list` is the one COLUMN form wired:** its rows stack top to bottom in a one-column grid,
+where the same `align-content: var(--cards-align)` places them. Each row is capped at a
+comfortable one-line height, so `stretch` also needs `--cards-grow` (1 under `stretch`, set by
+the same `[data-cards]` rules) to lift the cap. `list` declares `center` at wide, `spread` on
+square/tall/strip (where a split page's lone member still fills the page), and `stretch` above a coda. A row never shrinks
+below its text: on a full stage the rows give up their air, and a list with more than the stage
+holds overflows where the overflow check reports it.
+Not governed: the other column forms (`list-steps vertical`/`chevron`/…, the default
+`cards-stack`, and the row components' tall and strip frames), `list-steps capsule` (already
+content height) and `compare-prose decision` (its label sits at mid-stage). Every governed
+component stretches when a coda follows (`withCoda: stretch`). Other card components still
+stretch until they opt in (#2317). See
+`engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5 and §12.
 
 ## The slide's corner — `corners:`
 

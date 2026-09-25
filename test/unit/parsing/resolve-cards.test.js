@@ -280,6 +280,13 @@ describe('resolve-cards', () => {
         `data-cards="${n}" must map to ${CARDS_CSS[n]}`);
       assert.match(bare, new RegExp(`section\\[data-cards-coda="${n}"\\]:has\\(> \\.cell-coda\\)`),
         `the coda arm must carry ${n} too`);
+      // The column form's ceiling switch rides the same rules, so it cannot disagree with the
+      // placement: only `stretch` lifts it.
+      const grow = n === 'stretch' ? 1 : 0;
+      assert.match(bare, new RegExp(`section\\[data-cards="${n}"\\][^{]*\\{[^}]*--cards-grow:\\s*${grow};`),
+        `data-cards="${n}" must set --cards-grow: ${grow}`);
+      assert.match(bare, new RegExp(`section\\[data-cards-coda="${n}"\\][^{]*\\{[^}]*--cards-grow:\\s*${grow};`),
+        `the coda arm must set --cards-grow: ${grow} for ${n}`);
     }
     const rootDefaults = (bare.match(/:root[^{]*\{[^}]*\}/g) || []).filter((b) => /--cards-align\s*:/.test(b));
     assert.deepEqual(rootDefaults, [], 'a :root default would override every component declaration');

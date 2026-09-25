@@ -1,41 +1,100 @@
 /* list — inventory.stack.bullets
  *
- * An equal-fill ledger: the list fills the working area and every item takes
- * an equal share of the height with its content vertically centered, so the
- * slide reads edge-to-edge whether it carries three items or the layout's
- * max. Three registers share the spine:
+ * A one-column grid of rows. Where the rows sit in the stage is the deck's
+ * `cards:` register (manifest default: centered at wide, spread on square,
+ * tall and strip, stretched above a Key Insight coda). Three registers share
+ * the spine:
  *   default        — accent-edged pills (a flat set of points)
  *   .takeaway      — hairline-ruled single lines (former tldr); an item with a
  *                    nested gloss stacks lead over gloss (former list-criteria)
  *   .principles    — display-weight declarations + large counter (former principles)
  *
  * Type steps up to the message scale (principles to the emphasis/display
- * register); counters and text share a centreline so numbered rows read clean.
+ * register); every counter is 1.4x its row's text, in one box, on the row's
+ * centreline.
  *
  * See lib/components/inventory/list/list.manifest.json for the contract.
  */
 
 section.list > .cell-stage { display:flex; flex-direction:column; }
 
-/* ── Spine: the list fills the canvas; each row an equal, centered band. ── */
+/* ── One ordinal scale for every numbered variant ──
+ * A counter is 1.4× its row's text, sits in a box sized from that same length, and
+ * clears the text by one `--sp-md`. The row size, the numeral and the box all derive
+ * from `--list-row-fs`, so they cannot drift apart: the flex variants give the counter
+ * `flex: 0 0 var(--list-ord-w)`, and the gloss variant, whose counter is absolute,
+ * reserves the same box as padding (test/unit/components/ordinal-gutter.test.js has the
+ * history of the pair that did drift). 1.25 fits two tabular digits in the label face;
+ * the roman box fits four characters, because VIII is (a split run's offset reaches it). */
+section.list {
+  --list-row-fs: var(--fs-message);
+  --list-ord-fs: calc(var(--list-row-fs) * 1.4);
+  --list-ord-w: calc(var(--list-ord-fs) * 1.25);
+}
+section.list.principles { --list-row-fs: var(--fs-emphasis); --list-lh: var(--lh-tight); }
+section.list.principles.roman { --list-ord-w: calc(var(--list-ord-fs) * 2.5); }
+
+/* ── Spine: a one-column grid that reads the `cards:` register. ──
+ * `align-content: var(--cards-align)` places the rows: `center` (the manifest default at
+ * wide) and `top` pack them, `spread` (square/tall/strip) shares the spare height out between
+ * them, and `stretch` hands it to the rows.
+ *
+ * Each row is `minmax(min-content, var(--list-row-max))`. `min-content`, not `auto`: a grid
+ * clamps an item's AUTOMATIC minimum to a fixed maximum, which capped a wrapped row at the
+ * one-line ceiling and spilled its text. The FLOOR is the row's own content with
+ * `--list-pad` of air, so text can never leave its row. The CEILING is a one-line row with its
+ * register's full `--list-air`: rows sit at that comfortable height when there is room, and on
+ * a full stage the grid shares out what is left, so the air compresses and the text does not.
+ * A row that wraps is taller than the ceiling and keeps the floor's air. `stretch` lifts the
+ * ceiling (`--cards-grow`, base.tokens.css § THE COLUMN FORM).
+ * The old `flex: 1 1 0; min-height: 0` gave every row the same share whatever it held, so a
+ * row that wrapped spilled out of its pill, and no overflow check saw it. */
+section.list {
+  --list-pad: var(--sp-xs);
+  --list-air: var(--sp-sm);
+  --list-lh: var(--lh-snug);
+  --list-edge: 0px;
+}
 section.list > .cell-stage > :is(ul,ol) {
   list-style:none; padding:0; margin:0;
-  display:flex; flex-direction:column;
-  flex:1; gap:var(--sp-sm);
+  --list-line: max(calc(var(--list-row-fs) * var(--list-lh)), var(--list-ord-h, 0px));
+  --list-row-max: calc(var(--list-line) + 2 * var(--list-air) + var(--list-edge)
+    + var(--cards-grow, 0) * 10000px);
+  display:grid; grid-template-columns:minmax(0, 1fr);
+  grid-auto-rows:minmax(min-content, var(--list-row-max));
+  align-content:var(--cards-align);
+  flex:1; min-height:0; gap:var(--sp-sm);
 }
+/* `safe center`, not `center`, for this column: a list with more than its stage holds must
+   overflow DOWNWARD, where the overflow probe reports it and the first rows stay readable.
+   Plain `center` split the overflow both ways, so the gallery's 8-line stress slide lost its
+   first row above the stage. The selectors mirror base.tokens.css: the coda arm wins over
+   `data-cards` whenever a coda is present. */
+section.list[data-cards="center"] > .cell-stage > :is(ul,ol) { align-content:safe center; }
+section.list[data-cards-coda]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:var(--cards-align); }
+section.list[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:safe center; }
+/* A counter row's one line is as tall as the counter when the counter is the taller of the two
+   (principles). Only rows that PAINT a counter count it. */
+section.list:not(.takeaway) > .cell-stage > ol,
+section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { --list-ord-h: var(--list-ord-fs); }
+/* A member ALONE on a split page fills that page (base.modifiers.css § Split BODY pages). That
+   rule grows the row with `flex` and `align-content: stretch`, neither of which reaches a
+   capped grid track, so the lone member lifts the ceiling itself. Without this, every list at
+   square/tall/strip (which split one member per page) sat as a pill atop an empty page. */
+section.list.lat-split-native > .cell-stage > :is(ul,ol):has(> li:only-child) { --cards-grow: 1; }
 section.list > .cell-stage > :is(ul,ol) > li {
-  flex:1 1 0; min-height:0;
-  display:flex; align-items:center;
-  font-size:var(--fs-message);
-  color:var(--text-body); line-height:var(--lh-snug);
+  display:flex; align-items:center; min-width:0;
+  font-size:var(--list-row-fs);
+  color:var(--text-body); line-height:var(--list-lh);
 }
 
 /* ── Default register: accent-edged pills. ── */
+section.list:not(.takeaway, .principles) { --list-edge: 2px; }  /* the pill's top and bottom border */
 section.list > .cell-stage > ul > li {
   background:var(--bg-alt);
   border:1px solid var(--border); border-left:3px solid var(--accent);
   border-radius:var(--radius-md);
-  padding:var(--sp-sm) var(--sp-md);
+  padding:var(--list-pad) var(--sp-md);
 }
 /* Optional second-line detail under a point. */
 section.list > .cell-stage > ul > li > ul { list-style:none; margin:0; padding:0; }
@@ -50,64 +109,71 @@ section.list > .cell-stage > ol { counter-reset:list-counter var(--lat-split-off
 section.list > .cell-stage > ol > li {
   counter-increment:list-counter;
   background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
-  /* flex mirror of `grid-template-columns:var(--sp-xl) 1fr` — fixed-width counter,
-   * point fills the rest (flex shop §10). */
-  display:flex; align-items:center; gap:var(--sp-md);
+  border-radius:var(--radius-md); padding:var(--list-pad) var(--sp-md);
+  gap:var(--sp-md);
 }
-section.list > .cell-stage > ol > li::before {
-  content:counter(list-counter, decimal-leading-zero);
-  flex:0 0 var(--sp-xl);
-  font-family:var(--font-label); font-size:var(--fs-h4); font-weight:700; color:var(--accent);
+/* Every counter, in every register, is this box. */
+section.list > .cell-stage > ol > li::before,
+section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
+  flex:0 0 var(--list-ord-w);
+  font-family:var(--font-label); font-size:var(--list-ord-fs); font-weight:700;
+  font-variant-numeric:tabular-nums; letter-spacing:0.02em;
+  color:var(--accent); line-height:1;
 }
+section.list > .cell-stage > ol > li::before { content:counter(list-counter, decimal-leading-zero); }
 
 /* ── takeaway register — former `tldr` component (inventory.list.takeaway) ──
- * Hairline-ruled single lines, no pill chrome. `numbered` adds a large
- * accent counter on the same centreline. Merged 2026-06-07. */
+ * Hairline-ruled single lines, no pill chrome. `numbered` adds the accent counter on
+ * the same centreline. Merged 2026-06-07. */
+/* A ruled row has no box around its air, so the air IS the rhythm between hairlines. */
+section.list.takeaway { --list-air: var(--sp-md); }
+/* A ruled row's floor is no padding at all: the line height's own half-leading (a quarter of
+   the font size at `--lh-snug`; a tenth at principles' `--lh-tight`, which renders with the ink
+   still clear of the rule) keeps the glyphs off it, and a list at capacity needs every pixel. */
+section.list:is(.takeaway, .principles) { --list-pad: 0px; }
 section.list.takeaway > .cell-stage > :is(ul,ol) { gap:0; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li {
   background:none; border:none; border-radius:0;
-  border-bottom:1px solid var(--border);
-  padding:0 var(--sp-xs);
-  font-size:var(--fs-message); font-weight:500; color:var(--text-heading);
+  padding:var(--list-pad) var(--sp-xs);
+  font-weight:500; color:var(--text-heading);
 }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::before { content:none; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::marker { content:''; }
-section.list.takeaway > .cell-stage > :is(ul,ol) > li:last-child { border-bottom:none; }
-/* numbered — accent counter as a fixed leading column, centered with the text. */
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li { counter-increment:list-take-counter; gap:var(--sp-md); }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { counter-reset:list-take-counter var(--lat-split-offset, 0); }
+section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li { counter-increment:list-take-counter; gap:var(--sp-md); }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
   content:counter(list-take-counter, decimal-leading-zero);
-  font-family:var(--font-label); font-size:var(--fs-emphasis); font-weight:700;
-  letter-spacing:0.02em; color:var(--accent); line-height:1;
-  flex:0 0 auto; min-width:2.4em;
 }
-/* Lead + gloss — an item with a nested gloss bullet stacks a bold lead over a muted
- * gloss line (the former `list-criteria` row, absorbed 2026-09-25). The counter keeps
- * its fixed `--fs-emphasis` size and sits in a left gutter centered on the whole pair,
- * so it never scales with row height (list-criteria's 55cqh number did — jank.md).
+/* Lead + gloss — an item with a nested gloss bullet stacks a bold lead over a muted gloss
+ * line (the former `list-criteria` row, absorbed 2026-09-25). The lead keeps the row size,
+ * one step above its gloss, so it outranks the gloss by size as well as weight; the counter
+ * sits in the same box as on a one-line row, centered on the whole pair.
  *
  * Keyed on the LIST (`:has(> li > :is(ul,ol))`), not the row, so a row without a gloss
  * in the same list sets its lead at the same size and x as one with a gloss.
  * `display:block` + `align-content:center`, NOT a column flex: a flex container makes
  * every inline element its own item, so `Lead **bold** part` broke onto three lines. */
+/* A lead over a gloss is two lines: the ceiling is sized for the pair. */
+section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) {
+  --list-air: var(--sp-sm);
+  --list-line: calc(var(--list-row-fs) * var(--lh-snug) + var(--sp-2xs) + var(--fs-body) * var(--lh-snug));
+}
 section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li {
   display:block; align-content:center;
-  font-size:var(--fs-body); font-weight:700; line-height:var(--lh-snug);
+  font-weight:700; line-height:var(--lh-snug);
 }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li {
-  position:relative; padding-left:calc(var(--fs-emphasis) * 2.4 + var(--sp-md));
+  position:relative; padding-left:calc(var(--sp-xs) + var(--list-ord-w) + var(--sp-md));
 }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li::before {
-  position:absolute; left:var(--sp-xs); top:0; bottom:0;
+  position:absolute; left:var(--sp-xs); top:0; bottom:0; width:var(--list-ord-w);
   display:flex; align-items:center;
 }
 /* The gloss. A numbered sub-list (`1.`) is read as a gloss too, rather than gluing its
  * text onto the lead's line. */
 section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) {
   list-style:none; padding:var(--sp-2xs) 0 0; margin:0;
-  font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:var(--lh-base);
+  font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:var(--lh-snug);
 }
 /* inherit, not the default register's `ul > li > ul > li` compact label ink — or a `-`
  * criteria list would set its gloss smaller and in a different color than a `1.` one. */
@@ -118,46 +184,48 @@ section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) > li {
 section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) > li::before { content:none; }
 
 /* ── principles register — former `principles` component (inventory.list.principles) ──
- * Display-weight declarations with a large accent counter. ol only;
+ * Display-weight declarations with the accent counter. ol only;
  * lettered/roman/bullet switch the counter format. Merged 2026-06-07. */
 section.list.principles > .cell-stage > ol { counter-reset:list-principle-counter var(--lat-split-offset, 0); gap:0; }
 section.list.principles > .cell-stage > ol > li {
   counter-increment:list-principle-counter;
-  /* flex mirror of `grid-template-columns:auto 1fr` — natural-width counter, declaration
-   * fills the rest. */
-  display:flex; column-gap:var(--sp-lg); align-items:center;
   background:none; border:none; border-radius:0;
-  border-bottom:1px solid var(--border); padding:0;
+  padding:var(--list-pad) 0;
   font-family:var(--font-display, var(--font-body));
-  font-size:var(--fs-emphasis); font-weight:500; letter-spacing:-0.01em;
-  line-height:var(--lh-tight); color:var(--text-heading);
+  font-weight:500; letter-spacing:-0.01em;
+  color:var(--text-heading);
 }
-section.list.principles > .cell-stage > ol > li:last-child { border-bottom:none; }
-section.list.principles > .cell-stage > ol > li::before {
-  content:counter(list-principle-counter, decimal-leading-zero);
-  font-family:var(--font-label); font-size:var(--fs-h1); font-weight:700;
-  letter-spacing:0.02em; color:var(--accent); line-height:1; align-self:center;
-}
+section.list.principles > .cell-stage > ol > li::before { content:counter(list-principle-counter, decimal-leading-zero); }
 section.list.principles.lettered > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-alpha); }
 section.list.principles.roman > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-roman); }
 section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
 
-/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
-   Keyed on the deck's `data-family` stamp, so it fires on any square, tall or strip
-   deck — replacing the deck-wide
-   data-orientation stamp. Square and narrower de-balloon: keep each row CONTENT-height
-   and distribute the set by rhythm, instead of flex:1 1 0 inflating one line of text
-   into a ~640px band on a tall frame. Fill comes from space-evenly + the social type. */
-/* `.list.list` (class doubled) reaches (0,2,2) to match the original
-   `[data-orientation]` reflow's specificity, so the takeaway/principles registers
-   (whose variant rules are (0,2,N)) still de-balloon — the role the attribute played. */
-section.list.list:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) { justify-content: space-evenly; }
-section.list.list:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) > li { flex: 0 0 auto; }
-
-/* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): open the
-   rhythm so the de-ballooned rows breathe down the long frame instead of clustering. */
+/* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): open the rhythm
+   so the content-height rows breathe down the long frame instead of clustering. Where the
+   rows SIT on square/tall/strip is the manifest's `cards.byFamily` (spread), not CSS. */
 section.list.list:where([data-family="strip"]) > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
 
+
+/* ── Row rules — the ruled registers (takeaway, principles) ──
+ * A row rule is NOT the masthead rule. The line under the heading is `1px solid --border`
+ * across the full measure (masthead.css), and the rows used to draw the identical stroke, so
+ * the heading rule and the row rules read as one set of lines. A row rule differs in two ways:
+ * it is SOFTER (`--border` at 55%), and it starts where the row's TEXT starts, past the
+ * counter, so it reads as belonging to the rows rather than the page. The below-note keeps its
+ * own accent fade, so each of the three lines has one look.
+ * Drawn as a background, not a border: a border cannot start partway along its edge.
+ * Under the sketch finish, `principles` swaps it for a rough rule (`base.sketch.css`);
+ * `takeaway` has no rough rule, so it keeps this one. */
+section.list:is(.takeaway, .principles) {
+  --list-rule: color-mix(in srgb, var(--border) 55%, transparent);
+  --list-rule-inset: 0px;
+}
+section.list.takeaway.numbered { --list-rule-inset: calc(var(--sp-xs) + var(--list-ord-w) + var(--sp-md)); }
+section.list.principles { --list-rule-inset: calc(var(--list-ord-w) + var(--sp-md)); }
+section.list:is(.takeaway, .principles) > .cell-stage > :is(ul,ol) > li:not(:last-child) {
+  background:linear-gradient(var(--list-rule), var(--list-rule))
+    right bottom / calc(100% - var(--list-rule-inset)) 1px no-repeat;
+}
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

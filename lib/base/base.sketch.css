@@ -491,6 +491,10 @@ section.sketch.list.principles > .cell-stage > ol > li {
   position: relative;
   border-bottom-color: transparent;
 }
+/* list's row rule is a background (list.styles.css § Row rules), not a border; clear it
+ * too, or it shows through under the wave. */
+section.sketch.list.principles > ol > li,
+section.sketch.list.principles > .cell-stage > ol > li { background-image: none; }
 section.sketch.list-tabular > ol > li:first-child,
 section.sketch.list-tabular > .cell-stage > ol > li:first-child { border-top-color: transparent; }
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td::after,
