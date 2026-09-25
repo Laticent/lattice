@@ -48,6 +48,10 @@ export type DeckRender = {
 	 *  runtime bundle because inlining it put 25.9 KiB gzipped on every reader of every
 	 *  deck for an engine only a branching machine uses. */
 	dagreUrl?: string;
+	/** The engine's FLAT pack (`styles: 'flat'`), wrapper-stripped, with the local component
+	 *  CSS after it. Present only when the caller asked for the flat mode — a host that shows
+	 *  slide content outside a slide (the Reading view). */
+	flatCss?: string;
 };
 
 function pg(): PG | undefined {
@@ -102,10 +106,18 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
  * image exporters need. This is the single piece of glue Share adds on top of
  * the shared exporters.
  */
-export async function buildDeckRender(options: SingleSlideOptions, source: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<DeckRender> {
+export async function buildDeckRender(
+	options: SingleSlideOptions,
+	source: string,
+	palette: string,
+	mode: 'light' | 'dark',
+	extra?: ExtraTheme,
+	extraCss?: string,
+	styles: 'scoped' | 'flat' = 'scoped',
+): Promise<DeckRender> {
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme);
+	const out = await renderMarkdown(PG, source, theme, styles === 'flat' ? { styles } : undefined);
 	const { previewFontFaceCss } = await import('@/playground/font-embed.js');
 	return {
 		html: out.html,
@@ -118,6 +130,9 @@ export async function buildDeckRender(options: SingleSlideOptions, source: strin
 		fontCss: previewFontFaceCss(),
 		mermaidUrl: options.mermaidUrl,
 		dagreUrl: options.dagreUrl,
+		...(out.flatCss !== undefined
+			? { flatCss: out.flatCss.replace(/article\.lattice\s*>\s*/g, '') + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '') }
+			: {}),
 	};
 }
 

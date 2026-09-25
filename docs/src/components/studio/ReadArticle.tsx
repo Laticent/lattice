@@ -56,15 +56,15 @@ const READ_ARTICLE_CSS = `
 /* The visual-layout placeholder note is a text card, so it stays in the prose column;
    real figures break out above it. */
 .st-read-article>.lp-figure:not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:var(--st-fig-max)}
-.st-read-article h1{font-size:2rem;line-height:1.15;color:var(--text-heading);letter-spacing:-.02em;padding:1.3em 0 .35em}
-.st-read-article h1:first-child{padding-top:0}
-.st-read-article h2{font-size:1.4rem;line-height:1.2;color:var(--text-heading);padding:1.6em 0 .35em}
-.st-read-article h3{font-size:1.08rem;color:var(--text-heading);padding:1.3em 0 .3em}
-.st-read-article p{padding:0 0 .95em}
-.st-read-article ul,.st-read-article ol{padding:0 0 1.05em 1.25em}
-.st-read-article li{padding:.14em 0}
-.st-read-article li>ul,.st-read-article li>ol{padding-bottom:0}
-.st-read-article blockquote{border-left:3px solid var(--accent);padding:.15em 0 .15em 1em;color:var(--text-heading)}
+.st-read-article h1:where(:not(.lp-figure *)){font-size:2rem;line-height:1.15;color:var(--text-heading);letter-spacing:-.02em;padding:1.3em 0 .35em}
+.st-read-article h1:first-child:where(:not(.lp-figure *)){padding-top:0}
+.st-read-article h2:where(:not(.lp-figure *)){font-size:1.4rem;line-height:1.2;color:var(--text-heading);padding:1.6em 0 .35em}
+.st-read-article h3:where(:not(.lp-figure *)){font-size:1.08rem;color:var(--text-heading);padding:1.3em 0 .3em}
+.st-read-article p:where(:not(.lp-figure *)){padding:0 0 .95em}
+.st-read-article :is(ul,ol):where(:not(.lp-figure *)){padding:0 0 1.05em 1.25em}
+.st-read-article li:where(:not(.lp-figure *)){padding:.14em 0}
+.st-read-article li>:is(ul,ol):where(:not(.lp-figure *)){padding-bottom:0}
+.st-read-article blockquote:where(:not(.lp-figure *)){border-left:3px solid var(--accent);padding:.15em 0 .15em 1em;color:var(--text-heading)}
 .st-read-article .lp-cite{color:var(--text-muted);font-size:.88rem;padding:0 0 1em}
 .st-read-article .lp-kicker{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);padding:0 0 .25em}
 /* The slide's subtitle: the line the masthead seats under the heading, read as its dek. */
@@ -121,10 +121,20 @@ const READ_ARTICLE_CSS = `
 .st-read-article figcaption{font-size:.82rem;color:var(--text-muted);padding:.5em 0 0;text-align:center}
 .st-read-article .lp-figure-note{border:1px dashed var(--border);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt)}
 .st-read-article .lp-visual-note{font-size:.92rem;color:var(--text-muted);margin:0}
-.st-read-article table{border-collapse:collapse;width:100%;font-size:.92em}
-.st-read-article th,.st-read-article td{border:1px solid var(--border);padding:.4em .7em;text-align:left}
-.st-read-article th{background:var(--bg-alt);font-weight:600}
-.st-read-article pre{background:var(--bg-alt);padding:1em;border-radius:8px;overflow:auto;font-size:.85em}
+/* PROSE RULES STYLE PROSE. Every element rule here (headings, paragraphs, lists, quotes, code,
+   tables) carries :where(:not(.lp-figure *)), because a figure is a CHART re-hosted from a slide and takes
+   the deck's own rules from the scoped sheet (scopedArticleCss). Without the fence a kanban card's
+   list, a timeline's paragraphs or a roadmap's cells picked up this view's prose spacing.
+   The :where() is load-bearing: a bare :not() takes its argument's specificity, lifting a p rule to
+   (0,2,1) over the (0,2,0) .lp-kicker / .lp-subtitle / .lp-roster rules below it, which moved
+   the article's own prose (measured: the kicker's gap 3px -> 11.5px).
+   A PROSE table only. A table inside a figure is a chart (roadmap, matrix-grid, the table
+   component) and takes the deck's own rules from the fenced sheet; these would otherwise paint
+   grid lines over its cells and pad its state markers away. */
+.st-read-article table:where(:not(.lp-figure *)){border-collapse:collapse;width:100%;font-size:.92em}
+.st-read-article :is(th,td):where(:not(.lp-figure *)){border:1px solid var(--border);padding:.4em .7em;text-align:left}
+.st-read-article th:where(:not(.lp-figure *)){background:var(--bg-alt);font-weight:600}
+.st-read-article pre:where(:not(.lp-figure *)){background:var(--bg-alt);padding:1em;border-radius:8px;overflow:auto;font-size:.85em}
 /* HIDE THE SPENT MERMAID SOURCE. The bake leaves the source <pre> in the section on purpose
    — mermaid.css and highlight-js.css style the drawing with ADJACENT-SIBLING selectors on it,
    so removing it would unstyle the very diagram the bake exists to ship — and the engine
@@ -147,6 +157,9 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 	const [state, setState] = React.useState<'loading' | 'ready' | 'failed'>('loading');
 	const [html, setHtml] = React.useState('');
 	const [toc, setToc] = React.useState<ArticleToc[]>([]);
+	// The deck sheet for the figures: flat, pruned and fenced to the figures by
+	// `scopedArticleCss`, which already ran it through `sanitizeStyleText`.
+	const [deckCss, setDeckCss] = React.useState('');
 
 	// `extraTheme` is read WHOLE and its identity is captured by (name, css). StudioShell
 	// rebuilds that wrapper object on every render whenever a saved library theme is active,
@@ -162,6 +175,7 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 				if (canceled) return;
 				setHtml(a.articleHtml);
 				setToc(a.toc);
+				setDeckCss(a.css);
 				setState(a.articleHtml ? 'ready' : 'failed');
 			})
 			.catch(() => {
@@ -175,6 +189,9 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<style>{READ_ARTICLE_CSS}</style>
+			{/* A TEXT CHILD for the same structural reason as the sheet above; the content is also
+			    `sanitizeStyleText`-guarded (HARD RULE #22), because it carries theme and author CSS. */}
+			{deckCss ? <style>{deckCss}</style> : null}
 			{/* KaTeX's stylesheet, only for an article that carries math. Without it `.katex-mathml` is
 			    not clipped, so every equation and every legend symbol printed twice — once as MathML
 			    text and once as KaTeX's HTML. The player inlines this sheet and the `--read` shell

@@ -32,6 +32,11 @@ import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-expor
 
 export type ArticleToc = { id: string; level: number; text: string };
 export type DeckArticle = { articleHtml: string; toc: ArticleToc[] };
+/** The Reading view's article plus the deck stylesheet its figures need (see `scopedArticleCss`). */
+export type StyledDeckArticle = DeckArticle & { css: string };
+
+/** The Reading view's article root. The scoped deck sheet and the container rules key on it. */
+export const ARTICLE_ROOT = '.st-read-article';
 
 /**
  * Does this render carry anything the RUNTIME, not the engine, draws?
@@ -156,10 +161,13 @@ export async function projectDeckArticle(
 	extraCss?: string,
 	modeOverride?: 'light' | 'dark',
 	isStale?: () => boolean,
-): Promise<DeckArticle> {
+): Promise<StyledDeckArticle> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
-	const render = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
+	// `styles: 'flat'` — this view shows slide content OUTSIDE a slide, which is the flat
+	// mode's whole definition (2026-09-24-one-style-delivery-spine.md §4.1). `render.css` stays
+	// the scoped shape for the diagram bake's capture frame.
+	const render = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'flat');
 	// THE DEPTH-AWARE SPLITTER, which is what the export twin uses (`share-export.ts` →
 	// `slideChannelRecord`). A flat "scan to the next `</section>`" counts a slide holding a
 	// hand-authored `<section>` as two — and this count is only used as the bake's parity
@@ -172,9 +180,62 @@ export async function projectDeckArticle(
 	const staticSections = splitSectionsCore(render.html)
 		.filter((p) => p.type === 'section')
 		.map((p) => `${p.openTag}${p.inner}</section>`);
-	if (!staticSections.length) return { articleHtml: '', toc: [] };
+	if (!staticSections.length) return { articleHtml: '', toc: [], css: '' };
 	const baked = await bakeArticleSections(render, staticSections, isStale);
-	return projectSectionsToArticle(baked ?? staticSections);
+	const article = await projectSectionsToArticle(baked ?? staticSections);
+	return { ...article, css: await scopedArticleCss(article.articleHtml, render.flatCss, mode) };
+}
+
+/**
+ * The deck stylesheet for the Reading view's figures — the `flat` delivery mode, SCOPED and
+ * PRUNED (the owner's fork-2 pick, 2026-09-25).
+ *
+ * WHY THIS VIEW NEEDS ITS OWN SHAPE. It renders in the app's top-level document on purpose
+ * (see the header), so it cannot take the player's whole-document sheet: ~0.9 MB of deck CSS,
+ * `:root` tokens and all, would restyle the Studio around the article. Before this it shipped
+ * no deck CSS at all, so every chart painted SVG-initial black or lost its layout
+ * (followups.d/2344-p1, now closed).
+ *
+ * So the sheet is (1) pruned to the rules the projected article's own DOM matches, with the
+ * same kernel the player export uses; (2) fenced by `scopeReHostedCss`, which rewrites every
+ * selector to match only inside a figure of this article and turns `:root` into the figure,
+ * so deck rules reach only the figures and the palette tokens land on each figure rather than
+ * on the app's `<html>`; (3) passed through
+ * `sanitizeStyleText`, because this is a `<style>` in the top-level document and a
+ * `</style>` in theme or author CSS would end it (HARD RULE #22). The pruner is a css-tree
+ * parse→generate, which normalizes an escaped `<\/style` back into a live terminator, so the
+ * guard has to run AFTER it. `scopeReHostedCss` fails CLOSED: on any doubt the figures stay
+ * unstyled and the app is never touched.
+ *
+ * The figure container rules (`.lp-chart`, `.lp-spatial`) come from `rehostContainerCss`,
+ * the same rules the player writes under `#lp-article`.
+ */
+export async function scopedArticleCss(articleHtml: string, flatCss: string | undefined, mode: 'light' | 'dark'): Promise<string> {
+	if (!articleHtml || !flatCss) return '';
+	const [pruneMod, coreMod, sanitizeMod] = await Promise.all([
+		import('@/playground/player-prune.generated.js'),
+		import('@/playground/player-core.generated.js'),
+		import('../../../../lib/core/sanitize-style-text.mjs'),
+	]);
+	const { collectBaseSelectors, scopeReHostedCss } = pruneMod as unknown as {
+		collectBaseSelectors: (css: string, o?: { legacyPseudoElements?: boolean }) => string[];
+		scopeReHostedCss: (css: string, isUsed: (b: string) => boolean, o: { root: string; within: string; colorScheme?: string }) => { css: string; applied: boolean };
+	};
+	const { rehostContainerCss } = coreMod as unknown as { rehostContainerCss: (root: string) => string };
+	// The AUTHORITATIVE match, as in the player's prune: real `querySelector` against the
+	// article's own DOM. A parsed, inert document is enough — every base is structural.
+	const doc = new DOMParser().parseFromString(`<article class="${ARTICLE_ROOT.slice(1)}">${articleHtml}</article>`, 'text/html');
+	const used = new Set<string>();
+	// `legacyPseudoElements`: this bundle's sheet is minified, which writes `::before` as `:before`.
+	for (const base of collectBaseSelectors(flatCss, { legacyPseudoElements: true })) {
+		try {
+			if (doc.querySelector(base)) used.add(base);
+		} catch {
+			used.add(base); // a selector querySelector rejects: keep it, as the player's prune does
+		}
+	}
+	const scoped = scopeReHostedCss(flatCss, (b) => used.has(b), { root: ARTICLE_ROOT, within: '.lp-figure', colorScheme: mode });
+	return sanitizeMod.sanitizeStyleText(`${rehostContainerCss(ARTICLE_ROOT)}\n${scoped.css}`);
 }
 
 /** The sanitize-then-project kernel, split out so a caller holding rendered sections

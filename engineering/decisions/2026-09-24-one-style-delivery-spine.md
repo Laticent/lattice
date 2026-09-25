@@ -104,7 +104,7 @@ a row here and asks for its mode by name; it does not invent a shape.
 | Studio PDF/PPTX rasterizer | `baked` | `bakeSvg(svg, win)` (`deck-export.js` `flattenChartSvgs`) |
 | `check:render` baked pass | `baked` | `bakeSvg(svg, win, { freezeTokens })` (`tools/check-viz-render.js`) |
 | Chart "download as SVG" (Studio + `tools/export-chart-svg.js`) | `baked`, to a file | `flattenSvgStyles(…, { collectTokens: true })` + `finalizeStandaloneSvg`; a file takes its tokens in its own `<style>`, not on an element |
-| Studio Reading view | *(fork 2: `flat`, scoped to the article and pruned)* | step 3 |
+| Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')`, then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |
 | CLI PDF/PNG/HTML/`--player` | *(as written today; fork 3: `flat`)* | step 4 |
 
 `render()` throws on an unknown `styles` name, and on `'baked'` it names `bakeSvg`
@@ -272,7 +272,58 @@ below are kept as they were put.
    `check:render` passed unchanged on the branch: 12 sanctioned findings, flat 7254 and
    baked 5964 pairs.
 3. **The Reading view** (fork 2). This closes
-   `followups.d/2344-p1-studio-reading-view-charts-render-black.md`.
-4. **The CLI** (fork 3), with export sign-off.
+   `followups.d/2344-p1-studio-reading-view-charts-render-black.md`. **Done (§8.1).**
+4. **The CLI** (fork 3), with export sign-off. It also carries the player prune's one-colon
+   fix (§8.1), which changes export bytes for the same reason.
 
-Each remaining step is its own PR. Step 1 rode #2344 at the owner's request.
+Step 1 rode #2344 at the owner's request. Steps 2 to 4 ride #2366, one commit each, the
+line of work the owner asked for on 2026-09-25.
+
+### 8.1 What step 3 built (2026-09-25, #2366)
+
+- **The sheet.** The Reading view asks for the `flat` mode and ships what
+  `scopeReHostedCss` keeps of it. The kernel prunes the pack to the rules the projected
+  article's DOM matches, the same kernel the player's prune uses. Then it rewrites every
+  selector S to `:where(.st-read-article) S:where(.lp-figure, .lp-figure *)`, so a deck rule
+  can only reach a figure of this article, and it turns `:root` into `.lp-figure`, so the
+  palette lands on each figure and not on the app's `<html>`. Measured on the 22-chart
+  gallery: 838 KB of flat pack becomes 93 KB, 296 of 3700 rules. The two css-tree parses
+  took 0.5 s in Node, and the browser adds about 7,500 `querySelector` calls on top. All of
+  it runs on the main thread each time the view re-renders. Browser timing is not measured
+  yet.
+- **What the fence cannot hold is dropped.** A selector fence reaches style rules only. A red
+  team found four ways past it, each observed in Chromium 131: a deck `@font-face` named like an
+  app family takes the app's text (and per-glyph `unicode-range` sources beacon which
+  characters it draws); a deck `@keyframes spin` replaces the app's own; `@property` registers
+  an app custom property with a deck `initial-value`; and a deck `url()` fetches from the app's
+  origin, because the Studio's top-level document carries no subresource CSP (the preview
+  iframe and every export do). So the kernel drops every global-namespace at-rule at any depth
+  (unwrapping a `@layer` block rather than losing its rules), and every declaration that names
+  a remote resource. `data:` and relative urls stay. Figures keep their paint and lose motion
+  and deck-only faces.
+- **Not `@scope`.** That was the first draft, and it cannot work. Inside `@scope (R)` a
+  selector with no `:scope` is read as a descendant of R, so the re-host arms, which start
+  AT the figure (`figure.chart-frame .chart-status`), never match. Every chart painted
+  black.
+- **The one-colon pseudo-elements.** The Studio's engine bundle ships `lattice.css`
+  minified, which writes `::before` as `:before`. css-tree reads that as a pseudo-class, so
+  the prune asked `querySelector` for `.x:before`, matched nothing, and dropped every state
+  marker. `baseSelectorString` can now treat the four CSS 2 pseudo-elements as pseudo-elements,
+  and this sheet opts in. **The player's prune does not, yet.** It has the same blind spot: the
+  CLI's unminified sheet still carries KaTeX's one-colon rules, and the Studio export's prune
+  likely fails its computed-style gate on it and ships the full sheet. Fixing it changes export
+  bytes, so it rides with step 4, which owes export sign-off anyway.
+- **The app's prose rules stay off the charts.** `READ_ARTICLE_CSS`'s element rules
+  (headings, paragraphs, lists, quotes, pre, tables) carry `:where(:not(.lp-figure *))`. Before
+  that, its table rules drew grid lines over the roadmap and padded its markers away. The
+  `:where()` matters: a bare `:not()` took its argument's specificity and moved the article's
+  own kicker, subtitle and roster (a checker measured the kicker's gap going 3 px → 11.5 px).
+- **The gate.** `check:render` has a `reading` pass: the article in a page of its own
+  carrying only this sheet, compared with its slide (7284 pairs). An arm with no sheet (the
+  view as it shipped before) fails it. Four title-slide prose inks are sanctioned: prose
+  takes the app's ink by design. The real surface is
+  `docs/e2e/studio-read-article-charts.spec.ts`: the chart gallery in the built Studio,
+  light and dark. It checks that no chart is mostly black, no status pill has lost its
+  background, no state marker has lost its disc, the app chrome is unchanged with the article
+  open, and the page never scrolls sideways at 1440, 820 and 390. With the one-colon fix
+  reverted, it fails on 15 of 15 roadmap markers.

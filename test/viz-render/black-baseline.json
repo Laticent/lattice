@@ -1,5 +1,5 @@
 {
-  "note": "Sanctioned findings of tools/check-viz-render.js. An entry without `mode` is opaque-black SVG paint on the SCOPED (preview) path: a legitimately-black ink or hairline. An entry with `mode` (flat = Read · Article, baked = a stylesheet-free SVG) is a paint the slide has and that copy loses, accepted with the reason in `why`. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
+  "note": "Sanctioned findings of tools/check-viz-render.js. An entry without `mode` is opaque-black SVG paint on the SCOPED (preview) path: a legitimately-black ink or hairline. An entry with `mode` (flat = the player Read · Article, reading = the Studio in-app Reading view, baked = a stylesheet-free SVG) is a paint the slide has and that copy loses, accepted with the reason in `why`. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
   "themes": [
     "indaco",
     "cuoio",
@@ -23,6 +23,42 @@
       "selector": "text.quadrant-dot-label>tspan",
       "property": "fill",
       "scheme": "light"
+    },
+    {
+      "family": "chart",
+      "mode": "reading",
+      "component": "title",
+      "selector": "code",
+      "property": "color",
+      "scheme": "dark",
+      "why": "By design. Prose outside a figure takes the Studio's own ink in the Reading view (READ_ARTICLE_CSS), because the deck sheet is fenced to the figures so it cannot restyle the app (scopeReHostedCss). The gate page carries no app, so that ink reads as black here. A chart paint is never sanctioned this way: every figure's copy must match its slide."
+    },
+    {
+      "family": "chart",
+      "mode": "reading",
+      "component": "title",
+      "selector": "code",
+      "property": "color",
+      "scheme": "light",
+      "why": "By design. Prose outside a figure takes the Studio's own ink in the Reading view (READ_ARTICLE_CSS), because the deck sheet is fenced to the figures so it cannot restyle the app (scopeReHostedCss). The gate page carries no app, so that ink reads as black here. A chart paint is never sanctioned this way: every figure's copy must match its slide."
+    },
+    {
+      "family": "chart",
+      "mode": "reading",
+      "component": "title",
+      "selector": "p",
+      "property": "color",
+      "scheme": "dark",
+      "why": "By design. Prose outside a figure takes the Studio's own ink in the Reading view (READ_ARTICLE_CSS), because the deck sheet is fenced to the figures so it cannot restyle the app (scopeReHostedCss). The gate page carries no app, so that ink reads as black here. A chart paint is never sanctioned this way: every figure's copy must match its slide."
+    },
+    {
+      "family": "chart",
+      "mode": "reading",
+      "component": "title",
+      "selector": "p",
+      "property": "color",
+      "scheme": "light",
+      "why": "By design. Prose outside a figure takes the Studio's own ink in the Reading view (READ_ARTICLE_CSS), because the deck sheet is fenced to the figures so it cannot restyle the app (scopeReHostedCss). The gate page carries no app, so that ink reads as black here. A chart paint is never sanctioned this way: every figure's copy must match its slide."
     }
   ]
 }

@@ -101,6 +101,14 @@ const CENSUS = {
 			'builder nor a document assembler, so NEITHER text-matching gate can see this file — the ' +
 			'census is the only pin it has.',
 	},
+	'docs/src/components/studio/article-projection.ts': {
+		guards: 1,
+		why:
+			'scopedArticleCss — the Reading view\'s deck sheet, a <style> in the app\'s TOP-LEVEL document ' +
+			'built from theme and author CSS. It follows a css-tree parse→generate (scopeReHostedCss), which ' +
+			'normalizes `<\\/style` back into a live terminator, so the guard runs last. ReadArticle.tsx ' +
+			'renders it as a React text child, which is structural safety on top, not instead.',
+	},
 	'docs/src/components/studio/present/stage-window.js': {
 		guards: 1,
 		why:

@@ -411,16 +411,17 @@ function compareCopies(mode, scheme, ref, copy) {
  * Render every chart as a FLAT copy (Read · Article) and a BAKED copy (a detached,
  * stylesheet-free SVG) and return each paint the copy lost. `flatPack: false` feeds
  * the article the preview's scoped pack instead — the shape #2344 shipped — and the
- * integration test's arm runs it to prove this pass can fail.
+ * integration test's arm runs it to prove this pass can fail. `readingSheet: false` is the
+ * Studio Reading view before it had a deck sheet at all (followups.d/2344-p1).
  *
  * `unpaired` lists every chart that SHOULD have had a copy and compared nothing: a
  * figure the article re-hosts (catalog `figure` svg / flow / spatial), and a component
  * with a stylesheet-styled SVG to bake. One global pair count cannot see a single chart
  * going missing; this can. The gate fails on it, and it is not baselinable.
  */
-async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEMES, extraFlatCss = '', freezeTokens = true } = {}) {
+async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEMES, extraFlatCss = '', extraReadingCss = '', readingSheet = true, freezeTokens = true } = {}) {
   const chrome = resolveChrome();
-  if (!chrome) return { skipped: true, lost: [], compared: { flat: 0, baked: 0 }, unpaired: [] };
+  if (!chrome) return { skipped: true, lost: [], compared: { flat: 0, baked: 0, reading: 0 }, unpaired: [] };
   const puppeteer = require('puppeteer');
   const { JSDOM } = require('jsdom');
   const engine = require('../lib/engine');
@@ -428,6 +429,8 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
   const { projectDeckToProse } = await import('../lib/transformers/prose-projection.mjs');
   const { playerCss } = await import('../lib/export/player-core.mjs');
   const { PROJECTION } = await import('../lib/core/projection-catalog.generated.mjs');
+  const { rehostContainerCss } = await import('../lib/export/player-core.mjs');
+  const { collectBaseSelectors, scopeReHostedCss } = require('../lib/export/player-prune.js');
   const REHOSTED = new Set(['svg', 'flow', 'spatial']);
   const bakeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'components', 'chart', '_chart-family', 'standalone-svg.js'), 'utf8');
   const baseLatticeCss = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
@@ -437,7 +440,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
   const lost = [];
   // How many slide/copy element pairs each mode compared. A pass that compared
   // nothing would report no losses, so the gate asserts these are not zero.
-  const compared = { flat: 0, baked: 0 };
+  const compared = { flat: 0, baked: 0, reading: 0 };
   const unpaired = [];
   try {
     for (const deck of DECKS) {
@@ -477,6 +480,33 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
             if (REHOSTED.has(PROJECTION[c]?.figure) && !flatCmp.pairs[c]) unpaired.push({ mode: 'flat', theme, scheme, component: c });
           }
           await page.close();
+
+          // READING: the Studio's in-app Reading view. The article sits in an APP document, so
+          // it gets no whole-document sheet: only what `scopeReHostedCss` keeps of the same
+          // flat pack, fenced by selector to the figures, plus `rehostContainerCss` — exactly
+          // what `scopedArticleCss` (docs/…/article-projection.ts) builds. The prune's `isUsed`
+          // is answered by querySelector against this page's own article, as the Studio does.
+          const reading = await browser.newPage();
+          await reading.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: scheme }]);
+          const articleDoc = `<body><article class="st-read-article">${articleHtml}</article></body>`;
+          await reading.setContent(`<!doctype html><html><head></head>${articleDoc}</html>`);
+          const bases = collectBaseSelectors(flat, { legacyPseudoElements: true });
+          const usedBases = new Set(await reading.evaluate((list) => list.filter((b) => {
+            try { return !!document.querySelector(b); } catch { return true; }
+          }), bases));
+          const readingCss = `${rehostContainerCss('.st-read-article')}\n${!readingSheet ? '' : scopeReHostedCss(flat, (b) => usedBases.has(b), { root: '.st-read-article', within: '.lp-figure', colorScheme: scheme }).css}`;
+          await reading.setContent(
+            `<!doctype html><html><head><style>${readingCss}\n.st-read-article{display:block;width:1100px}\n${extraReadingCss}</style></head>${articleDoc}</html>`,
+            { waitUntil: 'networkidle0' },
+          );
+          const readingCopy = await reading.evaluate(paintsIn, '.st-read-article', [...PAINTABLE_TAGS], STAMP);
+          const readingCmp = compareCopies('reading', scheme, flatRef, readingCopy);
+          compared.reading += Object.values(readingCmp.pairs).reduce((a, b) => a + b, 0);
+          lost.push(...readingCmp.lost);
+          for (const c of inDeck) {
+            if (REHOSTED.has(PROJECTION[c]?.figure) && !readingCmp.pairs[c]) unpaired.push({ mode: 'reading', theme, scheme, component: c });
+          }
+          await reading.close();
 
           // BAKED: bake every stylesheet-styled chart SVG on the preview's slides, then
           // show the baked clones in a page that carries no stylesheet at all.
@@ -549,7 +579,7 @@ function uniqueByKey(findings) {
  */
 async function gather(opts = {}) {
   const { skipped, blacks, dimText } = await collectBlacks();
-  if (skipped) return { skipped: true, found: [], dimText: [], compared: { flat: 0, baked: 0 }, unpaired: [] };
+  if (skipped) return { skipped: true, found: [], dimText: [], compared: { flat: 0, baked: 0, reading: 0 }, unpaired: [] };
   const copies = await collectCopies(opts);
   const found = uniqueByKey([...blacks, ...copies.lost]).sort((a, b) => findingKey(a).localeCompare(findingKey(b)));
   return { skipped: false, found, dimText, compared: copies.compared, unpaired: copies.unpaired };
@@ -627,7 +657,7 @@ async function main() {
     // Keep each surviving entry's `why`; a NEW entry gets a placeholder the PR must replace.
     const why = new Map(baseline.sanctioned.map((e) => [findingKey(e), e.why]));
     const payload = {
-      note: 'Sanctioned findings of tools/check-viz-render.js. An entry without `mode` is opaque-black SVG paint on the SCOPED (preview) path: a legitimately-black ink or hairline. An entry with `mode` (flat = Read · Article, baked = a stylesheet-free SVG) is a paint the slide has and that copy loses, accepted with the reason in `why`. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.',
+      note: 'Sanctioned findings of tools/check-viz-render.js. An entry without `mode` is opaque-black SVG paint on the SCOPED (preview) path: a legitimately-black ink or hairline. An entry with `mode` (flat = the player Read · Article, reading = the Studio in-app Reading view, baked = a stylesheet-free SVG) is a paint the slide has and that copy loses, accepted with the reason in `why`. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.',
       themes: THEMES,
       schemes: SCHEMES,
       sanctioned: found.map((f) => ({
@@ -662,7 +692,7 @@ async function main() {
   }
 
   if (regressions.length === 0 && stale.length === 0) {
-    console.log(`check-viz-render OK — ${found.length} sanctioned finding(s); no new black paint on the scoped path and no new lost paint in a copy (flat ${compared.flat} / baked ${compared.baked} pairs; ${THEMES.join('/')} × ${SCHEMES.join('/')}).`);
+    console.log(`check-viz-render OK — ${found.length} sanctioned finding(s); no new black paint on the scoped path and no new lost paint in a copy (flat ${compared.flat} / reading ${compared.reading} / baked ${compared.baked} pairs; ${THEMES.join('/')} × ${SCHEMES.join('/')}).`);
     return;
   }
 
