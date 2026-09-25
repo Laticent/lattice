@@ -6,3 +6,7 @@
   and it casts a soft elevation shadow. A pie slice steps out along its own bisector, and a
   dot grows about its own center. A small hold zone keeps the card from flickering at mark
   edges. The `ChartDetailLayer` prop `tilt` is renamed `lift`.
+- **Fixed: a stacked-bar chart's hover details now open.** The chart never emitted the
+  `stacked-bar-svg` class the reveal layer looks for, so authored per-bar detail was never
+  shown on hover or tap. Its `<svg>` now carries `cart-svg stacked-bar-svg`, like every
+  other chart's figure class.
