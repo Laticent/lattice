@@ -176,13 +176,15 @@ follow the same pattern.
 | Existing decks render the same markup | engine, every committed deck | 309 decks (every `examples/*.md`, component gallery and baseline deck; `panes.md` excluded): byte-identical HTML between `origin/main` and this branch, each rendered from its own worktree |
 | Existing decks render the same pixels | CLI PDF export | chart, inventory and comparison galleries (45 pages): 0 differing pixels, `compare -metric AE` (measured before the carve moved into the parse; the markup check above covers the move) |
 | Two components on one slide, chrome kept | CLI PDF export | `examples/panes.pdf` (light, committed) and a dark render reviewed alongside it, not committed — list+table 40/60, bar+list 55/45, image+text 50/50, table+big-number 70/30, stacked line over stats, piechart+list 45/55 |
-| The browser engine renders panes | the Playground's engine bundle in headless Chrome | `LatticeEngine.createEngine().render()` on a panes deck returns two panes; before the fix it threw `process is not defined`. The Playground and Studio UIs themselves were not driven |
+| The browser engine renders panes | the Playground's engine bundle in headless Chrome | `LatticeEngine.createEngine().render()` on a panes deck returns two panes; before the fix it threw `process is not defined` |
+| The Studio previews a panes slide | the real Studio (`/studio/`, docs dev server built from this branch), 1440px desktop | the demo deck typed into the editor: the preview frame holds one host section and two `lat-pane` cells, drawn side by side, no page errors. The first run found the preview's sanitizer **dropping** `<lat-pane>` (DOMPurify strips unknown tags and keeps their children, flattening both panes into one column); `lat-pane` joined `ADD_TAGS` in `lib/core/sanitize-slide-html.mjs`, which also covers the self-contained `.html` export that shares it |
 | A pane is never a slide; slides around it survive | engine | `test/unit/core/panes.test.js`: one `<section>` and one `<h2>` per panes slide; `---` directly under a table, list or comment, and `split: headings`, keep every later slide |
 | Slide ids don't depend on later panes | engine | the same test: a piechart slide's ids are unchanged by a panes slide after it, and a panes slide's ids match between the deck render and a render alone at its offset |
 | Parser reuse is unchanged for decks without panes | engine | `parser-memo.test.js`: every deck without panes still shares one parser; panes decks still match a cold render |
 
-**Not verified:** the Studio, Playground and docs-site preview UIs; the PPTX, image-set and player
-exports; Export-to-Marp; a Mermaid diagram in a pane. They share the engine, but "shares the
+**Not verified:** the Studio at tablet and phone widths; the Playground UI; the PPTX, image-set and
+player exports; Export-to-Marp; a Mermaid diagram in a pane. The Studio's slide strip labels a panes
+slide "text" — it does not know the host class yet (§6.8). They share the engine, but "shares the
 engine" is not verification (HARD RULE #23).
 
 ---
