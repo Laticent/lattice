@@ -114,5 +114,9 @@
   "showcase": {
     "featured": true
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "noBudget": "one number is the whole pane"
+  }
 }

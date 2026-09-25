@@ -168,5 +168,21 @@
       "useWhen": "One single term dominates the theme and deserves an outsized size ceiling — every variant already centers the top-weight word at the spiral's origin; `focal` widens the size range so the leader dwarfs the rest, rather than changing where it sits."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 12,
+        "hard": 20
+      },
+      "stack": {
+        "sweet": 12,
+        "hard": 20
+      },
+      "note": "Words shrink with their weight; past twenty the smallest are unreadable. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
+  }
 }

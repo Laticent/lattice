@@ -172,5 +172,10 @@
   "showcase": {
     "featured": true
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "form": "content",
+    "noBudget": "one picture, covering its cell"
+  }
 }

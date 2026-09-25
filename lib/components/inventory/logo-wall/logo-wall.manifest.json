@@ -143,5 +143,21 @@
       "useWhen": "The roster is long (12-18+ marks) and captions aren't needed — packs more columns, captions off."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "note": "Logo cells in a grid. Judgment: the calibration rig has no element builder for this component."
+    }
+  }
 }

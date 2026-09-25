@@ -15,6 +15,6 @@ where     — lib/engine/index.js (paneGeometry), the runtime pass that re-stamp
             `data-family` on sections (lib/adaptive/families.js is the one classifier).
 done when — the runtime re-stamps each `<lat-pane>`'s data-family/orientation from its
             laid-out box, and a chart pane's kernel re-lays out if the family changed.
-evidence  — engineering/decisions/2026-09-25-panes-two-components-one-slide.md §6.2.
+evidence  — engineering/decisions/2026-09-25-panes-two-components-one-slide.md §6.1.
 verify    — a panes slide with and without a subtitle: the pane's data-family matches
             familyFor(its measured w/h) in both.

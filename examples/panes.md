@@ -17,9 +17,9 @@ footer: "Panes — two components, one slide"
 
 ## EMEA carried the quarter while APAC held flat.
 
-`Regional pipeline, $M — list beside table, 40/60`
+`Regional pipeline, $M — list beside table, 35/65`
 
-<!-- panes: 40/60 -->
+<!-- panes: 35/65 -->
 <!-- pane: list -->
 
 - EMEA closed three late deals

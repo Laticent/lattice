@@ -167,5 +167,8 @@
   "showcase": {
     "featured": false
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "none"
+  }
 }

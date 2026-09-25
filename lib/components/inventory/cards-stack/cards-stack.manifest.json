@@ -160,5 +160,21 @@
       "useWhen": "The vertical rank should be explicit rather than implied by position — author as an ordered list to stamp corner numbers."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "stack": {
+        "sweet": 1,
+        "hard": 2
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 50%: clips at 5; stack 50/50: clips at 3). sweet sits below it."
+    }
+  }
 }

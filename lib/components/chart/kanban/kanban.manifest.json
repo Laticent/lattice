@@ -197,5 +197,21 @@
       "useWhen": "Each COLUMN/stage itself should carry a colored wash, making the board's stage structure the first thing the eye reads."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "wide",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "Each lane is a column of cards. Judgment: the calibration rig has no element builder for this component."
+    }
+  }
 }

@@ -206,5 +206,21 @@
       "summary": "Signed values off a centered zero rule, both sides on one scale — the variance and tornado form.",
       "sample": "<!-- _class: bar diverging row -->\n\n## What moves the forecast, and which way.\n\n- Renewal rate `+2.4`\n- Enterprise pipeline `+1.6`\n- Price realization `+0.7`\n- Services attach `-0.5`\n- Churn in mid-market `-1.8`\n- FX exposure `-2.9`\n"
     }
+  },
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 6,
+        "hard": 8
+      },
+      "stack": {
+        "sweet": 5,
+        "hard": 6
+      },
+      "note": "A horizontal bar per category: a side pane has the height, a stacked band does not. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
   }
 }

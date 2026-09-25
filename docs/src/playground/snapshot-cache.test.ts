@@ -178,10 +178,11 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(snap?.css).not.toContain('lat-pane');
 	});
 
-	it('keeps a widened `:is(section,lat-pane)` rule — it styles the slide too', () => {
+	it('keeps a slide rule on the host class `lat-pane-host` — it is not a pane arm', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		doc.head.innerHTML = '<style>:is(section,lat-pane).title > h1{color:red}</style>';
+		doc.head.innerHTML = '<style>section.lat-pane-host > h1{color:red}</style>';
+		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('lat-pane-host');
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.css).toContain('color: red');
 	});

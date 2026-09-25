@@ -858,6 +858,112 @@
         }
       }
     },
+    "pane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fit"
+      ],
+      "description": "How this component behaves in a PANE \u2014 one half of a panes slide, where two components' bodies share one slide (lib/core/panes.js, engineering/decisions/2026-09-25-panes-two-components-one-slide.md). Optional for an installed package, which a pane treats as `fit: half` with no budget; required of every built-in component by test/unit/core/panes.test.js, so a new component has to decide. Advisory like `capacity`: `lint:deck` warns, it never blocks.",
+      "properties": {
+        "fit": {
+          "enum": [
+            "half",
+            "wide",
+            "none"
+          ],
+          "description": "`half` reads in a pane of any share. `wide` needs at least a 65% share side by side, or a stacked band (a table, a gantt); a narrower side-by-side pane is warned. `none` opts out \u2014 a sovereign frame that claims the whole slide (a title, a divider, a split panel); a pane that names it renders as `content` and is warned."
+        },
+        "form": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The component a pane renders this one AS, when its whole-slide form cannot go in a pane but has a pane form: `image` renders through `content`, and lib/forms/cell/pane/pane.css draws the picture covering its Cell. Must name a component whose own `pane.fit` is not `none`."
+        },
+        "stack": {
+          "const": false,
+          "description": "`false`: this component does not go in a STACKED band, only side by side. Set from measurement, never by taste: `tools/calibrate-capacity.js --pane stack` found one element already clipped in a 50/50 stack (a KPI tile, a pricing card, a timeline). A stacked pane of it is warned, and its budget declares no `stack` counts."
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "axis",
+            "basis",
+            "side"
+          ],
+          "description": "The PANE budget: how many elements this component holds in one pane, along the same axis `capacity` counts. `side` is at the component's basis share side by side (50% for `half`, 65% for `wide`) and `stack` is a 50/50 stacked band (absent exactly when `pane.stack` is false). A pane smaller than its basis (a narrower side pane, a shorter stacked one) scales its budget down in proportion; a larger one keeps it (never up). Counted by `lint:deck` on the pane's own markdown.",
+          "properties": {
+            "axis": {
+              "enum": [
+                "item",
+                "row",
+                "col",
+                "cell",
+                "line"
+              ],
+              "description": "The collection counted \u2014 the `capacity` axis vocabulary."
+            },
+            "basis": {
+              "enum": [
+                "measured",
+                "editorial"
+              ],
+              "description": "`measured`: `hard` is bounded by `tools/calibrate-capacity.js --pane` (the export's overflow probe, at the component's editorial density). `editorial`: judgment, stated in `note` \u2014 a chart scales instead of clipping, so it has no geometric ceiling to measure."
+            },
+            "side": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sweet",
+                "hard"
+              ],
+              "properties": {
+                "sweet": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The comfortable count in a pane: past it `lint:deck` says pane-crowd."
+                },
+                "hard": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The most a pane holds: past it `lint:deck` says pane-overflow. Where `basis` is `measured`, at or below the ceiling `tools/calibrate-capacity.js --pane` measured."
+                }
+              }
+            },
+            "stack": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sweet",
+                "hard"
+              ],
+              "properties": {
+                "sweet": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The comfortable count in a pane: past it `lint:deck` says pane-crowd."
+                },
+                "hard": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The most a pane holds: past it `lint:deck` says pane-overflow. Where `basis` is `measured`, at or below the ceiling `tools/calibrate-capacity.js --pane` measured."
+                }
+              }
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Why the numbers are what they are."
+            }
+          }
+        },
+        "noBudget": {
+          "type": "string",
+          "minLength": 8,
+          "description": "Why this component has no countable pane budget (one number, one quotation, one picture). A component that can go in a pane declares EITHER `budget` OR this."
+        }
+      }
+    },
     "cards": {
       "type": "object",
       "additionalProperties": false,

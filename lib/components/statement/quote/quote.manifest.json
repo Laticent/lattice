@@ -107,5 +107,9 @@
       "sample": "<!-- _class: quote bare -->\n\n> The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.\n\n*The question this framework answers*\n"
     }
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "noBudget": "one quotation and its attribution"
+  }
 }

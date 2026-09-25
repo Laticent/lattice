@@ -137,5 +137,8 @@
   "excludes": [
     "accent",
     "compact"
-  ]
+  ],
+  "pane": {
+    "fit": "none"
+  }
 }

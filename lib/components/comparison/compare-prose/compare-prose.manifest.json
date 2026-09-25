@@ -226,5 +226,21 @@
       "useWhen": "One option was considered and explicitly declined — dims and strikes the second card as the record of what didn't make it."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "wide",
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 10 words per element, half the slide density (side 65%: clips at 6; stack 50/50: clips at 6). sweet sits below it."
+    }
+  }
 }

@@ -139,5 +139,21 @@
       "fix": "Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order is a genuine break, not graceful tolerance: the bar renders at 0% fill and the percent/status text swap positions in the row."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "One track per item, stacked vertically. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
+  }
 }

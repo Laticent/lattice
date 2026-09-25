@@ -185,5 +185,21 @@
       "summary": "One person per row, with room for a real sentence.",
       "sample": "<!-- _class: team-profile bio -->\n\n`team-profile bio`\n\n## bio turns the grid on its side and gives the note a line of its own.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n  - Fifteen years running operations across forty sites.\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n  - Landed this migration twice under a regulator.\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n  - Owns the pods and the board date.\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n  - Wrote the spec the plan hangs from.\n"
     }
+  },
+  "pane": {
+    "fit": "wide",
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 6,
+        "hard": 8
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 65%: clips at 9; stack 50/50: clips at 4). sweet sits below it."
+    }
   }
 }

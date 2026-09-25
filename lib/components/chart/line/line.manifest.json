@@ -230,5 +230,21 @@
     "Four to twenty-four points. Dots appear per measurement while the points are far enough apart to read as measurements and are dropped once they would bead the line.",
     "Keep every category at the SAME depth. A category written flat (`- Q3 \\`4.2\\``) among nested ones carries no series, so it renders as a hole in every line at once — the parser reports the mix, and the fix is to nest that category like its neighbors."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 8,
+        "hard": 12
+      },
+      "stack": {
+        "sweet": 12,
+        "hard": 16
+      },
+      "note": "Points along the x axis: a stacked band is full width, a side pane is half. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
+  }
 }

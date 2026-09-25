@@ -184,6 +184,29 @@ test('a quoted string is text to the widening: no brace, comment or semicolon in
   );
 });
 
+test('a `;` in a quoted value, a bad string and an unquoted url() leave the rules after them widened', () => {
+  // A `;` inside an attribute value is not the end of a hoisted statement.
+  assert.equal(widenForPanes('section.list[data-x="a;b"] > p { i: j }'),
+    'section.list[data-x="a;b"] > p, section lat-pane.list[data-x="a;b"] > p{ i: j }');
+  // An unterminated string ends at the newline, as a browser ends it — not at the end of the sheet.
+  assert.match(widenForPanes('section.quote::after { content: "oops\n} section.list > p { a: b }'), /section lat-pane\.list > p\{/);
+  // An apostrophe inside an unquoted url() is not a quote.
+  assert.match(widenForPanes("section.bar { background: url(data:x;utf8,<svg fill='red'/>) } section.list > p { a: b }"), /section lat-pane\.list > p\{/);
+  // A hoisted `@import` whose URL holds a `;` passes through whole.
+  assert.equal(widenForPanes('@import "a;b"; section.list > p { a: b }'), '@import "a;b"; section.list > p, section lat-pane.list > p{ a: b }');
+});
+
+test('a component class written on a panes slide does not run that component on the slide', () => {
+  // The component body rules (glossary tables, checklist states, badges …) key on the slide's
+  // class. Run before the carve, `_class: glossary` put a letter-range pill on the TITLE and
+  // turned a list pane into a glossary table.
+  const html = render('<!-- _class: glossary -->\n\n## Terms\n\n<!-- pane: list -->\n\n- Alpha\n  - one\n- Beta\n  - two\n\n<!-- pane: content -->\n\nx\n');
+  const host = html.slice(html.indexOf('<section'), html.indexOf('<div class="lat-panes"'));
+  assert.doesNotMatch(host, /range-pill/);
+  assert.doesNotMatch(host, /data-class="glossary"|--class:"glossary"/);
+  assert.match(html, /<lat-pane class="list form"[^>]*>[\s\S]*?<ul>/);
+});
+
 test('a pane rule beats a slide rule reaching into the pane through the host (a math pane)', () => {
   // `section:not(.math) :is(.katex…)` matches a pane's equations through the HOST section.
   // The twin carries one more type selector, so the math pane's own rule wins the tie.
@@ -238,6 +261,34 @@ test('a deck WITHOUT panes composes the plain sheet; a deck with panes gets the 
   assert.match(withPanes, /section lat-pane:where\([^{}]*\)\s*>\s*:where\(\.cell-stage\)\s*>\s*table td/);
   // … and the plain deck's sheet is unchanged by a panes deck rendered through the same engine.
   assert.equal(e.render('## T\n\n- a\n').css, plain);
+});
+
+test('the pane twins are scoped to the components the deck puts in a pane', () => {
+  const css = engine().render(DECK).css;
+  assert.match(css, /section lat-pane\.list\b/);
+  // A component no pane of this deck holds gets no twin at all.
+  assert.doesNotMatch(css, /section lat-pane\.kpi\b/);
+  assert.doesNotMatch(css, /section lat-pane\.piechart\b/);
+});
+
+test('a scoped widening twins only arms whose root classes a pane of this deck carries', () => {
+  const css = 'section.kpi > .cell-stage > ul { a: b } section.list > ul { c: d } '
+    + 'section.lat-pane-host > .cell-stage > p { e: f } section.print > .cell-stage > p { g: h } '
+    + 'section:where(.list, .kpi) > .cell-stage > ol { i: j } section > .cell-stage > table { k: l }';
+  assert.equal(widenForPanes(css, ['form', 'list']),
+    'section.kpi > .cell-stage > ul { a: b } section.list > ul, section lat-pane.list > ul{ c: d } '
+    + 'section.lat-pane-host > .cell-stage > p { e: f } section.print > .cell-stage > p { g: h } '
+    // An alternative inside :where() is not required of the element; one match is enough.
+    + 'section:where(.list, .kpi) > .cell-stage > ol, section lat-pane:where(.list, .kpi) > .cell-stage > ol{ i: j } '
+    + 'section > .cell-stage > table, section lat-pane > .cell-stage > table{ k: l }');
+});
+
+test('an engine keeps a bounded number of pane-scoped sheets', () => {
+  const e = engine();
+  const kinds = ['list', 'table', 'bar', 'line', 'stats', 'kpi', 'quote', 'agenda', 'checklist', 'glossary'];
+  for (const k of kinds) e.render(`## T\n\n<!-- pane: ${k} -->\n\n- a \`1\`\n\n<!-- pane: content -->\n\nx\n`);
+  const paneSheets = [...e.themes._cssCache.keys()].filter((k) => !k.endsWith('\u0000'));
+  assert.ok(paneSheets.length <= 8, `${paneSheets.length} pane sheets cached`);
 });
 
 test('theme rules keyed to a component reach a pane (the a11y texture channel)', () => {

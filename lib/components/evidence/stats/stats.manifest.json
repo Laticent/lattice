@@ -138,5 +138,21 @@
       "fix": "Stats' subtitle DOES change styling depending on backtick-wrapping: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size. Wrap it in backticks for the masthead treatment."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 4 words per element, half the slide density (side 50%: clips at 4; stack 50/50: clips at 6). sweet sits below it."
+    }
+  }
 }

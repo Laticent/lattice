@@ -165,5 +165,21 @@
       "useWhen": "The evidence base is incomplete and the ask is to study first, not decide yet — neutral badge and rail."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 3,
+        "hard": 3
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "note": "The slide's own capacity is three reasons, so a pane cannot hold more. Judgment: the calibration rig has no element builder for this component."
+    }
+  }
 }

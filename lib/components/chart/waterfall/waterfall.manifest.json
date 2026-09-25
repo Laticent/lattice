@@ -162,5 +162,21 @@
       "summary": "Re-bases the axis on the walk itself and tears the anchors it clips. For a compressed bridge — a 12.0M to 9.8M walk moved by steps of a few hundred thousand — where the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. Opt-in, because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest.",
       "sample": "<!-- _class: waterfall zoom -->\n\n`FY26 · cash`\n\n## The drivers are the story, so the anchors are cut.\n\n- Opening cash `12.0M`\n- Price `+0.3M`\n- Volume `-0.4M`\n- Mix `-0.2M`\n- Cost base `-1.9M`\n- Closing cash `9.8M`\n"
     }
+  },
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 5,
+        "hard": 7
+      },
+      "stack": {
+        "sweet": 6,
+        "hard": 8
+      },
+      "note": "Steps run along the x axis: a stacked band is full width. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
   }
 }

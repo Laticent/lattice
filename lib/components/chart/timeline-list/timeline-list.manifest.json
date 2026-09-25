@@ -141,5 +141,21 @@
       "fix": "Unlike most other chart components (where value/status chips trail the label), timeline-list's date pill LEADS the line — `` `2025 Q1` `` then the title — a date placed after the title is treated as a stray status-shaped chip instead of the event's date anchor."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "wide",
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 10,
+        "hard": 12
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 65%: fits 12+, so 12 is a floor, not a ceiling; stack 50/50: clips at 7). sweet sits below it."
+    }
+  }
 }

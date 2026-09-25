@@ -267,5 +267,21 @@
   "showcase": {
     "featured": true
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "note": "Each top-level item is a series; three overlapping polygons is the readable limit. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
+  }
 }

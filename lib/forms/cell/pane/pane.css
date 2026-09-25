@@ -3,8 +3,8 @@
  * The host slide keeps its one masthead, coda and footer. Its stage holds one
  * `.lat-panes` row (or column, `stack`), and each `<lat-pane>` is a Cell that
  * hosts one component's body. Component CSS reaches it because a deck WITH panes
- * composes its sheet through lib/core/pane-css.js, which adds a `lat-pane` twin beside
- * every rule arm that reaches a pane's body; the shipped sheet is never widened.
+ * composes its sheet through lib/core/pane-css.js, which adds a `section lat-pane…` twin
+ * beside every rule arm that reaches a pane's body; the shipped sheet is never widened.
  *
  * Geometry comes from the AUTHORED ratio (--pane-a / --pane-b, 25–75 in 5%
  * steps), never from content: `flex-basis: 0` + a grow factor per pane, so a
@@ -78,7 +78,7 @@ section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"]:not([data-r
     color-mix(in oklab, var(--accent) 32%, transparent) 86%,
     transparent 100%);
 }
-.lat-panes > lat-pane {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane {
   display: flex;
   flex-direction: column;
   flex-basis: 0;
@@ -89,14 +89,16 @@ section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"]:not([data-r
 }
 /* A pane is transparent: a component root rule that paints the SLIDE's background
  * (`section.chart-frame { background: var(--bg) }`) must not paint a box over the
- * slide's own backdrop. `[class]` lifts this to (0,2,1), over every widened root. */
-.lat-panes > lat-pane[class] {
+ * slide's own backdrop. The pane cell's own rules are rooted on the host section, so they
+ * outrank every pane twin of a component root rule (`section lat-pane.chart-frame.form`,
+ * at most (0,3,2)); `[class]` lifts this one to (0,4,2). */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[class] {
   background: none;
 }
-.lat-panes > lat-pane:first-child {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:first-child {
   flex-grow: var(--pane-a, 50);
 }
-.lat-panes > lat-pane:last-child {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:last-child {
   flex-grow: var(--pane-b, 50);
 }
 /* The pane's own stage — the same flex column the slide's stage is
@@ -112,12 +114,12 @@ lat-pane > .cell-stage {
 }
 /* An image pane: the picture fills its Cell, cropped to cover. `image` is a
  * whole-slide frame, so its pane form is this rule, not the image component. */
-lat-pane[data-pane="image"] > .cell-stage > p {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
 }
-lat-pane[data-pane="image"] > .cell-stage > p > img {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p > img {
   flex: 1 1 auto;
   width: 100%;
   min-height: 0;

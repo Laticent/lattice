@@ -79,23 +79,59 @@ manifest's `coda.claims` (a `quote`'s attribution, a chart's caption). Then it s
 component alone would keep it, so a pane reads exactly as the component's own slide does.
 
 **One title.** A `#` or `##` written inside a pane, with an eyebrow or subtitle pill beside it, is
-lifted to the slide. **Whole-slide components** (`title`, `split-panel`, …) cannot go in a pane;
-the pane renders as `content` and the carve records a warning for the linter.
+lifted to the slide.
+
+**Each component declares how it behaves in a pane** — its manifest's `pane` field, required of
+every built-in component by a test so a new one has to decide:
+
+```json
+"pane": {
+  "fit": "half",
+  "budget": {
+    "axis": "item", "basis": "measured",
+    "side": { "sweet": 4, "hard": 5 },
+    "stack": { "sweet": 2, "hard": 3 },
+    "note": "hard = the measured ceiling at 7 words per item; …"
+  }
+}
+```
+
+- **`fit`** — `half` reads in a pane of any share; `wide` needs 65% or more side by side, or a
+  stack (a table, a gantt); `none` opts out (a title, a divider, a split panel). **`form`** names
+  what a pane renders it AS when that differs (`image` renders through `content`). **`stack:
+  false`** marks a component that does not fit a stacked band: `kpi`, `pricing` and
+  `timeline-list` clip one element in a 50/50 stack (measured, §3).
+- **`budget`** is how many elements one pane holds, on the same axis `capacity` counts: `side` at
+  the fit's basis share (50% `half`, 65% `wide`), `stack` at 50/50. A smaller pane scales it down
+  in proportion; a larger one keeps it. `basis: measured` means `hard` is the ceiling
+  `tools/calibrate-capacity.js --pane` found; `editorial` means judgment, with the reason in
+  `note` (a chart scales instead of clipping, so it has no ceiling to measure). A component with
+  nothing to count — one number, one quotation — says so in `noBudget` instead.
+- **It warns and never refuses** — the linter's posture. The carve renders an opted-out component
+  as `content`; `lint:deck` reports `pane-fit` (opted out, too narrow, stacked when it cannot be),
+  `pane-overflow` (past `hard`) and `pane-crowd` (past `sweet`). The carve and the linter read ONE
+  contract, `lib/core/pane-spec.js`, so they cannot disagree about which pane a line belongs to or
+  what its ratio is. At export, the overflow probe marks a pane that really clips — it already
+  treats a pane's stage as a clipping cell.
 
 **The ratio range is 25–75 in 5% steps.** Past 75/25 the narrow pane is too thin to hold a line of
 body type. Snapping keeps each pane's shape predictable, so the four shape families (§3.3) still
 decide layout and the gallery can cover every step. An out-of-range ratio falls back to 50/50;
-`parseLayout` records the reason for the linter (§6.6).
+`lint:deck` reports it as `pane-layout` (§1).
 
 ---
 
 ## 2. How it renders
 
 1. **Carve** (`installPanes`, a markdown-it core rule in `lib/core/panes.js`). It runs INSIDE the
-   host's own parse, after the engine has split slides (`---` and `split: headings`), applied
-   directives and propagated deck classes, and before the default-component rule. So where a slide
-   ends, whether a marker sits inside a fence, and which directive a comment sets are the engine's
-   own answers. The rule keeps the masthead, any `#`/`##` heading written inside a pane, the
+   host's own parse, right after the engine has split slides (`---` and `split: headings`) and
+   applied directives, and BEFORE every component body rule. So where a slide ends, whether a
+   marker sits inside a fence, and which directive a comment sets are the engine's own answers.
+   The order matters: the body rules (glossary tables, checklist states, matrix cells, table row
+   labels, badges) key on the slide's class, and while the carve ran after them a `_class:
+   glossary` written on a panes slide put a letter-range pill on the slide's title and cut the
+   pane's entries — and hid the pane's clip from the export's overflow probe. A second rule strips
+   any component class the deck-class rule hands back before the default-component rule runs. The rule keeps the masthead, any `#`/`##` heading written inside a pane, the
    trailing coda and the running header/footer tokens on the host; cuts each pane's blocks back
    out of the source by their line maps; replaces the pane region with one placeholder; and gives
    the section the `lat-pane-host` class (which keeps `content`, and any component class, off it).
@@ -113,7 +149,7 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    stand-in masthead is dropped: the host owns the only title. The placeholder carries a nonce
    hashed from the source, so author HTML shaped like one is never filled.
 
-### 2.1 Why the component CSS needs no copy
+### 2.1 Why the component CSS needs no copy — and the one thing it does need
 
 Component CSS reaches its content through the slide: `section.list > .cell-stage > ul`. Measured
 over all 70 component stylesheets, 2,850 selectors start at `section.<component>`, and about 91% of
@@ -122,7 +158,25 @@ the title, coda or footer. So the rules are already written for "the body of a l
 problem is the first word: `section` asks "which component is this SLIDE?", and a slide with two
 panes can only give one answer.
 
-So each rule arm that reaches a pane's body gets a TWIN rooted at the pane, in the same rule
+**Why the selector has to name the pane.** A browser matches `section.list > …` only on an element
+named `section`, so something has to say "this pane counts". Every way to avoid naming it was
+checked and fails:
+
+- **Make the pane a `section`.** The engine scopes every rule to `article.lattice > section…` (a
+  CHILD combinator), so a nested section matches nothing in the Studio, Playground or player; and
+  everything that counts slides — pagination, page count, present mode, export, the overflow
+  probe's `section[data-lattice-slide]` — would count the pane as a slide.
+- **Edit the component CSS at the source** (`:is(section, lat-pane).list`). That is the build-time
+  option of §2.2: it changes the bytes every deck ships and left 111 selectors Export-to-Marp
+  cannot scope.
+- **An iframe or shadow root per pane.** Two style scopes per slide, and neither reaches the PDF
+  export's single document.
+
+So the pane is named in the selector — and only in the selector: the DECLARATIONS are never
+duplicated, the rule count is unchanged (3,760 rules in Chromium's CSSOM with and without panes,
+measured), and only a deck with panes gets it, scoped to the components its panes hold.
+
+Each rule arm that reaches one of the deck's panes gets a TWIN rooted at the pane, in the same rule
 (`lib/core/pane-css.js`):
 
 ```css
@@ -138,10 +192,18 @@ section.list > .cell-stage > ul, section lat-pane.list > .cell-stage > ul { … 
   through the HOST section, and ties `section.math :is(.katex-display)`. The first cut twinned to
   a bare `lat-pane.math …`, which lost that tie on source order in the CLI and gave a math pane's
   equations 16px of padding a math slide does not have (measured in Chromium; 0px now).
-- **Only a deck with panes pays.** The twins are added where a deck's stylesheet is assembled —
-  the engine's `composeCss` (Studio, Playground, player) and the CLI's inlined sheet — and only
-  when the rendered deck holds a `<lat-pane>`. The shipped `dist/lattice.css` is never widened, so
-  every other deck, and the Export-to-Marp bundle, gets exactly the bytes it had.
+- **Only a deck with panes pays, and only for what its panes hold.** The twins are added where a
+  deck's stylesheet is assembled — the engine's `composeCss` (Studio, Playground, player) and the
+  CLI's inlined sheet — and only when the rendered deck holds a `<lat-pane>`. They are SCOPED to
+  the classes the deck's panes carry (`paneClasses`): an arm is twinned only when every plain class
+  on its root compound is one of them, so a list-and-table deck gets no `kpi` twin and no
+  `section.print` twin. On the demo that is 174 twins instead of 3,377 (−95%). Verified exact: every
+  computed property of every element inside every pane is identical with scoped and full twins, on
+  the demo, the a11y theme and sketch mode (370 elements each; the same comparison between two
+  different decks reports 367 differing, so it can fail). The engine keeps at most 8 pane-scoped
+  sheets, so an editing session that mints a new pairing per keystroke cannot grow its cache
+  without bound. The shipped `dist/lattice.css` is never widened, so every other deck, and the
+  Export-to-Marp bundle, gets exactly the bytes it had.
 - **Themes and base defaults are covered by the same pass.** An arm is twinned when it is rooted
   at `section` and either names a component (or the chart family's `chart-frame`) in its first
   compound — the component sheets, and theme rules such as the a11y texture channel — or reaches
@@ -152,8 +214,10 @@ section.list > .cell-stage > ul, section lat-pane.list > .cell-stage > ul { … 
   the auto-split cover/points pages (slide-level).
 - **A leading `:is(section.x, figure.x)` is split only to find its arms**, so every arm is judged,
   and twinned, on its own. The authored selector stays byte for byte.
-- **Quoted strings are text.** The walker skips `content: "/*"` and `[data-x="a{b"]`, so a brace,
-  comment opener or `;` inside a string never splits a rule.
+- **Quoted strings are text.** The walker skips `content: "/*"`, `[data-x="a;b"]` and an unquoted
+  `url(data:…'…)`, and ends an unterminated string at its newline as a browser does, so a brace,
+  comment opener or `;` inside a string never splits a rule and one bad string in author CSS cannot
+  swallow the rules after it.
 - **Nothing that counts slides can see a pane.** Pagination, page count, present mode and export all
   look for `section`; a pane is not one.
 - **Shape stamps resolve per pane.** The 234 `data-family` rules and the 105 `:has()` gates sit on
@@ -178,19 +242,24 @@ a prelude and broke the rule that defines `--sketch-ink`, on every slide of a pa
 
 ## 3. The audit — what can go in a pane
 
-All 70 components, classified by the shape their content needs. **Fits a half** means the content
-reads in a ~50% cell. **Wide share** means it needs 65–75% of the width, or a full-width stacked
-band. **Whole slide** means the component is a frame that claims the canvas.
+All 70 components, classified by the shape their content needs, and now RECORDED in each manifest's
+`pane` field (§1) rather than in this table, so a new component has to decide and a test fails if
+it does not. **Fits a half** (`fit: half`) reads in a ~50% cell. **Wide share** (`fit: wide`) needs
+65% or more side by side, or a full-width stacked band. **Whole slide** (`fit: none`) is a frame
+that claims the canvas.
 
 | Class | Count | Components |
 |---|---|---|
-| **Fits a half** | 43 | every SVG chart — bar, bullet, funnel, heatmap, line, map, piechart, progress, quadrant, radar, scatter, slope, stacked-bar, state-chart, waterfall, word-cloud; diagram; math; code; list, checklist, cards-stack, list-tabular, glossary, inventory (ledger), actors, agenda, logo-wall, q-and-a; kpi, stats; big-number, quote, content; matrix-2x2, cycle; video; contact, wifi; authority-chain, citation-card, policy-recommendation, regulatory-update |
+| **Fits a half** | 44 | every SVG chart — bar, bullet, funnel, heatmap, line, map, piechart, progress, quadrant, radar, scatter, slope, stacked-bar, state-chart, waterfall, word-cloud; diagram; math; code; list, checklist, cards-stack, list-tabular, glossary, inventory (ledger), actors, agenda, logo-wall, q-and-a; kpi, stats; big-number, quote, content; matrix-2x2, cycle; video; contact, wifi; authority-chain, citation-card, policy-recommendation, regulatory-update; image (as `content`) |
 | **Wide share or stacked band** | 17 | table, gantt, journey, kanban, matrix-grid, roadmap, timeline-list, compare-prose, decision, pricing, redline, verdict-grid, cards-grid, team-profile, obligation-matrix, statute-stack, list-steps |
-| **Whole slide** | 10 | title, divider, closing, topic, premise, split-panel, split-compare, compare-code, image, scene |
+| **Whole slide** | 9 | title, divider, closing, topic, premise, split-panel, split-compare, compare-code, scene |
 
-Two whole-slide components have an obvious pane form. **`image`** ships one in the proof: an image
-pane renders through `content` and `pane.css` makes the picture cover its Cell. **`scene`** would
-follow the same pattern.
+**`image` has a pane form** (`pane.form: content`): an image pane renders through `content` and
+`pane.css` makes the picture cover its Cell. **`scene`** could follow the same pattern.
+
+**The 65% line for `wide` is judgment, not a measurement.** A four-column table of short numbers
+reads at 60%; a wide text table does not at 70%. It is the audit's call, stated as such, and the
+demo follows it (its list-and-table slide is 35/65).
 
 ### 3.1 What was already in place
 
@@ -206,6 +275,51 @@ follow the same pattern.
 - **The overflow probe is cell-aware.** `CLIP_CELL_SELECTOR` in `lib/core/overflow-probe.js`
   matches `.cell-stage`, and each pane holds one, so a pane that overflows tags the slide. The
   proof's own first draft hit this: the export flagged the clipped list pane on page 1.
+
+
+### 3.2 The budgets, and how they were set
+
+**Measured where the rig can build content.** `tools/calibrate-capacity.js --pane side|stack`
+renders a graded run of panes slides — the component in the first pane at its basis share, one line
+of `content` in the second — and reads the export's own overflow probe, which already treats a
+pane's stage as a clipping cell. It holds each element at HALF the component's `density.soft`: a
+pane's content is written tighter than a whole slide's, and at full slide density a list pane
+clipped at its fourth 14-word item, which would have warned on every well-written deck. 23
+components have an element builder; each `hard` is the measured ceiling (capped at the slide's own
+`capacity.hard`), and `sweet` sits one or two below.
+
+| Component (fit `half`, side 50%) | side | stack | | Component (fit `wide`, side 65%) | side | stack |
+|---|---|---|---|---|---|---|
+| list | 6 | 4 | | cards-grid | 4 † | 2 |
+| checklist | 9 | 4 | | verdict-grid | 5 † | 2 |
+| actors | 7 † | 3 | | team-profile | 8 | 3 |
+| inventory | 5 | 2 | | compare-prose | 5 | 5 |
+| list-tabular | 7 | 3 | | decision | 5 | 5 |
+| glossary | 12+ | 4 | | list-steps | 5 | 5 |
+| stats | 3 | 5 | | timeline-list | 12+ | 6 |
+| kpi | 3 | **none** | | pricing | 3 | **none** |
+
+† capped at the slide's own `capacity.hard`; the pane measured more. "12+" never clipped up to the
+rig's 12. The rest of the 23 — agenda, cards-stack, q-and-a, matrix-2x2, authority-chain,
+regulatory-update, statute-stack — are in their manifests.
+
+(The full set, with the words-per-element each was measured at, is in each manifest's
+`pane.budget.note`.) **`kpi` and `pricing` do not fit a stacked band at all** — one KPI tile, one
+pricing card already clips in a 50/50 stack — so they carry `pane.stack: false`, and a stacked pane
+of either is a `pane-fit` warning.
+
+**Judgment where it cannot measure** (`basis: editorial`, with the reason in `note`). A chart
+scales rather than clipping, so the export has no ceiling to find: a 30-category bar pane truncates
+its labels to "Region…" and overprints its values, and neither the overflow probe nor the TYPE
+FLOOR probe says a word (measured — see §6). The chart budgets (bar 8, line 12, piechart 6, …) are
+the readable limit by eye. Tables, gantt, kanban and the other wide components have no element
+builder yet, so theirs are judgment too. Ten components have nothing to count and say so in
+`noBudget` (one number, one quotation, one picture, one Mermaid diagram).
+
+**The calibration found an engine bug.** Its first run put `glossary` at "fits 9+" — the rendered
+slide plainly clipped. The rig writes `<!-- _class: <component> -->` on each slide, and the
+component body rules ran on the whole panes slide before the carve (§2 step 1). Fixed in the carve;
+every number above is from the run after the fix.
 
 ---
 
@@ -276,27 +390,34 @@ change opens nothing, and embedding held across 361 modifiers and 18 registers.
 Panes ship **experimental**: the syntax may change until these close. Each has a `followups.d/`
 file (`npm run followups`), so none lives only in this note.
 
-1. **Surface a clipped pane and the carve's warnings** (`2376-p1-…`). A pane clips at its own edge
-   and does not overflow its section, so the slide-level overflow checks stay green while a table
-   loses rows in the PDF; the carve's recorded warnings (a whole-slide component, a bad ratio, a
-   third marker) reach no one. `lint:deck` and the export's overflow warning should report both.
-2. **Measure the pane, don't estimate it** (`2376-p2-measure-…`). The engine classifies a pane from
+**Closed in this PR:** the P1 this list used to lead with — "a pane that clips is silent, and the
+carve's warnings go nowhere". Its first half was wrong: the export's overflow probe always read a
+pane's stage as a clipping cell (§3.1), and flags an overfull list or table pane like a clipped
+slide (measured). What was missing was the authoring-time half, and `lint:deck` now reports all of
+it through the carve's own spec: `pane-layout` (a ratio off the grid, a third marker), `pane-fit`
+and the per-pane budget (§1).
+
+
+1. **Measure the pane, don't estimate it** (`2376-p2-measure-…`). The engine classifies a pane from
    `STAGE_FRAC`; the real stage height moves with the subtitle and the coda (192px, not 488px, on
    the demo's first slide). The runtime should re-stamp each pane from its laid-out box.
-3. **Size chart geometry to the pane** (`2376-p2-size-chart-…`). A chart in a narrow pane draws its
-   labels below their designed size (the bar values and pie legend in `examples/panes.pdf`).
-4. **Author and package CSS in a pane** (`2376-p2-author-css-…`). A panes deck widens the shipped
+2. **Size chart geometry to the pane** (`2376-p2-size-chart-…`). A chart in a narrow pane draws its
+   labels below their designed size (the bar values and pie legend in `examples/panes.pdf`), and
+   nothing reports it — neither the overflow probe nor the TYPE FLOOR probe flagged a 30-category
+   bar pane whose labels had truncated to "Region…" (§3.2). That is why the chart budgets are
+   editorial; closing this lets the calibration measure them.
+3. **Author and package CSS in a pane** (`2376-p2-author-css-…`). A panes deck widens the shipped
    sheet, the theme and the CLI's front-matter `style:`; installed packages and the Studio's
    `extraCss` are not widened yet, so their `section.<component>` rules skip a pane.
-5. **Audit the runtime's section-keyed passes** (`2376-p2-audit-…`) — about 17 in `lib/runtime`,
+4. **Audit the runtime's section-keyed passes** (`2376-p2-audit-…`) — about 17 in `lib/runtime`,
    plus sketch's rough-ink pass; Mermaid in a pane is untested.
-6. **A shape family for stacked bands** (`2376-p3-band-…`): a line chart letterboxes, stat tiles
+5. **A shape family for stacked bands** (`2376-p3-band-…`): a line chart letterboxes, stat tiles
    need ~45% of the stage.
-7. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and
+6. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and
    390px and its slide strip ("text"), and Export-to-Marp, which cannot carve and should degrade to
    the two panes' content, stacked.
-8. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
-9. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
+7. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
+8. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
    spec (`docs/src/content/docs/spec/lfm.md`) — once the syntax is no longer experimental.
 
 ---

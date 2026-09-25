@@ -1024,6 +1024,8 @@ function renderPortalJson(manifests) {
     ...(Array.isArray(m.focusAxes) && m.focusAxes.length ? { focusAxes: m.focusAxes } : {}),
     ...capacityEntry(m),
     ...(m.density ? { density: m.density } : {}),
+    // How it behaves in a PANE (lib/core/panes.js): fit, pane form, stack flag and budget.
+    ...(m.pane ? { pane: m.pane } : {}),
     slots: m.slots || {},
     // The OPTIONAL editorial blocks this layout actually renders, in document
     // order (#1651). `slots` describe a component's own anatomy; these are the two

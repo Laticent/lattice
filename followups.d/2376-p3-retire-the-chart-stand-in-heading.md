@@ -13,5 +13,5 @@ why now   — the chart family's wrap locates the slide's h2, so renderPane give
 where     — lib/components/chart/_chart-family/chart-family.js (the wrap), lib/engine/index.js
             (renderPane), lib/core/panes.js (dropMasthead).
 done when — the chart wrap accepts a heading-less body and the stand-in is deleted.
-evidence  — decision note §6.5.
+evidence  — decision note §6.7.
 verify    — test/unit/core/panes.test.js chart-pane and leading-pill cases still pass.

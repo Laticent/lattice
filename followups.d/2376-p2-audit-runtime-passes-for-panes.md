@@ -14,5 +14,5 @@ why now   — about 17 passes in lib/runtime select `section.<component>`, and t
 where     — lib/runtime/**, lib/core/rough-ink.js.
 done when — each pass either walks `:is(section, lat-pane).X` or is shown not to apply to a
             pane, and a Mermaid diagram renders in a pane on the CLI and in the Studio.
-evidence  — decision note §6.7; red-team nit 6 on PR #2376.
+evidence  — decision note §6.4; red-team nit 6 on PR #2376.
 verify    — a sketch deck with a table pane (inked) and a diagram pane, CLI + Studio.

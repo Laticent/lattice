@@ -149,5 +149,21 @@
       "fix": "`table-fill` is the switch — it grows the table AND centers each cell in its band. The default hugs the rows and centers the block, so a three-row table reads as three rows rather than three rows stretched over a screen."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "wide",
+    "budget": {
+      "axis": "row",
+      "basis": "editorial",
+      "side": {
+        "sweet": 5,
+        "hard": 7
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "Rows at 65% width keep the slide row height; a stacked band halves it. Judgment: the calibration rig has no element builder for this component."
+    }
+  }
 }

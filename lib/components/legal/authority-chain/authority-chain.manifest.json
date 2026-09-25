@@ -171,5 +171,21 @@
       "useWhen": "The tiers should read as one clamped, continuous block — a tighter, seamless rail (zero gap, squared corners, a doubled outer edge) instead of the default's separated cards."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "stack": {
+        "sweet": 1,
+        "hard": 2
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 7 words per element, half the slide density (side 50%: clips at 5; stack 50/50: clips at 3). sweet sits below it."
+    }
+  }
 }

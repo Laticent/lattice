@@ -130,5 +130,21 @@
   "showcase": {
     "featured": true
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 5,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "Each stage is a band with a label in the gutter. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
+  }
 }

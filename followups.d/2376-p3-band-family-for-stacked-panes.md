@@ -13,5 +13,5 @@ why now   — a stacked pane is 3–5x wider than tall, which the four families 
 where     — lib/adaptive/families.js, the band-sensitive components (stats, kpi, charts).
 done when — a `band` family (or height-aware sizing) lets a 35% stacked pane hold a stat row
             and a chart fill its width.
-evidence  — decision note §6.4; examples/panes.pdf slide 6.
+evidence  — decision note §6.5; examples/panes.pdf slide 6.
 verify    — a `stack 65/35` slide: line chart fills the band width, stats fit the band.

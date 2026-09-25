@@ -58,15 +58,14 @@ const MAX_UNITS = 240 * 1024;
 const STRIP_PSEUDO =
 	/::[a-z-]+(\([^)]*\))?|:(hover|focus|focus-within|focus-visible|active|visited|target|checked|disabled|enabled|first-child|last-child|only-child|first-of-type|last-of-type|nth-child\([^)]*\)|nth-of-type\([^)]*\)|not\([^)]*\)|is\([^)]*\)|where\([^)]*\)|has\([^)]*\))/gi;
 
-// A PANE arm (`lat-pane.x …`, lib/core/panes.js) can only match inside a pane, and the
-// build gives every component rule one beside its `section` twin. The probe below keeps an
-// arm it cannot evaluate, and stripping `:is(ul, ol)` leaves many probes invalid, so without
-// this a document with no panes kept ~680 pane arms and the Playground snapshot outgrew
-// MAX_UNITS (315K units measured; stored nothing). When the frame holds no `lat-pane`,
-// those arms provably match nothing, so they are dropped exactly, not conservatively.
-// `:is(section,lat-pane)` is the widened form that ALSO matches a slide, so it is not a pane
-// arm; only a `lat-pane` outside that pair is.
-const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel.replace(/:is\(\s*section\s*,\s*lat-pane\s*\)/g, 'section'));
+// A PANE arm (`section lat-pane.x …`, lib/core/pane-css.js) can only match inside a pane. A
+// deck with panes composes one beside each component rule that reaches a pane. The probe below
+// keeps an arm it cannot evaluate, and stripping `:is(ul, ol)` leaves many probes invalid, so
+// without this a slide with no pane kept every pane arm and the Playground snapshot outgrew
+// MAX_UNITS (315K units measured; stored nothing). When the captured slide holds no `lat-pane`,
+// those arms provably match nothing, so they are dropped exactly, not conservatively. The host
+// class `lat-pane-host` is a slide's own class, not a pane arm.
+const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 
 function selectorMatches(doc, selectorText, hasPane) {
 	if (isPaneArm(selectorText) && !hasPane) return false;

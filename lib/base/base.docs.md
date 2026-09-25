@@ -81,14 +81,24 @@ number; only the body splits. Mark where each component's body begins:
   `no-rule` to drop it (`<!-- panes: 50/50 no-rule -->`) — a photo pane's own edge
   usually separates it already.
 - The trailing `> quote` and `— note` belong to the slide, never to the second pane.
-- 43 of the 70 components fit a half; 17 need a 65–75% share or a stacked band (`table`, `gantt`,
-  `roadmap`, `cards-grid`, …); the 10 whole-slide frames (`title`, `divider`, `split-panel`, …) do
-  not go in a pane. `image` has a pane form: the picture covers its pane.
+- **Which component can go in a pane is its own decision** — the `pane` field of its manifest,
+  which `dist/docs/components.json` carries. `half` (44 of 70) reads
+  in a pane of any share. `wide` (17: `table`, `gantt`, `roadmap`, `cards-grid`, …) needs 65% or
+  more side by side, or a stack. `none` (9 whole-slide frames: `title`, `divider`, `split-panel`,
+  …) opts out: that pane renders as `content`. `kpi` and `pricing` go side by side only — one tile
+  already clips in a stacked band. `image` has a pane form: the picture covers its pane.
+- **Each pane has a budget.** Write a pane's content tighter than a whole slide's — about half the
+  words per item. At that density a `list` pane holds 6 items side by side and 4 in a stacked band,
+  a `table` 7 rows at 65%, a `bar` chart 8 bars. A narrower pane holds proportionally fewer.
+- `lint:deck` names each problem before you render: `pane-fit` (a component that opts out, a
+  `wide` one under 65%, a side-by-side-only one stacked), `pane-overflow` (past the budget) and
+  `pane-crowd` (past the comfortable count). It warns and never blocks. At export, a pane that
+  really clips is marked like any clipped slide.
 
-Known limits while it is experimental: a pane clips its content at its edge and nothing warns yet
-(check the PDF), a chart in a narrow pane draws smaller labels, and a short stacked band suits a
-chart or a stat row poorly. A deck's front-matter `style:` reaches a pane in the CLI export; an
-installed package's CSS and the Studio's extra CSS do not yet. Demo: `examples/panes.md`. Design, audit and every open gap:
+Known limits while it is experimental: a chart in a narrow pane draws smaller labels, and the export
+cannot tell when they get too small; an installed package's CSS and the Studio's extra CSS do not
+reach a pane yet (a deck's front-matter `style:` does, in the CLI export). Demo: `examples/panes.md`.
+Design, audit, the measured budgets and every open gap:
 `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
 
 ## Auto-detected authoring patterns

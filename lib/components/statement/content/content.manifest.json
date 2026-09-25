@@ -111,5 +111,21 @@
       "fix": "It is promoted to a below-note \u2014 hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected. When the trailing sentence really is the conclusion of the list rather than a footnote to it, add `no-note` to the slide `_class` and it stays body copy. A deck-wide `class: no-note` in front matter works too, and reaches every slide \u2014 including the ones that name their own `_class:`."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "fit": "half",
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 3,
+        "hard": 5
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "note": "A lead paragraph plus bullets. Judgment: the calibration rig has no element builder for this component."
+    }
+  }
 }
