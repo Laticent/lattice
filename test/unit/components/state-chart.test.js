@@ -501,10 +501,11 @@ describe('buildStateChart (default)', () => {
 
   test('distinct statuses are decoded by a legend band below the chart', () => {
     assert.match(html, /<ol class="state-legend">/);
-    assert.match(html, /class="state-legend-item" data-s="on-track"><span class="state-dot" data-s="on-track"[^>]*><\/span><span class="state-legend-label">on-track<\/span>/);
-    // One legend entry per DISTINCT status (no duplicates).
-    const seen = [...html.matchAll(/class="state-legend-item" data-s="([^"]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(seen, [...new Set(seen)], 'legend lists each status once');
+    // ONE CHIP PER TONE: `on-track` and `done` paint the same green, so they share a
+    // chip; `live` is running work and takes `info`, so it has its own.
+    const chips = [...html.matchAll(/class="state-legend-item" data-s="([^"]+)"><span class="state-dot" data-s="\1"[^>]*><\/span><span class="state-legend-label">([^<]+)<\/span>/g)]
+      .map((m) => m[2]);
+    assert.deepEqual(chips, ['on-track · done', 'live']);
   });
 
   test('serialises the resolved transition list into data-sc-transitions', () => {
@@ -2534,5 +2535,34 @@ describe('chart-text floor follows --canvas-scale', () => {
   });
   test('the token is registered as a <length>', () => {
     assert.match(css, /@property --chart-text-min \{ syntax: "<length>"; inherits: true; initial-value: 11px; \}/);
+  });
+});
+
+// THE THREE TONE TABLES AGREE. The stylesheet paints a status, the browser pass
+// picks the tile's gradient (`STATUS_TONE`) and the legend groups words into chips
+// (`LEGEND_TONE`). If one moved alone, a legend chip would merge two words that no
+// longer paint alike, or a tile would take a gradient its accent does not match.
+describe('state-chart status tones — one mapping, three statements', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '../../../lib/components/chart/state-chart');
+  const js = fs.readFileSync(path.join(root, 'state-chart.transform.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'state-chart.styles.css'), 'utf8');
+  const table = (name) => {
+    const body = js.match(new RegExp(`${name} = \\{([\\s\\S]*?)\\};`))[1];
+    return Object.fromEntries([...body.matchAll(/'?([a-z-]+)'?: '([a-z]+)'/g)].map((m) => [m[1], m[2]]));
+  };
+  const fromCss = {};
+  for (const m of css.matchAll(/\.state-dot\)(:is\([^{]*\)|\[data-s="[a-z-]+"\])\s*\{ --fill-hue: var\(--(?:state-([a-z]+)-hue|muted-mark)\)/g)) {
+    for (const w of m[1].matchAll(/data-s="([a-z-]+)"/g)) fromCss[w[1]] = m[2] || 'mute';
+  }
+  test('the legend table equals the browser pass table', () => {
+    assert.deepEqual(table('LEGEND_TONE'), table('STATUS_TONE'));
+  });
+  test('the stylesheet paints every word the tone the tables name', () => {
+    assert.deepEqual(fromCss, table('STATUS_TONE'));
+  });
+  test('live is running work, not done', () => {
+    assert.equal(table('STATUS_TONE').live, 'info');
   });
 });

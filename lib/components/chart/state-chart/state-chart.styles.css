@@ -16,14 +16,15 @@
  *     </ol>
  *     <svg class="state-chart-edges">…filled by the browser pass…</svg>
  *   </div>
- *   <ol class="state-legend">…swatch + label per distinct status…</ol>
+ *   <ol class="state-legend">…one swatch + label per tone; words that share a tone share a chip…</ol>
  *
  * STATUS PAINTS THE NODE, in the chart family's mark language — the same one a
  * gantt bar, a kanban card and a progress bar speak: a status tints the tile's
  * fill and inks its edge and its leading accent, and a node with NO status is a
  * quiet neutral tile with no accent at all. The status word maps onto five tones
- * by the pill vocabulary (chart-family.css `.chart-status`), and the legend band
- * below decodes them with chips painted from the same table. Palette-blind
+ * by gantt's table (the status table below says where it differs from the pill
+ * vocabulary), and the legend band below decodes them with chips painted from the
+ * same table. Palette-blind
  * throughout — no hex literals, no !important, no :has() chains.
  *
  * It used to be the opposite: every node neutral, status folded into a colored
@@ -313,16 +314,19 @@ section.state-chart :where(.state-node-row) {
  * legend chip all read `--fill-hue` / `--fill-ink` from HERE, so the key cannot
  * disagree with the chart. gantt learned that the hard way with three parallel
  * tables that drifted (gantt.styles.css, the note above `.gantt-bar-accent`).
- * The word -> tone mapping is the pill vocabulary's (`.chart-status`), and the
- * browser pass picks the SVG fill gradient from the same mapping
- * (state-chart.transform.js `STATUS_TONE`). */
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="on-track"], [data-s="done"], [data-s="live"])
+ * The word -> tone mapping is gantt's, which differs from the pill vocabulary
+ * (`.chart-status`) in one word: `live` is RUNNING work and takes `info`, because
+ * a chart that paints the status on the mark has to tell it from finished `done`
+ * (gantt.transform.js, the note above GANTT_STATUS_FILL). The browser pass picks the
+ * SVG fill gradient from the same mapping (state-chart.transform.js `STATUS_TONE`),
+ * and the legend groups words by it (`LEGEND_TONE`). */
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="on-track"], [data-s="done"])
   { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="at-risk"], [data-s="warn"])
   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="blocked"], [data-s="fail"])
   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="pilot"], [data-s="decision"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
   { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
 /* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed
  * (below) — gantt's treatment, for gantt's reason: on color alone "deferred" and

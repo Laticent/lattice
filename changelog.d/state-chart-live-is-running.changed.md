@@ -1,0 +1,2 @@
+- **Breaking (visual):** A state-chart state marked `live` now paints blue (info) instead of green, matching gantt: `live` is running work and `done` is finished work, and a chart that paints the status on the state has to tell them apart. The pill vocabulary shared by kanban, progress and slope is unchanged.
+- The state-chart legend shows one chip per color. Words that paint alike share a chip (`on-track · done`), so a key no longer lists two identical green chips.
