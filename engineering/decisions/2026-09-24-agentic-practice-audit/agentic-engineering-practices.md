@@ -536,31 +536,35 @@ Unit, integration and end-to-end tests are the starting point. These five go fur
 
 <!-- _class: compare-code insight-why -->
 
-`Verification · Tests that can fail`
+`Verification · Tautological tests`
 
-## A test that compares the code to itself can never fail.
+## A test that repeats the code's own math can't catch its mistakes.
 
-`Can't fail`
+`Repeats the code`
 
 ```js
-test('formats a price', () => {
-  const out = formatPrice(1999);
-  expect(out).toEqual(formatPrice(1999));
+test('adds sales tax', () => {
+  // Same formula as the code under test.
+  // If the rate is wrong, both are wrong,
+  // and this still passes.
+  expect(tax(100)).toBe(100 * TAX_RATE);
 });
 ```
 
-`Can fail`
+`Checks a known answer`
 
 ```js
-test('formats a price', () => {
-  expect(formatPrice(1999)).toBe('$19.99');
+test('adds sales tax', () => {
+  // Worked out by hand from the tax table.
+  // If the code is wrong, this fails.
+  expect(tax(100)).toBe(8.25);
 });
 ```
 
 > Agents write tests that pass. Your job is to make sure they can fail.
 
 <!--
-Here's the most common bad test an agent writes. The one on the left calls the function and then compares the result to calling the function again. It will pass forever, whatever the code does. The one on the right compares the result to the answer a person expects. We've shipped the left kind ourselves: a cleanup once turned a real test into exactly this. A reviewer caught it. The test suite had no way to. That's why mutation testing matters. Break the code, and if nothing fails, the tests weren't testing anything.
+This is called a tautological test: a test that can only agree with the code it checks. The one on the left looks reasonable. It calls the tax function and compares the result to a hundred times the tax rate. But that's the same formula the code uses. If the rate is wrong, the code is wrong and the test is wrong in exactly the same way, so it passes. The one on the right compares the result to an answer someone worked out by hand. Agents write the left kind all the time, in three shapes: a test that repeats the code's math, a test that checks a fake it just set up, and a test that checks something that's always true. The rule that catches every one is simple: before you trust a test, break the code and watch it fail.
 -->
 
 ---
@@ -910,9 +914,9 @@ So here's the one thing to take with you. You're the director. Use agents howeve
 
 <!-- _class: glossary -->
 
-`Starter kit · Six terms`
+`Starter kit · Seven terms`
 
-## Six terms from this talk, in plain words.
+## Seven terms from this talk, in plain words.
 
 - CI, the build
   - Automated checks that run on every proposed change.
@@ -924,11 +928,13 @@ So here's the one thing to take with you. You're the director. Use agents howeve
   - A proposed change, waiting for review before it merges.
 - Session
   - One conversation with an agent, from start to finish.
+- Tautological test
+  - A test that can only agree with the code it checks.
 - Token
   - A chunk of text, about three quarters of a word.
 
 <!--
-For anyone reading this later, here are the six terms we leaned on most, in plain words.
+For anyone reading this later, here are the seven terms we leaned on most, in plain words.
 -->
 
 ---
