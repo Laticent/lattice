@@ -43,8 +43,14 @@ function figurePaints(page: import('@playwright/test').Page) {
 	});
 }
 
+// Two engines. The untagged arm runs in `desktop` (Chromium). The `@webkit-phone` arm runs the
+// same body in real WebKit (the `webkit-phone` project; `desktop` greps it out): the fence leans on
+// `:where()`, `:not(.lp-figure *)` and a css-tree rewrite, all Selectors-4 features WebKit ships,
+// and a run is what says so rather than that reasoning (followups.d/2366-p3). The body sets its
+// own viewport, so the iPhone device only contributes the engine and its touch/mobile flags.
+for (const [engine, tag] of [['chromium', ''], ['webkit', ' @webkit-phone']] as const)
 for (const scheme of ['light', 'dark'] as const) {
-	test(`every chart in the Reading view keeps its paint (${scheme})`, async ({ page }, testInfo) => {
+	test(`every chart in the Reading view keeps its paint (${scheme}, ${engine})${tag}`, async ({ page }, testInfo) => {
 		test.setTimeout(180_000);
 		await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
 		await page.setViewportSize({ width: 1440, height: 900 });
@@ -105,13 +111,13 @@ for (const scheme of ['light', 'dark'] as const) {
 		// where the view's own table/figure rules meet the deck's.
 		const figs = article.locator('figure.lp-figure');
 		for (let i = 0; i < (await figs.count()); i++) {
-			await figs.nth(i).screenshot({ path: testInfo.outputPath(`figure-${scheme}-${String(i).padStart(2, '0')}.png`) });
+			await figs.nth(i).screenshot({ path: testInfo.outputPath(`figure-${engine}-${scheme}-${String(i).padStart(2, '0')}.png`) });
 		}
 
 		for (const width of [1440, 820, 390]) {
 			await page.setViewportSize({ width, height: 900 });
 			await article.locator('figure.lp-figure').first().scrollIntoViewIfNeeded();
-			await page.screenshot({ path: testInfo.outputPath(`read-article-${scheme}-${width}.png`), fullPage: false });
+			await page.screenshot({ path: testInfo.outputPath(`read-article-${engine}-${scheme}-${width}.png`), fullPage: false });
 			// The page never scrolls sideways; a wide chart scrolls inside its own figure.
 			expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 		}
