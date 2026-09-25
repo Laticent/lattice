@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { findCueWord, type NarratedWord } from './narrate';
+import { normalizeMatch } from '@/lib/ltt';
+import { findCueWord, type NarratedWord, normalizeCueWord } from './narrate';
 import { run } from './runner';
 import { createStage, placeBubble, type RectLike, type Stage } from './stage';
 import { resolveTheme } from './theme';
@@ -354,6 +355,25 @@ describe('findCueWord — naming a moment in a line', () => {
 	it('takes the FIRST occurrence — a cue names a moment, and the moment is the first one', () => {
 		const twice: NarratedWord[] = [...plan, { index: 4, text: 'Publish', startMs: 1400, endMs: 1900 }];
 		expect(findCueWord(twice, 'Publish')?.startMs).toBe(500);
+	});
+});
+
+describe('normalizeCueWord — the same word, in linear time', () => {
+	it('trims a 40k-character punctuation run in milliseconds, not seconds', () => {
+		// The shape the old trailing regex was quadratic on: a long run INSIDE the word, which does
+		// not reach the end, so the engine retried it from every position. Measured on Node 22: the
+		// old regex took 2,006 ms for this 40k-character run; the scan takes about 2 ms.
+		const long = `x${'-'.repeat(40000)}X`;
+		const t0 = performance.now();
+		expect(normalizeCueWord(`"${long}."`)).toBe(long.toLowerCase());
+		expect(findCueWord([{ index: 0, text: long, startMs: 0, endMs: 1 }], long)?.index).toBe(0);
+		expect(performance.now() - t0).toBeLessThan(200);
+	});
+
+	it("agrees with @laticent/ltt's normalizeMatch, which an action's `match` is written with", () => {
+		for (const w of ['Publish', '"Publish"', 'again.', '¿Qué?', '$4.2M', '—', '', '  x  ', 'Ünïcödé!', '(3)', '🙂ok🙂', 'e\u0301']) {
+			expect(normalizeCueWord(w), w).toBe(normalizeMatch(w));
+		}
 	});
 });
 

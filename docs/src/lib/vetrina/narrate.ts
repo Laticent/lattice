@@ -101,13 +101,24 @@ export function findCueWord(plan: NarratedWord[] | null | undefined, word: strin
 	return null;
 }
 
+const CUE_LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
 /** Strip the punctuation a segmenter leaves attached, and case-fold. Kept next to
- *  `findCueWord` because the two must agree on what "the same word" means. */
-function normalizeCueWord(s: string): string {
-	return s
-		.toLowerCase()
-		.replace(/^[^\p{L}\p{N}]+/u, '')
-		.replace(/[^\p{L}\p{N}]+$/u, '');
+ *  `findCueWord` because the two must agree on what "the same word" means — and it must agree
+ *  with `@laticent/ltt`'s `normalizeMatch` too, which an action's `match` is written with. This
+ *  is that function's rule, copied because Vetrina's boundary gate does not admit `ltt` until
+ *  LTT step 4 opens it; `cursor-caption.test.ts` pins that the two agree.
+ *
+ *  A linear scan from each end, not `/[^\p{L}\p{N}]+$/u`: that regex restarts at every
+ *  position of a punctuation run that does not reach the end, so it is quadratic in the run's
+ *  length — 2,006 ms for a 40k-character run inside a word, against ~2 ms for this scan. */
+export function normalizeCueWord(s: string): string {
+	const chars = Array.from(String(s).toLowerCase());
+	let a = 0;
+	let b = chars.length;
+	while (a < b && !CUE_LETTER_OR_DIGIT.test(chars[a])) a++;
+	while (b > a && !CUE_LETTER_OR_DIGIT.test(chars[b - 1])) b--;
+	return chars.slice(a, b).join('');
 }
 
 /** A narrator that says nothing and knows nothing — the shape of "no narration".
