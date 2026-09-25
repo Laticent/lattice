@@ -14,6 +14,8 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 
 **Density** aim ~15 words per item; past ~24 it reads as a wall of text — a card body is one short clause, not a paragraph.
 
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~4 / ~3 / ~2 items of ~15 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

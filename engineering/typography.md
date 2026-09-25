@@ -320,13 +320,41 @@ A slide-level `_class` also scales that slide's `::after` pagination and
 section. The modifier composes with any layout or variant (`dark`,
 `cards-grid`, …) because it only sets one custom property.
 
+### A slide that does not fit at the scale steps down — it never clips
+
+Type grows with the scale and the box does not. A one-line element needs about `s` of its
+designed height, and a wrapped paragraph about `s²` (1.69x at `scale-xl`). A slide filled
+to its component's designed capacity therefore cannot hold 1.3x, and before 2026-09-25 it
+clipped: 25 of 64 slides on a real deck, and 133 slides across the component galleries.
+
+The engine now takes such a slide back down the same ladder — 1.5, 1.3, 1.15, 1 — and
+stops at the first rung that fits. It never goes below 1, the designed size
+(`lib/core/scale-fit.js`, the Fit Ladder's STEP move). What you get:
+
+- **Nothing is clipped by the scale.** A slide that does not fit even at 1 is left at the
+  requested scale and clips exactly as before, so the ring and the `⚠ OVERFLOW` line still
+  report it.
+- **The stepped slide renders smaller than the rest of the deck**, chrome included, the
+  same as a hand-written `_class: scale-l` on that slide. The export prints
+  `↓ SCALE — N slides … at 1.15x: pages …; at 1x: pages …`, and the section carries
+  `data-lattice-scale-step="1.3>1.15"`.
+- **`lint:deck` flags it first.** `capacity-scale` (`info`) names a counted component past
+  its measured budget at the deck's scale, and a `code` block past the pane's scaled line
+  or column budget. Each component's `.docs.md` prints its budget on an
+  "**At a projection scale**" line.
+
+Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /
+13 / 11 / 10 lines at 1 / l / xl / 2xl (13 / 11 / 10 / 8 under an eyebrow), and
+`floor(102 / s)` columns. See `engineering/decisions/2026-09-25-font-scale-fit.md`.
+
 ### When NOT to use it
 
 This is a magnitude knob, not a size picker. If one element is wrong,
 fix the element's token (§2) — don't scale the whole slide to fix one
-heading. And if a slide overflows at a higher scale, it had too much
-content for that magnitude: split it or step the scale back down, the
-same as any overflow (§4).
+heading. And if a slide steps down at a higher scale, it has too much
+content for that magnitude: trim it to its budget at that scale or split
+it, the same as any overflow (§4). Deciding that it should render smaller
+is also fine — that is what the engine does when you don't choose.
 
 ## 8 — Measure (line length)
 

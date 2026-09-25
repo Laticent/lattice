@@ -25,7 +25,7 @@
  *
  * Usage:
  *   node tools/calibrate-capacity.js <component> [--family wide,square,tall,strip]
- *                                    [--words N] [--max N] [--json]
+ *                                    [--words N|soft|hard] [--max N] [--scale l|xl|2xl] [--eyebrow] [--json]
  *   node tools/calibrate-capacity.js --all [--family square]
  *
  * Exit 0 when every declared capacity is within its measured ceiling; exit 1
@@ -33,7 +33,7 @@
  */
 
 const {
-  SIZE_ALIAS, FAMILIES, BUILDERS, NOT_COUNT_CALIBRATABLE, findManifest, gradedDeck, renderProbe,
+  SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, findManifest, gradedDeck, renderProbe,
 } = require('./lib/calibrate-core.js');
 
 const argv = process.argv.slice(2);
@@ -46,6 +46,12 @@ const JSON_OUT = has('json');
 const ADVISORY = has('advisory');
 const MAX = parseInt(flag('max', '9'), 10);
 const WORDS_OVERRIDE = flag('words', null);
+// The deck-wide projection multiplier to measure at (typography.md §7). Omitted = the
+// designed size. The declared numbers are scale-1 budgets, so a run at a scale reports
+// the measured ceiling and the scale-adjusted budget lint enforces there
+// (`scaledCapacity`, lib/authoring/lint-core.js) instead of comparing raw `hard`.
+const SCALE = flag('scale', null);
+if (SCALE && !['l', 'xl', '2xl'].includes(SCALE)) die(`Unknown --scale '${SCALE}'. Known: l, xl, 2xl.`);
 const TARGET_FAMILIES = flag('family', FAMILIES.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
 
 function die(msg) { console.error(msg); process.exit(1); }
@@ -64,7 +70,9 @@ function calibratable() {
   return Object.keys(BUILDERS).filter((name) => findManifest(name)).sort();
 }
 
-const named = argv.find((a) => !a.startsWith('--') && !FAMILIES.includes(a));
+// A value that belongs to a flag (`--scale xl`, `--words 12`) is not a component name.
+const VALUE_FLAGS = new Set(['--family', '--words', '--max', '--scale']);
+const named = argv.find((a, i) => !a.startsWith('--') && !FAMILIES.includes(a) && !VALUE_FLAGS.has(argv[i - 1]));
 if (!has('all') && !named) {
   die('Usage: node tools/calibrate-capacity.js <component> [--family square] [--all]');
 }
@@ -93,6 +101,14 @@ function declaredFor(manifest, family) {
   return null;
 }
 
+/** The lint table's number for `comp` at this run's scale and element length, shaped
+ * like `declaredFor` so the report below reads the same. */
+function scaleDeclared(comp, wordsPer) {
+  const { SCALE_CAPACITY } = require('../lib/authoring/lint-core.js');
+  const v = SCALE_CAPACITY[comp]?.[wordsPer]?.[['l', 'xl', '2xl'].indexOf(SCALE) + 1];
+  return v == null ? null : { hard: v, source: `lint-core SCALE_CAPACITY[${comp}][${wordsPer}] at scale-${SCALE}` };
+}
+
 /** Measure the first element count that overflows, or null if none up to MAX. */
 function measure(comp, family, wordsPer) {
   const build = BUILDERS[comp];
@@ -100,13 +116,15 @@ function measure(comp, family, wordsPer) {
   const deck = gradedDeck({
     comp,
     size: SIZE_ALIAS[family],
+    scale: SCALE,
+    eyebrow: has('eyebrow'),
     steps: counts,
     slideFor: (n) => ({
       label: `${n} element${n === 1 ? '' : 's'}`,
-      body: Array.from({ length: n }, () => build(wordsPer)).join('\n'),
+      body: (BODY_WRAP[comp] || ((b) => b))(Array.from({ length: n }, () => build(wordsPer)).join('\n')),
     }),
   });
-  const { overflowed } = renderProbe(deck, `${comp}-${family}`);
+  const { overflowed } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}`);
   let lastFit = null;
   let firstOver = null;
   for (let i = 0; i < counts.length; i++) {
@@ -129,11 +147,20 @@ for (const comp of components) {
   // Hold the body at the component's editorial target — the shape authors are
   // told to write. Calibrating at a longer body would measure a stricter
   // ceiling than the contract actually promises.
-  const wordsPer = parseInt(WORDS_OVERRIDE || manifest.density?.soft || 12, 10);
+  // `--words soft|hard` reads the component's own density block, so one `--all` run can
+  // measure every component at the same point of ITS budget rather than one global count.
+  const wordsPer = parseInt((WORDS_OVERRIDE === 'soft' || WORDS_OVERRIDE === 'hard'
+    ? manifest.density?.[WORDS_OVERRIDE]
+    : WORDS_OVERRIDE) || manifest.density?.soft || 12, 10);
 
   for (const family of TARGET_FAMILIES) {
     const { firstOver, ceiling } = measure(comp, family, wordsPer);
-    const declared = declaredFor(manifest, family);
+    // At a projection scale the manifest's `hard` is the wrong yardstick — it is a
+    // designed-size budget. The number lint enforces there is the measured table in
+    // lint-core (`SCALE_CAPACITY`), so that is what this run checks, at the exact length
+    // it was measured at. A table value above the ceiling measured now means the engine
+    // moved and lint would forecast a fit it no longer has.
+    const declared = SCALE ? scaleDeclared(comp, wordsPer) : declaredFor(manifest, family);
     const over = declared && ceiling != null && declared.hard != null && declared.hard > ceiling;
     if (over) violations++;
     results.push({ component: comp, family, wordsPer, ceiling, firstOver, declared, exceedsCeiling: !!over });

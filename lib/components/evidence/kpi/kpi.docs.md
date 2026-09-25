@@ -14,6 +14,8 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~2 items of ~8 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |
