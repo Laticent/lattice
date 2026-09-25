@@ -107,4 +107,25 @@ describe('lattice-file', () => {
 		expect(m.title.length).toBeLessThanOrEqual(120);
 		expect(m.title).not.toContain('\n');
 	});
+
+	// The declared-size check trusts the archive's own directory. A deck that UNDERSTATES its
+	// size passed that check and was then inflated in full by an uncapped `entry.async()`; it
+	// now reads through the same running budget as the packages, which stops at the cap
+	// (followups.d/2336-p3-packages-trio-followups.md item 12).
+	it('stops inflating a deck that understates its size, at the read budget', async () => {
+		const { default: JSZip } = await import('jszip');
+		const { MAX_INFLATED_BYTES } = await import('./zip-limits');
+		const zip = new JSZip();
+		zip.file('deck.md', 'a'.repeat(MAX_INFLATED_BYTES + 1024 * 1024)); // FIRST, so its local header sits at 0
+		zip.file('manifest.json', JSON.stringify(buildLatticeManifest('Liar', [], 0)));
+		const buf = new Uint8Array(await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }));
+		const view = new DataView(buf.buffer);
+		view.setUint32(22, 10, true); // the local header's uncompressed size
+		let cd = 0;
+		while (!(buf[cd] === 0x50 && buf[cd + 1] === 0x4b && buf[cd + 2] === 1 && buf[cd + 3] === 2)) cd++;
+		view.setUint32(cd + 24, 10, true); // and the first central-directory entry's (deck.md)
+		const liar = await JSZip.loadAsync(buf);
+		expect((liar.files['deck.md'] as unknown as { _data: { uncompressedSize: number } })._data.uncompressedSize).toBe(10);
+		await expect(readLatticeFile(new Blob([buf]))).rejects.toThrow(/too large to open/);
+	});
 });

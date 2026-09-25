@@ -28,9 +28,10 @@ verify    — unit + the package e2e specs.
    half (the Library still lists a hidden saved theme, but the menus drop it without a word)
    and a user namespace as the long-term fix.
 
-Items 2 (gallery gating), 3 (motion art's remote references), 4 (the streaming inflate) and 9
-(escaped selectors) are fixed, and item 6 is declined; the decision note's §10 says how and
-why. The numbers are kept so a reference to item 5 still means item 5.
+Items 2 (gallery gating), 3 (motion art's remote references), 4 (the streaming inflate), 9
+(escaped selectors), 12 (the workspace restore), 13 (the resolver rule's test) and 14 (relative
+scripts) are fixed, and item 6 is declined; the decision note's §10 says how and why. The
+numbers are kept so a reference to item 5 still means item 5.
 
 5. **`rgb(from …)` is the repo's first relative-color syntax** (the finish BOTTOM-LAYER
    RULE). It needs Chrome 119+ / Safari 18+; on an older engine (an old WebKitGTK behind
@@ -63,27 +64,17 @@ why. The numbers are kept so a reference to item 5 still means item 5.
     load them?" switch, and an export option that inlines or strips them. A product call
     (it changes what a pasted deck shows by default), so it is the owner's. Found by the
     inversion lens on the continuation PR.
-12. **Workspace restore saves library items with no import gate.** `workspace-backup.ts`
-    `restoreWorkspace` calls `saveStudioComponent` and `saveStudioTheme` directly, so a backup
-    file from someone else skips the CSS gates and the gallery gate. `import-gate.ts` explains
-    why the refusal is scoped to the zip door (a false positive in your OWN backup must not
-    abort your restore), so the fix is a per-item gate with a skip-and-report, not a hard
-    refusal. Pre-existing; off the continuation PR's path. Related, same door family: a
-    `.lattice` file's deck and manifest are still read with an uncapped `entry.async()`
-    (`lattice-file.ts`), behind the declared-size check only; route them through
-    `readBudget` too.
-13. **No test pins the render's resolver rule.** `lib/core/offline-chromium.js` passes
-    `--host-resolver-rules=MAP * ~NOTFOUND` as a second layer behind the dead proxy and the
-    WebRTC policy, and nothing fails if it is deleted: the WebRTC arm of
-    `test/integration/export/export-remote-subresource.test.js` uses an IP literal, and no
-    arm observes DNS. Add an arm whose STUN or fetch target is a HOST NAME, with a control,
-    that fails when the rule is removed (a local DNS stub or a packet capture on port 53).
-    Found by the independent checker on #2351.
-14. **A relative script `src` in a gallery can load code the package did not write.** The
-    gallery gate allows an empty `<script>` with a relative `src`, because the shipped diagram
-    gallery loads the vendored Mermaid that way. In the Studio such a path resolves against
-    the Studio origin (any same-origin JS chunk), and in the CLI against the author's disk. It
-    can never load code the PACKAGE wrote, since any script file makes it a code package, so
-    this is low severity. Closing it means an allowlist of the vendored filenames (the
-    Mermaid and KaTeX builds) instead of "any relative path". Found by the independent checker
-    on #2351; recorded in `2026-09-23-portable-packages.md` §10.
+15. **A workspace backup's outer archive has no size cap.** `restoreWorkspace` reads
+    `manifest.json`, `workspace.json`, `library-unreadable-scenes.json` and `refdocs.json` with
+    a plain `async('string')`, and inflates `library.zip` in full with `async('blob')` before
+    `unpackBundle` applies its limits. A backup whose `workspace.json` is a deflate bomb takes
+    the tab down. Item 12 gated the items; this is the size half of the same door. The fix is
+    not simply `readBudget` at the `.lattice` cap: a real backup carries reference docs (up to
+    5 MB each) and can legitimately exceed 64 MB, so the cap needs its own number, measured on
+    a large real workspace. Found by the checker on the continuation PR (2026-09-25).
+16. **The unreadable-scenes lane keeps the backup's own record `id`.** `scene-library.ts`
+    `putUnreadableScene` saves `{ ...rec, kind: 'scene' }`, so a hostile row carrying the `id`
+    of one of your saved themes overwrites that theme with a scene record, and scenes keep no
+    version history. No ungated CSS lands (the kind is forced), so this is data loss, not a
+    gate bypass. Pre-existing; the fix is to key an unreadable scene by its name, as a
+    readable one is. Found by the checker on the continuation PR (2026-09-25).

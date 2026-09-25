@@ -27,8 +27,10 @@ summary: >
 > the CLI starts to render a deck now launches off the network (`lib/core/offline-chromium.js`):
 > a dead proxy with loopback included refuses web and WebSocket requests, stylesheet and script
 > fetches among them (this note's CSP covers only `img-src`/`media-src`/`font-src`); a WebRTC
-> policy stops the UDP a proxy never sees; and a resolver rule fails every host name, so no DNS
-> query leaves. A sixth review found the WebRTC route with a deck script and a STUN server
+> policy stops the UDP a proxy never sees; and a resolver rule fails every host, so no DNS
+> query leaves, and it fails the proxy's own address too, so even a live listener on the
+> proxy port receives nothing (measured and pinned 2026-09-25; `2026-09-23-portable-packages.md`
+> §10, follow-up 13). A sixth review found the WebRTC route with a deck script and a STUN server
 > (UDP packets and a DNS lookup in a default render), which is why the second and third are
 > there. `--allow-remote` restores the old behavior per render. Chosen by the owner after the cost was put to them: none of the
 > 305 tracked decks, galleries and baselines loads a remote resource, and the data-viz gallery

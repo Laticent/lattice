@@ -139,15 +139,20 @@ export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 	// The package folders count against the same cap, together with the deck.
 	const packagePaths = Object.keys(zip.files).filter((p) => p.startsWith(PACKAGES_DIR) && !zip.files[p].dir);
 	assertZipWithinLimits(zip, 'That .lattice file is too large to open.', [DECK_FILE, MANIFEST_FILE, ...packagePaths]);
-	const [source, manifestText] = await Promise.all([deckEntry.async('string'), manifestEntry.async('string')]);
-	const manifest = parseLatticeManifest(manifestText);
+	// ONE running budget for every read out of this file — the deck, the manifest and the
+	// packages. The declared-size check above trusts what the archive SAYS; the budget stops
+	// the inflate at the chunk that crosses the cap, so an entry that understates its size
+	// cannot inflate past it (zip-limits.ts). Read in order, not in parallel, so the charge
+	// is deterministic.
+	const charge = readBudget('That .lattice file is too large to open.');
+	const source = (await charge(deckEntry)) ?? '';
+	const manifest = parseLatticeManifest((await charge(manifestEntry)) ?? '');
 	// The packages ride through the SAME reader as a Library package zip, so they meet the
 	// same spine, the same refusals and the same notes. Saving them is the caller's step,
 	// through the Library's import funnel (library/import-parsed.ts), which runs the gates.
 	let packages: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [] };
 	if (packagePaths.length) {
 		const { unpackPackages } = await import('./asset-bundle');
-		const charge = readBudget('That .lattice file is too large to open.');
 		const sub = new JSZip();
 		for (const p of packagePaths) {
 			const entry = zip.file(p);

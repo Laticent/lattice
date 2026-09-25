@@ -628,7 +628,8 @@ it is the record of what was wrong.
     http-equiv="refresh">` to a `data:` page running that page's script in a subframe, so a
     refresh is now refused whatever it points at. Still legal, and recorded rather than closed:
     a relative script `src` resolves against the Studio origin or the author's disk, so it can
-    load code the package did not supply, though never code the package wrote.
+    load code the package did not supply, though never code the package wrote. (Closed by an
+    allowlist of the vendored builds: item 14 below.)
   - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
     a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
     and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked
@@ -650,8 +651,8 @@ it is the record of what was wrong.
     doors, where the markup rides in under a name the user trusts. The root fix for decks is
     at the render boundary: an `img-src` policy on the preview frames with a visible "load
     remote images" switch, and an export option that inlines or strips them. That is
-    recorded in `followups.d/2336-p3-packages-trio-followups.md`, with the workspace
-    restore, which still saves library items without the import gates.
+    recorded in `followups.d/2336-p3-packages-trio-followups.md`. (The workspace restore,
+    which saved library items without the import gates, is closed: item 12 below.)
   The e2e `library-remote-refs.spec.ts` imports both through the real Library and asserts,
   against a control fetch that proves the log works, that the browser made no request to the
   beacon host.
@@ -674,3 +675,36 @@ it is the record of what was wrong.
     than Node today.
   - **9, escaped selectors: done.** `renameComponentSelectors` decodes each class token's CSS
     escapes before comparing, so `.\6b pi` and `.k\70 i` are renamed with `.kpi`.
+- **Trio follow-ups 12, 13 and 14 (the portable-packages continuation, 2026-09-25).**
+  - **12, the workspace restore: done.** `workspace-backup.ts` `restoreWorkspace` runs every
+    theme and component in a backup through `import-gate.ts`, the same gates as a Library zip,
+    PER ITEM. A refused item is skipped and named in the restore toast, and every other item,
+    and every deck, still restores. It is not a whole-file refusal because the gate has
+    measured false positives, and one in your own backup must not cost you the rest of it; the
+    skipped item is still in the file you hold. The verdicts are taken before any state is
+    imported, and the backup's shipped-name renames follow only the items that passed. A
+    scene the store will not take is skipped and named too, where it used to abort a restore
+    whose decks were already in. Finishes need no gate: the store regenerates their CSS from
+    the clamped recipe. The `.lattice` reader now reads its deck and manifest through the
+    same running `readBudget` as its packages; before, an entry that understated its size
+    was inflated in full before JSZip's own size check threw. The e2e
+    `workspace-restore-gate.spec.ts` restores a hostile backup through the real Workspace
+    sheet and asserts, against a control fetch, that the browser made no request to the
+    beacon host.
+  - **13, the resolver rule: pinned, and it does more than this note said.** Measured on
+    Chromium 131: `MAP * ~NOTFOUND` maps every host, the proxy's own `127.0.0.1` included, so
+    with the rule in place a listener on the proxy port receives nothing. Without it, every
+    request, host names and IP literals alike, arrived at that listener as a proxy request
+    naming its target. So the rule is the layer that holds if the dead proxy turns out to be
+    alive, and the "a listener on port 9 would see raw-IP requests" caveat in
+    `offline-chromium.js` was wrong and is corrected. `export-remote-subresource.test.js`
+    launches Chromium with the shipped arguments, moves only the proxy onto a live loopback
+    listener, and asserts 0 requests; its control drops the rule and sees the host names.
+    Deleting the rule from `OFFLINE_CHROMIUM_ARGS` fails the arm.
+  - **14, relative scripts: closed.** A gallery `<script>` may load only Lattice's vendored
+    builds (`remote-ref.js` `VENDORED_SCRIPTS`: the names `marp-bundle.js`
+    `RUNTIME_SCRIPT_SRCS` emits plus the unminified runtime, behind `./`, `../` and an
+    optional `dist/`, and Mermaid's published `node_modules/mermaid/dist/mermaid.min.js`).
+    Any other relative or root-relative source is refused. A unit test fails if the engine
+    grows a runtime script the list lacks. Measured first: 0 of 377 tracked decks and
+    galleries trip it.

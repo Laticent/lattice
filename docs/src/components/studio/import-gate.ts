@@ -26,10 +26,14 @@
 // whole restore with no way to skip it. That is a denial of service on a person's
 // own data, caused by a guard meant to protect them from a stranger.
 //
-// So the refusal applies where the threat model actually says it should: the `.zip`,
-// the one path where the AUTHOR and the VICTIM are different people. Your own
-// hand-edit and your own backup are your own risk, and the live findings in
-// Fabricate already tell you what is wrong with them.
+// So the refusal applies where the threat model actually says it should: a file from
+// someone else, where the AUTHOR and the VICTIM can be different people. Your own
+// hand-edit is your own risk, and the live findings in Fabricate already tell you what
+// is wrong with it. The Library `.zip`, a `.lattice`'s packages and a workspace backup
+// are all files, so all three run these gates, and all three run them PER ITEM: a
+// refused item is skipped and named, and the rest of the file still comes in. That is
+// what keeps a false positive in your own backup from costing you the backup
+// (`workspace-backup.ts` `restoreWorkspace`, since the portable-packages continuation).
 //
 // ── WHAT COUNTS AS A REFUSAL ─────────────────────────────────────────────────
 //
