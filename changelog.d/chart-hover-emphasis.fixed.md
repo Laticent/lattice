@@ -15,3 +15,6 @@
   tap or hover misses every mark, the reveal now takes the nearest mark whose outline is
   within reach: 22 screen px for touch, 6 for a mouse. A mark the pointer is actually on
   still wins.
+- **Fixed: a slope chart's names and values open their card.** Tapping or hovering
+  "Northwind" or its "31%" now reveals Northwind's detail, the same as its line. The name and
+  value labels carry the entity's `data-mark` and `data-label`. The printed chart is unchanged.
