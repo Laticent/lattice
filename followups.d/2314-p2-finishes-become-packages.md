@@ -20,6 +20,8 @@ decide    — the owner picks one, per §10's measured table:
                 five as a gated hand-CSS exception list.
             Recommendation: (a) for atrium, strata and the glyph anchor, which are real design details
             the Studio can't make today; ledger's rich fold is a rounding difference and can take (b).
+            OWNER DECIDED (2026-09-25): (a) — teach the recipes the missing details, then generate
+            all nine exactly. The export sign-off still applies to whatever bytes move.
 done when — every shipped preset's CSS is generated from its recipe, or is on a gated exception list,
             and generated rules use the shipped one-class selector so deck overrides still win.
 evidence  — the per-preset pixel-diff table (print + screen, light + dark, with glyphs), and dark + light PDFs.

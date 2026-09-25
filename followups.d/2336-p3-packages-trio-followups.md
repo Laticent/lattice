@@ -64,7 +64,10 @@ reference to item 5 still means item 5.
     data: blob:` policy on the preview frames with a visible "this deck loads N remote images —
     load them?" switch, and an export option that inlines or strips them. A product call
     (it changes what a pasted deck shows by default), so it is the owner's. Found by the
-    inversion lens on the continuation PR.
+    inversion lens on the continuation PR. **Owner decided (2026-09-25): block by default, with
+    the visible "load them?" switch** — a deck you did not write shows placeholders until you
+    choose to load its web images, and exports get the matching option. Whether your own decks
+    are trusted automatically is part of the design, not yet settled.
 18. **A malformed `workspace.json` refuses with a programmer's message.** A backup whose state has
     the right shape at the top but a wrong type inside (`chats: null`, say) fails in
     `importStudioState` with "Cannot read properties of null (reading 'welcome')". Nothing is
