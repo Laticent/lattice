@@ -855,49 +855,49 @@ For a big, open design question, like an architecture or a data model, several i
 
 `Orchestration · Cast the model`
 
-## An actor who needs ten takes costs more than one who needs two.
+## Five takes can cost more than two good ones.
 
 - Price per take
   - What the pricing page shows: the cost of one request. On simple work, it's the right number to watch.
 - Cost of the finished scene
-  - The first try, plus every fix, plus your time giving notes. On hard work, it's the only number that counts.
+  - The first try, plus every fix, plus your time giving notes. On hard work, this is the number to watch.
 
-> On hard work, count the takes, not the price per take.
+> On hard work, count every take before you compare prices.
 
 <!--
-Before we look at the numbers, here's the idea in film terms. Say you're casting a scene. One actor charges half as much per day. The other costs more, but nails it in two takes. If the cheaper actor needs ten takes, the cheaper actor just cost you more, and a longer day. Models work the same way. The pricing page shows you the price of one take, one request. That's the right number when the work is simple, because both models get it right the first time. But on hard work, the number that matters is what the finished scene cost: the first try, every fix after it, and the time you spent giving notes. Let me show you how that plays out.
+Before we look at the numbers, here's the idea in film terms. Say you're casting a scene. One actor charges half as much per day. The other costs more, but nails it in two takes. If the cheaper actor needs five takes, the cheaper actor just cost you more, and a longer day. Models work the same way. The pricing page shows you the price of one take, one request. That's the right number when the work is simple, because both models get it right the first time. But on hard work, the number that matters is what the finished scene cost: the first try, every fix after it, and the time you spent giving notes. Let me show you how that plays out.
 -->
 
 ---
 
 <!-- _class: line -->
 
-`Orchestration · Pick the model`
+`Orchestration · Cast the model`
 
 ## By the fourth fix, the cheaper model costs more.
 
-`Money spent on one hard task, round by round`
+`Money spent on 100 hard tasks, round by round`
 
 - First try
-  - Cheaper model `$0.20`
-  - Stronger model `$0.40`
+  - Cheaper model `$20`
+  - Stronger model `$40`
 - Fix 1
-  - Cheaper model `$0.40`
-  - Stronger model `$0.80`
+  - Cheaper model `$40`
+  - Stronger model `$80`
 - Fix 2
-  - Cheaper model `$0.60`
-  - Stronger model `$0.80`
+  - Cheaper model `$60`
+  - Stronger model `$80`
 - Fix 3
-  - Cheaper model `$0.80`
-  - Stronger model `$0.80`
+  - Cheaper model `$80`
+  - Stronger model `$80`
 - Fix 4
-  - Cheaper model `$1.00`
-  - Stronger model `$0.80`
+  - Cheaper model `$100`
+  - Stronger model `$80`
 
-*Illustrative. Each round costs $0.20 on the cheaper model and $0.40 on the stronger one. The stronger model is done after one fix, so its line goes flat. The cheaper model needs four, and every one reruns the job.*
+*Illustrative. For 100 tasks, each round costs $20 on the cheaper model and $40 on the stronger one. The stronger model is done after one fix, so its line goes flat. The cheaper model needs four, and every one reruns the job.*
 
 <!--
-Here's what that looks like on one hard task. On this chart, each step to the right is one more round of back and forth, and the height is what you've spent so far. The stronger model costs more on the first try, but it's done after one fix, so its line goes flat. The cheaper model gets the basics right, then drifts somewhere in the middle. You explain, it tries again, and every round reruns the work. By the fourth fix, it has passed the stronger model. The numbers are illustrative, but the shape matches what I see every day: by the time the cheaper model gets a complex task right, it has cost more than the stronger model did, and that's before you count your own time spent writing the corrections. Anthropic's own guidance says it plainly: judge the cost per completed task, not per request. For me, that means I run the stronger model even though it costs more per token, because it gets it right with less rework. Your answer may differ. Measure a few of your real tasks, first try plus every fix, and decide from that.
+Here's what that looks like on a hundred hard tasks, about what a busy team runs in a month. On this chart, each step to the right is one more round of back and forth, and the height is what you've spent so far. The stronger model costs more on the first try, but it's done after one fix, so its line goes flat. The cheaper model gets the basics right, then drifts somewhere in the middle. You explain, it tries again, and every round reruns the work. By the fourth fix, it has passed the stronger model. The numbers are illustrative, but the shape matches what I see every day: by the time the cheaper model gets a complex task right, it has cost more than the stronger model did, and that's before you count your own time spent writing the corrections. Anthropic's own guidance says it plainly: judge the cost per completed task, not per request. For me, that means I run the stronger model even though it costs more per token, because it gets it right with less rework. Your answer may differ. Measure a few of your real tasks, first try plus every fix, and decide from that.
 -->
 
 ---
