@@ -144,13 +144,13 @@ Caveat for the room: this is one human plus agents, not a team. Team-scale claim
 
 ## Rules hold when a machine or a human reads the output.
 
-- Pre-merge card, read by the human `99%`
 - Commit format, local hook `98%`
+- Pre-merge card, read by the human `95%`
 - Changelog fragment, build gate `91%`
 - Demo deck, discipline only `49%`
 
 <!--
-Card: ~99% of authored PRs since 2026-08-26. Commit format: 98% on main since June; the local hook gates each commit an agent makes, but not the PR title that becomes the squash subject. Fragments: 91% of authored PRs after #1606. Demo deck: share of CSS-touching PRs that ship one; 73% in September, and a ceiling on non-compliance rather than a violation count.
+Card: 228 of 241 non-Dependabot PRs merged since 2026-08-26 (95%); 12 of the window's merges are backlog-mirror PRs that carry no card by design, so authored coverage is 95% to 99.6%. Commit format: 98% on main since June; the local hook gates each commit an agent makes, but not the PR title that becomes the squash subject. Fragments: 91% of authored PRs after #1606. Demo deck: share of CSS-touching PRs that ship one; 73% in September, and a ceiling on non-compliance rather than a violation count.
 -->
 
 ---
