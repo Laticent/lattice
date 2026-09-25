@@ -392,13 +392,13 @@ describe('front-matter registers — keys and values', () => {
 
 	it('offers the keys that had no route but knowing they exist', () => {
 		const keys = done('---\n', 4);
-		for (const k of ['guards', 'cards', 'player-motion', 'captions', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
+		for (const k of ['fit', 'cards', 'player-motion', 'captions', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
 			expect(keys, `${k} missing from key completion`).toContain(k);
 		}
 	});
 
-	it('completes guards: and cards: values from the engine vocabulary', () => {
-		expect(done('---\nguards: ')).toEqual(['loose', 'strict']);
+	it('completes fit: and cards: values from the engine vocabulary', () => {
+		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim']);
 		expect(done('---\ncards: sp')).toEqual(['center', 'stretch', 'top', 'spread']);
 		expect(done('---\nclaim: ')).toContain('bleed');
 		expect(done('---\nspectrum-trim: ')).toContain('restrained');
@@ -425,7 +425,9 @@ describe('front-matter registers — keys and values', () => {
 	// vocabulary. It must be wired for value completion or named here as handled by its
 	// own branch, so a register can't ship with values the editor never offers.
 	it('every register value list in the lint vocab is wired for completion', () => {
-		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames']);
+		// `guardsNames` is the old spelling of `fit:` — lint still reads it to name the new key
+		// (`guards-renamed`), and the editor offers `fit:` instead of it.
+		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'guardsNames']);
 		const wired = new Set(Object.values(VOCAB_VALUE_FIELDS));
 		const unwired = Object.keys(vocab).filter((f) => f.endsWith('Names') && !wired.has(f) && !HANDLED_ELSEWHERE.has(f));
 		expect(unwired, 'add these to VOCAB_VALUE_FIELDS (or HANDLED_ELSEWHERE with a reason)').toEqual([]);
@@ -446,7 +448,9 @@ describe('front-matter registers — keys and values', () => {
 	// editor, so the two surfaces can't offer different front-matter vocabularies.
 	it('every front-matter key the Studio Inspector writes is in autocomplete', () => {
 		const shell = readFileSync(new URL('./StudioShell.tsx', import.meta.url), 'utf8');
-		const written = new Set([...shell.matchAll(/writeFrontMatterLine\(\w+, '([\w-]+)'/g)].map((m) => m[1]));
+		// A write whose value is a literal `null` only DELETES a key (the Fit field drops the old
+		// `guards:` spelling when it writes `fit:`), so it offers nothing to autocomplete.
+		const written = new Set([...shell.matchAll(/writeFrontMatterLine\(\w+, '([\w-]+)', (?!null\))/g)].map((m) => m[1]));
 		expect(written.size).toBeGreaterThan(20);
 		const offered = new Set(FRONT_MATTER_KEYS.map((k) => k.key));
 		expect([...written].filter((k) => !offered.has(k))).toEqual([]);

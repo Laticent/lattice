@@ -9,6 +9,14 @@ builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29
 **Status:** shipped · **Owner:** Sharmarke · **Code:** `lib/core/scale-fit.js`,
 `lib/authoring/lint-core.js` (`capacity-scale`), `lattice-emulator.js`, `lib/runtime/index.js`
 
+> **Amended the same day — two sizes, and a switch.** The owner ruled on the follow-up
+> design (`2026-09-25-fit-policy.md`): STEP no longer walks 1.5 → 1.3 → 1.15 → 1. A slide
+> that does not fit the deck's scale lands on the designed size, 1x, so a deck carries two
+> sizes at most. And STEP is governed by the new `fit:` register: `heal` (default) runs it,
+> `report` switches it off. The numbers below record the ladder as #2378 shipped it; on the
+> repro deck at scale-xl the two-size rule gives 40 slides at 1.3x and 24 at 1x, 0 clipped.
+> The frozen renders in `2026-09-25-font-scale-fit-renders/` are the ladder's.
+
 ## Symptom
 
 `typography.md` §7 recommends `class: scale-xl` for "projection, back-of-room reading".

@@ -3882,8 +3882,8 @@ async function renderBody(browser, g, closeBrowser) {
     const from = Math.max(...stepped.map((r) => r.from));
     const rungs = [...byRung.entries()].sort((x, y) => y[0] - x[0])
       .map(([to, pages]) => `at ${to}x: page${pages.length > 1 ? 's' : ''} ${pages.join(', ')}`).join('; ');
-    console.warn(`  \u2193 SCALE — ${n} slide${n > 1 ? 's' : ''} did not fit at the deck's ${from}x font scale and render${n > 1 ? '' : 's'} one or more steps smaller: ${rungs}.`);
-    console.warn('    The stepped pages are not clipped. To keep the full scale, trim the slide to its capacity at that scale (`lint:deck` names it) or split it.');
+    console.warn(`  \u2193 SCALE — ${n} slide${n > 1 ? 's' : ''} did not fit at the deck's ${from}x font scale and render${n > 1 ? '' : 's'} at the designed size instead: ${rungs}.`);
+    console.warn('    The stepped pages are not clipped. To keep the full scale, trim the slide to its capacity at that scale (`lint:deck` names it) or split it; `fit: report` turns this off.');
   }
   const FLUID_WINS = FLUID_VIEW && FLUID_BEATS_READ;
   const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_WINS && !PLAYER);

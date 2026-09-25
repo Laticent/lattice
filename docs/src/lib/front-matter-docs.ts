@@ -57,7 +57,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	cards: { group: 'look', default: 'each component decides', studio: 'Look → More → Card rows', slide: '_class: cards-<value>' },
 	corners: { group: 'look', default: 'square', studio: 'Look → More → Corners', slide: '_class: corners-<value>' },
 	claim: { group: 'look', default: 'framed', studio: 'Look → More → Claim', slide: '_class: claim-<value>' },
-	guards: { group: 'look', default: 'loose', studio: 'Look → More → Text overflow', slide: '_class: guards-<value>' },
+	fit: { group: 'look', default: 'heal', studio: 'Look → More → Fit', slide: '_class: fit-<value>' },
 	header: { group: 'chrome', default: 'none', studio: 'Chrome → Header', slide: '<!-- _header: … -->', values: 'any text' },
 	footer: { group: 'chrome', default: 'none', studio: 'Chrome → Footer', slide: '<!-- _footer: … -->', values: 'any text' },
 	paginate: { group: 'chrome', default: 'false', studio: 'Chrome → Page numbers', slide: '<!-- _paginate: false -->' },

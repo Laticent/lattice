@@ -142,6 +142,10 @@ solver's policy — there is no fifth move, and crucially **no shrink move.**
 > ruling below: the floor this section names is scale 1, and STEP stops there. It
 > declines an optional enlargement; it does not shrink past the floor.
 > `2026-09-25-font-scale-fit.md` has the record; `lib/core/scale-fit.js` has the kernel.
+> The same day the owner ruled that STEP lands on 1x (two sizes at most, not the whole
+> ladder), and that the deck's `fit:` register governs every move on this list: `report`
+> runs none of them, `heal` (default) runs the ones that lose no words, `trim` adds TRIM
+> (`2026-09-25-fit-policy.md`).
 
 | # | Move | Owner | Continuous or discrete | Loses content? |
 |---|---|---|---|---|
