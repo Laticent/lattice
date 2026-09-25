@@ -1,15 +1,15 @@
 {
   "$comment": "BLESSED RECORD — §8 rule 5 of engineering/decisions/2026-07-22-structure-derived-split-patterns.md. The `components` map is RECOMPUTED from the component manifests by tools/bless-split-oracle.js and gated by checkSplitOracle in tools/check-ownership.js (build:check). A diff there is a SPLIT-BEHAVIOR CHANGE to review, not noise: run `npm run oracle:bless` only when you intend it, and justify each moved entry in the PR. The `verified` map is AUTHORED, never recomputed — it is rule 11's precondition (the record documents a verified default, it never mints one), so an ENROLLED component must name the committed deck that exercises its split and who signed the derived facts off. Blessing REFUSES to write an entry for a newly-enrolled component that has neither. The components enrolled before that precondition landed are frozen in GRANDFATHERED (tools/bless-split-oracle.js), a shrink-only backlog, not an exemption.",
   "verified": {
+    "list": {
+      "deck": "examples/split-structure.md",
+      "by": "list-criteria fold, 2026-09-25 (rendered at size: portrait, indaco, and read page by page)",
+      "note": "Slide 3 is `list takeaway numbered` (migrated from list-criteria). Of 27 pages: cover p8, one item per page p9-p13 with the counter continuing 01..05 via --lat-split-offset, closing p14 carrying the italic annotation. Took over the attestation list-criteria held on the same slide."
+    },
     "content": {
       "deck": "examples/split-structure.md",
       "by": "#2004 (rendered at size: portrait, indaco, and read page by page)",
       "note": "Slide 2 -> cover p2, one bullet per page p3-p6, closing p7 carrying the key insight. Axis `item` derived from the rendered <ul>; a paragraph-only content slide resolves no collection and is left whole (slide 1 of the same deck)."
-    },
-    "list-criteria": {
-      "deck": "examples/split-structure.md",
-      "by": "#2004 (rendered at size: portrait, indaco, and read page by page)",
-      "note": "Cover p8, one criterion per page, closing page carrying the italic annotation. The numbered row fills the measure -- this component is what caught the lone-member width fix (`width: 100%` sheared its text; `width: auto` is correct). soft/hard match what its own stress doc holds."
     },
     "journey": {
       "deck": "examples/portrait-journey.md",
@@ -207,17 +207,6 @@
       "perPage": null,
       "relationship": null
     },
-    "table": {
-      "treatment": "read-across",
-      "axis": "row",
-      "declaredIn": "capacity",
-      "enrolled": true,
-      "strategy": "cover-cards",
-      "reshape": "width-reducing",
-      "coverClass": "lat-split-cover",
-      "perPage": 1,
-      "relationship": null
-    },
     "contact": {
       "treatment": "atomic",
       "axis": null,
@@ -403,17 +392,6 @@
       "reshape": null,
       "coverClass": "lat-split-cover",
       "perPage": null,
-      "relationship": null
-    },
-    "list-criteria": {
-      "treatment": "list-light",
-      "axis": "item",
-      "declaredIn": "capacity",
-      "enrolled": true,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": "lat-split-cover",
-      "perPage": 1,
       "relationship": null
     },
     "list-steps": {
@@ -731,6 +709,17 @@
       "enrolled": true,
       "strategy": "cover-paginate",
       "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
+      "relationship": null
+    },
+    "table": {
+      "treatment": "read-across",
+      "axis": "row",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-cards",
+      "reshape": "width-reducing",
       "coverClass": "lat-split-cover",
       "perPage": 1,
       "relationship": null

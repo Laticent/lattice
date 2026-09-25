@@ -1261,10 +1261,10 @@ const RENDER = 'render';
 const EXAMPLES = 'examples';
 
 /**
- * The 20 layouts the small/solo path exposes, and the ONLY place a shortlist is
+ * The 19 layouts the small/solo path exposes, and the ONLY place a shortlist is
  * hardcoded. Measured over `exemplars/` — 46 realistic decks, 553 component
  * slides — these cover **91% of slides**. They do NOT cover whole decks: only
- * 26% of them (12 of 46) are authorable from a top-20 list alone, because nearly every deck
+ * 26% of them (12 of 46) are authorable from a top-20 list alone (19 since `list-criteria` folded into `list` on 2026-09-25 — the same slides, now covered by `list`), because nearly every deck
  * reaches for one specialist. That is why `content`/`list` are named as an
  * explicit FALLBACK in every solo text; the fallback is what takes deck coverage
  * to 100%, and it is the single most load-bearing line in the file.
@@ -1276,7 +1276,7 @@ const EXAMPLES = 'examples';
  */
 const SOLO_LAYOUTS = [
   'title', 'closing', 'divider', 'content', 'list', 'cards-grid', 'stats', 'kpi',
-  'big-number', 'quote', 'list-steps', 'list-criteria', 'list-tabular',
+  'big-number', 'quote', 'list-steps', 'list-tabular',
   'timeline-list', 'checklist', 'table', 'decision', 'matrix-2x2',
   'split-panel', 'agenda',
 ];
@@ -1287,14 +1287,13 @@ const SOLO_INTENT = {
   closing: 'the last slide',
   divider: 'a section break',
   content: 'a claim plus a short paragraph',
-  list: '3-5 short bullets',
+  list: '3-5 short bullets (`takeaway numbered` for numbered requirements, each with a reason)',
   'cards-grid': '2-4 named items with one line each',
   stats: '2-4 numbers side by side',
   kpi: '3 metrics with targets and status',
   'big-number': 'one number that is the whole point',
   quote: "someone's words",
   'list-steps': 'numbered steps in order',
-  'list-criteria': 'numbered requirements to meet',
   'list-tabular': 'a name plus a value, per row',
   'timeline-list': 'dated milestones in order',
   checklist: 'done / partly done / not started',
@@ -1395,7 +1394,7 @@ const TASTE_KEPT = [
  * paste/lattice-instructions-solo.md — self-contained. No uploads, no fetches.
  *
  * This is the one a LOCAL model gets, and the one you paste into a chat that has
- * no knowledge-file feature at all. It carries 20 layouts with their real
+ * no knowledge-file feature at all. It carries 19 layouts with their real
  * skeletons, the nine essentials, two taste rules, and a worked deck — and it
  * deliberately carries NO "not for" lines, no modifier catalog and no per-layout
  * budgets.
@@ -2337,8 +2336,8 @@ const DESTINATIONS = [
       '',
       'Or in a Modelfile: `PARAMETER num_ctx 8192`.',
       '',
-      '**What this path gives up, on purpose:** 41 of the 61 layouts, every modifier, the',
-      'chart family and the per-layout budgets. Those 20 layouts cover 91% of the slides in',
+      '**What this path gives up, on purpose:** 41 of the 60 layouts, every modifier, the',
+      'chart family and the per-layout budgets. Those 19 layouts cover 91% of the slides in',
       'our own realistic decks, and the "if nothing fits, use `content` or `list`" line covers',
       'the rest. Expect a plainer deck than a frontier model produces — a plain valid deck',
       'beats an ambitious broken one.',
@@ -2732,7 +2731,7 @@ function rootReadme(files, layoutCount, components) {
     '## In a hurry',
     '',
     `Paste [\`paste/lattice-instructions-solo.md\`](./${PASTE}/lattice-instructions-solo.md) (${soloChars.toLocaleString('en-US')} characters)`,
-    'into any chat and ask for a deck. It is self-contained — 20 layouts with their real',
+    'into any chat and ask for a deck. It is self-contained — 19 layouts with their real',
     'skeletons, the rules that break a deck, and a worked example. Nothing to upload.',
     '',
     '## What is in here',

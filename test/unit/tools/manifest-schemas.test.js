@@ -531,7 +531,10 @@ test('checkAjvBoundary BITES on the ajv family and stays quiet on the real tree'
   checkAjvBoundary(clean);
   assert.deepEqual(clean, [], `the shipped tree must be clean, got:\n${clean.join('\n')}`);
 
-  const probe = path.join(ROOT, 'lib', '__ajv_boundary_probe__.js');
+  // A temp dir, not lib/: a file written into the live tree is seen (and then vanishes)
+  // under every parallel test that walks lib/, which failed them with ENOENT.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajv-boundary-'));
+  const probe = path.join(dir, '__ajv_boundary_probe__.js');
   for (const [spec, shouldBite] of [
     ["require('ajv')", true],
     ["require('ajv/dist/2020')", true],
@@ -544,7 +547,7 @@ test('checkAjvBoundary BITES on the ajv family and stays quiet on the real tree'
     fs.writeFileSync(probe, `const x = ${spec};\nmodule.exports = x;\n`);
     try {
       const errors = [];
-      checkAjvBoundary(errors);
+      checkAjvBoundary(errors, [dir]);
       assert.equal(
         errors.length > 0,
         shouldBite,
@@ -554,18 +557,20 @@ test('checkAjvBoundary BITES on the ajv family and stays quiet on the real tree'
       fs.rmSync(probe, { force: true });
     }
   }
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test('checkAjvBoundary reports one file importing ajv two ways ONCE', () => {
   const { checkAjvBoundary } = ownership;
-  const probe = path.join(ROOT, 'lib', '__ajv_dedupe_probe__.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajv-dedupe-'));
+  const probe = path.join(dir, '__ajv_dedupe_probe__.js');
   fs.writeFileSync(probe, "const a = require('ajv');\nconst b = require('ajv');\nmodule.exports = [a, b];\n");
   try {
     const errors = [];
-    checkAjvBoundary(errors);
+    checkAjvBoundary(errors, [dir]);
     assert.equal(errors.length, 1, `expected one line per spec, got ${JSON.stringify(errors)}`);
   } finally {
-    fs.rmSync(probe, { force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 

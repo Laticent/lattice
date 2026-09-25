@@ -2,7 +2,7 @@
 
 # progression
 
-`3 components`
+`2 components`
 
 Progression — ordered movement through stages or time.
 
@@ -24,20 +24,6 @@ Progression — ordered movement through stages or time.
   - Rain and snow return the water to the ground.
 - Collection
   - Rivers gather it back to the sea, and it begins again.
-
----
-
-<!-- _class: list-criteria -->
-<!-- _footer: "list-criteria · progression survey" -->
-
-## Criteria are gates: clear them in order.
-
-1. State the bar
-   - Each criterion is a pass-or-fail line, not a preference.
-2. Order by veto power
-   - The criterion most likely to kill goes first.
-3. Keep the list short
-   - Three gates decide; six gates stall.
 
 ---
 

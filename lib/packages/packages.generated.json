@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 71,
+    "component": 70,
     "finish": 9,
     "motion": 0
   },
@@ -659,17 +659,6 @@
       "type": "component",
       "name": "list",
       "path": "lib/components/inventory/list",
-      "roles": [
-        "docs.md",
-        "gallery.md",
-        "manifest.json",
-        "styles.css"
-      ]
-    },
-    {
-      "type": "component",
-      "name": "list-criteria",
-      "path": "lib/components/progression/list-criteria",
       "roles": [
         "docs.md",
         "gallery.md",

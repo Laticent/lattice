@@ -41,7 +41,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ## When NOT to use
 
-- **Flat list of citations.** If the rows have no tier hierarchy, use `list-criteria` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point.
+- **Flat list of citations.** If the rows have no tier hierarchy, use `list takeaway numbered` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point.
 - **Missing citation chip.** The inline-code citation is the row's anchor; without it the gloss reads as opinion. Always cite, even for guidance and case rows.
 - **Out-of-order tiers.** The chain reads as a descent: statute first, case last. Reversing it or skipping a tier breaks the metaphor the audience is using to follow you.
 
@@ -177,7 +177,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 ## Related components
 
 - [`regulatory-update`](../../legal/regulatory-update/regulatory-update.docs.md) — period-bounded changelog rather than a single rule's lineage
-- [`list-criteria`](../../progression/list-criteria/list-criteria.docs.md) — flat enumeration of requirements without tier hierarchy
+- [`list`](../../inventory/list/list.docs.md) — `takeaway numbered`: flat enumeration of requirements without tier hierarchy
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — the rows are procedural steps rather than authority tiers
 
 ## Demo deck

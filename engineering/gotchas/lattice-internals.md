@@ -548,7 +548,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** A deck rendered through the owned engine on mobile Safari/iOS:
   spacing collapses (cards/list rows overlap with ~0 gap),
-  `list-criteria`/`list principles` counters vanish, title/KPI slides don't center
+  `list takeaway numbered`/`list principles` counters vanish, title/KPI slides don't center
   with breathing room. The SAME engine output renders perfectly in headless
   Chromium and on desktop WebKit. Looks like the scaled-`foreignObject` WebKit class
   ("Playground renders broken in mobile Safari/WebKit" in `studio-playground.md`), but

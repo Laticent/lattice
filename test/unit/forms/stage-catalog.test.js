@@ -30,7 +30,7 @@ const { loadAll } = require('../../../lib/components');
 const EXPECTED_FLOW = [
   'actors', 'agenda', 'authority-chain', 'big-number', 'cards-grid', 'cards-stack',
   'checklist', 'citation-card', 'code', 'compare-prose', 'table', 'content', 'cycle',
-  'decision', 'glossary', 'inventory', 'kpi', 'list', 'list-criteria', 'list-steps',
+  'decision', 'glossary', 'inventory', 'kpi', 'list', 'list-steps',
   'list-tabular', 'logo-wall', 'matrix-2x2', 'obligation-matrix', 'policy-recommendation', 'pricing', 'q-and-a',
   'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'team-profile', 'verdict-grid',
 ].sort();

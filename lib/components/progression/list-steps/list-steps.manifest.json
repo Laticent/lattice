@@ -118,10 +118,6 @@
   ],
   "related": [
     {
-      "name": "list-criteria",
-      "when": "gating requirements rather than a sequence of actions"
-    },
-    {
       "name": "split-panel",
       "when": "phase label + heading on the left, steps on the right"
     },
@@ -131,7 +127,7 @@
     },
     {
       "name": "list",
-      "when": "tenets or values (the `principles` variant) rather than a sequence"
+      "when": "tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions"
     },
     {
       "name": "funnel",

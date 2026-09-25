@@ -504,25 +504,7 @@
       "- Fourth short bullet point.",
       "- Fifth short bullet point."
     ],
-    "description": "Bulleted list under a heading — plain pills, hairline takeaways, or display-weight principles."
-  },
-  "lattice: list-criteria": {
-    "prefix": "lattice-list-criteria",
-    "body": [
-      "<!-- _class: list-criteria -->",
-      "",
-      "## What every decision must satisfy.",
-      "",
-      "1. First criterion",
-      "   - Short rationale for why this matters.",
-      "2. Second criterion",
-      "   - Short rationale.",
-      "3. Third criterion",
-      "   - Short rationale.",
-      "4. Fourth criterion",
-      "   - Short rationale."
-    ],
-    "description": "Numbered criteria list — each requirement is a row with rationale."
+    "description": "Bulleted list under a heading — plain pills, hairline takeaways (optionally numbered criteria with a gloss line), or display-weight principles."
   },
   "lattice: list-steps": {
     "prefix": "lattice-list-steps",

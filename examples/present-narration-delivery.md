@@ -26,7 +26,7 @@ Present holds a long beat on every slide. Open it on a machine set to brisk and 
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 
 `Resolution order`
 

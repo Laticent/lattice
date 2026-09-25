@@ -2,7 +2,7 @@
  * Unit: an absolutely-positioned ORDINAL must reserve its own room.
  *
  * A component that numbers its rows with a counter `::before` has two choices. Make the
- * ordinal a FLEX ITEM (list, list-tabular, list-criteria, authority-chain, agenda,
+ * ordinal a FLEX ITEM (list, list-tabular, authority-chain, agenda,
  * regulatory-update) and the row's own layout keeps the text clear of it — nothing to get
  * wrong. Or position it ABSOLUTELY, which `inventory` must do because its row stacks a
  * block `<strong>` title over its body prose and an in-flow ordinal would break that

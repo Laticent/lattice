@@ -168,7 +168,7 @@ describe('lattice-engine: contract', () => {
   });
 
   test('does NOT double-wrap an already-bold slot label (clean inline tokens)', () => {
-    const md = '<!-- _class: list-criteria -->\n\n## H\n\n- **Speed**\n  - body\n';
+    const md = '<!-- _class: actors -->\n\n## H\n\n- **Speed**\n  - body\n';
     const { html } = makeEngine().render(md, 'lattice');
     assert.match(html, /<strong>Speed<\/strong>/);
     assert.doesNotMatch(html, /<strong><strong>/);

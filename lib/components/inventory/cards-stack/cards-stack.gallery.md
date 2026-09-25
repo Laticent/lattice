@@ -133,7 +133,7 @@ Parallel items stacked vertically, full-width cards.
 - One-line cards
   - If each card is a single short phrase, the stack reads as a padded list. Drop to `list` (or its `takeaway` variant) and reclaim the vertical space.
 - Forced sequence
-  - Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or list-criteria.
+  - Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or `list takeaway numbered`.
 
 ---
 

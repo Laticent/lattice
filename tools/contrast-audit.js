@@ -231,7 +231,7 @@ const PAIRS = [
   // --accent AS INK ON THE TWO PLAIN CANVASES. It was scored on `accent-soft`, and scored
   // as a BACKDROP under `--on-accent` — but never as the foreground it most often is. This
   // engine inks a lot of small text with it: the glossary term, the stats figure, every
-  // decimal-leading-zero list counter (`list`, `list-tabular`, `list-criteria`,
+  // decimal-leading-zero list counter (`list`, `list-tabular`,
   // `inventory`, `q-and-a`, `math`, `list principles`, `regulatory-update`), `big-number`,
   // the `cards-grid` / `table` bullet stars, `cycle`'s chevrons, `timeline-list`,
   // `split-compare`. Measured on the rendered gallery, ONE palette's `--accent` accounts

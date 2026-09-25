@@ -26,7 +26,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 
 ## Every slide resolves to the same three Cells.
 

@@ -310,10 +310,9 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 ## Related components
 
-- [`list-criteria`](../../progression/list-criteria/list-criteria.docs.md) — gating requirements rather than a sequence of actions
 - [`split-panel`](../../statement/split-panel/split-panel.docs.md) — phase label + heading on the left, steps on the right
 - [`roadmap`](../../chart/roadmap/roadmap.docs.md) — phased grid across multiple workstreams
-- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence
+- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions
 - [`funnel`](../../chart/funnel/funnel.docs.md) — a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant
 
 ## Demo deck

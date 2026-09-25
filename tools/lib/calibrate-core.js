@@ -93,7 +93,6 @@ const BUILDERS = {
   kpi: (w) => `1. 42%\n   - ${cap(words(Math.max(1, w - 5)))}\n   - target 40% · +2pp \`On plan\` \`Board\``,
   list: (w) => `- ${cap(words(w))}.`,
   glossary: (w) => `- ${cap(words(1))}\n  - ${cap(words(w - 1))}.`,
-  'list-criteria': (w) => `1. ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
   'list-tabular': (w) => `1. ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
   'timeline-list': (w) => `1. \`2025 Q1\` ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
   'compare-prose': (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,

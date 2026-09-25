@@ -47,7 +47,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 - **A flat FAQ of one-liners.** Six or more terse question/answer pairs you flip back to as a reference belong in `list-tabular` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page.
 - **Rhetorical questions with no answer.** Every question needs a nested answer that genuinely closes it. A bare question used as a section header or a hook is a `divider` or a `statement`, not a Q&A pair.
-- **Evaluation criteria in disguise.** If the top-level item is a requirement you are scoring against (with a rationale below), that is `list-criteria`, not a question you expect to be asked. q-and-a defends; list-criteria evaluates.
+- **Evaluation criteria in disguise.** If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway numbered`, not a question you expect to be asked. q-and-a defends; list takeaway numbered evaluates.
 
 ## Authoring
 
@@ -174,7 +174,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 - [`list-tabular`](../../inventory/list-tabular/list-tabular.docs.md) — many terse question/answer look-ups to flip back to, not a few weighty defenses
 - [`glossary`](../../inventory/glossary/glossary.docs.md) — term/definition reference pairs rather than question/answer pairs
-- [`list-criteria`](../../progression/list-criteria/list-criteria.docs.md) — numbered criteria with rationale — evaluation, not anticipated objections
+- [`list`](../../inventory/list/list.docs.md) — `takeaway numbered`: numbered criteria with rationale — evaluation, not anticipated objections
 - [`cards-stack`](../../inventory/cards-stack/cards-stack.docs.md) — parallel co-equal cards with no question/answer role split
 - [`decision`](../../comparison/decision/decision.docs.md) — a single verdict to state rather than a set of questions to defend
 

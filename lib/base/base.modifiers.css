@@ -427,7 +427,7 @@ section footer {
  *                        verdict-grid/decision/matrix-2x2 (chrome),
  *                        compare-prose (connector), table/roadmap (table)
  *   non-list             content, code, compare-code, image, diagram
- *   needs placement      list, list-criteria, list-tabular
+ *   needs placement      list, list-tabular
  *                        (grid/scaffold rows where margin-left:auto cannot
  *                        right-anchor; opt in by adding a per-layout rule
  *                        modeled on the actors override)
@@ -437,9 +437,9 @@ section footer {
  * full-chrome pill rule (the emulator `.card` path is not inside a ul/ol,
  * so the universal selector can't reach it); the rest rely on this rule.
  * Plus any future layout whose `> li` is `display:flex`. */
-section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-criteria):not(.list-tabular):not(.math):not(.pricing))
+section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-tabular):not(.math):not(.pricing))
   > :where(ul, ol) > li > code:where(:last-child, .lat-pill),
-section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-criteria):not(.list-tabular):not(.math):not(.pricing))
+section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.big-number):not(.kpi):not(.stats):not(.quote):not(.glossary):not(.table):not(.roadmap):not(.agenda):not(.matrix-2x2):not(.decision):not(.verdict-grid):not(.compare-prose):not(.code):not(.compare-code):not(.image):not(.diagram):not(.content):not(.timeline):not(.list-steps):not(.principles):not(.list):not(.list-tabular):not(.math):not(.pricing))
   > .cell-stage > :where(ul, ol) > li > code:where(:last-child, .lat-pill) {
   /* IRREDUCIBLE flex auto-margin (HARD RULE #20 sanctioned floor): pushes the trailing
    * pill to the row's right edge. The preceding label is an ANONYMOUS text run, so it
@@ -1226,7 +1226,7 @@ section .below-note.is-annotation > p::before {
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .team-profile, .verdict-grid, .video
@@ -1247,7 +1247,7 @@ section:is(
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .team-profile, .verdict-grid, .video
@@ -1282,7 +1282,7 @@ section:is(
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .team-profile, .verdict-grid, .video
@@ -1297,7 +1297,7 @@ section:is(
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .team-profile, .verdict-grid, .video
@@ -3100,8 +3100,8 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   /* …and the ROW case: a member alone on its page takes the whole measure, whatever track
      width its component computed for a row of N.
      `auto`, NOT `100%`. Both fill a lone tier, and `100%` also imposes a box on the
-     components that never set one — list-criteria's numbered row sheared its own text under
-     it, because its `li` is not the padded flex child the arithmetic assumes. `auto` returns
+     components that never set one — list-criteria's numbered row (retired 2026-09-25) sheared its
+     own text under it, because its `li` was not the padded flex child the arithmetic assumes. `auto` returns
      the item to a content basis and lets the `flex-grow: 1` above claim the line, so a
      component that stated a track width is neutralized and one that stated nothing is
      untouched. */

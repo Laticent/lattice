@@ -205,7 +205,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ## When NOT to reach for authority-chain.
 
 - Flat list of citations
-  - If the rows have no tier hierarchy, use `list-criteria` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point.
+  - If the rows have no tier hierarchy, use `list takeaway numbered` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point.
 - Missing citation chip
   - The inline-code citation is the row's anchor; without it the gloss reads as opinion. Always cite, even for guidance and case rows.
 - Out-of-order tiers
@@ -220,5 +220,5 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 `Related components`
 
 - `regulatory-update` — period-bounded changelog rather than a single rule's lineage
-- `list-criteria` — flat enumeration of requirements without tier hierarchy
+- `list` — `takeaway numbered`: flat enumeration of requirements without tier hierarchy
 - `list-steps` — the rows are procedural steps rather than authority tiers

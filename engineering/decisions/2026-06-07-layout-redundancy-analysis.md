@@ -276,3 +276,25 @@ done and verified:
 A minor follow-up from 1a: the cards-grid post-processor in `lattice-emulator.js`
 and `lib/runtime/index.js` still name-checks `cards-side` as a harmless no-op
 (left to avoid a bundle rebuild).
+
+## Follow-up (2026-09-25): `list-criteria` folded into `list`
+
+The "borderline; keep for now" call on `list-criteria` (§ Keep) is reversed.
+Two findings decided it:
+
+- **Same markdown, same meaning as a variant `list` already had.**
+  `list takeaway numbered` drew ruled rows with a fixed-size accent counter.
+  The only gap was a nested `- reason` bullet, which rendered inline on the
+  lead's line. `takeaway` now stacks that bullet as a muted line under a bold
+  lead (`:is(ul,ol):has(> li > :is(ul,ol))` in `list.styles.css`). No existing `takeaway` slide had
+  a nested bullet, so the change moved no shipped slide.
+- **The component had drifted into jank.** Its counter was `font-size: 55cqh`
+  on a `container-type: size` row, so the number grew as the row count fell
+  (67.1px in `jank-census.md`). Its main rules targeted a `.crit-body` wrapper
+  that no render path emitted any more, so every slide fell through to the
+  bare-renderer fallback, which centered the text across the full measure.
+
+The owner compared `list-steps`, `list principles` and `list takeaway numbered`
+side by side and picked the last. Migration was a **hard break**: the class is
+deleted, the 36 in-repo slides are rewritten, and `lint:deck` names the
+replacement through `RENAMED_CLASSES` in `lib/authoring/lint-core.js`.

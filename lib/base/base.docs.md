@@ -578,7 +578,7 @@ problem → cause → fix, or step 1 → step 2 → step 3.
 
 **Layouts that auto-number when authored as `ol`:** `cards-grid`,
 `cards-stack` (incl. `horizontal`), `list`,
-`list-criteria`, `list-steps`, `list-tabular`, `split-panel`, `timeline`,
+`list-steps`, `list-tabular`, `split-panel`, `timeline`,
 `principles`.
 
 Each layout owns its own counter style (corner tag, header pill, mono

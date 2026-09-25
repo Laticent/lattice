@@ -156,7 +156,7 @@ header: "Lattice · cards-grid"
 - More than 4 items
   - Split into multiple slides instead. The grid loses scannability past 4 cards.
 - Order carries meaning
-  - Use list-steps or list-criteria. cards-grid is for parallel options, not sequences.
+  - Use list-steps or `list takeaway numbered`. cards-grid is for parallel options, not sequences.
 - Lopsided density
   - Equalize the prose when one card has three sentences and the rest have one. Otherwise change layout.
 - Inline-code-only body

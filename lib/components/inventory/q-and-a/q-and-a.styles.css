@@ -1,7 +1,7 @@
 /* q-and-a — anticipated questions paired with prepared answers. The
  * end-of-pitch "what we expect to be asked" slide: a few weighty defenses of
  * a recommendation. Distinct from a reference `faq` (many terse look-ups) and
- * from `list-criteria` (evaluation criteria + rationale).
+ * from `list takeaway numbered` (evaluation criteria + rationale).
  *
  * Substance: structure. Pure CSS over the native nested list — no
  * post-processor, so no three-render-path wiring. The author writes:

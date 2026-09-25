@@ -111,7 +111,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: full -->
 
 ## The three changes we're carrying into H2 planning.

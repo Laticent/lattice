@@ -320,8 +320,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 `Related components`
 
-- `list-criteria` — gating requirements rather than a sequence of actions
 - `split-panel` — phase label + heading on the left, steps on the right
 - `roadmap` — phased grid across multiple workstreams
-- `list` — tenets or values (the `principles` variant) rather than a sequence
+- `list` — tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions
 - `funnel` — a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant

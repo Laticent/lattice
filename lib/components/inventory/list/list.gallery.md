@@ -11,7 +11,7 @@ header: "Lattice · list"
 
 `Inventory · Stack · Prose`
 
-Bulleted list under a heading — plain pills, hairline takeaways, or display-weight principles.
+Bulleted list under a heading — plain pills, hairline takeaways (optionally numbered criteria with a gloss line), or display-weight principles.
 
 ---
 
@@ -56,13 +56,16 @@ Bulleted list under a heading — plain pills, hairline takeaways, or display-we
 ---
 
 <!-- _class: list takeaway numbered -->
-<!-- _footer: "numbered · list numbered — Accent counters on the takeaway box." -->
+<!-- _footer: "numbered · list numbered — Accent counters on the takeaway rows; add a nested gloss for criteria." -->
 
-## numbered ranks the boxed findings.
+## Criteria are gates: clear them in order.
 
-- Ranks turn findings into priorities.
-- The top line owns the meeting.
-- Three ranked lines beat six flat ones.
+1. State the bar
+   - Each criterion is a pass-or-fail line, not a preference.
+2. Order by veto power
+   - The criterion most likely to kill goes first.
+3. Keep the list short
+   - Three gates decide; six gates stall.
 
 
 ---
@@ -169,7 +172,7 @@ Bulleted list under a heading — plain pills, hairline takeaways, or display-we
 ## When NOT to reach for list.
 
 - Title plus body per item
-  - If each bullet is `**Title.** body`, the layout under-serves it. Move to cards-stack (2-3 items) or list-tabular (5+ rows) instead.
+  - If each bullet is `**Title.** body` on one line, the layout under-serves it. Nest the body as a `- gloss` bullet under a `takeaway` item (the lead then stacks over it), or move to cards-stack (2-3 items) or list-tabular (5+ rows).
 - Wall of long bullets
   - Past twelve words per line the slide becomes paragraph soup. Either trim or move to content for prose, cards-stack for structured items.
 - Two-item lists

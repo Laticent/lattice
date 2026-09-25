@@ -87,7 +87,7 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- _footer: "How the register is built." -->
 
 ## One token, and every default survives it.

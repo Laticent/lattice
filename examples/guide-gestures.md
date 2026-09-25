@@ -15,7 +15,7 @@ Turn Guide on in Present and read this deck. Each slide is a different shape, an
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 
 `The vocabulary`
 

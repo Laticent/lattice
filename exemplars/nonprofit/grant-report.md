@@ -48,7 +48,7 @@ The Hartwell Foundation's $750,000 grant ran July 2024 through June 2026. It fun
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: short -->
 
 ## The outcomes this grant committed to.

@@ -50,7 +50,7 @@ We have three squads for one quarter — six initiatives, no more. The job today
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: standard -->
 
 ## The two criteria we score every idea against.

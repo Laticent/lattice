@@ -41,7 +41,7 @@ We spend most syncs reporting status that already lives in the tracker. Today we
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: standard -->
 
 ## The three decisions on the table today.

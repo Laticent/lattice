@@ -18,8 +18,8 @@
     "perPage": 1,
     "soft": 3,
     "hard": 3,
-    "escalateTo": ["list-criteria", "split across slides"],
-    "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three"
+    "escalateTo": ["list takeaway numbered", "split across slides"],
+    "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to a `list takeaway numbered` slide and keep the recommendation slide to its strongest three"
   },
   "density": {
     "axis": "item",
@@ -29,7 +29,7 @@
   },
   "tags": ["recommendation", "regulation", "risk", "takeaway"],
   "description": "A legislative recommendation — a stance verdict beside the recommendation, its evidence, and the specific ask to lawmakers.",
-  "purpose": "Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.",
+  "purpose": "Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list takeaway numbered`.",
   "variants": ["adopt", "amend", "oppose", "defer"],
   "families": [],
   "slots": {
@@ -86,7 +86,7 @@
     },
     {
       "title": "More than four reasons",
-      "body": "Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list-criteria`."
+      "body": "Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list takeaway numbered`."
     },
     {
       "title": "A recommendation with no ask",
@@ -107,8 +107,8 @@
       "when": "naming a chosen path among options already presented"
     },
     {
-      "name": "list-criteria",
-      "when": "a flat enumeration of requirements without a stance or an ask"
+      "name": "list",
+      "when": "`takeaway numbered`: a flat enumeration of requirements without a stance or an ask"
     },
     {
       "name": "regulatory-update",

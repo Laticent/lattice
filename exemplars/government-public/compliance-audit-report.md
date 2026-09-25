@@ -121,7 +121,7 @@ Filled = high exposure, half = moderate, empty = controlled.
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: full -->
 
 ## What management has committed to, and by when.

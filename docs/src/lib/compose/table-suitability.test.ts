@@ -54,7 +54,7 @@ describe('slideTakesTable', () => {
 	// figure to damage — measured, these components show a figure height of 0 — so a table is
 	// an ordinary second block there.
 	it('offers it on open list-flow layouts, which have no figure to compete with', () => {
-		for (const cls of ['list', 'list-criteria', 'list-steps', 'agenda', 'actors', 'checklist', 'inventory', 'q-and-a', 'policy-recommendation', 'regulatory-update']) {
+		for (const cls of ['list', 'list-steps', 'agenda', 'actors', 'checklist', 'inventory', 'q-and-a', 'policy-recommendation', 'regulatory-update']) {
 			expect(slideTakesTable(d(cls)), cls).toBe(true);
 		}
 	});

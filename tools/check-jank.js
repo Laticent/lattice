@@ -533,9 +533,9 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
    * positioned descendant, and this engine puts `container-type: size` on every section.
    * Walking on `position` alone resolves the SECTION-level case correctly by accident (the
    * section is `position: relative` as well as `container-type: size`) and the nested one
-   * wrongly: shipped `list-criteria` puts `container-type: size` on a STATIC `ol`/`ul` that
-   * hosts a positioned `li::before`, so a position-only walk skips past it to the section
-   * and places every bullet against the wrong origin.
+   * wrongly: `list-criteria` (retired 2026-09-25) put `container-type: size` on a STATIC
+   * `ol`/`ul` that hosted a positioned `li::before`, so a position-only walk skipped past it to the section
+   * and placed every bullet against the wrong origin.
    */
   const establishesCb = (el) => {
     const cs = getComputedStyle(el);

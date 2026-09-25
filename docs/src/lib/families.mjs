@@ -27,7 +27,7 @@ export const FAMILY_DEFS = [
 	{ key: 'titles', label: 'Titles & breaks', members: ['title', 'divider', 'closing', 'topic'] },
 	{ key: 'statements', label: 'Statements', members: ['big-number', 'content', 'quote'] },
 	{ key: 'numbers', label: 'Numbers & KPIs', members: ['kpi', 'stats'] },
-	{ key: 'lists', label: 'Lists & inventories', members: ['list', 'list-tabular', 'checklist', 'agenda', 'actors', 'glossary', 'list-steps', 'list-criteria', 'logo-wall', 'q-and-a'] },
+	{ key: 'lists', label: 'Lists & inventories', members: ['list', 'list-tabular', 'checklist', 'agenda', 'actors', 'glossary', 'list-steps', 'logo-wall', 'q-and-a'] },
 	{ key: 'cards', label: 'Cards', members: ['cards-grid', 'cards-stack'] },
 	{ key: 'compare', label: 'Compare', members: ['compare-prose', 'table', 'decision', 'matrix-2x2', 'redline', 'verdict-grid', 'pricing'] },
 	{ key: 'timelines', label: 'Timelines & roadmaps', members: ['timeline-list', 'roadmap'] },

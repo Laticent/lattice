@@ -48,7 +48,7 @@ Accounts over $50K have no dedicated owner after the sale. They onboard themselv
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: short -->
 
 ## What a Customer Success team would own.

@@ -102,7 +102,7 @@
     },
     {
       "title": "Forced sequence",
-      "body": "Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or list-criteria."
+      "body": "Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or `list takeaway numbered`."
     }
   ],
   "related": [

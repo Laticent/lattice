@@ -1,12 +1,12 @@
 # list
 
-> Bulleted list under a heading — plain pills, hairline takeaways, or display-weight principles.
+> Bulleted list under a heading — plain pills, hairline takeaways (optionally numbered criteria with a gloss line), or display-weight principles.
 
 **Function** inventory · **Form** stack · **Substance** prose
 
-**Tags** `overview` · `summary` · `takeaway` · `walkthrough`
+**Tags** `overview` · `summary` · `takeaway` · `walkthrough` · `requirements`
 
-Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr); the `principles` variant renders display-weight numbered statements with a large counter (former principles). For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.
+Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr), and an item with a nested `- gloss` bullet stacks a bold lead over a muted gloss line (with `numbered`, the former list-criteria); the `principles` variant renders display-weight numbered statements with a large counter (former principles). For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.
 
 ## Agent contract
 
@@ -26,7 +26,7 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 - **default (no modifier).** A flat set of accent-bordered pill points — the plainest bulleted list, no special framing.
 - **`takeaway`.** The list closes a section with headline-weight conclusions — hairline-ruled single lines instead of pills.
 - **`principles`.** The items are declared tenets or house rules — display-weight numbered statements with a large accent counter.
-- **`numbered`.** A `takeaway` box needs to read as ranked priorities, not just findings — adds an accent counter.
+- **`numbered`.** A `takeaway` box needs to read as ranked priorities, not just findings — adds an accent counter. With a nested `- gloss` under each item it is the criteria ledger: numbered requirements, each with its reason.
 - **`lettered`.** Under `principles`, the order is arbitrary rather than sequential — letters read as options, not a ranking.
 - **`roman`.** The principles are a formal charter or mandate that wants numeral gravitas — reserve for a short list, past five it reads as parody.
 - **`bullet`.** The principles are true peers with no ranking or sequence at all — strips the counter back to plain dots.
@@ -42,11 +42,12 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 - **Numbered when order matters.** Use `ol` (`1.` source) when sequence is load-bearing; `ul` when order is interchangeable. Numbers render as a tabular leading column.
 - **Pills via inline code.** Inline code at the end of a row becomes a pill (status tag, metric, owner). Lets the list double as a lightweight ledger without changing layout.
 - **Takeaways at a section close.** The `takeaway` variant renders each item as a hairline-ruled single line at message weight — the deck or section's headline points. Add `numbered` for a large accent counter. (Absorbed the standalone `tldr` component on 2026-06-07.)
+- **Criteria a decision must meet.** `takeaway numbered` with a nested `- gloss` under each item stacks a bold lead over a muted reason line, with a fixed-size counter in a left gutter. Numbering reads as priority: put the criterion most likely to veto first. (Absorbed the standalone `list-criteria` component on 2026-09-25.)
 - **Declared principles or tenets.** The `principles` variant renders an ordered list of single-sentence declarations at display weight with a large accent counter. Compose `lettered`, `roman`, or `bullet` to switch the counter format. (Absorbed the standalone `principles` component on 2026-06-07.)
 
 ## When NOT to use
 
-- **Title plus body per item.** If each bullet is `**Title.** body`, the layout under-serves it. Move to cards-stack (2-3 items) or list-tabular (5+ rows) instead.
+- **Title plus body per item.** If each bullet is `**Title.** body` on one line, the layout under-serves it. Nest the body as a `- gloss` bullet under a `takeaway` item (the lead then stacks over it), or move to cards-stack (2-3 items) or list-tabular (5+ rows).
 - **Wall of long bullets.** Past twelve words per line the slide becomes paragraph soup. Either trim or move to content for prose, cards-stack for structured items.
 - **Two-item lists.** Two bullets read as a thin slide. For pairs, reach for compare-prose — it gives the pair the weight it deserves.
 
@@ -114,16 +115,19 @@ Numbered declarations at display weight.
 
 ### `numbered` — numbered
 
-Accent counters on the takeaway box.
+Accent counters on the takeaway rows; add a nested gloss for criteria.
 
 ```markdown
 <!-- _class: list takeaway numbered -->
 
-## numbered ranks the boxed findings.
+## Criteria are gates: clear them in order.
 
-- Ranks turn findings into priorities.
-- The top line owns the meeting.
-- Three ranked lines beat six flat ones.
+1. State the bar
+   - Each criterion is a pass-or-fail line, not a preference.
+2. Order by veto power
+   - The criterion most likely to kill goes first.
+3. Keep the list short
+   - Three gates decide; six gates stall.
 ```
 
 ### `lettered` — lettered

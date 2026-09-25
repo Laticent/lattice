@@ -54,10 +54,11 @@
     "overview",
     "summary",
     "takeaway",
-    "walkthrough"
+    "walkthrough",
+    "requirements"
   ],
-  "description": "Bulleted list under a heading — plain pills, hairline takeaways, or display-weight principles.",
-  "purpose": "Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr); the `principles` variant renders display-weight numbered statements with a large counter (former principles). For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.",
+  "description": "Bulleted list under a heading — plain pills, hairline takeaways (optionally numbered criteria with a gloss line), or display-weight principles.",
+  "purpose": "Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr), and an item with a nested `- gloss` bullet stacks a bold lead over a muted gloss line (with `numbered`, the former list-criteria); the `principles` variant renders display-weight numbered statements with a large counter (former principles). For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.",
   "variants": [
     "takeaway",
     "principles",
@@ -103,6 +104,10 @@
       "body": "The `takeaway` variant renders each item as a hairline-ruled single line at message weight — the deck or section's headline points. Add `numbered` for a large accent counter. (Absorbed the standalone `tldr` component on 2026-06-07.)"
     },
     {
+      "title": "Criteria a decision must meet",
+      "body": "`takeaway numbered` with a nested `- gloss` under each item stacks a bold lead over a muted reason line, with a fixed-size counter in a left gutter. Numbering reads as priority: put the criterion most likely to veto first. (Absorbed the standalone `list-criteria` component on 2026-09-25.)"
+    },
+    {
       "title": "Declared principles or tenets",
       "body": "The `principles` variant renders an ordered list of single-sentence declarations at display weight with a large accent counter. Compose `lettered`, `roman`, or `bullet` to switch the counter format. (Absorbed the standalone `principles` component on 2026-06-07.)"
     }
@@ -110,7 +115,7 @@
   "antiPatterns": [
     {
       "title": "Title plus body per item",
-      "body": "If each bullet is `**Title.** body`, the layout under-serves it. Move to cards-stack (2-3 items) or list-tabular (5+ rows) instead."
+      "body": "If each bullet is `**Title.** body` on one line, the layout under-serves it. Nest the body as a `- gloss` bullet under a `takeaway` item (the lead then stacks over it), or move to cards-stack (2-3 items) or list-tabular (5+ rows)."
     },
     {
       "title": "Wall of long bullets",
@@ -148,8 +153,8 @@
     },
     "numbered": {
       "label": "numbered",
-      "summary": "Accent counters on the takeaway box.",
-      "sample": "<!-- _class: list takeaway numbered -->\n\n## numbered ranks the boxed findings.\n\n- Ranks turn findings into priorities.\n- The top line owns the meeting.\n- Three ranked lines beat six flat ones.\n"
+      "summary": "Accent counters on the takeaway rows; add a nested gloss for criteria.",
+      "sample": "<!-- _class: list takeaway numbered -->\n\n## Criteria are gates: clear them in order.\n\n1. State the bar\n   - Each criterion is a pass-or-fail line, not a preference.\n2. Order by veto power\n   - The criterion most likely to kill goes first.\n3. Keep the list short\n   - Three gates decide; six gates stall.\n"
     },
     "lettered": {
       "label": "lettered",
@@ -192,7 +197,7 @@
     },
     {
       "variant": "numbered",
-      "useWhen": "A `takeaway` box needs to read as ranked priorities, not just findings — adds an accent counter."
+      "useWhen": "A `takeaway` box needs to read as ranked priorities, not just findings — adds an accent counter. With a nested `- gloss` under each item it is the criteria ledger: numbered requirements, each with its reason."
     },
     {
       "variant": "lettered",

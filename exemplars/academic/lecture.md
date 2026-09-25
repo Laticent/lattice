@@ -113,7 +113,7 @@ Colonies hosting the heat-tolerant clade grew 22% slower in normal years. The pa
 
 ---
 
-<!-- _class: list-criteria -->
+<!-- _class: list takeaway numbered -->
 <!-- tier: short -->
 
 ## What a coral needs to survive the next marine heatwave.

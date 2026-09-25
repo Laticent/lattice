@@ -119,7 +119,7 @@
     },
     {
       "title": "Evaluation criteria in disguise",
-      "body": "If the top-level item is a requirement you are scoring against (with a rationale below), that is `list-criteria`, not a question you expect to be asked. q-and-a defends; list-criteria evaluates."
+      "body": "If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway numbered`, not a question you expect to be asked. q-and-a defends; list takeaway numbered evaluates."
     }
   ],
   "variantDocs": {
@@ -159,8 +159,8 @@
       "when": "term/definition reference pairs rather than question/answer pairs"
     },
     {
-      "name": "list-criteria",
-      "when": "numbered criteria with rationale — evaluation, not anticipated objections"
+      "name": "list",
+      "when": "`takeaway numbered`: numbered criteria with rationale — evaluation, not anticipated objections"
     },
     {
       "name": "cards-stack",

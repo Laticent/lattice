@@ -96,7 +96,7 @@
   "antiPatterns": [
     {
       "title": "Flat list of citations",
-      "body": "If the rows have no tier hierarchy, use `list-criteria` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point."
+      "body": "If the rows have no tier hierarchy, use `list takeaway numbered` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point."
     },
     {
       "title": "Missing citation chip",
@@ -113,8 +113,8 @@
       "when": "period-bounded changelog rather than a single rule's lineage"
     },
     {
-      "name": "list-criteria",
-      "when": "flat enumeration of requirements without tier hierarchy"
+      "name": "list",
+      "when": "`takeaway numbered`: flat enumeration of requirements without tier hierarchy"
     },
     {
       "name": "list-steps",

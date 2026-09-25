@@ -229,11 +229,6 @@
         "heading"
       ]
     },
-    "list-criteria": {
-      "surfaces": [
-        "heading"
-      ]
-    },
     "list-steps": {
       "surfaces": [
         "card-row",

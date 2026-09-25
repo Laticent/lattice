@@ -195,7 +195,7 @@ Error rates for the proposed system are unpublished for the populations it would
 - Weighing two options
   - If the slide compares alternatives before choosing, use `split-compare` — its right zone is a 2-option grid plus a verdict card. policy-recommendation states one already-chosen position.
 - More than four reasons
-  - Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list-criteria`.
+  - Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list takeaway numbered`.
 - A recommendation with no ask
   - Omitting the closing blockquote leaves the reader with a position but no action. Always name the specific legislative move — the bill, the section, the vote.
 - A topic-label heading
@@ -211,5 +211,5 @@ Error rates for the proposed system are unpublished for the populations it would
 
 - `split-compare` — two options weighed before a verdict card
 - `decision` — naming a chosen path among options already presented
-- `list-criteria` — a flat enumeration of requirements without a stance or an ask
+- `list` — `takeaway numbered`: a flat enumeration of requirements without a stance or an ask
 - `regulatory-update` — a period digest of what changed, not a recommendation on one measure
