@@ -482,26 +482,19 @@
  * wrapping row so the width is used instead of running off the bottom. Keyed on
  * the deck's `data-family` stamp; landscape (side-by-side board) untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-board,
-:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-board {
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-board {
   flex-direction: column;
   height: 100%;
   justify-content: space-evenly;
 }
-section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-cards,
-:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-cards { flex-direction: row; flex-wrap: wrap; }
-section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-card,
-:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-card { flex: 1 1 14cqi; min-width: 0; }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-cards { flex-direction: row; flex-wrap: wrap; }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-card { flex: 1 1 14cqi; min-width: 0; }
 
 /* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
  * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
  * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-board,
-:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-board { justify-content: flex-start; }
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-column,
-:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-column { width: 100%; }
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-cards,
-:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-card,
-:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-board { justify-content: flex-start; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-column { width: 100%; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
 

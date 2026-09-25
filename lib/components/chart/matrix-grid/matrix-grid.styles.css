@@ -380,17 +380,14 @@ section.matrix-grid.chart-frame .chart-caption::before {
  * above on specificity (`:where()` contributes 0), so SOURCE ORDER is what makes
  * them win — the same construction, and the same reason, as roadmap's portrait
  * arm. Moving this block up silently disables it. */
-section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td .cell,
-:where([data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure td .cell {
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td .cell {
   font-size: var(--fs-meta);
   padding: 0.390625cqi var(--sp-2xs);
 }
-section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td:first-child,
-:where([data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure td:first-child {
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td:first-child {
   font-size: var(--fs-body-compact);
 }
-section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td,
-:where([data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure td {
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td {
   padding: 0.15625cqi var(--sp-2xs);
 }
 /* AND the table goes back to `auto` on every family EXCEPT wide, which is where
@@ -467,8 +464,7 @@ section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-g
  * express (there the stamp sits on an ANCESTOR, not on the figure). A fifth
  * family would land here as `auto`, which is today's shipped behavior — the
  * fail-safe direction. */
-section.matrix-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .matrix-grid-figure table,
-:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure table {
+section.matrix-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .matrix-grid-figure table {
   table-layout: auto;
 }
 

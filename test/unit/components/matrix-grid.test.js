@@ -231,9 +231,13 @@ describe('matrix-grid column geometry', () => {
           'with no clip probe and no golden to catch it (square, 25.2px, mode:sketch 44.5px)',
       );
     }
+    // No figure half: the family stamp sits on the SLIDE's section, and the Read · Article
+    // figure has no stamped ancestor on any surface, so a `:where([data-family]) figure.…` arm
+    // matched nothing (37 such arms across five charts, removed 2026-09-25,
+    // followups.d/2344-p3). The figure lays out by the article column's width instead.
     assert.ok(
-      selector.includes('figure.matrix-grid'),
-      'the arm must cover the figure render path too, where the family stamp sits on an ancestor',
+      !selector.includes('figure.matrix-grid'),
+      'a figure half keyed on [data-family] has no producer: nothing stamps an ancestor of the re-hosted figure',
     );
   });
 
@@ -265,9 +269,8 @@ describe('matrix-grid column geometry', () => {
     assert.match(
       selector,
       /section\.matrix-grid:where\(/,
-      'the arm must carry `section.matrix-grid:where(…)`. The figure half only reaches the ' +
-        'Read · Article re-host (matrix-grid is a FLOW figure since 2026-09-25), so dropping the ' +
-        'section half leaves every narrow family on a SLIDE back on the fixed layout',
+      'the arm must carry `section.matrix-grid:where(…)`, its only half: dropping it leaves ' +
+        'every narrow family on a SLIDE back on the fixed layout',
     );
   });
 
