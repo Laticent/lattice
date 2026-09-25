@@ -2030,6 +2030,80 @@ export function planSlide(texts: readonly string[], aim: (text: string) => Eleme
 	return { gesture: new Set(chosen.map((r) => r.cue)), top: chosen[0]?.cue ?? -1, aimed };
 }
 
+// ── CONTENT MARKS — the gesture that changes the slide rather than drawing on it ─────────────
+//
+// Ink draws over the content; a content mark sets a state ON it: the named list item, table row,
+// chart mark or series stays full while its peers recede. It is the `_focus:` treatment, applied
+// live — the same `.lat-focus` / `.lat-recede` classes and `data-focus-*` section attributes, so
+// every look comes from `lib/base/base.focus.css` and every theme gets it with no new CSS color
+// (HARD RULE #3). `data-focus-live` is the one addition: it scopes a fade to the live surface,
+// so a PDF, which never carries it, stays byte-identical.
+//
+// Two rules keep it honest. It never marks a slide the DECK already focused (`_focus:` resolved
+// there), because the author's focus outranks the Guide's. And it always returns its own undo,
+// which the caller runs on the next gesture, on a slide change, and when Guide switches off: a
+// mark left behind would be a lie about what is being said.
+
+/** The unit a content mark names for `el`, its peers, and the `_focus` axis it matches. */
+function markUnit(el: Element): { unit: Element[]; peers: Element[]; axis: string } | null {
+	const section = el.closest('section');
+	if (!section) return null;
+	const chart = el.closest('.chart-body') ?? section;
+	for (const attr of ['data-mark', 'data-series'] as const) {
+		const v = el.closest(`[${attr}]:not(template)`)?.getAttribute(attr);
+		if (v == null) continue;
+		const all = [...chart.querySelectorAll(`[${attr}]`)].filter((m) => !m.closest('template') && !m.closest(UNPAINTED));
+		const unit = all.filter((m) => m.getAttribute(attr) === v);
+		return { unit, peers: all.filter((m) => !unit.includes(m)), axis: attr === 'data-mark' ? 'mark' : 'series' };
+	}
+	const row = el.closest('tbody > tr');
+	if (row?.parentElement) return { unit: [row], peers: [...row.parentElement.children].filter((r) => r !== row), axis: 'row' };
+	const li = el.closest('li');
+	if (li?.parentElement && /^(UL|OL)$/.test(li.parentElement.tagName)) {
+		// The TOP-level item: a nested bullet names its card, as `_focus: item` does.
+		let top: Element = li;
+		for (let up = top.parentElement?.closest('li'); up && section.contains(up); up = up.parentElement?.closest('li')) top = up;
+		const list = top.parentElement as Element;
+		return { unit: [top], peers: [...list.children].filter((c) => c !== top && c.tagName === 'LI'), axis: 'item' };
+	}
+	return null;
+}
+
+/**
+ * Mark the content `el` names, and return the undo. A no-op (with a no-op undo) when `el` is not
+ * part of a list, a table body, or a chart's marks, or when the deck already focused the slide.
+ */
+export function markContent(el: Element, style?: 'spotlight' | 'ring'): () => void {
+	const section = el.closest('section');
+	const found = markUnit(el);
+	if (!section || !found || !found.peers.length) return () => {};
+	if (section.hasAttribute('data-focus-resolved') && !section.hasAttribute('data-focus-live')) return () => {};
+	// The look `_focus:` would pick for the same axis: a row is ringed so the comparison across
+	// the table stays legible; everything else spotlights.
+	const look = style ?? (found.axis === 'row' ? 'ring' : 'spotlight');
+	const attrs = { 'data-focus-live': '', 'data-focus-resolved': '', 'data-focus-axis': found.axis, 'data-focus-style': look };
+	const before = Object.fromEntries(Object.keys(attrs).map((k) => [k, section.getAttribute(k)]));
+	for (const [k, v] of Object.entries(attrs)) section.setAttribute(k, v);
+	const added: [Element, string][] = [];
+	const tag = (e: Element, cls: string) => {
+		if (e.classList.contains(cls)) return;
+		e.classList.add(cls);
+		added.push([e, cls]);
+	};
+	for (const e of found.unit) tag(e, 'lat-focus');
+	for (const e of found.peers) tag(e, 'lat-recede');
+	return () => {
+		for (const [e, cls] of added) e.classList.remove(cls);
+		// `data-focus-live` stays until the slide changes, so the peers FADE back rather than snap:
+		// the transition rule is scoped on it. Everything else returns to what the deck had.
+		for (const [k, v] of Object.entries(before)) {
+			if (k === 'data-focus-live') continue;
+			if (v == null) section.removeAttribute(k);
+			else section.setAttribute(k, v);
+		}
+	};
+}
+
 /**
  * Is the element the hand last named still on the slide being shown? `PresentOverlay`'s hold asks
  * this before it keeps the hand resting through a sentence that names nothing: after a slide

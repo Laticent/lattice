@@ -36,7 +36,8 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX, planSlide, type SlidePlan } from './present-guide';
+import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown,
+	markContent, POINTER_BOX, planSlide, type SlidePlan } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 
@@ -944,6 +945,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const guideAimRef = React.useRef<Element | null>(null);
 	// The current slide's salience plan, keyed on the slide and its track (see THE PLAN below).
 	const guidePlanRef = React.useRef<{ slide: number; track: unknown; plan: SlidePlan } | null>(null);
+	// The undo of the content mark in force (`markContent`), run on every retarget, hide and teardown.
+	const guideMarkRef = React.useRef<(() => void) | null>(null);
+	const unmarkGuide = React.useCallback(() => {
+		guideMarkRef.current?.();
+		guideMarkRef.current = null;
+	}, []);
 	const guideLive = open && guideOn && !rehearse;
 	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
 	// cursor's visibility and whether the real one may be hidden — see the two notes below.
@@ -1004,12 +1011,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			guideStageRef.current = null;
 			guideShownRef.current = false;
 			guideAimRef.current = null; // the next run starts with no "last named thing" to rest on
+			unmarkGuide(); // a mark must not outlive the Guide that made it
 			setGuideAiming(false); // no stage, nothing aimed — and the real pointer comes straight back
 			stage.destroy();
 		};
 		// `motion: 'system'` for a full-motion preset, so a reduced-motion device still lands on
 		// `legible`: a preset may ask for less motion than the viewer's setting, never more.
-	}, [guideLive, guideRoot, delivery.motion]);
+	}, [guideLive, guideRoot, delivery.motion, unmarkGuide]);
 
 	// Move on the reader's beat — but on the BLOCK, not on the sentence.
 	//
@@ -1084,6 +1092,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				guidePointRef.current?.abort();
 				guidePointRef.current = null;
 				guideAimRef.current = null;
+				unmarkGuide();
 				stage.setCursorVisible(false);
 				guideShownRef.current = false;
 				setGuideAiming(false);
@@ -1095,11 +1104,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// already resting on keeps it resting. Hiding there made the pointer blink out and back
 		// between two gestures on the same slide, which reads as a glitch, not as a pause.
 		if (!cue && guideShownRef.current && guideStillShown(guideAimRef.current)) return;
-		setGuideAiming(!!cue);
+		// A preset with no ink (somber) shows no cursor, so the viewer's own pointer stays.
+		setGuideAiming(!!cue && delivery.ink);
 		if (!cue) {
 			guidePointRef.current?.abort();
 			guidePointRef.current = null;
 			guideAimRef.current = null;
+			unmarkGuide();
 			stage.setCursorVisible(false);
 			guideShownRef.current = false;
 			return;
@@ -1108,6 +1119,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const ctl = new AbortController();
 		guidePointRef.current = ctl;
 		guideAimRef.current = cue.el;
+		// THE CONTENT MARK. A preset that marks content spotlights the named item, row, chart mark
+		// or series on the slide itself: somber on every moment it names (instead of ink),
+		// expressive on its top moment (beside the ink). The previous mark goes first, always.
+		unmarkGuide();
+		if (delivery.marks === 'all' || (delivery.marks === 'top' && top)) guideMarkRef.current = markContent(cue.el);
+		if (!delivery.ink) {
+			// No cursor and no ink: the mark IS the gesture. "Shown" here means "a named thing is
+			// live on the slide", which is what the rest and the hold above ask.
+			guideShownRef.current = true;
+			return;
+		}
 		// THE CURSOR'S KEEP-OUT is its own 28px footprint plus a hair, in PARENT pixels — the
 		// space Vetrina's stage works in. The frame-scale conversion belongs on the other side of
 		// the bridge, where the slide's own coordinates are (`guideCueFor`).

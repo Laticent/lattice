@@ -16,6 +16,7 @@ import {
 	guideStillShown,
 	hasOwnBoundary,
 	headerRange,
+	markContent,
 	markerBox,
 	POINTER_BOX,
 	planSlide,
@@ -274,6 +275,60 @@ describe('planSlide — the salience budget', () => {
 		const [north, , emea, apac] = [...d.querySelectorAll('rect')];
 		expect(salience(emea)).toBeGreaterThan(salience(north));
 		expect(salience(apac)).toBe(salience(north));
+	});
+});
+
+describe('markContent — the live content gesture', () => {
+	it('spotlights the top-level item a nested bullet belongs to, and undoes itself cleanly', () => {
+		const d = doc('<ul><li>One<ul><li>detail</li></ul></li><li>Two</li><li>Three</li></ul>');
+		const sec = d.querySelector('section') as Element;
+		const [one, detail, two, three] = [...d.querySelectorAll('li')];
+		const undo = markContent(detail);
+		expect(one.classList.contains('lat-focus')).toBe(true);
+		expect([two, three].every((li) => li.classList.contains('lat-recede'))).toBe(true);
+		expect(detail.classList.length).toBe(0);
+		expect(sec.getAttribute('data-focus-axis')).toBe('item');
+		expect(sec.getAttribute('data-focus-style')).toBe('spotlight');
+		undo();
+		expect([one, two, three].some((li) => li.className)).toBe(false);
+		expect(sec.hasAttribute('data-focus-resolved')).toBe(false);
+		// The live scope stays so the peers fade back instead of snapping.
+		expect(sec.hasAttribute('data-focus-live')).toBe(true);
+	});
+
+	it('rings a table body row, as `_focus: row` would', () => {
+		const d = doc('<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>r1</td></tr><tr><td>r2</td></tr></tbody></table>');
+		const [r1, r2] = [...d.querySelectorAll('tbody tr')];
+		markContent(r2.querySelector('td') as Element);
+		expect(r2.classList.contains('lat-focus')).toBe(true);
+		expect(r1.classList.contains('lat-recede')).toBe(true);
+		expect(d.querySelector('section')?.getAttribute('data-focus-style')).toBe('ring');
+	});
+
+	it('marks every twin of a chart mark and recedes the other marks', () => {
+		const d = doc(`<div class="chart-body"><svg><rect data-mark="0"/><rect data-mark="1"/><rect data-mark="2"/></svg>
+			<template class="chart-detail" data-mark="1"></template></div>`);
+		const [a, b, c] = [...d.querySelectorAll('rect')];
+		markContent(b);
+		expect(b.classList.contains('lat-focus')).toBe(true);
+		expect([a, c].every((r) => r.classList.contains('lat-recede'))).toBe(true);
+		expect(d.querySelector('template')?.className).toBe('chart-detail');
+		expect(d.querySelector('section')?.getAttribute('data-focus-axis')).toBe('mark');
+	});
+
+	it('leaves a slide the deck already focused alone', () => {
+		const d = doc('<ul><li class="lat-focus">One</li><li class="lat-recede">Two</li></ul>');
+		d.querySelector('section')?.setAttribute('data-focus-resolved', '');
+		const two = d.querySelectorAll('li')[1];
+		markContent(two)();
+		expect(two.className).toBe('lat-recede');
+		expect(d.querySelector('li')?.className).toBe('lat-focus');
+	});
+
+	it('does nothing to a plain paragraph', () => {
+		const d = doc('<h2>Title</h2><p>Growth held.</p>');
+		markContent(d.querySelector('p') as Element)();
+		expect(d.querySelector('section')?.hasAttribute('data-focus-live')).toBe(false);
 	});
 });
 

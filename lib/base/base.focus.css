@@ -171,3 +171,15 @@ section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
   stroke-width: 5;
   paint-order: stroke;
 }
+
+/* ── the live mark — the Present Guide's content gesture ───────────────────── */
+/* The Guide applies the classes above while narration names a list item, a row,
+ * a chart mark or a series, and scopes the section `data-focus-live` so the change
+ * FADES instead of snapping. No render path writes that attribute, so a PDF, a
+ * PPTX and an exported slide are unchanged. */
+section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) {
+  transition: opacity 320ms ease-out, stroke-width 320ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) { transition: none; }
+}
