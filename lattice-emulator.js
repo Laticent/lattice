@@ -247,6 +247,12 @@ OPTIONS
                           color palette. Every text token clears WCAG AA on
                           white. Any output format; also settable per-deck with
                           'color-mode: print'.
+      --allow-remote      Let the render fetch remote images, media and fonts.
+                          By default every browser this command starts is kept
+                          off the network, so a remote image in the deck is
+                          left out of the PDF/PPTX/PNG (the .html export has
+                          always left it out). Local files, data: URIs and the
+                          bundled fonts, Mermaid and KaTeX are unaffected.
       --raster            Print the PDF as one full-bleed slide image per page
                           (2x JPEG, from the same screenshots the PPTX path
                           takes) instead of vector pages. Maximum viewer
@@ -432,6 +438,7 @@ function parseArgs(argv) {
     if (a === '--present') { flags.present = true; continue; }
     if (a === '--print') { flags.print = true; continue; }
     if (a === '--raster') { flags.raster = true; continue; }
+    if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
     if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
@@ -1013,6 +1020,16 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
 // The store is a plain folder: a package unzipped into it by hand, or a `--packages` folder,
 // never passed `add`. So the gate `add` runs is run again here, before the CSS is used, and a
 // refused theme fails the render with the reason (lib/packages/gate.js; HARD RULE #22).
+// A shipped name wins over an installed one, and a release that ADDS a shipped name hides a
+// package the user installed under it before. That must not be silent: the deck would render
+// a different theme from the one it rendered yesterday (followups.d/2336 item 1).
+if (fs.existsSync(palettePath) && !flags.quiet) {
+  const hidden = packagesHome.findInstalled(PACKAGES_ROOT, 'theme', paletteName);
+  if (hidden) {
+    console.error(`warning: "${paletteName}" is a theme Lattice ships, so the installed package of that name is not used`);
+    console.error(`         (${hidden.dir}). To use yours, re-add it: it installs as "${paletteName}-custom".`);
+  }
+}
 if (installedTheme) {
   const refused = require('./lib/packages/gate.js').refusePackage(installedTheme.pkg);
   if (refused) {
@@ -1548,6 +1565,9 @@ const CHROME_EXEC = detectChromeExecutable();
 // pre-pass can drive an async Puppeteer render. Resolved from PKG_ROOT rather than
 // __dirname so a bundled emulator finds it the same way the fonts are found.
 const MERMAID_WORKER = path.join(PKG_ROOT, 'lib', 'integrations', 'mermaid', 'render-worker.js');
+// Every browser this run starts is kept off the network unless the author passed
+// --allow-remote (lib/core/offline-chromium.js; 2026-09-01 export posture, revised 2026-09-24).
+const OFFLINE_ARGS = require('./lib/core/offline-chromium.js').offlineChromiumArgs(!!flags['allow-remote']);
 if (!CHROME_EXEC) {
   console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or CHROME_PATH, or install puppeteer to download one.');
 }
@@ -1677,6 +1697,9 @@ function runMermaidWorker(requests) {
     fs.writeFileSync(jobFile, JSON.stringify({
       pkgRoot: PKG_ROOT,
       chromePath: CHROME_EXEC || undefined,
+      // The worker's browser draws the deck's Mermaid, labels and all, so it is kept off the
+      // network the same way (lib/core/offline-chromium.js).
+      chromeArgs: OFFLINE_ARGS,
       backgroundColor: 'transparent',
       outFile,
       // The engine's config, delivered the way the live preview delivers it. Nothing is
@@ -2084,11 +2107,19 @@ function withInstalledComponents(source) {
   // a refused component is left out and named, never embedded.
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
-    const why = refusePackage(p.pkg);
+    const why = refusePackage(p.pkg, { forRender: true });
     if (why) console.error(`warning: the installed component ${p.name} is refused and not used: ${why}`);
     else installed.push(p);
   }
   const r = installed.length ? embedInstalledComponents(source, installed.map((p) => ({ name: p.name, css: p.pkg.files[p.pkg.roles['styles.css']] })), COMPONENT_NAMES) : { source, used: [] };
+  // The component half of the shipped-name warning above: an installed component the deck
+  // names that a release has since started shipping is not the one that renders.
+  const shippedComponents = new Set(COMPONENT_NAMES);
+  const named = new Set(classTokens(source));
+  for (const p of flags.quiet ? [] : installed.filter((x) => shippedComponents.has(x.name) && named.has(x.name))) {
+    console.error(`warning: "${p.name}" is a component Lattice ships, so the installed package of that name is not used`);
+    console.error(`         (${p.dir}). To use yours, re-add it: it installs as "${p.name}-custom".`);
+  }
   if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
   // A class the deck names that is not shipped, embedded or installed renders its slides
   // UNSTYLED — silently, unlike a missing theme. Say so, with the command that fixes it
@@ -3360,6 +3391,8 @@ async function renderExport({ hardened }) {
       '--no-sandbox',
       '--disable-setuid-sandbox',
       ...(hardened ? ['--disable-dev-shm-usage', '--disable-gpu'] : []),
+      // Off the network unless --allow-remote (lib/core/offline-chromium.js).
+      ...OFFLINE_ARGS,
     ],
     headless: 'new',
   };
@@ -5010,9 +5043,9 @@ async function renderBody(browser, g, closeBrowser) {
   //
   // AFTER THE RASTER, DELIBERATELY, and this placement is the whole reason the PDF/PPTX/PNG
   // bytes do not move: those were rendered from the clean file written above, before this
-  // line. The raster class keeps fetching, which is the decided posture — its fetch happens
-  // on the EXPORTING author's machine and hands the recipient baked pixels, so containing it
-  // would blank a picture the author asked for and buy the recipient nothing.
+  // line. The raster renders are contained a different way, at launch: every browser this run
+  // starts is kept off the network unless --allow-remote (lib/core/offline-chromium.js; the
+  // 2026-09-01 posture, revised 2026-09-24 once packages let a stranger's content into a deck).
   //
   // SKIPPED ONLY FOR THE ASSEMBLED PLAYER, and decided from STATE rather than from the
   // document's text. This was `!/http-equiv=["']Content-Security-Policy["']/i.test(live)` —
@@ -5094,7 +5127,7 @@ async function prunePlayerCssInPage(playerHtml) {
   if (!bases.length && !fontBlock) return { applied: false };
 
   const pruneOpts = {
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS],
     headless: 'new',
   };
   if (CHROME_EXEC) pruneOpts.executablePath = CHROME_EXEC;

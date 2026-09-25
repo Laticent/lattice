@@ -554,3 +554,123 @@ it is the record of what was wrong.
     "the look" when `base.finish.css` is still what renders.
   What was found and deliberately NOT fixed here is in
   `followups.d/2336-p3-packages-trio-followups.md`.
+- **Remote references in markup: done (follow-up items 2 and 3).** A package carries markup,
+  not only CSS, in two places, and both could reach the network from the Studio origin.
+  `lib/core/remote-ref.js` is the one predicate for both. A target is remote when it names a
+  scheme other than `data:` or is protocol-relative; a relative path is not, because it
+  resolves against the page that shows it. (That is looser than `css-scan.js` `urlIsLocal`,
+  which holds a component STYLESHEET to `#fragment` and `data:` only.)
+  - **A component's sample slide is refused on import when it fetches.** The gate RENDERS the
+    gallery through the engine and parses the result with a spec HTML parser — parse5 in the
+    CLI (`lib/packages/gallery-gate.js`), `DOMParser` in the Studio
+    (`library/gallery-gate.ts`) — then reads every element: an attribute that loads (`src`,
+    `srcset`, `href` on anything but a link, `xlink:href`, `poster`…), a `url()` or string in
+    a style, a presentation attribute or a `<style>` body, a SMIL `<set>`/`<animate>` that
+    sets `href`, a meta refresh, and the text of a Mermaid fence (its `img:` shapes and
+    `themeCSS` load at run time). It also refuses any remote link reference definition, used
+    or not: a definition renders nothing where it is written, yet the first definition of a
+    label wins across the whole deck the slide is inserted into, so it can hand the deck's
+    own `![logo]` a remote target. The engine exposes `referenceTargets()` for that read.
+  - **Why render first.** The first cut scanned the markdown source with regexes, and the
+    red team found eleven spellings it missed, each a place where a regex disagreed with
+    markdown-it, the HTML5 parser or a component transform: a fence closed by a longer
+    fence, an escaped backtick, a reference definition in a blockquote or on the next line,
+    Unicode case folding of a label, `&bsol;` and `&#X3A;`, an `image-set()` string holding
+    a `)`, a `/*` in prose hiding a style attribute, the `logo:` front matter key, and the
+    `video` component's `poster` bullet. The rendered check holds on all of them
+    (`test/unit/core/gallery-remote-refs.test.js` keeps each as a row), and the CSS scan is
+    now a tokenizer rather than a regex for the same reason. A final checker on the rendered
+    version found two more on the CLI's PDF render, both fixed: a Mermaid label spelled with
+    Mermaid's own entity codes (`https#58;#47;#47;…`, which Mermaid decodes after the page has
+    the fence, so the scan now decodes them first), and a nested document (`srcdoc`, and a
+    `data:` document in an `iframe`, `object` or `embed`, which load whatever they hold), plus
+    `imagesrcset`. A third checker pass on that fix found four more, all fixed and each a test
+    row: a Mermaid fence inside an HTML block (plain text in the page, yet the CLI export
+    draws it, so the gate now also scans every fence `lib/core/mermaid-fences.js` finds in the
+    source), a slashless `http:host/x` in Mermaid text (a `file:` page resolves it), `&#58`
+    without its semicolon, and a `data:` scheme split by a tab or led by a control
+    character. The Mermaid class match is now the runtime's own substring rule, so a
+    `mermaid-x` fence it would draw is scanned too. A fourth pass found two more, both fixed:
+    a CRLF or lone-CR gallery (the fence walker matched nothing raw, while the CLI converts
+    line endings before drawing, so both doors now convert them first), and a tab inside a
+    slashless scheme (`ht<TAB>tp:host`, or Mermaid's `ht#9;tp:`), which the URL parser drops.
+    It found no false positive across 305 tracked decks, galleries and baselines.
+  - **Why the gate now uses an allowlist in two places.** Four passes found 11, 2, 4 and 2
+    bypasses, and every late one lived in the same two families: a URL spelled some new way
+    inside Mermaid text, and a nested document. Refusing spellings one at a time can't end,
+    so both families now refuse the CONSTRUCT whatever it points at. A gallery's Mermaid
+    may not use an image shape (`img:`), an HTML media tag in a label, a `src=`/`href=`
+    attribute, a markdown image, a `click` directive, `url()`, `image-set()`, `themeCSS`,
+    `@import`, `//`, or an entity code (`MERMAID_FORBIDDEN` in `lib/core/remote-ref.js`).
+    A gallery may not contain an `iframe`, `frame`, `object`, `embed`, `portal`,
+    `fencedframe` or `applet` at all. Measured against the tree first: 0 of the 163 Mermaid
+    fences in 352 tracked files and 0 of 305 decks and galleries trip it. Plain words stay
+    legal (`diagram.gallery.md` labels a node `src/`), and so does `R&D`.
+  - **Front matter, the fifth pass.** A final checker found two bypasses outside both
+    families, both in front matter, which the gate's own render prints nothing from: Insert
+    splices a gallery after a `---`, so its front matter becomes an ordinary slide; and the
+    CLI's `readGlobalStyle` pastes a front-matter `style:` key into the export's stylesheet,
+    matched line-wise so an indented `style:` inside another key's block counts. The gate now
+    also renders the gallery AS INSERTED, and reads the front-matter block with the Mermaid
+    allowlist plus a refusal of any `style:` line. All 71 shipped component galleries open
+    with front matter (`marp`, `theme`, `paginate`, `header`) and pass.
+  - **Scripts, the sixth pass.** A review of the render containment found that a deck script
+    could still send WebRTC UDP and a DNS lookup past the proxy (fixed there), and that the
+    gate never read `<script>` at all. The gate now refuses an inline `<script>`, a `data:` or
+    `javascript:` script source, any `on…=` event handler and any `javascript:` URL. An empty
+    script loaded by a relative path stays legal: the shipped diagram gallery loads the
+    vendored Mermaid that way, and a package cannot supply such a file, since any script file
+    makes it a code package.
+  - **Scripts, the seventh pass.** An independent checker on the sixth pass found that the
+    source check read only `src`, while an SVG `<script>` names its file in `href` or
+    `xlink:href`: `<svg><script href="data:text/javascript,…">` passed the gate and ran in
+    Chromium. All three attributes are now read. The same review showed a `<meta
+    http-equiv="refresh">` to a `data:` page running that page's script in a subframe, so a
+    refresh is now refused whatever it points at. Still legal, and recorded rather than closed:
+    a relative script `src` resolves against the Studio origin or the author's disk, so it can
+    load code the package did not supply, though never code the package wrote.
+  - **Both doors, one wording.** The Studio's `refuseImportedComponent` (the Library zip and
+    a `.lattice`, through `import-parsed.ts`) and the CLI's `refusePackage` at `add`, `check`
+    and `list` refuse with `remote-ref.js`'s `galleryRefusal`. A slide that cannot be checked
+    (the engine failed to load or to render) is refused, not waved through. The CLI's render
+    path skips the gallery (`forRender`): it embeds a component's CSS and never its gallery.
+    Fabricate shows the same finding live on the Component tab as a WARNING: your own
+    component still saves, and the warning says a recipient's import will refuse it. All 84
+    shipped galleries pass, in about 20 ms each after a one-time ~300 ms engine load.
+  - **Motion art** keeps `sanitizeSlideHtml`'s profile (which leaves remote references on
+    purpose, since a deck's own images are remote) and then loses every attribute that
+    fetches from another origin (`scene-library.ts` `stripRemoteRefs`). It runs on every
+    save and again on every read, so a record saved before the fix is drawn without its
+    beacon too. Line-art has no use for the network, so nothing legitimate is lost; a
+    same-document `url(#id)` stays. DOMPurify already drops `<set>`, `<animate>` and
+    `<style>` from it.
+  - **What this does not close.** A DECK is still allowed to load remote images: a deck's own
+    images are legitimately remote, so `sanitizeSlideHtml` keeps them, and a deck someone
+    sends you can beacon in the preview and in every export. This change closes the package
+    doors, where the markup rides in under a name the user trusts. The root fix for decks is
+    at the render boundary: an `img-src` policy on the preview frames with a visible "load
+    remote images" switch, and an export option that inlines or strips them. That is
+    recorded in `followups.d/2336-p3-packages-trio-followups.md`, with the workspace
+    restore, which still saves library items without the import gates.
+  The e2e `library-remote-refs.spec.ts` imports both through the real Library and asserts,
+  against a control fetch that proves the log works, that the browser made no request to the
+  beacon host.
+- **Trio follow-ups 1, 4, 6 and 9.**
+  - **1, the CLI half: done.** A shipped name hides an installed package of the same name,
+    and that is now said out loud: the render path warns when the deck's theme, or a
+    component it uses, is shipped AND installed, and `packages list` marks the installed row
+    as hidden. The Studio half and a user namespace stay open as the owner's call.
+  - **4, the streaming inflate: done.** `lib/packages/zip-read.js` `readEntryCapped` inflates
+    an entry through JSZip's `internalStream` and stops at the chunk that takes the running
+    total past the cap. The CLI's `add` and the Studio's `readBudget` (asset zips and
+    `.lattice` packages) both read through it. Measured on a 51 KB zip whose 50 MB entry
+    declares 10 bytes: the capped read stops after 1.06 MB against a 1 MB cap, in 125 ms;
+    `entry.async()` inflates all 50 MB before JSZip's own size check throws.
+  - **6, the `process.execPath` spawn: declined.** Running `packages` in-process needs the
+    rest of `lattice-emulator.js`'s top-level code not to run, and the only in-file way, a
+    top-level `return`, is legal CommonJS that Biome refuses to parse. The clean fix is a thin
+    bin entry that dispatches before loading the renderer, and it is worth building together
+    with a single-executable build, which does not exist yet. Nothing ships on a runtime other
+    than Node today.
+  - **9, escaped selectors: done.** `renameComponentSelectors` decodes each class token's CSS
+    escapes before comparing, so `.\6b pi` and `.k\70 i` are renamed with `.kpi`.

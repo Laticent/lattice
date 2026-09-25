@@ -11,15 +11,13 @@
  *     its own `--help`), and the `.html` sidecar written beside a pdf/pptx/png. Someone OPENS
  *     these, so a deck's remote image beacons on the RECIPIENT's machine, on every open —
  *     measured at 2 requests each before this change. Contained.
- *   · RASTER — pdf/pptx/png/imageset. The fetch happens on the EXPORTING author's machine and
- *     the recipient receives baked pixels, so containing it would blank a picture the author
- *     asked for and buy the recipient nothing. Deliberately still fetches.
- *
- * WHY THE RASTER ARM IS HERE AT ALL, and it is the load-bearing one: the whole boundary rests
- * on WHERE the meta is injected — after rasterization, into whatever HTML the run leaves
- * behind. Move that one step earlier and every PDF, PPTX and PNG silently loses its remote
- * images, with the live arms below still green. Nothing else in the tree can see that, so this
- * asserts the author's own request DOES reach a real server.
+ *   · RASTER — pdf/pptx/png/imageset. Left fetching until 2026-09-24, on the reasoning that the
+ *     exporting author chose every image. Portable packages broke that: a stranger's component
+ *     can put its sample slide into the author's deck on Insert, and every bypass the package
+ *     gate's reviews found reached the network here. So the render's own browsers are now kept
+ *     off the network (lib/core/offline-chromium.js), and `--allow-remote` restores the old
+ *     behavior for an author who wants a remote image baked in. The raster arms below assert
+ *     both, against a real local server.
  *
  * DRIVEN ON THE ARTIFACT, not on the emission (HARD RULE #23). A grep for the meta tag says
  * the string is in the file; it says nothing about whether the browser then refuses the fetch.
@@ -156,10 +154,13 @@ theme: indaco
 		assert.ok(hits.length > 0, 'the probe cannot see a beacon even when one fires, so every arm above is vacuous');
 	});
 
-	// The DECIDED BOUNDARY, and the only arm that can catch the injection moving one step
-	// earlier. A local server rather than the interception probe: the request this asserts is
-	// made by the EXPORT's own Chromium, not by the page under test.
-	test('the raster path still fetches, on the author’s machine', { timeout: TIMEOUT }, async () => {
+	// THE RASTER CLASS, revised 2026-09-24. The render's own Chromium is kept off the network
+	// (lib/core/offline-chromium.js) unless the author passes --allow-remote. A local server
+	// rather than the interception probe: the request this asserts about is made by the EXPORT's
+	// own Chromium, not by the page under test. The --allow-remote arm is the control: the same
+	// server, the same deck, and the request DOES arrive, so an empty list above is a refusal
+	// rather than a probe that could not see.
+	async function rasterHits(args) {
 		const hits = [];
 		const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 		const server = http.createServer((req, res) => { hits.push(req.url); res.writeHead(200, { 'Content-Type': 'image/png' }); res.end(png); });
@@ -167,13 +168,13 @@ theme: indaco
 		const { port } = server.address();
 		try {
 			const deck = path.join(dir, 'raster.md');
-			fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# Raster\n\n![pic](http://127.0.0.1:${port}/plain.png)\n`);
+			fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# Raster\n\n![pic](http://127.0.0.1:${port}/plain.png)\n\n<span style="background-image:url(http://127.0.0.1:${port}/bg.png)">shaded</span>\n`);
 			const out = path.join(dir, 'raster.pdf');
 			// `spawn`, NOT `spawnSync`: the image server is in THIS process, and a synchronous
 			// spawn blocks the event loop, so the export's own Chromium waits 60 s for a
 			// response that cannot be sent and the whole arm fails as a navigation timeout.
 			const r = await new Promise((res, rej) => {
-				const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet'], {
+				const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet', ...args], {
 					cwd: ROOT, env: { ...process.env },
 				});
 				let stderr = '';
@@ -182,20 +183,64 @@ theme: indaco
 				child.on('close', (status) => res({ status, stderr }));
 			});
 			assert.equal(r.status, 0, `emulator failed on the raster deck: ${r.stderr}`);
-			assert.deepEqual(
-				hits, ['/plain.png'],
-				'the PDF export did not fetch the deck’s remote image — the policy is being injected '
-				+ 'BEFORE rasterization, so every raster artifact silently loses its remote images'
-			);
-			// And the sidecar written beside it is a live document, so it IS contained.
+			// The sidecar written beside it is a live document, so it carries the policy either way.
 			assert.match(
 				fs.readFileSync(path.join(dir, 'raster.html'), 'utf8'),
 				/http-equiv="Content-Security-Policy"/i,
 				'the .html sidecar beside a raster export is a live document and carries the policy'
 			);
+			return hits.sort();
 		} finally {
 			await new Promise((res) => server.close(res));
 		}
+	}
+
+	test('the raster path fetches nothing by default, not even from loopback', { timeout: TIMEOUT }, async () => {
+		assert.deepEqual(
+			await rasterHits([]), [],
+			'the PDF export reached the network — every browser the render starts must be kept off it '
+			+ 'unless --allow-remote (lib/core/offline-chromium.js)'
+		);
+	});
+
+	test('CONTROL — with --allow-remote the same export does fetch', { timeout: TIMEOUT }, async () => {
+		assert.deepEqual(await rasterHits(['--allow-remote']), ['/bg.png', '/plain.png'], 'the opt-out does not reach the render, or the probe cannot see a fetch');
+	});
+
+	// WEBRTC, the traffic a proxy never sees. A deck's script can open an RTCPeerConnection whose
+	// ICE gathering sends STUN over UDP straight past an http proxy. The render's browsers carry
+	// Chromium's WebRTC policy that keeps it to proxied traffic (lib/core/offline-chromium.js);
+	// a UDP listener on loopback is the oracle, and --allow-remote is the control.
+	async function stunHits(args) {
+		const dgram = require('node:dgram');
+		const sock = dgram.createSocket('udp4');
+		const hits = [];
+		sock.on('message', (msg) => hits.push(msg.length));
+		await new Promise((res) => sock.bind(0, '127.0.0.1', res));
+		const { port } = sock.address();
+		try {
+			const deck = path.join(dir, 'stun.md');
+			fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# Stun\n\n<script>\nconst pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:127.0.0.1:${port}' }] });\npc.createDataChannel('x'); pc.createOffer().then((o) => pc.setLocalDescription(o));\nwindow.__pc = pc;\n</script>\n`);
+			const r = await new Promise((res, rej) => {
+				const child = spawn(process.execPath, [EMULATOR, deck, path.join(dir, 'stun.pdf'), '--quiet', ...args], { cwd: ROOT, env: { ...process.env } });
+				let stderr = '';
+				child.stderr.on('data', (b) => { stderr += b; });
+				child.on('error', rej);
+				child.on('close', (status) => res({ status, stderr }));
+			});
+			assert.equal(r.status, 0, `emulator failed on the STUN deck: ${r.stderr}`);
+			return hits.length;
+		} finally {
+			sock.close();
+		}
+	}
+
+	test('a deck script cannot reach the network over WebRTC by default', { timeout: TIMEOUT }, async () => {
+		assert.equal(await stunHits([]), 0, 'a STUN packet left the render — the WebRTC policy is missing from the launch arguments');
+	});
+
+	test('CONTROL — with --allow-remote the same script does send STUN', { timeout: TIMEOUT }, async () => {
+		assert.ok((await stunHits(['--allow-remote'])) > 0, 'the probe cannot see a STUN packet, so the arm above is vacuous');
 	});
 
 	// THE FAILURE PATH, EXECUTED — not argued.

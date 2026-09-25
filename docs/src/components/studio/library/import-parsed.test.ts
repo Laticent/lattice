@@ -11,7 +11,8 @@
 // Driven against the REAL asset store on fake-indexeddb, and the real save functions.
 
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { installNodeEngine } from '../../../test/node-engine';
 import type { ParsedBundle } from '../asset-bundle';
 import { listStudioComponents, saveStudioComponent } from '../component-library';
 import { listStudioThemes, saveStudioTheme } from '../theme-library';
@@ -20,6 +21,8 @@ import { applyImportRenames, importParsedBundle } from './import-parsed';
 
 const css = (name: string, accent: string) => `/* @theme ${name} */\n@import 'lattice';\n:root { --accent: ${accent}; }\n`;
 const bundle = (over: Partial<ParsedBundle>): ParsedBundle => ({ themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [], ...over });
+
+beforeAll(installNodeEngine);
 
 beforeEach(async () => {
 	for (const a of await listAssets()) await deleteAsset(a.id);
@@ -57,6 +60,16 @@ describe('importParsedBundle — keepMine (opening a .lattice)', () => {
 	it('a component named for an engine class (`finish`) is reserved too', async () => {
 		await importParsedBundle(bundle({ components: [{ name: 'finish', bucket: null, css: 'section.finish { outline: 1px solid red; }', skeleton: '<!-- _class: finish -->' }] }), { keepMine: true });
 		expect((await listStudioComponents()).map((c) => c.name)).toEqual(['finish-custom']);
+	});
+
+	it('a component whose sample slide loads a remote image is refused, on both doors', async () => {
+		const c = { name: 'beacon', bucket: null, css: 'section.beacon { gap: 2px; }', skeleton: '<!-- _class: beacon -->\n\n![x](https://evil.test/b.png)' };
+		for (const keepMine of [true, false]) {
+			const t = await importParsedBundle(bundle({ components: [c] }), { keepMine });
+			expect(t.components).toBe(0);
+			expect(t.refused.map((r) => r.name)).toEqual(['beacon']);
+		}
+		expect(await listStudioComponents()).toEqual([]);
 	});
 
 	it('two carried components that land on one name get two names, not one overwritten', async () => {

@@ -454,16 +454,35 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// silently save.
 	const compNameOk = NAME_RE.test(compName);
 	const compManifest = React.useMemo(() => ({ name: compName, ...compMeta, description: compDesc, skeleton: compSkeleton }), [compName, compMeta, compDesc, compSkeleton]);
+	// The import gate refuses a component whose sample slide fetches from the network
+	// (library/gallery-gate.ts). Said here, live, so an author learns it before sending the
+	// component to anyone rather than from the recipient. A WARNING, not an error: it is your
+	// own component and it still saves; it is the stranger's import that refuses it.
+	const [compGalleryRemote, setCompGalleryRemote] = React.useState<string | null>(null);
+	React.useEffect(() => {
+		let live = true;
+		const t = setTimeout(() => {
+			import('./library/gallery-gate')
+				.then(({ galleryRemoteRefs }) => galleryRemoteRefs(compSkeleton))
+				.then((refs) => live && setCompGalleryRemote(refs[0] ?? null))
+				.catch(() => live && setCompGalleryRemote(null));
+		}, 400);
+		return () => {
+			live = false;
+			clearTimeout(t);
+		};
+	}, [compSkeleton]);
 	const compFindings = React.useMemo<Finding[]>(() => {
 		if (!compNameOk) return [{ level: 'error', rule: 'name', message: 'Component name must be a lowercase slug — a–z, 0–9, hyphen, starting with a letter.' }];
 		const out: Finding[] = [];
+		if (compGalleryRemote) out.push({ level: 'warning', rule: 'skeleton-remote', message: `The skeleton loads ${compGalleryRemote.slice(0, 80)} from the network, so anyone you send this component to will have it refused on import. Use a relative path or a data: URI.` });
 		for (const f of gateCss(compCss, compName).findings as Finding[]) out.push(f);
 		if (!skeletonInvokes(compSkeleton, compName)) out.push({ level: 'error', rule: 'skeleton', message: `Skeleton must invoke <!-- _class: ${compName} --> so the preview applies your styles.` });
 		if (compJsonError) out.push({ level: 'error', rule: 'manifest:json', message: compJsonError });
 		const man = validateManifest(compManifest) as { ok: boolean; errors: { field: string; message: string }[] };
 		for (const e of man.errors) out.push({ level: 'error', rule: `manifest:${e.field}`, message: e.message });
 		return out;
-	}, [compName, compCss, compSkeleton, compNameOk, compManifest, compJsonError]);
+	}, [compName, compCss, compSkeleton, compNameOk, compManifest, compJsonError, compGalleryRemote]);
 	const compOk = compFindings.every((f) => f.level !== 'error');
 
 	// Curated WCAG rows: one per role, worst ratio across modes, FAILURES FIRST so the

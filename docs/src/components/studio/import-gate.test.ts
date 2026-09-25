@@ -1,6 +1,7 @@
-// @vitest-environment node
-// This file touches no DOM. Under the suite default it paid for a jsdom window it
-// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
+// @vitest-environment jsdom
+// The component arm renders a sample slide and parses it with DOMParser
+// (library/gallery-gate.ts), so this file needs a window. It ran under `node` while it
+// touched no DOM; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 /**
  * Unit: what an imported `.zip`'s CSS is refused for — and, just as load-bearing,
  * what it is NOT refused for.
@@ -18,7 +19,8 @@
  * workspace restore.
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { installNodeEngine } from '../../test/node-engine';
 import { refuseImportedComponent, refuseImportedTheme } from './import-gate';
 
 const CLEAN_THEME = "/* @theme mine */\n@import 'lattice';\n:root{--accent:#2f6feb;--bg:#fff;--text-body:#111}";
@@ -67,6 +69,8 @@ describe('refuseImportedTheme', () => {
 });
 
 describe('refuseImportedComponent', () => {
+	beforeAll(installNodeEngine);
+
 	it('refuses a remote url() in component CSS', async () => {
 		// The component arm of the SAME zip was ungated while the theme arm was not.
 		// Hostile component CSS reaches the same preview <style> and every export, and
@@ -92,5 +96,56 @@ describe('refuseImportedComponent', () => {
 
 	it('allows an inline data: icon — the sanctioned non-network url()', async () => {
 		expect(await refuseImportedComponent('section.w .i{background:url("data:image/svg+xml;base64,PHN2Zy8+")}', 'w')).toBeNull();
+	});
+
+	it('refuses a component whose sample slide loads a remote image', async () => {
+		// Insert makes the gallery the user's own deck content, so it is the same beacon. The
+		// check renders the slide, so a fetch a component transform or front matter adds counts.
+		const r = await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- _class: w -->\n\n<img src="https://evil.example/b.png">');
+		expect(r?.why).toMatch(/sample slide loads https:\/\/evil\.example\/b\.png/);
+		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- _class: w -->\n\n![x](https://evil.example/b.png)')).not.toBeNull();
+		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '---\nlogo: https://evil.example/l.png\n---\n\n<!-- _class: w -->\n')).not.toBeNull();
+	});
+
+	it('reads a CRLF gallery and a tab-split scheme the way the CLI export will', async () => {
+		const css = 'section.w .a{color:var(--accent)}';
+		const crlf = '<!-- _class: w -->\r\n\r\n<div>\r\n```mermaid\r\nflowchart LR\r\n  A@{ img: "https://evil.example/c.png" } --> B\r\n```\r\n</div>\r\n';
+		expect((await refuseImportedComponent(css, 'w', crlf))?.why).toMatch(/sample slide uses an image shape/);
+		const tab = '<!-- _class: w -->\n\n```mermaid\nflowchart LR\n  A["<img src=\'ht\ttp:evil.example/t.png\'>"]\n```\n';
+		expect((await refuseImportedComponent(css, 'w', tab))?.why).toMatch(/sample slide uses an HTML media tag in a label/);
+		expect(await refuseImportedComponent(css, 'w', '<!-- _class: w -->\r\n\r\n```mermaid\r\nflowchart LR\r\n  A-->B\r\n```\r\n')).toBeNull();
+	});
+
+	it('reads front matter as Insert and the CLI will: as a slide, and with no style: key', async () => {
+		const css = 'section.w .a{color:var(--accent)}';
+		expect(await refuseImportedComponent(css, 'w', '---\nx: "![](https://evil.example/fm.png)"\n---\n\n<!-- _class: w -->\n')).not.toBeNull();
+		expect((await refuseImportedComponent(css, 'w', '---\nstyle: "section{color:red}"\n---\n\n<!-- _class: w -->\n'))?.why).toMatch(/style:/);
+		expect(await refuseImportedComponent(css, 'w', '---\nmarp: true\ntheme: indaco\nprofile: teaching\nheader: "Lattice · w"\n---\n\n<!-- _class: w -->\n')).toBeNull();
+	});
+
+	it('refuses a sample slide that carries script, whichever attribute names its source', async () => {
+		// The Studio door hands the parsed script's text and attributes to the same shared rule
+		// as the CLI's; an SVG <script> names its file in href or xlink:href, not src.
+		const css = 'section.w .a{color:var(--accent)}';
+		expect((await refuseImportedComponent(css, 'w', '<!-- _class: w -->\n\n<script>fetch("https://evil.example/s")</script>'))?.why).toMatch(/inline <script>/);
+		for (const attr of ['href', 'xlink:href']) {
+			expect((await refuseImportedComponent(css, 'w', `<!-- _class: w -->\n\n<svg><script ${attr}="data:text/javascript,window.PWN=1"></script></svg>`))?.why).toMatch(/data: or javascript: source/);
+		}
+		expect((await refuseImportedComponent(css, 'w', '<!-- _class: w -->\n\n<meta http-equiv="refresh" content="0;url=data:text/html,x">'))?.why).toMatch(/refresh/);
+	});
+
+	it('refuses, rather than waves through, a sample slide it could not check', async () => {
+		const pg = window.LatticePlayground;
+		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { render: () => { throw new Error('boom'); }, referenceTargets: () => [] };
+		try {
+			expect((await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- _class: w -->'))?.why).toMatch(/could not be checked \(boom\)/);
+		} finally {
+			(window as unknown as { LatticePlayground: unknown }).LatticePlayground = pg;
+		}
+	});
+
+	it('allows a sample slide with links, relative images and inline svg', async () => {
+		const md = '<!-- _class: w -->\n\n[site](https://ok.example)\n\n![logo](logo.png)\n\n<svg xmlns="http://www.w3.org/2000/svg"><rect fill="url(#g)"/></svg>';
+		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', md)).toBeNull();
 	});
 });

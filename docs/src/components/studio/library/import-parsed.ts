@@ -98,7 +98,7 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 
 	const usedComponentNames = new Set([...RESERVED_COMPONENT_NAMES, ...mineComps.map((x) => x.name)]);
 	for (const c of parsed.components) {
-		const no = await refuseImportedComponent(c.css, c.name);
+		const no = await refuseImportedComponent(c.css, c.name, c.skeleton);
 		if (no) {
 			t.refused.push(no);
 			continue;

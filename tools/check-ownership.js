@@ -6553,6 +6553,15 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'render(), so nothing downstream could rescue it.',
   },
   {
+    file: 'lib/packages/gallery-gate.js',
+    why: 'galleryRemoteRefs — the CLI half of the package gallery gate reads a component\'s '
+       + 'gallery.md straight out of a stranger\'s zip or folder. It must read it as the export '
+       + 'will: the CLI folds line endings before Mermaid, so a CRLF fence the fence walker '
+       + 'cannot match raw is still drawn. Unfolded, a CRLF gallery hid a remote Mermaid image '
+       + 'from the gate (HARD RULE #22). lib/ has no shared fold to call; the Studio half calls '
+       + 'normalizeSourceText.',
+  },
+  {
     file: 'tools/chart-finish-divergence.js',
     why: 'reads an author-supplied deck to map slide index to member name, anchoring on `^---`. '
        + 'It also re-emits that text with a <style> prefix for the emulator, so a CRLF deck '

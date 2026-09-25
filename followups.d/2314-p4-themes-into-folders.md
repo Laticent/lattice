@@ -42,3 +42,13 @@ The motion-library half is also unstarted. The examples hold 7 scenes (`examples
 ×3, `examples/motion-asset.md` ×4) that could seed `lib/motion/<name>/`, but nothing yet LISTS
 shipped motion except `lattice packages list`. So seed it together with the Studio surface that
 inserts from it, or the shipped data sits unread.
+
+## Still blocked (2026-09-24, the portable-packages continuation)
+
+The precondition above is unmet: the desktop wrapper is not reachable from a Lattice session
+(its repository is not among the ones this session's GitHub access lists), so how it loads
+themes is still unknown. The move was not started. Two ways to unblock it, either one enough:
+someone with the wrapper's source says whether it resolves `@laticent/lattice/themes/<name>.css`
+through `require.resolve`/`exports` (the remap covers it) or reads the file off disk (it does
+not); or the owner accepts the flat-compatibility-copies fallback for one release, which puts a
+generated `themes/<name>.css` beside each folder in the published tarball only.
