@@ -751,7 +751,8 @@ const PARAPHRASE_STOP = new Set(
 		+ 'just me more most my no not of on or our so than that the their them then there these they '
 		+ 'this those to too up us was we were what when where which who why will with would you your '
 		+ 'one all any each every can could should here now very also about over out off only same '
-		+ 'first second third fourth fifth next last get got take took make made put keep keeps say said').split(' '),
+		+ 'first second third fourth fifth next last get got take took make made put keep keeps say said '
+		+ 'dollar dollars percent').split(' '),
 );
 
 /** Number words to digits, so "twelve months" and "12 months" share a word. Compound and large
@@ -761,6 +762,56 @@ const NUMBER_WORDS: Record<string, string> = Object.fromEntries(
 		+ 'sixteen seventeen eighteen nineteen twenty').split(' ').map((w, i) => [w, String(i)]),
 );
 for (const [w, n] of [['thirty', 30], ['forty', 40], ['fifty', 50], ['sixty', 60], ['seventy', 70], ['eighty', 80], ['ninety', 90]] as const) NUMBER_WORDS[w] = String(n);
+
+/**
+ * Fold a SPELLED amount into the key its digits make. An authored caption is written to be heard,
+ * so it says "forty-eight point six million" where the slide says `$48.6M`, and "eight hundred
+ * seventy" where it says `870`. `loose` reduces `$48.6M` to `486m` and `12,400` to `12400`, so a
+ * spoken run is reduced the same way: "forty eight point six million" → `486m`, "twelve thousand
+ * four hundred" → `12400`. Measured on a test deck: without this, a funnel narrated in words never
+ * reached a single stage, and a KPI line lost its gesture to a plain one.
+ */
+function spelledAmounts(words: readonly string[]): string[] {
+	const out: string[] = [];
+	const num = (w: string | undefined) => (w !== undefined && w in NUMBER_WORDS ? Number(NUMBER_WORDS[w]) : Number.NaN);
+	for (let i = 0; i < words.length; ) {
+		if (Number.isNaN(num(words[i]))) {
+			out.push(words[i]);
+			i += 1;
+			continue;
+		}
+		let total = 0;
+		let cur = 0;
+		let dec = '';
+		let suffix = '';
+		let j = i;
+		let parts = 0;
+		for (; j < words.length; j++) {
+			const w = words[j];
+			const n = num(w);
+			if (dec === '' && !Number.isNaN(n)) cur += n;
+			else if (dec !== '' && !Number.isNaN(n) && n < 10) dec += String(n);
+			else if (w === 'point' && dec === '' && num(words[j + 1]) < 10) dec = '.';
+			else if (w === 'hundred') cur *= 100;
+			else if (w === 'thousand') {
+				total += cur * 1000;
+				cur = 0;
+			} else if (w === 'million' || w === 'billion') {
+				suffix = w[0];
+				j += 1;
+				parts += 1;
+				break;
+			} else break;
+			parts += 1;
+		}
+		const value = total + cur;
+		// A lone "one" is an article more often than an amount ("one segment needs a decision").
+		if (parts === 1 && value === 1) out.push('one');
+		else out.push(`${value}${dec.replace('.', '')}${suffix}`);
+		i = j;
+	}
+	return out;
+}
 
 /** Suffixes stripped before the five-letter key, longest first, so "exiting" meets "exit" and
  *  "recommendation" meets "recommend". Crude on purpose: two spellings of one word only have to
@@ -776,8 +827,11 @@ const SUFFIXES = ['ation', 'ing', 'ion', 'ed', 'es', 's', 'e'];
  */
 function contentKeys(s: string): Map<string, number> {
 	const keys = new Map<string, number>();
-	for (const raw of loose(s).split(/[\s-]+/)) {
-		let w = raw.replace(/^'+|'+$/g, '').replace(/'s$/, '');
+	const words = loose(s)
+		.split(/[\s-]+/)
+		.map((raw) => raw.replace(/^'+|'+$/g, '').replace(/'s$/, ''));
+	for (const token of spelledAmounts(words)) {
+		let w = token;
 		if (!w || PARAPHRASE_STOP.has(w)) continue;
 		w = NUMBER_WORDS[w] ?? w;
 		if (/\p{N}/u.test(w)) {
@@ -825,6 +879,13 @@ function candidateText(el: Element): string {
 	return `${el.getAttribute('data-label') ?? ''} ${el.getAttribute('data-value') ?? ''}`;
 }
 
+/** Does the sentence corroborate a mark's declared value? True when it says no number at all. */
+function valueSaid(cue: Map<string, number>, value: string): boolean {
+	const said = [...cue.keys()].filter((k) => /\p{N}/u.test(k));
+	if (!said.length) return true;
+	return [...contentKeys(value).keys()].filter((k) => /\p{N}/u.test(k)).every((k) => cue.has(k));
+}
+
 function score(cue: Map<string, number>, text: string): number {
 	const hay = contentKeys(text);
 	let total = 0;
@@ -855,6 +916,10 @@ export function findParaphraseTarget(root: Document | Element | null, text: stri
 		// every mark in one paragraph, so it shares words with every cue and names none of them.
 		if (el.closest(UNPAINTED)) continue;
 		const said = candidateText(el);
+		// A MARK THAT DECLARES A VALUE must be corroborated whenever the sentence says a number:
+		// every number in its value has to be said. Otherwise "Northwind: nineteen percent" would
+		// name the Northwind line stamped `31% to 24%` — the value check the mark tier exists for.
+		if (!el.matches(BLOCK_SELECTOR) && el.hasAttribute('data-value') && !valueSaid(cue, el.getAttribute('data-value') ?? '')) continue;
 		const s = score(cue, said);
 		if (s < floor) continue;
 		const len = norm(said).length;
@@ -1997,6 +2062,11 @@ export function salience(el: Element): number {
 	// §4.1 already treats it as the one meaning of "notable"). It is spent first and never cut.
 	const focus = authoredFocusOf(el);
 	if (focus.self || focus.inner) score += 100;
+	// A CONTAINER OF MARKS is the chart's frame, not a datum. Its text holds every bar's value and
+	// label, so scoring it like a block handed "Here is revenue by region." the EMEA bar's figure
+	// and headline bonus, and under somber — where a whole chart cannot be marked — the bar the
+	// slide is about was never marked at all.
+	if (!el.matches('[data-mark], [data-series]') && el.querySelector('[data-mark], [data-series]')) return score;
 	const said = el.matches('[data-label]') ? `${el.getAttribute('data-label') ?? ''} ${el.getAttribute('data-value') ?? ''}` : (el.textContent ?? '');
 	// A FIGURE. What a board remembers is a measured number, so a claim that carries one ranks
 	// high. An index is not a figure: "Section 01", "step 3", "1 December" and a bare year carry
@@ -2012,7 +2082,9 @@ export function salience(el: Element): number {
 	// NAMED BY THE HEADLINE. The headline is the slide's claim, so a mark or item it names ("EMEA
 	// is where the quarter was won") is the moment the slide exists for. Measured in the built
 	// Studio: without this, a somber bar chart marked LATAM, the smallest bar, spoken first.
-	if (namedByHeadline(el)) score += 2;
+	// It also outweighs being the chart's largest mark (+2): "Deals stall between the demo and the
+	// proposal" is about those two stages, not about the widest one.
+	if (namedByHeadline(el)) score += 3;
 	// THE HEADLINE is the slide's claim, so it outranks plain prose but not a number.
 	if (el.matches('h1, h2')) score += 1;
 	return score;
@@ -2055,13 +2127,13 @@ function namedByHeadline(el: Element): boolean {
  *  the `.lat-focus` element itself. */
 function authoredUnit(el: Element): string | Element | null {
 	const focus = authoredFocusOf(el);
-	// A CONTAINER of the call-out — each row under `_focus: col 5` holds one focused cell — is
-	// part of one moment: the column. Without this every row's sentence won an exempt gesture.
-	if (!focus.self) return focus.inner ? `holds:${el.closest('section')?.getAttribute('data-focus') ?? ''}` : null;
-	const series = el.closest('[data-series]')?.getAttribute('data-series');
-	if (series != null && el.closest('.lat-focus[data-series]')) return `series:${series}`;
-	const mark = el.closest('[data-mark]')?.getAttribute('data-mark');
-	if (mark != null && el.closest('.lat-focus[data-mark]')) return `mark:${mark}`;
+	const spec = `focus:${el.closest('section')?.getAttribute('data-focus') ?? ''}`;
+	// A CONTAINER of the call-out — each row under `_focus: col 5` holds one focused cell, a chart
+	// holds its focused series — is part of one moment with it. Without this every row's sentence,
+	// and the chart's frame sentence beside the series, won an exempt gesture of its own.
+	if (!focus.self) return focus.inner ? spec : null;
+	// A chart mark or series is one moment however many elements carry it.
+	if (el.closest('.lat-focus[data-series], .lat-focus[data-mark]')) return spec;
 	return el.closest('.lat-focus');
 }
 
@@ -2094,7 +2166,10 @@ export function planSlide(texts: readonly string[], aim: (text: string) => Eleme
 		if (!el) return;
 		aimed.add(i);
 		const key = authoredUnit(el) ?? el;
-		if (!first.has(key)) first.set(key, { el, cue: i });
+		const had = first.get(key);
+		// One moment, gestured on its MOST SPECIFIC cue: the focused series itself beats the chart
+		// frame that holds it, even when the frame is spoken first.
+		if (!had || (!authoredFocusOf(had.el).self && authoredFocusOf(el).self)) first.set(key, { el, cue: i });
 	});
 	const ranked = [...first.values()]
 		.map(({ el, cue }) => ({ cue, score: salience(el) }))

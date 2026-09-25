@@ -6,6 +6,7 @@ import {
 	chooseGesture,
 	cueDisplayText,
 	findCueTarget,
+	findMarkTarget,
 	findNamedTarget,
 	findParaphraseTarget,
 	findSpanningTarget,
@@ -189,6 +190,14 @@ describe('findParaphraseTarget — an authored caption in other words', () => {
 		expect(findParaphraseTarget(d, '870 reached a proposal, and 214 signed.')).toBeNull();
 	});
 
+	it('reads an amount spelled out in the caption as the digits on the slide', () => {
+		const d = doc('<ul><li>Hiring continued on plan.</li><li>ARR closed at $48.6M, ahead of plan.</li><li>Proposal sent 870</li><li>Qualified leads 12,400</li></ul>');
+		const li = [...d.querySelectorAll('li')];
+		expect(findParaphraseTarget(d, 'Recurring revenue closed at forty-eight point six million dollars, ahead of plan.')).toBe(li[1]);
+		expect(findParaphraseTarget(d, 'Only eight hundred seventy got a proposal.')).toBe(li[2]);
+		expect(findParaphraseTarget(d, 'We generated twelve thousand four hundred qualified leads.')).toBe(li[3]);
+	});
+
 	it('lets a number of two or more digits carry a match on its own', () => {
 		const d = doc('<ol><li>48.6M ARR</li><li>118% Net dollar retention</li></ol>');
 		expect(findParaphraseTarget(d, 'NDR held at 118%.')).toBe(d.querySelectorAll('li')[1]);
@@ -271,6 +280,22 @@ describe('planSlide — the salience budget', () => {
 		const dots = [...d.querySelectorAll('circle')];
 		const plan = planSlide(['a', 'b', 'c'], (t) => dots['abc'.indexOf(t)], 2, 1);
 		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('scores a chart frame below the bar the headline names', () => {
+		const d = doc(`<h2>EMEA is where the quarter was won.</h2><div class="chart-body"><svg>
+			<rect data-mark="0" data-label="LATAM" data-value="$1.2M"/><rect data-mark="1" data-label="EMEA" data-value="$6.8M"/>
+			<rect data-mark="2" data-label="APAC" data-value="$2.9M"/><text>EMEA $6.8M</text></svg></div>`);
+		const body = d.querySelector('.chart-body') as Element;
+		expect(salience(body)).toBeLessThan(salience(d.querySelectorAll('rect')[1]));
+	});
+
+	it('gestures a focused series on its own cue, not on the chart frame spoken first', () => {
+		const d = new DOMParser().parseFromString(`<section data-focus="series 1"><div class="chart-body"><svg>
+			<path class="lat-focus" data-series="0"/><path class="lat-recede" data-series="1"/></svg></div></section>`, 'text/html');
+		const [body, path] = [d.querySelector('.chart-body') as Element, d.querySelector('path') as Element];
+		const plan = planSlide(['frame', 'series'], (t) => (t === 'frame' ? body : path), 1, 1);
+		expect([...plan.gesture]).toEqual([1]);
 	});
 
 	it('counts the rows of a focused column as one moment', () => {
@@ -1546,8 +1571,11 @@ describe('findMarkTarget — a cue whose words are not on the slide at all', () 
 		// refuse it — a sentence ABOUT the funnel is not a sentence about one band. Written
 		// because the first version of the test above was killed by the value guard instead,
 		// and relaxing the lead rule to `includes` left it green.
+		//
+		// Asserted on THIS tier. Through the whole chain the paraphrase tier now names the Visitors
+		// band, which is right: the sentence says its label and its value.
 		const d = doc(FUNNEL);
-		expect(findCueTarget(d, 'In total, Visitors reached twelve thousand.')).toBeNull();
+		expect(findMarkTarget(d, 'In total, Visitors reached twelve thousand.')).toBeNull();
 	});
 
 	it('hides rather than guesses when two marks both pass', () => {
