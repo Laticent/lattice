@@ -55,11 +55,11 @@ export interface ChartDetailLayerProps {
    *  Studio live preview). Omit (false) for PINNED mode — a hit-surface over one `onSlide()` chart
    *  (Present). */
   hoverAny?: boolean;
-  /** Interaction-coupled tilt (lifts/tips toward the open mark, settles flat). Default true, matching
-   *  `chart-interact` (so the Playground keeps its reveal tilt). `chart-interact` itself skips the
-   *  lift/tilt on an ANIMATED chart — that chart's marks carry the renderer's baked frame — so tilt
-   *  never fights motion regardless of this flag. */
-  tilt?: boolean;
+  /** The geometric half of the reveal emphasis — a pie slice steps out along its bisector, a dot
+   *  grows about its center. Default true, matching `chart-interact`. The dim and the elevation
+   *  shadow apply either way, and `chart-interact` skips all of it on an ANIMATED chart (that chart's
+   *  marks carry the renderer's baked frame), so the emphasis never fights motion. */
+  lift?: boolean;
   /** Fired when a mark opens (Present/Practice uses it to pause autoplay). */
   onReveal?: () => void;
   /** Gate the whole layer off (e.g. a thumbnail host that must not sprout popovers). Default true. */
@@ -72,7 +72,7 @@ export interface ChartDetailLayerProps {
  * ref: `rebind()` after each paint; `onSlide()` / `handleKey()` in pinned (Present) mode.
  */
 export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailLayerProps>(function ChartDetailLayer(
-  { getFrame, getStage, hoverAny = false, tilt = true, onReveal, enabled = true },
+  { getFrame, getStage, hoverAny = false, lift = true, onReveal, enabled = true },
   ref,
 ) {
   const [detail, setDetail] = React.useState<ChartDetail | null>(null);
@@ -91,8 +91,8 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
 
   // Keep the latest prop thunks/flags in refs so the mount logic stays identity-stable across renders
   // (the parent passes fresh inline arrows each render).
-  const cfg = React.useRef({ getFrame, getStage, hoverAny, tilt, onReveal, enabled });
-  cfg.current = { getFrame, getStage, hoverAny, tilt, onReveal, enabled };
+  const cfg = React.useRef({ getFrame, getStage, hoverAny, lift, onReveal, enabled });
+  cfg.current = { getFrame, getStage, hoverAny, lift, onReveal, enabled };
 
   // The live interact controller, constructed LAZILY the first time both the stage and the live frame
   // exist. Two host shapes need this: the Playground's iframe is a React ref present at mount, but a
@@ -112,7 +112,7 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
       stage,
       getFrame: () => cfg.current.getFrame() ?? frame,
       hoverAny: cfg.current.hoverAny,
-      tilt: cfg.current.tilt,
+      lift: cfg.current.lift,
       onReveal: cfg.current.onReveal,
       // chart-interact types the hook as `(detail: object|null) => void`; the payload IS the
       // ChartDetail shape, so coerce at the boundary.

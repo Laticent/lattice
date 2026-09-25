@@ -173,7 +173,7 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     ci.destroy();
   });
 
-  it('anima coupling: binds the .scene-live clone (not the poster) and never writes lift/tilt onto its marks', () => {
+  it('anima coupling: binds the .scene-live clone (not the poster) and never writes the dim/lift onto its marks', () => {
     // Guards the two cross-file invariants the design leans on (a silent-break risk otherwise): (1)
     // chart-interact must bind the Anima CLONE inside `.scene-live`, NOT the original poster — and it must
     // do so even if the poster still has a box (the pre-`.scene-live`-preference landmine, where a poster

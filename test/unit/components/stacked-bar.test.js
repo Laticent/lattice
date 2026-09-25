@@ -300,7 +300,7 @@ describe('stacked-bar kernel', () => {
 
     test('the svg carries a viewBox, meet, role=img, a title and a data-bearing desc', () => {
       const html = build(FY);
-      assert.match(html, /<svg class="cart-svg" viewBox="0 0 \d+ \d+" preserveAspectRatio="xMidYMid meet" role="img">/);
+      assert.match(html, /<svg class="cart-svg stacked-bar-svg" viewBox="0 0 \d+ \d+" preserveAspectRatio="xMidYMid meet" role="img">/);
       assert.match(html, /<title>Stacked bar chart<\/title>/);
       const desc = html.match(/<desc>([^<]*)<\/desc>/)[1];
       // role="img" prunes the subtree, so this string is the ONLY route to the
