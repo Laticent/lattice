@@ -607,41 +607,78 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * Mindmap reads cScale verbatim with no transformation. cScale inputs
  * are mid-tone (L≈60) so kanban lighten lands well, but mindmap renders
  * them at full saturation. Override mindmap level fills to pale band
- * tints; band-text-N stays AA against each band.
+ * tints; --cat-on-fill stays AA against each band.
+ *
+ * ONE BRANCH, ONE CATEGORY: `section-N` → `--cat-(N+1)`, the same map the
+ * branch edges use below, so a branch's boxes and its lines always land on one
+ * category. Mermaid numbers branches `section-0` … `section-10` and wraps the
+ * twelfth back to `section-0` (measured on a 13-branch render); `section-11` is
+ * covered so the cycle matches the 12-slot band cycle above.
+ *
+ * WHY THIS SELECTOR, measured on a render with every node shape:
+ *   - `.section-N` is a class TOKEN. The old `[class*="section-1"]` substring
+ *     test also matched `section-10` and `section-11`.
+ *   - Specificity (0,3,3) beats the flowchart coverage rule
+ *     `.node .basic.label-container` (0,3,1). Below it, circle, bang, cloud and
+ *     hexagon nodes (which carry `label-container`) all painted `--cat-1`.
+ *   - `:is(rect, circle, polygon, path)` covers every shape Mermaid draws:
+ *     default and bang/cloud are a `path`, `[square]`/`(rounded)` a `rect`,
+ *     `((circle))` a `circle`, `{{hexagon}}` a `polygon`.
+ *   - `>` (direct child) keeps the fill off the hand-drawn shapes below, whose
+ *     paths sit one group deeper.
  */
-:is(section, figure) .mindmap-node[class*="section-0"] rect,
-:is(section, figure) .mindmap-node[class*="section-0"] circle,
-:is(section, figure) .mindmap-node[class*="section-0"] polygon,
-:is(section, figure) .mindmap-node[class*="section-0"] path { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
-:is(section, figure) .mindmap-node[class*="section-1"] rect,
-:is(section, figure) .mindmap-node[class*="section-1"] circle,
-:is(section, figure) .mindmap-node[class*="section-1"] polygon,
-:is(section, figure) .mindmap-node[class*="section-1"] path { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
-:is(section, figure) .mindmap-node[class*="section-2"] rect,
-:is(section, figure) .mindmap-node[class*="section-2"] circle,
-:is(section, figure) .mindmap-node[class*="section-2"] polygon,
-:is(section, figure) .mindmap-node[class*="section-2"] path { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
-:is(section, figure) .mindmap-node[class*="section-3"] rect,
-:is(section, figure) .mindmap-node[class*="section-3"] circle,
-:is(section, figure) .mindmap-node[class*="section-3"] polygon,
-:is(section, figure) .mindmap-node[class*="section-3"] path { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
-:is(section, figure) .mindmap-node[class*="section-4"] rect,
-:is(section, figure) .mindmap-node[class*="section-4"] circle,
-:is(section, figure) .mindmap-node[class*="section-4"] polygon,
-:is(section, figure) .mindmap-node[class*="section-4"] path { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-0 > :is(rect, circle, polygon, path) { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-1 > :is(rect, circle, polygon, path) { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-2 > :is(rect, circle, polygon, path) { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-3 > :is(rect, circle, polygon, path) { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-4 > :is(rect, circle, polygon, path) { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-5 > :is(rect, circle, polygon, path) { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-6 > :is(rect, circle, polygon, path) { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-7 > :is(rect, circle, polygon, path) { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-8 > :is(rect, circle, polygon, path) { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-9 > :is(rect, circle, polygon, path) { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-10 > :is(rect, circle, polygon, path) { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-11 > :is(rect, circle, polygon, path) { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; }
+/* The same branch map under `mode: sketch` (Mermaid's `look: 'handDrawn'`).
+ * Every shape except the default rounded bar becomes `g.rough-node >
+ * g:first-of-type > path, path`: a stroked hachure bundle, then the outline.
+ * As in §ROUGH NODE FILL below, the palette goes on with `stroke` (a `fill`
+ * turns the hachure into a blob), and the outline keeps --diagram-stroke from
+ * that section's `path:last-child` rule. The position cycle there skips
+ * mindmap, so this is the only rule that colors a hand-drawn mindmap node.
+ */
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-0 > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-1 > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-2 > g:first-of-type > path:first-child { stroke: var(--cat-3-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-3 > g:first-of-type > path:first-child { stroke: var(--cat-4-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-4 > g:first-of-type > path:first-child { stroke: var(--cat-5-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-5 > g:first-of-type > path:first-child { stroke: var(--cat-6-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-6 > g:first-of-type > path:first-child { stroke: var(--cat-7-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-7 > g:first-of-type > path:first-child { stroke: var(--cat-8-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-8 > g:first-of-type > path:first-child { stroke: var(--cat-9-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-9 > g:first-of-type > path:first-child { stroke: var(--cat-10-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-10 > g:first-of-type > path:first-child { stroke: var(--cat-11-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-11 > g:first-of-type > path:first-child { stroke: var(--cat-12-fill) !important; }
 /* Root node: Mermaid emits classes "section-root" AND "section--1"
  * (note double-dash = minus one). Both have hardcoded fills:
  *   .section-root → #C20000 (red — alarm color, wrong for root)
  *   .section--1   → #5C9DD3 (cScale1 mid-blue)
- * Override both to band-1 with paired dark text for the contract.
+ * The root takes the deck ACCENT, not a category. On `--cat-1` it read as part
+ * of the first branch, which is `--cat-1` too. `--accent` / `--on-accent` is the
+ * curated per-theme AA pair (gated in test/unit/palette/contrast.test.js), and a
+ * solid accent hub stands apart from the pale branch tints in both modes.
+ *
+ * Under `mode: sketch` the root stays SOLID: its hachure takes the accent as
+ * both fill and stroke. A hachure of lines behind --on-accent text would put
+ * white ink on a mostly white canvas.
  */
-:is(section, figure) .section-root rect,
-:is(section, figure) .section-root circle,
-:is(section, figure) .section-root polygon,
-:is(section, figure) .section-root path { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
-:is(section, figure) .section-root text, :is(section, figure) .section-root span {
-  fill: var(--cat-on-fill) !important;
-  color: var(--cat-on-fill) !important;
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-root :is(rect, circle, polygon, path) {
+  fill: var(--accent) !important;
+}
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-root > g:first-of-type > path:first-child { stroke: var(--accent) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-root :is(text, tspan, foreignObject *) {
+  fill: var(--on-accent) !important;
+  color: var(--on-accent) !important;
 }
 :is(section, figure) .mindmap-node text, :is(section, figure) .mindmap-node tspan, :is(section, figure) .mindmap-node foreignObject * {
   fill: var(--cat-on-fill) !important;
@@ -876,17 +913,25 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * diagram opens on — at reduced opacity so overlapping flows stay
  * legible and the node bars remain the primary read. --cat-1-fill is a
  * light-dark() pair, so the ribbons flip with the canvas.
+ *
+ * NOT SANKEY-ONLY. The same position cycle is what colors flowchart, state
+ * and ER nodes (each is a `g.node > rect` inside `g.nodes`), so it stays on
+ * every diagram type except MINDMAP. A mindmap `[square]` or `(rounded)` node
+ * is a `g.node > rect` too, and at (0,3,4) this cycle beat the per-branch
+ * rule and painted those nodes by DOM order. Mindmap colors by branch
+ * (`.section-N`, above), never by position. `:where()` adds no specificity, so
+ * every other diagram keeps exactly the paint it had.
  */
-:is(section, figure) g.nodes > g.node:nth-of-type(1)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(2)  > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(3)  > rect { fill: var(--cat-3-texture, var(--cat-3-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(4)  > rect { fill: var(--cat-4-texture, var(--cat-4-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(5)  > rect { fill: var(--cat-5-texture, var(--cat-5-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(6)  > rect { fill: var(--cat-6-texture, var(--cat-6-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(7)  > rect { fill: var(--cat-7-texture, var(--cat-7-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(8)  > rect { fill: var(--cat-8-texture, var(--cat-8-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(9)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(10) > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(1)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(2)  > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(3)  > rect { fill: var(--cat-3-texture, var(--cat-3-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(4)  > rect { fill: var(--cat-4-texture, var(--cat-4-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(5)  > rect { fill: var(--cat-5-texture, var(--cat-5-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(6)  > rect { fill: var(--cat-6-texture, var(--cat-6-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(7)  > rect { fill: var(--cat-7-texture, var(--cat-7-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(8)  > rect { fill: var(--cat-8-texture, var(--cat-8-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(9)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(10) > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
 /* ── ROUGH NODE FILL — the same categorical cycle, under the hand-drawn look ──
  * `mode: sketch` bakes Mermaid's `look: 'handDrawn'` (lib/core/diagram-look.js),
  * which swaps the node renderer: `g.node > rect` becomes
@@ -917,16 +962,16 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * redundant encoding, so those decks keep classic shapes and this block never
  * matches. Measured: four distinct tiles collapse to four grays 5% apart.
  */
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(1) > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(2) > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(3) > g:first-of-type > path:first-child { stroke: var(--cat-3-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(4) > g:first-of-type > path:first-child { stroke: var(--cat-4-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(5) > g:first-of-type > path:first-child { stroke: var(--cat-5-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(6) > g:first-of-type > path:first-child { stroke: var(--cat-6-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(7) > g:first-of-type > path:first-child { stroke: var(--cat-7-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(8) > g:first-of-type > path:first-child { stroke: var(--cat-8-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(9) > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
-:is(section, figure) g.nodes > g.rough-node:nth-of-type(10) > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(1) > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(2) > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(3) > g:first-of-type > path:first-child { stroke: var(--cat-3-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(4) > g:first-of-type > path:first-child { stroke: var(--cat-4-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(5) > g:first-of-type > path:first-child { stroke: var(--cat-5-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(6) > g:first-of-type > path:first-child { stroke: var(--cat-6-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(7) > g:first-of-type > path:first-child { stroke: var(--cat-7-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(8) > g:first-of-type > path:first-child { stroke: var(--cat-8-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(9) > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(10) > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
 :is(section, figure) g.nodes > g.rough-node > g:first-of-type > path:last-child { stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.node-labels text, :is(section, figure) g.nodes text {
   fill: var(--cat-on-fill) !important;
@@ -1093,25 +1138,42 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .treeView-node-label { fill: var(--cat-on-fill) !important; }
 :is(section, figure) .treeView-node-line  { stroke: var(--diagram-line) !important; }
 
-/* ── MINDMAP BRANCH EDGES (per-section color, brightened) ──
- * Mindmap draws each branch in its section's cScale color (themeVar
- * cScale0-11 → --cN-dark). Those bake at the light branch and, more to the
- * point, the saturated --cN-dark tone reads dark on a dark canvas. Re-point
- * each `.section-edge-N` at the matching category, brightened via color-mix
- * toward the flipping ink (lighter on a dark slide, slightly deeper on a light
- * slide) so the branches stay COLORED and read brightly in both modes.
+/* ── MINDMAP BRANCH EDGES (per-section color, from the branch's own fill) ──
+ * Mindmap draws each branch in its section's cScale color, which bakes at the
+ * light side and reads dark on a dark canvas. Re-point each `.section-edge-N`
+ * at the SAME category its nodes fill with (`--cat-(N+1)`, see §MINDMAP), so a
+ * branch's line and boxes read as one hue.
+ *
+ * Derived from the FILL, not the MARK. `--cat-N-mark` is the opposite tier and
+ * is not the fill's hue: indaco's cat-2 fill is a sand yellow and its mark a
+ * maroon, so the line and its boxes disagreed. On a dark slide the old 78% mix
+ * toward --cat-on-fill also washed every line out to near-white.
+ *
+ * HOW: `oklch(L none none)` has no chroma and no hue, and color-mix takes a
+ * missing component from the other color. So the mix keeps the fill's exact
+ * hue and chroma and sets only the lightness: 0.47 on a light slide (darker
+ * than the pale fill), 0.8 on a dark one (lighter than the jewel fill). The
+ * fill's weight is 0% on purpose; it contributes hue and chroma, nothing else.
+ * Measured on all 14 color themes: every line clears 3:1 on --bg (worst
+ * concrete light, 3.3:1) and keeps the fill's hue. Gray palettes (onyx,
+ * concrete, a11y-*) have no hue to keep and get one gray line; their nodes
+ * carry the pattern that tells branches apart.
+ *
  * Scoped to svg.mindmapDiagram so no other diagram's edges are touched.
- * (Restores the per-branch color an earlier over-broad edge rule flattened.)
- * Section indices mirror the mindmap-node fill mapping below: 0→c1 … 5→c6. */
+ */
 :is(section, figure) svg.mindmapDiagram .section-edge--1,
-:is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-1 { stroke: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-2 { stroke: color-mix(in srgb, var(--cat-3-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-3 { stroke: color-mix(in srgb, var(--cat-4-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-4 { stroke: color-mix(in srgb, var(--cat-5-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-5 { stroke: color-mix(in srgb, var(--cat-6-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-6 { stroke: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-7 { stroke: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: color-mix(in oklch, var(--cat-1-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-1 { stroke: color-mix(in oklch, var(--cat-2-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-2 { stroke: color-mix(in oklch, var(--cat-3-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-3 { stroke: color-mix(in oklch, var(--cat-4-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-4 { stroke: color-mix(in oklch, var(--cat-5-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-5 { stroke: color-mix(in oklch, var(--cat-6-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-6 { stroke: color-mix(in oklch, var(--cat-7-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-7 { stroke: color-mix(in oklch, var(--cat-8-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-8 { stroke: color-mix(in oklch, var(--cat-9-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-9 { stroke: color-mix(in oklch, var(--cat-10-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-10 { stroke: color-mix(in oklch, var(--cat-11-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-11 { stroke: color-mix(in oklch, var(--cat-12-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
 
 
 /* ── TIMELINE diagram overrides (Mermaid) — relocated from the retired

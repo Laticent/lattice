@@ -486,7 +486,8 @@ the card outline against the white canvas.
 | **kanban** | lane (cat-N-fill rect) → ticket on top | card-on-band ✓ |
 | **timeline** | period header (cat-N-fill) → events stack below on canvas | tile-per-element (each event = its period's cat-N-fill) |
 | **journey** | section header (cat-N-fill) → tasks stack below on canvas | tile-per-element (each task = its section's cat-N-fill) |
-| **treemap / mindmap / gitgraph / quadrant** | no outer grouping | tile-per-element (each tile = its own cat-N-fill) |
+| **treemap / gitgraph / quadrant** | no outer grouping | tile-per-element (each tile = its own cat-N-fill) |
+| **mindmap** | no outer grouping; the root on `--accent` | tile-per-branch (every node and line of a branch = that branch's cat-N-fill) |
 
 Audit and design rationale: `engineering/decisions/2026-05-12-diagram-elevation.md`.
 
@@ -549,9 +550,13 @@ The current overrides cover:
 - **Journey** — Mermaid hardcodes X11 named colors for sections. Override
   forces section bars and task tiles to pale fills with dark text.
 - **Mindmap** — reads `cScale*` verbatim with no transformation. The
-  deep-tone inputs render too saturated. Override forces pale fills per
-  level. The root node has both `.section-root` and `.section--1` classes
-  with conflicting hardcoded fills; both are overridden.
+  deep-tone inputs render too saturated. Override paints each BRANCH one
+  category: every node of `section-N`, whatever its shape, fills with
+  `--cat-(N+1)-fill`, and its branch lines take the same fill's hue (darker on
+  a light slide, lighter on a dark one; never `--cat-N-mark`, which is a
+  different hue). The root node has both `.section-root` and `.section--1`
+  classes with conflicting hardcoded fills; both are overridden to `--accent`
+  with `--on-accent` ink, so the root never shares the first branch's color.
 - **Kanban** — applies its own lighten step. With our deep-tier inputs
   this lands on the pale band, but the column section colors need
   explicit overrides to stay distinct per column.

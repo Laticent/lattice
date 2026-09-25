@@ -172,6 +172,32 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Commits:** Initial misapplication + audit + revert; see
   `engineering/decisions/2026-05-12-diagram-elevation.md`.
 
+## A mindmap node takes another diagram's color cycle
+
+- **Symptom:** in one mindmap branch, some leaves are the branch color and
+  others are not. `[square]` and `(rounded)` leaves cycle through unrelated
+  colors, and circle, bang, cloud and hexagon leaves are all blue.
+- **Cause:** Mindmap nodes are `g.node` inside `g.nodes`, the same markup a
+  flowchart, state or ER node uses, and they carry `.node .label-container`
+  too. Two engine rules written for those diagrams therefore reach mindmap:
+  the position cycle `g.nodes > g.node:nth-of-type(N) > rect` (0,3,4), which
+  colors a node by its order in the markup, and the flowchart coverage rule
+  `.node .basic.label-container` (0,3,1), which paints `--cat-1`. Both
+  outranked the per-branch `.mindmap-node.section-N` rule.
+- **Mitigation:** The position cycles (classic and sketch) exclude mindmap
+  with `:where(svg:not(.mindmapDiagram))`, which adds no specificity, so every
+  other diagram keeps its paint. The per-branch rule is
+  `svg.mindmapDiagram .mindmap-node.section-N > :is(rect, circle, polygon, path)`
+  at (0,3,3), above the flowchart default. A new generic `g.node` rule in
+  `lib/integrations/mermaid/mermaid.css` must exclude mindmap the same way.
+  Check with the every-shape slide in `examples/mindmap-branch-colors.md`.
+- **Triggered by:** A generic `g.node` or `.node` rule in the Mermaid
+  stylesheet that is not scoped to one diagram type.
+- **Removable when:** Mermaid gives mindmap nodes a class that no other
+  diagram type emits on `g.node`. It does not today.
+- **Commits:** the mindmap branch-colors fix
+  (`changelog.d/mindmap-branch-colors.fixed.md`).
+
 ## ~~Mermaid's `%%{init}%%` directive is intolerant of CSS comments~~ (RESOLVED)
 
 - **Status:** No longer applicable as of 2026-05-12. Lattice no longer
