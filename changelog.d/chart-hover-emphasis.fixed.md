@@ -15,6 +15,12 @@
   tap or hover misses every mark, the reveal now takes the nearest mark whose outline is
   within reach: 22 screen px for touch, 6 for a mouse. A mark the pointer is actually on
   still wins.
-- **Fixed: a slope chart's names and values open their card.** Tapping or hovering
-  "Northwind" or its "31%" now reveals Northwind's detail, the same as its line. The name and
-  value labels carry the entity's `data-mark` and `data-label`. The printed chart is unchanged.
+- **Fixed: tapping a label that names a chart item opens that item's card.** On a slope
+  chart, tapping "Northwind" or its "31%" now opens Northwind's detail, the same as its line.
+  The same applies to a funnel stage's label and value, a waterfall's category and value
+  labels, a quadrant dot's name, and every row of a pie or map legend. The labels carry a new
+  `data-mark-for` attribute that only the reveal layer reads, so chart motion and the Present
+  Guide are unchanged. The printed chart is unchanged.
+- **Fixed: the detail card's color dot on gradient-filled marks.** Bars, waterfall steps and
+  other gradient-filled marks showed an empty dot that pushed the title right. The dot now
+  takes the mark's outline color.

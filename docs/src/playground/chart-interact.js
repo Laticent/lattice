@@ -90,6 +90,13 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   const DETAILS_SEL = '.chart-details';
   const TPL_SEL = 'template.chart-detail';
   const MARK_SEL = '[data-mark]';
+  // A TAP PROXY — text that names one mark (a slope entity's name and values, a funnel stage's
+  // label, a waterfall's category, a quadrant dot's name, a pie or map legend row) carries
+  // `data-mark-for="i"`. It is a
+  // separate attribute from `data-mark` so the proxy never becomes a mark: `chartToScene` strokes
+  // every highlighted `[data-mark]` and the Present Guide ranks `[data-label]` nodes, and neither
+  // should see the labels. Only this file reads it.
+  const PROXY_SEL = '[data-mark-for]';
   const markIndex = (elm) => {
     if (!elm) return -1;
     const v = elm.dataset.mark;
@@ -189,7 +196,11 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     // A usable swatch color — reject the SVG `fill` INITIAL (black) that an HTML
     // box computes to, plus transparents, so an HTML mark never shows a stray
     // black dot. Returns null when there's no real color (→ the dot is hidden).
-    const usable = (c) => (c && c !== 'none' && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)') ? c : null;
+    // A paint-server reference (`url("#cart-fill-…")` — every gradient-filled bar, band and wedge) is
+    // not a color either: as a CSS background it paints nothing, so the card showed an EMPTY dot
+    // that still took its space and pushed the title right. Rejecting it falls through to the
+    // mark's stroke, which is its real outline color.
+    const usable = (c) => (c && c !== 'none' && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)' && !c.startsWith('url(')) ? c : null;
     let dot = null;
     try {
       if (swatch) {
@@ -389,7 +400,21 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     const x = (clientX - g.fr.left) / g.S, y = (clientY - g.fr.top) / g.S;
     const t = d.elementFromPoint(x, y);
     const hit = markIndex(t?.closest(MARK_SEL));
-    return hit >= 0 ? hit : nearestMark(chartEl, x, y, reachPx() / g.S);
+    if (hit >= 0) return hit;
+    const named = namedMark(t, chartEl);
+    return named >= 0 ? named : nearestMark(chartEl, x, y, reachPx() / g.S);
+  }
+
+  // The mark a piece of TEXT names, or -1 — a tap proxy (`data-mark-for`, see PROXY_SEL). A pie or
+  // map LEGEND row is one too: the legend kernel stamps it only when the chart says which mark the
+  // row names, so a legend of SERIES (line, stacked-bar, radar) stays inert rather than being
+  // matched by position or text to some unrelated mark.
+  function namedMark(t, svg) {
+    if (!t || !svg?.contains(t)) return -1;
+    const px = t.closest?.(PROXY_SEL);
+    if (!px) return -1;
+    const n = Number(px.getAttribute('data-mark-for'));
+    return Number.isInteger(n) && n >= 0 ? n : -1;
   }
 
   // ── near-miss hit-testing: the THIN-MARK problem ──────────────────────────────
@@ -707,6 +732,12 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
       // ink edge) without the reveal layer hard-coding per-chart visuals.
       w.classList?.toggle('chart-mark-active', active);
     });
+    // The proxies dim with their marks, so the open entry's own name and values stay at full
+    // strength while every other entry's recede — the card and the chart agree on what is open.
+    chartEl.querySelectorAll(PROXY_SEL).forEach((p) => {
+      p.style.transition = REDUCED ? 'none' : 'opacity .2s ease';
+      p.style.opacity = Number(p.getAttribute('data-mark-for')) === i ? '' : DIM;
+    });
   }
 
   // Put every mark back. The transition stays on, so the exit eases out the way the entry eased in,
@@ -718,6 +749,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
       w.style.filter = '';
       w.classList?.remove('chart-mark-active');
     });
+    chartEl?.querySelectorAll(PROXY_SEL).forEach((p) => { p.style.opacity = ''; });
   }
 
   function clear() {
@@ -777,7 +809,8 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     const svg = e && target?.closest?.(CHART_SVG_SEL);
     if (!svg) return -1;
     const g = frameGeom();
-    const i = nearestMark(svg, e.clientX, e.clientY, reachPx() / (g?.S || 1));
+    const named = namedMark(target, svg);
+    const i = named >= 0 ? named : nearestMark(svg, e.clientX, e.clientY, reachPx() / (g?.S || 1));
     if (i < 0) return -1;
     setChart(svg.closest('.lattice > section') || svg.closest('section'));
     return interactive() ? i : -1;
