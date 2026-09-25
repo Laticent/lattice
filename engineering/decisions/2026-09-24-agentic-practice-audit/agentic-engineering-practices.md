@@ -327,19 +327,16 @@ This is the biggest single saving we found. Models read and bill in tokens, and 
 -->
 
 ---
-
-<!-- _class: table table-fill -->
+<!-- _class: list takeaway -->
 
 `Context · In Claude Code`
 
 ## Claude Code gives you a setting for each of these habits.
 
-| Practice | In Claude Code |
-| --- | --- |
-| Standing instructions as an index | `CLAUDE.md`, linking detail docs with `@docs/file.md` |
-| Guidance that loads only when relevant | A skill in `.claude/skills/<name>/SKILL.md` |
-| Big reads outside the main session | A helper agent (subagent) in `.claude/agents/` |
-| See what fills the window | `/context`, and `/usage` for the bill |
+- Standing instructions: `CLAUDE.md`, linking detail with `@docs/file.md`.
+- Guidance on demand: a skill in `.claude/skills/<name>/SKILL.md`.
+- Big reads elsewhere: a helper agent (subagent) in `.claude/agents/`.
+- See the window: `/context`, and `/usage` for the bill.
 
 <!--
 If you use Claude Code, each habit maps to a setting. CLAUDE.md is the standing instruction file. Keep it short, and link to detail documents with an at sign followed by the file path. Skills hold longer guidance that only loads when a task needs it. Subagents are helper agents that do big reads in their own window. And slash context shows what's filling the window, while slash usage shows where the tokens went.
@@ -464,18 +461,15 @@ How the agent asks matters as much as when. A weak question hands the analysis b
 -->
 
 ---
-
-<!-- _class: table table-fill -->
+<!-- _class: list takeaway -->
 
 `Autonomy · In Claude Code`
 
 ## Permissions and plan mode turn the reach test into settings.
 
-| Practice | In Claude Code |
-| --- | --- |
-| Run safe commands freely, never risky ones | The allow, ask and deny lists in `.claude/settings.json` |
-| Show the plan before touching anything | Plan mode: `Shift+Tab` |
-| The same limits for every developer | Managed settings, rolled out org-wide |
+- Free, ask, never: allow, ask and deny lists in `.claude/settings.json`.
+- Plan before acting: plan mode, `Shift+Tab`.
+- The same limits for every developer: managed settings, rolled out org-wide.
 
 <!--
 In Claude Code, the reach test becomes settings. The allow list is what the agent may run freely, the ask list needs your yes, and the deny list it can never run. Plan mode makes the agent propose before it acts, which is what you want for anything in the riskier corners of the grid. Managed settings apply the same limits to everyone in the organization, so nobody's safety depends on their personal setup.
@@ -553,19 +547,17 @@ Not every change needs the same scrutiny. Routine work gets the automated tests 
 -->
 
 ---
-<!-- _class: table table-fill insight-why -->
+<!-- _class: list takeaway insight-why -->
 
 `Verification · Tests that look at reality`
 
 ## Beyond unit tests, each kind of test answers a different question.
 
-| Test | The question it answers |
-| --- | --- |
-| Mutation test | If I break the code on purpose, does a test fail? |
-| Metamorphic test | If I change the input in a known way, does the output change the way it should? |
-| Visual diff | Does the output look the same as before, unless I meant it to change? |
-| Benchmark against a baseline | Did it get slower, and by how much? |
-| Fuzz test | Does strange or random input break it? |
+- Mutation test: if I break the code on purpose, does a test fail?
+- Metamorphic test: if I change the input in a known way, does the output follow?
+- Visual diff: does it look the same as before, unless I meant it to change?
+- Benchmark: did it get slower, and by how much?
+- Fuzz test: does strange or random input break it?
 
 > A check that always passes looks exactly like a check that works.
 
@@ -632,18 +624,15 @@ For anything people look at, the final test is looking at it. Render the real ou
 -->
 
 ---
-
-<!-- _class: table table-fill -->
+<!-- _class: list takeaway -->
 
 `Verification · In Claude Code`
 
 ## Hooks and helper agents run the checks without being asked.
 
-| Practice | In Claude Code |
-| --- | --- |
-| Run checks after every edit | A hook that runs after each edit (`PostToolUse`) |
-| Refuse "done" until the tests pass | A hook that runs when it tries to finish (`Stop`, exit code 2) |
-| An independent reviewer | A read-only helper agent, or `/code-review` |
+- Checks after every edit: a `PostToolUse` hook.
+- No "done" until the tests pass: a `Stop` hook that exits with code 2.
+- An independent reviewer: a read-only helper agent, or `/code-review`.
 
 <!--
 A hook is a small script Claude Code runs at a fixed moment, whether or not the agent remembers to. One kind runs after every edit, so your linter always runs. Another runs when the agent tries to finish. If that script exits with code two, the agent has to keep working, for example until the tests pass. For a second opinion, set up a reviewer agent that can read but not edit, or run slash code-review on the change.
@@ -739,18 +728,15 @@ Here's what a decision note looks like. This example mirrors a real one: a rule 
 -->
 
 ---
-
-<!-- _class: table table-fill -->
+<!-- _class: list takeaway -->
 
 `Learning · Three kinds of document`
 
 ## Three kinds of document answer three different questions.
 
-| Document | Answers | When it expires |
-| --- | --- | --- |
-| Proposal | Which option should we pick? | Once someone decides |
-| Decision record | Why is it this way? | Never; a newer record replaces it |
-| Spec | What must every implementation do? | Never; you edit it to stay true |
+- Proposal: which option should we pick? It expires once someone decides.
+- Decision record: why is it this way? A newer record replaces it.
+- Spec: what must every implementation do? You edit it so it stays true.
 
 <!--
 It helps to know which kind of document you're writing, because each one ages differently. A proposal lays out options before a decision, and it expires once someone decides. A decision record explains why things are the way they are. You don't edit it later to match what happened; you write a new record that replaces it. A spec is the contract other people build against, and you keep editing it so it stays true. Mark each document with its type as well as its status. We didn't, and dozens of our notes still say "proposed" long after they were decided.
@@ -813,21 +799,18 @@ When an agent session ends, anything that lived only in the chat goes with it. S
 Last one. Who has run more than one agent at the same time? A few of you. By the end of this section, more of you will want to, and you'll know how to keep it under control.
 -->
 ---
-
-<!-- _class: table table-fill -->
+<!-- _class: list takeaway -->
 
 `Orchestration · A roster`
 
 ## Give each agent one job and a name, and pick it by its job.
 
-| Agent | Its one job |
-| --- | --- |
-| Scout | Find where things live and how they work |
-| Fact checker | Confirm or refute each claim against the source |
-| Build fixer | Find why a check failed, and fix the cause |
-| Red team | Break the change before users do |
-| Skeptic | Ask whether we are solving the right problem |
-| Prose checker | Catch unclear or machine-sounding writing |
+- Scout: finds where things live and how they work.
+- Fact checker: confirms or refutes each claim against the source.
+- Build fixer: finds why a check failed, and fixes the cause.
+- Red team: breaks the change before users do.
+- Skeptic: asks whether we're solving the right problem.
+- Prose checker: catches unclear or machine-sounding writing.
 
 <!--
 Orchestration just means coordinating several agents. Instead of one general assistant, keep a small roster of named agents. Each one has a short definition: one job, and only the tools that job needs. A reviewer, for example, can read but can't edit. You pick an agent by the job you need done, and its instructions are written for that job. In Claude Code these definitions live in the agents folder of your repository, so the whole team shares one roster.
