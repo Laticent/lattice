@@ -619,8 +619,9 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  *   - `.section-N` is a class TOKEN. The old `[class*="section-1"]` substring
  *     test also matched `section-10` and `section-11`.
  *   - Specificity (0,3,3) beats the flowchart coverage rule
- *     `.node .basic.label-container` (0,3,1). Below it, circle, bang, cloud and
- *     hexagon nodes (which carry `label-container`) all painted `--cat-1`.
+ *     `.node .basic.label-container` (0,3,1). Below it, circle, bang and cloud
+ *     nodes (which carry `basic label-container`) all painted `--cat-1`. A
+ *     hexagon is `polygon.label-container` without `.basic` and escaped it.
  *   - `:is(rect, circle, polygon, path)` covers every shape Mermaid draws:
  *     default and bang/cloud are a `path`, `[square]`/`(rounded)` a `rect`,
  *     `((circle))` a `circle`, `{{hexagon}}` a `polygon`.

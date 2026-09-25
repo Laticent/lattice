@@ -215,9 +215,34 @@ mindmap
 
 ---
 
+<!-- _class: diagram sketch -->
+
+`07 · Hand-drawn look`
+
+## Under the sketch look, each branch hatches in its own color.
+
+```mermaid
+mindmap
+  root((Node shapes))
+    Square
+      [Square leaf]
+    Rounded
+      (Rounded leaf)
+    Bang
+      ))Bang leaf((
+    Cloud
+      )Cloud leaf(
+    Hexagon
+      {{Hexagon leaf}}
+    Plain
+      Plain leaf
+```
+
+---
+
 <!-- _class: diagram -->
 
-`07 · Sankey, unchanged`
+`08 · Sankey, unchanged`
 
 ## Sankey nodes still cycle by position, exactly as before.
 
@@ -236,14 +261,14 @@ Savings,Cash,60
 
 <!-- _class: cards-grid four -->
 
-`08 · What changed`
+`09 · What changed`
 
 ## Four fixes, all in one Mermaid stylesheet.
 
 - Position
   - The order-based node cycle skips mindmap, so leaves stop taking a color from their place in the markup.
 - Range
-  - Node fills run through all twelve categories, for every shape.
+  - Node fills follow every branch Mermaid numbers, for every shape.
 - Lines
   - Each line takes its branch's fill: darker on light, lighter on dark.
 - Root

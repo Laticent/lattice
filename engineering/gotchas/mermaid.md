@@ -176,7 +176,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** in one mindmap branch, some leaves are the branch color and
   others are not. `[square]` and `(rounded)` leaves cycle through unrelated
-  colors, and circle, bang, cloud and hexagon leaves are all blue.
+  colors, and circle, bang and cloud leaves are all blue.
 - **Cause:** Mindmap nodes are `g.node` inside `g.nodes`, the same markup a
   flowchart, state or ER node uses, and they carry `.node .label-container`
   too. Two engine rules written for those diagrams therefore reach mindmap:
