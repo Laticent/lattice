@@ -209,7 +209,12 @@ scale, the tool checks the table rather than the manifest's designed-size `hard`
   `tools/pixel-check.js` over `gallery-jargon`, `font-scale`, `slide-context-editor`,
   `overflow-guards` and `matrix-grid-rendering-jank` reports 5/5 pixel-clean. The exported
   `.html` does change bytes on every deck, because its embedded watcher now carries the kernel.
-- **Demo deck:** `examples/font-scale-fit.md`, light and dark.
+- **Demo deck:** `examples/font-scale-fit.md` (`class: scale-xl`), rendered as
+  `examples/font-scale-fit.pdf`. The dark and `scale-l` renders are frozen here beside this
+  record, in `2026-09-25-font-scale-fit-renders/` (`scale-xl.dark.pdf`, `scale-l.light.pdf`,
+  `scale-l.dark.pdf`), made by
+  swapping the front-matter `class:` line for `scale-xl dark`, `scale-l` or `scale-l dark`.
+  At xl, pages 2, 6, 8 step to 1.15x and 4, 5 to 1x; at l, pages 4, 5 step to 1x.
 
 ## What this does not do
 
