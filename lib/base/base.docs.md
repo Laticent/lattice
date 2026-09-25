@@ -1423,10 +1423,16 @@ without any variant class on the section.
 `:tag` · `:tag-bordered` · `:chip` · `:circle` · `:chevron-right` · `:chevron-left` ·
 `:diamond`. With no shape modifier you get the capsule `pill`.
 
-`circle` and `diamond` are square boxes by construction, so they hold a digit or a
-mark — `{3}:circle`, `{!}:diamond`. A word in one either overflows the fill or forces
-the box wide enough to stop reading as the shape; `lint:deck` suggests `:tag` or
-`:chip` instead, and never blocks.
+Every shape is exactly as tall as the capsule, so pills of different shapes share one
+center line and never make a row or a line of prose taller. `circle` is a
+capsule-height disc and `diamond` a capsule-height rhombus, so they hold **one
+character, or a number up to two digits** — `{3}:circle`, `{12}:circle`, `{!}:diamond`. The clipped shapes (the chevrons and the diamond)
+carry the same 1px edge as the rest. The label is centered on its capitals, not on the
+line box, so it sits on the pill's visual center in Chrome, Firefox and Safari alike;
+lowercase descenders hang into the bottom padding. Anything longer stretches the box until
+it stops reading as the shape (`{OK}:circle` is an oval, `{WM}:circle` a capsule), so
+`lint:deck` **warns** (`pill-shape-crowded`), the editor underlines the pill, and the fix
+points at `:tag` or `:chip`. It never blocks a deck.
 
 ### Color — `:c1` … `:c12`
 
@@ -1435,9 +1441,19 @@ blue on `indaco` and deep red on `burgundy`, so a slot picks contrast, never mea
 never write `:c2` because "green means good". Text contrast comes from the categorical
 policy already in the engine, so a slot needs no per-pill contrast math.
 
-### Size — `:sm` `:lg`
+### Size — automatic, then `:sm` `:lg`
 
-Scales from the type, so a pill stays proportional to the row it sits in.
+A pill sizes itself from the text it sits in, so most pills need no size modifier:
+
+| Where the pill sits | Size |
+|---|---|
+| A heading or other large text (`#`, `##`, a title slide, a lead or emphasis paragraph) | Half the text's size: large in a title, a step up in a slide title. Text under about twice the pill size, such as an `###` subheading, keeps the usual size |
+| Body text, lists, cards, table cells | The metadata size, as always |
+| A below-note, a chart caption or a figure caption | Small |
+| Footers, headers and other small print | Small, 0.85 of the text around it |
+
+`:sm` and `:lg` still work, and they scale whatever the context gave: `:lg` in a
+footer is a bigger footer pill, not a heading-sized one.
 
 Modifier order is free: `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` `` are the same pill.
 

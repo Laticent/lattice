@@ -94,10 +94,12 @@ the PDF, in the browser and in an export.
 	hint="Put a whole word in the :circle. It either overflows or stretches until it stops reading as a circle — which is what lint:deck warns about."
 />
 
-`circle` and `diamond` are square boxes, so they hold a character or two and no
-more. Put a word in one and `lint:deck`, or the Studio's **Coach** panel,
-suggests `:tag` or `:chip` instead. It only suggests: deck linting never blocks
-a build.
+Every shape is as tall as the capsule, so mixed shapes share one line and never
+push a row apart. That makes `circle` and `diamond` small: they hold **one
+character, or a number up to two digits**. `{3}`, `{!}` and `{12}` fit; `{OK}`,
+`{WM}` and `{100}` stretch the shape into an oval or a sliver. Put one of those in
+a circle or diamond and `lint:deck` warns, the editor underlines the pill, and the
+fix suggests `:tag` or `:chip`. The warning never stops a deck from rendering.
 
 ## Color — `:c1` … `:c12`
 
@@ -118,11 +120,15 @@ the twelve slots, on purpose. To say *good*, *careful* or *bad*, use a
 instead. Picking whichever slot happens to look red in your theme breaks the
 moment someone switches themes.
 
-## Size — `:sm` and `:lg`
+## Size — automatic, then `:sm` and `:lg`
 
-A pill has one size on every slide: the small metadata size, the same in a
-heading as in a bullet. `:sm` makes it smaller and `:lg` larger; the default
-needs no modifier.
+A pill takes its size from the text around it, so you rarely type one. In a
+heading or other large text it is half the text's size, so a title gets a bigger
+pill than a slide title. In body text, lists and table cells it is the usual metadata size.
+In a below-note, a caption or a footer it is small.
+
+`:sm` makes a pill smaller and `:lg` larger than that automatic size. They
+scale the context, so `:lg` in a footer is still a footer-sized pill, only bigger.
 
 ```markdown
 - Small `{MINOR}:sm:c9` · default `{NORMAL}:c9` · large `{MAJOR}:lg:c9`

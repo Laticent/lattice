@@ -43,9 +43,9 @@ Residency `[x]` · SOC 2 `[?]`            ← inline, on any slide
 |---|---|
 | Shape | *(capsule)* · `:chip` · `:tag` · `:tag-bordered` · `:circle` · `:chevron-right` · `:chevron-left` · `:diamond` |
 | Color | `:c1` … `:c12` — numbered slots, never a meaning |
-| Size | `:sm` · *(default)* · `:lg` |
+| Size | *(automatic: large in headings, small in notes and footers)* · `:sm` · `:lg` |
 
-`:circle` and `:diamond` hold one or two characters. An unknown modifier leaves
+`:circle` and `:diamond` hold one character or a number up to two digits; longer labels get a lint warning. An unknown modifier leaves
 the span as plain code.
 
 ## Status words — [pills a component places](/guides/status/component-pills/)

@@ -74,17 +74,16 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Two sizes off the default, both scaling from the type." -->
+<!-- _footer: "The footer is small print, so its pill is small too `{AUTO}:c9`" -->
 
-## Size follows the type, not a pixel.
+## A pill sizes itself `{LIVE}:c2`
 
-1. Small
-   - Quieter than the row it sits in `{SM}:sm:c9`
-2. Default
-   - The register's own meta size `{MD}:c9`
-3. Large
-   - For a status that is the point `{LG}:lg:c9`
+In a heading it is large. In body text it is the metadata size, the same as `{STABLE}:c2` in a table cell.
+
+- `:sm` and `:lg` still work: `{MINOR}:sm:c9` · `{NORMAL}:c9` · `{MAJOR}:lg:c9`
+- They scale the automatic size, so they read the same way in every context
+
+— Note: in a below-note or a footer a pill is small, like `{DRAFT}:tag:c7` here.
 
 ---
 
@@ -136,7 +135,7 @@ Shape and color travel with the thing they describe, not with the slide.
 - A sentence
   - A pill is one word, two at most. If it needs a clause, it belongs in the row's description where it can wrap.
 - A word in a circle or diamond
-  - Both are square boxes by construction, so they hold a digit or a mark. `lint:deck` says so rather than refusing the deck.
+  - Both are only as tall as a capsule, so they hold a digit or a mark. `lint:deck` says so rather than refusing the deck.
 - A color that means something
   - `:c1`–`:c12` are ordinal slots, not colors. The same slot is sky blue on indaco and deep red on burgundy — pick a slot for contrast, never to say "green means good".
 

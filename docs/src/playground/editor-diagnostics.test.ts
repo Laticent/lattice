@@ -105,6 +105,38 @@ describe('findingsToDiagnostics', () => {
 		expect(diag.message).toContain('Fix: nest it'); // fix folded into the tooltip
 	});
 
+	it('underlines only the SPAN a finding names, not the whole line', () => {
+		const pills = doc('## Title\n\nStatus is `{OK}:tag` and `{WM}:circle` today.\n');
+		const [diag] = findingsToDiagnostics(pills, [
+			{ slide: 1, rule: 'pill-shape-crowded', severity: 'warning', line: 'Status is `{OK}:tag` and `{WM}:circle` today.', span: '`{WM}:circle`', message: 'm' },
+		]);
+		expect(pills.sliceString(diag.from, diag.to)).toBe('`{WM}:circle`');
+		// A span that is not on the matched line falls back to the whole line, never elsewhere.
+		const [fallback] = findingsToDiagnostics(pills, [
+			{ slide: 1, rule: 'r', severity: 'warning', line: 'Status is `{OK}:tag` and `{WM}:circle` today.', span: '`{GONE}:circle`', message: 'm' },
+		]);
+		expect(pills.sliceString(fallback.from, fallback.to)).toBe('Status is `{OK}:tag` and `{WM}:circle` today.');
+	});
+
+	it('uses the finding COLUMN, so two identical pills on a line each get their own underline', () => {
+		const twice = doc('## Title\n\nx `{WM}:circle` y `{WM}:circle`\n');
+		const line = 'x `{WM}:circle` y `{WM}:circle`';
+		const diags = findingsToDiagnostics(twice, [
+			{ slide: 1, rule: 'pill-shape-crowded', severity: 'warning', line, span: '`{WM}:circle`', col: 2, message: 'm' },
+			{ slide: 1, rule: 'pill-shape-crowded', severity: 'warning', line, span: '`{WM}:circle`', col: 18, message: 'm' },
+		]);
+		const lineFrom = twice.line(3).from;
+		expect(diags.map((d) => d.from - lineFrom)).toEqual([2, 18]);
+	});
+
+	it('maps a slide-0 front-matter finding onto its directive line', () => {
+		const fmDoc = doc('---\nmarp: true\nfooter: "F `{WM}:circle`"\n---\n\n## A\n\ntext\n');
+		const [diag] = findingsToDiagnostics(fmDoc, [
+			{ slide: 0, rule: 'pill-shape-crowded', severity: 'warning', line: 'footer: "F `{WM}:circle`"', span: '`{WM}:circle`', col: 11, message: 'm' },
+		]);
+		expect(fmDoc.sliceString(diag.from, diag.to)).toBe('`{WM}:circle`');
+	});
+
 	it('starts the underline past leading indentation', () => {
 		const indented = doc('<!-- _class: kpi -->\n\n  - **A.** body\n');
 		const [diag] = findingsToDiagnostics(indented, [
