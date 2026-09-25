@@ -1237,6 +1237,16 @@ of dense tiers keyed on the row count (`:has(> li:nth-child(N))`), measured at w
 Every shape in the table measures 0px of text outside its row (live DOM, every line box
 against its row's border box).
 
+**The row rule is not the heading rule.** Once the rows sat at content height, the
+`takeaway` and `principles` row rules (`1px solid --border`, full width) stacked directly under
+the masthead rule, which is the same stroke, and the owner found the two indistinguishable.
+Five treatments were rendered side by side (soft, fade-ended, inset, dotted, soft + inset), and
+the owner picked **soft + inset**: `--border` at 55%, starting at the row's text column past
+the counter. It is drawn as a background on `li:not(:last-child)`, because a border cannot
+start partway along its edge, and `base.sketch.css` clears it under the sketch finish, which
+draws its own rough rule. Now the full-width heading rule marks the page, the inset rule marks
+the rows, and the accent fade marks the closing note.
+
 **The defect this removes.** Under the old equal-share bands, a row that wrapped to two lines got
 the same share as a one-liner. With six items that put its second line outside the pill, and on
 `takeaway` onto the rule below. It was within the wide capacity (hard 6), so nothing flagged it.

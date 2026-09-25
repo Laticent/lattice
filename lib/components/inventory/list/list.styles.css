@@ -94,7 +94,6 @@ section.list > .cell-stage > ol > li::before { content:counter(list-counter, dec
 section.list.takeaway > .cell-stage > :is(ul,ol) { gap:0; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li {
   background:none; border:none; border-radius:0;
-  border-bottom:1px solid var(--border);
   /* A ruled row has no box to hold its air, so the block padding IS the rhythm between
      hairlines once the rows are content height (`cards: center`/`top`). */
   padding:var(--sp-md) var(--sp-xs);
@@ -102,7 +101,6 @@ section.list.takeaway > .cell-stage > :is(ul,ol) > li {
 }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::before { content:none; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::marker { content:''; }
-section.list.takeaway > .cell-stage > :is(ul,ol) > li:last-child { border-bottom:none; }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { counter-reset:list-take-counter var(--lat-split-offset, 0); }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li { counter-increment:list-take-counter; gap:var(--sp-md); }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
@@ -149,12 +147,11 @@ section.list.principles > .cell-stage > ol { counter-reset:list-principle-counte
 section.list.principles > .cell-stage > ol > li {
   counter-increment:list-principle-counter;
   background:none; border:none; border-radius:0;
-  border-bottom:1px solid var(--border); padding:var(--sp-sm) 0;
+  padding:var(--sp-sm) 0;
   font-family:var(--font-display, var(--font-body));
   font-weight:500; letter-spacing:-0.01em;
   line-height:var(--lh-tight); color:var(--text-heading);
 }
-section.list.principles > .cell-stage > ol > li:last-child { border-bottom:none; }
 section.list.principles > .cell-stage > ol > li::before { content:counter(list-principle-counter, decimal-leading-zero); }
 section.list.principles.lettered > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-alpha); }
 section.list.principles.roman > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-roman); }
@@ -165,6 +162,26 @@ section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
    rows SIT on square/tall/strip is the manifest's `cards.byFamily` (spread), not CSS. */
 section.list.list:where([data-family="strip"]) > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
 
+
+/* ── Row rules — the ruled registers (takeaway, principles) ──
+ * A row rule is NOT the masthead rule. The line under the heading is `1px solid --border`
+ * across the full measure (masthead.css), and the rows used to draw the identical stroke, so
+ * the heading rule and the row rules read as one set of lines. A row rule differs in two ways:
+ * it is SOFTER (`--border` at 55%), and it starts where the row's TEXT starts, past the
+ * counter, so it reads as belonging to the rows rather than the page. The below-note keeps its
+ * own accent fade, so each of the three lines has one look.
+ * Drawn as a background, not a border: a border cannot start partway along its edge.
+ * `base.sketch.css` clears it under the sketch finish, which draws its own rough rule. */
+section.list:is(.takeaway, .principles) {
+  --list-rule: color-mix(in srgb, var(--border) 55%, transparent);
+  --list-rule-inset: 0px;
+}
+section.list.takeaway.numbered { --list-rule-inset: calc(var(--sp-xs) + var(--list-ord-w) + var(--sp-md)); }
+section.list.principles { --list-rule-inset: calc(var(--list-ord-w) + var(--sp-md)); }
+section.list:is(.takeaway, .principles) > .cell-stage > :is(ul,ol) > li:not(:last-child) {
+  background:linear-gradient(var(--list-rule), var(--list-rule))
+    right bottom / calc(100% - var(--list-rule-inset)) 1px no-repeat;
+}
 
 /* ── Dense tiers — a list at its capacity still fits the stage. ──
  * Rows never shrink below their content (see the spine), so the air inside them has to come

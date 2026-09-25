@@ -98,8 +98,8 @@ describe('a ruled list draws its rule between rows, never as an outer edge', () 
       [],
       'These rules put a hairline on a list\'s outer edge, where it doubles with the ' +
         'stage chrome instead of separating two rows. Use `li + li { border-top: … }` ' +
-        '(list-tabular, inventory, list-steps.ghost) or clear the last row explicitly ' +
-        '(list.takeaway, list.principles).',
+        '(list-tabular, inventory, list-steps.ghost), clear the last row explicitly, or scope ' +
+        'the rule to `li:not(:last-child)` (list.takeaway, list.principles).',
     );
   });
 
@@ -118,7 +118,9 @@ describe('a ruled list draws its rule between rows, never as an outer edge', () 
     const carries = {
       'inventory/inventory/inventory': /ul > li \+ li \{\s*border-top: 1px solid var\(--border\)/,
       'inventory/list-tabular/list-tabular': /ol > li \+ li \{ border-top:1px solid var\(--border\)/,
-      'inventory/list/list': /list\.takeaway[\s\S]{0,400}?border-bottom:1px solid var\(--border\)/,
+      // list draws a softer, inset rule as a background (so it can start at the text column),
+      // and only on `li:not(:last-child)`, so it is interior by construction.
+      'inventory/list/list': /:is\(\.takeaway, \.principles\) > \.cell-stage > :is\(ul,ol\) > li:not\(:last-child\) \{\s*background:linear-gradient\(var\(--list-rule\)/,
       'progression/list-steps/list-steps': /\.ghost ol > li \+ li \{\s*\n?\s*border-top:1px solid var\(--border\)/,
     };
     for (const [rel, re] of Object.entries(carries)) {
