@@ -243,6 +243,56 @@ theme: indaco
 		assert.ok((await stunHits(['--allow-remote'])) > 0, 'the probe cannot see a STUN packet, so the arm above is vacuous');
 	});
 
+	// THE RESOLVER RULE, pinned (followups.d/2336-p3-packages-trio-followups.md item 13). The
+	// arms above pass with it deleted, because the dead proxy alone already refuses their
+	// requests. What the rule adds is only visible when the proxy is NOT dead: something listening
+	// on the proxy's port. `MAP * ~NOTFOUND` maps every host, the proxy's own 127.0.0.1
+	// included, so no request reaches that listener at all; without the rule, every request goes
+	// to it as an http proxy request naming the target host. So this arm launches a browser with
+	// the SHIPPED arguments, moving only the proxy to a live loopback listener (port 9 needs
+	// root), and counts what arrives. The control drops the resolver rule and nothing else.
+	async function proxyHits(dropResolverRule) {
+		const { OFFLINE_CHROMIUM_ARGS } = require(path.join(ROOT, 'lib/core/offline-chromium.js'));
+		const seen = [];
+		const listener = require('node:net').createServer((sock) => {
+			// Answer every request with a refusal, so a page waiting on one finishes loading.
+			sock.once('data', (b) => { seen.push(String(b).split('\r\n')[0]); sock.end('HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n'); });
+			sock.on('error', () => {});
+		});
+		await new Promise((res) => listener.listen(0, '127.0.0.1', res));
+		const { port } = listener.address();
+		const args = OFFLINE_CHROMIUM_ARGS
+			.filter((a) => !(dropResolverRule && a.startsWith('--host-resolver-rules=')))
+			.map((a) => (a.startsWith('--proxy-server=') ? `--proxy-server=http://127.0.0.1:${port}` : a));
+		assert.equal(args.length, OFFLINE_CHROMIUM_ARGS.length - (dropResolverRule ? 1 : 0), 'the shipped arguments changed shape; re-read this arm');
+		const puppeteer = require('puppeteer');
+		const offline = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage', ...args] });
+		try {
+			const page = await offline.newPage();
+			await page.setContent(
+				'<img src="https://img-probe.lattice-e2e.invalid/a.png"><img src="http://10.9.9.9/b.png">'
+				+ '<script>fetch("https://fetch-probe.lattice-e2e.invalid/").catch(() => {});</script>',
+				{ waitUntil: 'domcontentloaded' },
+			);
+			await page.waitForFunction(() => [...document.images].every((i) => i.complete), { timeout: 20000 }).catch(() => {});
+			// A request the listener accepted is written at once; give a late one a moment to land.
+			await new Promise((r) => setTimeout(r, 1000));
+		} finally {
+			await offline.close();
+			listener.close();
+		}
+		return seen.filter((line) => /probe|10\.9\.9\.9/.test(line));
+	}
+
+	test('the resolver rule keeps even a LIVE listener on the proxy port from seeing a request', { timeout: TIMEOUT }, async () => {
+		assert.deepEqual(await proxyHits(false), [], 'a request reached the proxy port — --host-resolver-rules is missing from lib/core/offline-chromium.js');
+	});
+
+	test('CONTROL — without the resolver rule, the same page reaches that listener by host name', { timeout: TIMEOUT }, async () => {
+		const hits = await proxyHits(true);
+		assert.ok(hits.some((l) => l.includes('img-probe.lattice-e2e.invalid')), `the listener saw no host-name request, so the arm above is vacuous: ${JSON.stringify(hits)}`);
+	});
+
 	// THE FAILURE PATH, EXECUTED — not argued.
 	//
 	// The skip that spares the player is a FLAG set where the player is actually written, and

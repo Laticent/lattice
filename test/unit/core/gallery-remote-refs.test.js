@@ -15,7 +15,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { galleryRemoteRefs, galleryFindings } = require('../../../lib/packages/gallery-gate.js');
-const { isRemoteUrl, attrIsRemote, remoteCssRefs, remoteRefsInElements } = require('../../../lib/core/remote-ref.js');
+const { isRemoteUrl, attrIsRemote, remoteCssRefs, remoteRefsInElements, VENDORED_SCRIPTS } = require('../../../lib/core/remote-ref.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
 
@@ -86,6 +86,12 @@ const FETCHES = {
   'a style: line hidden inside another key\'s block': '---\nnote: |\n  style: "section{color:red}"\n---\n\n# Sample\n',
   'a front-matter style: key with no URL at all': '---\nstyle: "section{color:red}"\n---\n\n# Sample\n',
   'an inline script (a render runs it; WebRTC escapes any proxy)': '<script>new RTCPeerConnection({iceServers:[{urls:"stun:leak.example.com:3478"}]})</script>',
+  // Only Lattice's own vendored builds may load by a relative path (followups.d/2336 item 14):
+  // in the Studio a relative path resolves against the Studio's origin, in the CLI the disk.
+  'a relative script that is not a vendored build': '<script src="../helper.js"></script>',
+  'a root-relative script (any same-origin chunk in the Studio)': '<script src="/_astro/client.js"></script>',
+  'a vendored NAME behind a directory that is not dist/': '<script src="../../elsewhere/mermaid-v11.min.js"></script>',
+  'an svg script with a relative href': '<svg><script href="helper.js"></script></svg>',
   'an inline script with a fetch': '<script>fetch("https://x.example.com/a")</script>',
   'a script with a data: source': '<script src="data:text/javascript,alert(1)"></script>',
   'an svg script with a data: href': '<svg><script href="data:text/javascript,window.PWN=1"></script></svg>',
@@ -124,6 +130,8 @@ const BENIGN = {
   'a mermaid label naming src/ and using R&D': '```mermaid\nflowchart LR\n  A["src/ main.js"] --> B["R&D"]\n```\n',
   'a front-matter key that ends in a scheme name (profile:)': '---\nprofile: teaching\n---\n\n# Hi\n',
   'an empty script loading a relative file (the diagram gallery does this)': '<script src="../mermaid-v11.min.js"></script>',
+  'the vendored runtime from dist/': '<script src="../dist/lattice-runtime.js"></script>',
+  'the vendored dagre build beside the deck': '<script src="lattice-dagre.min.js"></script>',
   'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npaginate: true\nheader: "Lattice · closing"\n---\n\n<!-- _class: title silent -->\n\n# Hi\n',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
   'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n',
@@ -190,5 +198,12 @@ describe('remote-ref predicate', () => {
     assert.deepEqual(remoteRefsInElements([{ tag: 'set', attrs: [['attributename', 'href'], ['to', 'https://e/a']] }]), ['https://e/a']);
     assert.deepEqual(remoteRefsInElements([{ tag: 'set', attrs: [['attributename', 'fill'], ['to', 'https://e/a']] }]), []);
     assert.deepEqual(remoteRefsInElements([{ tag: 'meta', attrs: [['http-equiv', 'Refresh'], ['content', "0; URL='https://e/r'"]] }]), ['policy:a <meta http-equiv="refresh">', 'https://e/r']);
+  });
+  test('the vendored-script allowlist covers every script the engine emits beside a deck', () => {
+    // remote-ref.js is a dependency-free leaf, so it copies the names instead of requiring
+    // marp-bundle.js. This keeps the copy from falling behind: a new runtime script would
+    // otherwise be refused in every gallery that loads it.
+    const { RUNTIME_SCRIPT_SRCS } = require('../../../lib/core/marp-bundle.js');
+    for (const src of RUNTIME_SCRIPT_SRCS) assert.ok(VENDORED_SCRIPTS.includes(src), src);
   });
 });
