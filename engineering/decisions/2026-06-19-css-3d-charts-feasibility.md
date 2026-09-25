@@ -155,6 +155,25 @@ reveal (practice). Verified in-browser in the real Drawing Board for both modes
 (`.scratch/css3d/present-2-reveal.png`, `practice-reveal.png`). Tilt landed as
 interaction-coupled (the recommended synthesis).
 
+### Superseded: the whole-sheet tilt and the hub nudge (2026-09-25)
+
+The interaction-coupled tilt is gone. On the real Playground it did what this note
+warned CSS 3D would do to data: `perspective(900px) rotateX(7deg)` on a sheet about
+1000px wide keystoned it, so bars turned into trapezoids and every label rendered
+skewed. The 7-unit "nudge away from the mean of all mark centers" moved values: a bar
+rose off its baseline and into its own value label, a funnel's end bands moved in
+opposite directions, and a dot left its coordinates. Both also moved the mark out from
+under the cursor, so near an edge the card closed and reopened.
+
+`chart-interact.js` `emphasize()` now keeps every mark where the data puts it. The
+active mark stays at full opacity while the rest dim to 0.45, and it casts a two-layer
+elevation shadow. Two geometries get one extra move that cannot misstate the value.
+A pie slice (`data-anima-role="sector"`) steps out along its own bisector from the true
+disc center, by 3% of the radius. A dot (`point`) grows about its own center by about
+3 slide px of radius. The sizes are set in slide px and converted to each svg's user
+units. A 10-slide-px hold zone around the open mark keeps the card open across small
+gaps. The host option `tilt` is renamed `lift`.
+
 ## Open / deferred
 
 - **In-editor preview reveal — SHIPPED (#452.2).** Hovering a pie wedge in the Drawing
