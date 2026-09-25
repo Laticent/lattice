@@ -30,8 +30,11 @@ function cssFiles(dir) {
 
 test('no rule outside :root redefines --spectrum or --spectrum-vertical, except print', () => {
   const offenders = [];
-  for (const file of cssFiles(path.join(ROOT, 'lib'))) {
-    const css = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // themes/ too: a palette's `section.dark { --spectrum }` would break the pin the same way.
+  for (const file of [...cssFiles(path.join(ROOT, 'lib')), ...cssFiles(path.join(ROOT, 'themes'))]) {
+    // Comments out, then nested blocks flattened to their own `sel { … }` so a parent's
+    // `--spectrum:` before a nested `& .y {}` is still seen by the brace-free body match.
+    const css = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/;\s*([^;{}]*\{)/g, ';}$1');
     for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
       if (!/(^|;|\s)--spectrum(-vertical)?\s*:/.test(m[2])) continue;
       const selectors = m[1].split(',').map((s) => s.trim()).filter(Boolean);

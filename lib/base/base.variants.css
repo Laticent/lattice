@@ -135,8 +135,9 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
    (author `---` rules, the list-steps spine, table-header rails, code-panel strips, split-
    card underlines). Two registers:
 
-   STYLE (`spectrum:` → spectrum-solid/duo/mono/off) redefines the shared TOKEN, so every
-   accent — bar and structure — follows as ONE system (the consolidation). All values are
+   STYLE (`spectrum:` → spectrum-solid/duo/mono/off) sets `--spectrum-style`, which the shared
+   `--spectrum-bar` resolves, so every accent — bar and structure — follows as ONE system (the
+   consolidation). It never redefines `--spectrum`, which stays the theme's own ribbon. All values are
    palette-blind (`--accent` / `--tag-bg` / `--border`, color-mix only) and export-safe
    (solid or two-tone gradients, no rainbow-alpha PDF hazard). `off` flattens the token to a
    quiet `--border` hairline (the print convention) AND drops the prominent edge bar.
@@ -153,9 +154,12 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
    rail (base.accent-finish.css) reference a variant without recomputing it — and so the card
    rail can PIN a variant the section bar isn't showing (card independence,
    2026-07-15-accent-finish-consolidation.md). Suffix: -h horizontal (a top/bottom bar), -v
-   vertical (a left/right rail). Rainbow is the theme's own --spectrum, captured at :root — the
-   one scope a section-level STYLE override can never clobber, so `spectrum-card: rainbow`
-   survives a `spectrum: solid` deck. */
+   vertical (a left/right rail). Rainbow is the theme's own --spectrum, captured with `var()` in
+   a :root block. That survives a `spectrum: solid` deck only because no slide-level rule
+   redefines --spectrum: every browser host PACKS :root onto the slide itself, so the capture
+   resolves there, against whatever the slide set. A STYLE used to redefine it, and the pinned
+   rainbow drew the solid bar in every browser host (see the STYLE block below;
+   test/unit/css/spectrum-root-capture.test.js holds the line). */
 :root {
   --sp-fill-rainbow-h: var(--spectrum);
   --sp-fill-rainbow-v: var(--spectrum-vertical);
@@ -184,7 +188,7 @@ section {
 
 /* The STRUCTURE accent token — read by the in-content accent lines (table-header rails, the
    list-steps timeline spine, code-panel strips, the `hr` rule, split-card underlines), as
-   opposed to the brand BAR (section edge / dark line / divider rail, which read --spectrum
+   opposed to the brand BAR (section edge / dark line / divider rail, which read --spectrum-bar
    directly). Defaults to a QUIET hairline so a default deck stays elegant — the spectrum lives
    on the brand bar alone, not repeated on every rule. That quiet hairline is a LOW-INTENSITY
    TINT of the brand accent (`--spectrum-quiet`), not flat neutral gray: it reads as an
@@ -200,7 +204,7 @@ section {
    override — "a theme may override `--spectrum-quiet`" — and a theme author who accepted the
    invitation got silence, not an error (#1546). A theme that wants a different structural
    hairline moves `--accent`/`--border`, which this derives from. The opt-in `spectrum-trim: on`
-   register (→ section.spectrum-trim) points --spectrum-structure at --spectrum to flow the deck's
+   register (→ section.spectrum-trim) points --spectrum-structure at --spectrum-bar to flow the deck's
    full gradient onto the structure too. Design-trio treatment refinement — see
    2026-07-16-spectrum-structure-default.md.
    `:root` too, for content that sits OUTSIDE any slide: a chart re-hosted as a figure in Read ·
@@ -215,7 +219,7 @@ section {
 
 /* TRIM — three tiers of structural presence above the quiet default.
    `on` (`spectrum-trim`) flows the deck's full spectrum STYLE onto the structure (reads
-   --spectrum, so it follows whatever `spectrum:` resolved to). `restrained`
+   --spectrum-bar, so it follows whatever `spectrum:` resolved to). `restrained`
    (`spectrum-trim-restrained`) holds a single-hue accent ramp (--sp-fill-mono-h) regardless of
    the bar's STYLE — the "two-tier" middle: present but quiet, and it never clashes with a
    rainbow/duo bar. A per-slide `spectrum-trim-off` needs no rule: dropping the class leaves the
@@ -246,7 +250,7 @@ section.spectrum-mono  { --spectrum-style: var(--sp-fill-mono-h);  --spectrum-st
    including the title/closing/dark bookends whose default edge is bar-less or a 1px line — so a
    deliberately-chosen brand style reads consistently across the deck (this matches the
    pre-consolidation `solid` behavior; the rainbow default's bookend treatment is unchanged).
-   Reads the redefined token, so duo/mono follow. Excluded when a `spectrum-edge:` placement is
+   Reads --spectrum-bar, so duo/mono follow. Excluded when a `spectrum-edge:` placement is
    set (the EDGE rules own the bar then) and on the divider (its --spectrum-vertical left rail
    already follows the style). */
 section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]) {

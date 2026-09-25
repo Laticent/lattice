@@ -93,7 +93,7 @@ Accent colors for categories, levels, or themes extend this palette — they don
 
 ## 1.7 Slide Structure
 
-- **Spectrum bar:** every content slide has a 4px rainbow gradient border at the very top (`border-top: 4px solid; border-image-source: var(--spectrum); border-image-slice: 1`). Dark slides (`title`, `divider`, `closing`) suppress this (`border-top: none`) and instead render a 1px top spectrum line via `background` if the `dark` modifier is used.
+- **Spectrum bar:** every content slide has a 4px rainbow gradient border at the very top (`border-top: 4px solid; border-image-source: var(--spectrum-bar); border-image-slice: 1`). Dark slides (`title`, `divider`, `closing`) suppress this (`border-top: none`) and instead render a 1px top spectrum line via `background` if the `dark` modifier is used.
 - Dark bookend slides: title (first) and closing (last) use `--bg-dark`
 - Section dividers may also use `--bg-dark` or a strong accent
 - Content slides: light background using `--bg`

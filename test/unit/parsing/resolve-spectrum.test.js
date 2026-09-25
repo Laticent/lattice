@@ -4,7 +4,8 @@
  * Two orthogonal accent-gradient controls, siblings of resolve-finish / resolve-mode /
  * resolve-stamp / resolve-tone-style:
  *   STYLE (`spectrum:`)      — on / solid / duo / mono / off → the gradient IDENTITY, which
- *                              redefines the shared `--spectrum` token so every accent follows.
+ *                              sets `--spectrum-style`; the shared `--spectrum-bar` resolves it,
+ *                              so every accent follows.
  *   EDGE  (`spectrum-edge:`) — top / left / right / bottom / off → the section-edge bar
  *                              PLACEMENT, which touches ONLY the bar.
  * `on` / `top` are the defaults and carry NO token. See

@@ -28,9 +28,9 @@ Lattice rainbow. Set the accent to a client's brand and the whole deck follows.
 
 ## The bar above is solid, not a rainbow
 
-Every section paints the brand bar from two tokens — `--spectrum` (the top border)
-and `--spectrum-vertical` (a divider's left rail). The `spectrum:` register redefines
-those, so one setting recolors every place the bar appears.
+Every section paints the brand bar from two tokens — `--spectrum-bar` (the top border)
+and `--spectrum-bar-vertical` (a divider's left rail). The `spectrum:` register sets
+the style they read, so one setting recolors every place the bar appears.
 
 ---
 
