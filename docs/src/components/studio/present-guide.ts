@@ -2007,8 +2007,12 @@ export function salience(el: Element): number {
 	if (el.matches('[data-mark], [data-series]')) score += 2;
 	// EMPHASIS the author typed: **strong**, a <mark>.
 	if (el.matches('strong, b, mark') || el.querySelector('strong, b, mark') || el.closest('strong, b')) score += 2;
-	// THE EXTREME of its chart: the tallest bar, the largest wedge, the smallest stage.
-	if (isChartExtreme(el)) score += 2;
+	// THE EXTREME of its chart: the tallest bar or largest wedge outranks the smallest.
+	score += chartExtreme(el);
+	// NAMED BY THE HEADLINE. The headline is the slide's claim, so a mark or item it names ("EMEA
+	// is where the quarter was won") is the moment the slide exists for. Measured in the built
+	// Studio: without this, a somber bar chart marked LATAM, the smallest bar, spoken first.
+	if (namedByHeadline(el)) score += 2;
 	// THE HEADLINE is the slide's claim, so it outranks plain prose but not a number.
 	if (el.matches('h1, h2')) score += 1;
 	return score;
@@ -2024,16 +2028,26 @@ function amountOf(raw: string | null): number {
 	return parseFloat(m[1].replace(/,/g, '')) * (scale[(m[2] ?? '').toLowerCase()] ?? 1);
 }
 
-function isChartExtreme(el: Element): boolean {
+/** 2 for the chart's largest mark, 1 for its smallest, else 0. */
+function chartExtreme(el: Element): number {
 	const own = amountOf(el.getAttribute('data-value'));
-	if (!Number.isFinite(own)) return false;
+	if (!Number.isFinite(own)) return 0;
 	const chart = el.closest('.chart-body');
-	if (!chart) return false;
+	if (!chart) return 0;
 	const values = [...chart.querySelectorAll('[data-mark][data-value]:not(template)')]
 		.map((m) => amountOf(m.getAttribute('data-value')))
 		.filter(Number.isFinite);
-	if (values.length < 3) return false;
-	return own === Math.max(...values) || own === Math.min(...values);
+	if (values.length < 3) return 0;
+	return own === Math.max(...values) ? 2 : own === Math.min(...values) ? 1 : 0;
+}
+
+/** Does the slide's headline share a content word with this (non-headline) target? */
+function namedByHeadline(el: Element): boolean {
+	const head = el.closest('section')?.querySelector('h1, h2');
+	if (!head || head === el || head.contains(el) || el.contains(head)) return false;
+	const said = el.matches('[data-label]') ? (el.getAttribute('data-label') ?? '') : (el.textContent ?? '');
+	const headKeys = contentKeys(head.textContent ?? '');
+	return [...contentKeys(said).keys()].some((k) => headKeys.has(k) && !/\p{N}/u.test(k));
 }
 
 export type SlidePlan = {

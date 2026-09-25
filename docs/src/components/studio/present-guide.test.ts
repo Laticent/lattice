@@ -269,6 +269,14 @@ describe('planSlide — the salience budget', () => {
 		expect([...plan.gesture]).toEqual([0]);
 	});
 
+	it('ranks the bar the headline names above the smallest bar spoken first', () => {
+		const d = doc(`<h2>EMEA is where the quarter was won.</h2><div class="chart-body"><svg>
+			<rect data-mark="0" data-label="North America" data-value="$4.1M"/><rect data-mark="1" data-label="LATAM" data-value="$1.2M"/>
+			<rect data-mark="2" data-label="EMEA" data-value="$6.8M"/><rect data-mark="3" data-label="APAC" data-value="$2.9M"/></svg></div>`);
+		const [, latam, emea] = [...d.querySelectorAll('rect')];
+		expect(salience(emea)).toBeGreaterThan(salience(latam));
+	});
+
 	it('scores a chart extreme above its peers', () => {
 		const d = doc(`<div class="chart-body"><svg>
 			<rect data-mark="0" data-label="North" data-value="4.1"/><rect data-mark="1" data-label="LATAM" data-value="2.2"/>
