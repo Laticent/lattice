@@ -65,6 +65,14 @@ section.list > .cell-stage > :is(ul,ol) {
   align-content:var(--cards-align);
   flex:1; min-height:0; gap:var(--sp-sm);
 }
+/* `safe center`, not `center`, for this column: a list with more than its stage holds must
+   overflow DOWNWARD, where the overflow probe reports it and the first rows stay readable.
+   Plain `center` split the overflow both ways, so the gallery's 8-line stress slide lost its
+   first row above the stage. The selectors mirror base.tokens.css: the coda arm wins over
+   `data-cards` whenever a coda is present. */
+section.list[data-cards="center"] > .cell-stage > :is(ul,ol) { align-content:safe center; }
+section.list[data-cards-coda]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:var(--cards-align); }
+section.list[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:safe center; }
 /* A counter row's one line is as tall as the counter when the counter is the taller of the two
    (principles). Only rows that PAINT a counter count it. */
 section.list:not(.takeaway) > .cell-stage > ol,

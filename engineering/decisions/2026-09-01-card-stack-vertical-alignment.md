@@ -1225,6 +1225,11 @@ page, so it shows only on an unsplit page.)
   `--cards-grow` (1 under `stretch`, else 0) is set by the same eight `[data-cards]` rules in
   `base.tokens.css` and lifts the ceiling, so `stretch` fills the stage.
 
+- A centered list that overflows must overflow DOWNWARD: plain `center` split the overflow both
+  ways, and the gallery's 8-line stress slide (past the wide `hard: 6`) lost its first row above
+  the stage. `list` applies `safe center` itself, mirroring the coda precedence in
+  `base.tokens.css`, rather than changing the shared `center` mapping every card row reads.
+
 **Three designs this replaced or ruled out, and why.**
 - *Proportional shrink* (`flex: … 1 auto`, `min-height: 0`): an independent checker found it
   takes the most from the TALLEST row, so six pills with three wraps still spilled 5px, and the
