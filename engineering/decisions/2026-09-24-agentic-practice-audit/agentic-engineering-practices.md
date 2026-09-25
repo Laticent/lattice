@@ -82,7 +82,7 @@ So where do you fit in? These tools raise everyone's floor. Anyone in this room 
 
 ---
 
-<!-- _class: list-steps -->
+<!-- _class: list-steps insight-key -->
 
 `Your role · The director`
 
@@ -94,6 +94,8 @@ So where do you fit in? These tools raise everyone's floor. Anyone in this room 
    - Say exactly what is off: "the retry hides the real error."
 3. Give one note
    - Say it once, clearly, then let the agent work.
+
+> A precise note gets a fix. A vague one gets a guess.
 
 <!--
 A director doesn't run the camera. They watch the take and judge what's actually on the screen. For you, that means reading the actual change and running it. Then they name the problem precisely. "The pacing drags" is useful. "Make it better" isn't. Same with an agent: "the retry hides the real error" gets a fix, "this seems off" gets a guess. Then they give one clear note, say it once, and step back so the crew can work.
@@ -297,7 +299,7 @@ This table comes straight from our instruction file. Each row maps a kind of wor
 
 ## Four habits keep the window full of what matters.
 
-- Read sections, not files: list the headings, then open only what you need.
+- Read by section: list the headings, then open only what you need.
 - Delegate big reads: a helper agent reads the log and returns a summary.
 - Quiet the tools: print failures in full and successes as a dot.
 - Measure first: check what real sessions load before you optimize.
