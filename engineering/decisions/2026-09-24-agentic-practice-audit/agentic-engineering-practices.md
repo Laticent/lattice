@@ -101,6 +101,46 @@ A director doesn't run the camera. They watch the take and judge what's actually
 
 ---
 
+<!-- _class: compare-prose chosen insight-so-what -->
+
+`Your role · The bar`
+
+## Set the bar before the first take, and don't settle for the first pass.
+
+- Settle
+  - "It compiles and the tests pass." The agent stops at the first green result, and so do you.
+- Set the bar
+  - Decide what done means before work starts: it runs where users run it, someone looked at it, the docs match.
+
+> Passing is the floor. You set the bar.
+
+<!--
+Agents are built to finish. The moment the tests go green, most of them will tell you they're done. That's only the floor. So before the work starts, decide what done actually means. It runs where your users run it. Someone has looked at it. The docs say what the code does. Then, when the work comes back short, send it back. The first time, you'll say it out loud. The second time, write it into the instruction file, so the agent checks its own work against your bar before it ever tells you it's done.
+-->
+
+---
+
+<!-- _class: cards-grid three insight-recommendation -->
+
+`Your role · Mentor, don't micromanage`
+
+## Lead, follow, or get out of the way.
+
+- Lead
+  - When the goal is unclear, set the direction and say why.
+- Follow
+  - When the agent knows the ground better, let it propose a plan.
+- Get out of the way
+  - When limits and checks are in place, let it run.
+
+> Don't try to control the agent. Mentor it, and put controls around it.
+
+<!--
+When most of us start, we try to control every line. We rewrite the agent's output ourselves, and we correct the same mistake every session. That doesn't scale, and it wastes the best part of the tool. Think about the best manager you ever had. They led when you were lost. They followed when you knew the ground better than they did. And they got out of the way when you had it. Do the same here. Appreciate what the agent is good at. Influence it through what it reads: the instructions, the examples, and the reasons behind them. When it gets something wrong, don't just fix it. Write down the lesson so it doesn't happen again. That's mentoring. And instead of watching every move, put controls in place: limits on what it can do alone, and checks that run whether you're there or not. Those are what let you get out of the way.
+-->
+
+---
+
 <!-- _class: table table-fill -->
 
 `Your role · The set`
@@ -606,6 +646,29 @@ For anything people look at, the final test is looking at it. Render the real ou
 
 <!--
 A hook is a small script Claude Code runs at a fixed moment, whether or not the agent remembers to. One kind runs after every edit, so your linter always runs. Another runs when the agent tries to finish. If that script exits with code two, the agent has to keep working, for example until the tests pass. For a second opinion, set up a reviewer agent that can read but not edit, or run slash code-review on the change.
+-->
+
+---
+
+<!-- _class: list-steps insight-bottom-line -->
+
+`Verification · Leave the room`
+
+## With a bar and checks in place, you can leave the room.
+
+1. Write the bar
+   - What done means, and what always comes back to you.
+2. Add a check
+   - One that can fail and runs without you.
+3. Walk away
+   - Let the agent build, test and fix on its own.
+4. Read the evidence
+   - What ran, where, and what it showed.
+
+> When you come back, the proof is waiting.
+
+<!--
+Here's the payoff for everything so far. Once the bar is written down, the stop list is in place, and a check refuses "done" until the tests pass, you don't need to sit and watch. Go to your meeting. Go to lunch. The agent builds, runs the checks, fixes what fails, and tries again. When you come back, don't start with its summary. Start with the evidence: what ran, where it ran, and what it showed. If the evidence isn't there, the work isn't done, however confident the summary sounds.
 -->
 
 ---
