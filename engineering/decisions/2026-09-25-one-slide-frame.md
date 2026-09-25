@@ -105,9 +105,18 @@ tried against a split panel, whose left half is a positioned child that reaches 
 So the edge is `.slide-edge`, a berth appended to every slide by `lib/core/fit-berth.js` — the
 kernel both render paths already run for the marker berths, and one the fit probes already
 exclude by name. It is absolutely positioned over the slide on the chrome plane
-(`--z-chrome`), takes the slide's corner with `border-radius: inherit`, and paints four
-one-side inset shadows in `var(--border)`. It paints nothing until a host sets
-`--slide-edge-k`, and `@media print` forces that to 0.
+(`--z-chrome`), takes the slide's corner (`border-radius: var(--slide-radius)`), and paints a
+`border` in `var(--border)` whose width on each side is that side's flag times the keyline
+width. It paints nothing until a host sets `--slide-edge-k`, and `@media print` forces that to 0.
+
+**Why a border and not inset shadows.** The first version of the berth painted four one-side
+inset shadows. On the owner's iPhone only their corner arcs showed, plus the bottom run, while the
+spectrum bar and the left rail painted whole. Those two are plain borders of the same thickness
+(about 4 slide px against the keyline's 3.7 at phone width) on the same scaled slide. Desktop WebKit
+(Playwright's build) drew the shadows correctly, and so did Chromium, so neither reproduces what the
+phone did, and the cause inside iOS is not pinned. A border is the primitive the phone was seen
+drawing correctly on this slide, so the keyline uses it. Where a flag is 0 the border tapers into
+that side around the corner.
 
 **The spectrum stays the edge on its side.** Each of the four sides has a flag
 (`--_edge-t/r/b/l`, default 1), and the side carrying the brand bar turns its keyline off, so the

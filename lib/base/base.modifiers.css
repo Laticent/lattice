@@ -3849,8 +3849,8 @@ section.corners-square {
  * corner is the section's own (`border-radius: inherit`, `corners-rounded`) — the gantt
  * accent's lesson: keep the mark inside the shape, so the shape bounds it.
  *
- * THE SPECTRUM STAYS THE EDGE on whichever side it sits. The keyline is four one-side inset
- * shadows, and a side carrying the brand bar turns its shadow off, so the bar is that side's
+ * THE SPECTRUM STAYS THE EDGE on whichever side it sits. The keyline is a border whose
+ * per-side width is a flag, and a side carrying the brand bar sets its flag to 0, so the bar is that side's
  * edge and nothing doubles it. The side flags are set IN THE RULES THAT PLACE THE BAR — the
  * default top bar here, `spectrum-edge-*` and `spectrum: off` in base.variants.css, the
  * frames that drop the bar (title, closing, divider, topic, split-panel, split-compare) in
@@ -3874,11 +3874,18 @@ section > .slide-edge[data-lattice-berth] {
   z-index: var(--z-chrome); /* above content, on the chrome plane; below alarms and stamps */
   pointer-events: none;
   border-radius: var(--slide-radius, 0px);
-  box-shadow:
-    inset calc(var(--_edge-l, 1) * var(--_edge-w)) 0 0 0 var(--border),
-    inset calc(-1 * var(--_edge-r, 1) * var(--_edge-w)) 0 0 0 var(--border),
-    inset 0 calc(var(--_edge-t, 1) * var(--_edge-w)) 0 0 var(--border),
-    inset 0 calc(-1 * var(--_edge-b, 1) * var(--_edge-w)) 0 0 var(--border);
+  /* A real BORDER, not four inset shadows. The first cut used shadows; on an iPhone their
+     straight runs vanished and only the corner arcs painted, while the spectrum bar and the
+     left rail — plain borders of the same thickness on the same scaled slide — painted
+     whole. A border is the one primitive every engine was seen drawing here. A side whose
+     flag is 0 has width 0, and the border tapers into it around the corner. */
+  border-style: solid;
+  border-color: var(--border);
+  border-width:
+    calc(var(--_edge-t, 1) * var(--_edge-w))
+    calc(var(--_edge-r, 1) * var(--_edge-w))
+    calc(var(--_edge-b, 1) * var(--_edge-w))
+    calc(var(--_edge-l, 1) * var(--_edge-w));
 }
 /* Print is paper: a host's keyline never reaches it, whichever host printed. */
 @media print {

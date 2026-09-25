@@ -2,8 +2,8 @@
  * THE SLIDE EDGE CENSUS — for every slide, on every side: the engine's keyline is off
  * exactly where a spectrum bar is that side's edge, and on everywhere else.
  *
- * The engine draws a slide's 1px edge on a `.slide-edge` berth, one inset shadow per side,
- * and each side's shadow yields to the brand bar when the bar sits there (`--_edge-t/r/b/l`,
+ * The engine draws a slide's 1px edge on a `.slide-edge` berth, a border whose width per side is a flag,
+ * and each side's width yields to the brand bar when the bar sits there (`--_edge-t/r/b/l`,
  * base.modifiers.css "The slide's EDGE"). Those flags are set BY HAND in the rules that place
  * the bar, and hand-set flags drift: an image slide that drops its bar with `border: none`,
  * an `accent` slide that re-adds one under `spectrum: off`, a split frame that rebuilds its

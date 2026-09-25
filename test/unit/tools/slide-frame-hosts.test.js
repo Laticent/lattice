@@ -171,7 +171,13 @@ test('the ENGINE owns the slide edge: on a berth above content, the spectrum sid
 	assert.match(rule, /z-index: var\(--z-chrome\)/, 'above content');
 	assert.match(rule, /border-radius: var\(--slide-radius, 0px\)/, "the slide's own corner, from the length the clip rounds by");
 	assert.match(rule, /inset: calc\(-1 \* var\(--_bar-t, 0px\)\)/, 'over the whole border box, under the bars');
-	for (const side of ['l', 'r', 't', 'b']) assert.match(rule, new RegExp(`var\\(--_edge-${side}, 1\\)[^,]*var\\(--border\\)`), `side ${side} is flagged, in the deck's --border`);
+	// A BORDER, per-side width = flag x width. Inset shadows were tried first: on an iPhone
+	// only their corner arcs painted, while the bars — borders on the same slide — painted whole.
+	assert.match(rule, /border-style: solid;/, 'the keyline is a border');
+	assert.match(rule, /border-color: var\(--border\);/, "in the deck's --border");
+	const widths = rule.match(/border-width:([^;]*);/)?.[1] ?? '';
+	assert.deepEqual([...widths.matchAll(/var\(--_edge-([trbl]), 1\) \* var\(--_edge-w\)/g)].map((m) => m[1]), ['t', 'r', 'b', 'l'], 'each side flagged, in border-width order');
+	assert.doesNotMatch(rule, /box-shadow/, 'no inset shadows: WebKit on iOS dropped their straight runs');
 	assert.match(css, /@media print \{\n {2}section \{ --slide-edge-k: 0 !important; \}\n\}/, 'print never carries a host keyline');
 	assert.match(read('lib/base/base.elements.css'), /border-image-slice: 1;\n {2}--_edge-t: 0;/, 'the default top bar is the top edge, said in the rule that paints it');
 });
