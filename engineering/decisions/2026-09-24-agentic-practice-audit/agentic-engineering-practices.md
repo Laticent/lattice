@@ -930,13 +930,14 @@ Each extra agent costs money, and it doesn't always make the result better. So w
 
 | Practice | Week 1 | Month 1 | Quarter 1 |
 | --- | --- | --- | --- |
-| Context | [ ] A one-page index file | [ ] Linked detail docs | [ ] Measure what sessions load |
-| Autonomy | [ ] Allow and deny lists | [ ] A written stop list | [ ] Human approval in the platform |
-| Verification | [ ] Tests on every change | [ ] A check that plants a bug | [ ] A second agent on risky work |
+| Context | [ ] A one-page index file | [ ] Linked detail docs | [ ] Measure what loads |
+| Autonomy | [ ] Allow and deny lists | [ ] A written stop list | [ ] Approval as a setting |
+| Verification | [ ] Tests on every change | [ ] A check that plants a bug | [ ] Review risky work twice |
 | Learning | [ ] A decision log | [ ] Pending work as files | [ ] Retest your oldest rules |
+| Orchestration | [ ] One reviewer agent | [ ] A named roster | [ ] A budget per session |
 
 <!--
-You don't need all of this at once. In week one: a short index file, basic allow and deny lists, tests on every change, and a decision log. By the end of the first month: linked detail documents, a written stop list, one check that proves it can fail, and pending work kept as files. By the end of the quarter: measure what your sessions load, make merge approval a setting in your platform, add a second reviewing agent for risky work, and retest your oldest rules. Leave orchestration until these four are solid.
+You don't need all of this at once. In week one: a short index file, basic allow and deny lists, tests on every change, and a decision log. By the end of the first month: linked detail documents, a written stop list, one check that proves it can fail, and pending work kept as files. By the end of the quarter: measure what your sessions load, make merge approval a setting in your platform, add a second reviewing agent for risky work, and retest your oldest rules. Leave orchestration until these four are solid. For orchestration, start with one reviewer agent, name a small roster by the end of the month, and set a budget per session by the end of the quarter.
 -->
 
 ---
@@ -1016,7 +1017,7 @@ Here's the whole talk on one page. In the middle is the one rule: what you ship 
 
 `Your next step`
 
-## Three moves this week put all five practices in motion.
+## Three moves you can make this week.
 
 - Rewrite your instruction file as an index, one line per rule.
 - Add one check, then break your code on purpose and watch it catch the bug.
