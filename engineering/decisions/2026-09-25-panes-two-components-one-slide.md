@@ -6,7 +6,9 @@ summary: >-
   Insight, below-note, header, footer and page number. The engine renders each pane as an
   ordinary one-slide deck of its component, then embeds its body in a `<lat-pane>` Cell; the CSS
   build widens every component rule's root from `section` to `:is(section,lat-pane)`, which keeps
-  specificity identical, so no component is edited and no existing deck changes. A proof of
+  specificity identical, so no component is edited and no existing deck changes. The carve runs
+  inside the engine's own markdown-it parse, so slide breaks, fences and directives are the
+  engine's answers. A proof of
   concept ships with `examples/panes.md`; this note records the audit, the design, the measured
   costs and the gaps that stand between the proof and a v1.
 ---
@@ -58,7 +60,13 @@ cell. It is not the recursion that note rejected.
 
 **The trailing coda belongs to the slide.** After the second pane, the engine peels the trailing
 run of blockquotes (Key Insight), `— ` paragraphs (below-note) and comments back onto the host
-slide. A `> quote` at the end of the slide is always the slide's Key Insight, never pane 2's.
+slide — unless the second pane's component claims that element for its own anatomy in its
+manifest's `coda.claims` (a `quote`'s attribution, a chart's caption). Then it stays where the
+component alone would keep it, so a pane reads exactly as the component's own slide does.
+
+**One title.** A `#` or `##` written inside a pane, with an eyebrow or subtitle pill beside it, is
+lifted to the slide. **Whole-slide components** (`title`, `split-panel`, …) cannot go in a pane;
+the pane renders as `content` and the carve records a warning for the linter.
 
 **The ratio range is 25–75 in 5% steps.** Past 75/25 the narrow pane is too thin to hold a line of
 body type. Snapping keeps each pane's shape predictable, so the four shape families (§3.3) still
@@ -69,17 +77,27 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
 
 ## 2. How it renders
 
-1. **Carve** (`panes.extract`, a pre-pass over the markdown body). The host slide keeps its
-   masthead and coda; the pane region becomes one placeholder element; the slide gains the `panes`
-   class. A body with no marker comes back as the same string, so every existing deck is untouched.
-2. **Render each pane as an ordinary slide.** The engine renders the pane's markdown as a one-slide
-   deck of its component (`renderPane` in `lib/engine/index.js`) through a parser built for the
-   PANE's box. Every transform — the chart kernels, the table row-label ruler, the list rulers — sees
-   a normal whole section, so none of them changes. The pane's `data-family` and `data-orientation`
-   describe the pane, not the slide, so a chart picks the layout for the box it will actually fill.
-3. **Embed** (`panes.embed`). The pane section's body (its `.cell-stage`, or its body children for a
-   component that wraps none) moves into `<lat-pane class="<component classes>" data-family=…>`
-   inside the host's stage. The pane's stand-in masthead is dropped: the host owns the only title.
+1. **Carve** (`installPanes`, a markdown-it core rule in `lib/core/panes.js`). It runs INSIDE the
+   host's own parse, after the engine has split slides (`---` and `split: headings`), applied
+   directives and propagated deck classes, and before the default-component rule. So where a slide
+   ends, whether a marker sits inside a fence, and which directive a comment sets are the engine's
+   own answers. The rule keeps the masthead, any `#`/`##` heading written inside a pane, the
+   trailing coda and the running header/footer tokens on the host; cuts each pane's blocks back
+   out of the source by their line maps; replaces the pane region with one placeholder; and gives
+   the section the `lat-pane-host` class (which keeps `content`, and any component class, off it).
+   A deck with no marker is untouched: the rule returns before it reads a token.
+2. **Render each pane as an ordinary slide**, after the host's transforms. The engine renders the
+   pane's markdown as a one-slide deck of its component (`renderPane` in `lib/engine/index.js`)
+   through a parser built for the PANE's box. Every transform — the chart kernels, the table
+   row-label ruler, the list rulers — sees a normal whole section, so none of them changes. The
+   pane's `data-family` and `data-orientation` describe the pane, not the slide. Its SVG ids are
+   pinned to the host slide's number (`pinRenderSlide` in `lib/core/render-ids.js`), so a slide's
+   ids never depend on a later slide's panes, and a slide rendered alone at its offset matches its
+   deck render.
+3. **Embed** (`panes.embed`). The pane section's body moves into
+   `<lat-pane class="<component classes>" data-family=…>` inside the host's stage. The pane's
+   stand-in masthead is dropped: the host owns the only title. The placeholder carries a nonce
+   hashed from the source, so author HTML shaped like one is never filled.
 
 ### 2.1 Why the component CSS needs no copy
 
@@ -155,14 +173,15 @@ follow the same pattern.
 
 | Claim | Surface | Evidence |
 |---|---|---|
-| Existing decks render the same markup | engine, every committed deck | 295 decks (every `examples/*.md` + every component gallery): byte-identical HTML before and after |
-| Existing decks render the same pixels | CLI PDF export | chart, inventory and comparison galleries (45 pages): 0 differing pixels, `compare -metric AE` |
-| Two components on one slide, chrome kept | CLI PDF export | `examples/panes.pdf`, light; rendered in dark as well — list+table 40/60, bar+list 55/45, image+text 50/50, table+big-number 70/30, stacked line over stats, piechart+list 45/55 |
-| A pane is never a slide | engine | one `<section>` and one `<h2>` per panes slide (`test/unit/core/panes.test.js`) |
-| No duplicate SVG ids across panes | engine | `examples/panes.html`: zero duplicate `id` values |
+| Existing decks render the same markup | engine, every committed deck | 309 decks (every `examples/*.md`, component gallery and baseline deck; `panes.md` excluded): byte-identical HTML between `origin/main` and this branch, each rendered from its own worktree |
+| Existing decks render the same pixels | CLI PDF export | chart, inventory and comparison galleries (45 pages): 0 differing pixels, `compare -metric AE` (measured before the carve moved into the parse; the markup check above covers the move) |
+| Two components on one slide, chrome kept | CLI PDF export | `examples/panes.pdf` (light, committed) and a dark render reviewed alongside it, not committed — list+table 40/60, bar+list 55/45, image+text 50/50, table+big-number 70/30, stacked line over stats, piechart+list 45/55 |
+| The browser engine renders panes | the Playground's engine bundle in headless Chrome | `LatticeEngine.createEngine().render()` on a panes deck returns two panes; before the fix it threw `process is not defined`. The Playground and Studio UIs themselves were not driven |
+| A pane is never a slide; slides around it survive | engine | `test/unit/core/panes.test.js`: one `<section>` and one `<h2>` per panes slide; `---` directly under a table, list or comment, and `split: headings`, keep every later slide |
+| Slide ids don't depend on later panes | engine | the same test: a piechart slide's ids are unchanged by a panes slide after it, and a panes slide's ids match between the deck render and a render alone at its offset |
 | Parser reuse is unchanged for decks without panes | engine | `parser-memo.test.js`: every deck without panes still shares one parser; panes decks still match a cold render |
 
-**Not verified:** the Studio, Playground and docs-site previews; the PPTX, image-set and player
+**Not verified:** the Studio, Playground and docs-site preview UIs; the PPTX, image-set and player
 exports; Export-to-Marp; a Mermaid diagram in a pane. They share the engine, but "shares the
 engine" is not verification (HARD RULE #23).
 
@@ -177,7 +196,31 @@ engine" is not verification (HARD RULE #23).
   `section.x, lat-pane.x`. An earlier estimate in the design conversation (+6.1% / +1.5%) measured
   the widening without that pass; this line corrects it.
 - **Render time:** one extra markdown-it parser per distinct pane shape (orientation × family), memoized.
-  Decks without panes pay one regex test (`<!--\s*pane:`) per render.
+  Decks without panes pay one substring test (`pane:`) per render, inside the parse.
+
+---
+
+## 5a. What the independent review changed
+
+A maker-checker pass (HARD RULE #25) reproduced three blockers and nine smaller defects in the
+first cut, all fixed in this PR and each pinned by a test in `test/unit/core/panes.test.js`:
+
+- **A debug line crashed the browser engine on any panes deck** (`process.env` in the bundle). Removed.
+- **The first carve was a text pre-pass with its own idea of a slide break.** A `---` directly
+  under a table, list, comment or fence, or `split: headings`, made it fold the following slides
+  into pane 2 and drop them silently. It also mis-closed a 4-backtick fence, lost spot directives
+  written beside the panes, lost a title written after the first marker, and lost the host class
+  to a later `_class:`. Moving the carve into the parse (§2) fixed all of these at once, because
+  the engine's own tokens answer each question.
+- **Quote attribution was taken as the slide's below-note.** Now governed by `coda.claims` (§1).
+- **A chart pane painted the slide's background over a colored slide** (`section.chart-frame`
+  paints `--bg`, and the widening carried it to the pane). A pane is transparent now.
+- **Pane ids depended on later slides; a forged placeholder could be filled; a comment holding
+  `<div>` could swallow a pane.** Pinned ids, a nonce, and a div matcher that skips comments.
+
+Still open from that review, all in §6: the warnings the carve records are not surfaced yet (the
+lint work, §6.6); a third marker folds into the second pane; deck-wide classes reach the host but
+not the pane element; the perf overlay's `stats` counts pane renders inside the transform bucket.
 
 ---
 
@@ -202,9 +245,10 @@ engine" is not verification (HARD RULE #23).
 5. **Retire the stand-in heading.** The chart-family wrap locates the slide's `h2`, so each pane
    renders with an invisible stand-in heading that the embed drops. The kernel should accept a
    heading-less body instead.
-6. **Lint the pairing.** `lint:deck` should block a whole-slide component in a pane, warn when a
-   wide-share component gets under 60%, surface `parseLayout`'s ratio error, and apply the pane's
-   family capacity (the manifests already have per-family budgets; §3.1).
+6. **Lint the pairing.** The carve already records warnings (a whole-slide component in a pane, a
+   bad ratio, a third marker); `lint:deck` should surface them, warn when a wide-share component
+   gets under 60%, and apply the pane's family capacity (the manifests already have per-family
+   budgets; §3.1).
 7. **Audit the runtime's section-keyed passes.** About 17 passes in `lib/runtime` select
    `section.X`. Charts worked in the proof because the engine builds them before the runtime runs;
    anything the runtime builds or measures on its own (Mermaid, fit passes, reveal steps) needs

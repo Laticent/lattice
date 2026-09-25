@@ -11,17 +11,17 @@
  * every Cell (design/forms.md §6), and is its own size container so a
  * component's bare container units resolve against the pane. Type does not
  * shrink: the --fs-* tokens are pinned to slide px through --_sec-1cqi. */
-section.panes {
+section.lat-pane-host {
   --pane-gap: var(--sp-lg);
 }
-section.panes > .cell-stage > .lat-panes {
+section.lat-pane-host > .cell-stage > .lat-panes {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: row;
   gap: var(--pane-gap);
 }
-section.panes > .cell-stage > .lat-panes[data-panes="stack"] {
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"] {
   flex-direction: column;
 }
 .lat-panes > lat-pane {
@@ -32,6 +32,12 @@ section.panes > .cell-stage > .lat-panes[data-panes="stack"] {
   min-height: 0;
   overflow: clip;
   container-type: size;
+}
+/* A pane is transparent: a component root rule that paints the SLIDE's background
+ * (`section.chart-frame { background: var(--bg) }`) must not paint a box over the
+ * slide's own backdrop. `[class]` lifts this to (0,2,1), over every widened root. */
+.lat-panes > lat-pane[class] {
+  background: none;
 }
 .lat-panes > lat-pane:first-child {
   flex-grow: var(--pane-a, 50);
