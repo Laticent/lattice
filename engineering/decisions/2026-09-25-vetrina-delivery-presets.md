@@ -10,10 +10,13 @@ companion:
 
 # Vetrina delivery presets, content gestures and read-along
 
-> **Proposed; forks settled.** Nothing here is built yet. The owner settled the
-> forks on 2026-09-25 (§9): three tone presets, model suggestions at authoring
-> time, the player embeds the kernel opt-in, decks reuse the LTT `actions`
-> layer, and the first slice is steps 1–4 of §8.
+> **In progress.** Steps 1, 2, 4 and 5 of §8 are built (PR #2371): the Guide's paraphrase tier
+> and hold, `_focus: mark|series`, the `delivery:` register with the salience plan, and content
+> marks. Steps 3 and 6–10 are recorded in `followups.d/2371-*`.
+>
+> The owner settled the forks on 2026-09-25 (§9): three tone presets, model suggestions at
+> authoring time, the player embeds the kernel opt-in, decks reuse the LTT `actions` layer, and
+> the first slice is foundations — reordered after steps 1–2 to ship 4 with 5, and 3 with 8.
 
 ## 1. The ask, and what it means in this repo
 

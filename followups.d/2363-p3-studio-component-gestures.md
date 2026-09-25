@@ -7,6 +7,11 @@ source: https://github.com/Laticent/lattice/pull/2363
 
 # The Present Guide points at nothing on six components, and only at the whole chart on two
 
+Progress 2026-09-25 (#2371): the paraphrase tier took the fixture from 37 to 52 of 63, and the
+corpus from 93.0% to 96.9% resolved (946 → 35 hides). Still open on the fixture: the 11 cues
+that name nothing on their slide (they now hold or hide by design), and "870 reached a proposal,
+and 214 signed", which names two funnel bands and so resolves to the whole figure.
+
 why now   — the owner, testing a narrated board deck in the Studio after #2363: "some
             components lose gestures in the studio". The Guide is what a viewer follows while
             narration plays, and on this deck it hides for 26 of 63 sentences.
