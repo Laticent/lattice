@@ -650,8 +650,8 @@ it is the record of what was wrong.
     doors, where the markup rides in under a name the user trusts. The root fix for decks is
     at the render boundary: an `img-src` policy on the preview frames with a visible "load
     remote images" switch, and an export option that inlines or strips them. That is
-    recorded in `followups.d/2336-p3-packages-trio-followups.md`, with the workspace
-    restore, which still saves library items without the import gates.
+    recorded in `followups.d/2336-p3-packages-trio-followups.md`. (The workspace restore,
+    which saved library items without the import gates, is closed: item 12 below.)
   The e2e `library-remote-refs.spec.ts` imports both through the real Library and asserts,
   against a control fetch that proves the log works, that the browser made no request to the
   beacon host.
@@ -674,3 +674,19 @@ it is the record of what was wrong.
     than Node today.
   - **9, escaped selectors: done.** `renameComponentSelectors` decodes each class token's CSS
     escapes before comparing, so `.\6b pi` and `.k\70 i` are renamed with `.kpi`.
+- **Trio follow-up 12 (the portable-packages continuation, 2026-09-25).**
+  - **12, the workspace restore: done.** `workspace-backup.ts` `restoreWorkspace` runs every
+    theme and component in a backup through `import-gate.ts`, the same gates as a Library zip,
+    PER ITEM. A refused item is skipped and named in the restore toast, and every other item,
+    and every deck, still restores. It is not a whole-file refusal because the gate has
+    measured false positives, and one in your own backup must not cost you the rest of it; the
+    skipped item is still in the file you hold. The verdicts are taken before any state is
+    imported, and the backup's shipped-name renames follow only the items that passed. A
+    scene the store will not take is skipped and named too, where it used to abort a restore
+    whose decks were already in. Finishes need no gate: the store regenerates their CSS from
+    the clamped recipe. The `.lattice` reader now reads its deck and manifest through the
+    same running `readBudget` as its packages; before, an entry that understated its size
+    was inflated in full before JSZip's own size check threw. The e2e
+    `workspace-restore-gate.spec.ts` restores a hostile backup through the real Workspace
+    sheet and asserts, against a control fetch, that the browser made no request to the
+    beacon host.
