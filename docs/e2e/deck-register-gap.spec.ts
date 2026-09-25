@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 	await openInspector(page);
 });
 
-test('Look ▸ More: Card rows and Text overflow write cards: and guards:', async ({ page }) => {
+test('Look ▸ More: Card rows and Fit write cards: and fit:', async ({ page }) => {
 	await page.getByText('More look settings').click();
 
 	await page.getByRole('combobox', { name: 'Choose card row placement' }).click();
@@ -29,9 +29,13 @@ test('Look ▸ More: Card rows and Text overflow write cards: and guards:', asyn
 	await page.getByRole('option', { name: /each component/ }).click();
 	await expect.poll(() => persistedSource(page)).not.toContain('cards:');
 
-	await page.getByRole('combobox', { name: 'Choose text overflow handling' }).click();
-	await page.getByRole('option', { name: /Trim to fit/ }).click();
-	await expect.poll(() => persistedSource(page)).toContain('\\nguards: strict\\n');
+	await page.getByRole('combobox', { name: 'Choose how slides fit' }).click();
+	await page.getByRole('option', { name: /Heal and trim/ }).click();
+	await expect.poll(() => persistedSource(page)).toContain('\\nfit: trim\\n');
+	// Heal is the default — choosing it REMOVES the key.
+	await page.getByRole('combobox', { name: 'Choose how slides fit' }).click();
+	await page.getByRole('option', { name: /^Heal\b(?! and)/ }).click();
+	await expect.poll(() => persistedSource(page)).not.toContain('fit:');
 });
 
 test('General: AI writes in writes ai-lang:', async ({ page }) => {
@@ -51,16 +55,16 @@ test('Motion: the exported-player switch appears with motion on and writes playe
 	await expect.poll(() => persistedSource(page)).toContain('\\nplayer-motion: off\\n');
 });
 
-test('the editor completes guards: values from the engine vocabulary', async ({ page }) => {
+test('the editor completes fit: values from the engine vocabulary', async ({ page }) => {
 	// Typed, not inserted: completion activates on typing (`activateOnTyping`).
 	await setEditorContent(page, '---\ntitle: Gap\n---\n');
 	await page.keyboard.press('ArrowUp');
 	await page.keyboard.press('ArrowUp');
 	await page.keyboard.press('End');
-	await page.keyboard.type('\nguards: s');
+	await page.keyboard.type('\nfit: t');
 	const menu = page.locator('.cm-tooltip-autocomplete');
 	await expect(menu).toBeVisible();
-	await expect(menu.getByRole('option', { name: 'strict' })).toBeVisible();
+	await expect(menu.getByRole('option', { name: 'trim' })).toBeVisible();
 });
 
 // A value with a trailing YAML comment. The engine strips the comment (`frontMatterName`);
@@ -70,7 +74,8 @@ test('the editor completes guards: values from the engine vocabulary', async ({ 
 test('a commented value reads the way the engine reads it', async ({ page }) => {
 	await setEditorContent(page, '---\ntitle: Gap\nmotion: on\nguards: strict  # board pack\nplayer-motion: off # x\n---\n\n# Gap\n');
 	await page.getByText('More look settings').click();
-	await expect(page.getByRole('combobox', { name: 'Choose text overflow handling' })).toContainText('Trim to fit');
+	// The OLD spelling, still honored: `guards: strict` reads as the Fit field's trim level.
+	await expect(page.getByRole('combobox', { name: 'Choose how slides fit' })).toContainText('Heal and trim');
 	await openSection(page, 'Motion');
 	await expect(page.getByRole('switch', { name: 'Motion in the exported player' })).toHaveAttribute('aria-checked', 'false');
 });
@@ -103,9 +108,9 @@ for (const [label, width, height] of [
 		await vis(page.getByRole('combobox', { name: 'Choose card row placement' })).click();
 		await page.getByRole('option', { name: /Spread/ }).click();
 		await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');
-		await vis(page.getByRole('combobox', { name: 'Choose text overflow handling' })).click();
-		await page.getByRole('option', { name: /Trim to fit/ }).click();
-		await expect.poll(() => persistedSource(page)).toContain('\\nguards: strict\\n');
+		await vis(page.getByRole('combobox', { name: 'Choose how slides fit' })).click();
+		await page.getByRole('option', { name: /Heal and trim/ }).click();
+		await expect.poll(() => persistedSource(page)).toContain('\\nfit: trim\\n');
 
 		await openSection(page, 'General');
 		await vis(page.getByRole('combobox', { name: 'Choose AI output language' })).click();

@@ -228,7 +228,8 @@ test('a mistyped register value (`guards: strcit`) underlines its front-matter l
 	await warningCovering(page, 'guards: strcit').hover();
 	const tooltip = page.locator('.cm-tooltip-lint');
 	await expect(tooltip).toContainText("'strcit' is not a known guards value");
-	await expect(tooltip).toContainText('loose, strict');
+	// The fix names the new key, `fit:`, and its values — `guards:` is the old spelling.
+	await expect(tooltip).toContainText('report, heal, trim');
 
 	// The whole page, not the editor box: the tooltip opens above line 3 and an editor-box
 	// crop cuts the message off at its first line.
