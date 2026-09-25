@@ -6729,6 +6729,14 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'wrong palette would fail its own mode check loudly rather than ship anywhere.',
   },
   {
+    file: 'tools/spike-video-export.mjs',
+    why: 'the LTT step-3 measuring spike (engineering/decisions/2026-09-25-video-export.md). It '
+       + 'reads one deck (the repo-committed test/fixtures/q3-board-review.md by default) to pull '
+       + 'its inline captions, and hands the SOURCE to buildPlayerHtml, which is the boundary. The '
+       + 'fold is tolerance for a CRLF-saved --deck; the spike asserts on the MP4 it writes, so a '
+       + 'wrong read fails its own checks loudly rather than shipping anywhere.',
+  },
+  {
     file: 'lib/authoring/notes-core.js',
     why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
        + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '

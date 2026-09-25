@@ -383,6 +383,9 @@ it does not guarantee:** Anima motion (the player receives that separately as
 where the cursor lands, not where it is in every frame). Either may become a
 layer under G4.
 
+The encoder, muxer, frame rate and simulated transport are proposed in
+[`decisions/2026-09-25-video-export.md`](decisions/2026-09-25-video-export.md).
+
 ## Files written before the LTT
 
 Out of scope: Lattice is not generally available, so no deck exported before the

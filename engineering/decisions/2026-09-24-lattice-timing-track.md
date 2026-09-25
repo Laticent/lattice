@@ -508,7 +508,8 @@ first that does, and it stops for the owner's sign-off.
 3. **Video export.** A simulated transport over `timeline` and `positionAt`,
    headless Chromium stepping frame by frame, the measured audio on the same
    timeline, and a `.vtt` from the same LTT. Its own decision note, because it
-   brings a muxer.
+   brings a muxer: [`2026-09-25-video-export.md`](2026-09-25-video-export.md)
+   (proposed, with a measured spike).
 4. **Vetrina.** Its gate opens; the actions layer; `Narrator.plan()` returns the
    core's cue and word shape instead of a flat list; the tour recorder writes a
    seekable LTT with `viewport`, `motion` and `stagePace`.
@@ -612,7 +613,8 @@ that is earned, not declared.
 
 ## 11. What this note does not decide
 
-- The video export's encoder, muxer and frame rate (step 3's own note).
+- The video export's encoder, muxer and frame rate (step 3's own note,
+  [`2026-09-25-video-export.md`](2026-09-25-video-export.md)).
 - Whether Vetrina's default pacing flips to `'grounded'`. That is still the open
   follow-up in `2026-09-13-vetrina-cursor-caption-narration.md`; the LTT neither
   requires nor blocks it.
