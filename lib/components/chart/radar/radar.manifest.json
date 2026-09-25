@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "radar",
+  "focusAxes": [
+    "mark",
+    "series"
+  ],
   "adapt": {
     "mode": "reflow",
     "priority": [

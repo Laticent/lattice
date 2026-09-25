@@ -1203,11 +1203,26 @@ rasterises the rendered slide).
 <!-- _focus: line 8-9 -->     <!-- code lines (a range) -->
 <!-- _focus: row 2, row 5 --> <!-- two targets -->
 <!-- _focus: item 2-4 -->     <!-- a range -->
+<!-- _focus: mark 3 -->       <!-- a chart mark: the 3rd bar, wedge, band, cell or state -->
+<!-- _focus: series 2 -->     <!-- a chart series: the 2nd line, radar polygon -->
 ```
 
 The universal form is **`_focus: <axis> <ordinal>`** (ordinals count from
 1). Axes by surface: `item` (lists, card grids), `row` / `col` / `cell`
-(tables), `line` (code).
+(tables), `line` (code), `mark` / `series` (charts).
+
+**On a chart, the mark is the address.** Every chart stamps its marks with
+their place (`data-mark`) and its series shapes with theirs (`data-series`),
+so `mark N` names the Nth item in the order you wrote the list, and
+`series N` names the Nth series under each category. Nothing is tagged by
+hand, and the same line works on bar, pie, funnel, waterfall, heatmap,
+gantt, state-chart, stacked-bar, scatter, slope, quadrant, bullet, map and
+radar (`mark`), and line, radar, scatter and slope (`series`). The default
+look is spotlight, and a receded mark keeps 40% rather than text's 24%,
+because a chart's other marks are the context the focused one is read
+against. A focused line also gains weight. `_focusStyle: ring` keeps every
+mark at full strength and edges the focused one in the accent. Worked deck:
+`examples/focus-chart-marks.md`.
 
 **Look — content-aware by default.** Tables get a **ring** (an accent
 outline; nothing is dimmed, so the comparison stays legible). Lists, grids,

@@ -5,6 +5,9 @@
   "form": "canvas",
   "substance": "series",
   "render": "svg",
+  "focusAxes": [
+    "mark"
+  ],
   "renderNote": "Bars, grid, axis, category labels and the printed values are one `<svg>`. A bar chart is a claim about LENGTH measured from a shared zero, so every mark and every label has to be placed in one coordinate system — assembled boxes would let the baseline drift and the comparison would quietly stop being true.",
   "kernel": {
     "figureClass": "bar-figure",

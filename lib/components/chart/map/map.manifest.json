@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "map",
+  "focusAxes": [
+    "mark"
+  ],
   "adapt": {
     "mode": "reflow",
     "priority": [

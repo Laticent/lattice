@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "piechart",
+  "focusAxes": [
+    "mark"
+  ],
   "adapt": {
     "mode": "reflow",
     "priority": [

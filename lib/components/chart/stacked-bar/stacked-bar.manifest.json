@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "stacked-bar",
+  "focusAxes": [
+    "mark"
+  ],
   "function": "evidence",
   "form": "canvas",
   "substance": "series",

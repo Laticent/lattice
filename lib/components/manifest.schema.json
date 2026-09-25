@@ -757,10 +757,12 @@
           "row",
           "col",
           "cell",
-          "line"
+          "line",
+          "mark",
+          "series"
         ]
       },
-      "description": "Optional. Focusable axes this layout supports for per-axis `_focus` highlighting — a subset of the focus resolver's SUPPORTED_AXES (lib/transformers/focus.js): a `<table>` body → row/col/cell, a top-level list/grid → item, a code block → line. Scopes the editor's `_focus:` / `_focusSteps:` axis completion per layout."
+      "description": "Optional. Focusable axes this layout supports for per-axis `_focus` highlighting — a subset of the focus resolver's SUPPORTED_AXES (lib/transformers/focus.js): a `<table>` body → row/col/cell, a top-level list/grid → item, a code block → line, a chart's `data-mark` marks → mark, its `data-series` shapes → series. Scopes the editor's `_focus:` / `_focusSteps:` axis completion per layout."
     },
     "transform": {
       "type": "array",

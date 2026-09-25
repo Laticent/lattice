@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "waterfall",
+  "focusAxes": [
+    "mark"
+  ],
   "function": "progression",
   "form": "canvas",
   "substance": "series",

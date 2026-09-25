@@ -160,3 +160,60 @@ describe('focus — DOM kernel (applyToDom) agrees with the HTML kernel', () => 
     assert.equal(dom.window.document.querySelector('section').getAttribute('data-focus-axis'), 'item');
   });
 });
+
+// The chart axes (#2371). A chart transform already stamps every mark with a chart-wide
+// 0-based `data-mark` and every series shape with `data-series`, so the attribute IS the
+// address: `mark 2` is `data-mark="1"`. Both kernels must agree, a detail `<template>` is
+// never touched, and radar's container `<div data-series="3">` (a COUNT, not an index) must
+// not be mistaken for series 4.
+describe('focus — chart axes (mark, series)', () => {
+  const BAR = '<section data-focus="mark 2" class="bar"><div class="chart-body"><svg>'
+    + '<rect class="bar-mark" data-mark="0" data-label="North"/><rect class="bar-mark" data-mark="1" data-label="South"/>'
+    + '<rect class="bar-mark" data-mark="2" data-label="East"/></svg>'
+    + '<template class="chart-detail" data-mark="1"><li data-mark="1">note</li></template></div></section>';
+  const RADAR = '<section data-focus="series 1" class="radar"><div class="radar-body" data-series="2"><svg>'
+    + '<polygon class="radar-poly" data-series="0"/><polygon class="radar-poly" data-series="1"/>'
+    + '<circle class="radar-dot" data-series="0"/></svg></div></section>';
+
+  test('mark N tags data-mark N-1 .lat-focus and its peers .lat-recede, spotlight by default', () => {
+    const out = focus.applyToHtml(BAR);
+    assert.match(out, /<rect class="bar-mark lat-recede" data-mark="0"/);
+    assert.match(out, /<rect class="bar-mark lat-focus" data-mark="1"/);
+    assert.match(out, /<rect class="bar-mark lat-recede" data-mark="2"/);
+    assert.match(out, /data-focus-axis="mark"/);
+    assert.match(out, /data-focus-style="spotlight"/);
+  });
+
+  test('a detail template and its payload stay byte-identical', () => {
+    const out = focus.applyToHtml(BAR);
+    assert.ok(out.includes('<template class="chart-detail" data-mark="1"><li data-mark="1">note</li></template>'));
+  });
+
+  test('series N tags SVG shapes only — never the radar container that counts series', () => {
+    const out = focus.applyToHtml(RADAR);
+    assert.match(out, /<div class="radar-body" data-series="2">/);
+    assert.match(out, /<polygon class="radar-poly lat-focus" data-series="0"/);
+    assert.match(out, /<polygon class="radar-poly lat-recede" data-series="1"/);
+    assert.match(out, /<circle class="radar-dot lat-focus" data-series="0"/);
+  });
+
+  test('a slide with no marks resolves nothing and stamps no axis', () => {
+    const out = focus.applyToHtml('<section data-focus="mark 1" class="content"><p>x</p></section>');
+    assert.doesNotMatch(out, /data-focus-axis/);
+    assert.match(out, /data-focus-resolved/);
+  });
+
+  test('the DOM kernel agrees with the HTML kernel on both axes', () => {
+    for (const [html, sel] of [[BAR, 'svg [data-mark]'], [RADAR, 'svg [data-series]']]) {
+      const dom = new JSDOM(`<body>${html}</body>`);
+      const fromHtml = new JSDOM(`<body>${focus.applyToHtml(html)}</body>`);
+      focus.applyToDom(dom.window.document.body);
+      const cls = (d) => [...d.window.document.querySelectorAll(sel)].map((el) => el.getAttribute('class'));
+      assert.deepEqual(cls(dom), cls(fromHtml));
+    }
+    // And the DOM kernel leaves the detail payload alone too.
+    const dom = new JSDOM(`<body>${BAR}</body>`);
+    focus.applyToDom(dom.window.document.body);
+    assert.equal(dom.window.document.querySelector('template').innerHTML, '<li data-mark="1">note</li>');
+  });
+});

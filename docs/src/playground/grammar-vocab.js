@@ -19,7 +19,7 @@ export const FOCUS_STYLE_VALUES = ['spotlight', 'blur', 'ring', 'list-fill', 'po
 // Axis keywords for `_focus:` / `_focusSteps:` (the ordinal that follows — `row
 // 4`, `item 2-4` — isn't completable). MUST mirror the focus resolver's
 // SUPPORTED_AXES (lib/transformers/focus.js), asserted by the completion test.
-export const FOCUS_AXIS_VALUES = ['item', 'row', 'col', 'cell', 'line'];
+export const FOCUS_AXIS_VALUES = ['item', 'row', 'col', 'cell', 'line', 'mark', 'series'];
 
 // Value vocabulary for `_paginate:` (Marp accepts the booleans; `skip`/`hold`
 // are Marp's pagination extensions). The other directives take free strings or
