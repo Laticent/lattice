@@ -83,6 +83,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	'motion-speed': { group: 'motion', default: 'auto', studio: 'Motion → Speed', slide: '_class: motion-<value>' },
 	'player-motion': { group: 'motion', default: 'follows motion', studio: 'Motion → In the exported player', scope: 'exported player only' },
 	pace: { group: 'speech', default: 'natural', studio: 'Speech → Pace', scope: 'self-presenting playback' },
+	delivery: { group: 'speech', default: 'restrained', scope: 'the Present Guide while narration plays' },
 	lexicon: { group: 'speech', default: 'none', studio: 'Speech → Lexicon', values: 'a nested map: word → how to say it', scope: 'read-aloud' },
 	acronyms: { group: 'speech', default: 'none', studio: 'Speech → Acronyms', values: 'a nested map: term → expansion, optional definition', scope: 'read-aloud, and glossary: auto' },
 	captions: { group: 'speech', default: 'none', slide: '<!-- caption: … -->', values: 'a nested map: slide number → what to say', scope: 'read-aloud' },

@@ -11,6 +11,7 @@ import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { cornerRadiusCss } from '@/lib/deck-corner';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
+import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
@@ -35,7 +36,7 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX } from './present-guide';
+import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX, planSlide, type SlidePlan } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 
@@ -668,6 +669,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// from the source, so an author typing in the editor does not re-create this on every
 	// keystroke and thrash the beat effect that reads it.
 	const deckPace = React.useMemo(() => frontMatterPace(frontMatter), [frontMatter]);
+	// The deck's `delivery:` preset — how many moments a slide may gesture, whether the Guide
+	// shows a cursor at all, how loudly (lib/core/resolve-delivery.mjs). A deck register, not a
+	// workspace setting, for the reason `pace:` gives: the author's choice travels with the deck.
+	const delivery = React.useMemo(() => resolveDelivery(frontMatterDelivery(frontMatter)), [frontMatter]);
 	const beatForArrival = React.useCallback((): number => {
 		const md = set[clamped] ?? '';
 		const kind = isSectionBoundary(md) ? 'section' : 'slide';
@@ -937,6 +942,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	/** The element the last gesture named. The BLOCK-change cadence compares on this: a cue that
 	 *  resolves to the same element is a rest, not another trip. */
 	const guideAimRef = React.useRef<Element | null>(null);
+	// The current slide's salience plan, keyed on the slide and its track (see THE PLAN below).
+	const guidePlanRef = React.useRef<{ slide: number; track: unknown; plan: SlidePlan } | null>(null);
 	const guideLive = open && guideOn && !rehearse;
 	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
 	// cursor's visibility and whether the real one may be hidden — see the two notes below.
@@ -982,7 +989,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// speaking, so the same pause lands the cursor on a sentence the voice has half finished.
 		// `fast` scales both the register beat and the glide by 0.72, which is the in-API lever
 		// for this and keeps the motion curve the library curates.
-		const stage = createStage({ root: host, onExit: () => setGuideOn(false), theme: resolveTheme({ accent: 'var(--accent, #2b6ef2)', caption: 'none', pointer: 'arrow', speed: 'fast', cues: { anticipate: false } }) });
+		const stage = createStage({ root: host, onExit: () => setGuideOn(false), theme: resolveTheme({ accent: 'var(--accent, #2b6ef2)', caption: 'none', pointer: 'arrow', speed: 'fast', cues: { anticipate: false }, motion: delivery.motion === 'full' ? 'system' : 'legible' }) });
 		// BORN HIDDEN. Vetrina spawns its cursor at the center of the screen, which in a walkthrough
 		// is neutral chrome — and in Present is the middle of the slide card, directly on the title.
 		// So switching Guide on dropped an arrow onto the deck's own words and left it there until
@@ -1000,7 +1007,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			setGuideAiming(false); // no stage, nothing aimed — and the real pointer comes straight back
 			stage.destroy();
 		};
-	}, [guideLive, guideRoot]);
+		// `motion: 'system'` for a full-motion preset, so a reduced-motion device still lands on
+		// `legible`: a preset may ask for less motion than the viewer's setting, never more.
+	}, [guideLive, guideRoot, delivery.motion]);
 
 	// Move on the reader's beat — but on the BLOCK, not on the sentence.
 	//
@@ -1054,6 +1063,33 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// Guarded on the cursor actually being on screen, so the first cue of a block still gets
 		// its gesture after a stretch of unresolvable narration on the same block.
 		if (aim && aim === guideAimRef.current && guideShownRef.current) return;
+		// THE PLAN. Not every block earns a gesture: the delivery preset's budget goes to the
+		// slide's top-ranked moments (`planSlide`), each on the first sentence that names it, and
+		// every other sentence holds the hand still. Planned once per slide; re-planned if this
+		// cue resolves now but did not when the plan was made (a chart the runtime drew late).
+		let top = false;
+		if (aim) {
+			let entry = guidePlanRef.current;
+			if (!entry || entry.slide !== narration.idx || entry.track !== reader.track || !entry.plan.aimed.has(activeCue)) {
+				const aimOf = (t: string) => (onStage ? guideAimIn(slideDoc(), t) : guideAimFor(frame, t));
+				entry = { slide: narration.idx, track: reader.track, plan: planSlide(reader.track.cues.map(cueDisplayText), aimOf, delivery.budget, delivery.floor) };
+				guidePlanRef.current = entry;
+			}
+			top = entry.plan.top === activeCue;
+			if (!entry.plan.gesture.has(activeCue)) {
+				// A stroke still drawing finishes; a resting hand keeps resting; a hand whose target
+				// left with the last slide hides.
+				if (guidePointRef.current && !guidePointRef.current.signal.aborted && !guideShownRef.current) return;
+				if (guideShownRef.current && guideStillShown(guideAimRef.current)) return;
+				guidePointRef.current?.abort();
+				guidePointRef.current = null;
+				guideAimRef.current = null;
+				stage.setCursorVisible(false);
+				guideShownRef.current = false;
+				setGuideAiming(false);
+				return;
+			}
+		}
 		const cue = aim ? (onStage ? guideCueInDoc(slideDoc(), text) : guideCueFor(frame, text)) : null;
 		// THE HOLD. A sentence that names nothing ("Thank you.", "No.") on a slide the hand is
 		// already resting on keeps it resting. Hiding there made the pointer blink out and back
@@ -1075,7 +1111,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// THE CURSOR'S KEEP-OUT is its own 28px footprint plus a hair, in PARENT pixels — the
 		// space Vetrina's stage works in. The frame-scale conversion belongs on the other side of
 		// the bridge, where the slide's own coordinates are (`guideCueFor`).
-		const opts = { strength: cue.strength, clearance: POINTER_BOX / 2 + 5, rest: cue.rest };
+		// LOUDNESS: the deck's own `_focus` makes a gesture notable (decision 2026-08-05 §4.1), and
+		// an expressive preset makes the slide's top moment notable too. Never a different gesture.
+		const strength: 'quiet' | 'notable' = cue.strength === 'notable' || (top && delivery.strength === 'notable') ? 'notable' : 'quiet';
+		const opts = { strength, clearance: POINTER_BOX / 2 + 5, rest: cue.rest };
 		const run = stage.gesture(cue.kind, cue.target, ctl.signal, opts);
 		if (guideShownRef.current) {
 			run.catch(() => {}); // an abort here is a retarget, not an error

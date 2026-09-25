@@ -18,7 +18,9 @@ import {
 	headerRange,
 	markerBox,
 	POINTER_BOX,
+	planSlide,
 	pointerAnchor,
+	salience,
 	sentenceRange,
 } from './present-guide';
 
@@ -210,6 +212,68 @@ describe('findParaphraseTarget — an authored caption in other words', () => {
 		// The paraphrase tier runs after them, so an exact containment still names the smallest block.
 		const d = doc('<p>Growth held. Margins rose.</p><p>Growth held steady all year and margins rose.</p>');
 		expect(findCueTarget(d, 'Growth held.')).toBe(d.querySelector('p'));
+	});
+});
+
+describe('planSlide — the salience budget', () => {
+	// The Q3 board fixture's KPI slide in miniature: a headline, a number, two plain lines.
+	const slide = () =>
+		doc(`<h2>Revenue ahead of plan; payback is slipping.</h2><ul>
+			<li>Hiring continued on plan across every team.</li>
+			<li>ARR closed at $48.6M, ahead of plan.</li>
+			<li>The office move finished in August.</li>
+			<li>CAC payback stretched to <strong>19 months</strong>.</li></ul>`);
+	const cues = [
+		'Revenue ahead of plan; payback is slipping.',
+		'Hiring continued on plan across every team.',
+		'ARR closed at $48.6M, ahead of plan.',
+		'The office move finished in August.',
+		'CAC payback stretched to 19 months.',
+	];
+	const aimIn = (d: Document) => (t: string) => findCueTarget(d, t);
+
+	it('spends the budget on the salient moments, not on the first ones spoken', () => {
+		const plan = planSlide(cues, aimIn(slide()), 2);
+		// The number with emphasis outranks the bare number, which outranks the headline and prose.
+		expect([...plan.gesture].sort()).toEqual([2, 4]);
+		expect(plan.top).toBe(4);
+		expect(plan.aimed.size).toBe(5);
+	});
+
+	it('spends in spoken order when nothing is salient', () => {
+		const d = doc('<ul><li>We met the team.</li><li>We toured the site.</li><li>We had lunch.</li></ul>');
+		const plan = planSlide(['We met the team.', 'We toured the site.', 'We had lunch.'], aimIn(d), 1);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('holds plain prose to one move under a floor, and lets a teaching preset walk it', () => {
+		const d = doc('<h2>Section 01</h2><ul><li>We met the team.</li><li>We toured the site.</li></ul>');
+		const texts = ['We met the team.', 'We toured the site.'];
+		expect(planSlide(texts, aimIn(d), 2, 1).gesture.size).toBe(1);
+		expect(planSlide(texts, aimIn(d), 2, 0).gesture.size).toBe(2);
+	});
+
+	it('never cuts an authored _focus moment, even past the budget', () => {
+		const d = slide();
+		d.querySelectorAll('li')[0].classList.add('lat-focus');
+		const plan = planSlide(cues, aimIn(d), 1);
+		expect(plan.gesture.has(1)).toBe(true);
+		expect(plan.top).toBe(1);
+	});
+
+	it('gestures only on the first cue that names a target', () => {
+		const d = doc('<p>Growth held. Margins rose to 40%.</p>');
+		const plan = planSlide(['Growth held.', 'Margins rose to 40%.'], aimIn(d), 4);
+		expect([...plan.gesture]).toEqual([0]);
+	});
+
+	it('scores a chart extreme above its peers', () => {
+		const d = doc(`<div class="chart-body"><svg>
+			<rect data-mark="0" data-label="North" data-value="4.1"/><rect data-mark="1" data-label="LATAM" data-value="2.2"/>
+			<rect data-mark="2" data-label="EMEA" data-value="6.8"/><rect data-mark="3" data-label="APAC" data-value="2.9"/></svg></div>`);
+		const [north, , emea, apac] = [...d.querySelectorAll('rect')];
+		expect(salience(emea)).toBeGreaterThan(salience(north));
+		expect(salience(apac)).toBe(salience(north));
 	});
 });
 

@@ -876,3 +876,33 @@ exports all carry the ink. See
 card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
 and lines keep their own marks. Hand-drawn chart *marks* are a deferred
 follow-up.
+
+## The `delivery:` front-matter register (how much the narrated Guide gestures)
+
+`delivery:` sets how the Studio's Present **Guide** behaves while narration plays: how many
+moments on a slide get a gesture, whether it shows a cursor, and how heavy the ink is. It
+changes nothing in a rendered slide, a PDF or a PPTX.
+
+```yaml
+delivery: restrained   # the default: a boardroom, or a board member reading the file alone
+delivery: expressive   # a sales room, a prospect, a lightning talk, a lunch-and-learn
+delivery: somber       # bad news, a loss: nothing moves that does not have to
+```
+
+| | `restrained` | `expressive` | `somber` |
+|---|---|---|---|
+| Gestures per slide, at most | 2 | 4 | 1 |
+| After the first, a moment needs a signal | yes | no | yes |
+| Cursor and ink | yes | yes | no |
+| Top moment drawn heavier | no | yes | no |
+
+**What decides which moments.** At each slide the Guide ranks everything the narration names.
+From strongest to weakest: an authored `_focus:` target (never cut, even past the budget), a
+measured figure (`$4.2M`, `18%`, `3,100`, `19 mo`, but not `Section 01` or a year), a chart
+mark, the extreme mark of a chart, author emphasis (`**strong**`), then the headline. The
+preset spends its budget from the top, and the hand stays still through everything else. A
+preset never changes the ranking: a somber deck and an expressive deck point at the same
+important numbers, and the somber one points at fewer of them.
+
+The names and presets live in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value
+(`unknown-delivery`). Design: `engineering/decisions/2026-09-25-vetrina-delivery-presets.md`.

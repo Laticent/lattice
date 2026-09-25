@@ -1943,6 +1943,93 @@ function shownSection(doc: Document | null): Document | Element | null {
 	return secs.find((sec) => sec.style.visibility !== 'hidden') ?? doc;
 }
 
+// ── THE SALIENCE PLAN — which moments on a slide earn a gesture ─────────────────────────────
+//
+// Guide used to gesture on every block change, so a dense slide got a move per paragraph whether
+// or not the paragraph mattered. A presenter names two things on a board slide, not six. So the
+// plan runs once per slide, before the first sentence: it resolves every cue to its target, ranks
+// the distinct targets, and lets only the top `budget` of them gesture — each on the FIRST cue
+// that names it. Every other cue holds the hand still (engineering/decisions/
+// 2026-09-25-vetrina-delivery-presets.md §4, §6).
+//
+// A preset sets the budget; it never decides the ranking. What matters on a slide is a fact
+// about the content, so every signal below reads the slide, and each is deterministic.
+
+/** A measured amount: currency, a percentage, a magnitude or duration unit, a decimal,
+ *  thousands, or three or more digits that are not a year. */
+const FIGURE = /[$€£¥]\s?\d|\d\s?%|\d[.,]\d|\d\s?(?:[kKmMbB]|bn|pp|x|mo|months?|weeks?|days?|years?|yrs?|hours?|hrs?)\b|\b(?!(?:19|20)\d\d\b)\d{3,}\b/;
+
+/** How much a target matters. Authored focus dominates everything else, so it is never cut. */
+export function salience(el: Element): number {
+	let score = 0;
+	// AUTHORED. The deck said this with `_focus:`, which tags `.lat-focus` (decision 2026-08-05
+	// §4.1 already treats it as the one meaning of "notable"). It is spent first and never cut.
+	if (el.closest('.lat-focus') || el.querySelector('.lat-focus')) score += 100;
+	const said = el.matches('[data-label]') ? `${el.getAttribute('data-label') ?? ''} ${el.getAttribute('data-value') ?? ''}` : (el.textContent ?? '');
+	// A FIGURE. What a board remembers is a measured number, so a claim that carries one ranks
+	// high. An index is not a figure: "Section 01", "step 3", "1 December" and a bare year carry
+	// digits and say nothing, and counting them spent the Q3 fixture's budget on every divider's
+	// kicker. So only an amount counts.
+	if (FIGURE.test(said)) score += 3;
+	// A CHART MARK is a datum the narration is naming, not prose about it.
+	if (el.matches('[data-mark], [data-series]')) score += 2;
+	// EMPHASIS the author typed: **strong**, a <mark>.
+	if (el.matches('strong, b, mark') || el.querySelector('strong, b, mark') || el.closest('strong, b')) score += 2;
+	// THE EXTREME of its chart: the tallest bar, the largest wedge, the smallest stage.
+	if (isChartExtreme(el)) score += 2;
+	// THE HEADLINE is the slide's claim, so it outranks plain prose but not a number.
+	if (el.matches('h1, h2')) score += 1;
+	return score;
+}
+
+/** Is this chart mark the largest or smallest value among the marks it sits with? */
+function isChartExtreme(el: Element): boolean {
+	const own = parseFloat((el.getAttribute('data-value') ?? '').replace(/[^0-9.-]/g, ''));
+	if (!Number.isFinite(own)) return false;
+	const chart = el.closest('.chart-body');
+	if (!chart) return false;
+	const values = [...chart.querySelectorAll('[data-mark][data-value]:not(template)')]
+		.map((m) => parseFloat((m.getAttribute('data-value') ?? '').replace(/[^0-9.-]/g, '')))
+		.filter(Number.isFinite);
+	if (values.length < 3) return false;
+	return own === Math.max(...values) || own === Math.min(...values);
+}
+
+export type SlidePlan = {
+	/** Cue indices that gesture: the first cue naming each chosen target. */
+	gesture: Set<number>;
+	/** The cue index of the top-ranked chosen target, or -1 when nothing was chosen. */
+	top: number;
+	/** Cue indices that resolved to a target when the plan was made. */
+	aimed: Set<number>;
+};
+
+/**
+ * Plan one slide's gestures.
+ *
+ * `aim` resolves a cue's text to the element it would name (`guideAimFor` / `guideAimIn`, which
+ * read no layout), so the plan costs text matching only. Ties go to the earlier target, so a
+ * slide with nothing salient spends its budget in the order it is spoken — as far as `floor`
+ * (the preset's minimum salience after the first gesture) lets it.
+ */
+export function planSlide(texts: readonly string[], aim: (text: string) => Element | null, budget: number, floor = 0): SlidePlan {
+	const first = new Map<Element, number>();
+	const aimed = new Set<number>();
+	texts.forEach((t, i) => {
+		const el = t ? aim(t) : null;
+		if (!el) return;
+		aimed.add(i);
+		if (!first.has(el)) first.set(el, i);
+	});
+	const ranked = [...first.entries()]
+		.map(([el, cue]) => ({ cue, score: salience(el) }))
+		.sort((a, b) => b.score - a.score || a.cue - b.cue);
+	// The top moment always gestures, so a slide of plain prose still gets one move; after it, a
+	// moment has to clear the preset's floor, and authored focus clears everything.
+	const chosen = ranked.filter((r, i) => r.score >= 100 || (i < budget && (i === 0 || r.score >= floor)));
+	return { gesture: new Set(chosen.map((r) => r.cue)), top: chosen[0]?.cue ?? -1, aimed };
+}
+
 /**
  * Is the element the hand last named still on the slide being shown? `PresentOverlay`'s hold asks
  * this before it keeps the hand resting through a sentence that names nothing: after a slide

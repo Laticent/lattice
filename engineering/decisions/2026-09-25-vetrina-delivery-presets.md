@@ -181,6 +181,7 @@ readable by the Studio and the exported player.
 | | `restrained` (default) | `expressive` | `somber` |
 |---|---|---|---|
 | Gestures per slide | at most 2 | at most 4 | at most 1, authored only |
+| Salience floor after the first gesture | 1 | 0 | 1 |
 | Families allowed | ink + content | ink + content + `trace` | content only; **no cursor** |
 | Strength | `quiet`; `notable` on authored | `notable` on the top moment | `quiet` |
 | Pace | `moderate` | `moderate`, faster travel | `slow`, long holds |
@@ -266,6 +267,14 @@ RULE #17) unless it needs the one before it.
 10. **Model suggestions** (if Fork 2 says yes).
 
 Steps 1–4 are unconditional. 5–10 wait on the forks.
+
+**Reorder (owner, 2026-09-25, after steps 1–2 shipped).** Step 3 moves to ride
+with step 8, and step 4 ships with step 5. The reasons measured at the time:
+the resolver imports Cadenza, the generated guide handles and the playground
+frame bridge, so a kernel extracted with one caller would draw its boundary
+against the Studio alone and be redrawn when the player arrives; and content
+gestures have no production switch until the presets exist (G2 in the LTT
+note: no kernel ships without a production caller).
 
 ## 9. Forks for the owner
 
