@@ -337,8 +337,8 @@ player, including the video renderer's simulated one, must follow them.
 1. **Play** speaks the current slide at once, with no hold.
 2. When a slide's narration ends, the player **advances first, then holds on the
    slide that arrived, then speaks it**. The hold is the section or slide hold
-   of the arriving slide. A slide with no narration is on screen for exactly its
-   hold.
+   of the arriving slide. A slide with no narration that the player advanced to is on
+   screen for exactly its hold.
 3. **Advance on clip end.** With audio, the next cue starts when the clip ends
    (`onended`), never at a computed time. The breath after a cue is held after
    that. **Measured cost:** headless Chromium 131 fires `ended` 90–110 ms after
@@ -360,7 +360,13 @@ player, including the video renderer's simulated one, must follow them.
    `NotAllowedError`, an autoplay refusal, stops narration.
 5. **Pause restarts the slide** rather than resuming mid-word.
 6. **Manual navigation re-anchors** on the chosen slide and speaks it with no
-   hold.
+   hold. **Onto a slide with no narration, the player stays** (owner ruling,
+   2026-09-25): narration remains armed, nothing is said, and the next manual move
+   onto a narrated slide speaks it. A viewer who chose a silent slide wants to look
+   at it; speaking it would reach the end of its narration at once and advance, so
+   the slide left as soon as it arrived. A silent **last** slide ends narration
+   instead, as reaching the end does. Play on a silent slide is rule 1, not rule 6:
+   it advances at once and holds on the slide that arrives.
 7. Within a segment, the player may re-time a cue to the decoded clip's
    length (`cursor.align`). That is the only way a measured length enters
    playback. **Lead trim:** a clip whose encoder added leading silence (`leadMs`)

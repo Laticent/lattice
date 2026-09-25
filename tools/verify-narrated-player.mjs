@@ -547,5 +547,32 @@ await variant(
   await p.close();
 }
 
+// ── rule 6 on a silent slide (owner ruling 2026-09-25) ──────────────────────────────────
+// The red team's repro, in a real browser with real clips: slides 1 and 3 narrated, slide 2 not.
+// Navigating onto slide 2 while narration plays must STAY there, still armed; Next then speaks
+// slide 3; and Previous from slide 3 must land on 2 and stay, not bounce back to "3 / 3".
+{
+  const silentMid = { voice: VOICE, slides: [said('The first slide speaks.', [true]), null, said('The third slide speaks.', [true])] };
+  const out = path.resolve('.scratch/out/narrated-player-silent-middle.html');
+  writeFileSync(out, (await buildPlayerHtml({ docHtml, source, title: 'Narrated', now: 0, narration: silentMid })).html);
+  const p = await ctx.newPage();
+  await p.goto(`file://${out}`);
+  await p.waitForSelector('#lp-play');
+  const count = () => p.evaluate(() => document.getElementById('lp-count').textContent.trim());
+  await p.click('#lp-play');
+  await p.waitForFunction(() => document.querySelector('#lp-caption .lp-cap-line.lp-now'), null, { timeout: 4000 });
+  await p.keyboard.press('ArrowRight');
+  await p.waitForTimeout(2500);
+  check('Next onto a silent slide stays on it while narration plays', (await count()).startsWith('2'), await count());
+  check('and narration stays armed there', (await p.getAttribute('#lp-play', 'aria-pressed')) === 'true');
+  await p.keyboard.press('ArrowRight');
+  await p.waitForFunction(() => document.querySelector('#lp-caption .lp-cap-line.lp-now')?.textContent.trim() === 'The third slide speaks.', null, { timeout: 4000 });
+  check('Next onto a narrated slide speaks it', true);
+  await p.keyboard.press('ArrowLeft');
+  await p.waitForTimeout(2500);
+  check('Previous onto a silent slide stays, not back on "3 / 3" (the red team\'s repro)', (await count()).startsWith('2'), await count());
+  await p.close();
+}
+
 await browser.close();
 console.log(process.exitCode ? '\nFAILED' : '\nALL CHECKS PASSED');

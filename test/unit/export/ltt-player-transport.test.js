@@ -145,3 +145,63 @@ test('the lead-trim seek waits for a known duration, so a late-length clip is no
 	assert.deepEqual(media.seeks, [0.046], 'and only once');
 	dom.window.close();
 });
+
+// Rule 6 for a SILENT slide (owner ruling 2026-09-25): a viewer who navigates onto a slide with no
+// narration while narration plays wants to look at it, so the player STAYS, still armed, and speaks
+// again when they move to a narrated slide. It used to speak the slide, reach endSlide at once and
+// leave ~20 ms after the viewer arrived — Previous from slide 3 bounced straight back to 3.
+test('manual navigation onto a silent slide stays there, and the next narrated slide speaks', async () => {
+	const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>T</title></head><body>
+<section data-lattice-slide="1" id="1" class="content"><h1>One</h1></section>
+<section data-lattice-slide="2" id="2" class="content"><h2>Two</h2></section>
+<section data-lattice-slide="3" id="3" class="content"><h2>Three</h2></section>
+</body></html>`;
+	const slides = FIXTURE.ltt.segments.map((s) => (s.track ? { text: s.track.cues.map((c) => c.display).join(' '), track: s.track, clips: [] } : null));
+	const { html } = await buildPlayerHtml({ docHtml, source: '---\npace: natural\n---\n\n# One\n', title: 'T', now: 0, narration: { slides } });
+	let clock;
+	const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(window) { clock = installClock(window); } });
+	const { document } = dom.window;
+	const count = () => document.querySelector('body > #lp-bar > #lp-count').textContent.trim();
+	const pressed = () => document.getElementById('lp-play').getAttribute('aria-pressed');
+	const caption = () => (document.getElementById('lp-caption')?.textContent ?? '').trim();
+	const key = (k) => document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: k, bubbles: true }));
+
+	document.getElementById('lp-play').click();
+	clock.runUntil(clock.now + 50);
+	assert.ok(caption(), 'slide 1 is speaking');
+	key('ArrowRight'); // onto slide 2, which is silent
+	clock.runUntil(clock.now + 20_000);
+	assert.match(count(), /^2/, 'the player stays on the silent slide the viewer chose');
+	assert.equal(pressed(), 'true', 'narration stays armed');
+	assert.equal(caption(), '', 'and says nothing there');
+
+	key('ArrowRight'); // onto slide 3, which is narrated
+	clock.runUntil(clock.now + 50);
+	assert.match(count(), /^3/);
+	assert.ok(caption(), 'the next narrated slide speaks');
+
+	key('ArrowLeft'); // Previous, back onto the silent slide: the red team's repro
+	clock.runUntil(clock.now + 20_000);
+	assert.match(count(), /^2/, 'Previous onto a silent slide no longer bounces back to 3');
+	dom.window.close();
+});
+
+test('a silent LAST slide the viewer moves to ends narration, as reaching the end does', async () => {
+	const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>T</title></head><body>
+<section data-lattice-slide="1" id="1" class="content"><h1>One</h1></section>
+<section data-lattice-slide="2" id="2" class="content"><h2>Two</h2></section>
+</body></html>`;
+	const s0 = FIXTURE.ltt.segments[0];
+	const slides = [{ text: s0.track.cues.map((c) => c.display).join(' '), track: s0.track, clips: [] }, null];
+	const { html } = await buildPlayerHtml({ docHtml, source: '---\npace: natural\n---\n\n# One\n', title: 'T', now: 0, narration: { slides } });
+	let clock;
+	const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(window) { clock = installClock(window); } });
+	const { document } = dom.window;
+	document.getElementById('lp-play').click();
+	clock.runUntil(clock.now + 50);
+	document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+	clock.runUntil(clock.now + 5_000);
+	assert.match(document.querySelector('body > #lp-bar > #lp-count').textContent.trim(), /^2/);
+	assert.equal(document.getElementById('lp-play').getAttribute('aria-pressed'), 'false', 'nothing after the last slide can speak, so narration ends');
+	dom.window.close();
+});
