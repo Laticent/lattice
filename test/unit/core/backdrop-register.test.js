@@ -241,3 +241,13 @@ test('css: a baked strength without a mask stays opacity; steps and masks use th
   assert.match(css.match(/section:is\(\.backdrop-spot-tl,[^{]*\{[^}]*\}/)[0], /--backdrop-veil-weight: 1;/);
   assert.match(css.match(/section\.backdrop-open \{[^}]*\}/)[0], /--backdrop-veil-weight: 0;[^}]*--backdrop-dim-scrim: none;/);
 });
+
+test('css: the on-screen clear fade is wide, and the content box stays canvas', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  const bleed = Number(css.match(/--backdrop-clear-bleed: calc\(var\(--_sec-1cqi, 1cqi\) \* ([\d.]+)\)/)[1]);
+  const blur = Number(css.match(/--backdrop-clear-blur: calc\(var\(--_sec-1cqi, 1cqi\) \* ([\d.]+)\)/)[1]);
+  // A narrow fade reads as a panel with a border (owner review, 2026-09-26).
+  assert.ok(bleed >= 4, `bleed ${bleed}cqi is too narrow to read as a fade`);
+  // Two standard deviations inside the bleed keeps the content box's edge ≥97.7% canvas.
+  assert.ok(blur * 2 <= bleed, `blur ${blur}cqi reaches into the content box`);
+});

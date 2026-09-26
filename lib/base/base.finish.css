@@ -273,9 +273,11 @@ section.finish > .backdrop > .backdrop-mask {
  * inert until the clear layer is switched on.
  *
  * THE EDGE: soft on screen, hard in export. The solid layer extends `--backdrop-clear-bleed`
- * past the content box and is blurred by `--backdrop-clear-blur` (2.5 standard deviations
- * inside the bleed), so the content box itself stays ~100% canvas and the fade happens in the
- * margin. Both export guards zero the bleed and set the FILTER to `none` — not a 0px blur: Chromium
+ * past the content box and is blurred by `--backdrop-clear-blur` (2 standard deviations
+ * inside the bleed), so the content box stays ≥97.7% canvas at its very edge and 100% inside,
+ * and the fade runs across the whole margin. It is deliberately WIDE: at 1.5cqi / 0.6cqi the
+ * fade was ~20px and the clear area read as a panel with a border (owner review, iPhone
+ * Studio, 2026-09-26). Both export guards zero the bleed and set the FILTER to `none` — not a 0px blur: Chromium
  * still treats `blur(0px)` as a filter in print, rasterizes the whole page and poppler draws a
  * gray hairline around the content box. With `filter: none` the page stays vector. */
 section.finish > .backdrop,
@@ -283,8 +285,8 @@ section.finish > .backdrop > .backdrop-mask {
   padding: inherit;
 }
 section.finish {
-  --backdrop-clear-bleed: calc(var(--_sec-1cqi, 1cqi) * 1.5);
-  --backdrop-clear-blur: calc(var(--_sec-1cqi, 1cqi) * 0.6);
+  --backdrop-clear-bleed: calc(var(--_sec-1cqi, 1cqi) * 5);
+  --backdrop-clear-blur: calc(var(--_sec-1cqi, 1cqi) * 2.5);
   --backdrop-clear-filter: blur(var(--backdrop-clear-blur));
   /* The fill a clear layer paints; a fabricated finish's baked clearance names it too. */
   --backdrop-clear-fill: linear-gradient(var(--fin-canvas), var(--fin-canvas));

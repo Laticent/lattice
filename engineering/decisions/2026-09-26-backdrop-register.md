@@ -171,8 +171,10 @@ and for Fabricate's baked clearance alike; soft edge on screen, hard edge in exp
 padding box, so `.backdrop` and `.backdrop-mask` inherit that padding and the mask's `::before`
 inherits it again: its content box is the section's content box on every layout, with no
 geometry restated. A solid `--backdrop-clear-fill` layer is painted there, extended by
-`--backdrop-clear-bleed` (1.5cqi) and blurred by `--backdrop-clear-blur` (0.6cqi) on screen, so
-the fade happens in the margin and the content box itself stays canvas. Both export guards zero
+`--backdrop-clear-bleed` (5cqi) and blurred by `--backdrop-clear-blur` (2.5cqi) on screen, so
+the fade runs across the whole margin and the content box stays canvas (≥97.7% at its very edge).
+A first cut used 1.5cqi / 0.6cqi: a ~20px fade that the owner, reviewing the Studio on an iPhone,
+read as a panel with a defined edge. The wide fade removes the edge. Both export guards zero
 the bleed and set `--backdrop-clear-filter: none`. A 0px blur is not enough: Chromium still
 treats `blur(0px)` as a filter when it prints, rasterizes the whole page (the demo PDF grew
 from 251 KB to 466 KB with four full-page images) and poppler outlines the content box in gray.
