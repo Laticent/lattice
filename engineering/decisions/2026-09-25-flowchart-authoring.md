@@ -378,6 +378,21 @@ A dotted overlay moving along a line, a separate path above the real edge.
   - **dropped from v1:** `straight` routes and fan-in trunks;
   - a **render check** on the gallery requiring zero shape overlaps, zero lines
     through shapes, zero label collisions and zero fallback chips.
+- **As built (slice 2):** `graphLayoutKernel()` in
+  `lib/components/chart/_chart-family/graph-layout.js`, one self-contained
+  function so a browser pass can ship it as source. After dagre places the boxes,
+  six passes clean the lines, in order: ports spread along each box side (with a
+  label's height between two labeled neighbors); a line entering a group it does
+  not belong to turns outside that group; a Z under 16 units tall is straightened;
+  a run within a stroke gap of another line is moved off it; labels are seated on
+  a clear stretch of their own line, overlap graded by area so two crowded labels
+  can step apart; group titles take the first free slot in their top band.
+  `measureQuality` counts seven failures (lines through shapes, label collisions,
+  shape overlaps, labels off their line, lines through titles, labels across a
+  group border, shared runs). `test/unit/components/graph-layout.test.js` holds a
+  six-chart gallery to zero on all seven in both directions (one named exception,
+  §12) and 1,000 seeded random charts to zero on the hard three, with at most two
+  soft misses.
 - **What owning the router makes cheap:** `:loose` lines are left out of layout
   and routed afterwards; edges to a group are laid out between representative
   members and drawn to the group's border; an edge whose boxes overlap on the
@@ -480,10 +495,16 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
 
 ## 12. Known gaps
 
-- Lines can still cut through shapes in the prototype (`advises` through Product
-  engineering, `ships via` through Card networks): obstacle avoidance, in v1
-  scope.
-- A main path can zig-zag; a straightening pass is not in v1.
+- Fixed in slice 2: the prototype's lines through shapes (`advises` through
+  Product engineering, `ships via` through Card networks) and its small zig-zags.
+  The router reads zero on both across the gallery and the 1,000 random charts.
+- **Group lines beside their group.** dagre reserves a label's room along the
+  line between the group's representative member and the target. When the target
+  lands BESIDE the group, trimming at the border leaves a run shorter than the
+  label, which then straddles the border. The fix is to reserve that room in
+  layout itself. Today it shows only in the gallery's `flat` chart forced to
+  `tb`; its own direction is `lr`, which reads zero. Pinned as the test's one
+  named exception.
 - A labeled group-to-group edge needs a reserved gap between the groups.
 - Pre-existing, off this path: the chart family paints `live` as pass while the
   state chart and gantt paint it as info. Logged, not fixed here.
@@ -495,9 +516,14 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
    `lib/authoring/lint-core.js` (HARD RULE #7), pinned by
    `test/unit/core/flowchart-grammar.test.js`. The HTML adapter ships with the
    transform in slice 3.
-2. **Layout and router:** dagre plus the new shared elbow router: ports, reserved
-   label room, side selection, obstacle avoidance, group edges, `:loose`,
-   determinism pins, the fit pass, and the gallery render check.
+2. **Layout and router (router done):** dagre plus the new shared elbow router:
+   ports, reserved label room, side selection, obstacle avoidance, group edges,
+   `:loose`, determinism pins and the gallery render check. **Still open: the fit
+   pass.** The kernel's `layout()` scores `lr` against `tb` with the state chart's
+   rule, re-implemented in about fifteen lines; section 4 says that pass is reused,
+   not copied, and wrap is one of its candidates. Promoting the state chart's pass
+   into `_chart-family` and replacing `layout()` with it lands with slice 3, where
+   the browser pass first needs it.
 3. **Paint:** shapes, groups, tokens, heads and patterns, labels (section 5), the
    derived and authored key, notes, caption; all nine finishes, light and dark;
    the untrusted-content posture (section 8); the component docs, manifest and a
