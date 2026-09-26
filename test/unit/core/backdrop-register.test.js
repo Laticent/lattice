@@ -155,3 +155,45 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
   const offCls = [...off.querySelectorAll('section')].map((s) => s.className).join(' | ');
   assert.ok(!/backdrop-(40|clear)/.test(offCls), `control: ${offCls}`);
 });
+
+/* ── Fixes from the maker-checker pass ─────────────────────────────────────────────────── */
+
+test('css: `finish-none` / `backdrop-none` clear the register layers a deck line still stamps', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  const optOut = css.match(/section\.finish-none,\s*section\.backdrop-none\s*\{[^}]*\}/);
+  assert.ok(optOut, 'opt-out rule missing');
+  for (const decl of ['--backdrop-scrim: none', '--backdrop-scrim-opaque: none', '--backdrop-dim-scrim: none', '--backdrop-opacity: 1']) {
+    assert.ok(optOut[0].includes(decl), `opt-out must reset ${decl}`);
+  }
+  // It must FOLLOW the register's print flip, or the flip re-arms the mask in the PDF.
+  assert.ok(css.indexOf('section.finish-none,') > css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }'));
+});
+
+test('css: a mask class turns a baked dim into the veil, so no opacity group wraps the mask', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  const rule = css.match(/section:is\(\.backdrop-clear,[^{]*\{[^}]*\}/);
+  assert.ok(rule, 'mask-class rule missing');
+  assert.match(rule[0], /--backdrop-opacity:\s*1/);
+  assert.match(rule[0], /calc\(100% - var\(--fin-backdrop-strength, 1\) \* 100%\)/);
+  // Strength classes come AFTER, so an explicit step still wins.
+  assert.ok(css.indexOf(rule[0]) < css.indexOf('section.backdrop-20 {'));
+});
+
+test('css: the veil steps clear of the overflow QA ring', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  assert.match(css, /section\.finish\.overflow:not\(\[data-lattice-overflow-marker="reader"\]\):not\(\[data-lattice-overflow-marker="off"\]\) > \.backdrop > \.backdrop-mask \{\s*inset: 4px;/);
+});
+
+test('lint: `backdrop-*` classes are a closed vocabulary; `backdrop-none` stays valid', () => {
+  const unknown = (cls) => lintText(`---\ntheme: indaco\nfinish: atrium\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\nBody.\n`)
+    .filter((f) => f.rule === 'unknown-class').map((f) => f.classToken);
+  assert.deepEqual(unknown('backdrop-50 backdrop-spot-x'), ['backdrop-50', 'backdrop-spot-x']);
+  assert.deepEqual(unknown('backdrop-40 backdrop-clear'), []);
+  assert.deepEqual(unknown('backdrop-none'), []);
+});
+
+test('lint: a quoted value is read the way the engine reads it', () => {
+  const words = (v) => lintText(deck(['finish: atrium', `backdrop: ${v}`])).filter((f) => f.rule === 'unknown-backdrop').map((f) => f.classToken);
+  assert.deepEqual(words('"40 clear"'), []);
+  assert.deepEqual(words('40 clear # quiet'), []);
+});

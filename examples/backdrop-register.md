@@ -9,13 +9,14 @@ backdrop: 60 clear
 
 <style>
 /* A fabricated finish, written in the shape Fabricate generates: a bold grid with a BAKED
-   clearance. Slides 7–8 show the register overriding that baked value. */
+   60% strength and a BAKED clearance. Slides 7–8 show the register overriding that baked value. */
 section.finish.finish-graph {
   --fin-wash: none;
   --fin-texture: repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, transparent) 0 1px, transparent 1px 30px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, transparent) 0 1px, transparent 1px 30px);
   --fin-mark: none;
   --fin-mark-text: "";
   --fin-edge: none;
+  --fin-backdrop-strength: 0.60;
   --fin-backdrop-mask: var(--backdrop-clear-mask);
   --fin-backdrop-mask-opaque: var(--backdrop-clear-mask-opaque);
 }
@@ -62,6 +63,14 @@ This slide opts out of both deck values: full strength, no mask. The glow and gr
 
 ---
 
+<!-- _class: divider finish-none -->
+
+`finish-none`
+
+## An opted-out slide stays clean.
+
+---
+
 <!-- _class: backdrop-full -->
 
 `backdrop-full · deck mask kept`
@@ -98,17 +107,17 @@ The graph grid at 40%, shown only in the bottom-left corner. The words sit on cl
 
 ## A fabricated finish bakes its own mask.
 
-The **graph** finish bakes a clearance in Fabricate. On this slide, `backdrop-open` discards it and the grid runs right through the text.
+The **graph** finish bakes 60% strength and a clearance. Here `backdrop-full backdrop-open` discards both, and the grid runs right through the text.
 
 ---
 
-<!-- _class: finish-graph backdrop-full backdrop-spot-c -->
+<!-- _class: finish-graph backdrop-spot-c -->
 
 `finish-graph · backdrop-spot-c`
 
-## The register replaces a baked mask.
+## A mask keeps the finish's own dim.
 
-Here `spot-c` swaps graph's baked clearance for a centered window. The slide token wins, then the deck line, then the value baked in Fabricate.
+Graph bakes 60% strength and a clearance. `spot-c` swaps only the mask for a centered window and keeps the baked 60%.
 
 ---
 

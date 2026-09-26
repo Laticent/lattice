@@ -125,18 +125,31 @@ is the same pixel math on a flat canvas and creates no transparency group. It re
 in poppler and PDFium. The token names end in `-scrim` / `-opacity` because the ownership gate
 requires a role suffix on any token in a `var()` fallback chain (HARD RULE #11).
 
-**Found, not caused:** a fabricated finish that bakes BOTH `strength < 1` and a clearance hits
-the same wedge through `--fin-backdrop-strength`, which predates this register. Logged in
-`followups.d/`. The poppler hairline drawn along any hard mask edge (the shipped clearance
+**The same wedge through a finish's BAKED dim.** A fabricated finish can bake
+`--fin-backdrop-strength < 1`, which is still a group opacity. Put any register mask on it and
+the wedge returns, which the maker-checker pass found and pinned in poppler. So every mask class
+also converts the baked dim into the veil: `--backdrop-opacity: 1` plus a veil of
+`calc(100% − strength × 100%)` (verified in Chromium 141: a baked 0.5 resolves to a 50% veil, no
+baked value to a transparent one). A strength class, later in source, overrides both.
+
+**Found, not caused:** a fabricated finish that bakes BOTH `strength < 1` and its own clearance,
+with no register token on the slide, still hits the wedge. That predates this register and is
+logged in `followups.d/`. The poppler hairline along any hard mask edge (the shipped clearance
 included) is also pre-existing; PDFium draws none.
+
+**Two more checker findings, fixed.** `finish-none` / `backdrop-none` now reset the register's
+variables: a deck-wide `backdrop: clear` still stamps its tokens on an opted-out slide, and the
+mask used to paint an ellipse hairline on every `finish-none` bookend. And the veil covered the
+overflow QA ring (an inset shadow on the section, under `.backdrop`), fading it to pink, so the
+mask layer steps in by the ring's 4px wherever the ring is drawn.
 
 ### 4.4 Anchor slides
 
 The bug that made bookends a concern (#1656: the clearance mask painted a light ellipse over a
 dark title slide) is fixed at the root by `--fin-canvas`, which every mask already paints in.
 This register reuses those masks, so a deck-wide `backdrop: clear` on an inverse or accent
-bookend paints the bookend's own canvas, not the deck's. The demo deck (§6) renders all
-bookend kinds in both modes to prove it rather than assume it. The `bookend-finish-contrast`
+bookend paints the bookend's own canvas, not the deck's. The demo deck (§6) renders a title,
+a closing and a `finish-none` divider bookend in both modes to prove it rather than assume it. The `bookend-finish-contrast`
 lint stays as it is.
 
 ### 4.5 `finish-override.backdrop`
@@ -161,15 +174,28 @@ old *map* form (an indented child under `backdrop:`) and its fix text points to 
 
 ## 6. Verification
 
-- Unit: resolver, slide-over-deck per axis, lint rules, byte-identical render of every
-  committed deck without the key.
-- Demo deck `examples/backdrop-register.md` (HARD RULE #9): a built-in finish and a fabricated
-  one, each at deck level and overridden per slide, plus title, section and closing bookends.
-- **Export sign-off:** this alters exported bytes for decks that opt in, so the PDF of the demo
-  deck goes to the owner in dark and light before merge.
-- Maker-checker: engine CSS + three render paths is blast radius, so one checker agent.
+- Unit (`test/unit/core/backdrop-register.test.js`): the resolver, slide-over-deck per axis on
+  the engine AND the real runtime bundle, the CSS contracts (read order, export-flip order,
+  opt-out reset, mask-converts-baked-dim, ring inset) and the lint rules. A deck without the key
+  gets no backdrop class; that is what the unit arm proves. It does NOT diff rendered bytes: the
+  compositor's CSS changed for every finish slide, and the claim that its computed values are
+  unchanged without a register token rests on the checker's real-Chromium probe (`none` scrim,
+  baked mask and opacity preserved, both media), not on a committed test.
+- Studio (`docs/e2e/backdrop-register.spec.ts`): the deck and slide rows write the source the
+  engine reads, with screenshots at 1440, 820 and 390px.
+- Demo deck `examples/backdrop-register.md` (HARD RULE #9): a built-in finish (atrium) and a
+  fabricated one that bakes a 60% dim and a clearance, each at deck level and overridden per
+  slide, plus title, closing and a `finish-none` divider bookend. Rendered in light and dark and
+  rasterized in poppler and PDFium.
+- **Export sign-off:** this alters exported bytes for decks that opt in, so the demo PDFs go to
+  the owner in dark and light before merge.
+- Maker-checker: one checker agent (engine CSS + three render paths). Its four confirmed
+  findings are fixed above and pinned in the unit file.
 
-## 7. Open questions for the owner
+## 7. Owner decisions (2026-09-26)
+
+All three recommendations were taken: the name is `backdrop:`, the steps are 20/40/60/80,
+and `finish-override.backdrop` stays with the register winning. The original questions:
 
 1. The register name: reuse `backdrop:` (matches the Fabricate header and the wrapper element)
    or pick a fresh word to avoid confusion with the retired map.

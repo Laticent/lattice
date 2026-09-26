@@ -892,6 +892,15 @@ section.finish.lattice-exporting {
  * same mask with a flat veil and no group → identical to the clearance that already ships,
  * in poppler and PDFium alike. A flat fill is not an area-fade, so it does not gray in print.
  * `--backdrop-opacity: 1` cancels a finish's baked dim so the step replaces it. */
+/* A MASK class on a finish that bakes its own dim (Fabricate's `--fin-backdrop-strength`)
+ * would otherwise put the hard-edged mask inside that opacity group: the poppler wedge again.
+ * So a mask class converts the baked dim into the same flat veil. With no baked dim the
+ * percentage is 0% and the veil is transparent. A strength class below overrides both. */
+section:is(.backdrop-clear, .backdrop-open, .backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr,
+  .backdrop-spot-l, .backdrop-spot-c, .backdrop-spot-r, .backdrop-spot-bl, .backdrop-spot-b, .backdrop-spot-br) {
+  --backdrop-opacity: 1;
+  --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--fin-backdrop-strength, 1) * 100%), transparent) 0 0);
+}
 section:is(.backdrop-20, .backdrop-40, .backdrop-60, .backdrop-80, .backdrop-full) { --backdrop-opacity: 1; }
 section.backdrop-20 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 80%, transparent) 0 0); }
 section.backdrop-40 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 60%, transparent) 0 0); }
@@ -935,6 +944,13 @@ section.finish.lattice-exporting {
   --backdrop-scrim: var(--backdrop-scrim-opaque);
 }
 
+/* The overflow QA ring is an inset box-shadow on the SECTION, under `.backdrop`. The finish
+ * layers leave the edge alone, but the register's veil covers the whole slide and would fade
+ * the ring to pink. Where the ring is drawn, the mask layer steps in by the ring's 4px. */
+section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]) > .backdrop > .backdrop-mask {
+  inset: 4px;
+}
+
 /* ── Per-slide opt-out ────────────────────────────────────────────────
  * `<!-- _class: finish-none -->` (or the back-compat `backdrop-none`) clears a
  * deck-wide finish on one slide (a title/cover/image or a busy chart). Zeroes
@@ -959,6 +975,14 @@ section.backdrop-none {
    * stated the invariant ("never `none`, invalid inside a shadow list"); this line
    * broke it anyway, and nothing noticed until the css:values var() pass. */
   --fin-frame: 0 0 transparent; /* clear the inset keyline frame too */
+  /* …and the `backdrop:` register's layers, which a deck-wide `backdrop: clear` still stamps
+   * here: without these the opted-out slide painted the clearance ellipse and the veil over a
+   * bare canvas (a hairline on every `finish-none` bookend in the PDF). This rule follows the
+   * register's export flips at equal specificity, so it wins in print too. */
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-dim-scrim: none;
+  --backdrop-opacity: 1;
   background-image: none;
   box-shadow: none;
 }
