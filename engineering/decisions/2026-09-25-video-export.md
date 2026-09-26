@@ -227,8 +227,9 @@ measured length when it knows it.
 0. **Where will the audience play the file?** Answer this first. It decides forks 1 and 2.
    **Answered 2026-09-25: slide software too (PowerPoint, Keynote, QuickTime).** AAC audio is
    required, which rules out 1a on its own.
-1. **Encoder and muxer.** *(Built on d, 2026-09-26, pending the owner's pick; §9 has the
-   measurement. Recommended: d. a alone no longer meets fork 0's answer.)*
+1. **Encoder and muxer.** *(**Decided by the owner, 2026-09-26: d, with FFmpeg's LGPL notice
+   carried** in `assets/licenses/LGPL-2.1-ffmpeg.txt` and `lattice video --help`. §9 has the
+   measurement.)*
    - **a. WebCodecs + mediabunny.** Nothing native to install; 685 KB of MPL-2.0 JS.
      Encode, mix and mux measured 22.8 s for 2:54 of video. Files are about twice
      ffmpeg's size at this bitrate (8.0 MB vs 3.9 MB); a lower quality setting trades that
@@ -249,7 +250,7 @@ measured length when it knows it.
      we owe when we redistribute it, not whether we may.
    - **Common to all four: H.264 is patent-licensed.** That is a question for whoever owns
      distribution, and no fork avoids it; VP9 in WebM would, but slide software rarely
-     plays WebM.
+     plays WebM. *(Owner, 2026-09-26: ship H.264 as the browser encodes it.)*
 2. **Audio codec.** *(Settled by fork 0: AAC, through 1b, 1c or 1d.)* The measured Chromium (Chrome for Testing 131 on Linux) encodes
    Opus and **cannot encode AAC**: `isConfigSupported` is false for `mp4a.40.2`,
    `mp4a.40.5` and `aac`. Chrome on macOS and Windows uses the platform's encoders and was
@@ -277,7 +278,8 @@ measured length when it knows it.
      arms its advance at `measuredMs − leadMs` and treats `ended` as a fallback for a clip
      that runs long. The two players then agree. This changes the exported player's bytes,
      so it would stop for sign-off.
-7. **Lead-in and outro.** *(Recommended: a fixed lead-in on slide 1 whenever slide 1 has
+7. **Lead-in and outro.** *(**Decided by the owner, 2026-09-26: one second each**, the built
+   defaults.)* *(Was recommended: a fixed lead-in on slide 1 whenever slide 1 has
    no narration, and a fixed outro after the last slide, both in the video only.)* The
    live player needs neither, so the LTT's own holds stay as they are. The lengths are
    the owner's number; one second each is a starting point, not a measurement.

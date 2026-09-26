@@ -11,3 +11,5 @@
 - **The exported player gains a render mode** (`window.__lpRender`, set only by the video
   capture), so a narrated HTML export's player script grows by a few hundred bytes; an export
   without narration is byte-identical. A viewer's browser never enters it.
+- **`lattice video --help` carries FFmpeg's LGPL-2.1 notice** for the AAC encoder, and the
+  license text ships as `assets/licenses/LGPL-2.1-ffmpeg.txt`.

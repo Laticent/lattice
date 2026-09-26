@@ -19,8 +19,10 @@ resolver cannot yet join: "This is the third-quarter review for fiscal twenty-si
 segment earns." (that card's body, in other words). Separately, the independent check found
 `tools/mutate-guide-gestures.mjs`'s mark-tier entries stale (`corroborated = containsWord(...)` no
 longer exists, so they report "did not apply"), and no entry covers the paraphrase tier; the
-value-led tier's three entries are new and each goes red. **The done-when below asks every sentence to
-resolve, which contradicts #2371's hold-and-hide; it needs the owner's ruling before it can close.**
+value-led tier's three entries are new and each goes red. **Owner's ruling, 2026-09-26: #2371's hold-and-hide
+wins.** A sentence that names nothing on its slide (an aside) keeps hiding the Guide; the done-when
+below is read as "every sentence that NAMES something resolves", so the three misses above are the
+work left.
 
 Progress 2026-09-25 (#2371): the paraphrase tier took the fixture from 37 to 52 of 63, and the
 corpus from 93.0% to 96.9% resolved (946 → 35 hides). Slide 12's stray "No. We are not proposing to
@@ -53,7 +55,8 @@ where     — docs/src/components/studio/present-guide.ts (the resolver tiers); 
             First confirm with the owner that this is the gesture loss they saw. If they meant
             INPUT gestures (touch, wheel, pinch) on a component in the Studio preview, that is a
             different defect: engineering/decisions/2026-08-10-input-verb-parity.md.
-done when — on the fixture deck, every narrated sentence on those eight slides resolves to an
+done when — on the fixture deck, every narrated sentence on those eight slides that names
+            something on its slide (asides keep hiding, the owner's ruling above) resolves to an
             element smaller than the slide, a funnel stage and a waterfall step each resolve to
             their own mark, and the sweep over the committed corpus resolves no fewer cues than
             before.

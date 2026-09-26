@@ -10,7 +10,8 @@ source: https://github.com/Laticent/lattice/pull/2372
 Progress 2026-09-26: built. `lattice video <narrated-export.html>` writes the MP4 (H.264, AAC,
 a WebVTT track) and the `.vtt` by capturing the export's own player in render mode
 (engineering/decisions/2026-09-25-video-export.md §9). Fork 1d was measured and built on
-(`@mediabunny/aac-encoder`, FFmpeg's AAC encoder in WebAssembly), pending the owner's pick. What
+(`@mediabunny/aac-encoder`, FFmpeg's AAC encoder in WebAssembly). The owner ruled on 2026-09-26:
+keep 1d and carry FFmpeg's LGPL notice (done), ship H.264, and keep 1 s lead-in and outro. What
 is left is below; the Guide in the player (fork 8), a phone aspect (fork 9) and Studio video
 (fork 10) stay the owner's calls in the note's §6.
 
