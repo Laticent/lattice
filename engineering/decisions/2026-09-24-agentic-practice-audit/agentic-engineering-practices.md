@@ -1080,6 +1080,25 @@ These practices came from a web application, but they travel. What changes is wh
 -->
 
 ---
+<!-- _class: cards-grid insight-key -->
+
+`Make it stick · Emergence`
+
+## Every change can pass review, and the whole can still fail.
+
+- The bad kind
+  - Every rule in the instruction file made sense when it went in. A year later it's a manual nobody reads closely. Two agents' changes each pass their tests, and together they break checkout.
+- The good kind
+  - Decision notes written one fix at a time become a memory the next agent can search. A check written for one bug catches it everywhere it would have come back.
+
+> Review the whole as well as the change.
+
+<!--
+Emergence is what a system does that none of its parts does alone, and agents make a lot of it, because they make a lot of small changes fast. The bad kind is every change looking fine on its own while the whole drifts. Each rule in the instruction file was reasonable, and together they became a manual nobody reads. Two agents each fix their own test, each change passes review, and together they break checkout. You can't catch this one change at a time, because every single change passes. You catch it by looking at the whole: run the full product, watch the trend lines, and set budgets that trip when something grows. The good kind comes from the same mechanism. Small notes, written one fix at a time, add up to a memory the next agent can search. A check you write for one bug catches that bug everywhere it tries to come back. So write things down small, and put your rules where they run on every change. That's what the next slide is about.
+-->
+
+---
+
 <!-- _class: list takeaway -->
 
 `Make it stick · Guardrails`
