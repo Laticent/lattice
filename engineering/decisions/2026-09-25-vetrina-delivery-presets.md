@@ -276,6 +276,9 @@ ink over a gray wash, 22–33 from restrained on all four.
   ("Jan 2026 is lowest at M3, forty-four") landed on the row label `Jan 2026`, because the cell's
   label `Jan 2026 · M3` never leads the sentence; a compound label now counts when its first part
   leads and the rest appear as whole words, and the value still has to corroborate.
+- **One highlight at a time.** Where read-along is on, sparked text takes the spark color and NO
+  band; the spoken word carries the only wash. A band behind the line under a highlighted word
+  layered two highlights on one sentence (owner: "that would be bad"). Somber keeps its band.
 - **Read-along.** Inside a sparked text element, the word being spoken takes a stronger wash, on
   the caption's clock (the reader's active cue and word), as a CSS Highlight. Off for somber.
 

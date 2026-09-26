@@ -239,6 +239,9 @@ section[data-spark] :is(.lat-spark, .lat-spark-out) > :is(strong, b, em, i, a, c
  * there the cell is the thing named. */
 section[data-spark] :is(td, th):is(.lat-spark, .lat-spark-out) { background-color: var(--spark-wash) !important; }
 ::highlight(lat-spark-wash) { background-color: var(--spark-wash); }
+/* Under a preset that reads along, sparked text takes NO band: the spoken word
+ * carries the highlight alone (the Guide omits the wash). A band behind the line
+ * under a highlighted word layered two highlights on one sentence. */
 /* A named card keeps its nested body in the ink it had: the spark names the
  * card's own line, not everything under it. The Guide stores that ink as
  * `--spark-keep`. Inline runs spark only as the item's own children, above, so

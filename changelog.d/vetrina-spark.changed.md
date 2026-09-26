@@ -1,4 +1,4 @@
 - The Present Guide now **sparks the element it names** instead of drawing beside it: the named bullet, table row, cell or column, chart bar, wedge or line changes color in place while it is said, and nothing on the slide moves. Overlay ink and the cursor now appear only on an `expressive` deck's top moment.
 - `delivery: somber` now reads differently from `restrained`: the heading ink over a gray wash instead of the accent, no glow, a longer 900 ms linger that holds through a short aside, and a caption without the word-by-word crawl.
-- While the Guide sparks a bullet or paragraph, the word being spoken lights inside it, in step with the caption (not under `somber`). The spark's wash now hugs the words instead of filling the element's box.
+- While the Guide sparks a bullet or paragraph, the word being spoken lights inside it, in step with the caption (not under `somber`). Only the spoken word is highlighted then; the sentence itself just changes color.
 - When the narration walks a chart point by point, the Guide follows: each dot of a line, each wedge and each heatmap cell lights as it is read, as one moment of the preset's budget.

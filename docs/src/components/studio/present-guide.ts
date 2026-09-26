@@ -2310,7 +2310,10 @@ export function sparkUnit(el: Element): { unit: Element[]; axis: string; context
 	return { unit: [el], axis: 'block' };
 }
 
-export type SparkLook = { tone?: 'accent' | 'muted'; pulse?: boolean; fade?: number };
+/** `wash: false` drops the band behind sparked TEXT: with read-along on, the spoken word carries
+ *  the highlight, and a band behind the whole line under a highlighted word layered two
+ *  highlights on one sentence (owner, 2026-09-26: "that would be bad"). Cells keep theirs. */
+export type SparkLook = { tone?: 'accent' | 'muted'; pulse?: boolean; fade?: number; wash?: boolean };
 
 /** Every live wash in a document, by the spark that owns it: a lingering spark keeps its wash
  *  while the next one lights, and each clears only its own. */
@@ -2350,7 +2353,7 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 	const section = el.closest('section') as HTMLElement | null;
 	const found = sparkUnit(el);
 	if (!section || !found) return null;
-	const { tone = 'accent', pulse = true, fade = 320 } = look;
+	const { tone = 'accent', pulse = true, fade = 320, wash = true } = look;
 	section.setAttribute('data-spark', tone);
 	section.toggleAttribute('data-spark-pulse', pulse);
 	section.style?.setProperty('--spark-fade', `${fade}ms`);
@@ -2370,7 +2373,7 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 	// The wash as a highlight over each text element's own words (never a nested list's), so it
 	// hugs the glyphs instead of filling the element's box. A table cell keeps its CSS wash.
 	const washes = found.unit
-		.filter((e) => !e.closest('svg') && !e.matches('td, th'))
+		.filter((e) => wash && !e.closest('svg') && !e.matches('td, th'))
 		.map((e) => {
 			const r = e.ownerDocument.createRange();
 			r.selectNodeContents(e);

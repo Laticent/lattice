@@ -1059,7 +1059,7 @@ delivery: somber       # bad news, a loss: nothing moves that does not have to
 |---|---|---|---|
 | Gestures per slide, at most | 2 | 4 | 1 |
 | After the first, a moment needs a signal | yes | no | yes |
-| Spark color | the accent, over an accent wash | the same | the heading ink over a gray wash, never the accent |
+| Spark color | the accent; the word being said carries a wash | the same | the heading ink over a gray band, never the accent |
 | Arrival | one soft glow | one soft glow | no glow |
 | Linger after the sentence moves on | 320 ms | 240 ms | 900 ms, and it holds through a short aside that names nothing ("Thank you.") |
 | Read-along (the word being said lights inside the spark) | yes | yes | no |

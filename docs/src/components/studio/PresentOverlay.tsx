@@ -1121,7 +1121,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				guideHandRef.current = false;
 				setGuideAiming(false);
 				unmarkGuide();
-				guideMarkRef.current = sparkContent(aim, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade });
+				guideMarkRef.current = sparkContent(aim, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade, wash: !delivery.wordSpark });
 				guideAimRef.current = aim;
 				guideShownRef.current = true;
 				return;
@@ -1181,7 +1181,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// THE SPARK. Every planned moment changes the named bullet, row, cell, column, chart mark or
 		// line in place, in the preset's color, pulse and tempo. The previous spark goes first, always.
 		unmarkGuide();
-		guideMarkRef.current = sparkContent(cue.el, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade });
+		guideMarkRef.current = sparkContent(cue.el, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade, wash: !delivery.wordSpark });
 		const chart = cue.el.closest('.chart-body, figure.chart-frame');
 		guideWalkRef.current = chart && cue.el.closest('[data-mark], [data-series]') ? { slide: narration.idx, chart } : null;
 		if (!inks) {
