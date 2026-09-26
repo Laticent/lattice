@@ -937,26 +937,28 @@ section.finish.lattice-exporting {
  * outside `section.finish > .backdrop` reads these. Values are fixed steps and anchors, never
  * author text (HARD RULE #22). (engineering/decisions/2026-09-26-backdrop-register.md.)
  *
- * STRENGTH: OPACITY WITHOUT A MASK, A VEIL WITH ONE. Poppler (Evince, Okular, pdftoppm)
- * mis-draws each of the two ways to dim, in a different case, so each is used only where
- * it is clean:
+ * STRENGTH: TWO DRAWINGS, AND WHICH ONE EACH CASE GETS. Poppler (Evince, Okular, pdftoppm)
+ * mis-draws both ways to dim a finish:
  * - GROUP OPACITY around a hard-edged mask (a clearance, a spotlight's opaque face) draws a
- *   large dark wedge or the finish at full strength. With no mask inside it is clean, and it
- *   adds nothing to the PDF.
- * - A FLAT VEIL — the canvas at (100 − N)% laid over the finish in the mask layer — is the
- *   same pixel math on a flat canvas and survives a mask, but poppler draws faint gray seams
- *   at the texture's tile boundaries, and it adds a transparency object to every page.
- * So a strength class sets only the number, and the veil weight picks the drawing:
- * `--backdrop-veil-weight` is 1 when a mask is on (a `clear` or spot class here, or a mask
- * Fabricate baked, which emits `--fin-backdrop-veil-weight: 1`), else 0. `open` forces 0: it
- * removes every mask. */
+ *   large dark wedge, or the finish at full strength. With no mask inside it draws faint gray
+ *   seams at the texture's tile boundaries at thumbnail zoom (≈50–72 dpi), clean at 100.
+ * - A FLAT VEIL — the canvas at (100 − N)% laid over the finish in the mask layer, the same
+ *   pixel math on a flat canvas — survives a mask. It seams the other way round: clean at
+ *   thumbnail zoom, faint seams at 100 dpi. It adds a transparency object to its page.
+ * No drawing is seam-free in poppler; PDFium and Ghostscript draw neither. So the wedge
+ * decides: `--backdrop-veil-weight` is 1 (the veil) for every register STEP — a deck's
+ * `backdrop: 40` can sit over any finish, including one saved with an old baked mask this CSS
+ * cannot see — and for a register mask class or a mask Fabricate baked (which emits
+ * `--fin-backdrop-veil-weight: 1`). Only a finish's own baked strength with no mask keeps
+ * plain opacity, exactly as before the register, so a deck that never names it exports the
+ * same bytes. `open` forces 0: it removes every mask. `full` is 100%, where both are moot. */
 section.finish {
   --backdrop-veil-fill: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1)) * 100%), transparent) 0 0);
 }
-section.backdrop-20 { --backdrop-strength-opacity: 0.2; }
-section.backdrop-40 { --backdrop-strength-opacity: 0.4; }
-section.backdrop-60 { --backdrop-strength-opacity: 0.6; }
-section.backdrop-80 { --backdrop-strength-opacity: 0.8; }
+section.backdrop-20 { --backdrop-strength-opacity: 0.2; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
+section.backdrop-40 { --backdrop-strength-opacity: 0.4; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
+section.backdrop-60 { --backdrop-strength-opacity: 0.6; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
+section.backdrop-80 { --backdrop-strength-opacity: 0.8; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
 section.backdrop-full { --backdrop-strength-opacity: 1; }
 /* `open` discards a baked clearance or spotlight. `clear` switches on the content-box layer
  * and drops any baked shape (a finish's own spotlight or legacy ellipse): one mask at a time. */

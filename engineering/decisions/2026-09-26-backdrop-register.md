@@ -183,22 +183,28 @@ layer off.
 content box is the whole slide and `clear` removes the finish from them entirely. That is the rule
 applied faithfully: their panels already fill the slide, and there is no margin to frame.
 
-**Strength: opacity without a mask, the veil with one.** Poppler mis-draws each way of dimming
-in a different case. Group opacity around a hard-edged mask draws a dark wedge, or the finish at
-full strength. A flat veil draws faint gray seams at the texture's tile boundaries and adds a
-transparency object to every page. So a strength step sets only a number
-(`--backdrop-strength-opacity`), and `--backdrop-veil-weight` picks the drawing: 1 when a mask
-is on (a `clear` or spot class, or a mask Fabricate baked, which now emits
-`--fin-backdrop-veil-weight: 1`), else 0, which falls back to plain opacity. `open` forces 0.
+**Strength: the veil for the register and for masks; opacity only for a bare baked strength.**
+Poppler mis-draws both ways to dim a finish. Group opacity around a hard-edged mask draws a dark
+wedge (or the finish at full strength). Without a mask it only seams: faint gray lines at the
+texture's tile boundaries at thumbnail zoom (≈40–72 dpi). A flat veil survives a mask and seams
+at 100 dpi instead. No drawing is seam-free in poppler, and PDFium and Ghostscript draw neither,
+so the wedge decides:
+- `--backdrop-veil-weight` is 1 for every register step. A deck's `backdrop: 40` can sit over a
+  finish saved before this PR with a baked mask the CSS cannot see, and opacity there is the wedge.
+- It is also 1 for a register mask class, and for a mask Fabricate bakes (the generator emits
+  `--fin-backdrop-veil-weight: 1`).
+- Only a finish's own baked strength with no mask keeps opacity, exactly as on main, so a deck that
+  never names the register exports the same bytes.
 
-A first cut veiled every finish slide. The checker measured the cost: gray seams on
-baked-strength pages that had printed clean, and a transparent object on every built-in finish
-page. Measured on this rule, against the commit before the content-box change:
-- Built-in and preset decks (`accent-finishes`, `finish-split-covers`, `finish-backdrops`,
-  `finish-override`, `finish-per-slide`) export at the same byte count.
-- A deck with a baked strength and no mask is byte-identical to before.
-- `backdrop: 40` with no mask no longer seams: 0 gray seam pixels at 100 dpi, down from 49,350.
-- Seams remain only on mask slides; the demo deck's count is the same before and after.
+Two cuts on the way here each failed a checker. Veiling every finish slide added a transparent
+object to every built-in finish page. Opacity for register steps put opacity around legacy baked
+masks (the wedge). Both checkers measured seams at a single zoom, which hid that both drawings
+seam. Measured on the final rule against the build before the content-box change:
+- `accent-finishes`, `finish-split-covers`, `finish-backdrops`, `finish-override`,
+  `finish-per-slide`, a baked-strength deck and a `backdrop: 40` deck export at the same byte count.
+- A register step over a legacy baked-mask finish no longer wedges. A legacy finish that bakes
+  both a strength and a mask still does, as on main (followup `2388-p2-legacy-saved-finish-wedge`).
+- The seams are followup `2388-p3-veil-tile-seams`.
 
 **Fabricate:** a newly saved clearance emits `--fin-backdrop-clear-scrim: var(--backdrop-clear-fill)`
 instead of the ellipse. Finishes saved before this change keep their generated CSS, which names
