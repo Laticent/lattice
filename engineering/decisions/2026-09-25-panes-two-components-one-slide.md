@@ -182,6 +182,14 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    in §4). **Mermaid is not sized this way**: it lays itself out and the SVG scales into the pane,
    so a flowchart in a 60% pane draws small, and nothing warns. That stays gap 2 in §6.
 
+   **Registers stamped on the section reach the pane.** The `cards:` register resolves to a
+   `data-cards` stamp on the slide's `<section>`, and `base.tokens.css` turns it into
+   `--cards-align`. A pane is a `<lat-pane>`, so the stamp its own render resolved was dropped
+   at embed and `cards:` did nothing in a pane (measured: a pane's cards always stretched, its
+   list always sat at the top). `panes.embed` now carries `data-cards` / `data-cards-coda`
+   onto the pane, `pane.css` keys the two tokens on it, and a per-slide `_class: cards-*` on
+   the host is handed to each pane's render.
+
    **A pane stays a size container** (`container-type: size`), so a bare `cqi` inside it resolves
    against the pane. Resolving it against the slide kept progress bars and timeline dots at
    slide thickness, but it grew every `cqi`-sized avatar and gap too, and a six-person

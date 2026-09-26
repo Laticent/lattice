@@ -370,3 +370,22 @@ test('a radar in a pane draws as a radar slide does: its axis labels belong to t
   assert.ok(slide, 'no radar svg on the slide');
   assert.equal(pane, slide);
 });
+
+test('`cards:` reaches a pane — deck-wide and per slide — as it reaches a slide', () => {
+  const e = engine();
+  const cards = '- Alpha\n  - One line.\n- Beta\n  - One line.';
+  const paneOf = (md) => (md.match(/<lat-pane class="cards-grid[^"]*"[^>]*>/) || [''])[0];
+  const slideOf = (md) => (md.match(/<section[^>]*class="cards-grid[^"]*"[^>]*>/) || [''])[0];
+  for (const v of ['top', 'center', 'stretch', 'spread']) {
+    const deck = e.render(`---\ncards: ${v}\n---\n\n## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+    assert.match(paneOf(deck), new RegExp(`data-cards="${v}"`), `deck cards: ${v}`);
+    const spot = e.render(`## T\n\n<!-- _class: cards-${v} -->\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+    assert.match(paneOf(spot), new RegExp(`data-cards="${v}"`), `_class: cards-${v}`);
+  }
+  // Nothing set: the pane takes the component's own default, the value a slide of it gets.
+  const slide = e.render(`<!-- _class: cards-grid -->\n\n## T\n\n${cards}\n`).html;
+  const pane = e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+  assert.equal(paneOf(pane).match(/data-cards="(\w+)"/)[1], slideOf(slide).match(/data-cards="(\w+)"/)[1]);
+  // The tokens a pane needs are in the sheet, keyed on the pane.
+  assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-cards="top"\]\s*\{\s*--cards-align:\s*flex-start/);
+});

@@ -112,6 +112,18 @@ lat-pane > .cell-stage {
   flex-direction: column;
   gap: var(--sp-xs);
 }
+/* `cards:` — where a card row or list puts its spare height. base.tokens.css keys the tokens
+ * on `section[data-cards]`; a pane is not a section, so its own resolved value (stamped by
+ * lib/core/panes.js embed) sets them here. The component rules reach the pane through their
+ * twins and read `--cards-align` / `--cards-grow` from it as they would from a slide. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="center"]  { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="top"]     { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="spread"]  { --cards-align: space-evenly; --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; --cards-grow: 0; }
 /* A padded card that is `width: 100%` in content-box (a quote's blockquote) is as wide as its
  * box PLUS its padding. On a slide its max-width binds first and hides that; in a pane narrower
  * than the max-width it ran the card past the pane (98px over at 45%). In a pane the card's

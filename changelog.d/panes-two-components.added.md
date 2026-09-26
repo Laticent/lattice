@@ -4,3 +4,4 @@
 - `lint:deck` checks each pane before you render: `pane-fit` (an opted-out component, a `wide` one under 65%, a side-by-side-only one stacked), `pane-overflow` and `pane-crowd` (past the pane's budget, counted per pane). A panes slide's bullet ceiling in `wall-of-text` is now per pane.
 - A chart in a pane lays out at the pane's size: bar values and axis ticks print at the size a chart slide prints them, and the plot gives way instead. A pie, map or quadrant key prints larger where the pane has room. Radar and Mermaid still scale into the pane.
 - The Studio's editor shows the pane warnings as you type, the same ones `lint:deck` prints.
+- The `cards:` register (`top`, `center`, `stretch`, `spread`) and a slide's `_class: cards-*` reach a card row or list in a pane, as they reach a slide.

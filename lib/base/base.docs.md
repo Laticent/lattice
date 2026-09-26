@@ -95,6 +95,10 @@ number; only the body splits. Mark where each component's body begins:
   `pane-crowd` (past the comfortable count). It warns and never blocks; the Studio's editor
   shows the same warnings as you type. At export, a pane that really clips is marked like any
   clipped slide.
+- **`cards:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
+  centers or stretches as the deck's `cards:` or the slide's `_class: cards-*` says (the
+  six components that take it: `cards-grid`, `cards-stack`, `verdict-grid`, `list`,
+  `list-steps`, `compare-prose`). One setting per slide: both panes take it.
 - **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart
   slide prints them, and the plot gets shorter or narrower instead. A pie, map or quadrant prints
   its key larger, beside or below the diagram, where the pane has room; a radar scales into its
