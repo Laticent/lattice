@@ -400,3 +400,62 @@ manifest keeps the measured number, which lint reads.
 **Found on the way, not fixed here.** At the designed size the new `cycle` builder measures
 a ceiling of 5 stages of 12 words against a declared `hard` of 6 — the same shape as the seven
 in `followups.d/2378-p3-capacity-hard-above-measured.md`, where it is now recorded.
+
+## Amendment 2026-09-27 (2) — one type size across modifiers
+
+**The rule.** One size per deck holds only if nothing on a single slide changes a type role's
+size. So: **a per-slide class may change spacing, chrome and color; it may not change the size
+of a type role** — with one carve-out this change does not decide: the explicit magnitude ask
+(`scale-*`, `venue-*`) can be written on a single slide, and then that slide is its own size.
+Concretely, for engine CSS:
+
+- **A role token** (`--fs-*`, and `--venue-meta-lift`, the label lift) is declared only on
+  `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung (`section.venue-*`, `section.scale-*`) — the
+  deck-level classes whose whole job is the size.
+- **A cross-component modifier** — `compact`, `claim-*`, `accent`, a mood, a tone, a state
+  stamp, any token in a `MODIFIER_GROUPS` group except `aliases` — sets no type size on a
+  slide's content: no `font-size`, no `font`, no custom property named as a size or aliasing a
+  role. Pseudo-elements (the state stamps, a drawn mark) are chrome and are exempt.
+- **A component's own variant may assign its elements to roles.** `list.principles` sets its
+  rows in `--fs-emphasis`, `divider.light` sets its heading in `--fs-h2`: that is a different
+  layout of the component, and each role it picks still has one size per deck. The dense-cell
+  step (`--fs-body-compact` in tables, ledgers and glossary cells) is a role, not a modifier,
+  for the same reason.
+
+Gated by `checkTypeSizeModifiers` in `tools/check-ownership.js` (via `build:check`), budget 0,
+with `SANCTIONED_TYPE_SIZE_MODIFIERS`: each entry carries its reason, and a stale one fails.
+
+**The audit** (every `font-size` / `font` / role-token declaration in `lib/**/*.css` under a
+modifier or variant class: 245, measured by a postcss walk over the tree):
+
+| Class | What it changes | Verdict |
+|---|---|---|
+| `venue-huddle` / `-conference` / `-hall`, `scale-l` / `-xl` / `-2xl` | `--fs-scale` (and the label lift) | The rung itself, exempt. Deck-wide when set in front matter; but a spot `_class: scale-xl` (or `venue-*`) on ONE slide is a documented directive, and that slide then differs in size from its neighbors — put to the owner |
+| `claim-quiet`, `claim-hero`, `claim-bleed` | Frame insets (`--frame-x/y`, `--footer-reserve`) and which chrome shows | Clean: spacing and chrome only |
+| `compact` (universal) | The `--sp-*` spacing scale only | Clean |
+| `cards-stack.compact` | Card and nested-item text from `--fs-body` to `--fs-body-compact` | **Violates**: a per-slide shrink. Sanctioned pending the owner's call (below) |
+| `q-and-a.compact` | Questions `--fs-message` → `--fs-body`, answers `--fs-body` → `--fs-body-compact`, index numeral re-based to `--fs-body`; gaps close | **Violates**, and the size change is most of what it does. Sanctioned pending the owner's call |
+| `kanban` under `.dark` | `.kanban-size` at `--fs-meta` | Size-neutral: one rule shared with the bare selector. Sanctioned |
+| State stamps (`confidential`, `draft`, `stamp-*`, …) | `::before` label size | Chrome (pseudo-element): exempt |
+| `numbered` on `divider` | The `::after` numeral | Chrome: exempt |
+| `note-warn` | The size of the drawn warning mark (`::after`) | Chrome: exempt |
+| `no-note` | Nothing: it only switches the note register off (`:not(.no-note)`) | Clean |
+| List variants (`takeaway`, `principles`, `numbered`, `lettered`, `roman`, `bullet`) | Rows to `--fs-emphasis` (principles), the gloss to `--fs-body` (takeaway) — both a step UP from the default, never down | Component variant: allowed |
+| Other component variants (178 declarations: kpi, timeline, spotlight, math, …) | Each assigns its elements to roles, or sizes chart and math glyphs in its own units | Component variant: allowed by this rule; out of scope |
+
+**What dropping the two `compact` shrinks costs, measured.** Every `cards-stack compact` and
+`q-and-a compact` slide in the tree (78: 71 generated "When NOT to reach for X" gallery slides,
+4 `cards-stack compact` slides in `examples/`, and 3 `q-and-a compact` slides) rendered with the
+shrink removed by a deck-local override: **22 clip** (19 gallery anti-pattern slides, 1 example
+slide, 2 q-and-a slides), against 0 today. So the fix cannot ship alone (#18): it needs the gallery generator
+(`tools/build-component-docs.js`) to lay the anti-pattern slide out so it fits at body size,
+and the three q-and-a slides trimmed, and every gallery PDF re-rendered. That is the owner's
+call, put to them with a recommendation; until then the two are sanctioned, so the gate holds
+the line against a new one.
+
+**What the render shows.** `cards-grid.gallery.md` at `venue: huddle` renders all 11 pages
+at 1.15x (no `↓ SCALE` line): headings, running header and page numbers one size. Page 10 —
+the generated `cards-stack compact` anti-pattern slide — is the one page whose body text is
+visibly smaller than its neighbors', which is the sanctioned shrink above. `list-steps` at
+huddle levels all 20 slides to 1x ("for 1.15x, trim page 3"). This change moves no engine
+CSS, so no render changes; the gate only stops a new per-slide size change from landing.

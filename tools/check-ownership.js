@@ -122,7 +122,7 @@ const manifestSchemas = require('./manifest-schemas'); // the four manifest fami
 const { checkManifestSchemas } = manifestSchemas;
 const {
   loadAll, manifestBucket, BUCKETS,
-  UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS,
+  UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS, MODIFIER_GROUPS,
 } = require('../lib/components');
 const { TRANSFORMERS } = require('../lib/transformers/registry');
 const { PAIRS: TOKEN_CROSSWALK } = require('../lib/tokens/crosswalk');
@@ -2737,6 +2737,265 @@ function checkMarginDiscipline(errors) {
     errors.push(
       `stale margin sanction in tools/check-ownership.js — \`${s.value}\` in ${s.file} is no longer ` +
       `present (HARD RULE #20). Remove the SANCTIONED_MARGINS entry so the allowlist stays honest.`,
+    );
+  }
+}
+
+// ─── One type size per deck (typography.md §7, "One size across modifiers") ──
+// THE RULE: a type role's size is set by the deck's venue, and no per-slide class changes
+// it. Spacing, chrome and color may change per slide; the size of `--fs-body`, `--fs-h2`
+// and the rest may not. Record: engineering/decisions/2026-09-25-font-scale-fit.md,
+// Amendment 2026-09-27 (P2).
+//
+// WHY A GATE. LEVEL (lib/core/scale-fit.js rule 7) keeps every slide of a deck on one
+// scale rung, and the owner's direction is that type size never differs from slide to
+// slide. A modifier that sets its own font size breaks that from the other side: a
+// `compact` q-and-a slide dropped its questions from `--fs-message` to `--fs-body` and its
+// answers to `--fs-body-compact`, so that one slide read smaller than its neighbors, which
+// is the per-slide shrink the rung exists to prevent. Nothing caught it; a grep does.
+//
+// TWO ARMS, and what each deliberately leaves alone:
+//
+//   A. A TYPE-ROLE TOKEN (`--fs-*`, and `--venue-meta-lift`, the label lift) is declared
+//      only on `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung rule
+//      (`section.venue-*`, `section.scale-*`) — the classes whose whole job is the size. Any
+//      other rule that redeclares one changes a role's size on the slides it matches.
+//      THE ONE CARVE-OUT, stated rather than hidden: a rung is the explicit magnitude ask,
+//      and an author CAN put it on one slide (`_class: scale-xl` is a documented spot
+//      directive, typography.md §7), which then differs in size from its neighbors. That is
+//      the owner's to rule on (2026-09-25-font-scale-fit.md, Amendment 2026-09-27 (2)); this
+//      gate does not decide it.
+//
+//   B. A CROSS-COMPONENT MODIFIER (a token in a MODIFIER_GROUPS group other than `aliases`,
+//      which rename component variants) never sets a type size — `font-size`, the `font`
+//      shorthand, or a custom property named as a size or aliasing a role — on a slide's
+//      content. It composes with every component, so a size it set would be a per-slide
+//      shrink wherever it is used. A rule on the modifier that is also that component's OWN
+//      declared variant is a layout choice (`divider.light`), not this. Pseudo-elements are
+//      chrome (the state stamps, a drawn mark) and are left alone, as are classes inside
+//      `:not()`, which exclude rather than apply.
+//
+// NOT covered: a COMPONENT'S OWN variant assigning its elements to type roles
+// (`list.principles` sets its rows in `--fs-emphasis`). That is a different layout of the
+// component, and the role it picks still has one size per deck. The dense-cell step
+// (`--fs-body-compact` in tables and ledgers) is a role, not a modifier, for the same reason.
+//
+// KNOWN LIMITS (none present in lib/ or themes/ when this landed): a modifier applied to a
+// descendant rather than the rule's subject (`section.x .compact p`), `transform: scale()`, a
+// size alias written as a calc or with a fallback (`calc(var(--fs-body) * .8)`), and native
+// CSS nesting, which the scanner does not descend into.
+//
+// Budget 0, and SANCTIONED_TYPE_SIZE_MODIFIERS for the provably size-neutral: each entry
+// carries its reason, and a stale one fails, as #20 / #22 / #26 do.
+const TYPE_SIZE_MODIFIER_BUDGET = 0;
+// Matched by file + modifier; `count` is how many declarations the entry covers, and a count
+// that no longer matches exactly (fewer OR more) fails, so the list cannot rot or quietly grow.
+const SANCTIONED_TYPE_SIZE_MODIFIERS = [
+  {
+    file: 'lib/components/chart/kanban/kanban.styles.css',
+    modifier: 'dark',
+    count: 1,
+    why: 'Size-neutral. `:is(section.kanban, figure.kanban).dark .kanban-size` shares one rule with the bare `.kanban-size` selector, so the chip is `--fs-meta` on both canvases; the arm exists only to outrank an earlier dark treatment of the chip.',
+  },
+  {
+    file: 'lib/components/inventory/cards-stack/cards-stack.styles.css',
+    modifier: 'compact',
+    count: 9,
+    why: 'PENDING THE OWNER (2026-09-27 amendment, P2). `cards-stack compact` drops card text to `--fs-body-compact`, a per-slide shrink. Removing it clips 20 of the 75 `cards-stack compact` slides in the tree: 19 of the 71 generated "When NOT to reach for X" gallery slides, which tools/build-component-docs.js lays out as `cards-stack compact`, and 1 in examples/. The fix is a generator redesign plus every gallery re-rendered, so it waits on the owner’s decision.',
+  },
+  {
+    file: 'lib/components/inventory/q-and-a/q-and-a.styles.css',
+    modifier: 'compact',
+    count: 3,
+    why: 'PENDING THE OWNER (2026-09-27 amendment, P2). `q-and-a compact` sets questions in `--fs-body` and answers in `--fs-body-compact` (and re-bases the index numeral), so its size change is most of what it does. Removing it clips 2 of the 3 `q-and-a compact` slides in the tree.',
+  },
+];
+
+/** Every style rule in a stylesheet as { selector, decls: [{ prop, value }] }. Quote- and
+ * paren-aware, so a `{` inside `content: "{"` or `:is(...)` does not open a block. Rules
+ * inside @media / @supports are included; @keyframes and @font-face bodies are not. */
+function styleRulesWithDecls(css) {
+  const clean = stripComments(css);
+  const rules = [];
+  const stack = [];
+  let buf = '';
+  let paren = 0;
+  let quote = null;
+  let body = null;
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (quote) {
+      if (ch === '\\') { buf += ch + (clean[i + 1] || ''); i++; continue; }
+      if (ch === quote) quote = null;
+      buf += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+    if (ch === '(') paren++;
+    else if (ch === ')') paren--;
+    if (paren > 0) { buf += ch; continue; }
+    if (ch === '{') {
+      const prelude = buf.trim();
+      buf = '';
+      if (prelude.startsWith('@')) {
+        const name = prelude.slice(1).split(/[\s({]/)[0].toLowerCase();
+        stack.push(name === 'keyframes' || name === 'font-face' ? 'atSkip' : 'atNest');
+      } else {
+        stack.push('rule');
+        body = stack.includes('atSkip') ? null : { selector: prelude, decls: [] };
+      }
+    } else if (ch === '}') {
+      const kind = stack.pop();
+      if (kind === 'rule' && body) {
+        for (const d of splitDecls(buf)) body.decls.push(d);
+        rules.push(body);
+      }
+      body = null;
+      buf = '';
+    } else if (ch === ';' && stack[stack.length - 1] !== 'rule') {
+      buf = '';
+    } else {
+      buf += ch;
+    }
+  }
+  return rules;
+}
+
+function splitDecls(text) {
+  const out = [];
+  let depth = 0;
+  let quote = null;
+  let cur = '';
+  const push = () => {
+    const i = cur.indexOf(':');
+    if (i > 0) out.push({ prop: cur.slice(0, i).trim().toLowerCase(), value: cur.slice(i + 1).trim() });
+    cur = '';
+  };
+  for (const ch of text) {
+    if (quote) { if (ch === quote) quote = null; cur += ch; continue; }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ';' && depth === 0) { push(); continue; }
+    cur += ch;
+  }
+  if (cur.trim()) push();
+  return out;
+}
+
+/** The classes a selector APPLIES in its first compound (the element the rule is keyed on,
+ * normally the section), counting `:is()` / `:where()` arms and skipping `:not()`. */
+function subjectClasses(selector) {
+  // The first compound ends at the first top-level combinator.
+  let depth = 0;
+  let end = selector.length;
+  for (let i = 0; i < selector.length; i++) {
+    const ch = selector[i];
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (depth === 0 && /[\s>+~]/.test(ch)) { end = i; break; }
+  }
+  let compound = selector.slice(0, end);
+  // Drop every :not(...) — paren-aware — so an excluded class is never read as applied.
+  for (let at = compound.indexOf(':not('); at >= 0; at = compound.indexOf(':not(')) {
+    let d = 0;
+    let j = at + 4;
+    for (; j < compound.length; j++) {
+      if (compound[j] === '(') d++;
+      else if (compound[j] === ')' && --d === 0) break;
+    }
+    compound = compound.slice(0, at) + compound.slice(j + 1);
+  }
+  return [...compound.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+}
+
+const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift)$/;
+const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
+const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
+
+/** The type-size context the gate reads: component names, each component's own variant
+ * tokens, and the cross-component modifier tokens. */
+function typeSizeContext() {
+  const manifests = loadAll();
+  return {
+    components: new Set(manifests.map((m) => m.name)),
+    ownVariants: new Map(manifests.map((m) => [m.name, new Set((m.variants || []).flatMap((v) => String(v).split(/\s+/)))])),
+    crossComponent: new Set(MODIFIER_GROUPS.filter((g) => g.name !== 'aliases').flatMap((g) => g.tokens)),
+  };
+}
+
+/** The per-slide type-size changes in one stylesheet. Pure (css in, offenses out), so the
+ * two arms are unit-tested on fixtures (test/unit/tools/type-size-modifiers.test.js). */
+function typeSizeOffensesIn(css, rel, ctx) {
+  const { components, ownVariants, crossComponent } = ctx;
+  const isTokens = rel.endsWith('.tokens.css');
+  const offenses = [];
+  for (const rule of styleRulesWithDecls(css)) {
+    for (const selector of splitTopLevel(rule.selector)) {
+      const classes = subjectClasses(selector);
+      const comps = classes.filter((c) => components.has(c));
+      for (const { prop, value } of rule.decls) {
+        if (TYPE_ROLE_TOKEN.test(prop)) {
+          if ((isTokens && !classes.length) || RUNG_RULE.test(selector.trim())) continue;
+          offenses.push({ arm: 'A', file: rel, selector, modifier: null, decl: `${prop}: ${value}` });
+          continue;
+        }
+        // A custom property is a size when it is NAMED as one (`--list-row-fs`) or is a bare
+        // alias of a role (`--qa-index: var(--fs-body)`). A spacing calc that merely reads a
+        // role (`--footer-reserve: calc(... + var(--fs-meta) + ...)`) is spacing.
+        const sizes = prop === 'font-size' || prop === 'font' || prop === 'zoom' || prop === 'scale'
+          || (prop.startsWith('--') && (/-fs$|-font-size$/.test(prop) || /^var\(\s*--fs-[a-z0-9-]+\s*\)$/.test(value)));
+        if (!sizes || isPseudoElement(selector)) continue;
+        for (const mod of classes.filter((c) => crossComponent.has(c) && !components.has(c))) {
+          if (comps.some((c) => ownVariants.get(c)?.has(mod))) continue;
+          offenses.push({ arm: 'B', file: rel, selector, modifier: mod, decl: `${prop}: ${value}` });
+        }
+      }
+    }
+  }
+  return offenses;
+}
+
+function typeSizeModifierOffenses() {
+  const ctx = typeSizeContext();
+  const offenses = [];
+  for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
+    offenses.push(...typeSizeOffensesIn(fs.readFileSync(file, 'utf8'), path.relative(ROOT, file), ctx));
+  }
+  return offenses;
+}
+
+/** Consume sanctions against offenses: `remaining` is what no sanction covers, `stale` every
+ * sanction whose count no longer matches exactly. Keyed on file + modifier, not selector, so
+ * swapping one sanctioned declaration for another in the same file keeps the count — review
+ * catches that; the count catches growth and removal. */
+function applyTypeSizeSanctions(offenses, sanctions) {
+  const remaining = [...offenses];
+  const stale = [];
+  for (const s of sanctions) {
+    const hits = remaining.filter((o) => o.file === s.file && o.modifier === s.modifier);
+    if (hits.length !== s.count) stale.push({ ...s, found: hits.length });
+    for (const h of hits) remaining.splice(remaining.indexOf(h), 1);
+  }
+  return { remaining, stale };
+}
+
+function checkTypeSizeModifiers(errors) {
+  const { remaining, stale } = applyTypeSizeSanctions(typeSizeModifierOffenses(), SANCTIONED_TYPE_SIZE_MODIFIERS);
+  if (remaining.length > TYPE_SIZE_MODIFIER_BUDGET) {
+    const list = remaining.slice(0, 6).map((o) => `${o.file}: \`${o.selector.replace(/\s+/g, ' ')}\` sets \`${o.decl}\`${o.modifier ? ` under \`${o.modifier}\`` : ''}`).join('; ');
+    errors.push(
+      `${remaining.length} per-slide type-size change(s) in engine CSS — one type size per deck ` +
+      '(engineering/typography.md §7): a modifier may change spacing, chrome and color, never a type role\'s size, ' +
+      'and a role token is declared only in a *.tokens.css file or a venue / scale rung. Change the spacing instead, ' +
+      `or, if the rule is provably size-neutral, add it to SANCTIONED_TYPE_SIZE_MODIFIERS with its reason. Offending: ${list}.`,
+    );
+  }
+  for (const s of stale) {
+    errors.push(
+      `type-size sanction out of date in tools/check-ownership.js — \`${s.modifier}\` in ${s.file} covers ${s.count} ` +
+      `declaration(s) and ${s.found} match now. Update the count if the change is deliberate, or remove the ` +
+      'SANCTIONED_TYPE_SIZE_MODIFIERS entry once the size change is gone, so the allowlist stays honest.',
     );
   }
 }
@@ -12357,6 +12616,7 @@ function run() {
   checkTypographyTokens(errors);
   checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
+  checkTypeSizeModifiers(errors);
   checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
   checkMathRendererParity(errors);
@@ -12454,6 +12714,10 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkTypeSizeModifiers,
+  typeSizeOffensesIn,
+  applyTypeSizeSanctions,
+  SANCTIONED_TYPE_SIZE_MODIFIERS,
   checkRelatedTargets,
   run,
   checkE2ESleeps,
