@@ -397,18 +397,18 @@ test('`cards:` reaches a pane — deck-wide and per slide — as it reaches a sl
   assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-cards="top"\]\s*\{\s*--cards-align:\s*flex-start/);
 });
 
-test('a pane\'s chart canvas has the shape Chromium lays the pane out at, on every size', () => {
+test('a pane\'s chart canvas has the shape Chromium lays the pane out at', () => {
   const e = engine();
   const bars = '- A `4`\n- B `7`\n- C `3`';
   const vb = (html) => (html.match(/class="cart-svg[^"]*"[^>]*viewBox="0 0 ([\d.]+) ([\d.]+)"|viewBox="0 0 ([\d.]+) ([\d.]+)"[^>]*class="cart-svg/) || []).filter(Boolean).slice(1).map(Number);
   // Measured in Chromium on the engine sheet: the second pane's box with a one-line title
   // (lib/engine/index.js STAGE_BANDS), width / height. The bar canvas must match within 3%.
   // (A 16:9 stack is left out: its band is flatter than the 140x72 minimum canvas.)
+  // Only the `wide` family lays panes out: square, portrait, story and mobile split them into
+  // slides (installPaneSplit). hd and 4K measured the same box; the 30/70 pane is the measured
+  // box less the measured 64px gutter, at its share.
   const measured = {
-    'hd 50/50': 544 / 439,
-    'square 50/50': 441 / 793, 'square stack': 972 / 363,
-    'portrait 50/50': 433 / 1015, 'portrait stack': 972 / 468,
-    'story 50/50': 427 / 1574, 'story stack': 972 / 743,
+    'hd 50/50': 544 / 439, '4K 50/50': 1632 / 1318, 'hd 30/70': (1152 - 64) * 0.7 / 439,
   };
   for (const [name, ratio] of Object.entries(measured)) {
     const [size, layout] = name.split(' ');
@@ -428,4 +428,41 @@ test('a narrow pie pane under full chrome still grows its key (the ladder finds 
   // fixed-point steps alone jumped past every size that keeps the disc above its floor and
   // fell back to it. The pick now sets the key below the disc, at a larger size.
   assert.ok(h > 200 && !(w === 377 && h === 200), `pie unit ${w}x${h}`);
+});
+
+test('on a square, portrait, story or mobile deck a panes slide splits into one slide per pane', () => {
+  const e = engine();
+  const deck = (size, extra = '') => `---\nsize: ${size}\n---\n\n${extra}\`Eyebrow\`\n\n## The title.\n\n<!-- speaker note -->\n\n<!-- panes: 40/60 -->\n<!-- pane: bar -->\n\n- A \`4\`\n- B \`7\`\n\n<!-- pane: list -->\n\n- One\n- Two\n\n> The insight.\n`;
+  const sections = (html) => [...html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
+  for (const size of ['square', 'portrait', 'story', 'mobile']) {
+    const { html } = e.render(deck(size));
+    const s = sections(html);
+    assert.equal(s.length, 2, `${size}: ${s.length} slides`);
+    assert.ok(s[0].includes('bar') && s[1].includes('list'), `${size}: ${JSON.stringify(s)}`);
+    assert.doesNotMatch(html, /lat-pane/, `${size}: a pane survived the split`);
+    // Both pages carry the masthead; the coda closes the last page only; the speaker note
+    // stays with the first page; the markers and the layout comment are gone.
+    assert.equal((html.match(/The title\./g) || []).length, 2);
+    assert.equal((html.match(/The insight\./g) || []).length, 1);
+    assert.ok(html.lastIndexOf('The insight.') > html.lastIndexOf('<section'));
+    assert.equal((html.match(/speaker note/g) || []).length, 1);
+    assert.doesNotMatch(html, /pane: bar|panes: 40\/60/);
+  }
+  // A spot `_class` the author wrote rides on every page, beside the pane's component.
+  const s = sections(e.render(deck('portrait', '<!-- _class: cards-top -->\n\n')).html);
+  assert.ok(s.every((c) => c.includes('cards-top')) && s[0].includes('bar') && s[1].includes('list'), JSON.stringify(s));
+  // A 16:9 deck (and 4:3 and 4K, all `wide`) keeps the panes.
+  for (const size of ['hd', 'standard', '4K']) {
+    const { html } = e.render(deck(size));
+    assert.equal(sections(html).length, 1, size);
+    assert.match(html, /<lat-pane class="bar/, size);
+  }
+});
+
+test('lint does not budget panes on a deck that splits them', () => {
+  const { lintText } = require('../../../lib/authoring/lint');
+  const md = (size) => `---\nsize: ${size}\n---\n\n## T\n\n<!-- panes: stack -->\n<!-- pane: kpi -->\n\n1. 42%\n   - Margin\n\n<!-- pane: list -->\n\n${Array.from({ length: 20 }, (_, i) => `- Point ${i}`).join('\n')}\n`;
+  const panesRules = (size) => lintText(md(size)).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule);
+  assert.deepEqual(panesRules('portrait'), []);
+  assert.deepEqual(panesRules('hd').sort(), ['pane-fit', 'pane-overflow']);
 });

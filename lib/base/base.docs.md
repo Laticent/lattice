@@ -95,6 +95,11 @@ number; only the body splits. Mark where each component's body begins:
   `pane-crowd` (past the comfortable count). It warns and never blocks; the Studio's editor
   shows the same warnings as you type. At export, a pane that really clips is marked like any
   clipped slide.
+- **On a square, portrait, story or mobile deck the panes split** into one slide per pane.
+  Those sizes set type about twice as large, so two components do not share one frame there.
+  Each page repeats the slide's eyebrow, title and subtitle and renders its pane's component as
+  an ordinary slide (auto-splitting as that slide would); the Key Insight and note close the last
+  page. The same markdown reads side by side at 16:9 and one-per-slide on a phone.
 - **`cards:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
   centers or stretches as the deck's `cards:` or the slide's `_class: cards-*` says, for every
   component that goes in a pane and takes `cards:` on a slide (tables do not; `split-panel` and

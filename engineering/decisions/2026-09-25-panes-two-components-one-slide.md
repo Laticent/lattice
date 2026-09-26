@@ -149,23 +149,39 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    ids never depend on a later slide's panes, and a slide rendered alone at its offset matches its
    deck render.
 
+   **On a square, portrait, story or mobile deck the panes split.** Those sizes set type and
+   spacing about twice as large (`--canvas-scale` 1.65–2.29), so a pane is roughly half a 16:9
+   pane's reading size. Measured on a 22-slide test deck of common pairings: with `size:
+   portrait`, 13 slides clipped side by side and 16 stacked, and lint said nothing because every
+   budget was measured at 16:9. The owner's call: split them. `installPaneSplit`
+   (`lib/core/panes.js`) runs before the engine forms slides, on every family but `wide` (the
+   structural auto-split's own gate, `lib/core/structural-split.js`), and turns a panes slide
+   into one ordinary slide per pane:
+   - each page repeats the masthead (eyebrow, title, subtitle) and the slide's spot directives,
+     and its class is the pane's component, merged with any `_class` the author wrote;
+   - a speaker note stays with the first page, and the coda — written after the last pane —
+     closes the last;
+   - the markers and the `panes:` layout comment go.
+
+   Each page then renders, and auto-splits, exactly as if the author had written it: the test
+   deck became 43 slides and 107 pages, 3 of which clip, and the same content written by hand
+   as ordinary slides clips on the same 3. `lint:deck` does not budget panes on these sizes.
+   It is the same token-level expansion `_focusSteps` uses. Measuring it found an older defect
+   on the way: a chart slide dropped every comment between its title and its chart, so a speaker
+   note written under a chart title never reached the export (on `main` too). The split put the
+   panes slide's note on a chart page, so `chart-family.js` now carries those comments through;
+   no committed deck changes.
+
    **The pane's box.** `stageBox` in `lib/engine/index.js` models the host's stage from
-   measurements in Chromium on every registered size. The stage is 90% of the slide's width;
-   its height is the slide's less a base band (title and padding) and less an eyebrow, a
-   subtitle, a Key Insight or a below-note when the host has one. Each band is a fraction of the
-   slide WIDTH. Landscape is proportional (hd and 4K agree to 0.1%). Portrait and square boost
-   type and spacing by `--canvas-scale`, and the chrome does not grow in proportion to it, so
-   the bands are a measured table per scale (1, 1.65, 1.95, 2.19, 2.29), interpolated; the gutter
-   carries `--canvas-scale` exactly. A title, subtitle, Key Insight or note that WRAPS takes a
-   further line height per line: the carve records each one's text length (`chrome` on
-   `env.latticePanes`) and the engine counts lines against a measured one-line capacity, at 90%
-   of it, so the model errs short rather than tall. The first version modelled 16:9 only, and
-   an independent check measured its canvas 8–45% off the real pane in 24 of 36 portrait,
-   square and story cases; the table brings every case within 3% except a square stack whose
-   Key Insight the 90% capacity counts as two lines (8% short, the safe direction).
-   `test/unit/core/panes.test.js` pins the canvas shape against the Chromium measurements.
-   What it still does not see (a theme with a taller masthead, a font that sets wider) is gap 1
-   in §6.
+   measurements in Chromium, at `--canvas-scale` 1 — the only scale that lays out panes. The
+   stage is 90% of the slide's width; its height is the slide's less a base band (title and
+   padding) and less an eyebrow, a subtitle, a Key Insight or a below-note when the host has
+   one. Each band is a fraction of the slide WIDTH (hd and 4K agree to 0.1%). A title, subtitle,
+   Key Insight or note that WRAPS takes a further line height per line: the carve records each
+   one's text length (`chrome` on `env.latticePanes`) and the engine counts lines against a
+   measured one-line capacity, at 90% of it, so the model errs short rather than tall.
+   `test/unit/core/panes.test.js` pins the canvas shape against the Chromium measurements. What
+   it still does not see (a theme with a taller masthead, a font that sets wider) is gap 1 in §6.
 
    **Charts draw for the pane.** A chart slide draws on a fixed canvas (320x180 units landscape,
    320x300 portrait) that CSS scales to the stage, so a chart that drew that same canvas in a
@@ -513,8 +529,8 @@ empty list item followed by a blank line was taught to close (CommonMark §5.2).
 
 **A sixth checker on the fixes above** found no blocker. It confirmed the CLI sheet (no-panes
 exports differ from `main` only by `pane.css`), byte-identical HTML over 361 decks, and the
-`cards:` plumbing. Its two should-fixes are fixed: the stage model was 16:9-only (the table
-above), and the `container-type: size` revert clipped a big-number caption at 50%, a slide
+`cards:` plumbing. Its two should-fixes are fixed: the stage model was 16:9-only (measured
+per size first; then the owner split panes on every non-16:9 size, which retired that table), and the `container-type: size` revert clipped a big-number caption at 50%, a slide
 measure (`43.75cqi`) meeting a pane container, now the pane's width in `pane.css` as the quote's
 is. Its nits: `paneClasses` counted a `<lat-pane class=` quoted in a comment (it now skips
 comments), the empty-item scanner case, a pane A chart's own coda, the `cards:` reach in the

@@ -5,3 +5,5 @@
 - A chart in a pane lays out at the pane's size: bar values and axis ticks print at the size a chart slide prints them, and the plot gives way instead. A pie, map or quadrant key prints larger where the pane has room. Radar and Mermaid still scale into the pane.
 - The Studio's editor shows the pane warnings as you type, the same ones `lint:deck` prints.
 - The `cards:` register (`top`, `center`, `stretch`, `spread`) and a slide's `_class: cards-*` reach a card row or list in a pane, as they reach a slide.
+- On a square, portrait, story or mobile deck, a panes slide splits into one slide per pane — each an ordinary slide of its component under the same title — because those sizes set type too large for two components to share a frame.
+- A speaker note written between a chart's title and its data now reaches the export's notes; chart slides used to drop it.
