@@ -11,3 +11,10 @@ where     — the seven manifests' `capacity` / `adapt.capacity.wide`; engineeri
 done when — each of the seven either has `hard` at or below its measured ceiling, or the basis note records why it stays above.
 evidence  — the calibrate-capacity run before and after.
 verify    — tier 1: `node tools/calibrate-capacity.js --all --family wide` exits 0.
+
+rechecked — 2026-09-26, after #2386 opted the card catalog into `cards:`: STILL OPEN, unchanged.
+            `node tools/calibrate-capacity.js <c> --family wide` measures authority-chain 4 (hard 6),
+            kpi 3 (4), pricing 3 (4), q-and-a 4 (6), regulatory-update 4 (6), team-profile 6 (12),
+            list 3 (6; its sweet 5 and soft 6 are also above the ceiling). No manifest moved. Related:
+            list.gallery p9, an 8-line "hard ceiling" stress slide, is one of the clips in
+            `2378-p2-new-gallery-clips-2377-2380.md`.

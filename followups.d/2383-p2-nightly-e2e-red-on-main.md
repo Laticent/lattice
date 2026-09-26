@@ -11,3 +11,11 @@ where     — docs/e2e/inline-grammar-marp-mirror.spec.ts:75 (expects 14 pill/ma
 done when — each spec passes on main in its project, or the spec is corrected because the product changed on purpose. Never skipped or quarantined to get green.
 evidence  — a `npx playwright test <files> --project=desktop --project=minfont` run on main with 0 failed.
 verify    — tier 0 gates; a checker if the fix touches the Studio shell layout or the theme-import sanitizer (HARD RULE #22).
+
+rechecked — 2026-09-26: STILL OPEN, the same six failures at the same lines. Run: `npx playwright test`
+            on the five files, `--project=desktop --project=minfont --retries=0`, against an `astro
+            build` of origin/main 283f47a plus PR #2390 (served by scripts/preview-e2e.mjs): 26 passed,
+            6 failed — inline-grammar-marp-mirror:75, split:206, status-pill:212,
+            theme-import-style-sink:59 and :205, studio-shell-parity:160 @minfont. #2390 touches none of
+            these surfaces (its Studio change is the one-slide preview's scale cap), so it is not a
+            clean-main run; re-run on a clean main build before the fix to be sure of the baseline.
