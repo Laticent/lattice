@@ -388,12 +388,15 @@ A dotted overlay moving along a line, a separate path above the real edge.
   PR. dagre still places the boxes; the solver draws every line against ONE cost
   (`W`), in the owner's order:
   - **never** (not a candidate at all): a line through a box (a stranger's box
-    grown by 6, so no graze), back through its own ends, or along another line's
-    run within 6 units;
-  - **then** crossings and a label with no clean seat (1,000 each), a run along a
-    group's title band (1,000), a jog shorter than 12 (300), a label struck by a
-    line, a foreign group's border;
-  - **then balance**: ports off a side's middle, crowded sides, a fan drawn
+    grown by 6, so no graze), back through its own ends or within 6 of them past
+    its first and last runs, or along another line's run within 6 units;
+  - **then** crossings and a label with no clean seat (1,000 each), a run that
+    leaves a group's title no slot in its band (2,500, since a line through a
+    title is a quality fault and a crossing is only a cost), a jog shorter than 12
+    (300), a label struck by a line, a foreign group's border;
+  - **then balance**: ports off a side's middle (a diamond is met at its four
+    tips: 20 a unit off one, 600 for a second line on one, so its lines spread
+    over the tips first; the owner's call), crowded sides, a fan drawn
     lopsided (a fan whose children sit mirrored about their parent is drawn as a
     mirror image when that costs under 120 a pair more);
   - **then** turns (40 each), length, and growing the drawing past what the boxes
@@ -401,41 +404,81 @@ A dotted overlay moving along a line, a separate path above the real edge.
     type).
 
   A label is part of its line: each candidate is charged for the best seat it
-  offers, clear of shapes, borders, titles and other labels, and at least 3 units
-  from any other line. Candidates per pair of sides are straight, L (a port may
-  slide to any lane along its side), Z or U through one lane, and two lanes when
-  one found nothing clean. The phases, each keeping only what lowers the cost:
-  sweeps (heaviest lines first, then any line still paying for a collision is
-  ripped up and rerouted until a sweep changes nothing); spread (each side's ends
-  move SLOT apart in heading order by the least movement, around fixed ends:
-  self-loops, and straight lines when the side also has bent ones; a straight
-  line whose ends moved apart is aligned again; the last passes hold sides so the
-  spread converges); settle (an end whose neighbors left is freed); straighten (a
-  jog under 12 is removed by sliding one end or a whole side); symmetry; and a
-  final re-seat of every label.
-- **Measured against the pass stack (ca1bb19), same corpora and machine.** Auto
-  direction:
+  offers (a run shorter than the label may carry it overhanging, as a self-loop's
+  hook does), clear of shapes, borders, titles and other labels, and at least 2
+  units from any other line. Candidates per pair of sides are straight, L (a port
+  may slide to any lane along its side), Z or U through one lane, and two lanes
+  when one found nothing clean. The phases, each keeping only what lowers the
+  cost:
+  1. **Sweeps.** Heaviest lines first; then any line still paying for a collision
+     is ripped up and rerouted, up to four sweeps or until one changes nothing.
+  2. **Spread.** Each side's ends move SLOT apart by the least movement
+     (`placeAround`), around fixed ends (self-loops, and straight lines when the
+     side also has bent ones), in the order that crosses nothing: lines turning
+     toward the side's low end first, earliest turn outermost, then straight
+     ones, then lines turning the other way. A straight line whose ends moved
+     apart is aligned again. Moved lines are rerouted with their ports held (the
+     last passes hold their sides too, so the spread converges); a line that finds
+     no route keeps its ends slid only if that breaks no never-rule, then tries a
+     strict search over more lanes, and otherwise keeps the route it had.
+  3. **Settle and relax.** An end whose neighbors have since left its side is
+     freed; then each line with two or more turns, or still paying for a crossing,
+     is routed again against the finished drawing (it may not land on a placed
+     end) and keeps the new route when it costs less.
+  4. **Straighten.** A jog under 12 is removed by sliding one end, or a whole
+     side's ends together, when that loses turns and costs no more.
+  5. **Symmetry**, then every label is seated again against the finished drawing.
+
+  A work budget, counted in candidate evaluations so the result is the same on
+  every machine, keeps a dense chart bounded: every corpus chart and the demo
+  deck stay under it (17,370 at most, against 20,000); past it the first sweep
+  and the spread still run, and the refinements stop. Eight shapes with all 56
+  lines between them took 7.5 s before the budget and about 1.5 s after (the
+  pass stack took 2.4 s and drew 15 faults; the solver draws 3 shared runs).
+
+  Self-loops nest at one corner of their box (top-right in lr, bottom-right in
+  tb): each later loop runs 10 units further out, with its ends further from the
+  corner along both sides and spaced to stay on the box, and dagre reserves the
+  room on both sides the loops reach.
+- **Measured against the pass stack (68c98d8, this PR's parent), same corpora
+  and machine.**
 
   | | 1,000 charts, before | after | 600 charts, before | after |
   |---|---|---|---|---|
-  | crossings | 182 | 33 | 104 | 15 |
-  | label collisions | 0 | 0 | 7 | 0 |
-  | labels across a border | 0 | 0 | 2 | 0 |
-  | every other quality count | 0 | 0 | 0 | 0 |
-  | turns | 6,028 | 4,430 | 2,584 | 1,891 |
-  | routes with 4+ turns | 365 | 68 | 146 | 21 |
-  | jogs under 12 | 99 | 59 | 57 | 16 |
-  | crowded ends (two within 10) | 57 | 0 | 50 | 4 |
+  | crossings (auto direction) | 181 | 10 | 104 | 1 |
+  | quality faults, every count | 0 | 0 | 9 | 0 |
+  | turns | 5,056 | 4,235 | 2,170 | 1,811 |
+  | routes with 4+ turns | 326 | 74 | 127 | 24 |
+  | jogs under 12 | 60 | 47 | 30 | 9 |
+  | grazes (within 5 of a stranger) | 7 | 0 | 5 | 0 |
+  | crowded ends (two within 10) | 51 | 0 | 50 | 14 |
 
-  Per layout across both corpora in auto, lr and tb (4,800 layouts), crossings
-  fell in 427 and rose in 29. Type size is the cost: 91 layouts set their type
-  more than 3% smaller and 45 more than 3% larger. In auto direction the mean
-  type size is unchanged (0.9998 of before), 24 of 1,600 charts lose more than 3%
-  (at most 8.6%) and 20 gain; most of the loss is a line taken around the drawing
-  to avoid a crossing, which the owner's order ranks first. Speed is the other
-  cost: the demo deck's 35 layout calls take 1.19 s against 0.70 s, the slowest
-  single call 179 ms against 52 (the release train); on the corpora a chart takes
-  10 ms at the median, 31 at p90 and 120 at p99.
+  Both corpora together in forced directions: crossings 279 to 12 in lr and 248
+  to 26 in tb, and quality faults 10 and 11 to 0. On 300 generated charts with
+  diamonds (40% of shapes), line ends off a diamond's tip fall from 685 of 1,325
+  to 112, and crossings from 34 to 7; on the demo deck every diamond end is on a
+  tip. A new hard count,
+  `endsOffBox` (a line end off its box's border, so the arrowhead hangs in
+  space), reads 0 everywhere; the review found the first solver drawing four. On
+  400 label-dense fuzzed charts (80% labeled lines, self-loops, group ends), charts
+  with a label collision fall from 66 to 19 and every other fault from 12 to 0.
+
+  **Type size**, at the deck's real stage (1152 by 378, `maxScale` 1.25), as the
+  kernel's own `scale`: the mean is unchanged (1.0006 of before), 11 of 1,600
+  charts set their type more than 3% smaller (at most 7.8%; 5 of them buy no
+  fewer crossings or faults for it) and 25 more than 3% larger. At half width
+  (560 by 378): 24 smaller (13 for nothing, at most 8.5%), 9 larger, and 15 take
+  the other direction.
+
+  **Side middles**: on the demo deck's seven charts, 13 of 84 lone ends sit more
+  than 4 units off their side's middle, against 9 of 75 before, because a
+  straight line landing a few units off center (2 a unit) is cheaper than a Z
+  into the middle (two turns, 80). The owner's order puts middles before turns;
+  this one is theirs to call.
+
+  **Speed**: the demo deck's 35 layout calls take 0.98 s against 0.73 s, the
+  slowest single call 123 ms against 55 (the release train); a corpus chart
+  takes about 1.2 times as long.
 - **Before the solver: a stack of passes (superseded, kept for its lessons).**
   After dagre, passes in order spread ports, turned a line entering a foreign
   group outside it, straightened short Zs, moved shared runs apart, re-drew lines
@@ -589,20 +632,29 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
 - A labeled group-to-group edge needs a reserved gap between the groups.
 - **Crossings are minimized one line at a time.** The solver rips up and
   reroutes single lines against all the others and never re-orders shapes, so a
-  crossing that only a joint move or a different rank order removes stays: 33
+  crossing that only a joint move or a different rank order removes stays: 10
   remain on the 1,000 charts. The demo deck draws with none. A global pass
   (re-running dagre's ordering with our routes' costs) is the next step if a real
   deck needs it.
-- **The solver is slower than the passes it replaced**: 1.7 times on the demo
-  deck, 179 ms for the release train's slowest call against 52. Most of it is
-  building candidates; exact lower bounds that skip them before building were
-  measured and bought nothing, so the next step is fewer layout calls per chart
-  (the fit and direction passes call it up to five times), not a cheaper call.
+- **The solver is slower than the passes it replaced**: 1.3 times on the demo
+  deck, 123 ms for the release train's slowest call against 55. Most of it is
+  building candidates; the next step is fewer layout calls per chart (the fit and
+  direction passes call it up to five times), not a cheaper call.
+- **Off-center ends for straight lines.** See §7: the weights prefer a straight
+  line a few units off its side's middle to a Z into the middle. Raising
+  `W.offMid` flips that, at the cost of turns.
+- **A title slot is judged per line and per label.** A line or a label that
+  leaves a group's title no slot costs W.band, but the check sees only what is
+  placed so far; the label-dense fuzz drew one such title before the diamond
+  change and none after, and no corpus chart draws one.
 - **A crossing avoided can cost type.** Where the only crossing-free route goes
-  around the drawing, the solver takes it and the chart sets its type smaller
-  (24 of 1,600 charts by more than 3%, at most 8.6%). That follows the owner's
-  order (crossings first); a chart where the smaller type matters more would need
-  a type-for-crossings trade in the direction pass.
+  around the drawing, the solver takes it and the chart sets its type smaller (11
+  of 1,600 charts by more than 3% at the deck's stage). A chart where the smaller
+  type matters more would need a type-for-crossings trade in the direction pass.
+- **Past the work budget.** A dense chart keeps its first sweep and a spread, and
+  a few lines can keep a shared run the spread could not clear (3 on the 56-line
+  test chart, against 15 before). Five or more self-loops on one short box also
+  space their ends under 6 apart and read as shared runs.
 - **A jog the sides cannot remove.** Two lines each way between a short box and
   a tall one spread differently on the two sides, and neither side has room to
   shift its pair into line (the corpus has a few; the gallery none).

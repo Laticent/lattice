@@ -16,7 +16,8 @@
  *      shape, overlapping shapes, a label off its own line) must be zero on all of
  *      them; the soft counts may miss on at most SOFT_MISS_BUDGET charts. Lower the
  *      budget when the router improves; never raise it to land a change.
- *   5. THE RULES the passes implement, checked as geometry rather than as counts.
+ *   5. THE RULES the router implements, checked as geometry rather than as counts.
+ *   6. WHAT REVIEW FOUND: the adversarial review's reproductions, each held to its rule.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
@@ -46,9 +47,10 @@ const WIDE_SOFT_BUDGET = 0;
 // one fan each (routeFans): 182. Every chart that gained a crossing lost a fold or a graze
 // for it. Side balance (flank exits) and the end-run pass took it to 181 with no chart
 // worse. Then the route solver (one cost for every line, rip-up and reroute, see the
-// decision note §7) replaced the pass stack: 39. A crossing is a cost, not a defect, so this
+// decision note §7) replaced the pass stack: 16, and its review round (a relax phase, an
+// order for each side's ends that crosses nothing) took it to 10. A crossing is a cost, not a defect, so this
 // is a ceiling to ratchet down.
-const CROSSING_BUDGET = 39;
+const CROSSING_BUDGET = 10;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -156,7 +158,7 @@ const GALLERY = {
 - Echo -lab7-> Gamma`,
 };
 
-const ZERO = { linesThroughShapes: 0, linesThroughEnds: 0, labelCollisions: 0, shapeOverlaps: 0, labelsOffLine: 0, linesThroughTitles: 0, labelsAcrossBorders: 0, sharedRuns: 0 };
+const ZERO = { linesThroughShapes: 0, linesThroughEnds: 0, labelCollisions: 0, shapeOverlaps: 0, labelsOffLine: 0, linesThroughTitles: 0, labelsAcrossBorders: 0, sharedRuns: 0, endsOffBox: 0 };
 
 describe('graph-layout — serialization', () => {
   test('the kernel rebuilt from its own source text gives identical geometry', () => {
@@ -211,7 +213,7 @@ describe('graph-layout — the gallery reads zero on every quality count', () =>
 describe('graph-layout — seeded random charts (ratchet)', () => {
   test(`1,000 charts: hard counts zero; soft misses ≤ ${SOFT_MISS_BUDGET}; crossings ≤ ${CROSSING_BUDGET}`, () => {
     const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Fox', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima'];
-    const HARD = ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine'];
+    const HARD = ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine', 'endsOffBox'];
     let soft = 0, crossed = 0;
     for (const seed0 of [1, 7, 99, 5]) {
       let seed = seed0;
@@ -285,7 +287,7 @@ describe('graph-layout — groups as endpoints, nested groups, self-loops (ratch
         const src = lines.join('\n');
         const { geo } = run(src);
         const q = geo.quality;
-        for (const k of ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine']) assert.equal(q[k], 0, `${k} on seed ${seed0} chart ${t}:\n${src}`);
+        for (const k of ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine', 'endsOffBox']) assert.equal(q[k], 0, `${k} on seed ${seed0} chart ${t}:\n${src}`);
         for (const r of geo.routes) {
           for (let j = 1; j < r.points.length; j++) {
             const a = r.points[j - 1], b = r.points[j];
@@ -387,5 +389,107 @@ describe('graph-layout — the routing rules', () => {
       assert.ok(t.x >= g.x && t.x + t.w <= g.x + g.w, `${id} title leaves its group`);
       assert.ok(t.y >= g.y && t.y + t.h <= g.y + 30, `${id} title leaves the top band`);
     }
+  });
+});
+
+describe('graph-layout — what review found (#2385)', () => {
+  const DIRS = [undefined, 'lr', 'tb'];
+  const hard = (q) => ({ linesThroughShapes: q.linesThroughShapes, linesThroughEnds: q.linesThroughEnds, sharedRuns: q.sharedRuns, endsOffBox: q.endsOffBox });
+  const CLEAN = { linesThroughShapes: 0, linesThroughEnds: 0, sharedRuns: 0, endsOffBox: 0 };
+
+  test('a line the spread cannot reroute keeps its old route rather than break a never-rule', () => {
+    // The red team's cases: the spread's fallback slid a line's ends without a check, into
+    // Delta's box (tb) and 1.5 units from another line (auto).
+    const through = '- Grp0 `:c2`\n  - Alpha\n- Grp1 `:c3`\n  - Beta\n- Grp2 `:c4`\n  - Gamma\n  - Delta\n- Echo -> Echo\n- Grp0 -x-> Gamma\n- Alpha => Grp2\n- Alpha -lab3-> Echo\n- Beta => Echo\n- Gamma -> Alpha\n- Alpha -a much longer label here-> Beta';
+    const shared = '- Alpha\n- Echo `:diamond`\n- Fox `:circle`\n- Golf `:pill`\n- Hotel `:circle`\n- Kilo `:pill`\n- Lima\n- Fox -> Gamma\n- Alpha -> Hotel\n- Beta -- Juliet\n- Fox -ok-> Alpha\n- Golf <- Alpha\n- Alpha => Fox\n- Alpha <- Juliet\n- Alpha -> Fox\n- Alpha -lab12-> Hotel\n- Alpha <-> India\n- Kilo -> Gamma\n- India => Beta\n- Hotel <- Kilo\n- Echo <-> Echo';
+    for (const src of [through, shared]) for (const dir of DIRS) assert.deepEqual(hard(run(src, K, dir ? { dir } : {}).geo.quality), CLEAN, `${dir || 'auto'}:\n${src}`);
+  });
+
+  test('past its first and last runs, no line comes within 5 units of its own boxes', () => {
+    // A5.88: the second Beta => Delta left Beta backwards and ran 1 unit inside its top border.
+    const src = '- Alpha\n- Beta\n- Gamma\n- Delta\n- Echo\n- Fox\n- Golf\n- Beta => Echo\n- Delta => Echo\n- Alpha -lab3-> Golf\n- Delta -> Beta\n- Beta => Delta\n- Beta => Delta\n- Gamma => Alpha';
+    for (const dir of DIRS) {
+      const { geo } = run(src, K, dir ? { dir } : {});
+      for (const r of geo.routes) {
+        if (r.from === r.to) continue;
+        for (const id of [r.from, r.to]) {
+          const b = geo.nodes[id];
+          if (!b) continue;
+          for (let j = 2; j < r.points.length - 1; j++) {
+            const a = r.points[j - 1], q = r.points[j];
+            const near = Math.max(a.x, q.x) > b.x - 5 && Math.min(a.x, q.x) < b.x + b.w + 5 && Math.max(a.y, q.y) > b.y - 5 && Math.min(a.y, q.y) < b.y + b.h + 5;
+            assert.ok(!near, `${dir || 'auto'}: ${r.from}>${r.to} run ${j} rides ${id}: ${JSON.stringify(r.points)}`);
+          }
+        }
+      }
+    }
+  });
+
+  test('every end sits on its box, even where a side is crowded', () => {
+    // A5.80: the spread's one-sided clamp left Beta's line ending 31 units above Alpha.
+    const src = '- Alpha\n- Beta\n- Gamma\n- Delta\n- Echo\n- Fox\n- Golf\n- Beta -lab0-> Alpha\n- Echo -lab1-> Gamma\n- Golf -lab3-> Alpha\n- Golf -> Alpha';
+    for (const dir of DIRS) assert.equal(run(src, K, dir ? { dir } : {}).geo.quality.endsOffBox, 0, dir || 'auto');
+  });
+
+  test('three self-loops nest on their box: ends on it, no crossing, no shared run', () => {
+    for (const dir of ['lr', 'tb']) {
+      const { geo } = run('- Alpha\n- Beta\n- Alpha -> Beta\n- Alpha -> Alpha\n- Alpha -> Alpha\n- Alpha -> Alpha', K, { dir });
+      const b = geo.nodes.alpha;
+      const loops = geo.routes.filter((r) => r.from === r.to);
+      assert.equal(loops.length, 3);
+      for (const r of loops) {
+        for (const q of [r.points[0], r.points[r.points.length - 1]]) {
+          const onSide = (Math.abs(q.x - b.x - b.w) < 0.6 && q.y > b.y && q.y < b.y + b.h) || ((Math.abs(q.y - b.y) < 0.6 || Math.abs(q.y - b.y - b.h) < 0.6) && q.x > b.x && q.x < b.x + b.w);
+          assert.ok(onSide, `${dir}: a loop end at ${JSON.stringify(q)} is off Alpha ${JSON.stringify(b)}`);
+        }
+      }
+      assert.equal(geo.quality.sharedRuns, 0, dir);
+      assert.equal(geo.crossings, 0, `${dir}: ${JSON.stringify(geo.routes.map((r) => r.points))}`);
+    }
+  });
+
+  test('a self-loop with a long label keeps it clear of every shape', () => {
+    // The checker's case: the solver seated a loop label that overhangs its hook on Poll
+    // and Done; the parent seated it on the hook's outer run.
+    for (const dir of ['lr', 'tb']) assert.equal(run('- Start -> Poll\n- Poll -retry later-> Poll\n- Poll -> Done', K, { dir }).geo.quality.labelCollisions, 0, dir);
+  });
+
+  test('a narrow group keeps a slot for its title when a line crosses its band', () => {
+    // A269 forced to tb: a line up through the band left no slot as wide as the title.
+    const src = '- Grp One `:c2`\n  - Alpha\n  - Beta\n  - Gamma\n- Delta\n- Echo\n- Fox\n- Echo -> Alpha\n- Gamma -> Echo\n- Gamma -lab5-> Echo\n- Gamma => Fox\n- Alpha -> Beta';
+    for (const dir of DIRS) assert.equal(run(src, K, dir ? { dir } : {}).geo.quality.linesThroughTitles, 0, dir || 'auto');
+  });
+
+  test('a diamond is met at its tips', () => {
+    // The owner's call: a line into or out of a diamond ends on one of its four points,
+    // and a diamond's lines spread over those points before any lands off one. The
+    // incident chart's decision, and a straight line into a diamond whose middle sits
+    // off the source's (the payments map's Fraud checks).
+    for (const src of [GALLERY.incident, '- Payments\n- Fraud checks `:diamond`\n- Card networks\n- Payments -screens-> Fraud checks\n- Payments -> Card networks']) {
+      for (const dir of DIRS) {
+        const { m, geo } = run(src, K, dir ? { dir } : {});
+        const tips = new Set(m.shapes.filter((x) => x.shape === 'diamond').map((x) => x.id));
+        for (const r of geo.routes) {
+          for (const [q, id] of [[r.points[0], r.from], [r.points[r.points.length - 1], r.to]]) {
+            if (!tips.has(id)) continue;
+            const b = geo.nodes[id];
+            const tip = [[b.x, b.cy], [b.x + b.w, b.cy], [b.cx, b.y], [b.cx, b.y + b.h]].some(([x, y]) => Math.abs(q.x - x) < 1 && Math.abs(q.y - y) < 1);
+            assert.ok(tip, `${dir || 'auto'}: ${r.from}>${r.to} meets ${id} at ${JSON.stringify(q)}, off its tips`);
+          }
+        }
+      }
+    }
+  });
+
+  test('a dense chart past the work budget still draws with no line through a box', () => {
+    // Eight shapes, every one of the 56 lines between them: 7.5 s before the budget. Past
+    // it the refinements stop, so a few lines keep a shared run the spread could not
+    // clear: 3, against the parent router's 15 (a ratchet).
+    const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Fox', 'Golf', 'Hotel'];
+    const lines = [];
+    for (const a of names) for (const b of names) if (a !== b) lines.push(`- ${a} -> ${b}`);
+    const q = run(lines.join('\n')).geo.quality;
+    assert.deepEqual({ ...hard(q), sharedRuns: 0 }, CLEAN);
+    assert.ok(q.sharedRuns <= 3, `${q.sharedRuns} shared runs`);
   });
 });
