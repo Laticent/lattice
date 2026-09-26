@@ -31,6 +31,25 @@ describe('withCaptureFixups — the ribbon strip', () => {
 		expect(during.border).toBe('none');
 	});
 
+	it('prepends the strip to a slide that already has its own background layers', async () => {
+		// The multi-layer branch: every list (image, repeat, position, size, origin) gains ONE
+		// leading entry for the strip and keeps the slide's own layers after it, aligned.
+		const s = ribbonSection();
+		s.style.backgroundImage = 'url(photo.png)';
+		s.style.backgroundOrigin = 'content-box';
+		let during: Record<string, string> = {};
+		await withCaptureFixups(s, async () => {
+			during = { origin: s.style.backgroundOrigin, image: s.style.backgroundImage };
+			return null;
+		});
+		expect(during.origin).toBe('border-box, content-box');
+		expect(during.image.startsWith('linear-gradient')).toBe(true);
+		expect(during.image).toContain('photo.png');
+		expect(s.style.backgroundOrigin).toBe('content-box');
+		expect(s.style.backgroundImage).toContain('photo.png');
+		expect(s.style.backgroundImage).not.toContain('linear-gradient');
+	});
+
 	it('restores every property it touched', async () => {
 		const s = ribbonSection();
 		await withCaptureFixups(s, async () => null);
