@@ -50,7 +50,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	theme: { group: 'look', default: 'indaco', studio: 'Look → Theme', values: 'a theme name, e.g. indaco, cuoio' },
 	'color-mode': { group: 'look', default: 'the theme’s own', studio: 'Look → Color mode', slide: '_class: dark · color-light · color-system · print' },
 	size: { group: 'look', default: 'hd', studio: 'Look → Size', values: 'hd (16:9) · 4k · standard (4:3) · square · portrait (4:5) · story · reel (9:16) · mobile' },
-	preset: { group: 'look', default: 'classic', studio: 'Look → Preset (also in Basic)', values: 'classic · editorial · brand · minimal — sets spectrum, spectrum-edge, spectrum-card, spectrum-card-edge, spectrum-trim, rule, eyebrow, headline, lift and corners; a key you write wins' },
+	preset: { group: 'look', default: 'classic', studio: 'Look → Preset (also in Basic)', values: 'classic · editorial · brand · minimal — sets finish, headline, spectrum, spectrum-edge, spectrum-card, spectrum-card-edge, spectrum-trim, rule, eyebrow, lift and corners; a key you write wins' },
 	mode: { group: 'look', default: 'boardroom', studio: 'Look → Mode', slide: '_class: sketch' },
 	finish: { group: 'look', default: 'none', studio: 'Look → Finish', slide: '_class: finish-<name>', values: 'none · atrium · meridian · strata · halo · ledger · nimbus · loom · savile · gallery' },
 	backdrop: { group: 'look', default: "the finish's own", studio: 'Look → Backdrop strength · Backdrop mask', slide: '_class: backdrop-<value>', values: 'a strength (20 · 40 · 60 · 80 · full) and/or a mask (clear · open · spot-tl … spot-br), e.g. 40 clear' },

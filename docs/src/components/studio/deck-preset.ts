@@ -15,12 +15,12 @@
 // The table is read from the engine, not copied (HARD RULE #15). It comes through a DEFAULT
 // import because front-matter-key.js is CommonJS outside the docs root: Rollup resolves a
 // default import off it, not named ones (see lib/core/resolve-motion.mjs, which does the same).
-// The only thing added here is the human layer — a label, a blurb and a swatch per preset.
+// The only thing added here is the human layer — a label and a blurb per preset; the picker's
+// pictures are rendered files (tools/build-preset-thumbs.mjs).
 // Rot-guard: deck-preset.test.ts.
 
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
 import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from './front-matter';
-import { activeSpectrum } from './spectrum-catalog';
 
 type PresetTable = Record<string, { label: string; desc: string; values: Record<string, string> }>;
 const ENGINE = frontMatterKey as unknown as {
@@ -37,37 +37,13 @@ export const PRESET_NAMES: readonly string[] = ENGINE.PRESET_NAMES;
 /** The preset a deck with no `preset:` key is on — the house default, named. */
 export const DEFAULT_PRESET = 'classic';
 
-const AC = 'var(--accent)';
-// A swatch is a thumbnail of the look: a bar along the top edge, and a rule under a heading.
-const RAINBOW = activeSpectrum('on').swatch.background;
-// Sizes go in `backgroundSize`, never inside the `background` shorthand: a shorthand that holds
-// a `var()` is parsed only at computed-value time, and SwatchChip's separate `backgroundSize`
-// write then resets every layer's size to `auto` — measured, the Classic chip rendered as a
-// full rainbow square instead of a bar.
-const SWATCHES: Record<string, { background: string; backgroundSize: string }> = {
-	classic: {
-		background: `${RAINBOW} top no-repeat, linear-gradient(var(--border), var(--border)) 3px 60% no-repeat, var(--bg)`,
-		backgroundSize: '100% 3px, calc(100% - 6px) 1px, auto',
-	},
-	editorial: {
-		background: `linear-gradient(${AC}, ${AC}) 3px 60% no-repeat, linear-gradient(${AC}, ${AC}) 3px 30% no-repeat, var(--bg)`,
-		backgroundSize: '40% 2px, 2px 20%, auto',
-	},
-	brand: {
-		background: `linear-gradient(${AC}, ${AC}) top no-repeat, linear-gradient(${AC}, ${AC}) left no-repeat, linear-gradient(${AC}, ${AC}) 6px 60% no-repeat, var(--bg)`,
-		backgroundSize: '100% 3px, 3px 100%, 30% 2px, auto',
-	},
-	minimal: { background: 'var(--bg)', backgroundSize: 'auto' },
-};
-
-export type PresetEntry = { name: string; label: string; blurb: string; swatch: { background: string; backgroundSize: string } };
+export type PresetEntry = { name: string; label: string; blurb: string };
 
 /** The picker's entries, in the engine's order. */
 export const PRESET_ENTRIES: PresetEntry[] = PRESET_NAMES.map((name) => ({
 	name,
 	label: ENGINE.PRESETS[name].label,
 	blurb: ENGINE.PRESETS[name].desc,
-	swatch: SWATCHES[name] ?? { background: 'var(--bg)', backgroundSize: 'auto' },
 }));
 
 /** The deck's preset — its `preset:` key when that names a known preset, else the default.

@@ -26,7 +26,7 @@ model, see `design/concepts.md`.
 
 | Register | What it selects | Default |
 |---|---|---|
-| [`preset:`](#the-preset-front-matter-register-a-named-look) | A named look that sets the accent + surface registers below at once | `classic` |
+| [`preset:`](#the-preset-front-matter-register-a-named-look) | A named look that sets the backdrop, alignment and accent registers below at once | `classic` |
 | [`mode:`](#the-mode-front-matter-register-rendering-mode) | The deck's rendering hand — clean, sketch, sketch-clean | `boardroom` |
 | [`finish:`](#the-finish-front-matter-register-backdrop) | The palette-blind backdrop layer painted behind content | `none` |
 | [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
@@ -44,17 +44,22 @@ model, see `design/concepts.md`.
 
 ## The `preset:` front-matter register (a named look)
 
-`preset:` is **one word that sets ten registers**: the brand bar and its placement, the card
-rail and its placement, structural trim, the heading rule, the eyebrow, headline alignment,
-card lift and corners. Each of those still works on its own — **an explicit key always
-wins over the preset** — so a preset is a starting point and the keys are its overrides.
+`preset:` is **one word that sets up to eleven registers**: the backdrop (`finish:`), headline
+alignment, the brand bar and its placement, the card rail and its placement, structural trim,
+the heading rule, the eyebrow, card lift and corners. Each of those still works on its own —
+**an explicit key always wins over the preset** — so a preset is a starting point and the keys
+are its overrides.
 
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` | A magazine hand: short rule, a bar on the kicker, single-hue trim, lifted cards. |
-| `brand` | `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` | The accent everywhere — set the theme accent to a client's color to white-label. |
-| `minimal` | `spectrum: off` · `rule: none` · `corners: rounded` | No bar, no rule, rounded corners. |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards. |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` | Centered, the accent everywhere, corner marks — set the theme accent to a client's color to white-label. |
+| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. |
+
+Each preset differs on **every** slide, the title slide included. That is why alignment and
+the backdrop are in the family: a title slide shows no bar and no heading rule, so a preset
+built from those alone left four identical title slides.
 
 ```yaml
 ---
@@ -64,15 +69,16 @@ rule: none          # everything from Editorial except the heading rule
 ---
 ```
 
-A preset has **no class token and no CSS of its own**. It resolves in the one front-matter
-reader every path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
-the family is absent, the reader answers with the preset's value. So `preset: editorial`
-renders exactly as if the deck had written its four keys, per-slide `_class:` overrides work
-unchanged, and the CLI, the export and the Studio agree by construction. A preset
-deliberately leaves alone `theme:` (the palette), `mode:`, `finish:`, `claim:`, `cards:`,
-`stamp:` / `tone:` and every content key. An unknown name is flagged by the linter
-(`unknown-preset`) and resolves to no preset. The Studio shows it as the **Preset** row at
-the top of the deck panel, with a count of the keys that differ from it and a Reset. See
+A preset has **no class token and no CSS of its own**. It resolves in the front-matter reader
+every render path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
+the family is absent — or written empty — the reader answers with the preset's value, and
+`preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
+had written its six keys, per-slide `_class:` overrides work unchanged (`finish-none` keeps a
+slide clean), and the CLI, the export and the Studio agree by construction. A preset
+deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
+`tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
+resolves to no preset. The Studio shows the four as pictures of one sample slide at the top of
+the deck panel, with a count of the keys that differ from the chosen preset and a Reset. See
 `engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md`.
 
 ## The `mode:` front-matter register (rendering mode)

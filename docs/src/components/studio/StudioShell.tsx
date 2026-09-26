@@ -84,6 +84,7 @@ import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-che
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
+import { PresetPicker } from './PresetPicker';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
@@ -1827,13 +1828,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return writeFrontMatterLine(out, 'theme', name);
 		});
 	// …and WRITE to it (the editor + every export update in lock-step).
-	const finish = getFrontMatter(source, 'finish') || 'none';
+	const finish = registerValue(source, 'finish');
 	// A finish's backdrop is BAKED into its CSS (a 5th finish layer, generateFinishCss →
 	// `--fin-backdrop-*`), so applying a finish just sets `finish:` — nothing is stamped.
 	// The deck author OVERRIDES any baked layer — backdrop strength/clearance included —
 	// through the single `finish-override:` front-matter map, which deep-merges into the
 	// finish's recipe and regenerates its CSS (see `finishExtraCss`).
-	const setFinish = (value: string) => settingsWrite(`Finish → ${value}`, (s) => writeFrontMatterLine(s, 'finish', value === 'none' ? null : value));
+	const setFinish = (value: string) => settingsWrite(`Finish → ${value}`, (s) => writeRegister(s, 'finish', value));
 	// The `mode:` axis (rendering mode — boardroom / sketch), a sibling of finish.
 	// (The key can't be `style:` — that's Marp's built-in inline-CSS directive.)
 	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.
@@ -4047,27 +4048,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		settingsWrite(`Preset → ${presetLabelOf(name)}${cleared ? ` · ${cleared} custom ${cleared === 1 ? 'setting' : 'settings'} cleared` : ''}`, (s) => applyPreset(s, name).source);
 	};
 	const resetPreset = () => settingsWrite(`${presetLabelOf(deckPreset)} restored`, clearPresetOverrides);
-	const presetField = (
-		<Field
-			label="Preset"
-			desc={presetDrift.length ? `${presetDrift.length} ${presetDrift.length === 1 ? 'setting differs' : 'settings differ'} from ${presetLabelOf(deckPreset)}.` : 'A named look for the bar, rules, kicker and cards.'}
-			find="look style template starting point"
-			help={<>Sets ten accent and surface settings at once — the brand bar, card rails, trim, heading rule, eyebrow, headline alignment, card lift and corners. <strong>Classic</strong> is the house default. Change any of those settings afterwards and it overrides the preset; the theme, header, footer and logo are never touched.</>}
-			after={presetDrift.length > 0 && (
-				<button type="button" onClick={resetPreset} className="mt-1 inline-flex items-center gap-1 rounded-md text-[11px] font-semibold text-[var(--accent)] hover:underline">
-					<RotateCcw className="size-3" />Reset to {presetLabelOf(deckPreset)}
-				</button>
-			)}
-		>
-			<CatalogSelect
-				ariaLabel="Choose preset"
-				value={deckPreset}
-				onValueChange={setPreset}
-				className="w-full"
-				groups={[{ options: PRESET_ENTRIES.map((e) => ({ value: e.name, label: presetDrift.length && e.name === deckPreset ? `${e.label} · ${presetDrift.length} ${presetDrift.length === 1 ? 'change' : 'changes'}` : e.label, swatch: e.swatch, title: e.blurb })) }]}
-			/>
-		</Field>
-	);
+	const presetField = <PresetPicker value={deckPreset} drift={presetDrift.length} onValueChange={setPreset} onReset={resetPreset} />;
 	// The six controls the BASIC tier shows, as elements rather than inline JSX, so the Basic
 	// list and their home sections render the SAME control — one source for each (HARD RULE #15).
 	const themeField = (

@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The deck settings panel had grown to about 46 controls, ten of them accent dials that each opened on "Auto" or "None", and authors could not tell which ones mattered. Three changes answer it. A `preset:` front-matter register names a coherent look (classic, editorial, brand, minimal) and the dials become overrides of it. Both settings panels open on a BASIC tier of a few essentials, with ADVANCED one tap away. The three "More…" drawers are gone. A preset resolves in the one front-matter reader every render path shares, so it has no class token and no CSS of its own.
+summary: The deck settings panel had grown to about 46 controls, ten of them accent dials that each opened on "Auto" or "None", and authors could not tell which ones mattered. Three changes answer it. A `preset:` front-matter register names a coherent look (classic, editorial, brand, minimal) that differs at a glance, title slide included, because it sets alignment and a backdrop as well as the accent dials; the dials become overrides of it, and the picker shows each as a picture. Both settings panels open on a BASIC tier of a few essentials, with ADVANCED one tap away. The three "More…" drawers are gone. A preset resolves in the one front-matter reader every render path shares, so it has no class token and no CSS of its own.
 companion:
   - ./2026-09-13-settings-find-and-list-view.md
   - ./2026-08-18-settings-panel-coverage-and-ux.md
@@ -39,19 +39,22 @@ below lands in that range.
 | What Basic holds (deck) | Theme · Preset · Color mode · Size · Page numbers · Logo | 4 (no page numbers or logo) hides first-session tasks; 8 (adding header and footer) scrolls on a phone |
 | Which panels | Both, presets deck-only | Deck-only would leave the two panels behaving differently until a follow-up |
 
-## 3. Presets — one word, ten registers
+## 3. Presets — one word, eleven registers
 
 ```yaml
-preset: editorial     # rule: short · eyebrow: bar · spectrum-trim: restrained · lift: on
+preset: editorial     # finish: ledger · headline: left · rule: short · eyebrow: bar · …
 rule: none            # an explicit key always wins over the preset
 ```
 
 | Preset | Sets |
 |---|---|
 | `classic` | nothing: the house default, named |
-| `editorial` | `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` |
-| `brand` | `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` |
-| `minimal` | `spectrum: off` · `rule: none` · `corners: rounded` |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` |
+| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` |
+
+These are the second definitions. The first four varied only the bar, rule, kicker, trim and
+cards, and the owner could not tell them apart; §8 has the measurement and the fix.
 
 **How it resolves.** `frontMatterValue` in `lib/core/front-matter-key.js` is the reader
 every RENDER path resolves a register through: the markdown-it plugins, the browser runtime
@@ -77,11 +80,11 @@ so it has to stay a leaf. `resolve-preset.js` re-exports the table and is the re
 named home, like every other `resolve-*` file.
 
 **What a preset never sets:** `theme:` (the palette, a separate choice), `mode:` (the
-rendering hand), `finish:` (the backdrop, which has its own presets), `claim:` and `cards:`
-(how a layout composes; they do not ride a split page either, see
-`lib/core/surface-registers.js`), `stamp:` and `tone:` (only decks that carry badges care),
-and every content key. The first proposal to the owner listed mode, finish, claim and
-stamp/tone as preset keys. They came out during the build for the reasons above.
+rendering hand), `claim:` and `cards:` (how a layout composes; they do not ride a split page
+either, see `lib/core/surface-registers.js`), `stamp:` and `tone:` (only decks that carry
+badges care), and every content key. `finish:` was on this list in the first build and came
+back in round two (§8), with the owner's sign-off: the backdrop is one of the two settings
+that visibly change a title slide.
 
 **Naming.** The default was proposed as "Boardroom" and ships as **Classic**. The Look tab
 already has a *Mode* row whose default is **Boardroom** (`mode: boardroom`, the clean hand
@@ -150,6 +153,40 @@ when the deck's vocabulary has either) and *Developer*. A heading has no open st
 two desync bugs the disclosure caused under search (find-and-list note §§12–14) cannot
 recur.
 
+## 8. Round two — the four presets looked the same
+
+The owner, on the deployed preview: *"i am having a hard time distinguishing the 4 presets."*
+Rendering one four-slide deck (title, finding, cards, table) under each preset confirmed it.
+**The four title slides were pixel-for-pixel the same layout**, because an inverse title slide
+draws no bar and no heading rule, and those were most of what the first presets changed. On
+content slides Classic and Editorial differed by a shorter rule, a 2px bar on the kicker and a
+faint shadow, which vanish at phone size.
+
+**The fix gives each preset something big.** A preset now also sets **headline alignment**
+(Editorial and Minimal left, Brand-forward centered, Classic the component's own) and a
+**backdrop** (`finish:` — Editorial `ledger`, a ruled field with a rail on the left edge;
+Brand-forward `strata`, corner marks over a faint grid). The owner saw the old and new
+side-by-side renders and approved the new set before any code changed. The two backdrops were
+picked from all nine finishes rendered on the same pair of slides: the others were busier
+(`atrium`, `savile`, `meridian`) or too close to plain (`gallery`, `nimbus`).
+
+**The picker shows pictures.** The dropdown of four names became a 2×2 radiogroup of
+thumbnails (`docs/src/components/studio/PresetPicker.tsx`, on `ui/radio-group`). Each shows
+ONE fixed sample slide rendered with that preset. The owner chose a fixed sample over
+rendering their own current slide four times: it opens instantly, adds four small images
+(about 7KB in all, loaded lazily) rather than eager JavaScript, and reads the same for
+everyone. `tools/build-preset-thumbs.mjs` renders them through the real emulator into
+`docs/public/presets/`, and records a hash of the preset table plus the sample slide in
+`docs/scripts/preset-thumbs-sources.json`. `test/unit/core/preset-thumbs-fresh.test.js`
+recomputes it, so changing a preset without regenerating fails `npm test` instead of showing
+the author the old look under the new name. Minimal's picture takes rounded corners in CSS,
+because the PNG cannot carry them.
+
+**One reader stays outside, on purpose.** The linter's `bookend-finish-contrast` note ("the
+house pattern keeps a title slide clean") reads only a `finish:` the author wrote. A preset's
+backdrop is a look the author picked whole; if the note read it, every Editorial and
+Brand-forward deck would carry it on its title slide.
+
 ## 7. Verified
 
 | Claim | Surface | Artifact |
@@ -160,7 +197,8 @@ recur.
 | An independent checker bug-hunted the diff; its four confirmed defects are fixed and each has a test (nested `preset:`, commented and empty keys, the commented lint typo, the Undo count) | engine + Studio | `preset-register.test.js` 6/6, `deck-preset.test.ts` 9/9 |
 | Picking Editorial restyles the live preview; changing a dial shows "Editorial · 1 change" with Reset | The real Studio (docs dev server, Chromium 1440×900) | PR screenshots |
 | Basic and Advanced at desktop, tablet and phone widths | The real Studio at 1440, 820 and 390 | PR screenshots |
-| Brand-forward and Minimal render as designed | `examples/deck-presets.pdf` (`preset: editorial` deck-wide, the other two looks shown with their per-slide tokens) | The committed PDF |
+| The four presets differ on a title slide and on content slides | The same four-slide deck rendered under each preset, old set and new, side by side (shown to the owner) | `examples/deck-presets.pdf` shows all four title slides |
+| The picker's pictures match the presets | `tools/build-preset-thumbs.mjs` through the emulator | `preset-thumbs-fresh.test.js` |
 
 Not verified: iOS Safari. The phone shots come from headless Chromium at 390×844 with touch
 emulation, which is emulation (HARD RULE #23).

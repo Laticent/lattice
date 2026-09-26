@@ -9,7 +9,7 @@ const fmOf = (src: string) => src.split('---')[1];
 describe('deck-preset — the Studio agrees with the engine about a preset', () => {
 	it('every engine preset has a picker entry, in the engine order', () => {
 		expect(PRESET_ENTRIES.map((e) => e.name)).toEqual([...PRESET_NAMES]);
-		for (const e of PRESET_ENTRIES) expect(e.label && e.blurb && e.swatch.background).toBeTruthy();
+		for (const e of PRESET_ENTRIES) expect(e.label && e.blurb).toBeTruthy();
 	});
 
 	it('a row shows the preset value until the deck writes its own — the same answer the engine gives', () => {

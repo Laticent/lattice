@@ -20,6 +20,7 @@ const {
   PRESETS, PRESET_NAMES, PRESET_KEYS, PRESET_DEFAULTS, presetEffective, readFrontMatterPreset,
 } = require(path.join(ROOT, 'lib/core/resolve-preset.js'));
 const { RULE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-rule.js'));
+const { FINISH_NAMES } = require(path.join(ROOT, 'lib/core/resolve-finish.js'));
 const { EYEBROW_NAMES } = require(path.join(ROOT, 'lib/core/resolve-eyebrow.js'));
 const { HEADLINE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-headline.js'));
 const { LIFT_NAMES } = require(path.join(ROOT, 'lib/core/resolve-lift.js'));
@@ -29,6 +30,7 @@ const {
 } = require(path.join(ROOT, 'lib/core/resolve-spectrum.js'));
 
 const VOCAB = {
+  finish: FINISH_NAMES,
   spectrum: SPECTRUM_NAMES,
   'spectrum-edge': SPECTRUM_EDGE_NAMES,
   'spectrum-card': SPECTRUM_CARD_NAMES,
@@ -71,9 +73,11 @@ test('an absent preset key reads as the preset value; an explicit key wins', () 
   assert.equal(frontMatterValue('preset: "brand"  # client look', 'spectrum'), 'solid');
   // Case-insensitive preset name, like every other register's lint.
   assert.equal(frontMatterName('preset: Minimal', 'corners'), 'rounded');
-  // Keys outside the family are never touched by a preset.
-  assert.equal(frontMatterName('preset: brand', 'finish'), null);
+  // The backdrop is in the family; the rendering hand and the frame claim are not.
+  assert.equal(frontMatterName('preset: brand', 'finish'), 'strata');
+  assert.equal(frontMatterName('preset: brand\nfinish: none', 'finish'), 'none');
   assert.equal(frontMatterName('preset: brand', 'mode'), null);
+  assert.equal(frontMatterName('preset: brand', 'claim'), null);
   // An unknown preset resolves to nothing, not to a guess.
   assert.equal(frontMatterName('preset: editorail', 'rule'), null);
   // A preset that leaves a key at its default answers null, so the reader's own default runs.
@@ -117,7 +121,7 @@ test('an empty or comment-only key says nothing, so the preset applies; a nested
   assert.equal(frontMatterName('pptx:\n  preset: brand', 'spectrum'), null);
   assert.equal(frontMatterName('preset: brand', 'spectrum'), 'solid');
   // Keys outside the family keep the old reading of an empty value exactly.
-  assert.equal(frontMatterValue('preset: brand\nfinish:', 'finish'), '');
+  assert.equal(frontMatterValue('preset: brand\nclaim:', 'claim'), '');
 });
 
 test('unknown-preset flags a typo even when a comment follows it', () => {

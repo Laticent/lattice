@@ -3,17 +3,16 @@ marp: true
 theme: indaco
 paginate: true
 header: "Lattice · Deck presets"
-meta: "Deck presets · preset: editorial"
-preset: editorial
+meta: "Deck presets · four looks"
 ---
 
-<!-- _class: title silent -->
+<!-- _class: title -->
 
-`Deck settings · presets`
+`Classic · the default`
 
 # Deck presets
 
-One word in the front matter sets the bar, the rules, the kicker, the trim and the cards together. This deck runs `preset: editorial` and sets none of those ten keys itself.
+One word in the front matter sets the backdrop, the alignment, the bar, the rules and the cards together. This is Classic, the house default: centered, no backdrop.
 
 ---
 
@@ -21,57 +20,72 @@ One word in the front matter sets the bar, the rules, the kicker, the trim and t
 
 `Preset · what it sets`
 
-## One word sets ten settings
+## One word sets up to eleven settings
 
 `preset:` picks a named look. Each setting it covers still works on its own, and a key you write wins over the preset.
 
 - What a preset sets
-  - The brand bar and its edge, card rails, trim, heading rule, eyebrow, headline alignment, card lift and corners.
+  - The backdrop, heading alignment, brand bar and its edge, card rails, trim, heading rule, eyebrow, card lift and corners.
 - What it never touches
-  - The theme, color mode, finish, header, footer, logo and language.
+  - The theme, color mode, header, footer, logo and language.
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- _class: title finish-ledger head-left eyebrow-bar -->
 
-`Preset · the four looks`
+`Editorial · preset: editorial`
 
-## Four presets, each different on every slide
+# A ruled page, set flush left
 
-- Classic
-  - The house default: rainbow bar, quiet trim, a hairline rule, flat cards.
-- Editorial
-  - A short rule, a bar on the kicker, single-hue trim, lifted cards. This deck.
-- Brand-forward
-  - The accent everywhere: solid bar, card rails, full trim, an accent rule.
-- Minimal
-  - No bar, no rule, rounded corners — the content and nothing else.
+The ledger backdrop draws a rail down the left edge and faint rules behind the content. Headings align left.
 
 ---
 
-<!-- _class: cards-grid three spectrum-solid spectrum-card spectrum-trim rule-accent eyebrow-dot lifted -->
+<!-- _class: title finish-strata head-center eyebrow-dot -->
 
-`Preset · brand-forward`
+`Brand-forward · preset: brand`
 
-## Brand-forward puts the accent everywhere
+# The accent, everywhere
 
-- Solid bar
-  - Set the theme accent to a client color; the deck follows.
-- Card rails
-  - Every card carries a rail that follows the bar.
-- Full trim
-  - Table rails, the timeline spine and code strips take the accent too.
+Centered, with corner marks over a faint grid. Set the theme accent to a client's color and the whole deck follows it.
 
 ---
 
-<!-- _class: content spectrum-off spectrum-trim-off rule-none corners-rounded flat -->
+<!-- _class: title head-left -->
 
-## Minimal leaves only the content
+`Minimal · preset: minimal`
 
-No bar, no heading rule, flat cards and a rounded slide. Use it when the content is the design: a product walkthrough, a screen share, a deck read on a phone.
+# Nothing but the content
 
-- Same content, less furniture
-  - The layout and the type are unchanged; only the accent and surface details go.
+Flush left, no backdrop, no bar and no heading rule. Rounded slide corners on screen.
+
+---
+
+<!-- _class: content finish-ledger head-left rule-short eyebrow-bar spectrum-trim-restrained lifted -->
+
+`Editorial · a content slide`
+
+## Line 3 runs at 94% before the peak even starts
+
+Every other line has at least 15% headroom. Line 3 has six, and the Q4 forecast adds eleven.
+
+- Overtime covers the first four weeks
+  - After that the line is the constraint, not labor.
+
+---
+
+<!-- _class: cards-grid three finish-strata head-center spectrum-solid spectrum-card spectrum-trim rule-accent eyebrow-dot lifted -->
+
+`Brand-forward · a card slide`
+
+## Three ways to buy back the headroom
+
+- Pre-build
+  - Run Line 3 on weekends and stock ahead.
+- Re-route
+  - Move two SKUs to Line 1.
+- Extend
+  - Add a second shift for six weeks.
 
 ---
 
@@ -89,7 +103,7 @@ rule: none      # everything from Editorial except the heading rule
 ---
 ```
 
-The Studio counts these overrides as changes from the preset and offers a Reset back to it.
+The Studio shows each preset as a picture of one sample slide, counts your overrides as changes, and offers a Reset.
 
 ---
 
@@ -100,7 +114,7 @@ The Studio counts these overrides as changes from the preset and offers a Reset 
 ## Basic first, Advanced one tap away
 
 - Basic
-  - Preset, theme, color mode, size, page numbers and logo in one short list. A slide shows canvas, type scale, clean slide and its note.
+  - Theme, preset, color mode, size, page numbers and logo in one short list. A slide shows canvas, type scale, clean slide and its note.
 - Advanced
   - Every setting, grouped or listed. The "More…" drawers are gone; their rows sit under plain headings.
 - Search
