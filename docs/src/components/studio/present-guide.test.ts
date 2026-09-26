@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	aimTarget,
 	anchorFor,
@@ -19,13 +19,14 @@ import {
 	hasOwnBoundary,
 	headerRange,
 	isAside,
-	markContent,
 	markerBox,
 	POINTER_BOX,
 	planSlide,
 	pointerAnchor,
 	salience,
 	sentenceRange,
+	sparkContent,
+	sparkUnit,
 } from './present-guide';
 
 // THE GUIDE RUNG's target resolution (#1397).
@@ -332,57 +333,119 @@ describe('planSlide — the salience budget', () => {
 	});
 });
 
-describe('markContent — the live content gesture', () => {
-	it('spotlights the top-level item a nested bullet belongs to, and undoes itself cleanly', () => {
+describe('sparkContent — the Guide changes the element itself', () => {
+	const sparked = (d: Document) => [...d.querySelectorAll('.lat-spark')];
+
+	it('sparks the bullet the words sit in, nested or not, and leaves its peers alone', () => {
 		const d = doc('<ul><li>One<ul><li>detail</li></ul></li><li>Two</li><li>Three</li></ul>');
-		const sec = d.querySelector('section') as Element;
-		const [one, detail, two, three] = [...d.querySelectorAll('li')];
-		const undo = markContent(detail);
-		expect(one.classList.contains('lat-focus')).toBe(true);
-		expect([two, three].every((li) => li.classList.contains('lat-recede'))).toBe(true);
-		expect(detail.classList.length).toBe(0);
-		expect(sec.getAttribute('data-focus-axis')).toBe('item');
-		expect(sec.getAttribute('data-focus-style')).toBe('spotlight');
-		undo();
-		expect([one, two, three].some((li) => li.className)).toBe(false);
-		expect(sec.hasAttribute('data-focus-resolved')).toBe(false);
-		// The live scope stays so the peers fade back instead of snapping.
-		expect(sec.hasAttribute('data-focus-live')).toBe(true);
+		const [one, detail, two] = [...d.querySelectorAll('li')];
+		const undo = sparkContent(detail);
+		expect(sparked(d)).toEqual([detail]);
+		expect(d.querySelectorAll('.lat-recede, .lat-focus').length).toBe(0);
+		undo?.();
+		sparkContent(one);
+		expect(sparked(d)).toEqual([one]);
+		expect(two.className).toBe('');
 	});
 
-	it('rings a table body row, as `_focus: row` would', () => {
-		const d = doc('<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>r1</td></tr><tr><td>r2</td></tr></tbody></table>');
-		const [r1, r2] = [...d.querySelectorAll('tbody tr')];
-		markContent(r2.querySelector('td') as Element);
-		expect(r2.classList.contains('lat-focus')).toBe(true);
-		expect(r1.classList.contains('lat-recede')).toBe(true);
-		expect(d.querySelector('section')?.getAttribute('data-focus-style')).toBe('ring');
+	it('names a row by its label, a cell by itself, and a column by its header', () => {
+		const d = doc('<table><thead><tr><th>Seg</th><th>Q3</th><th>Q4</th></tr></thead><tbody><tr><td>SMB</td><td>7%</td><td>9%</td></tr><tr><td>Mid</td><td>4%</td><td>5%</td></tr></tbody></table>');
+		const cells = [...d.querySelectorAll('tbody td')];
+		expect(sparkUnit(cells[0])).toEqual({ unit: [...(cells[0].parentElement as Element).children], axis: 'row' });
+		expect(sparkUnit(cells[2])).toEqual({ unit: [cells[2]], axis: 'cell' });
+		const col = sparkUnit(d.querySelectorAll('thead th')[2]);
+		expect(col?.axis).toBe('col');
+		expect(col?.unit.map((c) => c.textContent)).toEqual(['Q4', '9%', '5%']);
 	});
 
-	it('marks every twin of a chart mark and recedes the other marks', () => {
-		const d = doc(`<div class="chart-body"><svg><rect data-mark="0"/><rect data-mark="1"/><rect data-mark="2"/></svg>
+	it('sparks every twin of a chart mark and every shape of a series, never a template', () => {
+		const d = doc(`<div class="chart-body"><svg><rect data-mark="0"/><rect data-mark="1"/><text data-mark="1">EMEA</text>
+			<path class="line-path" data-series="2"/><circle data-series="2"/><path class="line-hit" data-series="2"/></svg>
 			<template class="chart-detail" data-mark="1"></template></div>`);
-		const [a, b, c] = [...d.querySelectorAll('rect')];
-		markContent(b);
-		expect(b.classList.contains('lat-focus')).toBe(true);
-		expect([a, c].every((r) => r.classList.contains('lat-recede'))).toBe(true);
+		sparkContent(d.querySelectorAll('rect')[1])?.();
+		sparkContent(d.querySelectorAll('rect')[1]);
+		expect(sparked(d).map((e) => e.tagName.toLowerCase())).toEqual(['rect', 'text']);
 		expect(d.querySelector('template')?.className).toBe('chart-detail');
-		expect(d.querySelector('section')?.getAttribute('data-focus-axis')).toBe('mark');
+		expect(sparkUnit(d.querySelector('circle') as Element)?.unit.map((e) => e.tagName.toLowerCase())).toEqual(['path', 'circle']);
 	});
 
-	it('leaves a slide the deck already focused alone', () => {
+	it('does not take radar\'s container, which counts series, for a series', () => {
+		const d = doc(`<div class="chart-body radar-figure" data-series="2"><svg>
+			<polygon data-series="0"/><polygon data-series="1"/><text class="key">Enterprise tier</text></svg></div>`);
+		expect(sparkUnit(d.querySelector('text') as Element)?.axis).toBe('block');
+		expect(d.querySelector('.radar-figure')?.classList.contains('lat-spark')).toBe(false);
+	});
+
+	it('names only the cell in a table with a spanned cell, and a column by its real rows', () => {
+		const d = doc('<table><thead><tr><th colspan="2">Group</th><th>Total</th></tr></thead><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>');
+		const total = d.querySelectorAll('thead th')[1];
+		expect(sparkUnit(total)).toEqual({ unit: [total], axis: 'cell' });
+		const plain = doc('<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>x<table><tbody><tr><td>inner</td></tr></tbody></table></td></tr></tbody></table>');
+		expect(sparkUnit(plain.querySelector('thead th') as Element)?.unit.map((c) => c.textContent?.slice(0, 1))).toEqual(['A', 'x']);
+	});
+
+	it('falls through a chart\'s hit area to nothing, so the caller can ink instead', () => {
+		const d = doc('<div class="chart-body"><svg><path class="line-path" data-series="0"/><rect class="line-hit" data-mark="2"/><text>Q3</text></svg></div>');
+		expect(sparkUnit(d.querySelector('rect') as Element)).toBeNull();
+		expect(sparkContent(d.querySelector('rect') as Element)).toBeNull();
+		expect(sparkUnit(d.querySelector('text') as Element)?.axis).toBe('block');
+	});
+
+	it('keeps each chart\'s marks to itself', () => {
+		const d = doc('<figure class="chart-frame"><svg><rect data-mark="1"/></svg></figure><figure class="chart-frame"><svg><rect data-mark="1"/></svg></figure>');
+		const [a, b] = [...d.querySelectorAll('rect')];
+		expect(sparkUnit(a)?.unit).toEqual([a]);
+		expect(sparkUnit(b)?.unit).toEqual([b]);
+	});
+
+	it('sparks a plain paragraph, but never a whole container or the section', () => {
+		const d = doc('<h2>Title</h2><p>Growth held.</p><div class="cols"><p>a</p><p>b</p></div>');
+		expect(sparkUnit(d.querySelector('p') as Element)?.axis).toBe('block');
+		expect(sparkUnit(d.querySelector('.cols') as Element)).toBeNull();
+		expect(sparkUnit(d.querySelector('section') as Element)).toBeNull();
+	});
+
+	it('carries the preset on the section: tone, pulse and tempo', () => {
+		const d = doc('<ul><li>One</li><li>Two</li></ul>');
+		const sec = d.querySelector('section') as HTMLElement;
+		sparkContent(d.querySelector('li') as Element, { tone: 'muted', pulse: false, fade: 900 });
+		expect(sec.getAttribute('data-spark')).toBe('muted');
+		expect(sec.hasAttribute('data-spark-pulse')).toBe(false);
+		expect(sec.style.getPropertyValue('--spark-fade')).toBe('900ms');
+		sparkContent(d.querySelectorAll('li')[1], { tone: 'accent', pulse: true, fade: 320 });
+		expect(sec.getAttribute('data-spark')).toBe('accent');
+		expect(sec.hasAttribute('data-spark-pulse')).toBe(true);
+	});
+
+	it('fades out, then clears — unless a later spark took the element back', () => {
+		vi.useFakeTimers();
+		try {
+			// The live document: a parsed one has no window, so its undo clears at once.
+			document.body.innerHTML = '<section><ul><li>One</li><li>Two</li></ul></section>';
+			const li = document.querySelector('li') as Element;
+			sparkContent(li, { fade: 300 })?.();
+			expect(li.className).toBe('lat-spark-out');
+			vi.advanceTimersByTime(400);
+			expect(li.className).toBe('');
+			sparkContent(li, { fade: 300 })?.();
+			sparkContent(li, { fade: 300 });
+			vi.advanceTimersByTime(400);
+			expect(li.className).toBe('lat-spark');
+		} finally {
+			vi.useRealTimers();
+			document.body.innerHTML = '';
+		}
+	});
+
+	it('changes no class the deck\'s own _focus owns', () => {
 		const d = doc('<ul><li class="lat-focus">One</li><li class="lat-recede">Two</li></ul>');
 		d.querySelector('section')?.setAttribute('data-focus-resolved', '');
 		const two = d.querySelectorAll('li')[1];
-		markContent(two)();
-		expect(two.className).toBe('lat-recede');
+		sparkContent(two)?.();
+		sparkContent(two);
+		expect(two.classList.contains('lat-recede')).toBe(true);
+		expect(two.classList.contains('lat-spark')).toBe(true);
 		expect(d.querySelector('li')?.className).toBe('lat-focus');
-	});
-
-	it('does nothing to a plain paragraph', () => {
-		const d = doc('<h2>Title</h2><p>Growth held.</p>');
-		markContent(d.querySelector('p') as Element)();
-		expect(d.querySelector('section')?.hasAttribute('data-focus-live')).toBe(false);
 	});
 });
 
@@ -400,20 +463,11 @@ describe('the checker round (#2371)', () => {
 		const d = doc('<ul><li>We met the team.</li><li>We toured the site.</li><li>We had lunch.</li></ul>');
 		const [a, , c] = [...d.querySelectorAll('li')];
 		expect(salience(a)).toBe(0);
-		markContent(a);
+		sparkContent(a);
 		expect(salience(a)).toBe(0);
 		const plan = planSlide(['We met the team.', 'We toured the site.', 'We had lunch.'], (t) => findCueTarget(d, t), 1, 0);
 		expect(plan.top).toBe(0);
 		expect(salience(c)).toBe(0);
-	});
-
-	it('does not take radar\'s container, which counts series, for a series', () => {
-		const d = doc(`<div class="chart-body radar-figure" data-series="2"><svg>
-			<polygon data-series="0"/><polygon data-series="1"/><text class="key">Enterprise tier</text></svg></div>`);
-		const undo = markContent(d.querySelector('text') as Element);
-		expect(d.querySelector('.radar-figure')?.classList.contains('lat-focus')).toBe(false);
-		expect(d.querySelectorAll('.lat-recede').length).toBe(0);
-		undo();
 	});
 
 	it('skips the paraphrase tier on a deck in another language', () => {

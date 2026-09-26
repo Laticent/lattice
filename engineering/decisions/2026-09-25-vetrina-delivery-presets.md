@@ -207,6 +207,51 @@ a preset of its own:
 
 A four-preset or two-axis scheme (tone × venue) was considered and is Fork 1.
 
+### 6.1 The spark, and what tells the presets apart (owner, 2026-09-26)
+
+After playing #2371's test deck the owner asked for two changes: the Guide should change the
+named element itself rather than draw ink beside it, and somber had to read differently from
+restrained. The owner settled both in one round:
+
+- **Spark by default.** Every gestured moment sparks: the named bullet, row, cell, column,
+  chart mark or line changes **color** in place (`sparkContent`, `present-guide.ts`; the look in
+  `lib/base/base.focus.css`). Weight, padding, borders and scale never change, so no box moves.
+  Peers stay at full strength, so the spark replaces the `mark` / `spotlight` recede of §5 on the
+  live surface. Overlay ink and the cursor survive only on expressive's top moment.
+- **Addressing.** A spark names the element the words sit in: a nested bullet sparks itself,
+  not its card; a table's first cell names its row, a header cell its column, any other body cell
+  itself (a table with a spanned cell names only the cell); a chart mark sparks every twin, a
+  series every shape, so a sentence about one point of a line lights the whole line. Plain prose
+  sparks its block. What no spark can reach (an image, a figure, a chart's hit area) falls back
+  to ink, so a planned moment never shows nothing.
+- **Somber reads differently on four axes**, as the preset table in
+  `lib/core/resolve-delivery.mjs` states:
+
+| | `restrained` | `expressive` | `somber` |
+|---|---|---|---|
+| Color | accent | accent | accent mixed toward the muted ink |
+| Motion | one 480 ms glow on arrival | the same | no glow |
+| Tempo | 320 ms fade; releases on the next sentence | 240 ms | 900 ms; holds through a short aside that names nothing |
+| Caption | word-by-word crawl in the accent | the same | the line in one muted ink, no crawl |
+| Ink + cursor | none | top moment only | none |
+
+Two things the renders taught, both recorded in the CSS:
+
+- A chart sparks in the **heading ink**, not the accent. A chart paints its first series, and
+  every bar of a one-series chart, in the accent itself, so an accent spark on indaco's
+  Enterprise line changed nothing.
+- A mark whose fill **carries** something (text laid over it, as a heatmap value or a state
+  node's name; or a translucent area, as radar's) keeps its fill and takes a heading-ink edge.
+  The Guide decides at spark time from the rendered geometry and the computed fill, rather than
+  from a list of components.
+- **SVG paint does not animate.** Chromium interpolating a chart's own token paint (a
+  `color-mix()` over `light-dark()`) toward the spark painted that line `oklab(1 255 255)`, pure
+  yellow, in the dark Studio. The paint switches in one step and the glow carries the arrival.
+  Text `color` does animate, and each state was checked against the rendered value.
+
+Measured: sparking every bullet, cell, row, column, mark and heading on all 116 gallery slides at
+once moved **0** of 5,381 element boxes, mid-glow and after it, in light and dark.
+
 ## 7. Timing and surface (axes D, E)
 
 ### 7.1 Word-anchored cues

@@ -24,9 +24,22 @@ test('the delivery names agree between the register and the linter', () => {
 test('the presets say what the design note §6 says', () => {
 	const { restrained, expressive, somber } = DELIVERY_PRESETS;
 	assert.ok(somber.budget < restrained.budget && restrained.budget < expressive.budget, 'somber spends least, expressive most');
-	assert.equal(somber.ink, false, 'somber shows no cursor and draws no ink');
-	assert.equal(restrained.marks, 'none');
+	assert.equal(somber.ink, 'none', 'somber shows no cursor and draws no ink');
+	assert.equal(restrained.ink, 'none', 'restrained sparks the element and draws no overlay');
+	assert.equal(expressive.ink, 'top', 'expressive inks its top moment only');
 	assert.equal(expressive.strength, 'notable');
+});
+
+test('somber reads differently from restrained on every visible axis (§6)', () => {
+	const { restrained, somber } = DELIVERY_PRESETS;
+	assert.notEqual(somber.spark, restrained.spark, 'color: somber never sparks in the accent');
+	assert.equal(somber.spark, 'muted');
+	assert.ok(restrained.pulse && !somber.pulse, 'motion: restrained pulses once, somber does not');
+	assert.ok(somber.fade >= 2 * restrained.fade, 'tempo: somber fades at least twice as slowly');
+	assert.equal(somber.hold, 'aside', 'tempo: somber holds its spark through an aside');
+	assert.equal(restrained.hold, 'none');
+	assert.equal(somber.caption, 'still', 'caption: somber drops the word-by-word crawl');
+	assert.equal(restrained.caption, 'crawl');
 });
 
 test('resolveDelivery falls back to restrained on an absent or unknown name', () => {

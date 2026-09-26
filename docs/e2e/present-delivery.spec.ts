@@ -4,9 +4,10 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // 2026-09-25-vetrina-delivery-presets.md §6). Both claims are about a real reader driving a real
 // Guide over a real slide, so jsdom cannot settle them (HARD RULE #23):
 //
-//   - `restrained` spends at most TWO gestures on a slide however many blocks it narrates, and
-//     spends them on the figures rather than on the first things said;
-//   - `somber` shows NO cursor and draws NO ink, and marks the named item on the slide itself.
+//   - `restrained` sparks at most TWO moments on a slide however many blocks it narrates, spends
+//     them on the figures rather than on the first things said, and draws no overlay ink;
+//   - `expressive` sparks more, and inks only its top moment;
+//   - `somber` sparks in a muted ink with no pulse, and shows NO cursor and NO ink.
 //
 // No key and no voice: the silent reader drives the cue clock exactly as a narrated one does.
 
@@ -60,29 +61,59 @@ async function present(page: import('@playwright/test').Page, deck: string) {
 	return dialog;
 }
 
-test('restrained spends at most two gestures on a six-block slide', async ({ page }) => {
-	await present(page, DENSE('restrained'));
-	const bursts = await inkBursts(page, 25_000);
-	expect(bursts, 'no ink at all: the plan chose nothing, or the Guide never ran').toBeGreaterThan(0);
-	expect(bursts, 'restrained gestured past its budget of two').toBeLessThanOrEqual(2);
+/** Count spark MOMENTS on the live slide for `ms`: a row, a column or a series lights many
+ *  elements in one batch, so class changes are grouped the way `inkBursts` groups ink. */
+async function sparks(dialog: import('@playwright/test').Locator, ms: number): Promise<string[]> {
+	const frame = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
+	return frame.locator('body').evaluate(async (body, duration) => {
+		const moments: { t: number; text: string }[] = [];
+		const t0 = Date.now();
+		const obs = new MutationObserver((records) => {
+			for (const r of records) {
+				const el = r.target as Element;
+				if (r.attributeName !== 'class' || !el.classList.contains('lat-spark') || (r.oldValue ?? '').includes('lat-spark')) continue;
+				const t = Date.now() - t0;
+				const last = moments[moments.length - 1];
+				if (last && t - last.t < 400) continue;
+				moments.push({ t, text: (el.textContent ?? '').trim().slice(0, 40) });
+			}
+		});
+		obs.observe(body, { attributes: true, attributeOldValue: true, subtree: true, attributeFilter: ['class'] });
+		await new Promise((r) => setTimeout(r, duration));
+		obs.disconnect();
+		return moments.map((m) => m.text);
+	}, ms);
+}
+
+test('restrained sparks at most two moments in place, and draws no ink', async ({ page }) => {
+	const dialog = await present(page, DENSE('restrained'));
+	const [lit, bursts] = await Promise.all([sparks(dialog, 25_000), inkBursts(page, 25_000)]);
+	expect(lit.length, 'no spark at all: the plan chose nothing, or the Guide never ran').toBeGreaterThan(0);
+	expect(lit.length, 'restrained sparked past its budget of two').toBeLessThanOrEqual(2);
+	expect(lit.join(' | '), 'the figure is the moment this slide exists for').toContain('$48.6M');
+	expect(bursts, 'restrained changes the element; it draws no overlay').toBe(0);
 });
 
-test('expressive spends more of the same slide than restrained does', async ({ page }) => {
-	await present(page, DENSE('expressive'));
-	const bursts = await inkBursts(page, 25_000);
-	expect(bursts, 'expressive gestured no more than restrained is allowed to').toBeGreaterThan(2);
-	expect(bursts, 'expressive gestured past its budget of four').toBeLessThanOrEqual(4);
+test('expressive sparks more of the same slide, and inks only its top moment', async ({ page }) => {
+	const dialog = await present(page, DENSE('expressive'));
+	const [lit, bursts] = await Promise.all([sparks(dialog, 25_000), inkBursts(page, 25_000)]);
+	expect(lit.length, 'expressive sparked no more than restrained is allowed to').toBeGreaterThan(2);
+	expect(lit.length, 'expressive sparked past its budget of four').toBeLessThanOrEqual(4);
+	expect(bursts, 'expressive inks its top moment, and only that one').toBe(1);
 });
 
-test('somber shows no cursor, draws no ink, and marks the named item on the slide', async ({ page }) => {
+test('somber sparks in a muted ink with no pulse, no cursor and no ink', async ({ page }) => {
 	const dialog = await present(page, DENSE('somber'));
 	const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
-	// The mark: one list item full, its peers receded, on the live slide.
-	await expect(slide.locator('li.lat-focus')).toHaveCount(1, { timeout: 30_000 });
-	await expect(slide.locator('li.lat-recede')).toHaveCount(4);
+	await expect(slide.locator('li.lat-spark')).toHaveCount(1, { timeout: 30_000 });
 	// The one somber moment is the top-ranked figure, not the first line spoken.
-	await expect(slide.locator('li.lat-focus')).toContainText('$48.6M');
-	// …and no cursor or ink appeared while it did.
+	await expect(slide.locator('li.lat-spark')).toContainText('$48.6M');
+	await expect(slide.locator('section[data-spark="muted"]:not([data-spark-pulse])')).toHaveCount(1);
+	// The peers stay exactly as they were: a spark recedes nothing.
+	await expect(slide.locator('.lat-recede')).toHaveCount(0);
+	// The spark is a different color from its peers.
+	const [lit, peer] = await Promise.all([slide.locator('li.lat-spark').evaluate((e) => getComputedStyle(e).color), slide.locator('li:not(.lat-spark)').first().evaluate((e) => getComputedStyle(e).color)]);
+	expect(lit).not.toBe(peer);
 	expect(await page.locator(CURSOR).evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
 	expect(await inkBursts(page, 4_000)).toBe(0);
 });

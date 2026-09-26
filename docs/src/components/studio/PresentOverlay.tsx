@@ -38,7 +38,7 @@ import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown,
 	isAside,
-	markContent, POINTER_BOX, planSlide, type SlidePlan } from './present-guide';
+	POINTER_BOX, planSlide, type SlidePlan, sparkContent, sparkUnit } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 
@@ -671,8 +671,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// from the source, so an author typing in the editor does not re-create this on every
 	// keystroke and thrash the beat effect that reads it.
 	const deckPace = React.useMemo(() => frontMatterPace(frontMatter), [frontMatter]);
-	// The deck's `delivery:` preset — how many moments a slide may gesture, whether the Guide
-	// shows a cursor at all, how loudly (lib/core/resolve-delivery.mjs). A deck register, not a
+	// The deck's `delivery:` preset — how many moments a slide may gesture, how each spark looks
+	// and paces, and where the cursor and ink still appear (lib/core/resolve-delivery.mjs). A deck register, not a
 	// workspace setting, for the reason `pace:` gives: the author's choice travels with the deck.
 	const delivery = React.useMemo(() => resolveDelivery(frontMatterDelivery(frontMatter)), [frontMatter]);
 	const beatForArrival = React.useCallback((): number => {
@@ -941,12 +941,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const guidePointRef = React.useRef<AbortController | null>(null);
 	/** Is the fake cursor currently ON SCREEN? Decides gesture-then-show vs gesture-only below. */
 	const guideShownRef = React.useRef(false);
+	// Is the CURSOR up? Distinct from "shown": a spark-only moment is shown with no hand at all.
+	const guideHandRef = React.useRef(false);
 	/** The element the last gesture named. The BLOCK-change cadence compares on this: a cue that
 	 *  resolves to the same element is a rest, not another trip. */
 	const guideAimRef = React.useRef<Element | null>(null);
 	// The current slide's salience plan, keyed on the slide and its track (see THE PLAN below).
 	const guidePlanRef = React.useRef<{ slide: number; track: unknown; delivery: string; plan: SlidePlan } | null>(null);
-	// The undo of the content mark in force (`markContent`), run on every retarget, hide and teardown.
+	// The undo of the spark in force (`sparkContent`), run on every retarget, hide and teardown.
 	const guideMarkRef = React.useRef<(() => void) | null>(null);
 	const unmarkGuide = React.useCallback(() => {
 		guideMarkRef.current?.();
@@ -1004,6 +1006,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// the first cue resolved. No target yet is the same state as no target later, and it gets
 		// the same answer.
 		stage.setCursorVisible(false);
+		guideHandRef.current = false;
 		guideShownRef.current = false;
 		guideStageRef.current = stage;
 		return () => {
@@ -1022,9 +1025,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// A preset change to one with no ink (restrained → somber, mid-present) takes the cursor down
 	// now, rather than leaving the last one up until a slide change rebuilds the stage.
 	React.useEffect(() => {
-		if (delivery.ink) return;
+		if (delivery.ink !== 'none') return;
 		guidePointRef.current?.abort();
 		guideStageRef.current?.setCursorVisible(false);
+		guideHandRef.current = false;
 		setGuideAiming(false);
 	}, [delivery.ink]);
 
@@ -1079,7 +1083,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// THE REST. Same element as the last cue → the hand stays where the last gesture left it.
 		// Guarded on the cursor actually being on screen, so the first cue of a block still gets
 		// its gesture after a stretch of unresolvable narration on the same block.
-		if (aim && aim === guideAimRef.current && guideShownRef.current) return;
+		// A live spark counts as resting too: expressive's top moment sparks at once but is only
+		// "shown" when its ink finishes, and the next sentence of the same block arriving mid-stroke
+		// took it for a new block and dropped the spark under the landing hand.
+		if (aim && aim === guideAimRef.current && (guideShownRef.current || guideMarkRef.current)) return;
 		// THE PLAN. Not every block earns a gesture: the delivery preset's budget goes to the
 		// slide's top-ranked moments (`planSlide`), each on the first sentence that names it, and
 		// every other sentence holds the hand still. Planned once per slide; re-planned if this
@@ -1094,18 +1101,19 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			}
 			top = entry.plan.top === activeCue;
 			if (!entry.plan.gesture.has(activeCue)) {
-				// The narration moved to a block the plan did not choose. A mark must not stay on the
-				// last one: it would recede the very thing being read. The hand itself only idles.
+				// The narration moved to a block the plan did not choose. A spark must not stay on the
+				// last one: it would name a thing nobody is saying. The hand itself only idles.
 				unmarkGuide();
 				// A stroke still drawing finishes; a resting hand keeps resting; a hand whose target
 				// left with the last slide hides.
 				if (guidePointRef.current && !guidePointRef.current.signal.aborted && !guideShownRef.current) return;
-				if (guideShownRef.current && guideStillShown(guideAimRef.current)) return;
+				if (guideHandRef.current && guideStillShown(guideAimRef.current)) return;
 				guidePointRef.current?.abort();
 				guidePointRef.current = null;
 				guideAimRef.current = null;
 				unmarkGuide();
 				stage.setCursorVisible(false);
+				guideHandRef.current = false;
 				guideShownRef.current = false;
 				setGuideAiming(false);
 				return;
@@ -1119,15 +1127,24 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// resting on the last thing named would claim that thing is what is being said.
 		// `text` must be a real sentence: an empty one means narration ended or the slide changed
 		// (`activeCue` -1), and a hand held then rests beside a slide that is gone.
-		if (!cue && text && isAside(text) && guideShownRef.current && guideStillShown(guideAimRef.current)) return;
-		// A preset with no ink (somber) shows no cursor, so the viewer's own pointer stays.
-		setGuideAiming(!!cue && delivery.ink);
+		// SOMBER'S TEMPO rides on the same hold: an aside keeps somber's spark lit, so the moment
+		// sits before it fades, while restrained's spark leaves with the next sentence. The hand
+		// itself holds on every preset. Only an aside that names NOTHING holds: a short sentence
+		// that names another block ("Churn doubled.") is that block's line, never an aside to this one.
+		if (!cue && text && isAside(text) && guideShownRef.current && guideStillShown(guideAimRef.current) && (guideHandRef.current || delivery.hold === 'aside')) return;
+		// Ink, and the cursor with it, only where the preset asks: expressive's top moment. Everywhere
+		// else the spark is the whole gesture and the viewer's own pointer stays.
+		// A moment nothing on the slide can spark (a figure, an image, a chart's hit area) falls back
+		// to ink, so a planned moment never shows nothing.
+		const inks = !!cue && ((delivery.ink === 'top' && top) || !sparkUnit(cue.el));
+		setGuideAiming(inks);
 		if (!cue) {
 			guidePointRef.current?.abort();
 			guidePointRef.current = null;
 			guideAimRef.current = null;
 			unmarkGuide();
 			stage.setCursorVisible(false);
+			guideHandRef.current = false;
 			guideShownRef.current = false;
 			return;
 		}
@@ -1135,14 +1152,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const ctl = new AbortController();
 		guidePointRef.current = ctl;
 		guideAimRef.current = cue.el;
-		// THE CONTENT MARK. A preset that marks content spotlights the named item, row, chart mark
-		// or series on the slide itself: somber on every moment it names (instead of ink),
-		// expressive on its top moment (beside the ink). The previous mark goes first, always.
+		// THE SPARK. Every planned moment changes the named bullet, row, cell, column, chart mark or
+		// line in place, in the preset's color, pulse and tempo. The previous spark goes first, always.
 		unmarkGuide();
-		if (delivery.marks === 'all' || (delivery.marks === 'top' && top)) guideMarkRef.current = markContent(cue.el);
-		if (!delivery.ink) {
-			// No cursor and no ink: the mark IS the gesture. "Shown" here means "a named thing is
-			// live on the slide", which is what the rest and the hold above ask.
+		guideMarkRef.current = sparkContent(cue.el, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade });
+		if (!inks) {
+			// No ink here: the spark IS the gesture, so a hand left from an inked moment goes down.
+			// "Shown" means "a named thing is live on the slide", which is what the rest and the
+			// hold above ask.
+			ctl.abort();
+			stage.setCursorVisible(false);
+			guideHandRef.current = false;
 			guideShownRef.current = true;
 			return;
 		}
@@ -1154,7 +1174,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const strength: 'quiet' | 'notable' = cue.strength === 'notable' || (top && delivery.strength === 'notable') ? 'notable' : 'quiet';
 		const opts = { strength, clearance: POINTER_BOX / 2 + 5, rest: cue.rest };
 		const run = stage.gesture(cue.kind, cue.target, ctl.signal, opts);
-		if (guideShownRef.current) {
+		if (guideHandRef.current) {
 			run.catch(() => {}); // an abort here is a retarget, not an error
 			return;
 		}
@@ -1169,6 +1189,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			if (ctl.signal.aborted || guideStageRef.current !== stage) return;
 			guideShownRef.current = true;
 			stage.setCursorVisible(true);
+			guideHandRef.current = true;
 		}).catch(() => {});
 	}, [guideBeat, guideLive, guideRoot]);
 
@@ -1785,7 +1806,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// nothing to show, so blooming in is a transition rather than a mount.
 	const captionBand = (
 		<div className="latt-cc-band" data-shown={showCaption ? '1' : '0'}>
-			{showCaption && <PresentCaption track={reader.track} active={reader.active} announce={muted} />}
+			{showCaption && <PresentCaption track={reader.track} active={reader.active} announce={muted} className={delivery.caption === 'still' ? 'latt-cc--still' : undefined} />}
 		</div>
 	);
 	const railBar = <PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} prefetchFront={rehearse ? 0 : prefetchFront} ready={rehearse ? undefined : readyFractions} onJump={setIdx} />;

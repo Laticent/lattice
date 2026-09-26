@@ -1035,8 +1035,17 @@ follow-up.
 ## The `delivery:` front-matter register (how much the narrated Guide gestures)
 
 `delivery:` sets how the Studio's Present **Guide** behaves while narration plays: how many
-moments on a slide get a gesture, whether it shows a cursor, and how heavy the ink is. It
-changes nothing in a rendered slide, a PDF or a PPTX.
+moments on a slide get a gesture, and how each one looks. It changes nothing in a rendered
+slide, a PDF, a PPTX or an export.
+
+**The gesture is a spark.** When the narration names a bullet, a table row, cell or column, a
+chart bar, wedge or line, that element changes color in place while it is being said. Nothing
+moves, the other items stay as they were, and nothing is drawn over the slide. A table's first
+cell names its row, a header cell names its column, and any other cell names itself. Text sparks
+in the accent; a chart mark sparks in the heading ink, because a chart often paints its first
+series in the accent already. A mark that carries something in its fill (a heatmap value, a
+state node's name, radar's translucent area) keeps that fill and takes an ink edge instead. When
+the narration names something no spark can reach (an image, a figure), the Guide draws ink there.
 
 ```yaml
 delivery: restrained   # the default: a boardroom, or a board member reading the file alone
@@ -1048,8 +1057,11 @@ delivery: somber       # bad news, a loss: nothing moves that does not have to
 |---|---|---|---|
 | Gestures per slide, at most | 2 | 4 | 1 |
 | After the first, a moment needs a signal | yes | no | yes |
-| Cursor and ink | yes | yes | no |
-| Top moment drawn heavier | no | yes | no |
+| Spark color | the accent | the accent | a quiet ink, never the accent |
+| Arrival | one soft glow | one soft glow | no glow |
+| Fade in and out | 320 ms; leaves with the next sentence | 240 ms; the same | 900 ms, and it holds through a short aside that names nothing ("Thank you.") |
+| Cursor and overlay ink | none | on the top moment only | none |
+| Caption | the word being said lights up | the word being said lights up | the line reads in one muted ink |
 
 **What decides which moments.** At each slide the Guide ranks everything the narration names.
 From strongest to weakest: an authored `_focus:` target (never cut, even past the budget), a

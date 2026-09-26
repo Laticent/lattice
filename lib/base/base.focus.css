@@ -172,18 +172,95 @@ section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
   paint-order: stroke;
 }
 
-/* ── the live mark — the Present Guide's content gesture ───────────────────── */
-/* The Guide applies the classes above while narration names a list item, a row,
- * a chart mark or a series, and scopes the section `data-focus-live` so the change
- * FADES instead of snapping. No render path writes that attribute, so a PDF, a
- * PPTX and an exported slide are unchanged. */
-section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) {
-  transition: opacity 320ms ease-out, stroke-width 320ms ease-out;
+/* ── the spark — the Present Guide's content gesture ───────────────────────── */
+/* While narration names a bullet, a table row, cell or column, a chart mark or a
+ * line, the Guide tags that element `.lat-spark` and it changes COLOR in place:
+ * text to `--spark-ink`, a chart mark's fill and a line's stroke to
+ * `--spark-mark`. Color only — never weight, padding, border or scale — so no
+ * box moves in front of the audience (`npm run check:jank`), and the peers stay
+ * at full strength. When the narration moves on the tag becomes
+ * `.lat-spark-out`, which fades text back before the Guide removes it.
+ *
+ * The section carries the preset: `data-spark="accent|muted"` picks the ink
+ * (somber never sparks in the accent), `data-spark-pulse` adds one brief glow
+ * on arrival, and the inline `--spark-fade` sets the tempo. Every color is a
+ * token (HARD RULE #3), so each theme's spark is automatic. No render path
+ * writes any of it, so a PDF, a PPTX and an export render exactly as before:
+ * these rules ship in the bundle and match nothing there.
+ *
+ * Text fades with an animation, not a transition: `to` with no `from` starts at
+ * whatever the element already paints, so the spark needs no knowledge of the
+ * theme's own colors, and nothing overrides a component's own `transition`. */
+/* A chart mark sparks to the HEADING ink, not the accent: a chart paints its
+ * first series (and every bar of a one-series chart) in the accent itself, so an
+ * accent spark there changed nothing (measured on indaco's line and bar). No
+ * categorical hue is the page's own ink, so the heading ink always reads as
+ * "this one", in light and dark alike. */
+section[data-spark] {
+  --spark-ink: var(--accent);
+  --spark-mark: var(--text-heading);
+  --spark-glow: color-mix(in srgb, var(--accent) 55%, transparent);
+  --spark-wash: color-mix(in srgb, var(--accent) 16%, transparent);
 }
+/* Somber: the accent pulled toward the muted ink — a quieter hue, never the accent
+ * itself. Toward `--text-muted`, not `--text-heading`: a mix into the heading ink
+ * lands on the body text's own color, and the spark disappears (measured). */
+section[data-spark="muted"] {
+  --spark-ink: color-mix(in oklab, var(--accent) 55%, var(--text-muted));
+  --spark-mark: color-mix(in oklab, var(--text-heading) 70%, var(--text-muted));
+  --spark-wash: color-mix(in srgb, var(--text-muted) 14%, transparent);
+}
+@keyframes lat-spark-text { to { color: var(--spark-ink); } }
+@keyframes lat-spark-text-out { from { color: var(--spark-ink); } }
+@keyframes lat-spark-pulse {
+  0% { filter: none; }
+  35% { filter: drop-shadow(0 0 0.6cqi var(--spark-glow)); }
+  100% { filter: none; }
+}
+
+/* Text: the element and the inline runs that set their own color. */
+section[data-spark] :is(.lat-spark, .lat-spark > :is(strong, b, em, i, a, code, mark)):not(svg *) {
+  animation: lat-spark-text var(--spark-fade, 320ms) ease-out forwards;
+}
+section[data-spark] :is(.lat-spark-out, .lat-spark-out > :is(strong, b, em, i, a, code, mark)):not(svg *) {
+  animation: lat-spark-text-out var(--spark-fade, 320ms) ease-in forwards;
+}
+/* A named card keeps its nested body in the ink it had, coming and going: the spark
+ * names the card's own line, not everything under it. The Guide stores that ink as
+ * `--spark-keep`. Inline runs spark only as the item's own children, above, so bold
+ * text inside the nested body stays put too. */
+section[data-spark] :is(.lat-spark, .lat-spark-out) :is(ul, ol) { color: var(--spark-keep, inherit); }
+/* A table cell also takes a soft wash behind its text. A cell is small and often
+ * set in a light face, so on a dark theme — where the accent sits close to the
+ * body ink — a hue shift alone was too faint to find (measured on indaco dark).
+ * A background is paint, so the row, column or cell still moves nowhere. */
+section[data-spark] :is(td, th).lat-spark { background-color: var(--spark-wash) !important; }
+/* A chart mark (bar, wedge, band, dot) changes fill; a line changes stroke.
+ * SVG paint does NOT animate: Chromium interpolating a chart's own token paint
+ * (a `color-mix()` over `light-dark()`) toward the spark painted the Enterprise
+ * line pure yellow in the dark Studio — `oklab(1 255 255)`, measured — so the
+ * paint switches in one step and the pulse carries the arrival. `!important`
+ * because a pie wedge writes its fill inline. */
+section[data-spark] :is(:is(rect, circle, ellipse, polygon, path)[data-mark], :is(circle, polygon)[data-series]).lat-spark:not(.lat-spark-edge) { fill: var(--spark-mark) !important; }
+/* …except a mark whose fill carries something — text laid over it (a heatmap value,
+ * a state node's name) or a translucent area (radar). Ink over those hid what the
+ * narration is naming, so the Guide tags them `.lat-spark-edge` and they take an
+ * edge instead: drawn behind the fill (`paint-order`), so the fill and its text stay
+ * exactly as they were. Half the stroke sits under the fill, as the `ring` rule above. */
+section[data-spark] .lat-spark.lat-spark-edge {
+  stroke: var(--spark-mark) !important;
+  stroke-width: 5 !important;
+  paint-order: stroke;
+}
+section[data-spark] :is(:is(path, line, polyline)[data-series], :is(line, polyline)[data-mark]).lat-spark { stroke: var(--spark-mark) !important; }
+section[data-spark] text.lat-spark { fill: var(--spark-ink) !important; }
+/* The pulse rides beside the color, once, on arrival. A glow is paint, not layout. */
+section[data-spark][data-spark-pulse] .lat-spark:not(svg *) {
+  animation: lat-spark-text var(--spark-fade, 320ms) ease-out forwards, lat-spark-pulse 480ms ease-out;
+}
+section[data-spark][data-spark-pulse] svg .lat-spark { animation: lat-spark-pulse 480ms ease-out; }
 @media (prefers-reduced-motion: reduce) {
-  section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) { transition: none; }
+  section[data-spark] { --spark-fade: 1ms !important; }
+  section[data-spark][data-spark-pulse] .lat-spark,
+  section[data-spark][data-spark-pulse] .lat-spark * { filter: none !important; }
 }
-/* No weight change live. Bold text is wider, so a list item or an auto-layout
- * table column would rewrap and move in front of the audience mid-sentence;
- * opacity and the ring carry the mark on their own, and neither moves a box. */
-section[data-focus-live][data-focus-resolved] :is(.lat-focus, .lat-focus > td, .lat-focus > th) { font-weight: inherit; }

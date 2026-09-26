@@ -44,6 +44,7 @@ export const STAGE_CHROME_CSS = `
 .latt-cc-w{transition:color .15s;}
 .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:var(--text-muted);}
 .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:var(--accent);}
+.latt-cc--still .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken]{color:var(--text-muted);}
 @media (min-width:640px){.latt-cc-line{font-size:18px;}}
 /* ── the progress rail ───────────────────────────────────────────────────── */
 .latt-rail{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:.375rem;width:100%;}

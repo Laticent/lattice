@@ -1247,13 +1247,11 @@ export const sentenceRects = (block: Element, text: string): DOMRect[] | null =>
  *  deck said "row 4", so pointing at the table would be ignoring it. Escalation then falls out
  *  of the vocabulary — a smaller box picks a stronger gesture through `chooseGesture` — rather
  *  than being a second knob bolted beside it. */
-/** An AUTHORED `.lat-focus`, never the Guide's own live mark: `markContent` writes the same class,
- *  and reading it back as the deck's call-out made the marked item "notable" and exempt from the
- *  budget. A live mark lives only in a `section[data-focus-live]`, which a deck-focused slide never
- *  becomes (`markContent` refuses one). */
+/** An AUTHORED `.lat-focus`. The Guide's own spark writes `.lat-spark`, never this class, so the
+ *  element it is lighting never reads back as the deck's call-out (which would make it "notable"
+ *  and exempt from the budget). */
 function authoredFocusOf(el: Element): { self: boolean; inner: Element | null } {
-	const self = !!el.closest('.lat-focus') && !el.closest('section[data-focus-live]');
-	return { self, inner: el.closest('section[data-focus-live]') ? null : el.querySelector('.lat-focus') };
+	return { self: !!el.closest('.lat-focus'), inner: el.querySelector('.lat-focus') };
 }
 
 export function aimTarget(block: Element, text = ''): { el: Element; notable: boolean } {
@@ -2229,82 +2227,145 @@ export function planSlide(texts: readonly string[], aim: (text: string) => Eleme
 	return { gesture: new Set(chosen.map((r) => r.cue)), top: chosen[0]?.cue ?? -1, aimed };
 }
 
-// ── CONTENT MARKS — the gesture that changes the slide rather than drawing on it ─────────────
+// ── THE SPARK — the gesture that changes the slide rather than drawing on it ────────────────
 //
-// Ink draws over the content; a content mark sets a state ON it: the named list item, table row,
-// chart mark or series stays full while its peers recede. It is the `_focus:` treatment, applied
-// live — the same `.lat-focus` / `.lat-recede` classes and `data-focus-*` section attributes, so
-// every look comes from `lib/base/base.focus.css` and every theme gets it with no new CSS color
-// (HARD RULE #3). `data-focus-live` is the one addition: it scopes a fade to the live surface,
-// so a PDF, which never carries it, stays byte-identical.
+// Ink draws over the content; a spark changes the content itself. The named bullet, table row,
+// cell or column, chart mark or line takes the `.lat-spark` class and changes COLOR in place —
+// never weight, padding, border or scale, so no box moves in front of the audience — while its
+// peers stay exactly as they were. Every look comes from `lib/base/base.focus.css` and every
+// color from a token, so each theme's spark is automatic (HARD RULE #3). The section carries the
+// preset (`data-spark`, `data-spark-pulse`, `--spark-fade`); no render path writes any of it, so
+// a PDF, a PPTX and an export render exactly as before (the rules ship in the CSS bundle, inert).
 //
-// Two rules keep it honest. It never marks a slide the DECK already focused (`_focus:` resolved
-// there), because the author's focus outranks the Guide's. And it always returns its own undo,
-// which the caller runs on the next gesture, on a slide change, and when Guide switches off: a
-// mark left behind would be a lie about what is being said.
+// It uses its own class rather than `_focus`'s, so it never reads back as the deck's authored
+// call-out (`authoredFocusOf`), and it can spark inside a slide the deck already focused: color
+// on the named thing does not fight the author's spotlight. It always returns its own undo, which
+// the caller runs on the next gesture, on a slide change and when Guide switches off: a spark left
+// behind would be a lie about what is being said.
 
 const SERIES_SHAPES = ['path', 'polygon', 'polyline', 'circle', 'line'];
 
-/** The unit a content mark names for `el`, its peers, and the `_focus` axis it matches. */
-function markUnit(el: Element): { unit: Element[]; peers: Element[]; axis: string } | null {
+/** What a spark lights for `el`, and the `_focus`-grammar axis that names it; null when nothing
+ *  on the slide can take a spark (a figure, an image, a chart's hit area, a container of blocks),
+ *  and the caller falls back to ink. */
+export function sparkUnit(el: Element): { unit: Element[]; axis: string } | null {
 	const section = el.closest('section');
 	if (!section) return null;
-	const chart = el.closest('.chart-body') ?? section;
+	// One chart's marks, never another's: two charts on a slide both number their marks from 0.
+	const chart = el.closest('.chart-body') ?? el.closest('figure.chart-frame') ?? el.closest('svg') ?? section;
 	for (const attr of ['data-mark', 'data-series'] as const) {
 		// A series is its SHAPES: radar's container `<div>` also writes `data-series`, as a count,
 		// and slope's labels write a palette slot. `focus.js` draws the same line.
 		const sel = attr === 'data-series' ? SERIES_SHAPES.map((t) => `${t}[data-series]`).join(', ') : '[data-mark]:not(template)';
 		const v = el.closest(sel)?.getAttribute(attr);
 		if (v == null) continue;
-		const all = [...chart.querySelectorAll(sel)].filter((m) => !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
-		const unit = all.filter((m) => m.getAttribute(attr) === v);
-		return { unit, peers: all.filter((m) => !unit.includes(m)), axis: attr === 'data-mark' ? 'mark' : 'series' };
+		const unit = [...chart.querySelectorAll(sel)].filter((m) => m.getAttribute(attr) === v && !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
+		if (unit.length) return { unit, axis: attr === 'data-mark' ? 'mark' : 'series' };
 	}
-	const row = el.closest('tbody > tr');
-	if (row?.parentElement) return { unit: [row], peers: [...row.parentElement.children].filter((r) => r !== row), axis: 'row' };
+	// A TABLE names three things, by where the spoken words sit: a header cell names its column,
+	// the row's first cell (its label) names the row, and any other body cell names itself. A
+	// table with a spanned cell names only the cell: a child index is no longer a column there,
+	// and escalating on it lit the wrong column.
+	const cell = el.closest('td, th');
+	const row = cell?.parentElement as HTMLTableRowElement | null | undefined;
+	const table = cell?.closest('table') as HTMLTableElement | null | undefined;
+	if (cell && row && table) {
+		const rows = [...table.rows];
+		if (rows.some((r) => [...r.cells].some((c) => c.colSpan > 1 || c.rowSpan > 1))) return { unit: [cell], axis: 'cell' };
+		const index = [...row.children].indexOf(cell);
+		if (cell.closest('thead')) return { unit: rows.map((r) => r.cells[index]).filter((c): c is HTMLTableCellElement => !!c), axis: 'col' };
+		if (index === 0) return { unit: [...row.children], axis: 'row' };
+		return { unit: [cell], axis: 'cell' };
+	}
+	// A BULLET is the item the words sit in: a nested bullet sparks itself, not its card.
 	const li = el.closest('li');
-	if (li?.parentElement && /^(UL|OL)$/.test(li.parentElement.tagName)) {
-		// The TOP-level item: a nested bullet names its card, as `_focus: item` does.
-		let top: Element = li;
-		for (let up = top.parentElement?.closest('li'); up && section.contains(up); up = up.parentElement?.closest('li')) top = up;
-		const list = top.parentElement as Element;
-		return { unit: [top], peers: [...list.children].filter((c) => c !== top && c.tagName === 'LI'), axis: 'item' };
+	if (li && section.contains(li)) return { unit: [li], axis: 'item' };
+	// Inside a chart, only a text label is a spark; a hit area or a frame is not.
+	if (el.closest('svg')) return el.matches('text') ? { unit: [el], axis: 'block' } : null;
+	// ANY OTHER TEXT BLOCK — a paragraph, a heading, a quote, a bold phrase — sparks itself, so a
+	// slide of plain prose still has a moment. Never a container of blocks or of chart marks: the
+	// whole slide turning accent is a flood, not a spark.
+	if (el === section || el.matches('img, svg, figure, picture, video, canvas, table')) return null;
+	if (el.querySelector('p, li, table, [data-mark], [data-series], h1, h2, h3, blockquote')) return null;
+	return { unit: [el], axis: 'block' };
+}
+
+export type SparkLook = { tone?: 'accent' | 'muted'; pulse?: boolean; fade?: number };
+
+/** A fade-out's pending clear, per element, so a spark that returns before it ends keeps it. */
+const pendingClear = new WeakMap<Element, number>();
+
+/** An SVG area mark whose fill must stay: one with text laid over it (a heatmap value, a state
+ *  node's name), or a translucent one (radar's area). Filling either with ink hid what it carries,
+ *  so it takes an edge instead. A series polygon is an AREA by construction and often paints
+ *  through a gradient, whose alpha no computed style reports, so it always takes the edge. */
+function wantsEdge(m: Element, view: Window): boolean {
+	if (!m.matches('rect, circle, ellipse, polygon, path')) return false;
+	if (m.matches('polygon[data-series]')) return true;
+	const cs = view.getComputedStyle(m);
+	if (Number.parseFloat(cs.fillOpacity) < 1 || /\/\s*0?\.\d+\s*\)$|,\s*0?\.\d+\s*\)$/.test(cs.fill)) return true;
+	const r = m.getBoundingClientRect();
+	if (r.width < 1 || r.height < 1) return false;
+	const scope = m.closest('.chart-body') ?? m.closest('svg')?.parentElement ?? m.closest('section');
+	if (!scope) return false;
+	for (const t of scope.querySelectorAll('text, tspan, span, p, div, li')) {
+		if (t.closest(UNPAINTED)) continue;
+		if (t.childElementCount || t === m || t.contains(m) || !(t.textContent ?? '').trim()) continue;
+		const q = t.getBoundingClientRect();
+		const cx = q.left + q.width / 2;
+		const cy = q.top + q.height / 2;
+		if (cx > r.left && cx < r.right && cy > r.top && cy < r.bottom) return true;
 	}
-	return null;
+	return false;
 }
 
 /**
- * Mark the content `el` names, and return the undo. A no-op (with a no-op undo) when `el` is not
- * part of a list, a table body, or a chart's marks, or when the deck already focused the slide.
+ * Spark the content `el` names, and return the undo — or null when nothing on the slide can take
+ * a spark, so the caller can gesture another way. The undo swaps `.lat-spark` for
+ * `.lat-spark-out`, which fades text back over the same `fade`, then removes it.
  */
-export function markContent(el: Element, style?: 'spotlight' | 'ring'): () => void {
-	const section = el.closest('section');
-	const found = markUnit(el);
-	if (!section || !found?.peers.length) return () => {};
-	if (section.hasAttribute('data-focus-resolved') && !section.hasAttribute('data-focus-live')) return () => {};
-	// The look `_focus:` would pick for the same axis: a row is ringed so the comparison across
-	// the table stays legible; everything else spotlights.
-	const look = style ?? (found.axis === 'row' ? 'ring' : 'spotlight');
-	const attrs = { 'data-focus-live': '', 'data-focus-resolved': '', 'data-focus-axis': found.axis, 'data-focus-style': look };
-	const before = Object.fromEntries(Object.keys(attrs).map((k) => [k, section.getAttribute(k)]));
-	for (const [k, v] of Object.entries(attrs)) section.setAttribute(k, v);
-	const added: [Element, string][] = [];
-	const tag = (e: Element, cls: string) => {
-		if (e.classList.contains(cls)) return;
-		e.classList.add(cls);
-		added.push([e, cls]);
-	};
-	for (const e of found.unit) tag(e, 'lat-focus');
-	for (const e of found.peers) tag(e, 'lat-recede');
-	return () => {
-		for (const [e, cls] of added) e.classList.remove(cls);
-		// `data-focus-live` stays until the slide changes, so the peers FADE back rather than snap:
-		// the transition rule is scoped on it. Everything else returns to what the deck had.
-		for (const [k, v] of Object.entries(before)) {
-			if (k === 'data-focus-live') continue;
-			if (v == null) section.removeAttribute(k);
-			else section.setAttribute(k, v);
+export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | null {
+	const section = el.closest('section') as HTMLElement | null;
+	const found = sparkUnit(el);
+	if (!section || !found) return null;
+	const { tone = 'accent', pulse = true, fade = 320 } = look;
+	section.setAttribute('data-spark', tone);
+	section.toggleAttribute('data-spark-pulse', pulse);
+	section.style?.setProperty('--spark-fade', `${fade}ms`);
+	const view = el.ownerDocument?.defaultView;
+	const kept: HTMLElement[] = [];
+	for (const e of found.unit) {
+		if (view) view.clearTimeout(pendingClear.get(e));
+		// A card whose nested list is not being said keeps that list in the ink it had — read
+		// BEFORE the class lands, while the element still paints its own ink.
+		if (view && e instanceof view.HTMLElement && e.matches('li') && e.querySelector('ul, ol')) {
+			e.style.setProperty('--spark-keep', view.getComputedStyle(e).color);
+			kept.push(e);
 		}
+		if (view && e.closest('svg') && wantsEdge(e, view)) e.classList.add('lat-spark-edge');
+		e.classList.remove('lat-spark-out');
+		e.classList.add('lat-spark');
+	}
+	let done = false;
+	return () => {
+		if (done) return;
+		done = true;
+		for (const e of found.unit) {
+			if (!e.classList.contains('lat-spark')) continue;
+			e.classList.remove('lat-spark');
+			e.classList.add('lat-spark-out');
+		}
+		const clear = () => {
+			for (const e of found.unit) {
+				// A later spark on the same element took it back; its state is no longer ours to end.
+				if (e.classList.contains('lat-spark')) continue;
+				e.classList.remove('lat-spark-out', 'lat-spark-edge');
+				if (kept.includes(e as HTMLElement)) (e as HTMLElement).style.removeProperty('--spark-keep');
+			}
+		};
+		if (!view) return clear();
+		const t = view.setTimeout(clear, fade + 40);
+		for (const e of found.unit) pendingClear.set(e, t);
 	};
 }
 
