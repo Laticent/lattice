@@ -76,8 +76,10 @@ const SKIP_EXTENSIONS = /\.(pdf|pptx|zip)$/i;
 //
 // MIND THE METRIC IF YOU EVER RE-SIZE IT. 437 counts files at the ORIGIN; this cap bounds
 // entries a reader actually cached, and most of the 437 (157 hljs grammars, 70 plans, 31
-// samples) no session ever fetches. So ~717 is an upper bound, not an occupancy figure —
-// good enough to say the old number was stale, not good enough to pick a new cap from.
+// samples) no session ever fetches. So ~717 is an upper bound, not an occupancy figure.
+// MEASURED (2026-09-26, a production build in headless Chromium): a typical session warms
+// 186 ASSETS entries and a crawl of every page 217 — about a quarter of the cap. Table and
+// method: the retention note below, § Option A.
 // Relevant to anything that would RETAIN previous hash dirs, which doubles the versioned
 // half: engineering/decisions/2026-09-15-playground-asset-retention.md § Option A. (Old-deploy
 // /_astro/ orphans are NOT version-evicted — see the dispatch comment — but a new deploy's
