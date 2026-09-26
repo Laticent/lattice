@@ -37,7 +37,7 @@ import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { BACKDROP_MASKS, backdropProvenance, type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum } from './spectrum-catalog';
@@ -240,6 +240,7 @@ function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { val
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const BACKDROP_SPOT_LABEL: Record<string, string> = { tl: 'top left', t: 'top', tr: 'top right', l: 'left', c: 'center', r: 'right', bl: 'bottom left', b: 'bottom', br: 'bottom right' };
 /**
  * The label for a per-slide axis's HEAD option — the "no token here, follow the
  * deck" choice. The house word is **Auto**, never "inherit" (HARD-won house rule:
@@ -374,6 +375,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	];
 	const finishGroups = finishSelectGroups({ heads: finishHeads, saved: savedFinish, savedValue: (n) => n });
 	const onFinish = (v: string) => onMutate((c) => setFinish(c, v === '__inherit__' ? null : v === '__none__' ? 'none' : v));
+	// Backdrop — restraint over whatever finish this slide wears (the deck `backdrop:` register's
+	// per-slide override; lib/core/resolve-backdrop.js). Two axes, each Auto = follow the deck.
+	const bdStrength = React.useMemo(() => backdropProvenance(chunk, source, 'strength'), [chunk, source]);
+	const bdMask = React.useMemo(() => backdropProvenance(chunk, source, 'mask'), [chunk, source]);
+	const maskLabel = (m?: string): string => (!m ? "Finish's own" : m === 'clear' ? 'Clear behind content' : m === 'open' ? 'No mask' : `Window · ${BACKDROP_SPOT_LABEL[m.slice(5)] ?? m}`);
+	const bdMaskOptions: CatalogOption[] = [
+		{ value: '__inherit__', label: autoHead(maskLabel(bdMask.deckValue)) },
+		...BACKDROP_MASKS.map((m) => ({ value: m, label: maskLabel(m) })),
+	];
+	const onBdStrength = (v: string | null) => onMutate((c) => setBackdrop(c, 'strength', v));
+	const onBdMask = (v: string) => onMutate((c) => setBackdrop(c, 'mask', v === '__inherit__' ? null : v));
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
@@ -596,6 +608,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Finish" hint={finish.state === 'inherited' ? 'from deck' : undefined} desc="The backdrop behind this slide." help={<>A soft gradient or grain painted behind the content. It comes from the deck unless you override it here.</>}>
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
+							{finish.state !== 'off' && (
+								<>
+									<Row label="Backdrop strength" hint={bdStrength.state === 'inherited' ? `${bdStrength.deckValue === 'full' ? '100' : bdStrength.deckValue}% · deck` : undefined} desc="Dims the finish on this slide." find="backdrop dim fade restraint opacity" help={<>Pulls the finish back without changing it. <strong>Auto</strong> follows the deck's <code>backdrop:</code> line, then the finish's own setting. Written as <code>_class: backdrop-40</code>.</>}>
+										<Seg
+											ariaLabel="Backdrop strength"
+											value={bdStrength.state === 'on' ? (bdStrength.value ?? null) : null}
+											onChange={onBdStrength}
+											options={[{ label: 'Auto', value: null }, { label: '20', value: '20' }, { label: '40', value: '40' }, { label: '60', value: '60' }, { label: '80', value: '80' }, { label: '100', value: 'full' }]}
+										/>
+									</Row>
+									<Row label="Backdrop mask" hint={bdMask.state === 'inherited' ? 'from deck' : undefined} desc="Where the finish shows on this slide." find="backdrop clear spotlight window mask" help={<><strong>Clear behind content</strong> keeps the words on clean canvas; a <strong>Window</strong> shows the finish in one spot only; <strong>No mask</strong> discards a finish's own clearance.</>}>
+										<Picker ariaLabel="Backdrop mask" value={bdMask.state === 'on' ? (bdMask.value ?? '__inherit__') : '__inherit__'} onChange={onBdMask} options={bdMaskOptions} />
+									</Row>
+								</>
+							)}
 							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
 							{accepts('compact') && (
 								<Row label="Compact" hint="tighter spacing" desc="Tighter spacing between elements.">

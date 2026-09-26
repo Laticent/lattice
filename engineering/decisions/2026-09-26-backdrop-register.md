@@ -1,11 +1,12 @@
 ---
-status: proposed
+status: in-progress
 summary: Backdrop restraint (strength, clear-behind-content, spotlight) works only on a fabricated finish, only deck-wide, and only in the Studio, because #695 made it a baked layer of the finish and retired the author-facing `backdrop:` map. This proposes a finish-independent `backdrop:` register plus per-slide `backdrop-*` classes that override the baked value (slide beats deck beats finish), on every render path including the CLI. Partly supersedes the FINAL revision of 2026-07-01-finish-restraint-controls.md.
 ---
 
 # The `backdrop:` register — restraint for any finish, on any slide
 
-**Status:** proposed 2026-09-26. Design before code; no engine change yet.
+**Status:** in progress 2026-09-26. Owner confirmed the name (`backdrop:`), the 20/40/60/80
+steps, and keeping `finish-override.backdrop` with the register winning (§7).
 **Partly supersedes:** the 2026-07-02 FINAL revision of
 [`2026-07-01-finish-restraint-controls.md`](2026-07-01-finish-restraint-controls.md), which
 retired the top-level `backdrop:` map. This note keeps that revision's *baked* layer and
@@ -91,24 +92,43 @@ A separate token namespace, read first, so no specificity contest with a fabrica
 
 ```css
 section.finish > .backdrop {
-  opacity: var(--bd-strength, var(--fin-backdrop-strength, 1));
+  opacity: var(--backdrop-opacity, var(--fin-backdrop-strength, 1));
 }
 section.finish > .backdrop > .backdrop-mask {
-  background: var(--bd-mask, var(--fin-backdrop-mask, none));
+  background-image: var(--backdrop-scrim, var(--fin-backdrop-mask, none)),
+                    var(--backdrop-dim-scrim, none);
 }
-section.backdrop-40 { --bd-strength: 0.4; }
+section.backdrop-40 {
+  --backdrop-opacity: 1;   /* cancel a baked dim so the step replaces it */
+  --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 60%, transparent) 0 0);
+}
 section.backdrop-clear {
-  --bd-mask: var(--backdrop-clear-mask);
-  --bd-mask-opaque: var(--backdrop-clear-mask-opaque);
+  --backdrop-scrim: var(--backdrop-clear-mask);
+  --backdrop-scrim-opaque: var(--backdrop-clear-mask-opaque);
 }
-section.backdrop-open { --bd-mask: none; --bd-mask-opaque: none; }
+section.backdrop-open { --backdrop-scrim: none; --backdrop-scrim-opaque: none; }
 /* both export flips gain one line: */
-@media print { section.finish { --bd-mask: var(--bd-mask-opaque); } }
+@media print { section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); } }
 ```
 
-When no `backdrop-*` class is present, `--bd-mask-opaque` is undefined, so the print flip makes
-`--bd-mask` invalid and the `var()` fallback reaches the baked value. A deck with no new token
-renders **byte-identical**. That is the acceptance test for the no-opt-in path.
+When no `backdrop-*` class is present, `--backdrop-scrim-opaque` is undefined, so the print flip
+makes `--backdrop-scrim` invalid and the `var()` fallback reaches the baked value. A deck with no
+new token renders **byte-identical**. That is the acceptance test for the no-opt-in path.
+
+**Strength is a veil, not an opacity.** The first cut set `opacity` on `.backdrop`, as the
+baked strength does. The demo PDF then showed a large dark wedge across every slide that
+combined a step below 100% with `clear`, in poppler (pdftoppm, and so Evince and Okular). A
+minimal page isolated it: a hard-edged mask nested inside a group with `opacity < 1` draws the
+wedge; the same mask with no group opacity renders clean. PDFium drew all variants correctly.
+So a strength step now lays a flat sheet of the canvas at (100 − N)% in the mask layer, which
+is the same pixel math on a flat canvas and creates no transparency group. It rendered clean
+in poppler and PDFium. The token names end in `-scrim` / `-opacity` because the ownership gate
+requires a role suffix on any token in a `var()` fallback chain (HARD RULE #11).
+
+**Found, not caused:** a fabricated finish that bakes BOTH `strength < 1` and a clearance hits
+the same wedge through `--fin-backdrop-strength`, which predates this register. Logged in
+`followups.d/`. The poppler hairline drawn along any hard mask edge (the shipped clearance
+included) is also pre-existing; PDFium draws none.
 
 ### 4.4 Anchor slides
 
@@ -131,8 +151,9 @@ old *map* form (an indented child under `backdrop:`) and its fix text points to 
 - **Engine:** `lib/core/resolve-backdrop.js` (the name the retired resolver used, reborn as a
   scalar register like `resolve-lift.js`), wired into the three paths that already read `lift:`.
 - **CSS:** `lib/base/base.finish.css`, the rules in §4.3.
-- **Lint:** `lib/authoring/lint-core.js` — unknown token, `backdrop-*` on a slide with no finish
-  (info), and the narrowed retired-map warning.
+- **Lint:** `lib/authoring/lint-core.js` — `unknown-backdrop` (an unknown word, or a second word
+  on one axis) and the retired-map warning, now pointing at the scalar form. Per-slide tokens are
+  checked by the universal modifier vocabulary (`MODIFIER_GROUPS` gains a `backdrop` group).
 - **Studio:** a Backdrop row in deck settings and in `SlideContext.tsx` (strength steps + mask
   choice), with the same provenance badge the finish row shows (slide / deck / finish).
 - **Docs:** `lib/base/base.registers.docs.md` § finish gains a `backdrop:` subsection; the

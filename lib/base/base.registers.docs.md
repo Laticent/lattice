@@ -28,6 +28,7 @@ model, see `design/concepts.md`.
 |---|---|---|
 | [`mode:`](#the-mode-front-matter-register-rendering-mode) | The deck's rendering hand — clean, sketch, sketch-clean | `boardroom` |
 | [`finish:`](#the-finish-front-matter-register-backdrop) | The palette-blind backdrop layer painted behind content | `none` |
+| [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
 | [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `---` rules |
 | [`stamp:` / `tone:`](#the-stamp--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
 | [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
@@ -181,7 +182,7 @@ one member per page — or a carousel's re-authored pages), the splitter replace
 page's layout class. The canvas axis and the deck's **surface registers** survive that
 swap as classes: `finish`/`finish-*`/`finish-none`, `mode:`, `stamp:`/`tone:`, every
 `spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
-`headline:` and `lift:`. Two registers stay behind, because they describe how ONE
+`headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
 layout composes and the cover is a different layout: `claim:` and `cards:`. They reach
 the page as `data-split-mods` like any other authored modifier. The list lives in
 `lib/core/surface-registers.js`, built from each register's own token list. The split
@@ -219,6 +220,42 @@ export: Chromium's print-to-PDF encodes an alpha area-fade so PDF rasterizers
 interpolate toward transparent-black → a gray cloud (the browser hides it, the
 PDF does not). Patterns are therefore uniform and faint (thin opaque lines with
 `transparent` gaps), not directionally faded.
+
+### Restraining a finish — `backdrop:`
+
+A finish can overpower the words on a slide. `backdrop:` pulls **any** finish back, built-in
+or fabricated, without changing the finish itself. It takes up to two words, one per axis:
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Strength | `20` `40` `60` `80` | `backdrop-20` … `backdrop-80` | The whole finish at that opacity |
+| Strength | `full` | `backdrop-full` | Full strength, discarding a finish's own baked dim |
+| Mask | `clear` | `backdrop-clear` | Clean canvas behind the content; the finish reads at the margins |
+| Mask | `spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br` | `backdrop-spot-<pos>` | The finish shows in one window at that anchor, and nowhere else |
+| Mask | `open` | `backdrop-open` | No mask, discarding a finish's own baked clearance or spotlight |
+
+```markdown
+---
+finish: atrium
+backdrop: 40 clear
+---
+
+<!-- _class: backdrop-full -->
+```
+
+The deck line stamps `backdrop-40 backdrop-clear` on every slide. The slide above keeps the
+deck's `clear` and replaces only its strength. A slide's token on one axis evicts the deck's
+token on that axis and leaves the other alone.
+
+**Most specific wins:** a slide class, then the deck's `backdrop:`, then the value a
+fabricated finish baked in Fabricate (and `finish-override:` still tunes that baked value).
+`backdrop:` is inert on a slide without a finish; `finish-none` is still how a slide drops the
+finish entirely. The values are fixed steps and anchors on purpose: a class cannot carry a
+free number without an inline style. Bake an exact value into a finish in Fabricate instead.
+An unknown word, or a second word on one axis, is flagged as `unknown-backdrop`. The old
+multi-line `backdrop:` map form is retired and earns `retired-backdrop-key`. Kernel:
+`lib/core/resolve-backdrop.js`; CSS: `lib/base/base.finish.css` § BACKDROP REGISTER; record:
+`engineering/decisions/2026-09-26-backdrop-register.md`.
 
 Both registers are **open** (`lib/core/resolve-finish.js` for backdrops,
 `lib/core/resolve-mode.js` for the mode) and read by all three render paths.

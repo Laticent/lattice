@@ -91,10 +91,10 @@ import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
 import { listStudioScenes, type StudioScene } from './scene-library';
-
 import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, deckBackdrop } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasMermaid } from './slide-thumb';
 import { applyVariant } from './slide-variants';
@@ -2097,6 +2097,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setDeckAiLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'AI language → same as deck' : `AI language → ${langDisplay(value)}`, (s) => writeFrontMatterLine(s, 'ai-lang', value === LANG_AUTO ? null : value));
 	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => writeFrontMatterLine(s, 'size', value));
 	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? null : 'true'));
+	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
+	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
+	const deckBd = deckBackdrop(source);
+	const setDeckBackdrop = (axis: 'strength' | 'mask', v: string) => {
+		const next = { ...deckBd, [axis]: v === '__auto__' ? undefined : v };
+		settingsWrite('Backdrop', (s) => writeFrontMatterLine(s, 'backdrop', backdropDeckValue(next.strength, next.mask)));
+	};
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeFrontMatterLine(s, 'lift', lift ? null : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
 	// band turns off — no separate toggle, the presence of text IS the switch.
@@ -4103,6 +4110,30 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						})}
 					/>
 				</Field>
+				{finish !== 'none' && (
+					<>
+						{/* The deck `backdrop:` register — ONE line, two halves, so two rows of one
+						    control each (a pair of selects does not fit the half-row control column). */}
+						<Field label="Backdrop strength" desc="How strongly the finish shows." find="backdrop restraint dim fade opacity" help={<>Dims the finish on every slide without changing it. <strong>Finish's own</strong> keeps whatever the finish was designed with. Written as <code>backdrop: 40</code>; a slide can override it in its own settings.</>}>
+							<CatalogSelect
+								ariaLabel="Backdrop strength"
+								value={deckBd.strength ?? '__auto__'}
+								onValueChange={(v) => setDeckBackdrop('strength', v)}
+								className="w-full"
+								groups={[{ options: [{ value: '__auto__', label: "Finish's own" }, ...BACKDROP_STRENGTHS.map((n) => ({ value: n, label: n === 'full' ? '100%' : `${n}%` }))] }]}
+							/>
+						</Field>
+						<Field label="Backdrop mask" desc="Where the finish shows." find="backdrop clear spotlight window mask" help={<><strong>Clear behind</strong> keeps the words on clean canvas, so the finish reads at the margins. A <strong>Window</strong> shows it in one spot only. <strong>No mask</strong> discards a finish's own clearance. Written as <code>backdrop: clear</code>.</>}>
+							<CatalogSelect
+								ariaLabel="Backdrop mask"
+								value={deckBd.mask ?? '__auto__'}
+								onValueChange={(v) => setDeckBackdrop('mask', v)}
+								className="w-full"
+								groups={[{ options: [{ value: '__auto__', label: "Finish's own" }, ...BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : `Window ${m.slice(5).toUpperCase()}` }))] }]}
+							/>
+						</Field>
+					</>
+				)}
 				{savedFinishes.length > 0 && (
 					<SettingsBlock terms="manage saved finishes backdrop delete" className="mt-2 space-y-0.5">
 						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved finishes</div>

@@ -141,10 +141,12 @@ section.finish > .backdrop {
   z-index: var(--z-canvas);
   pointer-events: none;
   /* STRENGTH — one uniform dial over the whole finish. Reads the finish's BAKED
-   * `--fin-backdrop-strength` (generateFinishCss, the 5th finish layer); else 1
-   * (unchanged). A deck tunes it by regenerating the finish through the Studio's
-   * `finish-override:` map — not a rival CSS var — so there's one cascade tier here. */
-  opacity: var(--fin-backdrop-strength, 1);
+   * `--fin-backdrop-strength` (generateFinishCss, the 5th finish layer, which
+   * `finish-override:` regenerates), else 1. The `backdrop:` register does NOT dim through
+   * this opacity — it dims with a veil in the mask layer (§ BACKDROP REGISTER below) — and
+   * only sets `--backdrop-opacity: 1` so a register step replaces a baked dim instead of
+   * multiplying with it. */
+  opacity: var(--backdrop-opacity, var(--fin-backdrop-strength, 1));
   background-image: var(--fin-texture, none), var(--fin-wash, none);
   background-size: var(--fin-size, auto);
   background-position: var(--fin-position, top left);
@@ -251,7 +253,9 @@ section.finish > .backdrop > .backdrop-mask {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: var(--fin-backdrop-mask, none);
+  /* Two layers: the SHAPE (clearance / spotlight — the register's `--backdrop-scrim` first,
+   * then the finish's baked mask) over the register's flat strength VEIL. */
+  background-image: var(--backdrop-scrim, var(--fin-backdrop-mask, none)), var(--backdrop-dim-scrim, none);
 }
 
 /* CLEARANCE — recede the finish behind the content box. The mask paints `var(--fin-canvas)`
@@ -869,6 +873,66 @@ section.finish.lattice-exporting {
   --fin-mark: var(--fin-mark-opaque, none);
   --fin-edge: var(--fin-edge-opaque, none);
   --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
+}
+
+/* ── BACKDROP REGISTER — restraint over ANY finish ─────────────────────
+ * `backdrop: 40 clear` (deck) or `_class: backdrop-40 backdrop-clear` (slide) — stamped by
+ * lib/core/resolve-backdrop.js. Each class sets the `--backdrop-opacity` / `--backdrop-scrim` namespace the compositor above
+ * reads BEFORE the finish's baked `--fin-backdrop-*`, so slide > deck > finish holds for a
+ * built-in preset and a fabricated one alike. Inert on a slide without a finish: nothing
+ * outside `section.finish > .backdrop` reads these. Values are fixed steps and anchors, never
+ * author text (HARD RULE #22). (engineering/decisions/2026-09-26-backdrop-register.md.)
+ *
+ * STRENGTH IS A VEIL, NOT AN OPACITY. A strength step lays a FLAT sheet of the canvas at
+ * (100 − N)% over the whole finish, inside the mask layer. On a flat canvas that is the same
+ * pixel math as `opacity: N%` on the wrapper. The difference is in the PDF: group opacity
+ * wraps the finish AND its mask in a transparency group, and poppler (Evince, Okular,
+ * pdftoppm) paints a hard-edged clearance mask inside such a group as a large dark wedge
+ * across the slide. Measured on a minimal page: nested mask + group opacity → wedge; the
+ * same mask with a flat veil and no group → identical to the clearance that already ships,
+ * in poppler and PDFium alike. A flat fill is not an area-fade, so it does not gray in print.
+ * `--backdrop-opacity: 1` cancels a finish's baked dim so the step replaces it. */
+section:is(.backdrop-20, .backdrop-40, .backdrop-60, .backdrop-80, .backdrop-full) { --backdrop-opacity: 1; }
+section.backdrop-20 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 80%, transparent) 0 0); }
+section.backdrop-40 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 60%, transparent) 0 0); }
+section.backdrop-60 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 40%, transparent) 0 0); }
+section.backdrop-80 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 20%, transparent) 0 0); }
+section.backdrop-full { --backdrop-dim-scrim: none; }
+/* `open` discards a baked clearance or spotlight; `clear` reuses the shared shape. */
+section.backdrop-open { --backdrop-scrim: none; --backdrop-scrim-opaque: none; }
+section.backdrop-clear {
+  --backdrop-scrim: var(--backdrop-clear-mask);
+  --backdrop-scrim-opaque: var(--backdrop-clear-mask-opaque);
+}
+/* SPOTLIGHT at one of nine anchors — the same two-face window Fabricate bakes
+ * (finish-generate.ts `spotlightMask`): transparent inside = finish shown, the canvas
+ * outside = finish hidden; RICH feathers, OPAQUE is one hard stop for the vector PDF. Only
+ * the centre moves, so the shape is written once and each anchor sets `--backdrop-spot-position`. */
+section:is(.backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr, .backdrop-spot-l, .backdrop-spot-c,
+  .backdrop-spot-r, .backdrop-spot-bl, .backdrop-spot-b, .backdrop-spot-br) {
+  --backdrop-scrim: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 42%, var(--fin-canvas) 96%);
+  --backdrop-scrim-opaque: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 70%, var(--fin-canvas) 70%);
+}
+section.backdrop-spot-tl { --backdrop-spot-position: 22% 26%; }
+section.backdrop-spot-t { --backdrop-spot-position: 50% 22%; }
+section.backdrop-spot-tr { --backdrop-spot-position: 78% 26%; }
+section.backdrop-spot-l { --backdrop-spot-position: 20% 50%; }
+section.backdrop-spot-c { --backdrop-spot-position: 50% 50%; }
+section.backdrop-spot-r { --backdrop-spot-position: 80% 50%; }
+section.backdrop-spot-bl { --backdrop-spot-position: 22% 74%; }
+section.backdrop-spot-b { --backdrop-spot-position: 50% 78%; }
+section.backdrop-spot-br { --backdrop-spot-position: 78% 74%; }
+/* The register's EXPORT FLIP — the same two guards as the finish's own, and AFTER the class
+ * rules above so it wins at equal specificity. With no backdrop class on the slide,
+ * `--backdrop-scrim-opaque` is undefined, so `--backdrop-scrim` becomes invalid at computed-value time and
+ * the compositor's `var()` falls through to the finish's baked mask — a deck that never
+ * names the register renders exactly as before. */
+@media print {
+  section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }
+}
+:where(.lattice-exporting) section.finish,
+section.finish.lattice-exporting {
+  --backdrop-scrim: var(--backdrop-scrim-opaque);
 }
 
 /* ── Per-slide opt-out ────────────────────────────────────────────────
