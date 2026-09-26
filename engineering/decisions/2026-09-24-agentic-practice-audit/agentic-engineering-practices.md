@@ -4,7 +4,6 @@ size: 4k
 theme: indaco
 paginate: true
 header: "Agentic engineering · Practices that hold up"
-class: scale-xl
 ---
 
 <!-- _class: title -->
