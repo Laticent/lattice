@@ -85,6 +85,20 @@ describe('hub-spoke parser', () => {
     }
   });
 
+  test('a digit AFTER a letter is a name: Wave 1, Q3, Tier 1, H1 and FY26 are groups', () => {
+    for (const raw of ['Wave 1', 'Q3', 'Tier 1', 'H1', 'FY26']) {
+      const s = model('Hub', [['A', [raw]], ['B']]).spokes[0];
+      assert.equal(s.group, raw, `${raw} was not read as a group`);
+      assert.deepEqual(s.issues, [], `${raw} was refused`);
+    }
+    // …while a pill that reaches a digit before any letter still reads as a failed figure.
+    for (const raw of ['$18M+', '1.2e6', '~40%?']) {
+      assert.deepEqual(model('Hub', [['A', [raw]], ['B']]).spokes[0].issues.map((i) => i.kind), ['numeric-group'], raw);
+    }
+    const slide = '<!-- _class: hub-spoke -->\n\n## T.\n\n- Hub\n  - A `Wave 1`\n  - B `Wave 2`\n  - C `Q3`\n';
+    assert.ok(!rules(slide).includes('hub-spoke-numeric-group'), 'the linter refused a named group');
+  });
+
   test('ONE value per spoke; a second is linted and dropped, not made a group', () => {
     const s = model('Hub', [['A', ['$6M', '$7M']], ['B']]).spokes[0];
     assert.equal(s.value, '$6M');
@@ -182,11 +196,45 @@ describe('hub-spoke lint (through lint-core)', () => {
   });
   test('count limits, grammar refusals, hub status, a second hub', () => {
     const r = rules(slide('sized', '- Hub `$10M` `at-risk`\n  - A `$6M` `$7M`\n  - B `$18M+`\n  - C `live` `pilot`\n- Extra'));
-    for (const id of ['hub-spoke-extra-hub', 'hub-spoke-hub-status', 'hub-spoke-extra-value', 'hub-spoke-numeric-group', 'hub-spoke-status-group']) {
+    for (const id of ['hub-spoke-extra-hub', 'hub-spoke-hub-status', 'hub-spoke-extra-value', 'hub-spoke-numeric-group', 'hub-spoke-extra-status']) {
       assert.ok(r.includes(id), `${id} missing: ${r.join(', ')}`);
     }
     const many = Array.from({ length: 13 }, (_, i) => `  - S${i}`).join('\n');
     assert.ok(rules(slide('', `- Hub\n${many}`)).includes('hub-spoke-too-many'));
+  });
+  test('two statuses on one spoke are their own finding, not a status-as-group one', () => {
+    const f = lint(slide('', '- Hub\n  - A `live` `pilot`\n  - B\n  - C')).filter((x) => /status/.test(x.rule));
+    assert.deepEqual(f.map((x) => x.rule), ['hub-spoke-extra-status']);
+    assert.match(f[0].message, /second status `pilot`/);
+  });
+  test('a status word standing where the other spokes carry a group is linted (Live / Planned)', () => {
+    const f = lint(slide('', '- Roadmap\n  - Search `Live`\n  - Billing `Planned`\n  - Reports `Planned`'));
+    const sg = f.filter((x) => x.rule === 'hub-spoke-status-group');
+    assert.equal(sg.length, 1, f.map((x) => x.rule).join(', '));
+    assert.match(sg[0].message, /`live` on "Search" is a status word, not a group/);
+    // A spoke with BOTH its group and a status is the grammar working, not a slip.
+    assert.ok(!rules(slide('', '- Hub\n  - A `Retail` `at-risk`\n  - B `Retail`\n  - C `Wholesale`')).includes('hub-spoke-status-group'));
+  });
+  test('an ordered-list hub, content-column nesting and snake_case names read as the kernel reads them', () => {
+    // The linter reads the list through the SAME reader as the narrator (first-list-tree.js).
+    const ordered = '<!-- _class: hub-spoke -->\n\n## T.\n\n1. Hub\n   - Alpha\n   - Beta\n   - Gamma\n';
+    assert.ok(!rules(ordered).includes('hub-spoke-empty'), rules(ordered).join(', '));
+    const tree = HS.markdownTree('## T.\n\n- Hub\n  - core_platform_v2 `$4M`\n  - **Ops** & [IT](x)\n');
+    assert.deepEqual(tree[0].children.map((c) => [c.label, c.pills]), [['core_platform_v2', ['$4M']], ['Ops & IT', []]]);
+  });
+  test('a deck-wide `mode: sketch` bills the hand face in the width estimate', () => {
+    const six = ['A', 'B', 'C', 'D', 'E', 'F'].map((x) => `  - ${x}`).join('\n');
+    const body = `<!-- _class: hub-spoke -->\n\n## T.\n\n- Enterprise customer relationship management \`$48M\`\n${six}\n`;
+    assert.ok(!findHubSpokeIssues(`---\nmarp: true\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'fits in the mono face');
+    assert.ok(findHubSpokeIssues(`---\nmarp: true\nmode: sketch\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'mode: sketch was ignored');
+  });
+  test('sized-floor counts clamped discs with the kernel\'s own function', () => {
+    const vals = [100, 60, 4, 3, 2];
+    const m = model('Hub', vals.map((v, i) => [`S${i}`, [`${v}`]]), ['sized']);
+    const drawn = (T.buildHubSpoke(m).html.match(/data-clamped="true"/g) || []).length;
+    assert.equal(HS.sizedDiscs(vals, HS.sizedRadiusMax(vals.length)).filter((x) => x.clamped).length, drawn);
+    const f = lint(slide('sized', `- Hub\n${vals.map((v, i) => `  - S${i} \`${v}\``).join('\n')}`)).find((x) => x.rule === 'hub-spoke-sized-floor');
+    assert.match(f.message, new RegExp(`^${drawn} satellites`));
   });
   test('missing-value counts the MISSING, and a zero value is its own finding', () => {
     const f = lint(slide('sized', '- Hub\n  - A `$3M`\n  - B\n  - C `$1M`'));
@@ -216,7 +264,7 @@ describe('hub-spoke lint (through lint-core)', () => {
     for (const id of ['hub-spoke-tiered-branches', 'hub-spoke-tiered-leaves', 'hub-spoke-tiered-channel']) assert.ok(r.includes(id), id);
   });
   test('hub overflow is an error; a crowded slide warns', () => {
-    const long = 'Enterprise-wide customer relationship management modernization programme office and delivery';
+    const long = 'Enterprise-wide customer relationship management modernization program office and delivery';
     const f = lint(slide('', `- ${long} \`$1,234,567,890\`\n  - A\n  - B\n  - C`)).find((x) => x.rule === 'hub-spoke-hub-overflow');
     assert.equal(f.severity, 'error');
     const twelve = Array.from({ length: 12 }, (_, i) => `  - A very long satellite name number ${i}`).join('\n');
@@ -236,9 +284,27 @@ function assertGeometry(meta, label) {
   assert.ok(meta.ratio >= HS.HUB_RATIO_MIN - 0.01 && meta.ratio <= HS.HUB_RATIO_MAX + eps, `${label}: hub ratio ${meta.ratio}`);
   assert.ok(meta.Rh <= H / 2 - 2 + eps, `${label}: hub overflows the stage`);
   for (const n of meta.nodes) {
+    // Every connector keeps its floor: MIN_NECK flat; hub → branch and branch → leaf tiered.
     if (meta.tier === 'flat') assert.ok(Math.hypot(n.x, n.y) - meta.Rh - n.r >= T.MIN_NECK - 0.01, `${label}: connector under the floor`);
+    else if (n.tier === 'branch') assert.ok(Math.hypot(n.x, n.y) - meta.Rh - n.r >= T.TIER_NECK - 0.01, `${label}: branch connector ${(Math.hypot(n.x, n.y) - meta.Rh - n.r).toFixed(1)} under the tiered floor`);
+    else assert.ok(Math.hypot(n.x - n.px, n.y - n.py) - n.r - n.pr >= T.TWIG_NECK - 0.01, `${label}: twig under the floor`);
     assert.ok(Math.hypot(n.x, n.y) > meta.Rh + n.r, `${label}: a disc sits inside the hub`);
     assert.ok(Math.abs(n.x) + n.r <= W / 2 + eps, `${label}: a disc leaves the stage`);
+  }
+  // No two discs (halos included) overlap — the tiered keyed layout used to draw leaf and
+  // branch discs over each other and nothing noticed.
+  for (let i = 0; i < meta.nodes.length; i++) {
+    for (const b of meta.nodes.slice(i + 1)) {
+      const a = meta.nodes[i];
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > a.r + a.halo + b.r + b.halo, `${label}: two discs overlap`);
+    }
+  }
+  // Every label stays on the stage — measured on the rectangles themselves, not taken
+  // from the placer's own hit count.
+  for (const p of meta.placed) {
+    const st = meta.stage;
+    assert.ok(p.R.l >= st.l - eps && p.R.r <= st.r + eps && p.R.t >= st.t - eps && p.R.b <= st.b + eps,
+      `${label}: label "${p.it.s.label}" leaves the stage (${p.R.l.toFixed(1)}..${p.R.r.toFixed(1)} of ${st.l}..${st.r})`);
   }
   assert.deepEqual(meta.bad, [], `${label}: solver floors broken (${meta.bad.join(', ')})`);
   assert.equal(meta.unresolved, 0, `${label}: ${meta.unresolved} labels touch something`);
@@ -261,6 +327,74 @@ describe('hub-spoke solver', () => {
     for (const orientation of [undefined, 'portrait', 'square']) {
       for (const [k, m] of Object.entries(cases)) assertGeometry(T.buildHubSpoke(m, { orientation }).meta, `${k}/${orientation || 'landscape'}`);
     }
+  });
+
+  test('tiered on a square deck keeps every branch clear of the hub (seed 133, the tier-sq probe)', () => {
+    // Before: the branch ring was fixed at 0.52 / 0.62 of the leaf ring with no clearance
+    // check, so on square a branch disc overlapped the hub (neck -3.7) and meta.bad was [].
+    const probe = model('network', [['network cons', [], [['Payments Cus'], ['Southeast'], ['migration']]],
+      ['Distribution', [], [['API Branch'], ['migration'], ['Ledger']]], ['Branch Retai', [], [['network migr'], ['Keystone Ret']]]], ['tiered']);
+    for (const orientation of ['square', 'portrait', undefined]) assertGeometry(T.buildHubSpoke(probe, { orientation }).meta, `tier-sq/${orientation || 'landscape'}`);
+    const m = fuzzCase(133, 'square');
+    assert.ok(m.mods.tiered && !HS.crowding(m, 'square').length, 'seed 133 is an in-envelope tiered slide');
+    assertGeometry(T.buildHubSpoke(m, { orientation: 'square' }).meta, 'seed 133/square');
+  });
+
+  test('flow-both on square never ships a bow-tie: two heads get their connector (seed 2728)', () => {
+    // Before: 7 spokes at the widest flow class left 43.6 units for two 18.75-unit heads,
+    // meta.bad was [neck, neck] and the lint was clean.
+    const m = fuzzCase(2728, 'square');
+    assert.equal(m.mods.flow, 'both');
+    const { meta } = T.buildHubSpoke(m, { orientation: 'square' });
+    assertGeometry(meta, 'seed 2728/square');
+  });
+
+  test('a label column never runs a label off the stage (seeds 1089, 3135)', () => {
+    // Before: a wing that fell back to a label column put it outboard of every disc and
+    // left the widest label 3.8 (1089) and 32.9 (3135) units past the stage edge.
+    for (const seed of [1089, 3135]) {
+      const m = fuzzCase(seed, 'landscape');
+      assert.ok(!HS.crowding(m, 'landscape').length, `seed ${seed} is in the envelope`);
+      assertGeometry(T.buildHubSpoke(m).meta, `seed ${seed}`);
+    }
+  });
+
+  test('a six-branch, eighteen-leaf tiered slide lays out in well under a second', () => {
+    // The worst tiered search: every attempt runs, unkeyed then keyed. It took about two
+    // seconds a slide in Node (2,015 / 2,097 / 1,691 ms for these three) and now takes
+    // about 50. The bound is generous on purpose — it catches the search going
+    // exponential again, not a slow runner. test/benchmark/engine-bench.mjs tracks it.
+    const teams = ['Payments', 'Lending', 'Identity', 'Data platform', 'Channels', 'Core banking'];
+    const svc = ['Card issuing', 'Acquiring', 'Fraud scoring', 'Origination', 'Servicing', 'Collections', 'Login', 'KYC checks', 'Consent',
+      'Warehouse', 'Streaming', 'Catalog', 'Mobile app', 'Web banking', 'Branch tools', 'Ledger', 'Accounts', 'Statements'];
+    for (let k = 0; k < 3; k++) {
+      const m = model('Platform organization', teams.map((t, i) => [t, [`$${40 + i * 7 + k}M`, ...(i === 2 ? ['blocked'] : [])],
+        [0, 1, 2].map((j) => [svc[i * 3 + j], (i + j + k) % 5 === 0 ? ['at-risk'] : []])]), ['tiered'], [`$${640 + k}M`]);
+      T.buildHubSpoke(m);
+      const t0 = process.hrtime.bigint();
+      const { meta } = T.buildHubSpoke(m);
+      const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+      assert.ok(ms < 600, `slide ${k}: ${ms.toFixed(0)} ms`);
+      assert.deepEqual(meta.bad, [], `slide ${k}: ${meta.bad.join(',')}`);
+    }
+  });
+
+  test('the tiered title and desc name the hub and the structure, not "hub and N branches"', () => {
+    const m = model('Platform org', [['Payments', [], [['Card issuing'], ['Acquiring'], ['Fraud scoring', ['at-risk']]]],
+      ['Data', [], [['Warehouse'], ['Streaming']]], ['Core banking', ['blocked'], [['Ledger']]]], ['tiered']);
+    const html = T.buildHubSpoke(m).html;
+    assert.equal(html.match(/<title>([^<]*)<\/title>/)[1], 'Platform org: 3 branches, 6 leaves');
+    const desc = html.match(/<desc>([^<]*)<\/desc>/)[1];
+    assert.match(desc, /^Platform org divides into 3 branches with 6 leaves in all\. Payments is the largest, with 3 leaves\. Flagged: Core banking \(blocked\), Fraud scoring \(at risk\)\./);
+  });
+
+  test('twelve spokes: the ones at 12 and 6 o\'clock label beside their discs, not by elbow leaders', () => {
+    const regions = ['Northeast', 'Southeast', 'Midwest', 'Texas', 'Mountain', 'California', 'Pacific NW', 'Canada', 'Mexico', 'Brazil', 'UK and Ireland', 'Nordics'];
+    const vals = ['$7.8M', '$6.5M', '$5.7M', '$4.9M', '$4.1M', '$3.8M', '$3.3M', '$3.0M', '$2.6M', '$2.4M', '$2.2M', '$1.7M'];
+    const { html, meta } = T.buildHubSpoke(model('Global sales', regions.map((r, i) => [r, [vals[i]]]), [], ['$48M']));
+    assertGeometry(meta, 'twelve regions');
+    assert.equal((html.match(/<polyline class="chart-leader"/g) || []).length, 0, 'an elbow leader was drawn');
+    assert.ok((html.match(/class="chart-leader"/g) || []).length <= 2, 'more than two leaders');
   });
 
   test('the hub never outgrows 3x the largest satellite, whatever its text', () => {
@@ -363,7 +497,9 @@ function fuzzCase(seed, stage) {
 }
 
 describe('hub-spoke seeded fuzz', () => {
-  for (const [stage, orientation, seeds] of [['landscape', undefined, [1, 240]], ['portrait', 'portrait', [5001, 5100]]]) {
+  // Square joins landscape and portrait: it is where tiered branches overlapped the hub
+  // (seed 133) and flow-both necks lost their arrowheads, and neither was ever run here.
+  for (const [stage, orientation, seeds] of [['landscape', undefined, [1, 240]], ['portrait', 'portrait', [5001, 5100]], ['square', 'square', [1, 400]]]) {
     test(`${stage}: every slide inside the certified envelope lays out clean`, () => {
       let inside = 0;
       const failures = [];
@@ -371,10 +507,17 @@ describe('hub-spoke seeded fuzz', () => {
         const m = fuzzCase(seed, stage);
         const C = HS.channelOf(m);
         const cap = HS.hubCeiling(m.spokes.length, { tiered: m.mods.tiered, sized: C.channel === 'size', stage });
+        const { meta } = T.buildHubSpoke(m, { orientation });
+        // Anywhere, in or out of the envelope: a broken floor is never shipped with a
+        // clean lint — `hub-spoke-crowded` has to predict it.
+        if (meta.bad.length && !HS.crowding(m, stage).length) failures.push(`seed ${seed}: ${meta.bad.join(',')} with no crowded lint`);
         if (HS.crowding(m, stage).length || HS.fitHubText(m.hub.label, m.hub.value, cap).overflow) continue;
         inside++;
-        const { meta } = T.buildHubSpoke(m, { orientation });
-        if (meta.unresolved || meta.bad.length) failures.push(`seed ${seed} (${m.spokes.length}${m.mods.tiered ? ' tiered' : ''}): ${meta.unresolved} unresolved, ${meta.bad.join(',')}`);
+        try {
+          assertGeometry(meta, `seed ${seed} (${m.spokes.length}${m.mods.tiered ? ' tiered' : ''})`);
+        } catch (e) {
+          failures.push(e.message);
+        }
       }
       assert.ok(inside > (seeds[1] - seeds[0]) * 0.5, `the fuzz exercised too few in-envelope cases (${inside})`);
       assert.deepEqual(failures, []);
@@ -406,6 +549,17 @@ describe('hub-spoke narration', () => {
 });
 
 // ── palette-blindness (HARD RULE #3) ──────────────────────────────────────────────
+test('the dark hub dims to 74% heading ink, and a group is held off the hub\'s lightness', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const hub = css.match(/\.hub-spoke-hub \{([^}]*)\}/)[1];
+  assert.match(hub, /color-mix\(in oklab, var\(--text-heading\) 74%, var\(--bg\)\)/);
+  const group = css.match(/:is\(\.hub-spoke-node, \.hub-spoke-leaf, \.chart-key-swatch\)\[data-hue\] \{([^}]*)\}/)[1];
+  assert.match(group, /oklch\(from var\(--mark-body\) calc\(l - 0\.5 \* l \* l \* l \* l\) c h\)/, 'dark bound');
+  assert.match(group, /oklch\(from var\(--mark-body\) calc\(l \+ 0\.5 \* \(1 - l\)/, 'light bound');
+  // min() / clamp() on a channel keyword hang Chromium 131 (the export engine).
+  assert.doesNotMatch(css, /from var\([^)]*\)[^;]*\b(min|max|clamp)\(/);
+});
+
 test('the kernel emits no color; the stylesheet carries no hex, margin or @layer', () => {
   const html = T.buildHubSpoke(model('Hub', PMO)).html;
   assert.doesNotMatch(html, /#[0-9a-fA-F]{3,8}\b|rgb\(|fill="(?!none)/);
