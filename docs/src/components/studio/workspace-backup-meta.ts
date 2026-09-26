@@ -44,10 +44,6 @@ export function isEvictionProneBrowser(): boolean {
 	}
 }
 
-// Every Studio save goes through the platform seam (download.ts → lib/platform.js), so the
-// backup zip lands in the OS save dialog inside the desktop app. Re-exported, not copied.
-export { downloadBlob } from './download';
-
 /**
  * What a restore could not bring back, carried across the reload that follows it. The restore
  * reloads (the one honest way to re-derive every view), and a notice raised before the reload

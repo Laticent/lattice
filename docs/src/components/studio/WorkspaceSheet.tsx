@@ -22,7 +22,6 @@ import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_A
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
-import { downloadBlob } from './download';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
@@ -414,6 +413,8 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const rows = await listStoredScenes();
 			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
 			const unreadable = rows.length - valid.length;
+			// Loaded on click, like the backup below: this sheet is in the Studio's eager bundle.
+			const { downloadBlob } = await import('./download');
 			downloadBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid));
 			notify(unreadable ? `Downloaded ${valid.length} scene(s). ${unreadable} could not be read — they stay in your library and in every backup.` : `Downloaded ${valid.length} scene(s).`);
 		} catch (e) {
@@ -428,7 +429,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		try {
 			const now = Date.now();
 			// Loaded on click: pack and restore are off the Studio's eager path.
-			const { backupRestoreGaps, packWorkspace } = await import('./workspace-backup');
+			const { backupRestoreGaps, downloadBlob, packWorkspace } = await import('./workspace-backup');
 			const report: PackReport = { refdocsBytes: 0 };
 			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report));
 			markBackupTaken(now);
