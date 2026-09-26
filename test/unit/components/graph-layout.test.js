@@ -31,11 +31,12 @@ const STAGE = { w: 1072, h: 440 };
 // 4, not the 2 it was: `sharedRuns` now counts two runs within 6 units (it was 4), because
 // the demo deck showed two lines 4.5 units apart reading as one. Measured on this corpus with
 // the same router, the old 4-unit rule still reads 2 misses; the stricter rule reads 4. The
-// ruler moved, not the router. Then 1: the crossing pass cleared three more.
-const SOFT_MISS_BUDGET = 1;
-// The wider corpus below: 7 of its 600 charts miss a soft count (mostly two labels crowding
-// on a group's lines), measured when the corpus was added. Lower it as the router improves.
-const WIDE_SOFT_BUDGET = 7;
+// ruler moved, not the router. Then 1: the crossing pass cleared three more. Then 0: the
+// route solver seats each label as part of its route's cost.
+const SOFT_MISS_BUDGET = 0;
+// The wider corpus below: 7 of its 600 charts missed a soft count (mostly two labels
+// crowding on a group's lines) when the corpus was added; 0 with the route solver.
+const WIDE_SOFT_BUDGET = 0;
 // Line crossings on the 1,000-chart corpus: 923 before the router's crossing solver, 230
 // with it, 195 once it also ran a second order (freest lines first, keep each line's sides
 // and ports, allow a straight drop) and kept whichever run crossed less. Then the router
@@ -44,8 +45,10 @@ const WIDE_SOFT_BUDGET = 7;
 // auto, lr and tb) and lines that graze a stranger's box (24 -> 7), and fanning shapes got
 // one fan each (routeFans): 182. Every chart that gained a crossing lost a fold or a graze
 // for it. Side balance (flank exits) and the end-run pass took it to 181 with no chart
-// worse. A crossing is a cost, not a defect, so this is a ceiling to ratchet down.
-const CROSSING_BUDGET = 181;
+// worse. Then the route solver (one cost for every line, rip-up and reroute, see the
+// decision note §7) replaced the pass stack: 39. A crossing is a cost, not a defect, so this
+// is a ceiling to ratchet down.
+const CROSSING_BUDGET = 39;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -188,14 +191,8 @@ describe('graph-layout — determinism', () => {
 
 // A KNOWN miss, named and explained, never a silent tolerance. Each entry must still
 // miss exactly as recorded, so the list cannot outlive its cause.
-const KNOWN = {
-  // A group's line to a shape placed BESIDE the group: dagre reserved the label's room
-  // along the representative member's rank, and the trim at the group's border leaves
-  // a run shorter than the label, so it straddles the border. The fix is to reserve that
-  // room in the layout itself (decision note §12, "Group lines beside their group").
-  // This chart's own direction is lr, where it reads zero; only a forced tb misses.
-  'flat · tb': { labelsAcrossBorders: 1 },
-};
+// Empty since the route solver: 'flat · tb' once seated a label across a group's border.
+const KNOWN = {};
 
 describe('graph-layout — the gallery reads zero on every quality count', () => {
   for (const [name, src] of Object.entries(GALLERY)) {

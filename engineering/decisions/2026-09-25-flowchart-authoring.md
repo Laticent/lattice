@@ -378,132 +378,90 @@ A dotted overlay moving along a line, a separate path above the real edge.
   - **dropped from v1:** `straight` routes and fan-in trunks;
   - a **render check** on the gallery requiring zero shape overlaps, zero lines
     through shapes, zero label collisions and zero fallback chips.
-- **As built (slice 2):** `graphLayoutKernel()` in
-  `lib/components/chart/_chart-family/graph-layout.js`, one self-contained
-  function so a browser pass can ship it as source. After dagre places the boxes,
-  six passes clean the lines, in order: ports spread along each box side (with a
-  label's height between two labeled neighbors); a line entering a group it does
-  not belong to turns outside that group; a Z under 16 units tall is straightened;
-  a run within a stroke gap of another line is moved off it; labels are seated on
-  a clear stretch of their own line, overlap graded by area so two crowded labels
-  can step apart; group titles take the first free slot in their top band.
-  `measureQuality` counts seven failures (lines through shapes, label collisions,
-  shape overlaps, labels off their line, lines through titles, labels across a
-  group border, shared runs). `test/unit/components/graph-layout.test.js` holds a
-  six-chart gallery to zero on all seven in both directions (one named exception,
-  §12) and 1,000 seeded random charts to zero on the hard three, with at most two
-  soft misses.
-- **Crossings (added on owner review of slice 3).** dagre orders each rank to
-  cut crossings, but the passes after it (back edges, ports, the rescue of a line
-  through a shape) put many back. The last line pass is a crossing solver: each
-  line that crosses another tries every clean elbow the shape rescue already
-  builds (Z, U and L routes at four offsets) and keeps the one that crosses
-  least, scored 300 per crossing plus length, turns and shared runs. It takes a
-  new route only when that route strictly cuts the line's crossings, passes
-  through no shape (its own two included), adds no shared run, holds room for its
-  label on a run that crosses no group border, has no kink under 10 units, and
-  enters no group neither end belongs to (nor any title band) that the old route
-  did not. A main-path (`=>`) line may move only within 24 units of its length
-  and one extra turn, so lighter lines give way around it. A `:loose` line takes
-  part: it is the line most free to move. Up to three rounds, or until a round
-  changes nothing.
-- **Two orders, the better kept.** Moving lines one at a time is
-  order-sensitive, so the solver runs twice from the same start and keeps the
-  run with fewer crossings (a tie goes to the shorter drawing with fewer turns
-  and side changes): once in authored order, and once with the freest lines
-  first (loose, then plain, then main path). The second run also offers each
-  line its current ports, allows a straight drop where two boxes overlap, costs
-  60 for leaving or entering a box by a different side, never brings two ends on
-  one side of a box within 14 units of each other (or tighter than they already
-  were), and sends a line back to its old route once its detour is moot. That
-  second order is what keeps an org chart's child under its parent instead of
-  off its flank.
-- **Fans.** Two passes, after the solver. `levelFans` gives a fan that splits
-  both ways one turn height per pair (the lane allocator had treated two jogs
-  touching only at their shared port as overlapping). `routeFans` draws every
-  line that leaves one side of a shape for shapes wholly beyond it as one fan:
-  ports spread along the side in target order, each line straight across when
-  its target spans its port and otherwise on its own lane, nested so none
-  crosses, and entering its target's near side. For that, a shape three or more
-  lines leave (or enter) along the flow grows across it to 12 units per port;
-  since growth also moves dagre's placement, each direction is laid out grown
-  and plain and the grown one is kept only if it misses no more, crosses no
-  more, and sets the type no more than 3% smaller. Growth skips the second run
-  when nothing grew. A fan line keeps the port it already had on its target's
-  near side, so it cannot land on a neighbor's. Each pass keeps its change only
-  when no quality count, crossing count, foreign-group count, graze count, title
-  band count or crowded-end count (two ends on one side within 10 units) gets
-  worse; `routeFans` scores with the labels seated and the titles placed as they
-  will be, since both are placed after it.
-- **Side balance: flank exits (owner's call on slice 3).** A line whose target
-  lies wholly beyond a flank of its source (above or below it in lr, left or
-  right of it in tb) leaves by that flank, from its middle when it is alone
-  there, and turns once into its target's near side. Lines to targets straight
-  ahead keep the flow side as the nested fan. So an org chart's two children
-  hang from their parent's left and right middles, a parent with a child
-  straight below keeps that one on the bottom, and a fan of six splits over
-  three sides (the line-vocabulary slide: two up, two ahead, two down). On a
-  flank the line heading furthest out takes the port furthest back, so flank
-  lines nest. Symmetry: when one side of a fan flanks, the outermost line on the
-  other side does too if its target reaches 16 past that flank, even with its
-  middle just inside (Platform sat 8 units inside Technology's edge while
-  Security sat just outside, and the pair came out lopsided). A lone line is not
-  a fan and keeps its route, `:loose` lines stay out of fans, and the balanced
-  fan is kept only if the guard passes; otherwise every line takes the flow side
-  as before.
-- **An arrowhead gets a run to sit on.** An end whose last run is under 14
-  units slides the run before it back until it is 14 (with one bend, the other
-  end slides along its own side); a jog under 12 just before an end is
-  straightened by moving the end along its target's side. BI dashboards on the
-  data-flow slide had a 7-unit run under its head, and Open ticket's line into
-  Mitigate had a 6-unit kink. Routes with an end run under 12: 187 of 3,892 on
-  the two corpora before, 65 after (the rest have no room or would worsen
-  something).
-- **Lines through their own ends.** `measureQuality` exempted a line's own two
-  boxes, so a line that left its box and folded back through it, or ran through
-  its target before arriving, passed every check. The independent checker on
-  this work found the fan and solver passes could create such folds; the router
-  already drew them: 37 across the 1,000 charts and 33 across the 600, counted
-  in auto, lr and tb. `linesThroughEnds` now counts them, the shape rescue
-  treats them as hits, and the tests hold them to zero in every direction.
-- **Grazing.** A line passing close to a box it does not belong to reads as
-  touching it (the release train's `fails` ran 3 units under Test). The shape
-  rescue treats a line within about 4 units of a stranger's box as a hit (a
-  line that only grazes may not be traded for a crossing or a shared run), and
-  the late passes' guard holds a true 5, so the fan and end passes cannot add a
-  graze even 4.5 units off (the first flank-exit version added 24 of those). A
-  5 in the rescue too was measured and refused: one chart went from 5 crossings
-  to 12 for want of candidate routes. Grazing lines within 5 units, 1,000
-  charts: 24 before this work, 6 now.
-- **Fan lanes stay outside the borders they cross.** A fan's lanes sit clear of
-  the far border of any group that holds the source but not a target, and short
-  of any group that holds a target but not the source (group padding is 14, and
-  the first lane used to sit at 16, 2 units inside). The checker counted such
-  border-riding jogs: 164 before the fan pass, 341 with its first version, 158
-  now.
-- **Grown or plain.** Growth is kept only when it is no worse on hard faults,
-  soft faults and crossings and either buys something (fewer faults, crossings,
-  crowded ends or grazes) at no more than 3% of type, or costs no type. Each
-  direction is then judged by the best type it can reach, grown or plain, so a
-  growth kept for its ports cannot tip the direction by the few percent it cost
-  (a chart flipped lr to tb that way and gained two crossings).
-- **Measured, against the kernel before the fan pass (9c67660), both corpora in
-  auto, lr and tb.** 1,000 charts: crossings 195 -> 182 (auto), 187 -> 179 (lr),
-  169 -> 176 (tb); soft-miss charts 1 -> 0, 1 -> 0, 5 -> 4. 600 charts: 97 ->
-  104, 95 -> 104, 70 -> 75. No chart is worse on any quality count except three
-  in the 600 forced to tb, where a label now straddles a group border: each had
-  a line folding through its target (group One's line ran through Hotel to its
-  far side), and unfolding it leaves a run shorter than the label, the known
-  "group lines beside their group" gap below. Of the charts that gained a
-  crossing, all but one lost a fold or a graze for it; the one (the 600, #478,
-  tb) gained a crossing for nothing we measure. The demo deck's release train
-  went from 9 crossings to 1 as painted and its org chart from 3 to 0.
-  Crossings sit beside the quality counts, not in them (`geo.crossings`),
-  because some graphs cannot be drawn without one. Letting crossings veto the
-  type-size rule was measured and refused: it cost one chart 30% of its type
-  size to save four crossings, and the owner's rule is that a flowchart takes
-  the direction that sets the type larger. Layout costs about 18 ms a chart
-  against 13.5 before on the demo deck's charts.
+- **The router is one solver (owner's call on slice 3).** The first router was
+  dagre plus a stack of clean-up passes (below). Each pass fixed one thing and was
+  guarded by the others' counts, so the passes contended: the owner found a
+  release train that regressed, a Security line that left its box from the side,
+  and a Fix line off its bottom middle, and asked for "a solved algorithm that does
+  the things we want and avoids the things we don't". `solveRoutes` in
+  `lib/components/chart/_chart-family/graph-layout.js` replaced the stack in this
+  PR. dagre still places the boxes; the solver draws every line against ONE cost
+  (`W`), in the owner's order:
+  - **never** (not a candidate at all): a line through a box (a stranger's box
+    grown by 6, so no graze), back through its own ends, or along another line's
+    run within 6 units;
+  - **then** crossings and a label with no clean seat (1,000 each), a run along a
+    group's title band (1,000), a jog shorter than 12 (300), a label struck by a
+    line, a foreign group's border;
+  - **then balance**: ports off a side's middle, crowded sides, a fan drawn
+    lopsided (a fan whose children sit mirrored about their parent is drawn as a
+    mirror image when that costs under 120 a pair more);
+  - **then** turns (40 each), length, and growing the drawing past what the boxes
+    and other lines already span (6 a unit, because it shrinks the whole chart's
+    type).
+
+  A label is part of its line: each candidate is charged for the best seat it
+  offers, clear of shapes, borders, titles and other labels, and at least 3 units
+  from any other line. Candidates per pair of sides are straight, L (a port may
+  slide to any lane along its side), Z or U through one lane, and two lanes when
+  one found nothing clean. The phases, each keeping only what lowers the cost:
+  sweeps (heaviest lines first, then any line still paying for a collision is
+  ripped up and rerouted until a sweep changes nothing); spread (each side's ends
+  move SLOT apart in heading order by the least movement, around fixed ends:
+  self-loops, and straight lines when the side also has bent ones; a straight
+  line whose ends moved apart is aligned again; the last passes hold sides so the
+  spread converges); settle (an end whose neighbors left is freed); straighten (a
+  jog under 12 is removed by sliding one end or a whole side); symmetry; and a
+  final re-seat of every label.
+- **Measured against the pass stack (ca1bb19), same corpora and machine.** Auto
+  direction:
+
+  | | 1,000 charts, before | after | 600 charts, before | after |
+  |---|---|---|---|---|
+  | crossings | 182 | 33 | 104 | 15 |
+  | label collisions | 0 | 0 | 7 | 0 |
+  | labels across a border | 0 | 0 | 2 | 0 |
+  | every other quality count | 0 | 0 | 0 | 0 |
+  | turns | 6,028 | 4,430 | 2,584 | 1,891 |
+  | routes with 4+ turns | 365 | 68 | 146 | 21 |
+  | jogs under 12 | 99 | 59 | 57 | 16 |
+  | crowded ends (two within 10) | 57 | 0 | 50 | 4 |
+
+  Per layout across both corpora in auto, lr and tb (4,800 layouts), crossings
+  fell in 427 and rose in 29. Type size is the cost: 91 layouts set their type
+  more than 3% smaller and 45 more than 3% larger. In auto direction the mean
+  type size is unchanged (0.9998 of before), 24 of 1,600 charts lose more than 3%
+  (at most 8.6%) and 20 gain; most of the loss is a line taken around the drawing
+  to avoid a crossing, which the owner's order ranks first. Speed is the other
+  cost: the demo deck's 35 layout calls take 1.19 s against 0.70 s, the slowest
+  single call 179 ms against 52 (the release train); on the corpora a chart takes
+  10 ms at the median, 31 at p90 and 120 at p99.
+- **Before the solver: a stack of passes (superseded, kept for its lessons).**
+  After dagre, passes in order spread ports, turned a line entering a foreign
+  group outside it, straightened short Zs, moved shared runs apart, re-drew lines
+  through shapes, ran a crossing solver twice in two orders, fanned lines off a
+  crowded side (`routeFans`, flank exits for side balance), lengthened short end
+  runs and seated labels. Each late pass kept its change only when no count got
+  worse. It reached zero quality faults on the 1,000 charts, but each new rule
+  was one more guard against every other, and the owner's regressions were the
+  passes undoing each other. What carried over: `linesThroughEnds` (a line
+  folding back through its own box was invisible to a measure that exempted both
+  ends: 37 and 33 on the two corpora), a graze halo on strangers' boxes, box
+  growth for crowded sides, and the grown-or-plain rule below.
+- **Grown or plain.** A shape three or more lines leave (or enter) along the flow
+  grows across it to 12 units per port, and since growth also moves dagre's
+  placement, each direction is laid out grown and plain. Growth is kept only when
+  it is no worse on hard faults, soft faults and crossings and either buys
+  something (fewer faults, crossings, crowded ends or grazes) at no more than 3%
+  of type, or costs no type. Each direction is then judged by the best type it can
+  reach, so a growth kept for its ports cannot tip the direction by the few
+  percent it cost. Crossings sit beside the quality counts, not in them
+  (`geo.crossings`), because some graphs cannot be drawn without one; letting
+  them veto the type-size rule was measured and refused (one chart lost 30% of
+  its type to save four crossings).
+- **Self-loops.** A second loop on one box nests 10 units further out, and the
+  room it needs is reserved on the box before dagre places it (the right in tb,
+  the top in lr), so the outer loop never grazes a neighbor.
 - **A ruler fix.** `labelsAcrossBorders` counted a label that only touched a
   group's border (289.79999 against 289.8) as across it; it now wants half a
   unit of real overlap.
@@ -622,22 +580,32 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
   Product engineering, `ships via` through Card networks) and its small zig-zags.
   The router reads zero on both across the gallery and the 1,000 random charts.
 - **Group lines beside their group.** dagre reserves a label's room along the
-  line between the group's representative member and the target. When the target
-  lands BESIDE the group, trimming at the border leaves a run shorter than the
-  label, which then straddles the border. The fix is to reserve that room in
-  layout itself. Today it shows only in the gallery's `flat` chart forced to
-  `tb`; its own direction is `lr`, which reads zero. Pinned as the test's one
-  named exception.
+  line between the group's representative member and the target, so when the
+  target lands BESIDE the group, trimming at the border can leave a run shorter
+  than the label. The solver now seats every label as part of its line's cost,
+  and the gallery's `flat` chart forced to `tb`, which used to straddle a border,
+  reads zero; so do both corpora. Reserving that room in layout itself would
+  still be the root fix.
 - A labeled group-to-group edge needs a reserved gap between the groups.
-- **Crossings are minimized locally, one line at a time.** The solver never
-  re-orders shapes and never moves two lines together, so a crossing that only a
-  joint move or a different rank order removes stays (the release train keeps
-  one: `fails` against `rollback`). A global pass (re-running dagre's ordering
-  with our routes' costs) is the next step if a real deck needs it.
-- **The late passes' guard has blind spots.** `levelFans` and the solver score
-  before group titles and labels are placed, so they cannot see a line moved
-  under a title or a label that will not fit (`routeFans`, which the corpus
-  caught doing both, now places them first). No corpus chart shows either.
+- **Crossings are minimized one line at a time.** The solver rips up and
+  reroutes single lines against all the others and never re-orders shapes, so a
+  crossing that only a joint move or a different rank order removes stays: 33
+  remain on the 1,000 charts. The demo deck draws with none. A global pass
+  (re-running dagre's ordering with our routes' costs) is the next step if a real
+  deck needs it.
+- **The solver is slower than the passes it replaced**: 1.7 times on the demo
+  deck, 179 ms for the release train's slowest call against 52. Most of it is
+  building candidates; exact lower bounds that skip them before building were
+  measured and bought nothing, so the next step is fewer layout calls per chart
+  (the fit and direction passes call it up to five times), not a cheaper call.
+- **A crossing avoided can cost type.** Where the only crossing-free route goes
+  around the drawing, the solver takes it and the chart sets its type smaller
+  (24 of 1,600 charts by more than 3%, at most 8.6%). That follows the owner's
+  order (crossings first); a chart where the smaller type matters more would need
+  a type-for-crossings trade in the direction pass.
+- **A jog the sides cannot remove.** Two lines each way between a short box and
+  a tall one spread differently on the two sides, and neither side has room to
+  shift its pair into line (the corpus has a few; the gallery none).
 - **Named entities in a name.** The HTML reader sees `&rarr;` decoded, the Markdown
   reader keeps it literal (it decodes numeric entities and the five markdown-it writes,
   not the HTML5 table, which would ride the Studio's eager lint bundle). A shape named
