@@ -75,6 +75,13 @@ const plus = (was, added = ADDED_SINCE) => sorted([...was, ...added]);
  */
 const FLOW_ADDED_SINCE = ['matrix-grid'];
 
+/**
+ * Placeholder re-hosts added since. `flowchart` (2026-09-25-flowchart-authoring.md) is laid
+ * out by a browser pass, as `state-chart` is, so it declares `figure: "placeholder"` and joins
+ * the same three sets: a media member, a spatial placeholder, and a data layout.
+ */
+const PLACEHOLDER_ADDED_SINCE = ['flowchart'];
+
 const sorted = (a) => [...a].sort();
 
 test('the projected catalog', async (t) => {
@@ -92,17 +99,17 @@ test('the projected catalog', async (t) => {
 
 	await t.test('the eight unchanged sets are exactly what the literals held', () => {
 		assert.deepEqual(sorted(c.SVG_CHART_LAYOUTS), plus(WAS.CHART_TOKEN_COMPONENTS));
-		assert.deepEqual(sorted(c.MEDIA_COMPONENTS), plus(WAS.MEDIA_COMPONENTS));
+		assert.deepEqual(sorted(c.MEDIA_COMPONENTS), plus(WAS.MEDIA_COMPONENTS, [...ADDED_SINCE, ...PLACEHOLDER_ADDED_SINCE]));
 		assert.deepEqual(sorted(c.FLOW_CHART_COMPONENTS), plus(WAS.FLOW_CHART_COMPONENTS, FLOW_ADDED_SINCE));
 		assert.deepEqual(sorted(c.SPATIAL_BOUNDED_COMPONENTS), WAS.SPATIAL_BOUNDED_COMPONENTS);
-		assert.deepEqual(sorted(c.SPATIAL_PLACEHOLDER_COMPONENTS), WAS.SPATIAL_PLACEHOLDER_COMPONENTS);
+		assert.deepEqual(sorted(c.SPATIAL_PLACEHOLDER_COMPONENTS), plus(WAS.SPATIAL_PLACEHOLDER_COMPONENTS, PLACEHOLDER_ADDED_SINCE));
 	});
 
 	await t.test('DATA_LAYOUTS changes by exactly three named layouts, and no more', () => {
 		const now = sorted(c.DATA_LAYOUTS);
 		const added = now.filter((n) => !WAS.DATA_LAYOUTS.includes(n));
 		const removed = WAS.DATA_LAYOUTS.filter((n) => !now.includes(n));
-		assert.deepEqual(added, sorted(['journey', 'matrix-grid', 'roadmap', ...ADDED_SINCE]),
+		assert.deepEqual(added, sorted(['journey', 'matrix-grid', 'roadmap', ...ADDED_SINCE, ...PLACEHOLDER_ADDED_SINCE]),
 			'the intended changes are the three chart layouts the old roster had drifted past, ' +
 			'plus ADDED_SINCE. A name here that is not one of those is a deck-scoring change ' +
 			'nobody decided on — decide it, then update this list.');

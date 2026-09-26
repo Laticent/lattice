@@ -22,11 +22,11 @@
       "rmePct": 2.86
     },
     "charts": {
-      "slides": 22,
-      "index": 17.59,
-      "ms": 56.69,
-      "slidesPerSec": 388,
-      "rmePct": 1.43
+      "slides": 24,
+      "index": 26.2,
+      "ms": 96.33,
+      "slidesPerSec": 249,
+      "rmePct": 1.06
     },
     "math": {
       "slides": 16,
@@ -139,11 +139,11 @@
       "burstMs": 268.96
     },
     "edit · charts": {
-      "slides": 22,
+      "slides": 24,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 20.46,
-      "burstMs": 246.16
+      "ms": 51.65,
+      "burstMs": 681.86
     },
     "edit · math": {
       "slides": 16,
@@ -151,6 +151,22 @@
       "burstTypesets": 0,
       "ms": 17,
       "burstMs": 207.41
+    }
+  },
+  "flowchartDatasets": {
+    "flowchart · demo deck page (35 calls)": {
+      "calls": 35,
+      "routed": 25,
+      "bounded": 8,
+      "hits": 16,
+      "ms": 435.05
+    },
+    "flowchart · same calls, no cache": {
+      "calls": 35,
+      "routed": 50,
+      "bounded": 11,
+      "hits": 0,
+      "ms": 843.36
     }
   }
 }

@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 70,
+    "component": 71,
     "finish": 9,
     "motion": 0
   },
@@ -532,6 +532,19 @@
         "manifest.json",
         "styles.css"
       ]
+    },
+    {
+      "type": "component",
+      "name": "flowchart",
+      "path": "lib/components/chart/flowchart",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
     },
     {
       "type": "component",

@@ -322,6 +322,20 @@
     ],
     "description": "Section boundary slide. Dark canvas with a single heading."
   },
+  "lattice: flowchart": {
+    "prefix": "lattice-flowchart",
+    "body": [
+      "<!-- _class: flowchart -->",
+      "",
+      "## The flow in one line.",
+      "",
+      "- Start `:pill` => Check => Decide?",
+      "- Decide? `:diamond`",
+      "  - -yes-> Ship",
+      "  - -no-> Fix -> Check"
+    ],
+    "description": "A free-form flowchart: shapes, groups and lines, written as a list."
+  },
   "lattice: funnel": {
     "prefix": "lattice-funnel",
     "body": [

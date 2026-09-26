@@ -14,6 +14,16 @@ export type GuideHandle = {
 
 export const GUIDE_HANDLES: readonly GuideHandle[] = [
 	{
+		"component": "flowchart",
+		"part": "section.flowchart .fc-key-item",
+		"names": ".fc-key-label"
+	},
+	{
+		"component": "flowchart",
+		"part": "section.flowchart .fc-node",
+		"names": ".fc-name"
+	},
+	{
 		"component": "glossary",
 		"part": "section.glossary tbody > tr",
 		"names": ":scope > td:first-child, :scope > th:first-child"

@@ -167,6 +167,8 @@ export type DeckPreviewProps = {
 	 * every full-size host omits it and keeps the watcher.
 	 */
 	specimen?: boolean;
+	/** The preview an author types into: its flowcharts redraw in a worker (single-slide-render `liveLayout`). */
+	liveLayout?: boolean;
 };
 
 /**
@@ -201,6 +203,7 @@ export function DeckPreview({
 	loader = false,
 	chartDetail = false,
 	specimen = false,
+	liveLayout = false,
 	...aria
 }: DeckPreviewProps) {
 	// Nacre loader = the SKELETON. It owns the screen for the whole load and yields ONLY
@@ -253,7 +256,7 @@ export function DeckPreview({
 	// `options` is page-level config the Studio hands identically to both. Read once,
 	// like `options` itself — a host does not become a thumbnail mid-life.
 	const engineRef = React.useRef<SingleSlideRenderer | null>(null);
-	if (engineRef.current === null) engineRef.current = createSingleSlideRenderer(specimen ? { ...options, specimen: true } : options);
+	if (engineRef.current === null) engineRef.current = createSingleSlideRenderer(specimen || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options);
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
 	activeRef.current = active;

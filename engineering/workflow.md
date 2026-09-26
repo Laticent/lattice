@@ -522,11 +522,21 @@ expensive for anything scheduled to pass it:
 |---|---|---|---|
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
 | *(none)* | edit — warm re-render per keystroke, single char and 12-char burst | ~2s | `editDatasets` |
+| *(none)* | flowchart layout — the demo deck's browser `layout()` calls, replayed with and without the kernel's cache | ~5s | `flowchartDatasets` |
 | `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
 | `--cli` | whole `lattice-emulator.js` render — node boot, browser launch, `page.goto`, PDF encode | ~25s | `cliDatasets` |
+
+The **flowchart layout tier** replays every `graphLayoutKernel().layout()` call one
+Chromium render of `examples/flowchart.md` made (`test/benchmark/fixtures/flowchart-deck-layouts.json`),
+once through one kernel as a page does and once with a fresh kernel per call (the shape
+before the kernel cached its results). It gates on three integers per row, `routed`
+(full layouts the solver ran), `bounded` (dagre-only passes that ruled a direction out)
+and `hits` (calls answered from the cache): more of the first two, or fewer hits, is a
+regression on any machine; `ms` is commentary. Re-capture the fixture when the browser
+pass or the deck changes what it measures.
 
 The **edit tier** runs unflagged beside the render tier, and the pair is deliberate:
 the render tier clears every cache to measure a COLD one-shot (what a CLI export
@@ -534,7 +544,7 @@ pays), while the edit tier measures the WARM re-render an author pays per keystr
 The same deck can improve in one and regress in the other, and before this tier
 existed only the cold half was visible.
 
-It is the one tier that **gates on work rather than time**. `typesets` counts real
+It gates on **work rather than time**, as the flowchart layout tier does. `typesets` counts real
 `katex.renderToString` calls per keystroke: an integer, identical on every machine,
 compared exactly, and it answers the question that actually matters — does a
 keystroke re-typeset math that did not change? Its two `ms` columns are printed for

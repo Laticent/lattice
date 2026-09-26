@@ -187,6 +187,7 @@ const TABLE_UNSUITED = new Set([
 	'quadrant', // engine drops its labels below the legibility floor
 	'radar',
 	'state-chart',
+	'flowchart',
 	'timeline-list',
 	'word-cloud',
 	'cycle',

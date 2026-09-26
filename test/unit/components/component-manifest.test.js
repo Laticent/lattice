@@ -907,17 +907,18 @@ describe('component-manifest', () => {
       }
     });
 
-    test('shipped manifests partition the 24 known bucket-divergent components correctly', () => {
+    test('shipped manifests partition the 25 known bucket-divergent components correctly', () => {
       const ms = loadAll();
       const g = groupByBucket(ms);
-      // chart = 22. The seven Cartesian members (bar, bullet, line, scatter,
+      // chart = 23. The seven Cartesian members (bar, bullet, line, scatter,
       // slope, stacked-bar, waterfall) landed together — see
-      // engineering/decisions/2026-09-06-cartesian-chart-expansion.md — and
-      // `heatmap` followed as the numeric-matrix member that note deferred.
-      assert.equal(g.chart.length, 22, 'chart bucket has 22 components');
+      // engineering/decisions/2026-09-06-cartesian-chart-expansion.md — then
+      // `heatmap` as the numeric-matrix member that note deferred, and
+      // `flowchart` (2026-09-25-flowchart-authoring.md).
+      assert.equal(g.chart.length, 23, 'chart bucket has 23 components');
       assert.deepEqual(
         g.chart.map((m) => m.name).sort(),
-        ['bar', 'bullet', 'funnel', 'gantt', 'heatmap', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'waterfall', 'word-cloud'],
+        ['bar', 'bullet', 'flowchart', 'funnel', 'gantt', 'heatmap', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'waterfall', 'word-cloud'],
       );
       // diagram = 1: diagram
       assert.equal(g.diagram.length, 1, 'diagram bucket has 1 component');
@@ -936,7 +937,7 @@ describe('component-manifest', () => {
       );
     });
 
-    test('the 24 bucket-divergent components keep their function field unchanged', () => {
+    test('the 25 bucket-divergent components keep their function field unchanged', () => {
       const ms = loadAll();
       const byName = Object.fromEntries(ms.map((m) => [m.name, m]));
       // Substance divergence — chart + diagram + math + code buckets,
