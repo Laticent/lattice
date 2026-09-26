@@ -5,6 +5,10 @@ summary: A finish can OVERPOWER content — too intense, or covering the area be
 
 # The backdrop layer — restraining a finish (strength · clearance · spotlight)
 
+> **2026-09-26:** the author-facing half is back as a scalar register over ANY finish —
+> see [`2026-09-26-backdrop-register.md`](2026-09-26-backdrop-register.md). The baked layer
+> and `finish-override:` below still hold as the finish's default tier.
+
 **Status:** proposed 2026-07-01. Design-before-code for a structural change;
 prototype-validated. Implementation staged into slices (§9), each its own PR.
 

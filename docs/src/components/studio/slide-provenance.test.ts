@@ -188,3 +188,24 @@ describe('spectrum provenance + override (brand bar)', () => {
 		expect(getClassTokens(setSpectrum(chunk, null)).some((t) => t.startsWith('spectrum-'))).toBe(false);
 	});
 });
+
+describe('backdrop provenance (the register over any finish)', () => {
+	it('reads each axis from the one deck line, and a slide token overrides only its axis', async () => {
+		const { backdropProvenance, setBackdrop, deckBackdrop, backdropDeckValue } = await import('./slide-provenance');
+		const src = deck('finish: atrium\nbackdrop: 40 clear  # quiet', '## A');
+		expect(deckBackdrop(src)).toEqual({ strength: '40', mask: 'clear' });
+		const chunk = '<!-- _class: backdrop-spot-tr -->\n\n## A';
+		expect(backdropProvenance(chunk, src, 'mask')).toMatchObject({ state: 'on', value: 'spot-tr', deckValue: 'clear' });
+		expect(backdropProvenance(chunk, src, 'strength')).toMatchObject({ state: 'inherited', value: '40' });
+		const set = setBackdrop(chunk, 'strength', 'full');
+		expect(getClassTokens(set)).toEqual(['backdrop-spot-tr', 'backdrop-full']);
+		expect(getClassTokens(setBackdrop(set, 'mask', null))).toEqual(['backdrop-full']);
+		expect(backdropDeckValue(undefined, undefined)).toBeNull();
+		expect(backdropDeckValue('60', 'clear')).toBe('60 clear');
+	});
+
+	it("never reads finish-override's nested `backdrop:` header as the register", async () => {
+		const { deckBackdrop } = await import('./slide-provenance');
+		expect(deckBackdrop(deck('finish: atrium\nfinish-override:\n  backdrop:\n    strength: 0.4', '## A'))).toEqual({});
+	});
+});

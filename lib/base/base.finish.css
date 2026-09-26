@@ -140,11 +140,14 @@ section.finish > .backdrop {
    * time and falls back to the designed plane instead of silently becoming `auto`. */
   z-index: var(--z-canvas);
   pointer-events: none;
-  /* STRENGTH — one uniform dial over the whole finish. Reads the finish's BAKED
-   * `--fin-backdrop-strength` (generateFinishCss, the 5th finish layer); else 1
-   * (unchanged). A deck tunes it by regenerating the finish through the Studio's
-   * `finish-override:` map — not a rival CSS var — so there's one cascade tier here. */
-  opacity: var(--fin-backdrop-strength, 1);
+  /* STRENGTH — one uniform dial over the whole finish: the register's step
+   * (`--backdrop-strength-opacity`), else the finish's BAKED `--fin-backdrop-strength`
+   * (generateFinishCss, which `finish-override:` regenerates), else 1. It is drawn as this
+   * group opacity ONLY when no mask is on; with a mask the veil weight is 1, the opacity
+   * computes to 1 and the same strength draws as a flat veil in the mask layer instead
+   * (§ BACKDROP REGISTER below says why). `--backdrop-opacity` is the hard override
+   * `finish-none` uses. */
+  opacity: var(--backdrop-opacity, calc(1 - (1 - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1))) * (1 - var(--backdrop-veil-weight, var(--fin-backdrop-veil-weight, 0)))));
   background-image: var(--fin-texture, none), var(--fin-wash, none);
   background-size: var(--fin-size, auto);
   background-position: var(--fin-position, top left);
@@ -251,10 +254,67 @@ section.finish > .backdrop > .backdrop-mask {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: var(--fin-backdrop-mask, none);
+  /* Two layers: the SHAPE (clearance / spotlight — the register's `--backdrop-scrim` first,
+   * then the finish's baked mask) over the register's flat strength VEIL. */
+  background-image: var(--backdrop-scrim, var(--fin-backdrop-mask, none)), var(--backdrop-dim-scrim, var(--fin-backdrop-dim-scrim, none));
 }
 
-/* CLEARANCE — recede the finish behind the content box. The mask paints `var(--fin-canvas)`
+/* CLEAR BEHIND CONTENT — the frame's CONTENT BOX (masthead + stage) is clean canvas; the
+ * finish reads only in the frame margin. (engineering/decisions/2026-09-26-backdrop-register.md
+ * §4.6.) It replaced a fixed central ellipse, which missed the top-left eyebrow and heading
+ * outright and only faded the finish behind the edges of the body text.
+ *
+ * WHERE THE BOX COMES FROM: the section's own padding IS the frame margin (`--frame-y`,
+ * `--frame-x`, `--footer-reserve`, or whatever a layout sets), and `.backdrop` covers the
+ * section's padding box. So `.backdrop` and the mask inherit that padding, and the mask's
+ * `::before` inherits it once more: its CONTENT box is the section's content box, on every
+ * layout, with no geometry restated here. Padding moves no finish layer — the wash and
+ * texture paint from the padding box and the mark/edge pseudos are `inset: 0` — so this is
+ * inert until the clear layer is switched on.
+ *
+ * THE EDGE: soft on screen, hard in export. The solid layer extends `--backdrop-clear-bleed`
+ * past the content box and is blurred by `--backdrop-clear-blur` (2 standard deviations
+ * inside the bleed), so the content box stays ≥97.7% canvas at its very edge and 100% inside,
+ * and the fade runs across the whole margin. It is deliberately WIDE: at 1.5cqi / 0.6cqi the
+ * fade was ~20px and the clear area read as a panel with a border (owner review, iPhone
+ * Studio, 2026-09-26). Both export guards zero the bleed and set the FILTER to `none` — not a 0px blur: Chromium
+ * still treats `blur(0px)` as a filter in print, rasterizes the whole page and poppler draws a
+ * gray hairline around the content box. With `filter: none` the page stays vector. */
+section.finish > .backdrop,
+section.finish > .backdrop > .backdrop-mask {
+  padding: inherit;
+}
+section.finish {
+  --backdrop-clear-bleed: calc(var(--_sec-1cqi, 1cqi) * 5);
+  --backdrop-clear-blur: calc(var(--_sec-1cqi, 1cqi) * 2.5);
+  --backdrop-clear-filter: blur(var(--backdrop-clear-blur));
+  /* The fill a clear layer paints; a fabricated finish's baked clearance names it too. */
+  --backdrop-clear-fill: linear-gradient(var(--fin-canvas), var(--fin-canvas));
+}
+section.finish > .backdrop > .backdrop-mask::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: inherit;
+  /* The register's clear first, then a fabricated finish's baked one; `none` = off. */
+  background-image: var(--backdrop-clear-scrim, var(--fin-backdrop-clear-scrim, none));
+  background-origin: content-box;
+  background-repeat: no-repeat;
+  background-position: calc(var(--backdrop-clear-bleed) * -1) calc(var(--backdrop-clear-bleed) * -1);
+  background-size: calc(100% + 2 * var(--backdrop-clear-bleed)) calc(100% + 2 * var(--backdrop-clear-bleed));
+  filter: var(--backdrop-clear-filter, none);
+}
+/* A tone slide insets `.backdrop` by the 8px rail (below), which would push the content box
+ * 8px right of the real one; the clear layer steps back by the same 8px. */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).finish > .backdrop > .backdrop-mask::before {
+  left: -8px;
+}
+
+/* LEGACY CLEARANCE ELLIPSE — kept ONLY for fabricated finishes saved before 2026-09-26, whose
+ * generated CSS names `var(--backdrop-clear-mask)`; they keep it until re-saved. New saves and
+ * the `backdrop:` register use the content-box clear above. The original note follows.
+ *
+ * CLEARANCE — recede the finish behind the content box. The mask paints `var(--fin-canvas)`
  * over the central content area and is transparent toward the margins, so the finish
  * reads only as a frame — the words sit on clean canvas. Approximate geometry (a safe
  * central ellipse, biased up toward the masthead), not measured — see the decision
@@ -871,6 +931,96 @@ section.finish.lattice-exporting {
   --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
 }
 
+/* ── BACKDROP REGISTER — restraint over ANY finish ─────────────────────
+ * `backdrop: 40 clear` (deck) or `_class: backdrop-40 backdrop-clear` (slide) — stamped by
+ * lib/core/resolve-backdrop.js. Each class sets the `--backdrop-opacity` / `--backdrop-scrim` namespace the compositor above
+ * reads BEFORE the finish's baked `--fin-backdrop-*`, so slide > deck > finish holds for a
+ * built-in preset and a fabricated one alike. Inert on a slide without a finish: nothing
+ * outside `section.finish > .backdrop` reads these. Values are fixed steps and anchors, never
+ * author text (HARD RULE #22). (engineering/decisions/2026-09-26-backdrop-register.md.)
+ *
+ * STRENGTH: TWO DRAWINGS, AND WHICH ONE EACH CASE GETS. Poppler (Evince, Okular, pdftoppm)
+ * mis-draws both ways to dim a finish:
+ * - GROUP OPACITY around a hard-edged mask (a clearance, a spotlight's opaque face) draws a
+ *   large dark wedge, or the finish at full strength. With no mask inside it draws faint gray
+ *   seams at the texture's tile boundaries at thumbnail zoom (≈50–72 dpi), clean at 100.
+ * - A FLAT VEIL — the canvas at (100 − N)% laid over the finish in the mask layer, the same
+ *   pixel math on a flat canvas — survives a mask. It seams the other way round: clean at
+ *   thumbnail zoom, faint seams at 100 dpi. It adds a transparency object to its page.
+ * No drawing is seam-free in poppler; PDFium and Ghostscript draw neither. So the wedge
+ * decides: `--backdrop-veil-weight` is 1 (the veil) for every register STEP — a deck's
+ * `backdrop: 40` can sit over any finish, including one saved with an old baked mask this CSS
+ * cannot see — and for a register mask class or a mask Fabricate baked (which emits
+ * `--fin-backdrop-veil-weight: 1`). Only a finish's own baked strength with no mask keeps
+ * plain opacity, exactly as before the register, so a deck that never names it exports the
+ * same bytes. `open` forces 0: it removes every mask. `full` is 100%, where both are moot. */
+section.finish {
+  --backdrop-veil-fill: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1)) * 100%), transparent) 0 0);
+}
+section.backdrop-20 { --backdrop-strength-opacity: 0.2; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
+section.backdrop-40 { --backdrop-strength-opacity: 0.4; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
+section.backdrop-60 { --backdrop-strength-opacity: 0.6; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
+section.backdrop-80 { --backdrop-strength-opacity: 0.8; --backdrop-veil-weight: 1; --backdrop-dim-scrim: var(--backdrop-veil-fill); }
+section.backdrop-full { --backdrop-strength-opacity: 1; }
+/* `open` discards a baked clearance or spotlight. `clear` switches on the content-box layer
+ * and drops any baked shape (a finish's own spotlight or legacy ellipse): one mask at a time. */
+section.backdrop-open {
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-clear-scrim: none;
+  --backdrop-veil-weight: 0;
+  --backdrop-dim-scrim: none;
+}
+section.backdrop-clear {
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-clear-scrim: var(--backdrop-clear-fill);
+  --backdrop-veil-weight: 1;
+  --backdrop-dim-scrim: var(--backdrop-veil-fill);
+}
+/* SPOTLIGHT at one of nine anchors — the same two-face window Fabricate bakes
+ * (finish-generate.ts `spotlightMask`): transparent inside = finish shown, the canvas
+ * outside = finish hidden; RICH feathers, OPAQUE is one hard stop for the vector PDF. Only
+ * the centre moves, so the shape is written once and each anchor sets `--backdrop-spot-position`. */
+section:is(.backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr, .backdrop-spot-l, .backdrop-spot-c,
+  .backdrop-spot-r, .backdrop-spot-bl, .backdrop-spot-b, .backdrop-spot-br) {
+  --backdrop-scrim: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 42%, var(--fin-canvas) 96%);
+  --backdrop-scrim-opaque: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 70%, var(--fin-canvas) 70%);
+  --backdrop-clear-scrim: none; /* a spotlight replaces a baked clearance */
+  --backdrop-veil-weight: 1;
+  --backdrop-dim-scrim: var(--backdrop-veil-fill);
+}
+section.backdrop-spot-tl { --backdrop-spot-position: 22% 26%; }
+section.backdrop-spot-t { --backdrop-spot-position: 50% 22%; }
+section.backdrop-spot-tr { --backdrop-spot-position: 78% 26%; }
+section.backdrop-spot-l { --backdrop-spot-position: 20% 50%; }
+section.backdrop-spot-c { --backdrop-spot-position: 50% 50%; }
+section.backdrop-spot-r { --backdrop-spot-position: 80% 50%; }
+section.backdrop-spot-bl { --backdrop-spot-position: 22% 74%; }
+section.backdrop-spot-b { --backdrop-spot-position: 50% 78%; }
+section.backdrop-spot-br { --backdrop-spot-position: 78% 74%; }
+/* The register's EXPORT FLIP — the same two guards as the finish's own, and AFTER the class
+ * rules above so it wins at equal specificity. With no backdrop class on the slide,
+ * `--backdrop-scrim-opaque` is undefined, so `--backdrop-scrim` becomes invalid at computed-value time and
+ * the compositor's `var()` falls through to the finish's baked mask — a deck that never
+ * names the register renders exactly as before. */
+@media print {
+  section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }
+}
+:where(.lattice-exporting) section.finish,
+section.finish.lattice-exporting {
+  --backdrop-scrim: var(--backdrop-scrim-opaque);
+  --backdrop-clear-bleed: 0px;
+  --backdrop-clear-filter: none;
+}
+
+/* The overflow QA ring is an inset box-shadow on the SECTION, under `.backdrop`. The finish
+ * layers leave the edge alone, but the register's veil covers the whole slide and would fade
+ * the ring to pink. Where the ring is drawn, the mask layer steps in by the ring's 4px. */
+section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]) > .backdrop > .backdrop-mask {
+  inset: 4px;
+}
+
 /* ── Per-slide opt-out ────────────────────────────────────────────────
  * `<!-- _class: finish-none -->` (or the back-compat `backdrop-none`) clears a
  * deck-wide finish on one slide (a title/cover/image or a busy chart). Zeroes
@@ -895,6 +1045,18 @@ section.backdrop-none {
    * stated the invariant ("never `none`, invalid inside a shadow list"); this line
    * broke it anyway, and nothing noticed until the css:values var() pass. */
   --fin-frame: 0 0 transparent; /* clear the inset keyline frame too */
+  /* …and the `backdrop:` register's layers, which a deck-wide `backdrop: clear` still stamps
+   * here: without these the opted-out slide painted the clearance ellipse and the veil over a
+   * bare canvas (a hairline on every `finish-none` bookend in the PDF). This rule follows the
+   * register's export flips at equal specificity, so it wins in print too. */
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-dim-scrim: none;
+  --fin-backdrop-dim-scrim: none;
+  --backdrop-opacity: 1;
+  --backdrop-clear-scrim: none;
+  --fin-backdrop-clear-scrim: none;
+  --backdrop-clear-filter: none;
   background-image: none;
   box-shadow: none;
 }

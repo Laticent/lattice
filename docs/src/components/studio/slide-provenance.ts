@@ -438,3 +438,50 @@ export function setMotionSpeed(chunk: string, value: string | null): string {
 export function hasMotionToken(chunk: string): boolean {
 	return getClassTokens(chunk).some(isAnyMotionToken);
 }
+
+// ── backdrop (restraint over any finish) ─────────────────────────────────────────────────────
+// Mirrors lib/core/resolve-backdrop.js, which the docs build cannot import (CJS). Two axes on
+// ONE deck line (`backdrop: 40 clear`), each overridden per slide by its own `backdrop-*` token;
+// a slide token evicts the deck's on that axis only. `backdrop-none` is the finish-none alias,
+// never a register token, so it is not in either list.
+export const BACKDROP_STRENGTHS = ['20', '40', '60', '80', 'full'] as const;
+export const BACKDROP_SPOTS = ['tl', 't', 'tr', 'l', 'c', 'r', 'bl', 'b', 'br'] as const;
+export const BACKDROP_MASKS = ['clear', 'open', ...BACKDROP_SPOTS.map((p) => `spot-${p}`)] as const;
+export type BackdropAxis = 'strength' | 'mask';
+const backdropValues = (axis: BackdropAxis): readonly string[] => (axis === 'strength' ? BACKDROP_STRENGTHS : BACKDROP_MASKS);
+
+/** The deck's `backdrop:` value split onto its two axes (first recognized word per axis). */
+export function deckBackdrop(source: string): { strength?: string; mask?: string } {
+	const raw = (getFrontMatter(source, 'backdrop') || '').replace(/\s#.*$/, '').trim().toLowerCase();
+	const out: { strength?: string; mask?: string } = {};
+	for (const w of raw.split(/[\s,]+/).filter(Boolean)) {
+		const word = w.endsWith('%') ? w.slice(0, -1) : w;
+		if (!out.strength && (BACKDROP_STRENGTHS as readonly string[]).includes(word)) out.strength = word;
+		else if (!out.mask && (BACKDROP_MASKS as readonly string[]).includes(word)) out.mask = word;
+	}
+	return out;
+}
+
+/** Write the deck line from its two axes; both empty removes the key. */
+export function backdropDeckValue(strength?: string | null, mask?: string | null): string | null {
+	const v = [strength, mask].filter(Boolean).join(' ');
+	return v || null;
+}
+
+export function backdropProvenance(chunk: string, source: string, axis: BackdropAxis): Provenance {
+	const values = backdropValues(axis);
+	const own = getClassTokens(chunk).find((t) => t.startsWith('backdrop-') && values.includes(t.slice(9)));
+	const deckValue = deckBackdrop(source)[axis];
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own.slice(9), deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** Set one axis on the slide; `null` clears it so the slide follows the deck. */
+export function setBackdrop(chunk: string, axis: BackdropAxis, name: string | null): string {
+	const values = backdropValues(axis);
+	const kept = getClassTokens(chunk).filter((t) => !(t.startsWith('backdrop-') && values.includes(t.slice(9))));
+	if (name && values.includes(name)) kept.push(`backdrop-${name}`);
+	return setClassTokens(chunk, kept);
+}

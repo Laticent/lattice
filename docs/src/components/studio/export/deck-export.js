@@ -942,7 +942,7 @@ export function sweepWebRefsForCapture(section) {
 	};
 }
 
-async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTarget) {
+export async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTarget) {
 	// The spectrum ribbon is a `border-top` whose `border-image-source` is a
 	// linear-gradient. html-to-image inlines that computed border-image and
 	// MIS-RENDERS it — filling the gradient across the whole element instead of
@@ -965,6 +965,7 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 		backgroundRepeat: section.style.backgroundRepeat,
 		backgroundPosition: section.style.backgroundPosition,
 		backgroundSize: section.style.backgroundSize,
+		backgroundOrigin: section.style.backgroundOrigin,
 	};
 	if (hasGradientBorder && borderless) {
 		section.style.borderImageSource = 'none';
@@ -979,6 +980,11 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 		section.style.backgroundRepeat = baseImg ? `no-repeat, ${cs.backgroundRepeat}` : 'no-repeat';
 		section.style.backgroundPosition = baseImg ? `top left, ${cs.backgroundPosition}` : 'top left';
 		section.style.backgroundSize = baseImg ? `100% ${tw}, ${cs.backgroundSize}` : `100% ${tw}`;
+		// Anchor the strip to the BORDER box, i.e. the band the real ribbon occupies. From the
+		// default padding box it sat just inside the border, under the finish's `.backdrop`
+		// (a padding-box child), so a backdrop mask or veil painted over it: `backdrop: clear`
+		// erased the ribbon wherever the clearance ellipse reached the top edge (#2388).
+		section.style.backgroundOrigin = baseImg ? `border-box, ${cs.backgroundOrigin}` : 'border-box';
 		section.style.borderImageSource = 'none';
 		section.style.borderTopColor = 'transparent';
 	}
@@ -1067,6 +1073,7 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 		section.style.backgroundRepeat = prev.backgroundRepeat;
 		section.style.backgroundPosition = prev.backgroundPosition;
 		section.style.backgroundSize = prev.backgroundSize;
+		section.style.backgroundOrigin = prev.backgroundOrigin;
 		restoreVisibility();
 		if (!hadExporting) section.classList.remove('lattice-exporting');
 		if (hadRounded) section.classList.add('corners-rounded');
