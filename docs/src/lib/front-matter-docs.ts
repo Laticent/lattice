@@ -52,6 +52,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	size: { group: 'look', default: 'hd', studio: 'Look → Size', values: 'hd (16:9) · 4k · standard (4:3) · square · portrait (4:5) · story · reel (9:16) · mobile' },
 	mode: { group: 'look', default: 'boardroom', studio: 'Look → Mode', slide: '_class: sketch' },
 	finish: { group: 'look', default: 'none', studio: 'Look → Finish', slide: '_class: finish-<name>', values: 'none · atrium · meridian · strata · halo · ledger · nimbus · loom · savile · gallery' },
+	backdrop: { group: 'look', default: "the finish's own", studio: 'Look → Backdrop strength · Backdrop mask', slide: '_class: backdrop-<value>', values: 'a strength (20 · 40 · 60 · 80 · full) and/or a mask (clear · open · spot-tl … spot-br), e.g. 40 clear' },
 	'finish-override': { group: 'look', default: 'none', values: 'a nested map of finish layers', scope: 'Studio only (written by Fabricate)' },
 	lift: { group: 'look', default: 'off', studio: 'Look → Card lift', slide: '_class: lifted · flat' },
 	cards: { group: 'look', default: 'each component decides', studio: 'Look → More → Card rows', slide: '_class: cards-<value>' },
