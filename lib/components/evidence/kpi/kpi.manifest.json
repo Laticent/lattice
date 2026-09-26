@@ -237,5 +237,23 @@
       "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 4 words per element, half the slide density (side 50%: clips at 4; stack 50/50: one element already clips, so it does not go in a stacked band). sweet sits below it."
     },
     "review": "side 25 measured, 65 reviewed: the second tile crushes below 65%."
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 3,
+        "huddle": 3,
+        "conference": 3,
+        "hall": 2
+      },
+      "8": {
+        "laptop": 3,
+        "huddle": 3,
+        "conference": 3,
+        "hall": 2
+      }
+    }
   }
 }

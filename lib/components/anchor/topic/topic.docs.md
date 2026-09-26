@@ -10,6 +10,8 @@ Marks a topic WITHIN a section, where `divider` marks the boundary BETWEEN secti
 
 ## Agent contract
 
+**By venue** no count budget. A topic marker: one heading and a short line, with no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

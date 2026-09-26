@@ -120,6 +120,7 @@ function classUsage() {
 }
 const { BUCKET_BLURBS } = require('./build-bucket-galleries');
 const { renderDocs } = require('./build-component-docs');
+const { venuePickCell } = require('./lib/venue-capacity');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
@@ -1024,6 +1025,7 @@ function renderPortalJson(manifests) {
     ...(Array.isArray(m.focusAxes) && m.focusAxes.length ? { focusAxes: m.focusAxes } : {}),
     ...capacityEntry(m),
     ...(m.density ? { density: m.density } : {}),
+    ...(m.venueCapacity ? { venueCapacity: m.venueCapacity } : {}),
     // How it behaves in a PANE (lib/core/panes.js): fit, pane form, stack flag and budget.
     ...(m.pane ? { pane: m.pane } : {}),
     slots: m.slots || {},
@@ -1286,6 +1288,7 @@ function renderPickMd(manifests) {
       cell(manifestBucket(m)),
       cell(`${m.form}/${m.function}/${m.substance}`),
       cell(capacityCell(m)),
+      cell(venuePickCell(m)),
       cell(escalate.join(', ')),
       cell((Array.isArray(m.tags) ? m.tags : []).join(' ')),
       cell(related.join(' ')),
@@ -1298,7 +1301,7 @@ function renderPickMd(manifests) {
   const bucketRank = new Map(BUCKETS.map((b, i) => [b, i]));
   rows.sort((a, b) => (bucketRank.get(a[1]) ?? 99) - (bucketRank.get(b[1]) ?? 99) || a[0].localeCompare(b[0], 'en'));
 
-  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'escalates to', 'tags', 'see also', 'purpose'];
+  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'by venue', 'escalates to', 'tags', 'see also', 'purpose'];
   const table = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((r) => `| ${r.join(' | ')} |`)];
 
   return `# Component pick list
@@ -1338,6 +1341,15 @@ per-family numbers in the component's \`.docs.md\` before counting.
 A \`—\` capacity means **no count budget is published** for this component — not that it
 holds unlimited items. Where the budget is a prose length rather than a count (a title,
 a big number), the component's \`.docs.md\` is the record.
+
+**\`by venue\`** is how many elements the component holds at each \`venue:\` —
+\`laptop/huddle/conference/hall\`, at the words per element its \`density\` asks for, at a
+wide @size, never above the \`capacity\` max. **Pick for the room before you write**: a
+slide past its venue's number holds the WHOLE deck at a smaller size (one size per deck),
+and the export names it as the slide to trim. A \`+\` means the rig tried that many and it
+still fit. A \`—\` means no count
+budget exists — the component's \`.docs.md\` says why (a chart scales to its box; a
+title has nothing to count).
 
 **\`escalates to\`** is where to go when your count blows the budget; **\`see also\`** is
 where to go when the SHAPE is wrong — the components this one is most often confused

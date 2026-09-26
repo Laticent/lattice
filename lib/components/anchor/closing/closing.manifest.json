@@ -144,5 +144,8 @@
   "pane": {
     "side": false,
     "stack": false
+  },
+  "venueCapacity": {
+    "none": "A bookend: one heading and a line or two, with no repeated element to count."
   }
 }

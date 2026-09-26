@@ -147,5 +147,23 @@
       },
       "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 50%: fits 12+, so 12 is a floor, not a ceiling; stack 50/50: clips at 5). sweet sits below it."
     }
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 10,
+        "huddle": 9,
+        "conference": 8,
+        "hall": 7
+      },
+      "16": {
+        "laptop": 10,
+        "huddle": 9,
+        "conference": 4,
+        "hall": 4
+      }
+    }
   }
 }

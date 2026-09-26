@@ -10,6 +10,8 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ## Agent contract
 
+**By venue** no count budget. A section marker: one heading and an optional line, with no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

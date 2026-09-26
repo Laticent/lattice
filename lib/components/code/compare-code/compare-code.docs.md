@@ -10,6 +10,8 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 ## Agent contract
 
+**By venue** no count budget. Two code panes side by side; not measured per venue yet (the rig measures the single `code` pane).
+
 ### Slots
 
 | Slot | Selector | Required | Description |

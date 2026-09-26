@@ -14,6 +14,8 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 **Density** aim ~20 words per item; past ~28 it reads as a wall of text — one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip.
 
+**By venue** (`venue:`, ~20 words each) it holds laptop ~3 · huddle ~3 · conference ~2 · hall ~2 items. At ~6 words each: 3 · 3 · 3 · 3. No venue goes past the Capacity max of 3, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

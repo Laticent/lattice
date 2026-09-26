@@ -78,5 +78,23 @@
       "min": 3
     },
     "review": "side 50 measured, 65 reviewed: stage titles break mid-word below 65%."
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 10,
+        "huddle": 9,
+        "conference": 8,
+        "hall": 7
+      },
+      "12": {
+        "laptop": 5,
+        "huddle": 5,
+        "conference": 4,
+        "hall": 4
+      }
+    }
   }
 }

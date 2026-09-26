@@ -12,6 +12,8 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one finding per row, a sentence.
 
+**By venue** (`venue:`, ~16 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~3 items. At ~6 words each: 8 · 7 · 6 · 6. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

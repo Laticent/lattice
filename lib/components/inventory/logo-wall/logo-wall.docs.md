@@ -10,6 +10,8 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 ## Agent contract
 
+**By venue** no count budget. Its elements are image assets; a synthetic deck would measure broken-image boxes, not logos.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

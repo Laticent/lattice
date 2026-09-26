@@ -167,5 +167,8 @@
     "side": 50,
     "stack": 50,
     "noBudget": "one amended passage"
+  },
+  "venueCapacity": {
+    "none": "One clause with its inline edits per slide; its length is prose, not a count of elements."
   }
 }

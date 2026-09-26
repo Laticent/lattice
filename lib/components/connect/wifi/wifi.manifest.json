@@ -90,5 +90,8 @@
     "side": 65,
     "stack": false,
     "noBudget": "one network card"
+  },
+  "venueCapacity": {
+    "none": "A fixed card (network, password and a QR code), with no repeated element to count."
   }
 }

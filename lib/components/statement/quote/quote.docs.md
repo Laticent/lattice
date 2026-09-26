@@ -10,6 +10,8 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 
 ## Agent contract
 
+**By venue** no count budget. One quotation and its attribution per slide, so there is no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

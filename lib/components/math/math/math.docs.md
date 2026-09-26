@@ -10,6 +10,8 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 
 ## Agent contract
 
+**By venue** no count budget. The equation is fixed content that dominates the box, so a count of legend lines measures the wrong thing.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

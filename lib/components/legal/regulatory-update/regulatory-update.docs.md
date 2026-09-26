@@ -14,7 +14,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per item.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`, or `venue: huddle` / `conference` / `hall`) it holds ~4 / ~4 / ~2 items of ~14 words at a wide @size; past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~14 words each) it holds laptop ~4 · huddle ~4 · conference ~4 · hall ~2 items. At ~6 words each: 4 · 4 · 4 · 3. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 
