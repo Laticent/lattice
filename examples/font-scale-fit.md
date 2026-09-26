@@ -15,14 +15,14 @@ header: "Lattice · Projection scale fit"
 
 `Typography · Projection scale`
 
-A slide too full for the scale renders at the designed size. It is never clipped.
+One slide too full for 1.3x sets the size for the whole deck. Nothing is clipped, and nothing changes size between slides.
 
 ---
 
 <!-- _class: list-steps insight-so-what -->
-<!-- _footer: "Steps down · 5 steps is past list-steps' scale-xl budget of 4" -->
+<!-- _footer: "Sets the size · 5 steps is past list-steps' scale-xl budget of 4" -->
 
-`Steps down · list-steps`
+`Sets the size · list-steps`
 
 ## Agents can now take a ticket all the way to review.
 
@@ -37,16 +37,16 @@ A slide too full for the scale renders at the designed size. It is never clipped
 5. Hand off
    - Waits for approval, leaves notes.
 
-> Five steps do not fit at 1.3x, so this slide renders at the designed size, 1x.
+> Five steps fit at 1.15x, not 1.3x, so the deck renders at 1.15x.
 
 ---
 
 <!-- _class: list-steps insight-so-what -->
-<!-- _footer: "Holds the full scale · 4 steps is within the scale-xl budget" -->
+<!-- _footer: "Fits at 1.3x · renders at the deck's 1.15x like its neighbors" -->
 
-`Holds the full scale · list-steps`
+`Fits at 1.3x · list-steps`
 
-## Four steps fit at the deck's full size.
+## Four steps would fit at 1.3x on their own.
 
 1. Plan
    - Reads the ticket and plans the change.
@@ -57,52 +57,27 @@ A slide too full for the scale renders at the designed size. It is never clipped
 4. Hand off
    - Waits for approval, leaves notes.
 
-> The same strip with one step fewer keeps the full 1.3x.
+> It renders at 1.15x anyway, so the type does not jump as you click from slide 2.
 
 ---
 
-<!-- _class: compare-prose vertical insight-so-what -->
-<!-- _footer: "Steps down · two paragraphs need about 1.69x their height at 1.3x" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "The trim list · the export's SCALE line" -->
 
-`Steps down · compare-prose`
+`Getting 1.3x back`
 
-## AI raises your floor, but only you can raise your ceiling.
+## The export names the slides that set the size.
 
-- The floor
-  - Anyone can now produce working-looking code in minutes. That part got cheap, for everyone.
-- The ceiling
-  - Knowing what to build, spotting what is wrong, deciding when it is good enough. That part is still yours.
-
-> Wrapped prose grows on both axes, so a pair of short paragraphs already needs more than 1.3x allows.
-
----
-
-<!-- _class: cycle insight-key -->
-<!-- _footer: "Steps down · a five-stage ring with a key insight" -->
-
-`Steps down · cycle`
-
-## Every session feeds the next one.
-
-- Plan
-  - The agent reads the brief and the open issues.
-- Build
-  - It changes the code and runs the checks.
-- Review
-  - A person reads the diff and the evidence.
-- Record
-  - The decision note says why, for next time.
-- Resume
-  - The next session starts from the note.
-
-> The ring keeps its shape; the labels return to the designed size so the stages fit.
+- For 1.3x, it lists pages 2, 5 and 8.
+- Trim those, and every slide renders at 1.3x.
+- Until then, the whole deck stays at 1.15x.
 
 ---
 
 <!-- _class: code -->
-<!-- _footer: "Steps down · 11 lines under an eyebrow; the scale-xl pane holds 10" -->
+<!-- _footer: "Sets the size · 11 lines under an eyebrow; the scale-xl pane holds 10" -->
 
-`Steps down · code`
+`Sets the size · code`
 
 ## The instruction file states the rules once.
 
@@ -123,9 +98,9 @@ A slide too full for the scale renders at the designed size. It is never clipped
 ---
 
 <!-- _class: code -->
-<!-- _footer: "Holds the full scale · 10 lines is the scale-xl budget under an eyebrow" -->
+<!-- _footer: "Fits at 1.3x · 10 lines is the scale-xl budget under an eyebrow" -->
 
-`Holds the full scale · code`
+`Fits at 1.3x · code`
 
 ## Code keeps scaling; its line budget scales with it.
 
@@ -171,11 +146,11 @@ A slide too full for the scale renders at the designed size. It is never clipped
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-`Steps down · closing qr`
+`Sets the size · closing qr`
 
 ## Leave a scannable takeaway behind.
 
-The QR tile is sized in em, so it grows with the scale and this slide returns to the designed size to hold it.
+The QR tile is sized in em, so it grows with the scale; this slide fits at 1.15x.
 
 - https://laticent.io/components/closing
 - Scan to open `caption`
@@ -187,6 +162,6 @@ The QR tile is sized in em, so it grows with the scale and this slide returns to
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-## The scale is a request. The frame is a promise.
+## The scale is a request. One size is a promise.
 
 `lint:deck flags it · the export's SCALE line names it`

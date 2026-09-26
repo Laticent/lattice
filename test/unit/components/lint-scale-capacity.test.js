@@ -10,8 +10,10 @@
  *     (the engine appends it to every section — the case the repro deck uses);
  *   · the budget read is the one measured for the slide's element LENGTH, so four
  *     one-line cards are not judged as four paragraphs;
- *   · `info`, never `warning`: the engine steps the slide and nothing is cut, and a
+ *   · `info` for a bare `scale-*`: the engine levels the deck and nothing is cut, and a
  *     warning would red `lint:deck:all --strict` for a slide that renders whole;
+ *   · `warning` under a `venue:`: the author has said where the deck will be seen, and
+ *     one slide over budget pulls the whole deck down a rung (scale-fit.js rule 6);
  *   · the code pane's line budget moves with the scale AND with an eyebrow.
  */
 const { describe, test } = require('node:test');
@@ -45,7 +47,7 @@ describe('capacity-scale — a counted component', () => {
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
     assert.equal(out[0].classToken, 'list-steps');
-    assert.match(out[0].message, new RegExp(`scale-xl \\(1\\.3x\\) 'list-steps' holds about ${ceilXl} items`));
+    assert.match(out[0].message, new RegExp(`at 1\\.3x 'list-steps' holds about ${ceilXl} items`));
     assert.match(out[0].message, /at the designed size/);
     assert.match(out[0].message, /SCALE line/);
   });
@@ -180,5 +182,64 @@ describe('the fit: register in lint', () => {
     if (n > 5) return;
     const src = deck('scale-xl', slide('list-steps fit-heal', n)).replace('marp: true', 'marp: true\nfit: report');
     assert.equal(rules(src).find((x) => x.rule === 'capacity-scale')?.severity, 'info');
+  });
+});
+
+describe('capacity-scale — under a venue', () => {
+  const venueDeck = (venue, body) => `---\nmarp: true\nvenue: ${venue}\n---\n\n${body}`;
+  const xl = core.SCALE_CAPACITY['list-steps'];
+  const longCol = Math.max(...Object.keys(xl).map(Number));
+
+  test('venue: conference reads the scale-xl budget and warns', () => {
+    const out = lint(venueDeck('conference', slide('list-steps', xl[longCol][2] + 1)));
+    assert.equal(out.length, 1);
+    assert.equal(out[0].severity, 'warning');
+    assert.match(out[0].message, /at 1\.3x/);
+    assert.match(out[0].message, /every slide that asked for 1\.3x/);
+  });
+
+  test('venue: hall reads the scale-2xl budget and asks for fewer words', () => {
+    const out = lint(venueDeck('hall', slide('list-steps', xl[longCol][3] + 1)));
+    assert.equal(out.length, 1);
+    assert.equal(out[0].severity, 'warning');
+    assert.match(out[0].message, /at 1\.5x/);
+    assert.match(out[0].fix, /venue: hall/);
+  });
+
+  test('venue: laptop, and an unknown venue, are the designed size — silent', () => {
+    assert.deepEqual(lint(venueDeck('laptop', slide('list-steps', 5))), []);
+    assert.deepEqual(lint(venueDeck('stadium', slide('list-steps', 5))), []);
+  });
+
+  test('a code block over the pane at a venue warns', () => {
+    const code = '```js\n' + Array.from({ length: 12 }, (_, i) => `x${i}();`).join('\n') + '\n```\n';
+    const out = lint(venueDeck('conference', `<!-- _class: code -->\n\n## Heading.\n\n${code}`));
+    assert.equal(out.length, 1);
+    assert.equal(out[0].severity, 'warning');
+  });
+});
+
+describe('capacity-scale — a slide that names its own venue', () => {
+  test('is judged at its own venue, not the deck\'s, as the renderer evicts the deck token', () => {
+    const src = `---\nmarp: true\nvenue: hall\n---\n\n${slide('list-steps venue-huddle', 5)}`;
+    const out = lint(src);
+    assert.ok(out.every((f) => !/at 1\.5x/.test(f.message)), 'never judged at the hall scale');
+    assert.ok(out.every((f) => !/venue: hall/.test(f.fix)));
+  });
+});
+
+describe('unknown-venue', () => {
+  const run = (src) => core.lintTextWith(src, { ...vocab, venueNames: ['laptop', 'huddle', 'conference', 'hall'] })
+    .filter((f) => f.rule === 'unknown-venue');
+  test('a typo is a warning naming the four venues', () => {
+    const out = run('---\nmarp: true\nvenue: auditorium\n---\n\n# x\n');
+    assert.equal(out.length, 1);
+    assert.match(out[0].fix, /laptop, huddle, conference, hall/);
+  });
+  test('a value with a space is unknown too', () => {
+    assert.equal(run('---\nmarp: true\nvenue: big hall\n---\n\n# x\n').length, 1);
+  });
+  test('a known venue, any case, is silent', () => {
+    assert.deepEqual(run('---\nmarp: true\nvenue: Conference\n---\n\n# x\n'), []);
   });
 });

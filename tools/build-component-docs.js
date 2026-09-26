@@ -285,12 +285,12 @@ function terminated(t) {
  */
 function projectionScaleLine(m, axis) {
   const { SCALE_CAPACITY, CODE_LINES_AT_SCALE } = require('../lib/authoring/lint-core.js');
-  const tail = 'past that, expect the engine to render the slide at the designed size (1x) rather than clip it — '
+  const tail = 'past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — '
     + '`lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.';
   if (m.name === 'code') {
     const [, l, xl, xxl] = CODE_LINES_AT_SCALE.bare;
     const [, el, exl, exxl] = CODE_LINES_AT_SCALE.eyebrow;
-    return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`) the pane holds ~${l} / ~${xl} / ~${xxl} lines at a wide @size (~${el} / ~${exl} / ~${exxl} under an eyebrow); ${tail}`;
+    return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`, or \`venue: huddle\` / \`conference\` / \`hall\`) the pane holds ~${l} / ~${xl} / ~${xxl} lines at a wide @size (~${el} / ~${exl} / ~${exxl} under an eyebrow); ${tail}`;
   }
   const row = SCALE_CAPACITY[m.name];
   if (!row) return null;
@@ -298,7 +298,7 @@ function projectionScaleLine(m, axis) {
   const words = lengths[lengths.length - 1];
   const [, l, xl, xxl] = row[words];
   const noun = axisNoun(axis || 'item', 2);
-  return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`) it holds ~${l} / ~${xl} / ~${xxl} ${noun} of ~${words} words at a wide @size; ${tail}`;
+  return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`, or \`venue: huddle\` / \`conference\` / \`hall\`) it holds ~${l} / ~${xl} / ~${xxl} ${noun} of ~${words} words at a wide @size; ${tail}`;
 }
 
 function emitAgentContract(m, lines) {

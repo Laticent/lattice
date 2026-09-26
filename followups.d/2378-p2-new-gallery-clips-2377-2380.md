@@ -11,3 +11,11 @@ where     — lib/components/chart/heatmap/ (heatmap.gallery.md p3–4; #2377 ch
 done when — both galleries render with no OVERFLOW and no CONTENT CLIPPED line, and `node tools/check-overflow-corpus.js --bless` lowers the baseline by those 3 pages.
 evidence  — the emulator's own OVERFLOW / CONTENT CLIPPED lines for both galleries, before and after; the rasterized pages via SendUserFile.
 verify    — tier 0 gates, plus a look at the pages; tier 1 checker if the fix touches shared chart CSS.
+
+rechecked — 2026-09-26, on origin/main 283f47a (#2389) plus PR #2390, which does not touch either
+            component or anything at scale 1: STILL OPEN, unchanged. `heatmap.gallery.md` reports
+            "⚠ CONTENT CLIPPED — pages 3, 4" and `list.gallery.md` "⚠ OVERFLOW — page 9". What is cut:
+            list p9 is the "eight lines at the hard ceiling" stress slide and shows 5 of its 8 lines;
+            heatmap p4 truncates its first row label ("January 2026…"). The list page is the same
+            question as `2378-p3-capacity-hard-above-measured.md`: the rig measures `list` at 3 at
+            `wide` and the manifest declares hard 6, so the gallery's "hard ceiling" of 8 is past both.

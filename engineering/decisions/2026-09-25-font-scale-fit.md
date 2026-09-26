@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it.
+summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-09-07-overflow-guards-trim.md
 ---
 
@@ -16,6 +16,11 @@ builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29
 > `report` switches it off. The numbers below record the ladder as #2378 shipped it; on the
 > repro deck at scale-xl the two-size rule gives 40 slides at 1.3x and 24 at 1x, 0 clipped.
 > The frozen renders in `2026-09-25-font-scale-fit-renders/` are the ladder's.
+>
+> **Amended again 2026-09-26 — one size per deck.** Two sizes still read as a deck that
+> changes size as you click. The owner chose one size: every slide that asked for a scale
+> renders on the highest rung all of them fit, in-between rungs included, which replaces
+> the two-size rule. It also added the `venue:` register. See the amendment at the end.
 
 ## Symptom
 
@@ -241,3 +246,85 @@ scale, the tool checks the table rather than the manifest's designed-size `hard`
 - `2026-06-22-the-fit-spine.md` §3 — the closed four-move list gains STEP (and TRIM, which
   2026-09-07 admitted). Noted inline there.
 - `engineering/typography.md` §7 — "When NOT to use it" now describes STEP.
+
+## Amendment 2026-09-26 — one size per deck, and `venue:`
+
+**What went wrong.** The first real deck to opt in, the agentic-practices talk (PR #2361),
+rendered at `scale-xl` with 45 slides at 1.3x, 11 at 1.15x and 14 at 1x. STEP stepped each
+slide on its own, chrome included, so neighboring slides alternated size and the running
+header, eyebrow and page dots pulsed as you clicked through. The owner saw it at a glance,
+and the talk went back to scale 1. The cost this note listed under "What it costs" ("Type
+size can differ from slide to slide") turned out to be the defect, not a side effect.
+
+**The options, measured** on that talk at `scale-xl` (70 slides, 69 transitions from one
+slide to the next; sizes are multiples of the designed size; `.scratch` prototypes, not
+shipped):
+
+| Option | Body sizes (slides) | Body changes | Chrome sizes | Median body | Clipped |
+|---|---|---|---|---|---|
+| STEP as shipped | 45 @1.3, 11 @1.15, 14 @1 | 40 | 3 (29 changes) | 1.3 | 0 |
+| A — chrome held at the deck's scale | same as STEP | 40 | 1 | 1.3 | 0 |
+| **B — one rung per ask** (taken) | 70 @1 | 0 | 1 | 1.0 | 0 |
+| B per section (rung per divider section) | 61 @1, 2 @1.15, 7 @1.3 | 3 | 3 | 1.0 | 0 |
+| C — author scales chosen slides only | 56 @1, 5 @1.15, 9 @1.3 | 20 | 3 (17 changes) | 1.0 | 0 |
+| D — no STEP | 70 @1.3 | 0 | 1 | 1.3 | 25 |
+
+Only B and D give one size, and D clips 25 pages. B and D converge once the binding slides
+are trimmed; B is the version that never cuts content on the way there. B's cost is that a
+dense deck gets no enlargement until it is trimmed: the talk lands at 1x until 14 slides
+are trimmed (1.15x) or 25 (1.3x).
+
+**Decision (owner, 2026-09-26): B.** STEP still finds each slide's own highest fitting
+rung; a new pass, LEVEL (`levelScaleSteps`, rule 7 in the kernel header), then puts every
+slide that asked for the same scale on the lowest of those rungs. It reads only what STEP
+recorded, so it never measures. It runs in all three callers: the emulator pass, the
+embedded watcher (both inject `SCALE_LEVEL_SRC`), and the live runtime, which measures only
+the slides in view and re-sweeps when LEVEL moves a slide it did not measure. A slide no
+rung fits is left out of the minimum (size cannot save it) and renders at the shared rung.
+The `↓ SCALE` line now names the slides to trim for each rung above the one the deck landed
+on.
+
+**Why the scale matters at all — and `venue:`.** The owner then asked what drives the
+need. The answer is viewing distance. Slide text is a fixed share of screen height, so its
+angle in the eye depends only on how many screen-heights away the back row sits; at scale 1,
+Lattice's body text is about 51.6 ÷ k arcminutes of x-height, and a mixed audience reads
+comfortably at about 12′. That made the problem partly an authoring one: authors were
+picking a multiplier when what they know is the room. The owner chose a `venue:` register
+(`laptop` / `huddle` / `conference` / `hall`, one per rung) that sets the scale, lifts the
+meta role past the body (`--venue-meta-lift`, 1.15 at conference and 1.3 at hall), and turns
+`capacity-scale` into a warning. The bands came from the owner's own rooms (desk, huddle
+4–6, conference 10–20 and 20–30, halls 50–100 and 500–2,000), which the math collapses
+into four. The derivation is `engineering/typography.md` §7 "Venue". Rejected on the way: a
+numeric `view-distance:` (authors do not know their room in screen-heights), a `call` venue
+for video calls (owner: three bands plus laptop), and room-free names such as
+small/medium/large or near/mid/far (owner preferred names for the room).
+
+**Amended above:** "What it costs" no longer holds for type size; rule 2 now leaves a slide
+no rung fits out of the shared rung instead of at its request.
+
+**Then the live surfaces (same day).** Verification on the real Studio build found that the
+editor preview and Present render one slide per document, so LEVEL saw one slide and a
+`venue: conference` deck still showed 1.3x · 1x · 1.3x as you moved through it (the gap
+`2026-09-25-fit-policy.md` §4 predicted). The owner chose to close it in the same PR. The
+Studio now renders a scaled deck once in a hidden frame, runs a full sweep there
+(`latticeSweep.sweep({ all: true })`: 225–376 ms of STEP for the 70-slide talk, LEVEL under
+3 ms), and writes the shared rung per ask as `data-lattice-scale-cap` on each single-slide
+frame's document element; LEVEL never lands above it (`docs/src/lib/scale-cap.ts`, the
+kernel's rule 7). Decks without a scale never create the frame. Pinned on the real surface by
+`docs/e2e/scale-one-size.spec.ts`: every slide at the shared rung in the editor preview and in
+Present, the full scale back after the binding slide is trimmed, and no cap on an unscaled
+deck.
+
+**Checker round on the Studio half (same day).** An independent checker reproduced one
+blocking bug on the real Studio: when the hidden frame had to rewrite its whole document
+(a Mermaid slide on screen flips its signature), the measure read the PREVIOUS deck's
+document, which still had sections and a runtime until the new page committed, and cached
+that cap under the new deck. The fitting deck then stayed at 1x, and came back at 1x on an
+undo to the same text. Fixed: a measure waits for a NEW document after a full write, and
+measures run one at a time so two cannot cross-write; each deck debounces on its own; and
+a known cap is written into a rewritten preview frame's `<html>`, so the runtime's first
+sweep never paints the uncapped size. `docs/e2e/scale-one-size.spec.ts` pins the bug in its
+own test, which fails on the unfixed code (the fitting deck stays at `1.3>1`) and passes on
+the fix, plus a test that an unscaled deck never creates the frame, with a positive control.
+Left as known and low: the measuring renderer is never disposed (one frame and one memo entry
+for the page's life), and its whole-deck renders show in the Studio's performance overlay.

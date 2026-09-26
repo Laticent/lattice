@@ -50,6 +50,7 @@ import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playgroun
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
+import { applyScaleCap, deckAsksForScale, knownScaleCap, readScaleCap, trackScaleCap, untrackScaleCap } from './scale-cap';
 import { createThemeFetcher } from './theme-fetch';
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
@@ -960,7 +961,77 @@ function swapSharedSheet(doc: Document, url: string): void {
 // scoped to the deck and slide it was picked on.
 const splitPageByHost = new WeakMap<HTMLElement, { deck: string; slide: number; page: number }>();
 
+// THE WHOLE-DECK MEASURE for the one-size rule (scale-cap.ts). ONE hidden frame for the
+// page's life, re-pointed per deck, created only when a deck asks for a projection scale.
+// Built from the first caller's options: every Studio host passes the same theme, runtime
+// and engine URLs, and a measure only has to agree with the frames it caps on those.
+let scaleMeasureHost: HTMLElement | null = null;
+let scaleMeasurer: ReturnType<typeof createSingleSlideRenderer> | null = null;
+let scaleMeasureChain: Promise<string | null> = Promise.resolve(null);
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function measureDeckScaleCap(
+	opts: SingleSlideOptions,
+	args: [
+		string,
+		boolean,
+		string | undefined,
+		{ name: string; css: string } | undefined,
+		'light' | 'dark' | undefined,
+		string | undefined,
+		{ webOrigins?: string[] },
+	],
+): Promise<string | null> {
+	if (typeof document === 'undefined') return null;
+	if (!scaleMeasureHost) {
+		scaleMeasureHost = document.createElement('div');
+		scaleMeasureHost.setAttribute('aria-hidden', 'true');
+		scaleMeasureHost.dataset.latticeScaleMeasure = '';
+		// Laid out (a probe reads real geometry) but never seen or hit.
+		scaleMeasureHost.style.cssText = 'position:fixed;left:-100000px;top:0;width:1280px;height:720px;visibility:hidden;pointer-events:none;contain:strict';
+		document.body.append(scaleMeasureHost);
+		scaleMeasurer = createSingleSlideRenderer(opts);
+	}
+	const host = scaleMeasureHost as LiveHost;
+	const measurer = scaleMeasurer;
+	if (!measurer) return null;
+	// ONE MEASUREMENT AT A TIME. Two in flight share this one frame, and the first could sweep
+	// the second's document and file that answer under its own deck (checker, 2026-09-26).
+	const run = scaleMeasureChain.then(async (): Promise<string | null> => {
+		// The document the frame holds BEFORE this render. A full write only SETS the srcdoc and
+		// returns; until the new page commits, `contentDocument` is still this old one — which
+		// already has sections and a runtime, so a readiness poll that ignored identity would
+		// measure the previous deck and cache it under this one (reproduced on the real Studio).
+		const before = host.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;
+		const status = await measurer.renderInto(host, ...args);
+		if (!status.ok) return null;
+		const wrote = status.writePath === 'write';
+		// Bounded wait for THIS render's document: a new one after a full write, and its runtime.
+		for (let i = 0; i < 150; i++) {
+			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+			const doc = fr?.contentDocument;
+			const w = fr?.contentWindow as (Window & { latticeSweep?: unknown }) | null | undefined;
+			const fresh = !wrote || (doc && doc !== before && host.__latticePendingLoad === false);
+			if (fresh && w?.latticeSweep && doc?.querySelector('section[data-lattice-slide]')) break;
+			await wait(100);
+		}
+		const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+		const doc = fr?.contentDocument;
+		const w = fr?.contentWindow as (Window & { latticeSweep?: { sweep: (o?: { all?: boolean }) => unknown } }) | null | undefined;
+		if (!doc || !w?.latticeSweep || (wrote && doc === before)) return null;
+		try {
+			await doc.fonts?.ready;
+		} catch {
+			// fonts API absent: the sweep still measures, just possibly before a late face
+		}
+		w.latticeSweep.sweep({ all: true });
+		return readScaleCap(doc);
+	});
+	scaleMeasureChain = run.catch(() => null);
+	return run;
+}
+
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
+	const renderOpts = opts;
 	const { themeBase, runtimeUrl, engineUrl, specimen } = opts;
 	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
 	// RENDER, never at construction — because construction is not paired 1:1 with a dispose.
@@ -1015,6 +1086,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// read by `srcdoc()` for the frame's policy. Part of the frame sig, so a change rewrites the
 	// frame: the policy lives in <head>, which the patch and restyle paths never touch.
 	let webAllow: string[] = [];
+	// The shared rung to stamp on the next full write's <html> (scale-cap.ts), set and cleared
+	// around the one srcdoc() call that writes a deck-context frame.
+	let nextHtmlCap: string | undefined;
 
 	// PREVIEW FONTS ARE THE THEME'S, not a second supply (2026-08-17 loading audit §3, §9.5).
 	// This module used to prepend `previewFontFaceCss()` — 17 @font-face rules pointing at
@@ -1134,7 +1208,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') +
+			// Numbers, `>` and spaces only — never author text (scale-cap.ts readScaleCap builds it).
+			(nextHtmlCap && /^[\d.> ]+$/.test(nextHtmlCap) ? ` data-lattice-scale-cap="${nextHtmlCap.replace(/>/g, '&gt;')}"` : '') +
+			'><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow }) +
@@ -1424,6 +1501,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Bail if the host was disposed/detached while the theme fetch was in
 				// flight — don't spend an engine render on a torn-down preview.
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				// ONE SIZE PER DECK in a one-slide frame (scale-cap.ts). A deck-context render of a
+				// deck that asks for a projection scale registers the deck, so the whole-deck measure
+				// can cap this frame at the shared rung; any other render clears a stale cap.
+				if (typeof opts?.slideIndex === 'number') {
+					const capKey = deckAsksForScale(markdown)
+						? // The allowed web origins too: an image the reader allowed lays out, a blocked one
+						  // is a placeholder, and the measure must render the deck the frame shows.
+						  [palette, mode, extra?.name ?? '', extraCss ?? '', [...new Set(opts?.webOrigins ?? [])].sort().join(' '), markdown].join('\u0000')
+						: undefined;
+					trackScaleCap(host, capKey, () =>
+						measureDeckScaleCap(renderOpts, [markdown, mermaid, paletteOverride, extra, modeOverride, extraCss, { webOrigins: opts?.webOrigins }]),
+					);
+				}
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
 				let out: { html: string; css: string; width?: number; height?: number; stats?: RenderStats };
 				let engineMs = 0;
@@ -1918,6 +2008,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
+						applyScaleCap(host);
 						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage, canSplit, webImagesBlocked };
 					}
 					// The live document vanished between the guard and the patch — fall
@@ -1995,6 +2086,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
+						applyScaleCap(host);
 						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage, canSplit, webImagesBlocked };
 					}
 					// patchSlideBody failed (the live doc vanished mid-swap) — fall through to a full write.
@@ -2091,6 +2183,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Parent-hosted video playback: tap a video poster in a Studio preview
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
+					// The shared rung, on the freshly written document (scale-cap.ts).
+					applyScaleCap(host);
 					const now = performance.now();
 					const rec = recordRenderSample({
 						engineMs,
@@ -2158,7 +2252,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// back, and the return trip was stamped `in-place` (found by the trio's checker).
 				// The identity has to track the document, not the code path that wrote it.
 				stampShownSlide();
+				// A cap already measured for this deck rides on the new <html>, so the runtime's
+				// first sweep lands on the shared rung instead of painting the requested one first.
+				nextHtmlCap = knownScaleCap((host as HTMLElement & { __latticeScaleCapKey?: string }).__latticeScaleCapKey);
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
+				nextHtmlCap = undefined;
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;
@@ -2332,6 +2430,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		}
 		ownedObservers.clear();
 		for (const h of ownedHosts) {
+			untrackScaleCap(h);
 			scaleTargets.delete(h);
 			// Drop the font-gate wake reference too. It holds a Promise from the IFRAME'S
 			// OWN REALM, so leaving it on a host pins that whole detached realm for the

@@ -143,7 +143,9 @@ solver's policy — there is no fifth move, and crucially **no shrink move.**
 > declines an optional enlargement; it does not shrink past the floor.
 > `2026-09-25-font-scale-fit.md` has the record; `lib/core/scale-fit.js` has the kernel.
 > The same day the owner ruled that STEP lands on 1x (two sizes at most, not the whole
-> ladder), and that the deck's `fit:` register governs every move on this list: `report`
+> ladder) — replaced on 2026-09-26 by one size per deck on the highest rung every slide
+> fits (LEVEL, `2026-09-25-font-scale-fit.md` amendment) — and that the deck's `fit:`
+> register governs every move on this list: `report`
 > runs none of them, `heal` (default) runs the ones that lose no words, `trim` adds TRIM
 > (`2026-09-25-fit-policy.md`).
 

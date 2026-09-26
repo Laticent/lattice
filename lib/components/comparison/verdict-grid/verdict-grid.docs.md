@@ -14,7 +14,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a verdict card is a label plus its criteria, not prose.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~5 / ~4 / ~4 items of ~12 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`, or `venue: huddle` / `conference` / `hall`) it holds ~5 / ~4 / ~4 items of ~12 words at a wide @size; past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 
