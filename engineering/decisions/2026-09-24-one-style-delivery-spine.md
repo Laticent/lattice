@@ -1,13 +1,13 @@
 ---
 status: in-progress
-summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decided on its own how the deck's stylesheet reached it, and there were five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. The engine now owns style delivery as three named modes (scoped, flat, baked), every host asks for one by name (§4.1), and `check:render` renders every mode. Steps 1–3 shipped in #2344 and #2366; step 4, the CLI onto the flat sheet, is built (§8.3) and waits on the owner's export sign-off.
+summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decided on its own how the deck's stylesheet reached it, and there were five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. The engine now owns style delivery as three named modes (scoped, flat, baked), every host asks for one by name (§4.1), and `check:render` renders every mode. Steps 1–3 shipped in #2344 and #2366; step 4, the CLI onto the flat sheet, shipped in #2379 with the owner's export sign-off (§8.3). Two open items remain (§8.4): the Studio player's shared unwrap and the Read · Article word cloud.
 ---
 
 # One style-delivery spine — every surface gets the deck's CSS the same way
 
-> **In progress.** Steps 1–3 of §8 shipped: the gate (§5.1, #2344), the named modes and the
-> Reading view (§4.1, §8.1, #2366). Step 4, the CLI export onto the flat sheet, is built
-> (§8.3) and waits on the owner's export sign-off. §4.1 is the host table.
+> **In progress.** All four steps of §8 shipped: the gate (§5.1, #2344), the named modes and the
+> Reading view (§4.1, §8.1, #2366), and the CLI export onto the flat sheet (§8.3, #2379, with
+> the owner's export sign-off). §4.1 is the host table. §8.4 lists the two open items.
 
 ## 1. The symptom
 
@@ -276,7 +276,15 @@ below are kept as they were put.
 4. **The CLI** (fork 3), with export sign-off. It also carries the player prune's one-colon
    fix (§8.1), which changes export bytes for the same reason. **Measured, and paused
    (§8.2).** The owner asked for the one divergence it found to be fixed first. #2366 shipped
-   that fix. **Built (§8.3)**, waiting on the owner's export sign-off.
+   that fix. **Done (§8.3, #2379).** The owner signed off the exports and accepted the breaking
+   line: a bare `section{--token}` override loses to a palette `:root` token in CLI exports.
+
+### 8.4 Open items
+
+- **One shared unwrap for every flat host.** The Studio Webpage player and `check:render`'s flat
+  pass still delete `article.lattice > ` instead of calling `unwrap`
+  (`followups.d/2379-p2-studio-player-unwrap.md`).
+- **The Read · Article word cloud fills a third of its box** (`followups.d/2379-p3-word-cloud-rehost-void.md`).
 
 ### 8.3 What step 4 built (2026-09-25)
 
