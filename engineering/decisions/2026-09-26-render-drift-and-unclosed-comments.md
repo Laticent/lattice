@@ -75,3 +75,51 @@ proved by reverting the fix it covers.
 
 **Left alone:** `chart-family.js` `proseAttr` keeps its regex — it reads a subtitle's
 *rendered* HTML, where markdown-it has already escaped any unclosed `<!--`.
+
+## 5. Preview posters — a surface that closes no longer strands its frames on WebKit
+
+`followups.d/2391-p3`, confirmed on real WebKit (Playwright WebKit 26.0, production docs build).
+The preview pool (`2026-09-13-gallery-preview-memory.md`) stops churn *inside* an open grid, but
+a surface that closes takes its pool with it, and WebKit never gives a closed preview document
+back. The Add Slide dialog had the same cost as the deck panel's new preset tiles:
+
+| 6 open/close cycles, WebKit RSS over baseline | frames per open | cycles 1 → 6 |
+|---|---:|---|
+| deck panel, before | 5 | +128 → +132 → +161 → +185 → +246 → +276 MB |
+| deck panel, after | 5, then **1** | +178 → +155 → +158 → +174 → +172 → +173 MB |
+| add slide, before | 9 | +169 → +219 → +271 → +371 → +391 → +367 MB |
+| add slide, after | 9, 3, then **1** | +267 → +383 → +404 → +336 → +307 → +329 MB |
+| Chromium, before | 5 | flat, −16 to +18 MB |
+
+Read the MB with the ±200 warning of the 09-13 note; the frame count is the deterministic
+signal. "1" is the Studio's own main preview: a reopened surface mints **no** preview document.
+
+**Two cheaper designs were tried on paper and fail on WebKit.** Parking the pool's frames
+between opens needs a state-preserving DOM move; `Element.moveBefore` exists in Chromium and
+not in WebKit (measured), and any other move reloads the frame. Keeping a surface mounted but
+hidden fails on Radix: a force-mounted modal runs `hideOthers` on mount, hiding the whole Studio
+from assistive tech while "closed", and keeps the scroll lock.
+
+**What shipped: posters.** When a pool slot finishes rendering a tile, `lib/slide-poster.ts`
+(lazy) captures that live document — serialized into an SVG `foreignObject`, CSS in CDATA, the
+loaded font faces inlined as data URIs, drawn to a canvas at the slide's own size, encoded WebP
+(2–11 KB) — and `lib/poster-cache.ts` keeps it in memory, LRU, 240 entries. A tile whose key has
+a poster shows an `<img>` and never registers with the pool. The key is every prop the render
+reads, the host's palette and mode, and a 160-px width bucket of the tile's LAYOUT width
+(`offsetWidth`: a rect measured mid-zoom-animation crossed a bucket at 2×, and no poster was ever
+found — measured, 10 frames and 0 posters on reopen, before that fix).
+
+Fidelity, measured against the live tile: mean per-channel difference 2–4 of 255 on Chromium,
+3–9 on WebKit, most of it a 1-px border that the live frame's compositor thickens at a 0.19
+scale and a canvas downsample does not. Checked by eye at 1440, 820 and 390 on both engines.
+The capture refuses — the tile stays live — whenever it cannot be faithful: an image, video,
+canvas or embedded frame; a non-data `url()` background; a loaded face it cannot embed; Mermaid
+(which settles late); more than one slide in the document.
+
+HARD RULE #22: the serialized markup and CSS are the frame's own, already sanitized; the result
+is decoded as an IMAGE, which runs no script and fetches nothing. A `]]>` in author CSS is split
+so it cannot end the CDATA early.
+
+Cost: +1,043 bytes gz on the Studio's eager route (the lookup must precede the pool request, so
+it is eager by construction); the budget went 742,600 → 744,400 with the paired measurement in
+`docs/route-budget.json`.
