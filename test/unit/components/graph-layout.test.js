@@ -37,15 +37,15 @@ const SOFT_MISS_BUDGET = 1;
 // on a group's lines), measured when the corpus was added. Lower it as the router improves.
 const WIDE_SOFT_BUDGET = 7;
 // Line crossings on the 1,000-chart corpus: 923 before the router's crossing solver, 230
-// with it, 195 once it also runs a second order (freest lines first, keep each line's
-// sides and ports, allow a straight drop) and keeps whichever run crosses less. No chart is
-// worse on any quality count. One chart reads 1 -> 3, and not from the solver: the
-// direction picker flipped it from tb to lr on slightly different bounds. The solver
-// refuses a main-path detour, a 2-unit kink, a line into a group neither end belongs to
-// (or its title band, or a label across its border), and two ends closer than 14 units on
-// one side of a box; each reads worse than the crossing it saves. A crossing is a cost,
-// not a defect, so this is a ceiling to ratchet down, never a zero to hold.
-const CROSSING_BUDGET = 195;
+// with it, 195 once it also ran a second order (freest lines first, keep each line's sides
+// and ports, allow a straight drop) and kept whichever run crossed less. Then the router
+// stopped drawing lines that fold back through their own start or end box
+// (`linesThroughEnds`, now a hard zero; 22 across three directions before) and lines that
+// graze a stranger's box within 5 units (24 -> 8), and fanning shapes grew to give each
+// line its own port (routeFans): 180. Nine charts pay a crossing for a fold or a graze
+// removed; one flips direction on the type-size rule and reads 0 -> 2. A crossing is a
+// cost, not a defect, so this is a ceiling to ratchet down, never a zero.
+const CROSSING_BUDGET = 180;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -153,7 +153,7 @@ const GALLERY = {
 - Echo -lab7-> Gamma`,
 };
 
-const ZERO = { linesThroughShapes: 0, labelCollisions: 0, shapeOverlaps: 0, labelsOffLine: 0, linesThroughTitles: 0, labelsAcrossBorders: 0, sharedRuns: 0 };
+const ZERO = { linesThroughShapes: 0, linesThroughEnds: 0, labelCollisions: 0, shapeOverlaps: 0, labelsOffLine: 0, linesThroughTitles: 0, labelsAcrossBorders: 0, sharedRuns: 0 };
 
 describe('graph-layout — serialization', () => {
   test('the kernel rebuilt from its own source text gives identical geometry', () => {
@@ -214,7 +214,7 @@ describe('graph-layout — the gallery reads zero on every quality count', () =>
 describe('graph-layout — seeded random charts (ratchet)', () => {
   test(`1,000 charts: hard counts zero; soft misses ≤ ${SOFT_MISS_BUDGET}; crossings ≤ ${CROSSING_BUDGET}`, () => {
     const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Fox', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima'];
-    const HARD = ['linesThroughShapes', 'shapeOverlaps', 'labelsOffLine'];
+    const HARD = ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine'];
     let soft = 0, crossed = 0;
     for (const seed0 of [1, 7, 99, 5]) {
       let seed = seed0;
@@ -288,7 +288,7 @@ describe('graph-layout — groups as endpoints, nested groups, self-loops (ratch
         const src = lines.join('\n');
         const { geo } = run(src);
         const q = geo.quality;
-        for (const k of ['linesThroughShapes', 'shapeOverlaps', 'labelsOffLine']) assert.equal(q[k], 0, `${k} on seed ${seed0} chart ${t}:\n${src}`);
+        for (const k of ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine']) assert.equal(q[k], 0, `${k} on seed ${seed0} chart ${t}:\n${src}`);
         for (const r of geo.routes) {
           for (let j = 1; j < r.points.length; j++) {
             const a = r.points[j - 1], b = r.points[j];
@@ -303,6 +303,33 @@ describe('graph-layout — groups as endpoints, nested groups, self-loops (ratch
 });
 
 describe('graph-layout — the routing rules', () => {
+  test('a shape that many lines leave fans them from one side, each on its own port', () => {
+    // The owner's report on the demo deck's line-vocabulary slide: six lines off one box
+    // 42 units tall were squeezed 5 units apart; two shared a port, two doubled back into
+    // their target's far side and one left by the source's back.
+    const src = '- Service\n  - => Main database\n  - -reads-> Cache\n  - -> Search index\n  - -> Audit log\n  - -> Legacy API\n  - <-> Partner API';
+    const geo = run(src, K, { dir: 'lr' }).geo;
+    const s = geo.nodes.service;
+    const starts = geo.routes.map((r) => r.points[0]);
+    for (const p of starts) assert.equal(p.x, s.x + s.w, 'every line leaves the side that faces its target');
+    const ys = starts.map((p) => p.y).sort((a, b) => a - b);
+    for (let i = 1; i < ys.length; i++) assert.ok(ys[i] - ys[i - 1] >= 12, `ports ${ys.join(', ')}`);
+    for (const r of geo.routes) {
+      const t = geo.nodes[r.to], end = r.points[r.points.length - 1];
+      assert.equal(end.x, t.x, `${r.to} is entered from its near side`);
+    }
+    assert.equal(geo.crossings, 0);
+  });
+
+  test('a fan with several children a side mirrors itself', () => {
+    for (const n of [4, 6]) {
+      const kids = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Fox'].slice(0, n).join(' & ');
+      const { routes } = run(`- Ops\n  - -- ${kids}`, K, { dir: 'tb' }).geo;
+      const turns = routes.slice().sort((a, b) => a.points[a.points.length - 1].x - b.points[b.points.length - 1].x).map((r) => r.points[1].y);
+      assert.deepEqual(turns, turns.slice().reverse(), `turns ${turns.join(', ')}`);
+    }
+  });
+
   test('a fan that splits both ways turns at one height, so an org chart hangs symmetrically', () => {
     // The owner's report on the demo deck: Operations' two children dropped 15 and 23
     // units before turning, because two jogs that only touched at their shared port
