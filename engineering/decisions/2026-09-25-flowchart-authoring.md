@@ -563,6 +563,19 @@ A dotted overlay moving along a line, a separate path above the real edge.
     The burst now takes as long as it does on the 5-shape chart (1,177 and
     2,730 ms). The unit tests pin what the figure shows while pending, that a
     burst paints only its newest edit, and that the worker's source compiles.
+  - **Against Mermaid, and what the worker costs.** The Studio runs Mermaid on
+    the editor's thread, behind a 150 ms trailing debounce, holding the old SVG
+    meanwhile. On a Mermaid twin of the same chart, a burst costs 1 render
+    (88 to 93 ms), and the diagram stays unchanged until typing pauses, then shows
+    154 to 220 ms after the last key. The flowchart lays out 14 to 18 times per
+    burst in the worker (1,546 to 1,593 ms of worker time), follows the typing, and
+    shows 19 to 40 ms after the last key. Over a plain-text control, editor-thread
+    time rises 249 to 442 ms for Mermaid and 385 to 508 ms for the flowchart; page
+    memory after GC rises 8 MB for Mermaid and 4 MB for the flowchart, and the
+    worker's heap peaks at 9 to 27 MB. Per render the two cost about the same; the
+    flowchart renders more often. Throttling the worker to one layout per ~300 ms
+    is a follow-up (`followups.d/2385-p2-flowchart-worker-throttle.md`). Single
+    runs, Chromium, 4 cores.
 - **Before the solver: a stack of passes (superseded, kept for its lessons).**
   After dagre, passes in order spread ports, turned a line entering a foreign
   group outside it, straightened short Zs, moved shared runs apart, re-drew lines
@@ -724,9 +737,10 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
   slowest, 123 ms against 55), though a whole page is now faster (above). Most of
   it is building candidates: 189,000 are built for 82,000 scored on one render.
   Building them lazily, pruned by lane, is the next step.
-- **Off-center ends for straight lines.** See §7: the weights prefer a straight
-  line a few units off its side's middle to a Z into the middle. Raising
-  `W.offMid` flips that, at the cost of turns.
+- **Off-center ends for straight lines: settled, kept (owner's call,
+  2026-09-26).** See §7: the weights prefer a straight line a few units off its
+  side's middle to a Z into the middle, and the owner chose to keep that. Raising
+  `W.offMid` would flip it, at the cost of turns.
 - **A title slot is judged per line and per label.** A line or a label that
   leaves a group's title no slot costs W.band, but the check sees only what is
   placed so far; the label-dense fuzz drew one such title before the diamond
