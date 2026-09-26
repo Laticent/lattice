@@ -50,7 +50,7 @@ import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playgroun
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
-import { applyScaleCap, deckAsksForScale, readScaleCap, trackScaleCap, untrackScaleCap } from './scale-cap';
+import { applyScaleCap, deckAsksForScale, knownScaleCap, readScaleCap, trackScaleCap, untrackScaleCap } from './scale-cap';
 import { createThemeFetcher } from './theme-fetch';
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
@@ -967,6 +967,7 @@ const splitPageByHost = new WeakMap<HTMLElement, { deck: string; slide: number; 
 // and engine URLs, and a measure only has to agree with the frames it caps on those.
 let scaleMeasureHost: HTMLElement | null = null;
 let scaleMeasurer: ReturnType<typeof createSingleSlideRenderer> | null = null;
+let scaleMeasureChain: Promise<string | null> = Promise.resolve(null);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function measureDeckScaleCap(
 	opts: SingleSlideOptions,
@@ -982,29 +983,43 @@ async function measureDeckScaleCap(
 		document.body.append(scaleMeasureHost);
 		scaleMeasurer = createSingleSlideRenderer(opts);
 	}
-	const host = scaleMeasureHost;
+	const host = scaleMeasureHost as LiveHost;
 	const measurer = scaleMeasurer;
 	if (!measurer) return null;
-	const status = await measurer.renderInto(host, ...args);
-	if (!status.ok) return null;
-	// Bounded wait for the frame's runtime (it exposes `latticeSweep` at boot) and fonts.
-	for (let i = 0; i < 100; i++) {
+	// ONE MEASUREMENT AT A TIME. Two in flight share this one frame, and the first could sweep
+	// the second's document and file that answer under its own deck (checker, 2026-09-26).
+	const run = scaleMeasureChain.then(async (): Promise<string | null> => {
+		// The document the frame holds BEFORE this render. A full write only SETS the srcdoc and
+		// returns; until the new page commits, `contentDocument` is still this old one — which
+		// already has sections and a runtime, so a readiness poll that ignored identity would
+		// measure the previous deck and cache it under this one (reproduced on the real Studio).
+		const before = host.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;
+		const status = await measurer.renderInto(host, ...args);
+		if (!status.ok) return null;
+		const wrote = status.writePath === 'write';
+		// Bounded wait for THIS render's document: a new one after a full write, and its runtime.
+		for (let i = 0; i < 150; i++) {
+			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+			const doc = fr?.contentDocument;
+			const w = fr?.contentWindow as (Window & { latticeSweep?: unknown }) | null | undefined;
+			const fresh = !wrote || (doc && doc !== before && host.__latticePendingLoad === false);
+			if (fresh && w?.latticeSweep && doc?.querySelector('section[data-lattice-slide]')) break;
+			await wait(100);
+		}
 		const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-		const w = fr?.contentWindow as (Window & { latticeSweep?: unknown }) | null | undefined;
-		if (w?.latticeSweep && fr?.contentDocument?.querySelector('section[data-lattice-slide]')) break;
-		await wait(100);
-	}
-	const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-	const doc = fr?.contentDocument;
-	const w = fr?.contentWindow as (Window & { latticeSweep?: { sweep: (o?: { all?: boolean }) => unknown } }) | null | undefined;
-	if (!doc || !w?.latticeSweep) return null;
-	try {
-		await doc.fonts?.ready;
-	} catch {
-		// fonts API absent: the sweep still measures, just possibly before a late face
-	}
-	w.latticeSweep.sweep({ all: true });
-	return readScaleCap(doc);
+		const doc = fr?.contentDocument;
+		const w = fr?.contentWindow as (Window & { latticeSweep?: { sweep: (o?: { all?: boolean }) => unknown } }) | null | undefined;
+		if (!doc || !w?.latticeSweep || (wrote && doc === before)) return null;
+		try {
+			await doc.fonts?.ready;
+		} catch {
+			// fonts API absent: the sweep still measures, just possibly before a late face
+		}
+		w.latticeSweep.sweep({ all: true });
+		return readScaleCap(doc);
+	});
+	scaleMeasureChain = run.catch(() => null);
+	return run;
 }
 
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
@@ -1063,6 +1078,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// read by `srcdoc()` for the frame's policy. Part of the frame sig, so a change rewrites the
 	// frame: the policy lives in <head>, which the patch and restyle paths never touch.
 	let webAllow: string[] = [];
+	// The shared rung to stamp on the next full write's <html> (scale-cap.ts), set and cleared
+	// around the one srcdoc() call that writes a deck-context frame.
+	let nextHtmlCap: string | undefined;
 
 	// PREVIEW FONTS ARE THE THEME'S, not a second supply (2026-08-17 loading audit §3, §9.5).
 	// This module used to prepend `previewFontFaceCss()` — 17 @font-face rules pointing at
@@ -1182,7 +1200,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') +
+			// Numbers, `>` and spaces only — never author text (scale-cap.ts readScaleCap builds it).
+			(nextHtmlCap && /^[\d.> ]+$/.test(nextHtmlCap) ? ` data-lattice-scale-cap="${nextHtmlCap.replace(/>/g, '&gt;')}"` : '') +
+			'><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow }) +
@@ -2221,7 +2242,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// back, and the return trip was stamped `in-place` (found by the trio's checker).
 				// The identity has to track the document, not the code path that wrote it.
 				stampShownSlide();
+				// A cap already measured for this deck rides on the new <html>, so the runtime's
+				// first sweep lands on the shared rung instead of painting the requested one first.
+				nextHtmlCap = knownScaleCap((host as HTMLElement & { __latticeScaleCapKey?: string }).__latticeScaleCapKey);
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
+				nextHtmlCap = undefined;
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;

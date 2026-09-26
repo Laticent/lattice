@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { __resetScaleCapForTest, applyScaleCap, deckAsksForScale, readScaleCap, SCALE_CAP_ATTR, trackScaleCap } from './scale-cap';
+import { __resetScaleCapForTest, applyScaleCap, deckAsksForScale, knownScaleCap, readScaleCap, SCALE_CAP_ATTR, trackScaleCap } from './scale-cap';
 
 // The host half of the one-size rule for one-slide frames (scale-cap.ts): which decks are
 // measured, how the shared rung is read off a measured deck, and that a frame is capped,
@@ -76,5 +76,18 @@ describe('trackScaleCap + applyScaleCap', () => {
 		trackScaleCap(host, 'deck-b', async () => null);
 		await vi.runAllTimersAsync();
 		expect(frame.contentDocument!.documentElement.hasAttribute(SCALE_CAP_ATTR)).toBe(false);
+	});
+
+	it('two decks debounce separately: one never cancels the other\'s measurement', async () => {
+		vi.useFakeTimers();
+		const a = hostWithFrame();
+		const b = hostWithFrame();
+		trackScaleCap(a.host, 'deck-a', async () => '1.3>1');
+		trackScaleCap(b.host, 'deck-b', async () => '1.5>1.15');
+		await vi.runAllTimersAsync();
+		expect(a.frame.contentDocument?.documentElement.getAttribute(SCALE_CAP_ATTR)).toBe('1.3>1');
+		expect(b.frame.contentDocument?.documentElement.getAttribute(SCALE_CAP_ATTR)).toBe('1.5>1.15');
+		expect(knownScaleCap('deck-a')).toBe('1.3>1');
+		expect(knownScaleCap(undefined)).toBeUndefined();
 	});
 });

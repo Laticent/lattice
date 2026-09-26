@@ -314,3 +314,17 @@ kernel's rule 7). Decks without a scale never create the frame. Pinned on the re
 `docs/e2e/scale-one-size.spec.ts`: every slide at the shared rung in the editor preview and in
 Present, the full scale back after the binding slide is trimmed, and no cap on an unscaled
 deck.
+
+**Checker round on the Studio half (same day).** An independent checker reproduced one
+blocking bug on the real Studio: when the hidden frame had to rewrite its whole document
+(a Mermaid slide on screen flips its signature), the measure read the PREVIOUS deck's
+document, which still had sections and a runtime until the new page committed, and cached
+that cap under the new deck. The fitting deck then stayed at 1x, and came back at 1x on an
+undo to the same text. Fixed: a measure waits for a NEW document after a full write, and
+measures run one at a time so two cannot cross-write; each deck debounces on its own; and
+a known cap is written into a rewritten preview frame's `<html>`, so the runtime's first
+sweep never paints the uncapped size. `docs/e2e/scale-one-size.spec.ts` pins the bug in its
+own test, which fails on the unfixed code (the fitting deck stays at `1.3>1`) and passes on
+the fix, plus a test that an unscaled deck never creates the frame, with a positive control.
+Left as known and low: the measuring renderer is never disposed (one frame and one memo entry
+for the page's life), and its whole-deck renders show in the Studio's performance overlay.

@@ -78,3 +78,61 @@ test('one size per deck in the live preview and in Present; trimming gives the s
 	await cursorTo(page, 'First slide');
 	await expect.poll(async () => await shown(live(page)), opts).toEqual(expect.objectContaining({ scale: '1', cap: null }));
 });
+
+test('a deck that asks for no scale never creates the measuring frame', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, deck(6, ''));
+	await cursorTo(page, 'Binding slide');
+	await expect.poll(async () => (await shown(live(page))).scale, { timeout: 20_000 }).toBe('1');
+	// Watch for the frame for 2s — well past the measure's 700 ms debounce — returning early if it
+	// appears. A bounded wait on the signal itself, not a sleep: the outcome is "nothing happens".
+	await page.waitForFunction((t0) => !!document.querySelector('[data-lattice-scale-measure]') || Date.now() - t0 > 2000, Date.now());
+	expect(await page.locator('[data-lattice-scale-measure]').count(), 'no measuring frame for an unscaled deck').toBe(0);
+	// The positive control: the same probe DOES see the frame once the deck asks for a scale.
+	await setEditorContent(page, deck(6));
+	await expect.poll(async () => await page.locator('[data-lattice-scale-measure]').count(), { timeout: 20_000 }).toBe(1);
+});
+
+test('the measure reads the deck it was asked about, not the one its frame held before', async ({ page }) => {
+	// A too-full deck, then one that fits and ends on a Mermaid slide, with the caret left ON that
+	// slide. The diagram flips the measuring frame's signature, so it rewrites its whole document,
+	// and until the new page commits, `contentDocument` is still the capped deck. The bug this
+	// pins (checker, 2026-09-26) measured that old document and cached its cap under the new
+	// deck, so the fitting deck stayed at 1x. On a fresh page, so no earlier measure masks it.
+	test.setTimeout(90_000);
+	await gotoStudio(page);
+	const opts = { timeout: 20_000 };
+	await setEditorContent(page, deck(6));
+	await expect.poll(async () => (await shown(live(page))).cap, { ...opts, message: 'the six-step deck is capped' }).not.toBeNull();
+	// Let the measuring frame settle on the capped deck — every one of its slides stepped — so
+	// the switch below finds a complete, capped document there, the state the bug read.
+	await expect
+		.poll(
+			() =>
+				page.evaluate(() => {
+					const f = document.querySelector('[data-lattice-scale-measure] iframe.live') as HTMLIFrameElement | null;
+					return f?.contentDocument?.querySelectorAll('section[data-lattice-scale-step]').length ?? 0;
+				}),
+			opts,
+		)
+		.toBe(3);
+	const withDiagram = `${deck(3)}\n---\n\n<!-- _class: diagram -->\n\n## A diagram slide.\n\n\`\`\`mermaid\nflowchart LR\n  A --> B\n\`\`\`\n`;
+	await setEditorContent(page, withDiagram);
+	// Read only once the measuring frame holds the NEW deck (four sections). Before that, a freshly
+	// written preview frame shows 1.3x with no cap for a moment on BOTH the fixed and the broken
+	// code, so an earlier read would pass either way; after it, the broken code has already
+	// applied the old deck's cap.
+	await expect
+		.poll(
+			() =>
+				page.evaluate(() => {
+					const f = document.querySelector('[data-lattice-scale-measure] iframe.live') as HTMLIFrameElement | null;
+					return f?.contentDocument?.querySelectorAll('section[data-lattice-slide]').length ?? 0;
+				}),
+			opts,
+		)
+		.toBe(4);
+	await expect
+		.poll(async () => await shown(live(page)), { ...opts, message: "the fitting deck must not keep the capped deck's cap" })
+		.toEqual(expect.objectContaining({ scale: '1.3', cap: null }));
+});

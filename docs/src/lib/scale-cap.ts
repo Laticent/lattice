@@ -54,8 +54,8 @@ export type MeasureScaleCap = () => Promise<string | null>;
 const CAP_LIMIT = 8;
 const capByKey = new Map<string, string>();
 const hosts = new Set<CapHost>();
-let timer: ReturnType<typeof setTimeout> | undefined;
-let pendingKey: string | undefined;
+// One debounce PER DECK, so a host showing one deck can never cancel another's measurement.
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const DEBOUNCE_MS = 700;
 
 function remember(key: string, cap: string): void {
@@ -106,28 +106,34 @@ export function trackScaleCap(host: HTMLElement, key: string | undefined, measur
 		applyScaleCap(host);
 		return;
 	}
-	if (pendingKey === key && timer) return;
-	pendingKey = key;
-	if (timer) clearTimeout(timer);
-	timer = setTimeout(async () => {
-		timer = undefined;
-		let cap: string | null = null;
-		try {
-			cap = await measure();
-		} catch {
-			cap = null;
-		}
-		if (pendingKey === key) pendingKey = undefined;
-		if (cap == null) return;
-		remember(key, cap);
-		for (const h of [...hosts]) {
-			if (!h.isConnected) {
-				hosts.delete(h);
-				continue;
+	const pending = timers.get(key);
+	if (pending) clearTimeout(pending);
+	timers.set(
+		key,
+		setTimeout(async () => {
+			timers.delete(key);
+			let cap: string | null = null;
+			try {
+				cap = await measure();
+			} catch {
+				cap = null;
 			}
-			if (h.__latticeScaleCapKey === key) applyScaleCap(h);
-		}
-	}, DEBOUNCE_MS);
+			if (cap == null) return;
+			remember(key, cap);
+			for (const h of [...hosts]) {
+				if (!h.isConnected) {
+					hosts.delete(h);
+					continue;
+				}
+				if (h.__latticeScaleCapKey === key) applyScaleCap(h);
+			}
+		}, DEBOUNCE_MS),
+	);
+}
+
+/** The cap already measured for `key`, for a caller that writes it into a new document. */
+export function knownScaleCap(key: string | undefined): string | undefined {
+	return key ? capByKey.get(key) : undefined;
 }
 
 /** A disposed renderer releases its hosts, so this module never roots a detached preview. */
@@ -139,7 +145,6 @@ export function untrackScaleCap(host: HTMLElement): void {
 export function __resetScaleCapForTest(): void {
 	capByKey.clear();
 	hosts.clear();
-	if (timer) clearTimeout(timer);
-	timer = undefined;
-	pendingKey = undefined;
+	for (const t of timers.values()) clearTimeout(t);
+	timers.clear();
 }
