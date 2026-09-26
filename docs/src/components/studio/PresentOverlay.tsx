@@ -962,6 +962,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		guideSaidDocRef.current = null;
 	}, []);
 	const guideLive = open && guideOn && !rehearse;
+	// THE GUIDE AND THE HOVER NEVER SHARE THE SCREEN. They are two features: the Guide presents,
+	// the hover is how a person digs in. While the Guide PLAYS it owns the slide's emphasis and the
+	// chart hover (and its number keys) is off — the hover's inline opacity would override the
+	// Guide's focus and open a card over the playing slide (measured, 2026-09-26). PAUSING hands the
+	// slide to the pointer: the Guide lifts its focus and the hover comes back. Same test as
+	// `delivering` below, which is declared too late in this body to read here.
+	const guideDelivering = reader.playing || holding;
+	const guidePlaying = guideLive && guideDelivering;
+	// The hover layer comes back on pause as a NEW controller, bound to nothing: Present binds it to
+	// the slide on each render (`onRender` below), and pausing renders no slide. So bind it here. The
+	// layer's own effect (a child's) has already re-mounted it by the time this one runs.
+	React.useEffect(() => {
+		if (open && !guidePlaying) chartDetailRef.current?.onSlide(0);
+	}, [open, guidePlaying]);
 	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
 	// cursor's visibility and whether the real one may be hidden — see the two notes below.
 	const [guideAiming, setGuideAiming] = React.useState(false);
@@ -1062,7 +1076,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// This is #1394's defect in a second place (the advance effect keyed on a memo that repeated
 	// text made identical), and the same fix applies — trigger on a value that changes whenever a
 	// navigation happens, regardless of what the narration says.
-	const guideBeat = `${narration.idx}:${activeCue}`;
+	const guideBeat = `${narration.idx}:${activeCue}:${guideDelivering ? 'play' : 'pause'}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the beat (slide + cue index) IS the trigger; track/frame are read at fire time on purpose.
 	React.useEffect(() => {
 		const stage = guideStageRef.current;
@@ -1075,6 +1089,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// `activeCue` drops to -1 on every slide change, and a stroke left running through the
 		// teardown of the frame it was drawn into is exactly the vanished-target case.
 		const frame = () => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null;
+		// PAUSED: the slide belongs to the pointer (see `guidePlaying`). The focus, the hand and the
+		// read-along all lift, and playing again re-runs this beat — the key carries the play state —
+		// so the focus comes straight back on the sentence being read.
+		if (!guideDelivering) {
+			guidePointRef.current?.abort();
+			guidePointRef.current = null;
+			guideAimRef.current = null;
+			unmarkGuide();
+			stage.setCursorVisible(false);
+			guideHandRef.current = false;
+			guideShownRef.current = false;
+			setGuideAiming(false);
+			return;
+		}
 		// ONE DECISION, TWO GEOMETRIES. On the Stage the slide IS the document, so the cursor and
 		// the words it points at share a viewport and every rect is already in the space the stage
 		// draws in; in the console the slide is an iframe and each rect has to be mapped out
@@ -2053,7 +2081,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
-							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={open} />
+							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={open && !guidePlaying} />
 						</div>
 					)}
 				</div>

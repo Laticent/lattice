@@ -341,6 +341,19 @@ land on ANY linked label — a bar's category ("LATAM, one point two million"), 
 a funnel stage, a slope or quadrant name — focuses that label's mark with its labels. Before, such a
 sentence focused the label alone and nothing receded. The same pass fixed the reveal layer's range
 check, which counted distinct mark indices and so locked the mark after a gap out of ever opening.
+**The Guide and the hover never share the screen (owner, 2026-09-26).** Measured first: with the
+Guide playing and focused on LATAM, moving the pointer onto EMEA dimmed the narrated bar, raised
+EMEA and opened its card over the playing slide — Present mounted the hover layer whenever it was
+open, and the hover's inline opacity beats the Guide's class. The owner: "these are two different
+features. hover is for interaction" and "hover off while guide plays". So while the Guide plays
+(`guidePlaying` in `PresentOverlay.tsx`: Guide on, not rehearsing, and the deck delivering —
+including the beat between slides) the chart hover layer and its number keys are off. Pausing
+hands the slide to the pointer: the Guide lifts its focus, hand and read-along, and the hover comes
+back bound to the slide on screen. Playing again closes any open card and the Guide's focus
+returns on the sentence being read. `present-delivery.spec.ts` pins all three states and fails
+against the old always-on layer (a card opened during playback). Still open, in a followup: whether
+the Guide itself should ever open a focused mark's card, behind a setting.
+
 The owner then ruled that any label missing its link is a bug, so the link now covers every
 chart: an audit of all 23 chart galleries found heatmap cell values, gantt captions and milestone
 names, scatter point names, dumbbell row names and stacked-bar part values naming one mark with no

@@ -4,5 +4,6 @@
 - With the captions off, the word being spoken lights inside the focused text, in step with the voice (not under `somber`).
 - A bar, stacked bar or bullet chart's category names and printed values now recede with their bar, both when the Present Guide focuses a bar and when you hover one in the Playground or Studio. A focused bar on a dark theme now reads at a glance. Tapping a single-series bar's name or value opens that bar's card.
 - The same holds on every chart: a heatmap cell's number, a gantt task's caption, a scatter point's name, a dumbbell row's name and a stacked bar's part values recede with their mark, and a line's name and end value recede with their line when the Guide walks another.
+- While the Guide plays, hovering a chart no longer overrides it or opens a card over the playing slide. Pause to explore: the Guide steps back and the hover works as usual; press play and the Guide picks up again.
 - When the narration names a chart's key row, stage or label, the Guide now focuses the mark it belongs to instead of the words alone.
 - A chart whose values skip a category (a bar with no number) no longer locks the mark after the gap out of its hover card.

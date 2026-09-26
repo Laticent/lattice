@@ -151,3 +151,50 @@ test('the slide reads along only with the captions off: the caption already does
 	await dialog.getByRole('button', { name: 'Captions' }).click();
 	await expect.poll(() => said(dialog), { timeout: 30_000 }).toBeGreaterThan(0);
 });
+
+// THE GUIDE AND THE HOVER NEVER SHARE THE SCREEN (owner, 2026-09-26: "hover off while guide plays").
+// Measured before: with the Guide focused on one bar, moving the pointer onto another dimmed the
+// narrated bar and opened a card over the playing slide. While the Guide plays the pointer changes
+// nothing; pausing hands the chart to the pointer, and the Guide's focus lifts.
+test('while the Guide plays the chart hover is off, and pausing hands the chart back', async ({ page }) => {
+	const deck = [
+		'---', 'marp: true', 'theme: indaco', 'delivery: restrained', '---', '',
+		'<!-- _class: bar -->', '', '## EMEA is where the quarter was won.', '',
+		'- North America `$4.1M`', '  - Flat on last year.',
+		'- LATAM `$1.2M`', '  - Two new logos.',
+		'- EMEA `$6.8M`', '  - Three renewals landed.',
+		'- APAC `$2.9M`', '  - Japan carried it.', '',
+	].join('\n');
+	const dialog = await present(page, deck);
+	const frame = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
+	const card = page.locator('[data-slot="popover-content"], .db-pp-chartpop').filter({ hasText: /\S/ });
+	// Playing: the Guide has focused a bar.
+	await expect(frame.locator('rect.bar-mark.lat-guide-dim').first()).toBeAttached({ timeout: 60_000 });
+	const hoverBar = async () => {
+		// A bar the Guide receded, so a working hover would visibly take it over.
+		const target = frame.locator('rect.bar-mark.lat-guide-dim').first();
+		const box = (await target.boundingBox()) ?? (await frame.locator('rect.bar-mark').first().boundingBox());
+		if (!box) throw new Error('no bar on screen');
+		await page.mouse.move(box.x + box.width / 2 - 30, box.y + box.height / 2 - 30);
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 });
+	};
+	await hoverBar();
+	// The pointer changed nothing: no card, and no bar took an inline hover opacity.
+	await expect(card).toHaveCount(0);
+	expect(await frame.locator('rect.bar-mark').evaluateAll((els) => els.filter((e) => (e as HTMLElement).style.opacity !== '').length)).toBe(0);
+	// Pause: the Guide lets go of the chart…
+	await dialog.getByRole('button', { name: 'Pause' }).click();
+	await expect(frame.locator('.lat-guide-dim')).toHaveCount(0);
+	// …and the pointer has it: hovering a bar opens its card.
+	await page.mouse.move(5, 5);
+	const bar = await frame.locator('rect.bar-mark[data-mark="2"]').boundingBox();
+	if (!bar) throw new Error('no EMEA bar');
+	await page.mouse.move(bar.x + bar.width / 2 - 30, bar.y + bar.height / 2 - 30);
+	await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2, { steps: 10 });
+	await expect(card.filter({ hasText: 'EMEA' })).toBeVisible();
+	// Play again: the card goes, the hover's dimming goes, and the Guide's focus comes back.
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	await expect(card).toHaveCount(0);
+	await expect(frame.locator('rect.bar-mark.lat-guide-dim').first()).toBeAttached({ timeout: 30_000 });
+	expect(await frame.locator('rect.bar-mark').evaluateAll((els) => els.filter((e) => (e as HTMLElement).style.opacity !== '').length)).toBe(0);
+});
