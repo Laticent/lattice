@@ -148,6 +148,37 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    pinned to the host slide's number (`pinRenderSlide` in `lib/core/render-ids.js`), so a slide's
    ids never depend on a later slide's panes, and a slide rendered alone at its offset matches its
    deck render.
+
+   **The pane's box.** `stageBox` in `lib/engine/index.js` models the host's stage from
+   measurements in Chromium on a 1280x720 panes slide: a title alone leaves 1152x438, and an
+   eyebrow, a subtitle, a Key Insight and a below-note take 38, 45, 103 and 68px of height (all
+   four together measured 192 against 184 summed). Each deduction is a fraction of the slide
+   WIDTH, because type and spacing scale with it. The carve records which of the four the host
+   carries (`chrome` on `env.latticePanes`). A title long enough to wrap is not modelled; the
+   runtime measurement is gap 1 in §6.
+
+   **Charts draw for the pane.** A chart slide draws on a fixed canvas (320x180 units landscape,
+   320x300 portrait) that CSS scales to the stage, so a chart that drew that same canvas in a
+   45% pane printed its labels at under half size. `renderPane` now stamps the pane's section
+   with `data-pane-view="W H"`: the pane's box in the units a title-only chart slide gets, so one
+   unit is one unit's worth of px on a full slide. The chart family reads it
+   (`chart-family.js` → `ctx.paneView`) and lays out for that canvas:
+   - the cartesian kernels (bar, line, waterfall, stacked-bar, heatmap, slope, scatter, bullet)
+     take it through `viewFor(orientation, paneView)` in `cartesian.js`, floored at 140x72;
+   - the keyed kernels (piechart, map, quadrant, radar) call `fitKeyToPane` in `svg-legend.js`,
+     which holds the key's type at the slide's size, tries the key beside and below the diagram,
+     and lets the diagram shrink instead.
+
+   Labels therefore print at the slide's size and the plot gives way. No ordinary slide carries
+   the attribute, so every non-pane chart draws exactly as before (the 304-deck HTML comparison
+   in §4). **Mermaid is not sized this way**: it lays itself out and the SVG scales into the pane,
+   so a flowchart in a 60% pane draws small, and nothing warns. That stays gap 2 in §6.
+
+   **A pane is not a size container.** `lat-pane` is `container-type: normal`, so a bare `cqi`
+   inside a pane resolves against the slide, as it does on a slide: progress bars, timeline dots
+   and pills keep their slide thickness instead of thinning with the pane. The one component
+   whose card ran past a narrow pane, the quote, gets a pane-scoped `box-sizing: border-box` in
+   `pane.css`; the quote component's own sheet is unchanged, so no quote slide moves.
 3. **Embed** (`panes.embed`). The pane section's body moves into
    `<lat-pane class="<component classes>" data-family=…>` inside the host's stage. The pane's
    stand-in masthead is dropped: the host owns the only title. The placeholder carries a nonce
@@ -338,7 +369,9 @@ every number above is from the run after the fix.
 | A clipped pane is reported | CLI export | an overfull list pane and an overfull 25-row table pane each print `OVERFLOW … page N` and draw the export's clip tag — the probe reads a pane's stage as a clipping cell |
 | A `_class` on a panes slide no longer runs that component on it | engine + CLI export | `<!-- _class: glossary -->` over a glossary pane: no range pill on the title, and the pane's clip reported (it was hidden before the carve moved) |
 | Each component's pane budget | CLI export, `tools/calibrate-capacity.js --pane side\|stack` | 23 components measured at half their slide density (§3.2); `kpi` and `pricing` clip one element in a stacked band |
-| The linter agrees with the carve | unit | `test/unit/core/pane-contract.test.js`: the carve and lint share the layout parser and fit rule and name the same panes on 10 block-level edge cases (nested fences, list content, HTML blocks, indented code, CRLF); `pane-layout`, `pane-fit`, `pane-overflow`, `pane-crowd`, counted per pane and scaled with the share |
+| The linter agrees with the carve | unit | `test/unit/core/pane-contract.test.js`: the carve and lint share the layout parser and fit rule; `splitPaneMarkdown` is a CommonMark block scanner (the seven HTML block types, list-item containers, lazy continuation, setext underlines, fences closed by their list item, tabs) and names the same panes as the carve on 37 edge cases and a seeded 400-slide fuzz (0 disagreements over 18,000 slides by hand before the test was pinned); `pane-layout`, `pane-fit`, `pane-overflow`, `pane-crowd`, counted per pane and scaled with the share |
+| The Studio's live lint runs the pane rules | the real Studio, Playwright | `docs/e2e/pane-lint.spec.ts`: `pane: kpi` stacked and a crowded `pane: list` draw `.cm-lintRange-warning` marks in the editor. The Studio's vocab carries no manifests, so lint-core falls back to a table generated into the lint bundle (`lib/authoring/pane-lint.generated.js`, built by `tools/build-stage-catalog.js`). Mutation-checked: without the fallback the test fails |
+| A chart in a pane prints slide-size labels | CLI PDF export, light and dark | a 17-slide review deck (bar, line, waterfall, pie, map, radar, quadrant, heatmap, Mermaid, tables, lists, stats, quotes, images, 25/75 to 75/25, stacked) and `examples/panes.pdf`: bar values, axis ticks and pie and map keys print at the size of a chart slide's; the export's overflow probe flags one page, a stats pane 13px too wide for its content |
 | Existing decks render the same pixels | CLI PDF export | 81 pages vs a `main` build, 0 differing pixels: `examples/a11y.md`, `sketch.md`, `finish-backdrops.md`, the legal and progression galleries |
 | Export-to-Marp is unchanged | `marpScopableCss` over the shipped `dist/lattice.min.css` | 4 selectors still start with `:is(` (as on `main`; the build-time design left 111), 0 twin arms (the only `lat-pane` selectors are the pane cell's own 14 in `pane.css`) |
 | Two components on one slide, chrome kept | CLI PDF export | `examples/panes.pdf` (light, committed) and a dark render reviewed alongside it, not committed — list+table 40/60, bar+list 55/45, image+text 50/50, table+big-number 70/30, stacked line over stats, piechart+list 45/55 |
@@ -349,8 +382,8 @@ every number above is from the run after the fix.
 | Studio / Playground smoke | Playwright `@smoke` | 59/59 locally on `e70c7bb`; CI `studio-smoke` green on `3118e15` (not re-run on the budget commit yet) |
 
 **Not verified:** the Studio at tablet and phone widths; the Playground UI with a panes deck; the
-PPTX, image-set and player exports; Export-to-Marp OF a panes deck (marp-core cannot carve; §6);
-a Mermaid diagram in a pane. They share the engine, but "shares the engine" is not verification
+PPTX, image-set and player exports; Export-to-Marp OF a panes deck (marp-core cannot carve; §6).
+A Mermaid diagram in a pane renders (review deck) but draws small, unsized (§2). They share the engine, but "shares the engine" is not verification
 (HARD RULE #23). Each is a `followups.d/2376-*` item.
 
 ---
@@ -367,6 +400,7 @@ slides, one engine, same machine, median of 15 warm renders (`panebench`, three 
 | warm render | 10.7–11.4 ms | 13.2–13.5 ms | +~2 ms: each pane is its own one-slide render |
 | first render (cold) | 167–209 ms | 264–275 ms | +~80 ms: the widening (~50 ms) and a second composed sheet, then memoized |
 | engine heap after render | 3.8 MB | 5.0 MB | +1.2 MB, most of it the second composed sheet |
+| Studio eager JS (route budget) | 723,577 B gz (`main` 03730a1) | 727,069 B gz | **+3,492 B**, all `authoring-core`: the pane lint rules, the block scanner and the baked pane table (~1.1 KB), measured as a pair; budget 723,700 → 728,200 |
 | CLI `.html` export | 3,271,933 B | 3,275,887 B | +4 KB raw, +1.7 KB gzipped (0.1%) |
 | browser style recalc · layout | 8–10 ms · 117–146 ms | 4 ms · 106–109 ms | none; the rule count is unchanged (3,760), twins sit inside existing rules |
 
@@ -423,6 +457,16 @@ cost to be justified** — "I question copying". That round added the `pane` man
 the measured budgets (§3.2), the scoped twins and the reason a selector twin cannot be avoided
 (§2.1), and the cost table (§5). Measuring the budgets found the `_class` carve-order bug (§2).
 
+**A fourth checker on the lint** found the line-level splitter and the carve disagreeing on 17 of
+37 block-level cases (a marker in a lazy paragraph continuation, after an HTML block of type 7,
+under a setext heading, inside a list item's fence). The splitter became a CommonMark block
+scanner and a seeded fuzz pins the agreement (§4).
+
+**The owner then reviewed a 17-slide deck of common pairings** and asked for two things before
+merge: charts sized to their pane, not shrunk into it, and the pane lint in the Studio's live
+editor. Both landed (§2, §4). Rebasing onto `main` moved the CLI onto the engine's packed flat sheet (`lib/export/cli-deck-sheet.js`), where the post-hoc widening found no `section.<component>` to twin and a stats pane exported unstyled; the CLI now asks the engine for the pane twins before it packs (`cliDeckSheet({ panes })`), `tools/palette-sweep.js` reads the pane classes from the export so its identity check still holds, and `test/unit/export/cli-deck-sheet.test.js` pins it. The Studio's eager bundle grows by the baked lint table; the route
+budget was re-measured as a pair (§5).
+
 ---
 
 ## 6. The gaps between the proof and a v1 (ranked by what they unblock)
@@ -438,14 +482,15 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
 and the per-pane budget (§1).
 
 
-1. **Measure the pane, don't estimate it** (`2376-p2-measure-…`). The engine classifies a pane from
-   `STAGE_FRAC`; the real stage height moves with the subtitle and the coda (192px, not 488px, on
-   the demo's first slide). The runtime should re-stamp each pane from its laid-out box.
-2. **Size chart geometry to the pane** (`2376-p2-size-chart-…`). A chart in a narrow pane draws its
-   labels below their designed size (the bar values and pie legend in `examples/panes.pdf`), and
-   nothing reports it — neither the overflow probe nor the TYPE FLOOR probe flagged a 30-category
-   bar pane whose labels had truncated to "Region…" (§3.2). That is why the chart budgets are
-   editorial; closing this lets the calibration measure them.
+1. **Measure the pane, don't estimate it** (`2376-p2-measure-…`). The engine sizes a pane from
+   `stageBox`, a model measured once per piece of host chrome (§2). It does not see a title that
+   wraps, a theme with a taller masthead, or an image that changes the coda. The runtime should
+   re-stamp each pane from its laid-out box.
+2. **Finish sizing charts to the pane** (`2376-p2-size-chart-…`). The SVG chart kernels draw for
+   the pane's canvas now (§2). Still open: Mermaid, which lays itself out and scales into the pane;
+   the HTML-drawn charts' reflow in a small box; a TYPE FLOOR probe that flags an unreadable chart
+   pane; and `tools/calibrate-capacity.js --pane` measuring a chart's ceiling, so the chart budgets
+   can turn `measured` instead of editorial.
 3. **Author and package CSS in a pane** (`2376-p2-author-css-…`). A panes deck widens the shipped
    sheet, the theme and the CLI's front-matter `style:`; installed packages and the Studio's
    `extraCss` are not widened yet, so their `section.<component>` rules skip a pane.

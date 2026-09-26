@@ -92,12 +92,17 @@ number; only the body splits. Mark where each component's body begins:
   a `table` 7 rows at 65%, a `bar` chart 8 bars. A narrower pane holds proportionally fewer.
 - `lint:deck` names each problem before you render: `pane-fit` (a component that opts out, a
   `wide` one under 65%, a side-by-side-only one stacked), `pane-overflow` (past the budget) and
-  `pane-crowd` (past the comfortable count). It warns and never blocks. At export, a pane that
-  really clips is marked like any clipped slide.
+  `pane-crowd` (past the comfortable count). It warns and never blocks; the Studio's editor
+  shows the same warnings as you type. At export, a pane that really clips is marked like any
+  clipped slide.
+- **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart
+  slide prints them, and the plot gets shorter or narrower instead. A pie, map, quadrant or radar
+  moves its key below the diagram when that leaves the key readable.
 
-Known limits while it is experimental: a chart in a narrow pane draws smaller labels, and the export
-cannot tell when they get too small; an installed package's CSS and the Studio's extra CSS do not
-reach a pane yet (a deck's front-matter `style:` does, in the CLI export). Demo: `examples/panes.md`.
+Known limits while it is experimental: a Mermaid diagram scales into its pane, so it draws small
+in a narrow one and nothing warns; the pane's size is modelled from the slide's chrome, so a title
+that wraps to two lines leaves a chart pane a little tall; an installed package's CSS and the
+Studio's extra CSS do not reach a pane yet (a deck's front-matter `style:` does, in the CLI export). Demo: `examples/panes.md`.
 Design, audit, the measured budgets and every open gap:
 `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
 
