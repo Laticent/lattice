@@ -151,6 +151,8 @@ test('the linter finds exactly the panes the carve renders: every edge case the 
  // paragraph, so a type-7 tag after them is not a lazy continuation (fourth checker).
  // A comment block ends at `-->` only, as in markdown-it: `--!>` leaves it open.
  commentBangEnd:`<!-- a --!>\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ // An empty list item closes at a blank line, so an indented marker after it is top level.
+ emptyItemBlank:`- <div>\n- \n\n   ${P}\n\n${it}\n\n${Q}\n\nx`,
  bareQuote:`>\n</span>\n${P}\n\n${it}\n\n${Q}\n\nx`,
  itemHeading:`- # Head\n</span>\n${P}\n\n${it}\n\n${Q}\n\nx`,
  itemHtml:`- <div>\n</span>\n<textarea>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,

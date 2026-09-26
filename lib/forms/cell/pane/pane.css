@@ -135,6 +135,12 @@ section.lat-pane-host > .cell-stage > .lat-panes > lat-pane > .cell-stage > bloc
   box-sizing: border-box;
   max-width: 100%;
 }
+/* The same measure, on big-number's caption: `43.75cqi` is a reading width for a SLIDE, and in
+ * a pane (the container) it left a 50% pane's caption at under half the pane, six lines deep,
+ * clipped 37px (measured). In a pane the pane is the measure. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="big-number"] > .cell-stage > ul > li > ul > li {
+  max-width: 100%;
+}
 /* An image pane: the picture fills its Cell, cropped to cover. `image` is a
  * whole-slide frame, so its pane form is this rule, not the image component. */
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p {

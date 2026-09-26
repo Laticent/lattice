@@ -389,3 +389,24 @@ test('`cards:` reaches a pane — deck-wide and per slide — as it reaches a sl
   // The tokens a pane needs are in the sheet, keyed on the pane.
   assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-cards="top"\]\s*\{\s*--cards-align:\s*flex-start/);
 });
+
+test('a pane\'s chart canvas has the shape Chromium lays the pane out at, on every size', () => {
+  const e = engine();
+  const bars = '- A `4`\n- B `7`\n- C `3`';
+  const vb = (html) => (html.match(/class="cart-svg[^"]*"[^>]*viewBox="0 0 ([\d.]+) ([\d.]+)"|viewBox="0 0 ([\d.]+) ([\d.]+)"[^>]*class="cart-svg/) || []).filter(Boolean).slice(1).map(Number);
+  // Measured in Chromium on the engine sheet: the second pane's box with a one-line title
+  // (lib/engine/index.js STAGE_BANDS), width / height. The bar canvas must match within 3%.
+  // (A 16:9 stack is left out: its band is flatter than the 140x72 minimum canvas.)
+  const measured = {
+    'hd 50/50': 544 / 439,
+    'square 50/50': 441 / 793, 'square stack': 972 / 363,
+    'portrait 50/50': 433 / 1015, 'portrait stack': 972 / 468,
+    'story 50/50': 427 / 1574, 'story stack': 972 / 743,
+  };
+  for (const [name, ratio] of Object.entries(measured)) {
+    const [size, layout] = name.split(' ');
+    const [w, h] = vb(e.render(`---\nsize: ${size}\n---\n\n## A title that is here\n\n<!-- panes: ${layout} -->\n<!-- pane: list -->\n\n- x\n\n<!-- pane: bar -->\n\n${bars}\n`).html);
+    assert.ok(w && h, `${name}: no bar canvas`);
+    assert.ok(Math.abs(Math.log(w / h / ratio)) < 0.03, `${name}: canvas ${w}x${h} (${(w / h).toFixed(2)}) vs measured ${ratio.toFixed(2)}`);
+  }
+});

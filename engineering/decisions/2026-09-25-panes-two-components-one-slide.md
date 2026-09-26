@@ -150,12 +150,22 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    deck render.
 
    **The pane's box.** `stageBox` in `lib/engine/index.js` models the host's stage from
-   measurements in Chromium on a 1280x720 panes slide: a title alone leaves 1152x438, and an
-   eyebrow, a subtitle, a Key Insight and a below-note take 38, 45, 103 and 68px of height (all
-   four together measured 192 against 184 summed). Each deduction is a fraction of the slide
-   WIDTH, because type and spacing scale with it. The carve records which of the four the host
-   carries (`chrome` on `env.latticePanes`). A title long enough to wrap is not modelled; the
-   runtime measurement is gap 1 in §6.
+   measurements in Chromium on every registered size. The stage is 90% of the slide's width;
+   its height is the slide's less a base band (title and padding) and less an eyebrow, a
+   subtitle, a Key Insight or a below-note when the host has one. Each band is a fraction of the
+   slide WIDTH. Landscape is proportional (hd and 4K agree to 0.1%). Portrait and square boost
+   type and spacing by `--canvas-scale`, and the chrome does not grow in proportion to it, so
+   the bands are a measured table per scale (1, 1.65, 1.95, 2.19, 2.29), interpolated; the gutter
+   carries `--canvas-scale` exactly. A title, subtitle, Key Insight or note that WRAPS takes a
+   further line height per line: the carve records each one's text length (`chrome` on
+   `env.latticePanes`) and the engine counts lines against a measured one-line capacity, at 90%
+   of it, so the model errs short rather than tall. The first version modelled 16:9 only, and
+   an independent check measured its canvas 8–45% off the real pane in 24 of 36 portrait,
+   square and story cases; the table brings every case within 3% except a square stack whose
+   Key Insight the 90% capacity counts as two lines (8% short, the safe direction).
+   `test/unit/core/panes.test.js` pins the canvas shape against the Chromium measurements.
+   What it still does not see (a theme with a taller masthead, a font that sets wider) is gap 1
+   in §6.
 
    **Charts draw for the pane.** A chart slide draws on a fixed canvas (320x180 units landscape,
    320x300 portrait) that CSS scales to the stage, so a chart that drew that same canvas in a
@@ -173,11 +183,15 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    - radar is left out: its axis labels belong to the diagram, so shrinking the diagram for a
      bigger key made the labels a reader needs smaller (5–6px from 10 at 50/50). A radar pane
      draws as a radar slide does, scaled into the pane.
-   - a Key Insight or note that stays inside pane B (a pie claims its note; a blockquote above a
-     claimed note cannot be peeled past it) comes off that pane's canvas height.
+   - a Key Insight or note that stays inside a pane (pane B's claimed coda, a blockquote above a
+     claimed note the peel cannot reach past, or pane A's own trailing one) comes off that
+     pane's canvas height, with its lines counted at the pane's width.
 
    Cartesian labels therefore print at the slide's size and the plot gives way; a pie's key
-   prints larger where the pane has the room, and never at the diagram's expense past 25%. No ordinary slide carries
+   prints larger where the pane has the room, and never at the diagram's expense past 25%.
+   Measured on real renders (pie and map, every size, six layouts, with and without a coda, in
+   either pane: 192 cases), no pick prints both smaller text and a smaller diagram than the
+   unscaled key would; before the stage table, 4 portrait and story cases did. No ordinary slide carries
    the attribute, so every non-pane chart draws exactly as before (the 304-deck HTML comparison
    in §4). **Mermaid is not sized this way**: it lays itself out and the SVG scales into the pane,
    so a flowchart in a 60% pane draws small, and nothing warns. That stays gap 2 in §6.
@@ -490,8 +504,17 @@ out of `fitKeyToPane`); a pie in a narrow pane gave up two thirds of its disc fo
 the diagram); and resolving `cqi` against the slide clipped an in-budget team-profile (reverted,
 §2). It also found three contrived scanner cases (a bare `>`, a heading or an HTML block opening
 a list item) and an empty vocab table silencing the Studio fallback; both fixed. One contrived
-disagreement remains in its fuzz (1 in 2,549: an empty `1)` item after `1. x`, where the carve
-finds no panes at all).
+disagreement remains in its fuzz: 1 in 5,163 trials over the two checkers' fuzzers, after an
+empty list item followed by a blank line was taught to close (CommonMark §5.2).
+
+**A sixth checker on the fixes above** found no blocker. It confirmed the CLI sheet (no-panes
+exports differ from `main` only by `pane.css`), byte-identical HTML over 361 decks, and the
+`cards:` plumbing. Its two should-fixes are fixed: the stage model was 16:9-only (the table
+above), and the `container-type: size` revert clipped a big-number caption at 50%, a slide
+measure (`43.75cqi`) meeting a pane container, now the pane's width in `pane.css` as the quote's
+is. Its nits: `paneClasses` counted a `<lat-pane class=` quoted in a comment (it now skips
+comments), the empty-item scanner case, a pane A chart's own coda, the `cards:` reach in the
+docs, and a lint warning.
 
 **The owner then reviewed a 17-slide deck of common pairings** and asked for two things before
 merge: charts sized to their pane, not shrunk into it, and the pane lint in the Studio's live
@@ -514,8 +537,9 @@ and the per-pane budget (§1).
 
 
 1. **Measure the pane, don't estimate it** (`2376-p2-measure-…`). The engine sizes a pane from
-   `stageBox`, a model measured once per piece of host chrome (§2). It does not see a title that
-   wraps, a theme with a taller masthead, or an image that changes the coda. The runtime should
+   `stageBox`, a model measured per slide size and per piece of host chrome, with wrapped lines
+   counted from text length (§2). It does not see a theme with a taller masthead, a font that
+   sets wider than the measured words, or an image that changes the coda. The runtime should
    re-stamp each pane from its laid-out box.
 2. **Finish sizing charts to the pane** (`2376-p2-size-chart-…`). The SVG chart kernels draw for
    the pane's canvas now (§2). Still open: Mermaid, which lays itself out and scales into the pane;
