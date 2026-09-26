@@ -286,6 +286,30 @@ slides.* These starting budgets go in the docs as guidance, not as lint errors:
 Not a flowchart at all: timed interactions (sequence diagram), schedules
 (gantt), states (state chart).
 
+**The `fit:` register** (#2383, `engineering/decisions/2026-09-25-fit-policy.md`;
+not yet on `main` when this was written, so this section depends on it). The
+flowchart takes part in all three levels:
+
+| `fit:` level | The flowchart |
+|---|---|
+| `heal` (default) | Heals without losing words: automatic `compact` spacing when text would land under the floor, the direction and wrap fit, and STEP (below). |
+| `report` | None of those moves: the spacing and direction as written. Lint **warns** with the measured size, because nothing will heal it. |
+| `trim` | Everything `heal` does, then note text may be ellipsized. **Shape names and edge labels are never cut** (the owner's ruling): a clipped label changes what a relationship says. Still under the floor after that, it is reported. |
+
+- **STEP needs one new signal.** STEP's rule 3 says "fits" means what the
+  overflow ring means, but a flowchart never overflows: it shrinks its own text.
+  So the flowchart reports *text under the floor at this slide's scale* (the TYPE
+  FLOOR condition), and `lib/core/scale-fit.js` treats that as not fitting. On a
+  `scale-xl` deck, a flowchart that cannot hold 11px × 1.3 drops its slide to 1x,
+  where the target is 11px. If it cannot hold 11px at 1x either, STEP's rule 2
+  applies: the slide keeps its requested scale and is reported, never pushed below
+  the floor.
+- **SPLIT:** a flowchart is atomic, because a graph cut into pieces loses its
+  lines. The splitter leaves it whole; an overview plus detail slides remains a
+  coached suggestion.
+- **Slide overrides** (`fit-report`, `fit-heal`, `fit-trim`) apply to a flowchart
+  slide like any other.
+
 ## 5. Edge labels: never a painted background
 
 The trouble spot was a label that has to sit on its line and hide what is behind
@@ -471,7 +495,8 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
    the untrusted-content posture (section 8); the component docs, manifest and a
    feature deck (HARD RULE #9).
 4. **Flow dots and settings:** the overlay, `motion-flow`, the `flowchart:`
-   register, the measured legibility lint, and the Studio inspector.
+   register, the measured legibility lint, the `fit:` levels and STEP's
+   under-the-floor signal (after #2383 lands), and the Studio inspector.
 5. **State chart v2** (section 14): the state chart moves onto this grammar and
    spine, with a codemod and no v1 compatibility.
 
