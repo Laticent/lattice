@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`22 components`
+`23 components`
 
 Every chart component in one deck — the full charting surface.
 
@@ -89,6 +89,26 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 | Feb 2026 | 100 | 58 | 44 | 41 |
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
+
+---
+
+<!-- _class: hub-spoke -->
+<!-- _footer: "hub-spoke · data-viz gallery" -->
+
+`Transformation program · Workstream status · Q3`
+
+## Two of six workstreams are off track.
+
+- Program office
+  - Customer onboarding
+  - Core platform migration `at-risk`
+    - Cutover slipped from August to October
+    - Vendor data mapping is 60% complete
+  - Data governance
+  - Vendor consolidation `blocked`
+    - Waiting on the procurement freeze to lift
+  - Branch network
+  - Workforce reskilling
 
 ---
 

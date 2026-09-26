@@ -33,7 +33,7 @@
 // HTML (gantt/kanban/progress/timeline-list/roadmap/state-chart). That frame
 // existing == the chart-family transform ran and consumed the authored source.
 const CHARTS = [
-  'bar', 'bullet', 'funnel', 'heatmap', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'journey', 'kanban', 'map', 'piechart',
+  'bar', 'bullet', 'funnel', 'heatmap', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'hub-spoke', 'journey', 'kanban', 'map', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart',
   'timeline-list', 'word-cloud',
 ];

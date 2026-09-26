@@ -913,11 +913,12 @@ describe('component-manifest', () => {
       // chart = 22. The seven Cartesian members (bar, bullet, line, scatter,
       // slope, stacked-bar, waterfall) landed together — see
       // engineering/decisions/2026-09-06-cartesian-chart-expansion.md — and
-      // `heatmap` followed as the numeric-matrix member that note deferred.
-      assert.equal(g.chart.length, 22, 'chart bucket has 22 components');
+      // `heatmap` followed as the numeric-matrix member that note deferred, and
+      // `hub-spoke` as the structure member (one center and its satellites).
+      assert.equal(g.chart.length, 23, 'chart bucket has 23 components');
       assert.deepEqual(
         g.chart.map((m) => m.name).sort(),
-        ['bar', 'bullet', 'funnel', 'gantt', 'heatmap', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'waterfall', 'word-cloud'],
+        ['bar', 'bullet', 'funnel', 'gantt', 'heatmap', 'hub-spoke', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'waterfall', 'word-cloud'],
       );
       // diagram = 1: diagram
       assert.equal(g.diagram.length, 1, 'diagram bucket has 1 component');
@@ -943,7 +944,7 @@ describe('component-manifest', () => {
       // all function = evidence (or progression for gantt/kanban, or
       // comparison for compare-code):
       const evidenceSubstanceBuckets = [
-        'funnel', 'map', 'piechart', 'progress', 'quadrant', 'radar', 'timeline-list', 'word-cloud',
+        'funnel', 'hub-spoke', 'map', 'piechart', 'progress', 'quadrant', 'radar', 'timeline-list', 'word-cloud',
         'diagram', 'math', 'code',
       ];
       for (const n of evidenceSubstanceBuckets) {

@@ -92,6 +92,7 @@ const VOICE_EXEMPT = {
   progress: { rules: ['density'], reason: 'chart data; no prose axis' },
   quadrant: { rules: ['density'], reason: 'chart data; no prose axis' },
   radar: { rules: ['density'], reason: 'chart data; no prose axis' },
+  'hub-spoke': { rules: ['density'], reason: 'chart data; no prose axis' },
   roadmap: { rules: ['density'], reason: 'grid cells; no prose axis' },
   'state-chart': { rules: ['density'], reason: 'chart data; no prose axis' },
   'word-cloud': { rules: ['density'], reason: 'chart data; no prose axis' },

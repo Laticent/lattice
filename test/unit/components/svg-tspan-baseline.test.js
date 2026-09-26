@@ -93,6 +93,13 @@ const TSPAN_BUILDERS = [
       'Chromium already agree (measured at 0.7px, rasterization noise)',
   },
   {
+    file: 'lib/components/chart/hub-spoke/hub-spoke.transform.js',
+    owes: 'none',
+    why: 'its only tspans are the value and status folded onto a label line in a ' +
+      'crowded wing; they ride the parent <text>\'s explicit baseline y and the file ' +
+      'declares no dominant-baseline, so there is nothing to carry down',
+  },
+  {
     file: 'lib/components/chart/_chart-family/standalone-svg.js',
     owes: 'style',
     why: 'sets an inline `style` ON the tspan it creates, not on an ancestor, so ' +

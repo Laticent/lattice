@@ -62,8 +62,11 @@ const WAS = {
  * the kernel emits one self-contained <svg>, so it extracts as a standalone vector
  * and re-hosts in the prose projection; `data: true` because a matrix IS data, so a
  * deck built on it scores Data rather than reporting N/A.
+ *
+ * `hub-spoke` — the structure member (one hub, its satellites). `figure: "svg"`
+ * for the same reason; `data: true` because every satellite can carry a printed value.
  */
-const ADDED_SINCE = ['heatmap'];
+const ADDED_SINCE = ['heatmap', 'hub-spoke'];
 const plus = (was, added = ADDED_SINCE) => sorted([...was, ...added]);
 
 /**
