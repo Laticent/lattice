@@ -10,7 +10,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic). Past six Q/A pairs the column overflows a portrait box.
+**Capacity** ~4 items (over 5 overflows) — past that, split across slides (automatic). Four pairs fit at body size and a fifth with `compact`, which tightens the spacing; past five, split the slide.
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 
@@ -99,7 +99,7 @@ Pairs threaded down an accent spine.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 ```
 
 ### `rail` — rail
@@ -116,7 +116,7 @@ Numbered exhibit rows in columns.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 ```
 
 ### `tab` — tab
@@ -133,7 +133,7 @@ Underlined prompts; answers hang below.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 ```
 
 ### `grid` — grid
@@ -150,7 +150,7 @@ Four pairs in a two-by-two.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 - Why four pairs here?
   - Grids want even counts.
 ```

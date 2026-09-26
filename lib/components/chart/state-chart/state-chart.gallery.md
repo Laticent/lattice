@@ -219,13 +219,21 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · state-chart" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · state-chart · 1 of 2" -->
 
 ## When NOT to reach for state-chart.
 
 - More than ~12 states
   - A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · state-chart · 2 of 2" -->
+
+## When NOT to reach for state-chart.
+
 - Hierarchical or parallel states
   - v1 grammar is one flat list of states with one outgoing arrow per nested bullet. Composite states, orthogonal regions, history nodes — anything Mermaid's `stateDiagram-v2` does and this layout doesn't — belong in a Mermaid fence via the `diagram` component.
 - Continuous processes

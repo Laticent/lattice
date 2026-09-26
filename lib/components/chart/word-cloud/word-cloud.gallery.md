@@ -187,7 +187,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · word-cloud" -->
 
 ## When NOT to reach for word-cloud.

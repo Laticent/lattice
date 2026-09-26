@@ -437,7 +437,7 @@ One size per deck holds only if nothing on a single slide changes a type role's 
 - A role token (`--fs-*`, and the label lift `--venue-meta-lift`) is declared only on
   `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung (`section.venue-*`,
   `section.scale-*`). The rung is the one carve-out: a spot `_class: scale-xl` (above) still
-  sets one slide apart, and whether it should is the owner's open call.
+  sets one slide apart; `lint:deck` is to warn on it (followups.d/2361-p2-lint-warns-on-spot-scale.md).
 - A cross-component modifier (`compact`, `claim-*`, `accent`, a mood, tone or state stamp)
   sets no type size on content. `claim-hero` tightens the frame; it does not shrink the text.
   Pseudo-elements (a state stamp's label, a drawn mark) are chrome and are exempt.
@@ -447,10 +447,11 @@ One size per deck holds only if nothing on a single slide changes a type role's 
   reason.
 
 `checkTypeSizeModifiers` in `tools/check-ownership.js` enforces it in `build:check`, budget 0,
-with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the exceptions — each with its reason. Two of the
-three today (`cards-stack compact`, `q-and-a compact`) are real per-slide shrinks awaiting the
-owner's decision; the audit is in `engineering/decisions/2026-09-25-font-scale-fit.md`,
-Amendment 2026-09-27 (2).
+with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the provably size-neutral — each with its reason.
+`cards-stack compact` and `q-and-a compact` used to drop their text a step; since 2026-09-27
+they tighten spacing only, so a fifth q-and-a pair needs `compact` and a sixth needs a new
+slide. The audit is in `engineering/decisions/2026-09-25-font-scale-fit.md`, Amendment
+2026-09-27 (2).
 
 ### When NOT to use it
 

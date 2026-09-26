@@ -138,8 +138,8 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · piechart" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · piechart · 1 of 2" -->
 
 ## When NOT to reach for piechart.
 
@@ -147,6 +147,14 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
   - A pie of unrelated metrics is meaningless — the visual implies parts of a whole. If your values are independent measures, use stats or a bar chart instead.
 - Two slices
   - A two-slice pie is just a percentage with extra steps. Use big-number or split-panel metric — the audience can read '38% / 62%' faster than they can decode a half-and-half disc.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · piechart · 2 of 2" -->
+
+## When NOT to reach for piechart.
+
 - Comparing two pies
   - Side-by-side pies force the audience to compare wedge angles across two figures — humans are bad at this. Use grouped bars or a slope chart to land the comparison cleanly.
 

@@ -25,7 +25,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 - What if answers run long?
   - Use solo, one per slide.
 
@@ -42,7 +42,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 
 
 ---
@@ -57,7 +57,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 
 
 ---
@@ -72,7 +72,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 
 
 ---
@@ -87,7 +87,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 - Why four pairs here?
   - Grids want even counts.
 
@@ -107,22 +107,20 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 <!-- _class: q-and-a compact -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · q-and-a — Six pairs — the hard ceiling." -->
+<!-- _footer: "Stress test · q-and-a — Five pairs — the hard ceiling, with compact." -->
 
-## Six pairs is the most one slide answers.
+## Five pairs is the most one slide answers.
 
-- Why six pairs and not seven?
-  - The column overflows a portrait box.
+- Why five pairs and not six?
+  - The sixth runs off the slide.
 - Do answers shrink at the ceiling?
-  - To one breath each.
+  - No; the gaps close.
 - Where does the eye tire?
   - Pair four; park risk there.
-- Can compact buy a seventh?
-  - No — six is structural.
-- What about longer answers?
-  - Fewer pairs, or solo.
-- And past six?
-  - Autosplit divides the slide.
+- Can compact buy a sixth?
+  - No — it tightens spacing only.
+- And past five?
+  - Split the slide.
 
 
 ---
@@ -137,7 +135,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 - What if answers run long?
   - Use solo, one per slide.
 
@@ -154,15 +152,15 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 - What if answers run long?
   - Use solo, one per slide.
 
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · q-and-a" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · q-and-a · 1 of 2" -->
 
 ## When NOT to reach for q-and-a.
 
@@ -170,6 +168,14 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
   - Six or more terse question/answer pairs you flip back to as a reference belong in `list-tabular` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page.
 - Rhetorical questions with no answer
   - Every question needs a nested answer that genuinely closes it. A bare question used as a section header or a hook is a `divider` or a `statement`, not a Q&A pair.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · q-and-a · 2 of 2" -->
+
+## When NOT to reach for q-and-a.
+
 - Evaluation criteria in disguise
   - If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway numbered`, not a question you expect to be asked. q-and-a defends; list takeaway numbered evaluates.
 

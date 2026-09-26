@@ -124,8 +124,8 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · heatmap" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · heatmap · 1 of 2" -->
 
 ## When NOT to reach for heatmap.
 
@@ -133,6 +133,14 @@ A numeric matrix read as intensity — where the value concentrates across two d
   - A single series is not a matrix — it is a comparison, and a reader judges length far more precisely than intensity. Use `bar`. The kernel declines a one-column table for this reason rather than painting a single strip.
 - Qualitative cells
   - If the cells are verbs, owners or statuses rather than numbers, the ramp has nothing to encode. Use `matrix-grid`, whose cells are tagged at parse time.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · heatmap · 2 of 2" -->
+
+## When NOT to reach for heatmap.
+
 - Precise comparison
   - Asking a reader which of two similar cells is larger spends the one thing intensity is bad at, and the five-tone binning above makes it stricter: two cells in the same band are the same color by design. If the comparison has to be exact, the value belongs on an axis — `bar` or `line`.
 - Geography

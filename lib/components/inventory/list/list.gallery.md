@@ -166,7 +166,7 @@ Bulleted list under a heading — plain pills, hairline takeaways (optionally nu
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · list" -->
 
 ## When NOT to reach for list.

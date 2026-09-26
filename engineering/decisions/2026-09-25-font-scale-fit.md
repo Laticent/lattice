@@ -405,8 +405,8 @@ in `followups.d/2378-p3-capacity-hard-above-measured.md`, where it is now record
 
 **The rule.** One size per deck holds only if nothing on a single slide changes a type role's
 size. So: **a per-slide class may change spacing, chrome and color; it may not change the size
-of a type role** — with one carve-out this change does not decide: the explicit magnitude ask
-(`scale-*`, `venue-*`) can be written on a single slide, and then that slide is its own size.
+of a type role** — with one carve-out: the explicit magnitude ask (`scale-*`, `venue-*`) can be written on a
+single slide, and then that slide is its own size (the owner chose a lint warning, below).
 Concretely, for engine CSS:
 
 - **A role token** (`--fs-*`, and `--venue-meta-lift`, the label lift) is declared only on
@@ -433,8 +433,8 @@ modifier or variant class: 245, measured by a postcss walk over the tree):
 | `venue-huddle` / `-conference` / `-hall`, `scale-l` / `-xl` / `-2xl` | `--fs-scale` (and the label lift) | The rung itself, exempt. Deck-wide when set in front matter; but a spot `_class: scale-xl` (or `venue-*`) on ONE slide is a documented directive, and that slide then differs in size from its neighbors — put to the owner |
 | `claim-quiet`, `claim-hero`, `claim-bleed` | Frame insets (`--frame-x/y`, `--footer-reserve`) and which chrome shows | Clean: spacing and chrome only |
 | `compact` (universal) | The `--sp-*` spacing scale only | Clean |
-| `cards-stack.compact` | Card and nested-item text from `--fs-body` to `--fs-body-compact` | **Violates**: a per-slide shrink. Sanctioned pending the owner's call (below) |
-| `q-and-a.compact` | Questions `--fs-message` → `--fs-body`, answers `--fs-body` → `--fs-body-compact`, index numeral re-based to `--fs-body`; gaps close | **Violates**, and the size change is most of what it does. Sanctioned pending the owner's call |
+| `cards-stack.compact` | Card and nested-item text from `--fs-body` to `--fs-body-compact` | **Violated**: a per-slide shrink. Removed (owner's ruling, below) |
+| `q-and-a.compact` | Questions `--fs-message` → `--fs-body`, answers `--fs-body` → `--fs-body-compact`, index numeral re-based to `--fs-body`; gaps close | **Violated**, mostly a size change. The size change removed; the gaps still close (owner's ruling, below) |
 | `kanban` under `.dark` | `.kanban-size` at `--fs-meta` | Size-neutral: one rule shared with the bare selector. Sanctioned |
 | State stamps (`confidential`, `draft`, `stamp-*`, …) | `::before` label size | Chrome (pseudo-element): exempt |
 | `numbered` on `divider` | The `::after` numeral | Chrome: exempt |
@@ -447,15 +447,39 @@ modifier or variant class: 245, measured by a postcss walk over the tree):
 `q-and-a compact` slide in the tree (78: 71 generated "When NOT to reach for X" gallery slides,
 4 `cards-stack compact` slides in `examples/`, and 3 `q-and-a compact` slides) rendered with the
 shrink removed by a deck-local override: **22 clip** (19 gallery anti-pattern slides, 1 example
-slide, 2 q-and-a slides), against 0 today. So the fix cannot ship alone (#18): it needs the gallery generator
-(`tools/build-component-docs.js`) to lay the anti-pattern slide out so it fits at body size,
-and the three q-and-a slides trimmed, and every gallery PDF re-rendered. That is the owner's
-call, put to them with a recommendation; until then the two are sanctioned, so the gate holds
-the line against a new one.
+slide, 2 q-and-a slides), against 0 today. So the fix could not ship alone (#18).
+
+**The owner's ruling (2026-09-27): "we shouldn't shrink text, but we should shrink things like
+padding."** Both shrinks are gone, and `compact` on those two components now changes spacing
+only, as it does everywhere else. The fallout, fixed in the same change:
+
+- **The gallery generator** (`tools/build-component-docs.js` `antiPatternPages`) packs the
+  anti-patterns onto as many `cards-stack` slides as fit at body size: greedy, in order, a new
+  slide past 100 words (title + body) or three cards. Measured over every component's
+  anti-patterns at a wide @size: 100 words clips 0 of 107 slides, 110 clips 2, 130 clips 6. 35
+  of 71 galleries now carry the anti-patterns on two or three slides (footer "· 1 of 2"). The
+  slide also drops `cards-stretch` for the register default, which sizes each card to its
+  text: stretch was there to hide an overrun that no longer happens, and on a paged slide it
+  blew a lone card up to fill the stage. Re-measured with the default: 0 of 107 clip.
+- **`q-and-a`'s budget** is re-measured without the shrink: bare, 4 pairs fit (short or long
+  answers); with `compact`'s spacing, 5; 6 clips. `capacity` goes from sweet 4 / soft 5 /
+  hard 6 to sweet 4 / soft 5 / hard 5, and its stress slide shows five pairs.
+- **Two hand slides:** `examples/matrix-grid-rendering-jank.md`'s four long cards split into two
+  slides of two, and `examples/q-and-a.md`'s five-pair `compact` slide drops its eyebrow and
+  shortens its answers so five pairs still fit.
+
+**The spot `scale-*` carve-out** goes to `followups.d/2361-p2-lint-warns-on-spot-scale.md`: the
+owner chose a `lint:deck` warning when a slide asks for a scale the deck does not.
+
+**The dense-cell step** (`--fs-body-compact` for table, glossary and ledger cells) the owner
+reads as the same kind of shrink: the venue sets the size, the budget says how much to write,
+and an author who wants more room picks a smaller venue. Retiring it changes one of the twelve
+typography roles (HARD RULE #4) on every table-bearing slide, so it is measured and put to the
+owner as its own change rather than folded in here (`followups.d/2361-p2-retire-dense-cell-step.md`).
 
 **What the render shows.** `cards-grid.gallery.md` at `venue: huddle` renders all 11 pages
 at 1.15x (no `↓ SCALE` line): headings, running header and page numbers one size. Page 10 —
 the generated `cards-stack compact` anti-pattern slide — is the one page whose body text is
-visibly smaller than its neighbors', which is the sanctioned shrink above. `list-steps` at
+visibly smaller than its neighbors', which was the `cards-stack compact` shrink. `list-steps` at
 huddle levels all 20 slides to 1x ("for 1.15x, trim page 3"). This change moves no engine
-CSS, so no render changes; the gate only stops a new per-slide size change from landing.
+CSS; the owner's ruling above then removed the page-10 shrink.

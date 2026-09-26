@@ -91,8 +91,8 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · table" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · table · 1 of 2" -->
 
 ## When NOT to reach for table.
 
@@ -102,6 +102,14 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
   - Past 6 rows the table crowds the slide. Split across two slides or summarize the rows that don't differentiate.
 - A table that only supports the prose around it
   - Then it does not need this class at all — write the pipe table on a `content` or un-classed slide and the universal treatment styles it. The component is for a table that owns the slide.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · table · 2 of 2" -->
+
+## When NOT to reach for table.
+
 - Reaching for it when a specialist fits better
   - Mostly pass/fail badges is `obligation-matrix` or `verdict-grid`; term/definition pairs are `glossary`; a dated plan is `roadmap`.
 

@@ -2762,8 +2762,8 @@ function checkMarginDiscipline(errors) {
 //      THE ONE CARVE-OUT, stated rather than hidden: a rung is the explicit magnitude ask,
 //      and an author CAN put it on one slide (`_class: scale-xl` is a documented spot
 //      directive, typography.md §7), which then differs in size from its neighbors. That is
-//      the owner's to rule on (2026-09-25-font-scale-fit.md, Amendment 2026-09-27 (2)); this
-//      gate does not decide it.
+//      the case the owner ruled on: a `lint:deck` warning rather than a gate
+//      (followups.d/2361-p2-lint-warns-on-spot-scale.md), so this gate exempts every rung.
 //
 //   B. A CROSS-COMPONENT MODIFIER (a token in a MODIFIER_GROUPS group other than `aliases`,
 //      which rename component variants) never sets a type size — `font-size`, the `font`
@@ -2795,18 +2795,6 @@ const SANCTIONED_TYPE_SIZE_MODIFIERS = [
     modifier: 'dark',
     count: 1,
     why: 'Size-neutral. `:is(section.kanban, figure.kanban).dark .kanban-size` shares one rule with the bare `.kanban-size` selector, so the chip is `--fs-meta` on both canvases; the arm exists only to outrank an earlier dark treatment of the chip.',
-  },
-  {
-    file: 'lib/components/inventory/cards-stack/cards-stack.styles.css',
-    modifier: 'compact',
-    count: 9,
-    why: 'PENDING THE OWNER (2026-09-27 amendment, P2). `cards-stack compact` drops card text to `--fs-body-compact`, a per-slide shrink. Removing it clips 20 of the 75 `cards-stack compact` slides in the tree: 19 of the 71 generated "When NOT to reach for X" gallery slides, which tools/build-component-docs.js lays out as `cards-stack compact`, and 1 in examples/. The fix is a generator redesign plus every gallery re-rendered, so it waits on the owner’s decision.',
-  },
-  {
-    file: 'lib/components/inventory/q-and-a/q-and-a.styles.css',
-    modifier: 'compact',
-    count: 3,
-    why: 'PENDING THE OWNER (2026-09-27 amendment, P2). `q-and-a compact` sets questions in `--fs-body` and answers in `--fs-body-compact` (and re-bases the index numeral), so its size change is most of what it does. Removing it clips 2 of the 3 `q-and-a compact` slides in the tree.',
   },
 ];
 

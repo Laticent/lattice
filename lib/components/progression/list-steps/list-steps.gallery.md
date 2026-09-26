@@ -300,7 +300,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · list-steps" -->
 
 ## When NOT to reach for list-steps.

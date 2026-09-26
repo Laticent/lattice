@@ -523,7 +523,8 @@ describe('deck linter', () => {
     // always suppressed capacity-crowd; since 2026-07-29 it also makes the SPLITTER leave
     // the slide whole (lib/core/auto-split.js), because paginating a specimen paginates it
     // out of showing the thing it exists to show.
-    const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 6 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
+    // checklist's crowd band is (8, 9]: nine items crowd without passing `hard`.
+    const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: checklist -->\n${marker}\n\n## H.\n\n${Array.from({ length: 9 }, (_, i) => `- [x] Item ${i}`).join('\n')}\n`;
     assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd warning');
     assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd warns as before');
     // Past hard, an ordinary slide is told what its box will do to it — the split advisory

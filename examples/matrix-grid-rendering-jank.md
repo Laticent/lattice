@@ -91,7 +91,7 @@ The widest label no longer buys width from its neighbors.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack -->
 <!-- _footer: "The limit · what this fix does not reach" -->
 
 `Only wide is wide enough`
@@ -102,11 +102,20 @@ The widest label no longer buys width from its neighbors.
   - `scrollWidth` on a centered flex box misses the half that overflows left. A Range over the text node is the honest unit — and it reads `-25.2px` where `scrollWidth` reported a 2px rounding artifact.
 - Square fails like portrait, later
   - `--canvas-scale` raises the type as the box narrows. `Distinguished` clears its cell by `+75.9px` at wide, misses by `-25.2px` at square and `-44.5px` under `mode: sketch`.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "The limit · what this fix does not reach" -->
+
+`Only wide is wide enough`
+
+## And the type has nowhere left to go.
+
 - The type floor is reached
   - `--fs-meta` is the floor of the twelve-token scale, so the step the narrow arm already takes is the last one available.
 - So only wide takes `fixed`
   - Square, tall and strip keep `auto` and render byte-identically. The shift stays live there, and `scale-2xl` leaves wide only `+19.7px`.
-
 ---
 
 <!-- _class: closing silent index -->

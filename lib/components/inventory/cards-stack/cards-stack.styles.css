@@ -130,18 +130,11 @@ section.cards-stack.horizontal .cards-stack-inner {
 
 
 /* ── compact ──
- * Layout-specific density on top of the generic `--sp-*` shrink that the
- * universal `compact` modifier (lib/shared/shared.styles.css) already
- * applies. cards-stack additionally drops body type to --fs-body-compact so
- * a fourth card fits without crowding. Card padding is left to the generic
- * `--sp-*` shrink so the ordered-badge clearance (padding-top) is preserved. */
-section.cards-stack.compact > .cell-stage > ul > li, section.cards-stack.compact > .cell-stage > ol > li,
-section.cards-stack.compact .card { font-size:var(--fs-body-compact); }
-section.cards-stack.compact > .cell-stage > ul > li > ul > li, section.cards-stack.compact > .cell-stage > ul > li > ol > li,
-section.cards-stack.compact > .cell-stage > ol > li > ul > li, section.cards-stack.compact > .cell-stage > ol > li > ol > li,
-section.cards-stack.compact .card > ul > li, section.cards-stack.compact .card > ol > li {
-  font-size:var(--fs-body-compact);
-}
+ * No layout-specific rule. The universal `compact` modifier (lib/shared/shared.styles.css)
+ * shrinks the `--sp-*` spacing scale, and that is all it may do: a modifier never changes a
+ * type role's size, so card text stays `--fs-body` on a compact slide as on its neighbors
+ * (engineering/typography.md §7, "One size across modifiers"; `checkTypeSizeModifiers`).
+ * This used to drop card text to `--fs-body-compact` to fit a fourth card. */
 
 
 /* Hardening: element siblings of <strong> in a card li don't inherit

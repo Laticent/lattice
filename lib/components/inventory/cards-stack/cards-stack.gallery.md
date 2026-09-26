@@ -123,7 +123,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · cards-stack" -->
 
 ## When NOT to reach for cards-stack.

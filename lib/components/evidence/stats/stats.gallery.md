@@ -123,8 +123,8 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · stats" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · stats · 1 of 2" -->
 
 ## When NOT to reach for stats.
 
@@ -132,6 +132,14 @@ Row of 3–5 stat tiles, each with a big number and a label.
   - Past five tiles the row compresses and the numbers shrink below boardroom legibility. Split into two rows or move to `kpi` where the dashboard grid gives each metric its own card.
 - Tiles with no number
   - If a tile is mostly prose with a small number, the visual hierarchy inverts and the row reads as a list. Stats is for **bold-number + caption** — anything more belongs in `cards-grid`.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · stats · 2 of 2" -->
+
+## When NOT to reach for stats.
+
 - Status framing without pills
   - If each metric needs a target, a trend, and a status indicator, you're authoring a dashboard, not a stats row. Move to `kpi`, which carries that vocabulary.
 
