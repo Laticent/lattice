@@ -32,6 +32,8 @@ const path = require('path');
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 const { resolveCardsAlign } = require('../../../lib/core/resolve-cards');
+const CATALOG = require('../../../lib/core/cards-catalog.generated.js');
+const { ROOT, runEmulator } = require('../../helpers/render');
 
 const RUNTIME_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'),
@@ -111,4 +113,83 @@ describe('runtime card-row composition — stamped on every section, at every fa
     assert.deepEqual(got, ['center', 'center', null]);
     dom.window.close();
   });
+});
+
+// ── Exporter ↔ runtime parity, across the whole governed catalog ─────────────────────────
+// Both render paths resolve `data-cards` through the one kernel (#1), but they call it at
+// different MOMENTS: the exporter stamps from the token stream, before later passes rewrite
+// the class list, and the runtime re-stamps from the final `className`. A checker found them
+// disagreeing on `split-panel capstone`, which the engine turns into `capstone proof` only
+// after the exporter has stamped it — `spread` from one path, `stretch` from the other. So
+// this renders one fixture slide per governed component and variant through the REAL
+// exporter, strips the stamps from its HTML, boots the shipped runtime on that exact markup
+// and requires every section to come back with the stamps the exporter wrote.
+// See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §13.
+describe('runtime card-row composition — the runtime re-stamps what the exporter stamped', () => {
+  const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'runtime-cards-parity.md');
+  let exported;
+  const stamps = (sec) => ({
+    cls: sec.getAttribute('class'),
+    cards: sec.getAttribute('data-cards'),
+    coda: sec.getAttribute('data-cards-coda'),
+  });
+
+  test('the exporter renders the fixture, one governed stamp per slide', () => {
+    const pdf = runEmulator(FIXTURE, { timeout: 120000 });
+    const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
+    const doc = new JSDOM(html).window.document;
+    exported = [...doc.querySelectorAll('section[data-lattice-slide]')];
+    assert.ok(exported.length >= 25, `expected the fixture's 25 slides, got ${exported.length}`);
+    // The fixture must reach every governed component, or a new opt-in escapes this check.
+    const reached = new Set(exported.flatMap((s) => s.className.split(/\s+/)));
+    const missing = Object.keys(CATALOG).filter((n) => !reached.has(n));
+    assert.deepEqual(missing, [], `add a slide to ${path.basename(FIXTURE)} for: ${missing.join(', ')}`);
+  });
+
+  test('stripped of its stamps, every section gets the SAME stamps back from the runtime', async () => {
+    assert.ok(exported, 'the exporter render above must run first');
+    const want = exported.map(stamps);
+    const body = exported.map((s) => {
+      const c = s.cloneNode(true);
+      c.removeAttribute('data-cards');
+      c.removeAttribute('data-cards-coda');
+      return c.outerHTML;
+    }).join('');
+    const dom = await boot(body, 'wide');
+    const got = [...dom.window.document.querySelectorAll('section[data-lattice-slide]')].map(stamps);
+    dom.window.close();
+    assert.equal(got.length, want.length);
+    const diffs = want
+      .map((w, i) => ({ w, g: got[i] }))
+      .filter(({ w, g }) => w.cards !== g.cards || w.coda !== g.coda)
+      .map(({ w, g }) => `${w.cls}: exporter ${w.cards}/${w.coda}, runtime ${g.cards}/${g.coda}`);
+    assert.deepEqual(diffs, [], 'the two render paths disagree');
+    // …and the fixture's pinned cases say what they mean, not just that the paths agree.
+    const by = (cls) => {
+      const need = cls.split(' ');
+      const hit = want.find((w) => need.every((t) => w.cls.split(/\s+/).includes(t)));
+      assert.ok(hit, `the fixture has no \`${cls}\` slide`);
+      return hit;
+    };
+    assert.equal(by('split-panel capstone').cards, 'stretch', 'capstone resolves as proof does');
+    assert.equal(by('decision cards-top').cards, 'top', 'a per-slide token beats the manifest');
+    assert.equal(by('kpi').cards, null, 'an ungoverned component is left alone');
+  });
+
+  // The exporter only renders the wide family; the kernel's family and variant arms are the
+  // runtime's to get right at the other three, from a bare section.
+  for (const family of Object.keys(BOX)) {
+    test(`every governed component and byClass variant matches the kernel at ${family}`, async () => {
+      const cases = Object.entries(CATALOG).flatMap(([name, entry]) =>
+        [[name], ...Object.keys(entry.byClass || {}).map((v) => [name, v])]);
+      const dom = await boot(cases.map((c) => section(c.join(' '))).join(''), family);
+      const got = [...dom.window.document.querySelectorAll('section')].map((s) => s.getAttribute('data-cards'));
+      dom.window.close();
+      const diffs = cases
+        .map((c, i) => ({ c, g: got[i], w: resolveCardsAlign({ classes: c, family }) }))
+        .filter(({ g, w }) => g !== w)
+        .map(({ c, g, w }) => `${c.join(' ')}: runtime ${g}, kernel ${w}`);
+      assert.deepEqual(diffs, []);
+    });
+  }
 });

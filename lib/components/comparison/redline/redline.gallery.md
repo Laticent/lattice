@@ -150,7 +150,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · redline" -->
 
 ## When NOT to reach for redline.

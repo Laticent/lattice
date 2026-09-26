@@ -252,7 +252,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · math" -->
 
 ## When NOT to reach for math.

@@ -161,7 +161,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · q-and-a" -->
 
 ## When NOT to reach for q-and-a.

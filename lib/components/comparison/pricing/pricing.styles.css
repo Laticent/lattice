@@ -25,10 +25,12 @@ section.pricing > .cell-stage { display: flex; flex-direction: column; }
 /* ── Tier grid ── three columns by default; `two` / `four` adjust. */
 section.pricing > .cell-stage > ul {
   /* flex mirror of `repeat(N,1fr)` (flex shop §11.A): N equal tiers per row, wrapping any
-   * extras; align-items:stretch (default) gives a row of equal-height tiers. */
+   * extras; align-items:stretch (default) gives a row of equal-height tiers, and the rows
+   * sit where the `cards:` register puts them (#2317) — tiers in one row stay equal height
+   * whatever it says, because `align-items` still stretches them to their line. */
   display: flex;
   flex-wrap: wrap;
-  align-content: stretch;
+  align-content: var(--cards-align);
   gap: var(--sp-md);
   /* padding = berth so the stage's overflow:clip doesn't shear the tier-card
    * elevation shadow (base.tokens.css --elevation-berth). Not margin (#20). */
@@ -147,5 +149,15 @@ section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .ce
 }
 section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
   flex: 0 0 auto;
+}
+/* The stacked tiers are a COLUMN, so the `cards:` register places them along the main axis
+ * (`justify-content`), and a tier grows only under `stretch` (`--cards-grow`). */
+section.pricing[data-orientation="portrait"] > .cell-stage > ul,
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  justify-content: var(--cards-align);
+}
+section.pricing[data-orientation="portrait"] > .cell-stage > ul > li,
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
+  flex-grow: var(--cards-grow);
 }
 

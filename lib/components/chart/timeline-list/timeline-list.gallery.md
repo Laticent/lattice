@@ -123,7 +123,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · timeline-list" -->
 
 ## When NOT to reach for timeline-list.

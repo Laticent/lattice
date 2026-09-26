@@ -56,7 +56,12 @@ section.split-compare .compare-left p { font-size:var(--fs-body); font-family:va
  * lets the body row shrink, overflow:clip walls an over-stuffed options grid at
  * the panel edge instead of bleeding past it. */
 section.split-compare .compare-right { flex:1; min-height:0; overflow:clip; background-color:var(--bg); display:flex; flex-direction:column; padding:var(--sp-lg) var(--sp-xl) var(--sp-xl) var(--sp-lg); gap:var(--sp-sm); }
-section.split-compare .options { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-sm); flex:1; }
+/* The options grid fills the right panel, and the `cards:` register (#2317) places its rows
+ * in that height: auto rows size to their options and move under center/top/spread, and grow
+ * to fill under stretch, which is what an unaligned grid did. The manifest declares `stretch`:
+ * the recommendation card sits in this panel below the grid (the blockquote is claimed, so no
+ * coda cell forms and `withCoda` never fires), and a centered grid strands it. */
+section.split-compare .options { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-sm); flex:1; align-content:var(--cards-align); }
 section.split-compare .option { background:var(--bg-alt); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-sm); border:1px solid var(--border); position:relative; }
 section.split-compare .option > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.12em; color:var(--text-secondary); font-weight:700; padding-bottom:var(--sp-xs); border-bottom:2px solid var(--border); margin:0; }
 section.split-compare .option.preferred > strong { color:var(--accent); border-color:var(--accent); }

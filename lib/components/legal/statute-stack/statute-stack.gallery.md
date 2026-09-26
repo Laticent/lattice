@@ -171,7 +171,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · statute-stack" -->
 
 ## When NOT to reach for statute-stack.

@@ -237,7 +237,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · agenda" -->
 
 ## When NOT to reach for agenda.

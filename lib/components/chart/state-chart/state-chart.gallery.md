@@ -219,7 +219,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · state-chart" -->
 
 ## When NOT to reach for state-chart.

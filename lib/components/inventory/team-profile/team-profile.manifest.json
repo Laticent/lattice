@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "team-profile",
+  "cards": {
+    "default": "center"
+  },
   "function": "inventory",
   "form": "grid",
   "substance": "structure",

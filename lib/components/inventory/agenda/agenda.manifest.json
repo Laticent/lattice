@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "agenda",
+  "cards": {
+    "default": "center"
+  },
   "adapt": {
     "mode": "native",
     "priority": [

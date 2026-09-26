@@ -100,6 +100,16 @@ describe('rough-ink — line inventory per kind', () => {
   test('a framed structure with no interior boundaries is just the frame', () => {
     assert.equal(pathsForPlan(plan({ hLines: [], vLines: [] })).length, 1);
   });
+
+  test('an inset moves where the interior rules START, and nothing else', () => {
+    // list.principles: the row rule begins at the text column, past the counter
+    // (base.sketch.css `--rough-ink-inset`). preserveVertices pins the endpoints.
+    const startX = (d) => Number(/^M\s*(-?[\d.]+)/.exec(d)[1]);
+    const [flush] = pathsForPlan(plan({ kind: 'rows', x: 0, hLines: [50] }));
+    const [inset] = pathsForPlan(plan({ kind: 'rows', x: 0, hLines: [50], inset: 72 }));
+    assert.ok(Math.abs(startX(flush.d)) < 1, `flush rule starts at 0, got ${flush.d.slice(0, 20)}`);
+    assert.ok(Math.abs(startX(inset.d) - 72) < 1, `inset rule starts at 72, got ${inset.d.slice(0, 20)}`);
+  });
 });
 
 describe('rough-ink — stroke weight', () => {

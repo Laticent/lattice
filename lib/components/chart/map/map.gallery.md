@@ -193,7 +193,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · map" -->
 
 ## When NOT to reach for map.

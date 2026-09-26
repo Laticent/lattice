@@ -182,7 +182,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · obligation-matrix" -->
 
 ## When NOT to reach for obligation-matrix.

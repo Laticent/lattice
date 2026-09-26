@@ -1,6 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "citation-card",
+  "cards": {
+    "default": "center"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [

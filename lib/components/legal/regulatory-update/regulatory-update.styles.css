@@ -160,11 +160,22 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :
   background:var(--accent-soft);
 }
 
+/* ── `cards:` register (#2317) ── not `timeline`, which is its own composition. The default
+ * list is a COLUMN of boxed rows: it reads the token as `justify-content`, and a row grows only
+ * under `stretch` (`--cards-grow`). `.cards` below is a GRID and reads it as `align-content`. */
+section.regulatory-update.regulatory-update:not(.timeline) > .cell-stage > :is(ol, ul) {
+  justify-content:var(--cards-align);
+}
+section.regulatory-update.regulatory-update:not(.timeline):not(.cards) > .cell-stage > :is(ol, ul) > li {
+  flex-grow:var(--cards-grow);
+}
+
 /* .cards — items as 2x2 grid of cards. */
 section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) {
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:var(--sp-md);
+  align-content:var(--cards-align);
 }
 section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) > li {
   grid-template-columns:auto 1fr;

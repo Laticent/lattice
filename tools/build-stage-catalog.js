@@ -166,6 +166,9 @@ function buildCards() {
       ...(m.cards.byFamily && Object.keys(m.cards.byFamily).length
         ? { byFamily: Object.fromEntries(Object.entries(m.cards.byFamily).sort()) }
         : {}),
+      ...(m.cards.byClass && Object.keys(m.cards.byClass).length
+        ? { byClass: Object.fromEntries(Object.entries(m.cards.byClass).sort()) }
+        : {}),
       ...(m.cards.withCoda ? { withCoda: m.cards.withCoda } : {}),
     };
   }
@@ -177,6 +180,7 @@ function buildCards() {
     "   Source: every component manifest's `cards` field (lib/components/).\n" +
     '   default  — the composition when nothing else applies.\n' +
     '   byFamily — per-family override, for a layout that changes shape with the box.\n' +
+    '   byClass  — per-variant override, for variants that are different shapes; beats byFamily.\n' +
     '   withCoda — the composition when the slide ends in a key-insight / below-note panel.\n' +
     '   A component with no entry is NOT governed: nothing is stamped for it.\n' +
     '   Rebuild: node tools/build-stage-catalog.js */\n' +

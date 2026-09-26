@@ -315,7 +315,11 @@ section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-c
 section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
 section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
 section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) > :is(ul, ol) {
-  flex: 1 1 0;
+  /* `auto`, not `0`: the basis is the body's contribution when the CARD sizes to its content
+   * (`cards: center` / `top` / `spread`), and a zero basis contributed nothing, so the body
+   * spilled out of the card below the banner. When the card is stretched the body is its one
+   * growing item, so the basis changes nothing there. */
+  flex: 1 1 auto;
   min-height: 0;
   width: auto;
   margin: 0;

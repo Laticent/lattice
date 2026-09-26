@@ -159,7 +159,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · roadmap" -->
 
 ## When NOT to reach for roadmap.

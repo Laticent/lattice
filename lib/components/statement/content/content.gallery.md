@@ -82,7 +82,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · content" -->
 
 ## When NOT to reach for content.

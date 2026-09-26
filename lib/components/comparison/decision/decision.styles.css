@@ -67,6 +67,24 @@ section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li {
   justify-content: safe center;
   color:var(--text-body);
 }
+/* ── `cards:` register (#2317) ── wide and square lay the options out as a ROW: it wraps so
+ * `align-content` applies, and the zero-basis cards still share one line. Tall and strip turn
+ * the row into a COLUMN (below), which places its cards along the main axis — so it reads
+ * the same token as `justify-content`, and each card grows only under `stretch`
+ * (`--cards-grow`); otherwise it sits at its content height (`--cards-basis`).
+ * engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §13. */
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) {
+  flex-wrap: wrap; align-content: var(--cards-align);
+}
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li {
+  min-width: 0; max-height: 100%; box-sizing: border-box;
+}
+section.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) {
+  flex-wrap: nowrap; justify-content: var(--cards-align);
+}
+section.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li {
+  flex: var(--cards-grow) 1 var(--cards-basis); min-height: auto; max-height: none;
+}
 /* Categorical rotation across cards (cycle of 6, then mauve/slate) —
  * mirrors the KPI palette so the two layouts read as siblings (KPI = top
  * accent, decision = bottom accent). Each card's corner-tag fill follows

@@ -56,7 +56,7 @@ Three of the nine paths route to a team that no longer owns the service.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · topic" -->
 
 ## When NOT to reach for topic.

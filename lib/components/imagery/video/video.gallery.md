@@ -107,7 +107,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · video" -->
 
 ## When NOT to reach for video.

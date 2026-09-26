@@ -142,13 +142,27 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > blo
  * Stage centers [card grid + pull-quote]; the grid sizes to its rows so the quote
  * stays inside the bounded stage (see ledger note on dropping `flex:1`). */
 section.inventory.cards > .cell-stage { display: flex; flex-direction: column; justify-content: safe center; }
+/* ── `cards:` register (#2317) ── the stage is a COLUMN that centers the card grid and its pull-quote, so the
+ * register reads there as `justify-content`: the manifest's `center` is what it always did,
+ * `top` seats it under the headline rule, and under `stretch` the list and its rows grow
+ * (`--cards-grow`). `safe center`, as `list` does, so an overfull slide overflows DOWNWARD,
+ * where the overflow probe sees it; the coda arm wins when a coda is present. */
+section.inventory.cards > .cell-stage { justify-content: var(--cards-align); }
+section.inventory.cards[data-cards="center"] > .cell-stage { justify-content: safe center; }
+section.inventory.cards[data-cards-coda]:has(> .cell-coda) > .cell-stage { justify-content: var(--cards-align); }
+section.inventory.cards[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage { justify-content: safe center; }
+section.inventory.cards > .cell-stage > ul { flex-grow: var(--cards-grow); }
 section.inventory.cards > .cell-stage > ul {
-  /* sp-sm tops (not sp-md) so a 2×2 grid + the pull-quote (incl. its closing-quote
-   * ::after) seats inside the bounded stage under Form — the masthead claims the
-   * height the legacy slide-height layout had. */
+  /* The card gutter is `--sp-md`, the same as every other card grid (decision, pricing,
+   * statute-stack, matrix-2x2). It was `--sp-xs` everywhere, a third of that, which read as
+   * cramped once the grid sat centered in free space (#2317). */
   list-style: none; padding: var(--sp-xs) 0 0;
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-xs);
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-md);
 }
+/* …except above a pull-quote: sp-xs tops (not sp-md) so a 2×2 grid + the pull-quote (incl.
+ * its closing-quote ::after) seats inside the bounded stage under Form — the masthead claims
+ * the height the legacy slide-height layout had. */
+section.inventory.cards > .cell-stage > ul:has(+ blockquote) { gap: var(--sp-xs); }
 section.inventory.cards > .cell-stage > ul > li {
   list-style: none; background: var(--bg-alt); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: var(--sp-xs) var(--sp-md);

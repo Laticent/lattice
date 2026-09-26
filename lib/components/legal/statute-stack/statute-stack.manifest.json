@@ -1,6 +1,15 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "statute-stack",
+  "cards": {
+    "default": "center",
+    "byFamily": {
+      "square": "spread",
+      "tall": "spread",
+      "strip": "spread"
+    },
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [

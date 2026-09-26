@@ -193,7 +193,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · slope" -->
 
 ## When NOT to reach for slope.

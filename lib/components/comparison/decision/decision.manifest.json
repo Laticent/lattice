@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "decision",
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "function": "comparison",
   "form": "canvas",
   "substance": "structure",

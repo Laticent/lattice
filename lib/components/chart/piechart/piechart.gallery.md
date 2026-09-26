@@ -138,7 +138,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · piechart" -->
 
 ## When NOT to reach for piechart.

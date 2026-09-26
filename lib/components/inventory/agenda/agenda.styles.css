@@ -229,6 +229,14 @@ section.agenda.rail.progress-6 ol > li:nth-child(6)::before {
 /* ── cards ───────────────────────────────────────────────────────────────
  * Each section a boxed row; active card fills with the accent wash. */
 section.agenda.cards ol { gap: var(--sp-sm); }
+/* ── `cards:` register (#2317) ── the stage is a COLUMN that centers the boxed rows, so the
+ * register reads there as `justify-content`: the manifest's `center` is what it always did
+ * (plain `center`, as before — unlike inventory and citation-card, agenda never used `safe`),
+ * `top` seats the rows under the headline rule, and under `stretch` the list and its rows grow
+ * (`--cards-grow`). */
+section.agenda.cards > .cell-stage { justify-content: var(--cards-align); }
+section.agenda.cards > .cell-stage > ol { flex-grow: var(--cards-grow); }
+section.agenda.cards > .cell-stage > ol > li { flex-grow: var(--cards-grow); }
 section.agenda.cards ol > li {
   /* flex mirror of `grid-template-columns:auto 1fr` (number marker | title). */
   display: flex; column-gap: var(--sp-md); align-items: baseline;

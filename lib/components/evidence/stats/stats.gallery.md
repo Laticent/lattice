@@ -123,7 +123,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · stats" -->
 
 ## When NOT to reach for stats.

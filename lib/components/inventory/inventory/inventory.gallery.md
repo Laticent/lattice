@@ -137,7 +137,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · inventory" -->
 
 ## When NOT to reach for inventory.

@@ -124,8 +124,11 @@ section.split-panel .panel-left p { font-size:var(--fs-message); color:var(--on-
  * clips (overflow:hidden, line above); this walls the supporting zone to match. */
 section.split-panel .panel-right { flex:1; min-height:0; overflow:clip; background-color:var(--bg); display:flex; flex-direction:column; padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
 section.split-panel .panel-right h3 { font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--text-secondary); font-weight:600; margin:0; padding-bottom:var(--sp-sm); border-bottom:1px solid var(--border); }
-section.split-panel .panel-right > ul { display:flex; flex-direction:column; flex:1; justify-content:space-evenly; list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; }
-section.split-panel .panel-right > ul > li { padding-left:var(--sp-md); border-left:3px solid var(--accent); }
+/* The evidence list is a COLUMN that reads the `cards:` register as `justify-content` (#2317).
+ * The manifest's `spread` is the `space-evenly` it always had; an item grows only under
+ * `stretch` (`--cards-grow`). A `proof` list is a grid and reads it below. */
+section.split-panel .panel-right > ul { display:flex; flex-direction:column; flex:1; justify-content:var(--cards-align); list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; }
+section.split-panel .panel-right > ul > li { padding-left:var(--sp-md); border-left:3px solid var(--accent); flex-grow:var(--cards-grow); }
 section.split-panel .panel-right > ul > li > strong { display:block; font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-heading); font-weight:700; line-height:var(--lh-snug); padding-bottom:0.390625cqi; }
 section.split-panel .panel-right > ul > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
 section.split-panel .panel-right > ul > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -210,7 +213,13 @@ section.split-panel.proof .panel-right { gap:var(--sp-md); }
  * scenario shrink to fit rather than overflow. Proportional, so it holds at any
  * slide size or --fs-scale. */
 section.split-panel.proof .panel-right > :is(ul,ol) {
-  display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr;
+  /* `--cards-track` is `1fr` under `stretch` — the manifest's `byClass` value for proof (and
+   * for capstone, which the engine turns into `proof capstone` after stamping, so both paths
+   * must resolve the same way), the
+   * equal rows described above — and `auto` under every other `cards:` value, so the rows
+   * size to their cards and `align-content` places them (#2317). */
+  display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--cards-track);
+  align-content:var(--cards-align);
   align-items:stretch; gap:var(--sp-md); flex:1 1 auto; min-height:0;
   justify-content:initial; list-style:none; padding:0; margin:0;
 }

@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "split-compare",
+  "cards": {
+    "default": "stretch",
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [

@@ -717,10 +717,17 @@ function renderAntiPatternsSlide(m) {
   // backticks — nested-list code is never pilled — so this only defends the
   // title line, matching the old format's inline-code resilience. No shipping
   // manifest has a code-bearing title today; this keeps a future one safe.
+  //
+  // `cards-stretch`: these are dense prose cards, and filling the stage is the
+  // composition they were designed in. cards-stack's register default is
+  // `center` (#2317), which sizes each card to its text; on the one gallery
+  // whose anti-patterns overrun the stage (kpi) that redistributed the
+  // overflow into visibly clipped lines. Stretch keeps every gallery's slide
+  // exactly as it rendered before the register reached cards-stack.
   const items = m.antiPatterns.map(
     (p) => `- ${p.title.replace(/`/g, '')}\n  - ${escapeDeckMarkers(p.body)}`
   );
-  return `<!-- _class: cards-stack compact -->
+  return `<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · ${m.name}" -->
 
 ## When NOT to reach for ${m.name}.

@@ -167,7 +167,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · premise" -->
 
 ## When NOT to reach for premise.

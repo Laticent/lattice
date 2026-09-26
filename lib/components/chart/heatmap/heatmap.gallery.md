@@ -124,7 +124,7 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · heatmap" -->
 
 ## When NOT to reach for heatmap.

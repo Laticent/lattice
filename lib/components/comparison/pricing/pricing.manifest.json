@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "pricing",
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [

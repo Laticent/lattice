@@ -253,7 +253,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · line" -->
 
 ## When NOT to reach for line.

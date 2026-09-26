@@ -126,7 +126,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · waterfall" -->
 
 ## When NOT to reach for waterfall.

@@ -276,7 +276,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · quadrant" -->
 
 ## When NOT to reach for quadrant.

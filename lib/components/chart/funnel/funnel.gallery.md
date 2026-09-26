@@ -96,7 +96,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · funnel" -->
 
 ## When NOT to reach for funnel.
