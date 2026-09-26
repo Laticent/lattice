@@ -20,7 +20,8 @@
 //  4. A `data:` URL, not a `blob:` one — Chromium taints the canvas for a blob-URL SVG
 //     carrying a foreignObject, and `toBlob` then throws.
 //
-// WHAT IT REFUSES, returning null so the tile simply stays live: any `<img>`, `<video>`,
+// WHAT IT REFUSES, returning null so the tile simply stays live: a loaded face served from another
+// origin (it is never re-fetched from the Studio page), any `<img>`, `<video>`,
 // `<canvas>`, `<iframe>`, `<object>` or `<embed>` (its pixels are not in the markup, or it
 // would need a fetch the image context forbids), a `url()` background on any element that is
 // not a data URL, a loaded font face whose source cannot be embedded, and any failure to
@@ -93,7 +94,12 @@ async function embeddedFaces(doc: Document): Promise<string | null> {
 				if (!loaded.has(key)) continue;
 				const m = st.getPropertyValue('src').match(/url\(\s*["']?([^"')]+)["']?\s*\)/);
 				if (!m) continue;
-				const url = new URL(m[1], base).href;
+				const u = new URL(m[1], base);
+				// SAME-ORIGIN ONLY. A face an author's CSS loads from elsewhere is not fetched again
+				// from the Studio page — that second request would be a beacon (HARD RULE #22) — so
+				// the poster is refused and the tile stays live.
+				if (u.protocol !== 'data:' && u.origin !== location.origin) return;
+				const url = u.href;
 				const uri = url.startsWith('data:') ? url : await fontDataUri(url);
 				if (!uri) return;
 				out.push(r.cssText.replace(m[0], `url(${uri})`));
