@@ -352,3 +352,27 @@ test('the Studio webpage export stands down loudly when NO cut reproduces the de
 	expect(said, 'the warning names the cause').toMatch(/column 0 BETWEEN two list items/);
 	expect(said, 'the warning names the fix').toMatch(/move the note inside an item, or out of the list/);
 });
+
+test('the Studio webpage export styles a <section> nested in a slide as a panel, not a slide', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	// The Studio player used to DELETE the `article.lattice > ` prefix, turning "a slide" into "any
+	// section": a raw `<section>` an author nests in a slide took the 1280×720 slide box,
+	// `overflow:hidden`, and inside a `dark` slide the light tokens, and both slides clipped. It
+	// now runs the CLI's own `unwrapFlatSheet` (lib/export/unwrap-flat-sheet.mjs).
+	const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: dark -->', '', '# Dark slide', '', '<section class="note">', 'A nested panel.', '</section>', ''];
+	const file = await exportWebpage(page, testInfo, DECK.join('\n'), { as: 'nested-section.html' });
+	const viewer = await page.context().newPage();
+	await viewer.goto(`file://${file}`);
+	const got = await viewer.evaluate(() => {
+		const slide = document.querySelector('section[data-lattice-slide]') as HTMLElement;
+		const nested = slide.querySelector('section') as HTMLElement;
+		const box = (el: HTMLElement) => ({ w: el.getBoundingClientRect().width, overflow: getComputedStyle(el).overflow, bg: getComputedStyle(slide).getPropertyValue('--bg').trim(), nestedBg: getComputedStyle(el).getPropertyValue('--bg').trim() });
+		return { slide: box(slide), nested: nested ? box(nested) : null };
+	});
+	await viewer.close();
+	expect(got.nested, 'the nested section survives into the export').not.toBeNull();
+	expect(got.slide.overflow, 'the top-level slide is still a slide').toBe('hidden');
+	expect(got.nested?.overflow, 'the nested section is not given the slide’s overflow').not.toBe('hidden');
+	expect(got.nested?.w, 'the nested section is not given the slide’s 1280px box').toBeLessThan(got.slide.w);
+	expect(got.nested?.nestedBg, 'the nested section inherits the dark slide’s tokens').toBe(got.slide.bg);
+});

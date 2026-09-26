@@ -1,13 +1,13 @@
 ---
-status: in-progress
-summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decided on its own how the deck's stylesheet reached it, and there were five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. The engine now owns style delivery as three named modes (scoped, flat, baked), every host asks for one by name (§4.1), and `check:render` renders every mode. Steps 1–3 shipped in #2344 and #2366; step 4, the CLI onto the flat sheet, is built (§8.3) and waits on the owner's export sign-off.
+status: shipped
+summary: Every surface shares one Markdown engine, one article builder and one player assembler, but each surface decided on its own how the deck's stylesheet reached it, and there were five answers. Every black-chart bug so far (#956, #715/#2210, #2264, #2344) was one surface's answer drifting from the rest. The engine now owns style delivery as three named modes (scoped, flat, baked), every host asks for one by name (§4.1), and `check:render` renders every mode. Steps 1–3 shipped in #2344 and #2366; step 4, the CLI onto the flat sheet, shipped in #2379 with the owner's export sign-off (§8.3). §8.4 closed the two items step 4 left: the Studio player's shared unwrap and the Read · Article word cloud.
 ---
 
 # One style-delivery spine — every surface gets the deck's CSS the same way
 
-> **In progress.** Steps 1–3 of §8 shipped: the gate (§5.1, #2344), the named modes and the
-> Reading view (§4.1, §8.1, #2366). Step 4, the CLI export onto the flat sheet, is built
-> (§8.3) and waits on the owner's export sign-off. §4.1 is the host table.
+> **Shipped.** All four steps of §8 shipped: the gate (§5.1, #2344), the named modes and the
+> Reading view (§4.1, §8.1, #2366), and the CLI export onto the flat sheet (§8.3, #2379, with
+> the owner's export sign-off). §4.1 is the host table. §8.4 records the two items step 4 left.
 
 ## 1. The symptom
 
@@ -99,12 +99,12 @@ a row here and asks for its mode by name; it does not invent a shape.
 | Host | Mode | How it asks |
 |---|---|---|
 | Studio preview, Playground, docs embeds | `scoped` | `render(md, theme)`; `scoped` is the default |
-| Studio Webpage player (and its strip-notes re-render) | `flat` | `render(md, theme, { styles: 'flat' })`, ships `flatCss` (`share-export.ts`) |
+| Studio Webpage player (and its strip-notes re-render) | `flat`, unwrapped to top-level slides | `render(md, theme, { styles: 'flat' })`, ships `unwrapFlatSheet(flatCss)` (`share-export.ts`, `lib/export/unwrap-flat-sheet.mjs`) |
 | Studio diagram bake (exported player, Reading view) | `baked` | `bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens })` (`deck-export.js`) |
 | Studio PDF/PPTX rasterizer | `baked` | `bakeSvg(svg, win)` (`deck-export.js` `flattenChartSvgs`) |
 | `check:render` baked pass | `baked` | `bakeSvg(svg, win, { freezeTokens })` (`tools/check-viz-render.js`) |
 | Chart "download as SVG" (Studio + `tools/export-chart-svg.js`) | `baked`, to a file | `flattenSvgStyles(…, { collectTokens: true })` + `finalizeStandaloneSvg`; a file takes its tokens in its own `<style>`, not on an element |
-| Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')`, then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |
+| Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')` (unwrapped by `unwrapFlatSheet`), then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |
 | CLI PDF/PNG/HTML/`--player` | `flat`, wrapper stripped, covered faces dropped | `cliDeckSheet(cliThemeStore(layout, palettes), { theme, sizeName, covered })` (`lib/export/cli-deck-sheet.js`), shared with `tools/palette-sweep.js` (§8.3) |
 
 `render()` throws on an unknown `styles` name, and on `'baked'` it names `bakeSvg`
@@ -276,7 +276,34 @@ below are kept as they were put.
 4. **The CLI** (fork 3), with export sign-off. It also carries the player prune's one-colon
    fix (§8.1), which changes export bytes for the same reason. **Measured, and paused
    (§8.2).** The owner asked for the one divergence it found to be fixed first. #2366 shipped
-   that fix. **Built (§8.3)**, waiting on the owner's export sign-off.
+   that fix. **Done (§8.3, #2379).** The owner signed off the exports and accepted the breaking
+   line: a bare `section{--token}` override loses to a palette `:root` token in CLI exports.
+
+### 8.4 What step 4 left, and how each closed
+
+- **One shared unwrap for every flat host — done.** `unwrap` moved out of `cli-deck-sheet.js`
+  into `lib/export/unwrap-flat-sheet.mjs` (`unwrapFlatSheet`), which is fs-free, so the Studio's
+  Webpage player and Reading view, `check:render`'s flat and reading passes, and the CLI all call
+  the one function. Measured on a deck with a raw `<section>` inside a `dark` slide, the Studio
+  export before the change gave the nested section the slide's 1280px box, `overflow: hidden`
+  and a white light-token panel; after it, the Studio and CLI players compute the same box
+  (1171 of 1301px), `overflow: visible` and the dark ink. `check:render` pair counts did not
+  move: flat 7284, reading 7284, baked 5964 on `main` and on the branch.
+- **The Read · Article word cloud fills its figure — done.** `rehostContainerCss` and the
+  player's `#lp-article` copy sized `.lp-spatial` as a 3:2 `container-type:size` box, while the
+  canvas kept its slide pin of 85.9375cqi × 25cqi, so the cloud filled the top third and the
+  caption sat under an empty two-thirds. The box is now an inline-size container as tall as the
+  cloud's own viewBox SVG at full width, which also sizes a portrait deck's taller viewBox
+  (1100×898) with no aspect-ratio written. The article's `max-height: 78vh` on every figure SVG
+  still applies, so on a 900px-tall window a portrait cloud draws about 860 of 1081px wide,
+  centered, with the caption directly below the SVG box. A 2% inline padding gives back the room the slide's
+  side margins gave a glyph that breathes past the viewBox; without it "momentum" met the
+  figure's left edge. Measured on `examples/read-article-chart-paints.md`, void between the
+  lowest word and the caption, before → after: CLI and Studio players 445 → 10 px at 1440,
+  290 → 9 at 820, 110 → 8 at 390; Studio Reading view 407 → 2 at 1440 and 271 → 2 at 820
+  (the caption keeps its own `.5em`; the lowest word sits on the viewBox edge). Words outside
+  the figure: 1 → 0 on every surface, width and scheme. `check:render` is unchanged (flat 7284,
+  reading 7284, baked 5964).
 
 ### 8.3 What step 4 built (2026-09-25)
 
@@ -292,7 +319,7 @@ below are kept as they were put.
   turns "a slide" into "any section": a `<section>` an author nests in a slide took the 1280×720
   box and the light tokens, and clipped. The CLI rewrites the prefix to
   `section:where(:not(section *))`, the same specificity as plain `section`, matching top-level
-  slides only. The Studio player still strips (followup).
+  slides only. The Studio player now calls the same function (§8.4).
 - **The deck's own CSS keeps working.** A red team, an inversion pass and the checker each found
   it: the flat sheet declares every palette `:root` token on the slides too, so an author's
   `style: ":root{--accent:…}"`, or the same in a body `<style>`, reached `<html>` and lost on

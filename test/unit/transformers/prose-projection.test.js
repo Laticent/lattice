@@ -172,8 +172,8 @@ test('a SPATIAL chart (state-chart) goes to the placeholder, NOT a broken SVG re
 });
 
 test('a SPATIAL-BOUNDED chart (word-cloud) re-hosts its .chart-body into a bounded .lp-spatial box', () => {
-	// word-cloud lays out in cqi/%, so it can't re-host as a bare SVG (no container context) —
-	// but its whole .chart-body renders cleanly inside a bounded container-type:size box. The
+	// word-cloud can't re-host as a bare SVG (no container context), but its whole .chart-body
+	// renders cleanly inside the .lp-spatial figure (an inline-size container). The
 	// figure carries `lp-spatial` + the component class (+ chart-frame for the color scope).
 	const secs = sections(
 		`<section data-lattice-slide class="word-cloud"><div class="cell-stage">

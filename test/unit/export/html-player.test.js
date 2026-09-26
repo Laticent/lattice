@@ -1572,7 +1572,12 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// row) and its `.chart-body` gained `min-height:0`. The body used to fill the whole 3:2 box,
 	// so the figcaption sat below it and `overflow:hidden` clipped it; no word cloud ever showed
 	// its caption. Only those two `#lp-article .lp-spatial` rules and their comment moved.
-	assert.equal(sha, '725c19bb5f3850aa8d8f8c543b88b9da74f4780b7c7e33048a87ebe4c6430e8e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Then the word cloud fills its figure: the 3:2 size box left the lower two-thirds empty
+	// above the caption, so `.lp-spatial` became an inline-size container as tall as the cloud's
+	// own viewBox SVG at full width, with 2% inline padding for a glyph that breathes past the
+	// viewBox. Only the `#lp-article .lp-spatial` rules and their comment moved, plus the
+	// flow-height comment's "unlike lp-spatial".
+	assert.equal(sha, '4546174251c0cbef8a4feb956a52736a1f3fd90a6b09c65898a878c1c92df3b8', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
