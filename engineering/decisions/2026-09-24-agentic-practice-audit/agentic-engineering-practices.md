@@ -186,8 +186,6 @@ Here's what's happening inside. The agent reads what's in front of it, makes a p
 
 ---
 
----
-
 <!-- _class: agenda -->
 
 ## Five practices, one for each question you will face.
