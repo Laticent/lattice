@@ -480,7 +480,7 @@ slides, one engine, same machine, median of 15 warm renders (`panebench`, three 
 | warm render | 10.7–11.4 ms | 13.2–13.5 ms | +~2 ms: each pane is its own one-slide render |
 | first render (cold) | 167–209 ms | 264–275 ms | +~80 ms: the widening (~50 ms) and a second composed sheet, then memoized |
 | engine heap after render | 3.8 MB | 5.0 MB | +1.2 MB, most of it the second composed sheet |
-| Studio eager JS (route budget) | 723,577 B gz (`main` 283f47a) | 727,748 B gz | **+4,171 B**, nearly all `authoring-core`: the pane lint rules, the block scanner, `arrangePanes` and the baked table of every component's measured fit, measured as a pair; budget 723,700 → 728,900 |
+| Studio eager JS (route budget) | 730,862 B gz (`main` 1f21c66) | 734,973 B gz | **+4,111 B**, nearly all `authoring-core`: the pane lint rules, the block scanner, `arrangePanes` and the baked table of every component's measured fit, measured as a pair; budget 731,900 → 736,100 |
 | CLI `.html` export | 3,271,933 B | 3,275,887 B | +4 KB raw, +1.7 KB gzipped (0.1%) |
 | browser style recalc · layout | 8–10 ms · 117–146 ms | 4 ms · 106–109 ms | none; the rule count is unchanged (3,760), twins sit inside existing rules |
 
