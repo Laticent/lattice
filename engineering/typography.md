@@ -429,6 +429,29 @@ Code keeps scaling, and its line cap scales with it: at a wide @size the pane ho
 `floor(102 / s)` columns. See `engineering/decisions/2026-09-25-font-scale-fit.md` and its
 2026-09-26 amendment.
 
+### One size across modifiers — spacing may change, a type role may not
+
+One size per deck holds only if nothing on a single slide changes a type role's size. So
+**a per-slide class may change spacing, chrome and color, never the size of a type role**:
+
+- A role token (`--fs-*`, and the label lift `--venue-meta-lift`) is declared only on
+  `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung (`section.venue-*`,
+  `section.scale-*`). The rung is the one carve-out: a spot `_class: scale-xl` (above) still
+  sets one slide apart, and whether it should is the owner's open call.
+- A cross-component modifier (`compact`, `claim-*`, `accent`, a mood, tone or state stamp)
+  sets no type size on content. `claim-hero` tightens the frame; it does not shrink the text.
+  Pseudo-elements (a state stamp's label, a drawn mark) are chrome and are exempt.
+- A component's OWN variant may assign its elements to roles (`list principles` sets rows in
+  `--fs-emphasis`): that is a different layout, and each role still has one size per deck.
+  The dense-cell step (`--fs-body-compact` in tables and ledgers) is a role for the same
+  reason.
+
+`checkTypeSizeModifiers` in `tools/check-ownership.js` enforces it in `build:check`, budget 0,
+with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the exceptions — each with its reason. Two of the
+three today (`cards-stack compact`, `q-and-a compact`) are real per-slide shrinks awaiting the
+owner's decision; the audit is in `engineering/decisions/2026-09-25-font-scale-fit.md`,
+Amendment 2026-09-27 (2).
+
 ### When NOT to use it
 
 This is a magnitude knob, not a size picker. If one element is wrong,
