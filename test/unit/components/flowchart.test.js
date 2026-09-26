@@ -152,3 +152,91 @@ describe('flowchart — a forged model cannot inject markup (HARD RULE #22)', ()
   });
 });
 
+
+describe('flowchart — live layout: a redraw in the typing preview runs in a worker', () => {
+  // The REAL serialized pass in jsdom, with a stand-in Worker that runs the real kernel a
+  // tick later, the way a worker answers: what the figure shows meanwhile, which request
+  // gets painted, and that the first draw never waits.
+  const { JSDOM } = require('jsdom');
+  require('../../../lib/core/dagre-layout.js');
+  const { graphLayoutKernel } = require('../../../lib/components/chart/_chart-family/graph-layout.js');
+  const figHtml = (names) => {
+    const model = { shapes: names.map((n, i) => ({ id: `s${i}`, name: n, shape: 'box' })), groups: [], edges: names.slice(1).map((_n, i) => ({ from: `s${i}`, to: `s${i + 1}`, dir: 'out' })) };
+    const attr = JSON.stringify(model).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    // An empty harness, as above: jsdom has no Range rects to measure text with.
+    return `<div class="flowchart-figure" data-fc-model="${attr}"><div class="fc-canvas"><div class="flowchart-scale"><div class="fc-harness"><ol class="fc-nodes"></ol></div>` +
+      '<svg class="flowchart-svg"><title>Flowchart</title></svg></div></div></div>';
+  };
+  const setup = (liveAttr) => {
+    const dom = new JSDOM(`<!doctype html><html${liveAttr ? ' data-lattice-live-layout' : ''}><head><script src="https://example.test/lattice-dagre.js"></script></head>` +
+      `<body><section class="flowchart">${figHtml(['Alpha', 'Beta', 'Gamma'])}</section></body></html>`, { runScripts: 'outside-only' });
+    const w = dom.window;
+    w.__latticeDagre = globalThis.__latticeDagre;
+    const K = graphLayoutKernel();
+    const log = { posts: [], sources: [] };
+    w.URL.createObjectURL = () => 'blob:test';
+    w.URL.revokeObjectURL = () => {};
+    const RealBlob = w.Blob;
+    w.Blob = class extends RealBlob { constructor(parts, o) { super(parts, o); log.sources.push(parts.join('')); } };
+    w.Worker = class {
+      postMessage(d) {
+        log.posts.push(d);
+        setTimeout(() => this.onmessage({ data: { id: d.id, geo: JSON.parse(JSON.stringify(K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre))) } }), 5);
+      }
+      terminate() {}
+    };
+    const pass = () => w.eval(browserJs());
+    // The Studio replaces the figure on every edit.
+    const edit = (names) => { w.document.querySelector('section').innerHTML = figHtml(names); pass(); };
+    pass();
+    return { w, log, edit, fig: () => w.document.querySelector('.flowchart-figure'), text: () => w.document.querySelector('svg.flowchart-svg').textContent };
+  };
+  const settle = () => new Promise((r) => setTimeout(r, 60));
+
+  test('the first draw is synchronous and starts no worker', () => {
+    const t = setup(true);
+    assert.equal(t.fig().getAttribute('data-fc-drawn'), '1');
+    assert.match(t.text(), /Alpha/);
+    assert.equal(t.log.posts.length, 0);
+  });
+
+  test('an edit shows the last drawing until the worker answers, then paints the new one', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    assert.equal(t.fig().getAttribute('data-fc-pending'), '1');
+    assert.equal(t.fig().getAttribute('data-fc-drawn'), '1', 'the old drawing is up, not the tiles');
+    assert.match(t.text(), /Gamma/);
+    assert.equal(t.log.posts.length, 1);
+    await settle();
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+    assert.match(t.text(), /Delta/);
+    assert.doesNotMatch(t.text(), /Gamma/);
+  });
+
+  test('a burst paints only the newest edit, with at most one layout queued behind the one in flight', async () => {
+    const t = setup(true);
+    for (const n of ['D', 'De', 'Del', 'Delt', 'Delta']) t.edit(['Alpha', 'Beta', n]);
+    assert.equal(t.log.posts.length, 1, 'the rest wait, and only the newest of them is kept');
+    await settle();
+    assert.equal(t.log.posts.length, 2);
+    assert.equal(t.log.posts[1].model.shapes[2].name, 'Delta');
+    assert.match(t.text(), /Delta/);
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+  });
+
+  test('the worker source compiles and closes over nothing but dagre', () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    assert.equal(t.log.sources.length, 1);
+    assert.match(t.log.sources[0], /^importScripts\("https:\/\/example\.test\/lattice-dagre\.js"\);/);
+    assert.doesNotThrow(() => new Function(t.log.sources[0]));
+  });
+
+  test('without the host flag every redraw stays synchronous', () => {
+    const t = setup(false);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    assert.equal(t.log.posts.length, 0);
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+    assert.match(t.text(), /Delta/);
+  });
+});

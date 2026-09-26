@@ -531,6 +531,32 @@ A dotted overlay moving along a line, a separate path above the real edge.
     visible, almost all of it the Studio's own edit-to-preview path. The one
     kernel per document also keeps the layout cache across keystrokes, so an
     edit elsewhere on a chart's slide (its title) costs no layout.
+  - **Burst typing: the layout moves to a worker (owner's call).** The
+    one-key-at-a-time measurement waited for each redraw, so it hid what fast
+    typing costs. Typed without waiting, the 17-shape chart held every key behind
+    its layout, because the preview frame runs on the editor's thread. At 50 ms
+    per key, 16 keys took 2,471 ms to get through instead of the small chart's
+    1,138; at 120 ms per key, 19 keys took 4,203 ms instead of 2,700. So the
+    Studio's editing preview (and no other host) stamps
+    `data-lattice-live-layout` on its frame. There, a chart the document has
+    drawn before is measured on the main thread, laid out in a worker built from
+    the kernel's own source plus the dagre script the frame already loaded, and
+    painted when the answer comes back. Meanwhile the figure keeps its last
+    drawing, marked `data-fc-pending`. Only the newest request for a chart is
+    painted, and at most one waits behind the one in flight, because a worker
+    cannot be interrupted. The first draw stays synchronous, and without the flag,
+    a Worker or dagre's URL every draw is synchronous as before, so no export can
+    capture a drawing in flight. Measured in the real Studio on the same chart:
+    | | 50 ms per key | 120 ms per key |
+    |---|---|---|
+    | 16 or 19 keys typed, before → after | 2,471 → 1,214 ms | 4,203 → 2,668 ms |
+    | flowchart time on the main thread | 1,180 → 58 ms | 1,347 → 44 ms |
+    | previews delivered during the burst | 8 → 15 of 16 | 18 → 18 of 19 |
+    | last key to its text drawn | 58 → 24–37 ms | 14 → 21–23 ms |
+    | frames showing the measuring tiles, after | 0 of 183 | 0 of 269 |
+    The burst now takes as long as it does on the 5-shape chart (1,177 and
+    2,730 ms). The unit tests pin what the figure shows while pending, that a
+    burst paints only its newest edit, and that the worker's source compiles.
 - **Before the solver: a stack of passes (superseded, kept for its lessons).**
   After dagre, passes in order spread ports, turned a line entering a foreign
   group outside it, straightened short Zs, moved shared runs apart, re-drew lines

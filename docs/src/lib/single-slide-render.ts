@@ -188,6 +188,14 @@ export type SingleSlideOptions = {
 	 * omit it as well, which `e2e/reader-alarms.spec.ts` controls for.
 	 */
 	specimen?: boolean;
+	/**
+	 * This host is the preview an author TYPES into (the Studio's editing preview). Stamps
+	 * `data-lattice-live-layout` on the frame's root element, and the flowchart pass then lays
+	 * a chart out in a worker when it redraws one it has drawn before, keeping the old drawing
+	 * up meanwhile, so a keystroke never waits on a layout. The first draw stays synchronous,
+	 * and no other host sets this: an export must never capture a drawing still in flight.
+	 */
+	liveLayout?: boolean;
 };
 
 /** Resolve `<html data-palette/-mode>` → the palette + mode to render with. */
@@ -1032,7 +1040,7 @@ async function measureDeckScaleCap(
 
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const renderOpts = opts;
-	const { themeBase, runtimeUrl, engineUrl, specimen } = opts;
+	const { themeBase, runtimeUrl, engineUrl, specimen, liveLayout } = opts;
 	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
 	// RENDER, never at construction — because construction is not paired 1:1 with a dispose.
 	// `FieldCardsLive` and `RestyleShowcase` both write `useRef(createSingleSlideRenderer(...))`,
@@ -1208,7 +1216,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') +
 			// Numbers, `>` and spaces only — never author text (scale-cap.ts readScaleCap builds it).
 			(nextHtmlCap && /^[\d.> ]+$/.test(nextHtmlCap) ? ` data-lattice-scale-cap="${nextHtmlCap.replace(/>/g, '&gt;')}"` : '') +
 			'><head><meta charset="utf-8">' +
