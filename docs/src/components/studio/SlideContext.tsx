@@ -17,7 +17,7 @@ import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, type SettingsView, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
+import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, type SettingsTier, SettingsTierSwitch, type SettingsView, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
@@ -82,6 +82,11 @@ export type SlideContextBodyProps = {
 	 *  too. The SETTER is not passed: the toggle that writes it lives in the scope banner,
 	 *  which the shell owns, so this body only ever reads the value. */
 	view: SettingsView;
+	/** Basic (a short list, no tabs) or Advanced (every section). Shared with the deck scope
+	 *  like `view`; unlike `view`, its switch sits at the top of THIS body, so the setter is
+	 *  passed. ui/settings-view.tsx `SettingsTier`. */
+	tier: SettingsTier;
+	onTierChange: (tier: SettingsTier) => void;
 	/** The live search text. The SHELL owns it, because the one search field now lives in
 	 *  the scope banner above this body and serves whichever scope is open — so the state
 	 *  has to sit where the banner is. Still per-scope and still not persisted: a query
@@ -265,7 +270,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, query } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -579,6 +584,51 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	//
 	// `keywords` are what a person would type to find the SECTION rather than one of its
 	// rows — matching one shows the section entire.
+	// The four controls the BASIC tier shows, as elements so the Basic list and their home
+	// sections render the SAME control (HARD RULE #15). Canvas, type scale and Clean slide only
+	// exist on an editable slide; the note exists on every slide.
+	const canvasRow = (
+		<Row label="Canvas" hint={canvas.state === 'auto' && canvas.deckValue ? `${canvas.deckValue} · deck` : undefined} desc="Light or dark, for this slide alone." help={<><strong>Auto</strong> follows the deck (or the site). <strong>Light</strong> or <strong>Dark</strong> pins THIS slide regardless — so a bright slide can sit inside a dark deck, or the reverse.</>}>
+			<Seg
+				ariaLabel="Slide canvas"
+				value={canvas.state === 'auto' ? null : canvas.state}
+				onChange={(v) => onMutate((c) => setCanvas(c, (v ?? 'auto') as Canvas))}
+				options={[{ label: 'Auto', value: null }, { label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
+			/>
+		</Row>
+	);
+	const scaleRow = (
+		<Row label="Type scale" desc="Sizes all the text on this slide together." help={<><strong>M</strong> is the deck default. Step up to fill a sparse slide or to land a big statement — it scales every text role at once, so the hierarchy holds.</>}>
+			<Seg
+				ariaLabel="Type scale"
+				value={cur(scaleAxis)}
+				onChange={(v) => groupSet(scaleAxis, v)}
+				options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
+			/>
+		</Row>
+	);
+	const cleanRow = (
+		<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer and page number." help={<>All three at once — for a full-bleed slide that should carry no furniture. The section rail is separate, below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
+	);
+	const noteBlock = (
+		<SettingsBlock terms="speaker note presenter say off-slide">
+		<textarea
+			value={noteDraft}
+			onChange={(e) => setNoteDraft(e.target.value)}
+			onBlur={commitNote}
+			aria-label="Speaker note for this slide"
+			placeholder="What you'll say on this slide — shown on your Present console, exported to PDF/PPTX notes."
+			className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
+		/>
+		<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+			{/* Yours, and only yours — the note is not a narration source. It used to be
+			    (it outranked the slide's own content), which is how a private remark
+			    reached a recipient's caption track; see narration-resolve.ts. */}
+			Yours alone: shown beside the slide while you present, and exported to the PDF/PPTX
+			speaker-notes field. Never read aloud, and never in the caption track.
+		</p>
+		</SettingsBlock>
+	);
 	const sectionDefs: { value: string; label: string; keywords: string; body: () => React.ReactNode }[] = [
 		// LOOK — identity + surface for this one slide (the accent/spectrum family
 		// lives in Brand, mirroring the deck Inspector).
@@ -589,22 +639,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 			body: () => (
 						<div className="py-1">
 							<TabIntro>How this one slide looks — its canvas, text size, and backdrop. The deck decides anything you don't set here.</TabIntro>
-							<Row label="Canvas" hint={canvas.state === 'auto' && canvas.deckValue ? `${canvas.deckValue} · deck` : undefined} desc="Light or dark, for this slide alone." help={<><strong>Auto</strong> follows the deck (or the site). <strong>Light</strong> or <strong>Dark</strong> pins THIS slide regardless — so a bright slide can sit inside a dark deck, or the reverse.</>}>
-								<Seg
-									ariaLabel="Slide canvas"
-									value={canvas.state === 'auto' ? null : canvas.state}
-									onChange={(v) => onMutate((c) => setCanvas(c, (v ?? 'auto') as Canvas))}
-									options={[{ label: 'Auto', value: null }, { label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
-								/>
-							</Row>
-							<Row label="Type scale" desc="Sizes all the text on this slide together." help={<><strong>M</strong> is the deck default. Step up to fill a sparse slide or to land a big statement — it scales every text role at once, so the hierarchy holds.</>}>
-								<Seg
-									ariaLabel="Type scale"
-									value={cur(scaleAxis)}
-									onChange={(v) => groupSet(scaleAxis, v)}
-									options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
-								/>
-							</Row>
+							{canvasRow}
+							{scaleRow}
 							<Row label="Finish" hint={finish.state === 'inherited' ? 'from deck' : undefined} desc="The backdrop behind this slide." help={<>A soft gradient or grain painted behind the content. It comes from the deck unless you override it here.</>}>
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
@@ -645,23 +681,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							    labeled textarea, not a label/control pair — so that a search can
 							    still find them by name and this section can still collapse when a
 							    query matches none of them. */}
-							<SettingsBlock terms="speaker note presenter say off-slide">
-							<textarea
-								value={noteDraft}
-								onChange={(e) => setNoteDraft(e.target.value)}
-								onBlur={commitNote}
-								aria-label="Speaker note for this slide"
-								placeholder="What you'll say on this slide — shown on your Present console, exported to PDF/PPTX notes."
-								className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
-							/>
-							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-								{/* Yours, and only yours — the note is not a narration source. It used to be
-								    (it outranked the slide's own content), which is how a private remark
-								    reached a recipient's caption track; see narration-resolve.ts. */}
-								Yours alone: shown beside the slide while you present, and exported to the PDF/PPTX
-								speaker-notes field. Never read aloud, and never in the caption track.
-							</p>
-							</SettingsBlock>
+							{noteBlock}
 
 							{/* CAPTION — the read-as OVERRIDE, and it REPLACES the generated narration
 							    rather than merging with it. A separate channel from the note, which is
@@ -745,7 +765,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 			body: () => (
 						<div className="py-1">
 							<TabIntro>The slide's furniture — the running header, footer, page number, and the section-progress rail. Hide whatever this slide doesn't need.</TabIntro>
-							<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer and page number." help={<>All three at once — for a full-bleed slide that should carry no furniture. The section rail is separate, below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
+							{cleanRow}
 							{!has('silent') && (
 								// A SCOPE, so the indent rule goes with its three rows when they filter out.
 								// Its label names the GROUP, not its members: it read "Hide header footer
@@ -933,11 +953,23 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					    Dynamic sections — only those with content for this slide render, and only
 					    in the grouped view: a search spans every section, and the list has no
 					    single active one. */}
-					{!query && view === 'group' && (
+					<SettingsTierSwitch tier={tier} onTierChange={onTierChange} scope="Slide" />
+					{/* BASIC — what most slides need: light or dark, text size, the speaker note,
+					    and hiding the furniture. A search ignores the tier and spans everything. */}
+					{!query && tier === 'basic' && (
+						<div className="pt-1">
+							{editable && canvasRow}
+							{editable && scaleRow}
+							{editable && cleanRow}
+							<div className="mt-3">{noteBlock}</div>
+							<SettingsBasicFoot onShowAll={() => onTierChange('advanced')} />
+						</div>
+					)}
+					{!query && tier === 'advanced' && view === 'group' && (
 						<SettingsSectionTabs className="py-3" ariaLabel="Slide settings sections" value={activeTab} onValueChange={setTab} tabs={tabDefs} />
 					)}
 					{sectionDefs.map((s) =>
-						query || view === 'list' || s.value === activeTab ? (
+						query || (tier === 'advanced' && (view === 'list' || s.value === activeTab)) ? (
 							<SettingsSection key={s.value} label={s.label} keywords={s.keywords} heading={!!query || view === 'list'}>
 								{s.body()}
 							</SettingsSection>

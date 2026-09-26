@@ -900,6 +900,20 @@ export function saveSettingsView(view: SettingsPanelView): void {
 	write(SETTINGS_VIEW_LS, view);
 }
 
+// ── The Inspector's settings TIER (Basic / Advanced — both scopes share ONE choice) ────
+// How MUCH of each panel shows, a separate axis from the grouped/list layout above
+// (ui/settings-view.tsx `SettingsTier`). Furniture again, for the same reason: it is about
+// the person at the screen, not the deck. BASIC is the default, and anything but a stored
+// `'advanced'` reads as it — the short list is what a first visit should meet.
+const SETTINGS_TIER_LS = 'lattice-studio-settings-tier';
+export type SettingsPanelTier = 'basic' | 'advanced';
+export function loadSettingsTier(): SettingsPanelTier {
+	return read<SettingsPanelTier>(SETTINGS_TIER_LS) === 'advanced' ? 'advanced' : 'basic';
+}
+export function saveSettingsTier(tier: SettingsPanelTier): void {
+	write(SETTINGS_TIER_LS, tier);
+}
+
 // ── Workspace export / import (the backup feature's store half) ─────────────
 // The knowledge of WHICH keys make up a Studio workspace stays in this module;
 // workspace-backup.ts only packs/unpacks what these two functions hand it.

@@ -1,0 +1,56 @@
+// @vitest-environment node
+import { describe, expect, it } from 'vitest';
+import { frontMatterName } from '../../../../lib/core/front-matter-key.js';
+import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+
+const deck = (...fm: string[]) => ['---', 'theme: indaco', ...fm, '---', '', '# Hi'].join('\n');
+const fmOf = (src: string) => src.split('---')[1];
+
+describe('deck-preset — the Studio agrees with the engine about a preset', () => {
+	it('every engine preset has a picker entry, in the engine order', () => {
+		expect(PRESET_ENTRIES.map((e) => e.name)).toEqual([...PRESET_NAMES]);
+		for (const e of PRESET_ENTRIES) expect(e.label && e.blurb && e.swatch.background).toBeTruthy();
+	});
+
+	it('a row shows the preset value until the deck writes its own — the same answer the engine gives', () => {
+		const src = deck('preset: editorial');
+		for (const key of PRESET_KEYS) {
+			// The engine answers null for a key the preset leaves at default; the row then shows
+			// that default, so compare only where the engine has an opinion.
+			const engine = frontMatterName(fmOf(src), key);
+			if (engine !== null) expect(registerValue(src, key)).toBe(engine);
+		}
+		expect(registerValue(src, 'rule')).toBe('short');
+		expect(registerValue(deck('preset: editorial', 'rule: none'), 'rule')).toBe('none');
+		expect(registerValue(deck(), 'rule')).toBe('auto');
+	});
+
+	it('writing the preset value clears the override instead of restating it', () => {
+		const src = deck('preset: editorial', 'rule: none');
+		expect(writeRegister(src, 'rule', 'short')).toBe(deck('preset: editorial'));
+		// The engine default is a real override under a preset that changes it…
+		expect(writeRegister(deck('preset: editorial'), 'rule', 'auto')).toBe(deck('preset: editorial', 'rule: auto'));
+		// …and a no-op write with no preset, exactly as before presets existed.
+		expect(writeRegister(deck(), 'rule', 'auto')).toBe(deck());
+	});
+
+	it('counts the drift from the preset, and Reset clears exactly that family', () => {
+		const src = deck('preset: brand', 'rule: none', 'eyebrow: dot', 'footer: Confidential');
+		// `eyebrow: dot` restates Brand-forward's own value, so it is not a change.
+		expect(presetChanges(src)).toEqual(['rule']);
+		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'footer: Confidential'));
+	});
+
+	it('picking a preset starts from it: overrides are cleared and the default writes no key', () => {
+		const src = deck('preset: editorial', 'rule: none', 'lift: off');
+		const r = applyPreset(src, 'minimal');
+		expect(r.cleared).toBe(2);
+		expect(r.source).toBe(deck('preset: minimal'));
+		expect(applyPreset(r.source, 'classic').source).toBe(deck());
+	});
+
+	it('an unknown preset name reads as the default, as the engine resolves it', () => {
+		expect(presetOf(deck('preset: editorail'))).toBe('classic');
+		expect(presetOf(deck('preset: Editorial'))).toBe('editorial');
+	});
+});

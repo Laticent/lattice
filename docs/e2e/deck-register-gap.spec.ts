@@ -18,8 +18,8 @@ test.beforeEach(async ({ page }) => {
 	await openInspector(page);
 });
 
-test('Look ▸ More: Card rows and Fit write cards: and fit:', async ({ page }) => {
-	await page.getByText('More look settings').click();
+test('Look ▸ Frame and fit: Card rows and Fit write cards: and fit:', async ({ page }) => {
+	// The rows sit under a heading in Advanced now, not inside a "More look settings" drawer.
 
 	await page.getByRole('combobox', { name: 'Choose card row placement' }).click();
 	await page.getByRole('option', { name: /Spread/ }).click();
@@ -73,7 +73,6 @@ test('the editor completes fit: values from the engine vocabulary', async ({ pag
 // engine renders.
 test('a commented value reads the way the engine reads it', async ({ page }) => {
 	await setEditorContent(page, '---\ntitle: Gap\nmotion: on\nguards: strict  # board pack\nplayer-motion: off # x\n---\n\n# Gap\n');
-	await page.getByText('More look settings').click();
 	// The OLD spelling, still honored: `guards: strict` reads as the Fit field's trim level.
 	await expect(page.getByRole('combobox', { name: 'Choose how slides fit' })).toContainText('Heal and trim');
 	await openSection(page, 'Motion');
@@ -104,7 +103,6 @@ for (const [label, width, height] of [
 		// Both breakpoint halves of the Inspector are in the DOM; act on the visible one.
 		const vis = <T extends ReturnType<Page['locator']>>(l: T) => l.filter({ visible: true }).first();
 
-		await vis(page.getByText('More look settings')).click();
 		await vis(page.getByRole('combobox', { name: 'Choose card row placement' })).click();
 		await page.getByRole('option', { name: /Spread/ }).click();
 		await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');

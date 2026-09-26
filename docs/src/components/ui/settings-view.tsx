@@ -1,4 +1,4 @@
-import { Check, ChevronDown, LayoutList, List, Search } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, LayoutList, List, Search } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelSearch } from '@/components/ui/panel';
@@ -38,6 +38,22 @@ import { cn } from '@/lib/utils';
 // a hit — that is what `SettingsSectionCtx` carries.
 
 export type SettingsView = 'group' | 'list';
+
+/**
+ * How MUCH of a panel shows — a separate axis from `SettingsView`, which is how it is laid out.
+ *
+ *   BASIC    — a short, hand-picked list: the handful of settings most authors change, with
+ *              no tabs. Each panel composes its own (the deck's is Theme · Preset · Color
+ *              mode · Size · Page numbers · Logo).
+ *   ADVANCED — every setting, in the grouped or list layout the view toggle picks.
+ *
+ * Basic is an EXPLICIT list, not a filter over rows that opted in. That is the point: a new
+ * setting lands in Advanced by default, and promoting one to Basic is a decision somebody
+ * makes on purpose — which is what stops Basic from growing back into the panel it replaced.
+ * A SEARCH always spans every setting, whichever tier is open.
+ * engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md.
+ */
+export type SettingsTier = 'basic' | 'advanced';
 
 /** Stamped on every control that survives the current query — the hook returns it, so a
  *  call site spreads it rather than hand-writing the attribute. */
@@ -574,6 +590,7 @@ export function SettingsToolbar({
 	searching,
 	onSearchingChange,
 	scope,
+	tier = 'advanced',
 	className,
 }: {
 	view: SettingsView;
@@ -584,6 +601,8 @@ export function SettingsToolbar({
 	onSearchingChange: (open: boolean) => void;
 	/** Names the surface in the accessible labels — "Deck" or "Slide". */
 	scope: string;
+	/** In the BASIC tier the layout toggle has nothing to lay out, so it is not drawn. */
+	tier?: SettingsTier;
 	className?: string;
 }) {
 	const inputRef = React.useRef<HTMLInputElement>(null);
@@ -646,15 +665,72 @@ export function SettingsToolbar({
 			    switch already uses — so a second toggle in the same app reads as the same
 			    kind of thing. A plain wrapper, not `role="group"`: the two buttons carry
 			    their own names and pressed state, and that switch is built the same way. */}
-			<div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+			{tier === 'advanced' && <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
 				<ViewBtn on={view === 'group'} label="Grouped — one section at a time" onClick={() => onViewChange('group')}>
 					<LayoutList className="size-4" />
 				</ViewBtn>
 				<ViewBtn on={view === 'list'} label="List — every section in one scroll" onClick={() => onViewChange('list')}>
 					<List className="size-4" />
 				</ViewBtn>
-			</div>
+			</div>}
 		</div>
+	);
+}
+
+/**
+ * The Basic / Advanced switch — the first row of a panel body, not a button in the scope
+ * banner. Measured: the banner at the docked default (296px, 268px inside its padding)
+ * already carries the scope line, search, the layout toggle and the collapse button, and a
+ * two-word segment there left the scope line under 30px, which §8.1 of the find-and-list note
+ * forbids (the row always carries words). Here it spans the body and costs one short row.
+ *
+ * Hidden while a search is live: a search spans every setting whatever the tier, so the
+ * switch would state a choice the results are not honoring.
+ */
+export function SettingsTierSwitch({ tier, onTierChange, scope }: { tier: SettingsTier; onTierChange: (t: SettingsTier) => void; scope: string }) {
+	const query = React.useContext(SettingsQueryCtx);
+	if (query) return null;
+	const opt = (t: SettingsTier, label: string, hint: string) => (
+		<button
+			type="button"
+			aria-pressed={tier === t}
+			aria-label={`${label} ${scope.toLowerCase()} settings — ${hint}`}
+			onClick={() => onTierChange(t)}
+			className={cn(
+				'flex-1 rounded-md px-2 py-1 text-[12px] font-semibold transition-colors',
+				tier === t ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground',
+			)}
+		>
+			{label}
+		</button>
+	);
+	return (
+		<div className="mt-2.5 flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+			{opt('basic', 'Basic', 'the few most authors change')}
+			{opt('advanced', 'Advanced', 'every setting')}
+		</div>
+	);
+}
+
+/**
+ * The foot of a BASIC list — says plainly that it is a subset and where the rest is, so the
+ * short list never reads as "this is all there is". No count: a number here would go stale
+ * with the next setting anyone adds, and nothing would catch it.
+ */
+export function SettingsBasicFoot({ onShowAll }: { onShowAll: () => void }) {
+	const query = React.useContext(SettingsQueryCtx);
+	if (query) return null;
+	return (
+		<button
+			type="button"
+			onClick={onShowAll}
+			className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-left text-[12px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]"
+		>
+			<span>
+				These are the essentials. <span className="font-semibold text-[var(--text-heading)]">Advanced</span> has every setting.
+			</span>
+			<ChevronRight className="size-4 shrink-0" />
+		</button>
 	);
 }
 
