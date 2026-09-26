@@ -221,7 +221,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · hub-spoke" -->
 
 ## When NOT to reach for hub-spoke.
