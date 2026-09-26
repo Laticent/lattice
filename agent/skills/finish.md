@@ -1,0 +1,277 @@
+# Skill — Create a finish
+
+> Author a new `finish:` backdrop — a z-stack of up to four palette-blind CSS
+> layers painted behind slide content — that reads as boardroom atmosphere, not
+> decoration, and survives PDF export clean.
+
+**Read this when** you are asked to create a new deck backdrop, texture, or
+"surface" treatment. **You'll produce** one row in the finish register plus a
+preset CSS block; authors then select it with `finish: <name>` in front matter.
+
+---
+
+## The 10/10 bar
+
+A finish is **atmosphere behind the words**, not ornament on top of them. A 10/10
+finish:
+
+- Keeps accent alpha **low (~5–16%)** so text-on-background AA contrast survives
+  with no scrim.
+- Provides **both faces**: a RICH screen face (gradients that fade to transparent)
+  and an OPAQUE export face (the bottom full-bleed fade ends on `var(--fin-canvas)`,
+  every layer above it ends on the canvas at zero opacity, patterns are hard-stop opaque
+  lines) — with **identical layer counts**.
+- Is **palette-blind**: every color is `color-mix()` of `var(--accent)` /
+  `var(--fin-canvas)` / `var(--text-heading)`. A theme swap or `dark` recolors it automatically.
+- Has a **point of view** — a signature layer type (a mesh, a lattice, a pinstripe,
+  a frame) — not just "a gradient wash of the accent the theme already paints."
+
+Bad looks like: a loud accent cloud that fights the text; a full-bleed fade that
+ends on transparent (→ muddy gray PDF cloud); a `url()` or `mask-image` (export-
+breaking); a baked-in monogram on a deck-wide finish; two `finish-*` presets on one
+slide.
+
+---
+
+## Mental model — the layer stack
+
+A finish paints on a `.backdrop` wrapper that the engine injects as the first child
+of every finish section. The compositor blends up to **four backdrop layers**
+beneath the content, bottom to top:
+
+| z | Layer | Slot | Examples |
+|---|---|---|---|
+| z1 | **wash** — ambient color field | `--fin-wash` | corner-glow, duotone, spotlight, mesh |
+| z2 | **texture** — a pattern | `--fin-texture` | grid, dots, hatch, contour, pinstripe, lattice |
+| z3 | **mark** — a placed emblem (`.backdrop::before`) | `--fin-mark` | monogram, rings, tick, ghost numeral |
+| z4 | **edge** — vignette / frame | `--fin-edge` / `--fin-frame` | vignette, fold, margin rule, keyline |
+| z5 | content | — | painted above every layer, untouched |
+
+> **Naming note — two unrelated "textures."** This `--fin-texture` is a *backdrop
+> pattern layer* (z2 above). It is **not** the categorical `--cat-N-texture` channel
+> from the theme skill (`engineering/textures.md`), which fills diagram categories
+> with a pattern in place of hue. Same word, different mechanism and prefix — a
+> finish never touches `--cat-*`, and a theme never touches `--fin-*`.
+
+The wash and texture ride the `.backdrop`'s `background-image`; the mark rides
+`.backdrop::before`; the vignette rides `.backdrop::after`, but a full keyline
+**frame** must be stacked inset box-shadows via `--fin-frame` — the *section*'s
+`::after` is reserved for the pagination marker (see the skeleton).
+
+The **`finish:` value maps to CSS classes** (`finish finish-<name>`) appended to
+every `<section>`. The base `finish` class is the compositor; each `finish-<name>`
+sets the per-role custom properties the compositor blends. Unset slots default to
+no-ops, so a preset declares only what it uses.
+
+**`finish:` is only the backdrop.** The sibling register `mode:`
+(`boardroom`/`sketch`/`sketch-clean`) is the *typographic hand* — a separate axis
+that composes freely (`mode: sketch` + `finish: atrium`). Don't conflate them.
+
+**The RICH/OPAQUE dual is the load-bearing constraint.** Chromium's print-to-PDF
+encodes large alpha-fading gradients toward transparent-black → a muddy gray cloud.
+**Mix toward `var(--fin-canvas)`, never `var(--bg)` directly.** `--fin-canvas` is the
+surface THIS SLIDE paints, and it defaults to `var(--bg)` — so on an ordinary slide the
+two are the same value and nothing changes. They differ on the three inverse bookends
+(`title`, `closing`, a non-`light` `divider`), which paint `--surface-inverse` while
+keeping `color-scheme: light`. A finish written against `var(--bg)` composites a
+light-canvas wash over those dark surfaces and the white display text disappears — a
+`finish:` deck's title slide exported as a nearly blank page (#1656). Using the canvas
+token is the whole of the fix, and it costs nothing anywhere else.
+
+So every full-bleed fade needs an OPAQUE mirror (accent mixed *into* the canvas, never
+into transparent); patterns become uniform 1px opaque lines with transparent gaps. A
+shared "opaque flip" re-points every slot to its `-opaque` mirror under `@media print`
+and `.lattice-exporting` — you only supply the mirror values, and both faces must keep
+the **same layer count**.
+
+**Only the BOTTOM layer may end on the solid canvas.** The bottom full-bleed wash ends on
+`var(--fin-canvas)`. Every full-bleed layer painted above it — a second or third mesh
+bloom, the edge vignette — ends on the same color at zero opacity,
+`rgb(from var(--fin-canvas) r g b / 0)`. A layer that ends solid paints the slide color
+over everything below it: `halo` and `nimbus` shipped that way and printed as a blank
+white slide with a gray rim. Don't use `transparent` or `color-mix(…, transparent)` for
+that stop — both are black at zero opacity, and that is the gray cloud again. A layer
+sized to a corner or a strip (a fold, a hairline) keeps its solid end: it covers only
+its patch, and a zero-opacity end fades faster in print, because a PDF rasterizer
+interpolates color and opacity separately.
+(`test/unit/css/finish-bottom-layer.test.js` checks the shipped presets.)
+
+---
+
+## Where it lives
+
+- **The package** (source of truth for the finish's NAME and registration):
+  `lib/finishes/<name>/` — `<name>.manifest.json` (name, label, blurb, picker
+  swatch, `order`) and `<name>.recipe.json` (the look, in the closed layer
+  vocabulary below: the build generates the finish's CSS from it, and the Studio's
+  "Start from preset" reads the same file).
+  `tools/build-packages-index.js` generates `lib/finishes/presets.generated.js`
+  from the folders, and the register (`FINISH_REGISTER` in
+  `lib/core/resolve-finish.js`), the lint vocabulary, the Studio's picker catalog
+  and its "Start from preset" recipes are all read from it. A folder is the whole
+  registration.
+- **The CSS**: `lib/base/base.finish.css` — the compositor + every preset body +
+  the opaque flip + the per-slide `finish-none` opt-out. The preset bodies are
+  GENERATED: `tools/build-packages-index.js` runs `lib/finishes/finish-generate.js`
+  (the same generator the Studio uses) over every recipe and writes the rules into
+  the file's marked region, and `build:check` fails on a hand edit there. Tuning a
+  `recipe.json` changes what every deck renders.
+- **The sibling `mode:`**: `lib/core/resolve-mode.js` + `lib/base/base.sketch.css`.
+- **Ships today (10 values)**: `none` (baseline), `atrium`, `meridian`, `strata`,
+  `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`.
+- **The closed layer vocabulary** (what the generator/AI may speak): WASH = none /
+  corner-glow / duotone / spotlight / bands / mesh; TEXTURE = none / grid / dots /
+  hatch / contour / rings / ruled / pinstripe / lattice; MARK = none / monogram /
+  tick / bar / rule / numeral; EDGE = none / vignette / margin-rule / fold / frame.
+  Four details a preset may add: `wash.hairline` (a solid accent strip across the
+  top edge, strata's), mark `rule` (the thin 0.47cqi margin rule; `bar` is the bold
+  1.1cqi one), `mark.anchor: "corner"` + `mark.inset` (a glyph seated in its
+  placement's corner, `inset` cqi from the side, rather than centered and moved to
+  x/y) and `edge.rich: { intensity, reach }` (a hand-tuned screen face for the fold).
+
+---
+
+## Recipe
+
+1. **Add the package** — `lib/finishes/myfinish/myfinish.manifest.json` (copy a
+   sibling's: `$schema`, `name`, `type: "finish"`, `format: 1`, `label`, `blurb`,
+   the next `order`, and a picker `swatch`) and `myfinish.recipe.json` (the closest
+   recipe in the vocabulary). Run `node tools/build-packages-index.js` (or
+   `npm run build`): it writes `section.finish-myfinish { … }` into
+   `base.finish.css`, and the register, lint vocabulary and picker pick it up.
+2. **Don't hand-write the preset CSS.** The generator declares all four slot
+   families (unused = `none`), the RICH default and the `--fin-*-opaque` mirror of
+   each, and the aux `--fin-size` / `--fin-position` / `--fin-repeat` lists in
+   compositor order (texture first, then wash). A look the vocabulary can't say is a
+   new vocabulary term in `lib/finishes/finish-generate.js`, with a test in
+   `test/unit/core/finish-generate.test.js`, not a hand edit.
+3. **It is palette-blind by construction**: every color the generator writes is
+   `color-mix(in srgb, var(--field-accent) N%, transparent | var(--fin-canvas))` or
+   `var(--text-heading)`. No hex, no `url()`, no `mask-image`, no `margin`.
+4. **Default glyph marks to empty** — `--fin-mark-text: ""`. A deck-wide finish
+   paints no monogram/numeral until the author personalizes it per slide.
+5. **Ship a demo deck** in `examples/` + committed PDF; add a `changelog.d/` fragment + the
+   canonical doc.
+6. **Export sign-off** through **both** engines (CLI vector PDF *and* Studio
+   html-to-image raster), in **dark and light**. A finish alters exported bytes, so
+   this is a mandatory human sign-off (Quality Bar).
+
+---
+
+## The contract / skeleton
+
+What the generator writes for a preset (read it to understand the slots; don't
+type it):
+
+```css
+/* base.finish.css */
+section.finish-myfinish {
+  /* wash (z1) — RICH default fades to transparent … */
+  --fin-wash: radial-gradient(120% 90% at 12% 8%,
+                color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%);
+  /* … and the OPAQUE mirror ends on var(--fin-canvas) */
+  --fin-wash-opaque: radial-gradient(120% 90% at 12% 8%,
+                color-mix(in srgb, var(--accent) 12%, var(--fin-canvas)), var(--fin-canvas) 60%);
+
+  /* texture (z2) — hard-stop lines, transparent gaps in both faces */
+  --fin-texture: repeating-linear-gradient(0deg,
+                color-mix(in srgb, var(--text-heading) 6%, transparent) 0 1px, transparent 1px 28px);
+  --fin-texture-opaque: repeating-linear-gradient(0deg,
+                color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 0 1px, transparent 1px 28px);
+
+  /* mark (z3) — empty by default; author opts in per slide */
+  --fin-mark-text: "";
+
+  /* edge (z4) — a full frame is stacked inset box-shadows (::after is reserved).
+   * `0 0 transparent`, NOT `none`: this slot composes into a box-shadow LIST
+   * (base.finish.css § compositor), where `none` is legal only as the sole
+   * value — writing it invalidates the whole declaration and takes the tone
+   * rail down with it. */
+  --fin-frame: 0 0 transparent;
+
+  /* compositor bookkeeping — one entry per background layer, texture then wash */
+  --fin-size: auto, auto;  --fin-position: center, 12% 8%;  --fin-repeat: repeat, no-repeat;
+}
+```
+
+The author selects it deck-wide (`finish: myfinish`) or per slide
+(`<!-- _class: finish-myfinish -->`), personalizes the mark
+(`section.finish-myfinish { --fin-mark-text: "Q3"; }`), and opts a busy slide out
+with `<!-- _class: finish-none -->`.
+
+---
+
+## What good looks like
+
+- `atrium`: a faint corner glow + a fine dissolving grid + a left margin rule — you
+  barely notice it, which is the point.
+- A finish with a **signature layer** — `loom`'s woven ±45° lattice, `savile`'s
+  tailored pinstripe, `gallery`'s museum keyline frame — so it has identity beyond
+  "accent wash."
+- Every full-bleed layer opaque-mirrored; the PDF looks identical to the screen,
+  clean, no gray cloud.
+- Titles and dense chart slides opt out with `finish-none`.
+
+---
+
+## What bad looks like
+
+- Accent at 40% alpha — the backdrop competes with the text.
+- A radial wash ending on `transparent` with no opaque mirror → muddy gray in the
+  exported PDF.
+- An upper layer (a second bloom, a vignette) whose opaque mirror ends on the solid
+  `var(--fin-canvas)` → it paints over every layer below it and the PDF shows no
+  finish at all.
+- `background-image: url(paper.png)` or a `mask-image` — export-breaking and an
+  exfiltration surface; use CSS gradients only.
+- A baked `--fin-mark-text: "ACME"` on a deck-wide finish.
+- Two `finish-*` classes on one slide — only one renders; the linter flags it.
+- A frame drawn on `section::after` — that's reserved for the pagination marker;
+  use stacked inset box-shadows via `--fin-frame`.
+
+---
+
+## Ship checklist
+
+- [ ] Package folder added (`lib/finishes/<name>/`: manifest + recipe) and the
+      generated presets module rebuilt.
+- [ ] Preset declares all four slot families; every full-bleed layer has a RICH and
+      an `-opaque` mirror with **matching layer counts**.
+- [ ] Palette-blind: `color-mix()` of `var(--accent/--bg/--ink)` only; no hex,
+      `url()`, `mask-image`, or `margin`.
+- [ ] Glyph mark defaults to empty.
+- [ ] Demo deck + PDF; `changelog.d/` fragment + canonical doc updated.
+- [ ] **Export sign-off**: rendered in both export engines, dark + light, and shown
+      for human approval.
+
+---
+
+## Common mistakes
+
+1. **Fade ending on `transparent`** in the opaque face → gray PDF cloud.
+2. **Accent alpha too high** → breaks content contrast.
+3. **`url()` / `mask-image` / hex / `margin`** anywhere in the preset.
+4. **Baked-in monogram** on a deck-wide finish.
+5. **Mismatched layer counts** between RICH and OPAQUE faces (breaks the shared
+   size/position/repeat bookkeeping).
+6. **Two finishes on one slide.**
+7. **Skipping the dual-engine export sign-off** — a finish changes exported bytes.
+
+---
+
+## Canonical sources
+
+- `lib/core/resolve-finish.js` — the register, readers, class mapping (read from
+  the generated presets; you add a finish by adding its folder).
+- `lib/base/base.finish.css` — the compositor, the generated preset bodies, the opaque flip.
+- `lib/core/resolve-mode.js` + `lib/base/base.sketch.css` — the sibling `mode:`
+  register.
+- `lib/base/base.registers.docs.md` §`finish:` — the author-facing reference.
+- `engineering/decisions/2026-06-30-finish-the-surface-layer.md` — the founding
+  design (nature × zone, the stacked-layer model, invariants).
+- `engineering/decisions/2026-07-01-finish-restraint-controls.md` — strength /
+  clearance controls.
+- `examples/finish-backdrops.md` — the demo deck (all presets + a custom finish).
+- `lib/finishes/<name>/` — each preset's package; `lib/finishes/finish-generate.js` —
+  the one recipe → CSS generator, run by the build for the presets and by the Studio
+  (through its typed facade `finish-generate.ts`) for a fabricated finish.
