@@ -438,33 +438,47 @@ A dotted overlay moving along a line, a separate path above the real edge.
 - **Lines through their own ends.** `measureQuality` exempted a line's own two
   boxes, so a line that left its box and folded back through it, or ran through
   its target before arriving, passed every check. The independent checker on
-  this work found the fan and solver passes could create such folds, and the
-  router already drew 22 of them across the 1,000 charts in three directions.
-  `linesThroughEnds` now counts them, the shape rescue treats them as hits, and
-  the tests hold them to zero.
-- **Grazing.** A line running within 5 units of a box it does not belong to, for
-  more than 8, reads as touching it (the release train's `fails` ran 3 units
-  under Test). The shape rescue now counts a graze as a hit, and the late passes'
-  guard counts grazes too. Across the 1,000 charts: 24 grazing lines before, 8
-  after.
-- **Measured.** On the 1,000 random charts, crossings fell from 923 to 180,
-  soft misses from 4 to 0, folds to 0 and grazes from 24 to 8, with no chart
-  worse on any quality count. Nine charts read one more crossing or so, each
-  having lost a fold or a graze; one flips from lr to tb on the type-size rule
-  (tb sets the type 3.6% larger) and reads 2 crossings where lr read none.
-  Letting crossings veto the type-size rule was measured and refused: it cost
-  one chart 30% of its type size to save four crossings, and the owner's rule
-  is that a flowchart takes the direction that sets the type larger. Forced to
-  lr and to tb, no chart is worse on any quality count either. Layout costs
-  about 18 ms a chart against 13.5 before (the grown and plain runs, and the
-  fan pass's trial seating), measured on the demo deck's charts.
+  this work found the fan and solver passes could create such folds; the router
+  already drew them: 37 across the 1,000 charts and 33 across the 600, counted
+  in auto, lr and tb. `linesThroughEnds` now counts them, the shape rescue
+  treats them as hits, and the tests hold them to zero in every direction.
+- **Grazing.** A line passing within about 4 units of a box it does not belong
+  to (the box grown by 5, less the hit test's 1-unit inset) reads as touching it
+  (the release train's `fails` ran 3 units under Test). The shape rescue counts
+  a graze as a hit, and the late passes' guard counts grazes too. 24 grazing
+  lines on the 1,000 charts before, 7 after.
+- **Fan lanes stay outside the borders they cross.** A fan's lanes sit clear of
+  the far border of any group that holds the source but not a target, and short
+  of any group that holds a target but not the source (group padding is 14, and
+  the first lane used to sit at 16, 2 units inside). The checker counted such
+  border-riding jogs: 164 before the fan pass, 341 with its first version, 158
+  now.
+- **Grown or plain.** Growth is kept only when it is no worse on hard faults,
+  soft faults and crossings and either buys something (fewer faults, crossings,
+  crowded ends or grazes) at no more than 3% of type, or costs no type. Each
+  direction is then judged by the best type it can reach, grown or plain, so a
+  growth kept for its ports cannot tip the direction by the few percent it cost
+  (a chart flipped lr to tb that way and gained two crossings).
+- **Measured, against the kernel before the fan pass (9c67660), both corpora in
+  auto, lr and tb.** 1,000 charts: crossings 195 -> 182 (auto), 187 -> 179 (lr),
+  169 -> 176 (tb); soft-miss charts 1 -> 0, 1 -> 0, 5 -> 4. 600 charts: 97 ->
+  104, 95 -> 104, 70 -> 75. No chart is worse on any quality count except three
+  in the 600 forced to tb, where a label now straddles a group border: each had
+  a line folding through its target (group One's line ran through Hotel to its
+  far side), and unfolding it leaves a run shorter than the label, the known
+  "group lines beside their group" gap below. Of the charts that gained a
+  crossing, all but one lost a fold or a graze for it; the one (the 600, #478,
+  tb) gained a crossing for nothing we measure. The demo deck's release train
+  went from 9 crossings to 1 as painted and its org chart from 3 to 0.
+  Crossings sit beside the quality counts, not in them (`geo.crossings`),
+  because some graphs cannot be drawn without one. Letting crossings veto the
+  type-size rule was measured and refused: it cost one chart 30% of its type
+  size to save four crossings, and the owner's rule is that a flowchart takes
+  the direction that sets the type larger. Layout costs about 18 ms a chart
+  against 13.5 before on the demo deck's charts.
 - **A ruler fix.** `labelsAcrossBorders` counted a label that only touched a
   group's border (289.79999 against 289.8) as across it; it now wants half a
-  unit of real overlap. The demo deck's release
-  train went from 9 crossings to 1 as painted and its org chart from 3 to 0.
-  Crossings sit beside the quality counts, not in them (`geo.crossings`),
-  because some graphs cannot be drawn without one. The test holds the corpus
-  total as a ceiling.
+  unit of real overlap.
 - **What owning the router makes cheap:** `:loose` lines are left out of layout
   and routed afterwards; edges to a group are laid out between representative
   members and drawn to the group's border; an edge whose boxes overlap on the

@@ -40,12 +40,11 @@ const WIDE_SOFT_BUDGET = 7;
 // with it, 195 once it also ran a second order (freest lines first, keep each line's sides
 // and ports, allow a straight drop) and kept whichever run crossed less. Then the router
 // stopped drawing lines that fold back through their own start or end box
-// (`linesThroughEnds`, now a hard zero; 22 across three directions before) and lines that
-// graze a stranger's box within 5 units (24 -> 8), and fanning shapes grew to give each
-// line its own port (routeFans): 180. Nine charts pay a crossing for a fold or a graze
-// removed; one flips direction on the type-size rule and reads 0 -> 2. A crossing is a
-// cost, not a defect, so this is a ceiling to ratchet down, never a zero.
-const CROSSING_BUDGET = 180;
+// (`linesThroughEnds`, now a hard zero; 37 on this corpus and 33 on the one below, across
+// auto, lr and tb) and lines that graze a stranger's box (24 -> 7), and fanning shapes got
+// one fan each (routeFans): 182. Every chart that gained a crossing lost a fold or a graze
+// for it. A crossing is a cost, not a defect, so this is a ceiling to ratchet down.
+const CROSSING_BUDGET = 182;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
