@@ -971,7 +971,15 @@ let scaleMeasureChain: Promise<string | null> = Promise.resolve(null);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function measureDeckScaleCap(
 	opts: SingleSlideOptions,
-	args: [string, boolean, string | undefined, { name: string; css: string } | undefined, 'light' | 'dark' | undefined, string | undefined],
+	args: [
+		string,
+		boolean,
+		string | undefined,
+		{ name: string; css: string } | undefined,
+		'light' | 'dark' | undefined,
+		string | undefined,
+		{ webOrigins?: string[] },
+	],
 ): Promise<string | null> {
 	if (typeof document === 'undefined') return null;
 	if (!scaleMeasureHost) {
@@ -1498,10 +1506,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// can cap this frame at the shared rung; any other render clears a stale cap.
 				if (typeof opts?.slideIndex === 'number') {
 					const capKey = deckAsksForScale(markdown)
-						? [palette, mode, extra?.name ?? '', extraCss ?? '', markdown].join('\u0000')
+						? // The allowed web origins too: an image the reader allowed lays out, a blocked one
+						  // is a placeholder, and the measure must render the deck the frame shows.
+						  [palette, mode, extra?.name ?? '', extraCss ?? '', [...new Set(opts?.webOrigins ?? [])].sort().join(' '), markdown].join('\u0000')
 						: undefined;
 					trackScaleCap(host, capKey, () =>
-						measureDeckScaleCap(renderOpts, [markdown, mermaid, paletteOverride, extra, modeOverride, extraCss]),
+						measureDeckScaleCap(renderOpts, [markdown, mermaid, paletteOverride, extra, modeOverride, extraCss, { webOrigins: opts?.webOrigins }]),
 					);
 				}
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
