@@ -66,7 +66,7 @@ test('a deck’s web images stay blocked until the reader loads them, in the pre
 		await expect(notice).toHaveAttribute('data-state', 'loaded');
 		await expect(preview.locator(`img[src="${origin}/team.png"]`)).toHaveCount(1, { timeout: 30_000 });
 		await expect.poll(() => hits.length, { timeout: 30_000 }).toBeGreaterThan(0);
-		await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', new RegExp(`img-src 'self' data: blob: ${origin.replace(/[.:/]/g, '\\$&')};`));
+		await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', new RegExp(`img-src 'self' data: blob: ${origin.replace(/[.*+?^${}()|[\]\\:/]/g, '\\$&')};`));
 		const previewHits = hits.length;
 
 		await page.getByRole('button', { name: 'Share', exact: true }).click();

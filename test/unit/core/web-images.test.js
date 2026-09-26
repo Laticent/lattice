@@ -83,7 +83,7 @@ test('the rewrite is idempotent, so two surfaces may both apply it', () => {
 
 test('an address with a quote or an angle bracket cannot break out of the data attribute', () => {
   const { html } = blockWebImages("<img src='https://a.com/x.png?q=\"><script>'>");
-  assert.doesNotMatch(html, /<script>/);
+  assert.doesNotMatch(html, /<script\b/i);
   assert.match(html, /data-lattice-web-src="https:\/\/a\.com\/x\.png\?q=&quot;&gt;&lt;script&gt;"/);
 });
 
