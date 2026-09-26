@@ -58,6 +58,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'class', info: 'Default _class applied to every slide (a modifier — a component name is ignored).' },
 	{ key: 'validate', info: "Inline validation in the editor — on (default) / off. Travels with the deck." },
 	// Look
+	{ key: 'preset', info: 'A named look that sets the backdrop, alignment and accent registers at once — classic (default) / editorial / brand / minimal. An explicit key (finish:, rule:, …) overrides it.' },
 	{ key: 'color-mode', info: 'The mode the deck opens in — light / dark / system / inherited / print.' },
 	{ key: 'mode', info: 'Rendering mode — boardroom / sketch / sketch-clean.' },
 	{ key: 'finish', info: 'Finish backdrop — e.g. atrium, halo, gallery.' },
@@ -159,6 +160,7 @@ export const VOCAB_VALUE_FIELDS: Record<string, string> = {
 	lift: 'liftNames',
 	backdrop: 'backdropNames',
 	venue: 'venueNames',
+	preset: 'presetNames',
 	delivery: 'deliveryNames',
 	'inline-code': 'inlineCodeNames',
 	stamp: 'stampStyleNames',

@@ -65,12 +65,10 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 	await expect(fixAll(page)).toBeEnabled();
 
 	// Turning inline validation off makes nothing "unknown" → Fix-all disabled again.
-	// The two authoring aids sit in a collapsed "Developer" disclosure (#1048), so the
-	// switch is out of the a11y tree until it is opened. That disclosure moved INSIDE the
-	// General tab on 2026-08-18 — it used to hang below the tab strip as a footer.
+	// The two authoring aids sit under General's "Developer" heading. They were a collapsed
+	// disclosure until 2026-09-26, when the Basic/Advanced tiers replaced the drawers.
 	await openInspector(page);
 	await openSection(page, CHROME.deckTab.general);
-	await page.getByText('Developer', { exact: true }).click();
 	await page.getByRole('switch', { name: 'Inline validation' }).click();
 	await expect(fixAll(page)).toBeDisabled();
 });

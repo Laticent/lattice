@@ -46,6 +46,9 @@ beforeEach(() => {
 		{ id: 'product-strategy', title: 'FY26 Product Strategy', builtin: true },
 	]));
 	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true }));
+	// These specs drive individual controls by section, so they get the ADVANCED tier (the
+	// full panel). The Basic tier's own contract is in StudioShell.test.tsx.
+	localStorage.setItem('lattice-studio-settings-tier', JSON.stringify('advanced'));
 });
 afterEach(() => {
 	document.documentElement.removeAttribute('data-palette');
@@ -895,7 +898,6 @@ describe('Studio — Inspector controls respond', () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'General');
-		await user.click(await screen.findByText('Developer')); // the dev aids are General's "more" disclosure
 		// The Debug overlay control is a preset menu with every value; picking the
 		// verbose variant writes `debug: on-always verbose`.
 		await user.click(await screen.findByRole('button', { name: 'Debug overlay' }));
@@ -926,10 +928,6 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, tab);
 	}
-	/** Open a tab's collapsed "more" disclosure by its summary text. */
-	async function openMore(user: Awaited<ReturnType<typeof setup>>, label: string) {
-		await user.click(await screen.findByText(label));
-	}
 	/** Pick `option` from the CatalogSelect named `name`. */
 	async function pick(user: Awaited<ReturnType<typeof setup>>, name: string, option: RegExp | string) {
 		await user.click(await screen.findByRole('combobox', { name }));
@@ -939,7 +937,6 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	it('Corners writes and clears the `corners:` register', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'Look');
-		await openMore(user, 'More look settings');
 		await pick(user, 'Choose corners', 'Rounded');
 		await waitFor(() => expect(source()).toMatch(/corners: rounded/));
 		await pick(user, 'Choose corners', 'Square'); // back to the baseline → no key
@@ -949,7 +946,6 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	it('Claim writes and clears the `claim:` register', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'Look');
-		await openMore(user, 'More look settings');
 		await pick(user, 'Choose claim', 'Bleed');
 		await waitFor(() => expect(source()).toMatch(/claim: bleed/));
 		await pick(user, 'Choose claim', 'Framed');
@@ -1115,54 +1111,20 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		expect(screen.getByRole('heading', { name: 'Speech' })).toBeInTheDocument();
 	});
 
-	it('a "more" disclosure opened by hand survives a search, and cannot hide a hit', async () => {
-		// Two failures from one cause: `<details open={query ? true : undefined}>` is only
-		// half-controlled, so a user click moves the DOM attribute behind React's back.
-		// (a) collapse it mid-search and the next query's hit renders inside a shut
-		// disclosure with no "no matches" note; (b) open it by hand, search, close the
-		// search, and `true → undefined` strips the attribute and shuts what you opened.
+	it('no drawer hides a row: Frame and fit is a heading in Advanced, and search still reaches it', async () => {
+		// The "More look settings" <details> is gone (2026-09-26): the Basic tier keeps rare rows
+		// out of the way now, so Advanced shows every row under a plain heading. That also retires
+		// the two disclosure desyncs this spot used to pin — there is no open state to lose.
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		const summary = await screen.findByText('More look settings');
-		const details = () => summary.closest('details') as HTMLDetailsElement;
-
-		// (b) the user's own open state survives a whole search round-trip.
-		await user.click(summary);
-		expect(details().open).toBe(true);
-		await user.click(screen.getByRole('button', { name: 'Search deck settings' }));
-		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'corner');
-		await user.keyboard('{Escape}');
-		expect(details().open).toBe(true);
-
-		// (a) a live query forces it open, whatever the user did to it.
-		await user.click(summary); // collapse by hand
-		expect(details().open).toBe(false);
+		expect(await screen.findByText('Frame and fit')).toBeInTheDocument();
+		expect(screen.getByText('Frame and fit').closest('details')).toBeNull();
+		expect(screen.getByLabelText('Choose corners')).toBeVisible();
+		expect(screen.queryByText('More look settings')).toBeNull();
 		await user.click(screen.getByRole('button', { name: 'Search deck settings' }));
 		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'claim');
-		expect(screen.getByLabelText('Choose claim')).toBeInTheDocument();
-	});
-
-	it('a hit under "more" cannot be hidden by collapsing the disclosure MID-search', async () => {
-		// The arm the first version of the test above never covered, and the one the second
-		// implementation still failed: with `onToggle` ignoring the user while a query was
-		// live, the click was SWALLOWED — React kept `open: true` while the DOM went false,
-		// and the next query's one hit rendered inside a shut disclosure. No "no matches"
-		// note either, because there WAS a hit: a lone summary over an empty column.
-		// Under search there is no disclosure at all now, so there is nothing to collapse.
-		const user = await setup();
-		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
-		const field = screen.getByRole('textbox', { name: 'Search deck settings' });
-		await user.type(field, 'corners');
-		expect(await screen.findByLabelText('Choose corners')).toBeVisible();
-
-		// Try to collapse it mid-search — the summary is not there to click.
-		expect(screen.queryByText('More look settings')?.closest('details') ?? null).toBeNull();
-
-		// …and the next query's hit is visible, not buried.
-		await user.clear(field);
-		await user.type(field, 'claim');
 		expect(await screen.findByLabelText('Choose claim')).toBeVisible();
+		expect(screen.queryByLabelText('Choose corners')).toBeNull();
 	});
 
 	it('the one search field serves whichever scope is open, and a query never crosses', async () => {

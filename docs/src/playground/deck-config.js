@@ -1,4 +1,12 @@
+import frontMatterKey from '../../../lib/core/front-matter-key.js';
 import { SIZE_OPTIONS } from './deck-sizes.js';
+
+// What `key` resolves to under the deck's `preset:` when the deck does not write it — the
+// engine's own table (lib/core/front-matter-key.js), so a preset's backdrop or card lift reads
+// as the deck's current value here, and picking the engine default under a preset that
+// changes it WRITES the override instead of deleting the key (which would hand control back
+// to the preset). engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md.
+const presetBaseline = (preset, key) => frontMatterKey.presetEffective(String(preset || '').split(/[ \t]#/)[0].trim().toLowerCase(), key);
 
 // Deck setup — the universal front-matter config panel.
 //
@@ -220,12 +228,13 @@ export function readFrontMatter(source) {
     theme: map.theme || '',
     mode: map.mode || '',
     'color-mode': map['color-mode'] || '',
-    finish: map.finish || '',
+    // A preset's backdrop reads as the current value; `none` stays the empty baseline.
+    finish: map.finish || (presetBaseline(map.preset, 'finish') === 'none' ? '' : presetBaseline(map.preset, 'finish')),
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
     // `glossary` is binary — on when the deck opts in with `glossary: auto`.
     glossary: (map.glossary || '').trim().toLowerCase() === 'auto',
     // `lift` is binary — on when the deck opts in with `lift: on`.
-    lift: TRUEY.test(map.lift || ''),
+    lift: map.lift ? TRUEY.test(map.lift) : presetBaseline(map.preset, 'lift') === 'on',
     size: map.size || 'hd',
     paginate: TRUEY.test(map.paginate || ''),
     header: map.header || '',
@@ -266,20 +275,22 @@ function isDefault(key, value) {
 // Coerce a control's value into the canonical front-matter string, or null when
 // it's at its default (and should be omitted). `value` is a boolean for
 // paginate, a string otherwise.
-function normalize(key, value) {
+function normalize(key, value, preset) {
   if (key === 'paginate') return value === true || TRUEY.test(value || '') ? 'true' : null;
   // engine reads on/true/yes — we always emit `on` (matches the example decks).
   // `glossary` writes the canonical `auto` when enabled; off omits the key. The switch
   // passes a boolean; a hand-typed `auto` is honored too.
   if (key === 'glossary') return value === true || (value != null && String(value).trim().toLowerCase() === 'auto') ? 'auto' : null;
   // `lift` writes the canonical `on` when enabled; off omits the key.
-  if (key === 'lift') return value === true || TRUEY.test(value || '') ? 'on' : null;
+  // Under a preset that turns lift on, off is the override that gets written.
+  if (key === 'lift') { const want = value === true || TRUEY.test(value || '') ? 'on' : 'off'; return want === presetBaseline(preset, 'lift') ? null : want; }
   // `validate` is default ON, so on omits the key; only an opt-OUT is written, as
   // the canonical `off`. The switch passes a boolean (checked = validation on).
   if (key === 'validate') return value === false || FALSEY.test(String(value).trim()) ? 'off' : null;
   const v = (value == null ? '' : String(value)).trim();
   // none = backdrop baseline → omit (same no-class render as no key at all).
-  if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === 'none' ? null : f; }
+  // Under a preset with a backdrop, `none` is the override that gets written.
+  if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === presetBaseline(preset, 'finish') ? null : f; }
   // boardroom = style (mode) baseline → omit.
   if (key === 'mode') { const s = v.toLowerCase(); return s === '' || s === 'boardroom' ? null : s; }
   if (key === 'split') { return v.toLowerCase() === 'rule' ? 'rule' : null; }
@@ -309,12 +320,15 @@ export function writeFrontMatter(source, key, value) {
   // everything else → preserved verbatim in original order. `marp` is re-derived.
   const managed = new Map();
   const preserved = []; // [k, rawScalar] OR [k, { block: [...] }] — emitted verbatim
+  // The deck's preset decides which value of a family key is the omitted baseline.
+  const presetEntry = entries.find(([k, v]) => k === 'preset' && !v?.block);
+  const preset = presetEntry ? stripQuotes(presetEntry[1]) : '';
   for (const [k, raw] of entries) {
     if (k === 'marp') continue;
     if (raw?.block) {
       preserved.push([k, raw]); // a nested block (finish-override:, …) — never form-managed
     } else if (MANAGED.includes(k)) {
-      const n = normalize(k, k === 'paginate' ? raw : stripQuotes(raw));
+      const n = normalize(k, k === 'paginate' ? raw : stripQuotes(raw), preset);
       if (n != null) managed.set(k, n);
     } else {
       preserved.push([k, raw]);
@@ -322,7 +336,7 @@ export function writeFrontMatter(source, key, value) {
   }
 
   // Apply the incoming change (null = clear → at default). Every managed field is flat.
-  const norm = normalize(key, value);
+  const norm = normalize(key, value, preset);
   if (norm == null) managed.delete(key);
   else managed.set(key, norm);
 

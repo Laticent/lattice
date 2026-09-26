@@ -621,8 +621,12 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(echo()).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
-		// The Chrome shortcut is a stable marker that the deck-scope body rendered — it is
-		// one of the two sections the strip keeps as a pill.
+		// The panel opens on the BASIC tier: the short list, no section strip.
+		expect(screen.getByRole('button', { name: /^Basic deck settings/, pressed: true })).toBeInTheDocument();
+		expect(screen.queryByRole('tab', { name: 'Chrome' })).not.toBeInTheDocument();
+		// ADVANCED brings the strip back. The Chrome shortcut is a stable marker that the
+		// deck-scope body rendered — one of the two sections the strip keeps as a pill.
+		await user.click(screen.getByRole('button', { name: /^Advanced deck settings/ }));
 		expect(screen.getByRole('tab', { name: 'Chrome' })).toBeInTheDocument();
 		// The header close (a single X, chevron retired) collapses it back to the rail.
 		await user.click(screen.getByRole('button', { name: 'Collapse settings' }));
@@ -635,16 +639,46 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		// Deck-wide Authoring controls live in Deck scope — open it from the rail.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		// A developer aid is an ADVANCED setting — the Basic list does not carry it.
+		await user.click(await screen.findByRole('button', { name: /^Advanced deck settings/ }));
 		// General is past the two shortcut pills, so it is reached through the chevron —
-		// the same two routes a person has (2026-09-13 note §8).
+		// the same two routes a person has (2026-09-13 note §8). Its Developer rows sit under
+		// a heading, not inside a disclosure, so there is nothing more to open.
 		await user.click(await screen.findByRole('button', { name: /all sections/ }));
 		await user.click(await screen.findByRole('menuitem', { name: 'General' }));
-		await user.click(await screen.findByText('Developer')); // the dev aids are General's "more" disclosure
 		const sw = await screen.findByRole('switch', { name: 'Inline validation' });
 		expect(sw).toBeChecked();
 		await user.click(sw);
 		expect(sw).not.toBeChecked();
 		expect(await screen.findByText(/Inline validation off/)).toBeInTheDocument();
+	});
+
+	it('the deck panel opens on Basic: six essentials, a way to the rest, and a search that spans both', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		// The six Basic rows, and nothing from a section they do not name.
+		// The preset is a grid of four live previews — a real radiogroup — and tapping one picks it.
+		const presets = await screen.findByRole('radiogroup', { name: 'Choose preset' });
+		expect(within(presets).getAllByRole('radio')).toHaveLength(4);
+		expect(within(presets).getByRole('radio', { name: 'Classic' })).toBeChecked();
+		await user.click(within(presets).getByRole('radio', { name: 'Editorial' }));
+		await waitFor(() => expect(within(presets).getByRole('radio', { name: 'Editorial' })).toBeChecked());
+		expect(screen.getByRole('combobox', { name: 'Choose deck theme' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Choose deck color mode' })).toBeInTheDocument();
+		expect(screen.getByRole('switch', { name: 'Page numbers' })).toBeInTheDocument();
+		expect(screen.getByLabelText('Logo')).toBeInTheDocument();
+		expect(screen.queryByRole('switch', { name: 'Inline validation' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('combobox', { name: 'Choose eyebrow' })).not.toBeInTheDocument();
+		// A SEARCH ignores the tier: an Advanced-only row is found from Basic.
+		await user.click(screen.getByLabelText('Search deck settings'));
+		await user.type(screen.getByLabelText('Search deck settings'), 'eyebrow');
+		expect(await screen.findByRole('combobox', { name: 'Choose eyebrow' })).toBeInTheDocument();
+		// The foot says where the rest is and takes you there.
+		await user.keyboard('{Escape}');
+		await user.click(await screen.findByRole('button', { name: /Advanced has every setting/ }));
+		const advanced = screen.getByRole('button', { name: /^Advanced deck settings/, pressed: true });
+		// The foot unmounts with the Basic list, so it hands keyboard focus to the switch.
+		await waitFor(() => expect(advanced).toHaveFocus());
 	});
 
 	it('reaches Fabricate from the launcher (not a deck mode)', async () => {

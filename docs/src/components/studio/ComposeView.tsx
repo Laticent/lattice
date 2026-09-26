@@ -21,7 +21,7 @@ import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { MARKER_CLASS, stateClassesFor } from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
-import { getFrontMatter } from './front-matter';
+import { registerValue } from './deck-preset';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -33,7 +33,7 @@ import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 // restrained (a single-hue accent ramp), on (the full deck `--spectrum`, accent-ramp
 // fallback when `--spectrum` isn't in scope). Returns the CSS the divider paints.
 function trimGradient(source: string): string {
-	switch (getFrontMatter(source, 'spectrum-trim') || 'off') {
+	switch (registerValue(source, 'spectrum-trim')) {
 		case 'on':
 			return 'var(--spectrum, linear-gradient(90deg, var(--accent,#006fa8), color-mix(in oklab, var(--accent,#006fa8) 40%, var(--bg,#fff))))';
 		case 'restrained':

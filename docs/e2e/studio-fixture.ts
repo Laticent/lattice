@@ -108,6 +108,9 @@ export const CHROME = {
 		 *  that section is not one of the shortcut pills, and a name that moved with it
 		 *  would move under every locator here. Use `openSection` rather than this. */
 		allSections: /all sections/,
+		/** The Basic / Advanced switch at the top of either panel's body. Only ADVANCED has
+		 *  the section strip, so `openSection` presses it first when it has to. */
+		advanced: /^Advanced (deck|slide) settings/,
 	},
 	/** Activity-bar toggle for the Coach (deterministic deck assessment) panel. */
 	coach: 'Toggle Coach',
@@ -487,6 +490,12 @@ export async function gotoStudio(page: Page): Promise<void> {
 			const k = 'lattice-studio-settings';
 			const cur = JSON.parse(localStorage.getItem(k) || '{}');
 			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'craft' }));
+			// The settings panels open on the BASIC tier for a real first visit (a short list,
+			// no section strip). Specs address controls by section, so they get ADVANCED —
+			// the full panel they were written against. Basic's own contract is pinned in
+			// StudioShell.test.tsx / SlideContext.test.tsx.
+			// engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md.
+			localStorage.setItem('lattice-studio-settings-tier', JSON.stringify('advanced'));
 		} catch {
 			/* storage unavailable — the app falls back to its default */
 		}
@@ -689,6 +698,8 @@ export async function openInspectorTab(page: Page, tab: keyof typeof CHROME.deck
  * when it does this is the one place that has to know.
  */
 export async function openSection(page: Page, name: string): Promise<void> {
+	const advanced = page.getByRole('button', { name: CHROME.settings.advanced, pressed: false });
+	if (await advanced.count()) await advanced.first().click();
 	const pill = page.getByRole('tab', { name, exact: true });
 	if (await pill.count()) {
 		await pill.first().click();

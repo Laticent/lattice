@@ -10,6 +10,7 @@
 // so the drawer's controls tell the truth. Pure; mirrors the engine's resolution.
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 
+import { registerValue } from './deck-preset';
 import { getFrontMatter } from './front-matter';
 import { getClassTokens, setClassTokens } from './slide-directives';
 
@@ -28,7 +29,11 @@ export type Provenance = {
 /** Deck-wide tokens that propagate onto every slide. */
 export function deckDefaults(source: string): { classTokens: string[]; finish: string | null; mode: string | null } {
 	const classTokens = (getFrontMatter(source, 'class') || '').trim().split(/\s+/).filter(Boolean);
-	const finish = (getFrontMatter(source, 'finish') || '').trim() || null;
+	// What the engine renders: the deck's own `finish:` read by the engine's rule (a trailing
+	// comment stripped, an empty or comment-only value falling through), else its preset's.
+	// `none` reads as no deck finish, exactly as an absent key did.
+	const deckFinish = registerValue(source, 'finish');
+	const finish = deckFinish === 'none' ? null : deckFinish;
 	const mode = (getFrontMatter(source, 'mode') || '').trim() || null;
 	return { classTokens, finish, mode };
 }
@@ -197,7 +202,7 @@ const isSpectrumToken = (t: string) => /^spectrum-(solid|duo|mono|off)$/.test(t)
 /** Effective brand-bar STYLE state for a slide. `value` is the bare name (solid/duo/mono/off). */
 export function spectrumProvenance(chunk: string, source: string): Provenance {
 	const own = getClassTokens(chunk).find(isSpectrumToken);
-	const deck = (getFrontMatter(source, 'spectrum') || '').trim().toLowerCase();
+	const deck = (registerValue(source, 'spectrum') || '').trim().toLowerCase();
 	const deckValue = SPECTRUM_STYLE_VALUES.includes(deck) ? deck : undefined; // `on`/unset → rainbow default
 	const inheritable = deckValue !== undefined;
 	if (own) return { state: 'on', value: own.slice('spectrum-'.length), deckValue, inheritable };
@@ -222,7 +227,7 @@ export function setSpectrum(chunk: string, name: string | null): string {
 
 function overrideProvenance(chunk: string, source: string, deckKey: string, prefix: string, values: readonly string[], deckDefault: string): Provenance {
 	const own = getClassTokens(chunk).find((t) => t.startsWith(prefix) && values.includes(t.slice(prefix.length)));
-	const deck = (getFrontMatter(source, deckKey) || '').trim().toLowerCase();
+	const deck = (registerValue(source, deckKey) || '').trim().toLowerCase();
 	const deckValue = deck && deck !== deckDefault && values.includes(deck) ? deck : undefined;
 	const inheritable = deckValue !== undefined;
 	if (own) return { state: 'on', value: own.slice(prefix.length), deckValue, inheritable };
@@ -296,7 +301,7 @@ const isSpectrumCardToken = (t: string) => cardTokenToValue(t) !== null;
 export function spectrumCardProvenance(chunk: string, source: string): Provenance {
 	const ownToken = getClassTokens(chunk).find(isSpectrumCardToken);
 	const ownValue = ownToken ? cardTokenToValue(ownToken) : undefined;
-	const deck = (getFrontMatter(source, 'spectrum-card') || '').trim().toLowerCase();
+	const deck = (registerValue(source, 'spectrum-card') || '').trim().toLowerCase();
 	const deckValue = deck && deck !== 'off' && CARD_STYLE_VALUES.includes(deck) ? deck : undefined; // off/unset → no rail
 	const inheritable = deckValue !== undefined;
 	if (ownValue === 'off') return { state: 'off', deckValue, inheritable };
@@ -347,7 +352,7 @@ const isSpectrumTrimToken = (t: string) => trimTokenToValue(t) !== null;
 export function spectrumTrimProvenance(chunk: string, source: string): Provenance {
 	const ownToken = getClassTokens(chunk).find(isSpectrumTrimToken);
 	const ownValue = ownToken ? trimTokenToValue(ownToken) : undefined;
-	const deck = (getFrontMatter(source, 'spectrum-trim') || '').trim().toLowerCase();
+	const deck = (registerValue(source, 'spectrum-trim') || '').trim().toLowerCase();
 	const deckValue = deck === 'on' || deck === 'restrained' ? deck : undefined; // off/unset → quiet
 	const inheritable = deckValue !== undefined;
 	if (ownValue === 'off') return { state: 'off', deckValue, inheritable };

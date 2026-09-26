@@ -577,3 +577,29 @@ describe('createConfigPanel (DOM)', () => {
     assert.equal(host.querySelector('input[aria-label="Clear behind content"]'), null, 'no clearance toggle');
   });
 });
+
+describe('a deck preset (preset:) sets the baseline for finish and lift', () => {
+  const ED = '---\nmarp: true\ntheme: indaco\npreset: editorial\n---\n\n# Hi\n';
+  const PLAIN = '---\nmarp: true\ntheme: indaco\n---\n\n# Hi\n';
+
+  test('the sheet shows the backdrop and lift the preset gives', async () => {
+    const { readFrontMatter } = await import(MOD);
+    assert.equal(readFrontMatter(ED).finish, 'ledger');
+    assert.equal(readFrontMatter(ED).lift, true);
+    // Control: without a preset the baselines are none / off, as before.
+    assert.equal(readFrontMatter(PLAIN).finish, '');
+    assert.equal(readFrontMatter(PLAIN).lift, false);
+  });
+
+  test('None and off under the preset are written as overrides; the preset value clears the key', async () => {
+    const { writeFrontMatter, readFrontMatter } = await import(MOD);
+    const none = writeFrontMatter(ED, 'finish', 'none');
+    assert.match(none, /\nfinish: none\n/);
+    assert.equal(readFrontMatter(none).finish, 'none');
+    assert.doesNotMatch(writeFrontMatter(none, 'finish', 'ledger'), /finish:/);
+    assert.match(writeFrontMatter(ED, 'lift', false), /\nlift: off\n/);
+    // Control: without a preset, none / off are the omitted defaults, exactly as before.
+    assert.doesNotMatch(writeFrontMatter(PLAIN, 'finish', 'none'), /finish:/);
+    assert.doesNotMatch(writeFrontMatter(PLAIN, 'lift', false), /lift:/);
+  });
+});
