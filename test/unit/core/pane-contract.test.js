@@ -87,32 +87,94 @@ test('splitPaneMarkdown finds the two panes, and never a marker inside a fence',
   assert.equal(spec.splitPaneMarkdown('## T\n\n<!-- pane: list -->\n\n- a\n'), null);
 });
 
-test('the linter finds exactly the panes the carve renders, on every block-level edge case', () => {
-  // The carve reads parsed tokens; the linter reads lines. Each case is rendered through the
-  // engine and the two must name the same panes — or both none. A marker inside a nested
-  // fence, a list item, an HTML block, a blockquote or an indented code block is not a pane.
+// The carve reads markdown-it's parsed tokens; the linter reads lines, running the part of
+// CommonMark's block structure that decides whether a marker is a top-level HTML block
+// (lib/core/pane-spec.js splitPaneMarkdown). Both must name the same panes on every slide.
+function paneAgreement() {
   const e = createEngine();
   e.addThemes([{ name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8') }]);
-  const it = items(3);
+  const { splitTopLevel } = require('../../../lib/authoring/slide-split');
+  return (md) => {
+    const carved = [...e.render(md).html.matchAll(/<lat-pane class="[^"]*" data-pane="([^"]*)"/g)].map((m) => m[1]);
+    const linted = splitTopLevel(md).flatMap((sl) => spec.splitPaneMarkdown(sl)?.panes.map((p) => p.cls) || []);
+    return { carved, linted };
+  };
+}
+
+test('the linter finds exactly the panes the carve renders: every edge case the reviews found', () => {
+  // A marker inside a nested fence, a list item, any of the seven HTML block types, a
+  // blockquote or indented code (tabs included) is not a pane; one after inline HTML, a
+  // paragraph a type-7 tag cannot interrupt, or a list that ended is.
+  const agree = paneAgreement();
+  const it = '- a\n- b\n- c';
+  const P = '<!-- pane: list -->';
+  const Q = '<!-- pane: content -->';
   const cases = {
-    plain: `<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
-    indent3: `   <!-- pane: list -->\n\n${it}\n\n   <!-- pane: content -->\n\nx`,
-    indent4: `    <!-- pane: list -->\n\n${it}\n\n    <!-- pane: content -->\n\nx`,
-    inList: `- lead\n\n  <!-- pane: list -->\n\n${it}\n\n  <!-- pane: content -->\n\n  x`,
-    inHtml: `<div>\n<!-- pane: list -->\n</div>\n\n${it}\n\n<div>\n<!-- pane: content -->\n</div>\n\nx`,
-    quote: `> <!-- pane: list -->\n\n${it}\n\n> <!-- pane: content -->\n\nx`,
-    tildeFence: `~~~\n<!-- pane: kpi -->\n~~~\n\n<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
-    nestedFence: `\`\`\`\`md\n\`\`\`\n<!-- pane: kpi -->\n\`\`\`\n<!-- pane: kpi -->\n\`\`\`\`\n\n<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
-    crlf: `<!-- pane: list -->\r\n\r\n${it.replace(/\n/g, '\r\n')}\r\n\r\n<!-- pane: content -->\r\n\r\nx`,
-    afterParagraph: `lead text\n<!-- pane: list -->\n\n${it}\n\n<!-- pane: content -->\n\nx`,
+ ord1paren:`1) lead\n   ${P}\n\n${it}\n\n${Q}\n\nx`,
+ ord10:`10. lead\n    ${P}\n\n${it}\n\n${Q}\n\nx`,
+ ord10_3sp:`10. lead\n   ${P}\n\n${it}\n\n${Q}\n\nx`,
+ nested:`- a\n  - b\n    ${P}\n\n${it}\n\n${Q}\n\nx`,
+ nested2:`- a\n  - b\n  ${P}\n\n${it}\n\n${Q}\n\nx`,
+ listThenCol0NoBlank:`- a\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ listThenCol0Blank:`- a\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ listThenIndent1:`- a\n ${P}\n\n${it}\n\n${Q}\n\nx`,
+ paraThen2dot:`lead\n2. foo\n   ${P}\n\n${it}\n\n${Q}\n\nx`,
+ paraThenEmptyItem:`lead\n-\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ wideSpaceItem:`-     code\n  ${P}\n\n${it}\n\n${Q}\n\nx`,
+ script:`<script>\n\n${P}\n</script>\n\n${it}\n\n${Q}\n\nx`,
+ pre:`<pre>\n\n${P}\n</pre>\n\n${it}\n\n${Q}\n\nx`,
+ style:`<style>\n\n${P}\n</style>\n\n${it}\n\n${Q}\n\nx`,
+ mlcomment:`<!-- note\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ mlcomment2:`<!--\nstuff\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ php:`<?php\n\n${P}\n?>\n\n${it}\n\n${Q}\n\nx`,
+ cdata:`<![CDATA[\n\n${P}\n]]>\n\n${it}\n\n${Q}\n\nx`,
+ doctype:`<!DOCTYPE x\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ custom7paraInterrupt:`lead\n<custom-el>\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ inlineSpan:`<span>hi</span> there\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ boldLine:`<b>Note</b>\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ tab:`\t${P}\n\n${it}\n\n\t${Q}\n\nx`,
+ tab2:`  \t${P}\n\n${it}\n\n${Q}\n\nx`,
+ fenceInListThenCol0:`- a\n  \`\`\`\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ fenceInListClosed:`- a\n  \`\`\`\n  ${P}\n  \`\`\`\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ fenceListEnd:`- a\n\n  \`\`\`\n  x\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ blockquoteFence:`> \`\`\`\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ panesInHtml:`<div>\n<!-- panes: stack -->\n</div>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ panesInPre:`<pre>\n\n<!-- panes: stack -->\n</pre>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ htmlThenListItem:`<div>\n- a\n\n  ${P}\n\n${it}\n\n${Q}\n\nx`,
+ unclosedFence:`\`\`\`\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ fenceCloseIndent4:`\`\`\`\n    \`\`\`\n${P}\n\`\`\`\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ table:`| a |\n|---|\n| ${P} |\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ setext:`${P}\n===\n\n${it}\n\n${Q}\n\nx`,
+ closeDiv:`</div>\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ htmlCloseTagInline:`lead\n</custom>\n${P}\n\n${it}\n\n${Q}\n\nx`,
   };
   for (const [name, body] of Object.entries(cases)) {
-    const slideMd = `## Heading.\n\n${body}\n`;
-    const html = e.render(slideMd).html;
-    const carved = [...html.matchAll(/<lat-pane class="[^"]*" data-pane="([^"]*)"/g)].map((m) => m[1]);
-    const linted = spec.splitPaneMarkdown(slideMd)?.panes.map((p) => p.cls) || [];
+    const { carved, linted } = agree(`## Heading.\n\n${body}\n`);
     assert.deepEqual(linted, carved, name);
   }
+});
+
+test('the linter finds exactly the panes the carve renders: 400 seeded random slides', () => {
+  const agree = paneAgreement();
+  let seed = 20260926;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  const frags = ['', '', 'text line', '- item', '  - nested', '1. first', '2) second', '10. ten', '-', '*    wide',
+    '  continued', '```', '~~~', '````md', '  ```', '<div>', '</div>', '<pre>', '</pre>', '<!-- note', '-->', '<?php',
+    '?>', '<custom-el>', '<span>x</span> y', '<b>b</b>', '> quote', '    indented', '\tTabbed', '  \ttab2', '***',
+    '<!-- pane: list -->', '<!-- pane: list -->', '  <!-- pane: list -->', '    <!-- pane: kpi -->', '<!-- pane: content -->',
+    '<!-- pane: content -->', '<!-- panes: stack -->', '<![CDATA[', ']]>', '<script>', '</script>', '| a | b |', '|---|---|'];
+  let withPanes = 0;
+  for (let t = 0; t < 400; t++) {
+    const lines = Array.from({ length: 4 + Math.floor(rnd() * 10) }, () => frags[Math.floor(rnd() * frags.length)]);
+    const md = `## H\n\n${lines.join('\n')}\n`;
+    const { carved, linted } = agree(md);
+    if (carved.length) withPanes++;
+    assert.deepEqual(linted, carved, JSON.stringify(lines));
+  }
+  assert.ok(withPanes >= 20, `only ${withPanes} slides carried panes — the generator stopped exercising the carve`);
 });
 
 test('a pane smaller than its basis scales its budget down, and a larger one never up', () => {
