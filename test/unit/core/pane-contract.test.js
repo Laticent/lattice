@@ -36,13 +36,15 @@ test('every built-in component decides how it behaves in a pane', () => {
   }
 });
 
-test('the pane catalog is exactly the manifests\' fit, form and stack', () => {
-  assert.deepEqual(Object.keys(CATALOG).sort(), MANIFESTS.map((m) => m.name).sort());
+test('the pane catalog is exactly the manifests\' fit, form and stack (default rows left out)', () => {
   for (const m of MANIFESTS) {
-    const row = CATALOG[m.name];
-    assert.equal(row.fit, m.pane.fit, m.name);
-    assert.equal(row.form, m.pane.form, m.name);
-    assert.equal(row.stack, m.pane.stack, m.name);
+    // What the carve reads — a missing row is the default `half` that stacks.
+    assert.deepEqual(spec.specOf(CATALOG, m.name), { fit: m.pane.fit, stack: m.pane.stack !== false }, m.name);
+    assert.equal(panes.paneForm(m.name), m.pane.form || m.name, m.name);
+  }
+  // No row restates the default.
+  for (const [name, row] of Object.entries(CATALOG)) {
+    assert.ok(row.fit !== 'half' || row.form || row.stack === false, `${name} restates the default`);
   }
 });
 
