@@ -26,6 +26,7 @@ vi.mock('@/components/DeckPreview', async () => {
 	};
 });
 
+import { _clearPosters, posterKey, posterWidth, putPoster } from '@/lib/poster-cache';
 import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PooledThumbFace, PreviewPool, RELEASE_GRACE } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
@@ -648,5 +649,57 @@ describe('PooledThumbFace — the tile box', () => {
 		settle();
 		expect(spec.container.querySelector('[data-testid="deck-preview"]')?.getAttribute('data-specimen'), 'a catalog specimen was not silenced').toBe('yes');
 		spec.unmount();
+	});
+});
+
+// ── POSTERS (lib/poster-cache.ts) ────────────────────────────────────────────────────
+// A tile that has rendered before shows an image of itself and takes NO frame, which is what
+// stops a surface that closes and reopens from minting a fresh set of documents every time —
+// the WebKit cost the pool alone could not reach. The capture itself needs a real browser and is
+// verified there; these pin the pool's side of the contract.
+describe('PreviewPool — posters', () => {
+	const keyFor = (i: number) => posterKey({ options: { themeBase: '', runtimeUrl: '', engineUrl: '' }, sample: `# ${i}`, specimen: false }, posterWidth(200));
+	let created = 0;
+	beforeEach(() => {
+		_clearPosters();
+		created = 0;
+		URL.createObjectURL = () => `blob:poster-${++created}`;
+		URL.revokeObjectURL = () => {};
+	});
+	afterEach(() => _clearPosters());
+
+	it('a tile with a poster shows the image and takes no frame', () => {
+		putPoster(keyFor(0), new Blob(['x'], { type: 'image/webp' }));
+		const { container, unmount } = render(<Grid n={2} />);
+		intersect(face(container, 0), true);
+		intersect(face(container, 1), true);
+		settle();
+		// Tile 0 had a poster: an <img>, and the pool gave its frame to tile 1 alone.
+		expect(container.querySelector('[data-testid="tile-0"] img')?.getAttribute('src')).toMatch(/^blob:poster-/);
+		expect(showing(container)).toEqual(['# 1']);
+		unmount();
+	});
+
+	it('a poster landing for a live tile releases its slot without destroying the frame', () => {
+		const { container, unmount } = render(<Grid n={1} />);
+		intersect(face(container, 0), true);
+		settle();
+		expect(showing(container)).toEqual(['# 0']);
+		act(() => putPoster(keyFor(0), new Blob(['x'], { type: 'image/webp' })));
+		settle();
+		expect(container.querySelector('[data-testid="tile-0"] img')).not.toBeNull();
+		// The slot is emptied, not unmounted: its document stays alive for the next tile.
+		expect(unmounts, 'a slot was torn down when its tile switched to a poster').toBe(0);
+		unmount();
+	});
+
+	it('a different sample is a different key, so a stale poster is never shown', () => {
+		putPoster(keyFor(7), new Blob(['x'], { type: 'image/webp' }));
+		const { container, unmount } = render(<Grid n={1} />);
+		intersect(face(container, 0), true);
+		settle();
+		expect(container.querySelector('[data-testid="tile-0"] img')).toBeNull();
+		expect(showing(container)).toEqual(['# 0']);
+		unmount();
 	});
 });
