@@ -2276,7 +2276,7 @@ export function sparkUnit(el: Element): { unit: Element[]; axis: string; context
 		// line as quiet context. Widening it to the series lit the whole line on "Q1 2026, four point
 		// one", which read as the same gesture again rather than the point being read.
 		if (attr === 'data-series' && el.matches('circle[data-series][data-label]')) {
-			const line = [...chart.querySelectorAll(`:is(path, polyline, line)[data-series="${v}"]`)].filter((m) => !m.closest('template') && !m.classList.contains('line-hit'));
+			const line = [...chart.querySelectorAll(`:is(path, polyline, line)[data-series="${v}"]`)].filter((m) => !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
 			return { unit: [el], axis: 'point', context: line };
 		}
 		const unit = [...chart.querySelectorAll(sel)].filter((m) => m.getAttribute(attr) === v && !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
@@ -2312,11 +2312,10 @@ export function sparkUnit(el: Element): { unit: Element[]; axis: string; context
 
 export type SparkLook = { tone?: 'accent' | 'muted'; pulse?: boolean; fade?: number };
 
-/** Which spark set a document's wash last — the only one allowed to clear it. */
-const washOwner = new WeakMap<Document, object>();
+/** Every live wash in a document, by the spark that owns it: a lingering spark keeps its wash
+ *  while the next one lights, and each clears only its own. */
+const washes = new WeakMap<Document, Map<object, Range[]>>();
 
-/** A fade-out's pending clear, per element, so a spark that returns before it ends keeps it. */
-const pendingClear = new WeakMap<Element, number>();
 
 /** An SVG area mark whose fill must stay: one with text laid over it (a heatmap value, a state
  *  node's name), or a translucent one (radar's area). Filling either with ink hid what it carries,
@@ -2358,7 +2357,6 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 	const view = el.ownerDocument?.defaultView;
 	const kept: HTMLElement[] = [];
 	for (const e of found.unit) {
-		if (view) view.clearTimeout(pendingClear.get(e));
 		// A card whose nested list is not being said keeps that list in the ink it had — read
 		// BEFORE the class lands, while the element still paints its own ink.
 		if (view && e instanceof view.HTMLElement && e.matches('li') && e.querySelector('ul, ol')) {
@@ -2381,13 +2379,9 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 			return r;
 		});
 	const washToken = {};
-	if (washes.length) {
-		setWash(section.ownerDocument, washes);
-		washOwner.set(section.ownerDocument, washToken);
-	}
+	if (washes.length) setWash(section.ownerDocument, washToken, washes);
 	const context = found.context ?? [];
 	for (const e of context) {
-		if (view) view.clearTimeout(pendingClear.get(e));
 		e.classList.add('lat-spark-context');
 	}
 	let done = false;
@@ -2401,8 +2395,8 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 			e.classList.add('lat-spark-out');
 		}
 		const clear = () => {
-			// Only the spark that set the wash may clear it: a later spark's wash is not ours to end.
-			if (washes.length && washOwner.get(section.ownerDocument) === washToken) setWash(section.ownerDocument, null);
+			// Each spark owns its own wash, so a lingering one keeps its wash until its own clear.
+			if (washes.length) setWash(section.ownerDocument, washToken, null);
 			for (const e of found.unit) {
 				// A later spark on the same element took it back; its state is no longer ours to end.
 				if (e.classList.contains('lat-spark')) continue;
@@ -2411,8 +2405,10 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 			}
 		};
 		if (!view) return clear();
-		const t = view.setTimeout(clear, fade + 40);
-		for (const e of found.unit) pendingClear.set(e, t);
+		// No timer is ever cancelled: `clear` skips any element a later spark took back. Cancelling
+		// one shared timer when a single element returned left the REST of the unit lingering for
+		// good — a series walked to one dot kept its whole line lit (checker, 2026-09-26).
+		view.setTimeout(clear, fade + 40);
 	};
 }
 
@@ -2441,19 +2437,55 @@ export function wordRangeIn(el: Element, words: readonly string[], k: number): R
 	const nodes: { node: Text; start: number }[] = [];
 	let text = '';
 	for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-		if (n.parentElement?.closest(UNPAINTED)) continue;
+		// Only the text the spark lights: never an unpainted payload, never a card's nested list
+		// (the wash ends before it, so the read-along must too).
+		const parent = n.parentElement;
+		if (parent?.closest(UNPAINTED)) continue;
+		if (parent && parent !== el && parent.closest('ul, ol') && el.contains(parent.closest('ul, ol'))) continue;
 		nodes.push({ node: n as Text, start: text.length });
 		text += (n as Text).data;
 	}
 	const hay = text.toLowerCase();
-	// Anchor on the first word the element holds, so the walk starts where the sentence does.
-	let at = 0;
+	const isWordChar = (c: string | undefined) => !!c && /[\p{L}\p{N}]/u.test(c);
+	// A whole-word hit: nothing word-like on EITHER side, so "North" never lands inside "Northeast".
+	const find = (w: string, from: number): number => {
+		for (let j = hay.indexOf(w, from); j !== -1; j = hay.indexOf(w, j + 1)) {
+			if (!isWordChar(hay[j - 1]) && !isWordChar(hay[j + w.length])) return j;
+		}
+		return -1;
+	};
+	const bare = words.map(bareWord);
+	// ANCHOR on where this sentence starts: the first position whose next spoken words follow it
+	// in order. A paragraph's second sentence otherwise found its first word in the first sentence.
+	let from = 0;
+	const lead = bare.findIndex(Boolean);
+	if (lead !== -1) {
+		for (let j = find(bare[lead], 0); j !== -1; j = find(bare[lead], j + 1)) {
+			let at = j + bare[lead].length;
+			let ok = true;
+			for (const w of bare.slice(lead + 1, lead + 3)) {
+				if (!w) continue;
+				const q = find(w, at);
+				// The very next word: only spaces or punctuation between, never another word.
+				if (q === -1 || /[\p{L}\p{N}]/u.test(hay.slice(at, q))) {
+					ok = false;
+					break;
+				}
+				at = q + w.length;
+			}
+			if (ok) {
+				from = j;
+				break;
+			}
+		}
+	}
+	let at = from;
 	let hit: [number, number] | null = null;
 	for (let i = 0; i <= k; i++) {
-		const w = bareWord(words[i]);
+		const w = bare[i];
 		if (!w) continue;
-		let j = hay.indexOf(w, at);
-		while (j !== -1 && !(j === 0 || !/[\p{L}\p{N}]/u.test(hay[j - 1]))) j = hay.indexOf(w, j + 1);
+		const j = find(w, at);
+		// A word the element lacks is skipped rather than ending the walk.
 		if (j === -1) continue;
 		if (i === k) hit = [j, j + w.length];
 		at = j + w.length;
@@ -2492,9 +2524,14 @@ export function setSaid(doc: Document | null | undefined, range: Range | null): 
 	setHighlight(doc, 'lat-said', range ? [range] : null);
 }
 
-/** The spark's wash behind the words of the sparked text, or clear it (null). */
-function setWash(doc: Document | null | undefined, ranges: Range[] | null): void {
-	setHighlight(doc, 'lat-spark-wash', ranges);
+/** Set (or clear, null) one spark's wash behind its words, and repaint every live one. */
+function setWash(doc: Document | null | undefined, owner: object, ranges: Range[] | null): void {
+	if (!doc) return;
+	let live = washes.get(doc);
+	if (!live) washes.set(doc, (live = new Map()));
+	if (ranges) live.set(owner, ranges);
+	else live.delete(owner);
+	setHighlight(doc, 'lat-spark-wash', [...live.values()].flat());
 }
 
 /**

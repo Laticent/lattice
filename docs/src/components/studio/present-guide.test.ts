@@ -490,6 +490,42 @@ describe('the walk, the point and the read-along (owner, 2026-09-26)', () => {
 	});
 });
 
+describe('the checker round on the walk and the read-along (#2393)', () => {
+	it('clears a series after the walk moves to one of its dots', () => {
+		vi.useFakeTimers();
+		try {
+			document.body.innerHTML = `<section><div class="chart-body"><svg><path class="line-path" data-series="0"/>
+				<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2" data-value="4.4"/></svg></div></section>`;
+			const [dot] = [...document.querySelectorAll('circle')];
+			sparkContent(document.querySelector('path') as Element, { fade: 300 })?.();
+			sparkContent(dot, { fade: 300 })?.();
+			vi.advanceTimersByTime(1000);
+			expect(document.querySelectorAll('.lat-spark, .lat-spark-out, .lat-spark-context').length).toBe(0);
+		} finally {
+			vi.useRealTimers();
+			document.body.innerHTML = '';
+		}
+	});
+
+	it('matches whole words only, and anchors on the sentence being read', () => {
+		const d = doc('<p>Northeast grew. North fell hard. North then recovered.</p>');
+		const p = d.querySelector('p') as Element;
+		expect(wordRangeIn(p, ['North', 'fell', 'hard.'], 0)?.toString()).toBe('North');
+		const r = wordRangeIn(p, ['North', 'then', 'recovered.'], 0) as Range;
+		const before = d.createRange();
+		before.setStart(p, 0);
+		before.setEnd(r.startContainer, r.startOffset);
+		expect(before.toString()).toBe('Northeast grew. North fell hard. ');
+	});
+
+	it('never reads along inside a card\'s nested list', () => {
+		const d = doc('<ul><li>Churn doubled<ul><li>the team has a plan</li></ul></li></ul>');
+		const card = d.querySelector('li') as Element;
+		expect(wordRangeIn(card, ['Churn', 'has', 'doubled.'], 1)).toBeNull();
+		expect(wordRangeIn(card, ['Churn', 'has', 'doubled.'], 2)?.toString()).toBe('doubled');
+	});
+});
+
 describe('isAside — which empty sentences the hand holds through', () => {
 	it('holds through a short aside and leaves on commentary the slide does not carry', () => {
 		expect(isAside('Thank you.')).toBe(true);

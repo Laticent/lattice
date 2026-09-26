@@ -1022,6 +1022,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			guideStageRef.current = null;
 			guideShownRef.current = false;
 			guideAimRef.current = null; // the next run starts with no "last named thing" to rest on
+			guideWalkRef.current = null; // a walk belongs to the Guide run that planned it
 			unmarkGuide(); // a mark must not outlive the Guide that made it
 			setGuideAiming(false); // no stage, nothing aimed — and the real pointer comes straight back
 			stage.destroy();
@@ -1223,23 +1224,26 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// THE READ-ALONG (owner, 2026-09-26). Inside a sparked TEXT element, the word being spoken
 	// lights, on the caption's own clock, so the slide, the caption and the voice agree. Only the
 	// sparked element reads along — never the whole slide — and a chart mark has no words to read.
-	// Somber turns it off (`readAlong: false`): a moving highlight is the motion it refuses.
+	// Somber turns it off (`wordSpark: false`): a moving highlight is the motion it refuses.
 	const saidCue = reader.active?.cueIndex ?? -1;
 	const saidWord = reader.active?.wordIndex ?? -1;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the active word IS the trigger; the refs are read at fire time on purpose.
 	React.useEffect(() => {
 		const el = guideAimRef.current;
 		const doc = el?.ownerDocument ?? null;
-		if (!guideLive || !delivery.readAlong || !guideMarkRef.current || !el || el.closest('svg') || saidCue < 0 || saidWord < 0) {
+		if (!guideLive || !delivery.wordSpark || !guideMarkRef.current || !el || el.closest('svg') || saidCue < 0 || saidWord < 0) {
 			setSaid(guideSaidDocRef.current, null);
 			return;
 		}
 		const words = reader.track.cues[saidCue]?.words.map((w) => w.display) ?? [];
-		const range = wordRangeIn(el, words, saidWord);
+		// A row spark lights every cell, so the words are looked for across the row, not in the one
+		// cell the aim happened to land on.
+		const scope = sparkUnit(el)?.axis === 'row' ? (el.closest('tr') ?? el) : el;
+		const range = wordRangeIn(scope, words, saidWord);
 		if (guideSaidDocRef.current && guideSaidDocRef.current !== doc) setSaid(guideSaidDocRef.current, null);
 		guideSaidDocRef.current = doc;
 		setSaid(doc, range);
-	}, [saidCue, saidWord, guideLive, delivery.readAlong]);
+	}, [saidCue, saidWord, guideLive, delivery.wordSpark]);
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
 	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),
