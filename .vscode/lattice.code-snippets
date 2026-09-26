@@ -385,6 +385,23 @@
     ],
     "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions."
   },
+  "lattice: hub-spoke": {
+    "prefix": "lattice-hub-spoke",
+    "body": [
+      "<!-- _class: hub-spoke -->",
+      "",
+      "`Eyebrow · context`",
+      "",
+      "## What the structure shows.",
+      "",
+      "- Hub",
+      "  - First satellite",
+      "  - Second satellite `at-risk`",
+      "  - Third satellite",
+      "  - Fourth satellite"
+    ],
+    "description": "Hub and spoke — one center, its satellites, and what flows between them."
+  },
   "lattice: image": {
     "prefix": "lattice-image",
     "body": [

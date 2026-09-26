@@ -65,6 +65,8 @@ const SLIDES = {
   funnel: '## F.\n\n- Visitors `12000`\n- Signups `4800`\n- Paid `1200`\n',
   piechart: '## P.\n\n- Alpha `46`\n- Beta `32`\n- Gamma `22`\n',
   radar: '## R.\n\n- Meridian\n  - Speed `8`\n  - Cost `6`\n  - Care `7`\n',
+  'hub-spoke': '## HS.\n\n- Program office\n  - Onboarding `at-risk`\n  - Governance\n  - Branch network\n',
+  'hub-spoke tiered': '## HT.\n\n- Platform org\n  - Payments\n    - Acquiring\n    - Fraud `blocked`\n  - Data\n    - Warehouse\n',
   quadrant: '`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q.\n\n- Bets\n  - Scoring v2 `3, 70`\n'
     + '- Wins\n  - Weekly brief `8, 40`\n- Defer\n  - Weighting UI `4, 55`\n- Sinks\n  - Exports `2, 20`\n',
   gantt: '`Q1 2025 - Q4 2025`\n\n## G.\n\n- Build\n  - Kernel `Q1-Q2`\n  - Ship `Q3-Q4`\n',

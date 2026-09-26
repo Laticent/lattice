@@ -1,0 +1,274 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "hub-spoke",
+  "focusAxes": [
+    "mark"
+  ],
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "hub",
+      "satellites",
+      "detail"
+    ]
+  },
+  "function": "evidence",
+  "bucket": "chart",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "renderNote": "The hub, the satellites, the connectors, the arrowheads, the halos, the labels and the group key are all one `<svg>`. Connectors are filled bands rather than strokes, so a flow class can step their width without a finish or an export flattening it, and the key band sits inside the same viewBox so a swatch can never drift from the satellites it names.",
+  "kernel": {
+    "figureClass": "hub-spoke-figure",
+    "marks": [
+      {
+        "class": "hub-spoke-node",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "hub-spoke-leaf",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "hub-spoke-neck",
+        "paint": "fill",
+        "encodes": "presence",
+        "bears": false
+      },
+      {
+        "class": "hub-spoke-twig",
+        "paint": "fill",
+        "encodes": "presence",
+        "bears": false
+      },
+      {
+        "class": "hub-spoke-halo",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "hub-spoke-arrow",
+        "paint": "fill",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "chart-key-swatch",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each satellite connects to the hub by one spoke, with its value printed beside it",
+    "figure": "svg",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "tags": [
+    "ownership",
+    "status",
+    "strategy",
+    "overview",
+    "proportion"
+  ],
+  "description": "Hub and spoke — one center, its satellites, and what flows between them.",
+  "purpose": "Use bar or stacked-bar instead when the claim is a ranking or a share: a length or a stacked segment compares values far better than a disc does. Use hub-spoke when the claim is the STRUCTURE — one center and what hangs off it (a program office and its workstreams, a platform and its partners, a distribution center and its regions) — with the values printed beside each satellite. Satellites are neutral unless you group them; a status pill (`at-risk`, `blocked`) marks its own spoke; `sized` scales disc area and `flow-out` / `flow-in` / `flow-both` step connector weight, only when you ask.",
+  "variants": [
+    "sized",
+    "flow-out",
+    "flow-in",
+    "flow-both",
+    "tiered"
+  ],
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading naming the takeaway the structure shows."
+    },
+    "hub": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "Exactly ONE top-level item: the hub. Its name prints inside the hub disc; an optional value pill (`$48M`, `12,000`) prints under it. A second top-level item is not drawn (lint `hub-spoke-extra-hub`), and a status pill on the hub is ignored (lint `hub-spoke-hub-status`)."
+    },
+    "satellites": {
+      "selector": "li > ul > li",
+      "required": true,
+      "description": "The hub's nested items, one per satellite, drawn clockwise from about one o'clock (at most 12; `tiered`: at most 6 branches). Pills after the name, in any order: at most ONE value (`$18M`, `62%`, `3,600` — the family value test), a status word (`at-risk`, `blocked`, `on-track`, `live`…) that marks that spoke only, `flow:in` / `flow:out` / `flow:both` for that spoke's arrowhead, and any other word as the satellite's GROUP (up to 6 groups get a hue and a key)."
+    },
+    "detail": {
+      "selector": "li > ul > li > ul",
+      "required": false,
+      "description": "Optional nested sublist under a satellite (under a LEAF with `tiered`, one level deeper). Drives the shared chart-family detail substrate: the Present/Practice popover on the satellite's disc, and a speaker-note line in the static PDF, with the chart pixels unchanged. Detail sublists must be bullet (`-`/`*`) lists."
+    }
+  },
+  "skeleton": "<!-- _class: hub-spoke -->\n\n`Eyebrow · context`\n\n## What the structure shows.\n\n- Hub\n  - First satellite\n  - Second satellite `at-risk`\n  - Third satellite\n  - Fourth satellite\n",
+  "anatomyBlock": "hub-spoke-canvas",
+  "sample": "<!-- _class: hub-spoke -->\n\n`Transformation program · Workstream status · Q3`\n\n## Two of six workstreams are off track.\n\n- Program office\n  - Customer onboarding\n  - Core platform migration `at-risk`\n    - Cutover slipped from August to October\n    - Vendor data mapping is 60% complete\n  - Data governance\n  - Vendor consolidation `blocked`\n    - Waiting on the procurement freeze to lift\n  - Branch network\n  - Workforce reskilling\n",
+  "stressDoc": {
+    "summary": "Twelve satellites in four groups — the cap.",
+    "sample": "<!-- _class: hub-spoke -->\n\n`Partner ecosystem · By capability`\n\n## Stress test — twelve partners across four capabilities, three apiece.\n\n- Lattice platform\n  - Northwind Data `Data`\n  - Quarry Analytics `Data`\n  - Lumen Warehouse `Data`\n  - Halcyon Pay `Payments`\n  - Arbor Identity `Payments`\n  - Ledgerline `Payments`\n  - Beacon Retail `Distribution`\n  - Keel Logistics `Distribution`\n  - Harbor Freight Co `Distribution`\n  - Tessera Cloud `Infrastructure`\n  - Stratus Edge `Infrastructure`\n  - Pylon Networks `Infrastructure`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "The structure is the claim",
+      "body": "A program office and its workstreams, a platform and its partners, a hub warehouse and the regions it serves. Six to eight satellites read best; twelve is the cap."
+    },
+    {
+      "title": "Status on a structure",
+      "body": "Mark the off-track spokes with a status pill (`at-risk`, `blocked`). Only those spokes change: a halo, a heavier edge, the state color and the spoken word. Nothing else recedes, so the rest of the structure still reads."
+    },
+    {
+      "title": "Concentration, with the number printed",
+      "body": "Add `sized` to scale disc AREA by value and print each share beside its disc (`28%`). Area comparison is weak, so the printed number carries the claim; past eight satellites use `bar`."
+    },
+    {
+      "title": "What flows to and from a center",
+      "body": "Add `flow-out`, `flow-in` or `flow-both` to draw arrowheads and step the connector weight by value in four classes. Mark an exception on one spoke with a `flow:in` pill."
+    },
+    {
+      "title": "Two levels, kept small",
+      "body": "Add `tiered` to hang leaves off each satellite: up to 6 branches and 18 leaves. Each branch takes its own hue, so the branch is the group."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "A ranking or a share",
+      "body": "If the point is who is biggest, or how a total splits, use `bar` or `stacked-bar`. A length compares far better than a disc, and `sized` is a supporting cue here, not the evidence."
+    },
+    {
+      "title": "A network, not a star",
+      "body": "Hub-spoke draws one center and its spokes. If the satellites connect to each other, or there are several centers, use `diagram` (Mermaid) for the graph."
+    },
+    {
+      "title": "A hue per satellite",
+      "body": "Satellites are neutral on purpose: each one has its name beside it, so a color per satellite adds nothing and past six it invents false groups. Group them with a pill only when the grouping is part of the claim."
+    },
+    {
+      "title": "A process in order",
+      "body": "Steps that happen one after another are a sequence, not a hub. Use `list-steps`, `funnel` or `timeline-list`."
+    }
+  ],
+  "related": [
+    {
+      "name": "bar",
+      "when": "the claim is a ranking — lengths compare better than areas"
+    },
+    {
+      "name": "stacked-bar",
+      "when": "the claim is how one total splits into shares"
+    },
+    {
+      "name": "piechart",
+      "when": "three to six shares of one whole, and the proportion is the story"
+    },
+    {
+      "name": "diagram",
+      "when": "the satellites connect to each other, or there is more than one center"
+    },
+    {
+      "name": "state-chart",
+      "when": "the arrows are transitions between states, not flows to a center"
+    }
+  ],
+  "variantDocs": {
+    "sized": {
+      "label": "sized",
+      "summary": "Disc area carries each value.",
+      "sample": "<!-- _class: hub-spoke sized -->\n\n`FY2026 · Partner channel revenue · share of $120M`\n\n## Two partners carry half of channel revenue.\n\n- Channel revenue `$120M`\n  - Atlas Distribution `28%`\n  - Keystone Resellers `22%`\n  - Northgate Systems `18%`\n  - Brightline Retail `13%`\n  - Summit Online `11%`\n  - Harborview Telecom `8%`\n"
+    },
+    "flow-out": {
+      "label": "flow-out",
+      "summary": "Arrowheads and stepped connector weight.",
+      "sample": "<!-- _class: hub-spoke flow-out -->\n\n`Memphis distribution center · Pallets per week`\n\n## The Northeast and Southeast take over half of outbound volume.\n\n- Memphis DC `12,000`\n  - Northeast `3,600`\n  - Southeast `3,100`\n  - Midwest `2,400`\n  - Southwest `1,700`\n  - West `1,200`\n  - Returns center `400` `flow:in`\n"
+    },
+    "flow-in": {
+      "label": "flow-in",
+      "summary": "Heads point at the hub.",
+      "sample": "<!-- _class: hub-spoke flow-in -->\n\n`Data platform · Records ingested per day`\n\n## Billing and the web store send two thirds of what the lake takes in.\n\n- Data lake `45M`\n  - Billing `16M`\n  - Web store `14M`\n  - Mobile app `8M`\n  - Call center `4M`\n  - Partner feeds `3M`\n"
+    },
+    "flow-both": {
+      "label": "flow-both",
+      "summary": "Two-way flow on every spoke.",
+      "sample": "<!-- _class: hub-spoke flow-both -->\n\n`Shared services · Tickets per month`\n\n## Finance and HR trade the most work with the service desk.\n\n- Service desk `9,400`\n  - Finance `2,900`\n  - HR `2,600`\n  - Facilities `1,500`\n  - Legal `1,300`\n  - Procurement `1,100`\n"
+    },
+    "tiered": {
+      "label": "tiered",
+      "summary": "Branches, with leaves off each one.",
+      "sample": "<!-- _class: hub-spoke tiered -->\n\n`Platform organization · Service ownership · 2026`\n\n## Four platform teams own eleven services; two are in trouble.\n\n- Platform org\n  - Payments\n    - Card issuing\n    - Acquiring\n    - Fraud scoring `at-risk`\n  - Data\n    - Warehouse\n    - Streaming\n    - ML platform\n  - Identity\n    - Login\n    - Consent\n  - Core banking\n    - Ledger `blocked`\n    - Accounts\n    - Statements\n"
+    }
+  },
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The structure is the claim and the values, if any, are subtext: every satellite prints its name, value and status, and nothing scales."
+    },
+    {
+      "variant": "sized",
+      "useWhen": "Each value belongs to its satellite (revenue per partner, headcount per team) and concentration is part of the story. Every satellite needs a positive value in one unit, at most 8 of them. Print shares when the comparison matters."
+    },
+    {
+      "variant": "flow-out",
+      "useWhen": "The value moves FROM the hub along each spoke (shipments out, budget allocated). Heads point at the satellites and connector weight steps by value in four classes."
+    },
+    {
+      "variant": "flow-in",
+      "useWhen": "The value moves TO the hub (feeds in, revenue collected). Heads point at the hub."
+    },
+    {
+      "variant": "flow-both",
+      "useWhen": "The value is traded both ways along every spoke (tickets raised and resolved)."
+    },
+    {
+      "variant": "tiered",
+      "useWhen": "Each satellite has its own small set of children that belong on the slide: up to 6 branches and 18 leaves. Values print but do not scale."
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Two top-level items, or the satellites written at the top level.",
+      "fix": "Write ONE top-level item (the hub) and nest every satellite under it."
+    },
+    {
+      "mistake": "A group name that starts with a digit (`3PL`, `5G`).",
+      "fix": "The family reads a pill that starts with a digit as a value. Spell the group out (`Third-party logistics`, `Cellular`)."
+    },
+    {
+      "mistake": "A group named with a status word (`Live`, `Pilot`, `Done`).",
+      "fix": "Status words mark a spoke's state and paint a state color. Name groups with other words."
+    },
+    {
+      "mistake": "Two value pills on one satellite (`$18M` `28%`).",
+      "fix": "A spoke prints ONE value. Put the second figure in the satellite's detail sublist."
+    },
+    {
+      "mistake": "`sized` with a missing, zero or negative value, or values in two units.",
+      "fix": "Sizing needs every satellite to carry a positive value in one unit; otherwise it switches off and the linter says why."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Author satellites in the order you want them read: the first sits at about one o'clock and the rest run clockwise.",
+    "Keep satellite names short — up to 40 characters at seven spokes, 22 at twelve (20 or fewer on a portrait deck). A name wraps and never truncates. The linter also totals the rows the labels print (name lines, values, statuses): past 22 rows, or 24 at twelve spokes, `hub-spoke-crowded` warns that labels may fall back to a column with leaders.",
+    "With `tiered`, keep leaf names to 14 characters and branch names to 16, and stay at 14 leaves or fewer for a layout the linter treats as proven; the kernel still draws up to 18. When a branch name has no clear lane beside its disc, the branch names move into a key band under the figure.",
+    "Keep the hub name under about 40 characters and its value under 12. The hub never outgrows three times the largest satellite; long text shrinks instead, and past the smallest type the linter flags it.",
+    "Satellite values under `sized` should share one unit and be positive; the hub value is not drawn to scale, and the linter warns only when the satellites add up to MORE than the hub."
+  ],
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "specimenVoice": true
+}

@@ -343,6 +343,17 @@ section.piechart .chart-key-swatch[data-hue="3"] { fill: url(#latt-a11y-chart-te
 section.piechart .chart-key-swatch[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
 section.piechart .chart-key-swatch[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.piechart .chart-key-swatch[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* hub-spoke: only a GROUPED satellite (or a tiered branch and its leaves) carries a
+ * `data-hue`, so only those take a texture, keyed like the pie's swatches so a disc
+ * and its key swatch match by pattern. Neutral satellites stay one solid gray (one hue,
+ * one texture — spend-rules.md §1c), and the hub and the connectors carry none: the hub
+ * carries text, and a connector is presence, not a category. */
+section.hub-spoke :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.hub-spoke :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.hub-spoke :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.hub-spoke :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.hub-spoke :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.hub-spoke :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
 /* funnel is ONE hue, so it is one texture. The hue count IS the texture count
  * (engineering/decisions/2026-09-07-chart-design-language/spend-rules.md §1c):
  * six patterns across the bands would claim six categories in grayscale while

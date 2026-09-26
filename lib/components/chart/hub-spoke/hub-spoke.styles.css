@@ -1,0 +1,138 @@
+/* hub-spoke — one hub, its satellites, and what flows between them.
+ * See hub-spoke.manifest.json for the component contract and hub-spoke.docs.md for
+ * the authoring rules.
+ *
+ * Palette-blind (HARD RULE #3): every paint is a token. No margin (#20), no @layer
+ * (#26). Type inside the SVG is in viewBox user units locked to the piechart's
+ * DIAGRAM_H, the family's idiom (svg-legend.js), so a satellite name prints at the size
+ * a pie key prints rather than on an --fs-* role.
+ *
+ * WHAT CARRIES COLOR, AND WHY SO LITTLE DOES.
+ *   · The HUB is its own neutral heavy body — the page's heading ink, with canvas-colored
+ *     type on it. It never takes a categorical slot, carries no `data-hue`, and no finish
+ *     can reach it, so it stays the heaviest mark in every finish and both modes.
+ *   · SATELLITES are NEUTRAL by default. A satellite has its name beside it and clear
+ *     space around it, so a hue per satellite would do neither of hue's two jobs
+ *     (binding a mark to a name it cannot sit beside; separating marks that touch —
+ *     spend-rules.md §2), and past six it wraps into false groups.
+ *   · An authored GROUP takes its group's slot (<= 6), and the key band names it.
+ *   · A STATUS paints its own spoke's node, halo and status word, and nothing else: one
+ *     at-risk pill never recolors the other spokes.
+ */
+
+/* ── sizing: the piechart container-fill idiom ─────────────────────────────── */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-figure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  container-type: size;
+}
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+section.hub-spoke:is(.claim-hero, .claim-bleed) .hub-spoke-figure {
+  container-type: normal;
+  height: auto;
+  width: 100%;
+  max-width: 100%;
+}
+section.hub-spoke:is(.claim-hero, .claim-bleed) .hub-spoke-svg {
+  height: 38cqi;
+  width: auto;
+  max-height: 100%;
+  max-width: 100%;
+}
+section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .chart-body {
+  container-type: size;
+}
+section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
+  display: contents;
+}
+
+/* ── the neutral register (satellites, connectors, names) ─────────────────────
+ * Mixed from the body ink toward the family's dark-safe base, so a neutral disc sits
+ * one clear step under the hub in both modes and never reads as a hue. */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg {
+  --hs-neutral-body: light-dark(color-mix(in oklab, var(--text-body) 55%, var(--chart-cat-base)), color-mix(in oklab, var(--text-body) 62%, var(--chart-cat-base)));
+  --hs-neutral-band: light-dark(color-mix(in oklab, var(--text-body) 22%, var(--chart-cat-base)), color-mix(in oklab, var(--text-body) 30%, var(--chart-cat-base)));
+  --hs-neutral-ink: var(--text-body);
+}
+
+/* ── status: re-points the local state channel of a flagged spoke ─────────── */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="on-track"], [data-s="done"], [data-s="live"]) { --hs-state-hue: var(--state-pass-hue); --hs-state-ink: var(--state-pass-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="at-risk"], [data-s="warn"]) { --hs-state-hue: var(--state-warn-hue); --hs-state-ink: var(--state-warn-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="blocked"], [data-s="fail"]) { --hs-state-hue: var(--state-fail-hue); --hs-state-ink: var(--state-fail-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="pilot"], [data-s="decision"]) { --hs-state-hue: var(--state-info-hue); --hs-state-ink: var(--state-info-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg [data-s="deferred"] { --hs-state-hue: var(--state-mute-hue); --hs-state-ink: var(--state-mute-ink); }
+
+/* ── bodies. The EDGE WIDTH is the family's (chart-family.css, the shared
+ *    --chart-edge rule every declared fill mark joins); this file sets only paint. ── */
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-node, .hub-spoke-leaf) {
+  fill: var(--hs-neutral-body);
+  stroke: var(--hs-neutral-ink);
+  stroke-linejoin: round;
+}
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue] {
+  fill: var(--mark-body);
+  stroke: var(--mark-ink);
+}
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-node, .hub-spoke-leaf)[data-s] {
+  fill: color-mix(in oklab, var(--hs-state-hue) 82%, var(--chart-cat-base));
+  stroke: var(--hs-state-hue);
+}
+/* The one sanctioned 2px: an alarm node (chart-styling.md §2, "the active mark"). */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is(.hub-spoke-node, .hub-spoke-leaf)[data-emph="true"] {
+  stroke-width: var(--chart-edge-strong);
+}
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-neck, .hub-spoke-twig) {
+  fill: var(--hs-neutral-band);
+  stroke: var(--hs-neutral-ink);
+  stroke-linejoin: round;
+}
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-neck, .hub-spoke-twig)[data-hue] {
+  fill: light-dark(color-mix(in oklab, var(--mark-hue) 40%, var(--chart-cat-base)), color-mix(in oklab, var(--mark-hue) 46%, var(--chart-cat-base)));
+  stroke: var(--mark-ink);
+}
+
+/* ── THE HUB: the page's heading ink, solid; canvas-colored type on it clears the same
+ *    ratio the heading clears on the canvas. On dark the disc steps a little off full
+ *    white so the largest mark on the slide does not glare. ─────────────────── */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-hub {
+  fill: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 90%, var(--bg)));
+  stroke: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 90%, var(--bg)));
+}
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-hub-name, .hub-spoke-hub-value) { fill: var(--bg); }
+
+/* ── emphasis halo and direction heads: filled ink, no edge ─────────────────── */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-halo { fill: var(--hs-state-ink); stroke: none; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow { fill: var(--hs-neutral-ink); stroke: none; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-hue] { fill: var(--mark-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-s] { fill: var(--hs-state-ink); }
+
+/* ── type: the pie key's voice (--font-label) ─────────────────────────────────
+ * A neutral name reads in the body ink; a grouped name wears its group's ink (the name
+ * IS the join, chart-styling.md §3 rule 2). A STATUS never recolors the name: the
+ * state inks are tuned as marks, and onyx's warn ink measured 3.56:1 as text. The
+ * status WORD carries the state instead, darkened toward the heading ink so it clears
+ * text contrast on every theme. */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg text { font-family: var(--font-label); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-name { fill: var(--text-body); font-weight: 560; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-name[data-hue] { fill: var(--mark-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-name[data-emph="true"] { fill: var(--text-heading); font-weight: 720; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-value { fill: var(--text-heading); font-weight: 680; font-variant-numeric: tabular-nums; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-value[data-emph="true"] { font-weight: 760; }
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-status, .hub-spoke-value .hub-spoke-status) {
+  fill: color-mix(in oklab, var(--hs-state-ink, var(--text-body)) 62%, var(--text-heading));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-hub-name { font-weight: 600; letter-spacing: 0.01em; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-hub-value { font-weight: 720; font-variant-numeric: tabular-nums; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-name[data-tier="branch"] { font-weight: 700; }

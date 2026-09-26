@@ -5227,6 +5227,9 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/funnel/funnel.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
+  // A hub-spoke names its hub, every satellite, and (tiered) every branch and leaf — each
+  // sentence of `narrateHubSpoke` opens with one — and a node carries its printed value.
+  ['components/chart/hub-spoke/hub-spoke.transform.js', true, true],
   // A journey's stage and step — each sentence of `narrateJourneyMood` opens with one. The mood is
   // said as a score ("scores four"), and a step carries no value attribute to corroborate it.
   ['components/chart/journey/journey.transform.js', true, false],
@@ -8425,6 +8428,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   journey: 'data viz — stage map, not prose bodies',
   map: 'data viz — geographic series',
   piechart: 'data viz — series',
+  'hub-spoke': 'data viz — a hub and its satellites, names and pills, not prose',
   progress: 'data viz — series',
   quadrant: 'data viz — scatter',
   radar: 'data viz — scatter series',
