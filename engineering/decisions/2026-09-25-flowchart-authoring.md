@@ -546,7 +546,13 @@ A dotted overlay moving along a line, a separate path above the real edge.
     painted, and at most one waits behind the one in flight, because a worker
     cannot be interrupted. The first draw stays synchronous, and without the flag,
     a Worker or dagre's URL every draw is synchronous as before, so no export can
-    capture a drawing in flight. Measured in the real Studio on the same chart:
+    capture a drawing in flight. The checker's review set three more limits. A
+    redraw goes live only when all but two of its shapes are the ones drawn at that
+    position before, because the Studio patches one section in place as the author
+    moves between slides, and position alone showed the last slide's chart on the
+    new one. A figure outside a section never goes live. A worker that answers with
+    no layout leaves the measuring tiles, as a synchronous draw does, and one that
+    has not answered within 3 s is dropped for good, so the page draws in place. Measured in the real Studio on the same chart:
     | | 50 ms per key | 120 ms per key |
     |---|---|---|
     | 16 or 19 keys typed, before → after | 2,471 → 1,214 ms | 4,203 → 2,668 ms |

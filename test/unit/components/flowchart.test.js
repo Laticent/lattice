@@ -161,15 +161,17 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
   require('../../../lib/core/dagre-layout.js');
   const { graphLayoutKernel } = require('../../../lib/components/chart/_chart-family/graph-layout.js');
   const figHtml = (names) => {
-    const model = { shapes: names.map((n, i) => ({ id: `s${i}`, name: n, shape: 'box' })), groups: [], edges: names.slice(1).map((_n, i) => ({ from: `s${i}`, to: `s${i + 1}`, dir: 'out' })) };
+    // Ids come from names, as the grammar makes them: a rename is a new id.
+    const id = (n) => n.toLowerCase();
+    const model = { shapes: names.map((n) => ({ id: id(n), name: n, shape: 'box' })), groups: [], edges: names.slice(1).map((n, i) => ({ from: id(names[i]), to: id(n), dir: 'out' })) };
     const attr = JSON.stringify(model).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     // An empty harness, as above: jsdom has no Range rects to measure text with.
     return `<div class="flowchart-figure" data-fc-model="${attr}"><div class="fc-canvas"><div class="flowchart-scale"><div class="fc-harness"><ol class="fc-nodes"></ol></div>` +
       '<svg class="flowchart-svg"><title>Flowchart</title></svg></div></div></div>';
   };
-  const setup = (liveAttr) => {
+  const setup = (liveAttr, mode = 'answer', wrap = (h) => `<section class="flowchart">${h}</section>`) => {
     const dom = new JSDOM(`<!doctype html><html${liveAttr ? ' data-lattice-live-layout' : ''}><head><script src="https://example.test/lattice-dagre.js"></script></head>` +
-      `<body><section class="flowchart">${figHtml(['Alpha', 'Beta', 'Gamma'])}</section></body></html>`, { runScripts: 'outside-only' });
+      `<body>${wrap(figHtml(['Alpha', 'Beta', 'Gamma']))}</body></html>`, { runScripts: 'outside-only' });
     const w = dom.window;
     w.__latticeDagre = globalThis.__latticeDagre;
     const K = graphLayoutKernel();
@@ -181,13 +183,14 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     w.Worker = class {
       postMessage(d) {
         log.posts.push(d);
-        setTimeout(() => this.onmessage({ data: { id: d.id, geo: JSON.parse(JSON.stringify(K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre))) } }), 5);
+        if (mode === 'silent') return;
+        setTimeout(() => this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre))) } }), 5);
       }
       terminate() {}
     };
     const pass = () => w.eval(browserJs());
     // The Studio replaces the figure on every edit.
-    const edit = (names) => { w.document.querySelector('section').innerHTML = figHtml(names); pass(); };
+    const edit = (names) => { (w.document.querySelector('section') || w.document.body).innerHTML = figHtml(names); pass(); };
     pass();
     return { w, log, edit, fig: () => w.document.querySelector('.flowchart-figure'), text: () => w.document.querySelector('svg.flowchart-svg').textContent };
   };
@@ -224,12 +227,64 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
   });
 
-  test('the worker source compiles and closes over nothing but dagre', () => {
+  test('the worker source runs on its own: it loads dagre, lays a chart out and answers', async () => {
     const t = setup(true);
     t.edit(['Alpha', 'Beta', 'Delta']);
     assert.equal(t.log.sources.length, 1);
     assert.match(t.log.sources[0], /^importScripts\("https:\/\/example\.test\/lattice-dagre\.js"\);/);
-    assert.doesNotThrow(() => new Function(t.log.sources[0]));
+    // A worker's globals, nothing of the page's: importScripts stands in for loading dagre.
+    const vm = require('node:vm');
+    const replies = [];
+    const self = { postMessage: (m) => replies.push(m) };
+    self.self = self;
+    self.importScripts = () => { self.__latticeDagre = globalThis.__latticeDagre; };
+    vm.createContext(self);
+    vm.runInContext(t.log.sources[0], self);
+    const job = t.log.posts[0];
+    self.onmessage({ data: job });
+    assert.equal(replies.length, 1);
+    assert.equal(replies[0].id, job.id);
+    assert.ok(replies[0].geo?.nodes?.delta, 'a layout came back');
+    await settle();
+  });
+
+  test('another slide\'s chart at the same position draws at once, never showing the last slide\'s drawing', () => {
+    // The Studio patches one section in place as the author moves between slides.
+    const t = setup(true);
+    t.edit(['Hire', 'Train', 'Retain']);
+    assert.equal(t.log.posts.length, 0);
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+    assert.match(t.text(), /Retain/);
+  });
+
+  test('a worker that answers with no layout leaves the measuring tiles, not the old drawing', async () => {
+    const t = setup(true, 'null');
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle();
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+    assert.equal(t.fig().getAttribute('data-fc-drawn'), null);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle();
+    assert.equal(t.log.posts.length, 2, 'one post per edit, and none from the passes between');
+  });
+
+  test('a worker that stops answering is dropped and the chart draws in place', async () => {
+    const t = setup(true, 'silent');
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    assert.equal(t.fig().getAttribute('data-fc-pending'), '1');
+    await new Promise((r) => setTimeout(r, 3200));
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+    assert.match(t.text(), /Delta/);
+    t.edit(['Alpha', 'Beta', 'Epsilon']);
+    assert.equal(t.log.posts.length, 1, 'no worker after it failed');
+    assert.match(t.text(), /Epsilon/);
+  });
+
+  test('a figure outside any section never goes live', () => {
+    const t = setup(true, 'answer', (h) => h);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    assert.equal(t.log.posts.length, 0);
+    assert.match(t.text(), /Delta/);
   });
 
   test('without the host flag every redraw stays synchronous', () => {
