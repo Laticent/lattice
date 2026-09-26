@@ -166,7 +166,12 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    structural auto-split's own gate, `lib/core/structural-split.js`), and turns a panes slide
    into one ordinary slide per pane:
    - each page repeats the masthead (eyebrow, title, subtitle) and the slide's spot directives,
-     and its class is the pane's component, merged with any `_class` the author wrote;
+     wherever on the slide the author wrote them (a `_footer` under the last pane is the slide's,
+     as it is on a slide that does not split);
+   - each page's class is its pane's component, merged with the slide's `_class` minus any
+     component in it (a `_class: glossary` on the slide would otherwise run the glossary
+     transform on a list page, the bug the carve already guards against);
+   - a third marker folds into the second page, as the carve folds it into the second pane;
    - a speaker note stays with the first page, and the coda — written after the last pane —
      closes the last;
    - the markers and the `panes:` layout comment go.
@@ -571,6 +576,14 @@ what real content clips; the export's probes miss rows squeezed until they overp
 past a pane's side; and a review deck of each component at its measured minimum caught what all of
 that still passed.
 
+**A seventh checker, on re-orient-then-split,** found the split rebuilding each page's
+directives from the lead alone: a `_class` written under the last pane replaced the second page's
+component (a bar chart rendered as a plain list on a portrait deck), a component class on the slide
+ran on every page, and a third marker made three pages where the carve makes two panes. All three
+are fixed, and a seeded 120-pairing test now pins the engine, the source-side slide map
+(`slide-class-spans.js`) and lint (`paneSplitLine`) to one answer on when a slide splits and what
+each page's class is. It also found the Studio's source slide index unaware of the split (6, below).
+
 **The owner then reviewed a 17-slide deck of common pairings** and asked for two things before
 merge: charts sized to their pane, not shrunk into it, and the pane lint in the Studio's live
 editor. Both landed (§2, §4). Rebasing onto `main` moved the CLI onto the engine's packed flat sheet (`lib/export/cli-deck-sheet.js`), where the post-hoc widening found no `section.<component>` to twin and a stats pane exported unstyled; the CLI now asks the engine for the pane twins before it packs (`cliDeckSheet({ panes })`), `tools/palette-sweep.js` reads the pane classes from the export so its identity check still holds, and `test/unit/export/cli-deck-sheet.test.js` pins it. The Studio's eager bundle grows by the baked lint table; the route
@@ -612,7 +625,14 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    390px and its slide strip ("text"), and Export-to-Marp, which cannot carve and should degrade to
    the two panes' content, stacked.
 7. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
-8. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
+8. **The Studio's slide index and a split panes slide** (`2376-p2-studio-index-…`). The Studio
+   counts source chunks (`docs/src/components/studio/lint.ts` `splitSlides`), and the engine
+   renders a split panes slide as two, so after one the caret and the rail are a slide apart and
+   the preview takes its alignment fallback (the shown slide alone), as it does for
+   `_focusSteps` and `split: headings`. It fails closed. Cutting `splitSlides` there is not the
+   fix: the chunks also feed write-back (`deck-ops.ts`, `motion-sheet.ts`), which would write the
+   cut into the author's source.
+9. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
    spec (`docs/src/content/docs/spec/lfm.md`) — once the syntax is no longer experimental.
 
 ---

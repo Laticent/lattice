@@ -310,3 +310,41 @@ test('a panes slide the engine cannot lay out renders the way arrangePanes says 
   assert.equal(sections(turned).length, 1);
   assert.match(turned, /<div class="lat-panes" data-panes="stack"/);
 });
+
+test('the engine, the source-side slide map and the lint agree on when a slide splits: 120 seeded pairings', () => {
+  const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
+  const { paneSplitLine } = require('../../../lib/authoring/lint-core');
+  const e = createEngine();
+  e.addThemes([{ name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8') }]);
+  let seed = 20260927;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  const pick = (xs) => xs[Math.floor(rnd() * xs.length)];
+  // Each shape of fit: both ways, side only, stack only, neither, and a component with no row.
+  const bodies = { list: '- One\n- Two', bar: '- A `4`\n- B `7`', kpi: '1. 42%\n   - Margin', code: '```js\nconst x = 1;\n```',
+    table: '| a | b |\n|---|---|\n| 1 | 2 |', pricing: '- Basic\n  - $9', content: 'Prose.', 'no-such-thing': 'Text.' };
+  const layouts = ['', '<!-- panes: 25/75 -->\n', '<!-- panes: 65/35 -->\n', '<!-- panes: stack -->\n', '<!-- panes: stack 30/70 -->\n', '<!-- panes: 30/60 -->\n'];
+  const spots = ['', '<!-- _class: dark -->\n', '<!-- _class: glossary -->\n'];
+  const counts = { 1: 0, 2: 0 };
+  for (let t = 0; t < 120; t++) {
+    const [a, b] = [pick(Object.keys(bodies)), pick(Object.keys(bodies))];
+    const size = pick(['hd', 'hd', 'hd', 'portrait', 'square']);
+    const spot = pick(spots);
+    const tail = rnd() < 0.3 ? `\n${spot || '<!-- _footer: F -->\n'}` : '';
+    const slide = `${rnd() < 0.5 ? spot : ''}## T\n\n${pick(layouts)}<!-- pane: ${a} -->\n\n${bodies[a]}\n\n<!-- pane: ${b} -->\n\n${bodies[b]}\n${tail}`;
+    const src = `---\nsize: ${size}\n---\n\n${slide}`;
+    const label = JSON.stringify(src);
+    const rendered = [...e.render(src).html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
+    const spans = slideClassSpans(src).spans;
+    assert.equal(spans.length, rendered.length, `spans vs engine: ${label}`);
+    spans.forEach((sp, i) => {
+      for (const c of sp.slideClass.split(/\s+/).filter(Boolean)) assert.ok(rendered[i].includes(c), `page ${i} lacks '${c}': ${label}`);
+    });
+    assert.equal(paneSplitLine(slide, src) >= 0, rendered.length === 2, `lint vs engine: ${label}`);
+    counts[rendered.length]++;
+  }
+  // The generator reaches both outcomes, so neither half of the agreement is vacuous.
+  assert.ok(counts[1] >= 20 && counts[2] >= 20, JSON.stringify(counts));
+});

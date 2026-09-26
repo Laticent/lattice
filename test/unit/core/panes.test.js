@@ -484,3 +484,34 @@ test('the source-side slide map splits a panes slide exactly where the engine do
   assert.equal(classes(e.render(both).html).length, 2);
   assert.deepEqual(slideClassSpans(both).spans.map((sp) => sp.slideClass), ['code', 'list']);
 });
+
+test('a split page carries the whole slide\'s spot directives, wherever they were written, and never a component', () => {
+  const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
+  const e = engine();
+  const classes = (html) => [...html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
+  const footers = (html) => [...html.matchAll(/<section\b[\s\S]*?<\/section>/g)].map((m) => (m[0].match(/<footer>([^<]*)<\/footer>/) || [])[1]);
+  const pair = '<!-- pane: bar -->\n\n- A `4`\n- B `7`\n\n<!-- pane: list -->\n\n- One\n- Two\n';
+  const cases = {
+    // A spot `_class` and `_footer` under the LAST pane belong to the slide: both pages take them,
+    // and neither replaces a page's component.
+    'spot after the markers': [`## T\n\n${pair}\n<!-- _class: dark -->\n<!-- _footer: FOOTX -->\n`, [['bar', 'dark'], ['list', 'dark']]],
+    // A component class written on the slide never runs on a page: each page is its pane's.
+    'component in the spot class': [`<!-- _class: glossary dark -->\n\n## T\n\n${pair}`, [['bar', 'dark'], ['list', 'dark']]],
+    // A third marker folds into the second page, as the carve folds it into the second pane.
+    'three markers': [`## T\n\n${pair}\n<!-- pane: table -->\n\n- Three\n`, [['bar'], ['list']]],
+  };
+  for (const [name, [body, want]] of Object.entries(cases)) {
+    const src = `---\nsize: portrait\n---\n\n${body}`;
+    const { html } = e.render(src);
+    const rendered = classes(html);
+    assert.equal(rendered.length, 2, `${name}: ${JSON.stringify(rendered)}`);
+    want.forEach((w, i) => {
+      for (const c of w) assert.ok(rendered[i].includes(c), `${name}: page ${i} lacks '${c}': ${rendered[i]}`);
+    });
+    assert.ok(!rendered.flat().includes('glossary') && !rendered.flat().includes('table'), `${name}: ${JSON.stringify(rendered)}`);
+    assert.doesNotMatch(html, /Three/.test(body) ? /pane: table/ : /$^/, name);
+    if (/Three/.test(body)) assert.match(html.slice(html.lastIndexOf('<section')), /Three/, `${name}: the third pane's content left the last page`);
+    if (/FOOTX/.test(body)) assert.deepEqual(footers(html), ['FOOTX', 'FOOTX'], name);
+    assert.deepEqual(slideClassSpans(src).spans.map((sp) => sp.slideClass.split(/\s+/)), want, `${name}: the source-side map`);
+  }
+});

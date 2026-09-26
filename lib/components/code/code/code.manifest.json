@@ -119,10 +119,6 @@
     "budget": {
       "axis": "line",
       "basis": "editorial",
-      "side": {
-        "sweet": 10,
-        "hard": 14
-      },
       "stack": {
         "sweet": 6,
         "hard": 8

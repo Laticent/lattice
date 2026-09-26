@@ -905,10 +905,9 @@
           "additionalProperties": false,
           "required": [
             "axis",
-            "basis",
-            "side"
+            "basis"
           ],
-          "description": "The PANE budget: how many elements this component holds in one pane, along the same axis `capacity` counts. `side` is at `at` side by side (default 50%) and `stack` at a 50/50 stacked band (absent when `pane.stack` is false). A pane smaller than that scales its budget down in proportion; a larger one keeps it (never up). Counted by `lint:deck` on the pane's own markdown.",
+          "description": "The PANE budget: how many elements this component holds in one pane, along the same axis `capacity` counts. `side` is at `at` side by side (default 50%) and `stack` at a 50/50 stacked band; each is present exactly when that direction is not false. A pane smaller than that scales its budget down in proportion; a larger one keeps it (never up). Counted by `lint:deck` on the pane's own markdown.",
           "properties": {
             "at": {
               "type": "integer",
@@ -994,7 +993,7 @@
         "review": {
           "type": "string",
           "minLength": 8,
-          "description": "Why a share is stricter than tools/measure-pane-fit.js measured: the probes pass what a reviewer still reads as jank (a chart in a band under half the stage is a sliver; a label that breaks mid-word). Required whenever the declared share is above the measured one, so the difference is never silent."
+          "description": "Why a share is stricter than tools/measure-pane-fit.js measured: the probes pass what a reviewer still reads as jank (a chart in a band under half the stage is a sliver; a label that breaks mid-word). Write one whenever the declared share is above the measured one, so the difference is never silent; the validator checks its form, not that rule, because the manifest does not record the measured share (the design note's table does)."
         }
       }
     },
