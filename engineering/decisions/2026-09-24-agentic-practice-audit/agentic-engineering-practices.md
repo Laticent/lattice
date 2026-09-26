@@ -4,6 +4,7 @@ size: 4k
 theme: indaco
 paginate: true
 header: "Agentic engineering · Practices that hold up"
+class: scale-xl
 ---
 
 <!-- _class: title -->
@@ -547,7 +548,7 @@ So we gave the word "verified" rules. It has to say where the check ran: the rea
 
 `Verification · The ladder`
 
-## Match the amount of checking to the damage a mistake could do.
+## Match the checking to the damage a mistake could do.
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '22px'}}}%%
@@ -950,7 +951,7 @@ Before we look at the numbers, here's the idea in film terms. Say you're casting
   - Cheaper model `$100`
   - Stronger model `$80`
 
-*Illustrative. For 100 tasks, each round costs $20 on the cheaper model and $40 on the stronger one. The stronger model is done after one fix, so its line goes flat. The cheaper model needs four, and every one reruns the job.*
+*Illustrative: each round costs $20 on the cheaper model and $40 on the stronger one.*
 
 <!--
 Here's what that looks like on a hundred hard tasks, about what a busy team runs in a month. On this chart, each step to the right is one more round of back and forth, and the height is what you've spent so far. The stronger model costs more on the first try, but it's done after one fix, so its line goes flat. The cheaper model gets the basics right, then drifts somewhere in the middle. You explain, it tries again, and every round reruns the work. By the fourth fix, it has passed the stronger model. The numbers are illustrative, but the shape matches what I see every day: by the time the cheaper model gets a complex task right, it has cost more than the stronger model did, and that's before you count your own time spent writing the corrections. Anthropic's own guidance says it plainly: judge the cost per completed task, not per request. For me, that means I run the stronger model even though it costs more per token, because it gets it right with less rework. Your answer may differ. Measure a few of your real tasks, first try plus every fix, and decide from that.
@@ -1080,7 +1081,7 @@ Some of you are asking whether we should write one standard for the whole organi
 
 `The one rule · Why it compounds`
 
-## Agents copy what they find, so quality and jank both compound.
+## Agents copy what they find, so quality and jank compound.
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '22px'}}}%%
@@ -1161,15 +1162,15 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 `Script drafted with Claude Opus 5.5, by Anthropic`
 
 1. 65%
-   - of the ideas came from Sharmarke
+   - ideas from Sharmarke
 2. 1,514
-   - words Sharmarke typed
+   - words typed
 3. 8,779
-   - words Claude drafted
+   - words drafted
 4. 3
-   - full drafts sent back
+   - drafts sent back
 5. $79
-   - of model usage
+   - model usage
 
 <!--
 One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About two thirds of the ideas came from me: thirty-five of the fifty-four slides, either raised while we built it or pulled from the system I'd already built. I typed about fifteen hundred words to direct it. Claude drafted nearly nine thousand, every slide and every speaker note. I sent back three whole drafts before this one, and the whole thing cost about eighty dollars of model time. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now. The numbers come from the session record as of September twenty-fifth.
