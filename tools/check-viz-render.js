@@ -430,6 +430,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
   const { playerCss } = await import('../lib/export/player-core.mjs');
   const { PROJECTION } = await import('../lib/core/projection-catalog.generated.mjs');
   const { rehostContainerCss } = await import('../lib/export/player-core.mjs');
+  const { unwrapFlatSheet } = await import('../lib/export/unwrap-flat-sheet.mjs');
   const { collectBaseSelectors, scopeReHostedCss } = require('../lib/export/player-prune.js');
   const REHOSTED = new Set(['svg', 'flow', 'spatial']);
   const bakeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'components', 'chart', '_chart-family', 'standalone-svg.js'), 'utf8');
@@ -456,7 +457,8 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
         const slidesHtml = dom.window.document.body.innerHTML;
         const { articleHtml } = projectDeckToProse([...dom.window.document.querySelectorAll('section')]);
         const scoped = composeCss({ themeCss, baseLatticeCss, sizeName: out.sizeName });
-        const flat = composeCss({ themeCss, baseLatticeCss, sizeName: out.sizeName, flat: flatPack }).replace(/article\.lattice\s*>\s*/g, '');
+        // The same unwrap every flat host runs (lib/export/unwrap-flat-sheet.mjs).
+        const flat = unwrapFlatSheet(composeCss({ themeCss, baseLatticeCss, sizeName: out.sizeName, flat: flatPack }));
         // The schemes run side by side in one browser: each is independent, and the pass
         // is page-load bound, so this is most of its wall-clock cost.
         await Promise.all(schemes.map(async (scheme) => {

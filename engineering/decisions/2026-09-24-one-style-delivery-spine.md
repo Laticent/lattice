@@ -99,12 +99,12 @@ a row here and asks for its mode by name; it does not invent a shape.
 | Host | Mode | How it asks |
 |---|---|---|
 | Studio preview, Playground, docs embeds | `scoped` | `render(md, theme)`; `scoped` is the default |
-| Studio Webpage player (and its strip-notes re-render) | `flat` | `render(md, theme, { styles: 'flat' })`, ships `flatCss` (`share-export.ts`) |
+| Studio Webpage player (and its strip-notes re-render) | `flat`, unwrapped to top-level slides | `render(md, theme, { styles: 'flat' })`, ships `unwrapFlatSheet(flatCss)` (`share-export.ts`, `lib/export/unwrap-flat-sheet.mjs`) |
 | Studio diagram bake (exported player, Reading view) | `baked` | `bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens })` (`deck-export.js`) |
 | Studio PDF/PPTX rasterizer | `baked` | `bakeSvg(svg, win)` (`deck-export.js` `flattenChartSvgs`) |
 | `check:render` baked pass | `baked` | `bakeSvg(svg, win, { freezeTokens })` (`tools/check-viz-render.js`) |
 | Chart "download as SVG" (Studio + `tools/export-chart-svg.js`) | `baked`, to a file | `flattenSvgStyles(…, { collectTokens: true })` + `finalizeStandaloneSvg`; a file takes its tokens in its own `<style>`, not on an element |
-| Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')`, then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |
+| Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')` (unwrapped by `unwrapFlatSheet`), then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |
 | CLI PDF/PNG/HTML/`--player` | `flat`, wrapper stripped, covered faces dropped | `cliDeckSheet(cliThemeStore(layout, palettes), { theme, sizeName, covered })` (`lib/export/cli-deck-sheet.js`), shared with `tools/palette-sweep.js` (§8.3) |
 
 `render()` throws on an unknown `styles` name, and on `'baked'` it names `bakeSvg`
@@ -281,9 +281,14 @@ below are kept as they were put.
 
 ### 8.4 Open items
 
-- **One shared unwrap for every flat host.** The Studio Webpage player and `check:render`'s flat
-  pass still delete `article.lattice > ` instead of calling `unwrap`
-  (`followups.d/2379-p2-studio-player-unwrap.md`).
+- **One shared unwrap for every flat host — done.** `unwrap` moved out of `cli-deck-sheet.js`
+  into `lib/export/unwrap-flat-sheet.mjs` (`unwrapFlatSheet`), which is fs-free, so the Studio's
+  Webpage player and Reading view, `check:render`'s flat and reading passes, and the CLI all call
+  the one function. Measured on a deck with a raw `<section>` inside a `dark` slide, the Studio
+  export before the change gave the nested section the slide's 1280px box, `overflow: hidden`
+  and a white light-token panel; after it, the Studio and CLI players compute the same box
+  (1171 of 1301px), `overflow: visible` and the dark ink. `check:render` pair counts did not
+  move: flat 7284, reading 7284, baked 5964 on `main` and on the branch.
 - **The Read · Article word cloud fills a third of its box** (`followups.d/2379-p3-word-cloud-rehost-void.md`).
 
 ### 8.3 What step 4 built (2026-09-25)
@@ -300,7 +305,7 @@ below are kept as they were put.
   turns "a slide" into "any section": a `<section>` an author nests in a slide took the 1280×720
   box and the light tokens, and clipped. The CLI rewrites the prefix to
   `section:where(:not(section *))`, the same specificity as plain `section`, matching top-level
-  slides only. The Studio player still strips (followup).
+  slides only. The Studio player now calls the same function (§8.4).
 - **The deck's own CSS keeps working.** A red team, an inversion pass and the checker each found
   it: the flat sheet declares every palette `:root` token on the slides too, so an author's
   `style: ":root{--accent:…}"`, or the same in a body `<style>`, reached `<html>` and lost on

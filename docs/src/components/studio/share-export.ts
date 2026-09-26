@@ -16,6 +16,7 @@ import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
+import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import type { StudioComponent } from './component-library';
 import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
@@ -131,7 +132,7 @@ export async function buildDeckRender(
 		mermaidUrl: options.mermaidUrl,
 		dagreUrl: options.dagreUrl,
 		...(out.flatCss !== undefined
-			? { flatCss: out.flatCss.replace(/article\.lattice\s*>\s*/g, '') + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '') }
+			? { flatCss: unwrapFlatSheet(out.flatCss) + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '') }
 			: {}),
 	};
 }
@@ -644,9 +645,11 @@ export async function shareHtmlPlayer(
 	// The browser engine scopes every deck rule to the live-preview wrapper
 	// (`article.lattice > section …`), but the exported player lays its `<section>`s out
 	// FLAT under `#lp-stage` — no `.lattice` ancestor — exactly like the CLI's
-	// `cleanDocHtml`. So un-scope the deck CSS to the CLI's shape: strip the
-	// `article.lattice > ` prefix so `section.title{…}`, tokens, and every component rule
-	// actually match the exported slides. Without this the file ships the full CSS but
+	// `cleanDocHtml`. So un-scope the deck CSS to the CLI's shape with the CLI's own
+	// `unwrapFlatSheet`, so `section.title{…}`, tokens, and every component rule actually
+	// match the exported slides. It unwraps rather than strips: `article.lattice > section`
+	// becomes `section:where(:not(section *))`, so a `<section>` an author nests inside a
+	// slide is not styled as a slide (lib/export/unwrap-flat-sheet.mjs). Without this the file ships the full CSS but
 	// NONE of it applies — slides render as raw unstyled Markdown, and the used-selector
 	// prune then (correctly) drops every never-matching rule. `@container lattice` and
 	// `container-name:lattice` use the container NAME, not `.lattice`, so they're
@@ -659,7 +662,7 @@ export async function shareHtmlPlayer(
 	// painted SVG's initial black. `flatCss` is the same pack with each re-scoped arm also
 	// shipped as written — see `packSelector` in lib/engine/css.js. `?? out.css` keeps an
 	// engine bundle that predates the `styles` option exporting what it did before.
-	const deckCss = (out.flatCss ?? out.css).replace(/article\.lattice\s*>\s*/g, '');
+	const deckCss = unwrapFlatSheet(out.flatCss ?? out.css);
 	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
 	const docHtml = buildSelfContainedDoc({
 		lang,
