@@ -301,3 +301,16 @@ small/medium/large or near/mid/far (owner preferred names for the room).
 
 **Amended above:** "What it costs" no longer holds for type size; rule 2 now leaves a slide
 no rung fits out of the shared rung instead of at its request.
+
+**Then the live surfaces (same day).** Verification on the real Studio build found that the
+editor preview and Present render one slide per document, so LEVEL saw one slide and a
+`venue: conference` deck still showed 1.3x · 1x · 1.3x as you moved through it (the gap
+`2026-09-25-fit-policy.md` §4 predicted). The owner chose to close it in the same PR. The
+Studio now renders a scaled deck once in a hidden frame, runs a full sweep there
+(`latticeSweep.sweep({ all: true })`: 225–376 ms of STEP for the 70-slide talk, LEVEL under
+3 ms), and writes the shared rung per ask as `data-lattice-scale-cap` on each single-slide
+frame's document element; LEVEL never lands above it (`docs/src/lib/scale-cap.ts`, the
+kernel's rule 7). Decks without a scale never create the frame. Pinned on the real surface by
+`docs/e2e/scale-one-size.spec.ts`: every slide at the shared rung in the editor preview and in
+Present, the full scale back after the binding slide is trimmed, and no cap on an unscaled
+deck.

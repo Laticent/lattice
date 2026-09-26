@@ -50,6 +50,7 @@ import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playgroun
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
+import { applyScaleCap, deckAsksForScale, readScaleCap, trackScaleCap, untrackScaleCap } from './scale-cap';
 import { createThemeFetcher } from './theme-fetch';
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
@@ -960,7 +961,54 @@ function swapSharedSheet(doc: Document, url: string): void {
 // scoped to the deck and slide it was picked on.
 const splitPageByHost = new WeakMap<HTMLElement, { deck: string; slide: number; page: number }>();
 
+// THE WHOLE-DECK MEASURE for the one-size rule (scale-cap.ts). ONE hidden frame for the
+// page's life, re-pointed per deck, created only when a deck asks for a projection scale.
+// Built from the first caller's options: every Studio host passes the same theme, runtime
+// and engine URLs, and a measure only has to agree with the frames it caps on those.
+let scaleMeasureHost: HTMLElement | null = null;
+let scaleMeasurer: ReturnType<typeof createSingleSlideRenderer> | null = null;
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function measureDeckScaleCap(
+	opts: SingleSlideOptions,
+	args: [string, boolean, string | undefined, { name: string; css: string } | undefined, 'light' | 'dark' | undefined, string | undefined],
+): Promise<string | null> {
+	if (typeof document === 'undefined') return null;
+	if (!scaleMeasureHost) {
+		scaleMeasureHost = document.createElement('div');
+		scaleMeasureHost.setAttribute('aria-hidden', 'true');
+		scaleMeasureHost.dataset.latticeScaleMeasure = '';
+		// Laid out (a probe reads real geometry) but never seen or hit.
+		scaleMeasureHost.style.cssText = 'position:fixed;left:-100000px;top:0;width:1280px;height:720px;visibility:hidden;pointer-events:none;contain:strict';
+		document.body.append(scaleMeasureHost);
+		scaleMeasurer = createSingleSlideRenderer(opts);
+	}
+	const host = scaleMeasureHost;
+	const measurer = scaleMeasurer;
+	if (!measurer) return null;
+	const status = await measurer.renderInto(host, ...args);
+	if (!status.ok) return null;
+	// Bounded wait for the frame's runtime (it exposes `latticeSweep` at boot) and fonts.
+	for (let i = 0; i < 100; i++) {
+		const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+		const w = fr?.contentWindow as (Window & { latticeSweep?: unknown }) | null | undefined;
+		if (w?.latticeSweep && fr?.contentDocument?.querySelector('section[data-lattice-slide]')) break;
+		await wait(100);
+	}
+	const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+	const doc = fr?.contentDocument;
+	const w = fr?.contentWindow as (Window & { latticeSweep?: { sweep: (o?: { all?: boolean }) => unknown } }) | null | undefined;
+	if (!doc || !w?.latticeSweep) return null;
+	try {
+		await doc.fonts?.ready;
+	} catch {
+		// fonts API absent: the sweep still measures, just possibly before a late face
+	}
+	w.latticeSweep.sweep({ all: true });
+	return readScaleCap(doc);
+}
+
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
+	const renderOpts = opts;
 	const { themeBase, runtimeUrl, engineUrl, specimen } = opts;
 	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
 	// RENDER, never at construction — because construction is not paired 1:1 with a dispose.
@@ -1424,6 +1472,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Bail if the host was disposed/detached while the theme fetch was in
 				// flight — don't spend an engine render on a torn-down preview.
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				// ONE SIZE PER DECK in a one-slide frame (scale-cap.ts). A deck-context render of a
+				// deck that asks for a projection scale registers the deck, so the whole-deck measure
+				// can cap this frame at the shared rung; any other render clears a stale cap.
+				if (typeof opts?.slideIndex === 'number') {
+					const capKey = deckAsksForScale(markdown)
+						? [palette, mode, extra?.name ?? '', extraCss ?? '', markdown].join('\u0000')
+						: undefined;
+					trackScaleCap(host, capKey, () =>
+						measureDeckScaleCap(renderOpts, [markdown, mermaid, paletteOverride, extra, modeOverride, extraCss]),
+					);
+				}
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
 				let out: { html: string; css: string; width?: number; height?: number; stats?: RenderStats };
 				let engineMs = 0;
@@ -1918,6 +1977,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
+						applyScaleCap(host);
 						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage, canSplit, webImagesBlocked };
 					}
 					// The live document vanished between the guard and the patch — fall
@@ -1995,6 +2055,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
+						applyScaleCap(host);
 						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage, canSplit, webImagesBlocked };
 					}
 					// patchSlideBody failed (the live doc vanished mid-swap) — fall through to a full write.
@@ -2091,6 +2152,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Parent-hosted video playback: tap a video poster in a Studio preview
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
+					// The shared rung, on the freshly written document (scale-cap.ts).
+					applyScaleCap(host);
 					const now = performance.now();
 					const rec = recordRenderSample({
 						engineMs,
@@ -2332,6 +2395,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		}
 		ownedObservers.clear();
 		for (const h of ownedHosts) {
+			untrackScaleCap(h);
 			scaleTargets.delete(h);
 			// Drop the font-gate wake reference too. It holds a Promise from the IFRAME'S
 			// OWN REALM, so leaving it on a host pins that whole detached realm for the

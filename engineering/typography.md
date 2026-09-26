@@ -398,6 +398,12 @@ has nothing left to cap, and the owner replaced it on 2026-09-26. What you get:
 - **Nothing is clipped by the scale.** A slide that does not fit even at 1 is left out of
   the shared rung (size cannot save it) and clips there, so the ring and the `⚠ OVERFLOW`
   line still report it.
+- **Every surface holds it, including the ones that show one slide at a time.** The PDF,
+  the exported `.html` and the player hold the whole deck in one document, so LEVEL sees
+  every slide. The Studio's editor preview and Present render ONE slide per document, so
+  the Studio measures the whole deck once in a hidden frame and caps each slide frame at
+  the shared rung (`data-lattice-scale-cap`, `docs/src/lib/scale-cap.ts`). Only a deck that
+  asks for a scale is measured, debounced behind edits.
 - **`fit: report` turns it off.** The deck's `fit:` setting (`lib/base/base.registers.docs.md`)
   decides what the engine may do to make a slide fit; at `report` it neither steps nor
   levels, and a slide too full for the scale clips and is flagged. A slide opts out alone

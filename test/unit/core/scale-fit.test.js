@@ -40,6 +40,7 @@ function fakeSection({ classScale = 1, fitsAt = () => true, cutAt = () => false,
   const s = {
     writes,
     classList: { contains: (c) => classes.includes(c) },
+    ownerDocument: fakeSection.doc,
     hasAttribute: (k) => attrs.has(k),
     getAttribute: (k) => (attrs.has(k) ? attrs.get(k) : null),
     setAttribute: (k, v) => { writes.push(`attr ${k}`); attrs.set(k, String(v)); },
@@ -59,6 +60,7 @@ function fakeSection({ classScale = 1, fitsAt = () => true, cutAt = () => false,
   return s;
 }
 
+fakeSection.doc = undefined;
 const OPTS = { clipSel: '.c', ignoreSel: '.i', bearerSel: '.b', tol: 12 };
 
 function withStyle(fn) {
@@ -291,4 +293,23 @@ test('rule 6 + 7: a fit-report slide neither sets the shared rung nor is moved t
 test('the floor is the designed size', () => {
   assert.equal(SCALE_FLOOR, 1);
   assert.equal(SCALE_STEPS[SCALE_STEPS.length - 1], SCALE_FLOOR);
+});
+
+test('a host cap: LEVEL never lands above the rung a whole-deck measurement found', () => {
+  const capAttrs = new Map([['data-lattice-scale-cap', '1.3>1']]);
+  fakeSection.doc = { documentElement: { getAttribute: (k) => capAttrs.get(k) ?? null } };
+  try {
+    const deck = [fakeSection({ classScale: 1.3 })]; // the one slide this document shows; it fits
+    runDeck(deck);
+    assert.equal(deck[0].scale(), 1);
+    assert.equal(deck[0].getAttribute(SCALE_STEP_ATTR), '1.3>1');
+    capAttrs.delete('data-lattice-scale-cap'); // the binding slide was trimmed
+    runDeck(deck);
+    assert.equal(deck[0].scale(), 1.3);
+    capAttrs.set('data-lattice-scale-cap', '1.5>1.15'); // a cap for another ask does not apply
+    runDeck(deck);
+    assert.equal(deck[0].scale(), 1.3);
+  } finally {
+    fakeSection.doc = undefined;
+  }
 });
