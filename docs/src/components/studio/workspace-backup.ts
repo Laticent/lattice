@@ -36,7 +36,11 @@ import { declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MA
 export const WORKSPACE_FORMAT = 'lattice-workspace/1';
 // The light helpers the Studio needs on first paint live in workspace-backup-meta.ts, so this
 // module (pack and restore) loads only when a backup is made or restored.
-export { downloadBlob, isEvictionProneBrowser, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
+// downloadBlob comes from the platform seam (download.ts), NOT the eager meta module: routing
+// it through meta pulled the seam into the Studio's eager chunk set for a function only a
+// click ever calls (+1.4KB on the studio route, measured).
+export { downloadBlob } from './download';
+export { isEvictionProneBrowser, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
 
 export type WorkspaceManifest = {
 	format: typeof WORKSPACE_FORMAT;
