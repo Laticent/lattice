@@ -575,19 +575,22 @@ Second, tests: the kinds that catch what ordinary tests miss, and how to tell a 
 
 ---
 
-<!-- _class: list takeaway insight-why -->
+<!-- _class: list takeaway -->
 
 `Verification · Tests that look at reality`
 
 ## Beyond unit tests, each kind of test answers a different question.
 
-- Mutation test: if I break the code on purpose, does a test fail?
-- Metamorphic test: if I change the input in a known way, does the output follow?
-- Visual diff: does it look the same as before, unless I meant it to change?
-- Benchmark: did it get slower, and by how much?
-- Fuzz test: does strange or random input break it?
-
-> A check that always passes looks exactly like a check that works.
+- Mutation test
+  - If I break the code on purpose, does a test fail?
+- Metamorphic test
+  - If I change the input in a known way, does the output follow?
+- Visual diff
+  - Does it look the same as before, unless I meant it to change?
+- Benchmark
+  - Did it get slower, and by how much?
+- Fuzz test
+  - Does strange or random input break it?
 
 <!--
 One of our main checks could never fail, for any component, and nobody noticed for months. A check that always passes looks exactly like one that works. Unit, integration and end-to-end tests are the starting point. These five go further, and each one answers a question the usual tests can't. A mutation test breaks your code on purpose and checks that some test notices. A metamorphic test changes the input in a known way and checks the output moves the way it should. For example, adding a sentence to a slide must never move its title. A visual diff compares the output to the last approved picture. A benchmark runs against a committed baseline, so "it feels slower" becomes a number. And a fuzz test throws strange input at the code to see what breaks.
@@ -777,9 +780,12 @@ Here's what a decision note looks like. This example mirrors a real one: a rule 
 
 ## Three kinds of document answer three different questions.
 
-- Proposal: which option should we pick? It expires once someone decides.
-- Decision record: why is it this way? A newer record replaces it.
-- Spec: what must every implementation do? You edit it so it stays true.
+- Proposal: which option should we pick?
+  - It expires once someone decides.
+- Decision record: why is it this way?
+  - A newer record replaces it.
+- Spec: what must every implementation do?
+  - You edit it so it stays true.
 
 <!--
 It helps to know which kind of document you're writing, because each one ages differently. A proposal lays out options before a decision, and it expires once someone decides. A decision record explains why things are the way they are. You don't edit it later to match what happened; you write a new record that replaces it. A spec is the contract other people build against, and you keep editing it so it stays true. Mark each document with its type as well as its status. We didn't, and dozens of our notes still say "proposed" long after they were decided.
@@ -930,8 +936,6 @@ Before we look at the numbers, here's the idea in film terms. Say you're casting
 
 ## By the fourth fix, the cheaper model costs more.
 
-`Money spent on 100 hard tasks, round by round`
-
 - First try
   - Cheaper model `$20`
   - Stronger model `$40`
@@ -948,7 +952,7 @@ Before we look at the numbers, here's the idea in film terms. Say you're casting
   - Cheaper model `$100`
   - Stronger model `$80`
 
-*Illustrative: each round costs $20 on the cheaper model and $40 on the stronger one.*
+*Money spent on 100 hard tasks. Illustrative: each round costs $20 on the cheaper model and $40 on the stronger one.*
 
 <!--
 Here's what that looks like on a hundred hard tasks, about what a busy team runs in a month. On this chart, each step to the right is one more round of back and forth, and the height is what you've spent so far. The stronger model costs more on the first try, but it's done after one fix, so its line goes flat. The cheaper model gets the basics right, then drifts somewhere in the middle. You explain, it tries again, and every round reruns the work. By the fourth fix, it has passed the stronger model. The numbers are illustrative, but the shape matches what I see every day: by the time the cheaper model gets a complex task right, it has cost more than the stronger model did, and that's before you count your own time spent writing the corrections. Anthropic's own guidance says it plainly: judge the cost per completed task, not per request. For me, that means I run the stronger model even though it costs more per token, because it gets it right with less rework. Your answer may differ. Measure a few of your real tasks, first try plus every fix, and decide from that.
@@ -1020,15 +1024,13 @@ That's the five practices. The rest of the talk is about making them stick: wher
 
 ## Start with one habit per practice, then add a layer each month.
 
-`[{[ ], Next step}]`
-
 | Practice | Week 1 | Month 1 | Quarter 1 |
 | --- | --- | --- | --- |
-| Context | [ ] A one-page index file | [ ] Linked detail docs | [ ] Measure what loads |
-| Autonomy | [ ] Allow and deny lists | [ ] A written stop list | [ ] Approval as a setting |
-| Verification | [ ] Tests on every change | [ ] A check that plants a bug | [ ] Review risky work twice |
-| Learning | [ ] A decision log | [ ] Pending work as files | [ ] Retest your oldest rules |
-| Orchestration | [ ] One reviewer agent | [ ] A named roster | [ ] A budget per session |
+| Context | A one-page index file | Linked detail docs | Measure what loads |
+| Autonomy | Allow and deny lists | A written stop list | Approval as a setting |
+| Verification | Tests on every change | A check that plants a bug | Review risky work twice |
+| Learning | A decision log | Pending work as files | Retest your oldest rules |
+| Orchestration | One reviewer agent | A named roster | A budget per session |
 
 <!--
 You don't need all of this at once. In week one: a short index file, basic allow and deny lists, tests on every change, and a decision log. By the end of the first month: linked detail documents, a written stop list, one check that proves it can fail, and pending work kept as files. By the end of the quarter: measure what your sessions load, make merge approval a setting in your platform, add a second reviewing agent for risky work, and retest your oldest rules. Leave orchestration until these four are solid. For orchestration, start with one reviewer agent, name a small roster by the end of the month, and set a budget per session by the end of the quarter.
@@ -1055,22 +1057,25 @@ These practices came from a web application, but they travel. What changes is wh
 -->
 
 ---
-<!-- _class: list takeaway insight-why -->
+<!-- _class: list takeaway -->
 
 `Make it stick · Guardrails`
 
 ## Five guardrails an agent can't forget.
 
-- Constraints: a gate checks the rule on every build, so nobody has to remember it.
-- Budgets: a ceiling on size, speed and agent count, because agents rarely remove.
-- Standards: a contract per component, so "done" means the same thing every time.
-- Visibility: benchmarks and image diffs turn "feels slower" into a number.
-- Boundaries: a library imports only itself, so a change stays where you made it.
-
-> An agent forgets a rule. A gate doesn't.
+- Constraints
+  - A gate checks the rule on every build, so nobody has to remember it.
+- Budgets
+  - A ceiling on size, speed and agent count, because agents rarely remove.
+- Standards
+  - A contract per component, so "done" means the same thing every time.
+- Visibility
+  - Benchmarks and image diffs turn "feels slower" into a number.
+- Boundaries
+  - A library imports only itself, so a change stays where you made it.
 
 <!--
-The habits in this talk hold because we wrote most of them into the build. Five kinds of guardrail. Constraints: we have eighty-seven checks that run on every build, like "no raw color values in layouts" and "every untrusted string goes through a sanitizer." Each exception needs a written reason, and an exception that's no longer used fails the build, so the list can't quietly rot. Budgets: agents add far more than they remove, so everything gets a ceiling. Our instruction file grew to about sixty kilobytes before it had a cap. It has one now. Typing speed has one too, sized to catch the regression that once made every keystroke take sixty-three milliseconds. Standards: every component has a written contract, so the agent builds against it instead of guessing. Visibility: benchmarks, contrast checks, and a before-and-after image posted on every pull request. And boundaries, which is the next slide.
+The habits in this talk hold because we wrote most of them into the build. Five kinds of guardrail. Constraints: we have eighty-seven checks that run on every build, like "no raw color values in layouts" and "every untrusted string goes through a sanitizer." Each exception needs a written reason, and an exception that's no longer used fails the build, so the list can't quietly rot. Budgets: agents add far more than they remove, so everything gets a ceiling. Our instruction file grew to about sixty kilobytes before it had a cap. It has one now. Typing speed has one too, sized to catch the regression that once made every keystroke take sixty-three milliseconds. Standards: every component has a written contract, so the agent builds against it instead of guessing. Visibility: benchmarks, contrast checks, and a before-and-after image posted on every pull request. And boundaries, which is the next slide. The short version: an agent forgets a rule. A gate doesn't.
 -->
 
 ---
