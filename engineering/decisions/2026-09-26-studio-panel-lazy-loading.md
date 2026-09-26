@@ -110,8 +110,43 @@ None of the six panels exposes an imperative handle, and every command-palette a
 action that opens one is a plain state setter (Aug 23 §6). The effects inside
 `WorkspaceSheet` and `ShareSheet` only mirror state into the sheet's own controls, so
 deferring them changes nothing outside the panel. The Aug 23 spike's one real regression
-was an **import-time** side effect in a module that left the startup set. The checker
-(below) audits every module that leaves the startup set for that.
+was an **import-time** side effect in a module that left the startup set. §"Checked before
+building" audits every module that leaves the startup set for exactly that, and finds none.
+
+## Checked before building (2026-09-26)
+
+These checks ran against the uncommitted prototype of all six splits, built as the production site.
+
+- **What leaves the startup set.** I compared the startup module lists from the build before
+  and after (the static-import closure from `StudioIsland`, read from each chunk's module list).
+  617 → 522 modules: 97 leave (60 first-party, 37 single lucide icons). The largest are
+  `read-along-core.generated.js` (204KB minified), `WorkspaceSheet.tsx` (101KB),
+  `SlideContext.tsx`, `Library.tsx`, `lib/cadenza` and `lib/suono`. Two ids appear only in the
+  "after" list. One is the new `diff-card.tsx`. The other, `docs/src/lib/resolve-captions.js`,
+  is a re-export of `lib/core/resolve-captions.mjs`, which was already in the startup set.
+- **Code that runs on import.** I parsed each of the 60 first-party modules with the
+  TypeScript compiler API and listed every top-level statement that is not an import, an
+  export or a declaration of a constant or function. The only hits are constant `cn(...)`
+  class strings, one `Promise.resolve()` seed and the bundler's own `__commonJS` wrappers.
+  None of them registers a listener, reads a URL parameter or writes storage. This rules
+  out the failure the Aug 23 split shipped.
+- **Effects in closed panels.** `ShareSheet` and `WorkspaceSheet` are mounted while closed
+  today, so their effects run at startup. Each one either mirrors a preference into the
+  sheet's own controls or runs only while the sheet is open. The one that looked risky, the
+  install-app listener (`WorkspaceSheet.tsx:323`), is safe: `PwaHead.astro:42` captures
+  `beforeinstallprompt` in an inline script before any island loads, and the sheet reads it
+  back when it mounts. Under the `xOpen || xEverOpened` gate, a sheet stays mounted after its
+  first open, so `ShareSheet`'s "abort the export when closed" effect still fires.
+- **Real browser.** I served the prototype build and drove it in Chromium at 1440px, in the
+  Craft layout. Chat, Library, Views (Lenses), Slide settings, Share and Workspace each opened
+  and rendered completely, with no page errors. The rail panels fetched their own chunk on
+  first click. Share and Workspace fetched theirs on mount, because the prototype does not
+  gate them yet. The only failed request was Workspace's AI tab fetching the OpenRouter
+  model list: this sandbox's proxy certificate isn't trusted by Chromium, and the split
+  doesn't touch that request.
+
+Still open, because the checks above could not reach them: the idle warm-up and the
+first-open gates (not written yet), 820px and 390px widths, offline behavior, and the tours.
 
 ## Delivery
 
