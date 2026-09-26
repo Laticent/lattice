@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance.
+summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-09-07-overflow-guards-trim.md
 ---
 
@@ -328,3 +328,134 @@ own test, which fails on the unfixed code (the fitting deck stays at `1.3>1`) an
 the fix, plus a test that an unscaled deck never creates the frame, with a positive control.
 Left as known and low: the measuring renderer is never disposed (one frame and one memo entry
 for the page's life), and its whole-deck renders show in the Studio's performance overlay.
+
+## Amendment 2026-09-27 — a budget per venue for every component, in its manifest
+
+**The owner's direction.** Type size is set by the venue, one size per deck, and each
+component has a budget per venue. An author (or an agent) should pick a component that fits
+the room BEFORE writing, instead of trimming after the export's `↓ SCALE` line complains. The
+agentic-practices talk needs 15 pages trimmed for `huddle` because nobody could see the
+budget while writing.
+
+**Where the numbers were.** `SCALE_CAPACITY` in `lib/authoring/lint-core.js`: 16 components
+and the `code` pane, hard-coded in the linter. 26 of 70 manifests carried a `capacity` block
+and 17 of 71 docs printed an "At a projection scale" line. An agent reading the pick list saw
+no venue numbers at all.
+
+**The decision (taken, reversible).**
+
+- Each manifest carries `venueCapacity` (`lib/components/manifest.schema.json`), in one of
+  three shapes: `byWords` — the element count at each venue (`laptop` / `huddle` /
+  `conference` / `hall`), at each element length it was measured at (6 words, and the
+  component's `density.soft`); `lines` — the `code` pane's line count, bare and under an
+  eyebrow; or `none` — one sentence saying why there is no count budget. **All 70 manifests
+  carry one**, pinned by `test/unit/components/venue-capacity.test.js`.
+- `tools/build-stage-catalog.js` bakes the rows into
+  `lib/authoring/venue-capacity.generated.js` (the `pane-lint.generated.js` pattern), and
+  lint-core reads that file as `SCALE_CAPACITY` / `CODE_LINES_AT_SCALE`. The Studio's live
+  lint loads the same module, so it needs no vocab handoff. `build:check` fails a stale file.
+- `tools/lib/venue-capacity.js` formats the budget for the two reading surfaces: a
+  "**By venue**" line in every component's `.docs.md` (replacing "At a projection scale"),
+  and a `by venue` column in `dist/docs/components.pick.md`. `components.json` carries the
+  block as is.
+- `atLeast` marks a venue where the rig never saw the component overflow, so the number is
+  the most it tried (kanban and timeline-list at laptop; roadmap at laptop and huddle). The
+  docs print it as `12+`.
+
+**What `none` covers, and why each is honest.** 38 components: charts scale their marks to
+the box instead of clipping (19), a bookend or single statement has nothing to count (6),
+media fills its box (3), `diagram` is scaled whole by Mermaid, the connect cards are fixed
+fields (2), `content`, `citation-card`, `logo-wall` and `math` for the reasons
+`tools/lib/calibrate-core.js` `NOT_COUNT_CALIBRATABLE` already gave, and a `redline` is one
+clause's prose. Two are gaps, and say so: `compare-code` and `obligation-matrix` are not measured per venue yet.
+
+**Calibration, and the bug it found.** The rig (`tools/calibrate-capacity.js`) had silently
+stopped measuring past the first rung. #2390 turned the `↓ SCALE` report into two lines, with
+the pages to trim on the second; the rig read only the first, so every ceiling at scale-xl
+and scale-2xl came back equal to the scale-l one (agenda at 10 words: 5 at conference, truly
+3). The rig also read the SCALE block's "(the OVERFLOW line reports them)" as the OVERFLOW
+line. Both are fixed in `parseProbeLog`, which `test/unit/tools/calibrate-core-parse.test.js`
+feeds the report `scaleLevelReport` itself prints. Re-measured with the fix, all 16 old rows
+reproduce exactly, and so does the code pane; the one difference was premise at 6 words and
+laptop, which the old run had capped at `--max 9` (now 13). The rig gained builders for
+`table`, `cycle`, `policy-recommendation`, `kanban` and `roadmap`, so every component with a
+`capacity` block now has a measured row: 32 measured, 38 `none`.
+
+**Lint, before and after.** Every component gallery plus the baseline gallery, linted at each
+venue with `main`'s linter and this one on the same source: all 412 existing findings are
+identical, and 10 are new, all `policy-recommendation` at conference and hall (three
+20-word reasons; the component holds 2 there). Rendered at the venue, the engine agrees: the
+slide holds the deck to 1x at every venue from huddle up, so lint under-warns at huddle,
+which is the direction a count budget is allowed to err. The rig's element lengths are the
+ones lint counts: `kanban`'s builder writes two cards of `w` words per lane, and lint counts
+the whole lane (2w + 3 words), so its rows are keyed 15 and 19, not 6 and 8. Keyed by card
+length, the first cut warned on a four-lane gallery slide at huddle that fits.
+
+**The published number never exceeds `capacity.hard`.** A venue row is the geometric
+ceiling, and `split-compare` measures 4 side by side at laptop while its design holds 2;
+`capacity-overflow` enforces `hard` in every room. So the docs line and the pick column print
+`min(measured, hard)` (`tools/lib/venue-capacity.js` `hardCap`), and say so when it binds. The
+manifest keeps the measured number, which lint reads.
+
+**Found on the way, not fixed here.** At the designed size the new `cycle` builder measures
+a ceiling of 5 stages of 12 words against a declared `hard` of 6 — the same shape as the seven
+in `followups.d/2378-p3-capacity-hard-above-measured.md`, where it is now recorded.
+
+## Amendment 2026-09-27 (2) — one type size across modifiers
+
+**The rule.** One size per deck holds only if nothing on a single slide changes a type role's
+size. So: **a per-slide class may change spacing, chrome and color; it may not change the size
+of a type role** — with one carve-out this change does not decide: the explicit magnitude ask
+(`scale-*`, `venue-*`) can be written on a single slide, and then that slide is its own size.
+Concretely, for engine CSS:
+
+- **A role token** (`--fs-*`, and `--venue-meta-lift`, the label lift) is declared only on
+  `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung (`section.venue-*`, `section.scale-*`) — the
+  deck-level classes whose whole job is the size.
+- **A cross-component modifier** — `compact`, `claim-*`, `accent`, a mood, a tone, a state
+  stamp, any token in a `MODIFIER_GROUPS` group except `aliases` — sets no type size on a
+  slide's content: no `font-size`, no `font`, no custom property named as a size or aliasing a
+  role. Pseudo-elements (the state stamps, a drawn mark) are chrome and are exempt.
+- **A component's own variant may assign its elements to roles.** `list.principles` sets its
+  rows in `--fs-emphasis`, `divider.light` sets its heading in `--fs-h2`: that is a different
+  layout of the component, and each role it picks still has one size per deck. The dense-cell
+  step (`--fs-body-compact` in tables, ledgers and glossary cells) is a role, not a modifier,
+  for the same reason.
+
+Gated by `checkTypeSizeModifiers` in `tools/check-ownership.js` (via `build:check`), budget 0,
+with `SANCTIONED_TYPE_SIZE_MODIFIERS`: each entry carries its reason, and a stale one fails.
+
+**The audit** (every `font-size` / `font` / role-token declaration in `lib/**/*.css` under a
+modifier or variant class: 245, measured by a postcss walk over the tree):
+
+| Class | What it changes | Verdict |
+|---|---|---|
+| `venue-huddle` / `-conference` / `-hall`, `scale-l` / `-xl` / `-2xl` | `--fs-scale` (and the label lift) | The rung itself, exempt. Deck-wide when set in front matter; but a spot `_class: scale-xl` (or `venue-*`) on ONE slide is a documented directive, and that slide then differs in size from its neighbors — put to the owner |
+| `claim-quiet`, `claim-hero`, `claim-bleed` | Frame insets (`--frame-x/y`, `--footer-reserve`) and which chrome shows | Clean: spacing and chrome only |
+| `compact` (universal) | The `--sp-*` spacing scale only | Clean |
+| `cards-stack.compact` | Card and nested-item text from `--fs-body` to `--fs-body-compact` | **Violates**: a per-slide shrink. Sanctioned pending the owner's call (below) |
+| `q-and-a.compact` | Questions `--fs-message` → `--fs-body`, answers `--fs-body` → `--fs-body-compact`, index numeral re-based to `--fs-body`; gaps close | **Violates**, and the size change is most of what it does. Sanctioned pending the owner's call |
+| `kanban` under `.dark` | `.kanban-size` at `--fs-meta` | Size-neutral: one rule shared with the bare selector. Sanctioned |
+| State stamps (`confidential`, `draft`, `stamp-*`, …) | `::before` label size | Chrome (pseudo-element): exempt |
+| `numbered` on `divider` | The `::after` numeral | Chrome: exempt |
+| `note-warn` | The size of the drawn warning mark (`::after`) | Chrome: exempt |
+| `no-note` | Nothing: it only switches the note register off (`:not(.no-note)`) | Clean |
+| List variants (`takeaway`, `principles`, `numbered`, `lettered`, `roman`, `bullet`) | Rows to `--fs-emphasis` (principles), the gloss to `--fs-body` (takeaway) — both a step UP from the default, never down | Component variant: allowed |
+| Other component variants (178 declarations: kpi, timeline, spotlight, math, …) | Each assigns its elements to roles, or sizes chart and math glyphs in its own units | Component variant: allowed by this rule; out of scope |
+
+**What dropping the two `compact` shrinks costs, measured.** Every `cards-stack compact` and
+`q-and-a compact` slide in the tree (78: 71 generated "When NOT to reach for X" gallery slides,
+4 `cards-stack compact` slides in `examples/`, and 3 `q-and-a compact` slides) rendered with the
+shrink removed by a deck-local override: **22 clip** (19 gallery anti-pattern slides, 1 example
+slide, 2 q-and-a slides), against 0 today. So the fix cannot ship alone (#18): it needs the gallery generator
+(`tools/build-component-docs.js`) to lay the anti-pattern slide out so it fits at body size,
+and the three q-and-a slides trimmed, and every gallery PDF re-rendered. That is the owner's
+call, put to them with a recommendation; until then the two are sanctioned, so the gate holds
+the line against a new one.
+
+**What the render shows.** `cards-grid.gallery.md` at `venue: huddle` renders all 11 pages
+at 1.15x (no `↓ SCALE` line): headings, running header and page numbers one size. Page 10 —
+the generated `cards-stack compact` anti-pattern slide — is the one page whose body text is
+visibly smaller than its neighbors', which is the sanctioned shrink above. `list-steps` at
+huddle levels all 20 slides to 1x ("for 1.15x, trim page 3"). This change moves no engine
+CSS, so no render changes; the gate only stops a new per-slide size change from landing.

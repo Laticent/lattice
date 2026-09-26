@@ -218,5 +218,8 @@
       },
       "note": "Regulation rows against obligation columns. Judgment: the calibration rig has no element builder for this component."
     }
+  },
+  "venueCapacity": {
+    "none": "Its rows are a state-marker grid the calibration rig cannot author yet; not measured per venue."
   }
 }

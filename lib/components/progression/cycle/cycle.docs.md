@@ -14,6 +14,8 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a stage is a name plus one clause, not a paragraph.
 
+**By venue** (`venue:`, ~12 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~4 items. At ~6 words each: 6 · 6 · 6 · 6. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

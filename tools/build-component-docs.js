@@ -278,27 +278,15 @@ function terminated(t) {
 }
 
 /**
- * The component's capacity at the projection font scale (typography.md §7), from the
- * measured tables lint enforces (lib/authoring/lint-core.js SCALE_CAPACITY and
- * CODE_LINES_AT_SCALE) — printed from the same numbers so the doc and `lint:deck`
- * cannot disagree. Null for a component the tables do not cover.
+ * The component's budget per `venue:` (typography.md §7), from its manifest's `venueCapacity` —
+ * the same numbers lint-core reads through venue-capacity.generated.js, so the doc and
+ * `lint:deck` cannot disagree. A manifest that says `none` prints its reason, so an absent
+ * budget is stated rather than implied. Formatting lives in tools/lib/venue-capacity.js,
+ * shared with the pick list.
  */
 function projectionScaleLine(m, axis) {
-  const { SCALE_CAPACITY, CODE_LINES_AT_SCALE } = require('../lib/authoring/lint-core.js');
-  const tail = 'past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — '
-    + '`lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.';
-  if (m.name === 'code') {
-    const [, l, xl, xxl] = CODE_LINES_AT_SCALE.bare;
-    const [, el, exl, exxl] = CODE_LINES_AT_SCALE.eyebrow;
-    return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`, or \`venue: huddle\` / \`conference\` / \`hall\`) the pane holds ~${l} / ~${xl} / ~${xxl} lines at a wide @size (~${el} / ~${exl} / ~${exxl} under an eyebrow); ${tail}`;
-  }
-  const row = SCALE_CAPACITY[m.name];
-  if (!row) return null;
-  const lengths = Object.keys(row).map(Number).sort((a, b) => a - b);
-  const words = lengths[lengths.length - 1];
-  const [, l, xl, xxl] = row[words];
-  const noun = axisNoun(axis || 'item', 2);
-  return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`, or \`venue: huddle\` / \`conference\` / \`hall\`) it holds ~${l} / ~${xl} / ~${xxl} ${noun} of ~${words} words at a wide @size; ${tail}`;
+  const { venueDocsLine } = require('./lib/venue-capacity.js');
+  return venueDocsLine(m, axisNoun(m.venueCapacity?.axis || axis || 'item', 2));
 }
 
 function emitAgentContract(m, lines) {

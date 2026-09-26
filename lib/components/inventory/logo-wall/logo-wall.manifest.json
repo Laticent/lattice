@@ -160,5 +160,8 @@
       },
       "note": "Logo cells in a grid. Judgment: the calibration rig has no element builder for this component."
     }
+  },
+  "venueCapacity": {
+    "none": "Its elements are image assets; a synthetic deck would measure broken-image boxes, not logos."
   }
 }

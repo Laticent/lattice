@@ -180,5 +180,8 @@
       "note": "Steps run along the x axis: a stacked band is full width. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
     },
     "review": "side 25 measured, 50 reviewed: category labels truncate below 50%; stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   }
 }

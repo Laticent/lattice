@@ -128,5 +128,8 @@
       },
       "note": "A lead paragraph plus bullets. Judgment: the calibration rig has no element builder for this component."
     }
+  },
+  "venueCapacity": {
+    "none": "The lead paragraph is the slide and the bullets are optional, so a bullet count measures the wrong thing."
   }
 }

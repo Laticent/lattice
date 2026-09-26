@@ -125,5 +125,23 @@
       },
       "note": "Code lines at the code type size: a stacked band is short. Judgment: the calibration rig has no element builder for this component."
     }
+  },
+  "venueCapacity": {
+    "axis": "line",
+    "at": "wide",
+    "lines": {
+      "bare": {
+        "laptop": 15,
+        "huddle": 13,
+        "conference": 11,
+        "hall": 10
+      },
+      "eyebrow": {
+        "laptop": 13,
+        "huddle": 11,
+        "conference": 10,
+        "hall": 8
+      }
+    }
   }
 }

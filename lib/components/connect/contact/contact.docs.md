@@ -10,6 +10,8 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 
 ## Agent contract
 
+**By venue** no count budget. A fixed card (name, a few contact lines and a QR code), with no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

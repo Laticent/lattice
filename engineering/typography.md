@@ -413,15 +413,44 @@ has nothing left to cap, and the owner replaced it on 2026-09-26. What you get:
   pages …; for 1.3x, trim pages …`. Each section carries
   `data-lattice-scale-step="1.3>1"`, and a slide whose own fit is lower carries
   `data-lattice-scale-fit`.
-- **`lint:deck` flags it first.** `capacity-scale` names a counted component past its
-  measured budget at the deck's scale, and a `code` block past the pane's scaled line or
-  column budget. Each component's `.docs.md` prints its budget on an
-  "**At a projection scale**" line.
+- **Every component states its budget per venue.** Its manifest's `venueCapacity` holds the
+  element count it fits at `laptop` / `huddle` / `conference` / `hall` (measured at a wide
+  @size by `tools/calibrate-capacity.js`), or one sentence saying why it has no count budget
+  (a chart scales to its box; a title has nothing to count). Its `.docs.md` prints it on a
+  "**By venue**" line, and `dist/docs/components.pick.md` has a `by venue` column, so you can
+  pick a component that fits the room before you write.
+- **`lint:deck` flags it first.** `capacity-scale` names a counted component past that
+  budget at the deck's scale, and a `code` block past the pane's scaled line or column
+  budget. It reads the same numbers, baked into
+  `lib/authoring/venue-capacity.generated.js`.
 
 Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /
 13 / 11 / 10 lines at 1 / l / xl / 2xl (13 / 11 / 10 / 8 under an eyebrow), and
 `floor(102 / s)` columns. See `engineering/decisions/2026-09-25-font-scale-fit.md` and its
 2026-09-26 amendment.
+
+### One size across modifiers — spacing may change, a type role may not
+
+One size per deck holds only if nothing on a single slide changes a type role's size. So
+**a per-slide class may change spacing, chrome and color, never the size of a type role**:
+
+- A role token (`--fs-*`, and the label lift `--venue-meta-lift`) is declared only on
+  `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung (`section.venue-*`,
+  `section.scale-*`). The rung is the one carve-out: a spot `_class: scale-xl` (above) still
+  sets one slide apart, and whether it should is the owner's open call.
+- A cross-component modifier (`compact`, `claim-*`, `accent`, a mood, tone or state stamp)
+  sets no type size on content. `claim-hero` tightens the frame; it does not shrink the text.
+  Pseudo-elements (a state stamp's label, a drawn mark) are chrome and are exempt.
+- A component's OWN variant may assign its elements to roles (`list principles` sets rows in
+  `--fs-emphasis`): that is a different layout, and each role still has one size per deck.
+  The dense-cell step (`--fs-body-compact` in tables and ledgers) is a role for the same
+  reason.
+
+`checkTypeSizeModifiers` in `tools/check-ownership.js` enforces it in `build:check`, budget 0,
+with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the exceptions — each with its reason. Two of the
+three today (`cards-stack compact`, `q-and-a compact`) are real per-slide shrinks awaiting the
+owner's decision; the audit is in `engineering/decisions/2026-09-25-font-scale-fit.md`,
+Amendment 2026-09-27 (2).
 
 ### When NOT to use it
 

@@ -190,5 +190,23 @@
       "min": 2
     },
     "review": "side 35 measured, 50 reviewed: the third tier is cut below 50%."
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 4,
+        "huddle": 3,
+        "conference": 3,
+        "hall": 3
+      },
+      "14": {
+        "laptop": 4,
+        "huddle": 3,
+        "conference": 3,
+        "hall": 2
+      }
+    }
   }
 }

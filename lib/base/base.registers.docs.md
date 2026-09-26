@@ -770,6 +770,10 @@ which a venue lifts past the body because the smallest text fails first at dista
 If your back row is farther from the screen than the band assumes (for example, 30
 people and a small TV), pick the next venue up.
 
+Each component's `.docs.md` prints how many elements it holds at each venue (its
+"**By venue**" line), and `dist/docs/components.pick.md` has the same numbers in a
+`by venue` column — pick for the room before you write.
+
 A slide too full for the venue's size does not clip and does not render smaller than
 its neighbors: the whole deck renders at the largest size every slide fits, and the
 export's `↓ SCALE` line names the slides to trim. `lint:deck` warns (`capacity-scale`)

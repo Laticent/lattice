@@ -171,5 +171,8 @@
   "pane": {
     "side": false,
     "stack": false
+  },
+  "venueCapacity": {
+    "none": "A motion scene's still fills its box and scales, so no element count marks where it stops fitting."
   }
 }

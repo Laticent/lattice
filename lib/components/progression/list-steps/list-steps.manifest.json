@@ -269,5 +269,23 @@
       "min": 3
     },
     "review": "side 50 measured, 65 reviewed: step titles break mid-word below 65%."
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 7,
+        "hall": 7
+      },
+      "14": {
+        "laptop": 5,
+        "huddle": 4,
+        "conference": 4,
+        "hall": 3
+      }
+    }
   }
 }

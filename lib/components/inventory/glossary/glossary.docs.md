@@ -12,6 +12,8 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — a term and a one-sentence definition.
 
+**By venue** (`venue:`, ~16 words each) it holds laptop ~10 · huddle ~9 · conference ~4 · hall ~4 items. At ~6 words each: 10 · 9 · 8 · 7. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

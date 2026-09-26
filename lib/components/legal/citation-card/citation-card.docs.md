@@ -10,6 +10,8 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ## Agent contract
 
+**By venue** no count budget. Atomic: one citation per slide, so there is no count axis.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

@@ -108,7 +108,7 @@ describe('components.pick.md', () => {
     for (const m of escalating) {
       const c = cells(rowFor(m.name));
       for (const target of capacityEntry(m).capacity.escalateTo) {
-        assert.ok(c[4].includes(target), `${m.name}: escalateTo ${target} missing from its row`);
+        assert.ok(c[5].includes(target), `${m.name}: escalateTo ${target} missing from its row`);
       }
       if (!m.capacity) derivedCovered += 1;
     }
@@ -169,15 +169,15 @@ describe('components.pick.md', () => {
   test('search tags are present and greppable on the row', () => {
     for (const m of manifests.filter((x) => Array.isArray(x.tags) && x.tags.length)) {
       const c = cells(rowFor(m.name));
-      for (const tag of m.tags) assert.ok(c[5].split(' ').includes(tag), `${m.name}: tag ${tag} missing`);
+      for (const tag of m.tags) assert.ok(c[6].split(' ').includes(tag), `${m.name}: tag ${tag} missing`);
     }
   });
 
   test('every row has a purpose, and it stays one line', () => {
     for (const m of manifests) {
       const c = cells(rowFor(m.name));
-      assert.ok(c[7].length > 0, `${m.name}: empty purpose`);
-      assert.ok(c[7].length <= 170, `${m.name}: purpose cell is ${c[7].length} chars, not a one-liner`);
+      assert.ok(c[8].length > 0, `${m.name}: empty purpose`);
+      assert.ok(c[8].length <= 170, `${m.name}: purpose cell is ${c[8].length} chars, not a one-liner`);
     }
   });
 
@@ -186,10 +186,10 @@ describe('components.pick.md', () => {
   // head-first ("Use for X…") and tail-last ("…for Y, use `Z` instead"), so the clamp
   // ate the discriminating half of every row while rendering as a complete claim.
   test('most rows are a COMPLETE sentence, not a truncation', () => {
-    const truncated = manifests.filter((m) => cells(rowFor(m.name))[7].endsWith('…'));
+    const truncated = manifests.filter((m) => cells(rowFor(m.name))[8].endsWith('…'));
     assert.ok(truncated.length <= 8, `${truncated.length} rows truncated — the cap should be a backstop, not the mechanism`);
     for (const m of manifests) {
-      const purpose = cells(rowFor(m.name))[7];
+      const purpose = cells(rowFor(m.name))[8];
       assert.ok(/[.!?]$/.test(purpose) || purpose.endsWith('…'), `${m.name}: purpose neither ends a sentence nor marks a cut: ${purpose}`);
     }
   });
@@ -202,7 +202,7 @@ describe('components.pick.md', () => {
     assert.ok(withRelated.length >= 30, `expected the real corpus, got ${withRelated.length}`);
     const known = new Set(manifests.map((m) => m.name));
     for (const m of withRelated) {
-      const seeAlso = cells(rowFor(m.name))[6].split(' ').filter(Boolean);
+      const seeAlso = cells(rowFor(m.name))[7].split(' ').filter(Boolean);
       for (const rel of m.related) {
         const name = typeof rel === 'string' ? rel : rel.name;
         if (!known.has(name)) continue; // dangling relation — asserted separately below
@@ -218,7 +218,7 @@ describe('components.pick.md', () => {
   test('a relation naming a component that does not exist is dropped', () => {
     const fake = [{ ...manifests[0], name: 'rel-test', related: [{ name: 'ghost-component' }, { name: manifests[1].name }] }, manifests[1]];
     const row = renderPickMd(fake).split('\n').find((l) => l.startsWith('| rel-test '));
-    const seeAlso = row.split(/(?<!\\)\|/).slice(1, -1)[6].trim();
+    const seeAlso = row.split(/(?<!\\)\|/).slice(1, -1)[7].trim();
     assert.ok(!seeAlso.includes('ghost-component'), 'a non-existent component must not be recommended');
     assert.ok(seeAlso.includes(manifests[1].name), 'a real relation must survive');
   });
@@ -250,7 +250,7 @@ describe('components.pick.md', () => {
     for (const [label, input] of cases) {
       test(`${label} keeps the row intact and renders verbatim`, () => {
         const { count, purpose } = renderedPurpose(input);
-        assert.equal(count, 8, `${label}: the row must still have exactly 8 cells`);
+        assert.equal(count, 9, `${label}: the row must still have exactly 9 cells`);
         assert.equal(purpose, input, `${label}: the reader must see what the manifest wrote`);
       });
     }
@@ -265,6 +265,18 @@ describe('components.pick.md', () => {
   // and a tripwire if a future field turns the pick list back into a document.
   test('the catalog stays small enough to read in one go', () => {
     assert.ok(md.length < 24_000, `pick list is ${md.length} chars — it is becoming a document, not an index`);
+  });
+
+  // The `by venue` column is the manifest's `venueCapacity` at the authored length, through the
+  // same formatter the component docs use (tools/lib/venue-capacity.js), so the two surfaces
+  // cannot state different budgets; a `none` is a dash, never a guessed number.
+  test('the by-venue column prints each manifest\'s venue budget', () => {
+    const { venuePickCell } = require('../../../tools/lib/venue-capacity');
+    for (const m of manifests) {
+      assert.equal(cells(rowFor(m.name))[4], venuePickCell(m), `${m.name}: by-venue cell`);
+      if (m.venueCapacity?.none) assert.equal(cells(rowFor(m.name))[4], '—', `${m.name}: a none is a dash`);
+      else assert.match(cells(rowFor(m.name))[4], /^\d+\+?(\/\d+\+?){3}( lines)?$/, `${m.name}: four venue counts`);
+    }
   });
 
   test('it points at the per-component docs for authoring, per HARD RULE #6', () => {
