@@ -77,6 +77,32 @@ module, which pulls Node built-ins. Any design must say what happens to them.
 **Decided (owner, 2026-09-25): shape 1, self-contained, decided automatically at export.** No
 exporter-facing choice. See the contract note's §8.
 
+## Step 1 done (2026-09-26): the CLI's locked page, proven
+
+`lib/core/code-sandbox.js` (`launchSandboxBrowser`, `openSandboxPage`) makes 0 requests for 34
+hostile vectors, and each of its two walls (its own always-offline browser, and the locked page)
+does so alone; the control fires 33, and every vector is proven to have run. The contract note's
+§4 says what the measurement and the adversarial trio changed (script by hash, not nonce; a
+`data:` navigation; the transform in a sandboxed frame). Nothing runs a transform in it yet.
+
+**Open for the owner: the OS sandbox.** The CLI launches Chromium with `--no-sandbox` (it runs as
+root in containers, where Chromium's own sandbox cannot start), so the two walls are browser policy
+over a renderer a Chromium exploit could escape, reading files or opening sockets directly. Options:
+(a) code packages refuse to run unless Chromium's OS sandbox is on (safest; no code packages in a
+root container or most CI); (b) run them anyway and say so in the consent text; (c) a separate
+unprivileged user for the sandbox browser where the CLI can arrange one. A minimum Chromium version
+for code packages belongs with it: `CHROME_EXEC` accepts any system Chrome.
+
+**Step 2 must carry (from the inversion lens on step 1):**
+- The transform's HTML is hostile after the sandbox too: it may contain NO remote reference at all,
+  whatever `--allow-remote` says, dropped (not a placeholder) before it is spliced into the deck;
+  a placeholder keeps the address, and a reader's "load" would send the slide data in it.
+- Time and size: race each call with a host timer, `Runtime.terminateExecution` and close the
+  context on overrun; a per-render budget as well as the 2 s per slide; check the output's type and
+  length in the page before it crosses the DevTools protocol; time and cap the sanitizer.
+- Bridges: keep `measure` inside the page (no `exposeFunction`); strip terminal escapes from any
+  console text the CLI prints and escape a thrown message before it becomes the slide's note.
+
 **Done when:** the export step bundles, minifies and freezes each code package's helpers; a test
 exports every shipped transform as a package and runs it in the sandbox with only `measure`
 provided, and it matches the in-repo render; the QR components (`contact`, `wifi`, `video`) are

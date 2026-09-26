@@ -109,10 +109,41 @@ both places, where a Node process has nothing to measure with.
   slide of every code package in a render. Every output format already launches the
   browser (`renderExport` in `lattice-emulator.js` runs for all of them, `.html`
   included), so no output gains a browser it didn't have.
-- **Unverified:** that a CSP delivered this way blocks every fetch a hostile transform can
-  make (image, `fetch`, WebSocket, prefetch, a `<meta>` refresh) in the headless build we
-  ship. This is the first thing phase 6 proves, with a network log, before anything else
-  is built on it (HARD RULE #23).
+- **Verified (2026-09-26), with a network log; and a CSP alone is NOT enough.** The page is
+  `lib/core/code-sandbox.js`. A real local HTTP + WebSocket server and two UDP sockets counted
+  what 34 hostile vectors reached on Chromium 131: image, `fetch`, XHR, WebSocket, beacon,
+  EventSource, prefetch, preload, stylesheet, CSS background, iframe, meta refresh, top-level
+  navigation, `window.open` (direct and through an `about:blank` iframe), a `target=_blank`
+  link (plain, in a closed shadow root, with `closest` patched, and in SVG) and form, form post,
+  worker (URL and blob), dynamic `import()`, `<script src>`, SVG image, video poster, audio,
+  `<a ping>`, speculation rules (plain, and stamped with a nonce read from the running script),
+  `FontFace`, and WebRTC (direct and through an iframe). With no walls the control fires 33 (a
+  URL `Worker` is refused by the opaque origin even there); every vector logs that it RAN, so a
+  zero is never a script that did not start. Two walls each stop all 34 ALONE: the BROWSER (the
+  offline arguments, always, `--allow-remote` or not) and the PAGE (a fresh context, a script-free
+  `data:` outer document, the transform in `<iframe sandbox="allow-scripts">`, `default-src 'none'`
+  with script allowed only by the SHA-256 hash of the transform, request interception, and an init
+  script that removes `window.open` and WebRTC). The sandbox browser also turns speculative
+  prefetch and prerender off and keeps the popup blocker on; the checker removed each and nothing
+  changed, so they are defense in depth, not part of the measured wall.
+  What the measurement and the adversarial trio changed: `'unsafe-inline'` let a transform
+  inject speculation rules the prefetch service fetched past interception; a NONCE did no better,
+  because the transform runs inside the nonced script and can read and reuse it (the red team's
+  hypothesis, measured by the inversion lens), so script is allowed by hash; `setContent` wrote
+  into the existing `about:blank`, where the init script never runs, so the page loads as a
+  `data:` navigation; a `target=_blank` link opened a popup whose first request left before it
+  closed, a JavaScript click guard fell to three bypasses the checker found, so the transform runs
+  in a sandboxed frame that cannot grant itself a popup; a transform holding `<!--` then
+  `<script` silently failed its hash, so those `<` are written `\x3C`.
+  **One page per package per render**, not one shared page as the Costs line above proposed: a
+  package that patches a global in a shared page could read or rewrite another's slide data.
+  **Not claimed:** an OS sandbox under the renderer. The CLI launches Chromium with
+  `--no-sandbox`, so both walls are browser policy over a renderer that a Chromium exploit could
+  escape; whether code packages refuse to run without the OS sandbox is open for the owner
+  (`followups.d/2314-p4-code-packages.md`). Pinned by
+  `test/integration/export/code-sandbox-network.test.js` (the control, each wall alone, both,
+  the literal launch list, and a check that the page still lays out text for `measure`). Still
+  UNVERIFIED: the Studio's sandboxed iframe, which phase 6 has not built.
 
 **Recommendation: a Chromium page in the CLI, the sandboxed iframe in the Studio.**
 
