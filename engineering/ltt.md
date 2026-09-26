@@ -86,10 +86,11 @@ inputs, and a tour never carries `deckPace`.
 per-line emphasis spans, and they change a track's timing, but a span is a character range into
 one line, so it means nothing file-wide. `segmentHashInput(text, inputs, emphasis)` appends a
 segment's spans, one list per line, when any line has one; with none, the string is exactly what
-it was, so no existing hash moves. The tour recorder hashes them. The deck producer does not yet:
-the HTML export receives no emphasis spans (`narrationPayload` gets text, track and clips), so an
-emphasis-only edit to a deck still leaves its `hash` unchanged. Carrying them changes export
-bytes, so it waits for its own sign-off (`followups.d/2339-p5-deck-emphasis-in-segment-hash.md`).
+it was, so no existing hash moves. The tour recorder hashes them, and so does the deck producer:
+the Studio's bake hands each slide the spans `buildTrack` timed it with, `narrationPayload`
+carries them, and `deckLtt` hashes a slide as one line. A deck with no emphasis keeps exactly the
+hashes it had, and re-weighting one span moves only that slide's hash
+(`test/unit/export/ltt-deck-emphasis.test.js`).
 
 `engine` hashes the SOURCE the estimate is computed from: Cadenza's `track.ts`
 (`buildTrack`) and every file it reaches through relative imports, in name

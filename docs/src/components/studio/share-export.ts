@@ -640,6 +640,7 @@ export async function shareHtmlPlayer(
 							text: n.text,
 							track: n.track,
 							clips: (result.slides[i] ?? []).map((c) => (c.audio && c.clip ? { audio: c.audio, clip: c.clip, leadMs: c.leadMs } : null)),
+							...(n.emphasis ? { emphasis: n.emphasis } : {}),
 						}
 					: null,
 			),

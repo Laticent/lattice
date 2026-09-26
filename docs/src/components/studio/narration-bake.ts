@@ -75,7 +75,7 @@ export type NarrationBake = {
 	/** What the deck's LTT is built from (lib/core/ltt-deck.mjs), index-aligned to the deck's
 	 *  slides: the exact text handed to `buildTrack`, and the track it built. Null for a slide
 	 *  with no narration. `slides[i]` is index-aligned to `narrated[i].track.cues`. */
-	narrated: ({ text: string; track: CaptionTrack } | null)[];
+	narrated: ({ text: string; track: CaptionTrack; emphasis?: EmphasisSpans } | null)[];
 	/** The deck-wide inputs that change timing, for the LTT's `inputs` (the maps are hashed there). */
 	inputs: { lang?: string; lexicon?: Record<string, string>; acronyms?: Record<string, string> };
 	/** What the deck was narrated with — recorded so the artifact can say so. */
@@ -428,11 +428,8 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 	// caption rung can win over either — both replace the string, and stale offsets would land a beat
 	// mid-phrase. The same identity test Present and the CLI export apply, so all three producers
 	// bake, play and export the identical beats.
-	const tracks = texts.map((t, i) => {
-		if (!t) return null;
-		const emphasis = t === projected?.[i] ? projectedEmphasis?.[i] : undefined;
-		return buildTrack(t, { acronyms, emphasis, lang, lexicon });
-	});
+	const emphases = texts.map((t, i) => (t && t === projected?.[i] ? projectedEmphasis?.[i] : undefined));
+	const tracks = texts.map((t, i) => (t ? buildTrack(t, { acronyms, emphasis: emphases[i], lang, lexicon }) : null));
 	const perSlide = tracks.map((track) => (track ? track.cues.map((c) => c.words.map((w) => w.spoken).join(' ')) : []));
 	// "A projection was SUPPLIED", not "was used". A misaligned one is stood down, but the
 	// fallback rung above then reproduces exactly what Present does with the same input — so
@@ -442,6 +439,7 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 		slides,
 		tracks,
 		texts,
+		emphases,
 		perSlide,
 		projectionUsed: Array.isArray(projected),
 		inputs: {
@@ -630,9 +628,10 @@ export async function bakeNarration(
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { tracks, texts, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
+	const { tracks, texts, emphases, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
-	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track } : null));
+	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs).
+	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...emphases[i]] } : {}) } : null));
 
 	// The cue skeleton — text, estimate, breath, word timings. Identical whether or not audio
 	// ships, because it is the same delivery either way; only the clips differ.
