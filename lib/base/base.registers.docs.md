@@ -1042,7 +1042,7 @@ slide, a PDF, a PPTX or an export.
 chart bar, wedge or line, that element changes color in place while it is being said. Nothing
 moves, the other items stay as they were, and nothing is drawn over the slide. A table's first
 cell names its row, a header cell names its column, and any other cell names itself. Text sparks
-in the accent; a chart mark sparks in the heading ink, because a chart often paints its first
+in the accent over a soft wash; a chart mark sparks in the heading ink, because a chart often paints its first
 series in the accent already. A mark that carries something in its fill (a heatmap value, a
 state node's name, radar's translucent area) keeps that fill and takes an ink edge instead. When
 the narration names something no spark can reach (an image, a figure), the Guide draws ink there.
@@ -1057,7 +1057,7 @@ delivery: somber       # bad news, a loss: nothing moves that does not have to
 |---|---|---|---|
 | Gestures per slide, at most | 2 | 4 | 1 |
 | After the first, a moment needs a signal | yes | no | yes |
-| Spark color | the accent | the accent | a quiet ink, never the accent |
+| Spark color | the accent, over an accent wash | the same | the heading ink over a gray wash, never the accent |
 | Arrival | one soft glow | one soft glow | no glow |
 | Fade in and out | 320 ms; leaves with the next sentence | 240 ms; the same | 900 ms, and it holds through a short aside that names nothing ("Thank you.") |
 | Cursor and overlay ink | none | on the top moment only | none |

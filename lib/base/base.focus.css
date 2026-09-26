@@ -202,13 +202,14 @@ section[data-spark] {
   --spark-glow: color-mix(in srgb, var(--accent) 55%, transparent);
   --spark-wash: color-mix(in srgb, var(--accent) 16%, transparent);
 }
-/* Somber: the accent pulled toward the muted ink — a quieter hue, never the accent
- * itself. Toward `--text-muted`, not `--text-heading`: a mix into the heading ink
- * lands on the body text's own color, and the spark disappears (measured). */
+/* Somber: no accent anywhere — the heading ink over a gray wash. A muted accent
+ * (the first cut) sat only 3–7 OKLab units from restrained's spark on indaco and
+ * cuoio, too close to tell apart; this sits 22–33 apart on both, light and dark
+ * (measured 2026-09-26, owner's pick). */
 section[data-spark="muted"] {
-  --spark-ink: color-mix(in oklab, var(--accent) 55%, var(--text-muted));
+  --spark-ink: var(--text-heading);
   --spark-mark: color-mix(in oklab, var(--text-heading) 70%, var(--text-muted));
-  --spark-wash: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  --spark-wash: color-mix(in srgb, var(--text-muted) 18%, transparent);
 }
 @keyframes lat-spark-text { to { color: var(--spark-ink); } }
 @keyframes lat-spark-text-out { from { color: var(--spark-ink); } }
@@ -230,11 +231,12 @@ section[data-spark] :is(.lat-spark-out, .lat-spark-out > :is(strong, b, em, i, a
  * `--spark-keep`. Inline runs spark only as the item's own children, above, so bold
  * text inside the nested body stays put too. */
 section[data-spark] :is(.lat-spark, .lat-spark-out) :is(ul, ol) { color: var(--spark-keep, inherit); }
-/* A table cell also takes a soft wash behind its text. A cell is small and often
- * set in a light face, so on a dark theme — where the accent sits close to the
- * body ink — a hue shift alone was too faint to find (measured on indaco dark).
- * A background is paint, so the row, column or cell still moves nowhere. */
-section[data-spark] :is(td, th).lat-spark { background-color: var(--spark-wash) !important; }
+/* Sparked text also takes a soft wash behind it. Where the accent sits close to
+ * the body ink (cuoio light: 6.7 OKLab units) a hue shift alone was too faint to
+ * find; the wash clears 8–10 against the slide on every theme measured. It stays
+ * through the fade-out and leaves when the Guide clears it. A background is
+ * paint, so the item, row, column or cell still moves nowhere. */
+section[data-spark] :is(.lat-spark, .lat-spark-out):not(svg *) { background-color: var(--spark-wash) !important; }
 /* A chart mark (bar, wedge, band, dot) changes fill; a line changes stroke.
  * SVG paint does NOT animate: Chromium interpolating a chart's own token paint
  * (a `color-mix()` over `light-dark()`) toward the spark painted the Enterprise

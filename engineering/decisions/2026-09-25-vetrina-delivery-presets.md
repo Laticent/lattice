@@ -229,7 +229,7 @@ restrained. The owner settled both in one round:
 
 | | `restrained` | `expressive` | `somber` |
 |---|---|---|---|
-| Color | accent | accent | accent mixed toward the muted ink |
+| Color | accent over an accent wash | the same | heading ink over a gray wash, no accent |
 | Motion | one 480 ms glow on arrival | the same | no glow |
 | Tempo | 320 ms fade; releases on the next sentence | 240 ms | 900 ms; holds through a short aside that names nothing |
 | Caption | word-by-word crawl in the accent | the same | the line in one muted ink, no crawl |
@@ -248,6 +248,12 @@ Two things the renders taught, both recorded in the CSS:
   `color-mix()` over `light-dark()`) toward the spark painted that line `oklab(1 255 255)`, pure
   yellow, in the dark Studio. The paint switches in one step and the glow carries the arrival.
   Text `color` does animate, and each state was checked against the rendered value.
+
+**Revised after measuring (owner, 2026-09-26).** The first cut sparked somber in the accent
+mixed toward the muted ink. Measured in OKLab units ×100 on indaco and cuoio, light and dark,
+it sat only 3–7 from restrained's spark, and on cuoio light the accent itself sat 6.7 from body
+text. Now every text spark carries a wash (8–10 against the slide), and somber uses the heading
+ink over a gray wash, 22–33 from restrained on all four.
 
 Measured: sparking every bullet, cell, row, column, mark and heading on all 116 gallery slides at
 once moved **0** of 5,381 element boxes, mid-glow and after it, in light and dark.

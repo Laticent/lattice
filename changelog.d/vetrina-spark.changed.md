@@ -1,2 +1,2 @@
 - The Present Guide now **sparks the element it names** instead of drawing beside it: the named bullet, table row, cell or column, chart bar, wedge or line changes color in place while it is said, and nothing on the slide moves. Overlay ink and the cursor now appear only on an `expressive` deck's top moment.
-- `delivery: somber` now reads differently from `restrained`: a quiet ink instead of the accent, no glow, a slower 900 ms fade that holds through a short aside, and a caption without the word-by-word crawl.
+- `delivery: somber` now reads differently from `restrained`: the heading ink over a gray wash instead of the accent, no glow, a slower 900 ms fade that holds through a short aside, and a caption without the word-by-word crawl.
