@@ -7,6 +7,21 @@ source: https://github.com/Laticent/lattice/pull/2363
 
 # The Present Guide points at nothing on six components, and only at the whole chart on two
 
+Progress 2026-09-26 (#2392): a value-led mark tier (`findValueLedMark`) points "870 reached a
+proposal, and 214 signed" at the `Proposal sent` band instead of the whole funnel. The fixture's
+other misses were read one by one: "Good morning.", "Thank you.", "Questions?", "It keeps SOC 2
+scope narrow.", "…a two-year buy-back clause.", "Keeping things as they are is not on the table."
+name nothing on their slide, and #2371 holds or hides them by design; "Here is how ARR moved…",
+"Net, we grew $5.4M…" and "The pipeline tells the same story…" are about the whole chart ($5.4M
+is no bar's value), so the whole figure is right. That leaves three that DO name something the
+resolver cannot yet join: "This is the third-quarter review for fiscal twenty-six." (the title's
+`Q3 FY26`), "We did look hard at the fix." (the `Why not fix it` card) and "It costs more than the
+segment earns." (that card's body, in other words). Separately, the independent check found
+`tools/mutate-guide-gestures.mjs`'s mark-tier entries stale (`corroborated = containsWord(...)` no
+longer exists, so they report "did not apply"), and no entry covers the paraphrase tier; the
+value-led tier's three entries are new and each goes red. **The done-when below asks every sentence to
+resolve, which contradicts #2371's hold-and-hide; it needs the owner's ruling before it can close.**
+
 Progress 2026-09-25 (#2371): the paraphrase tier took the fixture from 37 to 52 of 63, and the
 corpus from 93.0% to 96.9% resolved (946 → 35 hides). Slide 12's stray "No. We are not proposing to
 keep things as they are." is now one sentence (#2372), so the fixture reads 52 of 62. Still open on

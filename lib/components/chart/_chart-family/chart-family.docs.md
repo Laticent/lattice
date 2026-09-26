@@ -679,8 +679,10 @@ The rules that cost a measured miss when broken:
   a block wrapper, never on a `<table>`, which ignores the 1px box and lays out at full size.
 
 What the Guide does when no mark answers, in order: a mark's spoken detail note points at its
-mark, words drawn in a `<div>` or `<text>` are found inside `.chart-body`, and a sentence about
-the whole chart (the frame, an axis, a computed summary) points at `.chart-body` itself.
+mark, words drawn in a `<div>` or `<text>` are found inside `.chart-body`, a sentence that OPENS
+with one mark's value, typed in digits, and also says a word of its label points at that mark ("870 reached a
+proposal, and 214 signed" points at the `Proposal sent` band, `findValueLedMark`), and a sentence
+about the whole chart (the frame, an axis, a computed summary) points at `.chart-body` itself.
 `node tools/sweep-guide-gestures.mjs --deck <gallery> --misses` lists every cue that still
 hides and every one that fell back to the whole chart. The measured audit is
 `engineering/decisions/2026-09-24-chart-accessibility-contract.md`.

@@ -188,7 +188,7 @@ async function main() {
 
 	// Gestures per narrated slide, which is the number a preset's budget caps.
 	const perSlide = new Map();
-	const tally = { byComponent: {}, marked: 0, parted: 0, figured: 0, paraphrased: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, holds: 0, skipped: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { byComponent: {}, marked: 0, parted: 0, figured: 0, paraphrased: 0, valueLed: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, holds: 0, skipped: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	const comps = componentNames();
 	if (!comps.length) console.error('  note: dist/docs/components.json is missing — per-component attribution will report everything as (none). Run `npm run build`.');
@@ -315,7 +315,9 @@ async function main() {
 							const figured = G.resetFigureHit?.() > 0;
 							// AND THE PARAPHRASE TIER: an authored caption that says the slide in other words.
 							const paraphrased = G.resetParaphraseHit?.() > 0;
-							const piecewise = spanned && !marked && !parted && !figured && !paraphrased;
+							// AND THE VALUE-LED MARK: a sentence that opens with one mark's number.
+							const valueLed = G.resetValueLedHit?.() > 0;
+							const piecewise = spanned && !marked && !parted && !figured && !paraphrased && !valueLed;
 							// RESET UNCONDITIONALLY, READ CONDITIONALLY. `findSpanningTarget` bumps
 							// `spanPartial` on every entry to its partial branch — including the ones that
 							// return null and fall through to a later tier — so reading it only on a
@@ -328,7 +330,7 @@ async function main() {
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes
 							// dark", which is the question a component owner actually has.
-							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, skipped, spanned: piecewise, marked, parted, figured, paraphrased, said: paraphrased ? (d.el.getAttribute?.('data-label') ?? d.el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) : undefined, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, held, slide: n, text });
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, skipped, spanned: piecewise, marked, parted, figured, paraphrased, valueLed, said: paraphrased ? (d.el.getAttribute?.('data-label') ?? d.el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) : undefined, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, held, slide: n, text });
 						}
 						out.push({ slideDone: true, any, comp, planned: plan ? plan.gesture.size : null });
 					}
@@ -375,6 +377,7 @@ async function main() {
 				if (row.parted) tally.parted += 1;
 				if (row.figured) tally.figured += 1;
 				if (row.paraphrased) tally.paraphrased += 1;
+				if (row.valueLed) tally.valueLed += 1;
 				// A cue the WHOLE-FIGURE tier answered is resolved, but only honestly so when the
 				// sentence is about the whole chart. Listed with the misses so that is checkable.
 				if (row.paraphrased && showParaphrases) process.stderr.write(`    para  ${stem} #${row.slide} [${row.comp}]  ${row.text}\n          -> ${row.said}\n`);
@@ -421,6 +424,7 @@ async function main() {
 	console.log(`  answered by a DECLARED PART (manifest \`handles\`)     ${tally.parted} (${pct(tally.parted, tally.resolved)})`);
 	console.log(`  answered by a CHART tier (detail · chart text · whole figure)  ${tally.figured} (${pct(tally.figured, tally.resolved)})`);
 	console.log(`  answered by a PARAPHRASE (an authored caption in other words)  ${tally.paraphrased} (${pct(tally.paraphrased, tally.resolved)})`);
+	console.log(`  answered by a VALUE-LED MARK (the sentence opens with its number)  ${tally.valueLed} (${pct(tally.valueLed, tally.resolved)})`);
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
 	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);

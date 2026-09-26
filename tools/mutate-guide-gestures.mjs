@@ -120,6 +120,12 @@ const MUTS = [
 	['guide', '\tpassed.sort((a, b) => b.labelLen - a.labelLen || Number(b.corroborated) - Number(a.corroborated));', '\tpassed.sort((a, b) => Number(b.corroborated) - Number(a.corroborated));', 'a short corroborated mark outranks the exact one'],
 	['guide', '\tif (next && next.labelLen === top.labelLen && next.corroborated === top.corroborated) return null;', '', 'an ambiguous pair is guessed at rather than refused'],
 	['guide', "\treturn findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text) ?? findMarkTarget(frameDoc, text);", "\treturn findMarkTarget(frameDoc, text) ?? findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text);", 'the mark tier outranks a real block'],
+	// ── the value-led mark (findValueLedMark): a sentence that opens with one mark's number ──
+	// Each guard was found by the independent check of the first version: a prefix stem let "sent"
+	// name "sentence", `loose` let "1.2" lead "12 months", and nothing refused two marks.
+	['guide', "\t\tif (![...label.keys()].some((k) => k.length >= 4 && !/\\p{N}/u.test(k) && cue.has(k))) continue;", '', 'a number leads a mark whose label the sentence never names'],
+	['guide', '\tconst one = hits.length === 1 ? hits[0] : hits.length > 1 ? oneMark(hits) : null;\n\tif (one) valueLedHit', '\tconst one = hits[0] ?? null;\n\tif (one) valueLedHit', 'two different marks with the value are guessed at'],
+	['guide', "const digitsOf = (s: string): string => s.replace(/[\\s,$€£¥]/g, '')", "const digitsOf = (s: string): string => s.replace(/[\\s,.$€£¥]/g, '')", 'a decimal value leads a whole number'],
 	// ── a mark is geometry, not words
 	['guide', "\tif (textless) return box.width <= RING_WIDTH * slideW ? 'circle' : 'tap';", '', 'a textless mark is underlined along its bounding box'],
 	['guide', "\t\tif (fill && fill !== 'none' && !isTransparent(fill)) return true;", '', 'a filled SVG mark reports no boundary'],

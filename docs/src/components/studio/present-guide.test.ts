@@ -10,6 +10,7 @@ import {
 	findNamedTarget,
 	findParaphraseTarget,
 	findSpanningTarget,
+	findValueLedMark,
 	type GuideShape,
 	guideAimFor,
 	guideCueFor,
@@ -1526,6 +1527,62 @@ describe('guideCueIn — the whole decision, on an item with a real marker', () 
 		// geometric answer was never occupied in the first place.
 		expect(d?.rest?.x).toBeLessThan((d as NonNullable<typeof d>).box.left);
 		expect(d?.fellBack, 'the marker rest was occupied, so the search had to be asked').toBe(false);
+	});
+});
+
+describe('findValueLedMark — a sentence that opens with a number and names the mark after it', () => {
+	// The fixture deck's funnel (test/fixtures/q3-board-review.md), as funnel.transform.js emits it.
+	const FUNNEL = `<svg><g>
+		<polygon class="funnel-band" data-mark="0" data-label="Qualified leads" data-value="12,400"></polygon>
+		<polygon class="funnel-band" data-mark="1" data-label="Demo held" data-value="3,100"></polygon>
+		<polygon class="funnel-band" data-mark="2" data-label="Proposal sent" data-value="870"></polygon>
+		<polygon class="funnel-band" data-mark="3" data-label="Signed" data-value="214"></polygon>
+	</g></svg>`;
+
+	it('points at the band the sentence opens with, where it used to fall to the whole figure', () => {
+		const d = doc(FUNNEL);
+		expect(findValueLedMark(d, '870 reached a proposal, and 214 signed.')?.getAttribute('data-mark')).toBe('2');
+		// Through the whole chain too: no earlier tier answers it, so this one does.
+		expect(findCueTarget(d, '870 reached a proposal, and 214 signed.')?.getAttribute('data-mark')).toBe('2');
+		expect(findValueLedMark(d, '214 signed.')?.getAttribute('data-mark')).toBe('3');
+	});
+
+	it('needs the value to OPEN the sentence, whole, and a word of the label besides', () => {
+		const d = doc(FUNNEL);
+		expect(findValueLedMark(d, 'Then 870 reached a proposal.')).toBeNull();
+		expect(findValueLedMark(d, '870 is where most of them stop.')).toBeNull();
+		expect(findValueLedMark(d, 'Eight hundred seventy thousand reached a proposal.')).toBeNull();
+	});
+
+	it('reads the number as typed: a decimal is not a whole number, and a spelled number does not lead', () => {
+		// Found by the checker. `loose` drops the point, so "1.2" led "12 months" and pinned a sentence
+		// about the whole chart to one bar; and a spelled "one" led a mark valued 1.
+		const d = doc(`<svg><g>
+			<rect data-mark="0" data-label="Revenue EMEA" data-value="1.2"></rect>
+			<rect data-mark="1" data-label="Enterprise deals" data-value="1"></rect>
+		</g></svg>`);
+		expect(findValueLedMark(d, '12 months of revenue: EMEA at 1.2.')).toBeNull();
+		expect(findValueLedMark(d, 'One thing about deals: enterprise closed 1.')).toBeNull();
+		expect(findValueLedMark(d, '1.2 of it is revenue from EMEA.')?.getAttribute('data-mark')).toBe('0');
+	});
+
+	it('needs a number, not a category, and a whole word of the label', () => {
+		const d = doc(`<svg><g>
+			<rect data-mark="0" data-label="Blocked" data-value="blocked"></rect>
+			<rect data-mark="1" data-label="Proposal sent" data-value="870"></rect>
+			<rect data-mark="2" data-label="Signed" data-value="214"></rect>
+		</g></svg>`);
+		expect(findValueLedMark(d, 'Blocked is blocked.')).toBeNull();
+		expect(findValueLedMark(d, '870 is the sentence we keep coming back to.')).toBeNull();
+		expect(findValueLedMark(d, '214 is significant.')).toBeNull();
+	});
+
+	it('hides rather than guesses when two different marks pass', () => {
+		const d = doc(`<svg><g>
+			<rect data-mark="0" data-label="Proposal sent" data-value="870"></rect>
+			<rect data-mark="1" data-label="Proposal won" data-value="870"></rect>
+		</g></svg>`);
+		expect(findValueLedMark(d, '870 reached a proposal.')).toBeNull();
 	});
 });
 
