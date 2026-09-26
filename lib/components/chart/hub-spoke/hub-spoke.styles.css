@@ -79,8 +79,22 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   stroke: var(--hs-neutral-ink);
   stroke-linejoin: round;
 }
+/* A GROUP never wears the hub's lightness. The hub is built from the heading ink, and a
+ * palette may spend a categorical slot on that same ink (onyx slot 4 is near-black on
+ * light and near-white on dark), which drew a group satellite as a second hub. Rather
+ * than skip a slot — the kernel emits no color and cannot know which one — the group's
+ * body is held a lightness step away from the hub band, on every palette: on dark its
+ * OKLCH L passes through L − ½L⁴ (never above 0.595, and nearly unchanged at mid-tones:
+ * 0.50 → 0.47); on light the mirror, L + ½(1 − L)⁴ (never below 0.405). Measured over all
+ * 28 flat-fill themes, the smallest hub-to-group ΔL is 0.15 (onyx-dark), from 0.00 on
+ * onyx-dark without it once the hub dims (below).
+ * `calc()`, not `min()` / `clamp()`: those on a channel keyword hang Chromium 131, the
+ * export's engine, so the bound is a smooth curve rather than a hard clamp. The key
+ * swatch shares the rule, so the key and the discs cannot drift apart. */
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-node, .hub-spoke-leaf, .chart-key-swatch)[data-hue] {
-  fill: var(--mark-body);
+  fill: light-dark(
+    oklch(from var(--mark-body) calc(l + 0.5 * (1 - l) * (1 - l) * (1 - l) * (1 - l)) c h),
+    oklch(from var(--mark-body) calc(l - 0.5 * l * l * l * l) c h));
   stroke: var(--mark-ink);
 }
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-node, .hub-spoke-leaf)[data-s] {
@@ -102,11 +116,14 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 }
 
 /* ── THE HUB: the page's heading ink, solid; canvas-colored type on it clears the same
- *    ratio the heading clears on the canvas. On dark the disc steps a little off full
- *    white so the largest mark on the slide does not glare. ─────────────────── */
+ *    ratio the heading clears on the canvas. On dark the disc steps well off full white
+ *    (74% heading ink) so the largest mark on the slide does not glare: measured over the
+ *    14 dark themes, its luminance falls from 0.60–0.79 to 0.37–0.51, the hub text keeps
+ *    at least 7.9:1 on it, and it still out-contrasts every satellite (≥ 7.9:1 against
+ *    the canvas vs ≤ 5.1:1). ───────────────────────────────────────────────────── */
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-hub {
-  fill: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 90%, var(--bg)));
-  stroke: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 90%, var(--bg)));
+  fill: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 74%, var(--bg)));
+  stroke: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 74%, var(--bg)));
 }
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-hub-name, .hub-spoke-hub-value) { fill: var(--bg); }
 
