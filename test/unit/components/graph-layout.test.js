@@ -31,11 +31,17 @@ const STAGE = { w: 1072, h: 440 };
 // 4, not the 2 it was: `sharedRuns` now counts two runs within 6 units (it was 4), because
 // the demo deck showed two lines 4.5 units apart reading as one. Measured on this corpus with
 // the same router, the old 4-unit rule still reads 2 misses; the stricter rule reads 4. The
-// ruler moved, not the router.
-const SOFT_MISS_BUDGET = 4;
+// ruler moved, not the router. Then 3: the crossing pass cleared one more.
+const SOFT_MISS_BUDGET = 3;
 // The wider corpus below: 7 of its 600 charts miss a soft count (mostly two labels crowding
 // on a group's lines), measured when the corpus was added. Lower it as the router improves.
 const WIDE_SOFT_BUDGET = 7;
+// Line crossings on the 1,000-chart corpus. The router's crossing pass took it from 923 to
+// 194: 211 charts have fewer, none more, and total line length went slightly down. It could
+// reach 169 by letting a main-path line wander and by accepting 2-unit kinks; both read worse
+// than the crossings they saved on the demo deck, so they are refused. A crossing is a cost,
+// not a defect, so this is a ceiling to ratchet down, never a zero to hold.
+const CROSSING_BUDGET = 194;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -202,10 +208,10 @@ describe('graph-layout — the gallery reads zero on every quality count', () =>
 });
 
 describe('graph-layout — seeded random charts (ratchet)', () => {
-  test(`1,000 charts: hard counts zero; soft misses ≤ ${SOFT_MISS_BUDGET}`, () => {
+  test(`1,000 charts: hard counts zero; soft misses ≤ ${SOFT_MISS_BUDGET}; crossings ≤ ${CROSSING_BUDGET}`, () => {
     const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Fox', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima'];
     const HARD = ['linesThroughShapes', 'shapeOverlaps', 'labelsOffLine'];
-    let soft = 0;
+    let soft = 0, crossed = 0;
     for (const seed0 of [1, 7, 99, 5]) {
       let seed = seed0;
       const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
@@ -228,12 +234,15 @@ describe('graph-layout — seeded random charts (ratchet)', () => {
           lines.push(`- ${a} ${arrow} ${b}`);
         }
         const src = lines.join('\n');
-        const q = run(src).geo.quality;
+        const geo = run(src).geo;
+        const q = geo.quality;
         for (const k of HARD) assert.equal(q[k], 0, `${k} on seed ${seed0} chart ${t}:\n${src}`);
         if (Object.values(q).some((v) => v > 0)) soft++;
+        crossed += geo.crossings;
       }
     }
     assert.ok(soft <= SOFT_MISS_BUDGET, `${soft} charts missed a soft count (budget ${SOFT_MISS_BUDGET})`);
+    assert.ok(crossed <= CROSSING_BUDGET, `${crossed} line crossings (budget ${CROSSING_BUDGET})`);
   });
 });
 

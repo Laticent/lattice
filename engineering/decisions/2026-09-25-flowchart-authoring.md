@@ -393,6 +393,22 @@ A dotted overlay moving along a line, a separate path above the real edge.
   six-chart gallery to zero on all seven in both directions (one named exception,
   §12) and 1,000 seeded random charts to zero on the hard three, with at most two
   soft misses.
+- **Crossings (added on owner review of slice 3).** dagre orders each rank to
+  cut crossings, but the passes after it (back edges, ports, the rescue of a line
+  through a shape) put many back. The last pass is a crossing solver: each line
+  that crosses another tries every clean elbow the shape rescue already builds (Z,
+  U and L routes at four offsets) and keeps the one that crosses least, scored
+  300 per crossing plus length, turns and shared runs. It takes a new route only
+  when that route strictly cuts the line's crossings, adds no shared run, holds
+  room for its label, and has no kink under 10 units. A main-path (`=>`) line may
+  move only within 24 units of its length and one extra turn, so lighter lines
+  give way around it. A `:loose` line takes part: it is the line most free to
+  move. Up to three rounds, or until a round changes nothing. On the 1,000
+  random charts, crossings fell from 923 to 194. 211 charts improved, none got
+  worse, and total line length went down slightly. The demo deck's release
+  train went from 9 crossings to 1 and its org chart from 3 to 0. Crossings sit
+  beside the quality counts, not in them (`geo.crossings`), because some graphs
+  cannot be drawn without one. The test holds the corpus total as a ceiling.
 - **What owning the router makes cheap:** `:loose` lines are left out of layout
   and routed afterwards; edges to a group are laid out between representative
   members and drawn to the group's border; an edge whose boxes overlap on the
@@ -515,6 +531,11 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
   `tb`; its own direction is `lr`, which reads zero. Pinned as the test's one
   named exception.
 - A labeled group-to-group edge needs a reserved gap between the groups.
+- **Crossings are minimized locally, one line at a time.** The solver never
+  re-orders shapes and never moves two lines together, so a crossing that only a
+  joint move or a different rank order removes stays (the release train keeps
+  one: `fails` against `rollback`). A global pass (re-running dagre's ordering
+  with our routes' costs) is the next step if a real deck needs it.
 - **Named entities in a name.** The HTML reader sees `&rarr;` decoded, the Markdown
   reader keeps it literal (it decodes numeric entities and the five markdown-it writes,
   not the HTML5 table, which would ride the Studio's eager lint bundle). A shape named
