@@ -21,3 +21,11 @@ done when — retained memory across N panel open/close cycles is measured on We
 evidence  — a WebKit memory reading across ≥5 open/close cycles, before and after.
 verify    — tier 2: Playwright WebKit (see docs/playwright.config.ts note on installing it) with
             a memory sample per cycle, as in engineering/decisions/2026-09-13-gallery-preview-memory.md.
+
+measured  — 2026-09-26, CONFIRMED on real WebKit (Playwright 26.0 WebKit, 1440x900, a production
+            docs build via `astro preview`). Six open/close cycles of the Craft deck panel ("Deck
+            scope"), 8 s idle after each close: 5 iframes open, 1 closed every time, and WebKit
+            RSS over the Studio baseline climbs +128 / +132 / +161 / +185 / +246 / +276 MB —
+            about 30 MB per reopen, never returned. Chromium, same script: flat (−16 to +13 MB).
+            Not fixed: the fix is the cross-open retention trade 2026-09-13-gallery-preview-memory.md
+            §4c says to set deliberately, so it went to the owner as a choice.
