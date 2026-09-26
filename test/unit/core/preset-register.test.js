@@ -131,3 +131,15 @@ test('unknown-preset flags a typo even when a comment follows it', () => {
   assert.equal(hits('preset: editorail').length, 1);
   assert.equal(hits('preset: editorail  # typo').length, 1);
 });
+
+test('a preset renders its backdrop and alignment, and an explicit finish: none keeps a deck clean', () => {
+  const ed = sectionClasses(render(['preset: editorial']));
+  const none = sectionClasses(render(['preset: editorial', 'finish: none']));
+  const plain = sectionClasses(render([]));
+  for (const cls of plain) assert.ok(!cls.has('finish-ledger') && !cls.has('head-left')); // control
+  for (const cls of ed) assert.ok(cls.has('finish-ledger') && cls.has('head-left'));
+  for (const cls of none) {
+    assert.ok(!cls.has('finish-ledger'));
+    assert.ok(cls.has('head-left'), 'the rest of the preset still applies');
+  }
+});

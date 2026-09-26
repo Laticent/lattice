@@ -1,4 +1,4 @@
-// The Studio side of the `preset:` register — a named look that sets the accent + surface
+// The Studio side of the `preset:` register — a named look that sets the backdrop, alignment and accent
 // family at once (lib/core/resolve-preset.js, and the table in lib/core/front-matter-key.js).
 //
 // The ENGINE resolves a preset; this file only has to agree with it. Three things the deck
@@ -104,15 +104,14 @@ export function clearPresetOverrides(source: string): string {
 }
 
 /**
- * Switch the deck to preset `name`. Picking a preset is starting from that look, so it also
- * clears the overrides — otherwise a `rule: short` left over from Editorial would ride into
- * Minimal and the author would see neither the look they picked nor why. The caller offers
- * Undo; the count it reports is what was cleared.
+ * Switch the deck to preset `name`, KEEPING every key the author wrote. The picker is a
+ * radiogroup, and a radiogroup selects on arrow-key focus (Radix, like a native radio), so a
+ * keyboard user moving through the four previews picks each one in turn. The first build
+ * also cleared the family's overrides on every pick, which turned "look at the options" into
+ * "lose your settings" one arrow press at a time. Now a pick only writes `preset:`; any key
+ * that still differs shows as "N changes" with a Reset, which is the one place overrides are
+ * removed, and only when asked.
  */
-export function applyPreset(source: string, name: string): { source: string; cleared: number } {
-	// Count every family line the switch removes — including one that restated the OLD
-	// preset's value, which may well render differently under the new one.
-	const cleared = PRESET_KEYS.filter((key) => frontMatterKeySpan(source, key)).length;
-	const base = clearPresetOverrides(source);
-	return { source: writeFrontMatterLine(base, 'preset', name === DEFAULT_PRESET ? null : name), cleared };
+export function applyPreset(source: string, name: string): string {
+	return writeFrontMatterLine(source, 'preset', name === DEFAULT_PRESET ? null : name);
 }

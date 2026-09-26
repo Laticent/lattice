@@ -29,10 +29,11 @@ export type Provenance = {
 /** Deck-wide tokens that propagate onto every slide. */
 export function deckDefaults(source: string): { classTokens: string[]; finish: string | null; mode: string | null } {
 	const classTokens = (getFrontMatter(source, 'class') || '').trim().split(/\s+/).filter(Boolean);
-	// The deck's own `finish:`, else the one its preset gives. `none` from a preset is the
-	// engine default and reads as no deck finish, exactly as an absent key did.
-	const ownFinish = (getFrontMatter(source, 'finish') || '').trim();
-	const finish = ownFinish || (registerValue(source, 'finish') === 'none' ? null : registerValue(source, 'finish'));
+	// What the engine renders: the deck's own `finish:` read by the engine's rule (a trailing
+	// comment stripped, an empty or comment-only value falling through), else its preset's.
+	// `none` reads as no deck finish, exactly as an absent key did.
+	const deckFinish = registerValue(source, 'finish');
+	const finish = deckFinish === 'none' ? null : deckFinish;
 	const mode = (getFrontMatter(source, 'mode') || '').trim() || null;
 	return { classTokens, finish, mode };
 }

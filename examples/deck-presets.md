@@ -51,7 +51,7 @@ Centered, with corner marks over a faint grid. Set the theme accent to a client'
 
 ---
 
-<!-- _class: title head-left -->
+<!-- _class: title head-left corners-rounded -->
 
 `Minimal · preset: minimal`
 

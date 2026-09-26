@@ -54,7 +54,7 @@ rule: none            # an explicit key always wins over the preset
 | `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` |
 
 These are the second definitions. The first four varied only the bar, rule, kicker, trim and
-cards, and the owner could not tell them apart; §8 has the measurement and the fix.
+cards, and the owner could not tell them apart; §7 has the measurement and the fix.
 
 **How it resolves.** `frontMatterValue` in `lib/core/front-matter-key.js` is the reader
 every RENDER path resolves a register through: the markdown-it plugins, the browser runtime
@@ -83,7 +83,7 @@ named home, like every other `resolve-*` file.
 rendering hand), `claim:` and `cards:` (how a layout composes; they do not ride a split page
 either, see `lib/core/surface-registers.js`), `stamp:` and `tone:` (only decks that carry
 badges care), and every content key. `finish:` was on this list in the first build and came
-back in round two (§8), with the owner's sign-off: the backdrop is one of the two settings
+back in round two (§7), with the owner's sign-off: the backdrop is one of the two settings
 that visibly change a title slide.
 
 **Naming.** The default was proposed as "Boardroom" and ships as **Classic**. The Look tab
@@ -109,10 +109,17 @@ only draws them.
 - **Counts drift** (`presetChanges`): a key the deck writes to something other than its
   preset's value. A key restated at the preset's own value is not a change. When the count
   is above zero, the select reads "Editorial · 1 change" and a Reset link appears under it.
-- **Picking a preset starts from it** (`applyPreset`): it also clears the family's overrides.
-  Otherwise a `rule: short` left over from Editorial would ride into Minimal, and the author
-  would see neither the look they picked nor why. The Undo toast names how many lines it
-  cleared, counting every family line removed, including one that restated the old preset.
+- **Picking a preset keeps what the author wrote** (`applyPreset` only writes `preset:`).
+  The first build cleared the family's overrides on every pick, so a `rule: short` left over
+  from Editorial could not ride into Minimal. The round-two check showed the cost: the picker
+  is a radiogroup, a radiogroup selects on arrow-key focus (Radix, like a native radio), so a
+  keyboard user walking the four pictures deleted their settings one arrow press at a time.
+  Now a leftover key shows as "Minimal · 1 change" with a Reset, which is the only thing that
+  removes overrides, and only when asked.
+- **`finish:` is in the family**, so its drift counts too. A deck that already had
+  `finish: atrium` and no preset now reads "1 setting differs from Classic", and Reset removes
+  that line (a saved `finish-<slug>` included). That is the rule working, but it is new
+  behavior for decks that predate presets.
 
 The swatch sizes go in `backgroundSize`, not inside the `background` shorthand. Chrome parses
 a shorthand that contains `var()` only when it computes the value, and `SwatchChip` then
@@ -153,14 +160,14 @@ when the deck's vocabulary has either) and *Developer*. A heading has no open st
 two desync bugs the disclosure caused under search (find-and-list note §§12–14) cannot
 recur.
 
-## 8. Round two — the four presets looked the same
+## 7. Round two — the four presets looked the same
 
 The owner, on the deployed preview: *"i am having a hard time distinguishing the 4 presets."*
 Rendering one four-slide deck (title, finding, cards, table) under each preset confirmed it.
-**The four title slides were pixel-for-pixel the same layout**, because an inverse title slide
-draws no bar and no heading rule, and those were most of what the first presets changed. On
-content slides Classic and Editorial differed by a shorter rule, a 2px bar on the kicker and a
-faint shadow, which vanish at phone size.
+**The four title slides had the same layout**, because an inverse title slide draws no bar and
+no heading rule, and those were most of what the first presets changed. On content slides
+Classic and Editorial differed by a shorter rule, a 2px bar on the kicker and a faint shadow,
+which vanish at phone size.
 
 **The fix gives each preset something big.** A preset now also sets **headline alignment**
 (Editorial and Minimal left, Brand-forward centered, Classic the component's own) and a
@@ -175,30 +182,53 @@ thumbnails (`docs/src/components/studio/PresetPicker.tsx`, on `ui/radio-group`).
 ONE fixed sample slide rendered with that preset. The owner chose a fixed sample over
 rendering their own current slide four times: it opens instantly, adds four small images
 (about 7KB in all, loaded lazily) rather than eager JavaScript, and reads the same for
-everyone. `tools/build-preset-thumbs.mjs` renders them through the real emulator into
-`docs/public/presets/`, and records a hash of the preset table plus the sample slide in
-`docs/scripts/preset-thumbs-sources.json`. `test/unit/core/preset-thumbs-fresh.test.js`
-recomputes it, so changing a preset without regenerating fails `npm test` instead of showing
-the author the old look under the new name. Minimal's picture takes rounded corners in CSS,
-because the PNG cannot carry them.
+everyone.
 
-**One reader stays outside, on purpose.** The linter's `bookend-finish-contrast` note ("the
-house pattern keeps a title slide clean") reads only a `finish:` the author wrote. A preset's
-backdrop is a look the author picked whole; if the note read it, every Editorial and
-Brand-forward deck would carry it on its title slide.
+- **The sample is a title slide.** The first thumbnails used a card slide, and the round-two
+  check measured Classic and Minimal as nearly identical: on a content slide Classic is
+  already left-aligned, so the two differed by a 1px bar and a hairline. On a title slide
+  alignment and backdrop fill the frame. Classic versus Brand-forward remains the subtlest
+  pair (corner marks and a faint grid), and is the one to revisit if authors still confuse
+  them.
+- **Minimal's rounded corners come with its picture.** The emulator keeps a rounded slide's
+  corners transparent, so the WebP carries them; no CSS special case is needed. (An earlier
+  comment said the PNG could not carry them; it can.)
+- **Freshness.** `tools/build-preset-thumbs.mjs` renders the four through the real emulator
+  into `docs/public/presets/` and records a hash in `docs/scripts/preset-thumbs-sources.json`.
+  `test/unit/core/preset-thumbs-fresh.test.js` recomputes it. The hash covers each preset's
+  VALUES (not its label or description, which change no pixel), the deck header the tool
+  writes, and the sample slide. It **cannot** see the CSS those values resolve to — the
+  `ledger` and `strata` finishes, the title component, the `indaco` palette — so a visual
+  change there needs the tool re-run by hand.
 
-## 7. Verified
+**Readers that stay outside the shared one, each on purpose.**
+
+- The linter's `bookend-finish-contrast` note ("the house pattern keeps a title slide clean")
+  reads only a `finish:` the author wrote. A preset's backdrop is a look the author picked
+  whole; if the note read it, every Editorial and Brand-forward deck would carry it on its
+  title slide.
+- The Playground's deck sheet (`docs/src/playground/deck-config.js`) edits `finish` and `lift`
+  with its own read/write rules. The round-two check found that it showed "None" for a
+  preset's backdrop and that picking None deleted the key, handing control back to the preset.
+  It now reads the engine table's `presetEffective`: the preset's value shows as current, and
+  the engine default under a preset that changes it is written as an override.
+- `slide-provenance.ts` reads the deck's finish through the Studio mirror (`registerValue`),
+  so a comment-only `finish: # todo` resolves as the engine renders it, not as its raw text.
+
+## 8. Verified
 
 | Claim | Surface | Artifact |
 |---|---|---|
-| The engine stamps a preset on every slide, and an explicit key overrides it | `lib/engine` render | `test/unit/core/preset-register.test.js`, 4/4, each with its control |
+| The engine stamps a preset on every slide, the backdrop included, and an explicit key overrides it | `lib/engine` render | `test/unit/core/preset-register.test.js`, each case with its no-preset control |
 | `classic` renders byte-identical to no preset | `lib/engine` render | same file |
-| The Studio agrees with the engine key by key | `deck-preset.ts` against `front-matter-key.js` | `deck-preset.test.ts`, 6/6 |
-| An independent checker bug-hunted the diff; its four confirmed defects are fixed and each has a test (nested `preset:`, commented and empty keys, the commented lint typo, the Undo count) | engine + Studio | `preset-register.test.js` 6/6, `deck-preset.test.ts` 9/9 |
-| Picking Editorial restyles the live preview; changing a dial shows "Editorial · 1 change" with Reset | The real Studio (docs dev server, Chromium 1440×900) | PR screenshots |
-| Basic and Advanced at desktop, tablet and phone widths | The real Studio at 1440, 820 and 390 | PR screenshots |
-| The four presets differ on a title slide and on content slides | The same four-slide deck rendered under each preset, old set and new, side by side (shown to the owner) | `examples/deck-presets.pdf` shows all four title slides |
-| The picker's pictures match the presets | `tools/build-preset-thumbs.mjs` through the emulator | `preset-thumbs-fresh.test.js` |
+| The Studio agrees with the engine key by key, on clean, commented, empty and nested input | `deck-preset.ts` against `front-matter-key.js` | `deck-preset.test.ts` |
+| The Playground sheet shows and overrides a preset's backdrop and lift | `deck-config.js`, the module the sheet renders | `test/unit/playground/deck-config.test.js`, with a no-preset control |
+| Picking Editorial in the real Studio renders the ledger backdrop and left alignment in the live preview | The real Studio (docs dev server, Chromium 1440×900) | screenshot shared with the owner |
+| Arrow keys in the picker switch the preset and keep the author's keys | The real Studio, keyboard-driven | the deck source read back after the key presses |
+| The four presets differ on a title slide and on content slides | The same four-slide deck rendered under each preset, old set and new, side by side (shown to the owner) | those renders; `examples/deck-presets.pdf` shows the same looks through per-slide classes, since one deck can carry only one preset |
+| The picker's pictures are of the current presets | `tools/build-preset-thumbs.mjs` through the emulator, then looked at | the four WebPs; `preset-thumbs-fresh.test.js` guards only the inputs it can hash (see §7) |
+| Basic and Advanced at desktop, tablet and phone widths | The real Studio at 1440, 820 and 390 | screenshots shared with the owner |
+| Independent eyes | Two checker passes: one on round one, one on round two | every confirmed finding fixed, each with a test or a corrected claim |
 
 Not verified: iOS Safari. The phone shots come from headless Chromium at 390×844 with touch
 emulation, which is emulation (HARD RULE #23).

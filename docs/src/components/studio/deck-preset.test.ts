@@ -41,12 +41,14 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'footer: Confidential'));
 	});
 
-	it('picking a preset starts from it: overrides are cleared and the default writes no key', () => {
+	it('picking a preset keeps what the author wrote; the default writes no key', () => {
+		// The picker selects on arrow-key focus, so a pick must never delete the author's keys.
 		const src = deck('preset: editorial', 'rule: none', 'lift: off');
-		const r = applyPreset(src, 'minimal');
-		expect(r.cleared).toBe(2);
-		expect(r.source).toBe(deck('preset: minimal'));
-		expect(applyPreset(r.source, 'classic').source).toBe(deck());
+		const picked = applyPreset(src, 'minimal');
+		expect(picked).toBe(deck('preset: minimal', 'rule: none', 'lift: off'));
+		// `rule: none` is Minimal's own value, so it stops counting as a change; `lift: off` too.
+		expect(presetChanges(picked)).toEqual([]);
+		expect(applyPreset(deck('preset: minimal'), 'classic')).toBe(deck());
 	});
 
 	it('an unknown preset name reads as the default, as the engine resolves it', () => {
@@ -77,7 +79,4 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 		expect(frontMatterName(fmOf(src), 'spectrum')).toBeNull();
 	});
 
-	it('the Undo count names every family line a switch removes, restated ones included', () => {
-		expect(applyPreset(deck('preset: editorial', 'rule: short', 'lift: on'), 'minimal').cleared).toBe(2);
-	});
 });

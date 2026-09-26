@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, RotateCcw, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -4035,17 +4035,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// grouped view renders one, so the bodies can no longer be six `deckTab === …`
 	// conditionals inline. `keywords` are the words a person would type to find the
 	// SECTION (not its rows): matching one shows the section entire.
-	// PRESET — a named look that sets the accent + surface family at once (`preset:`,
-	// lib/core/resolve-preset.js). Picking one starts from that look, so it clears the
-	// family's overrides; the Undo toast names how many. Once the author changes a dial the
-	// row says so ("2 changes") and offers the way back, so a preset never silently stops
+	// PRESET — a named look that sets the backdrop, alignment and accent family at once (`preset:`,
+	// lib/core/resolve-preset.js). Picking one only switches `preset:` and keeps every key the
+	// author wrote (the picker selects on arrow-key focus, so a pick must be harmless). Any key
+	// that still differs shows as "2 changes" with a Reset, so a preset never silently stops
 	// being true. deck-preset.ts holds the rules; this is only the row.
 	const deckPreset = presetOf(source);
 	const presetDrift = presetChanges(source);
 	const presetLabelOf = (name: string) => PRESET_ENTRIES.find((e) => e.name === name)?.label ?? name;
 	const setPreset = (name: string) => {
-		const cleared = presetChanges(sourceRef.current).length;
-		settingsWrite(`Preset → ${presetLabelOf(name)}${cleared ? ` · ${cleared} custom ${cleared === 1 ? 'setting' : 'settings'} cleared` : ''}`, (s) => applyPreset(s, name).source);
+		settingsWrite(`Preset → ${presetLabelOf(name)}`, (s) => applyPreset(s, name));
 	};
 	const resetPreset = () => settingsWrite(`${presetLabelOf(deckPreset)} restored`, clearPresetOverrides);
 	const presetField = <PresetPicker value={deckPreset} drift={presetDrift.length} onValueChange={setPreset} onReset={resetPreset} />;

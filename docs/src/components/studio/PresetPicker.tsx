@@ -2,7 +2,6 @@ import { RotateCcw } from 'lucide-react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSettingsHit } from '@/components/ui/settings-view';
-import { cn } from '@/lib/utils';
 import { PRESET_ENTRIES } from './deck-preset';
 
 // The deck panel's Preset row — a 2×2 grid of pictures, not a dropdown.
@@ -10,10 +9,12 @@ import { PRESET_ENTRIES } from './deck-preset';
 // A dropdown of four names failed the one job a preset has: the owner could not tell the four
 // apart. Each card shows the SAME sample slide rendered with that preset
 // (tools/build-preset-thumbs.mjs → docs/public/presets/<name>.webp), so the author picks by
-// look. It is a real radiogroup (ui/radio-group — one of four, never none): arrow keys move,
-// Space picks. Minimal's picture takes rounded corners, because rounded corners are part of
-// what Minimal sets and the rendered PNG cannot carry them.
-// engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md §8.
+// look. It is a real radiogroup (ui/radio-group — one of four, never none). Like a native
+// radio, an arrow key moves AND selects, which is why a pick never deletes anything the
+// author wrote (deck-preset.ts `applyPreset`): walking the grid only switches `preset:`,
+// and one Undo or a second arrow press takes it back. Minimal's rounded corners come with
+// its picture — the emulator keeps a rounded slide's corners transparent.
+// engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md §7.
 export function PresetPicker({
 	value,
 	drift,
@@ -54,7 +55,7 @@ export function PresetPicker({
 							height={90}
 							loading="lazy"
 							decoding="async"
-							className={cn('aspect-video h-auto w-full border border-border/60 bg-white object-cover', e.name === 'minimal' ? 'rounded-lg' : 'rounded-[3px]')}
+							className="aspect-video h-auto w-full rounded-[3px] border border-border/60 object-cover"
 						/>
 						<span className="truncate px-0.5 text-[12px] font-semibold text-[var(--text-heading)]">
 							{e.label}

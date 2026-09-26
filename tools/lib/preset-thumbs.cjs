@@ -4,29 +4,38 @@
  * (tools/build-preset-thumbs.mjs) and the freshness test
  * (test/unit/core/preset-thumbs-fresh.test.js), so the two cannot disagree about either.
  *
- * The slide carries every surface a preset changes that a small picture can still show:
- * a kicker (eyebrow), a heading (alignment + rule), the page edge (bar + backdrop) and a
- * row of cards (lift + rails). It is set at `scale-xl` so the words survive a 320px image.
+ * The sample is a TITLE slide, because that is where the four presets differ most at a glance:
+ * alignment (centered / flush left) and the backdrop (none / ledger / strata) fill the frame,
+ * while a content slide's differences — a 1px bar, a hairline rule — vanish at 160px. That is
+ * measured, not assumed: the first thumbnails used a card slide, and Classic and Minimal came
+ * out nearly identical.
+ *
+ * WHAT THE HASH COVERS, and what it cannot. It hashes each preset's VALUES (not its label or
+ * description, which do not change a pixel), the sample slide and the deck header the tool
+ * writes. It does NOT cover the CSS those values resolve to — the `ledger` / `strata` finishes,
+ * the title component, the `indaco` palette. A visual change there needs a manual
+ * `node tools/build-preset-thumbs.mjs`; the freshness test cannot see it.
  */
 const crypto = require('node:crypto');
 const { PRESETS } = require('../../lib/core/front-matter-key.js');
 
+/** The deck header every thumbnail is rendered under; `{name}` is the preset. */
+const PRESET_THUMB_HEADER = '---\nmarp: true\ntheme: indaco\npreset: {name}\n---\n';
+
 const PRESET_THUMB_SAMPLE = `
-<!-- _class: cards-grid scale-xl -->
+<!-- _class: title -->
 
-\`Q4 review\`
+\`Q4 · Review\`
 
-## Capacity plan
+# Capacity plan
 
-- Build ahead
-  - Weekends.
-- Re-route
-  - Line 1.
+Where the plant runs short, and the fix.
 `;
 
-/** sha256 over the preset table and the sample slide — what the images were cut from. */
+/** sha256 over what the images were cut from: each preset's values, the header and the sample. */
 function presetThumbHash() {
-	return crypto.createHash('sha256').update(JSON.stringify(PRESETS)).update(PRESET_THUMB_SAMPLE).digest('hex');
+	const values = Object.fromEntries(Object.entries(PRESETS).map(([name, p]) => [name, p.values]));
+	return crypto.createHash('sha256').update(JSON.stringify(values)).update(PRESET_THUMB_HEADER).update(PRESET_THUMB_SAMPLE).digest('hex');
 }
 
-module.exports = { PRESET_THUMB_SAMPLE, presetThumbHash };
+module.exports = { PRESET_THUMB_HEADER, PRESET_THUMB_SAMPLE, presetThumbHash };
