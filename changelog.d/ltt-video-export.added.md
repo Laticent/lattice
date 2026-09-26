@@ -6,8 +6,8 @@
   H.264 (Chrome or Chrome for Testing), and checks before capturing. AAC is encoded by FFmpeg's
   encoder compiled to WebAssembly (`@mediabunny/aac-encoder`) where the browser has none. The
   frame follows the deck's canvas (long side 1920 px), and a failed or interrupted run leaves no
-  file behind. Playback outside Chromium (QuickTime, PowerPoint, Keynote) and the muxed caption
-  track are not yet verified; the `.vtt` sidecar is the caption path known to work.
+  file behind. It plays in QuickTime and on phones; PowerPoint and Keynote are not yet verified. Players do not
+  offer the muxed caption track yet, so load the `.vtt` sidecar to show captions.
 - **The exported player gains a render mode** (`window.__lpRender`, set only by the video
   capture), so a narrated HTML export's player script grows by a few hundred bytes; an export
   without narration is byte-identical. A viewer's browser never enters it.

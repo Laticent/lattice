@@ -15,17 +15,21 @@ keep 1d and carry FFmpeg's LGPL notice (done), ship H.264, and keep 1 s lead-in 
 is left is below; the Guide in the player (fork 8), a phone aspect (fork 9) and Studio video
 (fork 10) stay the owner's calls in the note's §6.
 
-why now   — the owner's audience plays video in PowerPoint, Keynote and QuickTime (fork 0), and
-            only Chromium has decoded one of these files. The muxed caption track reads back as no
-            track at all through mediabunny, and QuickTime expects `tx3g`. And the CLI can only
+Owner test 2026-09-26: the fixture MP4 plays in QuickTime and on a phone / browser, picture and
+audio good and in sync; no subtitles showed. The owner's ask: captions a viewer can switch on in
+the player, generated from the LTT (the .vtt already is; the muxed track is what players ignore).
+
+why now   — the owner wants captions a viewer can enable in the player, and QuickTime showed none:
+            the muxed `wvtt` track reads back as no track at all through mediabunny, and QuickTime
+            expects `tx3g`. PowerPoint and Keynote playback are still unverified. And the CLI can only
             capture a narrated export the Studio made: it has no voice of its own, so "the Studio
             or the CLI" is today "the Studio, then the CLI".
 where     — lib/export/video.mjs (the muxer's subtitle track); lib/export/video-cli.mjs (a deck
             input would narrate it first, which needs a Node voice such as kokoro-js, the one the
             spike runs, or captions only); engineering/pipeline.md §6.
-done when — one MP4 from test/fixtures/q3-board-review.md opened in QuickTime and in PowerPoint on
-            a real machine, with sound, picture and captions checked and recorded in the note (or
-            each marked UNVERIFIED with the reason); the caption track is either read back by a
+done when — the fixture MP4's captions switch on from QuickTime's own Subtitles menu, and PowerPoint
+            playback is checked and recorded in the note (or marked UNVERIFIED with the reason);
+            the caption track is either read back by a
             real player or replaced by one that is (`tx3g`); and the owner has ruled on the CLI
             taking a deck, with that ruling built or recorded as declined.
 evidence  — screenshots or a screen recording from the real players; the ruling.

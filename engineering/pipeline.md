@@ -359,8 +359,8 @@ distribution `chromium` may lack it). A probe runs before any capture and stops 
 that says so. Chrome for Testing on Linux cannot encode AAC, so `@mediabunny/aac-encoder`
 (FFmpeg's LGPL encoder compiled to WebAssembly) encodes it; a Chrome that can encode AAC itself
 uses its own. The captions ride as a track and a sidecar: the player's caption band is never in
-the frame. **Playback outside Chromium is UNVERIFIED** (QuickTime, PowerPoint, Keynote, Safari),
-and so is the muxed WebVTT track in any player; the `.vtt` sidecar is the caption path known to
+the frame. The owner played the fixture MP4 in QuickTime and on a phone / browser (2026-09-26);
+**PowerPoint and Keynote are UNVERIFIED**, and no player offers the muxed WebVTT track yet; the `.vtt` sidecar is the caption path known to
 work. The integration test is `test/integration/export/video-export.test.js`, and the measured
 numbers are in the decision note's §9.
 

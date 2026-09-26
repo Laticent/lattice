@@ -309,12 +309,14 @@ measured length when it knows it.
 
 ## 7. Not decided here, and not verified
 
-- **Playback beyond Chromium.** The MP4 was decoded back only by Chromium, through
-  mediabunny. Safari, iOS, Firefox, QuickTime, PowerPoint, Keynote: **UNVERIFIED**.
+- **Playback beyond Chromium.** *(Owner, 2026-09-26: the fixture MP4 plays in **QuickTime**
+  and on a **phone / browser**, picture and audio good and in sync.)* PowerPoint, Keynote and
+  Firefox: **UNVERIFIED**.
 - **The muxed WebVTT track.** mediabunny writes a `wvtt` track, and reading the file back
   with the same library lists only the video and audio tracks, so nothing has read the
-  track back. Many players ignore `wvtt`; QuickTime expects `tx3g`. **UNVERIFIED**, and
-  the `.vtt` sidecar is the caption path that is known to work.
+  track back. Many players ignore `wvtt`; QuickTime expects `tx3g`. The owner's QuickTime test
+  (2026-09-26) showed no subtitles, which fits: the track is not one a player offers yet. The
+  `.vtt` sidecar is the caption path that is known to work.
 - **Other voices and encoders.** The third run used the Studio's Kokoro through its own
   constant-bitrate MP3 encoder. A hosted voice returning variable-bitrate MP3 can decode to
   different lengths in different decoders (the LTT note §5), and each voice has its own leading
@@ -440,8 +442,9 @@ up), and that a newline in a caption could write cues of its own. The inversion 
 two encoder packages pinned to exact versions, so an unattended minor bump cannot change the output,
 and for the unverified claims to stay marked so.
 
-**Not verified.** Playback anywhere but Chromium: QuickTime, PowerPoint, Keynote, Safari and iOS
-are **UNVERIFIED**. The muxed WebVTT track reads back as no track at all through mediabunny, and
-QuickTime expects `tx3g`, so the `.vtt` sidecar is the caption path known to work. A Chromium
+**Verified by the owner, 2026-09-26:** the fixture MP4 plays in QuickTime and on a phone / browser,
+with picture and audio good and in sync. **Not verified.** PowerPoint and Keynote are
+**UNVERIFIED**. The muxed WebVTT track reads back as no track at all through mediabunny, QuickTime
+showed no subtitles, and QuickTime expects `tx3g`, so the `.vtt` sidecar is the caption path known to work. A Chromium
 without an H.264 encoder was not available, so the probe's refusal is unexercised. Anima motion
 decks were not captured end to end.
