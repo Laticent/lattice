@@ -57,7 +57,7 @@ import { type HandleStyle, loadSettings, SETTINGS_EVENT } from './studio-store';
 // Friendly labels for the closed vocabulary.
 const WASH_LABEL: Record<string, string> = { none: 'None', 'corner-glow': 'Corner glow', duotone: 'Duotone', spotlight: 'Spotlight', bands: 'Bands', mesh: 'Gradient mesh' };
 const TEXTURE_LABEL: Record<string, string> = { none: 'None', grid: 'Grid', dots: 'Dots', hatch: 'Hatch', contour: 'Contour', rings: 'Rings', ruled: 'Ruled', pinstripe: 'Pinstripe', lattice: 'Lattice weave' };
-const MARK_LABEL: Record<string, string> = { none: 'None', monogram: 'Monogram', tick: 'Registration tick', bar: 'Margin bar', numeral: 'Ghost numeral' };
+const MARK_LABEL: Record<string, string> = { none: 'None', monogram: 'Monogram', tick: 'Registration tick', bar: 'Margin bar', rule: 'Margin rule', numeral: 'Ghost numeral' };
 const EDGE_LABEL: Record<string, string> = { none: 'None', vignette: 'Vignette', 'margin-rule': 'Margin rule', fold: 'Corner fold', frame: 'Inset frame' };
 const PLACEMENT_LABEL: Record<Placement, string> = { 'top-left': 'Top left', 'top-right': 'Top right', 'bottom-left': 'Bottom left', 'bottom-right': 'Bottom right', center: 'Center', left: 'Left edge' };
 const PRESETS = ['atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery'] as const;
@@ -249,9 +249,10 @@ export function FinishStudio({
 	// use the functional updater so a burst of rAF nudges reads the LATEST value, not a
 	// stale render closure.
 	const STEP_POS = 1.4; // % of slide per nudge call
-	const nudgeMark = (dx: number, dy: number) => setRecipe((r) => coerceRecipe({ ...r, mark: { ...r.mark, x: clampPct((r.mark.x ?? 50) + dx * STEP_POS), y: clampPct((r.mark.y ?? 50) + dy * STEP_POS) } }));
+	// Moving the mark frees it: a corner-anchored glyph (a shipped preset's) becomes a free one at the new spot.
+	const nudgeMark = (dx: number, dy: number) => setRecipe((r) => coerceRecipe({ ...r, mark: { ...r.mark, anchor: undefined, x: clampPct((r.mark.x ?? 50) + dx * STEP_POS), y: clampPct((r.mark.y ?? 50) + dy * STEP_POS) } }));
 	const nudgeWash = (dx: number, dy: number) => setRecipe((r) => coerceRecipe({ ...r, wash: { ...r.wash, x: clampPct((r.wash.x ?? 50) + dx * STEP_POS), y: clampPct((r.wash.y ?? 50) + dy * STEP_POS) } }));
-	const setMarkXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, mark: { ...r.mark, x: clampPct(x), y: clampPct(y) } }));
+	const setMarkXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, mark: { ...r.mark, anchor: undefined, x: clampPct(x), y: clampPct(y) } }));
 	const setWashXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, wash: { ...r.wash, x: clampPct(x), y: clampPct(y) } }));
 	// Spotlight window writers — reuse the placement grammar (joystick nudge / absolute
 	// drag / numeric), plus a radius slider. Keep the existing radius when only x/y move.
@@ -630,10 +631,10 @@ export function FinishStudio({
 
 					{/* Edge */}
 					<LayerGroup label="Edge" hint="z4 · frame">
-						<LayerSelect aria-label="Edge type" value={recipe.edge.type} options={EDGE_TYPES} labels={EDGE_LABEL} onChange={(v) => patch({ edge: { ...recipe.edge, type: v as FinishRecipe['edge']['type'] } })} />
+						<LayerSelect aria-label="Edge type" value={recipe.edge.type} options={EDGE_TYPES} labels={EDGE_LABEL} onChange={(v) => patch({ edge: { ...recipe.edge, rich: undefined, type: v as FinishRecipe['edge']['type'] } })} />
 						{recipe.edge.type !== 'none' && recipe.edge.type !== 'margin-rule' && (
 							<Tuned label="Intensity" value={`${recipe.edge.intensity}%`}>
-								<Slider aria-label="Edge intensity" min={3} max={20} value={recipe.edge.intensity} onValueChange={(v) => patch({ edge: { ...recipe.edge, intensity: v } })} />
+								<Slider aria-label="Edge intensity" min={3} max={20} value={recipe.edge.intensity} onValueChange={(v) => patch({ edge: { ...recipe.edge, rich: undefined, intensity: v } })} />
 							</Tuned>
 						)}
 					</LayerGroup>

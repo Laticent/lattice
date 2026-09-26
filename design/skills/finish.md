@@ -102,28 +102,32 @@ interpolates color and opacity separately.
 
 - **The package** (source of truth for the finish's NAME and registration):
   `lib/finishes/<name>/` — `<name>.manifest.json` (name, label, blurb, picker
-  swatch, `order`) and `<name>.recipe.json` (the look in the closed layer
-  vocabulary below, which the Studio starts from — not yet what a deck renders;
-  see **The CSS**).
+  swatch, `order`) and `<name>.recipe.json` (the look, in the closed layer
+  vocabulary below: the build generates the finish's CSS from it, and the Studio's
+  "Start from preset" reads the same file).
   `tools/build-packages-index.js` generates `lib/finishes/presets.generated.js`
   from the folders, and the register (`FINISH_REGISTER` in
   `lib/core/resolve-finish.js`), the lint vocabulary, the Studio's picker catalog
   and its "Start from preset" recipes are all read from it. A folder is the whole
   registration.
 - **The CSS**: `lib/base/base.finish.css` — the compositor + every preset body +
-  the opaque flip + the per-slide `finish-none` opt-out. The preset bodies are still
-  hand-written and are what every deck renders; `checkFinishPackages` fails the
-  build when a package has no `section.finish-<name>` rule or a rule has no
-  package, but it checks names only — tuning a `recipe.json` changes the Studio's
-  starting point and no deck. Generating these bodies from the recipes is the open
-  phase-2 decision (`followups.d/2314-p2-finishes-become-packages.md`).
+  the opaque flip + the per-slide `finish-none` opt-out. The preset bodies are
+  GENERATED: `tools/build-packages-index.js` runs `lib/finishes/finish-generate.js`
+  (the same generator the Studio uses) over every recipe and writes the rules into
+  the file's marked region, and `build:check` fails on a hand edit there. Tuning a
+  `recipe.json` changes what every deck renders.
 - **The sibling `mode:`**: `lib/core/resolve-mode.js` + `lib/base/base.sketch.css`.
 - **Ships today (10 values)**: `none` (baseline), `atrium`, `meridian`, `strata`,
   `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`.
 - **The closed layer vocabulary** (what the generator/AI may speak): WASH = none /
   corner-glow / duotone / spotlight / bands / mesh; TEXTURE = none / grid / dots /
   hatch / contour / rings / ruled / pinstripe / lattice; MARK = none / monogram /
-  tick / bar / numeral; EDGE = none / vignette / margin-rule / fold / frame.
+  tick / bar / rule / numeral; EDGE = none / vignette / margin-rule / fold / frame.
+  Four details a preset may add: `wash.hairline` (a solid accent strip across the
+  top edge, strata's), mark `rule` (the thin 0.47cqi margin rule; `bar` is the bold
+  1.1cqi one), `mark.anchor: "corner"` + `mark.inset` (a glyph seated in its
+  placement's corner, `inset` cqi from the side, rather than centered and moved to
+  x/y) and `edge.rich: { intensity, reach }` (a hand-tuned screen face for the fold).
 
 ---
 
@@ -132,19 +136,18 @@ interpolates color and opacity separately.
 1. **Add the package** — `lib/finishes/myfinish/myfinish.manifest.json` (copy a
    sibling's: `$schema`, `name`, `type: "finish"`, `format: 1`, `label`, `blurb`,
    the next `order`, and a picker `swatch`) and `myfinish.recipe.json` (the closest
-   recipe in the vocabulary, so the Studio's "Start from preset" reproduces it). Run
-   `node tools/build-packages-index.js`; the register, lint vocabulary and picker
-   pick it up.
-2. **Write the preset CSS** in `base.finish.css` as `section.finish-myfinish { … }`.
-   Declare **all four slot families** (unused = `none`, so it never inherits a
-   sibling's stray layer). For each layer you use, write both the RICH default
-   (`--fin-wash: …` fading toward transparent) and the `--fin-*-opaque` mirror
-   (ending on `var(--fin-canvas)`, hard stops), plus matching `--fin-size` / `--fin-position`
-   / `--fin-repeat` — one entry per background layer, in compositor order (texture
-   first, then wash).
-3. **Keep it palette-blind**: every color is `color-mix(in srgb, var(--accent) N%,
-   transparent | var(--fin-canvas))` or `var(--text-heading)`. No hex, no `url()`, no `mask-image`,
-   no `margin`.
+   recipe in the vocabulary). Run `node tools/build-packages-index.js` (or
+   `npm run build`): it writes `section.finish-myfinish { … }` into
+   `base.finish.css`, and the register, lint vocabulary and picker pick it up.
+2. **Don't hand-write the preset CSS.** The generator declares all four slot
+   families (unused = `none`), the RICH default and the `--fin-*-opaque` mirror of
+   each, and the aux `--fin-size` / `--fin-position` / `--fin-repeat` lists in
+   compositor order (texture first, then wash). A look the vocabulary can't say is a
+   new vocabulary term in `lib/finishes/finish-generate.js`, with a test in
+   `test/unit/core/finish-generate.test.js`, not a hand edit.
+3. **It is palette-blind by construction**: every color the generator writes is
+   `color-mix(in srgb, var(--field-accent) N%, transparent | var(--fin-canvas))` or
+   `var(--text-heading)`. No hex, no `url()`, no `mask-image`, no `margin`.
 4. **Default glyph marks to empty** — `--fin-mark-text: ""`. A deck-wide finish
    paints no monogram/numeral until the author personalizes it per slide.
 5. **Ship a demo deck** in `examples/` + committed PDF; add a `changelog.d/` fragment + the
@@ -156,6 +159,9 @@ interpolates color and opacity separately.
 ---
 
 ## The contract / skeleton
+
+What the generator writes for a preset (read it to understand the slots; don't
+type it):
 
 ```css
 /* base.finish.css */
@@ -255,9 +261,9 @@ with `<!-- _class: finish-none -->`.
 
 ## Canonical sources
 
-- `lib/core/resolve-finish.js` — the register, readers, class mapping (where you
-  add a finish).
-- `lib/base/base.finish.css` — the compositor, all preset bodies, the opaque flip.
+- `lib/core/resolve-finish.js` — the register, readers, class mapping (read from
+  the generated presets; you add a finish by adding its folder).
+- `lib/base/base.finish.css` — the compositor, the generated preset bodies, the opaque flip.
 - `lib/core/resolve-mode.js` + `lib/base/base.sketch.css` — the sibling `mode:`
   register.
 - `lib/base/base.registers.docs.md` §`finish:` — the author-facing reference.
@@ -266,5 +272,6 @@ with `<!-- _class: finish-none -->`.
 - `engineering/decisions/2026-07-01-finish-restraint-controls.md` — strength /
   clearance controls.
 - `examples/finish-backdrops.md` — the demo deck (all presets + a custom finish).
-- `lib/finishes/<name>/` — each preset's package; `finish-generate.ts` — the Studio's
-  recipe → CSS generator.
+- `lib/finishes/<name>/` — each preset's package; `lib/finishes/finish-generate.js` —
+  the one recipe → CSS generator, run by the build for the presets and by the Studio
+  (through its typed facade `finish-generate.ts`) for a fabricated finish.

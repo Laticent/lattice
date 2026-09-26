@@ -10,10 +10,12 @@
   },
   "mark": {
     "type": "numeral",
-    "placement": "top-left"
+    "placement": "top-left",
+    "anchor": "corner",
+    "inset": 1
   },
   "edge": {
     "type": "frame",
-    "intensity": 12
+    "intensity": 14
   }
 }

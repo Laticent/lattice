@@ -266,19 +266,34 @@ describe('finish packages', () => {
   }
 
   test('a package with its rule passes', () => {
-    const root = finishRepo('section.finish-velvet {\n  --fin-wash: none;\n}\n');
+    const root = finishRepo('/* ── BEGIN GENERATED FINISH PRESETS */\nsection.finish-velvet {\n  --fin-wash: none;\n}\n/* ── END GENERATED FINISH PRESETS ── */\n');
     const errors = [];
     checkFinishPackages(errors, { root, css: path.join(root, 'base.finish.css') });
     assert.deepEqual(errors, []);
   });
 
   test('THE FAILING ARMS: a package with no rule, and a rule with no package', () => {
-    const root = finishRepo('/* section.finish-velvet { } is only a comment */\nsection.finish-ghost {\n}\n');
+    const root = finishRepo('/* ── BEGIN GENERATED FINISH PRESETS */\n/* section.finish-velvet { } is only a comment */\nsection.finish-ghost {\n}\n/* ── END GENERATED FINISH PRESETS ── */\n');
     const errors = [];
     checkFinishPackages(errors, { root, css: path.join(root, 'base.finish.css') });
     assert.equal(errors.length, 2);
     assert.match(errors[0], /velvet\/ is a finish package, but .* has no `section\.finish-velvet \{` rule/);
     assert.match(errors[1], /`section\.finish-ghost` preset rule but no lib\/finishes\/ghost\/ package/);
+  });
+
+  test('THE FAILING ARMS: a hand rule outside the region, a doubled rule, and lost markers', () => {
+    const check = (css) => {
+      const root = finishRepo(css);
+      const errors = [];
+      checkFinishPackages(errors, { root, css: path.join(root, 'base.finish.css') });
+      return errors;
+    };
+    const rule = 'section.finish-velvet {\n}\n';
+    const outside = check(`/* ── BEGIN GENERATED FINISH PRESETS */\n${rule}/* ── END GENERATED FINISH PRESETS ── */\n${rule}`);
+    assert.equal(outside.length, 1);
+    assert.match(outside[0], /hand-written `section\.finish-velvet \{` rule outside the generated region/);
+    assert.match(check(`/* ── BEGIN GENERATED FINISH PRESETS */\n${rule}${rule}/* ── END GENERATED FINISH PRESETS ── */\n`)[0], /2 `section\.finish-velvet \{` rules in its generated region/);
+    assert.match(check(rule)[0], /lost its generated-region markers/);
   });
 });
 
