@@ -207,6 +207,163 @@ a preset of its own:
 
 A four-preset or two-axis scheme (tone × venue) was considered and is Fork 1.
 
+### 6.1 The spark, and what tells the presets apart (owner, 2026-09-26)
+
+> **Superseded in part by the third owner round below:** the recolor spark (color, wash, glow,
+> edge) is gone; the Guide's one lever is FOCUS — the rest recedes. `sparkUnit` / `sparkContent`
+> are now `focusUnit` / `focusContent`. The measurements and the reasons are kept as the record.
+
+After playing #2371's test deck the owner asked for two changes: the Guide should change the
+named element itself rather than draw ink beside it, and somber had to read differently from
+restrained. The owner settled both in one round:
+
+- **Spark by default.** Every gestured moment sparks: the named bullet, row, cell, column,
+  chart mark or line changes **color** in place (`sparkContent`, `present-guide.ts`; the look in
+  `lib/base/base.focus.css`). Weight, padding, borders and scale never change, so no box moves.
+  Peers stay at full strength, so the spark replaces the `mark` / `spotlight` recede of §5 on the
+  live surface. Overlay ink and the cursor survive only on expressive's top moment.
+- **Addressing.** A spark names the element the words sit in: a nested bullet sparks itself,
+  not its card; a table's first cell names its row, a header cell its column, any other body cell
+  itself (a table with a spanned cell names only the cell); a chart mark sparks every twin, a
+  series every shape, so a sentence about one point of a line lights the whole line. Plain prose
+  sparks its block. What no spark can reach (an image, a figure, a chart's hit area) falls back
+  to ink, so a planned moment never shows nothing.
+- **Somber reads differently on four axes**, as the preset table in
+  `lib/core/resolve-delivery.mjs` states:
+
+| | `restrained` | `expressive` | `somber` |
+|---|---|---|---|
+| Color | accent over an accent wash | the same | heading ink over a gray wash, no accent |
+| Motion | one 480 ms glow on arrival | the same | no glow |
+| Tempo | 320 ms linger; releases on the next sentence | 240 ms | 900 ms linger; holds through a short aside that names nothing |
+| Read-along | the spoken word lights inside the spark | the same | off |
+| Caption | word-by-word crawl in the accent | the same | the line in one muted ink, no crawl |
+| Ink + cursor | none | top moment only | none |
+
+Two things the renders taught, both recorded in the CSS:
+
+- A chart sparks in the **heading ink**, not the accent. A chart paints its first series, and
+  every bar of a one-series chart, in the accent itself, so an accent spark on indaco's
+  Enterprise line changed nothing.
+- A mark whose fill **carries** something (text laid over it, as a heatmap value or a state
+  node's name; or a translucent area, as radar's) keeps its fill and takes a heading-ink edge.
+  The Guide decides at spark time from the rendered geometry and the computed fill, rather than
+  from a list of components.
+- **SVG paint does not animate.** Chromium interpolating a chart's own token paint (a
+  `color-mix()` over `light-dark()`) toward the spark painted that line `oklab(1 255 255)`, pure
+  yellow, in the dark Studio. The paint switches in one step and the glow carries the arrival.
+  Text `color` does animate, and each state was checked against the rendered value.
+
+**Revised after measuring (owner, 2026-09-26).** The first cut sparked somber in the accent
+mixed toward the muted ink. Measured in OKLab units ×100 on indaco and cuoio, light and dark,
+it sat only 3–7 from restrained's spark, and on cuoio light the accent itself sat 6.7 from body
+text. Now every text spark carries a wash (8–10 against the slide), and somber uses the heading
+ink over a gray wash, 22–33 from restrained on all four.
+
+**Second owner round (2026-09-26), after playing a 10-slide test deck:**
+
+- **No color animates.** In the Studio's Chromium, animating a theme's own text color toward the
+  spark produced `oklab(1 200 229)` (pure yellow) on a title slide, and the line chart's stroke
+  went to `oklab(1 255 255)`. A newer Chromium interpolated the same values correctly, so the bug
+  is version-dependent, and a sent deck plays in whatever browser the recipient has. The spark
+  switches color in one step; the glow keeps one color and animates only its blur. Somber's slow
+  tempo becomes a longer LINGER (900 ms against restrained's 320 ms) instead of a slow fade.
+- **The wash hugs the words.** As a box background it ran the column's full width, 350 px past a
+  short bullet, which read as a gesture overshooting its text. It is now a CSS Highlight over the
+  element's own text, line by line. A table cell keeps its cell-shaped wash.
+- **The walk.** Measured on the test deck: a line chart is narrated as 17 sentences (each series'
+  summary, then all four points), and restrained's budget of 2 left the Guide dark for 45 seconds
+  of it. Once a planned moment on a slide is a chart mark, every later sentence that lands inside
+  the same chart sparks in turn: the walk counts as that one moment.
+- **Points and cells.** A point sentence ("Q1 2026, four point one") resolved to the right dot but
+  sparked the whole line; it now sparks the dot, with its line as context. A heatmap sentence
+  ("Jan 2026 is lowest at M3, forty-four") landed on the row label `Jan 2026`, because the cell's
+  label `Jan 2026 · M3` never leads the sentence; a compound label now counts when its first part
+  leads and the rest appear as whole words, and the value still has to corroborate.
+- **One highlight at a time.** Where read-along is on, sparked text takes the spark color and NO
+  band; the spoken word carries the only wash. A band behind the line under a highlighted word
+  layered two highlights on one sentence (owner: "that would be bad"). Somber keeps its band.
+- **Read-along.** Inside a sparked text element, the word being spoken takes a stronger wash, on
+  the caption's clock (the reader's active cue and word), as a CSS Highlight. Off for somber.
+
+**Third owner round (2026-09-26): one lever, and it is focus.** The owner saw two things lit at
+once, asked for "one lever", said the recolor "spark is not on brand", and pointed at the chart
+hover, which dims the other marks. Measured first, in the built Studio over 60 s of playback: two
+foci were on screen together 7 times (2.0 s) under restrained, because the old spark lingered; the
+slide's read-along matched the caption word on the same frame (p50 and p90 lag 0); 59.7 fps, with
+the worst frame 284 ms. The research on emphasis agrees with the owner's instinct:
+
+- one attribute, with the context pushed back (Few; Knaflic, *Storytelling with Data*);
+- focus + context by receding the rest rather than restyling the target (Card, Mackinlay &
+  Shneiderman), which is also what `chart-interact.js` does on hover (every other mark to 0.45,
+  200 ms);
+- abrupt changes capture attention, so never two at once (Yantis & Jonides; Heer & Robertson on
+  animated transitions);
+- signaling helps and redundancy hurts (Mayer): cueing the narrated part in step with the voice
+  improves understanding, while printed words that duplicate the narration compete with it.
+
+The owner settled four forks:
+
+| Fork | Decision |
+|---|---|
+| The lever | Recede the rest; the named thing keeps its own colors. Opacity only. |
+| The handoff | Strict swap: the old focus fades down as the new fades up, in the same frame. |
+| Read-along | On the slide only with the captions OFF; the caption already reads along. |
+| The walk | The line holds focus (other series recede); within it, the point being read holds while its other points recede. |
+
+Built as `focusUnit` / `focusContent` (`present-guide.ts`) and the `.lat-guide-*` rules in
+`lib/base/base.focus.css`. Presets differ only in depth and tempo: restrained 0.45 / 200 ms (the
+hover's own values), expressive 0.30 / 160 ms, somber 0.62 / 600 ms with the aside hold and the
+still caption. A walked line's other points recede FURTHER than the rest (0.30 / 0.20 / 0.50): the
+line's stroke keeps the shape, and at a gentler 0.62 the point being read barely stood out. A peer
+mark's own labels recede with it where the chart links them (`data-mark-for`). Measured after, over
+75 s under restrained and somber: **zero** frames with two foci; worst frame 139 ms (three of the six
+frames over 50 ms fall in the first 400 ms of playback, none within 200 ms of a focus change but one).
+
+Measured: sparking every bullet, cell, row, column, mark and heading on all 116 gallery slides at
+once moved **0** of 5,381 element boxes, mid-glow and after it, in light and dark.
+
+**Bar labels recede with their bar (owner, 2026-09-26).** On indaco dark a bar is a dark fill, so
+receding the other bars changed little while their category names and printed values stayed at full
+strength: the focused bar barely separated. The bar, stacked-bar and bullet emitters now stamp
+`data-mark-for="i"` on each category name and value (`buildCategoryLabels({ markFor })`,
+`buildValueLabel({ extra })`), the link waterfall, funnel, slope, quadrant and the pie key already
+carried. These charts qualify because mark index i IS category i: every rect in band i carries
+`data-mark="i"`. A label is linked only when its bar was drawn (a non-numeric bar, an all-zero
+stack or a name-only bullet row draws none; a label linked to a missing mark opened an empty card
+and dimmed the whole chart — checker). A stacked bar's segments and a grouped bar's series are
+still separate cards, so a tap on their name or total opens nothing new (`namedMark` requires one
+card); the label only recedes. Line and heatmap do not qualify (a line's category
+names a column across series, a heatmap's names a row or column of cells), so they stay unlinked.
+The one link serves both surfaces: `chart-interact.js` already dims every `[data-mark-for]` whose
+index is not the open mark, and `focusUnit` recedes a peer's labels and, when the narration's words
+land on ANY linked label — a bar's category ("LATAM, one point two million"), a pie or map key row,
+a funnel stage, a slope or quadrant name — focuses that label's mark with its labels. Before, such a
+sentence focused the label alone and nothing receded. The same pass fixed the reveal layer's range
+check, which counted distinct mark indices and so locked the mark after a gap out of ever opening.
+**The Guide and the hover never share the screen (owner, 2026-09-26).** Measured first: with the
+Guide playing and focused on LATAM, moving the pointer onto EMEA dimmed the narrated bar, raised
+EMEA and opened its card over the playing slide — Present mounted the hover layer whenever it was
+open, and the hover's inline opacity beats the Guide's class. The owner: "these are two different
+features. hover is for interaction" and "hover off while guide plays". So while the Guide plays
+(`guidePlaying` in `PresentOverlay.tsx`: Guide on, not rehearsing, and the deck delivering —
+including the beat between slides) the chart hover layer and its number keys are off. Pausing
+hands the slide to the pointer: the Guide lifts its focus, hand and read-along, and the hover comes
+back bound to the slide on screen. Playing again closes any open card and the Guide's focus
+returns on the sentence being read. `present-delivery.spec.ts` pins all three states and fails
+against the old always-on layer (a card opened during playback). Still open, in a followup: whether
+the Guide itself should ever open a focused mark's card, behind a setting.
+
+The owner then ruled that any label missing its link is a bug, so the link now covers every
+chart: an audit of all 23 chart galleries found heatmap cell values, gantt captions and milestone
+names, scatter point names, dumbbell row names and stacked-bar part values naming one mark with no
+link, and line series names and end values with no link to their line (`data-series-for`, which the
+Guide recedes with the series). A gallery-wide unit test now holds the rule.
+The attribute paints nothing: the dark and light PDFs of the board-update test deck are
+byte-identical before and after, and so are all 20 rasterized pages. Measured in the built Studio on the bar slide, light and dark: under
+the Guide the focused bar's name and value hold at 1 while the other six labels drop to 0.45, and
+the chart hover in the Playground does the same for the hovered bar.
+
 ## 7. Timing and surface (axes D, E)
 
 ### 7.1 Word-anchored cues

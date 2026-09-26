@@ -16,6 +16,9 @@ const CURSOR = '.vetrina-cursor';
 
 test('Guide points the cursor INTO the slide, and stops when it is switched off', async ({ page }) => {
 	await gotoStudio(page);
+	// Expressive: its top moment still draws ink and shows the hand; restrained and somber spark
+	// the element instead and show no cursor at all (present-delivery.spec.ts).
+	await setEditorContent(page, SLIDE_WITH_ONE_PARAGRAPH);
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	await expect(dialog).toBeVisible();
@@ -135,6 +138,9 @@ const backdropCursor = (page: import('@playwright/test').Page) =>
 
 test('the real pointer hides only over the slide, never over the dock', async ({ page }) => {
 	await gotoStudio(page);
+	// Expressive: its top moment still draws ink and shows the hand; restrained and somber spark
+	// the element instead and show no cursor at all (present-delivery.spec.ts).
+	await setEditorContent(page, SLIDE_WITH_ONE_PARAGRAPH);
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	await dialog.getByRole('button', { name: /^Guide (on|off)/ }).click();
@@ -312,6 +318,9 @@ test('the vocabulary varies with the shape of what is named', async ({ page }) =
 			'---',
 			'marp: true',
 			'theme: indaco',
+			// The ink vocabulary is drawn on expressive's top moment of each slide; the other presets
+			// spark the element instead.
+			'delivery: expressive',
 			'---',
 			'',
 			'## Margins expanded across every region this year and the next',

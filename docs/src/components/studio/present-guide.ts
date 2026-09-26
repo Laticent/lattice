@@ -107,6 +107,12 @@ function boundedAt(hay: string, sub: string, at: number): boolean {
 	return before && (end === hay.length || hay[end] === ' ');
 }
 
+/** Does `hay` contain `sub` as whole words, anywhere? */
+function containsWord(hay: string, sub: string): boolean {
+	for (let at = hay.indexOf(sub); at !== -1; at = hay.indexOf(sub, at + 1)) if (boundedAt(hay, sub, at)) return true;
+	return false;
+}
+
 /** Does `hay` OPEN with `sub` as whole words? */
 function leadsWord(hay: string, sub: string): boolean {
 	return !!sub && hay.startsWith(sub) && boundedAt(hay, sub, 0);
@@ -286,8 +292,15 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 		// read-aloud lexicon cannot expand it), so the code leads in that form too.
 		const spelled = /^[A-Z]{2,3}$/.test(rawLabel.trim()) ? loose(rawLabel.trim().split('').join(' ')) : '';
 		const label = spelled && leadsWord(needle, spelled) ? spelled : loose(rawLabel);
+		// A COMPOUND label names a crossing: a heatmap cell is `Jan 2026 · M3`, and its sentence
+		// reads "Jan 2026 is lowest at M3, forty-four." — the row leads and the column follows. It
+		// counts when its first part leads and every other part appears as a whole word; its length
+		// is every part's, so the cell outranks the bare row label `Jan 2026` that also leads.
+		// Measured before: every heatmap cue landed on its row label, never on a cell.
+		const parts = rawLabel.includes(' · ') ? rawLabel.split(' · ').map(loose).filter((x) => x.length >= 2) : [];
+		const compound = parts.length > 1 && leadsWord(needle, parts[0]) && parts.slice(1).every((x) => containsWord(needle, x));
 		// A one-character label identifies nothing and would lead half the cues on the slide.
-		if (label.length < 2 || !leadsWord(needle, label)) continue;
+		if (!compound && (label.length < 2 || !leadsWord(needle, label))) continue;
 		const raw = (el as HTMLElement).dataset?.value ?? el.getAttribute('data-value') ?? '';
 		let corroborated = false;
 		if (raw) {
@@ -295,7 +308,7 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 			// A mark that declares a value the cue never says, in either spelling, is not this cue's.
 			if (!corroborated) continue;
 		}
-		passed.push({ el, labelLen: label.length, corroborated });
+		passed.push({ el, labelLen: compound ? parts.join(' ').length : label.length, corroborated });
 	}
 	if (!passed.length) return null;
 	// THE LONGER LABEL WINS FIRST, and corroboration only breaks its ties. Ranking corroboration
@@ -1247,13 +1260,11 @@ export const sentenceRects = (block: Element, text: string): DOMRect[] | null =>
  *  deck said "row 4", so pointing at the table would be ignoring it. Escalation then falls out
  *  of the vocabulary — a smaller box picks a stronger gesture through `chooseGesture` — rather
  *  than being a second knob bolted beside it. */
-/** An AUTHORED `.lat-focus`, never the Guide's own live mark: `markContent` writes the same class,
- *  and reading it back as the deck's call-out made the marked item "notable" and exempt from the
- *  budget. A live mark lives only in a `section[data-focus-live]`, which a deck-focused slide never
- *  becomes (`markContent` refuses one). */
+/** An AUTHORED `.lat-focus`. The Guide's own focus writes `.lat-guide-*`, never this class, so the
+ *  element it is lighting never reads back as the deck's call-out (which would make it "notable"
+ *  and exempt from the budget). */
 function authoredFocusOf(el: Element): { self: boolean; inner: Element | null } {
-	const self = !!el.closest('.lat-focus') && !el.closest('section[data-focus-live]');
-	return { self, inner: el.closest('section[data-focus-live]') ? null : el.querySelector('.lat-focus') };
+	return { self: !!el.closest('.lat-focus'), inner: el.querySelector('.lat-focus') };
 }
 
 export function aimTarget(block: Element, text = ''): { el: Element; notable: boolean } {
@@ -2229,83 +2240,316 @@ export function planSlide(texts: readonly string[], aim: (text: string) => Eleme
 	return { gesture: new Set(chosen.map((r) => r.cue)), top: chosen[0]?.cue ?? -1, aimed };
 }
 
-// ── CONTENT MARKS — the gesture that changes the slide rather than drawing on it ─────────────
+// ── THE FOCUS — one lever: the named thing stays, the rest recedes ─────────────────────────
 //
-// Ink draws over the content; a content mark sets a state ON it: the named list item, table row,
-// chart mark or series stays full while its peers recede. It is the `_focus:` treatment, applied
-// live — the same `.lat-focus` / `.lat-recede` classes and `data-focus-*` section attributes, so
-// every look comes from `lib/base/base.focus.css` and every theme gets it with no new CSS color
-// (HARD RULE #3). `data-focus-live` is the one addition: it scopes a fade to the live surface,
-// so a PDF, which never carries it, stays byte-identical.
+// When the narration names a bullet, a table row, cell or column, a chart mark, a line or one of
+// its points, everything ELSE in that group recedes and the named thing keeps its own colors. It
+// is the chart hover's emphasis (`chart-interact.js`: every other mark to 0.45, 200 ms), spoken
+// in the same language on every element — focus + context, the one attribute the research on
+// emphasis asks for (Few; Knaflic; Card, Mackinlay & Shneiderman). It replaces the recolor
+// "spark" (owner, 2026-09-26: "spark should be one lever"; "spark is not on brand").
 //
-// Two rules keep it honest. It never marks a slide the DECK already focused (`_focus:` resolved
-// there), because the author's focus outranks the Guide's. And it always returns its own undo,
-// which the caller runs on the next gesture, on a slide change, and when Guide switches off: a
-// mark left behind would be a lie about what is being said.
+// Opacity is the whole lever. It animates on the compositor (smooth at 60 fps), changes no box
+// (nothing moves), and — unlike a color — interpolates as a number, so the Chromium defect that
+// painted a text spark `oklab(1 200 229)` cannot reach it.
+//
+// THE HANDOFF IS A STRICT SWAP. The caller runs the previous focus's undo and the next focus in
+// one task, so both land in the same frame: a peer of both stays dimmed, the old focus fades down
+// as the new one fades up, and there are never two foci. (The recolor's linger put two lit
+// elements on screen for 2.0 s a minute — measured, and the owner saw it as jank.)
+//
+// Classes, never the deck's `_focus` ones (`.lat-focus` / `.lat-recede`), so the Guide's state
+// never reads back as authored focus (`authoredFocusOf`). Every value is a preset token on the
+// section; no render path writes any of it, so a PDF, a PPTX and an export render exactly as
+// before (the rules ship in the CSS bundle and match nothing there). It always returns its own
+// undo, which the caller runs on the next gesture, on a slide change and when Guide switches off.
 
 const SERIES_SHAPES = ['path', 'polygon', 'polyline', 'circle', 'line'];
+const TEXT_BLOCK = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, td, th';
 
-/** The unit a content mark names for `el`, its peers, and the `_focus` axis it matches. */
-function markUnit(el: Element): { unit: Element[]; peers: Element[]; axis: string } | null {
+/** What the narration names for `el` (`unit`, left alone), what recedes around it (`peers` — EMPTY
+ *  when nothing stands beside it, or when the deck's own `_focus` already spotlights the group, and
+ *  then the moment changes nothing on screen: the narration and the caption carry it), what
+ *  recedes further inside it (`inner` — a walked line's other points; the stroke keeps the shape), and the `_focus`-grammar
+ *  axis. Null when nothing on the slide has a group to focus in (a figure, an image, a chart's
+ *  frame), and the caller falls back to ink. */
+export function focusUnit(el: Element): { unit: Element[]; peers: Element[]; inner: Element[]; axis: string } | null {
 	const section = el.closest('section');
 	if (!section) return null;
-	const chart = el.closest('.chart-body') ?? section;
+	const found = focusUnitIn(section, el);
+	// THE DECK'S OWN SPOTLIGHT WINS. A group the author already focused (`_focus:`, which tags
+	// `.lat-focus` / `.lat-recede`) keeps the author's depths: the Guide's 0.45 over `_focus`'s 0.24
+	// BRIGHTENED the receded items the moment the call-out was spoken, and naming a receded item
+	// dimmed the call-out itself (checker, measured in Chromium). The author's focus IS the focus.
+	if (found && [...found.unit, ...found.peers, ...found.inner].some((e) => e.matches('.lat-focus, .lat-recede') || !!e.closest('.lat-focus, .lat-recede'))) {
+		return { ...found, peers: [], inner: [] };
+	}
+	return found;
+}
+
+/** The labels linked to series `v` (`own`) or to every other series (`!own`) in `chart`. */
+function seriesLabels(chart: Element, v: string | null, own: boolean): Element[] {
+	return [...chart.querySelectorAll('[data-series-for]')].filter((t) => (t.getAttribute('data-series-for') === v) === own && !t.closest('template'));
+}
+
+function focusUnitIn(section: Element, el: Element): { unit: Element[]; peers: Element[]; inner: Element[]; axis: string } | null {
+	const painted = (m: Element) => !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit');
+	// One chart's marks, never another's: two charts on a slide both number their marks from 0.
+	const chart = el.closest('.chart-body') ?? el.closest('figure.chart-frame') ?? el.closest('svg') ?? section;
+	const seriesSel = SERIES_SHAPES.map((t) => `${t}[data-series]`).join(', ');
+	// A POINT of a series — one dot named by its own label and value. The other series recede, and
+	// inside the focused line its other points recede too; the line's stroke itself stays whole.
+	if (el.matches('circle[data-series][data-label]') && chart.querySelector('path.line-path[data-series]')) {
+		const v = el.getAttribute('data-series');
+		const shapes = [...chart.querySelectorAll(seriesSel)].filter(painted);
+		return {
+			unit: [el],
+			peers: [...shapes.filter((m) => m.getAttribute('data-series') !== v), ...seriesLabels(chart, v, false)],
+			inner: shapes.filter((m) => m !== el && m.getAttribute('data-series') === v && m.matches('circle')),
+			axis: 'point',
+		};
+	}
 	for (const attr of ['data-mark', 'data-series'] as const) {
 		// A series is its SHAPES: radar's container `<div>` also writes `data-series`, as a count,
 		// and slope's labels write a palette slot. `focus.js` draws the same line.
-		const sel = attr === 'data-series' ? SERIES_SHAPES.map((t) => `${t}[data-series]`).join(', ') : '[data-mark]:not(template)';
-		const v = el.closest(sel)?.getAttribute(attr);
+		const sel = attr === 'data-series' ? seriesSel : '[data-mark]:not(template)';
+		// A label LINKED to a mark (`data-mark-for`: a bar's category name, a group's total) names
+		// that mark — the sentence about "FY23" is about FY23's bars, not about the word.
+		const v = el.closest(sel)?.getAttribute(attr) ?? (attr === 'data-mark' ? el.closest('[data-mark-for]')?.getAttribute('data-mark-for') : null);
 		if (v == null) continue;
-		const all = [...chart.querySelectorAll(sel)].filter((m) => !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
+		const all = [...chart.querySelectorAll(sel)].filter(painted);
 		const unit = all.filter((m) => m.getAttribute(attr) === v);
-		return { unit, peers: all.filter((m) => !unit.includes(m)), axis: attr === 'data-mark' ? 'mark' : 'series' };
+		if (!unit.length) continue;
+		const peers = all.filter((m) => !unit.includes(m));
+		// The mark's own labels are part of it: they come up with it if a moment ago they were a peer's.
+		// A series' own name and end value (`data-series-for`, line) come and go with it.
+		if (attr === 'data-series') {
+			unit.push(...seriesLabels(chart, v, true));
+			peers.push(...seriesLabels(chart, v, false));
+		}
+		if (attr === 'data-mark') unit.push(...[...chart.querySelectorAll('[data-mark-for]')].filter((t) => t.getAttribute('data-mark-for') === v && painted(t)));
+		// A peer's OWN labels recede with it where the chart links them (`data-mark-for`: a pie's
+		// key, a funnel's stage name and value, slope and quadrant labels). A receded wedge beside a
+		// full-strength "Maintenance 22%" still read as half-named.
+		if (attr === 'data-mark') peers.push(...[...chart.querySelectorAll('[data-mark-for]')].filter((t) => t.getAttribute('data-mark-for') !== v && painted(t)));
+		return { unit, peers, inner: [], axis: attr === 'data-mark' ? 'mark' : 'series' };
 	}
-	const row = el.closest('tbody > tr');
-	if (row?.parentElement) return { unit: [row], peers: [...row.parentElement.children].filter((r) => r !== row), axis: 'row' };
+	// A TABLE names three things, by where the spoken words sit: a header cell names its column,
+	// the row's first cell (its label) names the row, and any other body cell names itself. A
+	// table with a spanned cell names only the cell: a child index is no longer a column there.
+	const cell = el.closest('td, th');
+	const row = cell?.parentElement as HTMLTableRowElement | null | undefined;
+	const table = cell?.closest('table') as HTMLTableElement | null | undefined;
+	if (cell && row && table) {
+		const rows = [...table.rows];
+		const bodyCells = rows.filter((r) => !r.closest('thead')).flatMap((r) => [...r.cells]);
+		const spanned = rows.some((r) => [...r.cells].some((c) => c.colSpan > 1 || c.rowSpan > 1));
+		const index = [...row.children].indexOf(cell);
+		if (!spanned && cell.closest('thead')) {
+			const unit = rows.map((r) => r.cells[index]).filter((c): c is HTMLTableCellElement => !!c);
+			// The row labels stay legible: a column is read against them (the `_focus: col` rule).
+			return { unit, peers: bodyCells.filter((c) => !unit.includes(c) && c.cellIndex !== 0), inner: [], axis: 'col' };
+		}
+		if (!spanned && index === 0) {
+			const unit = [...row.children];
+			return { unit, peers: bodyCells.filter((c) => !unit.includes(c)), inner: [], axis: 'row' };
+		}
+		return { unit: [cell], peers: bodyCells.filter((c) => c !== cell), inner: [], axis: 'cell' };
+	}
+	// A BULLET: its siblings recede, and a nested bullet's card's siblings recede with them.
 	const li = el.closest('li');
-	if (li?.parentElement && /^(UL|OL)$/.test(li.parentElement.tagName)) {
-		// The TOP-level item: a nested bullet names its card, as `_focus: item` does.
-		let top: Element = li;
-		for (let up = top.parentElement?.closest('li'); up && section.contains(up); up = up.parentElement?.closest('li')) top = up;
-		const list = top.parentElement as Element;
-		return { unit: [top], peers: [...list.children].filter((c) => c !== top && c.tagName === 'LI'), axis: 'item' };
+	if (li && section.contains(li)) {
+		const peers: Element[] = [];
+		for (let at: Element | null = li; at && section.contains(at); at = at.parentElement?.closest('li') ?? null) {
+			for (const sib of at.parentElement?.children ?? []) if (sib !== at && sib.tagName === 'LI') peers.push(sib);
+		}
+		return { unit: [li], peers, inner: [], axis: 'item' };
 	}
-	return null;
+	// Inside a chart, only a text label names something; a hit area or a frame does not.
+	if (el.closest('svg')) return el.matches('text') ? { unit: [el], peers: [], inner: [], axis: 'block' } : null;
+	// ANY OTHER TEXT: the block the words sit in, and the text blocks beside it recede. A slide of
+	// one paragraph has nothing beside it, and shows nothing — the narration is enough.
+	if (el === section || el.matches('img, svg, figure, picture, video, canvas, table')) return null;
+	const block = el.matches(TEXT_BLOCK) ? el : (el.closest(TEXT_BLOCK) ?? el);
+	if (block.querySelector('p, li, table, [data-mark], [data-series], h1, h2, h3, blockquote')) return null;
+	// The slide's headline and eyebrow never recede: they frame the slide, they are not its peers.
+	const peers = [...(block.parentElement?.children ?? [])].filter((c) => c !== block && c.matches(TEXT_BLOCK) && !c.matches('h1, h2, h3, h4') && !!(c.textContent ?? '').trim());
+	return { unit: [block], peers, inner: [], axis: 'block' };
 }
 
+/** Which focus started an element's current fade-up — the only one allowed to end it. */
+const fadeOwner = new WeakMap<Element, object>();
+
+/** How deep the rest recedes, how gently a walked line's other points recede, and how long the
+ *  crossfade runs — the preset's whole look (`lib/core/resolve-delivery.mjs`). */
+export type FocusLook = { dim?: number; dimInner?: number; fade?: number };
+
 /**
- * Mark the content `el` names, and return the undo. A no-op (with a no-op undo) when `el` is not
- * part of a list, a table body, or a chart's marks, or when the deck already focused the slide.
+ * Focus the content `el` names, and return the undo — or null when nothing on the slide can be
+ * focused, so the caller can gesture another way. The undo lifts every peer back (a crossfade
+ * over the same `fade`); run the next focus in the same task and the two land as one swap.
  */
-export function markContent(el: Element, style?: 'spotlight' | 'ring'): () => void {
-	const section = el.closest('section');
-	const found = markUnit(el);
-	if (!section || !found?.peers.length) return () => {};
-	if (section.hasAttribute('data-focus-resolved') && !section.hasAttribute('data-focus-live')) return () => {};
-	// The look `_focus:` would pick for the same axis: a row is ringed so the comparison across
-	// the table stays legible; everything else spotlights.
-	const look = style ?? (found.axis === 'row' ? 'ring' : 'spotlight');
-	const attrs = { 'data-focus-live': '', 'data-focus-resolved': '', 'data-focus-axis': found.axis, 'data-focus-style': look };
-	const before = Object.fromEntries(Object.keys(attrs).map((k) => [k, section.getAttribute(k)]));
-	for (const [k, v] of Object.entries(attrs)) section.setAttribute(k, v);
-	const added: [Element, string][] = [];
-	const tag = (e: Element, cls: string) => {
-		if (e.classList.contains(cls)) return;
-		e.classList.add(cls);
-		added.push([e, cls]);
-	};
-	for (const e of found.unit) tag(e, 'lat-focus');
-	for (const e of found.peers) tag(e, 'lat-recede');
+export function focusContent(el: Element, look: FocusLook = {}): (() => void) | null {
+	const section = el.closest('section') as HTMLElement | null;
+	const found = focusUnit(el);
+	if (!section || !found) return null;
+	const { dim = 0.45, dimInner = 0.3, fade = 200 } = look;
+	section.setAttribute('data-guide', '');
+	section.style?.setProperty('--guide-dim', String(dim));
+	section.style?.setProperty('--guide-dim-inner', String(dimInner));
+	section.style?.setProperty('--guide-fade', `${fade}ms`);
+	// The named thing comes up if it was down (a peer a moment ago), never down.
+	for (const e of found.unit) {
+		e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner');
+		e.classList.add('lat-guide-undim');
+	}
+	for (const e of found.peers) {
+		e.classList.remove('lat-guide-undim', 'lat-guide-dim-inner');
+		e.classList.add('lat-guide-dim');
+	}
+	for (const e of found.inner) {
+		e.classList.remove('lat-guide-undim', 'lat-guide-dim');
+		e.classList.add('lat-guide-dim-inner');
+	}
+	const touched = [...found.unit, ...found.peers, ...found.inner];
+	const view = el.ownerDocument?.defaultView;
+	// Each fade-up belongs to the focus that started it: a clear left over from an OLDER focus must
+	// not strip a newer one's `-undim` mid-crossfade, which snapped the element to full (checker).
+	const token = {};
+	for (const e of found.unit) fadeOwner.set(e, token);
+	let done = false;
 	return () => {
-		for (const [e, cls] of added) e.classList.remove(cls);
-		// `data-focus-live` stays until the slide changes, so the peers FADE back rather than snap:
-		// the transition rule is scoped on it. Everything else returns to what the deck had.
-		for (const [k, v] of Object.entries(before)) {
-			if (k === 'data-focus-live') continue;
-			if (v == null) section.removeAttribute(k);
-			else section.setAttribute(k, v);
+		if (done) return;
+		done = true;
+		for (const e of [...found.peers, ...found.inner]) {
+			if (!e.classList.contains('lat-guide-dim') && !e.classList.contains('lat-guide-dim-inner')) continue;
+			e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner');
+			e.classList.add('lat-guide-undim');
+			fadeOwner.set(e, token);
 		}
+		// The fade-up class leaves once the crossfade is over — except on an element a later focus
+		// dimmed again. No timer is ever cancelled; each clear skips what is no longer its own.
+		const clear = () => {
+			for (const e of touched) {
+				if (fadeOwner.get(e) !== token || e.classList.contains('lat-guide-dim') || e.classList.contains('lat-guide-dim-inner')) continue;
+				e.classList.remove('lat-guide-undim');
+			}
+		};
+		if (!view) return clear();
+		view.setTimeout(clear, fade + 40);
 	};
+}
+
+// ── THE READ-ALONG — the word being spoken, inside the focus ────────────────────────────────
+//
+// The focus names the element; the read-along names the word. It runs on the caption's clock
+// (the reader's active cue and word), so the slide, the caption and the voice agree. It is a CSS
+// Highlight, never a DOM edit: DOMPurify'd slide markup stays untouched (HARD RULE #22), and a
+// word split across inline markup still lights as one word.
+
+/** A word as it can be found in slide text: lower-case, with its edge punctuation dropped. */
+const bareWord = (w: string): string => w.toLowerCase().replace(/^[^\p{L}\p{N}$€£¥]+|[^\p{L}\p{N}%]+$/gu, '');
+
+/**
+ * The range of the `k`-th spoken word of a sentence inside `el`, or null when that word is not
+ * in the element's own text (a paraphrased caption, a number spelled out loud).
+ *
+ * The words are found IN ORDER from the sentence's first word, so "the" in the fifth word does
+ * not land on an earlier "the". A word the element lacks is skipped rather than ending the walk,
+ * so one spelled-out figure does not blank the rest of the sentence.
+ */
+export function wordRangeIn(el: Element, words: readonly string[], k: number): Range | null {
+	if (k < 0 || k >= words.length) return null;
+	const doc = el.ownerDocument;
+	const walker = doc.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
+	const nodes: { node: Text; start: number }[] = [];
+	let text = '';
+	for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+		// Only the text the focus names: never an unpainted payload, never a card's nested list
+		// (the wash ends before it, so the read-along must too).
+		const parent = n.parentElement;
+		if (parent?.closest(UNPAINTED)) continue;
+		if (parent && parent !== el && parent.closest('ul, ol') && el.contains(parent.closest('ul, ol'))) continue;
+		nodes.push({ node: n as Text, start: text.length });
+		text += (n as Text).data;
+	}
+	const hay = text.toLowerCase();
+	const isWordChar = (c: string | undefined) => !!c && /[\p{L}\p{N}]/u.test(c);
+	// A whole-word hit: nothing word-like on EITHER side, so "North" never lands inside "Northeast".
+	const find = (w: string, from: number): number => {
+		for (let j = hay.indexOf(w, from); j !== -1; j = hay.indexOf(w, j + 1)) {
+			if (!isWordChar(hay[j - 1]) && !isWordChar(hay[j + w.length])) return j;
+		}
+		return -1;
+	};
+	const bare = words.map(bareWord);
+	// ANCHOR on where this sentence starts: the first position whose next spoken words follow it
+	// in order. A paragraph's second sentence otherwise found its first word in the first sentence.
+	let from = 0;
+	const lead = bare.findIndex(Boolean);
+	if (lead !== -1) {
+		for (let j = find(bare[lead], 0); j !== -1; j = find(bare[lead], j + 1)) {
+			let at = j + bare[lead].length;
+			let ok = true;
+			for (const w of bare.slice(lead + 1, lead + 3)) {
+				if (!w) continue;
+				const q = find(w, at);
+				// The very next word: only spaces or punctuation between, never another word.
+				if (q === -1 || /[\p{L}\p{N}]/u.test(hay.slice(at, q))) {
+					ok = false;
+					break;
+				}
+				at = q + w.length;
+			}
+			if (ok) {
+				from = j;
+				break;
+			}
+		}
+	}
+	let at = from;
+	let hit: [number, number] | null = null;
+	for (let i = 0; i <= k; i++) {
+		const w = bare[i];
+		if (!w) continue;
+		const j = find(w, at);
+		// A word the element lacks is skipped rather than ending the walk.
+		if (j === -1) continue;
+		if (i === k) hit = [j, j + w.length];
+		at = j + w.length;
+	}
+	if (!hit) return null;
+	const locate = (off: number, end: boolean) => {
+		for (let i = nodes.length - 1; i >= 0; i--) {
+			const { node, start } = nodes[i];
+			if (off > start || (off === start && !end)) return { node, offset: Math.min(off - start, node.data.length) };
+		}
+		return nodes[0] ? { node: nodes[0].node, offset: 0 } : null;
+	};
+	const a = locate(hit[0], false);
+	const b = locate(hit[1], true);
+	if (!a || !b) return null;
+	const range = doc.createRange();
+	range.setStart(a.node, a.offset);
+	range.setEnd(b.node, b.offset);
+	return range;
+}
+
+type HighlightView = Window & { CSS?: { highlights?: Map<string, unknown> }; Highlight?: new (...r: Range[]) => unknown };
+
+/** Set or clear (null) a named CSS highlight in `doc`. A no-op where the browser has no CSS
+ *  Custom Highlight API, which costs only the read-along, never the focus. */
+function setHighlight(doc: Document | null | undefined, name: string, ranges: Range[] | null): void {
+	const view = doc?.defaultView as HighlightView | null | undefined;
+	const hl = view?.CSS?.highlights;
+	if (!hl) return;
+	if (!ranges?.length || !view?.Highlight) hl.delete(name);
+	else hl.set(name, new view.Highlight(...ranges));
+}
+
+/** Light `range` as the word being said in `doc`, or clear it (null). */
+export function setSaid(doc: Document | null | undefined, range: Range | null): void {
+	setHighlight(doc, 'lat-said', range ? [range] : null);
 }
 
 /**

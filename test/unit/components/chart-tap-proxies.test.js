@@ -71,7 +71,7 @@ describe('tap proxies name the right mark', () => {
     }
   });
 
-  test('a legend of SERIES stays inert: radar, line and stacked-bar rows name no single mark', () => {
+  test('a legend of SERIES stays inert: radar, line and stacked-bar key rows name no single mark', () => {
     const radar = render('radar', '<ul><li>Teacher<ul><li>Calculus <code>9</code></li><li>Geometry <code>7</code></li><li>Algebra <code>8</code></li></ul></li>'
       + '<li>Student<ul><li>Calculus <code>7</code></li><li>Geometry <code>8</code></li><li>Algebra <code>9</code></li></ul></li></ul>');
     const line = render('line', '<ul><li>Q1<ul><li>North <code>1</code></li><li>South <code>2</code></li></ul></li>'
@@ -81,8 +81,47 @@ describe('tap proxies name the right mark', () => {
     for (const sec of [radar, line, stacked]) {
       assert.equal(sec.querySelectorAll('.chart-key-label[data-mark-for], .chart-key-value[data-mark-for]').length, 0);
     }
-    // …and a stacked-bar's category labels are not proxies either: the marks are segments.
-    assert.equal(proxies(stacked).length, 0);
+    // A stacked-bar's CATEGORY labels do link to a mark index: every segment in band i carries
+    // `data-mark="i"`, so the name and total recede with their bar. (The reveal layer does not
+    // open a card from them: the segments are several cards — see `namedMark`.)
+    for (const p of assertAllResolve(stacked)) {
+      assert.ok(p.matches('.cart-cat, .sbar-total, .sbar-part'), `only a bar's name, total or part value is linked, not ${p.getAttribute('class')}`);
+    }
+  });
+
+  test('bar: each category name and value names its own bar, in columns, rows and groups', () => {
+    const cols = render('bar', '<ul><li>North America <code>$4.1M</code></li><li>LATAM <code>$1.2M</code></li><li>EMEA <code>$6.8M</code></li></ul>');
+    const rows = render('bar row', '<ul><li>North America <code>$4.1M</code></li><li>LATAM <code>$1.2M</code></li><li>EMEA <code>$6.8M</code></li></ul>');
+    const grouped = render('bar', '<ul><li>FY24<ul><li>Licenses <code>19</code></li><li>Services <code>9</code></li></ul></li>'
+      + '<li>FY25<ul><li>Licenses <code>20</code></li><li>Services <code>15</code></li></ul></li></ul>');
+    for (const sec of [cols, rows, grouped]) {
+      const list = assertAllResolve(sec);
+      const cats = list.filter((p) => p.classList.contains('cart-cat'));
+      assert.equal(cats.length, sec === grouped ? 2 : 3);
+      for (const p of cats) assert.equal(p.getAttribute('data-label'), labelOf(sec, p.getAttribute('data-mark-for')));
+    }
+    // A value printed beside a single-series bar names that bar.
+    for (const p of proxies(cols).filter((q) => q.classList.contains('cart-value'))) {
+      assert.equal(text(p), marksAt(cols, p.getAttribute('data-mark-for'))[0].getAttribute('data-value'));
+    }
+  });
+
+  test('a category that draws no mark links no label: a non-numeric bar, an all-zero stack, a name-only bullet row', () => {
+    const bar = render('bar', '<ul><li>A <code>4</code></li><li>B <code>n/a</code></li><li>C <code>6</code></li></ul>');
+    const stacked = render('stacked-bar', '<ul><li>FY24<ul><li>Licenses <code>19</code></li><li>Services <code>9</code></li></ul></li>'
+      + '<li>FY25<ul><li>Licenses <code>0</code></li><li>Services <code>0</code></li></ul></li>'
+      + '<li>FY26<ul><li>Licenses <code>20</code></li><li>Services <code>15</code></li></ul></li></ul>');
+    const bullet = render('bullet', '<ul><li>Revenue <code>4.2M</code> <code>5.0M</code></li><li>Pending</li><li>Margin <code>3.6M</code> <code>3.0M</code></li></ul>');
+    // assertAllResolve fails on any label whose mark does not exist — the empty-card case.
+    for (const sec of [bar, stacked, bullet]) assertAllResolve(sec);
+    assert.equal(proxies(bullet).filter((p) => text(p) === 'Pending').length, 0);
+  });
+
+  test('bullet: each KPI name and readout names its own measure', () => {
+    const sec = render('bullet', '<ul><li>Revenue <code>4.2M</code> <code>5.0M</code></li><li>Margin <code>3.6M</code> <code>3.0M</code></li></ul>');
+    for (const p of assertAllResolve(sec)) {
+      if (p.classList.contains('bullet-name')) assert.equal(text(p), labelOf(sec, p.getAttribute('data-mark-for')));
+    }
   });
 
   test('slope: an entity\'s name and both values name its line', () => {
@@ -131,4 +170,56 @@ describe('tap proxies name the right mark', () => {
     ];
     for (const sec of decks) assert.equal(sec.querySelectorAll('[data-mark-for][data-mark]').length, 0);
   });
+});
+
+// THE LINK IS COMPLETE, gallery-wide. A label that names one mark and carries no link stays at full
+// strength while its mark recedes — under the chart hover and the Present Guide — so the focused
+// mark does not stand out (the owner saw this on a bar chart in indaco dark). Every chart gallery is
+// rendered through the engine, and every text that names exactly ONE mark (its text is that mark's
+// `data-label` or `data-value`) must carry `data-mark-for`, which must name a mark that exists; every
+// `data-series-for` must name a drawn series.
+describe('every label that names one mark links to it, in every chart gallery', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const engine = require('../../../lib/engine');
+  const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'components', 'chart');
+  // A tick that happens to read like a task name ("Q4"), and a key of SERIES, name no single mark.
+  const NOT_A_NAME = '.gantt-tick, .cart-tick:not(.sbar-part), .cart-axis-title, .chart-key-label, .chart-key-value';
+  const charts = fs.readdirSync(CHART_DIR)
+    .filter((d) => !d.startsWith('_') && fs.existsSync(path.join(CHART_DIR, d, `${d}.gallery.md`)));
+  for (const chart of charts) {
+    test(chart, () => {
+      const src = fs.readFileSync(path.join(CHART_DIR, chart, `${chart}.gallery.md`), 'utf8');
+      const fm = (src.match(/^---\n[\s\S]*?\n---\n/) || [''])[0];
+      const missing = [];
+      for (const body of src.slice(fm.length).split(/\n---\n/)) {
+        if (!/<!--\s*_class:/.test(body)) continue;
+        const doc = new JSDOM(engine.render(fm + body, 'indaco', { preview: true }).html).window.document;
+        for (const svg of doc.querySelectorAll('svg')) {
+          const marks = [...svg.querySelectorAll('[data-mark]:not(template)')];
+          const byText = new Map();
+          for (const m of marks) {
+            for (const v of [m.getAttribute('data-label'), m.getAttribute('data-value')]) {
+              if (v) byText.set(v.trim(), (byText.get(v.trim()) || new Set()).add(m.getAttribute('data-mark')));
+            }
+          }
+          const indices = new Set(marks.map((m) => m.getAttribute('data-mark')));
+          for (const t of svg.querySelectorAll('[data-mark-for]')) {
+            assert.ok(indices.has(t.getAttribute('data-mark-for')), `${chart}: "${text(t)}" links to mark ${t.getAttribute('data-mark-for')}, which is not drawn`);
+          }
+          for (const t of svg.querySelectorAll('[data-series-for]')) {
+            assert.ok(svg.querySelector(`[data-series="${t.getAttribute('data-series-for')}"]`), `${chart}: "${text(t)}" links to a series that is not drawn`);
+          }
+          // One mark index and nothing to recede against: a link would change nothing.
+          if (indices.size < 2) continue;
+          for (const t of svg.querySelectorAll('text')) {
+            if (t.closest('[data-mark]') || t.matches(NOT_A_NAME) || t.hasAttribute('data-mark-for')) continue;
+            const named = byText.get(text(t));
+            if (named && named.size === 1) missing.push(`${t.getAttribute('class')} "${text(t)}"`);
+          }
+        }
+      }
+      assert.deepEqual(missing, [], `${chart}: labels that name one mark but do not link to it`);
+    });
+  }
 });
