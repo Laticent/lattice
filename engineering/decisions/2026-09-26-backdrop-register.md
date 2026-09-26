@@ -152,6 +152,55 @@ bookend paints the bookend's own canvas, not the deck's. The demo deck (§6) ren
 a closing and a `finish-none` divider bookend in both modes to prove it rather than assume it. The `bookend-finish-contrast`
 lint stays as it is.
 
+### 4.6 What "clear" clears: the content box, not an ellipse
+
+**Symptom (owner, 2026-09-26):** with `clear`, content on the stage was still muddled by the
+finish. **Root cause:** clearance was a fixed central ellipse, inherited from the 07-01 design,
+which chose "a fixed safe-margin approximation" and left measuring the content box as an open
+question. Measured against the real frame: the export face's hard edge (64% of an 84% × 78%
+ellipse at 50% × 45%) misses the top-left eyebrow and heading outright, and the screen face
+only reaches full canvas inside 44% of the radii, so behind the start of the body text the finish
+was only 65% cleared and behind the heading 41%. This note's first verification measured a
+centre box (25–75% × 30–70%), which the ellipse covers by construction; it never looked where
+the text is. That was the gap in the evidence, not only in the code.
+
+**Decision (owner):** clear = the frame's content box, heading and body both, for the register
+and for Fabricate's baked clearance alike; soft edge on screen, hard edge in exports.
+
+**Mechanism:** the section's padding IS the frame margin, and `.backdrop` covers the section's
+padding box, so `.backdrop` and `.backdrop-mask` inherit that padding and the mask's `::before`
+inherits it again: its content box is the section's content box on every layout, with no
+geometry restated. A solid `--backdrop-clear-fill` layer is painted there, extended by
+`--backdrop-clear-bleed` (1.5cqi) and blurred by `--backdrop-clear-blur` (0.6cqi) on screen, so
+the fade happens in the margin and the content box itself stays canvas. Both export guards zero
+the bleed and set `--backdrop-clear-filter: none`. A 0px blur is not enough: Chromium still
+treats `blur(0px)` as a filter when it prints, rasterizes the whole page (the demo PDF grew
+from 251 KB to 466 KB with four full-page images) and poppler outlines the content box in gray.
+A tone slide's 8px rail inset is offset back. `open`, the spotlights and `finish-none` switch the
+layer off.
+
+**Zero-padding layouts:** `split-panel` and `split-compare` set the section padding to 0, so their
+content box is the whole slide and `clear` removes the finish from them entirely. That is the rule
+applied faithfully: their panels already fill the slide, and there is no margin to frame.
+
+**A baked strength is a veil on every finish slide.** Fabricate's `--fin-backdrop-strength` used
+to draw as group opacity on `.backdrop`, with a baked clearance inside that group. Poppler drew
+that group as a full-strength finish; the old ellipse gave it the dark wedge. The veil
+conversion that mask classes already used now applies to every `section.finish`. On a flat
+canvas the colors are the same. Measured: the built-in preset deck (`accent-finishes`) exports
+at the same byte size, and the two decks that bake a strength (`finish-backdrops`,
+`finish-override`) are pixel-identical in poppler and Ghostscript and slightly smaller.
+
+**Fabricate:** a newly saved clearance emits `--fin-backdrop-clear-scrim: var(--backdrop-clear-fill)`
+instead of the ellipse. Finishes saved before this change keep their generated CSS, which names
+the legacy `--backdrop-clear-mask` ellipse; it stays defined for them until they are re-saved.
+
+**Verified at the real content box:** 9 built-in finishes × {prose, four-card grid, title
+bookend, tone slide} × light/dark, all `60 clear`, measured inside the content box and inside
+every text element's box read from the DOM, against the same slides with `finish-none`: screen
+face 0.0 difference everywhere behind the content (72 slides), print face at most 2/255
+(anti-aliasing at the edge). The finish remains in the margin (mean difference 1.6–2.6).
+
 ### 4.5 `finish-override.backdrop`
 
 Keep it working. It still tunes the baked tier of a fabricated finish, and removing it would

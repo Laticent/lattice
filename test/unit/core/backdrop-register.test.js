@@ -107,7 +107,7 @@ test('css: the compositor reads the register first, then the baked value', () =>
   // The export flip must FOLLOW the class rules, or a class would win in print and ship the
   // feathered mask, which grays in the vector PDF.
   const lastClass = css.lastIndexOf('section.backdrop-spot-br');
-  const flip = css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }');
+  const flip = css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }');
   assert.ok(flip > lastClass && lastClass > 0, 'export flip must come after the class rules');
 });
 
@@ -166,17 +166,7 @@ test('css: `finish-none` / `backdrop-none` clear the register layers a deck line
     assert.ok(optOut[0].includes(decl), `opt-out must reset ${decl}`);
   }
   // It must FOLLOW the register's print flip, or the flip re-arms the mask in the PDF.
-  assert.ok(css.indexOf('section.finish-none,') > css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }'));
-});
-
-test('css: a mask class turns a baked dim into the veil, so no opacity group wraps the mask', () => {
-  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
-  const rule = css.match(/section:is\(\.backdrop-clear,[^{]*\{[^}]*\}/);
-  assert.ok(rule, 'mask-class rule missing');
-  assert.match(rule[0], /--backdrop-opacity:\s*1/);
-  assert.match(rule[0], /calc\(100% - var\(--fin-backdrop-strength, 1\) \* 100%\)/);
-  // Strength classes come AFTER, so an explicit step still wins.
-  assert.ok(css.indexOf(rule[0]) < css.indexOf('section.backdrop-20 {'));
+  assert.ok(css.indexOf('section.finish-none,') > css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }'));
 });
 
 test('css: the veil steps clear of the overflow QA ring', () => {
@@ -196,4 +186,52 @@ test('lint: a quoted value is read the way the engine reads it', () => {
   const words = (v) => lintText(deck(['finish: atrium', `backdrop: ${v}`])).filter((f) => f.rule === 'unknown-backdrop').map((f) => f.classToken);
   assert.deepEqual(words('"40 clear"'), []);
   assert.deepEqual(words('40 clear # quiet'), []);
+});
+
+/* ── Clear behind content = the frame's content box (owner decision 2026-09-26) ─────────── */
+
+test('css: clear paints the frame content box, not a central ellipse', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  // The padding chain that makes the layer's content box the section's content box.
+  assert.match(css, /section\.finish > \.backdrop,\s*section\.finish > \.backdrop > \.backdrop-mask \{\s*padding: inherit;/);
+  const layer = css.match(/section\.finish > \.backdrop > \.backdrop-mask::before \{[^}]*\}/);
+  assert.ok(layer, 'clear layer missing');
+  for (const decl of ['padding: inherit', 'background-origin: content-box', 'background-repeat: no-repeat',
+    'var(--backdrop-clear-scrim, var(--fin-backdrop-clear-scrim, none))', 'filter: var(--backdrop-clear-filter, none)']) {
+    assert.ok(layer[0].includes(decl), `clear layer must carry ${decl}`);
+  }
+  const clear = css.match(/section\.backdrop-clear \{[^}]*\}/)[0];
+  assert.match(clear, /--backdrop-clear-scrim: var\(--backdrop-clear-fill\)/);
+  assert.doesNotMatch(clear, /--backdrop-clear-mask/, 'the register must not use the legacy ellipse');
+});
+
+test('css: the soft edge exists on screen only; both export guards make it hard', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  const guards = css.match(/:where\(\.lattice-exporting\) section\.finish,\s*section\.finish\.lattice-exporting \{\s*--backdrop-scrim: var\(--backdrop-scrim-opaque\);[^}]*\}/);
+  assert.ok(guards, 'exporting guard missing');
+  assert.match(guards[0], /--backdrop-clear-bleed: 0px;/);
+  // `filter: none`, not a 0px blur: Chromium still treats blur(0px) as a filter in print and
+  // rasterizes the page, and poppler then outlines the content box in gray.
+  assert.match(guards[0], /--backdrop-clear-filter: none;/);
+  assert.match(css, /@media print \{\s*section\.finish \{[^}]*--backdrop-clear-filter: none;/);
+  assert.doesNotMatch(css, /--backdrop-clear-blur: 0px/);
+});
+
+test('css: open, spotlight and finish-none switch the clear layer off; tone slides offset it', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  assert.match(css.match(/section\.backdrop-open \{[^}]*\}/)[0], /--backdrop-clear-scrim: none/);
+  assert.match(css.match(/section:is\(\.backdrop-spot-tl,[^{]*\{[^}]*\}/)[0], /--backdrop-clear-scrim: none/);
+  const optOut = css.match(/section\.finish-none,\s*section\.backdrop-none\s*\{[^}]*\}/)[0];
+  assert.match(optOut, /--backdrop-clear-scrim: none/);
+  assert.match(optOut, /--fin-backdrop-clear-scrim: none/);
+  assert.match(optOut, /--backdrop-clear-filter: none/);
+  assert.match(css, /tone-skip\)\.finish > \.backdrop > \.backdrop-mask::before \{\s*left: -8px;/);
+});
+
+test('css: a baked strength draws as a veil on every finish slide, never as group opacity', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  const rule = css.match(/section\.finish \{\s*--backdrop-opacity: 1;\s*--backdrop-dim-scrim: linear-gradient\(color-mix\(in srgb, var\(--fin-canvas\) calc\(100% - var\(--fin-backdrop-strength, 1\) \* 100%\)/);
+  assert.ok(rule, 'section.finish must convert the baked strength into the veil');
+  // Strength classes follow it, so a register step still wins.
+  assert.ok(css.indexOf('section.backdrop-20 {') > rule.index);
 });

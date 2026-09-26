@@ -230,7 +230,7 @@ or fabricated, without changing the finish itself. It takes up to two words, one
 |---|---|---|---|
 | Strength | `20` `40` `60` `80` | `backdrop-20` … `backdrop-80` | The whole finish at that opacity |
 | Strength | `full` | `backdrop-full` | Full strength, discarding a finish's own baked dim |
-| Mask | `clear` | `backdrop-clear` | Clean canvas behind the content; the finish reads at the margins |
+| Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and hard-edged in exports |
 | Mask | `spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br` | `backdrop-spot-<pos>` | The finish shows in one window at that anchor, and nowhere else |
 | Mask | `open` | `backdrop-open` | No mask, discarding a finish's own baked clearance or spotlight |
 

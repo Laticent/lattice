@@ -17,19 +17,16 @@ section.finish.finish-graph {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-backdrop-strength: 0.60;
-  --fin-backdrop-mask: var(--backdrop-clear-mask);
-  --fin-backdrop-mask-opaque: var(--backdrop-clear-mask-opaque);
+  --fin-backdrop-clear-scrim: var(--backdrop-clear-fill);
 }
 @media print {
   section.finish.finish-graph {
     --fin-texture: repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px);
-    --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
 }
 :where(.lattice-exporting) section.finish.finish-graph,
 section.finish.finish-graph.lattice-exporting {
   --fin-texture: repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px);
-  --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
 }
 </style>
 

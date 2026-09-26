@@ -258,7 +258,60 @@ section.finish > .backdrop > .backdrop-mask {
   background-image: var(--backdrop-scrim, var(--fin-backdrop-mask, none)), var(--backdrop-dim-scrim, none);
 }
 
-/* CLEARANCE — recede the finish behind the content box. The mask paints `var(--fin-canvas)`
+/* CLEAR BEHIND CONTENT — the frame's CONTENT BOX (masthead + stage) is clean canvas; the
+ * finish reads only in the frame margin. (engineering/decisions/2026-09-26-backdrop-register.md
+ * §4.6.) It replaced a fixed central ellipse, which missed the top-left eyebrow and heading
+ * outright and only faded the finish behind the edges of the body text.
+ *
+ * WHERE THE BOX COMES FROM: the section's own padding IS the frame margin (`--frame-y`,
+ * `--frame-x`, `--footer-reserve`, or whatever a layout sets), and `.backdrop` covers the
+ * section's padding box. So `.backdrop` and the mask inherit that padding, and the mask's
+ * `::before` inherits it once more: its CONTENT box is the section's content box, on every
+ * layout, with no geometry restated here. Padding moves no finish layer — the wash and
+ * texture paint from the padding box and the mark/edge pseudos are `inset: 0` — so this is
+ * inert until the clear layer is switched on.
+ *
+ * THE EDGE: soft on screen, hard in export. The solid layer extends `--backdrop-clear-bleed`
+ * past the content box and is blurred by `--backdrop-clear-blur` (2.5 standard deviations
+ * inside the bleed), so the content box itself stays ~100% canvas and the fade happens in the
+ * margin. Both export guards zero the bleed and set the FILTER to `none` — not a 0px blur: Chromium
+ * still treats `blur(0px)` as a filter in print, rasterizes the whole page and poppler draws a
+ * gray hairline around the content box. With `filter: none` the page stays vector. */
+section.finish > .backdrop,
+section.finish > .backdrop > .backdrop-mask {
+  padding: inherit;
+}
+section.finish {
+  --backdrop-clear-bleed: calc(var(--_sec-1cqi, 1cqi) * 1.5);
+  --backdrop-clear-blur: calc(var(--_sec-1cqi, 1cqi) * 0.6);
+  --backdrop-clear-filter: blur(var(--backdrop-clear-blur));
+  /* The fill a clear layer paints; a fabricated finish's baked clearance names it too. */
+  --backdrop-clear-fill: linear-gradient(var(--fin-canvas), var(--fin-canvas));
+}
+section.finish > .backdrop > .backdrop-mask::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: inherit;
+  /* The register's clear first, then a fabricated finish's baked one; `none` = off. */
+  background-image: var(--backdrop-clear-scrim, var(--fin-backdrop-clear-scrim, none));
+  background-origin: content-box;
+  background-repeat: no-repeat;
+  background-position: calc(var(--backdrop-clear-bleed) * -1) calc(var(--backdrop-clear-bleed) * -1);
+  background-size: calc(100% + 2 * var(--backdrop-clear-bleed)) calc(100% + 2 * var(--backdrop-clear-bleed));
+  filter: var(--backdrop-clear-filter, none);
+}
+/* A tone slide insets `.backdrop` by the 8px rail (below), which would push the content box
+ * 8px right of the real one; the clear layer steps back by the same 8px. */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).finish > .backdrop > .backdrop-mask::before {
+  left: -8px;
+}
+
+/* LEGACY CLEARANCE ELLIPSE — kept ONLY for fabricated finishes saved before 2026-09-26, whose
+ * generated CSS names `var(--backdrop-clear-mask)`; they keep it until re-saved. New saves and
+ * the `backdrop:` register use the content-box clear above. The original note follows.
+ *
+ * CLEARANCE — recede the finish behind the content box. The mask paints `var(--fin-canvas)`
  * over the central content area and is transparent toward the margins, so the finish
  * reads only as a frame — the words sit on clean canvas. Approximate geometry (a safe
  * central ellipse, biased up toward the masthead), not measured — see the decision
@@ -892,12 +945,12 @@ section.finish.lattice-exporting {
  * same mask with a flat veil and no group → identical to the clearance that already ships,
  * in poppler and PDFium alike. A flat fill is not an area-fade, so it does not gray in print.
  * `--backdrop-opacity: 1` cancels a finish's baked dim so the step replaces it. */
-/* A MASK class on a finish that bakes its own dim (Fabricate's `--fin-backdrop-strength`)
- * would otherwise put the hard-edged mask inside that opacity group: the poppler wedge again.
- * So a mask class converts the baked dim into the same flat veil. With no baked dim the
- * percentage is 0% and the veil is transparent. A strength class below overrides both. */
-section:is(.backdrop-clear, .backdrop-open, .backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr,
-  .backdrop-spot-l, .backdrop-spot-c, .backdrop-spot-r, .backdrop-spot-bl, .backdrop-spot-b, .backdrop-spot-br) {
+/* A finish's BAKED dim (Fabricate's `--fin-backdrop-strength`) draws as the same flat veil,
+ * on every finish slide: as group opacity it would wrap a baked clearance or spotlight in a
+ * transparency group, which poppler draws as a dark wedge or a full-strength finish. With no
+ * baked dim the percentage is 0% and the veil is transparent (built-in presets export
+ * byte-identical). A strength class below overrides it. */
+section.finish {
   --backdrop-opacity: 1;
   --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--fin-backdrop-strength, 1) * 100%), transparent) 0 0);
 }
@@ -907,11 +960,13 @@ section.backdrop-40 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, v
 section.backdrop-60 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 40%, transparent) 0 0); }
 section.backdrop-80 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 20%, transparent) 0 0); }
 section.backdrop-full { --backdrop-dim-scrim: none; }
-/* `open` discards a baked clearance or spotlight; `clear` reuses the shared shape. */
-section.backdrop-open { --backdrop-scrim: none; --backdrop-scrim-opaque: none; }
+/* `open` discards a baked clearance or spotlight. `clear` switches on the content-box layer
+ * and drops any baked shape (a finish's own spotlight or legacy ellipse): one mask at a time. */
+section.backdrop-open { --backdrop-scrim: none; --backdrop-scrim-opaque: none; --backdrop-clear-scrim: none; }
 section.backdrop-clear {
-  --backdrop-scrim: var(--backdrop-clear-mask);
-  --backdrop-scrim-opaque: var(--backdrop-clear-mask-opaque);
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-clear-scrim: var(--backdrop-clear-fill);
 }
 /* SPOTLIGHT at one of nine anchors — the same two-face window Fabricate bakes
  * (finish-generate.ts `spotlightMask`): transparent inside = finish shown, the canvas
@@ -921,6 +976,7 @@ section:is(.backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr, .backdrop-spo
   .backdrop-spot-r, .backdrop-spot-bl, .backdrop-spot-b, .backdrop-spot-br) {
   --backdrop-scrim: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 42%, var(--fin-canvas) 96%);
   --backdrop-scrim-opaque: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 70%, var(--fin-canvas) 70%);
+  --backdrop-clear-scrim: none; /* a spotlight replaces a baked clearance */
 }
 section.backdrop-spot-tl { --backdrop-spot-position: 22% 26%; }
 section.backdrop-spot-t { --backdrop-spot-position: 50% 22%; }
@@ -937,11 +993,13 @@ section.backdrop-spot-br { --backdrop-spot-position: 78% 74%; }
  * the compositor's `var()` falls through to the finish's baked mask — a deck that never
  * names the register renders exactly as before. */
 @media print {
-  section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }
+  section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }
 }
 :where(.lattice-exporting) section.finish,
 section.finish.lattice-exporting {
   --backdrop-scrim: var(--backdrop-scrim-opaque);
+  --backdrop-clear-bleed: 0px;
+  --backdrop-clear-filter: none;
 }
 
 /* The overflow QA ring is an inset box-shadow on the SECTION, under `.backdrop`. The finish
@@ -983,6 +1041,9 @@ section.backdrop-none {
   --backdrop-scrim-opaque: none;
   --backdrop-dim-scrim: none;
   --backdrop-opacity: 1;
+  --backdrop-clear-scrim: none;
+  --fin-backdrop-clear-scrim: none;
+  --backdrop-clear-filter: none;
   background-image: none;
   box-shadow: none;
 }
