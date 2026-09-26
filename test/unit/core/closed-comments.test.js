@@ -72,6 +72,20 @@ describe('html-inline-guard — markdown-it gives the same tokens, without the r
     }
   });
 
+  test('a dash-heavy corpus — where a `-->` exists but the comment arm cannot land on it — also matches', () => {
+    // `---->` holds a `-->` the arm's tokens cannot reach. A guard that only asked "is there
+    // a `-->`?" was defeated by it (the render went back to 17 s); these pin the exact answer.
+    const dashy = ['<!--', '-', '--', '--->', '---->', '-->', '>', 'a', '\n', '<!-->', '<!--->', '!'];
+    let s0 = 17;
+    const rnd = (n) => { s0 = (s0 * 1103515245 + 12345) % 2147483648; return s0 % n; };
+    for (let k = 0; k < 30000; k++) {
+      let s = '';
+      const len = rnd(12);
+      for (let i = 0; i < len; i++) s += dashy[rnd(dashy.length)];
+      assert.equal(guarded.render(s), plain.render(s), JSON.stringify(s));
+    }
+  });
+
   test('a link label (the rule\'s silent mode) is unaffected', () => {
     const src = '[a <!-- b](x) and [c <!-- d -->](y) <!-- tail';
     assert.equal(guarded.render(src), plain.render(src));
@@ -83,15 +97,27 @@ describe('unclosed comments stay linear through the whole render (HARD RULE #22)
   const engine = latticeEngine.createEngine();
 
   test('each shape renders well under the quadratic cost', () => {
-    // Before, on one machine: ~17 s, ~148 s and ~8 s. After: ~0.3 s together. The bound
+    // Before, on one machine: ~17 s, ~148 s, ~8 s and ~17 s. After: ~0.4 s together. The bound
     // sits between the two with room either side for a slow runner.
     const inputs = [
       'a <!--\n'.repeat(40000),              // 280 KB of `a <!--` lines — markdown-it html_inline
       `${'<!--'.repeat(62500)}\n`,           // one 250 KB line — scanTags, masthead, panes
       `${'<!-- '.repeat(50000)}\n-->\n`,     // openers, one closer at the end
+      `${'a <!--\n'.repeat(40000)}---->`,      // a `-->` the comment arm cannot close on
     ];
     const t = Date.now();
     for (const src of inputs) engine.render(src);
     assert.ok(Date.now() - t < 4000, `took ${Date.now() - t}ms`);
+  });
+});
+
+describe('a layout skeleton full of unclosed comments stays linear (HARD RULE #22)', () => {
+  const { findSkeletonHtml } = require(path.join(ROOT, 'lib/layout/gate.js'));
+
+  test('findSkeletonHtml reads 280 KB of `a <!--` lines fast', () => {
+    // A skeleton is model output. Before, on one machine: 1.7 s; after: ~2 ms.
+    const t = Date.now();
+    findSkeletonHtml('a <!--\n'.repeat(40000));
+    assert.ok(Date.now() - t < 500, `took ${Date.now() - t}ms`);
   });
 });
