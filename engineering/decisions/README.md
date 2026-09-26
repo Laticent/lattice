@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ☐ [2026-09-26-backdrop-register.md](2026-09-26-backdrop-register.md) — Backdrop restraint (strength, clear-behind-content, spotlight) works only on a fabricated finish, only deck-wide, and only in the Studio…
 - ◐ [2026-09-25-vetrina-delivery-presets.md](2026-09-25-vetrina-delivery-presets.md) — Vetrina gets delivery presets (restrained, expressive, somber) that decide how MUCH a narrated deck gestures, a salience budget that…
 - ☐ [2026-09-25-video-export.md](2026-09-25-video-export.md) — How a narrated deck becomes an MP4 plus a .vtt (LTT step 3).
 - ☐ [2026-09-24-code-package-contract.md](2026-09-24-code-package-contract.md) — How a shared transform (a code package's `transform.js`) runs — the proposal phase 6 of portable packages starts from.
