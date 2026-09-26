@@ -4,12 +4,19 @@
  *
  * WHY A SECOND TOOL THAT MEASURES THE SAME THING. `palette-sweep.js` renders the deck ONCE
  * and re-themes it in place, which is what makes a 32-palette matrix affordable enough to
- * gate every PR. That speed is bought with an assumption: that overwriting the palette
- * region of the export shell's stylesheet reproduces what a real render at that palette
- * would paint.
+ * gate every PR. That speed is bought with an assumption: that overwriting the deck sheet
+ * of the export shell's stylesheet reproduces what a real render at that palette would
+ * paint.
  *
- * The assumption is TEXTUAL — it depends on the shell emitting the palette first, bracketed
- * by two comment markers — and the first version of the sweep got the equivalent assumption
+ * Since the CLI moved onto the engine's flat sheet the sweep swaps the WHOLE sheet, composed
+ * by the builder the CLI itself calls (`lib/export/cli-deck-sheet.js`), and checks before
+ * its first swap that the builder reproduces the shipped region byte for byte. So the sheet
+ * bytes can no longer drift from a native render; what this referee still catches is
+ * everything a swap cannot move — paint baked at render time (Mermaid, the texture channel,
+ * the diagram look) — and any shell change the identity check does not see.
+ *
+ * The assumption is still TEXTUAL — it depends on the shell bracketing the sheet with two
+ * comment markers — and the first version of the sweep got the equivalent assumption
  * WRONG in a way no gate could see. It appended its stylesheet instead of replacing in
  * place, inverting the cascade for 30 of 126 tokens, and reported confident per-palette
  * numbers that were wrong in both directions (`onyx` 3 where the truth is 5, `atelier` 19

@@ -10,7 +10,7 @@ player: true
 
 # Charts keep their color when they leave the slide.
 
-`Read · Article · four charts`
+`Read · Article · six charts`
 
 Open this deck's player, switch to **Read · Article**, and each chart below keeps the status pills, header rule and cell marks it has on its slide.
 
@@ -85,6 +85,41 @@ The filled cell is the level; the outlined cells are its reach. The article now 
 | Remember   | [x] Junior | [-] | [ ] | [ ] |
 
 Illustrative — placements vary by company.
+
+---
+
+<!-- _class: bar -->
+<!-- _footer: "Read · Article used to repeat the heading under this chart" -->
+
+`Revenue · FY26`
+
+## The article prints the caption the author wrote.
+
+- North America `$4.2M`
+- EMEA `$3.1M`
+- APAC `$1.8M`
+- LATAM `$0.6M`
+
+Source: **audited** regional filings, FY26.
+
+---
+
+<!-- _class: word-cloud -->
+<!-- _footer: "Read · Article used to drop this caption" -->
+
+## A word cloud keeps its caption too.
+
+- calibration `5`
+- workshops `4`
+- taxonomy `4`
+- dashboards `3`
+- adoption `3`
+- weights `2`
+- renewals `2`
+- log `1`
+- momentum `1`
+
+From 24 pilot retros, **unprompted**.
 
 ---
 

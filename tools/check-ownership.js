@@ -1531,10 +1531,12 @@ const RETIRED_TOKEN_NAMES = new Set(TOKEN_CROSSWALK.map((p) => `--${p.old}`));
  *
  * SCOPED TO `--*` PROPERTIES, and the reason is not "custom properties are what we care
  * about". It is that `color-scheme` has a DIFFERENT competitor. `a11y-base` declares its
- * `color-scheme: light` pin at BOTH forms and that pair is permanent: on the unpacked CLI
- * export the thing it must outrank is the deck's own `style:` directive, which the shell
- * emits LAST by construction, so no concat order can help and specificity is the only
- * lever; on the packed paths the plain half is what lands, as a DIRECT declaration on the
+ * `color-scheme: light` pin at BOTH forms and that pair is permanent: at the document root
+ * the thing it must outrank is the deck's own `style:` directive, which the CLI shell emits
+ * LAST by construction, so no concat order can help and specificity is the only lever (the
+ * CLI's flat sheet keeps `:root:root` as written, and copies only an author's `--*` tokens
+ * onto the slides, never `color-scheme` — `lib/export/cli-deck-sheet.js` `packAuthorCss`);
+ * on the slides the plain half is what lands, as a DIRECT declaration on the
  * section, beating the injected `:root{color-scheme:MODE}` that every
  * `docs/src/lib/single-slide-render.ts` frame carries — the component reference pages, the
  * Studio, the landing previews — by directness rather than by specificity. Measured on a
@@ -6202,7 +6204,9 @@ function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctio
 // `lib/engine/css.js` packs a theme the way Marpit does, rewriting a `:root` that follows a
 // combinator; the SECOND `:root` in `:root:root` follows neither, so it survives literally
 // onto the `<section>` — where `:root` cannot match. The doubled form is therefore INERT on
-// the engine and export-to-Marp paths and live only on the unpacked CLI export path.
+// every slide. It is live only at the document root, through the written arm a FLAT sheet
+// keeps (the CLI export and the Studio's Webpage player), which is what content outside a
+// slide and a root-level `color-scheme` read.
 // `engineering/gotchas/marp.md` documents the same class for `:root[…]`.
 //
 // It is admitted here on the per-slide axis alone, and it is not a form anything should be

@@ -20,21 +20,24 @@
  * ─────────────────────────────────────────────────────────────────────────────────────
  * THE THREE THINGS THAT MAKE THIS HONEST RATHER THAN MERELY FAST.
  *
- *   1. THE SWAP REPRODUCES THE SHIPPED CASCADE, BECAUSE IT HAPPENS WHERE THE PALETTE
- *      ALREADY IS. This tool's first version APPENDED a `<style>` to `<head>`. The export
- *      shell emits ONE stylesheet in which `dist/lattice.css` comes FIRST and the palette
- *      follows (`/* @theme <name>` … `PALETTE_END_MARK`), so appending inverted that
- *      order and 30 of 126 tokens resolved from the wrong side. It was wrong in BOTH
- *      directions and quietly: measured against native renders, `onyx` reported 3 where the
- *      truth is 5 (it MISSED two `redline` runs at 4.29:1) and `atelier` reported 19 where
- *      the truth is 16 (three phantom `journey` runs). A gate that invents findings and
- *      hides real ones is worse than no gate.
+ *   1. THE SWAP REPRODUCES THE SHIPPED CASCADE, BECAUSE IT SWAPS THE SHIPPED SHEET. This
+ *      tool's first version APPENDED a `<style>` to `<head>`, which inverted the order the
+ *      export shell writes (engine first, palette last) and 30 of 126 tokens resolved from
+ *      the wrong side. It was wrong in BOTH directions and quietly: measured against native
+ *      renders, `onyx` reported 3 where the truth is 5 (it MISSED two `redline` runs at
+ *      4.29:1) and `atelier` reported 19 where the truth is 16 (three phantom `journey`
+ *      runs). A gate that invents findings and hides real ones is worse than no gate.
  *
- *      So the palette region is REPLACED IN PLACE — the span between the two markers above
- *      is overwritten and everything around it is left alone. The swapped palette then
- *      occupies the exact byte range, and therefore the exact cascade position, that the
- *      shipped palette did. Verified against native renders: `onyx` 5, `atelier` 16,
- *      `mustard` 95, all three matching to the row.
+ *      So the sheet is REPLACED IN PLACE. Since the CLI moved onto the engine's flat sheet
+ *      (one-style-delivery spine §8 step 4) the region between `SHEET_START_MARK` and
+ *      `SHEET_END_MARK` is the WHOLE composed deck sheet, and this tool overwrites it with
+ *      the sheet `lib/export/cli-deck-sheet.js` — the builder the CLI itself calls —
+ *      composes for the next palette at the same `size:`. The pack interleaves the base and
+ *      the palette and strips every comment, so there is no palette-only span left to
+ *      splice; swapping the whole sheet is also the stronger claim, because the bytes under
+ *      measurement are exactly the bytes the CLI would have written for that palette.
+ *      Verified against native renders before the move: `onyx` 5, `atelier` 16, `mustard`
+ *      95, all three matching to the row.
  *
  *      This is a TEXTUAL assumption about the export shell, so it fails LOUDLY rather than
  *      falling back: exactly one stylesheet must carry both markers, in order. If the shell
@@ -95,22 +98,18 @@ const { PROBE } = require('./check-slide-contrast.js');
 const { paletteChainCss, parsePaletteVars, listAllThemes } = require('./contrast-audit.js');
 
 /**
- * The two markers that bracket the palette inside the export shell's stylesheet, taken from
- * the ONE module the export shell writes them with (`lib/core/export-shell-marks.js`).
- *
- * `/* @theme <name>` opens every file in `themes/` (all 32 carry it — Marp's own theme
- * annotation, which this engine kept). The region used to be CLOSED by the engine bundle's
- * own `/* dist/lattice.css` banner, because the export concatenated the palette FIRST and
- * the bundle second. #1527 flipped that — the palette is last now, which is the order every
- * theme's own `@import 'lattice';` declares — so no banner follows it and the shell emits an
- * explicit end sentinel instead. Inferring the end from whatever rule happens to come next
- * would put this tool back to measuring a hybrid the first time that rule moved.
+ * The two markers that bracket the deck sheet inside the export shell's stylesheet, taken
+ * from the ONE module the export shell writes them with (`lib/core/export-shell-marks.js`).
+ * The start mark also names the deck's `size:`, because the composed sheet bakes the slide
+ * geometry in and the replacement has to be composed for the same box.
  */
 const {
-  PALETTE_START_MARK: PALETTE_MARK,
-  PALETTE_END_MARK,
+  SHEET_START_MARK, SHEET_END_MARK, readStartMark,
 } = require('../lib/core/export-shell-marks.js');
+const { cliThemeStore, cliDeckSheet, coveredFamilies } = require('../lib/export/cli-deck-sheet.js');
 const PROBE_ID = '__palette_sweep_probe__';
+
+const ROOT = path.join(__dirname, '..');
 
 /** Every palette the engine ships, from `themes/` — the same list every analytic gate uses. */
 function listSweepThemes() {
@@ -118,53 +117,68 @@ function listSweepThemes() {
 }
 
 /**
- * The palette as a COMPLETE, self-contained stylesheet.
- *
- * NOT `dist/themes/<name>.min.css`. Those files are override layers joined by `@import`:
- * `cuoio-dark` is 1,948 bytes and declares no `--bg` at all, `a11y-base` declares no
- * `--bg`, `--text-body` or `--accent` and reaches them through `@import "onyx"`. An
- * `@import` inside a `<style>` injected mid-document does not load, so injecting those
- * files applied an override layer on top of WHICHEVER PALETTE WAS INJECTED BEFORE IT —
- * a hybrid that exists in no build. It measured cleanly and reported confident numbers:
- * 18 of the 32 palettes were hybrids, and the tell was two unrelated palettes
- * (`mustard`, `a11y-base`) reporting byte-identical offender breakdowns.
- *
- * `paletteChainCss` flattens the chain the way every analytic gate already resolves it,
- * and its order is already the one a cascade needs: `themeChain` returns [base, …, self]
- * (`cuoio-dark` → ["cuoio","cuoio-dark"]), so the override lands last and wins.
- *
- * The theme files' own `@import 'lattice';` is stripped. Mid-sheet it would be ignored by
- * the parser anyway (CSS requires `@import` before other rules), but leaving a directive in
- * that reads as "and now pull in the entire engine" invites exactly the misreading that
- * produced the hybrid-palette bug.
+ * One ThemeStore holding the default layout sheet and every shipped palette, built once —
+ * the same registration `lattice-emulator.js` makes for a single deck, widened to the matrix.
  */
-function themeCss(name) {
-  return paletteChainCss(name).replace(/^\s*@import\s+[^;]+;\s*$/gm, '');
+let _store = null;
+function sweepStore() {
+  if (_store) return _store;
+  const read = (f) => fs.readFileSync(f, 'utf8');
+  _store = cliThemeStore(
+    read(path.join(ROOT, 'dist', 'lattice.css')),
+    listAllThemes().map((name) => ({ name, css: read(path.join(ROOT, 'themes', `${name}.css`)) })),
+  );
+  return _store;
+}
+
+let _covered = null;
+function sweepCovered() {
+  if (_covered) return _covered;
+  let katex;
+  try { katex = require.resolve('katex/dist/katex.min.css'); } catch (_e) { /* none */ }
+  _covered = coveredFamilies(ROOT, katex);
+  return _covered;
 }
 
 /**
- * Overwrite the palette region of the shipped stylesheet, IN PLACE (see header note 1).
+ * The deck sheet the CLI would have written for `name` at `sizeName` — composed by the CLI's
+ * own builder, so the swap measures a sheet that ships, not a reconstruction of one.
+ */
+function sheetFor(name, sizeName) {
+  return cliDeckSheet(sweepStore(), { theme: name, sizeName, covered: sweepCovered() }).css;
+}
+
+/**
+ * Overwrite the deck sheet of the shipped stylesheet, IN PLACE (see header note 1).
  *
  * Returns `{ ok:false, why }` rather than throwing so the caller can name the palette that
  * failed. It never falls back to appending: an inverted cascade that reports numbers is the
- * bug this replaced.
+ * bug this replaced. The start mark itself is kept, so the next swap finds it again.
  */
-const APPLY = (cssText, paletteMark, endMark) => {
+const APPLY = (cssText, startMark, endMark) => {
   const sheets = [...document.querySelectorAll('style')].filter(
-    (s) => s.textContent.includes(paletteMark) && s.textContent.includes(endMark),
+    (s) => s.textContent.includes(startMark) && s.textContent.includes(endMark),
   );
   if (sheets.length !== 1) {
     return { ok: false, why: `expected exactly 1 stylesheet carrying both markers, found ${sheets.length}` };
   }
   const el = sheets[0];
   const text = el.textContent;
-  const start = text.indexOf(paletteMark);
+  const start = text.indexOf(startMark);
+  const open = text.indexOf('*/', start);
   const end = text.indexOf(endMark, start);
-  if (start < 0 || end <= start) {
-    return { ok: false, why: `markers out of order (palette@${start}, end@${end})` };
+  if (start < 0 || open < 0 || end <= open) {
+    return { ok: false, why: `markers out of order (sheet@${start}, end@${end})` };
   }
-  el.textContent = `${text.slice(0, start) + cssText}\n${text.slice(end)}`;
-  return { ok: true, replaced: end - start, wrote: cssText.length };
+  const from = open + 2;
+  el.textContent = `${text.slice(0, from)}\n${cssText}\n${text.slice(end)}`;
+  return { ok: true, replaced: end - from, wrote: cssText.length };
+};
+
+/** The shipped deck stylesheet's text, so the caller can read the size its start mark names. */
+const SHEET_TEXT = (startMark) => {
+  const el = [...document.querySelectorAll('style')].find((s) => s.textContent.includes(startMark));
+  return el ? el.textContent : '';
 };
 
 /**
@@ -285,9 +299,24 @@ async function sweep(page, themes) {
   const palettes = [];
   const foreign = new Set();
   let foreignSheets = 0;
+  const shipped = await page.evaluate(SHEET_TEXT, SHEET_START_MARK);
+  const mark = readStartMark(shipped);
+  if (!mark) {
+    throw new Error(`palette-sweep: no deck sheet marked ${SHEET_START_MARK} … ${SHEET_END_MARK} in this document — render it with lattice-emulator.js`);
+  }
+  // THE IDENTITY CHECK, before any swap: this tool's builder must reproduce the region the CLI
+  // shipped, for the palette and size the mark names. A render made with a caller's `--css`
+  // layout, an installed theme, or an emulator whose sheet recipe drifted from this tool's
+  // fails here, loudly, instead of every palette being scored against a sheet that never ships.
+  const from = shipped.indexOf('*/', shipped.indexOf(SHEET_START_MARK)) + 2;
+  const region = shipped.slice(from, shipped.indexOf(SHEET_END_MARK, from)).trim();
+  if (region !== sheetFor(mark.theme, mark.size).trim()) {
+    throw new Error(`palette-sweep: the shipped deck sheet is not the one lib/export/cli-deck-sheet.js composes for ${mark.theme} at ${mark.size} — this sweep would measure a sheet that never ships`);
+  }
+  const sizeName = mark.size;
 
   for (const theme of themes) {
-    const applied = await page.evaluate(APPLY, themeCss(theme), PALETTE_MARK, PALETTE_END_MARK);
+    const applied = await page.evaluate(APPLY, sheetFor(theme, sizeName), SHEET_START_MARK, SHEET_END_MARK);
     if (!applied.ok) {
       throw new Error(`palette-sweep: could not swap to ${theme} — ${applied.why}`);
     }
@@ -354,8 +383,8 @@ function offenders(rows, unswept) {
 }
 
 module.exports = {
-  sweep, offenders, listSweepThemes, runKey, rgbKey, themeCss,
-  PALETTE_MARK, PALETTE_END_MARK,
+  sweep, offenders, listSweepThemes, runKey, rgbKey, sheetFor,
+  SHEET_START_MARK, SHEET_END_MARK,
 };
 
 // ── CLI ─────────────────────────────────────────────────────────────────────

@@ -1568,7 +1568,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// no-JS section loses its own radius + border. CSS only: no markup or script moved.
 	// Re-blessed again for the ENGINE-owned edge: the frames trade the drop-shadow filter
 	// for a box-shadow lift plus --slide-edge-k, and the embedded faces go font-display:block.
-	assert.equal(sha, '22d55acbb76a37059eec33f1c1616aa67594e8fb42c0e197cf941360960bba49', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Then the spatial figure's caption: `.lp-spatial` became a two-row grid (chart row, caption
+	// row) and its `.chart-body` gained `min-height:0`. The body used to fill the whole 3:2 box,
+	// so the figcaption sat below it and `overflow:hidden` clipped it; no word cloud ever showed
+	// its caption. Only those two `#lp-article .lp-spatial` rules and their comment moved.
+	assert.equal(sha, '725c19bb5f3850aa8d8f8c543b88b9da74f4780b7c7e33048a87ebe4c6430e8e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

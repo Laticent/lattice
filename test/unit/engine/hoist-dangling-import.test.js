@@ -196,3 +196,19 @@ describe('the 32 shipped themes are untouched', () => {
     assert.ok(plain.includes('--x:1'));
   });
 });
+
+// composeCss strips comments before packing. The regex it used read a `/*` inside a string as
+// an opener and deleted through the next `*/` elsewhere, leaving an unterminated string that
+// swallowed every rule after it — a custom layout sheet with `content: "/*"` lost the palette
+// and the slide geometry once the CLI export began composing through here (red team, 2026-09-25).
+test('composeCss: a /* inside a string is not a comment opener', () => {
+  const { composeCss } = require('../../../lib/engine/css.js');
+  const out = composeCss({
+    themeCss: "@import 'lattice';\n:root{--from-theme:1}",
+    baseLatticeCss: 'h1::before{content:"/*"} /* a real comment */ :root{--from-base:2}',
+  });
+  assert.match(out, /content:"\/\*"/, 'the string survives');
+  assert.match(out, /--from-base:2/, 'the rule after the string survives');
+  assert.match(out, /--from-theme:1/, "the theme's own rule survives");
+  assert.doesNotMatch(out, /a real comment/, 'a real comment is still stripped');
+});

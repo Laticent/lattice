@@ -1,0 +1,1 @@
+- Read · Article: a word cloud now captions with the author's caption line instead of repeating the slide heading, and an SVG chart's caption keeps its inline markup (emphasis, code). Every figure kind takes its caption from one rule: the authored `.chart-caption` when the slide has one, else the heading.
