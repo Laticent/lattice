@@ -351,7 +351,14 @@ including the beat between slides) the chart hover layer and its number keys are
 hands the slide to the pointer: the Guide lifts its focus, hand and read-along, and the hover comes
 back bound to the slide on screen. Playing again closes any open card and the Guide's focus
 returns on the sentence being read. `present-delivery.spec.ts` pins all three states and fails
-against the old always-on layer (a card opened during playback). Still open, in a followup: whether
+against the old always-on layer (a card opened during playback). Playing again restores the focus
+that was held at the pause when the sentence still names it (a block's later sentences keep a
+focus only by resting on it, so a pause on the second sentence came back bare until the checker
+caught it); a second e2e pins that and fails without the restore. `guidePlaying` also counts
+`autoplay`, which covers the commit or two between one slide's reader ending and the next beat,
+where the layer had been mounting for a frame at every slide change. With a Stage window open the
+console hover stays off during playback too, although the Guide then focuses the Stage's copy:
+the rule is the owner's, "hover off while guide plays", and one rule is easier to trust than two. Still open, in a followup: whether
 the Guide itself should ever open a focused mark's card, behind a setting.
 
 The owner then ruled that any label missing its link is a bug, so the link now covers every

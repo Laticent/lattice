@@ -949,6 +949,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	/** The element the last gesture named. The BLOCK-change cadence compares on this: a cue that
 	 *  resolves to the same element is a rest, not another trip. */
 	const guideAimRef = React.useRef<Element | null>(null);
+	// What was focused when the deck paused, so playing again restores it (see the pause branch).
+	const guideResumeRef = React.useRef<{ slide: number; aim: Element } | null>(null);
 	// The current slide's salience plan, keyed on the slide and its track (see THE PLAN below).
 	const guidePlanRef = React.useRef<{ slide: number; track: unknown; delivery: string; plan: SlidePlan } | null>(null);
 	// The undo of the focus in force (`focusContent`), run on every retarget, hide and teardown.
@@ -968,7 +970,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Guide's focus and open a card over the playing slide (measured, 2026-09-26). PAUSING hands the
 	// slide to the pointer: the Guide lifts its focus and the hover comes back. Same test as
 	// `delivering` below, which is declared too late in this body to read here.
-	const guideDelivering = reader.playing || holding;
+	// `autoplay` covers the hand-off between slides: the finished reader stops a commit or two
+	// before `holding` starts, and without it the hover layer mounted for a frame at every slide
+	// change (checker, measured). It stays true for the whole presentation and clears on pause.
+	const guideDelivering = reader.playing || holding || autoplay;
 	const guidePlaying = guideLive && guideDelivering;
 	// The hover layer comes back on pause as a NEW controller, bound to nothing: Present binds it to
 	// the slide on each render (`onRender` below), and pausing renders no slide. So bind it here. The
@@ -1093,6 +1098,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// read-along all lift, and playing again re-runs this beat — the key carries the play state —
 		// so the focus comes straight back on the sentence being read.
 		if (!guideDelivering) {
+			// Remember what was focused: the Guide gestures only on the FIRST sentence that names a
+			// block, and the block's later sentences keep the focus by resting on it — so a pause on
+			// the second sentence, with the focus dropped, would leave the rest of the block bare
+			// (checker, reproduced). Playing again restores it below.
+			const held = guideAimRef.current;
+			if (held && guideMarkRef.current) guideResumeRef.current = { slide: narration.idx, aim: held };
 			guidePointRef.current?.abort();
 			guidePointRef.current = null;
 			guideAimRef.current = null;
@@ -1123,6 +1134,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// "shown" when its ink finishes, and the next sentence of the same block arriving mid-stroke
 		// took it for a new block and dropped the focus under the landing hand.
 		if (aim && aim === guideAimRef.current && (guideShownRef.current || guideMarkRef.current)) return;
+		// RESUMING: the sentence still names what was focused at the pause (or is an aside the preset
+		// holds through), so that focus comes straight back — focus only, no stroke replayed.
+		const resume = guideResumeRef.current;
+		guideResumeRef.current = null;
+		if (resume && resume.slide === narration.idx && resume.aim.isConnected && (aim === resume.aim || (!aim && text && isAside(text) && delivery.hold === 'aside'))) {
+			unmarkGuide();
+			guideMarkRef.current = focusContent(resume.aim, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
+			guideAimRef.current = resume.aim;
+			guideShownRef.current = true;
+			return;
+		}
 		// THE PLAN. Not every block earns a gesture: the delivery preset's budget goes to the
 		// slide's top-ranked moments (`planSlide`), each on the first sentence that names it, and
 		// every other sentence holds the hand still. Planned once per slide; re-planned if this

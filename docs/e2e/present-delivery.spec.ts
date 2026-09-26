@@ -198,3 +198,28 @@ test('while the Guide plays the chart hover is off, and pausing hands the chart 
 	await expect(frame.locator('rect.bar-mark.lat-guide-dim').first()).toBeAttached({ timeout: 30_000 });
 	expect(await frame.locator('rect.bar-mark').evaluateAll((els) => els.filter((e) => (e as HTMLElement).style.opacity !== '').length)).toBe(0);
 });
+
+// RESUMING MID-BLOCK. The Guide gestures on the first sentence that names a block and holds the
+// focus through the block's later sentences by resting on it, so a pause on the SECOND sentence
+// used to come back to a bare slide for the rest of the block (checker, reproduced). Playing
+// again must restore the focus on the sentence being read.
+test('pausing on a later sentence of a block and playing again brings the focus back', async ({ page }) => {
+	const deck = [
+		'---', 'marp: true', 'theme: indaco', 'delivery: restrained', '---', '',
+		'## The quarter, line by line', '',
+		'- Hiring continued on plan across every team.',
+		'- ARR closed at $48.6M. It beat the forecast by four points, and the board noticed. Renewals carried most of the growth in the quarter.',
+		'- The office move finished in August.', '',
+	].join('\n');
+	const dialog = await present(page, deck);
+	const frame = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
+	const now = page.locator('.latt-cc-line[data-state="now"]');
+	await expect(now).toContainText('It beat the forecast', { timeout: 90_000 });
+	await expect(frame.locator('li.lat-guide-dim').first()).toBeAttached();
+	await dialog.getByRole('button', { name: 'Pause' }).click();
+	await expect(frame.locator('.lat-guide-dim')).toHaveCount(0);
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	// Back on the same sentence, with the ARR bullet focused again.
+	await expect(frame.locator('li.lat-guide-dim').first()).toBeAttached({ timeout: 2_000 });
+	await expect(frame.locator('li:not(.lat-guide-dim)', { hasText: 'ARR closed' })).toHaveCount(1);
+});
