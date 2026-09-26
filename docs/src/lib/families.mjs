@@ -31,7 +31,7 @@ export const FAMILY_DEFS = [
 	{ key: 'cards', label: 'Cards', members: ['cards-grid', 'cards-stack'] },
 	{ key: 'compare', label: 'Compare', members: ['compare-prose', 'table', 'decision', 'matrix-2x2', 'redline', 'verdict-grid', 'pricing'] },
 	{ key: 'timelines', label: 'Timelines & roadmaps', members: ['timeline-list', 'roadmap'] },
-	{ key: 'charts', label: 'Charts & diagrams', members: ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'word-cloud', 'diagram', 'funnel', 'heatmap', 'map'] },
+	{ key: 'charts', label: 'Charts & diagrams', members: ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'word-cloud', 'diagram', 'funnel', 'heatmap', 'map', 'hub-spoke'] },
 	{ key: 'splits', label: 'Split layouts', members: ['split-panel', 'split-compare'] },
 	{ key: 'code', label: 'Code', members: ['code', 'compare-code'] },
 	// Math is its OWN family, not a lodger in "Code & math". It is a distinct
