@@ -80,12 +80,14 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 	});
 
 
-	it('a picker tile renders the deck in its own theme and mode, showing the pure preset', () => {
+	it('a picker tile renders the deck in its own theme and mode, at 16:9, showing the pure preset', () => {
 		const fm = '---\ntheme: cuoio\ncolor-mode: dark\nsize: 4k\npreset: brand\nrule: none\nfinish: halo\n---';
 		const tile = presetSampleDeck(fm, 'editorial');
 		const head = tile.split('\n---\n')[0];
-		// The deck's theme, mode and size ride along, so the tile looks like THIS deck…
-		for (const kept of ['theme: cuoio', 'color-mode: dark', 'size: 4k']) expect(head).toContain(kept);
+		// The deck's theme and mode ride along, so the tile looks like THIS deck…
+		for (const kept of ['theme: cuoio', 'color-mode: dark']) expect(head).toContain(kept);
+		// …but not its size: every tile box is 16:9, and a portrait deck would crop the cards away.
+		expect(head).not.toContain('size:');
 		// …the preset is the tile's, and the author's overrides are gone, so it shows the look itself.
 		expect(head).toContain('preset: editorial');
 		expect(head).not.toMatch(/rule:|finish:|preset: brand/);

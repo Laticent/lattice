@@ -85,6 +85,7 @@ import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
+import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
@@ -4042,11 +4043,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// being true. deck-preset.ts holds the rules; this is only the row.
 	const deckPreset = presetOf(source);
 	const presetDrift = presetChanges(source);
-	const presetLabelOf = (name: string) => PRESET_ENTRIES.find((e) => e.name === name)?.label ?? name;
-	const setPreset = (name: string) => {
-		settingsWrite(`Preset → ${presetLabelOf(name)}`, (s) => applyPreset(s, name));
-	};
-	const resetPreset = () => settingsWrite(`${presetLabelOf(deckPreset)} restored`, clearPresetOverrides);
+	// STABLE callbacks, because `PresetPicker` is memoized: its four tiles re-point pooled frames
+	// on every render, and this component re-renders on every keystroke in the editor.
+	const setPreset = React.useCallback((name: string) => {
+		settingsWrite(`Preset → ${PRESET_ENTRIES.find((e) => e.name === name)?.label ?? name}`, (s) => applyPreset(s, name));
+	}, [settingsWrite]);
+	const resetPreset = React.useCallback(() => {
+		const name = presetOf(sourceRef.current);
+		settingsWrite(`${PRESET_ENTRIES.find((e) => e.name === name)?.label ?? name} restored`, clearPresetOverrides);
+	}, [settingsWrite]);
 	// The tiles render with the deck's `fm` — NOT `previewFm`, which stamps a saved finish's class
 	// onto the front matter and would paint that finish over all four presets.
 	const presetField = <PresetPicker value={deckPreset} drift={presetDrift.length} onValueChange={setPreset} onReset={resetPreset} frontMatter={fm} options={options} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} />;
@@ -4467,7 +4472,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// `data-settings-filtering` is on ONLY while a query is live: it is what the two
 		// CSS rules in styles/tailwind.css key on to collapse a section with no matching
 		// row and to reveal the no-matches note.
-		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)} {...filteringProps(deckQuery)}>
+		<div className={cn('pt-1', SETTING_SCOPE)} {...filteringProps(deckQuery)}>
+			{/* ONE preview pool for the whole deck panel, not one inside the preset picker. A pool
+			    that unmounts takes its frames with it, and WebKit never gives a torn-down preview
+			    document back (preview-pool.tsx), so a pool scoped to the picker rebuilt four frames
+			    every time the Preset row left the screen: Basic ↔ Advanced, a tab change, a search.
+			    Hoisted here, those switches only re-point the same frames. */}
+			<PreviewPool className="space-y-3">
 			<SettingsFind query={deckQuery}>
 				{/* The find toolbar lives in the scope banner above this body — one field on the
 				    header row, serving whichever scope is open. The section strip is the GROUPED
@@ -4500,6 +4511,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				)}
 				<SettingsNoMatch query={deckQuery} />
 			</SettingsFind>
+			</PreviewPool>
 		</div>
 	);
 

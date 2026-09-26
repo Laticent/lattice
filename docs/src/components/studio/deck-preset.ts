@@ -140,12 +140,15 @@ export const PRESET_SAMPLE = `
 
 /**
  * The sample deck for preset `name`'s tile: the deck's OWN front matter — so the tile renders in
- * the deck's theme, color mode and size — with `preset:` set to `name` and every preset-family
- * key the author wrote removed, so each tile shows the preset itself rather than the author's
- * overrides of it. `fm` is the deck's front-matter block (`---…---`), or '' for a deck with none.
+ * the deck's theme and color mode — with `preset:` set to `name` and every preset-family key the
+ * author wrote removed, so each tile shows the preset rather than the author's overrides of it.
+ * `size:` is dropped too: every tile box is 16:9 and the frame scales by width, so a portrait or
+ * square deck would show only the top of the sample, cutting off the cards it was chosen for.
+ * `fm` is the deck's front-matter block (`---…---`), or '' for a deck with none.
  */
 export function presetSampleDeck(fm: string, name: string): string {
 	const base = fm ? `${fm.replace(/\n*$/, '')}\n` : '';
 	const withPreset = writeFrontMatterLine(base, 'preset', name === DEFAULT_PRESET ? null : name);
-	return `${clearPresetOverrides(withPreset).replace(/\n*$/, '')}\n${PRESET_SAMPLE}`;
+	const block = writeFrontMatterLine(clearPresetOverrides(withPreset), 'size', null);
+	return `${block.replace(/\n*$/, '')}\n${PRESET_SAMPLE}`;
 }

@@ -200,23 +200,33 @@ sample slide under that preset, and it went through two designs.
   show: the page edge (bar, backdrop), the heading (alignment, rule), the kicker (eyebrow) and
   the cards (lift, rails). The title slide hid the bar, the rule and the cards, and the table
   hid the cards. At a live tile's size Classic and Minimal separate on the bar and the rule.
-- **What a tile renders** (`presetSampleDeck`): the deck's own front matter, so theme, color
-  mode and size match, with `preset:` set to the tile's preset and every preset-family key the
-  author wrote removed, so each tile shows the preset rather than the author's overrides of it.
-  It uses the editable `fm`, not `previewFm`: `previewFm` stamps a saved finish's class onto
-  the front matter, which would paint that finish over all four tiles.
-- **Cost.** Four more preview documents while the deck panel is open: one main frame plus four
-  measured as 5 iframes on the page. The engine is already loaded for the main preview, so
-  there is nothing new to download. By this repo's own measurements a live preview document
-  costs about 1.2MB on Chromium and about 11MB on WebKit
+- **What a tile renders** (`presetSampleDeck`): the deck's own front matter, so theme and color
+  mode match, with `preset:` set to the tile's preset and every preset-family key the author
+  wrote removed, so each tile shows the preset rather than the author's overrides of it. `size:`
+  is dropped: every tile box is 16:9 and the frame scales by width, so the third check showed a
+  portrait or square deck cropping the tile to its heading, cutting off the cards the sample
+  was chosen for. It uses the editable `fm`, not `previewFm`: `previewFm` stamps a saved finish's
+  class onto the front matter, which would paint that finish over all four tiles.
+- **Cost.** Four more preview documents while the deck panel is open (measured: 5 iframes, the
+  main preview plus four tiles). The engine is already loaded for the main preview, so there is
+  nothing new to download. By this repo's own measurements a live preview document costs about
+  1.2MB on Chromium and about 11MB on WebKit, and WebKit never gives a torn-down one back
   (2026-07-30-preview-deck-context-and-render-cost.md, 2026-09-13-gallery-preview-memory.md).
-  That is why the tiles use the pool: re-pointing a pooled frame is a patch into a living
-  document, never a new one. Not measured here: whether closing and reopening the phone
-  settings sheet tears the pool down and rebuilds it. If it does, that would repeat WebKit's
-  retained-memory cost on each open, the same trade the Reshape popover already makes.
+  - **The pool lives at panel level** (StudioShell `inspectorBody`), not inside the picker. The
+    third check found that a picker-level pool unmounted, and so rebuilt four documents, every
+    time the Preset row left the screen: Basic ↔ Advanced, a tab change, a search. Hoisted, the
+    same frames survive all of those. Measured on the production build: tagged at open, the
+    5 iframes were the same 5 after Advanced → Chrome tab → Basic.
+  - **Still rebuilt:** closing the desktop inspector, switching to the Slide scope, and closing
+    the phone sheet all unmount the panel. Not measured on WebKit; recorded as
+    `followups.d/2391-p3-preview-pool-webkit-memory-on-panel-reopen.md`.
+  - **Typing:** the Studio re-renders on every keystroke, and every render of a tile re-points
+    its pooled frame. `PresetPicker` is memoized with stable callbacks, and its four sample decks
+    are built once per front-matter change.
 - **Dev-server note.** On `astro dev` the pool paints no frames, for this picker and for the
-  existing Reshape picker alike; on a production build both paint. That predates this change
-  and is not addressed here.
+  existing Reshape picker alike; on a production build both paint. It predates this change,
+  though the preset picker only became exposed to it here. Recorded as
+  `followups.d/2391-p2-preview-pool-blank-on-astro-dev.md`.
 
 **Readers that stay outside the shared one, each on purpose.**
 
@@ -243,9 +253,11 @@ sample slide under that preset, and it went through two designs.
 | Picking Editorial in the real Studio renders the ledger backdrop and left alignment in the live preview | The real Studio (docs dev server, Chromium 1440×900) | screenshot shared with the owner |
 | Arrow keys in the picker switch the preset and keep the author's keys | The real Studio, keyboard-driven | the deck source read back after the key presses |
 | The four presets differ on a title slide and on content slides | The same four-slide deck rendered under each preset, old set and new, side by side (shown to the owner) | those renders; `examples/deck-presets.pdf` shows the same looks through per-slide classes, since one deck can carry only one preset |
-| The picker's tiles follow the deck's theme and color mode | The real Studio, production build (Chromium 1440×900 and 390×844): Cuoio light, then Indaco dark | screenshots shared with the owner; `deck-preset.test.ts` pins the sample deck each tile renders |
+| The picker's tiles follow the deck's theme and color mode | The real Studio, production build (Chromium 1440×900 and 390×844): Cuoio light, then Indaco dark | screenshots shared with the owner in the session (not committed); `deck-preset.test.ts` pins the sample deck each tile renders |
+| The preview frames survive the panel's own switches | The real Studio, production build: frames tagged at open, then Advanced → Chrome tab → Basic | the same 5 iframes before and after |
+| The owner can tell the four apart | The owner's own phone, the deployed preview | "looks great" |
 | Basic and Advanced at desktop, tablet and phone widths | The real Studio at 1440, 820 and 390 | screenshots shared with the owner |
-| Independent eyes | Two checker passes: one on round one, one on round two | every confirmed finding fixed, each with a test or a corrected claim |
+| Independent eyes | Three checker passes: round one, round two, and the live-preview commit | every confirmed finding fixed with a test, a corrected claim or a `followups.d/` entry |
 
 Not verified: iOS Safari. The phone shots come from headless Chromium at 390×844 with touch
 emulation, which is emulation (HARD RULE #23).
