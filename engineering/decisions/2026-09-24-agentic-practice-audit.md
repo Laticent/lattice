@@ -115,6 +115,31 @@ whether a rule holds.
   streak. Hooks that watch agent behavior (unbounded waits, rebase reminders) warn and never
   block, because a false positive under the "never skip a hook" rule would be a permanent tax.
 
+**Budgets, visibility and boundaries complete the picture.** Gates say what may not
+happen. Three more kinds of machinery say how much, how well, and where
+(MEASURED 2026-09-26):
+
+| Kind | What exists | Command |
+|---|---|---|
+| **Gates** | 87 `check*` functions in `tools/check-ownership.js`, with 30-plus named `SANCTIONED_*` allowlists | `grep -o "function check[A-Za-z]*" tools/check-ownership.js \| sort -u \| wc -l` |
+| **Budgets** | `CLAUDE.md` capped at 16,500 tokens (`ROUTER_TOKEN_CEILING`); typing and navigation latency ceilings with 3-6x headroom (`test/benchmark/preview-budget.json`); an engine benchmark baseline with a variance band (`test/benchmark/baseline.json`); about 10 agents per session (HARD RULE #25) | `grep -n ROUTER_TOKEN_CEILING tools/check-ownership.js` |
+| **Visibility** | 221 npm scripts, among them `bench`, `quality` (coupling, cycles, dead code, duplication), `check:jank`, contrast gates, and a `golden-diff` CI job that posts a before-and-after montage on every PR | `node -e 'console.log(Object.keys(require("./package.json").scripts).length)'` |
+| **Boundaries** | Five workspace libraries (`@laticent/cadenza`, `lente`, `ltt`, `suono`, `vetrina`), each with `exports` and a README, and each fenced by a boundary gate: library code may import only its own files, Node built-ins and one sanctioned adapter | `grep -n '"workspaces"' -A6 package.json`; `check*Boundary` in `tools/check-ownership.js` |
+
+Why each exists, in agent terms: a gate enforces a rule the agent has forgotten; a budget
+stops growth, because agents add far more than they remove (the instruction file grew to
+61.7 KB before its cap existed, §5); visibility turns "feels slower" into a number (the
+latency ceiling is sized to catch the 63 ms-per-keystroke regression recorded in
+`preview-budget.json`); and a boundary shrinks what an agent must read and what one change
+can break.
+
+**The libraries are publish-shaped, not published.** All five sit at 0.1.0, `tools/release.js`
+knows only the root package, and multi-package versioning is deferred until the first npm
+publish (`2026-08-09-changesets-multi-package-release.md`). The published-library practices
+Lattice already runs are a small `exports` surface behind a gate, deprecation through a
+crosswalk rather than deletion (HARD RULE #11), and a spec with conformance levels
+(`spec/LFM-1.0.md` §1). Per-library versions and changelogs do not exist yet.
+
 **The human gates are prompt text, not platform settings.** The branch ruleset requires a PR,
 the merge queue and a green `ci`, and **no reviewer**. `settings.json` pre-approves `git push`
 and `git merge`. Agents post the pre-merge card and arm auto-merge under the owner's account,
