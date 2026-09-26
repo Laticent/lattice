@@ -344,11 +344,18 @@ test('a keyed chart grows its key only when the printed text really grows', () =
     return { text: FS_OF_HEIGHT * 200 * r.fontScale * s, diagram: 200 * s };
   };
   const opts = (pv) => ({ orientation: undefined, paneView: pv, diagramHeight: 200, orientations: [undefined] });
-  // A NARROW pane: width binds, so a bigger key prints the same text and only shrinks the
-  // diagram. The unscaled key wins (the checker's 25% pie: 213px disc -> 71px, text unchanged).
+  // A NARROW pane where the whole unit widens with the key's type: width binds, so a bigger key
+  // prints the same text and only shrinks the diagram. The unscaled key wins (the checker's 25%
+  // pie: 213px disc -> 71px, text unchanged).
   const narrow = { w: 90, h: 180 };
+  const allKey = (_o, m) => ({ viewW: 320 * m, viewH: 200 });
+  assert.equal(fitKeyToPane(allKey, opts(narrow)).fontScale, 1);
+  // Where a bigger key DOES print larger text in a narrow pane, it may take it, never past the
+  // diagram's floor and never printing smaller than the unscaled key.
   const n = fitKeyToPane(build, opts(narrow));
-  assert.equal(n.fontScale, 1);
+  const nBase = printed({ key: build(undefined, 1), fontScale: 1 }, narrow);
+  const nGot = printed(n, narrow);
+  assert.ok(nGot.diagram >= nBase.diagram * 0.75 && nGot.text >= nBase.text, `narrow ${JSON.stringify(nGot)}`);
   // A WIDE, short pane: height binds, so the key's type can grow at no cost to the diagram.
   const wide = { w: 400, h: 60 };
   const w = fitKeyToPane(build, opts(wide));
@@ -409,4 +416,16 @@ test('a pane\'s chart canvas has the shape Chromium lays the pane out at, on eve
     assert.ok(w && h, `${name}: no bar canvas`);
     assert.ok(Math.abs(Math.log(w / h / ratio)) < 0.03, `${name}: canvas ${w}x${h} (${(w / h).toFixed(2)}) vs measured ${ratio.toFixed(2)}`);
   }
+});
+
+test('a narrow pie pane under full chrome still grows its key (the ladder finds the sizes between)', () => {
+  const e = engine();
+  const pie = '- Enterprise `46%`\n- Mid-market `31%`\n- SMB `23%`';
+  const md = '`Customer mix`\n\n## Enterprise is now nearly half the book.\n\n`piechart 35 · table 65`\n\n'
+    + `<!-- panes: 35/65 -->\n<!-- pane: piechart -->\n\n${pie}\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n— ARR as of 30 September.\n`;
+  const [w, h] = e.render(md).html.match(/piechart-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
+  // The unscaled key beside the disc is 377x200 and prints its labels at ~3.7 units; the
+  // fixed-point steps alone jumped past every size that keeps the disc above its floor and
+  // fell back to it. The pick now sets the key below the disc, at a larger size.
+  assert.ok(h > 200 && !(w === 377 && h === 200), `pie unit ${w}x${h}`);
 });

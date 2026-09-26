@@ -179,7 +179,11 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
      tries the key beside and below the diagram at a range of type sizes and scores each by what
      PRINTS: it takes the largest key text that keeps at least 75% of the unscaled diagram. A
      bigger key is also a wider one, so where the pane's width binds, it prints no larger and
-     only shrinks the diagram; the unscaled key then wins.
+     only shrinks the diagram; the unscaled key then wins. The candidates are a fixed ladder of
+     sizes (1.25–2.5×) as well as a fixed-point iteration toward slide-size text: the iteration
+     alone jumped from 1 to 2.2 on a 35% pie pane under full chrome, past every size that kept
+     the disc above its floor, and fell back to a key at 3.7 units (found on the review deck,
+     page 4; now 5.6, key below the disc).
    - radar is left out: its axis labels belong to the diagram, so shrinking the diagram for a
      bigger key made the labels a reader needs smaller (5–6px from 10 at 50/50). A radar pane
      draws as a radar slide does, scaled into the pane.
