@@ -1083,6 +1083,19 @@ section.divider.light code {
  * Composes with any layout/variant (dark, cards-grid, …) since it only
  * sets a custom property. See engineering/typography.md §7 and
  * lib/base/base.docs.md. */
+/* VENUE (`venue:` front matter, lib/core/resolve-venue.js) — where the deck is seen.
+ * Each venue asks for one rung of the same ladder and ALSO lifts the meta role
+ * (eyebrows, captions, labels, header, page number) past the body's scale, because
+ * the smallest text fails first at distance: at 6 screen-heights a meta label at
+ * 1.3x reads at about 8 arcminutes of x-height, below the ~12 a mixed audience
+ * reads comfortably. The lift keeps meta under the body (0.81 of it at conference,
+ * 0.91 at hall), so the hierarchy holds. Declared BEFORE `scale-*`, so a slide that
+ * carries both gets the `scale-*` rung and keeps the venue's lift. The derivation
+ * is engineering/typography.md §7 "Venue". `laptop` is the designed size: no class. */
+section.venue-huddle     { --fs-scale: 1.15; }
+section.venue-conference { --fs-scale: 1.3;  --venue-meta-lift: 1.15; }
+section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  }
+
 section.scale-l   { --fs-scale: 1.15; }
 section.scale-xl  { --fs-scale: 1.3;  }
 section.scale-2xl { --fs-scale: 1.5;  }

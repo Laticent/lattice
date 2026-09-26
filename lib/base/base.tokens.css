@@ -120,6 +120,10 @@
    * override (frontmatter style or all-slides `class:`) moves the whole
    * deck. See engineering/typography.md §7. */
   --fs-scale: 1;
+  /* The meta role's extra multiplier, set only by a `venue-*` class (base.modifiers.css):
+   * the smallest readable role fails first at distance, so a venue lifts it past the
+   * body's scale. 1 everywhere else. See engineering/typography.md §7 "Venue". */
+  --venue-meta-lift: 1;
 
   /* ── Sovereign-bookend measures ────────────────────────────────────────
    * The ONLY width caps on framing text in the engine. `title` / `closing` /

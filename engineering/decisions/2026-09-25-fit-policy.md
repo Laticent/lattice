@@ -148,3 +148,17 @@ Measured on the repro deck at scale-xl: `heal` renders 40 slides at 1.3x and 24 
 clipped; `report` steps nothing and reports all 24 as clipped. A portrait `list-steps` slide
 splits into 4 pages at `heal` and stays whole (and rings) at `report`.
 
+
+## 9. Amendment (2026-09-26) — fork 2 replaced by one size per deck
+
+The two-size rule still let a deck alternate between its requested size and 1x as you
+click through (40 slides at 1.3x and 24 at 1x on the repro deck), which is the defect the
+owner raised in #2361. The owner then chose one size per deck: STEP walks the full ladder
+again to find each slide's own highest fitting rung, and LEVEL puts every slide that asked
+for that scale on the lowest of those rungs. With one size there is no variation left for
+the "never an in-between step" rule to cap, so it is dropped: a 1.3x deck whose densest
+slide fits at 1.15x lands at 1.15x rather than 1x. The §4 objection — the worst slide sets
+the size for the whole deck — is accepted as the price, and answered by naming the slides to
+trim in the export's `↓ SCALE` line and by `venue:`, which tells lint the budget to warn at.
+`fit:` is unchanged, and `report` switches LEVEL off with STEP. Record:
+`2026-09-25-font-scale-fit.md`, amendment 2026-09-26.

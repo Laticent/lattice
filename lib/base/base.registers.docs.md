@@ -83,10 +83,11 @@ than stacking on it, so a slide's own choice always wins.
 floor is 1x), and no level changes what is REPORTED — `report` changes what the engine
 does, never what it tells you.
 
-**STEP renders at two sizes at most.** A slide that does not fit the deck's scale lands on
-the designed size, 1x — never on an in-between step — so a projected deck carries the size
-the author asked for and the designed one, and nothing else. See
-`engineering/decisions/2026-09-25-font-scale-fit.md`.
+**A scaled deck renders at one size.** When a slide does not fit the deck's scale, every
+slide that asked for that scale renders at the largest size all of them fit (1.15x in a
+1.3x deck, say), and the export names the slides to trim for the full size. `report` turns
+this off along with every other move. See `engineering/decisions/2026-09-25-font-scale-fit.md`
+(amended 2026-09-26, which replaced the earlier "two sizes at most" rule).
 
 ### What `trim` does, and why it does far less than the name suggests
 
@@ -710,6 +711,32 @@ padding. Ruled tables (`glossary`, `list-tabular`) and full-height rails (`split
 left panel) never lift, even when `lift` is on. Toggle it from the **Deck Setting** drawer
 (a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
 matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
+
+## The `venue:` front-matter register (where the deck is seen)
+
+`venue:` names the room, and the engine sets the type size for its back row. Use it
+instead of hand-picking `class: scale-*` for a deck that will be projected or shown on a
+shared screen.
+
+| `venue:` value | Resolves to | Who is watching | Type | Labels |
+|---|---|---|---|---|
+| `laptop` | *(no class)* | You on your own screen. The default when `venue:` is omitted. | 1x | 1x |
+| `huddle` | `venue-huddle` | 4–6 people around a TV | 1.15x | 1.15x |
+| `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x |
+| `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x |
+
+"Labels" is the meta role — eyebrows, captions, the running header and page number —
+which a venue lifts past the body because the smallest text fails first at distance.
+If your back row is farther from the screen than the band assumes (for example, 30
+people and a small TV), pick the next venue up.
+
+A slide too full for the venue's size does not clip and does not render smaller than
+its neighbors: the whole deck renders at the largest size every slide fits, and the
+export's `↓ SCALE` line names the slides to trim. `lint:deck` warns (`capacity-scale`)
+on a slide past its budget for the room, and `unknown-venue` catches a typo. A
+per-slide `_class: venue-*` overrides the deck's venue. The derivation — the viewing
+angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
+"Venue". Resolver: `lib/core/resolve-venue.js`.
 
 ## The `cards:` front-matter register (where a card row puts its spare height)
 
