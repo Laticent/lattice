@@ -92,8 +92,10 @@ theme: indaco
 		await page.goto(pathToFileURL(file).href, { waitUntil: 'load' });
 		// A refused load still completes, so poll the images rather than sleeping.
 		await page.waitForFunction(() => [...document.images].every((i) => i.complete), { timeout: 20000 }).catch(() => {});
+		// The address may sit in the attribute that fetches it, or, since trio follow-up 11, in the
+		// `data-lattice-web-src` the drawn placeholder keeps it in. Either way it is in the file.
 		const payload = await page.evaluate((host) =>
-			document.querySelectorAll(`[src*="${host}"], [style*="${host}"]`).length, ATTACKER);
+			document.querySelectorAll(`[src*="${host}"], [style*="${host}"], [data-lattice-web-src*="${host}"]`).length, ATTACKER);
 		await page.close();
 		return { hits, payload };
 	}
@@ -144,7 +146,11 @@ theme: indaco
 	});
 
 	test('CONTROL — with the policy removed, the same artifact does beacon', { timeout: TIMEOUT }, async () => {
-		const file = exportDeck('control.html', []);
+		// `--allow-remote`: without it the export swaps each web image for the placeholder
+		// (trio follow-up 11), so there would be no address left for a stripped policy to let
+		// through. With it the raw addresses stay, and only the policy stands between them and
+		// the network: remove it, and they must fire.
+		const file = exportDeck('control.html', ['--allow-remote']);
 		const stripped = path.join(dir, 'control-nocsp.html');
 		const html = fs.readFileSync(file, 'utf8');
 		const without = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/i, '');
@@ -152,6 +158,28 @@ theme: indaco
 		fs.writeFileSync(stripped, without);
 		const { hits } = await probe(stripped);
 		assert.ok(hits.length > 0, 'the probe cannot see a beacon even when one fires, so every arm above is vacuous');
+	});
+
+	// THE PLACEHOLDER (trio follow-up 11). By default the export swaps each web image for the
+	// drawn stand-in, keeps its address in `data-lattice-web-src`, rewrites a web background to
+	// the hatch, and says once on stderr what was left out and how to load it. `--allow-remote`
+	// keeps every address and says nothing.
+	test('a web image exports as the placeholder, and the CLI says so once', { timeout: TIMEOUT }, async () => {
+		const deck = path.join(dir, 'web.md');
+		fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# One\n\n![pic](https://${ATTACKER}/one.png)\n\n---\n\n# Two\n\n<span style="background-image:url(https://${ATTACKER}/bg.png)">shaded</span>\n`);
+		const run = (args, out) => spawnSync(process.execPath, [EMULATOR, deck, path.join(dir, out), ...args], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		const blocked = run([], 'web.html');
+		assert.equal(blocked.status, 0, blocked.stderr);
+		const notices = (blocked.stderr.match(/web images? from/g) || []).length;
+		assert.equal(notices, 1, `expected one notice, got ${notices}: ${blocked.stderr}`);
+		assert.match(blocked.stderr, /2 web images from https:\/\/attacker\.invalid were left out, and a drawn placeholder stands in\..*--allow-remote/);
+		const html = fs.readFileSync(path.join(dir, 'web.html'), 'utf8');
+		assert.match(html, /<img src="data:image\/svg\+xml[^"]*"[^>]*data-lattice-web-src="https:\/\/attacker\.invalid\/one\.png"/);
+		assert.doesNotMatch(html, /(?:\ssrc="|url\()https:\/\/attacker\.invalid/, 'no web address is left where the browser would fetch it');
+		const allowed = run(['--allow-remote'], 'web-allowed.html');
+		assert.equal(allowed.status, 0, allowed.stderr);
+		assert.doesNotMatch(allowed.stderr, /web images? from/);
+		assert.match(fs.readFileSync(path.join(dir, 'web-allowed.html'), 'utf8'), /\ssrc="https:\/\/attacker\.invalid\/one\.png"/);
 	});
 
 	// THE RASTER CLASS, revised 2026-09-24. The render's own Chromium is kept off the network

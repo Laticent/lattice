@@ -126,7 +126,7 @@ type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string }) {
+export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, webOrigins }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; /** Web origins the reader allowed this deck's images to load from (trio follow-up 11). */ webOrigins?: string[] }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
 	const wideRoom = useConsolePanel();
@@ -547,7 +547,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		if (!open) return;
 		let canceled = false;
 		const source = fmAll + set.join(SLIDE_SEP);
-		buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token)
+		buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token, webOrigins)
 			.then(({ doc, bg }) => {
 				if (canceled) return;
 				stageDocRef.current = doc;
@@ -561,7 +561,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				if (!canceled && stageRef.current?.isOpen()) notifyRef.current('The Stage could not render this deck. Close it and try again.');
 			});
 		return () => { canceled = true; };
-	}, [open, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen]);
+	}, [open, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen, (webOrigins ?? []).join(' ')]);
+	// The overview grid's thumbnails follow the deck's web-image choice like the stage does.
+	const webKey = (webOrigins ?? []).join(' ');
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the list's value, not its identity.
+	const overviewOptions = React.useMemo(() => ({ ...options, webOrigins }), [options, webKey]);
 	// Keep the room's slide in step with the console's.
 	React.useEffect(() => { stageRef.current?.show(clamped); }, [clamped]);
 	// A SITE PALETTE CHANGE HAS TO REACH THE ROOM, and it could not.
@@ -1969,7 +1973,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						// `rounded-2xl` here was 16px against a rounded slide's 1.5% of its width, and
 						// on a desktop Present the two disagreed at every corner (#1649).
 						<div ref={cardRef} data-slide-frame style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), ...slideFrameStyle('stage') }} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden">
-							<DeckPreview focused options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={open} />
@@ -1993,7 +1997,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 								// engine frame, and `coalesce` keeps a same-deck navigation a patch rather
 								// than a remount — this frame re-renders on every slide change, which is
 								// the one place a full rebuild per step would be felt.
-								<DeckPreview options={options} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} slideMarkdown={nextSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
+								<DeckPreview options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} slideMarkdown={nextSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
 							) : (
 								<div className="grid size-full place-items-center rounded-xl border border-border bg-card px-3 text-center text-[12px] text-muted-foreground">End of the deck</div>
 							)}
@@ -2147,7 +2151,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			</div>
 			{/* The overview covers the whole surface when open (its own iframes) — re-enable
 			    pointer events for it above the chrome's `pointer-events-none` root. */}
-			<div className="pointer-events-auto contents"><SlideOverview open={overviewOpen} onClose={() => setOverviewOpen(false)} options={options} set={set} frontMatter={frontMatter} current={clamped} onJump={setIdx} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} /></div>
+			<div className="pointer-events-auto contents"><SlideOverview open={overviewOpen} onClose={() => setOverviewOpen(false)} options={overviewOptions} set={set} frontMatter={frontMatter} current={clamped} onJump={setIdx} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} /></div>
 			</div>
 		</>
 	);

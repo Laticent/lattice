@@ -41,6 +41,7 @@ import {
 	swipeAction,
 } from '../../../../../lib/core/present-transport.mjs';
 import { fontGateAgent, onFontsReady } from '../../../../../lib/core/preview-font-gate.mjs';
+import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
@@ -76,8 +77,10 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  * strings and could never have seen the difference — so the comment is the only place the
  * distinction can live, and it may as well be accurate.
  */
-export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '', lang = 'en' }) {
-	html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
+export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '', lang = 'en', webOrigins = /** @type {string[]} */ ([]) }) {
+	// Web images the reader has not allowed become the drawn placeholder (trio follow-up 11),
+	// BEFORE the sanitizer, so it sees the final markup; the policy below refuses the rest.
+	html = sanitizeSlideHtml(remoteRef.blockWebImages(html, webOrigins).html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
 	// The fit factor is the shared transport kernel's `fitScale`/`padInset`
@@ -327,7 +330,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(mermaidUrl) + '><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
-		previewCspMeta({ katexUrl }) +
+		previewCspMeta({ katexUrl, webOrigins }) +
 		(standalone ? '<title>Stage</title>' : '') +
 		'<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +
 		(katexUrl ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +

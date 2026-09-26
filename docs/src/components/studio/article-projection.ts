@@ -167,7 +167,18 @@ export async function projectDeckArticle(
 	// `styles: 'flat'` — this view shows slide content OUTSIDE a slide, which is the flat
 	// mode's whole definition (2026-09-24-one-style-delivery-spine.md §4.1). `render.css` stays
 	// the scoped shape for the diagram bake's capture frame.
-	const render = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'flat');
+	const built = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'flat');
+	// WEB IMAGES (trio follow-up 11). This view renders in the Studio's OWN page, which carries no
+	// content-security policy, so the deck's web images and web `url()`s would load here whatever
+	// the reader chose. Rewritten three times: the render before the bake, the flat CSS the page
+	// takes in, and the projected article after it (a baked Mermaid diagram can add an image).
+	const { default: remoteRef } = (await import('../../../../lib/core/remote-ref.js')) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
+	const allowed = options.webOrigins ?? [];
+	const render: DeckRender = {
+		...built,
+		html: remoteRef.blockWebImages(built.html, allowed).html,
+		...(built.flatCss !== undefined ? { flatCss: remoteRef.blockWebCss(built.flatCss, allowed).css } : {}),
+	};
 	// THE DEPTH-AWARE SPLITTER, which is what the export twin uses (`share-export.ts` →
 	// `slideChannelRecord`). A flat "scan to the next `</section>`" counts a slide holding a
 	// hand-authored `<section>` as two — and this count is only used as the bake's parity
@@ -182,7 +193,8 @@ export async function projectDeckArticle(
 		.map((p) => `${p.openTag}${p.inner}</section>`);
 	if (!staticSections.length) return { articleHtml: '', toc: [], css: '' };
 	const baked = await bakeArticleSections(render, staticSections, isStale);
-	const article = await projectSectionsToArticle(baked ?? staticSections);
+	const projected = await projectSectionsToArticle(baked ?? staticSections);
+	const article = { ...projected, articleHtml: remoteRef.blockWebImages(projected.articleHtml, allowed).html };
 	return { ...article, css: await scopedArticleCss(article.articleHtml, render.flatCss, mode) };
 }
 

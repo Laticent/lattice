@@ -328,6 +328,22 @@ section .cell-coda > blockquote li::before {
 }
 section img:not(.emoji):not(.deck-logo) { max-width:100%; max-height:100%; border-radius:var(--radius-md); object-fit:cover; display:block; }
 
+/* A WEB IMAGE THE READER HAS NOT LOADED (portable-packages trio follow-up 11). A deck's
+ * images from the web stay blocked until the reader chooses to load them, since each one
+ * tells its server who opened the deck. lib/core/remote-ref.js `blockWebImages` swaps the
+ * address for an empty 16:9 SVG and keeps it in `data-lattice-web-src`; this draws the
+ * stand-in: a hatched field in the deck's own tokens behind a hairline edge, so the slide
+ * keeps its layout and a reader can see a picture is missing rather than a broken-image mark.
+ * A layout that sizes its image (a photo panel, a cover) still sizes the stand-in. */
+section img[data-lattice-web-src],
+section video[data-lattice-web-src] {
+  aspect-ratio:16 / 9;
+  /* Longhands, not the `background:` shorthand: one unresolved var() would drop both layers. */
+  background-color:var(--bg-alt, var(--bg));
+  background-image:repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0 1px, transparent 1px 10px);
+  box-shadow:inset 0 0 0 1px var(--border);
+}
+
 /* Marp Core converts unicode emoji in source markdown to twemoji <img class="emoji">.
    They must render inline at text size and not pick up the block image styling
    above; otherwise a stray "Hello 👋 there" puts the wave on its own line.

@@ -53,6 +53,10 @@ export type DeckRender = {
 	 *  CSS after it. Present only when the caller asked for the flat mode — a host that shows
 	 *  slide content outside a slide (the Reading view). */
 	flatCss?: string;
+	/** Web origins the reader allowed this deck's images to load from (trio follow-up 11),
+	 *  from `SingleSlideOptions.webOrigins`. The capture frame and the print document load
+	 *  those and export every other web image as the placeholder. */
+	webOrigins?: string[];
 };
 
 function pg(): PG | undefined {
@@ -131,6 +135,7 @@ export async function buildDeckRender(
 		fontCss: previewFontFaceCss(),
 		mermaidUrl: options.mermaidUrl,
 		dagreUrl: options.dagreUrl,
+		webOrigins: options.webOrigins ?? [],
 		...(out.flatCss !== undefined
 			? { flatCss: unwrapFlatSheet(out.flatCss) + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '') }
 			: {}),
@@ -404,7 +409,12 @@ export async function shareHtmlPlayer(
 		splitSectionsCore(html)
 			.filter((p) => p.type === 'section')
 			.map((p) => `${p.openTag}${p.inner}</section>`);
-	let recordSections = sectionsOf(out.html);
+	// WEB IMAGES (trio follow-up 11). The player never loads one: its policy is `img-src data:`.
+	// So its web images are placeholders on EVERY path, the bake's fallback (the static render)
+	// included, which used to ship the raw address and show a broken-image mark.
+	const { default: remoteRef } = (await import('../../../../lib/core/remote-ref.js')) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
+	const playerHtml = remoteRef.blockWebImages(out.html, []).html;
+	let recordSections = sectionsOf(playerHtml);
 	let noteRecord = notesCore.slideNoteRecord(recordSections);
 	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces
 	// the deck — the source that ships is the source that was rendered.
@@ -474,7 +484,7 @@ export async function shareHtmlPlayer(
 	try {
 		const ex = await exporters();
 		const result = await ex.bakeDeckSections({
-			html: out.html,
+			html: playerHtml,
 			css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
 			mode,
 			geom: { w: out.width || 1280, h: out.height || 720 },

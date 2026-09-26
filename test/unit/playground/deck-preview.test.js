@@ -427,29 +427,40 @@ describe('deck-preview: preview-frame CSP', () => {
 		assert.doesNotMatch(doc, /default-src/, 'a default-src here would restrict more than the posture chose');
 	});
 
-	// The PREVIEW / EXPORT boundary, pinned from both sides. A preview is a frame the author
-	// browses, where a deck's remote image beacons on open; the Studio's capture frame is an
-	// export renderer whose output the author downloads, and containing it would blank a
-	// legitimately-remote image in the .pdf/.pptx/.png — an export-bytes change, and a
-	// divergence from the CLI, which emits no CSP. Neither side may flip by accident.
-	test('csp:false omits the meta entirely — the export capture frame opts out', async () => {
+	// The PREVIEW / EXPORT boundary. Until trio follow-up 11 (owner, 2026-09-25) the Studio's
+	// export capture frame opted OUT of the policy and fetched every remote image at export, on
+	// the author's machine, while the CLI's render had been offline since 2026-09-24. Now a deck's
+	// web images stay blocked in what the author exports as in what they see, unless they chose
+	// to load them for that deck, and the frame carries that choice.
+	test('csp:false still omits the meta — the switch exists, the default is on', async () => {
 		const { buildSrcdoc } = await load();
 		assert.doesNotMatch(buildSrcdoc({ ...BASE, csp: false }), /Content-Security-Policy/);
 		assert.match(buildSrcdoc({ ...BASE }), /Content-Security-Policy/, 'the DEFAULT must stay on');
 	});
 
-	test("the Studio's export capture frame passes csp:false, deliberately", () => {
+	test("the Studio's export capture frame carries the policy and the deck's allowed web origins", () => {
 		const fs = require('fs');
 		const path = require('path');
-		const src = fs.readFileSync(
-			path.join(__dirname, '..', '..', '..', 'docs/src/components/studio/export/deck-export.js'), 'utf8'
-		);
-		assert.match(
-			src, /csp:\s*false/,
-			'deck-export.js builds the offscreen frame that PDF/PPTX/PNG are rasterized from. If it '
-			+ 'stops passing csp:false, a deck\'s remote image is blocked during capture and blanks in '
-			+ 'the downloaded file — an EXPORT-BYTES change needing sign-off (QUALITY BAR), not a tweak.'
-		);
+		const src = fs
+			.readFileSync(path.join(__dirname, '..', '..', '..', 'docs/src/components/studio/export/deck-export.js'), 'utf8')
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.replace(/\/\/.*$/gm, '');
+		const call = /const srcdoc = buildSrcdoc\(\{[\s\S]*?\}\);/.exec(src);
+		assert.ok(call, 'expected createCaptureFrame to build its srcdoc with buildSrcdoc({ … })');
+		assert.doesNotMatch(call[0], /csp:\s*false/, 'the capture frame must not opt out of the web-image policy');
+		assert.match(call[0], /webOrigins:/, "the capture frame must pass the deck's allowed web origins");
+	});
+
+	test('a web image becomes the placeholder in the frame, and an allowed origin joins the policy', async () => {
+		const { buildSrcdoc } = await load();
+		const html = '<article class="lattice"><section><img src="https://img.example.com/a.png" alt="a"></section></article>';
+		const blocked = buildSrcdoc({ ...BASE, html });
+		assert.doesNotMatch(blocked, /\ssrc="https:\/\/img\.example\.com/);
+		assert.match(blocked, /data-lattice-web-src="https:\/\/img\.example\.com\/a\.png"/);
+		assert.match(blocked, /img-src 'self' data: blob:;/);
+		const allowed = buildSrcdoc({ ...BASE, html, webOrigins: ['https://img.example.com'] });
+		assert.match(allowed, /\ssrc="https:\/\/img\.example\.com\/a\.png"/);
+		assert.match(allowed, /img-src 'self' data: blob: https:\/\/img\.example\.com;/);
 	});
 
 	test('the font-src origin follows the katexUrl rather than a hard-coded CDN', async () => {

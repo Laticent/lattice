@@ -850,6 +850,21 @@ it is the record of what was wrong.
     with 40 docs, 260 MiB in all. Found on the way: Chromium kills the tab on a single
     IndexedDB value of 256 MiB or more; no real reference doc gets near that (the import caps
     a doc at 5 MB), so it constrains test fixtures, not users.
+- **Trio follow-up 11, remote images: done (2026-09-26), pending the owner's export sign-off.**
+  The owner chose (2026-09-25) to block a deck's web images by default, with a visible "load
+  them?" switch, and exports following the same choice. Measuring first found the preview frames
+  and the CLI already contained, and the Studio's raster exports NOT: its capture frame passed
+  `csp: false` and fetched every remote image at export. Now one kernel,
+  `lib/core/remote-ref.js` `blockWebImages`, swaps each web image for a drawn placeholder and
+  each web `url()` for a hatch, in the CLI, the Studio (preview, Present, the Stage, every
+  export) and the Playground; the Studio strip names the sites and loads them per deck and per
+  origin (`IndexEntry.webOrigins`, which join the policy's `img-src`/`media-src`). Own decks are
+  not trusted automatically, since authorship cannot be told from content, and a restored backup
+  never carries the choice. The full record is the 2026-09-26 revision at the top of
+  `2026-09-01-export-remote-subresource-posture.md`. Evidence: `docs/e2e/web-images.spec.ts` on
+  the real Studio against a real local server, 0 requests from the preview and from a PDF export
+  while blocked, and requests after "Load them" (the control); the CLI arms in
+  `export-remote-subresource.test.js`; `examples/web-images.pdf`.
 - **Trio follow-up 18, a malformed `workspace.json`: done (2026-09-26).** A backup whose
   state had the right top-level shape and a wrong type inside (`"chats": null`) reached
   `importStudioState` and failed with "Cannot read properties of null (reading 'welcome')".

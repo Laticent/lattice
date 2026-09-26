@@ -41,6 +41,47 @@ summary: >
 > pins both arms against a real local server. The sections below are the record of the
 > original decision.
 
+> **Revised again 2026-09-26: a web image is blocked by default everywhere, with a switch.**
+> The owner's rule (portable-packages trio follow-up 11, 2026-09-25): a deck's web images stay
+> blocked until the reader chooses to load them, and the exports follow the same choice. Three
+> things changed.
+> 1. **The Studio's raster exports were not contained, and the line above said they were.** Its
+> capture frame (`deck-export.js` `createCaptureFrame`, behind PDF, PPTX, PNG and the player's
+> bake) passed `csp: false` and fetched every remote image at export, on the author's machine,
+> for content they may not have written. It now carries the same policy as the preview.
+> 2. **A blocked image has a face.** `lib/core/remote-ref.js` `blockWebImages`, one kernel for
+> the CLI, the Studio and the Playground, swaps each web image for a drawn placeholder (a
+> hatched 16:9 box in the deck's tokens, styled by `base.modifiers.css`) that keeps its address
+> in `data-lattice-web-src`, and swaps a web `url()` background for the same hatch. That second
+> half is not cosmetic: the Studio's raster exporter (html-to-image) re-fetches every
+> background it finds from the PARENT page, which the frame's policy does not govern. The CLI
+> prints one line naming how many were left out and from which sites.
+> 3. **The switch.** The Studio shows "This deck loads N images from these sites" above the
+> preview with a "Load them" button. The choice is stored on the deck's index entry as a list of
+> ORIGINS (`webOrigins`), which join the policy's `img-src`/`media-src` (validated to the exact
+> shape of an origin) and are read by the preview, Present, the Stage window and every export.
+> **Your own decks are not trusted automatically**, by design: authorship cannot be told from
+> content (a paste, an AI edit or a restored backup can add a web image), so the choice is per
+> deck and per site, a new site asks again, "Block again" takes it back, and a restored backup
+> never carries it (the rule `crashReports` follows). The CLI's switch stays `--allow-remote`.
+> The player (`--player`, the Studio's Webpage) keeps `img-src data:` and shows the placeholder
+> either way: it never loaded a web image.
+> **What the adversarial trio found, and what closed it.** A markup rewrite cannot see every
+> spelling (a CSS escape, `image-set()`, a `(` in the address, a `background=` attribute, a web
+> `url()` in theme or package CSS, a Mermaid image drawn after the rewrite), and the Studio's
+> raster exporter fetches from the PARENT page, where no frame policy applies. So the last word is
+> taken at the capture: `sweepWebRefsForCapture` (`deck-export.js`) reads every element's computed
+> style and its `::before`/`::after`, swaps each web reference outside the allow-list, and puts it
+> back after the clone. Read · Article renders in the Studio's own page with no policy at all, so
+> its render, its flat CSS (`blockWebCss`) and its projected article are rewritten too. The two
+> Studio states (the allow-list and the deck's scan) carry the deck they belong to, so a deck
+> switch cannot lend one deck's sites to another for a render.
+> Pinned by `test/unit/core/web-images.test.js`, `docs/src/components/studio/export/web-sweep.test.ts`, `test/integration/export/export-remote-subresource.test.js`
+> and `docs/e2e/web-images.spec.ts`, which drives the real Studio against a real local server,
+> with a plain image, an escaped `url()` and an `image-set()`: 0 requests while blocked, in the
+> preview and in a PDF export, and requests after "Load them" (the control). What stays open is
+> in `followups.d/2336-p3-web-images-followups.md`.
+
 **Date:** 2026-09-01 · **Follows:** `2026-09-01-preview-remote-subresource-posture.md` · **Status:** decided, implemented
 
 ## The question that record left open

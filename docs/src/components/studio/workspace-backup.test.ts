@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDeck, exportStudioState, importStudioState, lastBackupAt, loadChat, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, markBackupTaken, saveChat, saveCheckpoint, saveInstructions, saveSettings, saveSource, shouldNudgeBackup } from './studio-store';
+import { createDeck, deckWebOrigins, exportStudioState, importStudioState, lastBackupAt, loadChat, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, markBackupTaken, saveChat, saveCheckpoint, saveInstructions, saveSettings, saveSource, setDeckWebOrigins, shouldNudgeBackup } from './studio-store';
 import { malformedWorkspaceState, packWorkspace, restoreWorkspace, WORKSPACE_FORMAT, WORKSPACE_ZIP_NAME } from './workspace-backup';
 
 // jsdom has no IndexedDB, so the Library shelves read as empty — these tests
@@ -230,6 +230,27 @@ describe('workspace-backup — a malformed workspace.json', () => {
 		expect(malformedWorkspaceState({ ...ok, checkpoints: { a: 'x' } })).toMatch(/"checkpoints" has a string/);
 		expect(malformedWorkspaceState({ ...ok, settings: 'dark' })).toMatch(/"settings" should be an object/);
 		expect(malformedWorkspaceState({ ...ok, instructions: 7 })).toMatch(/"instructions" should be text/);
+	});
+});
+
+// "Load this deck's web images" is a choice the reader makes on THIS device (trio follow-up 11).
+describe('web images — the per-deck choice', () => {
+	it('is remembered per deck and per origin, and can be taken back', () => {
+		seedWorkspace();
+		expect(deckWebOrigins('deck-aaa')).toEqual([]);
+		setDeckWebOrigins('deck-aaa', ['https://b.com', 'https://a.com', 'https://a.com']);
+		expect(deckWebOrigins('deck-aaa')).toEqual(['https://a.com', 'https://b.com']);
+		setDeckWebOrigins('deck-aaa', []);
+		expect(deckWebOrigins('deck-aaa')).toEqual([]);
+	});
+
+	it('does not travel in a backup: a restored deck arrives with its images blocked', () => {
+		const state = exportStudioState();
+		state.index.push({ id: 'deck-web', title: 'Web', builtin: false, webOrigins: ['https://tracker.example'] });
+		state.sources['deck-web'] = '# Web\n\n![](https://tracker.example/pixel.png)';
+		importStudioState(state, T0);
+		expect(loadSource('deck-web')).toContain('tracker.example');
+		expect(deckWebOrigins('deck-web')).toEqual([]);
 	});
 });
 

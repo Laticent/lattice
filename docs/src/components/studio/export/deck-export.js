@@ -33,6 +33,7 @@
 import { fromBase64 } from '../../../../../lib/core/base64-utf8.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
+import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
@@ -382,7 +383,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl, webOrigins }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -399,20 +400,18 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// contentVisibility:false → no virtualization (every slide is laid out); no
 		// cursor / sync / print chrome. The FIT agent still scales + reveals against
 		// the real width; rasterizeSection undoes the scale (transform:none) per slide.
-		// `csp: false` — this is an EXPORT renderer, not a preview. The remote-subresource
-		// CSP (#1753) contains frames the author BROWSES, where a deck's image beacons on
-		// open. Here the frame is offscreen and transient, and what it produces is a file
-		// the author downloads: blocking a legitimately-remote image would blank it in the
-		// .pdf / .pptx / .png, changing EXPORTED BYTES — a stop-and-show under the QUALITY
-		// BAR, and a divergence from the CLI export, which carries no CSP. Exports load what
-		// the deck references, on both paths; previews do not. Flipping this to `true` is an
-		// export-behavior decision covering the CLI too, not a local tweak.
+		// The remote-subresource policy, as in every preview (trio follow-up 11, owner
+		// 2026-09-25): a deck's web images stay blocked in what the author EXPORTS as in what they
+		// see, unless they chose to load them for this deck (`webOrigins`, from the Studio's
+		// "Load them" switch). This frame used to pass `csp: false` and fetch every one at export,
+		// on the author's machine, for content they may not have written; the CLI's render has
+		// been offline since 2026-09-24. A blocked image exports as the drawn placeholder.
 		const srcdoc = buildSrcdoc({ html, css, mode, geom: { w: gw, h: gh }, runtimeUrl, fontCss,
 			...(mermaidUrl ? { mermaidUrl } : {}),
 			// The dagre layout engine. `buildSrcdoc` still gates the tag on the slide
 			// actually carrying a drawn state chart, so a chart-less export fetches nothing.
 			...(dagreUrl ? { dagreUrl } : {}),
-			csp: false,
+			webOrigins: webOrigins || [],
 			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
 			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for
 			// this one: nobody sees it, and rasterizeSection runs it through `html-to-image`,
@@ -433,6 +432,7 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		const win = frame.contentWindow;
 		const doc = frame.contentDocument;
 		if (!doc) throw new Error('Could not prepare the export render.');
+		CAPTURE_WEB_ORIGINS.set(doc, webOrigins || []);
 		if (win?.__latticeFit) win.__latticeFit();
 		// Let fonts, layout, and any async diagrams (Mermaid) settle before capture.
 		try { if (doc.fonts?.ready) await withTimeout(doc.fonts.ready, 8000); } catch (_e) {}
@@ -845,6 +845,103 @@ export function forceSectionVisibleForCapture(section) {
 // finish face, lazy-render gates forced open), run `capture(width, height,
 // pixelRatio)`, and restore — shared by the PNG (PPTX) and canvas (PDF worker)
 // rasterizers so the fixups can never drift apart.
+// ─── Web images at the capture (trio follow-up 11) ──────────────────────────────────────
+// The capture frame carries the web-image policy and its markup is rewritten, but the frame is
+// not what fetches for an export: html-to-image runs in the PARENT page, which has no such
+// policy, and re-downloads every image and every `url()` it reads off the computed style so it
+// can inline them. A spelling the markup rewrite cannot see (a CSS escape, `image-set()`, a `(`
+// inside the address, a `background=` attribute, a web url() in theme or package CSS, a Mermaid
+// image drawn after the rewrite) would therefore still be fetched at export, from the author's
+// machine. The computed style is where every spelling has been resolved, so the last word is
+// taken there: right before the clone, every web reference outside the deck's allow-list is
+// swapped for the placeholder, and every one is put back afterwards.
+
+/** The allowed web origins of each capture frame's document (set by createCaptureFrame). */
+const CAPTURE_WEB_ORIGINS = new WeakMap();
+
+const WEB_URL_PROPS = ['background-image', 'mask-image', '-webkit-mask-image', 'border-image-source', 'list-style-image', 'cursor', 'content', 'filter', 'shape-outside'];
+const WEB_HATCH = 'repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0 1px, transparent 1px 10px)';
+
+/** A computed value with every web `url()` outside `allowed` replaced; null when there is none. */
+function valueWithoutWebUrls(value, allowed, replacement) {
+	if (!value || value.indexOf('url(') === -1) return null;
+	let changed = false;
+	const next = value.replace(/url\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^)]*))\s*\)/g, (whole, dq, sq, bare) => {
+		const target = (dq ?? sq ?? bare ?? '').replace(/\\(.)/g, '$1').trim();
+		const origin = remoteRef.webOrigin(target);
+		if (!origin || allowed.has(origin)) return whole;
+		changed = true;
+		return replacement;
+	});
+	return changed ? next : null;
+}
+
+/**
+ * Swap, in place, every web reference under `section` that the deck has not allowed, and return
+ * the function that puts them back. Reads computed styles (the element's own and its ::before and
+ * ::after, which html-to-image clones too) and the fetching attributes of images and media.
+ */
+export function sweepWebRefsForCapture(section) {
+	const doc = section?.ownerDocument;
+	const win = doc?.defaultView;
+	if (!doc || !win || typeof section.querySelectorAll !== 'function') return () => {};
+	const allowed = new Set(CAPTURE_WEB_ORIGINS.get(doc) || []);
+	const undo = [];
+	const pseudoRules = [];
+	let n = 0;
+	for (const el of [section, ...section.querySelectorAll('*')]) {
+		const cs = win.getComputedStyle(el);
+		for (const prop of WEB_URL_PROPS) {
+			const next = valueWithoutWebUrls(cs.getPropertyValue(prop), allowed, prop === 'background-image' || prop.endsWith('mask-image') ? WEB_HATCH : 'none');
+			if (next === null) continue;
+			const prevValue = el.style.getPropertyValue(prop);
+			const prevPriority = el.style.getPropertyPriority(prop);
+			el.style.setProperty(prop, prop === 'background-image' ? next : prop === 'cursor' ? 'auto' : 'none', 'important');
+			undo.push(() => el.style.setProperty(prop, prevValue, prevPriority));
+		}
+		for (const pseudo of ['::before', '::after']) {
+			let ps;
+			try {
+				ps = win.getComputedStyle(el, pseudo);
+			} catch {
+				continue; // a DOM without pseudo-element styles (jsdom) has nothing to clone either
+			}
+			const decls = [];
+			for (const prop of WEB_URL_PROPS) {
+				const next = valueWithoutWebUrls(ps.getPropertyValue(prop), allowed, WEB_HATCH);
+				if (next !== null) decls.push(`${prop}:${prop === 'background-image' ? next : prop === 'cursor' ? 'auto' : 'none'} !important`);
+			}
+			if (!decls.length) continue;
+			const key = `w${n++}`;
+			const prevKey = el.getAttribute('data-lattice-web-sweep');
+			el.setAttribute('data-lattice-web-sweep', key);
+			pseudoRules.push(`[data-lattice-web-sweep="${key}"]${pseudo}{${decls.join(';')}}`);
+			undo.push(() => (prevKey === null ? el.removeAttribute('data-lattice-web-sweep') : el.setAttribute('data-lattice-web-sweep', prevKey)));
+		}
+		const tag = el.localName;
+		const attrs = tag === 'img' ? ['src', 'srcset'] : tag === 'image' ? ['href', 'xlink:href'] : tag === 'video' ? ['poster', 'src'] : tag === 'source' || tag === 'audio' ? ['src', 'srcset'] : [];
+		for (const name of attrs) {
+			const value = el.getAttribute(name);
+			if (value == null) continue;
+			const targets = name.endsWith('srcset') ? value.split(',').map((c) => c.trim().split(/\s+/)[0]) : [value];
+			if (!targets.some((t) => { const o = remoteRef.webOrigin(t); return o && !allowed.has(o); })) continue;
+			if (name.endsWith('srcset') || (tag !== 'img' && tag !== 'image' && name === 'src')) el.removeAttribute(name);
+			else el.setAttribute(name, remoteRef.WEB_IMAGE_PLACEHOLDER);
+			undo.push(() => el.setAttribute(name, value));
+		}
+	}
+	let style = null;
+	if (pseudoRules.length) {
+		style = doc.createElement('style');
+		style.textContent = pseudoRules.join('\n');
+		doc.head.appendChild(style);
+	}
+	return () => {
+		style?.remove();
+		for (const u of undo.reverse()) u();
+	};
+}
+
 async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTarget) {
 	// The spectrum ribbon is a `border-top` whose `border-image-source` is a
 	// linear-gradient. html-to-image inlines that computed border-image and
@@ -939,6 +1036,7 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 	// no node left behind to be seen and no later export that could read a stripped
 	// `corners-rounded` and square a rounded deck. That failure mode cannot happen here.
 	let restoreVisibility = () => {};
+	let restoreWeb = () => {};
 	let w = 0;
 	let h = 0;
 	// Cap the device-pixel multiplier so a 4K box (3840) rasterizes near its
@@ -956,10 +1054,13 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 		// the `.lattice` visibility reveal) so html-to-image rasterizes a laid-out,
 		// painted slide even when the preview was never shown (phone Edit-tab export).
 		restoreVisibility = forceSectionVisibleForCapture(section);
+		// Last, so it sees the section's final computed style (the ribbon repaint above included).
+		restoreWeb = sweepWebRefsForCapture(section);
 		({ w, h } = slideGeom(section));
 		const pixelRatio = pixelRatioOverride != null ? pixelRatioOverride : (w > 2048 ? 1 : 2);
 		return await capture(w, h, pixelRatio);
 	} finally {
+		restoreWeb();
 		section.style.borderImageSource = prev.borderImageSource;
 		section.style.borderTopColor = prev.borderTopColor;
 		section.style.backgroundImage = prev.backgroundImage;

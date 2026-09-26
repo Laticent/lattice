@@ -104,12 +104,15 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsView, saveSource, setDeckLabel, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useStudioDemo } from './use-studio-demo';
+import { WebImagesNotice } from './WebImagesNotice';
 import { WorkspaceSheet } from './WorkspaceSheet';
+import { mayReferenceWebImage } from './web-image-hint';
+import type { WebImageSummary } from './web-images';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
@@ -298,6 +301,8 @@ const unassessedCard = (id: string): CoachCard => ({
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
 type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]>; slideFences?: Record<string, string> };
+
+const NO_WEB_IMAGES_EAGER: WebImageSummary = { count: 0, origins: [], byOrigin: {} };
 
 export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
@@ -1564,6 +1569,49 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// stored title/meta, which for the ACTIVE deck goes stale the moment you type —
 	// so the active row is projected from the live editor instead.
 	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { ...d, title: deckTitle, meta: metaFor(source) } : d)), [decks, deck.id, deckTitle, source]);
+
+	// WEB IMAGES (trio follow-up 11). A deck's images from the web stay blocked until the reader
+	// chooses to load them, per deck and per site. `webAllowed` is that choice (stored on the
+	// deck's index entry); `webSummary` counts what the whole deck references, debounced off the
+	// source and skipped outright when the source names no web address. The preview, the Present
+	// overlay and the exports all read `webAllowed`, so what the reader sees is what they export.
+	// Both pieces of state carry the deck they belong to. `deck` and `source` change in one batch,
+	// but an effect keyed on `deck.id` runs a render late (and after a child's effects), so an
+	// untagged list would, for that render, allow deck A's sites in deck B's frame, and a "Load
+	// them" clicked in the gap would grant A's sites to B. A mismatch reads the store directly
+	// (the allow-list) or counts nothing (the scan) until the tagged value catches up.
+	const [webAllowedFor, setWebAllowedFor] = React.useState(() => ({ id: deck.id, origins: deckWebOrigins(deck.id) }));
+	const webAllowed = webAllowedFor.id === deck.id ? webAllowedFor.origins : deckWebOrigins(deck.id);
+	React.useEffect(() => setWebAllowedFor({ id: deck.id, origins: deckWebOrigins(deck.id) }), [deck.id]);
+	const [webScan, setWebScan] = React.useState<{ id: string; summary: WebImageSummary }>(() => ({ id: deck.id, summary: NO_WEB_IMAGES_EAGER }));
+	const webSummary = webScan.id === deck.id ? webScan.summary : NO_WEB_IMAGES_EAGER;
+	React.useEffect(() => {
+		const id = deck.id;
+		// A deck with no image-shaped web reference never loads the scanner (or the kernel).
+		if (!mayReferenceWebImage(source)) {
+			setWebScan({ id, summary: NO_WEB_IMAGES_EAGER });
+			return;
+		}
+		let live = true;
+		const t = window.setTimeout(() => void import('./web-images').then(({ deckWebImages }) => deckWebImages(source)).then((summary) => live && setWebScan({ id, summary })), 600);
+		return () => {
+			live = false;
+			window.clearTimeout(t);
+		};
+	}, [source, deck.id]);
+	const allowWebOrigins = React.useCallback((origins: string[]) => {
+		setDeckWebOrigins(deck.id, [...new Set([...deckWebOrigins(deck.id), ...origins])]);
+		setWebAllowedFor({ id: deck.id, origins: deckWebOrigins(deck.id) });
+	}, [deck.id]);
+	const blockWebOrigins = React.useCallback(() => {
+		setDeckWebOrigins(deck.id, []);
+		setWebAllowedFor({ id: deck.id, origins: [] });
+	}, [deck.id]);
+	// Every surface that shows or exports THIS deck takes its options from here, so the reader's
+	// choice reaches the exports, Read · Article and the pickers exactly as it reaches the preview.
+	const webAllowedKey = webAllowed.join(' ');
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the list's value, not its identity.
+	const deckOptions = React.useMemo(() => ({ ...options, webOrigins: webAllowed }), [options, webAllowedKey]);
 
 	// Persist the active deck's source (debounced) so edits survive a switch AND a reload.
 	//
@@ -4559,7 +4607,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    deck, and the pre-paint shell could not draw the row at all without resolving the
 				    boot slide's component against the catalog. `disabled` is what "Fix all issues"
 				    two lines down already does. */}
-				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} />
+				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} />
 				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
@@ -4655,6 +4703,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				)}
 			</div>
 			)}
+			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
 			    here; the arrow keys do the same from the window listener above, so all
 			    three verbs work on every device. A PINCH, a ctrl/⌘+wheel and a middle-
@@ -4721,7 +4770,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
 			</div>
@@ -5565,7 +5614,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Building the article…</div>}>
 						<ReadArticle
-							options={options}
+							options={deckOptions}
 							source={source}
 							palette={preview.paletteOverride ?? palette}
 							mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')}
@@ -5879,7 +5928,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →
@@ -5963,7 +6012,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</button>
 					}
 				>
-					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} />
+					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} webOrigins={webAllowed} />
 				</React.Suspense>
 			)}
 			{cmdPalette}

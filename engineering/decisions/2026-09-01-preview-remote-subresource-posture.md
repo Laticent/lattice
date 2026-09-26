@@ -18,6 +18,11 @@ summary: >
 
 # The preview frame's remote-subresource posture
 
+> **Revised 2026-09-26.** The policy now has a face and a switch: a blocked web image shows as a
+> drawn placeholder, and the Studio can load a deck's web images per deck and per site. The
+> Studio's export capture frame, which this record left uncontained, carries the policy too. See
+> the 2026-09-26 revision at the top of `2026-09-01-export-remote-subresource-posture.md`.
+
 **Date:** 2026-09-01 · **Issue:** #1753 (split out of #1246) · **Status:** decided, implemented
 
 ## The question

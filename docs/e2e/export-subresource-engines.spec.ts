@@ -95,7 +95,9 @@ test('a downloaded deck refuses a remote fetch and still renders its own files @
 		// nothing about the export policy. Playwright's own chromium is installed by this tier,
 		// so point at it and the dependency is declared rather than inherited.
 		const { status, stderr } = await new Promise<{ status: number | null; stderr: string }>((res, rej) => {
-			const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet'], {
+			// `--allow-remote` keeps the web address in the file (by default it becomes the placeholder,
+			// trio follow-up 11), so the CSP-stripped control below still has something to fetch.
+			const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet', '--allow-remote'], {
 				cwd: ROOT,
 				env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: chromium.executablePath() },
 			});

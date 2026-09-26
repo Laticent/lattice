@@ -75,6 +75,9 @@ export type DeckPreviewProps = {
 	 *  told from another single-slide deck, and a switch between two of them is stamped as an
 	 *  edit — see lib/core/swap-kind.mjs. */
 	deckId?: string;
+	/** Web origins the reader chose to load this deck's images from (trio follow-up 11). Every
+	 *  other web image shows as a placeholder; absent = none, the default on every surface. */
+	webOrigins?: string[];
 	/**
 	 * THE preview the author is looking at — the only one the Preview-fidelity overlay may describe.
 	 *
@@ -181,6 +184,7 @@ export function DeckPreview({
 	pageIndex,
 	onSplitPage,
 	deckId,
+	webOrigins,
 	focused,
 	mermaid,
 	paletteOverride,
@@ -385,6 +389,11 @@ export function DeckPreview({
 		// non-loader hosts alike now (#1551), so this effect reads only `failed`.
 	}, [failed]);
 
+	// The allowed web origins by VALUE: a host that builds a fresh array each render must not
+	// re-render the frame for the same list.
+	// The prop wins; else the options a deck-scoped host (an overview grid, a picker) was handed.
+	const allowWeb = webOrigins ?? options.webOrigins;
+	const webOriginsKey = (allowWeb ?? []).join(' ');
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED
 	// library theme keeps a stable slug name while its CSS can change (re-save after
@@ -397,7 +406,7 @@ export function DeckPreview({
 		if (!host || !activeRef.current) return;
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
-		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex });
+		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? (allowWeb?.length ? { webOrigins: allowWeb } : undefined) : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex, webOrigins: allowWeb });
 		issuedRef.current = slideIndex === undefined ? null : { slide: slideIndex, deck: deckId ?? '' };
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
@@ -410,7 +419,7 @@ export function DeckPreview({
 		return done;
 		// `splitCaret` is read through `caretRef`; it is listed so a caret move re-renders ONLY while
 		// the shown slide is split.
-	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, pageIndex, deckId, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
+	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, pageIndex, deckId, webOriginsKey, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
 	// active rising-edge effect can reach the current render WITHOUT listing it as a

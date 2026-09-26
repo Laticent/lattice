@@ -249,10 +249,12 @@ OPTIONS
                           'color-mode: print'.
       --allow-remote      Let the render fetch remote images, media and fonts.
                           By default every browser this command starts is kept
-                          off the network, so a remote image in the deck is
-                          left out of the PDF/PPTX/PNG (the .html export has
-                          always left it out). Local files, data: URIs and the
-                          bundled fonts, Mermaid and KaTeX are unaffected.
+                          off the network, so a web image in the deck shows
+                          as a drawn placeholder in every output, and the run
+                          says how many were left out. Loading one tells its
+                          server you opened the deck. Local files, data: URIs
+                          and the bundled fonts, Mermaid and KaTeX are
+                          unaffected.
       --raster            Print the PDF as one full-bleed slide image per page
                           (2x JPEG, from the same screenshots the PPTX path
                           takes) instead of vector pages. Maximum viewer
@@ -2390,6 +2392,8 @@ function topLevelSectionStrings(latticeHtml) {
 // SCRUBBED source (see the call below), which is what makes the exported bytes the bytes of
 // a deck that never carried a note. Named for the parameter it is, not `md` — the module
 // already has an `md` (the print-mode source) and shadowing it here reads as a bug.
+// Said once per run: the export re-renders the deck, and the warning is about the deck.
+let webImagesReported = false;
 function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -2451,7 +2455,22 @@ function engineSlides(deckSource = rawMd) {
   // overflow (the loop in the export IIFE, which reads the really-rendered DOM), because a
   // slide that fits its box is a slide the author composed and the engine has no business
   // re-cutting it. `capacity` speaks to the author through `lint:deck`, not to the splitter.
-  const html = renderedHtml;
+  // WEB IMAGES stay blocked unless the author passed --allow-remote (trio follow-up 11): the
+  // render's browser is offline anyway (lib/core/offline-chromium.js), so without this each one
+  // showed as a broken-image mark in the PDF. Swap each for the drawn placeholder the Studio
+  // shows, and say once what was left out and how to load it.
+  let html = renderedHtml;
+  if (!flags['allow-remote']) {
+    const { blockWebImages, webOrigins } = require('./lib/core/remote-ref.js');
+    const web = blockWebImages(renderedHtml);
+    html = web.html;
+    if (web.blocked.length && !webImagesReported && !QUIET) {
+      webImagesReported = true;
+      const sites = webOrigins(web.blocked);
+      const n = new Set(web.blocked.map((b) => b.url)).size;
+      console.warn(`  ⚠ ${n} web image${n === 1 ? '' : 's'} from ${sites.length === 1 ? sites[0] : `${sites.length} sites (${sites.slice(0, 3).join(', ')}${sites.length > 3 ? ', …' : ''})`} ${n === 1 ? 'was' : 'were'} left out, and a drawn placeholder stands in. Loading one tells its server you opened the deck; pass --allow-remote to load them.`);
+    }
+  }
   const imageScrim = require('./lib/transformers/image-scrim');
   return topLevelSectionStrings(html).map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
