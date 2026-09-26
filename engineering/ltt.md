@@ -39,8 +39,11 @@ writes a deck's LTT, and the exported player plays from it (guardrail G2).
 Built in step 4: `isStale`, with the Vetrina tour recorder as its first caller
 (`staleStretches` in `docs/src/lib/vetrina/recorder.ts`), the recorder itself, which writes a
 seekable tour LTT, and `Narrator.plan()` returning the core's `CaptionTrack`. Vetrina's gate
-admits `@laticent/ltt` by that exact name, as Cadenza's does. Not built: the video export (step
-3, proposed in `decisions/2026-09-25-video-export.md`) and a reference tour player.
+admits `@laticent/ltt` by that exact name, as Cadenza's does.
+
+Built in step 3: the video export (`lib/export/video.mjs`, `lattice video`), a capture of the
+narrated HTML export's own player in render mode, and the first production caller of
+`timeline()` (§What video export guarantees). Not built: a reference tour player.
 
 ## The file
 
@@ -83,10 +86,11 @@ inputs, and a tour never carries `deckPace`.
 per-line emphasis spans, and they change a track's timing, but a span is a character range into
 one line, so it means nothing file-wide. `segmentHashInput(text, inputs, emphasis)` appends a
 segment's spans, one list per line, when any line has one; with none, the string is exactly what
-it was, so no existing hash moves. The tour recorder hashes them. The deck producer does not yet:
-the HTML export receives no emphasis spans (`narrationPayload` gets text, track and clips), so an
-emphasis-only edit to a deck still leaves its `hash` unchanged. Carrying them changes export
-bytes, so it waits for its own sign-off (`followups.d/2339-p5-deck-emphasis-in-segment-hash.md`).
+it was, so no existing hash moves. The tour recorder hashes them, and so does the deck producer:
+the Studio's bake hands each slide the spans `buildTrack` timed it with, `narrationPayload`
+carries them, and `deckLtt` hashes a slide as one line. A deck with no emphasis keeps exactly the
+hashes it had, and re-weighting one span moves only that slide's hash
+(`test/unit/export/ltt-deck-emphasis.test.js`).
 
 `engine` hashes the SOURCE the estimate is computed from: Cadenza's `track.ts`
 (`buildTrack`) and every file it reaches through relative imports, in name
@@ -338,7 +342,7 @@ builds its own cursor, which is why the player must always pass one.
 The timing functions tell a player **where in a segment** it is. The transport
 decides **when to move between segments**. These rules are normative; the HTML
 player (`lib/export/player-core.mjs`) implements them today, and any second
-player, including the video renderer's simulated one, must follow them.
+player, including the video export's capture of that player, must follow them.
 
 1. **Play** speaks the current slide at once, with no hold.
 2. When a slide's narration ends, the player **advances first, then holds on the
@@ -351,7 +355,7 @@ player, including the video renderer's simulated one, must follow them.
    the audio content stops, so a voiced HTML export runs late of any computed
    timeline by about that much per clip: roughly 8 s over an 87-sentence deck.
    WebKitGTK 2.52 measured 51–76 ms per clip on the same real-speech deck. A
-   simulated transport (video export) has no such latency, so the two
+   capture in render mode (video export) has no such latency, so the two
    disagree on voiced segment lengths by that amount until one of them changes.
    Firefox's figure is not measured: this sandbox's only audio device is a
    PulseAudio null sink, which plays about 1.6× slow.
@@ -375,9 +379,16 @@ player, including the video renderer's simulated one, must follow them.
    it advances at once and holds on the slide that arrives.
 7. Within a segment, the player may re-time a cue to the decoded clip's
    length (`cursor.align`). That is the only way a measured length enters
-   playback. **Lead trim:** a clip whose encoder added leading silence (`leadMs`)
-   starts playing `leadMs` in, and the cue is aligned to the clip's length
-   **minus** `leadMs`, the speech alone. A player that skips the trim lets the
+   playback. **Lead trim:** a clip with leading silence (`leadMs`) starts playing
+   `leadMs` in, and the cue is aligned to the clip's length **minus** `leadMs`,
+   the speech alone. The Studio's bake (`compressClip` in
+   `docs/src/playground/narration-encode.js`) records `leadMs` as the MP3
+   encoder's delay (46 ms at 24 kHz) **plus the voice's own silence before its
+   first word**: the first sample above 2% of full scale, less a 10 ms pre-roll
+   (`speechOnsetMs`). Kokoro leaves 290–390 ms of it before every sentence, and a
+   lead that counted only the encoder lit each caption about 0.3 s early. A player
+   that skips the trim plays that silence before the first word while its crawl
+   clock already runs, so its caption leads the voice by the whole `leadMs`. A player that skips the trim lets the
    crawl lag the voice by that much on every cue. The crawl's clock inside the
    cue is the clip's `currentTime` minus `leadMs`, so it starts at the first
    word, not `leadMs` into it. The seek and the re-timing wait for a **known** duration
@@ -388,14 +399,29 @@ player, including the video renderer's simulated one, must follow them.
 
 ## What video export guarantees (G5)
 
-Video export (step 3) renders from a seekable LTT. **It guarantees:** narration,
-captions, slide and hold timing, and tour actions from a recorded run. **In 1.0
-it does not guarantee:** Anima motion (the player receives that separately as
-`animaJs`), or the cursor's position mid-travel (an `on-word` action records
-where the cursor lands, not where it is in every frame). Either may become a
-layer under G4.
+Video export (step 3) is built: `lib/export/video.mjs`, run by `lattice video`
+(`engineering/pipeline.md` §6). It is a capture of the narrated HTML export's own
+player, so **it guarantees what that player shows**: narration, slide and hold
+timing, and Anima motion, because the capture includes whatever the player draws.
+The captions ride as a WebVTT track in the MP4 and a `.vtt` sidecar, laid out by
+`timeline()` over the measured clip lengths; the caption band is not in the frame.
+**It does not guarantee** tour actions (no recorder writes a seekable run yet), the
+Guide's gestures (the exported player does not carry the Guide; the video note's
+fork 8), or the cursor's position mid-travel.
 
-The encoder, muxer, frame rate and simulated transport are proposed in
+**Render mode** is the player's one hook for the capture (`window.__lpRender`, set
+only by the capture). Media does not play on the capture's clock, so rule 3 cannot
+apply there: a voiced cue lasts its clip's `measuredMs − leadMs`, which the
+capture writes into the LTT after decoding every clip, and the cue is re-timed to
+that length exactly as the anchor in rule 7 would. It takes the same timer path a
+cue with no clip takes (rule 4), and a clip with no measured length falls back as
+a clip that failed to decode. So the video follows `timeline()` exactly, and runs
+about 100 ms per clip ahead of a live Chromium viewing (rule 3's measured cost).
+`test/unit/export/ltt-player-transport.test.js` pins render mode to `timeline()`,
+and the capture refuses to write a file when the cue starts the player logged
+disagree with it by more than half a frame.
+
+The encoder, muxer and frame rate are recorded in
 [`decisions/2026-09-25-video-export.md`](decisions/2026-09-25-video-export.md).
 
 ## Files written before the LTT

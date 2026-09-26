@@ -11,7 +11,7 @@
 //
 // mediabunny is not a dependency until the owner rules on the note's forks, so install it
 // without saving first:   npm i --no-save mediabunny@1.60.0
-// Run:  node tools/spike-video-export.mjs [--deck=test/fixtures/q3-board-review.md] [--fps=30] [--mode=dark] [--voice=tone|espeak]
+// Run:  node tools/spike-video-export.mjs [--deck=test/fixtures/q3-board-review.md] [--fps=30] [--mode=dark] [--voice=tone|espeak|kokoro] [--lead=encoder]
 // `--voice=espeak` needs espeak-ng on PATH (apt-get install espeak-ng); `--voice=kokoro` needs
 // kokoro-js (npm i --no-save kokoro-js@1.2.1) and downloads the Studio's model once.
 // Writes .scratch/out/video/ (the MP4, the .vtt, a report JSON).
@@ -126,15 +126,16 @@ function speak(text) {
 }
 // `--voice=kokoro`: the Studio's own on-device voice (onnx-community/Kokoro-82M-v1.0-ONNX, q8,
 // voice af_heart) through kokoro-js, and the Studio bake's own MP3 encoder (lamejs at 64 kb/s,
-// `encoderLeadMs` as the clip's leadMs). So the clips are the bytes a real narrated export ships,
-// and the MP3 decode path is exercised. Kokoro's OWN leading silence stays in the clip, as it does
-// in a real bake; the report measures it (`voiceLeadMs`) rather than hiding it. Clips are cached
+// and the bake's leadMs rule: encoder delay plus `speechOnsetMs`). So the clips are the bytes a
+// real narrated export ships, and the MP3 decode path is exercised. Kokoro's OWN leading silence
+// stays in the clip, as it does in a real bake, and `leadMs` skips it; the report measures what is
+// left (`voiceLeadMs`). `--lead=encoder` declares the encoder's delay alone, as before. Cached
 // under .scratch/out/video/kokoro-cache by text, because loading the model takes about a minute.
 // Needs kokoro-js resolvable: `npm i --no-save kokoro-js@1.2.1` (it downloads the model once).
 const voiceLeads = new Map(); // `${slide}:${cue}` -> ms of the voice's own silence before speech
 let kokoro = null;
 async function kokoroClip(text) {
-  const { encodeMp3, encoderLeadMs } = await import('../docs/src/playground/narration-encode.js');
+  const { encodeMp3, encoderLeadMs, speechOnsetMs } = await import('../docs/src/playground/narration-encode.js');
   const dir = path.join(OUT, 'kokoro-cache');
   mkdirSync(dir, { recursive: true });
   const key = path.join(dir, `${createHash('sha256').update(text).digest('hex').slice(0, 16)}.pcm`);
@@ -156,7 +157,12 @@ async function kokoroClip(text) {
   for (let i = 0; i < pcm.length; i++) if (Math.abs(pcm[i]) > 0.02) { if (i < first) first = i; last = i; }
   const int16 = Int16Array.from(pcm, (x) => Math.max(-32768, Math.min(32767, Math.round(x * 32767))));
   const mp3 = await encodeMp3(int16, rate, 1, 64);
-  return { uri: `data:audio/mpeg;base64,${Buffer.from(mp3).toString('base64')}`, leadMs: encoderLeadMs(rate), voiceLeadMs: Math.round((first / rate) * 1000), trailMs: Math.round(((pcm.length - 1 - last) / rate) * 1000) };
+  // `leadMs` is what the Studio's bake records (`compressClip`): the encoder's delay plus the
+  // voice's own silence before its first word. `--lead=encoder` reproduces the bake before
+  // 2026-09-26, which declared the encoder's delay alone. `voiceLeadMs` is the silence LEFT
+  // after the trim, so the report reads 0 (well, the 10 ms pre-roll) when the bake trims it all.
+  const trim = args.lead === 'encoder' ? 0 : speechOnsetMs(int16, rate);
+  return { uri: `data:audio/mpeg;base64,${Buffer.from(mp3).toString('base64')}`, leadMs: encoderLeadMs(rate) + trim, voiceLeadMs: Math.round((first / rate) * 1000 - trim), trailMs: Math.round(((pcm.length - 1 - last) / rate) * 1000) };
 }
 // Clip lengths deliberately NOT the estimate: 0.8x-1.25x, deterministic, so measuredMs matters.
 let seed = 7;

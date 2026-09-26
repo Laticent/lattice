@@ -80,6 +80,42 @@ export function encoderLeadMs(sampleRate) {
 	return sampleRate > 0 ? (ENCODER_LEAD_SAMPLES / sampleRate) * 1000 : 0;
 }
 
+/**
+ * A sample counts as SPEECH once its magnitude passes 2% of full scale (655 of 32767) — the
+ * rule `tools/spike-video-export.mjs` measured Kokoro's leading silence with. Kokoro puts
+ * 290–390 ms (median 324 ms) of near-silence before every sentence; its noise floor sits well
+ * under this line and its first phoneme well over it.
+ */
+const SPEECH_THRESHOLD = 655;
+
+/**
+ * How far BEFORE the first loud sample the trim stops. A soft attack — an "s", an "f", a "h" —
+ * rises through the threshold over a few milliseconds, and cutting exactly at the crossing
+ * clips it. 10 ms keeps the attack and stays well inside one video frame (33 ms at 30 fps).
+ */
+const SPEECH_PREROLL_MS = 10;
+
+/**
+ * The voice's OWN leading silence, in ms: how long the clip runs before its first sample
+ * louder than 2% of full scale, less a 10 ms pre-roll. 0 when the clip never gets that loud,
+ * so a quiet or empty clip is never trimmed.
+ *
+ * This is a property of the voice, not the codec, and it is why `leadMs` is encoder delay PLUS
+ * this figure: the player starts a clip `leadMs` in and times its caption from there, so a lead
+ * that counted only the encoder lit each caption a third of a second before Kokoro spoke it.
+ * Interleaved stereo is read by frame, so the onset is in time, not in samples.
+ */
+export function speechOnsetMs(pcm, sampleRate, channels = 1) {
+	if (!pcm || !(sampleRate > 0) || !(channels > 0)) return 0;
+	for (let i = 0; i < pcm.length; i++) {
+		if (Math.abs(pcm[i]) > SPEECH_THRESHOLD) {
+			const ms = (Math.floor(i / channels) / sampleRate) * 1000 - SPEECH_PREROLL_MS;
+			return ms > 0 ? ms : 0;
+		}
+	}
+	return 0;
+}
+
 /** In-flight/loaded module promise, or null when nothing has been attempted since the last
  *  failure. Never holds a rejected outcome — see `lame`. */
 let encoderModule = null;
@@ -264,7 +300,8 @@ export async function compressClip(bytes, kbps = DEFAULT_BITRATE_KBPS) {
 	if (!wav) return null;
 	const mp3 = await encodeMp3(wav.pcm, wav.sampleRate, wav.channels, kbps);
 	if (!mp3 || mp3.byteLength >= buf.byteLength) return null;
-	// `leadMs` rides WITH the bytes. A consumer that plays this clip without seeking past it
-	// puts 46 ms of silence in front of every sentence — see ENCODER_LEAD_SAMPLES.
-	return Object.assign(mp3Clip(mp3), { leadMs: encoderLeadMs(wav.sampleRate) });
+	// `leadMs` rides WITH the bytes: the encoder's delay (46 ms at 24 kHz, ENCODER_LEAD_SAMPLES)
+	// plus the voice's own silence before its first word (`speechOnsetMs`). A consumer that plays
+	// this clip without seeking past it lights each caption before the voice reaches it.
+	return Object.assign(mp3Clip(mp3), { leadMs: encoderLeadMs(wav.sampleRate) + speechOnsetMs(wav.pcm, wav.sampleRate, wav.channels) });
 }

@@ -54,11 +54,11 @@ export type BakedCue = {
 	gapMs: number;
 	/** The word timeline the exported player's caption crawl highlights against. */
 	words: { display: string; startMs: number; endMs: number }[];
-	/** Milliseconds of encoder-inserted SILENCE at the head of `audio`, or 0 when the clip was
-	 *  not encoded here. lamejs writes no gapless header, so no decoder can trim its ~46 ms of
-	 *  leading delay on its own — the player seeks past this instead. Without it, audio starts
-	 *  after its own caption on every sentence and the tuned sentence breath grows by ~28%.
-	 *  See ENCODER_LEAD_SAMPLES. */
+	/** Milliseconds of SILENCE at the head of `audio` before the first word, or 0 when the clip
+	 *  was not encoded here: the encoder's delay (lamejs writes no gapless header, so no decoder
+	 *  trims its ~46 ms on its own) plus the voice's own leading silence (Kokoro's is ~324 ms,
+	 *  `speechOnsetMs`). The player seeks past it and times the caption from there. Without it,
+	 *  each caption lights before its voice speaks. See ENCODER_LEAD_SAMPLES. */
 	leadMs?: number;
 	/** SHA-256 of the clip bytes as shipped, `sha256:` + hex — the LTT audio layer's `clip`
 	 *  (engineering/ltt.md §Layers). Set with `audio`. */
@@ -75,7 +75,7 @@ export type NarrationBake = {
 	/** What the deck's LTT is built from (lib/core/ltt-deck.mjs), index-aligned to the deck's
 	 *  slides: the exact text handed to `buildTrack`, and the track it built. Null for a slide
 	 *  with no narration. `slides[i]` is index-aligned to `narrated[i].track.cues`. */
-	narrated: ({ text: string; track: CaptionTrack } | null)[];
+	narrated: ({ text: string; track: CaptionTrack; emphasis?: EmphasisSpans } | null)[];
 	/** The deck-wide inputs that change timing, for the LTT's `inputs` (the maps are hashed there). */
 	inputs: { lang?: string; lexicon?: Record<string, string>; acronyms?: Record<string, string> };
 	/** What the deck was narrated with — recorded so the artifact can say so. */
@@ -428,11 +428,8 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 	// caption rung can win over either — both replace the string, and stale offsets would land a beat
 	// mid-phrase. The same identity test Present and the CLI export apply, so all three producers
 	// bake, play and export the identical beats.
-	const tracks = texts.map((t, i) => {
-		if (!t) return null;
-		const emphasis = t === projected?.[i] ? projectedEmphasis?.[i] : undefined;
-		return buildTrack(t, { acronyms, emphasis, lang, lexicon });
-	});
+	const emphases = texts.map((t, i) => (t && t === projected?.[i] ? projectedEmphasis?.[i] : undefined));
+	const tracks = texts.map((t, i) => (t ? buildTrack(t, { acronyms, emphasis: emphases[i], lang, lexicon }) : null));
 	const perSlide = tracks.map((track) => (track ? track.cues.map((c) => c.words.map((w) => w.spoken).join(' ')) : []));
 	// "A projection was SUPPLIED", not "was used". A misaligned one is stood down, but the
 	// fallback rung above then reproduces exactly what Present does with the same input — so
@@ -442,6 +439,7 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 		slides,
 		tracks,
 		texts,
+		emphases,
 		perSlide,
 		projectionUsed: Array.isArray(projected),
 		inputs: {
@@ -630,9 +628,10 @@ export async function bakeNarration(
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { tracks, texts, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
+	const { tracks, texts, emphases, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
-	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track } : null));
+	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs).
+	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...emphases[i]] } : {}) } : null));
 
 	// The cue skeleton — text, estimate, breath, word timings. Identical whether or not audio
 	// ships, because it is the same delivery either way; only the clips differ.
@@ -740,7 +739,8 @@ export async function bakeNarration(
 		// The clip's identity in the LTT: a hash of the bytes that ship, so a re-voiced clip reads as
 		// a different clip even when its text did not change (2026-09-24-lattice-timing-track.md §4.5).
 		const clip = `sha256:${Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', raw)), (b) => b.toString(16).padStart(2, '0')).join('')}`;
-		// The encoder's leading silence travels with the clip, so the player can seek past it.
+		// The clip's leading silence (encoder delay plus the voice's own) travels with the clip,
+		// so the player can seek past it.
 		const leadMs = compressed ? ((compressed as { leadMs?: number }).leadMs ?? 0) : 0;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;

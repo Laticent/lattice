@@ -381,6 +381,21 @@ describe('bakeNarration — complete, or nothing', () => {
 		expect(bake.bytes).toBe(shippedBytes(30_000) + shippedBytes(20_000));
 	});
 
+	it('hands over the emphasis spans each slide was timed with, so the LTT hashes them', async () => {
+		// followups 2339-p5: an emphasis-only edit must move the slide's segment hash, so the spans
+		// buildTrack was given ride with the slide's text into the LTT (lib/core/ltt-deck.mjs).
+		const spans = [{ start: 4, end: 9, weight: 1.5 }];
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: false, projectedEmphasis: [spans, undefined] });
+		expect(bake.narrated[0]?.emphasis).toEqual(spans);
+		expect(bake.narrated[1] && 'emphasis' in bake.narrated[1]).toBe(false);
+		// A caption override replaces the projected text, so the spans measured against the projection
+		// no longer apply: buildTrack drops them, and so must the hash.
+		const captioned = DECK.replace('# One', '<!-- caption: The author says something else here. -->\n\n# One');
+		const over = await bakeNarration(captioned, PROJECTED, { voice: VOICE, audio: false, projectedEmphasis: [spans, undefined] });
+		expect(over.narrated[0]?.text).toBe('The author says something else here.');
+		expect(over.narrated[0] && 'emphasis' in over.narrated[0]).toBe(false);
+	});
+
 	it('hands over what the deck LTT is built from: the text, its track, and a hash per clip', async () => {
 		// LTT step 2 (lib/core/ltt-deck.mjs): per slide, the exact string Cadenza timed and the track
 		// it built, index-aligned so `slides[i][j]` is `narrated[i].track.cues[j]`; per clip, a

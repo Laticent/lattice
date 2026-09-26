@@ -1,12 +1,13 @@
 ---
-status: proposed
-summary: How a narrated deck becomes an MP4 plus a .vtt (LTT step 3). The owner's rule, 2026-09-25 - video is an export path over the Studio's own spine, like the HTML player, never a second renderer. So the video is the narrated HTML export itself, played by its own transport under headless Chromium's virtual clock and captured frame by frame, with the audio muxed from the same clips at the times that transport uses; captions ride as a track a viewer's player can switch on. WebCodecs encodes H.264, mediabunny muxes, 30 fps; the owner's audience needs AAC audio. A measuring spike on the 17-slide fixture deck, voiced by the Studio's Kokoro, held all 63 captions within 11 ms of the voice and every slide change within a frame.
+status: in-progress
+summary: How a narrated deck becomes an MP4 plus a .vtt (LTT step 3). The owner's rule, 2026-09-25 - video is an export path over the Studio's own spine, like the HTML player, never a second renderer. So the video is the narrated HTML export itself, played by its own transport on a clock the capture owns and captured frame by frame, with the audio muxed from the same clips at the times that transport logged; captions ride as a track a viewer's player can switch on. WebCodecs encodes H.264, FFmpeg's AAC encoder compiled to WebAssembly encodes the audio the owner's audience needs, mediabunny muxes, 30 fps. Built 2026-09-26 as `lattice video`: the 17-slide fixture deck, voiced by the Studio's Kokoro, renders 5:06 of video in about a minute, with all 62 captions within a frame of the voice and every slide on time.
 ---
 
 # Video export — a narrated deck to MP4 plus `.vtt` (LTT step 3)
 
-> **Proposed** (2026-09-25). Nothing here is built except a measuring spike,
-> `tools/spike-video-export.mjs`. This is step 3 of
+> **Built** (2026-09-26): `lib/export/video.mjs`, run by `lattice video` (§9). The
+> measuring spike, `tools/spike-video-export.mjs`, stays committed so its numbers can be
+> re-run. This is step 3 of
 > [`2026-09-24-lattice-timing-track.md`](2026-09-24-lattice-timing-track.md) §8, which
 > left the encoder, the muxer and the frame rate to this note (its §11). §6 puts the forks
 > to the owner, and §8 records what the adversarial trio found.
@@ -37,7 +38,9 @@ Measured the same day: under the Chrome DevTools Protocol's virtual time
 (`Emulation.setVirtualTimePolicy`), the real exported player plays itself frame by frame. Its
 caption crawl lit words, it advanced, it held on the arriving slide, and 15 s of deck took
 127 ms of wall time. Timers, `requestAnimationFrame`, `Date.now` and `performance.now` all
-follow that clock. Media playback does not, which is the one hook §3 adds.
+follow that clock. Media playback does not, which is the one hook §3 adds. **The build does
+not use virtual time after all** (§9): with the caption crawl running, Chromium stopped producing
+frames on the virtual clock and every screenshot hung. The capture owns the page's clock instead.
 
 ## 1. The answer
 
@@ -160,7 +163,8 @@ See §7.
 
 1. **Build the narrated HTML export**, exactly as the Studio or the CLI would with the same
    configuration: the narration ladder, the voice, captions on or off, the theme and mode.
-2. **Open it in headless Chromium, render mode on.** One hook in the player, and only one:
+2. **Open it in headless Chromium, render mode on** (built as `window.__lpRender`; the clock is
+   the capture's own, §9). One hook in the player, and only one:
    in render mode a voiced cue lasts its clip's measured length (`measuredMs − leadMs`, from
    the LTT) instead of waiting for the audio element's `ended`, because media does not play
    on a virtual clock. It is the same `silentCue` timer path the player already uses for a
@@ -223,8 +227,9 @@ measured length when it knows it.
 0. **Where will the audience play the file?** Answer this first. It decides forks 1 and 2.
    **Answered 2026-09-25: slide software too (PowerPoint, Keynote, QuickTime).** AAC audio is
    required, which rules out 1a on its own.
-1. **Encoder and muxer.** *(Recommended now: measure d against b, then pick. a alone no longer
-   meets fork 0's answer.)*
+1. **Encoder and muxer.** *(**Decided by the owner, 2026-09-26: d, with FFmpeg's LGPL notice
+   carried** in `assets/licenses/LGPL-2.1-ffmpeg.txt` and `lattice video --help`. §9 has the
+   measurement.)*
    - **a. WebCodecs + mediabunny.** Nothing native to install; 685 KB of MPL-2.0 JS.
      Encode, mix and mux measured 22.8 s for 2:54 of video. Files are about twice
      ffmpeg's size at this bitrate (8.0 MB vs 3.9 MB); a lower quality setting trades that
@@ -235,11 +240,17 @@ measured length when it knows it.
    - **c. Both.** WebCodecs by default, and ffmpeg when it is on `PATH`. Two paths to
      test.
    - **d. WebCodecs video, AAC audio from a separate encoder** (an LGPL ffmpeg build, or
-     a WebAssembly AAC encoder). This keeps the small install and gets AAC. **Not
-     measured**: neither the build's size nor a wasm encoder's speed or license.
+     a WebAssembly AAC encoder). This keeps the small install and gets AAC. **Measured
+     2026-09-26** with `@mediabunny/aac-encoder` 1.60 (§9): FFmpeg's native AAC encoder
+     compiled to WebAssembly, 993 KB of minified JS with the module inlined, 4.7 MB unpacked
+     on disk. It encoded the fixture deck's 5:06 of audio inside a 7.8 s encode-and-mux step,
+     and the MP4 decodes back as `mp4a.40.2` (AAC-LC). Its license needs the owner's eye: the
+     package says MPL-2.0, while FFmpeg's AAC encoder is LGPL-2.1-or-later, and the package
+     ships no FFmpeg notice. Both are compatible with AGPL-3.0-only; the question is the notice
+     we owe when we redistribute it, not whether we may.
    - **Common to all four: H.264 is patent-licensed.** That is a question for whoever owns
      distribution, and no fork avoids it; VP9 in WebM would, but slide software rarely
-     plays WebM.
+     plays WebM. *(Owner, 2026-09-26: ship H.264 as the browser encodes it.)*
 2. **Audio codec.** *(Settled by fork 0: AAC, through 1b, 1c or 1d.)* The measured Chromium (Chrome for Testing 131 on Linux) encodes
    Opus and **cannot encode AAC**: `isConfigSupported` is false for `mp4a.40.2`,
    `mp4a.40.5` and `aac`. Chrome on macOS and Windows uses the platform's encoders and was
@@ -267,7 +278,8 @@ measured length when it knows it.
      arms its advance at `measuredMs − leadMs` and treats `ended` as a fallback for a clip
      that runs long. The two players then agree. This changes the exported player's bytes,
      so it would stop for sign-off.
-7. **Lead-in and outro.** *(Recommended: a fixed lead-in on slide 1 whenever slide 1 has
+7. **Lead-in and outro.** *(**Decided by the owner, 2026-09-26: one second each**, the built
+   defaults.)* *(Was recommended: a fixed lead-in on slide 1 whenever slide 1 has
    no narration, and a fixed outro after the last slide, both in the video only.)* The
    live player needs neither, so the LTT's own holds stay as they are. The lengths are
    the owner's number; one second each is a starting point, not a measurement.
@@ -297,12 +309,14 @@ measured length when it knows it.
 
 ## 7. Not decided here, and not verified
 
-- **Playback beyond Chromium.** The MP4 was decoded back only by Chromium, through
-  mediabunny. Safari, iOS, Firefox, QuickTime, PowerPoint, Keynote: **UNVERIFIED**.
+- **Playback beyond Chromium.** *(Owner, 2026-09-26: the fixture MP4 plays in **QuickTime**
+  and on a **phone / browser**, picture and audio good and in sync.)* PowerPoint, Keynote and
+  Firefox: **UNVERIFIED**.
 - **The muxed WebVTT track.** mediabunny writes a `wvtt` track, and reading the file back
   with the same library lists only the video and audio tracks, so nothing has read the
-  track back. Many players ignore `wvtt`; QuickTime expects `tx3g`. **UNVERIFIED**, and
-  the `.vtt` sidecar is the caption path that is known to work.
+  track back. Many players ignore `wvtt`; QuickTime expects `tx3g`. The owner's QuickTime test
+  (2026-09-26) showed no subtitles, which fits: the track is not one a player offers yet. The
+  `.vtt` sidecar is the caption path that is known to work.
 - **Other voices and encoders.** The third run used the Studio's Kokoro through its own
   constant-bitrate MP3 encoder. A hosted voice returning variable-bitrate MP3 can decode to
   different lengths in different decoders (the LTT note §5), and each voice has its own leading
@@ -348,3 +362,89 @@ What each found, and what changed:
   - The track claim was softened.
   - The 672 KB and 7× figures were corrected.
   - The ffmpeg arm is labeled as a one-off.
+
+## 9. The build, measured (2026-09-26)
+
+`lib/export/video.mjs`, run as `lattice video <narrated-export.html> [out.mp4]`
+(`engineering/pipeline.md` §6). It follows §3 with one change of mechanism and one of input.
+
+**The input is the narrated HTML export, not the deck.** The CLI has no speech engine, so it
+cannot narrate a deck as the Studio does; a `--video` flag on a deck render would have made a
+silent, captions-only video. So the command takes the export the Studio writes, which is §1's
+"Input" row, and the Studio route is: export the narrated webpage, then run `lattice video` on it.
+A CLI that voices a deck itself is fork 10's question, recorded in the followup.
+
+**The clock is the capture's own, not Chromium's virtual time.** With the caption crawl running,
+Chromium stopped producing compositor frames on the virtual clock and every screenshot hung, in
+new headless and in chrome-headless-shell alike (Chrome for Testing 131). So `installFrameClock`
+replaces the page's `setTimeout`, `setInterval`, `requestAnimationFrame`, `Date.now` and
+`performance.now` before the export's script runs, holds every CSS and Web Animations animation
+paused and seeks it to that clock, and the compositor keeps real time, so a screenshot always has
+a frame to read. The transport test's fake clock is the same idea, and the player cannot tell the
+difference.
+
+**Self-checks refuse to write a file.** The stage must not move under the fixed clip (the player
+re-fits on every navigation, and did, until the capture pinned it after every step); every slide
+must become active on the first frame at or after the time `timeline()` gives it; every cue start
+the player logs must match `timeline()` within half a frame; the player must have finished and
+voiced every clip that decoded; no clip may lose more of its head than its own declared silence;
+and an export none of whose clips decode is refused rather than written silent.
+
+**The frame follows the deck's canvas.** Its long side is 1920 px: a 1280×720 deck renders at
+device scale 1.5 (1920×1080), a 9:16 deck at 1080×1920, a 4K deck at 1920×1080. The H.264 level
+follows the frame size (4.0 up to 1920×1088, 5.1 above).
+
+**Two defects the independent MP4 check found, and their fixes.** Checking the file itself (decode
+the MP4 back, find each sentence's sound and each slide change, compare with the layout) found
+both, after every internal check had passed:
+
+- **AAC priming.** The encoder puts 1024 samples (21.3 ms at 48 kHz) ahead of the audio, and the
+  MP4 carries no edit list, so every sentence sounded 21 ms late. The capture now measures the
+  delay at run time, by encoding a click through the same encoder, muxer and decoder, and places
+  the audio that much earlier (Apple's encoder primes 2112 samples, so the figure is measured,
+  not assumed). A voiced first slide gets a one-frame lead-in, because its first word cannot be
+  placed before zero.
+- **Every slide one frame late.** A MutationObserver delivers its records after the step that
+  caused them, so a changed frame was noticed one frame later. The capture drains the observer
+  with `takeRecords()` inside each step.
+
+**The fixture deck, measured.** `test/fixtures/q3-board-review.md`, 17 slides, narrated by the
+Studio's Kokoro (af_heart, q8) through the bake's own MP3 encoder and trimmed of the voice's own
+leading silence, exported by the spike, then captured by `lattice video`, dark and light alike:
+
+| | Result |
+|---|---|
+| Output | 1920×1080, 30 fps, `avc1.640c28` + `mp4a.40.2` (AAC-LC), 305.8 s, 14.1 MB (dark) and 13.9 MB (light) |
+| Frames | 9,174 of 9,174, one of them the lead-in; 18 captured, the rest re-encode the unchanged frame |
+| Wall time (4-core sandbox) | 58–76 s, about 4–5× real time; of the 58 s run, decode 0.8 s, capture 48.6 s, audio and mux 7.8 s |
+| Caption start vs. the voice in the decoded MP4 | 62 of 62 within one frame (max 22 ms); mean 10 ms, the pre-roll |
+| Slide change vs. `timeline()` | 16 of 16 on the first frame at or after its time (3–33 ms) |
+| Cue start the player logged vs. `timeline()` | within 4 ms, every cue: the browser's nested-timer clamp, which the frame clock applies too |
+| AAC delay measured by the probe | 21.3 ms |
+
+`test/integration/export/video-export.test.js` runs the same checks on two four-slide decks, in
+about 30 s: one with a silent title, a silent divider, a corrupt clip and a cue with no clip, and
+one that speaks on its first slide. Removing the priming correction, the observer drain or the
+voiced-first lead-in each fails it.
+
+**What the adversarial trio found, and what changed.** The checker found a deck could turn a
+viewer's player into render mode by DOM clobbering (`id="__lpRender"` plus `name="log"`), which
+silenced its narration: the flag now requires a real array, and a unit test pins it. It also found a
+voiced first slide lost its first 21 ms (the priming fix above), a timer-id collision between real
+and fake timers, and half-sample steps at mix-window seams, all fixed. The red team found that
+`lattice video x.html x.html` deleted the export on failure (the output must now be a new `.mp4`,
+written as `.partial` and renamed), that portrait, 4:5 and 4K decks failed with a misleading error
+(the scale now follows the canvas), that a crafted export could draw a local file into the video
+(the capture page now loads only its own file and `data:` URLs), that a chain of zero-delay timers
+hung the capture (nested timers now clamp to 4 ms, as in a browser, with a per-step cap), that an
+all-silent export wrote a silent video with exit 0, that Ctrl-C left files behind (signals now clean
+up), and that a newline in a caption could write cues of its own. The inversion pass asked for the
+two encoder packages pinned to exact versions, so an unattended minor bump cannot change the output,
+and for the unverified claims to stay marked so.
+
+**Verified by the owner, 2026-09-26:** the fixture MP4 plays in QuickTime and on a phone / browser,
+with picture and audio good and in sync. **Not verified.** PowerPoint and Keynote are
+**UNVERIFIED**. The muxed WebVTT track reads back as no track at all through mediabunny, QuickTime
+showed no subtitles, and QuickTime expects `tx3g`, so the `.vtt` sidecar is the caption path known to work. A Chromium
+without an H.264 encoder was not available, so the probe's refusal is unexercised. Anima motion
+decks were not captured end to end.

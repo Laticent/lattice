@@ -130,6 +130,7 @@ export function findCueTarget(frameDoc: Document | Element | null, text: string)
 		findDetailTarget(frameDoc, text) ??
 		findChartTextTarget(frameDoc, text) ??
 		findParaphraseTarget(frameDoc, text) ??
+		findValueLedMark(frameDoc, text) ??
 		findFigureTarget(frameDoc, text);
 	return found ? drawnTwin(found) : null;
 }
@@ -401,6 +402,54 @@ function oneMark(els: Element[]): Element | null {
 		}
 	}
 	return best;
+}
+
+/**
+ * THE VALUE-LED MARK — a sentence that opens with a number and names the mark after it.
+ *
+ * A presenter reads a funnel from its numbers: "870 reached a proposal, and 214 signed." The mark
+ * tier needs a LABEL to lead, and none does; the paraphrase tier finds two bands that each have a
+ * word and a value in the sentence, ties, and gives up; so the cue fell to the whole figure. But the
+ * sentence is plainly about the band whose value it OPENS with, as a pointing hand would be.
+ *
+ * Taken only when all three hold, and only for a cue every other tier dropped (it runs just before
+ * the whole figure, so it cannot change an answer that already existed):
+ *   - the sentence OPENS with the mark's declared value as TYPED DIGITS, decimal point and all,
+ *     read from the raw text (`loose` drops the point, and "1.2" would then lead "12 months");
+ *     a value with no digit (a state, a category) never qualifies;
+ *   - the sentence shares a content word with the mark's label, compared the way the paraphrase
+ *     tier compares (`contentKeys`: suffixes stripped, five-letter keys), so "Proposal sent" is
+ *     named by "proposal" and "Signed" by "signed", but not by "sentence" or "significant";
+ *   - exactly one mark passes both, or the passing pieces are one mark drawn in pieces (`oneMark`).
+ */
+const LEADING_NUMBER = /^\s*([$€£¥]?[-−]?\p{N}[\p{N},.]*)/u;
+const digitsOf = (s: string): string => s.replace(/[\s,$€£¥]/g, '').replace(/−/g, '-').replace(/[.]$/, '');
+export function findValueLedMark(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const lead = LEADING_NUMBER.exec(text)?.[1];
+	if (!lead) return null;
+	const said = digitsOf(lead);
+	const cue = contentKeys(text);
+	const hits: Element[] = [];
+	for (const el of root.querySelectorAll('[data-label][data-value]')) {
+		const raw = (el as HTMLElement).dataset?.value ?? el.getAttribute('data-value') ?? '';
+		if (!/\p{N}/u.test(raw) || digitsOf(raw) !== said) continue;
+		const label = contentKeys((el as HTMLElement).dataset?.label ?? el.getAttribute('data-label') ?? '');
+		if (![...label.keys()].some((k) => k.length >= 4 && !/\p{N}/u.test(k) && cue.has(k))) continue;
+		hits.push(el);
+	}
+	const one = hits.length === 1 ? hits[0] : hits.length > 1 ? oneMark(hits) : null;
+	if (one) valueLedHit += 1;
+	return one;
+}
+
+/** Did the value-led tier answer the last cue? Its own counter, like every tier's: the sweep must
+ *  tell its hits apart from the mark tier's to measure it. */
+export let valueLedHit = 0;
+export function resetValueLedHit(): number {
+	const n = valueLedHit;
+	valueLedHit = 0;
+	return n;
 }
 
 /**

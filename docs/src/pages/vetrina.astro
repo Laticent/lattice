@@ -233,6 +233,9 @@
 			<div class="transport">
 				<button class="btn" id="stopBtn" type="button">Stop</button>
 				<button class="btn" id="resetBtn" type="button">Reset board</button>
+				<button class="btn" id="recordBtn" type="button" title="Record “Point at a thing” as a timing track (.ltt.json)">Record</button>
+				<button class="btn" id="replayBtn" type="button" title="Replay the committed recording of “Point at a thing”">Replay recording</button>
+				<a class="btn" id="recordingLink" hidden>Download recording</a>
 			</div>
 			<p class="diag" id="diag" role="status" aria-live="polite"></p>
 
@@ -286,7 +289,11 @@
 		</div>
 
 		<script>
-			import { run, scene, wait } from '@/lib/vetrina';
+			import { ENGINE_HASH } from '@/lib/cadenza';
+			import { run, storyboard, wait } from '@/lib/vetrina';
+			import deicticRecording from '@/lib/vetrina-exemplars/deictic.ltt.json';
+			import { DEICTIC_RECORDING_ID, deicticScene, RECORDING_PACE, teachScene } from '@/lib/vetrina-exemplars/page-scenes';
+			import { cadenzaNarrator } from '@/lib/vetrina-narration/cadenza-narrator';
 
 			const $ = (s) => document.querySelector(s);
 			const root = document.documentElement;
@@ -584,18 +591,9 @@
 				// a decision record. They name a thing by its shape: a line gets a rule under
 				// it, a phrase gets its words swept, a box that draws no boundary of its own
 				// gets one, and something small enough to be a point gets tapped.
-				{ id: 'deictic', t: 'Point at a thing', d: 'The four deictic strokes — underline a line, wash a phrase, bracket a block, tap a point. Chosen by the SHAPE of what is named.', api: "scene().gesture('underline'…)", scene: () => scene()
-					.say('A hand names a thing by its shape. A line gets a rule under it.').point('#vt-list .note:first-child').gesture('underline', '#vt-list .note:first-child').hold(700)
-					.say('A block that draws no boundary of its own gets one.').gesture('bracket', '#vt-list').hold(700)
-					.say('A phrase inside a longer line gets its words swept.').gesture('wash', '#vt-list .note:last-child').hold(700)
-					.say('And a thing small enough to be a point gets tapped.').gesture('tap', '#vt-count').hold(800)
-				},
+				{ id: 'deictic', t: 'Point at a thing', d: 'The four deictic strokes — underline a line, wash a phrase, bracket a block, tap a point. Chosen by the SHAPE of what is named.', api: "scene().gesture('underline'…)", scene: deicticScene },
 				// ── THE TEACHING BEAT ──
-				{ id: 'teach', t: 'Teach, then do', d: 'A read() beat dips the cursor to the caption, pulses the words, and DWELLS long enough to read them — before the action runs.', api: 'scene().read()', scene: () => scene()
-					.say('A teaching beat says the words first, and waits while you read them.').read().hold(500)
-					.say('Then it does the thing.').point('#vt-finish').read()
-					.act((a) => a.publish()).gesture('check', '#vt-finish').hold(900)
-				},
+				{ id: 'teach', t: 'Teach, then do', d: 'A read() beat dips the cursor to the caption, pulses the words, and DWELLS long enough to read them — before the action runs.', api: 'scene().read()', scene: teachScene },
 			];
 			function setCurrentBeat(id) { [...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id))); }
 			// A `scene` beat compiles through the recorder; a `run` beat is a raw Walkthrough.
@@ -609,6 +607,63 @@
 				el.addEventListener('click', () => { endTour(); setCurrentBeat(b.id); resetBoard(); lastBeat = b; renderData(b); b.run(); });
 				beatsEl.appendChild(el);
 			});
+
+			// ── RECORD AND REPLAY (LTT step 4) ──────────────────────────────────────────
+			// Record runs "Point at a thing" with the Cadenza narrator and writes the run down as a
+			// seekable timing track (createTourRecorder); Replay plays the committed recording back
+			// through replayNarrator, so each word lands where it was recorded. `/vetrina?replay`
+			// starts the replay on load. The steps come from page-scenes.ts, the module
+			// page-scenes.test.ts checks the recording against.
+			const digest = async (t) => `sha256:${[...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+			const recordingLink = $('#recordingLink');
+			function playSteps(extra) {
+				stopCurrent();
+				logReset();
+				endTour();
+				resetBoard();
+				const deictic = BEATS.find((b) => b.id === 'deictic');
+				setCurrentBeat(deictic.id); lastBeat = deictic; renderData(deictic);
+				const steps = deicticScene().toData();
+				const play = storyboard('', steps);
+				return new Promise((resolve) => {
+					try {
+						handle = run({
+							// Instrumented like every other beat, so the log pane shows what ran.
+							root: board, actions, type, play: (ctx) => play({ ...ctx, stage: instrument(ctx.stage) }), theme: themeNow(), takeover: { scope: 'window' }, ...extra(steps),
+							onStop: (reason) => { handle = null; resolve({ reason, steps }); },
+						});
+					} catch (err) {
+						handle = null; console.error('[vetrina] recording failed to start', err); resolve({ reason: 'error', steps });
+					}
+				});
+			}
+			const stopped = (reason) => (reason === 'takeover' ? 'You took the wheel' : reason === 'error' ? 'Beat error — see console' : 'Stopped');
+			// The recorder loads on first use, in its own chunk. Imported statically, the bundler folded it
+			// into the Vetrina chunk the Studio shares, and the Studio's eager JS grew 1.7 KB gz for code it
+			// never runs (docs/route-budget.json caught it).
+			const recorder = () => import('@/lib/vetrina/recorder');
+			$('#recordBtn').addEventListener('click', async () => {
+				const { createTourRecorder } = await recorder();
+				const record = createTourRecorder({ id: DEICTIC_RECORDING_ID, inputs: { engine: ENGINE_HASH, pace: RECORDING_PACE }, digest });
+				setDiag('Recording “Point at a thing”…');
+				const { reason, steps } = await playSteps(() => ({ narrate: cadenzaNarrator({ pace: RECORDING_PACE }), record }));
+				// A run that did not finish writes nothing, and leaves the last good recording's link alone.
+				if (reason !== 'complete') { setDiag(`${stopped(reason)}, so nothing was recorded.`); return; }
+				const ltt = await record.ltt(steps);
+				if (recordingLink.href) URL.revokeObjectURL(recordingLink.href);
+				recordingLink.href = URL.createObjectURL(new Blob([`${JSON.stringify(ltt, null, 2)}\n`], { type: 'application/json' }));
+				recordingLink.download = `${DEICTIC_RECORDING_ID}.ltt.json`;
+				recordingLink.hidden = false;
+				const n = ltt.segments.length;
+				setDiag(`Recorded ${n} ${n === 1 ? 'stretch' : 'stretches'}, ${Math.round(ltt.segments.reduce((t, s) => t + (s.track?.durationMs ?? 0), 0) / 100) / 10} s of narration.`);
+			});
+			const replay = async () => {
+				const { replayNarrator } = await recorder();
+				setDiag('Replaying the recording…');
+				const { reason } = await playSteps(() => ({ narrate: replayNarrator(deicticRecording, cadenzaNarrator({ pace: RECORDING_PACE })) }));
+				setDiag(reason === 'complete' ? 'Replayed from the recording.' : `${stopped(reason)}.`);
+			};
+			$('#replayBtn').addEventListener('click', replay);
 
 			$('#stopBtn').addEventListener('click', () => { endTour(); stopCurrent(); setDiag('Stopped.'); });
 			$('#resetBtn').addEventListener('click', () => { endTour(); stopCurrent(); resetBoard(); setCurrentBeat(null); setDiag(''); });
@@ -631,6 +686,7 @@
 			resetBoard();
 			renderControls();
 			renderData(null);
+			if (new URLSearchParams(location.search).has('replay')) replay();
 		</script>
 	</body>
 </html>

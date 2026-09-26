@@ -736,6 +736,13 @@ What it writes (`recorder.ts`):
 stretch is flagged and kept, never rebuilt from text: re-record it. Emphasis spans are hashed with
 each line's text (pass the narrator's `emphasis` function), because a span changes timing.
 
+**A real host:** the `/vetrina` page records its "Point at a thing" beat with its Record control
+and replays the committed recording (`docs/src/lib/vetrina-exemplars/deictic.ltt.json`) with
+Replay, or on load at `/vetrina?replay`. The beat's steps live in
+`docs/src/lib/vetrina-exemplars/page-scenes.ts`, so `page-scenes.test.ts` checks the recording
+against the storyboard the page runs: an edited line reads as a stale stretch there, and the fix is
+to re-record, not to regenerate.
+
 `replayNarrator(ltt, narrator)` plays a recording back: every line is planned from the LTT, so a
 word cue lands where it was recorded. The cursor's lead is still asked of the live stage, so on a
 different screen the hand recomputes its trip and still arrives on the word. Time before the
