@@ -235,15 +235,16 @@ into engine internals exports as data-only until it's ported to the contract.
 
 ### 3.6 Finishes: the recipe is the source
 
-Each finish is one `recipe.json`, and one generator (today's `finish-generate.ts`,
-moved into `lib/`) writes both faces of its CSS. That deletes the hand-written
+Each finish is one `recipe.json`, and one generator (`lib/finishes/finish-generate.js`,
+formerly the Studio's `finish-generate.ts`) writes both faces of its CSS. That deletes the hand-written
 presets in `base.finish.css` and `PRESET_RECIPES`, the hand-kept catalog, and the
 rot-guard tests that kept them aligned. It also moves the print-face fix into one
 place. The rule that fix follows: only the **bottom** full-bleed layer may end on
 solid slide color. Every layer above it must end on the same color at zero
 opacity, or be a hard-edged pattern.
 
-**Open risk, not yet measured:** the recipe vocabulary may not express every
+**Resolved (2026-09-26, §10 phase 2):** the vocabulary grew four terms and the
+build now generates all nine. The risk as first stated: the recipe vocabulary may not express every
 detail of the 9 hand-written presets (`none` is the tenth register value and paints nothing). The first step of that phase is a
 pixel-diff of generated against hand-written CSS for all 9. Anything the
 vocabulary can't express either becomes a new vocabulary term or stays behind as
@@ -417,15 +418,14 @@ it is the record of what was wrong.
   mismatch. The rest of the tool walks over `themes/` (contrast audits, the scorecard,
   the docs portal) still read the folder directly; phase 5 moves them onto the spine
   when themes become folders.
-- **Phase 2, finishes become packages: the registration half is done; the CSS half
-  is measured and waits on the owner.** Each of the 9 presets is now
+- **Phase 2, finishes become packages: done, pending the owner's export sign-off.**
+  (The registration half landed first; the CSS half is the last paragraph of this entry.) Each of the 9 presets is now
   `lib/finishes/<name>/` (manifest: name, label, blurb, picker swatch, `order`;
   plus `<name>.recipe.json`). `tools/build-packages-index.js` generates
   `lib/finishes/presets.generated.js`, and `FINISH_REGISTER`, the lint vocabulary,
   the Studio's `finish-catalog.ts`, `PRESET_RECIPES` and `RESERVED_FINISH_NAMES` all
-  read it. That removes three of the four hand registrations. The fourth, the CSS,
-  stays hand-written in `base.finish.css`, bound to the packages by
-  `checkFinishPackages`.
+  read it. That removed three of the four hand registrations. The fourth, the CSS,
+  stayed hand-written in `base.finish.css` until the CSS half below.
 
   **The §3.6 pixel-diff, run before any CSS moved.** Each preset was rendered through
   the CLI twice, once with the hand CSS and once with `generateFinishCss(recipe)`,
@@ -463,6 +463,49 @@ it is the record of what was wrong.
   So generating the shipped CSS today changes exported bytes on five of nine presets.
   That is a direction call with a sign-off attached, so it is left for the owner; the
   follow-up names three ways forward.
+
+  **The owner chose (a) on 2026-09-25, and it is done (2026-09-26).** The generator moved
+  to `lib/finishes/finish-generate.js`, a CommonJS leaf the Studio re-exports with types
+  (`finish-generate.ts`) and the build requires. `tools/build-packages-index.js` runs it
+  over every recipe and rewrites a marked region of `base.finish.css`; the build runs that
+  region step (`--finish-css-only`) before `lattice.css`, and `build:check` fails on a hand
+  edit inside the region. `checkFinishPackages` now also fails on a hand-written preset
+  rule outside it, which would win or lose against the generated one by source order. The
+  generated rule keeps the shipped one-class selector and the shipped `-opaque` mirrors, so
+  the OPAQUE FLIP and `finish-none` are untouched. The vocabulary gained the four details:
+  mark `rule` (0.47cqi), `wash.hairline` (the `100% 0.31cqi` strip, exempt from the
+  bottom-layer rule as a strip), `mark.anchor: "corner"` + `mark.inset` (flex alignment
+  from the placement, no transform), and `edge.rich` (the fold's screen stop and accent).
+  Two formula changes close the rest: the rich face lifts a texture by 2, not 3 (all seven
+  shipped textures were +2), and the frame keyline is sized in `--_sec-1cqi` like the
+  shipped gallery; gallery's recipe says intensity 14 (40%). The monogram now mixes at 9%
+  like the numeral. Three slot values changed with no visible effect: meridian's glyph
+  padding is `0 1cqi` (was `0 1cqi 0 0`; the extra left padding sits on the side the
+  right-aligned glyph does not touch), halo's texture repeats (was `no-repeat`; the rings
+  tile is the whole slide) and strata's bands sit `top left` (was `center`; the layer is
+  `cover`). Re-measured against the hand CSS with the demo deck's glyphs, as the
+  share of pixels differing by more than 2% and the largest channel difference:
+
+  | preset | print light | print dark | screen light | screen dark |
+  |---|---|---|---|---|
+  | atrium | 0.00% · 0 | 0.00% · 0 | 0.00% · 2 | 0.00% · 2 |
+  | meridian | 0.00% · 0 | 0.00% · 0 | 0.00% · 4 | 0.00% · 3 |
+  | strata | 0.00% · 0 | 0.00% · 0 | 0.02% · 6 | 0.00% · 4 |
+  | halo | 0.00% · 0 | 0.00% · 0 | 0.00% · 3 | 0.00% · 2 |
+  | ledger | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 |
+  | nimbus | 0.00% · 3 | 0.00% · 3 | 0.00% · 4 | 0.00% · 4 |
+  | loom | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 |
+  | savile | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 |
+  | gallery | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 | 0.00% · 0 |
+
+  What still differs is rich-face hand tuning that no one formula reproduces: meridian's
+  duotone (11%, mid stop 48% vs 10%, 42%), strata's bands (7/5% with a 35% stop vs 8/7%,
+  30%), halo's spotlight (85% × 75% to 62% vs 80% × 70% to 60%, where gallery's is the
+  latter), atrium's glow (95% vs 90% tall), and nimbus's vignette (82% with 58/60% stops
+  vs halo's 78% and 60/62%, the one print-face difference). Each is within 6 of 255 levels;
+  adding a knob per preset for them would grow the vocabulary with terms only one preset
+  uses, so they were left to the formula. `test/unit/core/finish-generate.test.js` pins
+  the region and the four terms.
 - **Phase 3, the Studio's zip on the spine: done.** A Studio export is now the package
   folder itself: `<name>/<name>.manifest.json` plus role files, or
   `<type>/<name>/…` in a bundle, with no envelope (`package-zip.ts`, through the spine's
@@ -807,3 +850,27 @@ it is the record of what was wrong.
     with 40 docs, 260 MiB in all. Found on the way: Chromium kills the tab on a single
     IndexedDB value of 256 MiB or more; no real reference doc gets near that (the import caps
     a doc at 5 MB), so it constrains test fixtures, not users.
+- **Trio follow-up 11, remote images: done (2026-09-26), pending the owner's export sign-off.**
+  The owner chose (2026-09-25) to block a deck's web images by default, with a visible "load
+  them?" switch, and exports following the same choice. Measuring first found the preview frames
+  and the CLI already contained, and the Studio's raster exports NOT: its capture frame passed
+  `csp: false` and fetched every remote image at export. Now one kernel,
+  `lib/core/remote-ref.js` `blockWebImages`, swaps each web image for a drawn placeholder and
+  each web `url()` for a hatch, in the CLI, the Studio (preview, Present, the Stage, every
+  export) and the Playground; the Studio strip names the sites and loads them per deck and per
+  origin (`IndexEntry.webOrigins`, which join the policy's `img-src`/`media-src`). Own decks are
+  not trusted automatically, since authorship cannot be told from content, and a restored backup
+  never carries the choice. The full record is the 2026-09-26 revision at the top of
+  `2026-09-01-export-remote-subresource-posture.md`. Evidence: `docs/e2e/web-images.spec.ts` on
+  the real Studio against a real local server, 0 requests from the preview and from a PDF export
+  while blocked, and requests after "Load them" (the control); the CLI arms in
+  `export-remote-subresource.test.js`; `examples/web-images.pdf`.
+- **Trio follow-up 18, a malformed `workspace.json`: done (2026-09-26).** A backup whose
+  state had the right top-level shape and a wrong type inside (`"chats": null`) reached
+  `importStudioState` and failed with "Cannot read properties of null (reading 'welcome')".
+  `malformedWorkspaceState` (`workspace-backup.ts`) now checks the parsed state before
+  anything is written: `index` a list of decks with an id and a title; `sources`,
+  `checkpoints` and `chats` objects keyed by deck with a string, list and list per deck; and
+  `settings`, `instructions` and `onDeviceInstructions` the right type when present (a
+  pre-split backup lacks them). A refusal names the file and the field ("`chats` should be an
+  object of chat histories by deck, but it is null") and says nothing was changed.

@@ -54,6 +54,7 @@ import {
 	PRINT_SHEETS,
 	resolvePrintSheet,
 } from '../../../lib/core/print-sheet.mjs';
+import remoteRef from '../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
@@ -347,19 +348,16 @@ export function buildSrcdoc({
 	// context under an a11y theme (inert otherwise). Owned here, not per-caller.
 	lang = 'en', // <html lang> for the frame — real-text surfaces (vector Print PDF, the
 	// preview a screen reader can walk) announce the deck's language (WCAG 3.1.1).
-	// Emit the remote-subresource CSP (#1753). Defaults ON — every PREVIEW frame wants it.
-	// The one caller that passes `false` is the Studio's offscreen EXPORT capture frame
-	// (`docs/src/components/studio/export/deck-export.js`), and the reason is a scope line
-	// this whole change rests on: a preview is a surface the author BROWSES, where a remote
-	// image beacons on open; the capture frame is an export renderer whose output the author
-	// downloads. Containing it would silently blank a legitimately-remote image in a
-	// downloaded .pdf/.pptx/.png — an EXPORT-BYTES change, which CLAUDE.md's QUALITY BAR
-	// makes a stop-and-show, and which nobody signed off. It would also put Studio's export
-	// at odds with the CLI's, which emits no CSP at all: the same deck would render two ways,
-	// the exact disagreement this policy exists to remove. Whether EXPORTS should contain
-	// remote subresources is a real question, but it is one decision covering both export
-	// paths — see the decision record's "What this does not do".
+	// Emit the remote-subresource CSP (#1753). ON for every frame, previews AND the Studio's
+	// export capture frame (trio follow-up 11, owner 2026-09-25): a deck's web images stay
+	// blocked until the reader chooses to load them, in what they see and in what they export,
+	// as the CLI's offline render has done since 2026-09-24. `false` survives only for a caller
+	// that must not carry a policy at all; none in the tree does today.
 	csp = true,
+	// The web origins the reader allowed for this deck (trio follow-up 11). They join the
+	// policy's `img-src`/`media-src`, and every other web image becomes the drawn placeholder
+	// (lib/core/remote-ref.js `blockWebImages`) before the sanitizer runs.
+	webOrigins = /** @type {string[]} */ ([]),
 	// Stamp `data-lattice-diagrams`, the gate rule A is keyed on (see previewDiagramsAttr).
 	// Defaults ON — every frame a human WATCHES wants the fence's ink withheld until
 	// something draws it. TWO callers pass `false`, and they are the two documents whose
@@ -386,7 +384,7 @@ export function buildSrcdoc({
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
 	// (drawing-board-export.js); the in-repo renderDeck path also pre-sanitizes
 	// for its innerHTML patch, so this is a no-op there.
-	html = sanitizeSlideHtml(html);
+	html = sanitizeSlideHtml(remoteRef.blockWebImages(html, webOrigins).html);
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;
 	const bg = background ? background(mode) : (mode === 'dark' ? DARK_BG : LIGHT_BG);
@@ -433,7 +431,7 @@ export function buildSrcdoc({
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
-		(csp ? previewCspMeta({ katexUrl }) : '') +
+		(csp ? previewCspMeta({ katexUrl, webOrigins }) : '') +
 		// BOTH conditions, and the URL half is the one that was missing. The content gate
 		// alone emitted `<link href="">` when a math deck met a caller that passed no URL —
 		// harmless in Chromium (measured: no request), but it made the note's stated safety
@@ -620,6 +618,9 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	// `state`). Per-section sanitize is byte-identical to whole-deck sanitize —
 	// sections are independent and the allowlisted <section> boundaries are preserved
 	// — locked by deck-preview.sanitize-cache.test.ts.
+	// Web images the reader has not allowed become placeholders on BOTH paths (buildSrcdoc does
+	// it for the write path; the patch path below would otherwise swap in the raw address).
+	html = remoteRef.blockWebImages(html, opts.webOrigins || []).html;
 	const rawSections = splitSections(html);
 	const prevCache = st.sanitizeCache instanceof Map ? st.sanitizeCache : null;
 	const nextCache = new Map();
@@ -645,7 +646,9 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		// must force a full srcdoc rewrite. A section-only patch would leave a
 		// newly-typed branching machine without its engine — laid out as a column, with
 		// nothing to say why.
-		(sections.some((s) => s.indexOf('data-sc-transitions') !== -1) ? 'D' : '');
+		(sections.some((s) => s.indexOf('data-sc-transitions') !== -1) ? 'D' : '') +
+		// The allowed web origins live in the policy in <head>, which a patch never rewrites.
+		`|W:${[...(opts.webOrigins || [])].sort().join(' ')}`;
 	const canPatch =
 		!fresh &&
 		contentSig === st.frameSig &&

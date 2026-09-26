@@ -1,7 +1,8 @@
 {
   "wash": {
     "type": "bands",
-    "intensity": 5
+    "intensity": 5,
+    "hairline": true
   },
   "texture": {
     "type": "dots",

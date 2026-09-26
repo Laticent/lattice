@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDeck, exportStudioState, importStudioState, lastBackupAt, loadChat, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, markBackupTaken, saveChat, saveCheckpoint, saveInstructions, saveSettings, saveSource, shouldNudgeBackup } from './studio-store';
-import { packWorkspace, restoreWorkspace, WORKSPACE_FORMAT, WORKSPACE_ZIP_NAME } from './workspace-backup';
+import { createDeck, deckWebOrigins, exportStudioState, importStudioState, lastBackupAt, loadChat, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, markBackupTaken, saveChat, saveCheckpoint, saveInstructions, saveSettings, saveSource, setDeckWebOrigins, shouldNudgeBackup } from './studio-store';
+import { malformedWorkspaceState, packWorkspace, restoreWorkspace, WORKSPACE_FORMAT, WORKSPACE_ZIP_NAME } from './workspace-backup';
 
 // jsdom has no IndexedDB, so the Library shelves read as empty — these tests
 // cover the Studio-store half (decks/checkpoints/chats/settings) and the zip
@@ -189,6 +189,68 @@ describe('workspace-backup — restore semantics', () => {
 		zip.file('random.txt', 'nope');
 		const blob = await zip.generateAsync({ type: 'blob' });
 		await expect(restoreWorkspace(blob, T0)).rejects.toThrow(/manifest\.json missing/);
+	});
+});
+
+// A backup is a file from outside. A wrong type INSIDE the right top-level shape used to reach
+// importStudioState and fail with "Cannot read properties of null (reading 'welcome')".
+describe('workspace-backup — a malformed workspace.json', () => {
+	async function withState(edit: (state: Record<string, unknown>) => void): Promise<Blob> {
+		seedWorkspace();
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(await packWorkspace(T0));
+		const state = JSON.parse(await zip.file('workspace.json')!.async('string'));
+		edit(state);
+		zip.file('workspace.json', JSON.stringify(state));
+		return zip.generateAsync({ type: 'blob' });
+	}
+
+	it('refuses `chats: null` with a message that names the file and the field, and writes nothing', async () => {
+		const blob = await withState((s) => {
+			s.chats = null;
+			s.index = [...(s.index as unknown[]), { id: 'deck-new', title: 'New', builtin: false }];
+			(s.sources as Record<string, string>)['deck-new'] = '# New';
+		});
+		const before = loadDeckList().length;
+		await expect(restoreWorkspace(blob, T0)).rejects.toThrow(/workspace\.json can't be restored: "chats" should be an object of chat histories by deck, but it is null\. Nothing was changed\./);
+		expect(loadDeckList().length).toBe(before);
+		expect(loadSource('deck-new')).toBeNull();
+	});
+
+	it('names each kind of wrong shape', () => {
+		const ok = { index: [], sources: {}, checkpoints: {}, chats: {} };
+		expect(malformedWorkspaceState(ok)).toBeNull();
+		expect(malformedWorkspaceState({ ...ok, settings: {}, instructions: '', onDeviceInstructions: '' })).toBeNull();
+		expect(malformedWorkspaceState(null)).toMatch(/holds null/);
+		expect(malformedWorkspaceState([])).toMatch(/holds a list/);
+		expect(malformedWorkspaceState({ ...ok, index: undefined })).toMatch(/"index" .* missing/);
+		expect(malformedWorkspaceState({ ...ok, index: [{ id: 'a' }] })).toMatch(/deck 1 in "index" has no id or title/);
+		expect(malformedWorkspaceState({ ...ok, sources: [] })).toMatch(/"sources" .* a list/);
+		expect(malformedWorkspaceState({ ...ok, sources: { a: 3 } })).toMatch(/"sources" has a number for deck "a"/);
+		expect(malformedWorkspaceState({ ...ok, checkpoints: { a: 'x' } })).toMatch(/"checkpoints" has a string/);
+		expect(malformedWorkspaceState({ ...ok, settings: 'dark' })).toMatch(/"settings" should be an object/);
+		expect(malformedWorkspaceState({ ...ok, instructions: 7 })).toMatch(/"instructions" should be text/);
+	});
+});
+
+// "Load this deck's web images" is a choice the reader makes on THIS device (trio follow-up 11).
+describe('web images — the per-deck choice', () => {
+	it('is remembered per deck and per origin, and can be taken back', () => {
+		seedWorkspace();
+		expect(deckWebOrigins('deck-aaa')).toEqual([]);
+		setDeckWebOrigins('deck-aaa', ['https://b.com', 'https://a.com', 'https://a.com']);
+		expect(deckWebOrigins('deck-aaa')).toEqual(['https://a.com', 'https://b.com']);
+		setDeckWebOrigins('deck-aaa', []);
+		expect(deckWebOrigins('deck-aaa')).toEqual([]);
+	});
+
+	it('does not travel in a backup: a restored deck arrives with its images blocked', () => {
+		const state = exportStudioState();
+		state.index.push({ id: 'deck-web', title: 'Web', builtin: false, webOrigins: ['https://tracker.example'] });
+		state.sources['deck-web'] = '# Web\n\n![](https://tracker.example/pixel.png)';
+		importStudioState(state, T0);
+		expect(loadSource('deck-web')).toContain('tracker.example');
+		expect(deckWebOrigins('deck-web')).toEqual([]);
 	});
 });
 

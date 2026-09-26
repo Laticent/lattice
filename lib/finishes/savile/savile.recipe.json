@@ -10,7 +10,9 @@
   },
   "mark": {
     "type": "monogram",
-    "placement": "bottom-right"
+    "placement": "bottom-right",
+    "anchor": "corner",
+    "inset": 2
   },
   "edge": {
     "type": "none",

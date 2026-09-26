@@ -85,6 +85,15 @@ export function suspendScaleObservers(on: boolean): void {
 }
 
 export type Geom = { width: number; height: number };
+// The web-image kernel, loaded on the first render rather than with the Studio's eager bundle
+// (the route budget counts every eager byte). A render is async already, so it waits here once.
+type RemoteRef = typeof import('../../../lib/core/remote-ref.js');
+let remoteRefLoad: Promise<RemoteRef> | null = null;
+function loadRemoteRef(): Promise<RemoteRef> {
+	remoteRefLoad ??= import('../../../lib/core/remote-ref.js').then((m) => ((m as unknown as { default?: RemoteRef }).default ?? m) as RemoteRef);
+	return remoteRefLoad;
+}
+
 export type RenderStatus = {
 	ok: boolean;
 	slides: number;
@@ -97,6 +106,11 @@ export type RenderStatus = {
 	 * (DeckPreview's frame loop) render a patch/restyle instantly but coalesce a heavy
 	 * write. Absent on a failed render. */
 	writePath?: 'patch' | 'restyle' | 'write';
+	/** The web images this render left out (trio follow-up 11): each became a placeholder, or is
+	 *  a `url()`/diagram reference the frame's policy refuses. Empty when the reader allowed every
+	 *  origin the slide uses. A host shows its "load them?" switch from the deck-wide count
+	 *  (`docs/src/components/studio/web-images.ts`), not from this one slide. */
+	webImagesBlocked?: number;
 	/** Set when the shown slide SPLIT (portrait/square): which page of its run the frame holds
 	 *  (0-based `index` of `count`), and that page's number as the PDF prints it (`2.3`). */
 	page?: { index: number; count: number; label: string };
@@ -106,6 +120,10 @@ export type RenderStatus = {
 };
 
 export type SingleSlideOptions = {
+	/** Web origins the reader allowed this deck's images to load from (trio follow-up 11), for
+	 *  the EXPORT renders that take these options (`buildDeckRender`). The live renderer takes its
+	 *  own per-render list (`renderInto` `opts.webOrigins`) and ignores this one. */
+	webOrigins?: string[];
 	/** Base URL the theme CSS is fetched from (`<themeBase><name>.css`). */
 	themeBase: string;
 	/** URL of the runtime bundle injected into each slide iframe. */
@@ -993,6 +1011,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// copies it into a local right after the call so a second concurrent host
 	// can't clobber the sample.
 	let lastSanitizeMs = 0;
+	// The web origins the reader allowed for the render in flight (renderInto `opts.webOrigins`),
+	// read by `srcdoc()` for the frame's policy. Part of the frame sig, so a change rewrites the
+	// frame: the policy lives in <head>, which the patch and restyle paths never touch.
+	let webAllow: string[] = [];
 
 	// PREVIEW FONTS ARE THE THEME'S, not a second supply (2026-08-17 loading audit §3, §9.5).
 	// This module used to prepend `previewFontFaceCss()` — 17 @font-face rules pointing at
@@ -1115,7 +1137,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
-			previewCspMeta({ katexUrl: opts.katexUrl || '' }) +
+			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow }) +
 			// THREE elements in cascade order — frame box, then the engine sheet (shared across
 			// every frame that wants the same bytes), then the author's CSS. Each carries an id so
 			// the RESTYLE fast path below can update it in place without rewriting the srcdoc.
@@ -1349,6 +1371,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			/** Marks THE preview the author is looking at — the one the fidelity overlay may describe.
 			 *  Opt-IN, and it fails closed: see the report gate below. */
 			focused?: boolean;
+			/** Web origins the reader chose to load images from, for this deck (trio follow-up
+			 *  11). Every other web image renders as a placeholder, and the frame's policy refuses
+			 *  it. Absent = none allowed, the default for every surface. */
+			webOrigins?: string[];
 		},
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
@@ -1362,6 +1388,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// an unguarded edge, and one line closes the class instead of the instance.
 		if (disposed) return Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' });
 		countIn(); // first render joins the shared-memo refcount — see createSingleSlideRenderer
+		const allow = [...new Set(opts?.webOrigins ?? [])].sort();
 		const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 		const mode = modeOverride ?? docMode;
 		// Perf-overlay timing: whole edit→paint span starts here (includes the
@@ -1802,7 +1829,18 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// presence — a mermaid-content edit needs no full write, and the resident
 				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
 				// -slide never injects a katex <link>; math rides the patch as static HTML.
-				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}`;
+				// WEB IMAGES (trio follow-up 11): each one the reader has not allowed becomes the drawn
+				// placeholder before ANY sink sees the markup, so the write, patch and restyle paths all
+				// carry it; the frame's policy refuses the ones a rewrite cannot reach (a `url()`, a
+				// Mermaid `img:`). The allowed origins join the policy, so they join the sig too.
+				const remoteRef = await loadRemoteRef();
+				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				const web = remoteRef.blockWebImages(out.html, allow);
+				out = { ...out, html: web.html };
+				webAllow = allow;
+				const webImagesBlocked = web.blocked.length;
+				const webSig = allow.join(' ');
+				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}`;
 				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
 				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.
 				// The answer is derived in the kernel, shared with the Playground's filmstrip
@@ -1832,7 +1870,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Theme, mode, the composed CSS, and author extraCss all bake into the swappable
 				// <style>, so they are DELIBERATELY absent here — a change in any of them keeps the
 				// same geom+mermaid, hits the restyle path, and swaps the <style> instead of rewriting.
-				const restyleSig = `${geom.width}x${geom.height}|${mermaid ? 'M' : ''}`;
+				const restyleSig = `${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|W:${webSig}`;
 				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
 				// Skip the patch while a full-write srcdoc is still loading: its
 				// contentDocument is briefly the OUTGOING one (which still has `.lattice`),
@@ -1880,7 +1918,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage, canSplit };
+						return { ok: true, slides, error: null, writePath: 'patch' as const, page: splitPage, canSplit, webImagesBlocked };
 					}
 					// The live document vanished between the guard and the patch — fall
 					// through to a full write below.
@@ -1957,7 +1995,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage, canSplit };
+						return { ok: true, slides, error: null, writePath: 'restyle' as const, page: splitPage, canSplit, webImagesBlocked };
 					}
 					// patchSlideBody failed (the live doc vanished mid-swap) — fall through to a full write.
 				}
@@ -2184,7 +2222,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
 				tFrameStart = performance.now();
-				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage, canSplit };
+				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage, canSplit, webImagesBlocked };
 			})
 			.catch((e) => {
 				// Surface failures in the console (the old landing bridge did; the

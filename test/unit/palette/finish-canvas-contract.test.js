@@ -19,7 +19,7 @@ const path = require('node:path');
 
 const FINISH_CSS = path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.finish.css');
 const BUNDLE = path.join(__dirname, '..', '..', '..', 'dist', 'lattice.css');
-const GENERATOR = path.join(__dirname, '..', '..', '..', 'docs', 'src', 'components', 'studio', 'finish-generate.ts');
+const GENERATOR = path.join(__dirname, '..', '..', '..', 'lib', 'finishes', 'finish-generate.js');
 
 /** Strip /* … *​/ comments so prose mentioning a token is not mistaken for code. */
 function code(file) {
@@ -432,11 +432,13 @@ function assertCoverArmOrder(css, where) {
 
 test('the Studio finish generator emits the same token as the base layer', () => {
   const gen = fs.readFileSync(GENERATOR, 'utf8');
-  // The generator writes `var(--fin-canvas, var(--bg))`, WITH the fallback — its output
-  // is consumed both inside a `<section>` (where the engine declares the token) and on
-  // plain chrome `<div>`s, the Library's saved-finish preview strip and the Inspector's
-  // finish swatches. A bare `var(--fin-canvas)` is unresolved there, which invalidates
-  // the whole gradient and paints nothing. Inside a section the fallback is never taken.
+  // The generator's STUDIO token set writes `var(--fin-canvas, var(--bg))`, WITH the
+  // fallback — a fabricated finish's output is consumed both inside a `<section>` (where
+  // the engine declares the token) and on plain chrome `<div>`s, the Library's saved-finish
+  // preview strip and the Inspector's finish swatches. A bare `var(--fin-canvas)` is
+  // unresolved there, which invalidates the whole gradient and paints nothing. Inside a
+  // section the fallback is never taken. Its ENGINE token set (the shipped presets, which
+  // only ever apply to a section) writes the bare token, as base.finish.css always did.
   const withoutFallback = gen.split('var(--fin-canvas, var(--bg))').join('');
   assert.ok(
     !/var\(--bg\)/.test(withoutFallback),

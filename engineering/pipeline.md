@@ -139,9 +139,11 @@ main render behind pdf/pptx/png/imageset, the CSS-prune pass and the Mermaid wor
 behind a dead proxy, with WebRTC kept to proxied traffic and every host name failing to
 resolve (`lib/core/offline-chromium.js`). So a remote image, media file, font, stylesheet or
 script fetch in the deck reaches nothing, a deck script's WebRTC sends no UDP, no DNS query
-leaves, and a remote image renders as the browser's
-broken-image mark with its alt text, as it already does in the Studio preview and the `.html`
-export. Local files, `data:` URIs and the bundled Mermaid, KaTeX and fonts are untouched:
+leaves. A web image (`http:`, `https:` or `//host`) becomes a drawn placeholder, a hatched
+16:9 box in the deck's own tokens that keeps its address in `data-lattice-web-src`, and a web
+`url()` background becomes the same hatch (`lib/core/remote-ref.js` `blockWebImages`, the one
+kernel the Studio uses too); the run prints one line saying how many were left out, from which
+sites, and that `--allow-remote` loads them. Local files, `data:` URIs and the bundled Mermaid, KaTeX and fonts are untouched:
 the data-viz gallery renders byte-identical PDFs either way, light and dark. `--allow-remote`
 restores fetching for an author who wants a remote image baked into a PDF. Why:
 `engineering/decisions/2026-09-01-export-remote-subresource-posture.md`, revised 2026-09-24.

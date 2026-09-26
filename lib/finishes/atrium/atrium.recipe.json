@@ -9,7 +9,7 @@
     "scale": 38
   },
   "mark": {
-    "type": "bar",
+    "type": "rule",
     "placement": "left"
   },
   "edge": {

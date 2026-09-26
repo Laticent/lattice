@@ -14,6 +14,10 @@
   },
   "edge": {
     "type": "fold",
-    "intensity": 16
+    "intensity": 16,
+    "rich": {
+      "intensity": 22,
+      "reach": 65
+    }
   }
 }

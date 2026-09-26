@@ -1,4 +1,4 @@
-/* base.finish.css — the layered FINISH compositor + the 5 premium presets.
+/* base.finish.css — the layered FINISH compositor + the shipped presets (generated from lib/finishes/).
  *
  * The `field` zone of the Finish family (engineering/decisions/
  * 2026-06-30-finish-the-surface-layer.md, the REDESIGN callout). A finish is a
@@ -302,7 +302,7 @@ section.finish {
  * cases that were already right.
  *
  * Declared on `section` rather than `section.finish` so the token is never
- * undefined — a fabricated finish (finish-generate.ts) emits the same
+ * undefined — a fabricated finish (lib/finishes/finish-generate.js) emits the same
  * `var(--fin-canvas)` and may be applied before the base class lands.
  *
  * This is also why the house pattern was `finish-none` on bookends, and why the
@@ -326,7 +326,7 @@ section {
  * So the frame that paints the field names the ink that reads on it, beside the
  * canvas it already names, and the presets draw in `--field-accent`. The default is the
  * accent, so every slide that was already right renders byte-identical. Declared on
- * `section` for the reason `--fin-canvas` is: a fabricated finish (finish-generate.ts)
+ * `section` for the reason `--fin-canvas` is: a fabricated finish (lib/finishes/finish-generate.js)
  * reads it too, with `var(--accent)` as its fallback.
  *
  * NAMED FOR THE FIELD, NOT THE FINISH, because the finish is not the only decoration that
@@ -620,178 +620,75 @@ section.print[data-split-role="cover"] {
  * engineering/decisions/2026-08-12-slide-plane-model.md. */
 
 /* ════════════════════════════════════════════════════════════════════════════
- * THE 5 PRESETS — each a composition of the slots above.
- * Reference renders: .scratch/finish-mockups/finish-{1..5}-*.png
- * Every preset declares ALL FOUR slot families (unused = none) so it is fully
- * self-defining and never inherits a sibling preset's stray layer.
- *
- * Each preset writes the slot DEFAULT to its RICH (screen) value and a matching
- * `--fin-*-opaque` mirror to its EXPORT-safe value. The OPAQUE FLIP block at the
- * bottom swaps default → mirror for print + `.lattice-exporting`. Layer COUNT is
- * identical between faces, so the shared --fin-size / -position / -repeat slots
- * serve both.
+ * THE SHIPPED PRESETS — each a composition of the slots above, GENERATED from its
+ * package's recipe (engineering/decisions/2026-09-23-portable-packages.md §3.6).
+ * One file per finish owns the look: lib/finishes/<name>/<name>.recipe.json. The
+ * Studio's "Start from preset" reads the same file, so the two cannot drift.
  * ════════════════════════════════════════════════════════════════════════════ */
+/* ── BEGIN GENERATED FINISH PRESETS — tools/build-packages-index.js writes this from
+ * lib/finishes/<name>/<name>.recipe.json through lib/finishes/preset-css.js. DO NOT EDIT:
+ * change the recipe (or the generator) and rebuild; `--check` fails on a hand edit.
+ * Each rule writes the RICH screen value into every `--fin-*` slot and an `--fin-*-opaque`
+ * mirror that THE OPAQUE FLIP below swaps in for print and `.lattice-exporting`. Every slot
+ * family is declared (an unused one is `none`), so a preset never inherits a sibling's layer.
+ * ── */
 
-/* ── 1 · ATRIUM — corner glow + fine grid (dissolving) + left rule ────────────
- * RICH:   the grid DISSOLVES toward the top-right (each grid stripe fades to
- *         transparent across the slide) and a soft accent bloom blooms from the
- *         top-right corner to nothing — the mockup's atrium look.
- * OPAQUE: a UNIFORM faint grid (opaque lines, transparent gaps) + a glow that
- *         fades opaque accent-in-bg → bg.
- * mark:   a solid accent rule down the left margin (identical in both faces). */
+/* ── 1 · ATRIUM — Corner glow + a fine grid + a left margin rule. (lib/finishes/atrium/) */
 section.finish-atrium {
-  /* RICH — grid lines fade to transparent toward the corner via a masking
-   * overlay built INTO the gradient stack: a radial bg-colored wash on top would
-   * be an area fade (gray in PDF) — but this is SCREEN-only, so alpha is fine. */
   --fin-texture:
-    repeating-linear-gradient(
-      0deg,
-      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
-      transparent 1px 38px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
-      transparent 1px 38px
-    );
-  --fin-wash:
-    radial-gradient(
-      ellipse 120% 95% at 100% 0%,
-      color-mix(in srgb, var(--field-accent) 13%, transparent) 0%,
-      transparent 60%
-    );
-  /* OPAQUE mirror — uniform faint grid + opaque corner glow. */
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 38px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 38px);
   --fin-texture-opaque:
-    repeating-linear-gradient(
-      0deg,
-      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
-      transparent 1px 38px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
-      transparent 1px 38px
-    );
-  --fin-wash-opaque:
-    radial-gradient(
-      ellipse 120% 90% at 100% 0%,
-      color-mix(in srgb, var(--field-accent) 10%, var(--fin-canvas)) 0%,
-      var(--fin-canvas) 55%
-    );
-  /* 3 field layers: grid-h, grid-v, glow (same count in both faces) */
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 38px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 38px);
+  --fin-wash: radial-gradient(ellipse 120% 90% at 100% 0%, color-mix(in srgb, var(--field-accent) 13%, transparent) 0%, transparent 60%);
+  --fin-wash-opaque: radial-gradient(ellipse 120% 90% at 100% 0%, color-mix(in srgb, var(--field-accent) 10%, var(--fin-canvas)) 0%, var(--fin-canvas) 55%);
   --fin-size: auto, auto, cover;
   --fin-position: top left, top left, top left;
   --fin-repeat: repeat, repeat, no-repeat;
   --fin-mark: linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-opaque: linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-position: left center;
-  --fin-mark-size-bg: 0.47cqi 100%; /* ~6px rule at the left edge */
+  --fin-mark-size-bg: 0.47cqi 100%;
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
 }
 
-/* ── 2 · MERIDIAN — diagonal duotone + contour lines + ghost numeral ──────────
- * RICH:   the contour hairlines THIN OUT (fade to transparent) and the duotone
- *         wash drifts from an accent tint to nothing along the diagonal.
- * OPAQUE: uniform faint contours + an opaque accent-in-bg ↔ bg duotone.
- * mark:   an oversized ghost numeral glyph, bottom-right (opaque mix color). */
+/* ── 2 · MERIDIAN — Diagonal duotone wash + contour lines + a ghost numeral. (lib/finishes/meridian/) */
 section.finish-meridian {
-  --fin-texture:
-    repeating-linear-gradient(
-      -4deg,
-      transparent 0 46px,
-      color-mix(in srgb, var(--field-accent) 8%, transparent) 46px 47px
-    );
-  --fin-wash:
-    linear-gradient(
-      118deg,
-      color-mix(in srgb, var(--field-accent) 11%, transparent) 0%,
-      transparent 48%,
-      color-mix(in srgb, var(--field-accent) 7%, transparent) 100%
-    );
-  --fin-texture-opaque:
-    repeating-linear-gradient(
-      -4deg,
-      transparent 0 46px,
-      color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 46px 47px
-    );
-  --fin-wash-opaque:
-    linear-gradient(
-      118deg,
-      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0%,
-      var(--fin-canvas) 42%,
-      color-mix(in srgb, var(--field-accent) 4%, var(--fin-canvas)) 100%
-    );
-  /* 2 field layers: contour, duotone */
+  --fin-texture: repeating-linear-gradient(-4deg, transparent 0 46px, color-mix(in srgb, var(--field-accent) 8%, transparent) 46px 47px);
+  --fin-texture-opaque: repeating-linear-gradient(-4deg, transparent 0 46px, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 46px 47px);
+  --fin-wash: linear-gradient(118deg, color-mix(in srgb, var(--field-accent) 10%, transparent) 0%, transparent 42%, color-mix(in srgb, var(--field-accent) 7%, transparent) 100%);
+  --fin-wash-opaque: linear-gradient(118deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0%, var(--fin-canvas) 42%, color-mix(in srgb, var(--field-accent) 4%, var(--fin-canvas)) 100%);
   --fin-size: auto, cover;
   --fin-position: top left, top left;
   --fin-repeat: repeat, no-repeat;
-  /* ghost numeral — author-personalized; EMPTY by default so a deck-wide finish
-   * paints NO numeral (HARD requirement: a glyph-mark is never a baked placeholder).
-   * The mark LAYER/slots stay wired (the Studio designer offers it, and an author can
-   * set a per-slide glyph), only the rendered text is empty until set. OPAQUE faint color. */
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
   --fin-mark-color: color-mix(in srgb, var(--field-accent) 9%, var(--fin-canvas));
-  --fin-mark-fs: 30cqi;              /* tasteful default ghost (~third of slide height) */
-  --fin-mark-pad: 0 1cqi 0 0;        /* right-aligned, hug the bottom edge */
+  --fin-mark-fs: 30cqi;
+  --fin-mark-pad: 0 1cqi;
   --fin-mark-align: flex-end;
   --fin-mark-justify: flex-end;
   --fin-edge: none;
   --fin-edge-opaque: none;
 }
 
-/* ── 3 · STRATA — soft bands + dot-matrix (dissolving) + hairline + tick ──────
- * RICH:   the dot-matrix FADES out vertically (dots thin toward the bottom) and
- *         the bands carry an accent hairline that bleeds to transparent.
- * OPAQUE: a uniform dot-matrix + opaque bands + an opaque top hairline.
- * mark:   a corner registration tick (top-right) — two solid accent strips. */
+/* ── 3 · STRATA — Soft horizontal bands + a dot-matrix + a corner tick. (lib/finishes/strata/) */
 section.finish-strata {
-  --fin-texture:
-    radial-gradient(
-      color-mix(in srgb, var(--field-accent) 15%, transparent) 0 1.3px,
-      transparent 1.7px
-    );
+  --fin-texture: radial-gradient(color-mix(in srgb, var(--field-accent) 15%, transparent) 0 1.3px, transparent 1.7px);
+  --fin-texture-opaque: radial-gradient(color-mix(in srgb, var(--field-accent) 13%, var(--fin-canvas)) 0 1.3px, transparent 1.7px);
   --fin-wash:
-    linear-gradient(
-      90deg,
-      var(--field-accent) 0%,
-      color-mix(in srgb, var(--field-accent) 35%, transparent) 55%,
-      transparent 100%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--field-accent) 7%, transparent) 0%,
-      transparent 35%,
-      transparent 70%,
-      color-mix(in srgb, var(--field-accent) 5%, transparent) 100%
-    );
-  --fin-texture-opaque:
-    radial-gradient(
-      color-mix(in srgb, var(--field-accent) 13%, var(--fin-canvas)) 0 1.3px,
-      transparent 1.7px
-    );
+    linear-gradient(90deg, var(--field-accent) 0%, color-mix(in srgb, var(--field-accent) 35%, transparent) 55%, transparent 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--field-accent) 8%, transparent) 0%, transparent 30%, transparent 70%, color-mix(in srgb, var(--field-accent) 7%, transparent) 100%);
   --fin-wash-opaque:
-    linear-gradient(
-      90deg,
-      var(--field-accent) 0%,
-      color-mix(in srgb, var(--field-accent) 35%, var(--fin-canvas)) 60%,
-      var(--fin-canvas) 100%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--field-accent) 5%, var(--fin-canvas)) 0%,
-      var(--fin-canvas) 30%,
-      var(--fin-canvas) 70%,
-      color-mix(in srgb, var(--field-accent) 4%, var(--fin-canvas)) 100%
-    );
-  /* 3 field layers: dot-matrix, top-hairline, bands */
+    linear-gradient(90deg, var(--field-accent) 0%, color-mix(in srgb, var(--field-accent) 35%, var(--fin-canvas)) 60%, var(--fin-canvas) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--field-accent) 5%, var(--fin-canvas)) 0%, var(--fin-canvas) 30%, var(--fin-canvas) 70%, color-mix(in srgb, var(--field-accent) 4%, var(--fin-canvas)) 100%);
   --fin-size: 26px 26px, 100% 0.31cqi, cover;
-  --fin-position: top left, top left, center;
+  --fin-position: top left, top left, top left;
   --fin-repeat: repeat, no-repeat, no-repeat;
-  /* registration tick — horizontal + vertical solid accent strips at the corner */
   --fin-mark:
     linear-gradient(var(--field-accent), var(--field-accent)),
     linear-gradient(var(--field-accent), var(--field-accent));
@@ -799,207 +696,87 @@ section.finish-strata {
     linear-gradient(var(--field-accent), var(--field-accent)),
     linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-position: top 2.7cqi right 3.1cqi, top 2.7cqi right 3.1cqi;
-  --fin-mark-size-bg: 2.65cqi 0.16cqi, 0.16cqi 2.65cqi; /* arm-H, arm-V */
+  --fin-mark-size-bg: 2.65cqi 0.16cqi, 0.16cqi 2.65cqi;
   --fin-mark-repeat: no-repeat, no-repeat;
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
 }
 
-/* ── 4 · HALO — centered spotlight + concentric rings + inset vignette ────────
- * RICH:   the concentric rings THIN OUT toward the edges (each ring fades to
- *         transparent) and the centered spotlight blooms to nothing — the
- *         mockup's halo. The vignette deepens to a faint ink alpha at the rim.
- * OPAQUE: uniform faint rings + an opaque spotlight + an opaque ink-rim vignette. */
+/* ── 4 · HALO — Centered spotlight + concentric rings + an inset vignette. (lib/finishes/halo/) */
 section.finish-halo {
-  --fin-texture:
-    repeating-radial-gradient(
-      circle at 50% 42%,
-      transparent 0 56px,
-      color-mix(in srgb, var(--field-accent) 8%, transparent) 56px 57px
-    );
-  --fin-wash:
-    radial-gradient(
-      85% 75% at 50% 42%,
-      color-mix(in srgb, var(--field-accent) 9%, transparent) 0%,
-      transparent 62%
-    );
-  --fin-texture-opaque:
-    repeating-radial-gradient(
-      circle at 50% 42%,
-      transparent 0 56px,
-      color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 56px 57px
-    );
-  --fin-wash-opaque:
-    radial-gradient(
-      80% 70% at 50% 42%,
-      color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%,
-      var(--fin-canvas) 60%
-    );
-  /* 2 field layers: rings, spotlight */
+  --fin-texture: repeating-radial-gradient(circle at 50% 42%, transparent 0 56px, color-mix(in srgb, var(--field-accent) 8%, transparent) 56px 57px);
+  --fin-texture-opaque: repeating-radial-gradient(circle at 50% 42%, transparent 0 56px, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 56px 57px);
+  --fin-wash: radial-gradient(80% 70% at 50% 42%, color-mix(in srgb, var(--field-accent) 9%, transparent) 0%, transparent 60%);
+  --fin-wash-opaque: radial-gradient(80% 70% at 50% 42%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%);
   --fin-size: auto, cover;
   --fin-position: top left, top left;
-  --fin-repeat: no-repeat, no-repeat;
+  --fin-repeat: repeat, no-repeat;
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  /* vignette — RICH fades to a low-alpha ink rim; OPAQUE ends on an ink-in-bg mix */
-  --fin-edge:
-    radial-gradient(
-      78% 78% at 50% 50%,
-      transparent 60%,
-      color-mix(in srgb, var(--text-heading) 7%, transparent) 100%
-    );
-  --fin-edge-opaque:
-    radial-gradient(
-      78% 78% at 50% 50%,
-      rgb(from var(--fin-canvas) r g b / 0) 62%,
-      color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%
-    );
+  --fin-edge: radial-gradient(78% 78% at 50% 50%, transparent 60%, color-mix(in srgb, var(--text-heading) 7%, transparent) 100%);
+  --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
 }
 
-/* ── 5 · LEDGER — fine ruled lines (dissolving) + bold left bar + corner fold ──
- * RICH:   the ruled lines FADE toward the right edge and the corner fold bleeds
- *         to transparent.
- * OPAQUE: uniform faint ruled lines + an opaque corner fold.
- * mark:   a bold solid accent bar down the full left margin. */
+/* ── 5 · LEDGER — Fine ruled lines + a bold left margin bar + a corner fold. (lib/finishes/ledger/) */
 section.finish-ledger {
-  --fin-texture:
-    repeating-linear-gradient(
-      180deg,
-      transparent 0 39px,
-      color-mix(in srgb, var(--field-accent) 10%, transparent) 39px 40px
-    );
+  --fin-texture: repeating-linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 10%, transparent) 39px 40px);
+  --fin-texture-opaque: repeating-linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 39px 40px);
   --fin-wash: none;
-  --fin-texture-opaque:
-    repeating-linear-gradient(
-      180deg,
-      transparent 0 39px,
-      color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 39px 40px
-    );
   --fin-wash-opaque: none;
-  /* 2 field layers: ruled lines, wash-none */
   --fin-size: auto, auto;
   --fin-position: top left, top left;
   --fin-repeat: repeat, no-repeat;
   --fin-mark: linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-opaque: linear-gradient(var(--field-accent), var(--field-accent));
   --fin-mark-position: left center;
-  --fin-mark-size-bg: 1.1cqi 100%; /* ~14px bold bar at the left edge */
+  --fin-mark-size-bg: 1.1cqi 100%;
   --fin-mark-text: "";
-  --fin-edge:
-    linear-gradient(
-      225deg,
-      color-mix(in srgb, var(--field-accent) 22%, transparent) 0%,
-      transparent 65%
-    );
-  --fin-edge-opaque:
-    linear-gradient(
-      225deg,
-      color-mix(in srgb, var(--field-accent) 16%, var(--fin-canvas)) 0%,
-      var(--fin-canvas) 60%
-    );
+  --fin-edge: linear-gradient(225deg, color-mix(in srgb, var(--field-accent) 22%, transparent) 0%, transparent 65%);
+  --fin-edge-opaque: linear-gradient(225deg, color-mix(in srgb, var(--field-accent) 16%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%);
   --fin-edge-position: top right;
-  --fin-edge-size: 9.4cqi 9.4cqi; /* ~120px corner fold */
+  --fin-edge-size: 9.4cqi 9.4cqi;
 }
 
-/* ── 6 · NIMBUS — a gradient MESH of soft accent blooms + a seating vignette ───
- * NEW layer type: `mesh` (wash) — 3–4 overlapping radial accent blooms in
- * different corners, summed into an organic gradient-mesh atmosphere. Pure
- * premium air; the wash intensity tunes the bloom strength. No texture, no mark.
- * RICH:   each bloom fades to transparent so they ADD cleanly (premultiplied
- *         alpha) into a soft mesh; the vignette fades to a faint ink rim.
- * OPAQUE: each bloom ends opaque on var(--fin-canvas) (no gray cloud); opaque ink-in-bg
- *         vignette. Same 4 wash layers + 0 texture layers in both faces. */
+/* ── 6 · NIMBUS — A gradient mesh of soft accent blooms + a seating vignette. (lib/finishes/nimbus/) */
 section.finish-nimbus {
   --fin-texture: none;
   --fin-texture-opaque: none;
-  /* RICH mesh — four blooms toward transparent. */
   --fin-wash:
     radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--field-accent) 15%, transparent) 0%, transparent 60%),
     radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--field-accent) 11%, transparent) 0%, transparent 58%),
-    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 8%, transparent) 0%, transparent 62%),
-    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--field-accent) 8%, transparent) 0%, transparent 58%);
-  /* OPAQUE mesh — the three upper blooms end on the canvas at ZERO opacity and only
-   * the bottom one ends on solid var(--fin-canvas) (the BOTTOM-LAYER RULE above). Each
-   * of the four used to end solid, so the top bloom painted the canvas over the other
-   * three and the print face showed no mesh at all. */
+    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 9%, transparent) 0%, transparent 62%),
+    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--field-accent) 9%, transparent) 0%, transparent 58%);
   --fin-wash-opaque:
     radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--field-accent) 12%, var(--fin-canvas)) 0%, rgb(from var(--fin-canvas) r g b / 0) 60%),
     radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0%, rgb(from var(--fin-canvas) r g b / 0) 58%),
     radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, rgb(from var(--fin-canvas) r g b / 0) 62%),
     radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%);
-  /* 5 background-image layers: the texture-none slot (the compositor always lists
-   * `var(--fin-texture,none)` first) + the 4 mesh wash blooms — same count both faces.
-   * The aux slots carry one entry per layer, in compositor order (texture, then wash). */
   --fin-size: auto, cover, cover, cover, cover;
   --fin-position: top left, top left, top left, top left, top left;
   --fin-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  /* vignette to seat the mesh — RICH low-alpha ink rim, OPAQUE ink-in-bg rim. */
-  --fin-edge:
-    radial-gradient(
-      82% 82% at 50% 50%,
-      transparent 58%,
-      color-mix(in srgb, var(--text-heading) 8%, transparent) 100%
-    );
-  --fin-edge-opaque:
-    radial-gradient(
-      82% 82% at 50% 50%,
-      rgb(from var(--fin-canvas) r g b / 0) 60%,
-      color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 100%
-    );
+  --fin-edge: radial-gradient(78% 78% at 50% 50%, transparent 60%, color-mix(in srgb, var(--text-heading) 8%, transparent) 100%);
+  --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
 }
 
-/* ── 7 · LOOM — a woven LATTICE cross-hatch + a MOVABLE corner glow ────────────
- * NEW layer type: `lattice` (texture) — two repeating-linear-gradients at
- * +45°/−45° summed into a diagonal CROSS-hatch weave (on-brand: the product is
- * Lattice). The texture scale tunes the weave pitch; the corner glow is MOVABLE
- * via placement (here top-left, the opposite corner from Atrium's top-right).
- * RICH:   weave lines + glow mix toward transparent.
- * OPAQUE: weave lines + glow mix into var(--fin-canvas). 2 texture + 1 wash, both faces. */
+/* ── 7 · LOOM — A woven lattice cross-hatch + a movable corner glow. (lib/finishes/loom/) */
 section.finish-loom {
   --fin-texture:
-    repeating-linear-gradient(
-      45deg,
-      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
-      transparent 1px 34px
-    ),
-    repeating-linear-gradient(
-      -45deg,
-      color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px,
-      transparent 1px 34px
-    );
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 34px);
   --fin-texture-opaque:
-    repeating-linear-gradient(
-      45deg,
-      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
-      transparent 1px 34px
-    ),
-    repeating-linear-gradient(
-      -45deg,
-      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px,
-      transparent 1px 34px
-    );
-  --fin-wash:
-    radial-gradient(
-      ellipse 120% 90% at 0% 0%,
-      color-mix(in srgb, var(--field-accent) 14%, transparent) 0%,
-      transparent 60%
-    );
-  --fin-wash-opaque:
-    radial-gradient(
-      ellipse 120% 90% at 0% 0%,
-      color-mix(in srgb, var(--field-accent) 11%, var(--fin-canvas)) 0%,
-      var(--fin-canvas) 55%
-    );
-  /* 2 weave layers (45°, −45°) + 1 glow layer — same count both faces. */
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 34px);
+  --fin-wash: radial-gradient(ellipse 120% 90% at 0% 0%, color-mix(in srgb, var(--field-accent) 14%, transparent) 0%, transparent 60%);
+  --fin-wash-opaque: radial-gradient(ellipse 120% 90% at 0% 0%, color-mix(in srgb, var(--field-accent) 11%, var(--fin-canvas)) 0%, var(--fin-canvas) 55%);
   --fin-size: auto, auto, cover;
   --fin-position: top left, top left, top left;
   --fin-repeat: repeat, repeat, no-repeat;
@@ -1010,36 +787,15 @@ section.finish-loom {
   --fin-edge-opaque: none;
 }
 
-/* ── 8 · SAVILE — a tailored vertical PINSTRIPE + a MOVABLE monogram ──────────
- * NEW layer type: `pinstripe` (texture) — fine VERTICAL repeating-linear-gradient
- * lines (90deg = columns); the texture scale tunes the pitch (here 18px, tight
- * and editorial). The mark is a MOVABLE monogram (the existing glyph param),
- * seated bottom-right. Tailored / Savile Row.
- * The pinstripe is a 1px opaque line + transparent GAP (a hard stop), so both
- * faces bake clean — only the line COLOR is the face knob. 1 texture layer. */
+/* ── 8 · SAVILE — A tailored vertical pinstripe + a movable monogram. (lib/finishes/savile/) */
 section.finish-savile {
-  --fin-texture:
-    repeating-linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--field-accent) 10%, transparent) 0 1px,
-      transparent 1px 18px
-    );
-  --fin-texture-opaque:
-    repeating-linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0 1px,
-      transparent 1px 18px
-    );
+  --fin-texture: repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 10%, transparent) 0 1px, transparent 1px 18px);
+  --fin-texture-opaque: repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0 1px, transparent 1px 18px);
   --fin-wash: none;
   --fin-wash-opaque: none;
-  /* 1 pinstripe layer + 1 wash-none layer — same count both faces. */
   --fin-size: auto, auto;
   --fin-position: top left, top left;
   --fin-repeat: repeat, no-repeat;
-  /* MOVABLE monogram — a ghost glyph in --font-display; OPAQUE faint color.
-   * Author-personalized: EMPTY by default so a deck-wide finish paints NO monogram
-   * (a glyph-mark is never a baked placeholder). The Studio glyph param / a per-slide
-   * override sets the initials; the placement axis moves it (bottom-right here). */
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
@@ -1052,37 +808,15 @@ section.finish-savile {
   --fin-edge-opaque: none;
 }
 
-/* ── 9 · GALLERY — a museum inset FRAME keyline + spotlight + MOVABLE numeral ──
- * NEW layer type: `frame` (edge) — a thin INSET keyline border drawn as four
- * solid accent-into-bg strips (top/right/bottom/left), positioned in from each
- * edge. NO box-shadow alpha (it grays in the vector PDF); the strips are flat
- * accent-in-bg fills, so the FRAME is identical in both faces (face-invariant)
- * and export-safe by construction. A centered spotlight lifts the field; a
- * MOVABLE numeral (top-left here) labels the plate. Museum framing.
- * 0 texture layers; 1 spotlight wash layer; 4 frame strips. */
+/* ── 9 · GALLERY — A museum inset keyline frame + a spotlight + a movable numeral. (lib/finishes/gallery/) */
 section.finish-gallery {
   --fin-texture: none;
   --fin-texture-opaque: none;
-  --fin-wash:
-    radial-gradient(
-      80% 70% at 50% 42%,
-      color-mix(in srgb, var(--field-accent) 10%, transparent) 0%,
-      transparent 60%
-    );
-  --fin-wash-opaque:
-    radial-gradient(
-      80% 70% at 50% 42%,
-      color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0%,
-      var(--fin-canvas) 60%
-    );
-  /* 2 background-image layers: the texture-none slot (the compositor always lists
-   * `var(--fin-texture,none)` first) + the 1 spotlight wash — same count both faces. */
+  --fin-wash: radial-gradient(80% 70% at 50% 42%, color-mix(in srgb, var(--field-accent) 10%, transparent) 0%, transparent 60%);
+  --fin-wash-opaque: radial-gradient(80% 70% at 50% 42%, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%);
   --fin-size: auto, cover;
   --fin-position: top left, top left;
   --fin-repeat: no-repeat, no-repeat;
-  /* MOVABLE numeral — a ghost glyph, top-left. Author-personalized: EMPTY by default
-   * so a deck-wide finish paints NO numeral (never a baked placeholder). The Studio
-   * glyph param / a per-slide override sets it; the placement axis moves it. */
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
@@ -1091,18 +825,12 @@ section.finish-gallery {
   --fin-mark-pad: 0 1cqi;
   --fin-mark-align: flex-start;
   --fin-mark-justify: flex-start;
-  /* FRAME — an inset keyline museum mat, drawn as two stacked SOLID inset
-   * box-shadows on the SECTION (see the compositor's --fin-frame note): an outer
-   * bg-colored ring (the mat, 0 → 2.6cqi) then an accent-into-bg keyline ring
-   * (2.6cqi → 2.82cqi). Both opaque + blur-free, so they bake crisp in the vector
-   * PDF and carry no alpha — identical in both faces (export-safe by construction).
-   * The ::after edge stays none (the engine reserves ::after for pagination). */
   --fin-edge: none;
   --fin-edge-opaque: none;
-  --fin-frame:
-    inset 0 0 0 calc(2.6  * var(--_sec-1cqi, 1cqi)) var(--fin-canvas),
-    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
+  --fin-frame: inset 0 0 0 calc(2.6 * var(--_sec-1cqi, 1cqi)) var(--fin-canvas), inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
 }
+
+/* ── END GENERATED FINISH PRESETS ── */
 
 /* ════════════════════════════════════════════════════════════════════════════
  * THE OPAQUE FLIP — the export fallback (the load-bearing PDF-safety swap).

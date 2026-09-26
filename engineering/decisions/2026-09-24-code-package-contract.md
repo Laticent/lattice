@@ -109,10 +109,41 @@ both places, where a Node process has nothing to measure with.
   slide of every code package in a render. Every output format already launches the
   browser (`renderExport` in `lattice-emulator.js` runs for all of them, `.html`
   included), so no output gains a browser it didn't have.
-- **Unverified:** that a CSP delivered this way blocks every fetch a hostile transform can
-  make (image, `fetch`, WebSocket, prefetch, a `<meta>` refresh) in the headless build we
-  ship. This is the first thing phase 6 proves, with a network log, before anything else
-  is built on it (HARD RULE #23).
+- **Verified (2026-09-26), with a network log; and a CSP alone is NOT enough.** The page is
+  `lib/core/code-sandbox.js`. A real local HTTP + WebSocket server and two UDP sockets counted
+  what 34 hostile vectors reached on Chromium 131: image, `fetch`, XHR, WebSocket, beacon,
+  EventSource, prefetch, preload, stylesheet, CSS background, iframe, meta refresh, top-level
+  navigation, `window.open` (direct and through an `about:blank` iframe), a `target=_blank`
+  link (plain, in a closed shadow root, with `closest` patched, and in SVG) and form, form post,
+  worker (URL and blob), dynamic `import()`, `<script src>`, SVG image, video poster, audio,
+  `<a ping>`, speculation rules (plain, and stamped with a nonce read from the running script),
+  `FontFace`, and WebRTC (direct and through an iframe). With no walls the control fires 33 (a
+  URL `Worker` is refused by the opaque origin even there); every vector logs that it RAN, so a
+  zero is never a script that did not start. Two walls each stop all 34 ALONE: the BROWSER (the
+  offline arguments, always, `--allow-remote` or not) and the PAGE (a fresh context, a script-free
+  `data:` outer document, the transform in `<iframe sandbox="allow-scripts">`, `default-src 'none'`
+  with script allowed only by the SHA-256 hash of the transform, request interception, and an init
+  script that removes `window.open` and WebRTC). The sandbox browser also turns speculative
+  prefetch and prerender off and keeps the popup blocker on; the checker removed each and nothing
+  changed, so they are defense in depth, not part of the measured wall.
+  What the measurement and the adversarial trio changed: `'unsafe-inline'` let a transform
+  inject speculation rules the prefetch service fetched past interception; a NONCE did no better,
+  because the transform runs inside the nonced script and can read and reuse it (the red team's
+  hypothesis, measured by the inversion lens), so script is allowed by hash; `setContent` wrote
+  into the existing `about:blank`, where the init script never runs, so the page loads as a
+  `data:` navigation; a `target=_blank` link opened a popup whose first request left before it
+  closed, a JavaScript click guard fell to three bypasses the checker found, so the transform runs
+  in a sandboxed frame that cannot grant itself a popup; a transform holding `<!--` then
+  `<script` silently failed its hash, so those `<` are written `\x3C`.
+  **One page per package per render**, not one shared page as the Costs line above proposed: a
+  package that patches a global in a shared page could read or rewrite another's slide data.
+  **Not claimed:** an OS sandbox under the renderer. The CLI launches Chromium with
+  `--no-sandbox`, so both walls are browser policy over a renderer that a Chromium exploit could
+  escape; whether code packages refuse to run without the OS sandbox is open for the owner
+  (`followups.d/2314-p4-code-packages.md`). Pinned by
+  `test/integration/export/code-sandbox-network.test.js` (the control, each wall alone, both,
+  the literal launch list, and a check that the page still lays out text for `measure`). Still
+  UNVERIFIED: the Studio's sandboxed iframe, which phase 6 has not built.
 
 **Recommendation: a Chromium page in the CLI, the sandboxed iframe in the Studio.**
 
@@ -184,7 +215,71 @@ several packages are exported together is a possible later optimization, still a
 `{ measure }`; helpers are ordinary imports the export bundles. A stranger writes a package
 the same way: import from Lattice's helpers, and the export freezes them in.
 
-**Open inside this decision.** `contact`, `wifi` and `video` do not bundle for a neutral
-platform today: their shared QR-card module pulls Node built-ins. The build step has to
-bundle a browser-safe path for them or exclude them from code-package export with the reason
-stated. Tracked in `followups.d/2314-p4-code-packages.md`.
+**Open inside this decision, now settled.** `contact`, `wifi` and `video` did not bundle for a
+neutral platform: their shared QR-card module reaches `qrcode`, whose Node entry pulls `fs`.
+Bundling for the BROWSER platform takes `qrcode`'s own `browser` field (`./lib/browser.js`,
+`fs: false`), whose SVG renderer is the same pure encoder, so they bundle and nothing is excluded
+(step 2, below).
+
+### Step 2 done (2026-09-26): the export step, proven on every shipped transform
+
+`lib/packages/code-bundle.js` `bundleCodePackage(name)` builds a package's `transform.js` from a
+shipped component: esbuild bundles the component's registry adapter with every helper it reaches,
+minifies it for the browser platform, refuses the result if anything is left external, and pins
+it by the SHA-256 of its text. A chart's adapter reaches all 22 chart kernels through the
+generated dispatch table, so the export swaps that table for one naming only the chart being
+exported; the test checks each chart package carries its own kernel and no other.
+
+**The slide a transform receives is `{ html, index, idPrefix, baseUrl }`** for v1: the rendered
+`<section>`, the slide's 0-based position in the deck, the deck render's id prefix, and the
+render's asset base. Position and prefix exist because a chart scopes the ids it mints in its
+`<defs>` by the slide's position (lib/core/render-ids.js); without them a slide transformed alone
+numbers itself 1, and 12 of the 22 chart packages differed from the deck render until they were
+added. The position is required, since a wrong one is silent. `enterSlideIds` takes only a prefix
+that module could have minted. `baseUrl` is the one context field a shipped adapter reads:
+`team-profile` resolves portrait paths against it, and the Studio passes one where the CLI does
+not (found by the inversion lens). §5's other fields (markdown, list items, directives, token
+names) join when a transform needs them; no shipped one does.
+
+**The runner** (`packageScript`, `runPackage` in lib/core/code-sandbox.js) runs the package as the
+locked page's one script. The package is an ES module, and the page runs a classic script allowed
+by its hash, so the runner takes off the bundle's final `export { name as default }` (the only
+shape the export writes; any other is refused) and gives the bundle a function scope of its own.
+The transform is called with a frozen slide and a frozen `kit` holding `measure` and nothing else;
+`measure` is the page's own canvas text measurement, so no host function is exposed. The page
+checks the return is a string of at most 4,000,000 characters, but that check is a courtesy: the
+bundle's top level runs first and can claim the runner's name or patch `Object.defineProperty`
+(the red team did both, and got an object, a number and a 40-million-character string across).
+So the host reads the result's type and length through a handle while it is still in the page,
+and takes it only if it is a string within the limit. A run past its time (2 s per slide by
+default) closes the sandbox, which ends the transform however it loops; a loop at the bundle's
+top level is bounded by the load's own 5 s limit; the tail is matched in the bundle's last 256
+characters, because on the whole text the pattern backtracked for 30 s on 160,000 spaces. The page's size limit is checked against the encoded `data:` URL, which is what
+Chromium limits and runs about 1.9 times the script (`map`: 234 KB, about 443 KB encoded).
+
+**Measured** (test/integration/export/code-package-parity.test.js): all 29 packages (22 charts,
+`compare-code`, `contact`, `wifi`, `video`, `scene`, `team-profile` and the `qr` variant) bundle
+self-contained. Run in the locked page on every slide of their own gallery deck (the `qr` example
+for `qr`), 288 slides in all, each output is byte-identical to the in-repo render: the 206 slides
+a package transforms, and the 82 it must leave alone (title, closing and card slides that no chart
+claims). The page asks for nothing. The in-repo side is pinned to the deck render, not to the
+adapter alone: each slide transformed by itself in Node gives the section the whole-deck render
+gave. Separate cases carry an id prefix and an asset base, which no gallery deck exercises, and
+hand a chart the wrong position, which must fail.
+
+What "byte-identical" covers: the CLI's render context, and the adapter's own output. §5 puts
+every transform's output through `sanitizeSlideHtml` before it reaches a slide, and that changes
+the bytes of all 29 (it re-serializes empty SVG elements, and strips `target="_blank"` from the
+`video` poster link), so the same comparison run after the door's sanitizer is the door's test.
+
+Size, minified and gzipped: `compare-code` 6.5 KB, `bar` 24.6 KB, `quadrant` 31.2 KB, `map`
+83.6 KB (234 KB minified). That is a third to a half above §8's first figures, which bundled each
+transform file alone; a package carries its registry adapter too, and a chart the chart-family
+wrap.
+
+No shipped transform calls `measure`: `state-chart` measures in its runtime half, not while it
+writes its markup (§2 said otherwise; its own header says the build step only emits the nodes). So
+only a probe exercises `measure`, and "runs with only `measure`" holds trivially for our 29.
+
+`scene` and `team-profile` ship only their string half; their runtime halves stay out of v1
+(§5). No door runs a package yet: every door still refuses one that carries code.

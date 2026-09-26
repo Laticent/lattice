@@ -27,7 +27,7 @@ function hexRgb(hex: string): [number, number, number] {
  * `modeOverride` pins the render mode (a deck-dark deck stays dark regardless of the
  * site light/dark), mirroring DeckPreview's own modeOverride.
  */
-export async function buildStageDocument(options: SingleSlideOptions, source: string, total: number, paletteOverride?: string, extraTheme?: ExtraTheme, extraCss?: string, modeOverride?: 'light' | 'dark', token = ''): Promise<{ doc: string; total: number; bg: string }> {
+export async function buildStageDocument(options: SingleSlideOptions, source: string, total: number, paletteOverride?: string, extraTheme?: ExtraTheme, extraCss?: string, modeOverride?: 'light' | 'dark', token = '', webOrigins: string[] = []): Promise<{ doc: string; total: number; bg: string }> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
 	const render = await buildDeckRender(options, source, palette, mode, extraTheme);
@@ -74,6 +74,8 @@ export async function buildStageDocument(options: SingleSlideOptions, source: st
 		// Echoed in the document's own unload beat, so the console can recognize its
 		// goodbye when `e.source` no longer identifies it (see createStageController).
 		token,
+		// The web origins the reader allowed for this deck (trio follow-up 11).
+		webOrigins,
 	});
 	return { doc, total, bg };
 }

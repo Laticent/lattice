@@ -264,7 +264,11 @@ export function metaFor(source: string): string {
  * tag, not a name — the copy's source is byte-faithful to the backup, so the marker
  * cannot live in its heading without editing content the user asked us to restore.
  */
-export type IndexEntry = { id: string; title: string; builtin: boolean; derived?: string; restored?: boolean };
+/** `webOrigins`: the web origins the reader chose to load this deck's images from (trio
+ *  follow-up 11). Absent = none, which is the default for every deck, including one you wrote:
+ *  authorship is not provable (a paste, an AI edit or a restored backup can add a web image),
+ *  so the choice is per deck AND per origin, and a new origin asks again. */
+export type IndexEntry = { id: string; title: string; builtin: boolean; derived?: string; restored?: boolean; webOrigins?: string[] };
 
 // One-time flag: have we offered the welcome deck to a pre-existing user whose
 // saved index predates it? Set once the migration runs, so a user who then
@@ -450,6 +454,26 @@ export function syncDerivedTitle(id: string, title: string | null): void {
 	const entry = index.find((e) => e.id === id);
 	if (!t || !entry || entry.derived === t) return; // unchanged → no write
 	saveIndex(index.map((e) => (e.id === id ? { ...e, derived: t } : e)));
+}
+
+/** The web origins the reader allowed this deck's images to load from (none by default). */
+export function deckWebOrigins(id: string): string[] {
+	const o = loadIndex().find((e) => e.id === id)?.webOrigins;
+	return Array.isArray(o) ? o.filter((x) => typeof x === 'string') : [];
+}
+
+/** Record which web origins this deck may load images from; an empty list blocks them all again. */
+export function setDeckWebOrigins(id: string, origins: string[]): void {
+	const next = [...new Set(origins)].sort();
+	const index = loadIndex();
+	if (!index.some((e) => e.id === id)) return;
+	saveIndex(
+		index.map((e) => {
+			if (e.id !== id) return e;
+			const { webOrigins: _drop, ...rest } = e;
+			return next.length ? { ...rest, webOrigins: next } : rest;
+		}),
+	);
 }
 
 /** Set a deck's explicit creation/rename LABEL — the deliberate act `title` records.
@@ -961,7 +985,11 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		const incomingSrc = normalizeSourceText(data.sources[entry.id]);
 		const existing = have.get(entry.id);
 		if (!existing) {
-			index.push(entry);
+			// TRUST IS NOT RESTORABLE, for the reason `crashReports` is not (below): a backup can
+			// be someone else's file, and "load this deck's web images" is a choice the reader
+			// makes on this device. The deck arrives with its images blocked.
+			const { webOrigins: _untrusted, ...incoming } = entry;
+			index.push(incoming);
 			if (incomingSrc != null) saveSource(entry.id, incomingSrc);
 			if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);

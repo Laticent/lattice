@@ -985,27 +985,45 @@ function checkPackageIdentity(errors, { root } = {}) {
 
 // ─── Finish packages ↔ their CSS ───────────────────────────────────────────
 // A shipped finish is a package (lib/finishes/<name>/): the register, the Studio's
-// catalog and its preset recipes are all generated from it. Its CSS is still the
-// hand-written `section.finish-<name>` rule in base.finish.css, because generating it
-// from the recipe is not yet pixel-equal for the presets that carry a text or rule mark
-// (portable-packages §10). So the two have to be bound: a package with no rule renders
-// nothing, and a rule with no package is a finish no deck can name.
+// catalog, its preset recipes AND its `section.finish-<name>` rule in base.finish.css are
+// all generated from it (portable-packages §3.6). The build keeps them equal; this gate
+// still binds them by name, so a hand-added rule outside the generated region, or a
+// region left stale by a skipped build, fails with a message that names the finish.
 const FINISH_CSS = path.join(ROOT, 'lib', 'base', 'base.finish.css');
 function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
   const pkgs = discoverPackages({ root, types: ['finish'] })
     .filter((f) => f.result.ok)
     .map((f) => f.result.pkg.name);
-  const text = fs.readFileSync(css, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  const rules = new Set([...text.matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*\{/gm)].map((m) => m[1]));
+  const raw = fs.readFileSync(css, 'utf8');
+  const rel = path.relative(root, css);
+  // The generated region is delimited by two comments, so find it BEFORE comments are stripped.
+  const from = raw.indexOf('/* ── BEGIN GENERATED FINISH PRESETS');
+  const to = raw.indexOf('/* ── END GENERATED FINISH PRESETS ── */');
+  if (from < 0 || to < from) {
+    errors.push(`${rel} has lost its generated-region markers, so the finish rules have nowhere to be written. Restore the BEGIN/END GENERATED FINISH PRESETS comments and run \`node tools/build-packages-index.js\`.`);
+    return;
+  }
+  const uncomment = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rulesIn = (t) => [...uncomment(t).matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*\{/gm)].map((m) => m[1]);
+  const inside = rulesIn(raw.slice(from, to));
+  const outside = rulesIn(raw.slice(0, from) + raw.slice(to));
   for (const name of pkgs) {
-    if (!rules.has(name)) {
-      errors.push(`lib/finishes/${name}/ is a finish package, but lib/base/base.finish.css has no \`section.finish-${name} {\` rule — the finish would register and render nothing.`);
+    const n = inside.filter((r) => r === name).length;
+    if (n === 0) {
+      errors.push(`lib/finishes/${name}/ is a finish package, but ${rel} has no \`section.finish-${name} {\` rule in its generated region — the finish would register and render nothing. Run \`node tools/build-packages-index.js\`.`);
+    } else if (n > 1) {
+      errors.push(`${rel} has ${n} \`section.finish-${name} {\` rules in its generated region; the generator writes one.`);
     }
   }
-  for (const name of rules) {
+  for (const name of new Set(inside)) {
     if (!pkgs.includes(name)) {
-      errors.push(`lib/base/base.finish.css has a \`section.finish-${name}\` preset rule but no lib/finishes/${name}/ package — no deck can name it. Add the package (manifest + recipe) or remove the rule.`);
+      errors.push(`${rel} has a \`section.finish-${name}\` preset rule but no lib/finishes/${name}/ package — no deck can name it. Add the package (manifest + recipe) or remove the rule.`);
     }
+  }
+  // A hand-written preset rule OUTSIDE the region would follow or precede the generated one and
+  // silently win or lose by source order; the region's own --check cannot see it.
+  for (const name of new Set(outside)) {
+    errors.push(`${rel} has a hand-written \`section.finish-${name} {\` rule outside the generated region. A shipped finish's look lives in lib/finishes/${name}/${name}.recipe.json; change the recipe (or the generator) instead.`);
   }
 }
 
@@ -11148,7 +11166,7 @@ function bareName(t) { return String(t).replace(/^--/, ''); }
  * never asserted by a ledger entry that nothing re-checks.
  *
  *   1. `--x:` inside a JS/TS template literal (generated CSS text) — how
- *      `--fin-backdrop-mask-opaque` is set, by `finish-generate.ts`.
+ *      `--fin-backdrop-mask-opaque` is set, by `lib/finishes/finish-generate.js`.
  *   2. `setProperty('--x', …)` — how `--stat-emphasis` and `--safe-bottom` are set.
  *   3. `['--x', value]` PAIR ARRAYS — how `plugins.js` emits the five `--logo-*`
  *      placement tokens into an inline `style`. `declaredCustomProps` does not
@@ -11239,8 +11257,11 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
 const SLIDE_BOUND_DOCS_EMITTERS = Object.freeze([
   { file: 'docs/src/lib/chart-anima.ts',
     why: 'emits the inline `stroke:` baked into the chart asset an Anima scene mounts INSIDE a slide.' },
-  { file: 'docs/src/components/studio/finish-generate.ts',
-    why: 'generates the CSS text of every Studio-fabricated finish, applied to a slide section.' },
+  // In lib/, not docs/: the one finish generator the Studio re-exports and the build runs
+  // over every shipped recipe (portable-packages §3.6). Listed here because its output is
+  // slide CSS assembled in template strings, which the engine-stylesheet arm cannot read.
+  { file: 'lib/finishes/finish-generate.js',
+    why: 'generates the CSS text of every Studio-fabricated finish AND every shipped preset rule, applied to a slide section.' },
 ]);
 
 function checkPhantomTokenReads(errors) {

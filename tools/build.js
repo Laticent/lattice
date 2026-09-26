@@ -79,6 +79,11 @@ const PREFLIGHT = [
 ];
 
 const STEPS = [
+  // The shipped finish rules, written into base.finish.css from their recipes
+  // (portable-packages §3.6). BEFORE lattice.css bundles that file, or a recipe edit would
+  // reach the bundle one build late. The full package index runs later, after the catalogs
+  // its reserved-class list reads.
+  { label: 'finish presets (lib/base/base.finish.css)', script: 'build-packages-index.js', args: ['--finish-css-only'] },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
   // Must run BEFORE lattice-runtime.js / lattice-emulator.js — those bundles
@@ -230,7 +235,7 @@ const BACKGROUND_LABELS = new Set([
 const JOIN_BEFORE_SCRIPTS = new Set(['build-player-core.js', 'build-read-along-core.js']);
 
 function runStep(step, check) {
-  const args = [path.join(__dirname, step.script)];
+  const args = [path.join(__dirname, step.script), ...(step.args || [])];
   if (check) args.push('--check');
   const r = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' });
   return r.status === 0;
@@ -240,7 +245,7 @@ function runStep(step, check) {
 // can't interleave with the serial steps' console lines) and flushes that
 // buffered output — prefixed with the step label — once it exits.
 function runStepAsync(step, check) {
-  const args = [path.join(__dirname, step.script)];
+  const args = [path.join(__dirname, step.script), ...(step.args || [])];
   if (check) args.push('--check');
   return new Promise((resolve) => {
     const child = spawn(process.execPath, args, { cwd: ROOT, stdio: ['inherit', 'pipe', 'pipe'] });

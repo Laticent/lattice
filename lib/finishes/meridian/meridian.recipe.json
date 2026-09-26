@@ -10,7 +10,9 @@
   },
   "mark": {
     "type": "numeral",
-    "placement": "bottom-right"
+    "placement": "bottom-right",
+    "anchor": "corner",
+    "inset": 1
   },
   "edge": {
     "type": "none",

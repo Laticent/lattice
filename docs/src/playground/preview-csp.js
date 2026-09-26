@@ -67,8 +67,10 @@ import { subresourceCspMeta } from '../../../lib/core/subresource-csp.mjs';
  *   ORIGIN is allowed for fonts, since KaTeX's faces are relative to its own stylesheet.
  *   Derived rather than hard-coded: these URLs are call-site parameters, so a surface
  *   pointing at a different mirror must not silently lose its math glyphs.
+ * @param {string[]} [opts.webOrigins] web origins the reader chose to load images from for this
+ *   deck (trio follow-up 11); see `subresourceCspPolicy`.
  * @returns {string}
  */
-export function previewCspMeta({ katexUrl = '' } = {}) {
-	return subresourceCspMeta({ katexUrl });
+export function previewCspMeta({ katexUrl = '', webOrigins = [] } = {}) {
+	return subresourceCspMeta({ katexUrl, webOrigins });
 }

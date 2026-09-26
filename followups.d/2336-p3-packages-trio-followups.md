@@ -31,7 +31,7 @@ verify    — unit + the package e2e specs.
 Items 2 (gallery gating), 3 (motion art's remote references), 4 (the streaming inflate), 9
 (escaped selectors), 12 (the workspace restore), 13 (the resolver rule's test), 14 (relative
 scripts), 15 (the workspace backup's size caps), 16 (the unreadable scene's key) and 17 (the
-parse cost of what the caps admit, and the export warning) are fixed, and item 6 is declined; the decision note's §10 says how and why. The numbers are kept so a
+parse cost of what the caps admit, and the export warning) 18 (a malformed `workspace.json`) and 11 (remote images) are fixed, and item 6 is declined; the decision note's §10 says how and why. The numbers are kept so a
 reference to item 5 still means item 5.
 
 5. **`rgb(from …)` is the repo's first relative-color syntax** (the finish BOTTOM-LAYER
@@ -56,22 +56,3 @@ reference to item 5 still means item 5.
     #2035 fail too. `studio-instant-shell.spec.ts:539` is flaky on both (1 of 2 on `main`, 1 of
     4 on the branch: "shell 0 vs app 16"). WebKit and Gecko projects were not run: this sandbox
     has Chromium only.
-11. **A DECK may still load remote images, and that is the root of items 2 and 3.**
-    `sanitizeSlideHtml` keeps remote images on purpose, because a deck's own images are
-    legitimately remote, so a deck someone sends you beacons in the preview and in every
-    export. The package gates close the doors where markup rides in under a trusted name;
-    they do not close this one. The fix belongs at the render boundary: an `img-src 'self'
-    data: blob:` policy on the preview frames with a visible "this deck loads N remote images —
-    load them?" switch, and an export option that inlines or strips them. A product call
-    (it changes what a pasted deck shows by default), so it is the owner's. Found by the
-    inversion lens on the continuation PR. **Owner decided (2026-09-25): block by default, with
-    the visible "load them?" switch** — a deck you did not write shows placeholders until you
-    choose to load its web images, and exports get the matching option. Whether your own decks
-    are trusted automatically is part of the design, not yet settled.
-18. **A malformed `workspace.json` refuses with a programmer's message.** A backup whose state has
-    the right shape at the top but a wrong type inside (`chats: null`, say) fails in
-    `importStudioState` with "Cannot read properties of null (reading 'welcome')". Nothing is
-    written first, so no data is lost, but the message tells the user nothing. The fix is a shape
-    check on the parsed state before the import, with a message that names the file. Found by the
-    red team on the continuation PR (2026-09-25); pre-existing and off this PR's path.
-

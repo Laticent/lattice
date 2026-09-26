@@ -23,9 +23,12 @@ import { expect, test } from './studio-fixture';
 // attribute (which is the one no markup filter can see, and the reason `img-src` rather than
 // a scrub). All three were measured firing before the CSP existed.
 //
-// THE PAYLOAD MUST STILL BE IN THE DOM. That is what separates "the fetch was refused" from
-// "the markup was rewritten" — and it is the arm that would catch a future sanitizer change
-// quietly removing the attribute and making this spec pass for the wrong reason.
+// THE PAYLOAD MUST STILL BE IN THE DOM. Since trio follow-up 11 (owner, 2026-09-25) the frame
+// DOES rewrite a web image, on purpose: it becomes a drawn placeholder that keeps its address in
+// `data-lattice-web-src`, and a web `url()` background becomes a hatch. So the arm now asserts
+// the address is kept there, which still catches a change that silently DROPS the image (and
+// would make this spec pass for the wrong reason). The policy is what holds when a rewrite
+// cannot reach a spelling, so it is asserted on the live document separately.
 //
 // ROUTED, NEVER RESOLVED. `.invalid` fails at DNS by definition, so a live vector would be
 // indistinguishable from a blocked one without interception. The route fulfills, so a beacon
@@ -50,6 +53,8 @@ theme: indaco
 <img src="https://${ATTACKER}/raw.png">
 
 <span style="background-image:url(https://${ATTACKER}/bg.png)">shaded</span>
+
+<span style="background-image:url(\\68ttps://${ATTACKER}/escaped.png)">escaped</span>
 `;
 
 test('a deck cannot beacon out of the Playground preview frame', async ({ page }) => {
@@ -85,14 +90,21 @@ test('a deck cannot beacon out of the Playground preview frame', async ({ page }
 	// Settle: both <img> vectors have been decided one way or the other. A refused load
 	// still completes, so this is the point after which a beacon cannot still be in flight.
 	await expect
-		.poll(async () => preview.locator(`img[src*="${ATTACKER}"]`).evaluateAll((els) => els.length > 0 && els.every((e) => (e as HTMLImageElement).complete)), {
+		.poll(async () => preview.locator(`img[data-lattice-web-src*="${ATTACKER}"]`).evaluateAll((els) => els.length > 0 && els.every((e) => (e as HTMLImageElement).complete)), {
 			timeout: 30_000,
 		})
 		.toBe(true);
 
-	// THE PAYLOAD SURVIVED — the fetch was refused, the markup was not rewritten.
-	expect(await preview.locator(`img[src*="${ATTACKER}"]`).count()).toBe(2);
-	expect(await preview.locator(`[style*="${ATTACKER}"]`).count()).toBe(1);
+	// THE PAYLOAD SURVIVED as a placeholder that keeps its address; nothing fetches it.
+	expect(await preview.locator(`img[data-lattice-web-src*="${ATTACKER}"]`).count()).toBe(2);
+	expect(await preview.locator(`img[src*="${ATTACKER}"]`).count()).toBe(0);
+	expect(await preview.locator(`[style*="${ATTACKER}/bg.png"]`).count()).toBe(0);
+	expect(await preview.locator('span[style*="repeating-linear-gradient"]').count()).toBe(1);
+	// THE POLICY, ALONE. A CSS escape is a spelling the rewrite cannot read, so this one stays in
+	// the markup, and only the frame's content-security policy stands between it and the network.
+	// Without this arm, every payload above is rewritten and "no requests" would pass with the
+	// policy deleted.
+	expect(await preview.locator(`span[style*="${ATTACKER}/escaped.png"]`).count()).toBe(1);
 
 	// THE CLAIM.
 	expect(hits, `the preview frame fetched ${hits.length} remote subresource(s): ${hits.join(', ')}`).toEqual([]);
