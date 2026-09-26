@@ -121,3 +121,15 @@ describe('a layout skeleton full of unclosed comments stays linear (HARD RULE #2
     assert.ok(Date.now() - t < 500, `took ${Date.now() - t}ms`);
   });
 });
+
+describe('the boundary parser keeps the html_inline guard (HARD RULE #22)', () => {
+  const { splitSourceToSections } = require(path.join(ROOT, 'lib/core/section-source-split.js'));
+
+  test('splitSourceToSections — a full md.parse on the CLI export path — stays linear', () => {
+    // Three boundaryParser callers run the full `md.parse`. Without the guard, 273 KB of
+    // `a <!--` lines took 32.8 s here; with it, ~0.7 s.
+    const t = Date.now();
+    splitSourceToSections('a <!--\n'.repeat(40000));
+    assert.ok(Date.now() - t < 5000, `took ${Date.now() - t}ms`);
+  });
+});
