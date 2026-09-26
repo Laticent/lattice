@@ -833,3 +833,19 @@ this spine as **state chart v2**, after the flowchart (the owner's sequencing).
 This adds a fifth slice to section 13, after the flowchart ships: **state chart
 v2**, the codemod, the 7 detail lines and 25 tints by hand, the component docs
 rewritten, and all 64 slides reviewed.
+
+**What #2385 actually leaves shared, and what slice 5 moves (owner's call,
+2026-09-26).** The layout half is shared: `graphLayoutKernel()` in
+`_chart-family/graph-layout.js` takes shapes, groups, lines and measured sizes and
+returns placed boxes and routed lines, with the solver, the cache, the direction
+skip and the quality counts, and nothing in it names the flowchart. The
+state-chart hooks the bullet above asks for (the `start` / `end` words, the
+grid-wrap candidate, ordinal badges) were NOT built; slice 5 adds them. The
+browser half is still flowchart-only, in `flowchart.layout.js`: measuring the
+harness in the deck's fonts, solving the fit and the type floor in one draw, the
+Studio's live layout in a worker (newest wins, the old drawing held), and the
+paint. Slice 5 moves that half into `_chart-family` as one shared pipeline, with
+the state chart as its second consumer, so the state chart and every later graph
+chart get the worker and the fit rather than copying them. It is extracted
+then, not in #2385, because an interface cut with one consumer is a guess; the
+state chart is the second case that fixes its shape.
