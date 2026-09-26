@@ -43,8 +43,9 @@ const WIDE_SOFT_BUDGET = 7;
 // (`linesThroughEnds`, now a hard zero; 37 on this corpus and 33 on the one below, across
 // auto, lr and tb) and lines that graze a stranger's box (24 -> 7), and fanning shapes got
 // one fan each (routeFans): 182. Every chart that gained a crossing lost a fold or a graze
-// for it. A crossing is a cost, not a defect, so this is a ceiling to ratchet down.
-const CROSSING_BUDGET = 182;
+// for it. Side balance (flank exits) and the end-run pass took it to 181 with no chart
+// worse. A crossing is a cost, not a defect, so this is a ceiling to ratchet down.
+const CROSSING_BUDGET = 181;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -302,42 +303,50 @@ describe('graph-layout — groups as endpoints, nested groups, self-loops (ratch
 });
 
 describe('graph-layout — the routing rules', () => {
-  test('a shape that many lines leave fans them from one side, each on its own port', () => {
-    // The owner's report on the demo deck's line-vocabulary slide: six lines off one box
-    // 42 units tall were squeezed 5 units apart; two shared a port, two doubled back into
-    // their target's far side and one left by the source's back.
+  // Side balance (owner's call on #2385): a line whose target lies wholly beyond a flank
+  // of its source leaves by that flank, from its middle when alone there; lines to
+  // targets straight ahead keep the flow side as a nested fan.
+  const side = (p, b) => {
+    const d = { left: Math.abs(p.x - b.x), right: Math.abs(p.x - b.x - b.w), top: Math.abs(p.y - b.y), bottom: Math.abs(p.y - b.y - b.h) };
+    return Object.keys(d).reduce((m, k) => (d[k] < d[m] ? k : m));
+  };
+
+  test('a shape that many lines leave balances them over its sides, each on its own port', () => {
+    // The owner's report on the line-vocabulary slide: six lines crowded one side of
+    // Service (first 5 units apart, some doubling back), then all six on that one side.
     const src = '- Service\n  - => Main database\n  - -reads-> Cache\n  - -> Search index\n  - -> Audit log\n  - -> Legacy API\n  - <-> Partner API';
     const geo = run(src, K, { dir: 'lr' }).geo;
     const s = geo.nodes.service;
-    const starts = geo.routes.map((r) => r.points[0]);
-    for (const p of starts) assert.equal(p.x, s.x + s.w, 'every line leaves the side that faces its target');
-    const ys = starts.map((p) => p.y).sort((a, b) => a - b);
-    for (let i = 1; i < ys.length; i++) assert.ok(ys[i] - ys[i - 1] >= 12, `ports ${ys.join(', ')}`);
-    for (const r of geo.routes) {
-      const t = geo.nodes[r.to], end = r.points[r.points.length - 1];
-      assert.equal(end.x, t.x, `${r.to} is entered from its near side`);
+    const by = Object.fromEntries(geo.routes.map((r) => [r.to, side(r.points[0], s)]));
+    assert.deepEqual(by, { 'main-database': 'top', cache: 'top', 'search-index': 'right', 'audit-log': 'right', 'legacy-api': 'bottom', 'partner-api': 'bottom' });
+    for (const k of ['top', 'right', 'bottom']) {
+      const cs = geo.routes.filter((r) => by[r.to] === k).map((r) => (k === 'right' ? r.points[0].y : r.points[0].x)).sort((a, b) => a - b);
+      for (let i = 1; i < cs.length; i++) assert.ok(cs[i] - cs[i - 1] >= 12, `${k} ports ${cs.join(', ')}`);
     }
+    for (const r of geo.routes) assert.equal(r.points[r.points.length - 1].x, geo.nodes[r.to].x, `${r.to} is entered from its near side`);
     assert.equal(geo.crossings, 0);
   });
 
   test('a fan with several children a side mirrors itself', () => {
-    for (const n of [4, 6]) {
+    for (const n of [2, 4, 6]) {
       const kids = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Fox'].slice(0, n).join(' & ');
-      const { routes } = run(`- Ops\n  - -- ${kids}`, K, { dir: 'tb' }).geo;
-      const turns = routes.slice().sort((a, b) => a.points[a.points.length - 1].x - b.points[b.points.length - 1].x).map((r) => r.points[1].y);
-      assert.deepEqual(turns, turns.slice().reverse(), `turns ${turns.join(', ')}`);
+      const geo = run(`- Ops\n  - -- ${kids}`, K, { dir: 'tb' }).geo;
+      const cx = geo.nodes.ops.cx;
+      const rs = geo.routes.slice().sort((a, b) => geo.nodes[a.to].cx - geo.nodes[b.to].cx);
+      rs.forEach((r, i) => {
+        const m = rs[rs.length - 1 - i].points.map((q) => [Math.round(2 * cx - q.x), Math.round(q.y)]);
+        assert.deepEqual(r.points.map((q) => [Math.round(q.x), Math.round(q.y)]), m, `${n} children: ${r.to} mirrors its partner`);
+      });
     }
   });
 
-  test('a fan that splits both ways turns at one height, so an org chart hangs symmetrically', () => {
-    // The owner's report on the demo deck: Operations' two children dropped 15 and 23
-    // units before turning, because two jogs that only touched at their shared port
-    // were treated as overlapping.
+  test('an org chart pair hangs from its parent\'s side middles', () => {
+    // The owner's call: Controller and Planning connect to Finance's left and right middles.
     for (const dir of ['tb', 'lr']) {
-      const { routes } = run('- Operations\n  - -- Support & Logistics', K, { dir }).geo;
-      assert.equal(routes.length, 2);
-      const turn = (r) => (dir === 'tb' ? r.points[1].y : r.points[1].x);
-      assert.equal(turn(routes[0]), turn(routes[1]), JSON.stringify(routes.map((r) => r.points)));
+      const geo = run('- Finance\n  - -- Controller & Planning', K, { dir }).geo;
+      const f = geo.nodes.finance;
+      const got = geo.routes.map((r) => r.points[0]).map((p) => [side(p, f), dir === 'tb' ? p.y === f.cy : p.x === f.cx]).sort();
+      assert.deepEqual(got, dir === 'tb' ? [['left', true], ['right', true]] : [['bottom', true], ['top', true]], JSON.stringify(geo.routes.map((r) => r.points)));
     }
   });
 

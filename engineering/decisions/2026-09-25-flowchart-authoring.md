@@ -435,6 +435,30 @@ A dotted overlay moving along a line, a separate path above the real edge.
   band count or crowded-end count (two ends on one side within 10 units) gets
   worse; `routeFans` scores with the labels seated and the titles placed as they
   will be, since both are placed after it.
+- **Side balance: flank exits (owner's call on slice 3).** A line whose target
+  lies wholly beyond a flank of its source (above or below it in lr, left or
+  right of it in tb) leaves by that flank, from its middle when it is alone
+  there, and turns once into its target's near side. Lines to targets straight
+  ahead keep the flow side as the nested fan. So an org chart's two children
+  hang from their parent's left and right middles, a parent with a child
+  straight below keeps that one on the bottom, and a fan of six splits over
+  three sides (the line-vocabulary slide: two up, two ahead, two down). On a
+  flank the line heading furthest out takes the port furthest back, so flank
+  lines nest. Symmetry: when one side of a fan flanks, the outermost line on the
+  other side does too if its target reaches 16 past that flank, even with its
+  middle just inside (Platform sat 8 units inside Technology's edge while
+  Security sat just outside, and the pair came out lopsided). A lone line is not
+  a fan and keeps its route, `:loose` lines stay out of fans, and the balanced
+  fan is kept only if the guard passes; otherwise every line takes the flow side
+  as before.
+- **An arrowhead gets a run to sit on.** An end whose last run is under 14
+  units slides the run before it back until it is 14 (with one bend, the other
+  end slides along its own side); a jog under 12 just before an end is
+  straightened by moving the end along its target's side. BI dashboards on the
+  data-flow slide had a 7-unit run under its head, and Open ticket's line into
+  Mitigate had a 6-unit kink. Routes with an end run under 12: 187 of 3,892 on
+  the two corpora before, 65 after (the rest have no room or would worsen
+  something).
 - **Lines through their own ends.** `measureQuality` exempted a line's own two
   boxes, so a line that left its box and folded back through it, or ran through
   its target before arriving, passed every check. The independent checker on
@@ -442,11 +466,15 @@ A dotted overlay moving along a line, a separate path above the real edge.
   already drew them: 37 across the 1,000 charts and 33 across the 600, counted
   in auto, lr and tb. `linesThroughEnds` now counts them, the shape rescue
   treats them as hits, and the tests hold them to zero in every direction.
-- **Grazing.** A line passing within about 4 units of a box it does not belong
-  to (the box grown by 5, less the hit test's 1-unit inset) reads as touching it
-  (the release train's `fails` ran 3 units under Test). The shape rescue counts
-  a graze as a hit, and the late passes' guard counts grazes too. 24 grazing
-  lines on the 1,000 charts before, 7 after.
+- **Grazing.** A line passing close to a box it does not belong to reads as
+  touching it (the release train's `fails` ran 3 units under Test). The shape
+  rescue treats a line within about 4 units of a stranger's box as a hit (a
+  line that only grazes may not be traded for a crossing or a shared run), and
+  the late passes' guard holds a true 5, so the fan and end passes cannot add a
+  graze even 4.5 units off (the first flank-exit version added 24 of those). A
+  5 in the rescue too was measured and refused: one chart went from 5 crossings
+  to 12 for want of candidate routes. Grazing lines within 5 units, 1,000
+  charts: 24 before this work, 6 now.
 - **Fan lanes stay outside the borders they cross.** A fan's lanes sit clear of
   the far border of any group that holds the source but not a target, and short
   of any group that holds a target but not the source (group padding is 14, and
