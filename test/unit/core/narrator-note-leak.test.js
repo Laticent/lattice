@@ -73,6 +73,7 @@ const FIXTURES = {
 	narrateTimelineList: ['timeline-list', '1. `Q1` First milestone\n   - What changed.\n2. `Q2` Second milestone `decision`'],
 	narrateKanban: ['kanban', '- Backlog\n  - Waiting cards `S`\n- Done\n  - Shipped work `L`'],
 	narrateGantt: ['gantt', '- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - GA `Q4` `after: Signal taxonomy`'],
+	narrateHubSpoke: ['hub-spoke', '- Program office\n  - Onboarding `at-risk`\n  - Governance'],
 	narrateMatrixGrid: ['matrix-grid', '| Verb | Self | Team |\n| --- | :-: | :-: |\n| Apply | [-] | [x] Senior |\n| Remember | [x] Junior | [-] |'],
 	narrateRoadmapHorizons: ['roadmap horizons', '| Workstream | Horizon 1 `Now` | Horizon 2 `Next` |\n| --- | --- | --- |\n| Intake | [x] Connector | [-] Dedupe |'],
 };
