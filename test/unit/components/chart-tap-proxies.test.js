@@ -71,7 +71,7 @@ describe('tap proxies name the right mark', () => {
     }
   });
 
-  test('a legend of SERIES stays inert: radar, line and stacked-bar rows name no single mark', () => {
+  test('a legend of SERIES stays inert: radar, line and stacked-bar key rows name no single mark', () => {
     const radar = render('radar', '<ul><li>Teacher<ul><li>Calculus <code>9</code></li><li>Geometry <code>7</code></li><li>Algebra <code>8</code></li></ul></li>'
       + '<li>Student<ul><li>Calculus <code>7</code></li><li>Geometry <code>8</code></li><li>Algebra <code>9</code></li></ul></li></ul>');
     const line = render('line', '<ul><li>Q1<ul><li>North <code>1</code></li><li>South <code>2</code></li></ul></li>'
@@ -81,8 +81,35 @@ describe('tap proxies name the right mark', () => {
     for (const sec of [radar, line, stacked]) {
       assert.equal(sec.querySelectorAll('.chart-key-label[data-mark-for], .chart-key-value[data-mark-for]').length, 0);
     }
-    // …and a stacked-bar's category labels are not proxies either: the marks are segments.
-    assert.equal(proxies(stacked).length, 0);
+    // A stacked-bar's CATEGORY labels do name a mark: every segment in band i carries
+    // `data-mark="i"` and the reveal card is per bar, so the name opens its bar's card.
+    for (const p of assertAllResolve(stacked)) {
+      assert.ok(p.classList.contains('cart-cat') || p.classList.contains('sbar-total'), `only a bar's name or total is a proxy, not ${p.getAttribute('class')}`);
+    }
+  });
+
+  test('bar: each category name and value names its own bar, in columns, rows and groups', () => {
+    const cols = render('bar', '<ul><li>North America <code>$4.1M</code></li><li>LATAM <code>$1.2M</code></li><li>EMEA <code>$6.8M</code></li></ul>');
+    const rows = render('bar row', '<ul><li>North America <code>$4.1M</code></li><li>LATAM <code>$1.2M</code></li><li>EMEA <code>$6.8M</code></li></ul>');
+    const grouped = render('bar', '<ul><li>FY24<ul><li>Licenses <code>19</code></li><li>Services <code>9</code></li></ul></li>'
+      + '<li>FY25<ul><li>Licenses <code>20</code></li><li>Services <code>15</code></li></ul></li></ul>');
+    for (const sec of [cols, rows, grouped]) {
+      const list = assertAllResolve(sec);
+      const cats = list.filter((p) => p.classList.contains('cart-cat'));
+      assert.equal(cats.length, sec === grouped ? 2 : 3);
+      for (const p of cats) assert.equal(p.getAttribute('data-label'), labelOf(sec, p.getAttribute('data-mark-for')));
+    }
+    // A value printed beside a single-series bar names that bar.
+    for (const p of proxies(cols).filter((q) => q.classList.contains('cart-value'))) {
+      assert.equal(text(p), marksAt(cols, p.getAttribute('data-mark-for'))[0].getAttribute('data-value'));
+    }
+  });
+
+  test('bullet: each KPI name and readout names its own measure', () => {
+    const sec = render('bullet', '<ul><li>Revenue <code>4.2M</code> <code>5.0M</code></li><li>Margin <code>3.6M</code> <code>3.0M</code></li></ul>');
+    for (const p of assertAllResolve(sec)) {
+      if (p.classList.contains('bullet-name')) assert.equal(text(p), labelOf(sec, p.getAttribute('data-mark-for')));
+    }
   });
 
   test('slope: an entity\'s name and both values name its line', () => {

@@ -390,6 +390,18 @@ describe('focusContent — one lever: the named thing stays, the rest recedes', 
 		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.textContent || e.getAttribute('data-mark'))).toEqual(['0', 'New']);
 	});
 
+	it('a bar\'s category name focuses its bar, and the other bars\' names and values recede', () => {
+		const d = doc(`<div class="chart-body"><svg><rect class="bar-mark" data-mark="0" data-label="EMEA"/><rect class="bar-mark" data-mark="1" data-label="APAC"/>
+			<text class="cart-cat" data-label="EMEA" data-mark-for="0">EMEA</text><text class="cart-cat" data-label="APAC" data-mark-for="1">APAC</text>
+			<text class="cart-value" data-mark-for="0">$6.8M</text><text class="cart-value" data-mark-for="1">$2.9M</text></svg></div>`);
+		const name = d.querySelector('text.cart-cat') as Element;
+		const u = focusUnit(name);
+		expect(u?.axis).toBe('mark');
+		expect(u?.unit.map((e) => e.getAttribute('data-mark') ?? e.textContent)).toEqual(['0', 'EMEA', '$6.8M']);
+		focusContent(name);
+		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.getAttribute('data-mark') ?? e.textContent)).toEqual(['1', 'APAC', '$2.9M']);
+	});
+
 	it('walks a line: the other series recede, and the line\'s other points recede gently', () => {
 		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0"/><path class="line-path" data-series="1"/>
 			<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2" data-value="4.4"/>

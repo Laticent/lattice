@@ -91,8 +91,8 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   const TPL_SEL = 'template.chart-detail';
   const MARK_SEL = '[data-mark]';
   // A TAP PROXY — text that names one mark (a slope entity's name and values, a funnel stage's
-  // label, a waterfall's category, a quadrant dot's name, a pie or map legend row) carries
-  // `data-mark-for="i"`. It is a
+  // label, a bar's, stacked bar's, bullet's or waterfall's category and value, a quadrant dot's
+  // name, a pie or map legend row) carries `data-mark-for="i"`. It is a
   // separate attribute from `data-mark` so the proxy never becomes a mark: `chartToScene` strokes
   // every highlighted `[data-mark]` and the Present Guide ranks `[data-label]` nodes, and neither
   // should see the labels. Only this file reads it.

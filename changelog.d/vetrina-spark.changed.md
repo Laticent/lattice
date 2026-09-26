@@ -2,3 +2,4 @@
 - When the narration walks a chart point by point, the Guide follows: on a line, the other series recede and the point being read stands out within its line; each wedge, bar and heatmap cell is followed as it is read, as one moment of the preset's budget.
 - `delivery: somber` now reads differently from `restrained`: a gentler recede (0.62 against 0.45), a slower 600 ms handoff that holds through a short aside, and a caption without the word-by-word crawl.
 - With the captions off, the word being spoken lights inside the focused text, in step with the voice (not under `somber`).
+- A bar, stacked bar or bullet chart's category names and printed values now recede with their bar, both when the Present Guide focuses a bar and when you hover one in the Playground or Studio. A focused bar on a dark theme now reads at a glance. Tapping a bar's name opens that bar's card.

@@ -323,6 +323,21 @@ frames over 50 ms fall in the first 400 ms of playback, none within 200 ms of a 
 Measured: sparking every bullet, cell, row, column, mark and heading on all 116 gallery slides at
 once moved **0** of 5,381 element boxes, mid-glow and after it, in light and dark.
 
+**Bar labels recede with their bar (owner, 2026-09-26).** On indaco dark a bar is a dark fill, so
+receding the other bars changed little while their category names and printed values stayed at full
+strength: the focused bar barely separated. The bar, stacked-bar and bullet emitters now stamp
+`data-mark-for="i"` on each category name and value (`buildCategoryLabels({ markFor })`,
+`buildValueLabel({ extra })`), the link waterfall, funnel, slope, quadrant and the pie key already
+carried. These charts qualify because mark i IS category i: every rect in band i carries
+`data-mark="i"` and the reveal card is per bar. Line and heatmap do not qualify (a line's category
+names a column across series, a heatmap's names a row or column of cells), so they stay unlinked.
+The one link serves both surfaces: `chart-interact.js` already dims every `[data-mark-for]` whose
+index is not the open mark, and `focusUnit` recedes a peer's labels and, when the narration's words
+land on a category name ("LATAM, one point two million"), focuses that name's bar with its labels.
+The attribute paints nothing. Measured in the built Studio on the bar slide, light and dark: under
+the Guide the focused bar's name and value hold at 1 while the other six labels drop to 0.45, and
+the chart hover in the Playground does the same for the hovered bar.
+
 ## 7. Timing and surface (axes D, E)
 
 ### 7.1 Word-anchored cues

@@ -2308,12 +2308,16 @@ function focusUnitIn(section: Element, el: Element): { unit: Element[]; peers: E
 		// A series is its SHAPES: radar's container `<div>` also writes `data-series`, as a count,
 		// and slope's labels write a palette slot. `focus.js` draws the same line.
 		const sel = attr === 'data-series' ? seriesSel : '[data-mark]:not(template)';
-		const v = el.closest(sel)?.getAttribute(attr);
+		// A label LINKED to a mark (`data-mark-for`: a bar's category name, a group's total) names
+		// that mark — the sentence about "FY23" is about FY23's bars, not about the word.
+		const v = el.closest(sel)?.getAttribute(attr) ?? (attr === 'data-mark' ? el.closest('[data-mark-for]')?.getAttribute('data-mark-for') : null);
 		if (v == null) continue;
 		const all = [...chart.querySelectorAll(sel)].filter(painted);
 		const unit = all.filter((m) => m.getAttribute(attr) === v);
 		if (!unit.length) continue;
 		const peers = all.filter((m) => !unit.includes(m));
+		// The mark's own labels are part of it: they come up with it if a moment ago they were a peer's.
+		if (attr === 'data-mark') unit.push(...[...chart.querySelectorAll('[data-mark-for]')].filter((t) => t.getAttribute('data-mark-for') === v && painted(t)));
 		// A peer's OWN labels recede with it where the chart links them (`data-mark-for`: a pie's
 		// key, a funnel's stage name and value, slope and quadrant labels). A receded wedge beside a
 		// full-strength "Maintenance 22%" still read as half-named.

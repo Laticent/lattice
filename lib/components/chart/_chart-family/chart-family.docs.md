@@ -441,9 +441,10 @@ phone the mark can be too thin to hit: a slope line is about 1.5 units wide, und
 screen pixel on a phone preview. So a label that names ONE mark carries
 `data-mark-for="i"`, and the popover opens mark `i`'s card when it is tapped or
 hovered. Today that covers a slope entity's name and values, a funnel stage's label
-and value, a waterfall's category and value labels (`buildCategoryLabels({ markFor:
-true })`, opt-in because a stacked-bar's category is not one mark), and a quadrant
-dot's or bubble's name. A pie or map legend row is one too: `buildSvgLegend` stamps
+and value, the category and value labels of a bar, stacked bar, bullet or waterfall
+(`buildCategoryLabels({ markFor: true })` plus `buildValueLabel({ extra })`, opt-in
+because only there is mark `i` category `i` — a line's or heatmap's category names a
+column of several marks), and a quadrant dot's or bubble's name. A pie or map legend row is one too: `buildSvgLegend` stamps
 a row only when the caller passes `markFor` (the pie passes the wedge index, the map
 its entry's mark index, since its legend is sorted by value). A legend of series
 (line, stacked-bar, radar) passes none, so its rows stay inert instead of opening
@@ -451,8 +452,10 @@ an unrelated mark. `test/unit/components/chart-tap-proxies.test.js` pins every c
 
 It is a separate attribute from `data-mark` on purpose. `chartToScene` strokes every
 `[data-mark]` it is asked to highlight, and the Present Guide ranks `[data-label]`
-nodes to decide where to point, so a label posing as a mark would change both. Only
-`chart-interact.js` reads `data-mark-for`. When nothing is hit at all, the popover
+nodes to decide where to point, so a label posing as a mark would change both. Two
+readers use `data-mark-for`: `chart-interact.js`, which dims every other mark's labels
+with their marks on hover, and the Present Guide (`focusUnit`), which recedes them the
+same way and focuses a bar when the narration names its category. When nothing is hit at all, the popover
 takes the nearest mark within a fingertip (22 screen px on touch, 6 with a mouse).
 
 ### In-diagram labels wrap
