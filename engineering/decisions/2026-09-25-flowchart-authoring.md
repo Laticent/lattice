@@ -499,6 +499,21 @@ A dotted overlay moving along a line, a separate path above the real edge.
     three runs).
   - Inside the solver, one full render: sweeps 49%, spread 29%, relax 16%,
     settle 4%, the rest under 1%; dagre is a third of `layout()`.
+  - **Typing in the Studio**, measured by typing a row one key at a time into
+    a real Studio: the preview holds only the slide at the caret, so a
+    keystroke redraws one chart. On a 17-shape chart that the fit shrinks, a
+    keystroke drew the chart 7 times: the fit raises the type floor by 1/k, which
+    grows the text the next draw measures, so the chart re-measured and re-laid
+    out (a cache miss each time) until the floor settled. `draw()` now solves
+    that fixed point itself, starting from the scale the chart had last (kept per
+    chart position, since the Studio replaces the element on every edit), and
+    records its signature after its own fit. Result: 1 draw per keystroke instead
+    of 7; the flowchart's share of a keystroke 97 to 128 ms instead of about 570;
+    keystroke to visible change 284 to 330 ms median instead of 392 to 543. On
+    a 5-shape chart nothing changes: 1 draw, 9 to 14 ms, about 100 to 124 ms to
+    visible, almost all of it the Studio's own edit-to-preview path. The one
+    kernel per document also keeps the layout cache across keystrokes, so an
+    edit elsewhere on a chart's slide (its title) costs no layout.
 - **Before the solver: a stack of passes (superseded, kept for its lessons).**
   After dagre, passes in order spread ports, turned a line entering a foreign
   group outside it, straightened short Zs, moved shared runs apart, re-drew lines
