@@ -400,13 +400,16 @@ A dotted overlay moving along a line, a separate path above the real edge.
   U and L routes at four offsets) and keeps the one that crosses least, scored
   300 per crossing plus length, turns and shared runs. It takes a new route only
   when that route strictly cuts the line's crossings, adds no shared run, holds
-  room for its label, and has no kink under 10 units. A main-path (`=>`) line may
+  room for its label on a run that crosses no group border, has no kink under
+  10 units, and enters no group neither end belongs to (nor any group's title
+  band) that the old route did not. A main-path (`=>`) line may
   move only within 24 units of its length and one extra turn, so lighter lines
   give way around it. A `:loose` line takes part: it is the line most free to
   move. Up to three rounds, or until a round changes nothing. On the 1,000
-  random charts, crossings fell from 923 to 194. 211 charts improved, none got
-  worse, and total line length went down slightly. The demo deck's release
-  train went from 9 crossings to 1 and its org chart from 3 to 0. Crossings sit
+  random charts, crossings fell from 923 to 230. 206 charts improved, none got
+  worse on crossings or on any quality count (soft misses 4 to 1), and total
+  line length went down slightly. The demo deck's release
+  train went from 9 crossings to 1 as painted and its org chart from 3 to 0. Crossings sit
   beside the quality counts, not in them (`geo.crossings`), because some graphs
   cannot be drawn without one. The test holds the corpus total as a ceiling.
 - **What owning the router makes cheap:** `:loose` lines are left out of layout
