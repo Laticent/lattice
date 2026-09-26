@@ -237,6 +237,20 @@ test('lint: a correct pane of a fixed-size component is never warned (a 2x2 is a
   }
 });
 
+test('the Studio\'s lint runs the pane rules too: a vocab without pane data falls back to the baked table', () => {
+  const core = require('../../../lib/authoring/lint-core');
+  // Shaped like the Studio's vocab (docs/src/pages/studio.astro → buildVocabSets): names,
+  // modifiers and capacity, no pane data.
+  const studio = { names: new Set(MANIFESTS.map((m) => m.name)), modifiers: new Set() };
+  const md = slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(20) }, 'stack');
+  assert.deepEqual(core.lintTextWith(md, studio).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule), ['pane-fit', 'pane-overflow']);
+  // …and the baked table is exactly what buildVocab derives from the manifests.
+  const baked = require('../../../lib/authoring/pane-lint.generated.js');
+  const { paneSpec, paneBudget } = spec.paneVocab(MANIFESTS);
+  assert.deepEqual(baked.budget, paneBudget);
+  for (const m of MANIFESTS) assert.deepEqual(spec.specOf(baked.spec, m.name), spec.specOf(paneSpec, m.name), m.name);
+});
+
 test('lint: a component with no pane row (an installed package) is a half with no budget', () => {
   assert.equal(paneRules(slide({ cls: 'acme-widget', body: items(30) }, { cls: 'list', body: items(2) })).length, 0);
 });
