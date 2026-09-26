@@ -121,5 +121,24 @@
       "fix": "The row reads responsibility-then-actor: the label leads (auto-bold), and the actor name must be a TRAILING, direct-child inline-code chip on the same line — `- Owns the first part \\`First actor\\`` — not the other way around, or it won't render as the right-aligned pill."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 60,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 5,
+        "hard": 7
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 3
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 50%: clips at 9, capped at the slide's own hard 7; stack 50/50: clips at 4). sweet sits below it.",
+      "min": 3
+    },
+    "review": "stack 50 measured, 60 reviewed: rows crowd below 60%."
+  }
 }

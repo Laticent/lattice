@@ -186,5 +186,19 @@
     "A milestone is a task like any other: a diamond falling inside a bar's span packs onto its own sub-row rather than being drawn on top of the bar. The lane NAME sits on the lane's first row, as the heading for the rows beneath it.",
     "The chart NEVER shrinks to fit, and it has a BUDGET instead. Bars, captions and row spacing are a fixed size whatever the plan carries; more rows make the chart taller, not smaller. **Count BAR ROWS, not lanes** — a lane is one row only while its tasks do not overlap, and inclusive spans overlap more than authors expect: `Q1..Q2` followed by `Q2..Q3` both cover Q2, so a sequential-looking plan written that way costs two rows per lane. Write `Q1..Q2` then `Q3..Q4` when the phases really are sequential. **And the status key costs about a whole extra lane** (21 viewBox units), which matters because nearly every real gantt carries one. Measured with a key on a 1152x335 chart body (a heading plus a two-line lede): four one-row lanes fit with ~16px to spare and five overflow; on a roomier stage — a one-line lede — five fit and six overflow. Past that the chart overflows and the render reports CONTENT CLIPPED, naming the first thing cut. **The report is not a zero-tolerance gate**: both of its checks carry a 12px noise budget, so a chart over its stage by less than that is cut without a word (#2252; the export now prints an advisory naming those slides, but it is an advisory, not a verdict). `npm run check:chart-fit -- <deck>` adjudicates that band — it compares the painted chart to the stage with 1.5px of slack. Split the plan across two slides rather than expecting it to compress."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": false,
+    "budget": {
+      "at": 65,
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "Each workstream is a lane of task bars. Judgment: the calibration rig has no element builder for this component."
+    }
+  }
 }

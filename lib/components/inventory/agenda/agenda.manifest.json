@@ -211,5 +211,23 @@
       "useWhen": "The deck has forward momentum and past sections should visibly tick off as done, with an arrow marking the current one."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 3
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 5 words per element, half the slide density (side 50%: clips at 5; stack 50/50: clips at 4). sweet sits below it.",
+      "min": 3
+    }
+  }
 }

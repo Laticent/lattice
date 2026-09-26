@@ -111,5 +111,9 @@
   "excludes": [
     "accent",
     "compact"
-  ]
+  ],
+  "pane": {
+    "side": false,
+    "stack": false
+  }
 }

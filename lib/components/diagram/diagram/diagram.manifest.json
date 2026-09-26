@@ -94,5 +94,10 @@
       "mistake": "Eyebrow written as plain or bold text instead of inline code.",
       "fix": "The `subtitle` slot (an eyebrow caption despite its name) matches a `p > code` paragraph — wrap it in backticks; plain or bold text doesn't map to the slot and just renders as an unstyled stray line."
     }
-  ]
+  ],
+  "pane": {
+    "side": 35,
+    "stack": 60,
+    "noBudget": "a Mermaid diagram scales to its box; its node count is not a list the linter can read"
+  }
 }

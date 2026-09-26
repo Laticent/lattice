@@ -1,0 +1,157 @@
+/* Pane cell — two components' body content on ONE slide (lib/core/panes.js).
+ *
+ * The host slide keeps its one masthead, coda and footer. Its stage holds one
+ * `.lat-panes` row (or column, `stack`), and each `<lat-pane>` is a Cell that
+ * hosts one component's body. Component CSS reaches it because a deck WITH panes
+ * composes its sheet through lib/core/pane-css.js, which adds a `section lat-pane…` twin
+ * beside every rule arm that reaches a pane's body; the shipped sheet is never widened.
+ *
+ * Geometry comes from the AUTHORED ratio (--pane-a / --pane-b, 25–75 in 5%
+ * steps), never from content: `flex-basis: 0` + a grow factor per pane, so a
+ * longer table can't push the list over. Each pane clips at its own edge, like
+ * every Cell (design/forms.md §6), and is its own size container so a
+ * component's bare container units resolve against the pane. Type does not
+ * shrink: the --fs-* tokens are pinned to slide px through --_sec-1cqi. */
+/* THE GUTTER. Proportional — the --sp-* steps scale with the slide — and wide enough that
+ * the spine never hugs a pane with a hard edge (a card row, a table): 32px either side of
+ * it at 1280, where the first cut left 16. `--sp-2xl` is the step compare-prose and kpi
+ * already use between side-by-side panels. A stacked pair spends HEIGHT, which a 16:9
+ * slide has least of, so it takes the next step down: 24px either side. A component with
+ * no hard edge (a chart's own whitespace, a centered number) sits further off; the gutter
+ * is the minimum, never the whole of the space. */
+section.lat-pane-host {
+  --pane-gap: var(--sp-2xl);
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"] {
+  --pane-gap: var(--sp-xl);
+}
+section.lat-pane-host > .cell-stage > .lat-panes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: var(--pane-gap);
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"] {
+  flex-direction: column;
+}
+/* THE SPINE between the panes — the chart family's diagram|key rule
+ * (buildSpine, lib/components/chart/_chart-family/svg-legend.js), in CSS: an accent
+ * fade, transparent at both ends, so it reads as a quiet seam, not a hard divider.
+ * The SVG copy keeps its own stops only because SVG `fill` cannot take a CSS
+ * gradient; the five stops here are the same five. Keep them in step.
+ *
+ * Placed from the AUTHORED ratio, never from content, so a longer table cannot move
+ * it: the centre of the gap is `(100% - gap) * a/100 + gap/2` along the split axis.
+ * It lives on `.lat-panes` because each pane clips at its own edge (and a pseudo on
+ * a pane would be clipped with it). `no-rule` turns it off. */
+section.lat-pane-host > .cell-stage > .lat-panes {
+  --pane-spine-w: clamp(1px, 0.12cqi, 2px);
+  --pane-spine-at: calc((100% - var(--pane-gap)) * var(--pane-a, 50) / 100 + var(--pane-gap) / 2);
+  position: relative;
+}
+section.lat-pane-host > .cell-stage > .lat-panes:not([data-rule="none"])::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--pane-spine-at) - var(--pane-spine-w) / 2);
+  inline-size: var(--pane-spine-w);
+  border-radius: var(--pane-spine-w);
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 14%,
+    color-mix(in oklab, var(--accent) 60%, transparent) 50%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 86%,
+    transparent 100%);
+  pointer-events: none;
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"]:not([data-rule="none"])::before {
+  inset-block: auto;
+  inset-inline: 0;
+  inset-block-start: calc(var(--pane-spine-at) - var(--pane-spine-w) / 2);
+  inline-size: auto;
+  block-size: var(--pane-spine-w);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 14%,
+    color-mix(in oklab, var(--accent) 60%, transparent) 50%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 86%,
+    transparent 100%);
+}
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: clip;
+  container-type: size;
+}
+/* A pane is transparent: a component root rule that paints the SLIDE's background
+ * (`section.chart-frame { background: var(--bg) }`) must not paint a box over the
+ * slide's own backdrop. The pane cell's own rules are rooted on the host section, so they
+ * outrank every pane twin of a component root rule (`section lat-pane.chart-frame.form`,
+ * at most (0,3,2)); `[class]` lifts this one to (0,4,2). */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[class] {
+  background: none;
+}
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:first-child {
+  flex-grow: var(--pane-a, 50);
+}
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:last-child {
+  flex-grow: var(--pane-b, 50);
+}
+/* The pane's own stage — the same flex column the slide's stage is
+ * (lib/forms/cell/stage/stage.css), so a component's `> .cell-stage` rules
+ * land on the box they were written for. */
+lat-pane > .cell-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+}
+/* `cards:` — where a card row or list puts its spare height. base.tokens.css keys the tokens
+ * on `section[data-cards]`; a pane is not a section, so its own resolved value (stamped by
+ * lib/core/panes.js embed) sets them here. The component rules reach the pane through their
+ * twins and read `--cards-align` / `--cards-grow` from it as they would from a slide. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="center"]  { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="top"]     { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="spread"]  { --cards-align: space-evenly; --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; --cards-grow: 0; }
+/* A padded card that is `width: 100%` in content-box (a quote's blockquote) is as wide as its
+ * box PLUS its padding. On a slide its max-width binds first and hides that; in a pane narrower
+ * than the max-width it ran the card past the pane (98px over at 45%). In a pane the card's
+ * padding counts inside its width. And its max-width is a reading measure for a SLIDE (64cqi of
+ * it): in a pane the container is the pane, so the same cap left a 45% pane's quote at 64% of
+ * the pane, wrapped to twice the lines and clipped its attribution. The pane is the measure.
+ * Scoped to panes, so no slide's card moves. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane > .cell-stage > blockquote {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+/* The same measure, on big-number's caption: `43.75cqi` is a reading width for a SLIDE, and in
+ * a pane (the container) it left a 50% pane's caption at under half the pane, six lines deep,
+ * clipped 37px (measured). In a pane the pane is the measure. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="big-number"] > .cell-stage > ul > li > ul > li {
+  max-width: 100%;
+}
+/* An image pane: the picture fills its Cell, cropped to cover. `image` is a
+ * whole-slide frame, so its pane form is this rule, not the image component. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p > img {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}

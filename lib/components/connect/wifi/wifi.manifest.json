@@ -85,5 +85,10 @@
   "specimenVoice": true,
   "excludes": [
     "compact"
-  ]
+  ],
+  "pane": {
+    "side": 65,
+    "stack": false,
+    "noBudget": "one network card"
+  }
 }

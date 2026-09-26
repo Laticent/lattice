@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schema/cell.schema.json",
+  "id": "pane",
+  "region": "pane",
+  "z": 2,
+  "accepts": ["content"],
+  "capacity": "stack",
+  "fill": "start",
+  "gap": "--pane-gap",
+  "geometry": { "inset": "--frame-inset-x" },
+  "clip": true
+}

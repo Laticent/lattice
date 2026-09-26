@@ -173,5 +173,23 @@
 			"summary": "Renders the band key beside the grid, naming each ramp step by the range of values it covers — reach for it when a reader has to know why two cells share a tone.",
 			"sample": "<!-- _class: heatmap scale -->\n\n`Retention · 2026 cohorts`\n\n## The chart names its own bands.\n\n|  | M0 | M1 | M2 | M3 |\n| --- | --: | --: | --: | --: |\n| Jan 2026 | 100 | 62 | 48 | 44 |\n| Feb 2026 | 100 | 58 | 44 | 41 |\n| Mar 2026 | 100 | 71 | 59 | 55 |\n| Apr 2026 | 100 | 69 | 57 |  |\n"
 		}
-	}
+	},
+  "pane": {
+    "side": 25,
+    "stack": 50,
+    "budget": {
+      "axis": "row",
+      "basis": "editorial",
+      "side": {
+        "sweet": 5,
+        "hard": 7
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "Rows of cells: the stacked band is short. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  }
 }

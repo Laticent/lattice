@@ -251,5 +251,23 @@
     "An entity left FLAT (`- Atlas `12``) among nested ones has no second point and no column to sit in, so it is not drawn. Every entity needs the same two nested points.",
     "Six entities is the sweet spot and ten is the ceiling — past that the endpoint names de-collide into a column and the crossings stop being legible. This is a guidance number, not a split axis: like every chart in the family a slope is a GRAPHIC, so it never paginates. An overflowing slope rings the overflow warning and wants fewer entities, not a second slide."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 50,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "Each entity is a line between two columns. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    },
+    "review": "side 25 measured, 50 reviewed: end labels overprint below 50%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  }
 }

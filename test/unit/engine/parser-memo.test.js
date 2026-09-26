@@ -234,14 +234,22 @@ test('parser memo: many DIFFERENT documents through ONE parser match cold render
 	// one parser". Stripping the front matter collapses them onto a single key, which the build
 	// counter below asserts rather than assumes. Found by the red team.
 	const FM = /^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n)?/;
-	const bodies = DECKS().map(([name, src]) => [name, src.replace(FM, '')]);
+	const all = DECKS().map(([name, src]) => [name, src.replace(FM, '')]);
+	// A deck with PANES builds one more parser per pane shape, by design (lib/core/panes.js:
+	// a pane is classified by its own box). Those decks run LAST, so the single-parser count
+	// below covers every other document, and they still take the warm-vs-cold drift check.
+	const PANE = /<!--\s*pane:/;
+	const bodies = [...all.filter(([, s]) => !PANE.test(s)), ...all.filter(([, s]) => PANE.test(s))];
+	const plain = all.filter(([, s]) => !PANE.test(s)).length;
 	const { engine: e, state } = countingEngine();
 	const drifted = [];
-	for (const [name, src] of bodies) {
+	let buildsAfterPlain = 0;
+	bodies.forEach(([name, src], i) => {
 		const warm = e.render(src, 'lattice').html;
 		const cold = freshEngine().render(src, 'lattice').html;
 		if (warm !== cold) drifted.push(name);
-	}
+		if (i === plain - 1) buildsAfterPlain = state.builds;
+	});
 	assert.deepEqual(drifted, [], `documents where a reused parser differs from a cold one: ${drifted.join(', ')}`);
-	assert.equal(state.builds, 1, `expected all ${bodies.length} documents to share one parser; it was rebuilt ${state.builds} times, so this test did not exercise reuse`);
+	assert.equal(buildsAfterPlain, 1, `expected all ${plain} documents without panes to share one parser; it was rebuilt ${buildsAfterPlain} times, so this test did not exercise reuse`);
 });

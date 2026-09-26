@@ -243,5 +243,20 @@
       "names": ":scope > td:first-child, :scope > th:first-child",
       "note": "The projection reads a row as `<label>: <cell>; <cell>.`, which no single element on the slide holds — so the cue hid. The row's first cell is the label it opens with. Scoped with `:scope >` because a row holding a nested table would otherwise hand back the inner table's first cell, and the handle would be drawn around the whole nested table."
     }
-  ]
+  ],
+  "pane": {
+    "side": 65,
+    "stack": false,
+    "budget": {
+      "at": 65,
+      "axis": "col",
+      "basis": "editorial",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "Phase columns: a stacked band is full width. Judgment: the calibration rig has no element builder for this component.",
+      "min": 2
+    }
+  }
 }

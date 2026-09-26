@@ -28,6 +28,16 @@
  *                                    [--words N|soft|hard] [--max N] [--scale l|xl|2xl] [--eyebrow] [--json]
  *   node tools/calibrate-capacity.js --all [--family square]
  *
+ *   node tools/calibrate-capacity.js <component>|--all --pane side|stack [--share N]
+ *
+ * PANE MODE (`--pane`) measures the same ceiling inside a PANE (lib/core/panes.js) instead
+ * of a whole slide: each step is a 16:9 panes slide with the component in the first pane at
+ * its basis share (`--share`, default its `pane.budget.at`, else 50; a stack splits
+ * 50/50) and one short line of `content` in the second. The overflow probe already treats a
+ * pane's inner `.cell-stage` as a clipping cell, so a clipped pane flags its page. Each element
+ * is held at HALF the component's `density.soft` (a pane's content is written tighter). The
+ * number it bounds is the manifest's `pane.budget.<side|stack>.hard`.
+ *
  * Exit 0 when every declared capacity is within its measured ceiling; exit 1
  * when one exceeds it (so it can gate), unless --advisory.
  */
@@ -53,6 +63,22 @@ const WORDS_OVERRIDE = flag('words', null);
 const SCALE = flag('scale', null);
 if (SCALE && !['l', 'xl', '2xl'].includes(SCALE)) die(`Unknown --scale '${SCALE}'. Known: l, xl, 2xl.`);
 const TARGET_FAMILIES = flag('family', FAMILIES.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
+const PANE = flag('pane', null);
+if (PANE && PANE !== 'side' && PANE !== 'stack') {
+  console.error("--pane takes 'side' or 'stack'.");
+  process.exit(1);
+}
+const SHARE_OVERRIDE = flag('share', null);
+// A share off the 25–75 grid falls back to 50/50 in the carve, so the run would measure one
+// share and report another. And the slide-mode knobs have no pane meaning yet: say so.
+if (SHARE_OVERRIDE && !(Number(SHARE_OVERRIDE) >= 25 && Number(SHARE_OVERRIDE) <= 75 && Number(SHARE_OVERRIDE) % 5 === 0)) {
+  console.error('--share takes 25–75 in steps of 5.');
+  process.exit(1);
+}
+if (PANE && (flag('scale', null) || argv.includes('--eyebrow'))) {
+  console.error('--pane measures at the designed size with the rig\'s own heading; it does not take --scale or --eyebrow.');
+  process.exit(1);
+}
 
 function die(msg) { console.error(msg); process.exit(1); }
 
@@ -109,22 +135,37 @@ function scaleDeclared(comp, wordsPer) {
   return v == null ? null : { hard: v, source: `lint-core SCALE_CAPACITY[${comp}][${wordsPer}] at scale-${SCALE}` };
 }
 
+/** The pane share a component is budgeted at: its `pane.budget.at` (default 50), or `--share`. */
+function paneShare(manifest) {
+  if (PANE === 'stack') return 50;
+  if (SHARE_OVERRIDE) return parseInt(SHARE_OVERRIDE, 10);
+  return manifest.pane?.budget?.at || 50;
+}
+
+/** The declared pane budget for this direction, in the shape `declaredFor` returns. */
+function declaredPane(manifest) {
+  const b = manifest.pane?.budget?.[PANE];
+  return b ? { sweet: b.sweet, hard: b.hard, source: `pane.budget.${PANE}` } : null;
+}
+
 /** Measure the first element count that overflows, or null if none up to MAX. */
-function measure(comp, family, wordsPer) {
+function measure(comp, family, wordsPer, share) {
   const build = BUILDERS[comp];
   const counts = Array.from({ length: MAX }, (_, i) => i + 1);
+  const body = (n) => (BODY_WRAP[comp] || ((b) => b))(Array.from({ length: n }, () => build(wordsPer)).join('\n'));
   const deck = gradedDeck({
     comp,
     size: SIZE_ALIAS[family],
     scale: SCALE,
     eyebrow: has('eyebrow'),
     steps: counts,
-    slideFor: (n) => ({
-      label: `${n} element${n === 1 ? '' : 's'}`,
-      body: (BODY_WRAP[comp] || ((b) => b))(Array.from({ length: n }, () => build(wordsPer)).join('\n')),
-    }),
+    slideFor: (n) => (PANE
+      ? { slide: `## Calibration step — ${n} element${n === 1 ? '' : 's'}.\n\n`
+          + `<!-- panes: ${PANE === 'stack' ? 'stack ' : ''}${share}/${100 - share} -->\n\n`
+          + `<!-- pane: ${comp} -->\n\n${body(n)}\n\n<!-- pane: content -->\n\nOne short line.\n` }
+      : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) }),
   });
-  const { overflowed } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}`);
+  const { overflowed } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}`);
   let lastFit = null;
   let firstOver = null;
   for (let i = 0; i < counts.length; i++) {
@@ -149,24 +190,35 @@ for (const comp of components) {
   // ceiling than the contract actually promises.
   // `--words soft|hard` reads the component's own density block, so one `--all` run can
   // measure every component at the same point of ITS budget rather than one global count.
+  // A PANE is half a slide, and its content is written tighter than a whole slide's: pane mode
+  // holds each element at HALF the component's density (rounded up), the shape a pane's author
+  // is told to write (lib/base/base.docs.md § Panes).
+  const slideWords = parseInt(manifest.density?.soft || 12, 10);
   const wordsPer = parseInt((WORDS_OVERRIDE === 'soft' || WORDS_OVERRIDE === 'hard'
     ? manifest.density?.[WORDS_OVERRIDE]
-    : WORDS_OVERRIDE) || manifest.density?.soft || 12, 10);
+    : WORDS_OVERRIDE) || (PANE ? Math.ceil(slideWords / 2) : slideWords), 10);
 
-  for (const family of TARGET_FAMILIES) {
-    const { firstOver, ceiling } = measure(comp, family, wordsPer);
+  // A pane is measured on the authored 16:9 box only: panes are a landscape composition.
+  const share = PANE ? paneShare(manifest) : null;
+  if (PANE && manifest.pane?.side === false && manifest.pane?.stack === false) {
+    if (!JSON_OUT) console.log(`\n  ${comp} · fits no pane (side and stack false) — a panes slide naming it splits; not measured`);
+    continue;
+  }
+  for (const family of PANE ? ['wide'] : TARGET_FAMILIES) {
+    const { firstOver, ceiling } = measure(comp, family, wordsPer, share);
     // At a projection scale the manifest's `hard` is the wrong yardstick — it is a
     // designed-size budget. The number lint enforces there is the measured table in
     // lint-core (`SCALE_CAPACITY`), so that is what this run checks, at the exact length
     // it was measured at. A table value above the ceiling measured now means the engine
     // moved and lint would forecast a fit it no longer has.
-    const declared = SCALE ? scaleDeclared(comp, wordsPer) : declaredFor(manifest, family);
+    const declared = PANE ? declaredPane(manifest) : SCALE ? scaleDeclared(comp, wordsPer) : declaredFor(manifest, family);
     const over = declared && ceiling != null && declared.hard != null && declared.hard > ceiling;
     if (over) violations++;
-    results.push({ component: comp, family, wordsPer, ceiling, firstOver, declared, exceedsCeiling: !!over });
+    results.push({ component: comp, family, pane: PANE, share, wordsPer, ceiling, firstOver, declared, exceedsCeiling: !!over });
 
     if (!JSON_OUT) {
-      const head = `${comp} · ${family} (@size ${SIZE_ALIAS[family]}) · ${wordsPer} words/element`;
+      const where = PANE ? `pane ${PANE} ${share}%` : `${family} (@size ${SIZE_ALIAS[family]})`;
+      const head = `${comp} · ${where} · ${wordsPer} words/element`;
       const measured = firstOver == null
         ? `fits to ${MAX}+ (raise --max)`
         : `ceiling ${ceiling} · overflows at ${firstOver}`;

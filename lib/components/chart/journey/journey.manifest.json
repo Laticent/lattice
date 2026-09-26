@@ -264,5 +264,19 @@
         "names": ".journey-lane-label",
         "note": "A lane header is a label span beside its span count. HANDLE ONLY, and for the same measured reason as `.journey-actor`: its text is the actor name the legend also carries, so the two tie and the name-led matcher refuses both. It earns its place by moving the ink off the whole lane header, not by placing a cue."
       }
-    ]
+    ],
+  "pane": {
+    "side": 50,
+    "stack": false,
+    "budget": {
+      "at": 65,
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "Each stage is a column of steps. Judgment: the calibration rig has no element builder for this component."
+    }
+  }
 }

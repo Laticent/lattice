@@ -1909,6 +1909,7 @@ function renderMermaid(definition, mode, look, hand = false) {
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor } = require('./lib/engine/css');
+const { widenForPanes, paneClasses } = require('./lib/core/pane-css');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // The one pattern that says "this is a Mermaid fence", shared with the narrator (#1).
 const { matchMermaidFences } = require('./lib/core/mermaid-fences');
@@ -2514,6 +2515,13 @@ function engineSlides(deckSource = rawMd) {
 // PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
 // to lift the note bodies; the file ships pass 2.
 const slidesAsAuthored = engineSlides();
+// A deck with PANES inlines the pane-widened sheet: every rule arm that reaches one of its
+// panes' bodies gains a `section lat-pane…` twin (lib/core/pane-css.js), scoped to the
+// components its panes actually hold. Every other deck inlines exactly the stylesheet it
+// always did, so its bytes do not move.
+const DECK_PANE_CLASSES = paneClasses(slidesAsAuthored.join('\n'));
+const DECK_HAS_PANES = DECK_PANE_CLASSES.length > 0;
+const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLASSES) : css);
 
 // ── Speaker notes ──────────────────────────────────────────────────────────
 // A non-directive HTML comment on a slide is that slide's speaker note
@@ -3085,7 +3093,10 @@ const deckTitle =
 // `deckSizeName` (composeCss appends both), so this string does not emit them a second
 // time. The sentinels around it bracket the region `tools/palette-sweep.js` overwrites to
 // re-theme the export in place (lib/core/export-shell-marks.js).
-const deckSheet = cliDeckSheet(CLI_THEMES, { theme: paletteName, sizeName: deckSizeName, covered: COVERED_FAMILIES });
+// A panes deck's sheet carries pane twins for the components its panes hold. The engine
+// composes them before it packs the sheet, so they take the same flat shape as every other
+// rule; widening the packed sheet afterwards would find no `section.<component>` to twin.
+const deckSheet = cliDeckSheet(CLI_THEMES, { theme: paletteName, sizeName: deckSizeName, covered: COVERED_FAMILIES, panes: DECK_PANE_CLASSES });
 if (deckSheet.refused && !QUIET) {
   console.warn(`  ⚠ ${deckSheet.refused} @font-face rule(s) in the deck sheet could not be`
     + ' verified as whole rules and were left in place. They will fail to load; the export is'
@@ -3124,7 +3135,7 @@ main#deck{margin:0;padding:0;display:block}
    Fix: make <main> transparent to the flex column — same axis, full width — so the
    slides resolve their percentage against the same box they did before. */
 :root[data-lattice-view="fluid"] main#deck{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;flex:1 0 auto}
-${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}`;
+${globalStyle ? `\n/* Front-matter style: directive */\n${widenDeckCss(globalStyle)}\n` : ''}`;
 
 // The one place the deck's stylesheet exists as a finished string. Compute it
 // once: the <style> body below embeds it, and the texture <defs> are chosen from
@@ -4612,7 +4623,7 @@ async function renderBody(browser, g, closeBrowser) {
                 s.textContent = css;
                 document.head.appendChild(s);
                 document.documentElement.style.colorScheme = scheme;
-              }, { css: lookPaletteCss, scheme: lookMode }), 'apply svg-look palette (charts)');
+              }, { css: widenDeckCss(lookPaletteCss), scheme: lookMode }), 'apply svg-look palette (charts)');
             }
             await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle svg look');
           }

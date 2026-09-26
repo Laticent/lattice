@@ -249,5 +249,25 @@
       "useWhen": "The sequence reads as eras or acts rather than a numbered checklist — swaps the counter format to roman numerals; typically paired with `phase`."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 65,
+    "stack": 50,
+    "budget": {
+      "at": 65,
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 7 words per element, half the slide density (side 65%: clips at 6; stack 50/50: clips at 6). sweet sits below it.",
+      "min": 3
+    },
+    "review": "side 50 measured, 65 reviewed: step titles break mid-word below 65%."
+  }
 }

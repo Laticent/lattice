@@ -106,6 +106,7 @@ const { paletteChainCss, parsePaletteVars, listAllThemes } = require('./contrast
 const {
   SHEET_START_MARK, SHEET_END_MARK, readStartMark,
 } = require('../lib/core/export-shell-marks.js');
+const { paneClasses } = require('../lib/core/pane-css.js');
 const { cliThemeStore, cliDeckSheet, coveredFamilies } = require('../lib/export/cli-deck-sheet.js');
 const PROBE_ID = '__palette_sweep_probe__';
 
@@ -144,8 +145,8 @@ function sweepCovered() {
  * The deck sheet the CLI would have written for `name` at `sizeName` — composed by the CLI's
  * own builder, so the swap measures a sheet that ships, not a reconstruction of one.
  */
-function sheetFor(name, sizeName) {
-  return cliDeckSheet(sweepStore(), { theme: name, sizeName, covered: sweepCovered() }).css;
+function sheetFor(name, sizeName, panes = null) {
+  return cliDeckSheet(sweepStore(), { theme: name, sizeName, covered: sweepCovered(), panes }).css;
 }
 
 /**
@@ -294,8 +295,11 @@ async function foreignPaintedAt(page, before) {
  *
  * @param {import('puppeteer').Page} page  a page already navigated to the rendered deck
  * @param {string[]} themes                palette names present in themes/
+ * @param {string[]|null} [panes]         the classes the deck's panes carry, read from the
+ *                                         rendered file (`paneClasses`), so each swapped sheet
+ *                                         carries the pane twins the CLI shipped
  */
-async function sweep(page, themes) {
+async function sweep(page, themes, panes = null) {
   const palettes = [];
   const foreign = new Set();
   let foreignSheets = 0;
@@ -310,13 +314,13 @@ async function sweep(page, themes) {
   // fails here, loudly, instead of every palette being scored against a sheet that never ships.
   const from = shipped.indexOf('*/', shipped.indexOf(SHEET_START_MARK)) + 2;
   const region = shipped.slice(from, shipped.indexOf(SHEET_END_MARK, from)).trim();
-  if (region !== sheetFor(mark.theme, mark.size).trim()) {
+  if (region !== sheetFor(mark.theme, mark.size, panes).trim()) {
     throw new Error(`palette-sweep: the shipped deck sheet is not the one lib/export/cli-deck-sheet.js composes for ${mark.theme} at ${mark.size} — this sweep would measure a sheet that never ships`);
   }
   const sizeName = mark.size;
 
   for (const theme of themes) {
-    const applied = await page.evaluate(APPLY, sheetFor(theme, sizeName), SHEET_START_MARK, SHEET_END_MARK);
+    const applied = await page.evaluate(APPLY, sheetFor(theme, sizeName, panes), SHEET_START_MARK, SHEET_END_MARK);
     if (!applied.ok) {
       throw new Error(`palette-sweep: could not swap to ${theme} — ${applied.why}`);
     }
@@ -416,7 +420,7 @@ if (require.main === module) {
     await page.goto(`file://${path.resolve(html)}`, { waitUntil: 'networkidle0' });
 
     const started = Date.now();
-    const result = await sweep(page, themes);
+    const result = await sweep(page, themes, paneClasses(fs.readFileSync(html, 'utf8')));
     const { palettes, unswept, foreign, ambiguous, foreignSheets, distinctPaints, probedRuns } = result;
     const elapsed = ((Date.now() - started) / 1000).toFixed(1);
     await browser.close();

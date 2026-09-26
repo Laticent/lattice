@@ -24,6 +24,20 @@ test('the sheet is the engine flat pack, unwrapped to top-level slides', () => {
 	assert.doesNotMatch(css, /(^|[{},]\s*)section\s*\{[^}]*width:\s*1280px/, 'no bare `section` rule gives every section the slide box');
 });
 
+test("a panes deck's sheet carries the twins for the components in its panes, in the flat shape", () => {
+	const store = cliThemeStore(BASE, [{ name: 'indaco', css: INDACO }]);
+	const plain = cliDeckSheet(store, { theme: 'indaco', sizeName: 'hd' }).css;
+	const panes = cliDeckSheet(store, { theme: 'indaco', sizeName: 'hd', panes: ['stats'] }).css;
+	// The twins are composed BEFORE the pack, so they come out rooted on a top-level slide like
+	// every other rule. Widening the packed sheet afterwards found no `section.stats` to twin, and
+	// a stats pane exported unstyled (caught on the PR's review deck after main moved the CLI onto
+	// this sheet).
+	assert.match(panes, /section:where\(:not\(section \*\)\) lat-pane\.stats/);
+	assert.doesNotMatch(plain, /lat-pane\.stats/);
+	// Only the components the deck's panes carry: no list twin for a stats-only deck.
+	assert.doesNotMatch(panes, /lat-pane\.list(?![\w-])/);
+});
+
 test('an installed root palette without @import lattice still sits on the layout sheet', () => {
 	// The package gate allows a theme that imports nothing. composeCss inlines the base only at
 	// the import, so without `rootsOnBase` the export shipped scaffold alone (12 KB, h1 in Times).

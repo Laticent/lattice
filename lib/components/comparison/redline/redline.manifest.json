@@ -162,5 +162,10 @@
       "useWhen": "The passage is long enough that side-by-side columns would be too narrow — stacks the prior text (struck) above the current instead."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 50,
+    "stack": 50,
+    "noBudget": "one amended passage"
+  }
 }

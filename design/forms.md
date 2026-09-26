@@ -99,7 +99,9 @@ That single sentence is the whole system. Everything else is detail.
 > solution for "two components side by side" (a flat split layout — itself a
 > Frame — whose cells host components), are in
 > `engineering/decisions/2026-06-18-frame-recursion-cells.md`. Where the text
-> below still says "or a Frame," read it as that rejected branch.
+> below still says "or a Frame," read it as that rejected branch. That flat split now exists as
+> **panes** (proof of concept): the stage holds two `pane` Cells, each hosting one component's
+> body — `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
 
 The name is exact, not decorative: in letterpress a *forme* is the type locked
 into a *frame* so every pull prints in identical, fixed position. A Lattice Form

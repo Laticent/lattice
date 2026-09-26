@@ -141,5 +141,23 @@
       "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 30,
+    "budget": {
+      "at": 65,
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 10 words per element, half the slide density (side 65%: clips at 6; stack 50/50: clips at 6). sweet sits below it."
+    }
+  }
 }

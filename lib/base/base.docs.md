@@ -49,6 +49,77 @@ On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a r
 
 See `engineering/decisions/2026-09-02-frame-model-for-motion.md` (the current state of record; it carries forward §0.75 of the superseded `2026-07-19-anima-svg-first-cut-zdog.md`).
 
+## Two components on one slide — panes
+
+**Experimental — the syntax may change.** Put two components' body content on one slide, side by side or stacked.
+The slide keeps its one eyebrow, title, subtitle, Key Insight, below-note, header, footer and page
+number; only the body splits. Mark where each component's body begins:
+
+```markdown
+## Services outgrew licenses for the first time.
+
+<!-- panes: 55/45 -->
+<!-- pane: bar -->
+
+- Licenses `42`
+- Services `47`
+
+<!-- pane: list -->
+
+- Services crossed licenses in March
+- Fold training into services
+
+> The mix shift is structural, not seasonal.
+```
+
+- `<!-- pane: <component> -->` starts a pane; two per slide. Write each pane's body exactly as that
+  component's own slide body, minus the heading.
+- `<!-- panes: 40/60 -->` sets the split, 25–75 in 5% steps (default 50/50);
+  `<!-- panes: stack 35/65 -->` stacks the panes top to bottom.
+- A **spine** marks the seam between the panes: the same accent rule, fading at both ends,
+  that separates a chart from its key. It turns horizontal when the panes stack. Add
+  `no-rule` to drop it (`<!-- panes: 50/50 no-rule -->`) — a photo pane's own edge
+  usually separates it already.
+- The trailing `> quote` and `— note` belong to the slide, never to the second pane.
+- **Which component can go in a pane, and at what share, is measured.** Each manifest's `pane`
+  field records the least share it reads at side by side and stacked (`dist/docs/components.json`
+  carries it). A table needs 35% side by side, a KPI row 65%, code only stacks, and a whole-slide
+  frame (a title, a divider) never goes in a pane.
+- **A pairing that does not fit is never drawn.** If both panes fit the other direction at the same
+  shares, the slide re-orients (side by side becomes stacked, or the reverse). If not, it splits
+  into one slide per pane — each an ordinary slide of its component under the same title, the
+  Key Insight and note closing the last. `lint:deck` tells you which (`pane-arrange`).
+- **Each pane has a budget.** Write a pane's content tighter than a whole slide's — about half the
+  words per item. At that density a `list` pane holds 6 items side by side and 4 in a stacked band,
+  a `table` 7 rows at 65%, a `bar` chart 8 bars. A narrower pane holds proportionally fewer.
+- `lint:deck` names each problem before you render: `pane-arrange` (the slide will re-orient or
+  split), `pane-overflow` (past the budget) and `pane-crowd` (past the comfortable count). It warns and never blocks; the Studio's editor
+  shows the same warnings as you type. At export, a pane that really clips is marked like any
+  clipped slide.
+- **On a square, portrait, story or mobile deck the panes split** into one slide per pane.
+  Those sizes set type about twice as large, so two components do not share one frame there.
+  Each page repeats the slide's eyebrow, title and subtitle and renders its pane's component as
+  an ordinary slide (auto-splitting as that slide would); the Key Insight and note close the last
+  page. The slide's spot directives (`_class`, `_footer`, …) reach every page wherever you wrote
+  them, and a component named in its `_class` does not: each page is its pane's. The same
+  markdown reads side by side at 16:9 and one-per-slide on a phone.
+- **`cards:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
+  centers or stretches as the deck's `cards:` or the slide's `_class: cards-*` says, for every
+  component that goes in a pane and takes `cards:` on a slide (tables do not; `split-panel` and
+  `split-compare` opt out of panes; `inventory`'s cards need its `.cards` modifier, which a pane
+  marker cannot carry). One setting per slide: both panes take it.
+- **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart
+  slide prints them, and the plot gets shorter or narrower instead. A pie, map or quadrant prints
+  its key larger, beside or below the diagram, where the pane has room; a radar scales into its
+  pane as it would on a slide.
+
+Known limits while it is experimental: a Mermaid diagram scales into its pane, so it draws small
+in a narrow one and nothing warns; the pane's size is modelled from measurements of the slide's
+chrome (a theme with a taller masthead can leave a chart pane a little tall); an installed package's CSS and the
+Studio's extra CSS do not reach a pane yet (a deck's front-matter `style:` does, in the CLI export). Demo: `examples/panes.md`.
+Design, audit, the measured budgets and every open gap:
+`engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
+
 ## Auto-detected authoring patterns
 
 These work on any slide without a class modifier. Write the markdown,

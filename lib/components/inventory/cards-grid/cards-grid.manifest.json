@@ -212,5 +212,24 @@
   "showcase": {
     "featured": true
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 30,
+    "budget": {
+      "at": 65,
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 2
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 65%: clips at 6, capped at the slide's own hard 4; stack 50/50: clips at 3). sweet sits below it.",
+      "min": 2
+    }
+  }
 }

@@ -195,5 +195,23 @@
       "useWhen": "The changes fall into distinct categories of motion (Added/Amended/Repealed/Enforced) that should be visually grouped, not just listed chronologically."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": 60,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 2
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 7 words per element, half the slide density (side 50%: clips at 4; stack 50/50: clips at 3). sweet sits below it.",
+      "min": 2
+    }
+  }
 }

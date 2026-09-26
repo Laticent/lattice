@@ -257,5 +257,18 @@
       "useWhen": "The quadrant tint fields, bubble fills, and cohort hull shading would distract — strips them to outlined points, while axis labels and threshold lines stay visible."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": false,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 6,
+        "hard": 8
+      },
+      "note": "Labeled points on a 2x2: labels collide past eight. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    }
+  }
 }

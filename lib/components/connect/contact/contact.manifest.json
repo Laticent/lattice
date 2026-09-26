@@ -80,5 +80,10 @@
   "specimenVoice": true,
   "excludes": [
     "compact"
-  ]
+  ],
+  "pane": {
+    "side": 25,
+    "stack": 30,
+    "noBudget": "one contact card"
+  }
 }

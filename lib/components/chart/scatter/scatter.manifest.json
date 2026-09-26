@@ -212,5 +212,23 @@
   "showcase": {
     "featured": false
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 8,
+        "hard": 12
+      },
+      "stack": {
+        "sweet": 8,
+        "hard": 12
+      },
+      "note": "Labeled points: labels collide past twelve. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  }
 }

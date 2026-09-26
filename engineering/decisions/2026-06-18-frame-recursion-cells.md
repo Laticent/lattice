@@ -84,6 +84,10 @@ exact scope creep this whole investigation argued against.)
 
 ## 4. The better solution (what to build instead, when there's demand)
 
+> **Built 2026-09-25 as panes (proof of concept)** — the demand arrived. The render-into-half
+> capability is a pane rendered as its own one-slide deck and embedded in a `pane` Cell; see
+> `2026-09-25-panes-two-components-one-slide.md`.
+
 A flat, named **split layout** — *itself an ordinary Frame*, nothing recursive —
 whose cells host real components:
 

@@ -152,6 +152,41 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(snap?.css).not.toMatch(/<\/style/i);
 	});
 
+	// A panes deck widens every component rule to `section.x, section lat-pane.x` (lib/core/pane-css.js).
+	// A deck with no panes must not pay for the pane arms: keeping them pushed the real
+	// Playground snapshot from 223K to 315K units, past MAX_UNITS, so nothing was stored.
+	it('drops pane arms a document without panes can never match, and keeps them when it has one', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		// `:is(h1, h2)` makes the probe unevaluable once stripped — the case that kept both arms.
+		doc.head.innerHTML = '<style>section.title > :is(h1, h2), section lat-pane.title > :is(h1, h2){color:red}</style>';
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).toContain('section.title');
+		expect(snap?.css).not.toContain('lat-pane');
+		(doc.querySelector('.lattice > section') as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"></lat-pane>');
+		const withPane = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(withPane?.css).toContain('lat-pane');
+	});
+
+	it('a pane on a LATER slide does not keep pane arms in the slide-1 snapshot', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>section.title > :is(h1, h2), section lat-pane.title > :is(h1, h2){color:red}</style>';
+		(doc.querySelectorAll('.lattice > section')[1] as HTMLElement).insertAdjacentHTML('beforeend', '<lat-pane class="title"></lat-pane>');
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).toContain('section.title');
+		expect(snap?.css).not.toContain('lat-pane');
+	});
+
+	it('keeps a slide rule on the host class `lat-pane-host` — it is not a pane arm', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>section.lat-pane-host > h1{color:red}</style>';
+		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('lat-pane-host');
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).toContain('color: red');
+	});
+
 	it('strips the FIT agent inline transform/margin from the captured slide', () => {
 		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.html).not.toContain('scale(0.3)');

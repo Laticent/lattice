@@ -130,5 +130,22 @@
       "fix": "Every term needs EXACTLY one nested definition bullet directly beneath it. Zero bullets leaves that row's definition cell empty; a second bullet is silently DROPPED (only the first is captured), so the extra content just vanishes rather than erroring or appending."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": 40,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 10,
+        "hard": 12
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 50%: fits 12+, so 12 is a floor, not a ceiling; stack 50/50: clips at 5). sweet sits below it."
+    }
+  }
 }

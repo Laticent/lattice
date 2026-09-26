@@ -2,7 +2,7 @@
   "$schema": "../../schema/tile.schema.json",
   "id": "content",
   "kind": "content",
-  "fits": ["stage"],
+  "fits": ["stage", "pane"],
   "z": 2,
   "population": "the component DOM (a component selects a Frame and binds Substance)",
   "hideToken": null,

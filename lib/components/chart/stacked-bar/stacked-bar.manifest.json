@@ -193,5 +193,23 @@
       "summary": "The stack runs horizontally, so long category names sit in a left column instead of wrapping under a bar.",
       "sample": "<!-- _class: stacked-bar row -->\n\n## row turns the stack on its side for long category names.\n\n- Professional services\n  - Delivery `4.2`\n  - Training `1.6`\n  - Advisory `0.9`\n- Platform subscriptions\n  - Delivery `11.8`\n  - Training `2.1`\n  - Advisory `1.4`\n- Managed operations\n  - Delivery `6.4`\n  - Training `0.8`\n  - Advisory `2.2`\n"
     }
+  },
+  "pane": {
+    "side": 35,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "Each category is a stacked bar, with its parts in a key. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    },
+    "review": "side 25 measured, 35 reviewed: the key cramps at 25%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   }
 }

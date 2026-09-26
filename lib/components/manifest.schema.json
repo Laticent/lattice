@@ -858,6 +858,145 @@
         }
       }
     },
+    "pane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "side",
+        "stack"
+      ],
+      "description": "How this component behaves in a PANE \u2014 one half of a panes slide, where two components' bodies share one slide (lib/core/panes.js, engineering/decisions/2026-09-25-panes-two-components-one-slide.md). `side` and `stack` are the least share a pane of this component reads at, measured by tools/measure-pane-fit.js and reviewed; a panes slide whose two panes both fit renders as written, re-orients when both fit the other way, and otherwise splits into one slide per pane (lib/core/pane-spec.js `arrangePanes`). Optional for an installed package, which a pane treats as fitting any share with no budget; required of every built-in component by test/unit/core/pane-contract.test.js, so a new component has to decide.",
+      "properties": {
+        "side": {
+          "oneOf": [
+            {
+              "const": false
+            },
+            {
+              "type": "integer",
+              "minimum": 25,
+              "maximum": 75,
+              "multipleOf": 5
+            }
+          ],
+          "description": "The least share, side by side, a pane of this component reads at (25\u201375 in 5% steps), or `false` when no share does (a code listing's lines run past the pane). Below it the slide re-orients or splits."
+        },
+        "stack": {
+          "oneOf": [
+            {
+              "const": false
+            },
+            {
+              "type": "integer",
+              "minimum": 25,
+              "maximum": 75,
+              "multipleOf": 5
+            }
+          ],
+          "description": "The least share of the stage's HEIGHT a stacked pane of this component reads at, or `false` when no stacked band does (a KPI tile, a quote). Below it the slide re-orients or splits."
+        },
+        "form": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The component a pane renders this one AS, when its whole-slide form cannot go in a pane but has a pane form: `image` renders through `content`, and lib/forms/cell/pane/pane.css draws the picture covering its Cell. Must name a component that itself goes in a pane."
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "axis",
+            "basis"
+          ],
+          "description": "The PANE budget: how many elements this component holds in one pane, along the same axis `capacity` counts. `side` is at `at` side by side (default 50%) and `stack` at a 50/50 stacked band; each is present exactly when that direction is not false. A pane smaller than that scales its budget down in proportion; a larger one keeps it (never up). Counted by `lint:deck` on the pane's own markdown.",
+          "properties": {
+            "at": {
+              "type": "integer",
+              "minimum": 25,
+              "maximum": 75,
+              "multipleOf": 5,
+              "description": "The side-by-side share `side` counts were set at (default 50; 65 for the components that were once `wide`, whose tables and grids were judged at 65%). A narrower pane scales the counts down from it; a wider one never up."
+            },
+            "axis": {
+              "enum": [
+                "item",
+                "row",
+                "col",
+                "cell",
+                "line"
+              ],
+              "description": "The collection counted \u2014 the `capacity` axis vocabulary."
+            },
+            "min": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The fewest elements this component is built for \u2014 its `capacity.min` (a 2x2 is always four). No budget count sits below it, and a smaller pane scales its budget down no further than this: a pane too small for the component's own minimum is the export's overflow probe to report, not a count to warn below the shape."
+            },
+            "basis": {
+              "enum": [
+                "measured",
+                "editorial"
+              ],
+              "description": "`measured`: `hard` is bounded by `tools/calibrate-capacity.js --pane` (the export's overflow probe, at the component's editorial density). `editorial`: judgment, stated in `note` \u2014 a chart scales instead of clipping, so it has no geometric ceiling to measure."
+            },
+            "side": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sweet",
+                "hard"
+              ],
+              "properties": {
+                "sweet": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The comfortable count in a pane: past it `lint:deck` says pane-crowd."
+                },
+                "hard": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The most a pane holds: past it `lint:deck` says pane-overflow. Where `basis` is `measured`, at or below the ceiling `tools/calibrate-capacity.js --pane` measured."
+                }
+              }
+            },
+            "stack": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sweet",
+                "hard"
+              ],
+              "properties": {
+                "sweet": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The comfortable count in a pane: past it `lint:deck` says pane-crowd."
+                },
+                "hard": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The most a pane holds: past it `lint:deck` says pane-overflow. Where `basis` is `measured`, at or below the ceiling `tools/calibrate-capacity.js --pane` measured."
+                }
+              }
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Why the numbers are what they are."
+            }
+          }
+        },
+        "noBudget": {
+          "type": "string",
+          "minLength": 8,
+          "description": "Why this component has no countable pane budget (one number, one quotation, one picture). A component that can go in a pane declares EITHER `budget` OR this."
+        },
+        "review": {
+          "type": "string",
+          "minLength": 8,
+          "description": "Why a share is stricter than tools/measure-pane-fit.js measured: the probes pass what a reviewer still reads as jank (a chart in a band under half the stage is a sliver; a label that breaks mid-word). Write one whenever the declared share is above the measured one, so the difference is never silent; the validator checks its form, not that rule, because the manifest does not record the measured share (the design note's table does)."
+        }
+      }
+    },
     "cards": {
       "type": "object",
       "additionalProperties": false,

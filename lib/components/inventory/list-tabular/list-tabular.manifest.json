@@ -280,5 +280,22 @@
       "useWhen": "A deck was laid out against the old fixed-cqi tracks and should keep them rather than re-flow."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 30,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 5,
+        "hard": 7
+      },
+      "stack": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 50%: clips at 8; stack 50/50: clips at 4). sweet sits below it."
+    }
+  }
 }

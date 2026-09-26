@@ -170,5 +170,10 @@
       "useWhen": "Three distinct pieces — citation, plain reading, and required action — each deserve their own visual panel."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": 60,
+    "noBudget": "one citation"
+  }
 }

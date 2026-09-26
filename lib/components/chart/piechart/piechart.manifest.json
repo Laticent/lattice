@@ -154,5 +154,23 @@
     "Keep every slice label to 1-3 words — long labels wrap and crowd the legend, which sits in a right rail beside the wedges in a landscape box or stacks below them in a portrait box (the portrait layout budgets a wider label column, but short labels still read cleanest in both).",
     "Stay at 3-6 slices for the sweet spot; the palette has six hues (Wong 2011 / IBM Carbon, calibrated for perceptual distinction), so a 7th slice repeats a color already on the chart — consolidate the long tail into a single `Other` slice before then rather than adding a 7th."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "note": "Past six slices the labels crowd the wedges at any pane size. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  }
 }

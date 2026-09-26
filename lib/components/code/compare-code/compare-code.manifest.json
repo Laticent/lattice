@@ -124,5 +124,9 @@
       "fix": "It is clipped, not wrapped — the tail is cut at the pane edge. Keep fenced lines under ~55 characters so each source line renders whole and lines up with its counterpart across the gutter. Portrait and square decks DO wrap instead, because they stack the panes into one column where there is no pairing to preserve."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": false,
+    "stack": false
+  }
 }

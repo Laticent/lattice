@@ -292,5 +292,9 @@
       "useWhen": "This is the SEQUENCE's last, most-earned entry — the claim is proven, not just illustrated. Write `split-panel capstone`: it implies `proof` (same three-item shape) and joins the same automatic tint sequence. Swaps the signal callout for a quoted card and the checkpoint cards for top-rule pillars."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": false,
+    "stack": false
+  }
 }

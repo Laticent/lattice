@@ -175,3 +175,9 @@ test('sanitize is a pure function of its input — the same html sanitizes ident
 		assert.equal(sani(payload), first);
 	}
 });
+
+test('ADD_TAGS keeps the pane Cell element and still filters its attributes', () => {
+	const out = sani('<div class="lat-panes"><lat-pane class="list form" data-pane="list" onclick="alert(1)"><ul><li>a</li></ul></lat-pane></div>');
+	assert.match(out, /<lat-pane class="list form" data-pane="list"><ul>/);
+	assert.doesNotMatch(out, /onclick/);
+});

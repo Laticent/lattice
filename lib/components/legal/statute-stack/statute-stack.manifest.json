@@ -194,5 +194,24 @@
       "useWhen": "More than four jurisdictions need to fit, or the citation/obligation/status structure reads better as a literal table than as cards."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 65,
+    "stack": 40,
+    "budget": {
+      "at": 65,
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 2,
+        "hard": 3
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 65%: clips at 4; stack 50/50: clips at 6). sweet sits below it.",
+      "min": 2
+    }
+  }
 }

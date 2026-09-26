@@ -220,5 +220,10 @@
       "useWhen": "A factorization — a matrix laid out as a sequence of matrices (e.g. LU, SVD) — a compound of `matrix`, not a single hero matrix."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 50,
+    "stack": 50,
+    "noBudget": "one equation; its size is fixed chrome, not a count"
+  }
 }

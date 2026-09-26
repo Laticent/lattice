@@ -205,5 +205,23 @@
     "A `Floor` puts that row's scale above zero, so its bar LENGTH is no longer proportional to its value — the origin is drawn as a visible edge, and the whole chart drops to per-row scales because a floored row and a zero-based row are not the same ruler.",
     "Five rows is the sweet spot and seven the ceiling, measured on the landscape box: seven still hold a legible track and a full-width KPI name, and the eighth thins the track past where the measure reads against its zones. A KPI name gets one line beside its readout and ellipsizes rather than wrapping at about 56 characters. These are guidance numbers, not a split axis: like every chart in the family a bullet is a GRAPHIC, so it never paginates — an overflowing chart wants fewer rows."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 4,
+        "hard": 5
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "One bullet row per KPI, each needs its label and two values. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  }
 }

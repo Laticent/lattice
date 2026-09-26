@@ -112,5 +112,18 @@
       "body"
     ],
     "note": "Two seams, tried in order. More than one fenced block -> one <pre> per page, source-sliced so code.styles.css is reused whole. Exactly one block longer than `perPage` -> line-runs of that many lines, each continuation marked (cont.). The single-block case is the one that actually clips, because the canonical code slide IS one block. NO `capacity` BLOCK, DELIBERATELY. `capacity` is an authoring advisory with one consumer, `lint:deck`, and declaring one here is a separate decision about what authors are TOLD: the first version of this manifest carried the component's own documented numbers (8 sweet / 10 soft / 14 hard, from its docs' \"ten lines reads from the back row; fourteen is the wall\") and immediately warned `capacity-crowd` on two committed decks, which is a real finding and not this change's to make. The split reads `split.perPage` and needs no capacity at all. `perPage` is 12 because a SPLIT page also carries the run's heading, its k-of-N rail and its forward pointer: measured at portrait on a short-line listing, 13 lines is clean and 14 overflows, so 12 leaves one line for a heading that wraps to two. What no line cut can fix is a listing whose LINES are too long for the box -- that clips horizontally and rings, which is the honest terminal. Built 2026-09-13; the treatment had said 'PROPOSED' since the catalog was written."
+  },
+  "pane": {
+    "side": false,
+    "stack": 50,
+    "budget": {
+      "axis": "line",
+      "basis": "editorial",
+      "stack": {
+        "sweet": 6,
+        "hard": 8
+      },
+      "note": "Code lines at the code type size: a stacked band is short. Judgment: the calibration rig has no element builder for this component."
+    }
   }
 }

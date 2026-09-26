@@ -143,5 +143,10 @@
   "showcase": {
     "featured": false
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": false,
+    "noBudget": "one clip"
+  }
 }
