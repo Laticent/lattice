@@ -36,6 +36,7 @@ import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.ge
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
+import { saveFile } from '../../../lib/platform.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
@@ -95,16 +96,13 @@ function provenance(meta, slides) {
 	return { eng, summary, keywords };
 }
 
-function download(blob, filename) {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// Every save goes through the platform seam (lib/platform.js), like download.ts. The toast
+// module is TypeScript, which the Node-run unit suite cannot load, so it is imported only
+// on the failure path.
+const download = (blob, filename) =>
+	void saveFile(filename, blob).then((result) => {
+		if (result === 'failed') void import('../download').then((m) => m.reportSaveFailure(filename));
+	});
 
 // ── Markdown ────────────────────────────────────────────────────────────────
 // Self-contained embed for a Workbench *library* theme (export bridge — see

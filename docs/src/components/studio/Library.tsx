@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
+import { downloadBlob } from './download';
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
@@ -30,16 +31,8 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 
 type Filter = 'all' | 'theme' | 'component' | 'finish' | 'motion' | 'refdoc';
 
-function download(blob: Blob, filename: string) {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// Every save goes through the platform seam (download.ts → lib/platform.js).
+const download = (blob: Blob, filename: string) => downloadBlob(filename, blob);
 
 // Rebuild a Blob from a `data:…;base64,…` URL (a stored PDF's original bytes).
 function dataUrlToBlob(dataUrl: string): Blob {

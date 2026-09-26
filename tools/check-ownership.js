@@ -3592,6 +3592,13 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // the artifacts present).
       // See engineering/decisions/2026-07-02-website-copy-positioning.md §8.5.
       if (rel === path.join('docs', 'public', 'playground', 'v')) continue;
+      // The desktop app's Rust build output (desktop/.gitignore). Cargo and Tauri write
+      // thousands of generated files here, including a copy of every docs/dist asset
+      // (`tauri-codegen-assets`), so one local desktop build turned the US-English audit
+      // red on minified vendor code while a clean checkout and CI stayed green.
+      // `gen/` is Tauri's generated schema folder, also gitignored.
+      if (rel === path.join('desktop', 'src-tauri', 'target')) continue;
+      if (rel === path.join('desktop', 'src-tauri', 'gen')) continue;
       // Its sibling, and a stronger case: `playground/hljs/` is 156 minified
       // highlight.js grammars (tools/build-hljs-languages.js), gitignored like
       // `v/` above. The hits in there are third-party LANGUAGE KEYWORDS, not
@@ -10231,6 +10238,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
   '.json', '.jsonc', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml', '.py',
   '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc',
+  // The desktop app (desktop/src-tauri): Rust source, and Cargo.lock, which is TOML.
+  '.rs', '.lock',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
@@ -10245,6 +10254,7 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  '.icns', // the desktop app's macOS icon (desktop/src-tauri/icons)
 ];
 
 /**

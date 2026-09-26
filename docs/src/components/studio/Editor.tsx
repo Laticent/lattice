@@ -10,6 +10,7 @@ import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, type CompletionVocab, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
+import { createFindStore, FindPortal, openFind, studioFind } from './find-panel';
 import { slideEditableOffset, slideIndexAt } from './lint';
 import { tourChromeMargin } from './tour-chrome';
 
@@ -265,6 +266,9 @@ export type EditorHandle = {
 	 *  and flip its settings drawer read-only. No user-event annotation (won't trip
 	 *  `onUserEdit`); caret parked at the top so an empty reset can't jump the preview. */
 	resetDoc: (text: string) => void;
+	/** Open the find bar and put the caret in its find field — the toolbar's Find button
+	 *  and the command palette's "Find and replace". `replace` opens the replace row too. */
+	openFind: (opts?: { replace?: boolean }) => void;
 };
 
 export const Editor = React.forwardRef<EditorHandle, {
@@ -324,6 +328,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 }>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, carryKey, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
+	// The find bar's bridge from CodeMirror's panel to this component's React tree (find-panel.tsx).
+	const findStore = React.useRef(createFindStore());
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
 	const onCursorSlideRef = React.useRef(onCursorSlide);
@@ -446,6 +452,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 			: makeLinter(known, reportLint);
 
 	React.useImperativeHandle(ref, () => ({
+		openFind(opts) {
+			const v = viewRef.current;
+			if (v) openFind(v, opts?.replace ?? false);
+		},
 		fixAll() {
 			const v = viewRef.current;
 			if (!v) return;
@@ -608,6 +618,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 						noLeadingBom,
 						history(),
 						keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+						// Find/replace (Ctrl/Cmd+F, Ctrl+H or Cmd+Alt+F). Its keymap sits beside the defaults; see
+						// find-panel.tsx for the bar and for the two search bindings left out on purpose.
+						studioFind(findStore.current),
 						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
 						// without it a deck's front matter is parsed as a CommonMark SETEXT HEADING — the
 						// closing `---` reads as the underline — so `marp: true / theme: … ` rendered bold
@@ -851,5 +864,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 			/>
 		);
 	}
-	return <div ref={hostRef} className={className} style={{ height: '100%', overflow: 'auto' }} />;
+	return (
+		<>
+			<div ref={hostRef} className={className} style={{ height: '100%', overflow: 'auto' }} />
+			<FindPortal store={findStore.current} />
+		</>
+	);
 });

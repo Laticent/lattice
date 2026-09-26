@@ -51,7 +51,7 @@ import {
 import { TtsSettings } from './TtsSettings';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 import type { PackReport } from './workspace-backup';
-import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
+import { isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -413,6 +413,8 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const rows = await listStoredScenes();
 			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
 			const unreadable = rows.length - valid.length;
+			// Loaded on click, like the backup below: this sheet is in the Studio's eager bundle.
+			const { downloadBlob } = await import('./download');
 			downloadBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid));
 			notify(unreadable ? `Downloaded ${valid.length} scene(s). ${unreadable} could not be read — they stay in your library and in every backup.` : `Downloaded ${valid.length} scene(s).`);
 		} catch (e) {
@@ -427,7 +429,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		try {
 			const now = Date.now();
 			// Loaded on click: pack and restore are off the Studio's eager path.
-			const { backupRestoreGaps, packWorkspace } = await import('./workspace-backup');
+			const { backupRestoreGaps, downloadBlob, packWorkspace } = await import('./workspace-backup');
 			const report: PackReport = { refdocsBytes: 0 };
 			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report));
 			markBackupTaken(now);

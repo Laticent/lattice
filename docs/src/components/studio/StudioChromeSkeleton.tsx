@@ -1,5 +1,5 @@
 import {
-	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, Play, Plus, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Trash2,
+	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, Play, Plus, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, TextSearch, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -323,18 +323,22 @@ export function StudioActivityRailSkeleton() {
 export function StudioEditorPaneSkeleton() {
 	return (
 		<>
-			<div data-slot="edit-bar" className="flex shrink-0 items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-				Edit
+			<div data-slot="edit-bar" className="flex shrink-0 items-center gap-1 @[36rem]:gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+				{/* The eyebrow is the first thing to go on a narrow pane (a portrait tablet's 377px
+				    editor): the row's controls already name the pane, and without this the row overflowed
+				    by 22px whenever a selection added Refine. */}
+				<span className="hidden @[26rem]:inline">Edit</span>
 				<span className="flex-1" />
-				{/* The label spans ride the app's own container queries (`@[36rem]` / `@[34rem]`),
+				{/* The label spans ride the app's own container queries (`@[44rem]` / `@[34rem]`),
 				    which resolve against the EDITOR PANE — so `.ssr-editpane` carries
 				    `container-type: inline-size` in studio.astro, or every label here would
 				    resolve against the wrong box and the row would measure short. */}
-				<button type="button" aria-label="Add slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Add</span></button>
-				<button type="button" aria-label="Reshape slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><Shapes className="size-3" /><span className="hidden @[36rem]:inline">Reshape</span></button>
+				<button type="button" aria-label="Add slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><Plus className="size-3" /><span className="hidden @[44rem]:inline">Add</span></button>
+				<button type="button" aria-label="Reshape slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><Shapes className="size-3" /><span className="hidden @[44rem]:inline">Reshape</span></button>
 				{/* Inert in the app until the deck is linted, and the shell has linted nothing —
 				    so `disabled` here is the honest state, not a copy of a style. */}
-				<button type="button" aria-label="Fix all issues" disabled className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] opacity-40"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
+				<button type="button" aria-label="Fix all issues" disabled className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] opacity-40"><ListChecks className="size-3" /><span className="hidden @[44rem]:inline">Fix all</span></button>
+				<Button variant="ghost" size="icon-sm" aria-label="Find and replace"><TextSearch className="size-[18px]" /></Button>
 				<Button variant="ghost" size="icon-sm" aria-label="Version history"><History className="size-[18px]" /></Button>
 				{/* Slide settings is `compact &&` in the app — on desktop the activity bar owns it. */}
 				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></span>
