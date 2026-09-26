@@ -1,0 +1,1 @@
+- `backdrop: clear` now fades softly in exported PDFs, HTML and images, matching the Studio. It used to end in a hard-edged panel. The fade is embedded as one image per cleared slide (about 80 KB); text and the finish stay vector.

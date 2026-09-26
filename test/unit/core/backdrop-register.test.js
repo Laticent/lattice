@@ -103,7 +103,7 @@ test('css: the compositor reads the register first, then the baked value', () =>
   // The export flip must FOLLOW the class rules, or a class would win in print and ship the
   // feathered mask, which grays in the vector PDF.
   const lastClass = css.lastIndexOf('section.backdrop-spot-br');
-  const flip = css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }');
+  const flip = css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }');
   assert.ok(flip > lastClass && lastClass > 0, 'export flip must come after the class rules');
   // The veil the masks use is (100 − N)% canvas, N from the step, else the baked strength.
   assert.ok(css.includes('--backdrop-veil-fill: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1)) * 100%), transparent) 0 0);'));
@@ -164,7 +164,7 @@ test('css: `finish-none` / `backdrop-none` clear the register layers a deck line
     assert.ok(optOut[0].includes(decl), `opt-out must reset ${decl}`);
   }
   // It must FOLLOW the register's print flip, or the flip re-arms the mask in the PDF.
-  assert.ok(css.indexOf('section.finish-none,') > css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }'));
+  assert.ok(css.indexOf('section.finish-none,') > css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }'));
 });
 
 test('css: the veil steps clear of the overflow QA ring', () => {
@@ -203,15 +203,17 @@ test('css: clear paints the frame content box, not a central ellipse', () => {
   assert.doesNotMatch(clear, /--backdrop-clear-mask/, 'the register must not use the legacy ellipse');
 });
 
-test('css: the soft edge exists on screen only; both export guards make it hard', () => {
+test('css: the clear edge is soft in the exports too; neither guard zeroes the blur', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
   const guards = css.match(/:where\(\.lattice-exporting\) section\.finish,\s*section\.finish\.lattice-exporting \{\s*--backdrop-scrim: var\(--backdrop-scrim-opaque\);[^}]*\}/);
   assert.ok(guards, 'exporting guard missing');
-  assert.match(guards[0], /--backdrop-clear-bleed: 0px;/);
-  // `filter: none`, not a 0px blur: Chromium still treats blur(0px) as a filter in print and
-  // rasterizes the page, and poppler then outlines the content box in gray.
-  assert.match(guards[0], /--backdrop-clear-filter: none;/);
-  assert.match(css, /@media print \{\s*section\.finish \{[^}]*--backdrop-clear-filter: none;/);
+  const print = css.match(/@media print \{\s*section\.finish \{[^}]*\}/);
+  assert.ok(print, 'print guard missing');
+  // A zeroed bleed or blur is the hard-edged panel the owner rejected in the PDF (decision §4.7).
+  for (const guard of [guards[0], print[0]]) {
+    assert.doesNotMatch(guard, /--backdrop-clear-(bleed|blur|filter)/);
+  }
+  // Never a 0px blur: Chromium still rasterizes the page for it and poppler outlines the box.
   assert.doesNotMatch(css, /--backdrop-clear-blur: 0px/);
 });
 

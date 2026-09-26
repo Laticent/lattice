@@ -165,7 +165,8 @@ centre box (25–75% × 30–70%), which the ellipse covers by construction; it 
 the text is. That was the gap in the evidence, not only in the code.
 
 **Decision (owner):** clear = the frame's content box, heading and body both, for the register
-and for Fabricate's baked clearance alike; soft edge on screen, hard edge in exports.
+and for Fabricate's baked clearance alike; soft edge on screen, hard edge in exports. (§4.7 made
+the export edge soft as well.)
 
 **Mechanism:** the section's padding IS the frame margin, and `.backdrop` covers the section's
 padding box, so `.backdrop` and `.backdrop-mask` inherit that padding and the mask's `::before`
@@ -217,6 +218,30 @@ bookend, tone slide} × light/dark, all `60 clear`, measured inside the content 
 every text element's box read from the DOM, against the same slides with `finish-none`: screen
 face 0.0 difference everywhere behind the content (72 slides), print face at most 2/255
 (anti-aliasing at the edge). The finish remains in the margin (mean difference 1.6–2.6).
+
+### 4.7 The export edge is soft too (reverses §4.6's "hard edge in exports")
+
+**Symptom (owner, 2026-09-26, iPhone):** a deck with `backdrop: clear` showed a soft fade in the
+Studio but a hard-edged panel in the exported PDF, in both Adobe Acrobat and Safari.
+
+**Why §4.6 chose a hard edge:** a blurred layer is not vector. Chromium embeds a CSS `filter` as an
+image when it prints, and the note wanted a fully vector page.
+
+**Candidates, measured on `examples/backdrop-register.md` (10 pages, 8 cleared):**
+
+| Candidate | PDF size | Result |
+|---|---|---|
+| Hard edge (§4.6) | 253 KB | Vector. The panel the owner rejected |
+| Keep the blur in print | 909 KB | Matches the Studio. Chromium embeds ONLY the clear layer as a 300 ppi image with an alpha channel (about 82 KB a slide); the finish under it and the text stay vector |
+| Gradient `mask-image` (two axis ramps, `mask-composite: intersect`) | 342 KB | Vector and within 1–3 levels of the blur, but Apple PDFKit drops CSS masks (`engineering/gotchas/export.md`), and PDFKit is the owner's viewer. It could not be checked on iOS from the sandbox |
+| Nine gradient tiles (a solid centre, four edge ramps, four radial corners) | ~vector | Poppler and Ghostscript both draw a 1px lighter seam where a corner tile meets an edge tile: each rasterizer paints the shared boundary pixel from both tiles |
+| Nested solid rectangles, one alpha step each | ~vector | Visible banding and square corners |
+
+**Decision (owner):** keep the blur in every face. Both export guards stop zeroing
+`--backdrop-clear-bleed` and `--backdrop-clear-filter`. A slide without the clear layer carries
+no filter work in the PDF: `finish-backdrops`, `accent-finishes` and `finish-per-slide` export at
+the same byte count before and after. The `blur(0px)` warning in §4.6 still holds: a 0px blur
+rasterizes the page for nothing and poppler outlines the box in gray.
 
 ### 4.5 `finish-override.backdrop`
 

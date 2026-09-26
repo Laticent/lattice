@@ -272,14 +272,19 @@ section.finish > .backdrop > .backdrop-mask {
  * texture paint from the padding box and the mark/edge pseudos are `inset: 0` — so this is
  * inert until the clear layer is switched on.
  *
- * THE EDGE: soft on screen, hard in export. The solid layer extends `--backdrop-clear-bleed`
- * past the content box and is blurred by `--backdrop-clear-blur` (2 standard deviations
- * inside the bleed), so the content box stays ≥97.7% canvas at its very edge and 100% inside,
- * and the fade runs across the whole margin. It is deliberately WIDE: at 1.5cqi / 0.6cqi the
- * fade was ~20px and the clear area read as a panel with a border (owner review, iPhone
- * Studio, 2026-09-26). Both export guards zero the bleed and set the FILTER to `none` — not a 0px blur: Chromium
- * still treats `blur(0px)` as a filter in print, rasterizes the whole page and poppler draws a
- * gray hairline around the content box. With `filter: none` the page stays vector. */
+ * THE EDGE: soft on every surface, the Studio and the exports alike. The solid layer extends
+ * `--backdrop-clear-bleed` past the content box and is blurred by `--backdrop-clear-blur`
+ * (2 standard deviations inside the bleed), so the content box stays ≥97.7% canvas at its very
+ * edge and 100% inside, and the fade runs across the whole margin. It is deliberately WIDE: at
+ * 1.5cqi / 0.6cqi the fade was ~20px and the clear area read as a panel with a border (owner
+ * review, iPhone Studio, 2026-09-26).
+ * In the vector PDF Chromium embeds this ONE layer as an image with an alpha channel (about
+ * 80 KB a slide); the finish under it and the text stay vector. The exports used to zero the
+ * blur for a fully vector page, which left a hard-edged panel the owner rejected on iPhone
+ * (§4.7 of the decision). Every vector alternative failed a viewer: a gradient `mask-image`
+ * drops in Apple PDFKit (gotchas/export.md) and nine abutting gradient tiles seam at the
+ * corners in poppler and Ghostscript. Never set the filter to `blur(0px)` either: Chromium
+ * still rasterizes the page for it and poppler draws a gray hairline round the content box. */
 section.finish > .backdrop,
 section.finish > .backdrop > .backdrop-mask {
   padding: inherit;
@@ -1005,13 +1010,11 @@ section.backdrop-spot-br { --backdrop-spot-position: 78% 74%; }
  * the compositor's `var()` falls through to the finish's baked mask — a deck that never
  * names the register renders exactly as before. */
 @media print {
-  section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }
+  section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }
 }
 :where(.lattice-exporting) section.finish,
 section.finish.lattice-exporting {
   --backdrop-scrim: var(--backdrop-scrim-opaque);
-  --backdrop-clear-bleed: 0px;
-  --backdrop-clear-filter: none;
 }
 
 /* The overflow QA ring is an inset box-shadow on the SECTION, under `.backdrop`. The finish
