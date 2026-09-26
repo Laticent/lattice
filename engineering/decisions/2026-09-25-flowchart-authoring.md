@@ -1,17 +1,19 @@
 ---
 status: proposed
-summary: The flowchart chart's authoring grammar and rendering rules, decided with the owner over a design competition and eight prototype rounds. Every list item is a shape named by its text; a sub-list of shapes makes a group; arrows (`->` `<-` `<->` `--`, heavy `=>`) connect, on the item row or as sub-items; a trailing inline-code span styles what it follows; the key sits below the outline, notes are nested blockquotes. Dagre lays it out (ELK rejected), our router draws it, edge labels never get a painted background, and the flow dots run only on live surfaces when an author opts in.
+summary: The flowchart chart's authoring grammar and rendering rules, decided with the owner over a design competition, eight prototype rounds and an adversarial review. Every list item is a shape named by its text; a sub-list of shapes makes a group; spaced arrows (`->` `<-` `<->` `--`, heavy `=>`) connect, on the item row or as sub-items; a trailing inline-code span styles what it follows; the key sits below the outline and is derived, notes are nested blockquotes. Dagre lays it out with a new shared elbow-first router (ELK declined), edge labels never get a painted background, legibility uses the existing `compact` and `scale-*` words against the 11px chart floor, and the `motion-flow` dots run only on live surfaces.
 ---
 
 # Flowchart authoring and rendering (2026-09-25)
 
 **Status: proposed.** Nothing here is built. The prototypes that proved each rule
-were throwaway scripts under `.scratch/flow/`, so this note is the record; the
-images in the companion folder `2026-09-25-flowchart-authoring/` are rendered from real Lattice slides (real theme tokens,
-real finish backdrops) by those prototypes.
+were throwaway scripts under `.scratch/flow/`, so this note is the record. The
+images in the companion folder `2026-09-25-flowchart-authoring/` were rendered
+by those prototypes inside real Lattice slides (real theme tokens, real finish
+backdrops). They predate the review fixes in this note, so small details differ
+(see section 11).
 
-**The answer in one screen.** A flowchart is written as a Markdown list. This is
-the whole grammar, with every rule used once:
+**The answer in one screen.** A flowchart is written as a Markdown list. Every
+rule of the grammar appears once in this example:
 
 ```markdown
 <!-- _class: flowchart lr -->
@@ -44,11 +46,22 @@ the whole grammar, with every rule used once:
 
 A flowchart is **free-form**: an org chart, a data flow, an actor map, a decision
 flow, or a loose set of shapes and groups with no lines at all. It is **not** a
-state machine and not a sequence of steps. That rules out anything that implies
-order, which is why the state chart's numbered-list grammar and its `start` /
-`end` words are not reused here. The state chart stays as it is; the two
-components share rendering pieces (tile look, tokens, dagre delivery), not
-grammar.
+state machine and not a sequence of steps, so nothing in the grammar implies
+order. That is why the state chart's numbered-list grammar and its `start` /
+`end` words are not reused. The two components share rendering pieces (the tile
+look, tokens, dagre delivery, the fit pass), not grammar.
+
+**One deliberate difference from the state chart:** there, a prose sub-bullet
+under a state is detail text. Here, a sub-item that starts with a name is a
+member and makes its parent a group. The owner chose "anything with a sub-list is
+a group" knowing this; the docs must say it in the first paragraph.
+
+**Flowchart or Mermaid `diagram`?** The existing `diagram` component already
+renders Mermaid flowcharts and is tagged for flowcharts and org charts. The
+flowchart component is the native one: it is authored in the house list style,
+paints with the chart family's tokens and finishes, narrates, and is addressable
+by Vetrina. `diagram` stays for pasted Mermaid and for kinds the flowchart does
+not draw (sequence, class, ER). Both component docs must point at each other.
 
 ## 2. The grammar
 
@@ -58,9 +71,15 @@ grammar.
   thing; numbering is the author's own labeling and implies nothing.
 - **A shape's name is its displayed text**, matched case-insensitively with
   whitespace collapsed. Every mention of the same name is the same shape.
-- **An explicit name** goes in the lead of the modifier span, in the pill
-  grammar's label slot: `` - Know-your-customer checks `{kyc}:diamond` ``. Use
-  it for long text or for two shapes that display the same words.
+- **An explicit name** is a `#id` at the lead of the modifier span:
+  `` - Know-your-customer checks `#kyc:diamond` ``. Use it for long text or for
+  two shapes that display the same words. An id is lowercase letters, digits and
+  hyphens. (`{kyc}` was the first proposal and was dropped: braces are the inline
+  pill grammar, and the engine turns `` `{kyc}:diamond` `` into a pill before any
+  chart sees it.)
+- **A name must contain text.** A list item whose text is empty after its span,
+  or only a list-marker-like token (`2.`, `+`, `*`), is a lint error, not a
+  nameless shape.
 
 ### 2.2 Groups
 
@@ -68,35 +87,53 @@ grammar.
   members. Groups nest. There is no `:group` word and no exception (an earlier
   `tree` slide class that made nesting draw lines was dropped for this reason).
 - A group is a shape for connections: it can be a target, and its own arrow
-  sub-items (below) are the group's connections. Lines to and from a group stop
-  at its border.
+  sub-items are the group's connections. Lines to and from a group stop at its
+  border.
+- **Lint errors, never a silent choice:** a shape placed in two groups; a group
+  nested inside itself (directly or through another group); a connection between
+  a group and one of its own members.
 
 ### 2.3 Connections
 
 A connection is written with an arrow, in either of two places, and both mean
-"from this shape":
+"from this shape". These two sources draw the same chart:
 
 ```markdown
 - Platform `:c2`
   - Storefront
-    - => Payments          ← an arrow sub-item
+    - => Payments
+```
 
+```markdown
 - Platform `:c2`
-  - Storefront => Payments ← the same connection, continuing the item row
+  - Storefront => Payments
 ```
 
 - **A sub-item that starts with an arrow is a connection** from its parent. A
-  sub-item that starts with a name is a member. The first token decides; the
-  parser never guesses. (`- -> X` is a plain list item whose text is `-> X`:
-  CommonMark only reads `-` as a list marker when a space follows it.)
-- **Chains:** `A -> B -> C`. **Fan-out:** `-> Auth & Orders`.
+  sub-item that starts with a name is a member. The first token decides.
+  (`- -> X` is a plain list item whose text is `-> X`: CommonMark only reads `-`
+  as a list marker when a space follows it.)
+- **An arrow is a separate word.** It has whitespace (or the start of the item)
+  on both sides. So `Know-your-customer` and `Terms-and-conditions` are names,
+  never labeled links.
+- **Escape with a backslash**, as pills do: `Balance \<= 0?` is a name containing
+  `<=`. Lint flags an unescaped arrow inside what looks like a name (a spaced
+  `<=` followed by a digit, for example) with the escaped form as its fix.
+- **Chains:** `A -> B -> C`. **Fan-out:** `-> Auth & Orders`. `&` splits targets
+  only in the target list after an arrow; in a shape's own name (`R&D`,
+  `Terms & Conditions`) it is text.
 - **Placement comes from item rows.** A shape sits where its own item row puts
-  it. A name that only ever appears as a target sits **beside** its source (next
-  to a group, never inside it).
-- An unresolved-looking name is created, not rejected, so a typo draws a stray
-  shape. `lint:deck` warns on near-duplicate names (edit distance of 2 or less)
-  with a "did you mean". This is the one inference in the grammar, and it buys
-  the one-line chain.
+  it. A name that appears only as a target is placed by its **first source**:
+  - the source is a shape: the target joins that shape's group, or the top level
+    when the source has none (`Payments -screens-> Fraud checks` puts Fraud
+    checks inside Platform);
+  - the source is a group: the target sits beside the group, never inside it
+    (`-ships via-> Carriers` puts Carriers next to Platform).
+- **An unknown name is created, not rejected**, so a typo draws a stray shape.
+  `lint:deck` warns on a near-duplicate of an existing name (an edit distance of
+  2 or less, only when both names are longer than four characters, so `UI` and
+  `DB` never trip it). This is the one inference in the grammar, and it buys the
+  one-line chain.
 
 **The arrow carries meaning; the span carries drawing.** Direction and weight
 change what the chart says, and what Cadenza and Suono say aloud, so they live in
@@ -108,17 +145,20 @@ the arrow. Two shafts and four ends give eight forms:
 | `<-` | comes from (write incoming lines under the target) | "B leads to A" |
 | `<->` | two-way exchange | "A and B exchange" |
 | `--` | related, no direction (org and association lines) | "A is linked to B" |
-| `=>` `<=` `<=>` `==` | the same four, heavy: the primary path | "mainly…" |
+| `=>` `<=` `<=>` `==` | the same four, heavy: the primary path | "mainly…", or the key's word for `=>` when one is written |
 
 A label sits inside the arrow: `-SEV1->`, `=ack=>`, `<-settled-`, `-advises-`.
+Mermaid's `-->` and `==>` are accepted as `->` and `=>`, and lint suggests the
+house form. A typed arrow character or an autocorrected dash is not an arrow;
+lint names it.
 
-**Measured, not assumed:** markdown-it passes every arrow through as text but
-HTML-escaped (`->` arrives as `-&gt;`, `<-` as `&lt;-`), the trap
-`lib/core/shape-glyphs.js` records for the quadrant eyebrow. The parser decodes
-both spellings and tests each. Typographic replacement is off in the engine, so
-`--` is not turned into a dash. Letter heads such as `-x` and `-o` pass through
-too but collide with ordinary words, and `*` risks emphasis, so head shapes are
-span words instead.
+**Where the parser reads.** One shared parser reads the list from markdown-it's
+tokens, where arrows are still raw text. The rendered HTML carries them escaped
+(`->` becomes `-&gt;`, the trap `lib/core/shape-glyphs.js` records for the
+quadrant eyebrow), so any reader of rendered HTML must decode both spellings.
+Typographic replacement is off in the engine, so `--` is not turned into a dash.
+Letter heads such as `-x` and `-o` collide with ordinary words, and `*` risks
+emphasis, so head shapes are span words instead.
 
 ### 2.4 The modifier span
 
@@ -126,26 +166,28 @@ A trailing inline-code span **styles what it follows**: right after a shape's
 name it styles the shape; after a connection's target it styles that line.
 
 - **Order inside the span does not matter**, as with pills: `` `:dotted:c4` ``
-  and `` `:c4:dotted` `` are the same. The one positional piece is the optional
-  lead, `{id}` or a status word, exactly like a pill's `{LABEL}:mods`.
+  and `` `:c4:dotted` `` are the same. Only the lead is positional: a span may
+  start with a `#id` or a status word, as a pill starts with its `{LABEL}`. A
+  status word also works after a colon, so `` `#kyc:fail:diamond` `` gives a
+  shape an id, a status and an outline in one span.
 - **An unknown word** leaves the span as literal code and `lint:deck` names it.
 - **A shape word on a connection** (`` -> B `:diamond` ``) is a lint error:
   *style "B" on its own row*. That is what removed the need for a `:line-c3`
-  prefix: `:c3` is the only word that could style either, and the position now
-  tells them apart.
+  prefix: `:c3` is the only word that could style either, and the position tells
+  them apart.
 
 | Word | Styles | Meaning |
 |---|---|---|
 | `:box` (default) `:square` `:pill` `:diamond` `:circle` `:cylinder` `:io` `:doc` | shape | outline |
 | `:c1` … `:c12` | shape or line | a palette slot, the same twelve pills use (`--cat-N-*`), not a color name |
 | `:fill-cN` `:border-cN` `:text-cN` | shape | one channel only |
-| `done` `on-track` `live` / `at-risk` `warn` / `fail` `blocked` / `muted` `deferred` | shape | status roles (lead position), from `lib/core/chart-status.js` |
+| `on-track` `done` `live` / `at-risk` `warn` / `blocked` `fail` / `pilot` `decision` / `deferred` | shape | the ten status words of `CHART_STATUS` in `lib/core/chart-status.js`, painted pass / warn / fail / info / muted as `.chart-status[data-s]` in `chart-family.css` does |
 | `:open` `:dot` `:cross` | line | head: depends-on or uses / attaches (reads, writes) / blocked or stops here. The default is a filled triangle |
 | `:dashed` `:dotted` | line | optional, async or planned / informal or advisory |
 | `:loose` | line | drawn, but kept out of layout so it cannot reshape the chart (an advisory line in an org chart) |
 
 There is no hex and no free token name anywhere; every color is a palette slot
-or a status role. That closes the state chart's `:::token` silent-typo hole
+or a status word. That closes the state chart's `:::token` silent-typo hole
 rather than copying it.
 
 ### 2.5 Key, notes, caption
@@ -154,12 +196,20 @@ The positions follow existing chart precedent, where **position decides what a
 span means** (`lib/core/bracket-list.js`; `matrix-grid` puts axes above its body
 and the key below):
 
-- **Key (legend):** one bracketed span **below** the outline, parsed by the
-  shared `parseInlineSet` in `lib/core/label-set.js` with no changes. **The key
-  is the word you already typed** (`=>`, `:dotted`, `fail`, `:c2`), as in
-  roadmap where the key is the marker typed in a cell. Each swatch wears the
-  same paint as the marks it names: a slot used by a group draws as a group
-  tint, a slot on a shape as a tile. No key is drawn unless one is written.
+- **Key (legend), derived.** The chart family's rule is that color-coded meaning
+  gets a key, so the flowchart derives one: every status word, slot and heavy or
+  patterned line the chart uses, with default words (status words speak for
+  themselves; a slot's default is its group's name when a group wears it).
+- **Key, authored.** One bracketed span **below** the outline renames entries,
+  parsed by the shared `parseInlineSet` in `lib/core/label-set.js` with no
+  changes. **The key is the word you already typed** (`=>`, `:dotted`, `fail`,
+  `:c2`), as in roadmap where the key is the marker typed in a cell. The parser
+  receives the key HTML-escaped (`=&gt;`) and decodes it like the arrows. An
+  authored key only renames; it never hides or adds an entry.
+- **One source of words.** The key's words are what the voice says: when the key
+  names `=>` "Happy path", narration says "on the happy path", not "mainly".
+- **Swatches wear the marks' paint:** a slot used by a group draws as a group
+  tint, a slot on a shape as a tile.
 - **Note:** a `>` blockquote nested under a shape's item is a note pinned to that
   shape, drawn as a note card on a dotted tether. A blockquote is a block, not a
   sub-list, so "sub-list means group" still holds.
@@ -171,67 +221,139 @@ and the key below):
 
 | Layer | Written as | Holds |
 |---|---|---|
-| Slide | `<!-- _class: flowchart lr elbow arrow-open flow -->` | direction (`lr` `tb`), route (`elbow` `curved` `straight`), default head, flow dots |
-| Deck | `flowchart: tb elbow arrow-open` (PROPOSED new register) | the same words as defaults; a slide class overrides |
-| Deck | `flow:` (PROPOSED register) | flow dots on or off for the deck |
-| Deck | `finish:` (exists) | the backdrop finish; the flowchart conforms to it |
-| Studio | settings inspector, deck and slide | writes the two places above; no third store |
+| Slide | `<!-- _class: flowchart lr elbow arrow-open compact motion-flow -->` | direction (`lr` `tb`, else fit picks), route (`elbow` default, `curved`), default head, density, flow dots |
+| Deck | `flowchart: tb elbow arrow-open` (PROPOSED register) | the same words as defaults; a slide class overrides |
+| Deck | `motion-flow: on` (PROPOSED key in the motion family) | flow dots for the deck; `motion-flow` / `motion-flow-off` override per slide |
+| Deck | `finish:`, `class: compact`, `class: scale-l` (all exist) | the flowchart conforms to them |
+| Studio | settings inspector, deck and slide | writes the places above; no third store |
 
 Route style is chart-wide only: mixing routes within one chart reads as a bug.
+None of the new words (`elbow`, `curved`, `arrow-*`, `motion-flow`, `flowchart:`)
+collides with an existing class or register: the red-team review checked the
+first set and a repo grep checked `motion-flow`. **`flowchart` is already a
+discovery tag**, carried today by `diagram` and `state-chart` (`TAG_GROUPS` in
+`lib/components/index.js`); the new component takes the tag too, so a search for
+"flowchart" finds all three and each one's docs says when to use it.
 
-## 4. Edge labels: never a painted background
+## 4. Legibility: the floor, the levers, the budget
+
+**The floor.** Chart text must not render below `--chart-text-min`, **11px** on
+a 1280×720 landscape slide, scaled by `--canvas-scale` on portrait decks. The
+export warns below 1% of slide height (TYPE FLOOR).
+
+**Measured on the prototypes**, the best direction on the real stage:
+
+| Chart | As prototyped: node / edge label | Label text 13 units | `compact` too |
+|---|---|---|---|
+| Org chart | 14.9 / 11.4 | 15.4 / 13.4 | 16.2 / 14.0 |
+| Data flow | 10.9 / 8.3 | 10.8 / 9.3 | 11.8 / **10.2** |
+| Incident | 12.3 / 9.5 | 12.2 / 10.6 | 13.1 / 11.4 |
+| System map | 15.0 / 11.5 | 14.8 / 12.8 | 16.3 / 14.1 |
+| The headline example | 11.4 / 8.8 | 11.3 / 9.8 | 12.2 / **10.6** |
+
+Every chart is width-bound: the slide runs out of width while vertical room sits
+empty. Flipping direction alone helped only the org chart; the others got worse,
+because their fan-outs make a top-down layout wide and tall.
+
+**The levers are existing words only** (the owner's choice):
+
+- **Edge labels at 13 units** against 15 for shape text (they were 11.5, and
+  breached the floor first).
+- **The gaps come from the shared spacing scale** (`--sp-*`), so the existing
+  `compact` modifier tightens a flowchart the way it tightens any layout
+  (measured above: +0.8 to +1.5px).
+- **`scale-l` / `scale-xl` / `scale-2xl` raise the floor** the chart must meet,
+  by the same ×1.15 / ×1.3 / ×1.5.
+- **Direction:** `lr` or `tb` pins it; without either, the state chart's fit pass
+  scores both and keeps the larger (reused, not copied).
+- **Wrap** is one more fit candidate. It wins only for chains; for these charts
+  it loses (folding the headline example into two bands measures about 0.58×
+  against 0.76× unfolded).
+
+**Over budget: warn and coach** (the owner's choice). The chart still renders,
+down to the floor. `lint:deck` lays the chart out in Node with the same dagre
+and reports the measured size: *edge labels render at 9.3px against an 11px
+floor: try `compact`, shorten labels, or split into an overview and detail
+slides.* These starting budgets go in the docs as guidance, not as lint errors:
+
+| Kind | Starting budget |
+|---|---|
+| Decision or process flow | ≤ 6 steps deep, ≤ 4 branches |
+| Org chart | ≤ 3 levels, ≤ 8 across the widest level |
+| Data flow or architecture | ≤ 3 groups, ≤ 12 shapes |
+| System or actor map | ≤ 10 shapes |
+
+Not a flowchart at all: timed interactions (sequence diagram), schedules
+(gantt), states (state chart).
+
+## 5. Edge labels: never a painted background
 
 The trouble spot was a label that has to sit on its line and hide what is behind
 it, when "behind" can be the canvas, a group tint, a finish texture or a
 gradient. A painted knockout can only match a flat, known ground. So:
 
 1. **Ports first.** Edges entering or leaving the same side of a shape each get
-   their own port, and their own lane. Two edges never share a final segment
-   unless it is a deliberate fan-in trunk, and trunks are never labeled. This is
-   the root cause of the collision in image 4: two edges into Mitigate shared a
-   segment, so no knockout could have said which one the label belonged to.
+   their own port, and their own lane. Two edges never share a final segment.
+   This is the root cause of the collision in image 4: two edges into Mitigate
+   shared a segment, so no knockout could have said which one the label belonged
+   to.
 2. **Room reserved.** A labeled edge bends early enough that its last straight
    run holds the label plus clearance from the arrowhead.
 3. **Scored placement.** Candidate spots sit only on segments the edge owns, and
    are scored against every other line, shape and label. When a run is too short
    to hold the label, it goes beside the line instead.
-4. **Text always wins.** After placement every line under a label is cut, by
-   splitting the path geometry itself: no clip-path ids (which collide when a
-   slide is cloned), no mask, nothing that needs a PDF soft mask.
+4. **Text always wins.** After placement every line under a label is cut,
+   including group borders and the flow-dot overlay, by splitting the path
+   geometry itself: no clip-path ids (which collide when a slide is cloned), no
+   mask, nothing that needs a PDF soft mask.
 5. **Fallback chip.** Only if step 3 finds no clear spot does the label get a
-   chip filled with the ground it sits on, and lint warns. The gallery decks must
-   render with **zero** fallbacks, so a routing regression cannot hide behind
-   chips.
+   chip filled with the ground it sits on, and lint warns.
 
 ![The label collision the owner found, fixed by ports and reserved room](2026-09-25-flowchart-authoring/04-label-collision-fix.jpg)
 
-## 5. Flow dots
+## 6. Flow dots
 
 A dotted overlay moving along a line, a separate path above the real edge.
 
-- **Opt-in** (`flow` slide class or `flow:` register) and **live surfaces only**:
-  the Studio, the Playground and the HTML player. Off in PDF, PNG, PPTX and
-  standalone SVG, off under `prefers-reduced-motion`.
-- By default the dots run on the **heavy** lines, which is the happy path the
-  author marked with `=>`.
+- **Opt-in** through the motion family: `motion-flow` on the slide or
+  `motion-flow: on` in front matter. `motion: off` and `player-motion: off`
+  switch it off too. (A separate `flow:` register was proposed and dropped: it
+  would be a second animation switch beside `motion:`, and "flow" already means
+  direction in a state-chart follow-up.)
+- **Live surfaces only:** the Studio, the Playground and the HTML player. Off in
+  PDF, PNG, PPTX and standalone SVG, and off under `prefers-reduced-motion`.
+- By default the dots run on the **heavy** lines, the path the author marked with
+  `=>`.
 - One speed and one phase across the chart, so a chain reads as one stream; the
   phase at a merge follows the longest-path distance (design-competition track 2).
+- They stop at labels, like the lines (section 5, step 4).
 - Never carries `pathLength` or an anima role, and starts after the build-in, so
   it cannot fight the drawn-on edge.
 
-## 6. Layout and routing
+## 7. Layout and routing
 
 - **dagre, not ELK.** ELK routes around shapes, attaches edges to groups and
   tidies fan-outs natively (image 5), and its geometry was identical on re-run
   (the only differences were GWT `$H` object counters). But its bundle is
-  **1.61 MB minified, 470 KB gzipped**, against dagre's **64 KB and 22 KB**:
-  about 21 times heavier. The owner declined it. dagre is already vendored
-  (`dist/lattice-dagre.min.js`), so the routing quality becomes our router's job,
-  with ELK's renders as the target.
-- **We own the router**, which is what makes several rules cheap: `:loose` lines
-  are left out of layout and routed afterwards; edges to a group are laid out
-  between representative members and drawn to the group's border; an edge whose
-  boxes overlap on the flow axis leaves through the side that faces its target.
+  **1.61 MB minified and 470 KB gzipped**, against dagre's **64 KB and 22 KB**:
+  about 25 times heavier minified and 21 times gzipped. The owner declined it.
+  dagre is already vendored (`dist/lattice-dagre.min.js`), so routing quality is
+  our router's job, with ELK's renders as the target.
+- **The router is the largest cost, and the review said it was underpriced.** The
+  state chart's router is about 3,000 lines, took four PRs in 19 days, and still
+  counts 16 label collisions across 14 decks, on a simpler problem with no groups.
+  So v1 scope is fixed (the owner's choice):
+  - a **new router in `lib/components/chart/_chart-family/`**, written so the
+    state chart can adopt it later (not in this work);
+  - **elbow routing** with ports, reserved label room, obstacle avoidance and
+    group edges; `curved` is a smoothing of the elbow route;
+  - **dropped from v1:** `straight` routes and fan-in trunks;
+  - a **render check** on the gallery requiring zero shape overlaps, zero lines
+    through shapes, zero label collisions and zero fallback chips.
+- **What owning the router makes cheap:** `:loose` lines are left out of layout
+  and routed afterwards; edges to a group are laid out between representative
+  members and drawn to the group's border; an edge whose boxes overlap on the
+  flow axis leaves through the side that faces its target.
 - **Determinism** (same source, same machine and fonts, byte-identical SVG):
   shapes are keyed `n0…` in authored order (graphlib enumerates integer-like keys
   numerically, a measured footgun); back edges are chosen by our own depth-first
@@ -240,7 +362,20 @@ A dotted overlay moving along a line, a separate path above the real edge.
 
 ![The same four sources through dagre (our prototype router) and through ELK](2026-09-25-flowchart-authoring/05-elk-comparison.jpg)
 
-## 7. The four kinds, one grammar
+## 8. Untrusted content
+
+The Studio lints and renders untrusted Markdown (HARD RULE #22). The flowchart
+builds SVG from author text, so:
+
+- every name, label, note and key word is **escaped** into SVG text; nothing an
+  author types is ever markup (a name like `<service>` shows as typed);
+- the painter is added to the post-sanitize markup census
+  (`checkRuntimeMarkupSinks`), which today scans only `lib/runtime/`, so the
+  census must extend to this component's painter;
+- the parser is a hand-written single pass with no backtracking regex, the
+  posture `lib/core/bracket-list.js` takes for the same reason.
+
+## 9. The four kinds, one grammar
 
 An org chart, a data flow, a decision flow and a system map with a disconnected
 shape, all from the same rules:
@@ -248,6 +383,8 @@ shape, all from the same rules:
 ![Org chart, data flow, incident, system map](2026-09-25-flowchart-authoring/03-four-kinds-light.jpg)
 
 ```markdown
+<!-- _class: flowchart tb arrow-none -->
+
 - Chief executive `:c1`
   - -- Finance & Technology & Operations
 - Finance
@@ -256,68 +393,88 @@ shape, all from the same rules:
   - -advises-> Finance `:dotted:loose`
 ```
 
-## 8. How it serves Vetrina, Cadenza and Suono
+## 10. How it serves Vetrina, Cadenza and Suono
 
-- **Cadenza and Suono** speak the slide from raw Markdown through
-  `lib/core/chart-narration.js`. The outline is the spoken order, each arrow has
-  a sentence (the table in 2.3), and every piece of metadata sits inside code
-  spans, which narration strips by position. That avoids the class of bug where
-  the state chart's `:::token`, outside the backticks, reached the voice.
-- **Vetrina** points at elements by stable address: shape ids are slugs of the
-  name or the explicit `{id}`, so inserting or reordering shapes does not move
-  them.
+- **One parser for every reader.** The transform, `validate()`, the browser
+  linter and the narrator in `lib/core/chart-narration.js` all call the same
+  token-level parser, so the picture and the voice cannot disagree about what the
+  source says.
+- **Cadenza and Suono:** the outline is the spoken order, each arrow has a
+  sentence (the table in 2.3), and every piece of metadata sits inside code
+  spans, which narration drops. That avoids the class of bug where the state
+  chart's `:::token`, outside the backticks, reached the voice.
+- **Vetrina** points at elements by stable address: a shape's id is its `#id`,
+  or else a slug of its name, with a numeric suffix when two slugs collide
+  (`C++`, `C#` and `C` would all slug to `c`). Inserting or reordering shapes
+  does not move them.
 - **Fallback:** with no component (export to Marp, a plain renderer) the source
   reads as an outline.
 
-## 9. How we got here
+## 11. How we got here
 
-1. **Design competition** (3 tracks, a critic each, a shared fact-checker, a
-   judge; 11 agents). Scores: boardroom-visual-first 8.6, author-first
-   (Mermaid-style fence) 8.2, reuse-the-state-chart 7.2. The judge's grafts
-   (determinism pins, did-you-mean lint, longest-path phase) are kept above.
+1. **Design competition:** 3 designers, 3 critics, 3 revisions, a shared
+   fact-checker and a judge (11 agents). Scores: boardroom-visual-first 8.6,
+   author-first (Mermaid-style fence) 8.2, reuse-the-state-chart 7.2. The
+   judge's grafts (determinism pins, did-you-mean lint, longest-path phase) are
+   kept above.
 2. **Edge labels:** the owner's crop of a label crushed between two lines
-   produced section 4.
-3. **Authoring semantics**, scored against Vetrina, Cadenza and Suono. The
-   owner then corrected the premise twice: a flowchart is free-form, not steps;
-   and inline code only modifies, so an edge is content, not code.
-4. **Rejected, with the reason:**
+   produced section 5.
+3. **Authoring semantics,** scored against Vetrina, Cadenza and Suono. The owner
+   corrected the premise twice: a flowchart is free-form, not steps; and inline
+   code only modifies, so an edge is content, not code.
+4. **Adversarial review** (red team, inversion, independent checker; 3 agents)
+   of the first version of this note. Blockers it found and this version fixes:
+   `{id}` was already pill syntax; arrows collided with ordinary text
+   (`Know-your-customer`, `Balance <= 0?`, `R&D`); the placement rule
+   contradicted the headline image; the status list named a word (`muted`) that
+   is not a status; the key could disagree with the voice; `flow:` collided with
+   the motion family; the router was underpriced.
+5. **Rejected, with the reason:**
    - numbered steps that flow on their own: implies order a flowchart does not have;
    - edges inside inline code: inline code only modifies;
    - a connections table, or Markdown links: splits the structure away from the list;
    - nesting as lines (`tree` class): nesting means group, without exception;
    - flat arrow lines only: loses the list structure, so both forms are kept;
    - `:line-c3`: fixed an ambiguity that position now removes;
-   - ELK: 21 times the bundle weight;
+   - `{id}`: already the pill grammar;
+   - a `flow:` register: a second animation switch;
+   - ELK: 21 to 25 times the bundle weight;
+   - a new `dense` word: the owner kept to existing words;
    - labels beside the line as the default: ambiguous at a decision's branches;
    - a chart-wide clip-path gap: ids collide on cloned slides.
 
-## 10. Known gaps (router work, not grammar)
+**The images predate the review fixes.** None of their sources uses a syntax
+this version changed, but they were drawn with 11.5-unit edge labels and a fixed
+340px height cap, which section 4 measures and replaces.
 
-- Lines can still cut through shapes (`advises` through Product engineering,
-  `ships via` through Card networks in the prototype): obstacle avoidance.
-- Fan-outs draw parallel lines where a shared trunk would read better.
-- A main path can zig-zag; a pass should line it up.
-- Wide charts shrink text below the type floor; the component needs the state
-  chart's self-scaling fit.
-- A label on a group border must cut the border too.
+## 12. Known gaps
+
+- Lines can still cut through shapes in the prototype (`advises` through Product
+  engineering, `ships via` through Card networks): obstacle avoidance, in v1
+  scope.
+- A main path can zig-zag; a straightening pass is not in v1.
 - A labeled group-to-group edge needs a reserved gap between the groups.
+- Pre-existing, off this path: the chart family paints `live` as pass while the
+  state chart and gantt paint it as info. Logged, not fixed here.
 
-## 11. Build slices
+## 13. Build slices
 
-1. **Parser and lint:** the grammar as a pure, fs-free kernel shared by the
-   transform, `validate()` and the browser linter (HARD RULE #7), with the arrow
-   decoding tests and the near-duplicate warning.
-2. **Layout and router:** dagre plus our router: ports, reserved label room,
-   side selection, group edges, `:loose`, determinism pins, obstacle avoidance.
-3. **Paint:** shapes, groups, tokens, heads and patterns, labels (section 4),
-   key, notes, caption; all nine finishes, light and dark; the component docs,
-   manifest and a feature deck (HARD RULE #9).
-4. **Flow dots and settings:** the overlay, the `flow:` and `flowchart:`
-   registers, and the Studio inspector.
+1. **Parser and lint:** the grammar as a pure, fs-free, token-level kernel shared
+   by the transform, `validate()`, the browser linter and the narrator (HARD RULE
+   #7): spaced arrows, escapes, `&` scope, Mermaid aliases, `#id`, placement, the
+   lint errors in 2.1 and 2.2, and the near-duplicate warning.
+2. **Layout and router:** dagre plus the new shared elbow router: ports, reserved
+   label room, side selection, obstacle avoidance, group edges, `:loose`,
+   determinism pins, the fit pass, and the gallery render check.
+3. **Paint:** shapes, groups, tokens, heads and patterns, labels (section 5), the
+   derived and authored key, notes, caption; all nine finishes, light and dark;
+   the untrusted-content posture (section 8); the component docs, manifest and a
+   feature deck (HARD RULE #9).
+4. **Flow dots and settings:** the overlay, `motion-flow`, the `flowchart:`
+   register, the measured legibility lint, and the Studio inspector.
 
-## 12. Open questions
+## 14. Open question
 
-- Should a key be derived automatically for status roles and heavy lines when
-  none is written, or only ever drawn from an authored key?
-- Should the state chart later adopt the arrow and span rules so the two
-  sibling charts share one authoring model? (A separate PR if yes.)
+- Should the state chart later adopt the arrow and span rules, and the new
+  router, so the two sibling charts share one authoring model? (A separate PR if
+  yes.)
