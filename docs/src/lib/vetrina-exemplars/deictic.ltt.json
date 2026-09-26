@@ -1,0 +1,438 @@
+{
+  "format": "ltt",
+  "version": "1.0",
+  "source": {
+    "kind": "tour",
+    "id": "vetrina-deictic"
+  },
+  "inputs": {
+    "engine": "sha256:4db1f89997767d56f256fa6104ebe1f8e25e7cdb251d5f7b1cb80b6e0f2accbf",
+    "pace": "moderate",
+    "viewport": {
+      "w": 1440,
+      "h": 900
+    },
+    "motion": "full",
+    "stagePace": 1
+  },
+  "seekable": true,
+  "segments": [
+    {
+      "id": "s0",
+      "kind": "stretch",
+      "at": {
+        "beats": [
+          0,
+          3
+        ]
+      },
+      "hash": "sha256:9c3fa4d74983facedddef68b8e11d495cd9fb5544c57a77830054e077a74e60d",
+      "basis": "measured",
+      "track": {
+        "cues": [
+          {
+            "display": "A hand names a thing by its shape.",
+            "words": [
+              {
+                "display": "A",
+                "spoken": "A",
+                "startMs": 0,
+                "endMs": 206,
+                "charOffset": 0
+              },
+              {
+                "display": "hand",
+                "spoken": "hand",
+                "startMs": 206,
+                "endMs": 412,
+                "charOffset": 2
+              },
+              {
+                "display": "names",
+                "spoken": "names",
+                "startMs": 412,
+                "endMs": 823,
+                "charOffset": 7
+              },
+              {
+                "display": "a",
+                "spoken": "a",
+                "startMs": 823,
+                "endMs": 1029,
+                "charOffset": 13
+              },
+              {
+                "display": "thing",
+                "spoken": "thing",
+                "startMs": 1029,
+                "endMs": 1235,
+                "charOffset": 15
+              },
+              {
+                "display": "by",
+                "spoken": "by",
+                "startMs": 1235,
+                "endMs": 1440,
+                "charOffset": 21
+              },
+              {
+                "display": "its",
+                "spoken": "its",
+                "startMs": 1440,
+                "endMs": 1646,
+                "charOffset": 24
+              },
+              {
+                "display": "shape.",
+                "spoken": "shape.",
+                "startMs": 1646,
+                "endMs": 1882,
+                "charOffset": 28
+              }
+            ],
+            "startMs": 0,
+            "endMs": 2269,
+            "charOffset": 0
+          },
+          {
+            "display": "A line gets a rule under it.",
+            "words": [
+              {
+                "display": "A",
+                "spoken": "A",
+                "startMs": 2434,
+                "endMs": 2640,
+                "charOffset": 35
+              },
+              {
+                "display": "line",
+                "spoken": "line",
+                "startMs": 2640,
+                "endMs": 2846,
+                "charOffset": 37
+              },
+              {
+                "display": "gets",
+                "spoken": "gets",
+                "startMs": 2846,
+                "endMs": 3052,
+                "charOffset": 42
+              },
+              {
+                "display": "a",
+                "spoken": "a",
+                "startMs": 3052,
+                "endMs": 3257,
+                "charOffset": 47
+              },
+              {
+                "display": "rule",
+                "spoken": "rule",
+                "startMs": 3257,
+                "endMs": 3463,
+                "charOffset": 49
+              },
+              {
+                "display": "under",
+                "spoken": "under",
+                "startMs": 3463,
+                "endMs": 3875,
+                "charOffset": 54
+              },
+              {
+                "display": "it.",
+                "spoken": "it.",
+                "startMs": 3875,
+                "endMs": 4111,
+                "charOffset": 60
+              }
+            ],
+            "startMs": 2434,
+            "endMs": 4497,
+            "charOffset": 35
+          },
+          {
+            "display": "A block that draws no boundary of its own gets one.",
+            "words": [
+              {
+                "display": "A",
+                "spoken": "A",
+                "startMs": 5199,
+                "endMs": 5404,
+                "charOffset": 0
+              },
+              {
+                "display": "block",
+                "spoken": "block",
+                "startMs": 5404,
+                "endMs": 5609,
+                "charOffset": 2
+              },
+              {
+                "display": "that",
+                "spoken": "that",
+                "startMs": 5609,
+                "endMs": 5814,
+                "charOffset": 8
+              },
+              {
+                "display": "draws",
+                "spoken": "draws",
+                "startMs": 5814,
+                "endMs": 6019,
+                "charOffset": 13
+              },
+              {
+                "display": "no",
+                "spoken": "no",
+                "startMs": 6019,
+                "endMs": 6224,
+                "charOffset": 19
+              },
+              {
+                "display": "boundary",
+                "spoken": "boundary",
+                "startMs": 6224,
+                "endMs": 6840,
+                "charOffset": 22
+              },
+              {
+                "display": "of",
+                "spoken": "of",
+                "startMs": 6840,
+                "endMs": 7045,
+                "charOffset": 31
+              },
+              {
+                "display": "its",
+                "spoken": "its",
+                "startMs": 7045,
+                "endMs": 7250,
+                "charOffset": 34
+              },
+              {
+                "display": "own",
+                "spoken": "own",
+                "startMs": 7250,
+                "endMs": 7455,
+                "charOffset": 38
+              },
+              {
+                "display": "gets",
+                "spoken": "gets",
+                "startMs": 7455,
+                "endMs": 7660,
+                "charOffset": 42
+              },
+              {
+                "display": "one.",
+                "spoken": "one.",
+                "startMs": 7660,
+                "endMs": 7895,
+                "charOffset": 47
+              }
+            ],
+            "startMs": 5199,
+            "endMs": 8280,
+            "charOffset": 0
+          },
+          {
+            "display": "A phrase inside a longer line gets its words swept.",
+            "words": [
+              {
+                "display": "A",
+                "spoken": "A",
+                "startMs": 8983,
+                "endMs": 9188,
+                "charOffset": 0
+              },
+              {
+                "display": "phrase",
+                "spoken": "phrase",
+                "startMs": 9188,
+                "endMs": 9394,
+                "charOffset": 2
+              },
+              {
+                "display": "inside",
+                "spoken": "inside",
+                "startMs": 9394,
+                "endMs": 9805,
+                "charOffset": 9
+              },
+              {
+                "display": "a",
+                "spoken": "a",
+                "startMs": 9805,
+                "endMs": 10010,
+                "charOffset": 16
+              },
+              {
+                "display": "longer",
+                "spoken": "longer",
+                "startMs": 10010,
+                "endMs": 10421,
+                "charOffset": 18
+              },
+              {
+                "display": "line",
+                "spoken": "line",
+                "startMs": 10421,
+                "endMs": 10626,
+                "charOffset": 25
+              },
+              {
+                "display": "gets",
+                "spoken": "gets",
+                "startMs": 10626,
+                "endMs": 10832,
+                "charOffset": 30
+              },
+              {
+                "display": "its",
+                "spoken": "its",
+                "startMs": 10832,
+                "endMs": 11037,
+                "charOffset": 35
+              },
+              {
+                "display": "words",
+                "spoken": "words",
+                "startMs": 11037,
+                "endMs": 11243,
+                "charOffset": 39
+              },
+              {
+                "display": "swept.",
+                "spoken": "swept.",
+                "startMs": 11243,
+                "endMs": 11478,
+                "charOffset": 45
+              }
+            ],
+            "startMs": 8983,
+            "endMs": 11864,
+            "charOffset": 0
+          },
+          {
+            "display": "And a thing small enough to be a point gets tapped.",
+            "words": [
+              {
+                "display": "And",
+                "spoken": "And",
+                "startMs": 12782,
+                "endMs": 12987,
+                "charOffset": 0
+              },
+              {
+                "display": "a",
+                "spoken": "a",
+                "startMs": 12987,
+                "endMs": 13192,
+                "charOffset": 4
+              },
+              {
+                "display": "thing",
+                "spoken": "thing",
+                "startMs": 13192,
+                "endMs": 13397,
+                "charOffset": 6
+              },
+              {
+                "display": "small",
+                "spoken": "small",
+                "startMs": 13397,
+                "endMs": 13602,
+                "charOffset": 12
+              },
+              {
+                "display": "enough",
+                "spoken": "enough",
+                "startMs": 13602,
+                "endMs": 14012,
+                "charOffset": 18
+              },
+              {
+                "display": "to",
+                "spoken": "to",
+                "startMs": 14012,
+                "endMs": 14217,
+                "charOffset": 25
+              },
+              {
+                "display": "be",
+                "spoken": "be",
+                "startMs": 14217,
+                "endMs": 14423,
+                "charOffset": 28
+              },
+              {
+                "display": "a",
+                "spoken": "a",
+                "startMs": 14423,
+                "endMs": 14628,
+                "charOffset": 31
+              },
+              {
+                "display": "point",
+                "spoken": "point",
+                "startMs": 14628,
+                "endMs": 14833,
+                "charOffset": 33
+              },
+              {
+                "display": "gets",
+                "spoken": "gets",
+                "startMs": 14833,
+                "endMs": 15038,
+                "charOffset": 39
+              },
+              {
+                "display": "tapped.",
+                "spoken": "tapped.",
+                "startMs": 15038,
+                "endMs": 15478,
+                "charOffset": 44
+              }
+            ],
+            "startMs": 12782,
+            "endMs": 15863,
+            "charOffset": 0
+          }
+        ],
+        "durationMs": 15863
+      },
+      "actions": [
+        {
+          "cue": 1,
+          "word": 4,
+          "match": "rule",
+          "verb": "point",
+          "target": "#vt-list .note:first-child",
+          "arrive": "on-word"
+        },
+        {
+          "cue": 2,
+          "word": 5,
+          "match": "boundary",
+          "verb": "act",
+          "arrive": "on-word"
+        },
+        {
+          "cue": 3,
+          "word": 9,
+          "match": "swept",
+          "verb": "act",
+          "arrive": "on-word"
+        },
+        {
+          "cue": 4,
+          "word": 10,
+          "match": "tapped",
+          "verb": "act",
+          "arrive": "on-word"
+        }
+      ]
+    }
+  ]
+}
