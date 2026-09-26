@@ -1,6 +1,5 @@
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import { getPoster, hasPoster, posterKey, postersVersion, posterWidth, subscribePosters, tileWidth } from '@/lib/poster-cache';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
@@ -239,9 +238,6 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 	}
 	return null;
 }
-
-// Posters (lib/poster-cache.ts) are captured by a queue that lives in the LAZY
-// lib/slide-poster.ts chunk: nothing about capturing belongs on the Studio's first paint.
 
 type PoolApi = {
 	register: (tile: Tile) => void;
@@ -559,27 +555,6 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		[schedule, watchNested],
 	);
 
-	/** Slot index → the element hosting its DeckPreview, so a capture can find the live iframe. */
-	const slotHosts = React.useRef(new Map<number, HTMLElement>());
-	/** A slot finished rendering its tile: queue that tile's poster. The key is computed from the
-	 *  TILE's box, exactly as `PooledThumbFace` computes it, so the tile finds it on its next mount. */
-	const onSlotRender = React.useCallback((i: number) => {
-		const s = slotsRef.current[i];
-		const host = slotHosts.current.get(i);
-		if (!s || s.tileId === null || !s.props || !host) return;
-		const t = tiles.current.get(s.tileId);
-		if (!t || (s.props.mermaid ?? hasMermaid(s.props.sample))) return;
-		const w = posterWidth(tileWidth(t.el));
-		const key = posterKey(s.props, w);
-		if (hasPoster(key)) return;
-		import('@/lib/slide-poster').then(({ queueCapture }) =>
-			queueCapture(key, w, host, () => {
-				const now = slotsRef.current[i];
-				return !!now?.props && posterKey(now.props, w) === key;
-			}),
-		);
-	}, []);
-
 	// The layout moving is the ONLY thing that invalidates a position, so it is the only thing
 	// that recomputes one. Covers a resize, a column-count change, a filter shortening the grid
 	// and a looks panel opening a row — all of which move tiles without any of them scrolling.
@@ -637,15 +612,8 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 								className="absolute overflow-hidden"
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
-								<div
-									ref={(el) => {
-										if (el) slotHosts.current.set(i, el);
-										else slotHosts.current.delete(i);
-									}}
-									data-slide-frame
-									className="absolute overflow-hidden"
-									style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
-									{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden onRender={() => onSlotRender(i)} /> : null}
+								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
+									{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden /> : null}
 								</div>
 							</div>
 						);
@@ -668,48 +636,14 @@ let nextTileId = 1;
  */
 export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { className?: string }) {
 	const pool = React.useContext(PoolContext);
-	const ref = React.useRef<HTMLSpanElement>(null);
+	const ref = React.useRef<HTMLDivElement>(null);
 	const id = React.useRef(0);
 	if (id.current === 0) id.current = nextTileId++;
-	const propsRef = React.useRef(props);
-	propsRef.current = props;
-
-	// THE POSTER, when this tile has rendered before (lib/poster-cache.ts). A tile showing its
-	// poster does not register with the pool, so it costs no frame — and on WebKit, no document
-	// that a close would strand. The key needs the box's width, so the first render is always the
-	// plain box; the width lands in a layout effect, before paint.
-	const [width, setWidth] = React.useState(0);
-	React.useLayoutEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		const measure = () => setWidth(posterWidth(tileWidth(el)));
-		measure();
-		if (typeof ResizeObserver === 'undefined') return;
-		const ro = new ResizeObserver(measure);
-		ro.observe(el);
-		return () => ro.disconnect();
-	}, []);
-	React.useSyncExternalStore(subscribePosters, postersVersion, postersVersion);
-	const key = width ? posterKey(props, width) : '';
-	const poster = key ? getPoster(key) : undefined;
-	const [url, setUrl] = React.useState<string | null>(null);
-	React.useEffect(() => {
-		if (!poster) {
-			setUrl(null);
-			return;
-		}
-		const u = URL.createObjectURL(poster);
-		setUrl(u);
-		return () => URL.revokeObjectURL(u);
-	}, [poster]);
-	const showsPoster = !!poster;
-
 	// The observer reports band membership; the POOL decides what that earns. Kept separate from
-	// the props effect below so a prop change does not re-subscribe the observer. Re-run when the
-	// tile gains or loses a poster: a poster tile leaves the pool, a tile that lost one rejoins.
+	// the props effect below so a prop change does not re-subscribe the observer.
 	React.useEffect(() => {
 		const el = ref.current;
-		if (!el || !pool || showsPoster) return;
+		if (!el || !pool) return;
 		const tileId = id.current;
 		pool.register({ id: tileId, el, props: propsRef.current, inBand: false, seq: 0 });
 		if (typeof IntersectionObserver === 'undefined') {
@@ -739,23 +673,16 @@ export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { 
 			io.disconnect();
 			pool.unregister(tileId);
 		};
-	}, [pool, showsPoster]);
+	}, [pool]);
 
+	const propsRef = React.useRef(props);
+	propsRef.current = props;
 	// Deliberately dependency-less: it runs after EVERY render, which is what keeps a slot's
 	// content in step with a tile whose sample changed (a variant token applied, a search
 	// re-ranking the same component into a different tile).
 	React.useEffect(() => {
-		if (pool && !showsPoster) pool.updateProps(id.current, propsRef.current);
+		if (pool) pool.updateProps(id.current, propsRef.current);
 	});
 
-	return (
-		<span ref={ref} className={cn('block', className)}>
-			{/* The same flat frame edge the pooled layer draws, so a poster and a live tile read alike. */}
-			{url ? (
-				<span data-slide-frame className="block size-full overflow-hidden" style={slideFrameStyle('flat')}>
-					<img src={url} alt="" aria-hidden draggable={false} className="block size-full select-none" />
-				</span>
-			) : null}
-		</span>
-	);
+	return <span ref={ref} className={cn('block', className)} />;
 }
