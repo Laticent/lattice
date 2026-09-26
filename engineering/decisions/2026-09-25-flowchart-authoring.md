@@ -65,6 +65,8 @@ not draw (sequence, class, ER). Both component docs must point at each other.
 
 ## 2. The grammar
 
+The kernel that implements this section is `lib/core/flowchart-grammar.js`.
+
 ### 2.1 Shapes and names
 
 - **Every list item is a shape.** Numbered and bulleted lists mean the same
@@ -122,8 +124,10 @@ A connection is written with an arrow, in either of two places, and both mean
 - **Chains:** `A -> B -> C`. **Fan-out:** `-> Auth & Orders`. `&` splits targets
   only in the target list after an arrow; in a shape's own name (`R&D`,
   `Terms & Conditions`) it is text.
-- **Placement comes from item rows.** A shape sits where its own item row puts
-  it. A name that appears only as a target is placed by its **first source**:
+- **Placement comes from item rows.** A shape sits where its FIRST item row puts
+  it. A later row that repeats the name is a reference: it adds connections and
+  never moves the shape (nested under a different group, it is the two-groups
+  error). A name that appears only as a target is placed by its **first source**:
   - the source is a shape: the target joins that shape's group, or the top level
     when the source has none (`Payments -screens-> Fraud checks` puts Fraud
     checks inside Platform);
@@ -179,7 +183,7 @@ name it styles the shape; after a connection's target it styles that line.
 | Word | Styles | Meaning |
 |---|---|---|
 | `:box` (default) `:square` `:pill` `:diamond` `:circle` `:cylinder` `:io` `:doc` | shape | outline |
-| `:c1` … `:c12` | shape or line | a palette slot, the same twelve pills use (`--cat-N-*`), not a color name |
+| `:c1` … `:c8` | shape or line | a chart palette slot (`--chart-cat-N-fill` / `-body` / `-ink`), not a color name. Charts paint from the chart family's eight categorical slots, not the twelve engine-wide `--cat-N` a pill uses (`design/skills/chart-component.md`, "The color story") |
 | `:fill-cN` `:border-cN` `:text-cN` | shape | one channel only |
 | `on-track` `done` `live` / `at-risk` `warn` / `blocked` `fail` / `pilot` `decision` / `deferred` | shape | the ten status words of `CHART_STATUS` in `lib/core/chart-status.js`, painted pass / warn / fail / info / muted as `.chart-status[data-s]` in `chart-family.css` does |
 | `:open` `:dot` `:cross` | line | head: depends-on or uses / attaches (reads, writes) / blocked or stops here. The default is a filled triangle |
@@ -419,10 +423,13 @@ shape, all from the same rules:
 
 ## 10. How it serves Vetrina, Cadenza and Suono
 
-- **One parser for every reader.** The transform, `validate()`, the browser
-  linter and the narrator in `lib/core/chart-narration.js` all call the same
-  token-level parser, so the picture and the voice cannot disagree about what the
-  source says.
+- **One grammar for every reader.** Chart kernels transform rendered HTML
+  strings while lint and narration read raw Markdown, so the grammar lives in one
+  kernel, `lib/core/flowchart-grammar.js`, that reads an OUTLINE (rows of text and
+  code-span segments, their children and their notes). Two thin adapters build the
+  outline, one from the rendered list and one from Markdown. Every rule about
+  names, arrows, spans and placement is written once, so the picture, the linter
+  and the voice cannot disagree about what a source says.
 - **Cadenza and Suono:** the outline is the spoken order, each arrow has a
   sentence (the table in 2.3), and every piece of metadata sits inside code
   spans, which narration drops. That avoids the class of bug where the state
@@ -483,10 +490,11 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
 
 ## 13. Build slices
 
-1. **Parser and lint:** the grammar as a pure, fs-free, token-level kernel shared
-   by the transform, `validate()`, the browser linter and the narrator (HARD RULE
-   #7): spaced arrows, escapes, `&` scope, Mermaid aliases, `#id`, placement, the
-   lint errors in 2.1 and 2.2, and the near-duplicate warning.
+1. **Parser and lint (done):** `lib/core/flowchart-grammar.js`, the pure
+   outline kernel plus its Markdown adapter, and `findFlowchartIssues` in
+   `lib/authoring/lint-core.js` (HARD RULE #7), pinned by
+   `test/unit/core/flowchart-grammar.test.js`. The HTML adapter ships with the
+   transform in slice 3.
 2. **Layout and router:** dagre plus the new shared elbow router: ports, reserved
    label room, side selection, obstacle avoidance, group edges, `:loose`,
    determinism pins, the fit pass, and the gallery render check.
