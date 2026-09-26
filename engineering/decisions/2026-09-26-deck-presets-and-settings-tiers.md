@@ -261,3 +261,23 @@ sample slide under that preset, and it went through two designs.
 
 Not verified: iOS Safari. The phone shots come from headless Chromium at 390×844 with touch
 emulation, which is emulation (HARD RULE #23).
+
+## 9. After `backdrop:` landed (#2388)
+
+#2388 added `backdrop:`, which dims or masks any finish. It composes with a preset with no
+extra code. The deck panel reads the finish through `registerValue`, and so does the slide
+panel through `slide-provenance.ts`. So under Editorial or Brand-forward the new Backdrop
+rows appear and restrain the preset's finish, like any other override.
+
+**No preset sets a backdrop, by the owner's choice.** Rendered on the two presets that
+carry a finish, `backdrop: clear` barely changes Editorial's `ledger` rail, which lives in
+the margin. On Brand-forward, `clear` and `40` strip the `strata` texture behind the words.
+Both make the presets quieter and closer to Classic and Minimal, which undoes §7's goal.
+The idea with a real upside is a preset that wears a bolder finish and uses `clear` to
+keep the words on clean canvas. It needs new looks and an owner pick, so it is logged in
+`followups.d/2391-p3-presets-bolder-finish-with-backdrop.md`. A preset could not set it
+today anyway: `readBackdrop` reads the key directly, not through `frontMatterValue`, so
+`backdrop` would first have to join `PRESET_KEYS`.
+
+`examples/deck-presets.pdf` renders pixel-identical before and after #2388: all ten
+pages, 0 differing pixels at 40 dpi.
