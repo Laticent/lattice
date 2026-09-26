@@ -5,6 +5,9 @@ summary: Load six Studio panels on first open instead of at startup — Share, W
 
 # Studio panels: load on first open, not at startup
 
+**Owner decisions (2026-09-26):** scope is all six panels; load timing is option B (on
+first open, plus an idle warm-up). Both were the recommended options below.
+
 ## The short version
 
 The Studio downloads and parses **741.7KB gz** of JavaScript before it becomes usable
