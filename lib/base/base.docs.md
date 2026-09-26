@@ -96,8 +96,9 @@ number; only the body splits. Mark where each component's body begins:
   shows the same warnings as you type. At export, a pane that really clips is marked like any
   clipped slide.
 - **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart
-  slide prints them, and the plot gets shorter or narrower instead. A pie, map, quadrant or radar
-  moves its key below the diagram when that leaves the key readable.
+  slide prints them, and the plot gets shorter or narrower instead. A pie, map or quadrant prints
+  its key larger, beside or below the diagram, where the pane has room; a radar scales into its
+  pane as it would on a slide.
 
 Known limits while it is experimental: a Mermaid diagram scales into its pane, so it draws small
 in a narrow one and nothing warns; the pane's size is modelled from the slide's chrome, so a title

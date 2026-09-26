@@ -335,12 +335,38 @@ test('a chart in a pane draws on a canvas shaped like its pane; a slide chart ke
   assert.doesNotMatch(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html, /data-pane-view/);
 });
 
-test('a keyed chart in a pane keeps slide-size key type and gives the diagram instead', () => {
+test('a keyed chart grows its key only when the printed text really grows', () => {
+  const { fitKeyToPane, FS_OF_HEIGHT } = require('../../../lib/components/chart/_chart-family/svg-legend');
+  // A synthetic unit: a 200-unit diagram with a key beside it whose width grows with its type.
+  const build = (_o, m) => ({ viewW: 200 + 120 * m, viewH: 200 });
+  const printed = (r, pv) => {
+    const s = Math.min(pv.w / r.key.viewW, pv.h / r.key.viewH);
+    return { text: FS_OF_HEIGHT * 200 * r.fontScale * s, diagram: 200 * s };
+  };
+  const opts = (pv) => ({ orientation: undefined, paneView: pv, diagramHeight: 200, orientations: [undefined] });
+  // A NARROW pane: width binds, so a bigger key prints the same text and only shrinks the
+  // diagram. The unscaled key wins (the checker's 25% pie: 213px disc -> 71px, text unchanged).
+  const narrow = { w: 90, h: 180 };
+  const n = fitKeyToPane(build, opts(narrow));
+  assert.equal(n.fontScale, 1);
+  // A WIDE, short pane: height binds, so the key's type can grow at no cost to the diagram.
+  const wide = { w: 400, h: 60 };
+  const w = fitKeyToPane(build, opts(wide));
+  const base = printed({ key: build(undefined, 1), fontScale: 1 }, wide);
+  const got = printed(w, wide);
+  assert.ok(w.fontScale > 1 && got.text > base.text * 1.2, `text ${base.text} -> ${got.text}`);
+  assert.ok(got.diagram >= base.diagram * 0.75);
+  // Without a pane: the unscaled call, as on every ordinary slide.
+  assert.equal(fitKeyToPane(build, opts(null)).fontScale, 1);
+});
+
+test('a radar in a pane draws as a radar slide does: its axis labels belong to the diagram', () => {
   const e = engine();
-  const pie = '- Enterprise `46%`\n- Mid-market `31%`\n- SMB `23%`';
-  const slideVb = e.render(`<!-- _class: piechart -->\n\n## T\n\n${pie}\n`).html.match(/piechart-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
-  const paneVb = e.render(`## T\n\n<!-- panes: 35/65 -->\n<!-- pane: piechart -->\n\n${pie}\n\n<!-- pane: list -->\n\n- x\n`).html.match(/piechart-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
-  // Same 200-unit disc, but a bigger key around it: the unit is larger, so the disc renders
-  // smaller and the key's type prints at slide size once the unit is fitted to the pane.
-  assert.ok(paneVb[0] * paneVb[1] > slideVb[0] * slideVb[1] * 1.2, `pane unit ${paneVb} vs slide ${slideVb}`);
+  const series = (name, v) => `- ${name}\n${['Coverage', 'Integration', 'Cost', 'Support', 'Speed'].map((ax, i) => `  - ${ax} \`${v[i]}\``).join('\n')}`;
+  const radar = `${series('Build', [6, 7, 9, 4, 5])}\n${series('Buy', [8, 5, 3, 7, 6])}`;
+  const vb = (html) => (html.match(/class="radar-svg[^"]*"[^>]*viewBox="([^"]+)"/) || [])[1];
+  const slide = vb(e.render(`<!-- _class: radar -->\n\n## T\n\n${radar}\n`).html);
+  const pane = vb(e.render(`## T\n\n<!-- pane: radar -->\n\n${radar}\n\n<!-- pane: list -->\n\n- x\n`).html);
+  assert.ok(slide, 'no radar svg on the slide');
+  assert.equal(pane, slide);
 });

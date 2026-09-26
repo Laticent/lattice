@@ -14,6 +14,9 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
             - Mermaid lays itself out and its SVG scales into the pane, so a flowchart in a
               60% pane draws its node labels small, with no warning (the owner's review deck).
             - The HTML-drawn charts reflow in the pane box but were not audited at 25%.
+            - Radar scales into its pane: its axis labels live in the diagram, so the key-fitting
+              pie/map/quadrant use would shrink them. It needs its labels counted as text
+              before it can lay out for the pane.
             - Neither the overflow probe nor the TYPE FLOOR probe (probeFigureLegibility)
               flags an unreadable chart pane, so the chart pane budgets stay
               `basis: editorial` — there is no ceiling to measure yet.

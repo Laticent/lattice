@@ -165,20 +165,33 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    (`chart-family.js` → `ctx.paneView`) and lays out for that canvas:
    - the cartesian kernels (bar, line, waterfall, stacked-bar, heatmap, slope, scatter, bullet)
      take it through `viewFor(orientation, paneView)` in `cartesian.js`, floored at 140x72;
-   - the keyed kernels (piechart, map, quadrant, radar) call `fitKeyToPane` in `svg-legend.js`,
-     which holds the key's type at the slide's size, tries the key beside and below the diagram,
-     and lets the diagram shrink instead.
+   - the keyed kernels (piechart, map, quadrant) call `fitKeyToPane` in `svg-legend.js`, which
+     tries the key beside and below the diagram at a range of type sizes and scores each by what
+     PRINTS: it takes the largest key text that keeps at least 75% of the unscaled diagram. A
+     bigger key is also a wider one, so where the pane's width binds, it prints no larger and
+     only shrinks the diagram; the unscaled key then wins.
+   - radar is left out: its axis labels belong to the diagram, so shrinking the diagram for a
+     bigger key made the labels a reader needs smaller (5–6px from 10 at 50/50). A radar pane
+     draws as a radar slide does, scaled into the pane.
+   - a Key Insight or note that stays inside pane B (a pie claims its note; a blockquote above a
+     claimed note cannot be peeled past it) comes off that pane's canvas height.
 
-   Labels therefore print at the slide's size and the plot gives way. No ordinary slide carries
+   Cartesian labels therefore print at the slide's size and the plot gives way; a pie's key
+   prints larger where the pane has the room, and never at the diagram's expense past 25%. No ordinary slide carries
    the attribute, so every non-pane chart draws exactly as before (the 304-deck HTML comparison
    in §4). **Mermaid is not sized this way**: it lays itself out and the SVG scales into the pane,
    so a flowchart in a 60% pane draws small, and nothing warns. That stays gap 2 in §6.
 
-   **A pane is not a size container.** `lat-pane` is `container-type: normal`, so a bare `cqi`
-   inside a pane resolves against the slide, as it does on a slide: progress bars, timeline dots
-   and pills keep their slide thickness instead of thinning with the pane. The one component
-   whose card ran past a narrow pane, the quote, gets a pane-scoped `box-sizing: border-box` in
-   `pane.css`; the quote component's own sheet is unchanged, so no quote slide moves.
+   **A pane stays a size container** (`container-type: size`), so a bare `cqi` inside it resolves
+   against the pane. Resolving it against the slide kept progress bars and timeline dots at
+   slide thickness, but it grew every `cqi`-sized avatar and gap too, and a six-person
+   team-profile at 65% (its comfortable budget) clipped its bottom row; the budgets were measured
+   with the pane as the container. The one component whose card ran past a narrow pane, the
+   quote, gets a pane-scoped `box-sizing: border-box` and `max-width: 100%` in `pane.css` (its
+   64cqi reading measure is a slide's; in a pane it left a 45% quote at 64% of the pane and
+   clipped the attribution). The quote component's own sheet is unchanged, so no quote slide
+   moves. Progress bars and timeline dots thin with the pane; that is the cost of keeping the
+   container the budgets were measured in.
 3. **Embed** (`panes.embed`). The pane section's body moves into
    `<lat-pane class="<component classes>" data-family=…>` inside the host's stage. The pane's
    stand-in masthead is dropped: the host owns the only title. The placeholder carries a nonce
@@ -461,6 +474,16 @@ the measured budgets (§3.2), the scoped twins and the reason a selector twin ca
 37 block-level cases (a marker in a lazy paragraph continuation, after an HTML block of type 7,
 under a setext heading, inside a list item's fence). The splitter became a CommonMark block
 scanner and a seeded fuzz pins the agreement (§4).
+
+**A fifth checker on the chart sizing** found three blockers, all fixed and pinned by tests in
+`test/unit/core/panes.test.js`: a radar pane printed its axis labels at half size (radar left
+out of `fitKeyToPane`); a pie in a narrow pane gave up two thirds of its disc for no larger text
+(the key is now scored by printed size, the unscaled key always a candidate, with a 75% floor on
+the diagram); and resolving `cqi` against the slide clipped an in-budget team-profile (reverted,
+§2). It also found three contrived scanner cases (a bare `>`, a heading or an HTML block opening
+a list item) and an empty vocab table silencing the Studio fallback; both fixed. One contrived
+disagreement remains in its fuzz (1 in 2,549: an empty `1)` item after `1. x`, where the carve
+finds no panes at all).
 
 **The owner then reviewed a 17-slide deck of common pairings** and asked for two things before
 merge: charts sized to their pane, not shrunk into it, and the pane lint in the Studio's live

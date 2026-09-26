@@ -85,7 +85,7 @@ section.lat-pane-host > .cell-stage > .lat-panes > lat-pane {
   min-width: 0;
   min-height: 0;
   overflow: clip;
-  container-type: normal;
+  container-type: size;
 }
 /* A pane is transparent: a component root rule that paints the SLIDE's background
  * (`section.chart-frame { background: var(--bg) }`) must not paint a box over the
@@ -115,9 +115,13 @@ lat-pane > .cell-stage {
 /* A padded card that is `width: 100%` in content-box (a quote's blockquote) is as wide as its
  * box PLUS its padding. On a slide its max-width binds first and hides that; in a pane narrower
  * than the max-width it ran the card past the pane (98px over at 45%). In a pane the card's
- * padding counts inside its width. Scoped to panes, so no slide's card moves. */
+ * padding counts inside its width. And its max-width is a reading measure for a SLIDE (64cqi of
+ * it): in a pane the container is the pane, so the same cap left a 45% pane's quote at 64% of
+ * the pane, wrapped to twice the lines and clipped its attribution. The pane is the measure.
+ * Scoped to panes, so no slide's card moves. */
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane > .cell-stage > blockquote {
   box-sizing: border-box;
+  max-width: 100%;
 }
 /* An image pane: the picture fills its Cell, cropped to cover. `image` is a
  * whole-slide frame, so its pane form is this rule, not the image component. */

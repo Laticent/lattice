@@ -147,6 +147,11 @@ test('the linter finds exactly the panes the carve renders: every edge case the 
  setext:`${P}\n===\n\n${it}\n\n${Q}\n\nx`,
  closeDiv:`</div>\n${P}\n\n${it}\n\n${Q}\n\nx`,
  htmlCloseTagInline:`lead\n</custom>\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ // A bare `>`, a heading in a list item and an HTML block opening a list item open no
+ // paragraph, so a type-7 tag after them is not a lazy continuation (fourth checker).
+ bareQuote:`>\n</span>\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ itemHeading:`- # Head\n</span>\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ itemHtml:`- <div>\n</span>\n<textarea>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
   };
   for (const [name, body] of Object.entries(cases)) {
     const { carved, linted } = agree(`## Heading.\n\n${body}\n`);
@@ -244,6 +249,8 @@ test('the Studio\'s lint runs the pane rules too: a vocab without pane data fall
   const studio = { names: new Set(MANIFESTS.map((m) => m.name)), modifiers: new Set() };
   const md = slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(20) }, 'stack');
   assert.deepEqual(core.lintTextWith(md, studio).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule), ['pane-fit', 'pane-overflow']);
+  // An EMPTY pane table is no table: it falls back too, rather than silencing every pane rule.
+  assert.deepEqual(core.lintTextWith(md, { ...studio, paneSpec: {}, paneBudget: {} }).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule), ['pane-fit', 'pane-overflow']);
   // …and the baked table is exactly what buildVocab derives from the manifests.
   const baked = require('../../../lib/authoring/pane-lint.generated.js');
   const { paneSpec, paneBudget } = spec.paneVocab(MANIFESTS);
