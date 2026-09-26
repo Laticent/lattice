@@ -103,3 +103,52 @@ describe('flowchart — the browser pass', () => {
     assert.doesNotThrow(() => installFlowchartLayout(doc, () => ({ layout: () => null })));
   });
 });
+
+describe('flowchart — a forged model cannot inject markup (HARD RULE #22)', () => {
+  // `data-fc-model` survives the slide sanitizer (DOMPurify keeps data-*), so a deck can
+  // write a figure by hand. The painter must treat every field as hostile. This runs the
+  // REAL pass against a jsdom document, with dagre installed as the page would have it.
+  const { JSDOM } = require('jsdom');
+  require('../../../lib/core/dagre-layout.js');
+  const evil = '"/><image href="data:," onerror="top.__pwned=1"/><g data-q="';
+  const forged = {
+    shapes: [
+      { id: 'a', name: `A ${evil}`, shape: `x${evil}`, status: `fail${evil}`, slot: `1${evil}`, fill: 99, text: '2' },
+      { id: `b${evil}`, name: 'B', shape: 'box' },
+    ],
+    groups: [{ id: 'g', name: `G${evil}`, slot: `3${evil}` }],
+    edges: [{ from: 'a', to: `b${evil}`, dir: `out${evil}`, label: `L${evil}`, style: { pattern: `dotted${evil}`, slot: `4${evil}`, head: `dot${evil}` } }],
+    notes: [{ on: 'a', text: `N${evil}` }],
+  };
+  const attr = JSON.stringify(forged).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const dom = new JSDOM(`<!doctype html><section class="flowchart"><div class="flowchart-figure" data-fc-model="${attr}">` +
+    '<div class="fc-canvas"><div class="flowchart-scale"><div class="fc-harness"><ol class="fc-nodes"></ol></div>' +
+    '<svg class="flowchart-svg"><title>Flowchart</title></svg></div></div></div></section>', { runScripts: 'outside-only' });
+  const { document } = dom.window;
+  // THE SERIALIZED PASS, not the imported function: this is the script the emulator ships,
+  // so running it here also proves it closes over nothing (a free variable throws).
+  dom.window.__latticeDagre = globalThis.__latticeDagre;
+  dom.window.eval(browserJs());
+  const svg = document.querySelector('svg.flowchart-svg');
+
+  test('the serialized pass runs and paints (or the assertions below prove nothing)', () => {
+    assert.ok(svg.querySelector('.fc-node-group'), svg.innerHTML.slice(0, 200));
+  });
+
+  test('no element outside the painter\'s own vocabulary reaches the SVG', () => {
+    const allowed = new Set(['title', 'desc', 'g', 'rect', 'path', 'ellipse', 'circle', 'text', 'tspan']);
+    for (const el of svg.querySelectorAll('*')) assert.ok(allowed.has(el.tagName.toLowerCase()), el.outerHTML.slice(0, 120));
+    assert.equal(svg.querySelector('[onerror]'), null);
+    assert.equal(svg.querySelector('[data-q]'), null);
+  });
+
+  test('structural fields outside their closed sets are dropped, not passed on', () => {
+    const shape = svg.querySelector('.fc-shape');
+    assert.equal(shape.getAttribute('data-shape'), 'box');
+    assert.equal(shape.getAttribute('data-s'), null);
+    assert.equal(shape.getAttribute('data-slot'), null);
+    assert.equal(shape.getAttribute('data-fill'), null, 'out of range');
+    assert.equal(shape.getAttribute('data-text'), null, 'a string is not a slot');
+  });
+});
+

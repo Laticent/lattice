@@ -286,6 +286,11 @@ describe('the HTML reader agrees with the Markdown reader', () => {
     ['a loose list', '- A\n\n  more about A\n\n- B -> A'],
     ['an ordered list', '1. A => B\n2. B\n   - C'],
     ['key and caption after the list', '- A => B `:dotted`\n\n`[{=>, Happy path}, {:dotted, Later}]`\n\n*Everything waits for review.*'],
+    // The checker's parity cases on #2385.
+    ['intraword emphasis', '- A*x* -> B\n- snake_case -> B'],
+    ['an autolink', '- <https://x.com> -> B'],
+    ['an entity that decodes to a backslash is not an escape', '- A &#92;-> B'],
+    ['a hard break at the end of a row', '- A -> B\\\n  hard'],
   ]) {
     test(name, () => assert.equal(shape(g.outlineFromHtml(html(src))), shape(g.outlineFromMarkdown(src))));
   }
@@ -328,6 +333,14 @@ describe('grammar findings from the review', () => {
   });
   test('a digit after a plain arrow is a name, not a comparison', () => {
     assert.deepEqual(rules(parse('- Login -> 2FA check')), []);
+  });
+});
+
+describe('a group connected to itself', () => {
+  test('is an error and draws no line', () => {
+    const m = parse('- G `:c2`\n  - A\n  - B\n- G -> G\n- C -> A');
+    assert.ok(rules(m).includes('flowchart-group-self-edge'));
+    assert.deepEqual(edgeList(m), ['c>a']);
   });
 });
 

@@ -5488,7 +5488,24 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // it appears — because the file-scoped shape every other #22 arm uses would certify a
 // SECOND injection point hiding behind an already-legitimate one (#1731 §9.8, finding 7,
 // in a different channel). A stale entry fails too, so the list cannot rot.
+// Browser passes outside lib/runtime that write markup after the sanitizer ran. The state
+// chart's pass (state-chart.transform.js) is the other member of this class and is NOT listed
+// yet: followups.d/2385-p2-state-chart-pass-census.md.
+const RUNTIME_MARKUP_EXTRA_FILES = [
+  'lib/components/chart/flowchart/flowchart.layout.js',
+];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
+  {
+    file: 'lib/components/chart/flowchart/flowchart.layout.js',
+    sink: 'svg.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — the flowchart painter, built from `data-fc-model`. A deck can FORGE that attribute in ' +
+      'raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the pass trusts none of ' +
+      'it: sanitizeModel rebuilds every structural field from a closed set or an integer range and ' +
+      'drops the rest, and every author string is escaped where it is painted. Pinned by ' +
+      'test/unit/components/flowchart.test.js "a forged model cannot inject markup".',
+  },
   {
     file: 'lib/runtime/index.js',
     sink: 'target.innerHTML',
@@ -7342,6 +7359,13 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
   const found = new Map(); // `${rel} ${sink}` -> count
   const files = [];
   if (fs.existsSync(dir)) listSourceFiles(dir, files);
+  // A component's BROWSER PASS writes markup into the same document from outside lib/runtime
+  // (the runtime imports it, and the emulator serializes it). Listed by name rather than found,
+  // because nothing distinguishes a browser pass from the transform code beside it.
+  for (const rel of RUNTIME_MARKUP_EXTRA_FILES) {
+    const abs = path.join(root, rel);
+    if (fs.existsSync(abs)) files.push(abs);
+  }
   for (const file of files) {
     const rel = path.relative(root, file).split(path.sep).join('/');
     if (/\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;

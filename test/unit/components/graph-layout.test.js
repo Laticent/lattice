@@ -33,6 +33,9 @@ const STAGE = { w: 1072, h: 440 };
 // the same router, the old 4-unit rule still reads 2 misses; the stricter rule reads 4. The
 // ruler moved, not the router.
 const SOFT_MISS_BUDGET = 4;
+// The wider corpus below: 7 of its 600 charts miss a soft count (mostly two labels crowding
+// on a group's lines), measured when the corpus was added. Lower it as the router improves.
+const WIDE_SOFT_BUDGET = 7;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -231,6 +234,58 @@ describe('graph-layout — seeded random charts (ratchet)', () => {
       }
     }
     assert.ok(soft <= SOFT_MISS_BUDGET, `${soft} charts missed a soft count (budget ${SOFT_MISS_BUDGET})`);
+  });
+});
+
+describe('graph-layout — groups as endpoints, nested groups, self-loops (ratchet)', () => {
+  // The first corpus above only ever drew ONE flat group and never ended a line at one.
+  // The checker on #2385 found the router's worst cases exactly there: a line from a group
+  // trimmed at its border ran through the shapes beside it. This corpus draws those.
+  test(`600 charts: hard counts zero and every run orthogonal; soft misses ≤ ${WIDE_SOFT_BUDGET}`, () => {
+    const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Fox', 'Golf', 'Hotel', 'India', 'Juliet'];
+    let soft = 0;
+    for (const seed0 of [11, 12, 13]) {
+      let seed = seed0;
+      const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+      for (let t = 0; t < 200; t++) {
+        const n = 4 + Math.floor(rnd() * 6);
+        const ns = names.slice(0, n);
+        const lines = [];
+        const groups = [];
+        const kind = rnd();
+        if (kind < 0.33) {
+          lines.push('- One `:c2`');
+          for (const x of ns.slice(0, 3)) lines.push(`  - ${x}`);
+          groups.push('One');
+          for (const x of ns.slice(3)) lines.push(`- ${x}`);
+        } else if (kind < 0.66) {
+          lines.push('- Outer `:c3`', `  - ${ns[0]}`, '  - Inner `:c5`');
+          for (const x of ns.slice(1, 3)) lines.push(`    - ${x}`);
+          groups.push('Outer', 'Inner');
+          for (const x of ns.slice(3)) lines.push(`- ${x}`);
+        } else for (const x of ns) lines.push(`- ${x}`);
+        const ends = [...ns, ...groups];
+        const e = 1 + Math.floor(rnd() * n * 1.3);
+        for (let i = 0; i < e; i++) {
+          const a = ends[Math.floor(rnd() * ends.length)];
+          const b = ends[Math.floor(rnd() * ends.length)];
+          const arrow = rnd() < 0.4 ? `-l${i}->` : rnd() < 0.5 ? '=>' : '->';
+          lines.push(`- ${a} ${arrow} ${b}`);
+        }
+        const src = lines.join('\n');
+        const { geo } = run(src);
+        const q = geo.quality;
+        for (const k of ['linesThroughShapes', 'shapeOverlaps', 'labelsOffLine']) assert.equal(q[k], 0, `${k} on seed ${seed0} chart ${t}:\n${src}`);
+        for (const r of geo.routes) {
+          for (let j = 1; j < r.points.length; j++) {
+            const a = r.points[j - 1], b = r.points[j];
+            assert.ok(Math.abs(a.x - b.x) < 0.05 || Math.abs(a.y - b.y) < 0.05, `${r.from}>${r.to} is diagonal on seed ${seed0} chart ${t}:\n${src}`);
+          }
+        }
+        if (Object.values(q).some((v) => v > 0)) soft++;
+      }
+    }
+    assert.ok(soft <= WIDE_SOFT_BUDGET, `${soft} charts missed a soft count (budget ${WIDE_SOFT_BUDGET})`);
   });
 });
 

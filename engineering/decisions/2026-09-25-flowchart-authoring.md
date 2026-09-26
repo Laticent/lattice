@@ -515,6 +515,10 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
   `tb`; its own direction is `lr`, which reads zero. Pinned as the test's one
   named exception.
 - A labeled group-to-group edge needs a reserved gap between the groups.
+- **Named entities in a name.** The HTML reader sees `&rarr;` decoded, the Markdown
+  reader keeps it literal (it decodes numeric entities and the five markdown-it writes,
+  not the HTML5 table, which would ride the Studio's eager lint bundle). A shape named
+  with one reads differently in lint and in the picture. Found by the checker; rare.
 - **The fit pass is copied, not yet shared.** Section 4 says the flowchart reuses
   the state chart's direction scoring. Today `graphLayoutKernel().layout()` applies
   the same rule in its own fifteen lines, and wrap is not a candidate. Slice 5
