@@ -187,6 +187,20 @@ old *map* form (an indented child under `backdrop:`) and its fix text points to 
   fabricated one that bakes a 60% dim and a clearance, each at deck level and overridden per
   slide, plus title, closing and a `finish-none` divider bookend. Rendered in light and dark and
   rasterized in poppler and PDFium.
+- **All nine built-in finishes** (atrium, meridian, strata, halo, ledger, nimbus, loom, savile,
+  gallery), each at baseline, `60 clear`, `40 spot-tr`, `20` and as a `title` bookend with
+  `60 clear`, in light and dark: 90 slides through the CLI (rasterized in poppler and PDFium) and
+  again through the Studio's Images export. Measured as the per-pixel difference from the same
+  slide with `finish-none`: `clear` leaves 0.00 ink behind the content on every finish; `20`
+  keeps roughly a fifth of each finish's ink; the spotlight keeps the top-right window and hides
+  the rest; no wedge on any slide in either renderer; the Studio export matches the CLI to a
+  mean 2.1 (light) / 1.4 (dark) out of 255 outside the text.
+- **A Studio export defect the matrix surfaced, fixed here.** The Images export repaints the
+  spectrum ribbon as a background strip (html-to-image mis-renders a gradient `border-image`),
+  and the strip sat in the padding box, under `.backdrop`. Most finishes' own wash already hid it
+  (pre-existing), and a register mask erased it where the clearance reached the top edge. The
+  strip is now anchored to the border box (`deck-export.js` `withCaptureFixups`), pinned by
+  `capture-ribbon.test.ts`, and the bar measures 100% intact across all 36 light content slides.
 - **Export sign-off:** this alters exported bytes for decks that opt in, so the demo PDFs go to
   the owner in dark and light before merge.
 - Maker-checker: one checker agent (engine CSS + three render paths). Its four confirmed

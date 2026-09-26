@@ -1,0 +1,1 @@
+- **Fixed: the Studio's image export keeps the brand bar on finish slides.** The export redraws the top spectrum bar as a background strip, and that strip sat under the finish layer, so most finishes' own wash hid it and a `backdrop: clear` mask erased it where the clearance reached the top edge. The strip now sits in the border band, where the bar belongs.
