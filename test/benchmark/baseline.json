@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 3.22,
-    "rmePct": 1.41
+    "ms": 3,
+    "rmePct": 2.03
   },
   "blessedOn": {
     "node": "v22",
@@ -16,31 +16,31 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 18.68,
-      "ms": 60.21,
-      "slidesPerSec": 963,
-      "rmePct": 2.86
+      "index": 23.39,
+      "ms": 70.2,
+      "slidesPerSec": 826,
+      "rmePct": 4.34
     },
     "charts": {
-      "slides": 22,
-      "index": 17.59,
-      "ms": 56.69,
-      "slidesPerSec": 388,
-      "rmePct": 1.43
+      "slides": 23,
+      "index": 21.12,
+      "ms": 63.37,
+      "slidesPerSec": 363,
+      "rmePct": 6.48
     },
     "math": {
       "slides": 16,
-      "index": 19.01,
-      "ms": 61.27,
-      "slidesPerSec": 261,
-      "rmePct": 2.95
+      "index": 21.28,
+      "ms": 63.84,
+      "slidesPerSec": 251,
+      "rmePct": 3.29
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 54.04,
-      "ms": 174.2,
-      "slidesPerSec": 1998,
-      "rmePct": 3.62
+      "index": 77.42,
+      "ms": 232.32,
+      "slidesPerSec": 1498,
+      "rmePct": 5.77
     }
   },
   "printDatasets": {
@@ -93,29 +93,29 @@
   },
   "cliDatasets": {
     "cli · portrait-roadmap (1 nav)": {
-      "slides": 5,
-      "ms": 1500.51,
-      "rmePct": 10.89
+      "slides": 15,
+      "ms": 2414.4,
+      "rmePct": 11.76
     },
     "cli · auto-split (3 nav)": {
-      "slides": 9,
-      "ms": 1768.69,
-      "rmePct": 3.04
+      "slides": 33,
+      "ms": 2377.13,
+      "rmePct": 7.01
     },
     "cli · cover-paginate (4 nav)": {
-      "slides": 30,
-      "ms": 2185.63,
-      "rmePct": 4.9
+      "slides": 43,
+      "ms": 2706.26,
+      "rmePct": 8.24
     },
     "cli · imageset look-scratch (svg re-bake)": {
       "slides": 16,
-      "ms": 7809.21,
-      "rmePct": 2.07
+      "ms": 9074.17,
+      "rmePct": 2.62
     },
     "cli · captions (deck projection)": {
       "slides": 9,
-      "ms": 1940.12,
-      "rmePct": 0.92
+      "ms": 2214.79,
+      "rmePct": 2.81
     }
   },
   "exportDatasets": {
@@ -135,22 +135,22 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 23.17,
-      "burstMs": 268.96
+      "ms": 30.84,
+      "burstMs": 363.88
     },
     "edit · charts": {
-      "slides": 22,
+      "slides": 23,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 20.46,
-      "burstMs": 246.16
+      "ms": 27.41,
+      "burstMs": 315.4
     },
     "edit · math": {
       "slides": 16,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 17,
-      "burstMs": 207.41
+      "ms": 16.14,
+      "burstMs": 188.74
     }
   }
 }

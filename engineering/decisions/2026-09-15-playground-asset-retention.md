@@ -150,6 +150,24 @@ N directories.
   was stale. Sizing this properly needs a real measurement of a warm cache, which nothing
   here has. Treat it as an open cost of Option A, not a priced one. (The stale ~213 is
   corrected in this branch; the cap itself is untouched.)
+
+  **Measured 2026-09-26 — the warm cache is about a quarter of the cap.** Headless
+  Chromium drove a production `docs` build (`npm run build`, served by `astro preview`,
+  same `sw.js` as the deploy) and read Cache Storage at the end of each session:
+
+  | session | ASSETS entries | of which `/_astro/` | versioned | other | PAGES |
+  |---|---:|---:|---:|---:|---:|
+  | typical — home, two guides, five components, Playground, Studio (12 pages) | **186** | 139 | 43 | 4 | 13 |
+  | every sitemap URL, plus Playground and Studio (132 pages) | **217** | 160 | 47 | 10 | 60 (cap) |
+  | one deploy's whole inventory, if a session fetched every file | 755 | 317 | 438 | — | — |
+
+  So Option A's doubling of the versioned half costs about +45 entries in the heaviest
+  crawl (217 → ~264 of 800), and the 800 cap is breached only by a session that fetches
+  nearly every file in two deploys. Not driven: a Studio session that opens many themes,
+  samples and exemplars, which is where the versioned count would grow. **Surface:** a
+  local production build, not lattice.style — the sandbox's browser cannot complete TLS
+  to the deployed site. The script is `.scratch/perf/sw-occupancy.mjs` on the branch
+  that took it (not committed, per `.scratch/`).
 - **Side effect:** it makes `sw.js`'s version-eviction comment true again (see below).
 
 ### Option B — the fetcher recovers from a stale base
