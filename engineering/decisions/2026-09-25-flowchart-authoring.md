@@ -405,10 +405,25 @@ A dotted overlay moving along a line, a separate path above the real edge.
   band) that the old route did not. A main-path (`=>`) line may
   move only within 24 units of its length and one extra turn, so lighter lines
   give way around it. A `:loose` line takes part: it is the line most free to
-  move. Up to three rounds, or until a round changes nothing. On the 1,000
-  random charts, crossings fell from 923 to 230. 206 charts improved, none got
-  worse on crossings or on any quality count (soft misses 4 to 1), and total
-  line length went down slightly. The demo deck's release
+  move. Up to three rounds, or until a round changes nothing. Moving lines one at
+  a time is order-sensitive, so the solver runs twice and keeps the run with fewer
+  crossings (a tie goes to the shorter drawing with fewer turns and side
+  changes): once in authored order, and once with the freest lines first
+  (loose, then plain, then main path), each line's current ports offered as
+  candidates, no two ends closer than 14 units on one side of a box (the port
+  spacing), a straight drop allowed where two boxes overlap, a cost of 60 for
+  leaving or entering a box by a different side, and a line whose detour turned
+  moot sent back to its old route. That second order is what keeps an org
+  chart's child hanging under its parent instead of off its flank. On the 1,000
+  random charts, crossings fell from 923 to 195, and no chart got worse on any
+  quality count (soft misses 4 to 1). One chart reads more crossings, 1 to 3,
+  because the direction picker flipped it from tb to lr on slightly different
+  bounds; the solver itself never adds one.
+- **Fans hang level.** A fan that splits both ways from one side of a shape
+  turns at one height on both sides (`levelFans`, after the solver). The lane
+  allocator treated two jogs touching only at their shared port as overlapping
+  and pushed the second a lane out. The pass keeps a leveling only when no
+  quality count, crossing count or foreign-group count gets worse. The demo deck's release
   train went from 9 crossings to 1 as painted and its org chart from 3 to 0. Crossings sit
   beside the quality counts, not in them (`geo.crossings`), because some graphs
   cannot be drawn without one. The test holds the corpus total as a ceiling.

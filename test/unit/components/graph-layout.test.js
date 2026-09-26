@@ -36,14 +36,16 @@ const SOFT_MISS_BUDGET = 1;
 // The wider corpus below: 7 of its 600 charts miss a soft count (mostly two labels crowding
 // on a group's lines), measured when the corpus was added. Lower it as the router improves.
 const WIDE_SOFT_BUDGET = 7;
-// Line crossings on the 1,000-chart corpus. The router's crossing pass took it from 923 to
-// 230: 206 charts have fewer, none more, total line length slightly down, and no chart
-// worse on any quality count. It could go lower by letting a main-path line wander, by
-// accepting 2-unit kinks, or by moving a line into a group neither end belongs to (or
-// its title band, or a label across its border); each reads worse than the crossing it
-// saves, so each is refused. A crossing is a cost, not a defect, so this is a ceiling to
-// ratchet down, never a zero to hold.
-const CROSSING_BUDGET = 230;
+// Line crossings on the 1,000-chart corpus: 923 before the router's crossing solver, 230
+// with it, 195 once it also runs a second order (freest lines first, keep each line's
+// sides and ports, allow a straight drop) and keeps whichever run crosses less. No chart is
+// worse on any quality count. One chart reads 1 -> 3, and not from the solver: the
+// direction picker flipped it from tb to lr on slightly different bounds. The solver
+// refuses a main-path detour, a 2-unit kink, a line into a group neither end belongs to
+// (or its title band, or a label across its border), and two ends closer than 14 units on
+// one side of a box; each reads worse than the crossing it saves. A crossing is a cost,
+// not a defect, so this is a ceiling to ratchet down, never a zero to hold.
+const CROSSING_BUDGET = 195;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -301,6 +303,18 @@ describe('graph-layout — groups as endpoints, nested groups, self-loops (ratch
 });
 
 describe('graph-layout — the routing rules', () => {
+  test('a fan that splits both ways turns at one height, so an org chart hangs symmetrically', () => {
+    // The owner's report on the demo deck: Operations' two children dropped 15 and 23
+    // units before turning, because two jogs that only touched at their shared port
+    // were treated as overlapping.
+    for (const dir of ['tb', 'lr']) {
+      const { routes } = run('- Operations\n  - -- Support & Logistics', K, { dir }).geo;
+      assert.equal(routes.length, 2);
+      const turn = (r) => (dir === 'tb' ? r.points[1].y : r.points[1].x);
+      assert.equal(turn(routes[0]), turn(routes[1]), JSON.stringify(routes.map((r) => r.points)));
+    }
+  });
+
   test('every route is orthogonal: each run is horizontal or vertical', () => {
     for (const src of Object.values(GALLERY)) {
       for (const r of run(src).geo.routes) {
