@@ -445,7 +445,7 @@ shape, all from the same rules:
   outline, one from the rendered list and one from Markdown. Every rule about
   names, arrows, spans and placement is written once, so the picture, the linter
   and the voice cannot disagree about what a source says.
-  **As built:** `outlineFromHtml` reads the rendered list and `outlineFromMarkdown`
+  **As built:** `outlineFromHtml` (`lib/core/flowchart-html.js`, kept out of the grammar module so the Studio's eager lint does not carry it) reads the rendered list and `outlineFromMarkdown`
   the source; the unit suite renders a shared corpus through the real engine and
   holds both to one parsed model. Two gaps had to close for that. markdown-it
   consumes `\->` into a plain `->`, so the `escapeMarks` plugin keeps an escaped

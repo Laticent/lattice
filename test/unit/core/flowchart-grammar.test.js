@@ -10,6 +10,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const g = require('../../../lib/core/flowchart-grammar');
+const { outlineFromHtml } = require('../../../lib/core/flowchart-html');
 const { CHART_STATUS } = require('../../../lib/core/chart-status');
 
 const parse = (md, opts = {}) => {
@@ -292,19 +293,19 @@ describe('the HTML reader agrees with the Markdown reader', () => {
     ['an entity that decodes to a backslash is not an escape', '- A &#92;-> B'],
     ['a hard break at the end of a row', '- A -> B\\\n  hard'],
   ]) {
-    test(name, () => assert.equal(shape(g.outlineFromHtml(html(src))), shape(g.outlineFromMarkdown(src))));
+    test(name, () => assert.equal(shape(outlineFromHtml(html(src))), shape(g.outlineFromMarkdown(src))));
   }
 
   test('the offsets let a caller splice the list and the key out', () => {
     const h = html('- A => B\n\n`[{=>, Main}]`\n\n*Cap.*');
-    const o = g.outlineFromHtml(h);
+    const o = outlineFromHtml(h);
     assert.ok(h.slice(o.start).startsWith('<ul'));
     assert.ok(h.slice(o.end).trimStart().startsWith('<p><code>'));
     assert.ok(h.slice(o.keyEnd).trimStart().startsWith('<p><em>'));
   });
 
   test('no list, no outline', () => {
-    const o = g.outlineFromHtml('<p>Just prose.</p>');
+    const o = outlineFromHtml('<p>Just prose.</p>');
     assert.deepEqual(o.items, []);
     assert.equal(o.start, -1);
   });

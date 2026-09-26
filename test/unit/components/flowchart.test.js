@@ -56,8 +56,8 @@ describe('flowchart — the figure through the real engine', () => {
 describe('flowchart — untrusted text never becomes markup', () => {
   test('a name, a label and a note that look like HTML are escaped everywhere', () => {
     const html = render('- `<img>` \\<script> -a<b-> B\n- B\n  > <i>note</i>');
-    assert.doesNotMatch(html, /<script>/);
-    assert.doesNotMatch(html, /<img>/);
+    assert.doesNotMatch(html, /<script\b/i);
+    assert.doesNotMatch(html, /<img\b/i);
     assert.doesNotMatch(html, /<i>note<\/i>/);
   });
 
