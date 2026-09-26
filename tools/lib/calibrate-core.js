@@ -111,12 +111,37 @@ const BUILDERS = {
   // CODE_LINE_BUDGET), and a wrapped line would conflate the two.
   code: () => 'const value = compute(input);',
   pricing: (w) => `- ${cap(words(1))} \`$49 / mo\`\n  - [x] ${cap(words(2))}\n  - ${cap(words(Math.max(1, w - 4)))}.`,
+  // Added for the per-venue budgets (2026-09-25-font-scale-fit.md, Amendment 2026-09-27): every
+  // component with a `capacity` block gets a measured row, so these five had to be authorable.
+  // Shapes follow each manifest's skeleton. A table ROW spreads its words over the label and
+  // three value cells; `BODY_WRAP.table` supplies the header.
+  table: (w) => {
+    const rest = Math.max(3, w - 2);
+    const a = Math.ceil(rest / 3);
+    const b = Math.ceil((rest - a) / 2);
+    return `| ${cap(words(2))} | ${cap(words(a))} | ${cap(words(b))} | ${cap(words(Math.max(1, rest - a - b)))} |`;
+  },
+  cycle: (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
+  'policy-recommendation': (w) => `- ${cap(words(2))}\n  - ${cap(words(Math.max(1, w - 2)))} \`Citation 2025\``,
+  // A kanban element is a LANE (its `capacity.axis` counts lanes), holding two cards of `w` words:
+  // `w` is the CARD length its `density` budgets. lint counts the whole lane (label, both cards
+  // and their team lines, 2w + 3 words), so the manifest keys each row by that lane length.
+  kanban: (w) => `- ${cap(words(1))}\n  - ${cap(words(w))} \`S\`\n    - team-a\n  - ${cap(words(w))} \`M\`\n    - team-b`,
+  // A roadmap element is a COLUMN, the leading workstream column included (its `capacity.axis`
+  // is `col`). The builder names one column; `BODY_WRAP.roadmap` turns the list into the table.
+  roadmap: () => `${cap(words(1))} \`Q2 2026\``,
 };
 
 // A component whose elements only render inside a wrapper: the builder writes one
 // element, this wraps the whole body once.
 const BODY_WRAP = {
   code: (body) => `\`\`\`js\n${body}\n\`\`\``,
+  table: (body) => `| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n${body}`,
+  roadmap: (body) => {
+    const cols = body.split('\n');
+    const row = (label) => `| ${label} | ${cols.slice(1).map((_, i) => ['[x] Shipped item', '[-] In-flight item', '[ ] Planned item'][i % 3]).join(' | ')} |`;
+    return [`| Workstream | ${cols.slice(1).join(' | ')} |`, `| ${cols.map(() => '---').join(' | ')} |`, row('First workstream'), row('Second workstream')].join('\n');
+  },
 };
 
 // Square-family components this rig deliberately does NOT calibrate, and why.
@@ -187,6 +212,30 @@ function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false
 }
 
 /**
+ * The pages an emulator log reports as not fitting: `clipped` from the `⚠ OVERFLOW` line, and
+ * `stepped` from the `↓ SCALE` block. Pure, so the parse is unit-tested against the format
+ * lib/core/scale-fit.js `scaleLevelReport` prints (test/unit/tools/calibrate-core-parse.test.js).
+ */
+function parseProbeLog(log) {
+  const pageNums = (list) => list.split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean);
+  // The `⚠ OVERFLOW` line itself, anchored on its glyph. A bare /OVERFLOW/ also matches
+  // the SCALE block's "(the OVERFLOW line reports them)", which comes first in the log.
+  const m = log.match(/⚠ OVERFLOW[^\n]*?pages?\s+([\d,\s]+)/);
+  const pages = m ? pageNums(m[1]) : [];
+  // A page that did not fit at the scale the deck asked for (lib/core/scale-fit.js) fits
+  // only because the engine gave the size back. For a ceiling measured AT a scale that is
+  // an overflow, so it is folded in; a rig that wants the two apart reads `stepped`. Since
+  // LEVEL (scale-fit.js rule 7) the block is two lines, and the pages are the ones its
+  // second line says to TRIM for each rung ("for 1.15x, trim page 6; for 1.3x, trim pages
+  // 4, 5, 6"). Reading only the first line measured nothing past the first rung, so every
+  // ceiling at scale-xl and scale-2xl read back as the scale-l one.
+  // Every block, not the first: a deck whose slides asked for two scales prints one per ask.
+  const stepped = [...log.matchAll(/SCALE —[^\n]*\n[^\n]*/g)]
+    .flatMap((b) => [...b[0].matchAll(/trim pages?\s+([\d,\s]+)/g)].flatMap((g) => pageNums(g[1])));
+  return { clipped: pages, stepped };
+}
+
+/**
  * Render a deck and return the set of 1-based page numbers the overflow probe
  * flagged. Throws only when the render itself failed for a reason other than
  * overflow (the probe's own non-zero exit is the signal we came for).
@@ -219,16 +268,7 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
       const tail = log.trim().split('\n').slice(-8).join('\n');
       throw new Error(`Render failed for '${label}' (exit ${r.status}).\n${tail}`);
     }
-    const m = log.match(/OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i);
-    const pages = m ? m[1].split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean) : [];
-    // A page the engine STEPPED down the font scale did not fit at the scale the deck
-    // asked for (lib/core/scale-fit.js) — it fits only because the engine gave the size
-    // back. For a ceiling measured AT a scale that is an overflow, so it is folded in; a
-    // rig that wants the two apart reads `stepped`. The line groups pages by rung
-    // ("at 1.15x: pages 2, 9; at 1x: page 4"), so every page list on it is collected.
-    const scaleLine = (log.match(/SCALE \u2014[^\n]*/) || [''])[0];
-    const stepped = [...scaleLine.matchAll(/pages?\s+([\d,\s]+)/g)]
-      .flatMap((g) => g[1].split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean));
+    const { clipped: pages, stepped } = parseProbeLog(log);
     handedOver = keep;
     return { overflowed: new Set([...pages, ...stepped]), clipped: new Set(pages), stepped: new Set(stepped), log, out, cleanup };
   } finally {
@@ -236,4 +276,4 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
   }
 }
 
-module.exports = { ROOT, EMULATOR, SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, words, cap, findManifest, gradedDeck, renderProbe };
+module.exports = { ROOT, EMULATOR, SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, words, cap, findManifest, gradedDeck, renderProbe, parseProbeLog };

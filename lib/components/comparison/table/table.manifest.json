@@ -168,5 +168,23 @@
       "note": "Rows at 65% width keep the slide row height; a stacked band halves it. Judgment: the calibration rig has no element builder for this component.",
       "min": 2
     }
+  },
+  "venueCapacity": {
+    "axis": "row",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 11,
+        "huddle": 10,
+        "conference": 9,
+        "hall": 8
+      },
+      "12": {
+        "laptop": 11,
+        "huddle": 10,
+        "conference": 9,
+        "hall": 8
+      }
+    }
   }
 }

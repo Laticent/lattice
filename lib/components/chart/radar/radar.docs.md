@@ -12,6 +12,8 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 
 ## Agent contract
 
+**By venue** no count budget. A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

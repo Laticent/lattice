@@ -14,6 +14,8 @@ Use when the table IS the slide. A plain markdown table on any slide already get
 
 **Density** aim ~12 words per row; past ~18 it reads as a wall of text — a few words per cell.
 
+**By venue** (`venue:`, ~12 words each) it holds laptop ~8 · huddle ~8 · conference ~8 · hall ~8 rows. At ~6 words each: 8 · 8 · 8 · 8. No venue goes past the Capacity max of 8, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

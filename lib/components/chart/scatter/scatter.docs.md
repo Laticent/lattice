@@ -12,6 +12,8 @@ Use when the argument is that two measures move together (or against each other)
 
 ## Agent contract
 
+**By venue** no count budget. A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

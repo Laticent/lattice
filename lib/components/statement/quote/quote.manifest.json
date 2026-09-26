@@ -112,5 +112,8 @@
     "side": 25,
     "stack": false,
     "noBudget": "one quotation and its attribution"
+  },
+  "venueCapacity": {
+    "none": "One quotation and its attribution per slide, so there is no repeated element to count."
   }
 }

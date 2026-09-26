@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance.
+summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-09-07-overflow-guards-trim.md
 ---
 
@@ -328,3 +328,75 @@ own test, which fails on the unfixed code (the fitting deck stays at `1.3>1`) an
 the fix, plus a test that an unscaled deck never creates the frame, with a positive control.
 Left as known and low: the measuring renderer is never disposed (one frame and one memo entry
 for the page's life), and its whole-deck renders show in the Studio's performance overlay.
+
+## Amendment 2026-09-27 — a budget per venue for every component, in its manifest
+
+**The owner's direction.** Type size is set by the venue, one size per deck, and each
+component has a budget per venue. An author (or an agent) should pick a component that fits
+the room BEFORE writing, instead of trimming after the export's `↓ SCALE` line complains. The
+agentic-practices talk needs 15 pages trimmed for `huddle` because nobody could see the
+budget while writing.
+
+**Where the numbers were.** `SCALE_CAPACITY` in `lib/authoring/lint-core.js`: 16 components
+and the `code` pane, hard-coded in the linter. 26 of 70 manifests carried a `capacity` block
+and 17 of 71 docs printed an "At a projection scale" line. An agent reading the pick list saw
+no venue numbers at all.
+
+**The decision (taken, reversible).**
+
+- Each manifest carries `venueCapacity` (`lib/components/manifest.schema.json`), in one of
+  three shapes: `byWords` — the element count at each venue (`laptop` / `huddle` /
+  `conference` / `hall`), at each element length it was measured at (6 words, and the
+  component's `density.soft`); `lines` — the `code` pane's line count, bare and under an
+  eyebrow; or `none` — one sentence saying why there is no count budget. **All 70 manifests
+  carry one**, pinned by `test/unit/components/venue-capacity.test.js`.
+- `tools/build-stage-catalog.js` bakes the rows into
+  `lib/authoring/venue-capacity.generated.js` (the `pane-lint.generated.js` pattern), and
+  lint-core reads that file as `SCALE_CAPACITY` / `CODE_LINES_AT_SCALE`. The Studio's live
+  lint loads the same module, so it needs no vocab handoff. `build:check` fails a stale file.
+- `tools/lib/venue-capacity.js` formats the budget for the two reading surfaces: a
+  "**By venue**" line in every component's `.docs.md` (replacing "At a projection scale"),
+  and a `by venue` column in `dist/docs/components.pick.md`. `components.json` carries the
+  block as is.
+- `atLeast` marks a venue where the rig never saw the component overflow, so the number is
+  the most it tried (kanban and timeline-list at laptop; roadmap at laptop and huddle). The
+  docs print it as `12+`.
+
+**What `none` covers, and why each is honest.** 38 components: charts scale their marks to
+the box instead of clipping (19), a bookend or single statement has nothing to count (6),
+media fills its box (3), `diagram` is scaled whole by Mermaid, the connect cards are fixed
+fields (2), `content`, `citation-card`, `logo-wall` and `math` for the reasons
+`tools/lib/calibrate-core.js` `NOT_COUNT_CALIBRATABLE` already gave, and a `redline` is one
+clause's prose. Two are gaps, and say so: `compare-code` and `obligation-matrix` are not measured per venue yet.
+
+**Calibration, and the bug it found.** The rig (`tools/calibrate-capacity.js`) had silently
+stopped measuring past the first rung. #2390 turned the `↓ SCALE` report into two lines, with
+the pages to trim on the second; the rig read only the first, so every ceiling at scale-xl
+and scale-2xl came back equal to the scale-l one (agenda at 10 words: 5 at conference, truly
+3). The rig also read the SCALE block's "(the OVERFLOW line reports them)" as the OVERFLOW
+line. Both are fixed in `parseProbeLog`, which `test/unit/tools/calibrate-core-parse.test.js`
+feeds the report `scaleLevelReport` itself prints. Re-measured with the fix, all 16 old rows
+reproduce exactly, and so does the code pane; the one difference was premise at 6 words and
+laptop, which the old run had capped at `--max 9` (now 13). The rig gained builders for
+`table`, `cycle`, `policy-recommendation`, `kanban` and `roadmap`, so every component with a
+`capacity` block now has a measured row: 32 measured, 38 `none`.
+
+**Lint, before and after.** Every component gallery plus the baseline gallery, linted at each
+venue with `main`'s linter and this one on the same source: all 412 existing findings are
+identical, and 10 are new, all `policy-recommendation` at conference and hall (three
+20-word reasons; the component holds 2 there). Rendered at the venue, the engine agrees: the
+slide holds the deck to 1x at every venue from huddle up, so lint under-warns at huddle,
+which is the direction a count budget is allowed to err. The rig's element lengths are the
+ones lint counts: `kanban`'s builder writes two cards of `w` words per lane, and lint counts
+the whole lane (2w + 3 words), so its rows are keyed 15 and 19, not 6 and 8. Keyed by card
+length, the first cut warned on a four-lane gallery slide at huddle that fits.
+
+**The published number never exceeds `capacity.hard`.** A venue row is the geometric
+ceiling, and `split-compare` measures 4 side by side at laptop while its design holds 2;
+`capacity-overflow` enforces `hard` in every room. So the docs line and the pick column print
+`min(measured, hard)` (`tools/lib/venue-capacity.js` `hardCap`), and say so when it binds. The
+manifest keeps the measured number, which lint reads.
+
+**Found on the way, not fixed here.** At the designed size the new `cycle` builder measures
+a ceiling of 5 stages of 12 words against a declared `hard` of 6 — the same shape as the seven
+in `followups.d/2378-p3-capacity-hard-above-measured.md`, where it is now recorded.

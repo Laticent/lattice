@@ -296,5 +296,23 @@
   "pane": {
     "side": false,
     "stack": false
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 8,
+        "huddle": 7,
+        "conference": 6,
+        "hall": 6
+      },
+      "16": {
+        "laptop": 5,
+        "huddle": 5,
+        "conference": 4,
+        "hall": 3
+      }
+    }
   }
 }

@@ -413,10 +413,16 @@ has nothing left to cap, and the owner replaced it on 2026-09-26. What you get:
   pages …; for 1.3x, trim pages …`. Each section carries
   `data-lattice-scale-step="1.3>1"`, and a slide whose own fit is lower carries
   `data-lattice-scale-fit`.
-- **`lint:deck` flags it first.** `capacity-scale` names a counted component past its
-  measured budget at the deck's scale, and a `code` block past the pane's scaled line or
-  column budget. Each component's `.docs.md` prints its budget on an
-  "**At a projection scale**" line.
+- **Every component states its budget per venue.** Its manifest's `venueCapacity` holds the
+  element count it fits at `laptop` / `huddle` / `conference` / `hall` (measured at a wide
+  @size by `tools/calibrate-capacity.js`), or one sentence saying why it has no count budget
+  (a chart scales to its box; a title has nothing to count). Its `.docs.md` prints it on a
+  "**By venue**" line, and `dist/docs/components.pick.md` has a `by venue` column, so you can
+  pick a component that fits the room before you write.
+- **`lint:deck` flags it first.** `capacity-scale` names a counted component past that
+  budget at the deck's scale, and a `code` block past the pane's scaled line or column
+  budget. It reads the same numbers, baked into
+  `lib/authoring/venue-capacity.generated.js`.
 
 Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /
 13 / 11 / 10 lines at 1 / l / xl / 2xl (13 / 11 / 10 / 8 under an eyebrow), and

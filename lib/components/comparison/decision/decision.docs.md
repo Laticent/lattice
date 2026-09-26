@@ -12,6 +12,8 @@ Use after a comparison slide to land the decision. The justifications render as 
 
 **Density** aim ~20 words per item; past ~32 it reads as a wall of text — each option's tradeoff in a sentence or two.
 
+**By venue** (`venue:`, ~20 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~3 items. At ~6 words each: 10 · 9 · 9 · 8. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

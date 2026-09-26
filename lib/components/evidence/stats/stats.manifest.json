@@ -153,5 +153,23 @@
       "min": 3
     },
     "review": "side 50 measured, 65 reviewed: three tiles overflow at 50% with real values."
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 7,
+        "huddle": 7,
+        "conference": 7,
+        "hall": 6
+      },
+      "8": {
+        "laptop": 7,
+        "huddle": 7,
+        "conference": 7,
+        "hall": 6
+      }
+    }
   }
 }

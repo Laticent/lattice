@@ -10,6 +10,8 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 ## Agent contract
 
+**By venue** no count budget. A bookend: one heading and a line or two, with no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |
