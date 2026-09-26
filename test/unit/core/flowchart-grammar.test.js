@@ -256,6 +256,55 @@ describe('the Markdown adapter agrees with markdown-it', () => {
   });
 });
 
+describe('the HTML reader agrees with the Markdown reader', () => {
+  // The render path reads markdown-it's HTML; lint reads the Markdown. §2 promises one
+  // grammar, so both readers must build the same outline from the same source. Rendered
+  // through the real engine, so the `escapeMarks` plugin is in the loop.
+  const engine = require('../../../lib/engine');
+  const html = (src) => {
+    const out = engine.render(`## T\n\n${src}\n`);
+    const h = String(out.html || out);
+    return h.slice(h.indexOf('</h2>') + 5);
+  };
+  // Compared after the grammar has read both outlines: the raw text legitimately differs
+  // where markdown-it already consumed an escape the grammar consumes later.
+  const shape = (o) => {
+    const m = g.parseFlowchart(o.items, { key: o.key });
+    const details = [];
+    const walk = (items) => { for (const it of items) { details.push(it.detail || ''); walk(it.children); } };
+    walk(o.items);
+    return JSON.stringify({ shapes: m.shapes, groups: m.groups, edges: m.edges, notes: m.notes, key: m.key, details, caption: o.caption, rules: m.diagnostics.map((d) => d.rule) });
+  };
+  for (const [name, src] of [
+    ['nesting, spans, arrows and fan-out', '- Alpha `:c2` => Beta\n  - -ships via-> Gamma & Delta\n- Group\n  - Member one\n  - Member two'],
+    ['an escaped arrow and fan-out stay text', '- Not \\-> an arrow\n- Q \\& A -\\> B\n- Top\\=> B'],
+    ['any other escape loses its backslash', '- A \\* B\n- C \\\\ D\n- E \\d F'],
+    ['inline markup contributes its text', '- **Bold** step -> [Link](http://x.y) `:c3`\n- snake_case_name => x_y\n- Raw <b>tag</b> -> A'],
+    ['entities decode alike', '- Q &amp; A -> Fish &lt; Chips'],
+    ['a left arrow is never a tag', '- A <- B\n- C <-> D'],
+    ['notes join, detail lines read as detail', '- A\n  > line one\n  > line two\n- B\n  lazy text\n- C'],
+    ['a loose list', '- A\n\n  more about A\n\n- B -> A'],
+    ['an ordered list', '1. A => B\n2. B\n   - C'],
+    ['key and caption after the list', '- A => B `:dotted`\n\n`[{=>, Happy path}, {:dotted, Later}]`\n\n*Everything waits for review.*'],
+  ]) {
+    test(name, () => assert.equal(shape(g.outlineFromHtml(html(src))), shape(g.outlineFromMarkdown(src))));
+  }
+
+  test('the offsets let a caller splice the list and the key out', () => {
+    const h = html('- A => B\n\n`[{=>, Main}]`\n\n*Cap.*');
+    const o = g.outlineFromHtml(h);
+    assert.ok(h.slice(o.start).startsWith('<ul'));
+    assert.ok(h.slice(o.end).trimStart().startsWith('<p><code>'));
+    assert.ok(h.slice(o.keyEnd).trimStart().startsWith('<p><em>'));
+  });
+
+  test('no list, no outline', () => {
+    const o = g.outlineFromHtml('<p>Just prose.</p>');
+    assert.deepEqual(o.items, []);
+    assert.equal(o.start, -1);
+  });
+});
+
 describe('grammar findings from the review', () => {
   test('a code span inside a name stays in the name', () => {
     const m = parse('- Run `npm test` -> Deploy');

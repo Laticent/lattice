@@ -1241,7 +1241,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		//
 		// BEFORE the runtime tag: classic scripts run in document order, and the runtime's
 		// pass reads `globalThis.__latticeDagre` synchronously on its first draw.
-		if (html.indexOf('data-sc-transitions') !== -1 && dagreUrl) {
+		// A flowchart always needs it (`data-fc-model`, on every flowchart figure).
+		if ((html.indexOf('data-sc-transitions') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
 			s += '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>';
 		}
 		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
@@ -1644,7 +1645,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
-						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
+						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
 						s.mermaid = (out.html.match(/language-mermaid/g) || []).length;
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown
 						// (render-engine.ts) loads KaTeX when `sourceHasMath(source)` is true on

@@ -216,7 +216,6 @@ const SINGLETON_TAGS = new Set([
   'donut',      // piechart — the donut idiom
   'spider',     // radar — the spider/radar idiom
   'tag-cloud',  // word-cloud — the tag-cloud idiom
-  'org-chart',  // diagram — org-chart idiom
   'themes',     // word-cloud — recurring themes/terms
   'definition', // glossary — term definitions
   'states',     // state-chart — state machine states
@@ -5249,6 +5248,11 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/slope/slope.transform.js', true, true],
   ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
   ['components/chart/state-chart/state-chart.transform.js', true, true],
+  // The flowchart names each shape twice: on the harness tile the server emits (what shows before
+  // the browser pass, or where it cannot run) and on the shape the pass paints. No value: a shape's
+  // status paints it rather than being a quantity a sentence could corroborate.
+  ['components/chart/flowchart/flowchart.transform.js', true, false],
+  ['components/chart/flowchart/flowchart.layout.js', true, false],
   ['components/chart/timeline-list/timeline-list.transform.js', true, false],
   ['components/chart/waterfall/waterfall.transform.js', true, true],
   ['components/chart/word-cloud/word-cloud.transform.js', true, false],
@@ -8430,6 +8434,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   radar: 'data viz — scatter series',
   roadmap: 'data viz — timeline matrix',
   'state-chart': 'data viz — state graph',
+  flowchart: 'data viz — shapes and the lines between them',
   'word-cloud': 'data viz — weighted terms, not prose',
   // code — budgeted by line count, not words.
   code: 'code — line-based, not word-based',

@@ -1,0 +1,235 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "flowchart",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "shapes",
+      "connections",
+      "groups",
+      "notes",
+      "key",
+      "eyebrow"
+    ]
+  },
+  "function": "progression",
+  "bucket": "chart",
+  "form": "canvas",
+  "substance": "graph",
+  "render": "hybrid",
+  "renderNote": "Shapes, line labels, group titles and notes are authored as a list and emitted as an HTML measuring harness; the browser pass measures it in the deck's own fonts, lays the chart out with the shared elbow router and paints every mark into the `<svg>`. Once painted the harness leaves layout, so a drawn slide is SVG in practice; it is hybrid because the harness is what shows until the pass runs, or where it cannot.",
+  "focusAxes": [
+    "mark"
+  ],
+  "kernel": {
+    "figureClass": "flowchart-figure",
+    "marks": [
+      {
+        "class": "fc-node",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "fc-shape",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "fc-group",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "fc-edge",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "fc-head",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each box is a thing and each line says how one thing leads to or depends on another",
+    "figure": "placeholder",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "tags": [
+    "org-chart",
+    "process",
+    "workflow",
+    "overview"
+  ],
+  "description": "A free-form flowchart: shapes, groups and lines, written as a list.",
+  "purpose": "Use for a process or decision flow, an org chart, a data flow or a system map: any set of boxes where the lines between them are the point. Every list item is a shape; a sub-list of shapes makes its parent a group; an arrow in a row connects shapes by name. Nothing implies order, so the same grammar draws a tree, a pipeline or a few disconnected boxes.",
+  "variants": [
+    "lr",
+    "tb"
+  ],
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading: name the takeaway, not the diagram."
+    },
+    "eyebrow": {
+      "selector": "p > code",
+      "required": false,
+      "description": "Optional eyebrow naming the system or domain."
+    },
+    "shapes": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`:box` `:square` `:pill` `:diamond` `:circle` `:cylinder` `:io` `:doc`), a slot `:c1`…`:c8`, one channel `:fill-cN` / `:border-cN` / `:text-cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by."
+    },
+    "groups": {
+      "selector": "li > ul",
+      "required": false,
+      "description": "A sub-list of shapes makes its parent item a GROUP, drawn as a tinted background behind its members, like a Mermaid subgraph. `:cN` on a group tints it. Groups nest. A line can start or end at a group."
+    },
+    "connections": {
+      "selector": "li",
+      "required": false,
+      "description": "An arrow in a row connects shapes: `A -> B`, `A => B` (the heavy main path), `A -- B` (no head), `A <-> B`, `A <- B`. A label sits inside the arrow: `-ships via->`. A row may start with the arrow (`- => B`), meaning \"from the item this row sits under\", or name its source (`- A => B`). `&` fans out: `A -> B & C`. A trailing span after the target styles the line: `:dashed` `:dotted` `:open` `:dot` `:cross` `:loose` `:cN`."
+    },
+    "notes": {
+      "selector": "li > blockquote",
+      "required": false,
+      "description": "A `>` blockquote under a shape is a note pinned to it, drawn as a card on a dotted tether."
+    },
+    "key": {
+      "selector": "p > code",
+      "required": false,
+      "description": "The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{=>, Happy path}, {:dotted, Later}]` ``. It only renames; it never hides or adds an entry."
+    },
+    "caption": {
+      "selector": "p > em",
+      "required": false,
+      "description": "An italic paragraph below becomes the chart caption."
+    }
+  },
+  "skeleton": "<!-- _class: flowchart -->\n\n## The flow in one line.\n\n- Start `:pill` => Check => Decide?\n- Decide? `:diamond`\n  - -yes-> Ship\n  - -no-> Fix -> Check\n",
+  "sample": "<!-- _class: flowchart -->\n\n`Incident response`\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `:pill` => Auto-triage => Severity?\n- Severity? `:diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket -> Mitigate\n  - -SEV3-> Backlog `:dotted`\n- Page on-call `fail` =ack=> Mitigate => Postmortem\n  > Pages the secondary after 5 minutes.\n- Postmortem `:doc`\n\n`[{=>, Paging path}, {:dotted, Waits for business hours}]`\n",
+  "stressDoc": {
+    "summary": "Three groups, a group-to-shape line and a disconnected shape.",
+    "sample": "<!-- _class: flowchart -->\n\n`Platform`\n\n## Payments sit between four parties.\n\n- Customers `:c1`\n  - Shopper `:circle`\n    - -browses-> Storefront\n  - Merchant `:circle`\n    - -lists items-> Storefront\n- Platform `:c2`\n  - Storefront\n    - => Payments\n  - Payments\n    - -screens-> Fraud checks\n    - <-> Card networks\n  - Fraud checks `:diamond`\n  - -ships via-> Carriers\n- Partners `:c3`\n  - Card networks `:square`\n  - Carriers `:square`\n- Regulators `:doc`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "The lines are the point",
+      "body": "A flowchart earns its space when the audience needs to see what connects to what: a decision flow, who reports to whom, where data goes. If the boxes are the point and the order is fixed, a step list or timeline reads faster."
+    },
+    {
+      "title": "Up to about a dozen shapes",
+      "body": "Starting budgets: a decision flow six steps deep with four branches; an org chart three levels deep and eight across; a data flow three groups and twelve shapes; a system map ten shapes. Past that the type shrinks toward the floor; split into an overview and detail slides."
+    },
+    {
+      "title": "Free-form, not a state machine",
+      "body": "For a machine with states and events, where the numbering is the reference, use `state-chart`. A flowchart implies no order and has no start or end markers."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "A sequence dressed as a flowchart",
+      "body": "Five boxes in a line with arrows between them is a list with decoration. Use `list-steps` or `timeline-list`, which read faster and fit more words."
+    },
+    {
+      "title": "Timed interactions or schedules",
+      "body": "Messages between actors over time are a sequence diagram (`diagram` with Mermaid); work across dates is `gantt` or `roadmap`."
+    },
+    {
+      "title": "Color with no key",
+      "body": "Every slot and status the chart uses shows up in the derived key. Renaming entries is free; painting meaning the reader cannot decode is not."
+    }
+  ],
+  "related": [
+    {
+      "name": "state-chart",
+      "when": "a finite-state machine: numbered states, events between them, a start and an end"
+    },
+    {
+      "name": "diagram",
+      "when": "you need Mermaid's full grammar: sequence, class or entity diagrams, or a flowchart with subgraph directions and styles this grammar does not cover"
+    },
+    {
+      "name": "list-steps",
+      "when": "a linear procedure with no branching and no lines worth drawing"
+    },
+    {
+      "name": "roadmap",
+      "when": "parallel workstreams across phases, where time is the axis"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Nesting a shape under a connection row.",
+      "fix": "A sub-list makes its parent a GROUP, so it must sit under a shape's row, never under `- -> B`. Lint names it: flowchart-nested-under-connection."
+    },
+    {
+      "mistake": "Styling a shape from the line that points at it (`-> B `:diamond``).",
+      "fix": "A span after a connection's target styles the LINE. Give B its own row and put `:diamond` there."
+    },
+    {
+      "mistake": "Writing an arrow that is meant as text (`Input -> Output` as one name).",
+      "fix": "Escape it: `Input \\-> Output`. A comparison like `2 => 3` is warned about for the same reason."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Almost always. The chart lays itself out both ways and keeps whichever sets the type larger on the stage. A dense chart whose type nears the floor takes the universal `compact` modifier, which tightens the spacing."
+    },
+    {
+      "variant": "lr",
+      "useWhen": "The flow must read left to right whatever the stage shape (a pipeline, a data flow). On a portrait deck `lr` falls back to `tb`, because a row cannot fit a tall box."
+    },
+    {
+      "variant": "tb",
+      "useWhen": "The flow must read top to bottom (an org chart, a decision tree)."
+    }
+  ],
+  "variantDocs": {
+    "lr": {
+      "label": "Left-to-right",
+      "summary": "Pins the flow left to right.",
+      "sample": "<!-- _class: flowchart lr -->\n\n## Events land in the warehouse within a minute.\n\n- Web events `:io` => Ingest queue => Stream processor => Warehouse\n- Warehouse `:cylinder`\n  - -> BI dashboards\n  - -nightly-> ML training\n- BI dashboards `:doc`\n"
+    },
+    "tb": {
+      "label": "Top-to-bottom",
+      "summary": "Pins the flow top to bottom.",
+      "sample": "<!-- _class: flowchart tb -->\n\n## The operating model has three lines of reporting.\n\n- Chief executive `:c1`\n  - -- Finance & Technology & Operations\n- Finance\n  - -- Controller & Planning\n- Technology\n  - -- Platform & Security\n"
+    }
+  },
+  "specimenVoice": true,
+  "anatomyBlock": "diagram-canvas",
+  "handles": [
+    {
+      "part": ".fc-node",
+      "names": ".fc-name",
+      "note": "A harness tile holds its name span and nothing else."
+    },
+    {
+      "part": ".fc-key-item",
+      "names": ".fc-key-label",
+      "note": "A key entry is a swatch plus its label."
+    }
+  ]
+}

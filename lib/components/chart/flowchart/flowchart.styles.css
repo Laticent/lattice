@@ -1,0 +1,356 @@
+/* flowchart — shapes, groups and lines (engineering/decisions/2026-09-25-flowchart-authoring.md).
+ *
+ * Two layers, the state chart's model: the HTML MEASURING HARNESS the server emits
+ * (every shape, line label, group title and note as a box the browser sizes in the
+ * deck's own fonts), and the SVG the browser pass paints from those boxes
+ * (flowchart.layout.js). Until the pass runs, or where it cannot (no layout engine),
+ * the harness is what shows: every shape as a tile, in authored order.
+ *
+ * Palette-blind (HARD RULE #3): shapes and lines take the chart family's slots
+ * (`--chart-cat-N-*`) and status tones (`--state-*`), groups a tint of one. Unlayered
+ * (HARD RULE #26), anchored on the section; no margins (HARD RULE #20). */
+
+section.flowchart {
+  --fc-ink: var(--text-heading);
+  --fc-line-mark: var(--diagram-line);
+  --fc-stroke-mark: var(--diagram-stroke);
+  --fc-tile-fill: light-dark(color-mix(in oklab, var(--muted-mark) 14%, var(--bg)), color-mix(in oklab, var(--muted-mark) 30%, black));
+}
+
+section.flowchart.chart-frame .chart-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Fill the stage by grow with a zero basis: the scale box below is out of flow,
+   * so a content basis would collapse the body (the state chart's note). */
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* The figure: the drawing's viewport, then the key under it. */
+section.flowchart .flowchart-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+}
+/* The VIEWPORT the pass letterboxes the drawing into. */
+section.flowchart .fc-canvas {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+}
+
+/* The natural-size geometry box: out of flow and centred, so its size never feeds
+ * the viewport's. The pass sizes it to the drawing and appends the fit scale(). */
+section.flowchart .flowchart-scale {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max-content;
+  transform-origin: center center;
+  transform: translate(-50%, -50%);
+}
+
+/* ── The harness ──────────────────────────────────────────────────────────── */
+
+section.flowchart .fc-nodes {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--sp-sm) var(--sp-md);
+  max-width: 80cqi;
+}
+
+/* A shape's TEXT box. Its size is what the pass measures, so every property that
+ * changes it lives here: the font, the padding and the wrap width. */
+section.flowchart .fc-node {
+  flex: 0 0 auto;
+  max-width: 17cqi;
+  min-width: min-content;
+  padding: 0.78125cqi 1.5625cqi;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: max(var(--chart-text-min), 1.171875cqi);
+  line-height: 1.2;
+  text-align: center;
+  color: var(--fc-ink);
+  background: var(--fc-tile-fill);
+  border: var(--chart-hairline) solid var(--fc-stroke-mark);
+  border-radius: var(--chart-mark-radius);
+}
+
+/* Labels, titles and notes are measured, never shown as HTML: out of flow and
+ * invisible, but laid out, so they have a box to read. */
+section.flowchart :is(.fc-elabels, .fc-gtitles, .fc-notes) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  list-style: none;
+  padding: 0;
+}
+section.flowchart :is(.fc-elabel, .fc-gtitle, .fc-note) {
+  display: block;
+  width: max-content;
+}
+section.flowchart .fc-elabel {
+  font-family: var(--font-label);
+  font-size: max(var(--chart-text-min), 1.015625cqi);
+  line-height: 1.25;
+  padding: 0 0.3cqi;
+}
+section.flowchart .fc-gtitle {
+  font-family: var(--font-label);
+  font-size: max(var(--chart-text-min), 0.859375cqi);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+section.flowchart .fc-note {
+  max-width: 16cqi;
+  font-family: var(--font-body);
+  font-size: max(var(--chart-text-min), 0.9375cqi);
+  line-height: 1.25;
+  padding: 0.5cqi 0.8cqi;
+  width: auto;
+}
+
+/* Once drawn, the harness leaves layout. The pass removes `data-fc-drawn` before it
+ * measures, in the same synchronous draw, so the boxes are always there to read. */
+section.flowchart .flowchart-figure[data-fc-drawn="1"] .fc-harness {
+  display: none;
+}
+
+/* ── The painted chart ───────────────────────────────────────────────────── */
+
+section.flowchart .flowchart-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+section.flowchart .flowchart-figure:not([data-fc-drawn="1"]) .flowchart-svg {
+  display: none;
+}
+
+/* Groups: a quiet tint of their slot, or of the neutral mark. Nested groups stack
+ * the translucent tint, so depth reads without a second rule. */
+section.flowchart .fc-group {
+  fill: color-mix(in oklab, var(--muted-mark) 8%, transparent);
+  stroke: color-mix(in oklab, var(--muted-mark) 38%, transparent);
+}
+section.flowchart .fc-group-title {
+  fill: var(--text-secondary);
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Shapes. The outline is the mark; the name sits on it. */
+section.flowchart .fc-shape {
+  pointer-events: auto;
+  fill: var(--fc-tile-fill);
+  stroke: var(--fc-stroke-mark);
+}
+/* A cylinder's top rim: the same edge as its outline, drawn over the fill. */
+section.flowchart .fc-shape-rim {
+  fill: none;
+  stroke: var(--fc-stroke-mark);
+  /* The hairline the shared edge rule resolves --chart-edge to, named directly: the rim is
+   * part of the cylinder's outline, not a declared mark of its own. */
+  stroke-width: var(--chart-hairline);
+  vector-effect: non-scaling-stroke;
+}
+section.flowchart .fc-name {
+  fill: var(--fc-ink);
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+/* The status table: one tone per word, the chart family's (gantt's) mapping. */
+section.flowchart :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="on-track"], [data-s="done"]) { --fc-hue: var(--state-pass-hue); --fc-hue-mark: var(--state-pass-ink); }
+section.flowchart :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"]) { --fc-hue: var(--state-warn-hue); --fc-hue-mark: var(--state-warn-ink); }
+section.flowchart :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"]) { --fc-hue: var(--state-fail-hue); --fc-hue-mark: var(--state-fail-ink); }
+section.flowchart :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --fc-hue: var(--state-info-hue); --fc-hue-mark: var(--state-info-ink); }
+section.flowchart :is(.fc-node, .fc-shape, .fc-key-swatch)[data-s]:not([data-s="deferred"]) {
+  --fc-status-fill: light-dark(color-mix(in oklab, var(--fc-hue) 22%, var(--bg)), color-mix(in oklab, var(--fc-hue) 46%, black));
+}
+section.flowchart .fc-shape[data-s]:not([data-s="deferred"]) { fill: var(--fc-status-fill); stroke: var(--fc-hue-mark); }
+section.flowchart .fc-node[data-s]:not([data-s="deferred"]) { background: var(--fc-status-fill); border-color: var(--fc-hue-mark); }
+/* Deferred is hollow and dashed: on hue alone it would read as "no status". */
+section.flowchart .fc-shape[data-s="deferred"] { fill: none; stroke: var(--text-secondary); stroke-dasharray: 4px 2.5px; }
+section.flowchart .fc-node[data-s="deferred"] { background: none; border-style: dashed; border-color: var(--text-secondary); }
+
+/* Slots: a whole shape, or one channel of it. A channel beats the whole-shape slot
+ * because it is the narrower instruction. */
+section.flowchart .fc-shape[data-slot="1"], section.flowchart .fc-node[data-slot="1"] { --fc-slot-fill: var(--chart-cat-1-fill); --fc-slot-mark: var(--chart-cat-1-ink); }
+section.flowchart .fc-shape[data-slot="2"], section.flowchart .fc-node[data-slot="2"] { --fc-slot-fill: var(--chart-cat-2-fill); --fc-slot-mark: var(--chart-cat-2-ink); }
+section.flowchart .fc-shape[data-slot="3"], section.flowchart .fc-node[data-slot="3"] { --fc-slot-fill: var(--chart-cat-3-fill); --fc-slot-mark: var(--chart-cat-3-ink); }
+section.flowchart .fc-shape[data-slot="4"], section.flowchart .fc-node[data-slot="4"] { --fc-slot-fill: var(--chart-cat-4-fill); --fc-slot-mark: var(--chart-cat-4-ink); }
+section.flowchart .fc-shape[data-slot="5"], section.flowchart .fc-node[data-slot="5"] { --fc-slot-fill: var(--chart-cat-5-fill); --fc-slot-mark: var(--chart-cat-5-ink); }
+section.flowchart .fc-shape[data-slot="6"], section.flowchart .fc-node[data-slot="6"] { --fc-slot-fill: var(--chart-cat-6-fill); --fc-slot-mark: var(--chart-cat-6-ink); }
+section.flowchart .fc-shape[data-slot="7"], section.flowchart .fc-node[data-slot="7"] { --fc-slot-fill: var(--chart-cat-7-fill); --fc-slot-mark: var(--chart-cat-7-ink); }
+section.flowchart .fc-shape[data-slot="8"], section.flowchart .fc-node[data-slot="8"] { --fc-slot-fill: var(--chart-cat-8-fill); --fc-slot-mark: var(--chart-cat-8-ink); }
+section.flowchart .fc-shape[data-slot] { fill: var(--fc-slot-fill); stroke: var(--fc-slot-mark); }
+section.flowchart .fc-node[data-slot] { background: var(--fc-slot-fill); border-color: var(--fc-slot-mark); }
+section.flowchart .fc-shape[data-fill="1"] { fill: var(--chart-cat-1-fill); }
+section.flowchart .fc-shape[data-fill="2"] { fill: var(--chart-cat-2-fill); }
+section.flowchart .fc-shape[data-fill="3"] { fill: var(--chart-cat-3-fill); }
+section.flowchart .fc-shape[data-fill="4"] { fill: var(--chart-cat-4-fill); }
+section.flowchart .fc-shape[data-fill="5"] { fill: var(--chart-cat-5-fill); }
+section.flowchart .fc-shape[data-fill="6"] { fill: var(--chart-cat-6-fill); }
+section.flowchart .fc-shape[data-fill="7"] { fill: var(--chart-cat-7-fill); }
+section.flowchart .fc-shape[data-fill="8"] { fill: var(--chart-cat-8-fill); }
+section.flowchart .fc-shape[data-border="1"] { stroke: var(--chart-cat-1-ink); }
+section.flowchart .fc-shape[data-border="2"] { stroke: var(--chart-cat-2-ink); }
+section.flowchart .fc-shape[data-border="3"] { stroke: var(--chart-cat-3-ink); }
+section.flowchart .fc-shape[data-border="4"] { stroke: var(--chart-cat-4-ink); }
+section.flowchart .fc-shape[data-border="5"] { stroke: var(--chart-cat-5-ink); }
+section.flowchart .fc-shape[data-border="6"] { stroke: var(--chart-cat-6-ink); }
+section.flowchart .fc-shape[data-border="7"] { stroke: var(--chart-cat-7-ink); }
+section.flowchart .fc-shape[data-border="8"] { stroke: var(--chart-cat-8-ink); }
+section.flowchart .fc-node-group[data-text="1"] .fc-name { fill: var(--chart-cat-1-ink); }
+section.flowchart .fc-node-group[data-text="2"] .fc-name { fill: var(--chart-cat-2-ink); }
+section.flowchart .fc-node-group[data-text="3"] .fc-name { fill: var(--chart-cat-3-ink); }
+section.flowchart .fc-node-group[data-text="4"] .fc-name { fill: var(--chart-cat-4-ink); }
+section.flowchart .fc-node-group[data-text="5"] .fc-name { fill: var(--chart-cat-5-ink); }
+section.flowchart .fc-node-group[data-text="6"] .fc-name { fill: var(--chart-cat-6-ink); }
+section.flowchart .fc-node-group[data-text="7"] .fc-name { fill: var(--chart-cat-7-ink); }
+section.flowchart .fc-node-group[data-text="8"] .fc-name { fill: var(--chart-cat-8-ink); }
+
+section.flowchart .fc-group[data-slot="1"] { --fc-group-hue: var(--chart-cat-1-hue); }
+section.flowchart .fc-group[data-slot="2"] { --fc-group-hue: var(--chart-cat-2-hue); }
+section.flowchart .fc-group[data-slot="3"] { --fc-group-hue: var(--chart-cat-3-hue); }
+section.flowchart .fc-group[data-slot="4"] { --fc-group-hue: var(--chart-cat-4-hue); }
+section.flowchart .fc-group[data-slot="5"] { --fc-group-hue: var(--chart-cat-5-hue); }
+section.flowchart .fc-group[data-slot="6"] { --fc-group-hue: var(--chart-cat-6-hue); }
+section.flowchart .fc-group[data-slot="7"] { --fc-group-hue: var(--chart-cat-7-hue); }
+section.flowchart .fc-group[data-slot="8"] { --fc-group-hue: var(--chart-cat-8-hue); }
+section.flowchart .fc-group[data-slot] {
+  fill: color-mix(in oklab, var(--fc-group-hue) 10%, transparent);
+  stroke: color-mix(in oklab, var(--fc-group-hue) 42%, transparent);
+}
+section.flowchart .fc-group-title[data-slot="1"] { fill: var(--chart-cat-1-ink); }
+section.flowchart .fc-group-title[data-slot="2"] { fill: var(--chart-cat-2-ink); }
+section.flowchart .fc-group-title[data-slot="3"] { fill: var(--chart-cat-3-ink); }
+section.flowchart .fc-group-title[data-slot="4"] { fill: var(--chart-cat-4-ink); }
+section.flowchart .fc-group-title[data-slot="5"] { fill: var(--chart-cat-5-ink); }
+section.flowchart .fc-group-title[data-slot="6"] { fill: var(--chart-cat-6-ink); }
+section.flowchart .fc-group-title[data-slot="7"] { fill: var(--chart-cat-7-ink); }
+section.flowchart .fc-group-title[data-slot="8"] { fill: var(--chart-cat-8-ink); }
+
+/* Lines. The group carries the line's color, so its path, head and label agree. */
+section.flowchart .fc-edge-group { --fc-edge: var(--fc-line-mark); }
+section.flowchart .fc-edge-group[data-slot="1"] { --fc-edge: var(--chart-cat-1-ink); }
+section.flowchart .fc-edge-group[data-slot="2"] { --fc-edge: var(--chart-cat-2-ink); }
+section.flowchart .fc-edge-group[data-slot="3"] { --fc-edge: var(--chart-cat-3-ink); }
+section.flowchart .fc-edge-group[data-slot="4"] { --fc-edge: var(--chart-cat-4-ink); }
+section.flowchart .fc-edge-group[data-slot="5"] { --fc-edge: var(--chart-cat-5-ink); }
+section.flowchart .fc-edge-group[data-slot="6"] { --fc-edge: var(--chart-cat-6-ink); }
+section.flowchart .fc-edge-group[data-slot="7"] { --fc-edge: var(--chart-cat-7-ink); }
+section.flowchart .fc-edge-group[data-slot="8"] { --fc-edge: var(--chart-cat-8-ink); }
+section.flowchart .fc-edge {
+  fill: none;
+  stroke: var(--fc-edge);
+  stroke-width: 1.3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+section.flowchart .fc-edge-group[data-heavy="1"] .fc-edge { stroke-width: 2.6px; }
+section.flowchart .fc-edge-group[data-pattern="dashed"] .fc-edge { stroke-dasharray: 6px 4px; }
+section.flowchart .fc-edge-group[data-pattern="dotted"] .fc-edge { stroke-dasharray: 0.5px 4px; stroke-width: 1.8px; }
+section.flowchart .fc-edge-group[data-tether="1"] .fc-edge { --fc-edge: var(--text-secondary); stroke-width: 1.3px; }
+section.flowchart .fc-head { fill: var(--fc-edge); stroke: var(--fc-edge); stroke-linejoin: round; stroke-linecap: round; }
+section.flowchart .fc-head:is([data-head="open"], [data-head="cross"]) { fill: none; }
+section.flowchart .fc-edge-label {
+  fill: var(--text-body);
+  font-family: var(--font-label);
+  font-variant-ligatures: none;
+}
+
+/* Notes: a card on a dotted tether, quieter than a shape. */
+section.flowchart .fc-note-card {
+  fill: var(--bg);
+  stroke: color-mix(in oklab, var(--muted-mark) 60%, transparent);
+  stroke-width: 1px;
+  stroke-dasharray: 3px 2px;
+}
+section.flowchart .fc-note-text {
+  fill: var(--text-body);
+  font-family: var(--font-body);
+  font-style: italic;
+}
+
+/* ── The key ─────────────────────────────────────────────────────────────── */
+
+section.flowchart .fc-key {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-xs) var(--sp-lg);
+  list-style: none;
+  padding: 0;
+  font-size: var(--fs-body-compact);
+  color: var(--text-secondary);
+}
+section.flowchart .fc-key-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-xs);
+}
+section.flowchart .fc-key-label {
+  font-family: var(--pill-font);
+  letter-spacing: var(--pill-tracking);
+}
+/* Each swatch wears the paint of the mark it decodes. */
+section.flowchart .fc-key-swatch {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 1.8cqi;
+  height: 0.95cqi;
+  border-radius: var(--chart-mark-radius);
+}
+section.flowchart .fc-key-swatch[data-kind="line"] {
+  height: 0;
+  border-radius: 0;
+  border-top: 0.11cqi solid var(--fc-line-mark);
+}
+section.flowchart .fc-key-swatch[data-kind="line"][data-heavy="1"] { border-top-width: 0.22cqi; }
+section.flowchart .fc-key-swatch[data-kind="line"][data-pattern="dashed"] { border-top-style: dashed; }
+section.flowchart .fc-key-swatch[data-kind="line"][data-pattern="dotted"] { border-top-style: dotted; border-top-width: 0.16cqi; }
+section.flowchart .fc-key-swatch[data-kind="head"] {
+  width: 0.8cqi;
+  height: 0.8cqi;
+  border: 0.11cqi solid var(--fc-line-mark);
+  border-radius: 50%;
+}
+section.flowchart .fc-key-swatch[data-kind="tile"] {
+  background: var(--fc-status-fill, var(--fc-slot-fill, var(--fc-tile-fill)));
+  border: var(--chart-hairline) solid var(--fc-hue-mark, var(--fc-slot-mark, var(--fc-stroke-mark)));
+}
+section.flowchart .fc-key-swatch[data-kind="group"] {
+  background: color-mix(in oklab, var(--fc-group-hue) 14%, transparent);
+  border: var(--chart-hairline) solid color-mix(in oklab, var(--fc-group-hue) 42%, transparent);
+}
+section.flowchart .fc-key-swatch[data-slot="1"] { --fc-slot-fill: var(--chart-cat-1-fill); --fc-slot-mark: var(--chart-cat-1-ink); --fc-group-hue: var(--chart-cat-1-hue); }
+section.flowchart .fc-key-swatch[data-slot="2"] { --fc-slot-fill: var(--chart-cat-2-fill); --fc-slot-mark: var(--chart-cat-2-ink); --fc-group-hue: var(--chart-cat-2-hue); }
+section.flowchart .fc-key-swatch[data-slot="3"] { --fc-slot-fill: var(--chart-cat-3-fill); --fc-slot-mark: var(--chart-cat-3-ink); --fc-group-hue: var(--chart-cat-3-hue); }
+section.flowchart .fc-key-swatch[data-slot="4"] { --fc-slot-fill: var(--chart-cat-4-fill); --fc-slot-mark: var(--chart-cat-4-ink); --fc-group-hue: var(--chart-cat-4-hue); }
+section.flowchart .fc-key-swatch[data-slot="5"] { --fc-slot-fill: var(--chart-cat-5-fill); --fc-slot-mark: var(--chart-cat-5-ink); --fc-group-hue: var(--chart-cat-5-hue); }
+section.flowchart .fc-key-swatch[data-slot="6"] { --fc-slot-fill: var(--chart-cat-6-fill); --fc-slot-mark: var(--chart-cat-6-ink); --fc-group-hue: var(--chart-cat-6-hue); }
+section.flowchart .fc-key-swatch[data-slot="7"] { --fc-slot-fill: var(--chart-cat-7-fill); --fc-slot-mark: var(--chart-cat-7-ink); --fc-group-hue: var(--chart-cat-7-hue); }
+section.flowchart .fc-key-swatch[data-slot="8"] { --fc-slot-fill: var(--chart-cat-8-fill); --fc-slot-mark: var(--chart-cat-8-ink); --fc-group-hue: var(--chart-cat-8-hue); }

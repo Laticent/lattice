@@ -86,6 +86,12 @@ const TSPAN_BUILDERS = [
       'that predate the kernel and set the baseline on their own <text>',
   },
   {
+    file: 'lib/components/chart/flowchart/flowchart.layout.js',
+    owes: 'attr',
+    why: 'the browser pass paints each shape name and note as one <text> of measured ' +
+      'lines, centred with `central`, so every line carries it',
+  },
+  {
     file: 'lib/components/chart/_chart-family/svg-legend.js',
     owes: 'none',
     why: 'declares no dominant-baseline anywhere — every line is positioned by an ' +
