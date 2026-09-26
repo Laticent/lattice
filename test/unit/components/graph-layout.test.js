@@ -505,9 +505,10 @@ describe('graph-layout — what review found (#2385)', () => {
     assert.ok(q.sharedRuns <= 3, `${q.sharedRuns} shared runs`);
   });
   test('an lr group keeps room for its title above its top shape', () => {
-    // The typing deck's Services slide: dagre keeps a group's top padding only along the
-    // flow, so across it (an lr chart's top) Browser, Pricing and Inventory sat on the
-    // Edge, Commerce and Delivery titles.
+    // The typing deck's Services slide: dagre never reads a group's padding, and in a
+    // compact lr chart its top gap was less than the title's height, so Browser and
+    // Inventory sat on the Edge and Delivery titles (Pricing on Commerce too, at the
+    // painter's own sizes).
     const src = [
       '- Edge `:c1`', '  - Browser `:io`', '  - CDN', '  - Gateway',
       '- Commerce `:c2`', '  - Cart', '  - Pricing', '  - Checkout', '  - Orders `:cylinder`',
@@ -523,6 +524,16 @@ describe('graph-layout — what review found (#2385)', () => {
       const { geo } = run(src, K, { ...(dir ? { dir } : {}), ...(spacing ? { spacing } : {}) });
       assert.equal(geo.quality.titlesUnderShapes, 0, `${dir || 'auto'} ${spacing ? 'compact' : 'default'}`);
       assert.equal(geo.quality.shapeOverlaps, 0);
+    }
+  });
+  test('the title band never carries a shape outside the group level with its title', () => {
+    // The checker's fuzz chart: a band moved Gamma (in Inner) down whole, level with Deep's
+    // title, and the router then ran Fox -> Gamma through it.
+    const src = '- Outer `:c3`\n  - Alpha\n  - Inner `:c5`\n    - Beta\n    - Gamma\n    - Deep `:c4`\n      - Delta\n- Echo\n- Fox\n- Golf\n- Hotel\n- Echo => Echo\n- Fox -l1-> Gamma\n- Outer => Delta\n- Fox => Delta\n- Deep -l4-> Gamma\n- Fox -> Hotel\n- Delta -> Delta\n- Fox -> Fox\n- Alpha => Outer\n- Delta -> Delta';
+    for (const dir of DIRS) {
+      const q = run(src, K, dir ? { dir } : {}).geo.quality;
+      assert.equal(q.linesThroughTitles, 0, dir || 'auto');
+      assert.equal(q.titlesUnderShapes, 0, dir || 'auto');
     }
   });
 });

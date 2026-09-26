@@ -378,14 +378,23 @@ A dotted overlay moving along a line, a separate path above the real edge.
   - **dropped from v1:** `straight` routes and fan-in trunks;
   - a **render check** on the gallery requiring zero shape overlaps, zero lines
     through shapes, zero label collisions and zero fallback chips.
-- **A group's title band is reserved after dagre.** dagre keeps a cluster's
-  `paddingTop` only along the flow, so in an `lr` chart the group's top was its
-  side spacing and its top shape sat on the title: on the typing test deck's
-  compact Services slide, Browser, Pricing and Inventory covered the Edge, Commerce
-  and Delivery titles. `layoutOnce` now opens a band of the missing height just
-  inside each such group, across the whole drawing, so nothing that was clear
-  starts to overlap. `measureQuality` counts `titlesUnderShapes`, and the unit
-  gallery holds it to zero.
+- **A group's title band is reserved after dagre.** dagre never reads a
+  cluster's padding (`paddingTop` appears nowhere in its source). A group's top
+  gap is whatever its border rank or its node spacing gives, and in a compact
+  `lr` chart that was less than the title's height: on the typing test deck's
+  Services slide, Browser, Pricing and Inventory covered the Edge, Commerce and
+  Delivery titles. `layoutOnce` now opens a band inside each group whose content
+  starts within its title's box (title height, 6 above and 4 below). Every box
+  below the cut moves down and every group the cut crosses grows. A shape the cut
+  crosses outside the group stays put: the checker found that moving it carried
+  it level with the title, and a line then crossed the title. `measureQuality`
+  counts `titlesUnderShapes`, and the unit gallery holds it to zero.
+  **Cost, measured on 300 fuzz charts at test sizes:** 20 get smaller type at
+  default spacing, the worst by 3.1%, and 14 at compact spacing, the worst by
+  2.2%. The band makes an `lr` layout taller, so the automatic direction choice
+  switches from `lr` to `tb` on 1 chart at default spacing and 7 at compact
+  spacing. On the demo deck, the two grouped slides each grow 1 to 4 units
+  taller, and their PDFs are rebuilt.
 - **The router is one solver (owner's call on slice 3).** The first router was
   dagre plus a stack of clean-up passes (below). Each pass fixed one thing and was
   guarded by the others' counts, so the passes contended: the owner found a
