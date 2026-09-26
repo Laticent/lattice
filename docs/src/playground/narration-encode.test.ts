@@ -10,7 +10,7 @@
 // re-render; one that fails quietly ships a deck that plays back at the wrong speed.
 
 import { describe, expect, it } from 'vitest';
-import { BITRATE_CHOICES, compressClip, DEFAULT_BITRATE_KBPS, encodeMp3, isCompressedAudio, mp3Clip, readPcmWav } from './narration-encode.js';
+import { BITRATE_CHOICES, compressClip, DEFAULT_BITRATE_KBPS, encodeMp3, encoderLeadMs, isCompressedAudio, mp3Clip, readPcmWav, speechOnsetMs } from './narration-encode.js';
 
 /** A canonical 44-byte mono 16-bit PCM WAV, the exact layout both producers write. */
 function wav(pcm: Int16Array, rate = 24000, channels = 1): ArrayBuffer {
@@ -177,6 +177,46 @@ describe('compressClip — the bake-time safety net', () => {
 		const src = wav(tone(1.5));
 		const [low, high] = await Promise.all([compressClip(clipOf(src, 'audio/wav'), 48), compressClip(clipOf(src, 'audio/wav'), 128)]);
 		expect(high!.size).toBeGreaterThan(low!.size * 1.8);
+	});
+});
+
+describe('speechOnsetMs — the voice\'s own leading silence', () => {
+	/** `leadSec` of a noise floor under the 2% line, then the tone. */
+	const voiced = (leadSec: number, rate = 24000) => {
+		const lead = new Int16Array(Math.floor(rate * leadSec)).map((_, i) => (i % 2 ? 300 : -300));
+		const body = tone(1, rate);
+		const out = new Int16Array(lead.length + body.length);
+		out.set(lead);
+		out.set(body, lead.length);
+		return out;
+	};
+
+	it('finds the first sample above 2% of full scale, less a 10 ms pre-roll', () => {
+		// 324 ms of floor, then the tone; the tone's first sample is 0 and its second is ~377, so the
+		// crossing lands a few samples past 324 ms.
+		const ms = speechOnsetMs(voiced(0.324), 24000);
+		expect(ms).toBeGreaterThan(313);
+		expect(ms).toBeLessThan(316);
+	});
+
+	it('never trims a clip that is never loud, and never goes negative', () => {
+		expect(speechOnsetMs(new Int16Array(24000).fill(200), 24000)).toBe(0);
+		expect(speechOnsetMs(tone(1), 24000)).toBe(0);
+		expect(speechOnsetMs(new Int16Array(0), 24000)).toBe(0);
+	});
+
+	it('reads interleaved stereo in time, not in samples', () => {
+		const mono = voiced(0.2);
+		const stereo = new Int16Array(mono.length * 2);
+		for (let i = 0; i < mono.length; i++) stereo[2 * i] = stereo[2 * i + 1] = mono[i];
+		expect(speechOnsetMs(stereo, 24000, 2)).toBeCloseTo(speechOnsetMs(mono, 24000), 3);
+	});
+
+	it('compressClip records encoder delay PLUS the voice lead as leadMs', async () => {
+		const out = (await compressClip(clipOf(wav(voiced(0.324)), 'audio/wav'))) as { leadMs?: number } | null;
+		expect(out).toBeTruthy();
+		expect(out!.leadMs).toBeCloseTo(encoderLeadMs(24000) + speechOnsetMs(voiced(0.324), 24000), 6);
+		expect(out!.leadMs).toBeGreaterThan(350);
 	});
 });
 

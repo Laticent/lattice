@@ -375,9 +375,16 @@ player, including the video renderer's simulated one, must follow them.
    it advances at once and holds on the slide that arrives.
 7. Within a segment, the player may re-time a cue to the decoded clip's
    length (`cursor.align`). That is the only way a measured length enters
-   playback. **Lead trim:** a clip whose encoder added leading silence (`leadMs`)
-   starts playing `leadMs` in, and the cue is aligned to the clip's length
-   **minus** `leadMs`, the speech alone. A player that skips the trim lets the
+   playback. **Lead trim:** a clip with leading silence (`leadMs`) starts playing
+   `leadMs` in, and the cue is aligned to the clip's length **minus** `leadMs`,
+   the speech alone. The Studio's bake (`compressClip` in
+   `docs/src/playground/narration-encode.js`) records `leadMs` as the MP3
+   encoder's delay (46 ms at 24 kHz) **plus the voice's own silence before its
+   first word**: the first sample above 2% of full scale, less a 10 ms pre-roll
+   (`speechOnsetMs`). Kokoro leaves 290–390 ms of it before every sentence, and a
+   lead that counted only the encoder lit each caption about 0.3 s early. A player
+   that skips the trim plays that silence before the first word while its crawl
+   clock already runs, so its caption leads the voice by the whole `leadMs`. A player that skips the trim lets the
    crawl lag the voice by that much on every cue. The crawl's clock inside the
    cue is the clip's `currentTime` minus `leadMs`, so it starts at the first
    word, not `leadMs` into it. The seek and the re-timing wait for a **known** duration

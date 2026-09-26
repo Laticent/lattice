@@ -54,11 +54,11 @@ export type BakedCue = {
 	gapMs: number;
 	/** The word timeline the exported player's caption crawl highlights against. */
 	words: { display: string; startMs: number; endMs: number }[];
-	/** Milliseconds of encoder-inserted SILENCE at the head of `audio`, or 0 when the clip was
-	 *  not encoded here. lamejs writes no gapless header, so no decoder can trim its ~46 ms of
-	 *  leading delay on its own — the player seeks past this instead. Without it, audio starts
-	 *  after its own caption on every sentence and the tuned sentence breath grows by ~28%.
-	 *  See ENCODER_LEAD_SAMPLES. */
+	/** Milliseconds of SILENCE at the head of `audio` before the first word, or 0 when the clip
+	 *  was not encoded here: the encoder's delay (lamejs writes no gapless header, so no decoder
+	 *  trims its ~46 ms on its own) plus the voice's own leading silence (Kokoro's is ~324 ms,
+	 *  `speechOnsetMs`). The player seeks past it and times the caption from there. Without it,
+	 *  each caption lights before its voice speaks. See ENCODER_LEAD_SAMPLES. */
 	leadMs?: number;
 	/** SHA-256 of the clip bytes as shipped, `sha256:` + hex — the LTT audio layer's `clip`
 	 *  (engineering/ltt.md §Layers). Set with `audio`. */
@@ -740,7 +740,8 @@ export async function bakeNarration(
 		// The clip's identity in the LTT: a hash of the bytes that ship, so a re-voiced clip reads as
 		// a different clip even when its text did not change (2026-09-24-lattice-timing-track.md §4.5).
 		const clip = `sha256:${Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', raw)), (b) => b.toString(16).padStart(2, '0')).join('')}`;
-		// The encoder's leading silence travels with the clip, so the player can seek past it.
+		// The clip's leading silence (encoder delay plus the voice's own) travels with the clip,
+		// so the player can seek past it.
 		const leadMs = compressed ? ((compressed as { leadMs?: number }).leadMs ?? 0) : 0;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;
