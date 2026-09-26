@@ -850,3 +850,12 @@ it is the record of what was wrong.
     with 40 docs, 260 MiB in all. Found on the way: Chromium kills the tab on a single
     IndexedDB value of 256 MiB or more; no real reference doc gets near that (the import caps
     a doc at 5 MB), so it constrains test fixtures, not users.
+- **Trio follow-up 18, a malformed `workspace.json`: done (2026-09-26).** A backup whose
+  state had the right top-level shape and a wrong type inside (`"chats": null`) reached
+  `importStudioState` and failed with "Cannot read properties of null (reading 'welcome')".
+  `malformedWorkspaceState` (`workspace-backup.ts`) now checks the parsed state before
+  anything is written: `index` a list of decks with an id and a title; `sources`,
+  `checkpoints` and `chats` objects keyed by deck with a string, list and list per deck; and
+  `settings`, `instructions` and `onDeviceInstructions` the right type when present (a
+  pre-split backup lacks them). A refusal names the file and the field ("`chats` should be an
+  object of chat histories by deck, but it is null") and says nothing was changed.

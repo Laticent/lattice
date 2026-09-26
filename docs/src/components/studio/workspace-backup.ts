@@ -261,6 +261,40 @@ export function backupRestoreGaps(report: PackReport): string[] {
  * importStudioState: nothing local is ever overwritten; diverged decks come
  * back as "(restored)" copies; library assets upsert by name).
  */
+/**
+ * What is wrong with a parsed `workspace.json`, in words a person can act on, or null when its
+ * shape is one `importStudioState` can walk. The file comes from outside (a backup can be
+ * hand-edited, truncated by a tool, or someone else's), and `importStudioState` trusts the
+ * shape: `"chats": null` used to surface as "Cannot read properties of null (reading
+ * 'welcome')". Checked before anything is written, so a refusal leaves the workspace as it was.
+ * The optional fields a pre-split backup lacks (`settings`, `instructions`,
+ * `onDeviceInstructions`) may be absent, but not the wrong type.
+ */
+export function malformedWorkspaceState(state: unknown): string | null {
+	const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+	const what = (v: unknown) => (v === null ? 'null' : Array.isArray(v) ? 'a list' : typeof v === 'object' ? 'an object' : `a ${typeof v}`);
+	if (!isRecord(state)) return `it holds ${what(state)}, not a workspace.`;
+	if (!Array.isArray(state.index)) return `"index" should be the list of decks, but it is ${state.index === undefined ? 'missing' : what(state.index)}.`;
+	const bad = state.index.findIndex((e) => !isRecord(e) || typeof e.id !== 'string' || typeof e.title !== 'string');
+	if (bad >= 0) return `deck ${bad + 1} in "index" has no id or title.`;
+	const maps: [string, string, (v: unknown) => boolean][] = [
+		['sources', 'deck sources', (v) => typeof v === 'string'],
+		['checkpoints', 'checkpoint lists', Array.isArray],
+		['chats', 'chat histories', Array.isArray],
+	];
+	for (const [key, noun, ok] of maps) {
+		const v = state[key];
+		if (!isRecord(v)) return `"${key}" should be an object of ${noun} by deck, but it is ${v === undefined ? 'missing' : what(v)}.`;
+		const deck = Object.keys(v).find((id) => v[id] != null && !ok(v[id]));
+		if (deck !== undefined) return `"${key}" has ${what(v[deck])} for deck "${deck}".`;
+	}
+	if (state.settings !== undefined && !isRecord(state.settings)) return `"settings" should be an object, but it is ${what(state.settings)}.`;
+	for (const key of ['instructions', 'onDeviceInstructions']) {
+		if (state[key] !== undefined && typeof state[key] !== 'string') return `"${key}" should be text, but it is ${what(state[key])}.`;
+	}
+	return null;
+}
+
 export async function restoreWorkspace(file: Blob, now: number): Promise<RestoreSummary> {
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(file);
@@ -297,6 +331,8 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	if (manifest.format !== WORKSPACE_FORMAT) throw new Error(`Unsupported backup format: ${manifest.format}`);
 	if (!stateFile) throw new Error('Backup is missing workspace.json.');
 	const state = parseJsonCapped((await readText(stateFile)) as string, tooLarge('workspace.json')) as StudioExport;
+	const malformed = malformedWorkspaceState(state);
+	if (malformed) throw new Error(`That workspace backup's workspace.json can't be restored: ${malformed} Nothing was changed.`);
 
 	// Parse the asset library BEFORE importing any state: `unpackBundle` refuses an
 	// oversized archive (`zip-limits.ts`), and refusing it after the decks and settings
