@@ -472,9 +472,37 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
    feature deck (HARD RULE #9).
 4. **Flow dots and settings:** the overlay, `motion-flow`, the `flowchart:`
    register, the measured legibility lint, and the Studio inspector.
+5. **State chart v2** (section 14): the state chart moves onto this grammar and
+   spine, with a codemod and no v1 compatibility.
 
-## 14. Open question
+## 14. State chart v2: one authoring model, one spine (decided)
 
-- Should the state chart later adopt the arrow and span rules, and the new
-  router, so the two sibling charts share one authoring model? (A separate PR if
-  yes.)
+The state chart is v1 of the house graph grammar. It moves to this grammar and
+this spine as **state chart v2**, after the flowchart (the owner's sequencing).
+
+- **Shared:** the token-level parser, the `_chart-family` elbow router and the
+  state chart's fit pass promoted to shared (its chain-wrapping grid becomes one
+  fit candidate), the paint (tiles, status words, label cutting, the key), one
+  narrator, the `motion-flow` overlay and the determinism pins.
+- **State-chart-only words, not syntax:** `start` and `end` in the span lead
+  draw the entry dot and the terminal bullseye; a self-loop is an arrow to the
+  state's own name; ordinal badges stay an option.
+- **Composite states for free:** a sub-list of states is a group, which is a
+  nested state in the UML sense, something v1 cannot express.
+- **One behavior change:** a prose sub-bullet under a state is detail text in v1
+  and makes a group in v2. Measured in-repo: 7 lines in 4 files. They move to a
+  second line or a note.
+- **No v1 compatibility.** Lattice is not GA, so v1 syntax is dropped, not
+  deprecated: a codemod migrates the repo in one PR and nothing reads
+  `` `event => N` `` or `:::token` afterwards. Measured in-repo: 64 state-chart
+  slides in 20 files (13 under `examples/`), 458 transitions (mechanical: the
+  number resolves to the state's name, `-event-> Approved`), and 25 `:::token`
+  tints (by hand, onto slots or status words). Every migrated slide is
+  re-rendered for visual review.
+- **What this asks of the flowchart work now:** the shared kernel is built with
+  the state chart's hooks from day one (the `start` / `end` words, the grid-wrap
+  candidate, ordinal badges), so v2 is a migration, not a redesign.
+
+This adds a fifth slice to section 13, after the flowchart ships: **state chart
+v2**, the codemod, the 7 detail lines and 25 tints by hand, the component docs
+rewritten, and all 64 slides reviewed.
