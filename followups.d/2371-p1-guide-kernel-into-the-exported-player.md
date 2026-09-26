@@ -11,7 +11,7 @@ why now   — a board member or a prospect opens the sent `.html` with no Studio
             highlights caption words only, so every preset, the salience plan and the spark
             exist only in the Studio. Owner rulings 2026-09-25: embed opt-in when a deck sets
             `delivery:` (Fork 3a), and extract the kernel together with this step (reorder).
-where     — docs/src/components/studio/present-guide.ts (resolver, planSlide, sparkUnit, sparkContent) →
+where     — docs/src/components/studio/present-guide.ts (resolver, planSlide, focusUnit, focusContent) →
             a shared DOM-only module; lib/export/player-core.mjs (inline into the one hashed script,
             the Anima-bundle pattern at :2483-2513); engineering/decisions/2026-09-25-vetrina-delivery-presets.md §7.2, §8 steps 3 and 8.
 done when — an exported deck with `delivery: somber` sparks the named items while it plays, one with

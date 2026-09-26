@@ -172,107 +172,43 @@ section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
   paint-order: stroke;
 }
 
-/* ── the spark — the Present Guide's content gesture ───────────────────────── */
-/* While narration names a bullet, a table row, cell or column, a chart mark or a
- * line, the Guide tags that element `.lat-spark` and it changes COLOR in place:
- * text to `--spark-ink` over a soft `--spark-wash`, a chart mark's fill and a
- * line's stroke to `--spark-mark`. Color only — never weight, padding, border or
- * scale — so no box moves in front of the audience, and the peers stay at full
- * strength. When the narration moves on the tag becomes `.lat-spark-out`, which
- * holds the same look for the preset's linger (`--spark-fade`) before the Guide
- * clears it.
+/* ── the Guide's focus — one lever: the rest recedes ───────────────────────── */
+/* While narration names a bullet, a table row, cell or column, a chart mark, a
+ * line or one of its points, the Guide leaves that element exactly as it is and
+ * tags everything else in its group `.lat-guide-dim`: the rest recedes to
+ * `--guide-dim`. It is the chart hover's emphasis (`chart-interact.js`: every
+ * other mark to 0.45 over 200 ms), so a deck speaks one language whether a
+ * viewer hovers or the narration names. On a walked line the other POINTS take
+ * `.lat-guide-dim-inner`, deeper: the line's own stroke stays whole and carries
+ * the shape, so the point being read stands out.
  *
- * NO COLOR ANIMATES. Chromium interpolating a theme's own token color (a
- * `color-mix()` or `color(srgb … / a)` over `light-dark()`) toward the spark
- * produced garbage in the Studio: `oklab(1 200 229)` on a title's text, pure
- * yellow, and `oklab(1 255 255)` on a chart line (both measured 2026-09-26, and
- * version-dependent — a newer Chromium interpolated the same values correctly).
- * So the color switches in one step, and the glow carries the arrival; the glow
- * keeps one color throughout and animates only its blur radius.
+ * Opacity is the whole lever: it changes no box (nothing moves), it animates on
+ * the compositor, and it interpolates as a number — no theme color is ever
+ * animated, the path where Chromium painted `oklab(1 200 229)` (pure yellow).
  *
- * The section carries the preset: `data-spark="accent|muted"` picks the ink
- * (somber never sparks in the accent), `data-spark-pulse` adds the glow. Every
- * color is a token (HARD RULE #3), so each theme's spark is automatic. No render
- * path writes any of it, so a PDF, a PPTX and an export render exactly as before:
- * these rules ship in the bundle and match nothing there. */
-/* A chart mark sparks to the HEADING ink, not the accent: a chart paints its
- * first series (and every bar of a one-series chart) in the accent itself, so an
- * accent spark there changed nothing (measured on indaco's line and bar). No
- * categorical hue is the page's own ink, so the heading ink always reads as
- * "this one", in light and dark alike. */
-section[data-spark] {
-  --spark-ink: var(--accent);
-  --spark-mark: var(--text-heading);
-  --spark-glow: color-mix(in srgb, var(--accent) 55%, transparent);
-  --spark-wash: color-mix(in srgb, var(--accent) 16%, transparent);
-  --spark-said: color-mix(in srgb, var(--accent) 34%, transparent);
+ * THE HANDOFF IS A STRICT SWAP. A peer released by the last focus takes
+ * `.lat-guide-undim` and fades up over the same `--guide-fade` while the next
+ * focus's peers fade down, in the same frame: never two foci. The section
+ * carries the preset (`--guide-dim`, `--guide-dim-inner`, `--guide-fade`). No
+ * render path writes any of it, so a PDF, a PPTX and an export render exactly as
+ * before: these rules ship in the bundle and match nothing there. */
+section[data-guide] {
+  --guide-said: color-mix(in srgb, var(--accent) 30%, transparent);
 }
-/* Somber: no accent anywhere — the heading ink over a gray wash. A muted accent
- * (the first cut) sat only 3–7 OKLab units from restrained's spark on indaco and
- * cuoio, too close to tell apart; this sits 22–33 apart on both, light and dark
- * (measured 2026-09-26, owner's pick). */
-section[data-spark="muted"] {
-  --spark-ink: var(--text-heading);
-  --spark-mark: color-mix(in oklab, var(--text-heading) 70%, var(--text-muted));
-  --spark-wash: color-mix(in srgb, var(--text-muted) 18%, transparent);
-  --spark-said: color-mix(in srgb, var(--text-muted) 38%, transparent);
+section[data-guide] .lat-guide-dim {
+  opacity: var(--guide-dim, 0.45);
+  transition: opacity var(--guide-fade, 200ms) ease;
 }
-@keyframes lat-spark-pulse {
-  0% { filter: drop-shadow(0 0 0 var(--spark-glow)); }
-  35% { filter: drop-shadow(0 0 0.6cqi var(--spark-glow)); }
-  100% { filter: drop-shadow(0 0 0 var(--spark-glow)); }
+section[data-guide] .lat-guide-dim-inner {
+  opacity: var(--guide-dim-inner, 0.3);
+  transition: opacity var(--guide-fade, 200ms) ease;
 }
-
-/* Text: the element and the inline runs that set their own color, over a wash.
- * Where the accent sits close to the body ink (cuoio light: 6.7 OKLab units) a
- * hue shift alone was too faint; the wash clears 8–10 against the slide on every
- * theme measured. `!important` because a theme colors its text with rules this
- * sheet cannot outrank by specificity alone. */
-section[data-spark] :is(.lat-spark, .lat-spark-out):not(svg *),
-section[data-spark] :is(.lat-spark, .lat-spark-out) > :is(strong, b, em, i, a, code, mark) {
-  color: var(--spark-ink) !important;
-}
-/* The wash HUGS THE WORDS: a CSS Highlight over the element's own text
- * (`lat-spark-wash`), painted behind the glyphs line by line. As a box background
- * it ran the full column width — 350px past the end of a short bullet — which read
- * as a gesture overshooting its text. A table cell keeps its cell-shaped wash:
- * there the cell is the thing named. */
-section[data-spark] :is(td, th):is(.lat-spark, .lat-spark-out) { background-color: var(--spark-wash) !important; }
-::highlight(lat-spark-wash) { background-color: var(--spark-wash); }
-/* Under a preset that reads along, sparked text takes NO band: the spoken word
- * carries the highlight alone (the Guide omits the wash). A band behind the line
- * under a highlighted word layered two highlights on one sentence. */
-/* A named card keeps its nested body in the ink it had: the spark names the
- * card's own line, not everything under it. The Guide stores that ink as
- * `--spark-keep`. Inline runs spark only as the item's own children, above, so
- * bold text inside the nested body stays put too. */
-section[data-spark] :is(.lat-spark, .lat-spark-out) :is(ul, ol) { color: var(--spark-keep, inherit); }
-/* A chart mark (bar, wedge, band, dot) changes fill; a line changes stroke. */
-section[data-spark] :is(:is(rect, circle, ellipse, polygon, path)[data-mark], :is(circle, polygon)[data-series]):is(.lat-spark, .lat-spark-out):not(.lat-spark-edge) { fill: var(--spark-mark) !important; }
-section[data-spark] :is(:is(path, line, polyline)[data-series], :is(line, polyline)[data-mark]):is(.lat-spark, .lat-spark-out) { stroke: var(--spark-mark) !important; }
-section[data-spark] text:is(.lat-spark, .lat-spark-out) { fill: var(--spark-ink) !important; }
-/* …except a mark whose fill carries something — text laid over it (a heatmap value,
- * a state node's name) or a translucent area (radar). Ink over those hid what the
- * narration is naming, so the Guide tags them `.lat-spark-edge` and they take an
- * edge instead: drawn behind the fill (`paint-order`), so the fill and its text stay
- * exactly as they were. Half the stroke sits under the fill, as the `ring` rule above. */
-section[data-spark] :is(.lat-spark, .lat-spark-out).lat-spark-edge {
-  stroke: var(--spark-mark) !important;
-  stroke-width: 5 !important;
-  paint-order: stroke;
-}
-/* THE WALK. While the narration reads a series point by point, the series itself
- * stays lit as context (`.lat-spark-context`) and the point being read takes the
- * spark and its glow. Full ink, not a faded one: at 55% the line read as grayed
- * out — dimmed, the opposite of lit (seen in the Studio, 2026-09-26). */
-section[data-spark] :is(path, line, polyline)[data-series].lat-spark-context { stroke: var(--spark-mark) !important; }
-/* THE READ-ALONG. Inside a sparked text element, the word being spoken takes a
- * stronger wash, as a CSS Highlight (`lat-said`): the slide's markup is never
- * rewritten (HARD RULE #22), and a word split across inline markup still lights as
- * one word. The Guide sets it from the same clock as the caption. */
-::highlight(lat-said) { background-color: var(--spark-said); color: var(--spark-ink); }
-/* The glow rides beside the color, once, on arrival. A glow is paint, not layout. */
-section[data-spark][data-spark-pulse] .lat-spark { animation: lat-spark-pulse 480ms ease-out; }
+section[data-guide] .lat-guide-undim { transition: opacity var(--guide-fade, 200ms) ease; }
 @media (prefers-reduced-motion: reduce) {
-  section[data-spark][data-spark-pulse] .lat-spark { animation: none; }
+  section[data-guide] :is(.lat-guide-dim, .lat-guide-dim-inner, .lat-guide-undim) { transition: none; }
 }
+/* THE READ-ALONG. With the captions off, the word being spoken inside the focused
+ * text takes a soft wash, as a CSS Highlight (`lat-said`): the slide's markup is
+ * never rewritten (HARD RULE #22), and a word split across inline markup still
+ * lights as one word. The Guide sets it from the caption's clock. */
+::highlight(lat-said) { background-color: var(--guide-said); }

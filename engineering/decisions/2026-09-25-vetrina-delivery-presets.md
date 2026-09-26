@@ -209,6 +209,10 @@ A four-preset or two-axis scheme (tone × venue) was considered and is Fork 1.
 
 ### 6.1 The spark, and what tells the presets apart (owner, 2026-09-26)
 
+> **Superseded in part by the third owner round below:** the recolor spark (color, wash, glow,
+> edge) is gone; the Guide's one lever is FOCUS — the rest recedes. `sparkUnit` / `sparkContent`
+> are now `focusUnit` / `focusContent`. The measurements and the reasons are kept as the record.
+
 After playing #2371's test deck the owner asked for two changes: the Guide should change the
 named element itself rather than draw ink beside it, and somber had to read differently from
 restrained. The owner settled both in one round:
@@ -281,6 +285,40 @@ ink over a gray wash, 22–33 from restrained on all four.
   layered two highlights on one sentence (owner: "that would be bad"). Somber keeps its band.
 - **Read-along.** Inside a sparked text element, the word being spoken takes a stronger wash, on
   the caption's clock (the reader's active cue and word), as a CSS Highlight. Off for somber.
+
+**Third owner round (2026-09-26): one lever, and it is focus.** The owner saw two things lit at
+once, asked for "one lever", said the recolor "spark is not on brand", and pointed at the chart
+hover, which dims the other marks. Measured first, in the built Studio over 60 s of playback: two
+foci were on screen together 7 times (2.0 s) under restrained, because the old spark lingered; the
+slide's read-along matched the caption word on the same frame (p50 and p90 lag 0); 59.7 fps, with
+the worst frame 284 ms. The research on emphasis agrees with the owner's instinct:
+
+- one attribute, with the context pushed back (Few; Knaflic, *Storytelling with Data*);
+- focus + context by receding the rest rather than restyling the target (Card, Mackinlay &
+  Shneiderman), which is also what `chart-interact.js` does on hover (every other mark to 0.45,
+  200 ms);
+- abrupt changes capture attention, so never two at once (Yantis & Jonides; Heer & Robertson on
+  animated transitions);
+- signaling helps and redundancy hurts (Mayer): cueing the narrated part in step with the voice
+  improves understanding, while printed words that duplicate the narration compete with it.
+
+The owner settled four forks:
+
+| Fork | Decision |
+|---|---|
+| The lever | Recede the rest; the named thing keeps its own colors. Opacity only. |
+| The handoff | Strict swap: the old focus fades down as the new fades up, in the same frame. |
+| Read-along | On the slide only with the captions OFF; the caption already reads along. |
+| The walk | The line holds focus (other series recede); within it, the point being read holds while its other points recede. |
+
+Built as `focusUnit` / `focusContent` (`present-guide.ts`) and the `.lat-guide-*` rules in
+`lib/base/base.focus.css`. Presets differ only in depth and tempo: restrained 0.45 / 200 ms (the
+hover's own values), expressive 0.30 / 160 ms, somber 0.62 / 600 ms with the aside hold and the
+still caption. A walked line's other points recede FURTHER than the rest (0.30 / 0.20 / 0.50): the
+line's stroke keeps the shape, and at a gentler 0.62 the point being read barely stood out. A peer
+mark's own labels recede with it where the chart links them (`data-mark-for`). Measured after, over
+75 s under restrained and somber: **zero** frames with two foci; worst frame 139 ms (three of the six
+frames over 50 ms fall in the first 400 ms of playback, none within 200 ms of a focus change but one).
 
 Measured: sparking every bullet, cell, row, column, mark and heading on all 116 gallery slides at
 once moved **0** of 5,381 element boxes, mid-glow and after it, in light and dark.

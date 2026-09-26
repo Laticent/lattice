@@ -25,21 +25,22 @@ test('the presets say what the design note §6 says', () => {
 	const { restrained, expressive, somber } = DELIVERY_PRESETS;
 	assert.ok(somber.budget < restrained.budget && restrained.budget < expressive.budget, 'somber spends least, expressive most');
 	assert.equal(somber.ink, 'none', 'somber shows no cursor and draws no ink');
-	assert.equal(restrained.ink, 'none', 'restrained sparks the element and draws no overlay');
+	assert.equal(restrained.ink, 'none', 'restrained focuses the element and draws no overlay');
 	assert.equal(expressive.ink, 'top', 'expressive inks its top moment only');
 	assert.equal(expressive.strength, 'notable');
 });
 
-test('somber reads differently from restrained on every visible axis (§6)', () => {
-	const { restrained, somber } = DELIVERY_PRESETS;
-	assert.notEqual(somber.spark, restrained.spark, 'color: somber never sparks in the accent');
-	assert.equal(somber.spark, 'muted');
-	assert.ok(restrained.pulse && !somber.pulse, 'motion: restrained pulses once, somber does not');
-	assert.ok(somber.fade >= 2 * restrained.fade, 'tempo: somber fades at least twice as slowly');
-	assert.equal(somber.hold, 'aside', 'tempo: somber holds its spark through an aside');
+test('one lever: the presets differ only in depth, tempo, hold and caption (§6)', () => {
+	const { restrained, expressive, somber } = DELIVERY_PRESETS;
+	assert.equal(restrained.dim, 0.45, "restrained recedes to the chart hover's own 0.45");
+	assert.ok(expressive.dim < restrained.dim && restrained.dim < somber.dim, 'expressive recedes deepest, somber gentlest');
+	for (const p of [restrained, expressive, somber]) assert.ok(p.dimInner < p.dim, "a walked line's other points recede further than the rest: the stroke keeps the shape");
+	assert.ok(somber.fade >= 2 * restrained.fade, 'tempo: somber hands off at least twice as slowly');
+	assert.equal(somber.hold, 'aside', 'tempo: somber holds its focus through an aside');
 	assert.equal(restrained.hold, 'none');
 	assert.equal(somber.caption, 'still', 'caption: somber drops the word-by-word crawl');
-	assert.equal(restrained.caption, 'crawl');
+	assert.equal(somber.wordFocus, false, 'somber never reads along on the slide');
+	for (const p of [restrained, expressive, somber]) assert.equal(p.spark, undefined, 'no recolor lever survives');
 });
 
 test('resolveDelivery falls back to restrained on an absent or unknown name', () => {

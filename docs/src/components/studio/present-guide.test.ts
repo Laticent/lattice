@@ -11,6 +11,8 @@ import {
 	findParaphraseTarget,
 	findSpanningTarget,
 	findValueLedMark,
+	focusContent,
+	focusUnit,
 	type GuideShape,
 	guideAimFor,
 	guideCueFor,
@@ -25,8 +27,6 @@ import {
 	pointerAnchor,
 	salience,
 	sentenceRange,
-	sparkContent,
-	sparkUnit,
 	wordRangeIn,
 } from './present-guide';
 
@@ -334,142 +334,170 @@ describe('planSlide — the salience budget', () => {
 	});
 });
 
-describe('sparkContent — the Guide changes the element itself', () => {
-	const sparked = (d: Document) => [...d.querySelectorAll('.lat-spark')];
+describe('focusContent — one lever: the named thing stays, the rest recedes', () => {
+	const dimmed = (d: Document) => [...d.querySelectorAll('.lat-guide-dim')];
 
-	it('sparks the bullet the words sit in, nested or not, and leaves its peers alone', () => {
-		const d = doc('<ul><li>One<ul><li>detail</li></ul></li><li>Two</li><li>Three</li></ul>');
-		const [one, detail, two] = [...d.querySelectorAll('li')];
-		const undo = sparkContent(detail);
-		expect(sparked(d)).toEqual([detail]);
-		expect(d.querySelectorAll('.lat-recede, .lat-focus').length).toBe(0);
-		undo?.();
-		sparkContent(one);
-		expect(sparked(d)).toEqual([one]);
-		expect(two.className).toBe('');
+	it('recedes a bullet\'s siblings and leaves the bullet itself untouched', () => {
+		const d = doc('<ul><li>One</li><li>Two</li><li>Three</li></ul>');
+		const [one, two, three] = [...d.querySelectorAll('li')];
+		focusContent(two);
+		expect(dimmed(d)).toEqual([one, three]);
+		expect(two.classList.contains('lat-guide-dim')).toBe(false);
+		// Never the deck's own `_focus` classes.
+		expect(d.querySelectorAll('.lat-focus, .lat-recede').length).toBe(0);
 	});
 
-	it('names a row by its label, a cell by itself, and a column by its header', () => {
+	it('recedes a nested bullet\'s siblings and its card\'s siblings', () => {
+		const d = doc('<ul><li>Card A<ul><li>a1</li><li>a2</li></ul></li><li>Card B</li></ul>');
+		const [cardA, a1, a2, cardB] = [...d.querySelectorAll('li')];
+		focusContent(a1);
+		expect(dimmed(d)).toEqual([a2, cardB]);
+		expect(cardA.classList.contains('lat-guide-dim')).toBe(false);
+	});
+
+	it('names a row by its label, a cell by itself, and a column by its header — the rest recedes', () => {
 		const d = doc('<table><thead><tr><th>Seg</th><th>Q3</th><th>Q4</th></tr></thead><tbody><tr><td>SMB</td><td>7%</td><td>9%</td></tr><tr><td>Mid</td><td>4%</td><td>5%</td></tr></tbody></table>');
 		const cells = [...d.querySelectorAll('tbody td')];
-		expect(sparkUnit(cells[0])).toEqual({ unit: [...(cells[0].parentElement as Element).children], axis: 'row' });
-		expect(sparkUnit(cells[2])).toEqual({ unit: [cells[2]], axis: 'cell' });
-		const col = sparkUnit(d.querySelectorAll('thead th')[2]);
+		const row = focusUnit(cells[0]);
+		expect(row?.axis).toBe('row');
+		expect(row?.peers).toEqual(cells.slice(3));
+		expect(focusUnit(cells[2])?.peers.length).toBe(5);
+		const col = focusUnit(d.querySelectorAll('thead th')[2]);
 		expect(col?.axis).toBe('col');
 		expect(col?.unit.map((c) => c.textContent)).toEqual(['Q4', '9%', '5%']);
+		// The row labels stay legible: a column is read against them.
+		expect(col?.peers.map((c) => c.textContent)).toEqual(['7%', '4%']);
 	});
 
-	it('sparks every twin of a chart mark and every shape of a series, never a template', () => {
-		const d = doc(`<div class="chart-body"><svg><rect data-mark="0"/><rect data-mark="1"/><text data-mark="1">EMEA</text>
-			<path class="line-path" data-series="2"/><circle data-series="2"/><path class="line-hit" data-series="2"/></svg>
-			<template class="chart-detail" data-mark="1"></template></div>`);
-		sparkContent(d.querySelectorAll('rect')[1])?.();
-		sparkContent(d.querySelectorAll('rect')[1]);
-		expect(sparked(d).map((e) => e.tagName.toLowerCase())).toEqual(['rect', 'text']);
-		expect(d.querySelector('template')?.className).toBe('chart-detail');
-		expect(sparkUnit(d.querySelector('circle') as Element)?.unit.map((e) => e.tagName.toLowerCase())).toEqual(['path', 'circle']);
-	});
-
-	it('does not take radar\'s container, which counts series, for a series', () => {
-		const d = doc(`<div class="chart-body radar-figure" data-series="2"><svg>
-			<polygon data-series="0"/><polygon data-series="1"/><text class="key">Enterprise tier</text></svg></div>`);
-		expect(sparkUnit(d.querySelector('text') as Element)?.axis).toBe('block');
-		expect(d.querySelector('.radar-figure')?.classList.contains('lat-spark')).toBe(false);
-	});
-
-	it('names only the cell in a table with a spanned cell, and a column by its real rows', () => {
+	it('recedes a table with a spanned cell around the one cell only', () => {
 		const d = doc('<table><thead><tr><th colspan="2">Group</th><th>Total</th></tr></thead><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>');
-		const total = d.querySelectorAll('thead th')[1];
-		expect(sparkUnit(total)).toEqual({ unit: [total], axis: 'cell' });
-		const plain = doc('<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>x<table><tbody><tr><td>inner</td></tr></tbody></table></td></tr></tbody></table>');
-		expect(sparkUnit(plain.querySelector('thead th') as Element)?.unit.map((c) => c.textContent?.slice(0, 1))).toEqual(['A', 'x']);
+		expect(focusUnit(d.querySelectorAll('thead th')[1])?.axis).toBe('cell');
 	});
 
-	it('falls through a chart\'s hit area to nothing, so the caller can ink instead', () => {
-		const d = doc('<div class="chart-body"><svg><path class="line-path" data-series="0"/><rect class="line-hit" data-mark="2"/><text>Q3</text></svg></div>');
-		expect(sparkUnit(d.querySelector('rect') as Element)).toBeNull();
-		expect(sparkContent(d.querySelector('rect') as Element)).toBeNull();
-		expect(sparkUnit(d.querySelector('text') as Element)?.axis).toBe('block');
-	});
-
-	it('keeps each chart\'s marks to itself', () => {
-		const d = doc('<figure class="chart-frame"><svg><rect data-mark="1"/></svg></figure><figure class="chart-frame"><svg><rect data-mark="1"/></svg></figure>');
+	it('recedes the other marks of the SAME chart, never a template or another chart', () => {
+		const d = doc(`<figure class="chart-frame"><svg><rect data-mark="0"/><rect data-mark="1"/><text data-mark="1">EMEA</text></svg>
+			<template class="chart-detail" data-mark="1"></template></figure><figure class="chart-frame"><svg><rect data-mark="0"/></svg></figure>`);
 		const [a, b] = [...d.querySelectorAll('rect')];
-		expect(sparkUnit(a)?.unit).toEqual([a]);
-		expect(sparkUnit(b)?.unit).toEqual([b]);
+		focusContent(b);
+		expect(dimmed(d)).toEqual([a]);
+		expect(d.querySelector('template')?.className).toBe('chart-detail');
 	});
 
-	it('sparks a plain paragraph, but never a whole container or the section', () => {
-		const d = doc('<h2>Title</h2><p>Growth held.</p><div class="cols"><p>a</p><p>b</p></div>');
-		expect(sparkUnit(d.querySelector('p') as Element)?.axis).toBe('block');
-		expect(sparkUnit(d.querySelector('.cols') as Element)).toBeNull();
-		expect(sparkUnit(d.querySelector('section') as Element)).toBeNull();
+	it('recedes a peer mark\'s own labels with it, where the chart links them', () => {
+		const d = doc(`<div class="chart-body"><svg><path data-mark="0"/><path data-mark="1"/>
+			<text class="chart-key-label" data-mark-for="0">New</text><text class="chart-key-label" data-mark-for="1">Maint</text></svg></div>`);
+		focusContent(d.querySelectorAll('path')[1]);
+		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.textContent || e.getAttribute('data-mark'))).toEqual(['0', 'New']);
 	});
 
-	it('carries the preset on the section: tone, pulse and tempo', () => {
-		const d = doc('<ul><li>One</li><li>Two</li></ul>');
-		const sec = d.querySelector('section') as HTMLElement;
-		sparkContent(d.querySelector('li') as Element, { tone: 'muted', pulse: false, fade: 900 });
-		expect(sec.getAttribute('data-spark')).toBe('muted');
-		expect(sec.hasAttribute('data-spark-pulse')).toBe(false);
-		expect(sec.style.getPropertyValue('--spark-fade')).toBe('900ms');
-		sparkContent(d.querySelectorAll('li')[1], { tone: 'accent', pulse: true, fade: 320 });
-		expect(sec.getAttribute('data-spark')).toBe('accent');
-		expect(sec.hasAttribute('data-spark-pulse')).toBe(true);
+	it('walks a line: the other series recede, and the line\'s other points recede gently', () => {
+		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0"/><path class="line-path" data-series="1"/>
+			<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2" data-value="4.4"/>
+			<circle class="line-dot" data-series="1" data-label="Q1" data-value="2.6"/><rect class="line-hit" data-mark="0"/></svg></div>`);
+		const [q1, q2, other] = [...d.querySelectorAll('circle')];
+		const u = focusUnit(q1);
+		expect(u?.axis).toBe('point');
+		expect(u?.peers.map((e) => e.getAttribute('data-series'))).toEqual(['1', '1']);
+		expect(u?.inner).toEqual([q2]);
+		focusContent(q1);
+		expect(q2.classList.contains('lat-guide-dim-inner')).toBe(true);
+		expect(other.classList.contains('lat-guide-dim')).toBe(true);
+		// The line itself stays whole, and so does the point being read.
+		expect(d.querySelector('path[data-series="0"]')?.getAttribute('class')).toBe('line-path');
+		expect(focusUnit(d.querySelector('rect.line-hit') as Element)).toBeNull();
 	});
 
-	it('fades out, then clears — unless a later spark took the element back', () => {
+	it('recedes a paragraph\'s sibling blocks, and nothing on a slide of one paragraph', () => {
+		const d = doc('<h2>Title</h2><p>First <strong>point</strong>.</p><p>Second point.</p>');
+		const [p1, p2] = [...d.querySelectorAll('p')];
+		expect(focusUnit(d.querySelector('strong') as Element)?.unit).toEqual([p1]);
+		// The headline frames the slide; it never recedes as a paragraph's peer.
+		expect(focusUnit(p1)?.peers).toEqual([p2]);
+		const one = doc('<p>Only this.</p>');
+		expect(focusUnit(one.querySelector('p') as Element)?.peers).toEqual([]);
+		expect(focusUnit(one.querySelector('section') as Element)).toBeNull();
+	});
+
+	it('hands off as one swap: a shared peer stays down, the old focus fades down, the new fades up', () => {
+		const d = doc('<ul><li>One</li><li>Two</li><li>Three</li></ul>');
+		const [one, two, three] = [...d.querySelectorAll('li')];
+		const undo = focusContent(one);
+		undo?.();
+		focusContent(two);
+		expect(three.classList.contains('lat-guide-dim')).toBe(true);
+		expect(one.classList.contains('lat-guide-dim')).toBe(true);
+		expect(two.classList.contains('lat-guide-dim')).toBe(false);
+		expect(two.classList.contains('lat-guide-undim')).toBe(true);
+		// Never two foci: exactly one item is un-dimmed.
+		expect([one, two, three].filter((li) => !li.classList.contains('lat-guide-dim'))).toEqual([two]);
+	});
+
+	it('clears the fade-up class after the crossfade, except where a later focus dimmed again', () => {
 		vi.useFakeTimers();
 		try {
-			// The live document: a parsed one has no window, so its undo clears at once.
-			document.body.innerHTML = '<section><ul><li>One</li><li>Two</li></ul></section>';
-			const li = document.querySelector('li') as Element;
-			sparkContent(li, { fade: 300 })?.();
-			expect(li.className).toBe('lat-spark-out');
-			vi.advanceTimersByTime(400);
-			expect(li.className).toBe('');
-			sparkContent(li, { fade: 300 })?.();
-			sparkContent(li, { fade: 300 });
-			vi.advanceTimersByTime(400);
-			expect(li.className).toBe('lat-spark');
+			document.body.innerHTML = '<section><ul><li>One</li><li>Two</li><li>Three</li></ul></section>';
+			const [one, two, three] = [...document.querySelectorAll('li')];
+			focusContent(one, { fade: 200 })?.();
+			vi.advanceTimersByTime(300);
+			expect([one, two, three].every((li) => li.className === '')).toBe(true);
+			focusContent(one, { fade: 200 })?.();
+			focusContent(three, { fade: 200 });
+			vi.advanceTimersByTime(300);
+			expect(one.className).toBe('lat-guide-dim');
+			// Still in focus: never dimmed (its fade-up class belongs to its own focus, not an old clear).
+			expect(three.classList.contains('lat-guide-dim')).toBe(false);
 		} finally {
 			vi.useRealTimers();
 			document.body.innerHTML = '';
 		}
 	});
 
-	it('changes no class the deck\'s own _focus owns', () => {
-		const d = doc('<ul><li class="lat-focus">One</li><li class="lat-recede">Two</li></ul>');
+	it('leaves a group the deck already spotlit to the author\'s own depths', () => {
+		const d = doc('<ul><li class="lat-focus">One</li><li class="lat-recede">Two</li><li class="lat-recede">Three</li></ul>');
 		d.querySelector('section')?.setAttribute('data-focus-resolved', '');
-		const two = d.querySelectorAll('li')[1];
-		sparkContent(two)?.();
-		sparkContent(two);
-		expect(two.classList.contains('lat-recede')).toBe(true);
-		expect(two.classList.contains('lat-spark')).toBe(true);
-		expect(d.querySelector('li')?.className).toBe('lat-focus');
+		const [one, two] = [...d.querySelectorAll('li')];
+		focusContent(two);
+		focusContent(one);
+		expect(d.querySelectorAll('.lat-guide-dim').length).toBe(0);
+		expect(focusUnit(two)?.peers).toEqual([]);
+	});
+
+	it('never lets an older focus\'s clear end a newer fade-up mid-crossfade', () => {
+		vi.useFakeTimers();
+		try {
+			document.body.innerHTML = '<section><ul><li>A</li><li>B</li><li>C</li><li>E</li></ul></section>';
+			const [a, b, c, e] = [...document.querySelectorAll('li')];
+			const undoA = focusContent(a, { fade: 200 });
+			undoA?.();
+			const undoB = focusContent(b, { fade: 200 }); // E stays a peer, dimmed
+			vi.advanceTimersByTime(100);
+			undoB?.();
+			focusContent(e, { fade: 200 }); // E fades UP now, owned by this focus
+			vi.advanceTimersByTime(140); // A's clear fires (at 240 ms) while E is mid-fade
+			expect(e.classList.contains('lat-guide-undim')).toBe(true);
+			expect(c.classList.contains('lat-guide-dim')).toBe(true);
+		} finally {
+			vi.useRealTimers();
+			document.body.innerHTML = '';
+		}
+	});
+
+	it('carries the preset on the section', () => {
+		const d = doc('<ul><li>One</li><li>Two</li></ul>');
+		const sec = d.querySelector('section') as HTMLElement;
+		focusContent(d.querySelector('li') as Element, { dim: 0.62, dimInner: 0.5, fade: 600 });
+		expect(sec.hasAttribute('data-guide')).toBe(true);
+		expect(sec.style.getPropertyValue('--guide-dim')).toBe('0.62');
+		expect(sec.style.getPropertyValue('--guide-fade')).toBe('600ms');
 	});
 });
 
-describe('the walk, the point and the read-along (owner, 2026-09-26)', () => {
-	it('sparks the one dot a point sentence names, with its line as context', () => {
-		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0" data-label="Enterprise"/>
-			<circle class="line-dot" data-series="0" data-label="Q1 2026" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2 2026" data-value="4.4"/></svg></div>`);
-		const [q1] = [...d.querySelectorAll('circle')];
-		const u = sparkUnit(q1);
-		expect(u?.axis).toBe('point');
-		expect(u?.unit).toEqual([q1]);
-		expect(u?.context?.map((e) => e.tagName.toLowerCase())).toEqual(['path']);
-		sparkContent(q1);
-		expect(d.querySelector('path')?.classList.contains('lat-spark-context')).toBe(true);
-		expect(d.querySelectorAll('.lat-spark').length).toBe(1);
-	});
-
+describe('read-along and chart addressing', () => {
 	it('lands a heatmap sentence on its cell, not on the row label that also leads it', () => {
 		const d = doc(`<div class="chart-body"><svg><text class="cart-cat" data-label="Jan 2026">Jan 2026</text>
 			<rect class="heatmap-cell" data-mark="3" data-label="Jan 2026 · M3" data-value="44"/>
 			<rect class="heatmap-cell" data-mark="2" data-label="Jan 2026 · M2" data-value="48"/></svg></div>`);
 		expect(findMarkTarget(d, 'Jan 2026 is lowest at M3, forty-four.')?.getAttribute('data-mark')).toBe('3');
-		// The value must still corroborate: the M2 cell never answers an M3 sentence.
 		expect(findMarkTarget(d, 'Jan 2026 is lowest at M2, forty-four.')?.getAttribute('data-mark')).not.toBe('2');
 	});
 
@@ -478,33 +506,7 @@ describe('the walk, the point and the read-along (owner, 2026-09-26)', () => {
 		const li = d.querySelector('li') as Element;
 		const words = ['ARR', 'closed', 'at', '$48.6M,', 'ahead', 'of', 'plan,', 'ahead'];
 		expect(wordRangeIn(li, words, 3)?.toString()).toBe('$48.6M');
-		// The second "ahead" is the one being said, not the first.
-		const r = wordRangeIn(li, words, 7) as Range;
-		expect(r.toString()).toBe('ahead');
-		const before = d.createRange();
-		before.setStart(li, 0);
-		before.setEnd(r.startContainer, r.startOffset);
-		expect(before.toString().length).toBeGreaterThan((li.textContent ?? '').indexOf('ahead'));
-		// A word the slide does not carry (a figure spelled out loud) is no range, not a wrong one.
 		expect(wordRangeIn(li, ['forty-eight'], 0)).toBeNull();
-	});
-});
-
-describe('the checker round on the walk and the read-along (#2393)', () => {
-	it('clears a series after the walk moves to one of its dots', () => {
-		vi.useFakeTimers();
-		try {
-			document.body.innerHTML = `<section><div class="chart-body"><svg><path class="line-path" data-series="0"/>
-				<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2" data-value="4.4"/></svg></div></section>`;
-			const [dot] = [...document.querySelectorAll('circle')];
-			sparkContent(document.querySelector('path') as Element, { fade: 300 })?.();
-			sparkContent(dot, { fade: 300 })?.();
-			vi.advanceTimersByTime(1000);
-			expect(document.querySelectorAll('.lat-spark, .lat-spark-out, .lat-spark-context').length).toBe(0);
-		} finally {
-			vi.useRealTimers();
-			document.body.innerHTML = '';
-		}
 	});
 
 	it('matches whole words only, and anchors on the sentence being read', () => {
@@ -540,7 +542,7 @@ describe('the checker round (#2371)', () => {
 		const d = doc('<ul><li>We met the team.</li><li>We toured the site.</li><li>We had lunch.</li></ul>');
 		const [a, , c] = [...d.querySelectorAll('li')];
 		expect(salience(a)).toBe(0);
-		sparkContent(a);
+		focusContent(a);
 		expect(salience(a)).toBe(0);
 		const plan = planSlide(['We met the team.', 'We toured the site.', 'We had lunch.'], (t) => findCueTarget(d, t), 1, 0);
 		expect(plan.top).toBe(0);

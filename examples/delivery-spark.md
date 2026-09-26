@@ -3,16 +3,16 @@ marp: true
 theme: indaco
 paginate: true
 delivery: restrained
-footer: "Laticent · the Guide sparks the element"
+footer: "Laticent · the Guide focuses what it names"
 ---
 
 <!-- _class: title silent -->
 
-# The Guide lights the thing it names.
+# The Guide focuses the thing it names.
 
 `Feature · delivery: restrained · expressive · somber`
 
-Press Present, turn Guide on and play. As the narration names a bullet, a table row, a cell, a column, a bar or a line, that element changes color in place. Nothing moves, and nothing is drawn over the slide.
+Press Present, turn Guide on and play. As the narration names a bullet, a table row, a cell, a column, a bar or a line, that element stays as it is and everything around it recedes. Nothing moves, and nothing is drawn over the slide.
 
 ---
 
@@ -76,20 +76,20 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 ---
 
 <!-- _class: content -->
-<!-- caption: Three presets, three deliveries. Restrained sparks in the accent with one soft pulse. Somber sparks in a quiet ink, holds longer and never pulses. Expressive sparks every moment it names and draws ink on the one that matters most. -->
+<!-- caption: Three presets, three deliveries. Restrained recedes the rest to the chart hover's own depth. Somber recedes it gently and hands off slowly. Expressive recedes it deepest and draws ink on the moment that matters most. -->
 
 ## Three presets read three ways
 
-- Restrained sparks in the accent with one soft pulse.
-- Somber sparks in a quiet ink, holds longer and never pulses.
-- Expressive sparks every moment and inks the top one.
+- Restrained recedes the rest to the chart hover's own depth.
+- Somber recedes it gently and hands off slowly.
+- Expressive recedes it deepest and inks the top moment.
 
 ---
 
 <!-- _class: closing -->
 
-## Color only. No box moves.
+## One lever. Nothing moves.
 
 `delivery: restrained · expressive · somber`
 
-The spark changes the text, a bar's fill or a line's stroke, and fades back when the narration moves on. A PDF, a PPTX and an export are unchanged.
+The named bullet, row, bar or line stays as it is while everything around it recedes, the same emphasis a chart gives on hover. A PDF, a PPTX and an export are unchanged.

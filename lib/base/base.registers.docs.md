@@ -1038,16 +1038,16 @@ follow-up.
 moments on a slide get a gesture, and how each one looks. It changes nothing in a rendered
 slide, a PDF, a PPTX or an export.
 
-**The gesture is a spark.** When the narration names a bullet, a table row, cell or column, a
-chart bar, wedge or line, that element changes color in place while it is being said. Nothing
-moves, the other items stay as they were, and nothing is drawn over the slide. A table's first
-cell names its row, a header cell names its column, and any other cell names itself. Text sparks
-in the accent over a soft wash; a chart mark sparks in the heading ink, because a chart often paints its first
-series in the accent already. A mark that carries something in its fill (a heatmap value, a
-state node's name, radar's translucent area) keeps that fill and takes an ink edge instead. When
-the narration names something no spark can reach (an image, a figure), the Guide draws ink there. When the narration walks a chart point by point (a line's quarters, a heatmap's cells, a
-pie's wedges), each point lights in turn once the chart has been named, and the walk counts as
-one moment of the budget; a point lights its own dot, with its line as context.
+**The gesture is focus.** When the narration names a bullet, a table row, cell or column, a chart
+bar, wedge or line, that element stays exactly as it is and everything else in its group recedes:
+the same emphasis a viewer gets by hovering a chart mark (every other mark to 0.45). Nothing moves,
+nothing changes color, and nothing is drawn over the slide. A table's first cell names its row, a
+header cell names its column, and any other cell names itself. When the narration walks a chart
+point by point, the focus follows as one moment of the budget: on a line, the other series recede
+and, within the line, the other points recede, so the point being read stands out while the line
+keeps its shape. When the narration names something with nothing around it to recede (an image, a
+figure), the Guide draws ink there instead. Moments hand off in a single crossfade, so two things
+are never in focus at once.
 
 ```yaml
 delivery: restrained   # the default: a boardroom, or a board member reading the file alone
@@ -1059,10 +1059,10 @@ delivery: somber       # bad news, a loss: nothing moves that does not have to
 |---|---|---|---|
 | Gestures per slide, at most | 2 | 4 | 1 |
 | After the first, a moment needs a signal | yes | no | yes |
-| Spark color | the accent; the word being said carries a wash | the same | the heading ink over a gray band, never the accent |
-| Arrival | one soft glow | one soft glow | no glow |
-| Linger after the sentence moves on | 320 ms | 240 ms | 900 ms, and it holds through a short aside that names nothing ("Thank you.") |
-| Read-along (the word being said lights inside the spark) | yes | yes | no |
+| The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.62 |
+| A walked line's other points recede to | 0.30 | 0.20 | 0.50 |
+| Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside that names nothing ("Thank you.") |
+| Read-along on the slide (the word being said, only with captions off) | yes | yes | no |
 | Cursor and overlay ink | none | on the top moment only | none |
 | Caption | the word being said lights up | the word being said lights up | the line reads in one muted ink |
 

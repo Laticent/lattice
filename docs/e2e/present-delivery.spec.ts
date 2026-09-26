@@ -4,10 +4,10 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // 2026-09-25-vetrina-delivery-presets.md §6). Both claims are about a real reader driving a real
 // Guide over a real slide, so jsdom cannot settle them (HARD RULE #23):
 //
-//   - `restrained` sparks at most TWO moments on a slide however many blocks it narrates, spends
+//   - `restrained` focuses at most TWO moments on a slide however many blocks it narrates, spends
 //     them on the figures rather than on the first things said, and draws no overlay ink;
-//   - `expressive` sparks more, and inks only its top moment;
-//   - `somber` sparks in a muted ink with no pulse, and shows NO cursor and NO ink.
+//   - `expressive` focuses more, and inks only its top moment;
+//   - `somber` recedes the rest gently, and shows NO cursor and NO ink.
 //
 // No key and no voice: the silent reader drives the cue clock exactly as a narrated one does.
 
@@ -61,9 +61,9 @@ async function present(page: import('@playwright/test').Page, deck: string) {
 	return dialog;
 }
 
-/** Count spark MOMENTS on the live slide for `ms`: a row, a column or a series lights many
- *  elements in one batch, so class changes are grouped the way `inkBursts` groups ink. */
-async function sparks(dialog: import('@playwright/test').Locator, ms: number): Promise<string[]> {
+/** Count focus MOMENTS on the live slide for `ms`: each focus recedes a batch of peers at once,
+ *  so class changes are grouped the way `inkBursts` groups ink. */
+async function foci(dialog: import('@playwright/test').Locator, ms: number): Promise<string[]> {
 	const frame = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
 	return frame.locator('body').evaluate(async (body, duration) => {
 		const moments: { t: number; text: string }[] = [];
@@ -71,11 +71,13 @@ async function sparks(dialog: import('@playwright/test').Locator, ms: number): P
 		const obs = new MutationObserver((records) => {
 			for (const r of records) {
 				const el = r.target as Element;
-				if (r.attributeName !== 'class' || !el.classList.contains('lat-spark') || (r.oldValue ?? '').includes('lat-spark')) continue;
+				if (r.attributeName !== 'class' || !el.classList.contains('lat-guide-dim') || (r.oldValue ?? '').includes('lat-guide-dim')) continue;
 				const t = Date.now() - t0;
 				const last = moments[moments.length - 1];
 				if (last && t - last.t < 400) continue;
-				moments.push({ t, text: (el.textContent ?? '').trim().slice(0, 40) });
+				// The moment is named by what STAYED full: the dimmed peer's sibling that is not dimmed.
+				const focused = [...(el.parentElement?.children ?? [])].find((c) => c.tagName === el.tagName && !c.classList.contains('lat-guide-dim'));
+				moments.push({ t, text: (focused?.textContent ?? '').trim().slice(0, 40) });
 			}
 		});
 		obs.observe(body, { attributes: true, attributeOldValue: true, subtree: true, attributeFilter: ['class'] });
@@ -85,35 +87,67 @@ async function sparks(dialog: import('@playwright/test').Locator, ms: number): P
 	}, ms);
 }
 
-test('restrained sparks at most two moments in place, and draws no ink', async ({ page }) => {
+test('restrained focuses at most two moments, and draws no ink', async ({ page }) => {
 	const dialog = await present(page, DENSE('restrained'));
-	const [lit, bursts] = await Promise.all([sparks(dialog, 25_000), inkBursts(page, 25_000)]);
-	expect(lit.length, 'no spark at all: the plan chose nothing, or the Guide never ran').toBeGreaterThan(0);
-	expect(lit.length, 'restrained sparked past its budget of two').toBeLessThanOrEqual(2);
+	const [lit, bursts] = await Promise.all([foci(dialog, 25_000), inkBursts(page, 25_000)]);
+	expect(lit.length, 'no focus at all: the plan chose nothing, or the Guide never ran').toBeGreaterThan(0);
+	expect(lit.length, 'restrained focused past its budget of two').toBeLessThanOrEqual(2);
 	expect(lit.join(' | '), 'the figure is the moment this slide exists for').toContain('$48.6M');
 	expect(bursts, 'restrained changes the element; it draws no overlay').toBe(0);
 });
 
-test('expressive sparks more of the same slide, and inks only its top moment', async ({ page }) => {
+test('expressive focuses more of the same slide, and inks only its top moment', async ({ page }) => {
 	const dialog = await present(page, DENSE('expressive'));
-	const [lit, bursts] = await Promise.all([sparks(dialog, 25_000), inkBursts(page, 25_000)]);
-	expect(lit.length, 'expressive sparked no more than restrained is allowed to').toBeGreaterThan(2);
-	expect(lit.length, 'expressive sparked past its budget of four').toBeLessThanOrEqual(4);
+	const [lit, bursts] = await Promise.all([foci(dialog, 25_000), inkBursts(page, 25_000)]);
+	expect(lit.length, 'expressive focused no more than restrained is allowed to').toBeGreaterThan(2);
+	expect(lit.length, 'expressive focused past its budget of four').toBeLessThanOrEqual(4);
 	expect(bursts, 'expressive inks its top moment, and only that one').toBe(1);
 });
 
-test('somber sparks in a muted ink with no pulse, no cursor and no ink', async ({ page }) => {
+test('somber focuses the figure: the rest recedes gently, with no cursor and no ink', async ({ page }) => {
 	const dialog = await present(page, DENSE('somber'));
 	const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
-	await expect(slide.locator('li.lat-spark')).toHaveCount(1, { timeout: 30_000 });
-	// The one somber moment is the top-ranked figure, not the first line spoken.
-	await expect(slide.locator('li.lat-spark')).toContainText('$48.6M');
-	await expect(slide.locator('section[data-spark="muted"]:not([data-spark-pulse])')).toHaveCount(1);
-	// The peers stay exactly as they were: a spark recedes nothing.
-	await expect(slide.locator('.lat-recede')).toHaveCount(0);
-	// The spark is a different color from its peers.
-	const [lit, peer] = await Promise.all([slide.locator('li.lat-spark').evaluate((e) => getComputedStyle(e).color), slide.locator('li:not(.lat-spark)').first().evaluate((e) => getComputedStyle(e).color)]);
-	expect(lit).not.toBe(peer);
+	// The one somber moment is the top-ranked figure: its four siblings recede, it stays whole.
+	await expect(slide.locator('li.lat-guide-dim')).toHaveCount(4, { timeout: 30_000 });
+	const focused = slide.locator('ul > li:not(.lat-guide-dim)');
+	await expect(focused).toHaveCount(1);
+	await expect(focused).toContainText('$48.6M');
+	// Somber's depth is gentler than restrained's, and the target keeps its own opacity.
+	await expect.poll(() => slide.locator('li.lat-guide-dim').first().evaluate((e) => Number(getComputedStyle(e).opacity)), { timeout: 5_000 }).toBeCloseTo(0.62, 1);
+	expect(await focused.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
+	// Never the deck's own focus classes.
+	await expect(slide.locator('.lat-focus, .lat-recede')).toHaveCount(0);
 	expect(await page.locator(CURSOR).evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
 	expect(await inkBursts(page, 4_000)).toBe(0);
+});
+
+test('the slide reads along only with the captions off: the caption already does it', async ({ page }) => {
+	const said = (dialog: import('@playwright/test').Locator) =>
+		dialog.frameLocator('[aria-label="Presented slide"] iframe.live').locator('body').evaluate(() => {
+			const h = (window as unknown as { CSS: { highlights?: Map<string, { size: number }> } }).CSS.highlights?.get('lat-said');
+			return h ? h.size : 0;
+		});
+	const dialog = await present(page, DENSE('restrained'));
+	// Captions on (the default): the slide never carries a second copy of the words.
+	await expect(dialog.frameLocator('[aria-label="Presented slide"] iframe.live').locator('li.lat-guide-dim').first()).toBeVisible({ timeout: 30_000 });
+	// "Nothing changes" is the claim, so sample it in the page for a fixed window: every frame for
+	// 3 s, the most lat-said ranges any frame carried.
+	const seen = await dialog.frameLocator('[aria-label="Presented slide"] iframe.live').locator('body').evaluate(
+		() =>
+			new Promise<number>((resolve) => {
+				const w = window as unknown as { CSS: { highlights?: Map<string, { size: number }> } };
+				let most = 0;
+				const t0 = performance.now();
+				const tick = () => {
+					most = Math.max(most, w.CSS.highlights?.get('lat-said')?.size ?? 0);
+					if (performance.now() - t0 < 3000) requestAnimationFrame(tick);
+					else resolve(most);
+				};
+				requestAnimationFrame(tick);
+			}),
+	);
+	expect(seen, 'the slide read along while the caption was showing').toBe(0);
+	// Captions off: the focused bullet reads along.
+	await dialog.getByRole('button', { name: 'Captions' }).click();
+	await expect.poll(() => said(dialog), { timeout: 30_000 }).toBeGreaterThan(0);
 });

@@ -36,9 +36,9 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown,
-	isAside,
-	POINTER_BOX, planSlide, type SlidePlan, setSaid, sparkContent, sparkUnit, wordRangeIn } from './present-guide';
+import { cueDisplayText, 
+	focusContent, focusUnit, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown,
+	isAside,POINTER_BOX, planSlide, type SlidePlan, setSaid, wordRangeIn } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 
@@ -671,7 +671,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// from the source, so an author typing in the editor does not re-create this on every
 	// keystroke and thrash the beat effect that reads it.
 	const deckPace = React.useMemo(() => frontMatterPace(frontMatter), [frontMatter]);
-	// The deck's `delivery:` preset — how many moments a slide may gesture, how each spark looks
+	// The deck's `delivery:` preset — how many moments a slide may gesture, how its focus looks
 	// and paces, and where the cursor and ink still appear (lib/core/resolve-delivery.mjs). A deck register, not a
 	// workspace setting, for the reason `pace:` gives: the author's choice travels with the deck.
 	const delivery = React.useMemo(() => resolveDelivery(frontMatterDelivery(frontMatter)), [frontMatter]);
@@ -941,19 +941,19 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const guidePointRef = React.useRef<AbortController | null>(null);
 	/** Is the fake cursor currently ON SCREEN? Decides gesture-then-show vs gesture-only below. */
 	const guideShownRef = React.useRef(false);
-	// Is the CURSOR up? Distinct from "shown": a spark-only moment is shown with no hand at all.
+	// Is the CURSOR up? Distinct from "shown": a focus-only moment is shown with no hand at all.
 	const guideHandRef = React.useRef(false);
 	// THE WALK: the chart the slide's last planned moment named, with the slide it is on. Later
-	// sentences that land inside it spark too, as one moment (see the plan below).
+	// sentences that land inside it focus too, as one moment (see the plan below).
 	const guideWalkRef = React.useRef<{ slide: number; chart: Element } | null>(null);
 	/** The element the last gesture named. The BLOCK-change cadence compares on this: a cue that
 	 *  resolves to the same element is a rest, not another trip. */
 	const guideAimRef = React.useRef<Element | null>(null);
 	// The current slide's salience plan, keyed on the slide and its track (see THE PLAN below).
 	const guidePlanRef = React.useRef<{ slide: number; track: unknown; delivery: string; plan: SlidePlan } | null>(null);
-	// The undo of the spark in force (`sparkContent`), run on every retarget, hide and teardown.
+	// The undo of the focus in force (`focusContent`), run on every retarget, hide and teardown.
 	const guideMarkRef = React.useRef<(() => void) | null>(null);
-	// The document the read-along last lit a word in, so the word goes when the spark does.
+	// The document the read-along last lit a word in, so the word goes when the focus does.
 	const guideSaidDocRef = React.useRef<Document | null>(null);
 	const unmarkGuide = React.useCallback(() => {
 		guideMarkRef.current?.();
@@ -1091,9 +1091,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// THE REST. Same element as the last cue → the hand stays where the last gesture left it.
 		// Guarded on the cursor actually being on screen, so the first cue of a block still gets
 		// its gesture after a stretch of unresolvable narration on the same block.
-		// A live spark counts as resting too: expressive's top moment sparks at once but is only
+		// A live focus counts as resting too: expressive's top moment focuses at once but is only
 		// "shown" when its ink finishes, and the next sentence of the same block arriving mid-stroke
-		// took it for a new block and dropped the spark under the landing hand.
+		// took it for a new block and dropped the focus under the landing hand.
 		if (aim && aim === guideAimRef.current && (guideShownRef.current || guideMarkRef.current)) return;
 		// THE PLAN. Not every block earns a gesture: the delivery preset's budget goes to the
 		// slide's top-ranked moments (`planSlide`), each on the first sentence that names it, and
@@ -1111,23 +1111,23 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// THE WALK (owner, 2026-09-26). A chart is read point by point — a line's quarters, a
 			// heatmap row's cells — and the budget cut that walk off after its first sentence, so the
 			// Guide went dark while two of three series were read. Once a planned moment on this
-			// slide was a chart mark, every later sentence that lands inside the same chart sparks in
+			// slide was a chart mark, every later sentence that lands inside the same chart focuses in
 			// turn: the walk counts as that one moment, so it spends no budget and draws no ink.
 			const walk = guideWalkRef.current;
 			const chartOf = (e: Element | null) => e?.closest('.chart-body, figure.chart-frame') ?? null;
-			if (!entry.plan.gesture.has(activeCue) && aim && walk && walk.slide === narration.idx && chartOf(aim) === walk.chart && sparkUnit(aim)) {
+			if (!entry.plan.gesture.has(activeCue) && aim && walk && walk.slide === narration.idx && chartOf(aim) === walk.chart && focusUnit(aim)) {
 				guidePointRef.current?.abort();
 				stage.setCursorVisible(false);
 				guideHandRef.current = false;
 				setGuideAiming(false);
 				unmarkGuide();
-				guideMarkRef.current = sparkContent(aim, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade, wash: !delivery.wordSpark });
+				guideMarkRef.current = focusContent(aim, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
 				guideAimRef.current = aim;
 				guideShownRef.current = true;
 				return;
 			}
 			if (!entry.plan.gesture.has(activeCue)) {
-				// The narration moved to a block the plan did not choose. A spark must not stay on the
+				// The narration moved to a block the plan did not choose. A focus must not stay on the
 				// last one: it would name a thing nobody is saying. The hand itself only idles.
 				unmarkGuide();
 				// A stroke still drawing finishes; a resting hand keeps resting; a hand whose target
@@ -1153,16 +1153,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// resting on the last thing named would claim that thing is what is being said.
 		// `text` must be a real sentence: an empty one means narration ended or the slide changed
 		// (`activeCue` -1), and a hand held then rests beside a slide that is gone.
-		// SOMBER'S TEMPO rides on the same hold: an aside keeps somber's spark lit, so the moment
-		// sits before it fades, while restrained's spark leaves with the next sentence. The hand
+		// SOMBER'S TEMPO rides on the same hold: an aside keeps somber's focus, so the moment
+		// sits before it fades, while restrained's focus leaves with the next sentence. The hand
 		// itself holds on every preset. Only an aside that names NOTHING holds: a short sentence
 		// that names another block ("Churn doubled.") is that block's line, never an aside to this one.
 		if (!cue && text && isAside(text) && guideShownRef.current && guideStillShown(guideAimRef.current) && (guideHandRef.current || delivery.hold === 'aside')) return;
 		// Ink, and the cursor with it, only where the preset asks: expressive's top moment. Everywhere
-		// else the spark is the whole gesture and the viewer's own pointer stays.
-		// A moment nothing on the slide can spark (a figure, an image, a chart's hit area) falls back
-		// to ink, so a planned moment never shows nothing.
-		const inks = !!cue && ((delivery.ink === 'top' && top) || !sparkUnit(cue.el));
+		// else the focus is the whole gesture and the viewer's own pointer stays.
+		// A moment nothing on the slide can focus (a figure, an image, a chart's hit area) falls back
+		// to ink. A moment with nothing BESIDE it to recede (a slide of one paragraph, a one-series
+		// line) is focused and shows no change: one lever, and the narration carries it.
+		const inks = !!cue && ((delivery.ink === 'top' && top) || !focusUnit(cue.el));
 		setGuideAiming(inks);
 		if (!cue) {
 			guidePointRef.current?.abort();
@@ -1178,14 +1179,15 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const ctl = new AbortController();
 		guidePointRef.current = ctl;
 		guideAimRef.current = cue.el;
-		// THE SPARK. Every planned moment changes the named bullet, row, cell, column, chart mark or
-		// line in place, in the preset's color, pulse and tempo. The previous spark goes first, always.
+		// THE FOCUS. Every planned moment keeps the named bullet, row, cell, column, chart mark or
+		// line as it is and recedes the rest, at the preset's depth and tempo. The previous focus's undo
+		// runs in this same task, so the two land as one swap: never two foci.
 		unmarkGuide();
-		guideMarkRef.current = sparkContent(cue.el, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade, wash: !delivery.wordSpark });
+		guideMarkRef.current = focusContent(cue.el, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
 		const chart = cue.el.closest('.chart-body, figure.chart-frame');
 		guideWalkRef.current = chart && cue.el.closest('[data-mark], [data-series]') ? { slide: narration.idx, chart } : null;
 		if (!inks) {
-			// No ink here: the spark IS the gesture, so a hand left from an inked moment goes down.
+			// No ink here: the focus IS the gesture, so a hand left from an inked moment goes down.
 			// "Shown" means "a named thing is live on the slide", which is what the rest and the
 			// hold above ask.
 			ctl.abort();
@@ -1221,29 +1223,31 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		}).catch(() => {});
 	}, [guideBeat, guideLive, guideRoot]);
 
-	// THE READ-ALONG (owner, 2026-09-26). Inside a sparked TEXT element, the word being spoken
+	// THE READ-ALONG (owner, 2026-09-26). Inside the focused TEXT element, the word being spoken
 	// lights, on the caption's own clock, so the slide, the caption and the voice agree. Only the
-	// sparked element reads along — never the whole slide — and a chart mark has no words to read.
-	// Somber turns it off (`wordSpark: false`): a moving highlight is the motion it refuses.
+	// focused element reads along — never the whole slide — and a chart mark has no words to read.
+	// Somber turns it off (`wordFocus: false`): a moving highlight is the motion it refuses.
 	const saidCue = reader.active?.cueIndex ?? -1;
 	const saidWord = reader.active?.wordIndex ?? -1;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the active word IS the trigger; the refs are read at fire time on purpose.
 	React.useEffect(() => {
 		const el = guideAimRef.current;
 		const doc = el?.ownerDocument ?? null;
-		if (!guideLive || !delivery.wordSpark || !guideMarkRef.current || !el || el.closest('svg') || saidCue < 0 || saidWord < 0) {
+		// Only with the captions OFF: the caption already reads along, and a second copy on the slide
+		// competes with the voice (Mayer's redundancy effect; owner, 2026-09-26).
+		if (!guideLive || !delivery.wordFocus || captionsOn || !guideMarkRef.current || !el || el.closest('svg') || saidCue < 0 || saidWord < 0) {
 			setSaid(guideSaidDocRef.current, null);
 			return;
 		}
 		const words = reader.track.cues[saidCue]?.words.map((w) => w.display) ?? [];
 		// A row spark lights every cell, so the words are looked for across the row, not in the one
 		// cell the aim happened to land on.
-		const scope = sparkUnit(el)?.axis === 'row' ? (el.closest('tr') ?? el) : el;
+		const scope = focusUnit(el)?.axis === 'row' ? (el.closest('tr') ?? el) : el;
 		const range = wordRangeIn(scope, words, saidWord);
 		if (guideSaidDocRef.current && guideSaidDocRef.current !== doc) setSaid(guideSaidDocRef.current, null);
 		guideSaidDocRef.current = doc;
 		setSaid(doc, range);
-	}, [saidCue, saidWord, guideLive, delivery.wordSpark]);
+	}, [saidCue, saidWord, guideLive, delivery.wordFocus, captionsOn]);
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
 	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),
