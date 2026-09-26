@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The deck settings panel had grown to about 46 controls, ten of them accent dials that each opened on "Auto" or "None", and authors could not tell which ones mattered. Three changes answer it. A `preset:` front-matter register names a coherent look (classic, editorial, brand, minimal) that differs at a glance, title slide included, because it sets alignment and a backdrop as well as the accent dials; the dials become overrides of it, and the picker shows each as a picture. Both settings panels open on a BASIC tier of a few essentials, with ADVANCED one tap away. The three "More…" drawers are gone. A preset resolves in the one front-matter reader every render path shares, so it has no class token and no CSS of its own.
+summary: The deck settings panel had grown to about 46 controls, ten of them accent dials that each opened on "Auto" or "None", and authors could not tell which ones mattered. Three changes answer it. A `preset:` front-matter register names a coherent look (classic, editorial, brand, minimal) that differs at a glance, title slide included, because it sets alignment and a backdrop as well as the accent dials; the dials become overrides of it, and the picker shows each as a live preview in the deck's own theme and color mode. Both settings panels open on a BASIC tier of a few essentials, with ADVANCED one tap away. The three "More…" drawers are gone. A preset resolves in the one front-matter reader every render path shares, so it has no class token and no CSS of its own.
 companion:
   - ./2026-09-13-settings-find-and-list-view.md
   - ./2026-08-18-settings-panel-coverage-and-ux.md
@@ -177,29 +177,46 @@ side-by-side renders and approved the new set before any code changed. The two b
 picked from all nine finishes rendered on the same pair of slides: the others were busier
 (`atrium`, `savile`, `meridian`) or too close to plain (`gallery`, `nimbus`).
 
-**The picker shows pictures.** The dropdown of four names became a 2×2 radiogroup of
-thumbnails (`docs/src/components/studio/PresetPicker.tsx`, on `ui/radio-group`). Each shows
-ONE fixed sample slide rendered with that preset. The owner chose a fixed sample over
-rendering their own current slide four times: it opens instantly, adds four small images
-(about 7KB in all, loaded lazily) rather than eager JavaScript, and reads the same for
-everyone.
+**The picker shows live previews.** The dropdown of four names became a 2×2 radiogroup
+(`docs/src/components/studio/PresetPicker.tsx`, on `ui/radio-group`). Each card renders one
+sample slide under that preset, and it went through two designs.
 
-- **The sample is a title slide.** The first thumbnails used a card slide, and the round-two
-  check measured Classic and Minimal as nearly identical: on a content slide Classic is
-  already left-aligned, so the two differed by a 1px bar and a hairline. On a title slide
-  alignment and backdrop fill the frame. Classic versus Brand-forward remains the subtlest
-  pair (corner marks and a faint grid), and is the one to revisit if authors still confuse
-  them.
-- **Minimal's rounded corners come with its picture.** The emulator keeps a rounded slide's
-  corners transparent, so the WebP carries them; no CSS special case is needed. (An earlier
-  comment said the PNG could not carry them; it can.)
-- **Freshness.** `tools/build-preset-thumbs.mjs` renders the four through the real emulator
-  into `docs/public/presets/` and records a hash in `docs/scripts/preset-thumbs-sources.json`.
-  `test/unit/core/preset-thumbs-fresh.test.js` recomputes it. The hash covers each preset's
-  VALUES (not its label or description, which change no pixel), the deck header the tool
-  writes, and the sample slide. It **cannot** see the CSS those values resolve to — the
-  `ledger` and `strata` finishes, the title component, the `indaco` palette — so a visual
-  change there needs the tool re-run by hand.
+- **First: fixed images.** The owner first chose a fixed sample image per preset over a live
+  render of their own slide: instant, about 7KB of WebP, the same for everyone. A generator
+  (`tools/build-preset-thumbs.mjs`) rendered them through the emulator in `indaco`, light mode,
+  with a hash test for staleness.
+- **Then: live, in the deck's theme.** On the deployed preview the owner asked for a sample
+  that "really show cases the difference" and for the tiles to "adapt to color mode change and
+  theme change". A fixed image cannot: a WebP per built-in theme per mode would still miss
+  every saved theme. So each tile is now a live render through the same kernel as the main
+  preview (`PooledThumbFace` in a `PreviewPool`, the machinery the Reshape picker already
+  uses), fed the resolved `preview.*` theme, `options` and `previewExtraCss`. A saved theme
+  and a color-mode flip reach the tiles the way they reach the main preview (checked on a
+  production build: Cuoio light, then Indaco dark, all four tiles re-rendered). The generator,
+  the four WebPs, the hash file and the freshness test are deleted.
+- **The sample** (`deck-preset.ts` `PRESET_SAMPLE`) is a kicker, a heading and a row of three
+  cards. It was picked from renders of a card row, a title slide and a table under all four
+  presets. The card row carries every surface a preset changes that a small tile can still
+  show: the page edge (bar, backdrop), the heading (alignment, rule), the kicker (eyebrow) and
+  the cards (lift, rails). The title slide hid the bar, the rule and the cards, and the table
+  hid the cards. At a live tile's size Classic and Minimal separate on the bar and the rule.
+- **What a tile renders** (`presetSampleDeck`): the deck's own front matter, so theme, color
+  mode and size match, with `preset:` set to the tile's preset and every preset-family key the
+  author wrote removed, so each tile shows the preset rather than the author's overrides of it.
+  It uses the editable `fm`, not `previewFm`: `previewFm` stamps a saved finish's class onto
+  the front matter, which would paint that finish over all four tiles.
+- **Cost.** Four more preview documents while the deck panel is open: one main frame plus four
+  measured as 5 iframes on the page. The engine is already loaded for the main preview, so
+  there is nothing new to download. By this repo's own measurements a live preview document
+  costs about 1.2MB on Chromium and about 11MB on WebKit
+  (2026-07-30-preview-deck-context-and-render-cost.md, 2026-09-13-gallery-preview-memory.md).
+  That is why the tiles use the pool: re-pointing a pooled frame is a patch into a living
+  document, never a new one. Not measured here: whether closing and reopening the phone
+  settings sheet tears the pool down and rebuilds it. If it does, that would repeat WebKit's
+  retained-memory cost on each open, the same trade the Reshape popover already makes.
+- **Dev-server note.** On `astro dev` the pool paints no frames, for this picker and for the
+  existing Reshape picker alike; on a production build both paint. That predates this change
+  and is not addressed here.
 
 **Readers that stay outside the shared one, each on purpose.**
 
@@ -226,7 +243,7 @@ everyone.
 | Picking Editorial in the real Studio renders the ledger backdrop and left alignment in the live preview | The real Studio (docs dev server, Chromium 1440×900) | screenshot shared with the owner |
 | Arrow keys in the picker switch the preset and keep the author's keys | The real Studio, keyboard-driven | the deck source read back after the key presses |
 | The four presets differ on a title slide and on content slides | The same four-slide deck rendered under each preset, old set and new, side by side (shown to the owner) | those renders; `examples/deck-presets.pdf` shows the same looks through per-slide classes, since one deck can carry only one preset |
-| The picker's pictures are of the current presets | `tools/build-preset-thumbs.mjs` through the emulator, then looked at | the four WebPs; `preset-thumbs-fresh.test.js` guards only the inputs it can hash (see §7) |
+| The picker's tiles follow the deck's theme and color mode | The real Studio, production build (Chromium 1440×900 and 390×844): Cuoio light, then Indaco dark | screenshots shared with the owner; `deck-preset.test.ts` pins the sample deck each tile renders |
 | Basic and Advanced at desktop, tablet and phone widths | The real Studio at 1440, 820 and 390 | screenshots shared with the owner |
 | Independent eyes | Two checker passes: one on round one, one on round two | every confirmed finding fixed, each with a test or a corrected claim |
 

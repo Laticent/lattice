@@ -657,7 +657,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// The six Basic rows, and nothing from a section they do not name.
-		// The preset is a grid of four pictures — a real radiogroup — and tapping one picks it.
+		// The preset is a grid of four live previews — a real radiogroup — and tapping one picks it.
 		const presets = await screen.findByRole('radiogroup', { name: 'Choose preset' });
 		expect(within(presets).getAllByRole('radio')).toHaveLength(4);
 		expect(within(presets).getByRole('radio', { name: 'Classic' })).toBeChecked();

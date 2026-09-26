@@ -77,7 +77,7 @@ had written its six keys, per-slide `_class:` overrides work unchanged (`finish-
 slide clean), and the CLI, the export and the Studio agree by construction. A preset
 deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
 `tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
-resolves to no preset. The Studio shows the four as pictures of one sample slide at the top of
+resolves to no preset. The Studio previews the four live on one sample slide, in the deck's theme and color mode, at the top of
 the deck panel, with a count of the keys that differ from the chosen preset and a Reset. See
 `engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md`.
 

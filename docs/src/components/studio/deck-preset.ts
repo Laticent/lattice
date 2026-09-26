@@ -15,8 +15,8 @@
 // The table is read from the engine, not copied (HARD RULE #15). It comes through a DEFAULT
 // import because front-matter-key.js is CommonJS outside the docs root: Rollup resolves a
 // default import off it, not named ones (see lib/core/resolve-motion.mjs, which does the same).
-// The only thing added here is the human layer — a label and a blurb per preset; the picker's
-// pictures are rendered files (tools/build-preset-thumbs.mjs).
+// The only things added here are the human layer — a label and a blurb per preset — and the
+// sample deck each picker tile renders live (`PRESET_SAMPLE`, `presetSampleDeck`).
 // Rot-guard: deck-preset.test.ts.
 
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
@@ -114,4 +114,38 @@ export function clearPresetOverrides(source: string): string {
  */
 export function applyPreset(source: string, name: string): string {
 	return writeFrontMatterLine(source, 'preset', name === DEFAULT_PRESET ? null : name);
+}
+
+/**
+ * The one sample slide every preset tile in the picker renders. A row of three cards under a
+ * kicker and a heading, because that single slide carries every surface a preset changes that a
+ * small picture can still show: the page edge (bar, backdrop), the heading (alignment, rule),
+ * the kicker (eyebrow) and the cards (lift, rails). Measured against a title slide and a table:
+ * the title hid the bar, the rule and the cards; the table hid the cards.
+ */
+export const PRESET_SAMPLE = `
+<!-- _class: cards-grid three -->
+
+\`Q4 · Review\`
+
+## Capacity plan
+
+- Build ahead
+  - Weekends.
+- Re-route
+  - Line 1.
+- Extend
+  - Shift two.
+`;
+
+/**
+ * The sample deck for preset `name`'s tile: the deck's OWN front matter — so the tile renders in
+ * the deck's theme, color mode and size — with `preset:` set to `name` and every preset-family
+ * key the author wrote removed, so each tile shows the preset itself rather than the author's
+ * overrides of it. `fm` is the deck's front-matter block (`---…---`), or '' for a deck with none.
+ */
+export function presetSampleDeck(fm: string, name: string): string {
+	const base = fm ? `${fm.replace(/\n*$/, '')}\n` : '';
+	const withPreset = writeFrontMatterLine(base, 'preset', name === DEFAULT_PRESET ? null : name);
+	return `${clearPresetOverrides(withPreset).replace(/\n*$/, '')}\n${PRESET_SAMPLE}`;
 }

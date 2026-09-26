@@ -4047,7 +4047,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		settingsWrite(`Preset → ${presetLabelOf(name)}`, (s) => applyPreset(s, name));
 	};
 	const resetPreset = () => settingsWrite(`${presetLabelOf(deckPreset)} restored`, clearPresetOverrides);
-	const presetField = <PresetPicker value={deckPreset} drift={presetDrift.length} onValueChange={setPreset} onReset={resetPreset} />;
+	// The tiles render with the deck's `fm` — NOT `previewFm`, which stamps a saved finish's class
+	// onto the front matter and would paint that finish over all four presets.
+	const presetField = <PresetPicker value={deckPreset} drift={presetDrift.length} onValueChange={setPreset} onReset={resetPreset} frontMatter={fm} options={options} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} />;
 	// The six controls the BASIC tier shows, as elements rather than inline JSX, so the Basic
 	// list and their home sections render the SAME control — one source for each (HARD RULE #15).
 	const themeField = (

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { frontMatterName } from '../../../../lib/core/front-matter-key.js';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetChanges, presetOf, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
 
 const deck = (...fm: string[]) => ['---', 'theme: indaco', ...fm, '---', '', '# Hi'].join('\n');
 const fmOf = (src: string) => src.split('---')[1];
@@ -79,4 +79,19 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 		expect(frontMatterName(fmOf(src), 'spectrum')).toBeNull();
 	});
 
+
+	it('a picker tile renders the deck in its own theme and mode, showing the pure preset', () => {
+		const fm = '---\ntheme: cuoio\ncolor-mode: dark\nsize: 4k\npreset: brand\nrule: none\nfinish: halo\n---';
+		const tile = presetSampleDeck(fm, 'editorial');
+		const head = tile.split('\n---\n')[0];
+		// The deck's theme, mode and size ride along, so the tile looks like THIS deck…
+		for (const kept of ['theme: cuoio', 'color-mode: dark', 'size: 4k']) expect(head).toContain(kept);
+		// …the preset is the tile's, and the author's overrides are gone, so it shows the look itself.
+		expect(head).toContain('preset: editorial');
+		expect(head).not.toMatch(/rule:|finish:|preset: brand/);
+		expect(tile.endsWith(PRESET_SAMPLE)).toBe(true);
+		// Classic writes no key; a deck with no front matter still gets a well-formed block.
+		expect(presetSampleDeck(fm, 'classic')).not.toContain('preset:');
+		expect(presetSampleDeck('', 'minimal').startsWith('---\npreset: minimal\n---\n')).toBe(true);
+	});
 });
