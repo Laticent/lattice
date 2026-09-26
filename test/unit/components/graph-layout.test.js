@@ -177,9 +177,21 @@ describe('graph-layout — serialization', () => {
 
 describe('graph-layout — determinism', () => {
   test('the same model lays out byte-identically, run after run', () => {
+    // A fresh kernel each run: the kernel caches its results, and a cache hit would prove
+    // nothing about determinism.
     for (const src of Object.values(GALLERY)) {
-      const a = JSON.stringify(run(src).geo);
-      for (let i = 0; i < 3; i++) assert.equal(JSON.stringify(run(src).geo), a);
+      const a = JSON.stringify(run(src, graphLayoutKernel()).geo);
+      for (let i = 0; i < 3; i++) assert.equal(JSON.stringify(run(src, graphLayoutKernel()).geo), a);
+    }
+  });
+
+  test('a cached layout equals a fresh one, and editing it cannot change the next', () => {
+    const k = graphLayoutKernel();
+    for (const src of Object.values(GALLERY)) {
+      const fresh = JSON.stringify(run(src, graphLayoutKernel()).geo);
+      const first = run(src, k).geo;
+      first.routes[0].points[0].x += 1000; // a painter adjusting a point
+      assert.equal(JSON.stringify(run(src, k).geo), fresh);
     }
   });
 

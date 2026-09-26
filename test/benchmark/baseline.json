@@ -152,5 +152,21 @@
       "ms": 17,
       "burstMs": 207.41
     }
+  },
+  "flowchartDatasets": {
+    "flowchart · demo deck page (35 calls)": {
+      "calls": 35,
+      "routed": 25,
+      "bounded": 8,
+      "hits": 16,
+      "ms": 435.05
+    },
+    "flowchart · same calls, no cache": {
+      "calls": 35,
+      "routed": 50,
+      "bounded": 11,
+      "hits": 0,
+      "ms": 843.36
+    }
   }
 }

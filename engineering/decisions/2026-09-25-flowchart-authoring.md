@@ -476,9 +476,29 @@ A dotted overlay moving along a line, a separate path above the real edge.
   into the middle (two turns, 80). The owner's order puts middles before turns;
   this one is theirs to call.
 
-  **Speed**: the demo deck's 35 layout calls take 0.98 s against 0.73 s, the
-  slowest single call 123 ms against 55 (the release train); a corpus chart
-  takes about 1.2 times as long.
+  **Speed**, measured per stage on the demo deck (the numbers behind the
+  owner's performance review):
+  - Parsing costs 0.03 to 0.16 ms a chart (markdown-it, the outline, the
+    grammar and the figure's HTML together), and the linter's markdown path 0.05
+    to 0.35 ms: nothing to gain there.
+  - The browser pass calls `layout()` 35 times for the deck's 7 charts (a first
+    draw, `DOMContentLoaded`, `fonts.ready` and the resize observer), and only 19
+    of those calls have distinct inputs. So the kernel caches its results by
+    input and hands back a copy; `layout()` skips routing a second direction
+    whenever dagre's boxes alone show it cannot win the type-size comparison
+    (an exact bound, since lines only add size, so every layout is byte-identical
+    to before on both corpora in all three directions); and the pass skips a
+    redraw whose model, sizes, fonts and computed type all match its last one.
+  - Replaying the deck's 35 calls through one kernel: 954 ms before, 417 ms
+    after (the pass stack took 0.73 s), with 25 full layouts routed instead of
+    70, 8 dagre-only bounds, and 16 calls answered from the cache. The bench's
+    flowchart tier (`engineering/workflow.md` §Performance) pins those counts.
+  - In Chromium, the flowchart's main-thread time on load falls from 1,453 ms to
+    789 ms, `layout()` from 1,144 to 537, the solver from 706 to 285, and the
+    last chart is drawn 1,064 ms after navigation instead of 1,781 (medians of
+    three runs).
+  - Inside the solver, one full render: sweeps 49%, spread 29%, relax 16%,
+    settle 4%, the rest under 1%; dagre is a third of `layout()`.
 - **Before the solver: a stack of passes (superseded, kept for its lessons).**
   After dagre, passes in order spread ports, turned a line entering a foreign
   group outside it, straightened short Zs, moved shared runs apart, re-drew lines
@@ -636,10 +656,10 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
   remain on the 1,000 charts. The demo deck draws with none. A global pass
   (re-running dagre's ordering with our routes' costs) is the next step if a real
   deck needs it.
-- **The solver is slower than the passes it replaced**: 1.3 times on the demo
-  deck, 123 ms for the release train's slowest call against 55. Most of it is
-  building candidates; the next step is fewer layout calls per chart (the fit and
-  direction passes call it up to five times), not a cheaper call.
+- **One solver call is slower than one pass-stack call** (the release train's
+  slowest, 123 ms against 55), though a whole page is now faster (above). Most of
+  it is building candidates: 189,000 are built for 82,000 scored on one render.
+  Building them lazily, pruned by lane, is the next step.
 - **Off-center ends for straight lines.** See §7: the weights prefer a straight
   line a few units off its side's middle to a Z into the middle. Raising
   `W.offMid` flips that, at the cost of turns.
