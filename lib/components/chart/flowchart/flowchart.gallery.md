@@ -157,7 +157,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack compact cards-stretch -->
 <!-- _footer: "Anti-patterns · flowchart" -->
 
 ## When NOT to reach for flowchart.
