@@ -94,6 +94,7 @@ const VOICE_EXEMPT = {
   radar: { rules: ['density'], reason: 'chart data; no prose axis' },
   roadmap: { rules: ['density'], reason: 'grid cells; no prose axis' },
   'state-chart': { rules: ['density'], reason: 'chart data; no prose axis' },
+  flowchart: { rules: ['density'], reason: 'chart data; no prose axis' },
   'word-cloud': { rules: ['density'], reason: 'chart data; no prose axis' },
   math: { rules: ['density'], reason: 'typeset notation; no prose axis' },
   code: { rules: ['density'], reason: 'source lines; no prose axis' },

@@ -402,6 +402,32 @@ How a draft moves from author to publication.
 
 ---
 
+<!-- _class: flowchart -->
+
+`Platform`
+
+## Payments sit between four parties.
+
+- Customers `:c1`
+  - Shopper `:circle`
+    - -browses-> Storefront
+  - Merchant `:circle`
+    - -lists items-> Storefront
+- Platform `:c2`
+  - Storefront
+    - => Payments
+  - Payments
+    - -screens-> Fraud checks
+    - <-> Card networks
+  - Fraud checks `:diamond`
+  - -ships via-> Carriers
+- Partners `:c3`
+  - Card networks `:square`
+  - Carriers `:square`
+- Regulators `:doc`
+
+---
+
 <!-- _class: timeline-list -->
 
 ## The timeline pins events to their dates.

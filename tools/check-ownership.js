@@ -216,7 +216,6 @@ const SINGLETON_TAGS = new Set([
   'donut',      // piechart — the donut idiom
   'spider',     // radar — the spider/radar idiom
   'tag-cloud',  // word-cloud — the tag-cloud idiom
-  'org-chart',  // diagram — org-chart idiom
   'themes',     // word-cloud — recurring themes/terms
   'definition', // glossary — term definitions
   'states',     // state-chart — state machine states
@@ -5249,6 +5248,11 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/slope/slope.transform.js', true, true],
   ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
   ['components/chart/state-chart/state-chart.transform.js', true, true],
+  // The flowchart names each shape twice: on the harness tile the server emits (what shows before
+  // the browser pass, or where it cannot run) and on the shape the pass paints. No value: a shape's
+  // status paints it rather than being a quantity a sentence could corroborate.
+  ['components/chart/flowchart/flowchart.transform.js', true, false],
+  ['components/chart/flowchart/flowchart.layout.js', true, false],
   ['components/chart/timeline-list/timeline-list.transform.js', true, false],
   ['components/chart/waterfall/waterfall.transform.js', true, true],
   ['components/chart/word-cloud/word-cloud.transform.js', true, false],
@@ -5484,7 +5488,24 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // it appears — because the file-scoped shape every other #22 arm uses would certify a
 // SECOND injection point hiding behind an already-legitimate one (#1731 §9.8, finding 7,
 // in a different channel). A stale entry fails too, so the list cannot rot.
+// Browser passes outside lib/runtime that write markup after the sanitizer ran. The state
+// chart's pass (state-chart.transform.js) is the other member of this class and is NOT listed
+// yet: followups.d/2385-p2-state-chart-pass-census.md.
+const RUNTIME_MARKUP_EXTRA_FILES = [
+  'lib/components/chart/flowchart/flowchart.layout.js',
+];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
+  {
+    file: 'lib/components/chart/flowchart/flowchart.layout.js',
+    sink: 'svg.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — the flowchart painter, built from `data-fc-model`. A deck can FORGE that attribute in ' +
+      'raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the pass trusts none of ' +
+      'it: sanitizeModel rebuilds every structural field from a closed set or an integer range and ' +
+      'drops the rest, and every author string is escaped where it is painted. Pinned by ' +
+      'test/unit/components/flowchart.test.js "a forged model cannot inject markup".',
+  },
   {
     file: 'lib/runtime/index.js',
     sink: 'target.innerHTML',
@@ -7338,6 +7359,13 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
   const found = new Map(); // `${rel} ${sink}` -> count
   const files = [];
   if (fs.existsSync(dir)) listSourceFiles(dir, files);
+  // A component's BROWSER PASS writes markup into the same document from outside lib/runtime
+  // (the runtime imports it, and the emulator serializes it). Listed by name rather than found,
+  // because nothing distinguishes a browser pass from the transform code beside it.
+  for (const rel of RUNTIME_MARKUP_EXTRA_FILES) {
+    const abs = path.join(root, rel);
+    if (fs.existsSync(abs)) files.push(abs);
+  }
   for (const file of files) {
     const rel = path.relative(root, file).split(path.sep).join('/');
     if (/\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
@@ -8430,6 +8458,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   radar: 'data viz — scatter series',
   roadmap: 'data viz — timeline matrix',
   'state-chart': 'data viz — state graph',
+  flowchart: 'data viz — shapes and the lines between them',
   'word-cloud': 'data viz — weighted terms, not prose',
   // code — budgeted by line count, not words.
   code: 'code — line-based, not word-based',

@@ -420,6 +420,72 @@ async function editTier() {
   return { summary };
 }
 
+// ── FLOWCHART LAYOUT TIER ────────────────────────────────────────────────────
+//
+// The flowchart's browser pass calls `graphLayoutKernel().layout()` for every chart on
+// load, again when fonts arrive, and on resize. This tier replays the exact calls one
+// Chromium render of examples/flowchart.md made (test/benchmark/fixtures/
+// flowchart-deck-layouts.json) through a fresh kernel, the way a page does, and a second
+// time with a fresh kernel per call, which is the shape before the kernel cached its
+// results: the gap between the two rows is the cache's share, re-measured in the same
+// run on the same machine (HARD RULE #19).
+//
+// IT GATES ON WORK COUNTS, like the edit tier: `routed` (full layouts the solver ran),
+// `bounded` (dagre-only passes that ruled a direction out) and `hits` (calls answered
+// from the cache) are integers a machine cannot move. `ms` is commentary. A tree whose
+// kernel predates the counters, or has no fixture, reports NOT COMPARABLE.
+async function flowchartTier() {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const fixture = join(ROOT, 'test/benchmark/fixtures/flowchart-deck-layouts.json');
+  const kernelPath = join(ROOT, 'lib/components/chart/_chart-family/graph-layout.js');
+  if (!existsSync(fixture) || !existsSync(kernelPath)) return { summary: [] };
+  req(join(ROOT, 'lib/core/dagre-layout.js'));
+  const dagre = globalThis.__latticeDagre;
+  const { graphLayoutKernel } = req(kernelPath);
+  const { calls } = JSON.parse(readFileSync(fixture, 'utf8'));
+  if (!graphLayoutKernel().stats) {
+    console.log('\n=== FLOWCHART LAYOUT \u00b7 not comparable (this kernel has no work counters) ===');
+    return { summary: [] };
+  }
+  const page = () => {
+    const k = graphLayoutKernel();
+    for (const c of calls) k.layout(c.model, c.sizes, c.opts, dagre);
+    return k.stats;
+  };
+  const eachFresh = () => {
+    const t = { calls: 0, hits: 0, routed: 0, bounded: 0 };
+    for (const c of calls) {
+      const k = graphLayoutKernel();
+      k.layout(c.model, c.sizes, c.opts, dagre);
+      for (const x of Object.keys(t)) t[x] += k.stats[x];
+    }
+    return t;
+  };
+  const time = (f, n) => {
+    f(); // warm
+    const ms = [];
+    let st = null;
+    for (let i = 0; i < n; i++) {
+      const t0 = process.hrtime.bigint();
+      st = f();
+      ms.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    ms.sort((a, b) => a - b);
+    return { ms: ms[Math.floor(ms.length / 2)], st };
+  };
+  const a = time(page, 5);
+  const b = time(eachFresh, 3);
+  const summary = [
+    { dataset: `flowchart \u00b7 demo deck page (${calls.length} calls)`, slides: calls.length, ...a.st, ms: a.ms },
+    { dataset: `flowchart \u00b7 same calls, no cache`, slides: calls.length, ...b.st, ms: b.ms },
+  ];
+  console.log('\n=== FLOWCHART LAYOUT \u00b7 the demo deck\'s browser calls, replayed ===');
+  console.log(`${'dataset'.padEnd(40)}${'ms'.padStart(9)}${'routed'.padStart(8)}${'bounded'.padStart(9)}${'hits'.padStart(6)}`);
+  for (const r of summary) console.log(`${r.dataset.padEnd(40)}${r.ms.toFixed(1).padStart(9)}${String(r.routed).padStart(8)}${String(r.bounded).padStart(9)}${String(r.hits).padStart(6)}`);
+  return { summary };
+}
+
 // ── export / rasterize tier (lazy puppeteer) ──────────────────────────────────
 async function exportTier() {
   const { default: puppeteer } = await import('puppeteer');
@@ -1053,7 +1119,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null } = opts;
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -1132,6 +1198,10 @@ function blessBaseline(summary, render, opts = {}) {
     ms: round2(s.ms),
     burstMs: round2(s.burstMs),
   }));
+  // THE FLOWCHART TIER BLESSES ITS WORK COUNTS; `ms` is commentary, as in the edit tier.
+  const flowchartOut = tierRows(flowchartSummary?.length ? flowchartSummary : null, 'flowchartDatasets', (s) => ({
+    calls: s.calls, routed: s.routed, bounded: s.bounded, hits: s.hits, ms: round2(s.ms),
+  }));
   // A BLESS THAT ONLY MEASURED ONE TIER MUST NOT RESTAMP THE OTHERS' MACHINE.
   //
   // `blessedOn` and `calibration` are what `comparableMachine()` matches on, and
@@ -1191,6 +1261,9 @@ function blessBaseline(summary, render, opts = {}) {
     // compared. Blessed via `bench:bless -- --export`.
     ...(exportOut ? { exportDatasets: exportOut } : {}),
     ...(editOut ? { editDatasets: editOut } : {}),
+    // The flowchart layout's replayed browser calls: full layouts routed, directions
+    // ruled out by dagre alone, and cache hits, per page. Blessed on every bless.
+    ...(flowchartOut ? { flowchartDatasets: flowchartOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
   const wrote = [`${summary.length} render`];
@@ -1199,6 +1272,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (cliSummary?.length) wrote.push(`${cliSummary.length} cli`);
   if (exportSummary?.length) wrote.push(`${exportSummary.length} export`);
   if (editSummary?.length) wrote.push(`${editSummary.length} edit`);
+  if (flowchartSummary?.length) wrote.push(`${flowchartSummary.length} flowchart`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
 
@@ -1216,6 +1290,7 @@ function checkBaseline(summary, render, opts = {}) {
   const cliSummary = opts.cliSummary ?? null;
   const exportSummary = opts.exportSummary ?? null;
   const editSummary = opts.editSummary ?? null;
+  const flowchartSummary = opts.flowchartSummary ?? null;
   const confirming = opts.confirming ?? null;
   const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
@@ -1462,6 +1537,39 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE FLOWCHART LAYOUT TIER. Gates on WORK, like the edit tier: more full layouts
+  // routed, more dagre-only bounds, or fewer cache hits for the same replayed calls is a
+  // regression on any machine; `ms` is printed, never compared.
+  if (flowchartSummary?.length) {
+    console.log('\n=== FLOWCHART CHECK \u00b7 layout work per page vs committed baseline ===');
+    console.log(`${'dataset'.padEnd(40)}${'base routed'.padStart(12)}${'now'.padStart(6)}${'base hits'.padStart(11)}${'now'.padStart(6)}  verdict`);
+    for (const s2 of flowchartSummary) {
+      const b = base.flowchartDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(40)}${'—'.padStart(12)}${String(s2.routed).padStart(6)}${'—'.padStart(11)}${String(s2.hits).padStart(6)}  NEW (re-bless)`);
+        continue;
+      }
+      if (b.calls !== s2.calls) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(40)}${String(b.routed).padStart(12)}${String(s2.routed).padStart(6)}${String(b.hits).padStart(11)}${String(s2.hits).padStart(6)}  CALL COUNT CHANGED (re-bless)`);
+        continue;
+      }
+      const worse = s2.routed > b.routed || s2.bounded > b.bounded || s2.hits < b.hits;
+      const moved = s2.routed !== b.routed || s2.bounded !== b.bounded || s2.hits !== b.hits;
+      const verdict = worse ? 'REGRESSION (more layout work)' : moved ? 'less work — re-bless to ratchet' : 'ok';
+      if (worse) regressedDatasets.push(s2.dataset);
+      if (moved && !worse) won = true;
+      console.log(`${s2.dataset.padEnd(40)}${String(b.routed).padStart(12)}${String(s2.routed).padStart(6)}${String(b.hits).padStart(11)}${String(s2.hits).padStart(6)}  ${verdict}`);
+    }
+    for (const name of Object.keys(base.flowchartDatasets ?? {})) {
+      if (!flowchartSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(40)}${'—'.padStart(12)}${'absent'.padStart(6)}${'—'.padStart(11)}${'—'.padStart(6)}  MISSING (re-bless)`);
+      }
+    }
+  }
+
   // THE RASTERIZE TIER. Only compared when THIS run produced it (`--export`), so a plain
   // `bench:check` is unchanged. Same-machine-only and no calibration index, for the print
   // tier's reasons: the probe is a markdown-it parse and says nothing about the cost of
@@ -1687,6 +1795,8 @@ async function main() {
   // rather than hiding behind a flag — a warm-path regression should be visible
   // on a plain `npm run bench`.
   const edit = await editTier();
+  // In-process too (~5s), and blessed: it is the flowchart layout's HARD RULE #19 record.
+  const flow = await flowchartTier();
   const exp = wantExport ? await exportTier() : null;
   const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
@@ -1694,7 +1804,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary,
     });
   }
   if (wantCheck && wantBless) {
@@ -1718,7 +1828,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -1769,10 +1879,12 @@ async function main() {
         // because it gates on `typesets`, a deterministic integer that cannot vary
         // between two passes on the same tree. Reporting the cheap deterministic one
         // as "a browser tier" misattributes both the cost and the reason.
-        const editRegressed = browserTierRegressed.filter((n) => n.startsWith('edit \u00b7 '));
-        const trueBrowserRegressed = browserTierRegressed.filter((n) => !n.startsWith('edit \u00b7 '));
+        // The flowchart tier gates on deterministic counts too, so it reads like the edit tier.
+        const countTier = (n) => n.startsWith('edit \u00b7 ') || n.startsWith('flowchart \u00b7 ');
+        const editRegressed = browserTierRegressed.filter(countTier);
+        const trueBrowserRegressed = browserTierRegressed.filter((n) => !countTier(n));
         if (trueBrowserRegressed.length) parts.push(`${trueBrowserRegressed.join(', ')} — one pass, the browser tiers are not re-measured`);
-        if (editRegressed.length) parts.push(`${editRegressed.join(', ')} — one pass; \`typesets\` is deterministic, so a second pass cannot differ`);
+        if (editRegressed.length) parts.push(`${editRegressed.join(', ')} — one pass; these tiers gate on deterministic work counts, so a second pass cannot differ`);
         console.error(`\nPerf regression beyond the variance band: ${parts.join('; ')}. `
           + 'Investigate, or re-bless if the change is intentional and justified in the PR.');
         process.exitCode = 1;
@@ -1792,7 +1904,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',

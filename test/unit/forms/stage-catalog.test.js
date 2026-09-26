@@ -42,7 +42,7 @@ const EXPECTED_CANVAS = [
   'math',
   'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'heatmap', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'timeline-list',
-  'video', 'wifi', 'word-cloud',
+  'video', 'wifi', 'word-cloud', 'flowchart',
 ].sort();
 const EXPECTED_SOVEREIGN = [
   // `math` was here until 2026-09. Its claim on a sovereign frame was "drives its own

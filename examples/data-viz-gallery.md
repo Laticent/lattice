@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`22 components`
+`23 components`
 
 Every chart component in one deck — the full charting surface.
 
@@ -36,6 +36,26 @@ Every chart component in one deck — the full charting surface.
 - Gross renewal `2.8M` `2.6M`
 - Services revenue `1.1M` `1.8M`
 - Partner-sourced ARR `0.9M` `1.4M`
+
+---
+
+<!-- _class: flowchart -->
+<!-- _footer: "flowchart · data-viz gallery" -->
+
+`Incident response`
+
+## Every page reaches a human within 15 minutes.
+
+- Alert fires `:pill` => Auto-triage => Severity?
+- Severity? `:diamond`
+  - =SEV1=> Page on-call
+  - -SEV2-> Open ticket -> Mitigate
+  - -SEV3-> Backlog `:dotted`
+- Page on-call `fail` =ack=> Mitigate => Postmortem
+  > Pages the secondary after 5 minutes.
+- Postmortem `:doc`
+
+`[{=>, Paging path}, {:dotted, Waits for business hours}]`
 
 ---
 

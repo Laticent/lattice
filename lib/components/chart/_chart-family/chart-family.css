@@ -1820,6 +1820,9 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   .state-node-shape,
   .state-node-accent,
   .state-edge-arrow,
+  .fc-shape,
+  .fc-group,
+  .fc-head,
   .waterfall-bar
 ) {
   vector-effect: non-scaling-stroke;

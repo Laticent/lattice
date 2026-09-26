@@ -3062,6 +3062,25 @@ if (hasStateChart) {
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 
+// ── flowchart browser-measured layout bootstrap ──────────────────────────────
+// The flowchart takes the state chart's delivery (flowchart.layout.js): an HTML
+// measuring harness the page sizes in its own fonts, then a pass that lays the chart
+// out with the shared router and paints the SVG. Unlike a state chart, EVERY
+// flowchart is laid out by dagre, so the engine ships whenever one is present; it is
+// left out only when the state-chart script above already installed it.
+const hasFlowchart = highlightedSlides.some(s => s.includes('flowchart-figure'));
+let flowchartScript = '';
+if (hasFlowchart) {
+  try {
+    const { browserJs: flowchartBrowserJs } = require('./lib/components/chart/flowchart/flowchart.layout.js');
+    let dagreIife = '';
+    if (!(hasStateChart && needsDagre)) {
+      try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* the harness stays up */ }
+    }
+    flowchartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${flowchartBrowserJs()}\n</script>`;
+  } catch (_e) { /* kernel unavailable; the harness tiles show */ }
+}
+
 // ── Document accessibility metadata (WCAG 2.4.2 title, 3.1.1 language) ─────────
 // An exported HTML/PDF shell with no <title> and no lang is a tracked a11y gap
 // (semantic-html-accessibility.md G1/G2): a screen reader can't announce the deck's
@@ -3174,6 +3193,7 @@ ${slidesWithMeta2}
 </main>
 ${functionPlotScript}
 ${stateChartScript}
+${flowchartScript}
 ${ENGINE_SCRIPT_OPEN}
 /* Overflow watcher — tags any section whose content exceeds the slide
    frame with class "overflow" so lattice.css can draw the red warning ring.
@@ -4301,7 +4321,7 @@ async function renderBody(browser, g, closeBrowser) {
   // gated on `PLAYER` alone.
   if (PLAYER || READ_VIEW) {
     try {
-      if (hasStateChart || hasFunctionPlot) {
+      if (hasStateChart || hasFunctionPlot || hasFlowchart) {
         // Through the render guard like every other page call in this file: a CDP
         // response that never arrives would otherwise hang to the outer CI timeout
         // instead of failing fast into the hardened retry (lib/engine/render-guard.js).
@@ -5052,7 +5072,7 @@ async function renderBody(browser, g, closeBrowser) {
           console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
         }
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
-        if (inflatedDocHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
+        if (inflatedDocHtml && (hasStateChart || hasFunctionPlot || hasFlowchart)) console.log('  baked dynamic components (state-chart / flowchart / function-plot) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
         for (const n of pruneNotes) console.log(n);
       }
