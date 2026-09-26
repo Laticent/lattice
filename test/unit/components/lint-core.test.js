@@ -2102,6 +2102,22 @@ describe('label-set-above-body — coaching, never refusal', () => {
     assert.ok(Date.now() - t < 2000, `took ${Date.now() - t}ms`);
   });
 
+  test('the whole lint stays linear on unclosed-comment input (HARD RULE #22)', () => {
+    // Three rules went quadratic on a `<!--` with no closer: two blanked comments with
+    // `/<!--[\s\S]*?-->/g` (scanning to the end from every unclosed opener) and the
+    // unterminated-comment rule re-ran a lookahead from every opener. Before the fix, on
+    // one machine: 3.7 s, 2.6 s and ~5.6 s for these three inputs; after, ~0.5 s for all
+    // three together. The bound sits between the two with room either side.
+    const inputs = [
+      'a <!--\n'.repeat(40000),              // 280 KB of `a <!--` lines
+      `${'<!-- '.repeat(50000)}\n-->\n`,     // 250 KB of openers, one closer at the end
+      `${'<!--'.repeat(62500)}\n`,           // one 250 KB line of openers
+    ];
+    const t = Date.now();
+    for (const src of inputs) core.lintTextWith(src, vocab);
+    assert.ok(Date.now() - t < 2500, `took ${Date.now() - t}ms`);
+  });
+
   test('a key with more members than axes is not called the axis — it prints as text', () => {
     const src = ['<!-- _class: matrix-grid -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
       '| Verb | Self |', '| --- | :--: |', '| N | [x] |'].join('\n');
