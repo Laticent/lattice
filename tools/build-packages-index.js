@@ -144,7 +144,7 @@ const inComment = (text) => String(text).replace(/\*\//g, '* /');
 
 /** base.finish.css with its generated region rewritten. `current` is the file's text (read from disk by default). */
 function renderFinishCss(found = discover(), current = fs.readFileSync(FINISH_CSS_OUT, 'utf8')) {
-  const { generatePresetCss } = require('../lib/finishes/finish-generate.js');
+  const { generatePresetCss } = require('../lib/finishes/preset-css.js');
   const from = current.indexOf(REGION_BEGIN);
   const to = current.indexOf(REGION_END);
   if (from < 0 || to < from) throw new Error(`packages-index: ${path.relative(ROOT, FINISH_CSS_OUT)} has lost its generated-region markers ("${REGION_BEGIN}" … "${REGION_END}")`);
@@ -152,7 +152,7 @@ function renderFinishCss(found = discover(), current = fs.readFileSync(FINISH_CS
     (p) => `/* ── ${p.order} · ${inComment(p.label.toUpperCase())} — ${inComment(p.blurb)} (lib/finishes/${p.name}/) */\n${generatePresetCss(p.name, p.recipe)}`,
   );
   const region = `${REGION_BEGIN} — tools/build-packages-index.js writes this from
- * lib/finishes/<name>/<name>.recipe.json through lib/finishes/finish-generate.js. DO NOT EDIT:
+ * lib/finishes/<name>/<name>.recipe.json through lib/finishes/preset-css.js. DO NOT EDIT:
  * change the recipe (or the generator) and rebuild; \`--check\` fails on a hand edit.
  * Each rule writes the RICH screen value into every \`--fin-*\` slot and an \`--fin-*-opaque\`
  * mirror that THE OPAQUE FLIP below swaps in for print and \`.lattice-exporting\`. Every slot

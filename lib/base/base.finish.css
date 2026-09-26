@@ -626,7 +626,7 @@ section.print[data-split-role="cover"] {
  * Studio's "Start from preset" reads the same file, so the two cannot drift.
  * ════════════════════════════════════════════════════════════════════════════ */
 /* ── BEGIN GENERATED FINISH PRESETS — tools/build-packages-index.js writes this from
- * lib/finishes/<name>/<name>.recipe.json through lib/finishes/finish-generate.js. DO NOT EDIT:
+ * lib/finishes/<name>/<name>.recipe.json through lib/finishes/preset-css.js. DO NOT EDIT:
  * change the recipe (or the generator) and rebuild; `--check` fails on a hand edit.
  * Each rule writes the RICH screen value into every `--fin-*` slot and an `--fin-*-opaque`
  * mirror that THE OPAQUE FLIP below swaps in for print and `.lattice-exporting`. Every slot

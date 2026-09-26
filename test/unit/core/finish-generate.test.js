@@ -15,7 +15,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const gen = require('../../../lib/finishes/finish-generate.js');
+const gen = { ...require('../../../lib/finishes/finish-generate.js'), ...require('../../../lib/finishes/preset-css.js') };
 const { FINISH_PRESETS } = require('../../../lib/finishes/presets.generated.js');
 const { renderFinishCss, FINISH_CSS_OUT } = require('../../../tools/build-packages-index.js');
 
