@@ -158,7 +158,7 @@ const GALLERY = {
 - Echo -lab7-> Gamma`,
 };
 
-const ZERO = { linesThroughShapes: 0, linesThroughEnds: 0, labelCollisions: 0, shapeOverlaps: 0, labelsOffLine: 0, linesThroughTitles: 0, labelsAcrossBorders: 0, sharedRuns: 0, endsOffBox: 0 };
+const ZERO = { linesThroughShapes: 0, linesThroughEnds: 0, labelCollisions: 0, shapeOverlaps: 0, labelsOffLine: 0, linesThroughTitles: 0, labelsAcrossBorders: 0, sharedRuns: 0, endsOffBox: 0, titlesUnderShapes: 0 };
 
 describe('graph-layout — serialization', () => {
   test('the kernel rebuilt from its own source text gives identical geometry', () => {
@@ -503,5 +503,26 @@ describe('graph-layout — what review found (#2385)', () => {
     const q = run(lines.join('\n')).geo.quality;
     assert.deepEqual({ ...hard(q), sharedRuns: 0 }, CLEAN);
     assert.ok(q.sharedRuns <= 3, `${q.sharedRuns} shared runs`);
+  });
+  test('an lr group keeps room for its title above its top shape', () => {
+    // The typing deck's Services slide: dagre keeps a group's top padding only along the
+    // flow, so across it (an lr chart's top) Browser, Pricing and Inventory sat on the
+    // Edge, Commerce and Delivery titles.
+    const src = [
+      '- Edge `:c1`', '  - Browser `:io`', '  - CDN', '  - Gateway',
+      '- Commerce `:c2`', '  - Cart', '  - Pricing', '  - Checkout', '  - Orders `:cylinder`',
+      '- Payments `:c3`', '  - Payment API', '  - Fraud `:diamond`', '  - Ledger `:cylinder`',
+      '- Delivery `:c4`', '  - Inventory `:cylinder`', '  - Shipping', '  - Email',
+      '- Browser -> CDN => Gateway', '- Gateway => Cart => Checkout', '- Cart -prices-> Pricing',
+      '- Checkout => Payment API', '- Payment API -screen-> Fraud', '- Fraud -ok-> Ledger',
+      '- Fraud -review-> Checkout', '- Payment API => Orders', '- Orders -reserve-> Inventory',
+      '- Orders => Shipping', '- Shipping -notify-> Email', '- Ledger -nightly-> Orders `:dotted`',
+    ].join('\n');
+    const compact = { node: 20, rank: 40, edge: 10, groupPad: 10, groupPadTop: 26, lane: 7 };
+    for (const spacing of [compact, undefined]) for (const dir of DIRS) {
+      const { geo } = run(src, K, { ...(dir ? { dir } : {}), ...(spacing ? { spacing } : {}) });
+      assert.equal(geo.quality.titlesUnderShapes, 0, `${dir || 'auto'} ${spacing ? 'compact' : 'default'}`);
+      assert.equal(geo.quality.shapeOverlaps, 0);
+    }
   });
 });

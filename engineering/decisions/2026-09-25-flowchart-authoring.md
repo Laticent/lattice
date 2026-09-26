@@ -378,6 +378,14 @@ A dotted overlay moving along a line, a separate path above the real edge.
   - **dropped from v1:** `straight` routes and fan-in trunks;
   - a **render check** on the gallery requiring zero shape overlaps, zero lines
     through shapes, zero label collisions and zero fallback chips.
+- **A group's title band is reserved after dagre.** dagre keeps a cluster's
+  `paddingTop` only along the flow, so in an `lr` chart the group's top was its
+  side spacing and its top shape sat on the title: on the typing test deck's
+  compact Services slide, Browser, Pricing and Inventory covered the Edge, Commerce
+  and Delivery titles. `layoutOnce` now opens a band of the missing height just
+  inside each such group, across the whole drawing, so nothing that was clear
+  starts to overlap. `measureQuality` counts `titlesUnderShapes`, and the unit
+  gallery holds it to zero.
 - **The router is one solver (owner's call on slice 3).** The first router was
   dagre plus a stack of clean-up passes (below). Each pass fixed one thing and was
   guarded by the others' counts, so the passes contended: the owner found a
