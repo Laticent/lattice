@@ -7,7 +7,7 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **343 open** items.
+only *status*. **342 open** items.
 Pending work that has no issue is not here: it lives in [`followups.d/`](followups.d/README.md)
 (`npm run followups` lists it).
 
@@ -15,7 +15,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 
 > 📐 **21 cards need definition** (missing a swimlane or an acceptance check, so nothing can pull them): [#2211](https://github.com/Laticent/lattice/issues/2211), [#2224](https://github.com/Laticent/lattice/issues/2224), [#2225](https://github.com/Laticent/lattice/issues/2225), [#2231](https://github.com/Laticent/lattice/issues/2231), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2256](https://github.com/Laticent/lattice/issues/2256), [#2265](https://github.com/Laticent/lattice/issues/2265), [#2274](https://github.com/Laticent/lattice/issues/2274), [#2275](https://github.com/Laticent/lattice/issues/2275), [#2277](https://github.com/Laticent/lattice/issues/2277), [#2278](https://github.com/Laticent/lattice/issues/2278), [#2280](https://github.com/Laticent/lattice/issues/2280), [#2282](https://github.com/Laticent/lattice/issues/2282), [#2283](https://github.com/Laticent/lattice/issues/2283), [#2284](https://github.com/Laticent/lattice/issues/2284), [#2285](https://github.com/Laticent/lattice/issues/2285), [#2286](https://github.com/Laticent/lattice/issues/2286), [#2287](https://github.com/Laticent/lattice/issues/2287), [#2288](https://github.com/Laticent/lattice/issues/2288), [#2290](https://github.com/Laticent/lattice/issues/2290), [#2295](https://github.com/Laticent/lattice/issues/2295).
 
-## Backlog (327)
+## Backlog (326)
 
 - [#1845](https://github.com/Laticent/lattice/issues/1845) [integration-nightly] render-regression tier failing on main — critical · engine
 - [#2060](https://github.com/Laticent/lattice/issues/2060) [overflow-nightly] corpus overflow ratchet above baseline on main — critical · engine
@@ -238,7 +238,6 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2290](https://github.com/Laticent/lattice/issues/2290) state-chart decides "is this an ending?" twice, by two different rules — medium · chart
 - [#2295](https://github.com/Laticent/lattice/issues/2295) narration re-implements markdown-it's list nesting from a line scanner — read the tree instead — medium · engine
 - [#2306](https://github.com/Laticent/lattice/issues/2306) handoff(chart): WebKit SVG text baselines — mermaid's labels, the iOS check, and the CI-arm call — medium · chart
-- [#2317](https://github.com/Laticent/lattice/issues/2317) engine(cards): opt every card-centric component into the `cards:` register — medium · engine
 - [#180](https://github.com/Laticent/lattice/issues/180) epic(chart): resolution-independent charts — cqi-first, kill fixed-px, for any-format / 10K export — low · chart
 - [#279](https://github.com/Laticent/lattice/issues/279) docs: reconcile Mermaid diagram-type count (README "25" vs gallery "26") — low · diagram
 - [#280](https://github.com/Laticent/lattice/issues/280) docs: fix phantom `--hljs-name`/`--hljs-meta` token rows in highlight-js.docs.md — low · docs
