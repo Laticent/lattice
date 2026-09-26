@@ -671,7 +671,9 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// The foot says where the rest is and takes you there.
 		await user.keyboard('{Escape}');
 		await user.click(await screen.findByRole('button', { name: /Advanced has every setting/ }));
-		expect(screen.getByRole('button', { name: /^Advanced deck settings/, pressed: true })).toBeInTheDocument();
+		const advanced = screen.getByRole('button', { name: /^Advanced deck settings/, pressed: true });
+		// The foot unmounts with the Basic list, so it hands keyboard focus to the switch.
+		await waitFor(() => expect(advanced).toHaveFocus());
 	});
 
 	it('reaches Fabricate from the launcher (not a deck mode)', async () => {

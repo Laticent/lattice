@@ -104,3 +104,26 @@ test('the engine stamps a preset on every slide, and an explicit key overrides i
 test('classic is the house default, named — it renders byte-identical to no preset', () => {
   assert.equal(render(['preset: classic']), render([]));
 });
+
+test('an empty or comment-only key says nothing, so the preset applies; a nested preset: does not', () => {
+  // Control: an explicit value still wins.
+  assert.equal(frontMatterName('preset: editorial\nrule: none', 'rule'), 'none');
+  assert.equal(frontMatterName('preset: editorial\nrule:', 'rule'), 'short');
+  assert.equal(frontMatterName('preset: editorial\nrule: # todo', 'rule'), 'short');
+  // A malformed value is still the deck speaking: it renders the default, not the preset.
+  assert.equal(frontMatterName('preset: editorial\nrule: foo bar', 'rule'), null);
+  // `preset:` is read top-level only — the Studio's picker writes column 0, so a nested key
+  // would drive a render the picker can neither see nor change.
+  assert.equal(frontMatterName('pptx:\n  preset: brand', 'spectrum'), null);
+  assert.equal(frontMatterName('preset: brand', 'spectrum'), 'solid');
+  // Keys outside the family keep the old reading of an empty value exactly.
+  assert.equal(frontMatterValue('preset: brand\nfinish:', 'finish'), '');
+});
+
+test('unknown-preset flags a typo even when a comment follows it', () => {
+  const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
+  const hits = (fm) => lintText(`---\n${fm}\n---\n\n# Hi\n`).filter((f) => f.rule === 'unknown-preset');
+  assert.equal(hits('preset: editorial').length, 0); // control
+  assert.equal(hits('preset: editorail').length, 1);
+  assert.equal(hits('preset: editorail  # typo').length, 1);
+});

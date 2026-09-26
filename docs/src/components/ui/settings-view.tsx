@@ -695,6 +695,7 @@ export function SettingsTierSwitch({ tier, onTierChange, scope }: { tier: Settin
 			type="button"
 			aria-pressed={tier === t}
 			aria-label={`${label} ${scope.toLowerCase()} settings — ${hint}`}
+			data-settings-tier={t}
 			onClick={() => onTierChange(t)}
 			className={cn(
 				'flex-1 rounded-md px-2 py-1 text-[12px] font-semibold transition-colors',
@@ -723,7 +724,16 @@ export function SettingsBasicFoot({ onShowAll }: { onShowAll: () => void }) {
 	return (
 		<button
 			type="button"
-			onClick={onShowAll}
+			onClick={(e) => {
+				// This button unmounts with the Basic list, which would drop keyboard focus to
+				// <body>. Hand it to the Advanced switch in the SAME panel — walking up, because
+				// the desktop and mobile halves can both be in the DOM.
+				let el: HTMLElement | null = e.currentTarget.parentElement;
+				let target: HTMLElement | null = null;
+				while (el && !target) { target = el.querySelector<HTMLElement>('[data-settings-tier="advanced"]'); el = el.parentElement; }
+				onShowAll();
+				if (target) requestAnimationFrame(() => target?.focus());
+			}}
 			className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-left text-[12px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]"
 		>
 			<span>

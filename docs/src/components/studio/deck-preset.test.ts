@@ -53,4 +53,31 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 		expect(presetOf(deck('preset: editorail'))).toBe('classic');
 		expect(presetOf(deck('preset: Editorial'))).toBe('editorial');
 	});
+
+	it('reads a key the way the engine does — comment stripped, empty means the preset', () => {
+		const ed = (...fm: string[]) => deck('preset: editorial', ...fm);
+		for (const [src, rendered] of [
+			[ed('rule: short  # house'), 'short'],
+			[ed('rule:'), 'short'],
+			[ed('rule: # todo'), 'short'],
+			[ed('rule: none # x'), 'none'],
+		] as const) {
+			expect(frontMatterName(fmOf(src), 'rule')).toBe(rendered);
+			expect(registerValue(src, 'rule')).toBe(rendered);
+		}
+		// A restated value with a comment is not a change; an empty key is not one either.
+		expect(presetChanges(ed('rule: short  # house'))).toEqual([]);
+		expect(presetChanges(ed('rule:'))).toEqual([]);
+		expect(presetChanges(ed('rule: none'))).toEqual(['rule']);
+	});
+
+	it('a nested preset: is not the deck preset, for the Studio as for the engine', () => {
+		const src = ['---', 'pptx:', '  preset: brand', '---', '', '# Hi'].join('\n');
+		expect(presetOf(src)).toBe('classic');
+		expect(frontMatterName(fmOf(src), 'spectrum')).toBeNull();
+	});
+
+	it('the Undo count names every family line a switch removes, restated ones included', () => {
+		expect(applyPreset(deck('preset: editorial', 'rule: short', 'lift: on'), 'minimal').cleared).toBe(2);
+	});
 });

@@ -19,7 +19,7 @@
 // Rot-guard: deck-preset.test.ts.
 
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
-import { getFrontMatter, getFrontMatterName, writeFrontMatterLine } from './front-matter';
+import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from './front-matter';
 import { activeSpectrum } from './spectrum-catalog';
 
 type PresetTable = Record<string, { label: string; desc: string; values: Record<string, string> }>;
@@ -73,7 +73,10 @@ export const PRESET_ENTRIES: PresetEntry[] = PRESET_NAMES.map((name) => ({
 /** The deck's preset — its `preset:` key when that names a known preset, else the default.
  *  An unknown name reads as the default here because the engine resolves it to nothing. */
 export function presetOf(source: string): string {
-	const raw = (getFrontMatterName(source, 'preset') || '').toLowerCase();
+	// Column 0 only, as the engine reads it (`topLevelFrontMatterValue`): an indented
+	// `preset:` is someone else's nested key, and the picker could not rewrite it anyway.
+	const span = frontMatterKeySpan(source, 'preset');
+	const raw = span && !span.indent ? (getFrontMatterName(source, 'preset') || '').toLowerCase() : '';
 	return ENGINE.isKnownPreset(raw) ? raw : DEFAULT_PRESET;
 }
 
@@ -82,9 +85,30 @@ export function presetBaseline(source: string, key: string): string {
 	return ENGINE.presetEffective(presetOf(source), key) ?? ENGINE.PRESET_DEFAULTS[key] ?? '';
 }
 
+/**
+ * What the deck ITSELF says about `key`, read the way the engine reads it
+ * (`frontMatterValue` in lib/core/front-matter-key.js):
+ *   · `undefined` — absent, or written empty / comment-only (`rule:`, `rule: # todo`), so the
+ *     preset applies;
+ *   · `''` — written, but not a name the engine accepts, so the engine renders the default;
+ *   · otherwise the value, lower-cased, with any trailing comment stripped.
+ * Reading with `getFrontMatter` instead kept the comment (`short  # house` counted as a
+ * change from Editorial) and treated an empty key differently from the render.
+ */
+function ownValue(source: string, key: string): string | undefined {
+	const span = frontMatterKeySpan(source, key);
+	if (!span) return undefined;
+	const line = source.slice(span.start, span.end);
+	const raw = line.slice(line.indexOf(':') + 1).trim();
+	if (raw === '' || raw.startsWith('#')) return undefined;
+	return (getFrontMatterName(source, key) ?? '').toLowerCase();
+}
+
 /** What a deck-panel row shows for `key`: the deck's own value, else the preset's. */
 export function registerValue(source: string, key: string): string {
-	return getFrontMatter(source, key) || presetBaseline(source, key);
+	const own = ownValue(source, key);
+	if (own === undefined) return presetBaseline(source, key);
+	return own || ENGINE.PRESET_DEFAULTS[key] || '';
 }
 
 /** Write `key`, or clear it when `value` is what the preset already gives. */
@@ -92,13 +116,10 @@ export function writeRegister(source: string, key: string, value: string): strin
 	return writeFrontMatterLine(source, key, value === presetBaseline(source, key) ? null : value);
 }
 
-/** The preset keys this deck sets to something OTHER than its preset's value. A key restated
- *  at the preset's own value is not a change, so it does not count. */
+/** The preset keys whose rendered value differs from what the preset alone would give. A key
+ *  restated at the preset's own value is not a change, so it does not count. */
 export function presetChanges(source: string): string[] {
-	return PRESET_KEYS.filter((key) => {
-		const own = getFrontMatter(source, key);
-		return own !== undefined && own !== '' && own.trim().toLowerCase() !== presetBaseline(source, key);
-	});
+	return PRESET_KEYS.filter((key) => ownValue(source, key) !== undefined && registerValue(source, key) !== presetBaseline(source, key));
 }
 
 /** Remove every preset key the deck writes, so the preset renders exactly as named. */
@@ -113,7 +134,9 @@ export function clearPresetOverrides(source: string): string {
  * Undo; the count it reports is what was cleared.
  */
 export function applyPreset(source: string, name: string): { source: string; cleared: number } {
-	const cleared = presetChanges(source).length;
+	// Count every family line the switch removes — including one that restated the OLD
+	// preset's value, which may well render differently under the new one.
+	const cleared = PRESET_KEYS.filter((key) => frontMatterKeySpan(source, key)).length;
 	const base = clearPresetOverrides(source);
 	return { source: writeFrontMatterLine(base, 'preset', name === DEFAULT_PRESET ? null : name), cleared };
 }

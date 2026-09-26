@@ -36,7 +36,7 @@ below lands in that range.
 |---|---|---|
 | Where a preset lives | An engine `preset:` register | The Studio writing out the ten keys: no engine change, but the deck forgets which look it came from and the front matter grows by up to ten lines |
 | How many presets | 4 | 3 would merge Minimal or Brand-forward into a neighbor; 5–6 (adding Sketch and Data-dense) starts to produce neighbors that look alike |
-| What Basic holds (deck) | Preset · Theme · Color mode · Size · Page numbers · Logo | 4 (no page numbers or logo) hides first-session tasks; 8 (adding header and footer) scrolls on a phone |
+| What Basic holds (deck) | Theme · Preset · Color mode · Size · Page numbers · Logo | 4 (no page numbers or logo) hides first-session tasks; 8 (adding header and footer) scrolls on a phone |
 | Which panels | Both, presets deck-only | Deck-only would leave the two panels behaving differently until a follow-up |
 
 ## 3. Presets — one word, ten registers
@@ -53,10 +53,17 @@ rule: none            # an explicit key always wins over the preset
 | `brand` | `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` |
 | `minimal` | `spectrum: off` · `rule: none` · `corners: rounded` |
 
-**How it resolves.** `frontMatterValue` in `lib/core/front-matter-key.js` is the one reader
-that every register goes through: the markdown-it plugins, the browser runtime, the linter
-and the resolvers. When one of the ten keys is **absent**, that reader now answers with the
-preset's value instead of `null`. Every downstream kernel then stamps the class tokens it
+**How it resolves.** `frontMatterValue` in `lib/core/front-matter-key.js` is the reader
+every RENDER path resolves a register through: the markdown-it plugins, the browser runtime
+and the `resolve-*` kernels. When one of the ten keys is **absent**, or written empty
+(`rule:`, `rule: # todo`), that reader now answers with the preset's value instead of `null`.
+`preset:` itself is read **top-level only** (`topLevelFrontMatterValue`), like every register
+something writes: the Studio's picker writes column 0, so a nested `pptx:\n  preset: brand`
+would otherwise drive a render the picker could neither see nor change. Two readers sit
+outside the shared one. The linter's `findUnknown*` finders check only what the deck wrote,
+and the Studio mirrors the rule in `deck-preset.ts` (it cannot import the CommonJS reader
+by name); `deck-preset.test.ts` pins the mirror against the engine on commented, empty and
+nested input. Every downstream kernel then stamps the class tokens it
 always did. So a preset has no class token, no CSS, and nothing for a second render path to
 forget (HARD RULE #1). A preset lists only the keys it changes, so `classic` is empty and
 renders byte-identical to a deck with no `preset:` key. `test/unit/core/preset-register.test.js`
@@ -87,9 +94,11 @@ both reading "Boardroom" and meaning different things.
 only draws them.
 
 - **Shows** a dial's value as the deck's own key if it wrote one, else the preset's, else the
-  engine default (`registerValue`). Every accent getter goes through it. So do the Slide
-  panel's "from deck" hints (`slide-provenance.ts`) and Compose's trim reader, which is why
-  they agree with the render.
+  engine default (`registerValue`), read with the engine's rule: a trailing comment is
+  stripped, and an empty or comment-only key falls through to the preset. Every accent getter
+  goes through it, and so do the Slide panel's "from deck" hints (`slide-provenance.ts`) and
+  Compose's trim reader. The first cut read with `getFrontMatter`, which keeps the comment;
+  the independent check caught `rule: short  # house` counting as a change from Editorial.
 - **Writes** nothing when the choice equals what the preset already gives (`writeRegister`).
   Before presets, every setter cleared its key at the *engine* default. Under a preset that
   would have turned "set the rule back to Auto" into "fall back to the preset's short rule",
@@ -99,8 +108,8 @@ only draws them.
   is above zero, the select reads "Editorial · 1 change" and a Reset link appears under it.
 - **Picking a preset starts from it** (`applyPreset`): it also clears the family's overrides.
   Otherwise a `rule: short` left over from Editorial would ride into Minimal, and the author
-  would see neither the look they picked nor why. The Undo toast names how many settings it
-  cleared.
+  would see neither the look they picked nor why. The Undo toast names how many lines it
+  cleared, counting every family line removed, including one that restated the old preset.
 
 The swatch sizes go in `backgroundSize`, not inside the `background` shorthand. Chrome parses
 a shorthand that contains `var()` only when it computes the value, and `SwatchChip` then
@@ -148,6 +157,7 @@ recur.
 | The engine stamps a preset on every slide, and an explicit key overrides it | `lib/engine` render | `test/unit/core/preset-register.test.js`, 4/4, each with its control |
 | `classic` renders byte-identical to no preset | `lib/engine` render | same file |
 | The Studio agrees with the engine key by key | `deck-preset.ts` against `front-matter-key.js` | `deck-preset.test.ts`, 6/6 |
+| An independent checker bug-hunted the diff; its four confirmed defects are fixed and each has a test (nested `preset:`, commented and empty keys, the commented lint typo, the Undo count) | engine + Studio | `preset-register.test.js` 6/6, `deck-preset.test.ts` 9/9 |
 | Picking Editorial restyles the live preview; changing a dial shows "Editorial · 1 change" with Reset | The real Studio (docs dev server, Chromium 1440×900) | PR screenshots |
 | Basic and Advanced at desktop, tablet and phone widths | The real Studio at 1440, 820 and 390 | PR screenshots |
 | Brand-forward and Minimal render as designed | `examples/deck-presets.pdf` (`preset: editorial` deck-wide, the other two looks shown with their per-slide tokens) | The committed PDF |
