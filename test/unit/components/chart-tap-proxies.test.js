@@ -81,8 +81,9 @@ describe('tap proxies name the right mark', () => {
     for (const sec of [radar, line, stacked]) {
       assert.equal(sec.querySelectorAll('.chart-key-label[data-mark-for], .chart-key-value[data-mark-for]').length, 0);
     }
-    // A stacked-bar's CATEGORY labels do name a mark: every segment in band i carries
-    // `data-mark="i"` and the reveal card is per bar, so the name opens its bar's card.
+    // A stacked-bar's CATEGORY labels do link to a mark index: every segment in band i carries
+    // `data-mark="i"`, so the name and total recede with their bar. (The reveal layer does not
+    // open a card from them: the segments are several cards — see `namedMark`.)
     for (const p of assertAllResolve(stacked)) {
       assert.ok(p.classList.contains('cart-cat') || p.classList.contains('sbar-total'), `only a bar's name or total is a proxy, not ${p.getAttribute('class')}`);
     }
@@ -103,6 +104,17 @@ describe('tap proxies name the right mark', () => {
     for (const p of proxies(cols).filter((q) => q.classList.contains('cart-value'))) {
       assert.equal(text(p), marksAt(cols, p.getAttribute('data-mark-for'))[0].getAttribute('data-value'));
     }
+  });
+
+  test('a category that draws no mark links no label: a non-numeric bar, an all-zero stack, a name-only bullet row', () => {
+    const bar = render('bar', '<ul><li>A <code>4</code></li><li>B <code>n/a</code></li><li>C <code>6</code></li></ul>');
+    const stacked = render('stacked-bar', '<ul><li>FY24<ul><li>Licenses <code>19</code></li><li>Services <code>9</code></li></ul></li>'
+      + '<li>FY25<ul><li>Licenses <code>0</code></li><li>Services <code>0</code></li></ul></li>'
+      + '<li>FY26<ul><li>Licenses <code>20</code></li><li>Services <code>15</code></li></ul></li></ul>');
+    const bullet = render('bullet', '<ul><li>Revenue <code>4.2M</code> <code>5.0M</code></li><li>Pending</li><li>Margin <code>3.6M</code> <code>3.0M</code></li></ul>');
+    // assertAllResolve fails on any label whose mark does not exist — the empty-card case.
+    for (const sec of [bar, stacked, bullet]) assertAllResolve(sec);
+    assert.equal(proxies(bullet).filter((p) => text(p) === 'Pending').length, 0);
   });
 
   test('bullet: each KPI name and readout names its own measure', () => {

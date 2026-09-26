@@ -234,4 +234,48 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     expect(pop.style.top).not.toBe('');
     ci.destroy();
   });
+
+  it('a linked label opens its mark\'s card only when it names ONE existing card', () => {
+    // A bar's name names its bar. A stacked bar's name names several segments, each its own card, and
+    // a name-only row names no mark at all: neither may open a card (an empty one, or one segment's
+    // number under the bar's total), though both still recede with their bar.
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument as Document;
+    doc.body.innerHTML = `
+      <article class="lattice"><section>
+        <figure><svg class="bar-svg">
+          <rect data-mark="0" data-label="EMEA" data-value="6.8"></rect>
+          <rect data-mark="1" data-label="FY24 · Licenses" data-value="19"></rect>
+          <rect data-mark="1" data-label="FY24 · Services" data-value="9"></rect>
+          <text data-mark-for="0">EMEA</text><text data-mark-for="1">28</text><text data-mark-for="2">Pending</text>
+        </svg></figure>
+        <div class="chart-details"><template class="chart-detail" data-mark="0"><li>x</li></template></div>
+      </section></article>`;
+    (doc.querySelector('svg') as SVGElement).getBoundingClientRect = () => rect({ left: 10, top: 10, width: 200, height: 150 });
+    iframe.getBoundingClientRect = () => rect({ left: 0, top: 0, width: 400, height: 300 });
+    const stage = document.createElement('div');
+    document.body.appendChild(stage);
+    const opened: string[] = [];
+    const ci = createChartInteract({ stage, getFrame: () => iframe, hoverAny: false, onDetail: (d) => d && opened.push((d as { label: string }).label) });
+    ci.onSlide(0);
+    const hit = stage.querySelector('.db-pp-charthit') as HTMLElement;
+    const pointAt = (t: Element) => {
+      (doc as Document & { elementFromPoint: (x: number, y: number) => Element | null }).elementFromPoint = () => t;
+      // Far from every mark, so a label that is not a target cannot reach one by proximity either.
+      hit.dispatchEvent(new MouseEvent('pointermove', { clientX: 5000, clientY: 5000 }));
+    };
+    const [emea, total, pending] = [...doc.querySelectorAll('text')];
+    pointAt(total);
+    pointAt(pending);
+    expect(opened).toEqual([]);
+    pointAt(emea);
+    expect(opened).toEqual(['EMEA']);
+    // Indices with a GAP (a bar that drew nothing): the mark after the gap still opens. A distinct-index
+    // count of 2 used to lock index 2 out.
+    for (const m of doc.querySelectorAll('rect[data-mark="1"]')) m.setAttribute('data-mark', '2');
+    ci.reveal(2);
+    expect(opened.at(-1)).toBe('FY24 · Licenses');
+    ci.destroy();
+  });
 });

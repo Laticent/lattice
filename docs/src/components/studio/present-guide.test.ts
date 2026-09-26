@@ -402,6 +402,15 @@ describe('focusContent — one lever: the named thing stays, the rest recedes', 
 		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.getAttribute('data-mark') ?? e.textContent)).toEqual(['1', 'APAC', '$2.9M']);
 	});
 
+	it('any linked label focuses its mark: a pie legend row focuses its wedge', () => {
+		const d = doc(`<div class="chart-body"><svg><path class="wedge" data-mark="0" data-label="New"/><path class="wedge" data-mark="1" data-label="Maint"/>
+			<text class="chart-key-label" data-mark-for="0">New</text><text class="chart-key-label" data-mark-for="1">Maint</text><text data-mark-for="5">Orphan</text></svg></div>`);
+		const [newRow, , orphan] = [...d.querySelectorAll('text')];
+		expect(focusUnit(newRow)?.unit.map((e) => e.getAttribute('data-mark') ?? e.textContent)).toEqual(['0', 'New']);
+		// A label linked to no drawn mark names only itself, as before.
+		expect(focusUnit(orphan)).toEqual({ unit: [orphan], peers: [], inner: [], axis: 'block' });
+	});
+
 	it('walks a line: the other series recede, and the line\'s other points recede gently', () => {
 		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0"/><path class="line-path" data-series="1"/>
 			<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2" data-value="4.4"/>

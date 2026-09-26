@@ -328,13 +328,21 @@ receding the other bars changed little while their category names and printed va
 strength: the focused bar barely separated. The bar, stacked-bar and bullet emitters now stamp
 `data-mark-for="i"` on each category name and value (`buildCategoryLabels({ markFor })`,
 `buildValueLabel({ extra })`), the link waterfall, funnel, slope, quadrant and the pie key already
-carried. These charts qualify because mark i IS category i: every rect in band i carries
-`data-mark="i"` and the reveal card is per bar. Line and heatmap do not qualify (a line's category
+carried. These charts qualify because mark index i IS category i: every rect in band i carries
+`data-mark="i"`. A label is linked only when its bar was drawn (a non-numeric bar, an all-zero
+stack or a name-only bullet row draws none; a label linked to a missing mark opened an empty card
+and dimmed the whole chart — checker). A stacked bar's segments and a grouped bar's series are
+still separate cards, so a tap on their name or total opens nothing new (`namedMark` requires one
+card); the label only recedes. Line and heatmap do not qualify (a line's category
 names a column across series, a heatmap's names a row or column of cells), so they stay unlinked.
 The one link serves both surfaces: `chart-interact.js` already dims every `[data-mark-for]` whose
 index is not the open mark, and `focusUnit` recedes a peer's labels and, when the narration's words
-land on a category name ("LATAM, one point two million"), focuses that name's bar with its labels.
-The attribute paints nothing. Measured in the built Studio on the bar slide, light and dark: under
+land on ANY linked label — a bar's category ("LATAM, one point two million"), a pie or map key row,
+a funnel stage, a slope or quadrant name — focuses that label's mark with its labels. Before, such a
+sentence focused the label alone and nothing receded. The same pass fixed the reveal layer's range
+check, which counted distinct mark indices and so locked the mark after a gap out of ever opening.
+The attribute paints nothing: the dark and light PDFs of the board-update test deck are
+byte-identical before and after, and so are all 20 rasterized pages. Measured in the built Studio on the bar slide, light and dark: under
 the Guide the focused bar's name and value hold at 1 while the other six labels drop to 0.45, and
 the chart hover in the Playground does the same for the hovered bar.
 

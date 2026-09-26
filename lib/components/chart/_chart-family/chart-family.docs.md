@@ -444,7 +444,12 @@ hovered. Today that covers a slope entity's name and values, a funnel stage's la
 and value, the category and value labels of a bar, stacked bar, bullet or waterfall
 (`buildCategoryLabels({ markFor: true })` plus `buildValueLabel({ extra })`, opt-in
 because only there is mark `i` category `i` — a line's or heatmap's category names a
-column of several marks), and a quadrant dot's or bubble's name. A pie or map legend row is one too: `buildSvgLegend` stamps
+column of several marks), and a quadrant dot's or bubble's name. A label is stamped only
+when its mark was drawn (a non-numeric bar, an all-zero stack or a name-only bullet row
+draws none). A tap on a label opens a card only when the marks at its index name ONE
+thing: a stacked bar's segments and a grouped bar's series are several cards, so their
+category name and total recede with the bar but a tap on them falls through to the
+nearest mark (`namedMark`). A pie or map legend row is one too: `buildSvgLegend` stamps
 a row only when the caller passes `markFor` (the pie passes the wedge index, the map
 its entry's mark index, since its legend is sorted by value). A legend of series
 (line, stacked-bar, radar) passes none, so its rows stay inert instead of opening
@@ -455,7 +460,9 @@ It is a separate attribute from `data-mark` on purpose. `chartToScene` strokes e
 nodes to decide where to point, so a label posing as a mark would change both. Two
 readers use `data-mark-for`: `chart-interact.js`, which dims every other mark's labels
 with their marks on hover, and the Present Guide (`focusUnit`), which recedes them the
-same way and focuses a bar when the narration names its category. When nothing is hit at all, the popover
+same way and, when the narration's words land on any linked label (a bar's category,
+a pie or map key row, a funnel stage, a slope or quadrant name), focuses that label's
+mark. When nothing is hit at all, the popover
 takes the nearest mark within a fingertip (22 screen px on touch, 6 with a mouse).
 
 ### In-diagram labels wrap
