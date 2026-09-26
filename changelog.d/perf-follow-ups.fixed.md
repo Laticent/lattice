@@ -12,8 +12,3 @@
   through the 2.3 MB bundle one character at a time. The walker now remembers its
   answer for the last few documents, and the CSS walk jumps between the characters
   that matter.
-- **Fixed: reopening Add slide or the deck settings panel no longer grows memory on
-  Safari and iPad.** Each reopen rebuilt its preview tiles as fresh documents, and WebKit
-  never gives those back: about 30–45 MB per reopen. A tile that has rendered once now
-  keeps a small image of itself, and a reopened surface shows those images and builds no
-  preview documents at all.
