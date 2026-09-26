@@ -27,6 +27,7 @@ import {
 	sentenceRange,
 	sparkContent,
 	sparkUnit,
+	wordRangeIn,
 } from './present-guide';
 
 // THE GUIDE RUNG's target resolution (#1397).
@@ -446,6 +447,46 @@ describe('sparkContent — the Guide changes the element itself', () => {
 		expect(two.classList.contains('lat-recede')).toBe(true);
 		expect(two.classList.contains('lat-spark')).toBe(true);
 		expect(d.querySelector('li')?.className).toBe('lat-focus');
+	});
+});
+
+describe('the walk, the point and the read-along (owner, 2026-09-26)', () => {
+	it('sparks the one dot a point sentence names, with its line as context', () => {
+		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0" data-label="Enterprise"/>
+			<circle class="line-dot" data-series="0" data-label="Q1 2026" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2 2026" data-value="4.4"/></svg></div>`);
+		const [q1] = [...d.querySelectorAll('circle')];
+		const u = sparkUnit(q1);
+		expect(u?.axis).toBe('point');
+		expect(u?.unit).toEqual([q1]);
+		expect(u?.context?.map((e) => e.tagName.toLowerCase())).toEqual(['path']);
+		sparkContent(q1);
+		expect(d.querySelector('path')?.classList.contains('lat-spark-context')).toBe(true);
+		expect(d.querySelectorAll('.lat-spark').length).toBe(1);
+	});
+
+	it('lands a heatmap sentence on its cell, not on the row label that also leads it', () => {
+		const d = doc(`<div class="chart-body"><svg><text class="cart-cat" data-label="Jan 2026">Jan 2026</text>
+			<rect class="heatmap-cell" data-mark="3" data-label="Jan 2026 · M3" data-value="44"/>
+			<rect class="heatmap-cell" data-mark="2" data-label="Jan 2026 · M2" data-value="48"/></svg></div>`);
+		expect(findMarkTarget(d, 'Jan 2026 is lowest at M3, forty-four.')?.getAttribute('data-mark')).toBe('3');
+		// The value must still corroborate: the M2 cell never answers an M3 sentence.
+		expect(findMarkTarget(d, 'Jan 2026 is lowest at M2, forty-four.')?.getAttribute('data-mark')).not.toBe('2');
+	});
+
+	it('finds the spoken word inside the element, in order, across inline markup', () => {
+		const d = doc('<ul><li>ARR closed at <strong>$48.6M</strong>, ahead of plan, ahead of the board.</li></ul>');
+		const li = d.querySelector('li') as Element;
+		const words = ['ARR', 'closed', 'at', '$48.6M,', 'ahead', 'of', 'plan,', 'ahead'];
+		expect(wordRangeIn(li, words, 3)?.toString()).toBe('$48.6M');
+		// The second "ahead" is the one being said, not the first.
+		const r = wordRangeIn(li, words, 7) as Range;
+		expect(r.toString()).toBe('ahead');
+		const before = d.createRange();
+		before.setStart(li, 0);
+		before.setEnd(r.startContainer, r.startOffset);
+		expect(before.toString().length).toBeGreaterThan((li.textContent ?? '').indexOf('ahead'));
+		// A word the slide does not carry (a figure spelled out loud) is no range, not a wrong one.
+		expect(wordRangeIn(li, ['forty-eight'], 0)).toBeNull();
 	});
 });
 

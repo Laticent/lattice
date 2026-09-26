@@ -1045,7 +1045,9 @@ cell names its row, a header cell names its column, and any other cell names its
 in the accent over a soft wash; a chart mark sparks in the heading ink, because a chart often paints its first
 series in the accent already. A mark that carries something in its fill (a heatmap value, a
 state node's name, radar's translucent area) keeps that fill and takes an ink edge instead. When
-the narration names something no spark can reach (an image, a figure), the Guide draws ink there.
+the narration names something no spark can reach (an image, a figure), the Guide draws ink there. When the narration walks a chart point by point (a line's quarters, a heatmap's cells, a
+pie's wedges), each point lights in turn once the chart has been named, and the walk counts as
+one moment of the budget; a point lights its own dot, with its line as context.
 
 ```yaml
 delivery: restrained   # the default: a boardroom, or a board member reading the file alone
@@ -1059,7 +1061,8 @@ delivery: somber       # bad news, a loss: nothing moves that does not have to
 | After the first, a moment needs a signal | yes | no | yes |
 | Spark color | the accent, over an accent wash | the same | the heading ink over a gray wash, never the accent |
 | Arrival | one soft glow | one soft glow | no glow |
-| Fade in and out | 320 ms; leaves with the next sentence | 240 ms; the same | 900 ms, and it holds through a short aside that names nothing ("Thank you.") |
+| Linger after the sentence moves on | 320 ms | 240 ms | 900 ms, and it holds through a short aside that names nothing ("Thank you.") |
+| Read-along (the word being said lights inside the spark) | yes | yes | no |
 | Cursor and overlay ink | none | on the top moment only | none |
 | Caption | the word being said lights up | the word being said lights up | the line reads in one muted ink |
 

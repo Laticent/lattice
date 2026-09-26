@@ -107,6 +107,12 @@ function boundedAt(hay: string, sub: string, at: number): boolean {
 	return before && (end === hay.length || hay[end] === ' ');
 }
 
+/** Does `hay` contain `sub` as whole words, anywhere? */
+function containsWord(hay: string, sub: string): boolean {
+	for (let at = hay.indexOf(sub); at !== -1; at = hay.indexOf(sub, at + 1)) if (boundedAt(hay, sub, at)) return true;
+	return false;
+}
+
 /** Does `hay` OPEN with `sub` as whole words? */
 function leadsWord(hay: string, sub: string): boolean {
 	return !!sub && hay.startsWith(sub) && boundedAt(hay, sub, 0);
@@ -286,8 +292,15 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 		// read-aloud lexicon cannot expand it), so the code leads in that form too.
 		const spelled = /^[A-Z]{2,3}$/.test(rawLabel.trim()) ? loose(rawLabel.trim().split('').join(' ')) : '';
 		const label = spelled && leadsWord(needle, spelled) ? spelled : loose(rawLabel);
+		// A COMPOUND label names a crossing: a heatmap cell is `Jan 2026 · M3`, and its sentence
+		// reads "Jan 2026 is lowest at M3, forty-four." — the row leads and the column follows. It
+		// counts when its first part leads and every other part appears as a whole word; its length
+		// is every part's, so the cell outranks the bare row label `Jan 2026` that also leads.
+		// Measured before: every heatmap cue landed on its row label, never on a cell.
+		const parts = rawLabel.includes(' · ') ? rawLabel.split(' · ').map(loose).filter((x) => x.length >= 2) : [];
+		const compound = parts.length > 1 && leadsWord(needle, parts[0]) && parts.slice(1).every((x) => containsWord(needle, x));
 		// A one-character label identifies nothing and would lead half the cues on the slide.
-		if (label.length < 2 || !leadsWord(needle, label)) continue;
+		if (!compound && (label.length < 2 || !leadsWord(needle, label))) continue;
 		const raw = (el as HTMLElement).dataset?.value ?? el.getAttribute('data-value') ?? '';
 		let corroborated = false;
 		if (raw) {
@@ -295,7 +308,7 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 			// A mark that declares a value the cue never says, in either spelling, is not this cue's.
 			if (!corroborated) continue;
 		}
-		passed.push({ el, labelLen: label.length, corroborated });
+		passed.push({ el, labelLen: compound ? parts.join(' ').length : label.length, corroborated });
 	}
 	if (!passed.length) return null;
 	// THE LONGER LABEL WINS FIRST, and corroboration only breaks its ties. Ranking corroboration
@@ -2248,7 +2261,7 @@ const SERIES_SHAPES = ['path', 'polygon', 'polyline', 'circle', 'line'];
 /** What a spark lights for `el`, and the `_focus`-grammar axis that names it; null when nothing
  *  on the slide can take a spark (a figure, an image, a chart's hit area, a container of blocks),
  *  and the caller falls back to ink. */
-export function sparkUnit(el: Element): { unit: Element[]; axis: string } | null {
+export function sparkUnit(el: Element): { unit: Element[]; axis: string; context?: Element[] } | null {
 	const section = el.closest('section');
 	if (!section) return null;
 	// One chart's marks, never another's: two charts on a slide both number their marks from 0.
@@ -2259,6 +2272,13 @@ export function sparkUnit(el: Element): { unit: Element[]; axis: string } | null
 		const sel = attr === 'data-series' ? SERIES_SHAPES.map((t) => `${t}[data-series]`).join(', ') : '[data-mark]:not(template)';
 		const v = el.closest(sel)?.getAttribute(attr);
 		if (v == null) continue;
+		// A POINT of a series — one dot, named by its own label and value — sparks itself, with its
+		// line as quiet context. Widening it to the series lit the whole line on "Q1 2026, four point
+		// one", which read as the same gesture again rather than the point being read.
+		if (attr === 'data-series' && el.matches('circle[data-series][data-label]')) {
+			const line = [...chart.querySelectorAll(`:is(path, polyline, line)[data-series="${v}"]`)].filter((m) => !m.closest('template') && !m.classList.contains('line-hit'));
+			return { unit: [el], axis: 'point', context: line };
+		}
 		const unit = [...chart.querySelectorAll(sel)].filter((m) => m.getAttribute(attr) === v && !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit'));
 		if (unit.length) return { unit, axis: attr === 'data-mark' ? 'mark' : 'series' };
 	}
@@ -2291,6 +2311,9 @@ export function sparkUnit(el: Element): { unit: Element[]; axis: string } | null
 }
 
 export type SparkLook = { tone?: 'accent' | 'muted'; pulse?: boolean; fade?: number };
+
+/** Which spark set a document's wash last — the only one allowed to clear it. */
+const washOwner = new WeakMap<Document, object>();
 
 /** A fade-out's pending clear, per element, so a spark that returns before it ends keeps it. */
 const pendingClear = new WeakMap<Element, number>();
@@ -2346,16 +2369,40 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 		e.classList.remove('lat-spark-out');
 		e.classList.add('lat-spark');
 	}
+	// The wash as a highlight over each text element's own words (never a nested list's), so it
+	// hugs the glyphs instead of filling the element's box. A table cell keeps its CSS wash.
+	const washes = found.unit
+		.filter((e) => !e.closest('svg') && !e.matches('td, th'))
+		.map((e) => {
+			const r = e.ownerDocument.createRange();
+			r.selectNodeContents(e);
+			const nested = e.querySelector(':scope > ul, :scope > ol');
+			if (nested) r.setEndBefore(nested);
+			return r;
+		});
+	const washToken = {};
+	if (washes.length) {
+		setWash(section.ownerDocument, washes);
+		washOwner.set(section.ownerDocument, washToken);
+	}
+	const context = found.context ?? [];
+	for (const e of context) {
+		if (view) view.clearTimeout(pendingClear.get(e));
+		e.classList.add('lat-spark-context');
+	}
 	let done = false;
 	return () => {
 		if (done) return;
 		done = true;
+		for (const e of context) e.classList.remove('lat-spark-context');
 		for (const e of found.unit) {
 			if (!e.classList.contains('lat-spark')) continue;
 			e.classList.remove('lat-spark');
 			e.classList.add('lat-spark-out');
 		}
 		const clear = () => {
+			// Only the spark that set the wash may clear it: a later spark's wash is not ours to end.
+			if (washes.length && washOwner.get(section.ownerDocument) === washToken) setWash(section.ownerDocument, null);
 			for (const e of found.unit) {
 				// A later spark on the same element took it back; its state is no longer ours to end.
 				if (e.classList.contains('lat-spark')) continue;
@@ -2367,6 +2414,87 @@ export function sparkContent(el: Element, look: SparkLook = {}): (() => void) | 
 		const t = view.setTimeout(clear, fade + 40);
 		for (const e of found.unit) pendingClear.set(e, t);
 	};
+}
+
+// ── THE READ-ALONG — the word being spoken, inside the spark ────────────────────────────────
+//
+// The spark names the element; the read-along names the word. It runs on the caption's clock
+// (the reader's active cue and word), so the slide, the caption and the voice agree. It is a CSS
+// Highlight, never a DOM edit: DOMPurify'd slide markup stays untouched (HARD RULE #22), and a
+// word split across inline markup still lights as one word.
+
+/** A word as it can be found in slide text: lower-case, with its edge punctuation dropped. */
+const bareWord = (w: string): string => w.toLowerCase().replace(/^[^\p{L}\p{N}$€£¥]+|[^\p{L}\p{N}%]+$/gu, '');
+
+/**
+ * The range of the `k`-th spoken word of a sentence inside `el`, or null when that word is not
+ * in the element's own text (a paraphrased caption, a number spelled out loud).
+ *
+ * The words are found IN ORDER from the sentence's first word, so "the" in the fifth word does
+ * not land on an earlier "the". A word the element lacks is skipped rather than ending the walk,
+ * so one spelled-out figure does not blank the rest of the sentence.
+ */
+export function wordRangeIn(el: Element, words: readonly string[], k: number): Range | null {
+	if (k < 0 || k >= words.length) return null;
+	const doc = el.ownerDocument;
+	const walker = doc.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
+	const nodes: { node: Text; start: number }[] = [];
+	let text = '';
+	for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+		if (n.parentElement?.closest(UNPAINTED)) continue;
+		nodes.push({ node: n as Text, start: text.length });
+		text += (n as Text).data;
+	}
+	const hay = text.toLowerCase();
+	// Anchor on the first word the element holds, so the walk starts where the sentence does.
+	let at = 0;
+	let hit: [number, number] | null = null;
+	for (let i = 0; i <= k; i++) {
+		const w = bareWord(words[i]);
+		if (!w) continue;
+		let j = hay.indexOf(w, at);
+		while (j !== -1 && !(j === 0 || !/[\p{L}\p{N}]/u.test(hay[j - 1]))) j = hay.indexOf(w, j + 1);
+		if (j === -1) continue;
+		if (i === k) hit = [j, j + w.length];
+		at = j + w.length;
+	}
+	if (!hit) return null;
+	const locate = (off: number, end: boolean) => {
+		for (let i = nodes.length - 1; i >= 0; i--) {
+			const { node, start } = nodes[i];
+			if (off > start || (off === start && !end)) return { node, offset: Math.min(off - start, node.data.length) };
+		}
+		return nodes[0] ? { node: nodes[0].node, offset: 0 } : null;
+	};
+	const a = locate(hit[0], false);
+	const b = locate(hit[1], true);
+	if (!a || !b) return null;
+	const range = doc.createRange();
+	range.setStart(a.node, a.offset);
+	range.setEnd(b.node, b.offset);
+	return range;
+}
+
+type HighlightView = Window & { CSS?: { highlights?: Map<string, unknown> }; Highlight?: new (...r: Range[]) => unknown };
+
+/** Set or clear (null) a named CSS highlight in `doc`. A no-op where the browser has no CSS
+ *  Custom Highlight API, which costs only the wash and the read-along, never the spark. */
+function setHighlight(doc: Document | null | undefined, name: string, ranges: Range[] | null): void {
+	const view = doc?.defaultView as HighlightView | null | undefined;
+	const hl = view?.CSS?.highlights;
+	if (!hl) return;
+	if (!ranges?.length || !view?.Highlight) hl.delete(name);
+	else hl.set(name, new view.Highlight(...ranges));
+}
+
+/** Light `range` as the word being said in `doc`, or clear it (null). */
+export function setSaid(doc: Document | null | undefined, range: Range | null): void {
+	setHighlight(doc, 'lat-said', range ? [range] : null);
+}
+
+/** The spark's wash behind the words of the sparked text, or clear it (null). */
+function setWash(doc: Document | null | undefined, ranges: Range[] | null): void {
+	setHighlight(doc, 'lat-spark-wash', ranges);
 }
 
 /**

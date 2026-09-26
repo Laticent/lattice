@@ -38,7 +38,7 @@ import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown,
 	isAside,
-	POINTER_BOX, planSlide, type SlidePlan, sparkContent, sparkUnit } from './present-guide';
+	POINTER_BOX, planSlide, type SlidePlan, setSaid, sparkContent, sparkUnit, wordRangeIn } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 
@@ -943,6 +943,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const guideShownRef = React.useRef(false);
 	// Is the CURSOR up? Distinct from "shown": a spark-only moment is shown with no hand at all.
 	const guideHandRef = React.useRef(false);
+	// THE WALK: the chart the slide's last planned moment named, with the slide it is on. Later
+	// sentences that land inside it spark too, as one moment (see the plan below).
+	const guideWalkRef = React.useRef<{ slide: number; chart: Element } | null>(null);
 	/** The element the last gesture named. The BLOCK-change cadence compares on this: a cue that
 	 *  resolves to the same element is a rest, not another trip. */
 	const guideAimRef = React.useRef<Element | null>(null);
@@ -950,9 +953,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const guidePlanRef = React.useRef<{ slide: number; track: unknown; delivery: string; plan: SlidePlan } | null>(null);
 	// The undo of the spark in force (`sparkContent`), run on every retarget, hide and teardown.
 	const guideMarkRef = React.useRef<(() => void) | null>(null);
+	// The document the read-along last lit a word in, so the word goes when the spark does.
+	const guideSaidDocRef = React.useRef<Document | null>(null);
 	const unmarkGuide = React.useCallback(() => {
 		guideMarkRef.current?.();
 		guideMarkRef.current = null;
+		setSaid(guideSaidDocRef.current, null);
+		guideSaidDocRef.current = null;
 	}, []);
 	const guideLive = open && guideOn && !rehearse;
 	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
@@ -1100,6 +1107,24 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				guidePlanRef.current = entry;
 			}
 			top = entry.plan.top === activeCue;
+			// THE WALK (owner, 2026-09-26). A chart is read point by point — a line's quarters, a
+			// heatmap row's cells — and the budget cut that walk off after its first sentence, so the
+			// Guide went dark while two of three series were read. Once a planned moment on this
+			// slide was a chart mark, every later sentence that lands inside the same chart sparks in
+			// turn: the walk counts as that one moment, so it spends no budget and draws no ink.
+			const walk = guideWalkRef.current;
+			const chartOf = (e: Element | null) => e?.closest('.chart-body, figure.chart-frame') ?? null;
+			if (!entry.plan.gesture.has(activeCue) && aim && walk && walk.slide === narration.idx && chartOf(aim) === walk.chart && sparkUnit(aim)) {
+				guidePointRef.current?.abort();
+				stage.setCursorVisible(false);
+				guideHandRef.current = false;
+				setGuideAiming(false);
+				unmarkGuide();
+				guideMarkRef.current = sparkContent(aim, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade });
+				guideAimRef.current = aim;
+				guideShownRef.current = true;
+				return;
+			}
 			if (!entry.plan.gesture.has(activeCue)) {
 				// The narration moved to a block the plan did not choose. A spark must not stay on the
 				// last one: it would name a thing nobody is saying. The hand itself only idles.
@@ -1156,6 +1181,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// line in place, in the preset's color, pulse and tempo. The previous spark goes first, always.
 		unmarkGuide();
 		guideMarkRef.current = sparkContent(cue.el, { tone: delivery.spark, pulse: delivery.pulse, fade: delivery.fade });
+		const chart = cue.el.closest('.chart-body, figure.chart-frame');
+		guideWalkRef.current = chart && cue.el.closest('[data-mark], [data-series]') ? { slide: narration.idx, chart } : null;
 		if (!inks) {
 			// No ink here: the spark IS the gesture, so a hand left from an inked moment goes down.
 			// "Shown" means "a named thing is live on the slide", which is what the rest and the
@@ -1192,6 +1219,27 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			guideHandRef.current = true;
 		}).catch(() => {});
 	}, [guideBeat, guideLive, guideRoot]);
+
+	// THE READ-ALONG (owner, 2026-09-26). Inside a sparked TEXT element, the word being spoken
+	// lights, on the caption's own clock, so the slide, the caption and the voice agree. Only the
+	// sparked element reads along — never the whole slide — and a chart mark has no words to read.
+	// Somber turns it off (`readAlong: false`): a moving highlight is the motion it refuses.
+	const saidCue = reader.active?.cueIndex ?? -1;
+	const saidWord = reader.active?.wordIndex ?? -1;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the active word IS the trigger; the refs are read at fire time on purpose.
+	React.useEffect(() => {
+		const el = guideAimRef.current;
+		const doc = el?.ownerDocument ?? null;
+		if (!guideLive || !delivery.readAlong || !guideMarkRef.current || !el || el.closest('svg') || saidCue < 0 || saidWord < 0) {
+			setSaid(guideSaidDocRef.current, null);
+			return;
+		}
+		const words = reader.track.cues[saidCue]?.words.map((w) => w.display) ?? [];
+		const range = wordRangeIn(el, words, saidWord);
+		if (guideSaidDocRef.current && guideSaidDocRef.current !== doc) setSaid(guideSaidDocRef.current, null);
+		guideSaidDocRef.current = doc;
+		setSaid(doc, range);
+	}, [saidCue, saidWord, guideLive, delivery.readAlong]);
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
 	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),

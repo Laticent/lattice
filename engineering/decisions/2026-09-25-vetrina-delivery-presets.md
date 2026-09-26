@@ -231,7 +231,8 @@ restrained. The owner settled both in one round:
 |---|---|---|---|
 | Color | accent over an accent wash | the same | heading ink over a gray wash, no accent |
 | Motion | one 480 ms glow on arrival | the same | no glow |
-| Tempo | 320 ms fade; releases on the next sentence | 240 ms | 900 ms; holds through a short aside that names nothing |
+| Tempo | 320 ms linger; releases on the next sentence | 240 ms | 900 ms linger; holds through a short aside that names nothing |
+| Read-along | the spoken word lights inside the spark | the same | off |
 | Caption | word-by-word crawl in the accent | the same | the line in one muted ink, no crawl |
 | Ink + cursor | none | top moment only | none |
 
@@ -254,6 +255,29 @@ mixed toward the muted ink. Measured in OKLab units ×100 on indaco and cuoio, l
 it sat only 3–7 from restrained's spark, and on cuoio light the accent itself sat 6.7 from body
 text. Now every text spark carries a wash (8–10 against the slide), and somber uses the heading
 ink over a gray wash, 22–33 from restrained on all four.
+
+**Second owner round (2026-09-26), after playing a 10-slide test deck:**
+
+- **No color animates.** In the Studio's Chromium, animating a theme's own text color toward the
+  spark produced `oklab(1 200 229)` (pure yellow) on a title slide, and the line chart's stroke
+  went to `oklab(1 255 255)`. A newer Chromium interpolated the same values correctly, so the bug
+  is version-dependent, and a sent deck plays in whatever browser the recipient has. The spark
+  switches color in one step; the glow keeps one color and animates only its blur. Somber's slow
+  tempo becomes a longer LINGER (900 ms against restrained's 320 ms) instead of a slow fade.
+- **The wash hugs the words.** As a box background it ran the column's full width, 350 px past a
+  short bullet, which read as a gesture overshooting its text. It is now a CSS Highlight over the
+  element's own text, line by line. A table cell keeps its cell-shaped wash.
+- **The walk.** Measured on the test deck: a line chart is narrated as 17 sentences (each series'
+  summary, then all four points), and restrained's budget of 2 left the Guide dark for 45 seconds
+  of it. Once a planned moment on a slide is a chart mark, every later sentence that lands inside
+  the same chart sparks in turn: the walk counts as that one moment.
+- **Points and cells.** A point sentence ("Q1 2026, four point one") resolved to the right dot but
+  sparked the whole line; it now sparks the dot, with its line as context. A heatmap sentence
+  ("Jan 2026 is lowest at M3, forty-four") landed on the row label `Jan 2026`, because the cell's
+  label `Jan 2026 · M3` never leads the sentence; a compound label now counts when its first part
+  leads and the rest appear as whole words, and the value still has to corroborate.
+- **Read-along.** Inside a sparked text element, the word being spoken takes a stronger wash, on
+  the caption's clock (the reader's active cue and word), as a CSS Highlight. Off for somber.
 
 Measured: sparking every bullet, cell, row, column, mark and heading on all 116 gallery slides at
 once moved **0** of 5,381 element boxes, mid-glow and after it, in light and dark.
