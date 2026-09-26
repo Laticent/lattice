@@ -317,3 +317,30 @@ test('the gutter is proportional and never lets the spine hug a pane', () => {
   assert.match(css, /\[data-panes="stack"\] \{\s*--pane-gap: var\(--sp-xl\);/);
   assert.match(css, /gap: var\(--pane-gap\);/);
 });
+
+test('a chart in a pane draws on a canvas shaped like its pane; a slide chart keeps the slide canvas', () => {
+  const e = engine();
+  const vb = (html) => (html.match(/class="cart-svg[^"]*"[^>]*viewBox="0 0 ([\d.]+) ([\d.]+)"|viewBox="0 0 ([\d.]+) ([\d.]+)"[^>]*class="cart-svg/) || []).filter(Boolean).slice(1).map(Number);
+  const bars = '- A `4`\n- B `7`\n- C `3`';
+  // A full slide: the fixed 320x180 canvas, exactly as before panes existed.
+  assert.deepEqual(vb(e.render(`<!-- _class: bar -->\n\n## T\n\n${bars}\n`).html), [320, 180]);
+  // A 60% stacked band is short and wide, and so is its canvas.
+  const [w, h] = vb(e.render(`## T\n\n<!-- panes: stack 60/40 -->\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html);
+  assert.ok(w / h > 3.5, `stacked band canvas ${w}x${h} is not band-shaped`);
+  // The host's chrome takes stage height the panes do not get: a Key Insight shortens the canvas.
+  const tall = vb(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html);
+  const short = vb(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n\n> Insight.\n`).html);
+  assert.ok(short[1] < tall[1], `a Key Insight did not shorten the pane canvas (${tall} vs ${short})`);
+  // The stamp that carries the canvas never reaches the output.
+  assert.doesNotMatch(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html, /data-pane-view/);
+});
+
+test('a keyed chart in a pane keeps slide-size key type and gives the diagram instead', () => {
+  const e = engine();
+  const pie = '- Enterprise `46%`\n- Mid-market `31%`\n- SMB `23%`';
+  const slideVb = e.render(`<!-- _class: piechart -->\n\n## T\n\n${pie}\n`).html.match(/piechart-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
+  const paneVb = e.render(`## T\n\n<!-- panes: 35/65 -->\n<!-- pane: piechart -->\n\n${pie}\n\n<!-- pane: list -->\n\n- x\n`).html.match(/piechart-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
+  // Same 200-unit disc, but a bigger key around it: the unit is larger, so the disc renders
+  // smaller and the key's type prints at slide size once the unit is fitted to the pane.
+  assert.ok(paneVb[0] * paneVb[1] > slideVb[0] * slideVb[1] * 1.2, `pane unit ${paneVb} vs slide ${slideVb}`);
+});
