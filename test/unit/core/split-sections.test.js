@@ -281,3 +281,39 @@ test('unclosedSectionAt finds the first top-level section that never closes, rea
   assert.equal(unclosedSectionAt(html), html.indexOf('<section id="2">'));
   assert.equal(unclosedSectionAt('<section/>'), 0, 'a self-closing slash does not close a section');
 });
+
+// ── the walk memo ────────────────────────────────────────────────────────────
+// A render splits the same document many times (22 calls over 13 strings on the jargon
+// gallery), so the section-tag walk is memoized on the string. These pin the two ways a
+// memo goes wrong: handing a caller pieces another caller mutated, and answering for a
+// different document.
+describe('splitSections — the walk memo', () => {
+  test('a repeat call returns fresh pieces, so a caller mutating its pieces cannot reach the next', () => {
+    const html = '<section class="a"><h1>A</h1></section><section class="b"><h1>B</h1></section>';
+    const first = splitSections(html);
+    first[0].inner = 'MUTATED';
+    first.pop();
+    const second = splitSections(html);
+    assert.equal(second.length, 2);
+    assert.equal(second[0].inner, '<h1>A</h1>');
+    assert.notEqual(second[0], first[0], 'a new piece object, not the memo’s');
+  });
+
+  test('two documents of the same length never share an answer', () => {
+    const a = '<section class="x">1</section><p>tail</p>';
+    const b = '<p>head</p><section class="y">2</section>';
+    assert.equal(a.length, b.length);
+    for (let round = 0; round < 3; round++) {
+      assert.deepEqual(splitSections(a).map((p) => p.type), ['section', 'gap']);
+      assert.deepEqual(splitSections(b).map((p) => p.type), ['gap', 'section']);
+      assert.equal(splitSections(b)[1].cls, 'y');
+    }
+  });
+
+  test('more documents than the memo holds still walk correctly when they come back', () => {
+    const docs = Array.from({ length: 9 }, (_, i) => `<section class="s${i}">${'x'.repeat(i)}</section>`);
+    for (let round = 0; round < 2; round++) {
+      for (const [i, d] of docs.entries()) assert.equal(splitSections(d)[0].cls, `s${i}`);
+    }
+  });
+});
