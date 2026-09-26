@@ -231,5 +231,10 @@
       "names": ".fc-key-label",
       "note": "A key entry is a swatch plus its label."
     }
-  ]
+  ],
+  "pane": {
+    "side": 35,
+    "stack": 60,
+    "noBudget": "a flowchart scales to its box, and its list mixes shapes with connection rows, so a count of list items is not its size"
+  }
 }
