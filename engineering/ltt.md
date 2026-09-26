@@ -39,8 +39,11 @@ writes a deck's LTT, and the exported player plays from it (guardrail G2).
 Built in step 4: `isStale`, with the Vetrina tour recorder as its first caller
 (`staleStretches` in `docs/src/lib/vetrina/recorder.ts`), the recorder itself, which writes a
 seekable tour LTT, and `Narrator.plan()` returning the core's `CaptionTrack`. Vetrina's gate
-admits `@laticent/ltt` by that exact name, as Cadenza's does. Not built: the video export (step
-3, proposed in `decisions/2026-09-25-video-export.md`) and a reference tour player.
+admits `@laticent/ltt` by that exact name, as Cadenza's does.
+
+Built in step 3: the video export (`lib/export/video.mjs`, `lattice video`), a capture of the
+narrated HTML export's own player in render mode, and the first production caller of
+`timeline()` (§What video export guarantees). Not built: a reference tour player.
 
 ## The file
 
@@ -338,7 +341,7 @@ builds its own cursor, which is why the player must always pass one.
 The timing functions tell a player **where in a segment** it is. The transport
 decides **when to move between segments**. These rules are normative; the HTML
 player (`lib/export/player-core.mjs`) implements them today, and any second
-player, including the video renderer's simulated one, must follow them.
+player, including the video export's capture of that player, must follow them.
 
 1. **Play** speaks the current slide at once, with no hold.
 2. When a slide's narration ends, the player **advances first, then holds on the
@@ -351,7 +354,7 @@ player, including the video renderer's simulated one, must follow them.
    the audio content stops, so a voiced HTML export runs late of any computed
    timeline by about that much per clip: roughly 8 s over an 87-sentence deck.
    WebKitGTK 2.52 measured 51–76 ms per clip on the same real-speech deck. A
-   simulated transport (video export) has no such latency, so the two
+   capture in render mode (video export) has no such latency, so the two
    disagree on voiced segment lengths by that amount until one of them changes.
    Firefox's figure is not measured: this sandbox's only audio device is a
    PulseAudio null sink, which plays about 1.6× slow.
@@ -395,14 +398,29 @@ player, including the video renderer's simulated one, must follow them.
 
 ## What video export guarantees (G5)
 
-Video export (step 3) renders from a seekable LTT. **It guarantees:** narration,
-captions, slide and hold timing, and tour actions from a recorded run. **In 1.0
-it does not guarantee:** Anima motion (the player receives that separately as
-`animaJs`), or the cursor's position mid-travel (an `on-word` action records
-where the cursor lands, not where it is in every frame). Either may become a
-layer under G4.
+Video export (step 3) is built: `lib/export/video.mjs`, run by `lattice video`
+(`engineering/pipeline.md` §6). It is a capture of the narrated HTML export's own
+player, so **it guarantees what that player shows**: narration, slide and hold
+timing, and Anima motion, because the capture includes whatever the player draws.
+The captions ride as a WebVTT track in the MP4 and a `.vtt` sidecar, laid out by
+`timeline()` over the measured clip lengths; the caption band is not in the frame.
+**It does not guarantee** tour actions (no recorder writes a seekable run yet), the
+Guide's gestures (the exported player does not carry the Guide; the video note's
+fork 8), or the cursor's position mid-travel.
 
-The encoder, muxer, frame rate and simulated transport are proposed in
+**Render mode** is the player's one hook for the capture (`window.__lpRender`, set
+only by the capture). Media does not play on the capture's clock, so rule 3 cannot
+apply there: a voiced cue lasts its clip's `measuredMs − leadMs`, which the
+capture writes into the LTT after decoding every clip, and the cue is re-timed to
+that length exactly as the anchor in rule 7 would. It takes the same timer path a
+cue with no clip takes (rule 4), and a clip with no measured length falls back as
+a clip that failed to decode. So the video follows `timeline()` exactly, and runs
+about 100 ms per clip ahead of a live Chromium viewing (rule 3's measured cost).
+`test/unit/export/ltt-player-transport.test.js` pins render mode to `timeline()`,
+and the capture refuses to write a file when the cue starts the player logged
+disagree with it by more than half a frame.
+
+The encoder, muxer and frame rate are recorded in
 [`decisions/2026-09-25-video-export.md`](decisions/2026-09-25-video-export.md).
 
 ## Files written before the LTT

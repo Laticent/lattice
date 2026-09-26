@@ -319,6 +319,51 @@ chart-SVG flatten kernel (`lib/components/chart/_chart-family/standalone-svg.js`
 the same one behind "download chart as SVG"), extended to Mermaid diagrams, with
 fonts embedded so each `.svg` opens anywhere.
 
+## 6. Video (`lattice video`)
+
+`lattice video` renders a **narrated HTML export** to an MP4 and a `.vtt`:
+
+```bash
+node lattice-emulator.js video deck.html              # -> deck.mp4 + deck.vtt
+node lattice-emulator.js video deck.html out.mp4 --fps 30 --lead-in 1000 --outro 1000
+```
+
+The input is the export the Studio writes with narration, because the voice lives there: the CLI
+has no speech engine. The video is that export's own player, captured (the owner's rule in
+[`decisions/2026-09-25-video-export.md`](decisions/2026-09-25-video-export.md) §0), so it shows
+what the export shows and nothing `lib/export/video.mjs` decides:
+
+1. It decodes every clip and writes each length into the export's LTT as `measuredMs`.
+2. It opens the export in headless Chromium with the player's render mode on
+   (`window.__lpRender`): a voiced cue lasts its clip's measured length minus its `leadMs`, and
+   the player logs when each cue starts.
+3. A clock the capture owns replaces the page's timers, `Date.now`, `performance.now` and
+   `requestAnimationFrame`, and seeks every animation. The capture presses Play and steps that
+   clock one frame at a time, taking a screenshot of the stage whenever the stage changed.
+4. It mixes each clip at the time the player logged, less its lead, and muxes H.264 video
+   (WebCodecs), AAC audio and a WebVTT caption track with `mediabunny`. The MP4 streams to disk.
+
+The frame's long side is 1920 px at 30 fps: a 1280×720 deck is 1920×1080, a 9:16 deck 1080×1920,
+a 4K deck 1920×1080. A silent first slide holds for `--lead-in` before Play (a voiced one gets a
+single frame, so its first word is not cut), and the last slide holds for `--outro` after narration
+ends. The MP4 is written as `<out>.mp4.partial` and renamed when whole; the output must be a new
+`.mp4`, never the export itself. The export is someone else's HTML, so the capture page may load
+only its own file and `data:` URLs.
+
+It refuses to write a file, rather than write a wrong one, when the stage moves under the capture,
+a slide or a cue lands off the layout, narration has not finished, no clip decodes, or a clip
+would lose speech off the front of the video.
+
+**Needs a Chromium that encodes H.264 through WebCodecs** (Chrome or Chrome for Testing; a
+distribution `chromium` may lack it). A probe runs before any capture and stops with an error
+that says so. Chrome for Testing on Linux cannot encode AAC, so `@mediabunny/aac-encoder`
+(FFmpeg's LGPL encoder compiled to WebAssembly) encodes it; a Chrome that can encode AAC itself
+uses its own. The captions ride as a track and a sidecar: the player's caption band is never in
+the frame. **Playback outside Chromium is UNVERIFIED** (QuickTime, PowerPoint, Keynote, Safari),
+and so is the muxed WebVTT track in any player; the `.vtt` sidecar is the caption path known to
+work. The integration test is `test/integration/export/video-export.test.js`, and the measured
+numbers are in the decision note's §9.
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |

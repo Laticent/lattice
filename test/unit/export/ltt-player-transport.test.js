@@ -205,3 +205,94 @@ test('a silent LAST slide the viewer moves to ends narration, as reaching the en
 	assert.equal(document.getElementById('lp-play').getAttribute('aria-pressed'), 'false', 'nothing after the last slide can speak, so narration ends');
 	dom.window.close();
 });
+
+// RENDER MODE (video export, engineering/decisions/2026-09-25-video-export.md §3). The capture plays
+// the export on a virtual clock where media does not play, so a voiced cue must last its clip's
+// measured length minus its lead, and the player must never touch the audio element. The proof is
+// the same as the first test's: every slide arrives when timeline() — over the LTT with measuredMs
+// filled, which is what the capture writes — says it does, and each cue logs its start at its onset.
+test('render mode times every voiced cue by its measured clip, on timeline(), without playing audio', async () => {
+	const { timeline, unpack, pack, positionAt } = await import('@laticent/ltt');
+	const { buildTrack } = await import('@laticent/cadenza');
+	const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>T</title></head><body>
+<section data-lattice-slide="1" id="1" class="content"><h1>One</h1></section>
+<section data-lattice-slide="2" id="2" class="divider"><h2>Two</h2></section>
+<section data-lattice-slide="3" id="3" class="content"><h2>Three</h2></section>
+</body></html>`;
+	const clip = (n) => ({ audio: 'data:audio/mpeg;base64,AAAA', clip: `sha256:${String(n).repeat(64)}`, leadMs: 370 });
+	const t1 = buildTrack('The first slide has two sentences. This is the second one.');
+	const t3 = buildTrack('The last slide speaks once.');
+	const { html } = await buildPlayerHtml({
+		docHtml, source: '# One', title: 'T', now: 0,
+		narration: { voice: { model: 'm', voice: 'v', speed: 1 }, slides: [{ text: 'x', track: t1, clips: [clip(1), clip(2)] }, null, { text: 'y', track: t3, clips: [clip(3)] }] },
+	});
+	// What the capture does before Play: decode every clip and write its length into the file's LTT.
+	// Lengths deliberately far from the estimates, so a player that ignored them would drift.
+	const measured = [[2900, 1700], null, [1500]];
+	let clock;
+	const plays = [];
+	const render = { log: [] };
+	const dom = new JSDOM(html, {
+		runScripts: 'dangerously',
+		pretendToBeVisual: true,
+		beforeParse(window) {
+			clock = installClock(window);
+			window.__lpRender = render;
+			window.HTMLMediaElement.prototype.play = function () { plays.push(this.src); return Promise.resolve(); };
+		},
+	});
+	const { document } = dom.window;
+	const block = document.querySelector('script[data-lp-ltt]');
+	const ltt = unpack(JSON.parse(block.textContent));
+	ltt.segments.forEach((s, i) => { for (const c of s.audio?.clips || []) c.measuredMs = measured[i][c.cue]; });
+	block.textContent = JSON.stringify(pack(ltt));
+	const plan = timeline(ltt);
+	assert.notEqual(plan.durationMs, timeline(unpack(JSON.parse(JSON.stringify(pack({ ...ltt, segments: ltt.segments.map((s) => (s.audio ? { ...s, audio: { ...s.audio, clips: s.audio.clips.map(({ measuredMs, ...c }) => c) } } : s)) }))))).durationMs, 'the measured lengths move the timeline');
+
+	const count = () => document.querySelector('body > #lp-bar > #lp-count').textContent.trim();
+	const arrivals = [];
+	let last = count();
+	let stoppedAt = null;
+	document.getElementById('lp-play').click();
+	clock.runUntil(plan.durationMs + 5000, () => {
+		if (count() !== last) { last = count(); arrivals.push(clock.now); }
+		if (stoppedAt === null && document.getElementById('lp-play').getAttribute('aria-pressed') === 'false') stoppedAt = clock.now;
+	});
+	assert.deepEqual(arrivals, plan.segments.slice(1).map((s) => s.startMs), 'each slide arrives where its segment starts');
+	assert.equal(stoppedAt, plan.durationMs, 'narration stops the moment the last segment ends');
+	assert.deepEqual(plays, [], 'no clip is played: media does not run on a virtual clock');
+	const expected = [];
+	ltt.segments.forEach((s, i) => {
+		if (!s.track) return;
+		positionAt(s, 0).onsets.forEach((o, k) => {
+			expected.push({ slide: i, cue: k, at: plan.segments[i].startMs + o });
+		});
+	});
+	assert.deepEqual(render.log.map((e) => ({ ...e })), expected, 'each cue logs its start at its onset on the timeline');
+	dom.window.close();
+});
+
+// A DECK CANNOT TURN RENDER MODE ON. An element with id="__lpRender" is a named property of the window,
+// and a second one with name="log" makes `window.__lpRender.log` an element: truthy. The flag used to
+// test truthiness, so such a deck put a viewer's player in render mode and every voiced cue went silent.
+test('elements named __lpRender in a deck do not switch a viewer into render mode', async () => {
+	const { buildTrack } = await import('@laticent/cadenza');
+	const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>T</title></head><body>
+<section data-lattice-slide="1" id="1" class="content"><h1>One</h1><a id="__lpRender"></a><a id="__lpRender" name="log"></a></section></body></html>`;
+	const track = buildTrack('A sentence with a clip.');
+	const clip = { audio: 'data:audio/mpeg;base64,AAAA', clip: `sha256:${'ab'.repeat(32)}`, leadMs: 46 };
+	const { html } = await buildPlayerHtml({ docHtml, source: '# x', title: 'T', now: 0, narration: { voice: { model: 'm', voice: 'v', speed: 1 }, slides: [{ text: 'x', track, clips: [clip] }] } });
+	assert.match(html, /id="__lpRender"[^>]*>[\s\S]*name="log"/, 'the export keeps the anchors, so the test exercises the clobber');
+	const plays = [];
+	const dom = new JSDOM(html, {
+		runScripts: 'dangerously',
+		pretendToBeVisual: true,
+		beforeParse(window) {
+			installClock(window);
+			window.HTMLMediaElement.prototype.play = function () { plays.push(this.src); return Promise.resolve(); };
+		},
+	});
+	dom.window.document.getElementById('lp-play').click();
+	assert.equal(plays.length, 1, 'the clip plays: the player is not in render mode');
+	dom.window.close();
+});

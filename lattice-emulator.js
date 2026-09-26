@@ -361,6 +361,12 @@ EXIT CODES
   0  Success
   1  Usage error, missing file, palette not found, or render failure
 
+VIDEO
+  lattice video <narrated-export.html> [out.mp4]
+                     Render a narrated HTML export (the Studio's, with narration)
+                     to an MP4 (H.264, AAC, a caption track) and a .vtt sidecar.
+                     See lattice video --help
+
 EXAMPLES
   node lattice-emulator.js deck.md out.pdf
   node lattice-emulator.js deck.md out.pptx          # PowerPoint (image slides)
@@ -383,6 +389,14 @@ EXAMPLES
 // with its code before the render path runs. The cost is one Node startup (~40 ms).
 if (process.argv[2] === 'packages') {
   const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/packages/cli.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  if (r.error) console.error(`error: ${r.error.message}`);
+  process.exit(r.status ?? 1);
+}
+
+// `lattice video <export.html>` — a narrated HTML export to MP4 + .vtt (lib/export/video-cli.mjs).
+// Dispatched as a child for the same reason as `packages` above; the subcommand owns its --help.
+if (process.argv[2] === 'video') {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/export/video-cli.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }

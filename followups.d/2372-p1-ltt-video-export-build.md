@@ -5,25 +5,27 @@ recorded: 2026-09-25
 source: https://github.com/Laticent/lattice/pull/2372
 ---
 
-# Measure an AAC path, then build the video exporter (LTT step 3)
+# Video export: prove it plays in slide software, and let the CLI voice a deck itself
 
-why now   — video export is the owner's goal, and the owner answered the note's fork 0 on
-            2026-09-25: the audience plays video in slide software too, so the audio must be AAC,
-            which the measured Chromium's WebCodecs cannot encode.
-where     — engineering/decisions/2026-09-25-video-export.md §5 (what the build adds), §6 forks
-            1–7; tools/spike-video-export.mjs (the measured pipeline to promote into
-            lib/export/video.mjs); lib/export/player-core.mjs (the LTT and audio blocks it reads).
-done when — the build follows the note's §0 rule (owner, 2026-09-25): video is an export path
-            over the Studio's spine, never a second renderer. First, fork 1d is measured against
-            1b (an audio-only AAC encoder: an LGPL ffmpeg build or a WebAssembly encoder; size,
-            speed, license) and the owner picks. Then the exported player gains its one
-            render-mode hook (a voiced cue lasts its measured length), and `--video` builds the
-            narrated HTML export as the Studio would, plays it under virtual time, captures each
-            frame, muxes the clips at the player's own times, writes the caption track and the
-            .vtt sidecar, probes the encoders first, and passes the spike's checks in a
-            test:integration case. The Guide in the player (fork 8) and the Studio path
-            (fork 10) are their own slices.
-evidence  — the MP4 and .vtt of test/fixtures/q3-board-review.md via SendUserFile, the spike's
-            report JSON, and one file opened in QuickTime or PowerPoint on a real machine (or marked
-            UNVERIFIED).
-verify    — tier 2 trio, because it adds an external dependency and a new export surface.
+Progress 2026-09-26: built. `lattice video <narrated-export.html>` writes the MP4 (H.264, AAC,
+a WebVTT track) and the `.vtt` by capturing the export's own player in render mode
+(engineering/decisions/2026-09-25-video-export.md §9). Fork 1d was measured and built on
+(`@mediabunny/aac-encoder`, FFmpeg's AAC encoder in WebAssembly), pending the owner's pick. What
+is left is below; the Guide in the player (fork 8), a phone aspect (fork 9) and Studio video
+(fork 10) stay the owner's calls in the note's §6.
+
+why now   — the owner's audience plays video in PowerPoint, Keynote and QuickTime (fork 0), and
+            only Chromium has decoded one of these files. The muxed caption track reads back as no
+            track at all through mediabunny, and QuickTime expects `tx3g`. And the CLI can only
+            capture a narrated export the Studio made: it has no voice of its own, so "the Studio
+            or the CLI" is today "the Studio, then the CLI".
+where     — lib/export/video.mjs (the muxer's subtitle track); lib/export/video-cli.mjs (a deck
+            input would narrate it first, which needs a Node voice such as kokoro-js, the one the
+            spike runs, or captions only); engineering/pipeline.md §6.
+done when — one MP4 from test/fixtures/q3-board-review.md opened in QuickTime and in PowerPoint on
+            a real machine, with sound, picture and captions checked and recorded in the note (or
+            each marked UNVERIFIED with the reason); the caption track is either read back by a
+            real player or replaced by one that is (`tx3g`); and the owner has ruled on the CLI
+            taking a deck, with that ruling built or recorded as declined.
+evidence  — screenshots or a screen recording from the real players; the ruling.
+verify    — tier 1 checker, because it changes the MP4 every export writes.
