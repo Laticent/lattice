@@ -206,17 +206,15 @@
     }
   ],
   "pane": {
-    "fit": "wide",
+    "side": 65,
+    "stack": false,
     "budget": {
+      "at": 65,
       "axis": "row",
       "basis": "editorial",
       "side": {
         "sweet": 4,
         "hard": 6
-      },
-      "stack": {
-        "sweet": 3,
-        "hard": 4
       },
       "note": "Regulation rows against obligation columns. Judgment: the calibration rig has no element builder for this component."
     }

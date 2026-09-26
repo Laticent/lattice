@@ -232,7 +232,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 35,
+    "stack": 50,
     "budget": {
       "axis": "item",
       "basis": "editorial",
@@ -245,6 +246,7 @@
         "hard": 16
       },
       "note": "Points along the x axis: a stacked band is full width, a side pane is half. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
-    }
+    },
+    "review": "side 25 measured, 35 reviewed: series labels cramp at 25%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   }
 }

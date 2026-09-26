@@ -81,18 +81,19 @@ number; only the body splits. Mark where each component's body begins:
   `no-rule` to drop it (`<!-- panes: 50/50 no-rule -->`) — a photo pane's own edge
   usually separates it already.
 - The trailing `> quote` and `— note` belong to the slide, never to the second pane.
-- **Which component can go in a pane is its own decision** — the `pane` field of its manifest,
-  which `dist/docs/components.json` carries. `half` (44 of 70) reads
-  in a pane of any share. `wide` (17: `table`, `gantt`, `roadmap`, `cards-grid`, …) needs 65% or
-  more side by side, or a stack. `none` (9 whole-slide frames: `title`, `divider`, `split-panel`,
-  …) opts out: that pane renders as `content`. `kpi` and `pricing` go side by side only — one tile
-  already clips in a stacked band. `image` has a pane form: the picture covers its pane.
+- **Which component can go in a pane, and at what share, is measured.** Each manifest's `pane`
+  field records the least share it reads at side by side and stacked (`dist/docs/components.json`
+  carries it). A table needs 35% side by side, a KPI row 65%, code only stacks, and a whole-slide
+  frame (a title, a divider) never goes in a pane.
+- **A pairing that does not fit is never drawn.** If both panes fit the other direction at the same
+  shares, the slide re-orients (side by side becomes stacked, or the reverse). If not, it splits
+  into one slide per pane — each an ordinary slide of its component under the same title, the
+  Key Insight and note closing the last. `lint:deck` tells you which (`pane-arrange`).
 - **Each pane has a budget.** Write a pane's content tighter than a whole slide's — about half the
   words per item. At that density a `list` pane holds 6 items side by side and 4 in a stacked band,
   a `table` 7 rows at 65%, a `bar` chart 8 bars. A narrower pane holds proportionally fewer.
-- `lint:deck` names each problem before you render: `pane-fit` (a component that opts out, a
-  `wide` one under 65%, a side-by-side-only one stacked), `pane-overflow` (past the budget) and
-  `pane-crowd` (past the comfortable count). It warns and never blocks; the Studio's editor
+- `lint:deck` names each problem before you render: `pane-arrange` (the slide will re-orient or
+  split), `pane-overflow` (past the budget) and `pane-crowd` (past the comfortable count). It warns and never blocks; the Studio's editor
   shows the same warnings as you type. At export, a pane that really clips is marked like any
   clipped slide.
 - **On a square, portrait, story or mobile deck the panes split** into one slide per pane.

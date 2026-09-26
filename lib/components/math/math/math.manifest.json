@@ -222,7 +222,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 50,
+    "stack": 50,
     "noBudget": "one equation; its size is fixed chrome, not a count"
   }
 }

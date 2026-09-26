@@ -110,11 +110,6 @@ test('author HTML shaped like a placeholder is never filled', () => {
   assert.equal(count(html, /<lat-pane /g), 2);
 });
 
-test('a whole-slide component cannot go in a pane: it renders as content', () => {
-  const html = render('## T\n\n<!-- pane: title -->\n\n- a\n\n<!-- pane: list -->\n\n- b\n');
-  assert.deepEqual(cells(html)[0], ['content form', 'title']);
-});
-
 test('a chart pane is built by its kernel and keeps its component classes', () => {
   const html = render('## T\n\n<!-- pane: bar -->\n\n- A `4`\n- B `6`\n\n<!-- pane: list -->\n\n- x\n');
   assert.equal(cells(html)[0][0], 'bar form chart-frame');
@@ -325,7 +320,7 @@ test('a chart in a pane draws on a canvas shaped like its pane; a slide chart ke
   // A full slide: the fixed 320x180 canvas, exactly as before panes existed.
   assert.deepEqual(vb(e.render(`<!-- _class: bar -->\n\n## T\n\n${bars}\n`).html), [320, 180]);
   // A 60% stacked band is short and wide, and so is its canvas.
-  const [w, h] = vb(e.render(`## T\n\n<!-- panes: stack 60/40 -->\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html);
+  const [w, h] = vb(e.render(`## T\n\n<!-- panes: stack 60/40 -->\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: content -->\n\nx\n`).html);
   assert.ok(w / h > 3.5, `stacked band canvas ${w}x${h} is not band-shaped`);
   // The host's chrome takes stage height the panes do not get: a Key Insight shortens the canvas.
   const tall = vb(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html);
@@ -464,5 +459,28 @@ test('lint does not budget panes on a deck that splits them', () => {
   const md = (size) => `---\nsize: ${size}\n---\n\n## T\n\n<!-- panes: stack -->\n<!-- pane: kpi -->\n\n1. 42%\n   - Margin\n\n<!-- pane: list -->\n\n${Array.from({ length: 20 }, (_, i) => `- Point ${i}`).join('\n')}\n`;
   const panesRules = (size) => lintText(md(size)).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule);
   assert.deepEqual(panesRules('portrait'), []);
-  assert.deepEqual(panesRules('hd').sort(), ['pane-fit', 'pane-overflow']);
+  // At 16:9 the same slide splits too (a kpi row does not stack, nor fits 50% side by side), and
+  // its 20-item list, now a slide of its own, is past a list slide's capacity.
+  assert.deepEqual(panesRules('hd'), ['pane-arrange', 'pane-overflow']);
+});
+
+test('the source-side slide map splits a panes slide exactly where the engine does', () => {
+  const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
+  const e = engine();
+  const deck = (size, layout = '') => `---\nsize: ${size}\n---\n\n## T\n\n${layout}<!-- pane: bar -->\n\n- A \`4\`\n\n<!-- pane: list -->\n\n- One\n`;
+  const classes = (html) => [...html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
+  for (const [size, layout] of [['portrait', ''], ['hd', '<!-- panes: 25/75 -->\n'], ['hd', '']]) {
+    const src = deck(size, layout);
+    const spans = slideClassSpans(src).spans;
+    const rendered = classes(e.render(src).html);
+    assert.equal(spans.length, rendered.length, `${size} ${layout}`);
+    spans.forEach((sp, i) => {
+      for (const c of sp.slideClass.split(/\s+/).filter(Boolean)) assert.ok(rendered[i].includes(c), `${size}: span ${i} '${c}' not on ${rendered[i]}`);
+    });
+  }
+  // Code never sits side by side, and a list needs 60% to stack: at 16:9 this slide splits too,
+  // and the source-side map says so.
+  const both = '## T\n\n<!-- pane: code -->\n\n```js\nconst x = 1;\n```\n\n<!-- pane: list -->\n\n- One\n- Two\n';
+  assert.equal(classes(e.render(both).html).length, 2);
+  assert.deepEqual(slideClassSpans(both).spans.map((sp) => sp.slideClass), ['code', 'list']);
 });

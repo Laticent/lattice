@@ -123,7 +123,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 60,
     "budget": {
       "axis": "item",
       "basis": "measured",
@@ -137,6 +138,7 @@
       },
       "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 50%: clips at 9, capped at the slide's own hard 7; stack 50/50: clips at 4). sweet sits below it.",
       "min": 3
-    }
+    },
+    "review": "stack 50 measured, 60 reviewed: rows crowd below 60%."
   }
 }

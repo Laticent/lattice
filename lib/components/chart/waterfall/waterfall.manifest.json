@@ -164,7 +164,8 @@
     }
   },
   "pane": {
-    "fit": "half",
+    "side": 50,
+    "stack": 50,
     "budget": {
       "axis": "item",
       "basis": "editorial",
@@ -177,6 +178,7 @@
         "hard": 8
       },
       "note": "Steps run along the x axis: a stacked band is full width. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
-    }
+    },
+    "review": "side 25 measured, 50 reviewed: category labels truncate below 50%; stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   }
 }

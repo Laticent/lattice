@@ -26,26 +26,25 @@ const items = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}`).joi
 test('every built-in component decides how it behaves in a pane', () => {
   for (const m of MANIFESTS) {
     assert.ok(m.pane, `${m.name} declares no pane field`);
-    if (m.pane.fit === 'none') continue;
+    assert.ok('side' in m.pane && 'stack' in m.pane, `${m.name} declares no measured side/stack share`);
+    if (m.pane.side === false && m.pane.stack === false) continue;
     assert.ok(m.pane.budget || m.pane.noBudget, `${m.name} declares neither a pane budget nor why it has none`);
     // A pane form names a real component that itself goes in a pane.
     if (m.pane.form) {
       assert.ok(BY_NAME[m.pane.form], `${m.name}: pane.form '${m.pane.form}' names no component`);
-      assert.notEqual(BY_NAME[m.pane.form].pane.fit, 'none', `${m.name}: pane.form '${m.pane.form}' opts out of panes`);
+      const f = BY_NAME[m.pane.form].pane;
+      assert.ok(!(f.side === false && f.stack === false), `${m.name}: pane.form '${m.pane.form}' fits no pane`);
     }
   }
 });
 
-test('the pane catalog is exactly the manifests\' fit, form and stack (default rows left out)', () => {
+test('the pane catalog is exactly the manifests\' side, stack and form', () => {
   for (const m of MANIFESTS) {
-    // What the carve reads — a missing row is the default `half` that stacks.
-    assert.deepEqual(spec.specOf(CATALOG, m.name), { fit: m.pane.fit, stack: m.pane.stack !== false }, m.name);
+    assert.deepEqual(spec.specOf(CATALOG, m.name), { side: m.pane.side, stack: m.pane.stack }, m.name);
     assert.equal(panes.paneForm(m.name), m.pane.form || m.name, m.name);
   }
-  // No row restates the default.
-  for (const [name, row] of Object.entries(CATALOG)) {
-    assert.ok(row.fit !== 'half' || row.form || row.stack === false, `${name} restates the default`);
-  }
+  // No row: an installed package, which fits any share both ways.
+  assert.deepEqual(spec.specOf(CATALOG, 'acme-widget'), { side: 25, stack: 25 });
 });
 
 test('a measured budget stays within the slide capacity the component already ships', () => {
@@ -61,15 +60,20 @@ test('the validator rejects a pane field that has not decided', () => {
   const base = BY_NAME.list;
   const errs = (pane) => components.validate({ ...base, pane }, 'x').filter((e) => e.includes('pane'));
   assert.equal(errs(base.pane).length, 0);
-  assert.ok(errs({ fit: 'wide-ish' }).length, 'unknown fit');
-  assert.ok(errs({ fit: 'half' }).length, 'neither budget nor noBudget');
-  assert.ok(errs({ fit: 'half', noBudget: 'one thing only', budget: base.pane.budget }).length, 'both');
-  assert.ok(errs({ fit: 'none', noBudget: 'one thing only' }).length, 'an opted-out component declares nothing more');
-  assert.ok(errs({ fit: 'half', stack: true, noBudget: 'one thing only' }).length, 'stack is absent or false');
-  assert.ok(errs({ fit: 'half', stack: false, budget: base.pane.budget }).length, 'no stack counts when it does not stack');
+  const fits = { side: 50, stack: 50 };
+  assert.ok(errs({ side: 'wide', stack: 50, noBudget: 'one thing only' }).length, 'a share is a number');
+  assert.ok(errs({ side: 33, stack: 50, noBudget: 'one thing only' }).length, 'a share is in 5% steps');
+  assert.ok(errs({ side: 80, stack: 50, noBudget: 'one thing only' }).length, 'a share is 25–75');
+  assert.ok(errs({ stack: 50, noBudget: 'one thing only' }).length, 'side is declared');
+  assert.ok(errs({ ...fits }).length, 'neither budget nor noBudget');
+  assert.ok(errs({ ...fits, noBudget: 'one thing only', budget: base.pane.budget }).length, 'both');
+  assert.ok(errs({ side: false, stack: false, noBudget: 'one thing only' }).length, 'a component that fits no pane declares nothing more');
+  assert.ok(errs({ side: 50, stack: false, budget: base.pane.budget }).length, 'no stack counts when it does not stack');
   assert.ok(errs({ ...base.pane, budget: { ...base.pane.budget, side: { sweet: 5, hard: 3 } } }).length, 'sweet > hard');
+  assert.ok(errs({ ...base.pane, budget: { ...base.pane.budget, at: 72 } }).length, 'budget.at is a share');
+  assert.ok(errs({ ...base.pane, review: 'no' }).length, 'a review says why');
   const { note, ...noNote } = base.pane.budget;
-  assert.ok(errs({ fit: 'half', budget: { ...noNote, basis: 'editorial' } }).length, 'editorial without a reason');
+  assert.ok(errs({ ...fits, budget: { ...noNote, basis: 'editorial' } }).length, 'editorial without a reason');
 });
 
 test('the carve and the linter read one layout parser', () => {
@@ -188,27 +192,48 @@ test('the linter finds exactly the panes the carve renders: 400 seeded random sl
 
 test('a pane smaller than its basis scales its budget down, and a larger one never up', () => {
   const b = { side: { sweet: 4, hard: 6 }, stack: { sweet: 3, hard: 4 } };
-  const half = { fit: 'half', stack: true };
+  const half = { side: 25, stack: 25 };
   const side = (a) => spec.paneBudgetLimit(b, half, spec.parseLayout(`${a}/${100 - a}`), 0);
   assert.deepEqual(side(50), { sweet: 4, hard: 6 });
   assert.deepEqual(side(25), { sweet: 2, hard: 3 });
   assert.deepEqual(side(75), { sweet: 4, hard: 6 });
   assert.deepEqual(spec.paneBudgetLimit(b, half, spec.parseLayout('stack 25/75'), 0), { sweet: 1, hard: 2 });
-  // A wide component is budgeted at 65%, so 65% is its full budget.
-  assert.deepEqual(spec.paneBudgetLimit(b, { fit: 'wide', stack: true }, spec.parseLayout('65/35'), 0), { sweet: 4, hard: 6 });
-  assert.equal(spec.paneBudgetLimit(b, { fit: 'half', stack: false }, spec.parseLayout('stack'), 0).hard, 4);
+  // A budget set at 65% (`at`) has its full count at 65%, and scales down below it.
+  assert.deepEqual(spec.paneBudgetLimit({ ...b, at: 65 }, half, spec.parseLayout('65/35'), 0), { sweet: 4, hard: 6 });
+  assert.deepEqual(spec.paneBudgetLimit({ ...b, at: 65 }, half, spec.parseLayout('50/50'), 0), { sweet: 3, hard: 4 });
+  assert.equal(spec.paneBudgetLimit(b, half, spec.parseLayout('stack'), 0).hard, 4);
   assert.equal(spec.paneBudgetLimit({ side: b.side }, half, spec.parseLayout('stack'), 0), null);
 });
 
-test('lint: pane-fit names an opted-out, a too-narrow and a stacked-but-cannot pane', () => {
-  const optedOut = paneRules(slide({ cls: 'title', body: '# Big' }, { cls: 'list', body: items(2) }));
-  assert.deepEqual(optedOut.map((f) => [f.rule, f.classToken]), [['pane-fit', 'title']]);
-  const narrow = paneRules(slide({ cls: 'list', body: items(2) }, { cls: 'table', body: '| A | B |\n|---|---|\n| 1 | 2 |' }, '60/40'));
-  assert.deepEqual(narrow.map((f) => [f.rule, f.classToken]), [['pane-fit', 'table']]);
-  assert.match(narrow[0].message, /65% share/);
-  assert.equal(paneRules(slide({ cls: 'list', body: items(2) }, { cls: 'table', body: '| A | B |\n|---|---|\n| 1 | 2 |' }, '35/65')).length, 0);
-  const stacked = paneRules(slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(2) }, 'stack'));
-  assert.deepEqual(stacked.map((f) => [f.rule, f.classToken]), [['pane-fit', 'kpi']]);
+test('arrangePanes: as written, re-oriented, or split — from each component\'s measured shares', () => {
+  const specs = { a: { side: 35, stack: 50 }, b: { side: 25, stack: 30 }, c: { side: false, stack: 50 }, frame: { side: false, stack: false } };
+  const at = (layout, cls) => spec.arrangePanes(specs, cls, spec.parseLayout(layout));
+  assert.equal(at('40/60', ['a', 'b']).as, 'written');
+  // a needs 35% side by side and has 30: stacked at the same shares, a needs 50% and has 30 — split.
+  assert.equal(at('30/70', ['a', 'b']).as, 'split');
+  // c never sits side by side, but stacks at 50%: the same 50/50 renders stacked.
+  const turned = at('50/50', ['c', 'b']);
+  assert.deepEqual([turned.as, turned.layout.direction], ['reoriented', 'stack']);
+  assert.match(turned.why, /"c" does not read side by side/);
+  // A whole-slide frame fits no pane: always split.
+  assert.equal(at('50/50', ['frame', 'b']).as, 'split');
+  // An installed package (no row) fits any share.
+  assert.equal(at('25/75', ['acme-widget', 'b']).as, 'written');
+});
+
+test('lint: pane-arrange says when a slide will re-orient or split, and nothing when it renders as written', () => {
+  const frame = paneRules(slide({ cls: 'title', body: '# Big' }, { cls: 'list', body: items(2) }));
+  assert.deepEqual(frame.map((f) => f.rule), ['pane-arrange']);
+  assert.match(frame[0].message, /splits into one slide per pane/);
+  const code = '```js\nconst x = 1;\n```';
+  const turned = paneRules(slide({ cls: 'code', body: code }, { cls: 'content', body: 'x' }));
+  assert.deepEqual(turned.map((f) => f.rule), ['pane-arrange']);
+  assert.match(turned[0].message, /render stacked/);
+  assert.deepEqual(paneRules(slide({ cls: 'list', body: items(2) }, { cls: 'table', body: '| A | B |\n|---|---|\n| 1 | 2 |' }, '35/65')), []);
+  // A pane that splits into its own slide is held to that component's SLIDE capacity.
+  const own = paneRules(slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(20) }, 'stack'));
+  assert.deepEqual(own.map((f) => f.rule), ['pane-arrange', 'pane-overflow']);
+  assert.match(own[1].message, /becomes its own 'list' slide/);
 });
 
 test('lint: a pane past its budget is pane-overflow, past sweet is pane-crowd — per pane, not summed', () => {
@@ -235,7 +260,7 @@ test('lint: pane-layout names a ratio off the grid and a third marker', () => {
 
 test('lint: a correct pane of a fixed-size component is never warned (a 2x2 is always four)', () => {
   const quad = '- **A.**\n  - a\n- **B.**\n  - b\n- **C.**\n  - c\n- **D.**\n  - d';
-  for (const layout of ['', '40/60', 'stack', 'stack 35/65']) {
+  for (const layout of ['', '55/45', '65/35']) {
     assert.deepEqual(paneRules(slide({ cls: 'matrix-2x2', body: quad }, { cls: 'content', body: 'x' }, layout)), [], layout || '50/50');
   }
   // Every budget sits at or above its component's own minimum.
@@ -251,10 +276,14 @@ test('the Studio\'s lint runs the pane rules too: a vocab without pane data fall
   // Shaped like the Studio's vocab (docs/src/pages/studio.astro → buildVocabSets): names,
   // modifiers and capacity, no pane data.
   const studio = { names: new Set(MANIFESTS.map((m) => m.name)), modifiers: new Set() };
-  const md = slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(20) }, 'stack');
-  assert.deepEqual(core.lintTextWith(md, studio).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule), ['pane-fit', 'pane-overflow']);
+  const rules = (md, vocab) => core.lintTextWith(md, vocab).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule);
+  const split = slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(2) }, 'stack');
+  const crowded = slide({ cls: 'list', body: items(20) }, { cls: 'content', body: 'x' });
+  assert.deepEqual(rules(split, studio), ['pane-arrange']);
+  assert.deepEqual(rules(crowded, studio), ['pane-overflow']);
   // An EMPTY pane table is no table: it falls back too, rather than silencing every pane rule.
-  assert.deepEqual(core.lintTextWith(md, { ...studio, paneSpec: {}, paneBudget: {} }).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule), ['pane-fit', 'pane-overflow']);
+  assert.deepEqual(rules(split, { ...studio, paneSpec: {}, paneBudget: {} }), ['pane-arrange']);
+  assert.deepEqual(rules(crowded, { ...studio, paneSpec: {}, paneBudget: {} }), ['pane-overflow']);
   // …and the baked table is exactly what buildVocab derives from the manifests.
   const baked = require('../../../lib/authoring/pane-lint.generated.js');
   const { paneSpec, paneBudget } = spec.paneVocab(MANIFESTS);
@@ -262,15 +291,22 @@ test('the Studio\'s lint runs the pane rules too: a vocab without pane data fall
   for (const m of MANIFESTS) assert.deepEqual(spec.specOf(baked.spec, m.name), spec.specOf(paneSpec, m.name), m.name);
 });
 
-test('lint: a component with no pane row (an installed package) is a half with no budget', () => {
+test('lint: a component with no pane row (an installed package) fits any share, with no budget', () => {
   assert.equal(paneRules(slide({ cls: 'acme-widget', body: items(30) }, { cls: 'list', body: items(2) })).length, 0);
 });
 
-test('the carve renders an opted-out component as content, and keeps a component class off the host', () => {
+test('a panes slide the engine cannot lay out renders the way arrangePanes says — split or re-oriented', () => {
   const e = createEngine();
   e.addThemes([{ name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8') }]);
-  const html = e.render(slide({ cls: 'divider', body: 'Part two' }, { cls: 'list', body: items(2) })).html;
-  // It renders AS content; `data-pane` keeps what the author wrote.
-  assert.match(html, /<lat-pane class="content form" data-pane="divider"/);
-  assert.doesNotMatch(html, /<lat-pane class="divider/);
+  const sections = (html) => [...html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
+  // A whole-slide frame fits no pane: two ordinary slides, the divider and the list.
+  const split = e.render(slide({ cls: 'divider', body: 'Part two' }, { cls: 'list', body: items(2) })).html;
+  const s = sections(split);
+  assert.equal(s.length, 2);
+  assert.ok(s[0].includes('divider') && s[1].includes('list'), JSON.stringify(s));
+  assert.doesNotMatch(split, /lat-pane/);
+  // Code never sits side by side but stacks at 50%: the same slide renders stacked.
+  const turned = e.render(slide({ cls: 'code', body: '```js\nconst x = 1;\n```' }, { cls: 'content', body: 'x' })).html;
+  assert.equal(sections(turned).length, 1);
+  assert.match(turned, /<div class="lat-panes" data-panes="stack"/);
 });

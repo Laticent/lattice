@@ -65,7 +65,8 @@
     { "mistake": "Assuming the eyebrow follows the after-heading pattern used by `title`/`closing`.", "fix": "cycle has no eyebrow-specific CSS — it inherits the shared before-heading rule (base.modifiers.css): the inline-code eyebrow paragraph must sit directly BEFORE the `## heading`, not after it, or the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker." }
   ],
   "pane": {
-    "fit": "half",
+    "side": 65,
+    "stack": false,
     "budget": {
       "axis": "item",
       "basis": "editorial",
@@ -73,12 +74,9 @@
         "sweet": 4,
         "hard": 5
       },
-      "stack": {
-        "sweet": 4,
-        "hard": 5
-      },
       "note": "Stages around one ring. Judgment: the calibration rig has no element builder for this component.",
       "min": 3
-    }
+    },
+    "review": "side 50 measured, 65 reviewed: stage titles break mid-word below 65%."
   }
 }

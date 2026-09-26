@@ -253,7 +253,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 50,
+    "stack": 50,
     "budget": {
       "axis": "item",
       "basis": "editorial",
@@ -266,6 +267,7 @@
         "hard": 5
       },
       "note": "Each entity is a line between two columns. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
-    }
+    },
+    "review": "side 25 measured, 50 reviewed: end labels overprint below 50%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   }
 }

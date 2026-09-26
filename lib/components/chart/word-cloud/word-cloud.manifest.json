@@ -170,7 +170,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 50,
+    "stack": 50,
     "budget": {
       "axis": "item",
       "basis": "editorial",
@@ -183,6 +184,7 @@
         "hard": 20
       },
       "note": "Words shrink with their weight; past twenty the smallest are unreadable. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
-    }
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   }
 }

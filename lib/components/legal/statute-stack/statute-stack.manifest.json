@@ -196,8 +196,10 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "wide",
+    "side": 65,
+    "stack": 40,
     "budget": {
+      "at": 65,
       "axis": "item",
       "basis": "measured",
       "side": {

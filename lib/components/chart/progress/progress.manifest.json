@@ -141,7 +141,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 40,
     "budget": {
       "axis": "item",
       "basis": "editorial",

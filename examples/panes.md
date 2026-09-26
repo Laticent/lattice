@@ -105,7 +105,7 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 
 ## Engineering hiring ran ahead of plan every month.
 
-<!-- panes: stack 55/45 -->
+<!-- panes: 35/65 -->
 <!-- pane: line -->
 
 - Jul `5`
@@ -141,3 +141,24 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 - Enterprise grew fastest
 - Mid-market is steadiest
 - SMB is the churn risk
+
+---
+
+`Quarterly detail · FY26`
+
+## Q3 carried the year.
+
+<!-- panes: stack 50/50 -->
+<!-- pane: table -->
+
+| Quarter | Revenue | Margin | Headcount |
+|---|---|---|---|
+| Q1 | $12M | 38% | 210 |
+| Q2 | $18M | 40% | 224 |
+| Q3 | $26M | 44% | 231 |
+
+<!-- pane: bar -->
+
+- Q1 `12`
+- Q2 `18`
+- Q3 `26`

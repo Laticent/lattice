@@ -195,7 +195,8 @@
     }
   },
   "pane": {
-    "fit": "half",
+    "side": 35,
+    "stack": 50,
     "budget": {
       "axis": "item",
       "basis": "editorial",
@@ -208,6 +209,7 @@
         "hard": 4
       },
       "note": "Each category is a stacked bar, with its parts in a key. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
-    }
+    },
+    "review": "side 25 measured, 35 reviewed: the key cramps at 25%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   }
 }

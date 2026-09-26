@@ -266,15 +266,13 @@
       }
     ],
   "pane": {
-    "fit": "wide",
+    "side": 50,
+    "stack": false,
     "budget": {
+      "at": 65,
       "axis": "item",
       "basis": "editorial",
       "side": {
-        "sweet": 3,
-        "hard": 4
-      },
-      "stack": {
         "sweet": 3,
         "hard": 4
       },

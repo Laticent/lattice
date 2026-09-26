@@ -251,7 +251,8 @@
     }
   ],
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 50,
     "budget": {
       "axis": "item",
       "basis": "editorial",

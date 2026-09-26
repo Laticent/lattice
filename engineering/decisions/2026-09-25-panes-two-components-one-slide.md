@@ -87,36 +87,44 @@ every built-in component by a test so a new one has to decide:
 
 ```json
 "pane": {
-  "fit": "half",
+  "side": 25, "stack": 60,
   "budget": {
     "axis": "item", "basis": "measured",
-    "side": { "sweet": 4, "hard": 5 },
-    "stack": { "sweet": 2, "hard": 3 },
+    "side": { "sweet": 4, "hard": 6 },
+    "stack": { "sweet": 3, "hard": 4 },
     "note": "hard = the measured ceiling at 7 words per item; …"
   }
 }
 ```
 
-- **`fit`** — `half` reads in a pane of any share; `wide` needs 65% or more side by side, or a
-  stack (a table, a gantt); `none` opts out (a title, a divider, a split panel). **`form`** names
-  what a pane renders it AS when that differs (`image` renders through `content`). **`stack:
-  false`** marks a component that does not fit a stacked band: `kpi` and `pricing` clip one
-  element in a 50/50 stack (measured, §3.2).
+- **`side` and `stack`** are the least share a pane of the component reads at — side by side, and
+  as a stacked band's share of the stage height — or `false` when none does. They are MEASURED by
+  `tools/measure-pane-fit.js` and then reviewed (§3); where the reviewed value is stricter than the
+  measured one, `review` says why. `side: false, stack: false` is a whole-slide frame (a title, a
+  divider, a split panel). **`form`** names what a pane renders it AS when that differs (`image`
+  renders through `content`).
 - **`budget`** is how many elements one pane holds, on the same axis `capacity` counts: `side` at
-  the fit's basis share (50% `half`, 65% `wide`), `stack` at 50/50. A smaller pane scales it down
-  in proportion, never below the component's own `min` (a 2x2 is always four — a correct pane is
-  never warned); a larger one keeps it. `basis: measured` means `hard` is the ceiling
+  the share `at` names (default 50%; 65% for the tables and grids first judged there), `stack` at
+  50/50. A smaller pane scales it down in proportion, never below the component's own `min` (a 2x2
+  is always four); a larger one keeps it. `basis: measured` means `hard` is the ceiling
   `tools/calibrate-capacity.js --pane` found; `editorial` means judgment, with the reason in
-  `note` (a chart scales instead of clipping, so it has no ceiling to measure). A component with
-  nothing to count — one number, one quotation — says so in `noBudget` instead.
-- **It warns and never refuses** — the linter's posture. The carve renders an opted-out component
-  as `content`; `lint:deck` reports `pane-fit` (opted out, too narrow, stacked when it cannot be),
-  `pane-overflow` (past `hard`) and `pane-crowd` (past `sweet`). The carve and the linter share
-  ONE contract, `lib/core/pane-spec.js` — the marker patterns, the layout parser and the fit rule.
-  They find markers differently (the carve on parsed tokens, the linter line by line, following
-  the same block rules: fence length, indent, HTML blocks, list content), and a test renders each
-  block-level edge case through the engine to prove they name the same panes. At export, the overflow probe marks a pane that really clips — it already
-  treats a pane's stage as a clipping cell.
+  `note`. A component with nothing to count — one number, one quotation — says so in `noBudget`.
+- **A pairing that does not fit is never drawn** (the owner's ruling, after reviewing the jank a
+  warn-only rule let through — a crushed KPI tile, a code pane clipping its lines, a waterfall
+  flattened into a band). `arrangePanes` in `lib/core/pane-spec.js` decides, before the slides
+  form (`installPaneSplit`, `lib/core/panes.js`):
+  - both panes fit the layout as written → it renders as written;
+  - they do not, but both fit the OTHER direction at the same shares → it **re-orients** (side by
+    side becomes stacked, or the reverse);
+  - neither → it **splits** into one ordinary slide per pane, as a square, portrait, story or
+    mobile deck always does (§2).
+
+  `lint:deck` says which (`pane-arrange`, a suggestion), reports a pane past its budget
+  (`pane-overflow`, `pane-crowd`, counted against the layout that renders), and holds a pane that
+  splits to its component's slide capacity. The carve, the split rule, the linter and the
+  source-side slide map (`lib/core/slide-class-spans.js`) all call the same `arrangePanes`, so they
+  cannot disagree about where a slide ends. The export's overflow probe still marks a pane that
+  clips for a reason the fits cannot see (content longer than the budget).
 
 **The ratio range is 25–75 in 5% steps.** Past 75/25 the narrow pane is too thin to hold a line of
 body type. Snapping keeps each pane's shape predictable, so the four shape families (§3.3) still
@@ -332,24 +340,41 @@ a prelude and broke the rule that defines `--sketch-ink`, on every slide of a pa
 
 ## 3. The audit — what can go in a pane
 
-All 70 components, classified by the shape their content needs, and now RECORDED in each manifest's
-`pane` field (§1) rather than in this table, so a new component has to decide and a test fails if
-it does not. **Fits a half** (`fit: half`) reads in a ~50% cell. **Wide share** (`fit: wide`) needs
-65% or more side by side, or a full-width stacked band. **Whole slide** (`fit: none`) is a frame
-that claims the canvas.
+Each component's pane fit is MEASURED, then reviewed, and recorded in its manifest (§1).
+`tools/measure-pane-fit.js` renders every component in a pane through the real export at 16:9, with
+page numbers and a footer: side by side at 25, 35, 50 and 65%, stacked at 30, 40, 50 and 60%, with
+realistic content — the component's own gallery example, cut to its pane budget and, for prose, to
+half its words (a chart's data rows, a formula and a code listing stay as written). A share passes
+when the export neither clips the page (OVERFLOW, CONTENT CLIPPED) nor sets figure text under the
+type floor, AND a pass over the rendered page finds no text past the pane's edge and no two text
+runs overprinting. The least share that passes, with every larger one, is the measured value.
 
-| Class | Count | Components |
+Then a review deck holds every component at its measured minimum, and a reviewer looks at each
+page, because the probes pass what still reads badly. Where the reviewed value is stricter, the
+manifest's `review` names why (marked * below). The rules the review found:
+
+- **A chart stacked in a band under half the stage is a sliver** — bar, line, slope, stacked-bar and
+  map at 30%, waterfall, scatter, heatmap, piechart, bullet and word-cloud at 40%. Every chart
+  stacks at 50% or more.
+- **Labels that break mid-word** — cycle's stage titles and list-steps' step titles at 50%; kpi's
+  second tile crushed and stats' tiles too narrow for real values (the owner's own screenshots, at
+  50%) — go to 65%.
+
+| Fits | Count | Component (least share side / stacked) |
 |---|---|---|
-| **Fits a half** | 44 | every SVG chart — bar, bullet, funnel, heatmap, line, map, piechart, progress, quadrant, radar, scatter, slope, stacked-bar, state-chart, waterfall, word-cloud; diagram; math; code; list, checklist, cards-stack, list-tabular, glossary, inventory (ledger), actors, agenda, logo-wall, q-and-a; kpi, stats; big-number, quote, content; matrix-2x2, cycle; video; contact, wifi; authority-chain, citation-card, policy-recommendation, regulatory-update; image (as `content`) |
-| **Wide share or stacked band** | 17 | table, gantt, journey, kanban, matrix-grid, roadmap, timeline-list, compare-prose, decision, pricing, redline, verdict-grid, cards-grid, team-profile, obligation-matrix, statute-stack, list-steps |
-| **Whole slide** | 9 | title, divider, closing, topic, premise, split-panel, split-compare, compare-code, scene |
+| **Both ways** | 45 | actors 25/60*, agenda 25/50, authority-chain 50/50*, bar 25/50*, big-number 25/60, bullet 25/50*, cards-grid 25/30, cards-stack 25/60, checklist 25/50*, citation-card 35/60, compare-prose 50/30, contact 25/30, content 25/30, decision 25/30, diagram 35/60, funnel 50/60, glossary 35/40, heatmap 25/50*, image 25/30, inventory 35/60, kanban 25/40, line 35/50*, list 25/60, list-steps 65/50*, list-tabular 25/30, logo-wall 25/50, map 25/50*, math 50/50, piechart 25/50*, policy-recommendation 50/60, progress 25/40, q-and-a 25/50, redline 50/50, regulatory-update 35/60, scatter 25/50*, slope 50/50*, stacked-bar 35/50*, state-chart 25/50, statute-stack 65/40, table 35/40, team-profile 50/60, timeline-list 35/60, verdict-grid 25/40, waterfall 50/50*, word-cloud 50/50* |
+| **Side by side only** | 14 | cycle 65*, gantt 35, journey 50, kpi 65*, matrix-2x2 50, matrix-grid 50, obligation-matrix 65, quadrant 35, quote 25, radar 35, roadmap 65, stats 65*, video 25, wifi 65 |
+| **Stacked only** | 1 | code 50 — its lines run past a side-by-side pane at every share |
+| **Neither — always splits** | 10 | closing, compare-code, divider, premise, scene, split-compare, split-panel, title, topic (whole-slide frames); pricing (measured: its cards clip both ways) |
 
 **`image` has a pane form** (`pane.form: content`): an image pane renders through `content` and
-`pane.css` makes the picture cover its Cell. **`scene`** could follow the same pattern.
+`pane.css` makes the picture cover its Cell.
 
-**The 65% line for `wide` is judgment, not a measurement.** A four-column table of short numbers
-reads at 60%; a wide text table does not at 70%. It is the audit's call, stated as such, and the
-demo follows it (its list-and-table slide is 35/65).
+**What the measurement cannot see** is recorded rather than assumed: iOS Safari sets a code
+listing's mono face wider than the export's Chromium (the owner's Studio screenshot clipped a 60%
+code pane the PDF did not), and the sweep's content is each component's gallery example, not every
+author's. The review deck and the table above are the evidence; a component that moves is
+re-measured with the tool, not edited by hand.
 
 ### 3.1 What was already in place
 
@@ -395,8 +420,8 @@ regulatory-update, statute-stack — are in their manifests.
 
 (The full set, with the words-per-element each was measured at, is in each manifest's
 `pane.budget.note`.) **`kpi` and `pricing` do not fit a stacked band at all** — one KPI tile, one
-pricing card already clips in a 50/50 stack — so they carry `pane.stack: false`, and a stacked pane
-of either is a `pane-fit` warning.
+pricing card already clips in a 50/50 stack — so they carry `pane.stack: false`, and a stacked
+panes slide naming either re-orients or splits (§1).
 
 **Judgment where it cannot measure** (`basis: editorial`, with the reason in `note`). A chart
 scales rather than clipping, so the export has no ceiling to find: a 30-category bar pane truncates
@@ -424,7 +449,7 @@ every number above is from the run after the fix.
 | A clipped pane is reported | CLI export | an overfull list pane and an overfull 25-row table pane each print `OVERFLOW … page N` and draw the export's clip tag — the probe reads a pane's stage as a clipping cell |
 | A `_class` on a panes slide no longer runs that component on it | engine + CLI export | `<!-- _class: glossary -->` over a glossary pane: no range pill on the title, and the pane's clip reported (it was hidden before the carve moved) |
 | Each component's pane budget | CLI export, `tools/calibrate-capacity.js --pane side\|stack` | 23 components measured at half their slide density (§3.2); `kpi` and `pricing` clip one element in a stacked band |
-| The linter agrees with the carve | unit | `test/unit/core/pane-contract.test.js`: the carve and lint share the layout parser and fit rule; `splitPaneMarkdown` is a CommonMark block scanner (the seven HTML block types, list-item containers, lazy continuation, setext underlines, fences closed by their list item, tabs) and names the same panes as the carve on 37 edge cases and a seeded 400-slide fuzz (0 disagreements over 18,000 slides by hand before the test was pinned); `pane-layout`, `pane-fit`, `pane-overflow`, `pane-crowd`, counted per pane and scaled with the share |
+| The linter agrees with the carve | unit | `test/unit/core/pane-contract.test.js`: the carve and lint share the layout parser and fit rule; `splitPaneMarkdown` is a CommonMark block scanner (the seven HTML block types, list-item containers, lazy continuation, setext underlines, fences closed by their list item, tabs) and names the same panes as the carve on 37 edge cases and a seeded 400-slide fuzz (0 disagreements over 18,000 slides by hand before the test was pinned); `pane-layout`, `pane-arrange`, `pane-overflow`, `pane-crowd`, counted per pane and scaled with the share |
 | The Studio's live lint runs the pane rules | the real Studio, Playwright | `docs/e2e/pane-lint.spec.ts`: `pane: kpi` stacked and a crowded `pane: list` draw `.cm-lintRange-warning` marks in the editor. The Studio's vocab carries no manifests, so lint-core falls back to a table generated into the lint bundle (`lib/authoring/pane-lint.generated.js`, built by `tools/build-stage-catalog.js`). Mutation-checked: without the fallback the test fails |
 | A chart in a pane prints slide-size labels | CLI PDF export, light and dark | a 17-slide review deck (bar, line, waterfall, pie, map, radar, quadrant, heatmap, Mermaid, tables, lists, stats, quotes, images, 25/75 to 75/25, stacked) and `examples/panes.pdf`: bar values, axis ticks and pie and map keys print at the size of a chart slide's; the export's overflow probe flags one page, a stats pane 13px too wide for its content |
 | Existing decks render the same pixels | CLI PDF export | 81 pages vs a `main` build, 0 differing pixels: `examples/a11y.md`, `sketch.md`, `finish-backdrops.md`, the legal and progression galleries |
@@ -455,7 +480,7 @@ slides, one engine, same machine, median of 15 warm renders (`panebench`, three 
 | warm render | 10.7–11.4 ms | 13.2–13.5 ms | +~2 ms: each pane is its own one-slide render |
 | first render (cold) | 167–209 ms | 264–275 ms | +~80 ms: the widening (~50 ms) and a second composed sheet, then memoized |
 | engine heap after render | 3.8 MB | 5.0 MB | +1.2 MB, most of it the second composed sheet |
-| Studio eager JS (route budget) | 723,577 B gz (`main` 03730a1) | 727,069 B gz | **+3,492 B**, all `authoring-core`: the pane lint rules, the block scanner and the baked pane table (~1.1 KB), measured as a pair; budget 723,700 → 728,200 |
+| Studio eager JS (route budget) | 723,577 B gz (`main` 283f47a) | 727,748 B gz | **+4,171 B**, nearly all `authoring-core`: the pane lint rules, the block scanner, `arrangePanes` and the baked table of every component's measured fit, measured as a pair; budget 723,700 → 728,900 |
 | CLI `.html` export | 3,271,933 B | 3,275,887 B | +4 KB raw, +1.7 KB gzipped (0.1%) |
 | browser style recalc · layout | 8–10 ms · 117–146 ms | 4 ms · 106–109 ms | none; the rule count is unchanged (3,760), twins sit inside existing rules |
 
@@ -536,6 +561,16 @@ is. Its nits: `paneClasses` counted a `<lat-pane class=` quoted in a comment (it
 comments), the empty-item scanner case, a pane A chart's own coda, the `cards:` reach in the
 docs, and a lint warning.
 
+**The owner then tested a 22-slide deck in the real Studio on an iPhone** and found jank a
+warn-only rule let through (a stats row and a KPI tile crushed at 50%, a code pane clipping its
+lines at 60%, a waterfall flattened into a 40% band), and ruled that a pairing that does not fit is
+never drawn: re-orient, then split. That replaced `fit: half | wide | none` with each component's
+MEASURED least share per direction (§1, §3), and it is where `tools/measure-pane-fit.js` and its
+review deck come from. The measuring found its own blind spots on the way: synthetic content passed
+what real content clips; the export's probes miss rows squeezed until they overprint and text run
+past a pane's side; and a review deck of each component at its measured minimum caught what all of
+that still passed.
+
 **The owner then reviewed a 17-slide deck of common pairings** and asked for two things before
 merge: charts sized to their pane, not shrunk into it, and the pane lint in the Studio's live
 editor. Both landed (§2, §4). Rebasing onto `main` moved the CLI onto the engine's packed flat sheet (`lib/export/cli-deck-sheet.js`), where the post-hoc widening found no `section.<component>` to twin and a stats pane exported unstyled; the CLI now asks the engine for the pane twins before it packs (`cliDeckSheet({ panes })`), `tools/palette-sweep.js` reads the pane classes from the export so its identity check still holds, and `test/unit/export/cli-deck-sheet.test.js` pins it. The Studio's eager bundle grows by the baked lint table; the route
@@ -552,8 +587,8 @@ file (`npm run followups`), so none lives only in this note.
 carve's warnings go nowhere". Its first half was wrong: the export's overflow probe always read a
 pane's stage as a clipping cell (§3.1), and flags an overfull list or table pane like a clipped
 slide (measured). What was missing was the authoring-time half, and `lint:deck` now reports all of
-it through the carve's own spec: `pane-layout` (a ratio off the grid, a third marker), `pane-fit`
-and the per-pane budget (§1).
+it through the carve's own spec: `pane-layout` (a ratio off the grid, a third marker),
+`pane-arrange` (a slide that will re-orient or split) and the per-pane budget (§1).
 
 
 1. **Measure the pane, don't estimate it** (`2376-p2-measure-…`). The engine sizes a pane from

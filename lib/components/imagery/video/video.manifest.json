@@ -145,7 +145,8 @@
   },
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": false,
     "noBudget": "one clip"
   }
 }

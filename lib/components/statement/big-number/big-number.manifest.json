@@ -116,7 +116,8 @@
   },
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 60,
     "noBudget": "one number is the whole pane"
   }
 }

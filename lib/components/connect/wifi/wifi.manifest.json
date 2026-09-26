@@ -87,7 +87,8 @@
     "compact"
   ],
   "pane": {
-    "fit": "half",
+    "side": 65,
+    "stack": false,
     "noBudget": "one network card"
   }
 }

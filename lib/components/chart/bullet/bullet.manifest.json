@@ -207,7 +207,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 50,
     "budget": {
       "axis": "item",
       "basis": "editorial",
@@ -220,6 +221,7 @@
         "hard": 4
       },
       "note": "One bullet row per KPI, each needs its label and two values. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
-    }
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   }
 }

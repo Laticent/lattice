@@ -174,7 +174,8 @@
   },
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 30,
     "form": "content",
     "noBudget": "one picture, covering its cell"
   }

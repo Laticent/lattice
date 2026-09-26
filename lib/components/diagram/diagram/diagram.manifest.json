@@ -96,7 +96,8 @@
     }
   ],
   "pane": {
-    "fit": "half",
+    "side": 35,
+    "stack": 60,
     "noBudget": "a Mermaid diagram scales to its box; its node count is not a list the linter can read"
   }
 }

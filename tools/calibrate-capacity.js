@@ -32,7 +32,7 @@
  *
  * PANE MODE (`--pane`) measures the same ceiling inside a PANE (lib/core/panes.js) instead
  * of a whole slide: each step is a 16:9 panes slide with the component in the first pane at
- * its basis share (`--share`, default 50 for `pane.fit: half`, 65 for `wide`; a stack splits
+ * its basis share (`--share`, default its `pane.budget.at`, else 50; a stack splits
  * 50/50) and one short line of `content` in the second. The overflow probe already treats a
  * pane's inner `.cell-stage` as a clipping cell, so a clipped pane flags its page. Each element
  * is held at HALF the component's `density.soft` (a pane's content is written tighter). The
@@ -135,11 +135,11 @@ function scaleDeclared(comp, wordsPer) {
   return v == null ? null : { hard: v, source: `lint-core SCALE_CAPACITY[${comp}][${wordsPer}] at scale-${SCALE}` };
 }
 
-/** The pane share a component is budgeted at: its `pane.fit` basis, or `--share`. */
+/** The pane share a component is budgeted at: its `pane.budget.at` (default 50), or `--share`. */
 function paneShare(manifest) {
   if (PANE === 'stack') return 50;
   if (SHARE_OVERRIDE) return parseInt(SHARE_OVERRIDE, 10);
-  return manifest.pane?.fit === 'wide' ? 65 : 50;
+  return manifest.pane?.budget?.at || 50;
 }
 
 /** The declared pane budget for this direction, in the shape `declaredFor` returns. */
@@ -200,8 +200,8 @@ for (const comp of components) {
 
   // A pane is measured on the authored 16:9 box only: panes are a landscape composition.
   const share = PANE ? paneShare(manifest) : null;
-  if (PANE && manifest.pane?.fit === 'none') {
-    if (!JSON_OUT) console.log(`\n  ${comp} · pane.fit none — opted out of panes, not measured`);
+  if (PANE && manifest.pane?.side === false && manifest.pane?.stack === false) {
+    if (!JSON_OUT) console.log(`\n  ${comp} · fits no pane (side and stack false) — a panes slide naming it splits; not measured`);
     continue;
   }
   for (const family of PANE ? ['wide'] : TARGET_FAMILIES) {

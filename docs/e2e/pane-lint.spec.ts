@@ -11,23 +11,35 @@ const PANES_DECK = [
 	'theme: indaco',
 	'---',
 	'',
+	'## Code never sits beside prose.',
+	'',
+	'<!-- pane: code -->',
+	'',
+	'```js',
+	'const x = 1;',
+	'```',
+	'',
+	'<!-- pane: content -->',
+	'',
+	'A line of prose.',
+	'',
+	'---',
+	'',
 	'## Scorecard.',
-	'',
-	'<!-- panes: stack -->',
-	'<!-- pane: kpi -->',
-	'',
-	'1. 42%',
-	'   - Gross margin',
 	'',
 	'<!-- pane: list -->',
 	'',
 	...Array.from({ length: 20 }, (_, i) => `- Point ${i + 1}`),
 	'',
+	'<!-- pane: content -->',
+	'',
+	'A line of prose.',
+	'',
 ].join('\n');
 
-test('the editor underlines a pane that does not fit and a pane past its budget', async ({ page }) => {
+test('the editor says a panes slide will re-orient, and underlines a pane past its budget', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, PANES_DECK);
-	await expect(page.locator('.cm-lintRange-warning').filter({ hasText: 'pane: kpi' }).first()).toBeVisible({ timeout: 15_000 });
+	await expect(page.locator('.cm-lintRange-info').filter({ hasText: 'pane: code' }).first()).toBeVisible({ timeout: 15_000 });
 	await expect(page.locator('.cm-lintRange-warning').filter({ hasText: 'pane: list' }).first()).toBeVisible();
 });

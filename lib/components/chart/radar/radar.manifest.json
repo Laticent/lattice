@@ -269,15 +269,12 @@
   },
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 35,
+    "stack": false,
     "budget": {
       "axis": "item",
       "basis": "editorial",
       "side": {
-        "sweet": 2,
-        "hard": 3
-      },
-      "stack": {
         "sweet": 2,
         "hard": 3
       },

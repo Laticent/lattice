@@ -140,7 +140,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 65,
+    "stack": false,
     "budget": {
       "axis": "item",
       "basis": "measured",
@@ -148,12 +149,9 @@
         "sweet": 3,
         "hard": 3
       },
-      "stack": {
-        "sweet": 4,
-        "hard": 5
-      },
       "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 4 words per element, half the slide density (side 50%: clips at 4; stack 50/50: clips at 6). sweet sits below it.",
       "min": 3
-    }
+    },
+    "review": "side 50 measured, 65 reviewed: three tiles overflow at 50% with real values."
   }
 }

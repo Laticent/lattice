@@ -187,8 +187,10 @@
     }
   },
   "pane": {
-    "fit": "wide",
+    "side": 50,
+    "stack": 60,
     "budget": {
+      "at": 65,
       "axis": "item",
       "basis": "measured",
       "side": {

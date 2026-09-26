@@ -245,17 +245,15 @@
     }
   ],
   "pane": {
-    "fit": "wide",
+    "side": 65,
+    "stack": false,
     "budget": {
+      "at": 65,
       "axis": "col",
       "basis": "editorial",
       "side": {
         "sweet": 3,
         "hard": 4
-      },
-      "stack": {
-        "sweet": 4,
-        "hard": 5
       },
       "note": "Phase columns: a stacked band is full width. Judgment: the calibration rig has no element builder for this component.",
       "min": 2

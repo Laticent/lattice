@@ -164,7 +164,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "wide",
+    "side": 50,
+    "stack": 50,
     "noBudget": "one amended passage"
   }
 }

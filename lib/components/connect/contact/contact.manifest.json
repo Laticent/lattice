@@ -82,7 +82,8 @@
     "compact"
   ],
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 30,
     "noBudget": "one contact card"
   }
 }

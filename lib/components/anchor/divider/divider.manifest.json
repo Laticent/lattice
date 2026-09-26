@@ -139,6 +139,7 @@
     "compact"
   ],
   "pane": {
-    "fit": "none"
+    "side": false,
+    "stack": false
   }
 }

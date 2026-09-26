@@ -181,6 +181,7 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "none"
+    "side": false,
+    "stack": false
   }
 }

@@ -109,7 +109,8 @@
   },
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": false,
     "noBudget": "one quotation and its attribution"
   }
 }

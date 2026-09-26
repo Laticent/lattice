@@ -282,7 +282,8 @@
   ],
   "specimenVoice": true,
   "pane": {
-    "fit": "half",
+    "side": 25,
+    "stack": 30,
     "budget": {
       "axis": "item",
       "basis": "measured",
