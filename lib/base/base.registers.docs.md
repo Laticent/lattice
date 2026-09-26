@@ -1035,8 +1035,19 @@ follow-up.
 ## The `delivery:` front-matter register (how much the narrated Guide gestures)
 
 `delivery:` sets how the Studio's Present **Guide** behaves while narration plays: how many
-moments on a slide get a gesture, whether it shows a cursor, and how heavy the ink is. It
-changes nothing in a rendered slide, a PDF or a PPTX.
+moments on a slide get a gesture, and how each one looks. It changes nothing in a rendered
+slide, a PDF, a PPTX or an export.
+
+**The gesture is focus.** When the narration names a bullet, a table row, cell or column, a chart
+bar, wedge or line, that element stays exactly as it is and everything else in its group recedes:
+the same emphasis a viewer gets by hovering a chart mark (every other mark to 0.45). Nothing moves,
+nothing changes color, and nothing is drawn over the slide. A table's first cell names its row, a
+header cell names its column, and any other cell names itself. When the narration walks a chart
+point by point, the focus follows as one moment of the budget: on a line, the other series recede
+and, within the line, the other points recede, so the point being read stands out while the line
+keeps its shape. When the narration names something with nothing around it to recede (an image, a
+figure), the Guide draws ink there instead. Moments hand off in a single crossfade, so two things
+are never in focus at once.
 
 ```yaml
 delivery: restrained   # the default: a boardroom, or a board member reading the file alone
@@ -1048,8 +1059,12 @@ delivery: somber       # bad news, a loss: nothing moves that does not have to
 |---|---|---|---|
 | Gestures per slide, at most | 2 | 4 | 1 |
 | After the first, a moment needs a signal | yes | no | yes |
-| Cursor and ink | yes | yes | no |
-| Top moment drawn heavier | no | yes | no |
+| The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.62 |
+| A walked line's other points recede to | 0.30 | 0.20 | 0.50 |
+| Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside that names nothing ("Thank you.") |
+| Read-along on the slide (the word being said, only with captions off) | yes | yes | no |
+| Cursor and overlay ink | none | on the top moment only | none |
+| Caption | the word being said lights up | the word being said lights up | the line reads in one muted ink |
 
 **What decides which moments.** At each slide the Guide ranks everything the narration names.
 From strongest to weakest: an authored `_focus:` target (never cut, even past the budget), a

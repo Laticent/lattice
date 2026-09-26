@@ -91,11 +91,12 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   const TPL_SEL = 'template.chart-detail';
   const MARK_SEL = '[data-mark]';
   // A TAP PROXY — text that names one mark (a slope entity's name and values, a funnel stage's
-  // label, a waterfall's category, a quadrant dot's name, a pie or map legend row) carries
-  // `data-mark-for="i"`. It is a
+  // label, a bar's, stacked bar's, bullet's or waterfall's category and value, a quadrant dot's
+  // name, a pie or map legend row) carries `data-mark-for="i"`. It is a
   // separate attribute from `data-mark` so the proxy never becomes a mark: `chartToScene` strokes
   // every highlighted `[data-mark]` and the Present Guide ranks `[data-label]` nodes, and neither
-  // should see the labels. Only this file reads it.
+  // should see the labels as marks. Two readers use the link: this file, which dims a label with its
+  // mark and (see `namedMark`) opens its card on a tap, and the Present Guide's `focusUnit`.
   const PROXY_SEL = '[data-mark-for]';
   const markIndex = (elm) => {
     if (!elm) return -1;
@@ -414,7 +415,17 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     const px = t.closest?.(PROXY_SEL);
     if (!px) return -1;
     const n = Number(px.getAttribute('data-mark-for'));
-    return Number.isInteger(n) && n >= 0 ? n : -1;
+    if (!Number.isInteger(n) || n < 0) return -1;
+    // The label must name ONE card. No mark at n would open an empty card and dim the whole chart;
+    // marks at n that name different things (a stacked bar's segments, a grouped bar's series) would
+    // open the first one's card — tap a bar's total `28` and read `Licenses 19`. Either way the
+    // label still recedes with its bar (`emphasize`); it just stops being a tap target, and the tap
+    // falls through to the nearest mark as it did before the label was linked. A map region split
+    // over several paths shares one name, so it stays a target.
+    const marks = marksFor(n);
+    if (!marks.length) return -1;
+    const names = new Set(marks.map((m) => m.dataset?.label).filter((l) => l != null));
+    return names.size <= 1 ? n : -1;
   }
 
   // ── near-miss hit-testing: the THIN-MARK problem ──────────────────────────────
@@ -449,9 +460,15 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   }
 
   // ── reveal command (pointer / keys / presenter window all route here) ───────
+  // Whether mark index i can open. By the marks THEMSELVES, not a count: indices can have gaps (a bar
+  // whose value is not a number draws no rect, so marks run 0, 2), and a count of 2 locked mark 2 —
+  // and its name, since the name became a tap target — out of ever opening. `sliceN` is the fallback
+  // for a chart whose marks do not query.
+  const revealable = (i) => i >= 0 && (marksFor(i).length > 0 || (!markCount() && i < sliceN));
+
   function reveal(i) {
     if (!interactive()) return;
-    if (i < 0 || i >= sliceN) return;
+    if (!revealable(i)) return;
     if (i === openSlice) return;
     if (openSlice < 0 && onReveal) { try { onReveal(); } catch { /* host hook */ } }
     openSlice = i;
@@ -772,7 +789,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     if (e.key === '0') { clear(); return true; }
     if (e.key >= '1' && e.key <= '9') {
       const i = +e.key - 1;
-      if (i < sliceN) { reveal(i); return true; } // out-of-range digit → don't swallow it
+      if (revealable(i)) { reveal(i); return true; } // a digit naming no mark → don't swallow it
     }
     return false;
   }
