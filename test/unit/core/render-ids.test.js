@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { nextRenderSeq, resetRenderIds, renderIdPrefix, setRenderSection } = require('../../../lib/core/render-ids');
+const { enterSlideIds, nextRenderSeq, resetRenderIds, renderIdPrefix, setRenderSection } = require('../../../lib/core/render-ids');
 const engine = require('../../../lib/engine/index.js');
 
 const ROOT = path.join(__dirname, '../../..');
@@ -256,4 +256,18 @@ test('engine: ids stay unique WITHIN a render (the trap the sequences exist for)
 	const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
 	const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
 	assert.deepEqual([...new Set(dupes)], [], `duplicate ids in one rendered document: ${[...new Set(dupes)].join(', ')}`);
+});
+
+test('enterSlideIds: one slide alone mints the ids its deck render gave it, under a prefix this module could mint', () => {
+	// A code package transforms one slide in a sandbox (lib/packages/code-bundle.js); the host hands
+	// it the slide's deck position and the render's prefix, and nothing else it says is a prefix.
+	enterSlideIds('lat-r3-', 4);
+	setRenderSection(0);
+	assert.equal(renderIdPrefix(), 'lat-r3-');
+	assert.equal(nextRenderSeq('pie-wedge'), '5-1');
+	for (const hostile of ['"><script>', 'lat-r3', 'x lat-r3-', 7, null]) {
+		enterSlideIds(hostile, 0);
+		assert.equal(renderIdPrefix(), '', String(hostile));
+	}
+	resetRenderIds();
 });
