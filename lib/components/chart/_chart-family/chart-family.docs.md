@@ -444,7 +444,12 @@ hovered. Today that covers a slope entity's name and values, a funnel stage's la
 and value, the category and value labels of a bar, stacked bar, bullet or waterfall
 (`buildCategoryLabels({ markFor: true })` plus `buildValueLabel({ extra })`, opt-in
 because only there is mark `i` category `i` — a line's or heatmap's category names a
-column of several marks), and a quadrant dot's or bubble's name. A label is stamped only
+column of several marks), a heatmap cell's printed number, a gantt task's caption and
+milestone name, a scatter point's name, a dumbbell row's name, the part values beside a
+stacked bar, and a quadrant dot's or bubble's name. A line's series name and end value
+carry `data-series-for="s"` instead, linking them to series `s` (`data-series` would make
+them one of the line's shapes). `chart-tap-proxies.test.js` renders every chart gallery
+and fails on any label that names exactly one mark without linking to it. A label is stamped only
 when its mark was drawn (a non-numeric bar, an all-zero stack or a name-only bullet row
 draws none). A tap on a label opens a card only when the marks at its index name ONE
 thing: a stacked bar's segments and a grouped bar's series are several cards, so their

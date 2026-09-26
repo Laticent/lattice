@@ -2287,6 +2287,11 @@ export function focusUnit(el: Element): { unit: Element[]; peers: Element[]; inn
 	return found;
 }
 
+/** The labels linked to series `v` (`own`) or to every other series (`!own`) in `chart`. */
+function seriesLabels(chart: Element, v: string | null, own: boolean): Element[] {
+	return [...chart.querySelectorAll('[data-series-for]')].filter((t) => (t.getAttribute('data-series-for') === v) === own && !t.closest('template'));
+}
+
 function focusUnitIn(section: Element, el: Element): { unit: Element[]; peers: Element[]; inner: Element[]; axis: string } | null {
 	const painted = (m: Element) => !m.closest('template') && !m.closest(UNPAINTED) && !m.classList.contains('line-hit');
 	// One chart's marks, never another's: two charts on a slide both number their marks from 0.
@@ -2299,7 +2304,7 @@ function focusUnitIn(section: Element, el: Element): { unit: Element[]; peers: E
 		const shapes = [...chart.querySelectorAll(seriesSel)].filter(painted);
 		return {
 			unit: [el],
-			peers: shapes.filter((m) => m.getAttribute('data-series') !== v),
+			peers: [...shapes.filter((m) => m.getAttribute('data-series') !== v), ...seriesLabels(chart, v, false)],
 			inner: shapes.filter((m) => m !== el && m.getAttribute('data-series') === v && m.matches('circle')),
 			axis: 'point',
 		};
@@ -2317,6 +2322,11 @@ function focusUnitIn(section: Element, el: Element): { unit: Element[]; peers: E
 		if (!unit.length) continue;
 		const peers = all.filter((m) => !unit.includes(m));
 		// The mark's own labels are part of it: they come up with it if a moment ago they were a peer's.
+		// A series' own name and end value (`data-series-for`, line) come and go with it.
+		if (attr === 'data-series') {
+			unit.push(...seriesLabels(chart, v, true));
+			peers.push(...seriesLabels(chart, v, false));
+		}
 		if (attr === 'data-mark') unit.push(...[...chart.querySelectorAll('[data-mark-for]')].filter((t) => t.getAttribute('data-mark-for') === v && painted(t)));
 		// A peer's OWN labels recede with it where the chart links them (`data-mark-for`: a pie's
 		// key, a funnel's stage name and value, slope and quadrant labels). A receded wedge beside a

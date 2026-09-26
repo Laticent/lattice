@@ -85,7 +85,7 @@ describe('tap proxies name the right mark', () => {
     // `data-mark="i"`, so the name and total recede with their bar. (The reveal layer does not
     // open a card from them: the segments are several cards — see `namedMark`.)
     for (const p of assertAllResolve(stacked)) {
-      assert.ok(p.classList.contains('cart-cat') || p.classList.contains('sbar-total'), `only a bar's name or total is a proxy, not ${p.getAttribute('class')}`);
+      assert.ok(p.matches('.cart-cat, .sbar-total, .sbar-part'), `only a bar's name, total or part value is linked, not ${p.getAttribute('class')}`);
     }
   });
 
@@ -170,4 +170,56 @@ describe('tap proxies name the right mark', () => {
     ];
     for (const sec of decks) assert.equal(sec.querySelectorAll('[data-mark-for][data-mark]').length, 0);
   });
+});
+
+// THE LINK IS COMPLETE, gallery-wide. A label that names one mark and carries no link stays at full
+// strength while its mark recedes — under the chart hover and the Present Guide — so the focused
+// mark does not stand out (the owner saw this on a bar chart in indaco dark). Every chart gallery is
+// rendered through the engine, and every text that names exactly ONE mark (its text is that mark's
+// `data-label` or `data-value`) must carry `data-mark-for`, which must name a mark that exists; every
+// `data-series-for` must name a drawn series.
+describe('every label that names one mark links to it, in every chart gallery', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const engine = require('../../../lib/engine');
+  const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'components', 'chart');
+  // A tick that happens to read like a task name ("Q4"), and a key of SERIES, name no single mark.
+  const NOT_A_NAME = '.gantt-tick, .cart-tick:not(.sbar-part), .cart-axis-title, .chart-key-label, .chart-key-value';
+  const charts = fs.readdirSync(CHART_DIR)
+    .filter((d) => !d.startsWith('_') && fs.existsSync(path.join(CHART_DIR, d, `${d}.gallery.md`)));
+  for (const chart of charts) {
+    test(chart, () => {
+      const src = fs.readFileSync(path.join(CHART_DIR, chart, `${chart}.gallery.md`), 'utf8');
+      const fm = (src.match(/^---\n[\s\S]*?\n---\n/) || [''])[0];
+      const missing = [];
+      for (const body of src.slice(fm.length).split(/\n---\n/)) {
+        if (!/<!--\s*_class:/.test(body)) continue;
+        const doc = new JSDOM(engine.render(fm + body, 'indaco', { preview: true }).html).window.document;
+        for (const svg of doc.querySelectorAll('svg')) {
+          const marks = [...svg.querySelectorAll('[data-mark]:not(template)')];
+          const byText = new Map();
+          for (const m of marks) {
+            for (const v of [m.getAttribute('data-label'), m.getAttribute('data-value')]) {
+              if (v) byText.set(v.trim(), (byText.get(v.trim()) || new Set()).add(m.getAttribute('data-mark')));
+            }
+          }
+          const indices = new Set(marks.map((m) => m.getAttribute('data-mark')));
+          for (const t of svg.querySelectorAll('[data-mark-for]')) {
+            assert.ok(indices.has(t.getAttribute('data-mark-for')), `${chart}: "${text(t)}" links to mark ${t.getAttribute('data-mark-for')}, which is not drawn`);
+          }
+          for (const t of svg.querySelectorAll('[data-series-for]')) {
+            assert.ok(svg.querySelector(`[data-series="${t.getAttribute('data-series-for')}"]`), `${chart}: "${text(t)}" links to a series that is not drawn`);
+          }
+          // One mark index and nothing to recede against: a link would change nothing.
+          if (indices.size < 2) continue;
+          for (const t of svg.querySelectorAll('text')) {
+            if (t.closest('[data-mark]') || t.matches(NOT_A_NAME) || t.hasAttribute('data-mark-for')) continue;
+            const named = byText.get(text(t));
+            if (named && named.size === 1) missing.push(`${t.getAttribute('class')} "${text(t)}"`);
+          }
+        }
+      }
+      assert.deepEqual(missing, [], `${chart}: labels that name one mark but do not link to it`);
+    });
+  }
 });

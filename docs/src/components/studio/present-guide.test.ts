@@ -411,6 +411,18 @@ describe('focusContent — one lever: the named thing stays, the rest recedes', 
 		expect(focusUnit(orphan)).toEqual({ unit: [orphan], peers: [], inner: [], axis: 'block' });
 	});
 
+	it('a line\'s name and end value recede with it when another line is focused', () => {
+		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0"/><path class="line-path" data-series="1"/>
+			<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/>
+			<text class="line-series" data-series-for="0">Enterprise</text><text class="line-series" data-series-for="1">Services</text>
+			<text class="line-endvalue" data-series-for="1">3.1</text></svg></div>`);
+		focusContent(d.querySelector('path[data-series="0"]') as Element);
+		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.textContent || e.getAttribute('data-series'))).toEqual(['1', 'Services', '3.1']);
+		// A point focus recedes the other series' labels too; its own line's name stays.
+		const p = focusUnit(d.querySelector('circle') as Element);
+		expect(p?.peers.map((e) => e.textContent || e.getAttribute('data-series'))).toEqual(['1', 'Services', '3.1']);
+	});
+
 	it('walks a line: the other series recede, and the line\'s other points recede gently', () => {
 		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0"/><path class="line-path" data-series="1"/>
 			<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2" data-value="4.4"/>

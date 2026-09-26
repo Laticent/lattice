@@ -341,6 +341,11 @@ land on ANY linked label — a bar's category ("LATAM, one point two million"), 
 a funnel stage, a slope or quadrant name — focuses that label's mark with its labels. Before, such a
 sentence focused the label alone and nothing receded. The same pass fixed the reveal layer's range
 check, which counted distinct mark indices and so locked the mark after a gap out of ever opening.
+The owner then ruled that any label missing its link is a bug, so the link now covers every
+chart: an audit of all 23 chart galleries found heatmap cell values, gantt captions and milestone
+names, scatter point names, dumbbell row names and stacked-bar part values naming one mark with no
+link, and line series names and end values with no link to their line (`data-series-for`, which the
+Guide recedes with the series). A gallery-wide unit test now holds the rule.
 The attribute paints nothing: the dark and light PDFs of the board-update test deck are
 byte-identical before and after, and so are all 20 rasterized pages. Measured in the built Studio on the bar slide, light and dark: under
 the Guide the focused bar's name and value hold at 1 while the other six labels drop to 0.45, and
