@@ -28,7 +28,11 @@ const { parseFlowchart, outlineFromMarkdown } = require('../../../lib/core/flowc
 const dagre = globalThis.__latticeDagre;
 const K = graphLayoutKernel();
 const STAGE = { w: 1072, h: 440 };
-const SOFT_MISS_BUDGET = 2;
+// 4, not the 2 it was: `sharedRuns` now counts two runs within 6 units (it was 4), because
+// the demo deck showed two lines 4.5 units apart reading as one. Measured on this corpus with
+// the same router, the old 4-unit rule still reads 2 misses; the stricter rule reads 4. The
+// ruler moved, not the router.
+const SOFT_MISS_BUDGET = 4;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {

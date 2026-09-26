@@ -14,7 +14,10 @@ section.flowchart {
   --fc-ink: var(--text-heading);
   --fc-line-mark: var(--diagram-line);
   --fc-stroke-mark: var(--diagram-stroke);
-  --fc-tile-fill: light-dark(color-mix(in oklab, var(--muted-mark) 14%, var(--bg)), color-mix(in oklab, var(--muted-mark) 30%, black));
+  /* The neutral tile lifts OFF the canvas on both schemes; mixed toward black on dark it
+   * sank below the canvas and read as a hole. (The family's never-into---bg rule is about
+   * warm hues going brown; this is the grey mark.) */
+  --fc-tile-fill: light-dark(color-mix(in oklab, var(--muted-mark) 14%, var(--bg)), color-mix(in oklab, var(--muted-mark) 24%, var(--bg)));
 }
 
 section.flowchart.chart-frame .chart-body {
@@ -325,19 +328,33 @@ section.flowchart .fc-key-swatch {
   border-radius: var(--chart-mark-radius);
 }
 section.flowchart .fc-key-swatch[data-kind="line"] {
-  height: 0;
+  width: 2cqi;
+  height: 1cqi;
   border-radius: 0;
-  border-top: 0.11cqi solid var(--fc-line-mark);
 }
-section.flowchart .fc-key-swatch[data-kind="line"][data-heavy="1"] { border-top-width: 0.22cqi; }
-section.flowchart .fc-key-swatch[data-kind="line"][data-pattern="dashed"] { border-top-style: dashed; }
-section.flowchart .fc-key-swatch[data-kind="line"][data-pattern="dotted"] { border-top-style: dotted; border-top-width: 0.16cqi; }
+section.flowchart .fc-key-line {
+  fill: none;
+  stroke: var(--fc-line-mark);
+  stroke-width: 1.3px;
+  stroke-linecap: round;
+}
+section.flowchart .fc-key-line[data-heavy="1"] { stroke-width: 2.6px; }
+section.flowchart .fc-key-line[data-pattern="dashed"] { stroke-dasharray: 6px 4px; }
+section.flowchart .fc-key-line[data-pattern="dotted"] { stroke-dasharray: 0.5px 4px; stroke-width: 1.8px; }
 section.flowchart .fc-key-swatch[data-kind="head"] {
-  width: 0.8cqi;
-  height: 0.8cqi;
-  border: 0.11cqi solid var(--fc-line-mark);
-  border-radius: 50%;
+  width: 1.8cqi;
+  height: 1.3cqi;
+  border-radius: 0;
+  overflow: visible;
 }
+section.flowchart .fc-key-head {
+  fill: none;
+  stroke: var(--fc-line-mark);
+  stroke-width: 1.4px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+section.flowchart .fc-key-head[data-fill="1"] { fill: var(--fc-line-mark); }
 section.flowchart .fc-key-swatch[data-kind="tile"] {
   background: var(--fc-status-fill, var(--fc-slot-fill, var(--fc-tile-fill)));
   border: var(--chart-hairline) solid var(--fc-hue-mark, var(--fc-slot-mark, var(--fc-stroke-mark)));

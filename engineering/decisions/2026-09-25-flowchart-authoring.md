@@ -445,6 +445,15 @@ shape, all from the same rules:
   outline, one from the rendered list and one from Markdown. Every rule about
   names, arrows, spans and placement is written once, so the picture, the linter
   and the voice cannot disagree about what a source says.
+  **As built:** `outlineFromHtml` reads the rendered list and `outlineFromMarkdown`
+  the source; the unit suite renders a shared corpus through the real engine and
+  holds both to one parsed model. Two gaps had to close for that. markdown-it
+  consumes `\->` into a plain `->`, so the `escapeMarks` plugin keeps an escaped
+  `-` `=` `<` `>` `&` visible as `<span data-esc>`, which the HTML reader turns
+  back into a backslash (no deck in the repository escapes those characters, so
+  no existing render changes). And the Markdown reader now drops a backslash
+  before any ASCII punctuation and strips inline markup, as markdown-it does, so
+  `**Bold** step` is the same name in both.
 - **Cadenza and Suono:** the outline is the spoken order, each arrow has a
   sentence (the table in 2.3), and every piece of metadata sits inside code
   spans, which narration drops. That avoids the class of bug where the state
@@ -506,6 +515,10 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
   `tb`; its own direction is `lr`, which reads zero. Pinned as the test's one
   named exception.
 - A labeled group-to-group edge needs a reserved gap between the groups.
+- **The fit pass is copied, not yet shared.** Section 4 says the flowchart reuses
+  the state chart's direction scoring. Today `graphLayoutKernel().layout()` applies
+  the same rule in its own fifteen lines, and wrap is not a candidate. Slice 5
+  promotes the state chart's pass and deletes the copy.
 - Pre-existing, off this path: the chart family paints `live` as pass while the
   state chart and gantt paint it as info. Logged, not fixed here.
 
@@ -521,18 +534,28 @@ this version changed, but they were drawn with 11.5-unit edge labels and a fixed
    `:loose`, determinism pins and the gallery render check. **Still open: the fit
    pass.** The kernel's `layout()` scores `lr` against `tb` with the state chart's
    rule, re-implemented in about fifteen lines; section 4 says that pass is reused,
-   not copied, and wrap is one of its candidates. Promoting the state chart's pass
-   into `_chart-family` and replacing `layout()` with it lands with slice 3, where
-   the browser pass first needs it.
-3. **Paint:** shapes, groups, tokens, heads and patterns, labels (section 5), the
-   derived and authored key, notes, caption; all nine finishes, light and dark;
-   the untrusted-content posture (section 8); the component docs, manifest and a
-   feature deck (HARD RULE #9).
+   not copied, and wrap is one of its candidates. That promotion moved to slice 5:
+   the state chart's pass lives inside its serialized browser closure, so lifting
+   it out is part of moving the state chart onto this spine, not something the
+   flowchart can do alone.
+3. **Paint (done):** `lib/components/chart/flowchart/`. The server half emits a
+   measuring harness and the model; the browser half (`flowchart.layout.js`,
+   shipped by the emulator beside the dagre IIFE and called by the runtime)
+   measures, routes and paints one SVG. Line ends run on to a non-rectangular
+   outline, every line is split under labels and group titles, and each key
+   swatch is drawn from the mark it decodes. Checked in light and dark and under
+   all nine deck finishes; the feature deck is `examples/flowchart.md`. The
+   `:cross` head's default key word is "Stops here", not "Blocked", which
+   collided with the `blocked` status word in one key. Section 5 step 5 (a
+   fallback chip when no clear spot exists) is not built: the label keeps its
+   best-scoring spot and the gallery measures zero collisions. The shared fit
+   pass is slice 5's (see slice 2).
 4. **Flow dots and settings:** the overlay, `motion-flow`, the `flowchart:`
    register, the measured legibility lint, the `fit:` levels and STEP's
    under-the-floor signal (after #2383 lands), and the Studio inspector.
 5. **State chart v2** (section 14): the state chart moves onto this grammar and
-   spine, with a codemod and no v1 compatibility.
+   spine, with a codemod and no v1 compatibility, and its fit pass becomes the
+   shared one both charts call.
 
 ## 14. State chart v2: one authoring model, one spine (decided)
 
