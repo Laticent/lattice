@@ -3079,7 +3079,10 @@ const deckTitle =
 // `deckSizeName` (composeCss appends both), so this string does not emit them a second
 // time. The sentinels around it bracket the region `tools/palette-sweep.js` overwrites to
 // re-theme the export in place (lib/core/export-shell-marks.js).
-const deckSheet = cliDeckSheet(CLI_THEMES, { theme: paletteName, sizeName: deckSizeName, covered: COVERED_FAMILIES });
+// A panes deck's sheet carries pane twins for the components its panes hold. The engine
+// composes them before it packs the sheet, so they take the same flat shape as every other
+// rule; widening the packed sheet afterwards would find no `section.<component>` to twin.
+const deckSheet = cliDeckSheet(CLI_THEMES, { theme: paletteName, sizeName: deckSizeName, covered: COVERED_FAMILIES, panes: DECK_PANE_CLASSES });
 if (deckSheet.refused && !QUIET) {
   console.warn(`  ⚠ ${deckSheet.refused} @font-face rule(s) in the deck sheet could not be`
     + ' verified as whole rules and were left in place. They will fail to load; the export is'
@@ -3088,7 +3091,7 @@ if (deckSheet.refused && !QUIET) {
 const deckStyleText = `@page { size: ${slideW}px ${slideH}px; margin: 0; }
 body  { margin: 0; padding: 0; }
 ${sheetStartMark(deckSizeName, paletteName)}
-${widenDeckCss(deckSheet.css)}
+${deckSheet.css}
 ${SHEET_END_MARK}
 section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
 ${marpSystemCss}
