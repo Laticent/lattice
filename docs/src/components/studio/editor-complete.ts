@@ -66,7 +66,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'cards', info: 'Where a card row puts spare height — center / stretch / top / spread. Omit it and the component decides.' },
 	{ key: 'corners', info: 'Slide surface corners — square (default) / rounded.' },
 	{ key: 'claim', info: 'How much frame the content sits inside — framed (default) / quiet / hero / bleed.' },
-	{ key: 'guards', info: 'Text that does not fit — loose (default: keep it all and flag it) / strict (the engine may trim the tail).' },
+	{ key: 'fit', info: 'What the engine may do to make a slide fit — report (change nothing, only flag) / heal (default: split or step the font scale down, lose no words) / trim (heal, and also cut text that does not fit). Replaces guards:.' },
 	// Chrome
 	{ key: 'header', info: 'Running header text on every slide.' },
 	{ key: 'footer', info: 'Running footer text on every slide.' },
@@ -140,7 +140,7 @@ const PACE_OPTIONS: Completion[] = PACE_NAMES.map((n: string) => ({ label: n, ty
 // means the editor can never offer a value the linter then flags, or miss one it accepts.
 export const VOCAB_VALUE_FIELDS: Record<string, string> = {
 	cards: 'cardsNames',
-	guards: 'guardsNames',
+	fit: 'fitNames',
 	claim: 'claimNames',
 	corners: 'cornersNames',
 	mode: 'modeNames',

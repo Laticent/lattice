@@ -145,3 +145,40 @@ describe('capacity-scale — a code block', () => {
     assert.equal(core.tallestCodeBlock('no fence'), 0);
   });
 });
+
+describe('the fit: register in lint', () => {
+  const v = { names: new Set(['list-steps']), modifiers: new Set(), fitNames: ['report', 'heal', 'trim'],
+    capacity: { 'list-steps': { axis: 'item', min: 3, sweet: 4, soft: 5, hard: 5 } } };
+  const rules = (src) => core.lintTextWith(src, v);
+
+  test('an unknown fit: value is a warning — `reprot` would silently leave the engine on', () => {
+    const f = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nfit: reprot')).find((x) => x.rule === 'unknown-fit');
+    assert.equal(f?.severity, 'warning');
+  });
+
+  test('the old guards: spelling is named, pointing at the new value', () => {
+    const f = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nguards: strict')).find((x) => x.rule === 'guards-renamed');
+    assert.equal(f?.severity, 'info');
+    assert.match(f.fix, /fit: trim/);
+  });
+
+  test('under fit: report the scale budget is a WARNING — no step will save the slide', () => {
+    const row = core.SCALE_CAPACITY['list-steps'];
+    const len = Math.max(...Object.keys(row).map(Number));
+    const n = row[len][2] + 1;
+    if (n > 5) return; // needs a count inside `hard`
+    const src = deck('scale-xl', slide('list-steps', n)).replace('marp: true', 'marp: true\nfit: report');
+    const f = rules(src).find((x) => x.rule === 'capacity-scale');
+    assert.equal(f?.severity, 'warning');
+    assert.match(f.message, /fit: report/);
+  });
+
+  test('a slide\'s own fit-heal overrides a report deck', () => {
+    const row = core.SCALE_CAPACITY['list-steps'];
+    const len = Math.max(...Object.keys(row).map(Number));
+    const n = row[len][2] + 1;
+    if (n > 5) return;
+    const src = deck('scale-xl', slide('list-steps fit-heal', n)).replace('marp: true', 'marp: true\nfit: report');
+    assert.equal(rules(src).find((x) => x.rule === 'capacity-scale')?.severity, 'info');
+  });
+});

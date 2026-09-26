@@ -15,7 +15,7 @@ header: "Lattice · Projection scale fit"
 
 `Typography · Projection scale`
 
-A slide too full for the scale steps down. It is never clipped.
+A slide too full for the scale renders at the designed size. It is never clipped.
 
 ---
 
@@ -37,7 +37,7 @@ A slide too full for the scale steps down. It is never clipped.
 5. Hand off
    - Waits for approval, leaves notes.
 
-> Five steps do not fit at 1.3x, so this slide renders at the next size down.
+> Five steps do not fit at 1.3x, so this slide renders at the designed size, 1x.
 
 ---
 
@@ -73,7 +73,7 @@ A slide too full for the scale steps down. It is never clipped.
 - The ceiling
   - Knowing what to build, spotting what is wrong, deciding when it is good enough. That part is still yours.
 
-> Wrapped prose grows on both axes, so this pair steps further down than a list does.
+> Wrapped prose grows on both axes, so a pair of short paragraphs already needs more than 1.3x allows.
 
 ---
 
@@ -95,7 +95,7 @@ A slide too full for the scale steps down. It is never clipped.
 - Resume
   - The next session starts from the note.
 
-> The ring keeps its shape; the labels step down until the stages fit.
+> The ring keeps its shape; the labels return to the designed size so the stages fit.
 
 ---
 
@@ -143,6 +143,29 @@ A slide too full for the scale steps down. It is never clipped.
 
 ---
 
+<!-- _class: list-steps insight-so-what fit-report -->
+<!-- _footer: "fit-report · the engine changes nothing, so this slide clips and is flagged" -->
+<!-- stress-slide -->
+
+`Report only · fit-report`
+
+## The same five steps, with the engine told to change nothing.
+
+1. Plan
+   - Reads the ticket and plans the change.
+2. Build
+   - Writes code and tests, opens a pull request.
+3. Fix
+   - Fixes whatever breaks the build.
+4. Report
+   - Notes how sure it is, and why.
+5. Hand off
+   - Waits for approval, leaves notes.
+
+> `fit: report` is the switch for when self-healing gets in the way: nothing moves, and every clip is reported.
+
+---
+
 <!-- _class: closing qr -->
 <!-- _paginate: false -->
 <!-- _header: '' -->
@@ -152,7 +175,7 @@ A slide too full for the scale steps down. It is never clipped.
 
 ## Leave a scannable takeaway behind.
 
-The QR tile is sized in em, so it grows with the scale and this slide steps down to hold it.
+The QR tile is sized in em, so it grows with the scale and this slide returns to the designed size to hold it.
 
 - https://laticent.io/components/closing
 - Scan to open `caption`

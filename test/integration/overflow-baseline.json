@@ -1,10 +1,13 @@
 {
   "$comment": "Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it. `decksSwept` is how many decks the blessing run covered: a deck absent from `decks` is clean ONLY if it was in that sweep.",
-  "totalSlides": 27,
-  "decksSwept": 321,
+  "totalSlides": 31,
+  "decksSwept": 365,
   "decks": {
     "examples/README.md": [
       1
+    ],
+    "examples/font-scale-fit.md": [
+      8
     ],
     "examples/marker-corner.md": [
       3,
@@ -29,6 +32,10 @@
       4,
       5
     ],
+    "lib/components/chart/heatmap/heatmap.gallery.md": [
+      3,
+      4
+    ],
     "lib/components/chart/line/line.gallery.md": [
       3,
       4,
@@ -48,6 +55,9 @@
     "lib/components/chart/waterfall/waterfall.gallery.md": [
       3,
       4
+    ],
+    "lib/components/inventory/list/list.gallery.md": [
+      9
     ],
     "lib/components/inventory/team-profile/team-profile.gallery.md": [
       7

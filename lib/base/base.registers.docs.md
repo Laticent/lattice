@@ -38,7 +38,7 @@ model, see `design/concepts.md`.
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
-| [`guards:`](#the-guards-front-matter-register-overflow-trimming) | Whether TRIM may cut text that does not fit | `loose` |
+| [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 
 ## The `mode:` front-matter register (rendering mode)
 
@@ -59,23 +59,37 @@ and a typo is caught by the deck linter (`unknown-mode`).
 | `sketch` | `sketch` | Full handwriting (headings **and** body) + drawn boxes. |
 | `sketch-clean` | `sketch sketch-clean-body` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
 
-## The `guards:` front-matter register (overflow trimming)
+## The `fit:` front-matter register (what the engine may do to make a slide fit)
 
-`guards:` is the **deck-wide overflow-guard selector** — whether TRIM, the fifth
-Fit-Ladder move, may cut text that does not fit and leave a visible ellipsis
-rather than letting the slide clip.
+`fit:` is **one deck-wide setting for every move the engine makes to fit a slide**. It
+replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.md`).
 
-| `guards:` value | Resolves to | Effect |
+| `fit:` value | Resolves to | Effect |
 |---|---|---|
-| `loose` | *(no class)* | The baseline — overflow clips and rings, exactly as before. The default when `guards:` is omitted. |
-| `strict` | `guards-strict` | TRIM may cut a trimmable text block so the slide fits, and records what it removed. |
+| `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no STEP, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
+| `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes, and STEP renders a slide that does not fit the deck's `scale-l/xl/2xl` at the designed size instead. |
+| `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 
-Take one slide out of a deck-wide `guards: strict` with `<!-- _class: guards-loose -->`;
-the per-slide token **evicts** the deck token rather than stacking on it, because
-both rules land at the same specificity and side-by-side would let CSS source
-order decide whether that slide keeps its text.
+**The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
+`trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
+wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
 
-**`strict` does far less than the name suggests, on purpose.** Three limits, each
+**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim` (and the old
+`guards-strict` / `guards-loose`). The per-slide token **evicts** the deck token rather
+than stacking on it, so a slide's own choice always wins.
+
+**Two invariants, not settings.** No level goes below the designed type scale (STEP's
+floor is 1x), and no level changes what is REPORTED — `report` changes what the engine
+does, never what it tells you.
+
+**STEP renders at two sizes at most.** A slide that does not fit the deck's scale lands on
+the designed size, 1x — never on an in-between step — so a projected deck carries the size
+the author asked for and the designed one, and nothing else. See
+`engineering/decisions/2026-09-25-font-scale-fit.md`.
+
+### What `trim` does, and why it does far less than the name suggests
+
+**TRIM does far less than the name suggests, on purpose.** Three limits, each
 measured rather than assumed:
 
 - **It only cuts prose.** A slot's trim class is a property of what the text
@@ -94,7 +108,7 @@ measured rather than assumed:
   switched off, because 8px is inside the warning's own slack), and the result is
   then re-checked with the same overflow probe that prints the warning. If the
   slide would still clip, every clamp comes off and the render is byte-identical
-  to `guards: loose`.
+  to `fit: heal`.
 
 Measured on the shipped corpus, `strict` resolves **one of the six** slides that
 clip today. The rest are blocked by a heading, a callout's own chrome, or a shell
@@ -106,8 +120,8 @@ cause overflow are largely the ones it refuses to touch. See
 clipped" tag or the type-floor warning, and a trim records itself
 (`data-lattice-trim`) because the existing content-clipped probe can see a clamp
 but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
-caught by `npm run lint:deck` as `unknown-guards`, including one carrying a
-trailing `#` comment.
+caught by `npm run lint:deck` as `unknown-guards` (`unknown-fit` for the new key),
+including one carrying a trailing `#` comment.
 
 **The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
 and has no fit problem, so the clamp is lifted there and the reader gets the whole

@@ -327,17 +327,22 @@ designed height, and a wrapped paragraph about `s²` (1.69x at `scale-xl`). A sl
 to its component's designed capacity therefore cannot hold 1.3x, and before 2026-09-25 it
 clipped: 25 of 64 slides on a real deck, and 133 slides across the component galleries.
 
-The engine now takes such a slide back down the same ladder — 1.5, 1.3, 1.15, 1 — and
-stops at the first rung that fits. It never goes below 1, the designed size
-(`lib/core/scale-fit.js`, the Fit Ladder's STEP move). What you get:
+The engine now renders such a slide at the designed size, 1x, instead. It never goes
+below 1 (`lib/core/scale-fit.js`, the Fit Ladder's STEP move), and it never picks an
+in-between step: a projected deck carries **two sizes at most**, the one the author asked
+for and the designed one (owner ruling, `engineering/decisions/2026-09-25-fit-policy.md`).
+What you get:
 
 - **Nothing is clipped by the scale.** A slide that does not fit even at 1 is left at the
   requested scale and clips exactly as before, so the ring and the `⚠ OVERFLOW` line still
   report it.
-- **The stepped slide renders smaller than the rest of the deck**, chrome included, the
-  same as a hand-written `_class: scale-l` on that slide. The export prints
-  `↓ SCALE — N slides … at 1.15x: pages …; at 1x: pages …`, and the section carries
-  `data-lattice-scale-step="1.3>1.15"`.
+- **The stepped slide renders at the designed size**, chrome included, the same as that
+  slide without the scale class. The export prints
+  `↓ SCALE — N slides … render at the designed size instead: at 1x: pages …`, and the
+  section carries `data-lattice-scale-step="1.3>1"`.
+- **`fit: report` turns it off.** The deck's `fit:` setting (`lib/base/base.registers.docs.md`)
+  decides what the engine may do to make a slide fit; at `report` it steps nothing and the
+  slide clips and is flagged. A slide opts out alone with `_class: fit-report`.
 - **`lint:deck` flags it first.** `capacity-scale` (`info`) names a counted component past
   its measured budget at the deck's scale, and a `code` block past the pane's scaled line
   or column budget. Each component's `.docs.md` prints its budget on an

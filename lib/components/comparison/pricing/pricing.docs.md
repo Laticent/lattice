@@ -12,7 +12,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 
 **Capacity** ~3 items (over 4 overflows) — past that, table / split across slides. Two tiers read as a binary and four is the widest row that holds; past four the tiers narrow until a feature label wraps to three lines. A split run paces ONE tier per page and carries a derived “Option N of M · comparing …” signal, so the pages still read as one comparison (§0b connected members).
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~3 / ~3 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

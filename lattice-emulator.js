@@ -3882,8 +3882,8 @@ async function renderBody(browser, g, closeBrowser) {
     const from = Math.max(...stepped.map((r) => r.from));
     const rungs = [...byRung.entries()].sort((x, y) => y[0] - x[0])
       .map(([to, pages]) => `at ${to}x: page${pages.length > 1 ? 's' : ''} ${pages.join(', ')}`).join('; ');
-    console.warn(`  \u2193 SCALE — ${n} slide${n > 1 ? 's' : ''} did not fit at the deck's ${from}x font scale and render${n > 1 ? '' : 's'} one or more steps smaller: ${rungs}.`);
-    console.warn('    The stepped pages are not clipped. To keep the full scale, trim the slide to its capacity at that scale (`lint:deck` names it) or split it.');
+    console.warn(`  \u2193 SCALE — ${n} slide${n > 1 ? 's' : ''} did not fit at the deck's ${from}x font scale and render${n > 1 ? '' : 's'} at the designed size instead: ${rungs}.`);
+    console.warn('    The stepped pages are not clipped. To keep the full scale, trim the slide to its capacity at that scale (`lint:deck` names it) or split it; `fit: report` turns this off.');
   }
   const FLUID_WINS = FLUID_VIEW && FLUID_BEATS_READ;
   const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_WINS && !PLAYER);
@@ -3894,21 +3894,25 @@ async function renderBody(browser, g, closeBrowser) {
     // Only worth saying on a deck that asked for it. Counted off the live DOM rather
     // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
     // just as much an ask and never reaches `fm`.
-    const strictSlides = await g(() => page.evaluate(() =>
-      document.querySelectorAll('section[data-lattice-slide].guards-strict:not(.guards-loose)').length),
-    'count guards-strict slides');
+    // Through the shared TRIM gate, not a selector: `fit: trim` stamps `fit-trim`, the old
+    // `guards: strict` stamps `guards-strict`, and a slide's own token can switch either
+    // off. Only `guardsEnabled` knows all of that (lib/core/resolve-guards.js).
+    const strictSlides = await g(() => page.evaluate((enabledSrc) => {
+      const guardsEnabled = new Function('return (' + enabledSrc + ')')();
+      return [...document.querySelectorAll('section[data-lattice-slide]')].filter((s) => guardsEnabled(s.className)).length;
+    }, GUARDS_ENABLED_SRC), 'count trimmable slides');
     if (strictSlides) {
-      console.warn('  \u2702 guards: strict NOT APPLIED \u2014 an .html deliverable is written before the page renders, so it cannot carry a trim.');
-      console.warn(`    Any slide that would have been trimmed clips in ${path.basename(outFile)} exactly as it would at \`guards: loose\`, and the warnings below report that file rather than a trimmed DOM.`);
+      console.warn('  \u2702 fit: trim NOT APPLIED \u2014 an .html deliverable is written before the page renders, so it cannot carry a trim.');
+      console.warn(`    Any slide that would have been trimmed clips in ${path.basename(outFile)} exactly as it would at \`fit: heal\`, and the warnings below report that file rather than a trimmed DOM.`);
       console.warn('    Use --fluid (the viewer re-measures and trims at the reader\'s own size) or --player, or export a PDF.');
     }
   }
   if (trimmed.slides) {
     const pages = trimmed.pages.join(', ');
-    console.warn(`  ✂ TRIMMED — guards: strict cut text on ${trimmed.slides} slide(s): pages ${pages}.`);
+    console.warn(`  ✂ TRIMMED — fit: trim cut text on ${trimmed.slides} slide(s): pages ${pages}.`);
     console.warn('    Those slides FIT because text was removed, so the frame check below reports them clean.');
     if (trimmed.detail.length) console.warn(`    Cut: ${trimmed.detail.join(' · ')}.`);
-    console.warn('    Shorten the copy, or set `guards: loose` to see them clip instead.');
+    console.warn('    Shorten the copy, or set `fit: heal` to see them clip instead.');
     // THE SIDECAR DISAGREES, and it used to do so silently. `outHtml` is written from a
     // Node-side string before the page loads (see TRIM_REACHES_DELIVERABLE above), so the
     // `.html` beside the raster still clips the pages the raster fits. Two deliverables of

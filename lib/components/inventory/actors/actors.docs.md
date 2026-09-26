@@ -14,7 +14,7 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — one short responsibility per row, not a job description.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~7 / ~6 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at a smaller font scale rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`) it holds ~7 / ~6 / ~3 items of ~12 words at a wide @size; past that, expect the engine to render the slide at the designed size (1x) rather than clip it — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

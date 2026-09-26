@@ -1848,10 +1848,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
 	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
 	const setCardRow = (value: string) => settingsWrite(value === '__auto__' ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === '__auto__' ? null : value));
-	// Text guards (`guards:`) — whether the engine may trim text that does not fit.
-	// lib/core/resolve-guards.js; `loose` is the baseline and writes no key.
-	const guards = activeGuards(getFrontMatterName(source, 'guards')).name;
-	const setGuards = (value: string) => settingsWrite(`Text overflow → ${value}`, (s) => writeFrontMatterLine(s, 'guards', value === 'loose' ? null : value));
+	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
+	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
+	// key. Writing the new key also drops the old one, so a deck never carries both.
+	const guards = activeGuards(getFrontMatterName(source, 'fit'), getFrontMatterName(source, 'guards')).name;
+	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
+		const withoutOld = writeFrontMatterLine(s, 'guards', null);
+		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
+	});
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
 	// along — the asymmetry the audit found. There is no named baseline (an absent key
@@ -4076,8 +4080,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
 						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? '__auto__'} onValueChange={setCardRow} className="w-full" groups={[{ options: [{ value: '__auto__', label: autoHeadLabel('each component'), icon: <AutoIcon />, title: 'Automatic — each component decides (no cards: key in the deck).' }] }, { options: catalogOptions(CARD_ROWS) }]} />
 					</Field>
-					<Field label="Text overflow" desc="Keep all text, or trim to fit." find="guards trim overflow cut strict loose" help={<><strong>Keep all text</strong> (the default) never cuts anything: overflowing text is kept and flagged for you to fix. <strong>Trim to fit</strong> lets the engine cut the tail of text that does not fit its box. Only choose it when the tail is detail, not the point. A slide overrides it with <code>_class: guards-loose</code> or <code>guards-strict</code>.</>}>
-						<CatalogSelect ariaLabel="Choose text overflow handling" value={guards} onValueChange={setGuards} className="w-full" groups={[{ options: catalogOptions(GUARDS) }]} />
+					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split step scale cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes, and renders a slide that does not fit the deck's font scale at the designed size. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
+						<CatalogSelect ariaLabel="Choose how slides fit" value={guards} onValueChange={setGuards} className="w-full" groups={[{ options: catalogOptions(GUARDS) }]} />
 					</Field>
 				</More>
 			</div>
