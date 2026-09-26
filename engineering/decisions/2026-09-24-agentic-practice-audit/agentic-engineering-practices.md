@@ -996,7 +996,7 @@ Each extra agent costs money, and it doesn't always make the result better. So w
 > If it stumbles, the evidence card will say so.
 
 <!--
-Now let's watch all five practices work on one task. Before the talk, pick a small, real ticket from your own backlog, the kind you'd give a new teammate, and run it live. Narrate each step against this slide. First, it reads the index and opens only the documents that task needs. Then it shows its plan, and if the change touches anything shared, it asks. It builds, and the stop hook refuses "done" until the tests pass. It writes the evidence card. And a reviewer agent checks the work before you decide. Budget about eight minutes. If it goes wrong in front of the room, don't hide it. Show how the evidence card reports what failed. That's the practice working.
+Now let's watch all five practices work on one task. Before the talk, pick a small, real ticket from your own backlog, the kind you'd give a new teammate, and run it live. Narrate each step against this slide. First, it reads the index and opens only the documents that task needs. Then it shows its plan, and if the change touches anything shared, it asks. It builds, and the stop hook refuses "done" until the tests pass. It writes the evidence card. And a reviewer agent checks the work before you decide. Budget about five minutes. If it goes wrong in front of the room, don't hide it. Show how the evidence card reports what failed. That's the practice working.
 -->
 
 ---
@@ -1057,6 +1057,45 @@ These practices came from a web application, but they travel. What changes is wh
 -->
 
 ---
+<!-- _class: list takeaway insight-why -->
+
+`Make it stick · Guardrails`
+
+## Five guardrails an agent can't forget.
+
+- Constraints: a gate checks the rule on every build, so nobody has to remember it.
+- Budgets: a ceiling on size, speed and agent count, because agents rarely remove.
+- Standards: a contract per component, so "done" means the same thing every time.
+- Visibility: benchmarks and image diffs turn "feels slower" into a number.
+- Boundaries: a library imports only itself, so a change stays where you made it.
+
+> An agent forgets a rule. A gate doesn't.
+
+<!--
+The habits in this talk hold because we wrote most of them into the build. Five kinds of guardrail. Constraints: we have eighty-seven checks that run on every build, like "no raw color values in layouts" and "every untrusted string goes through a sanitizer." Each exception needs a written reason, and an exception that's no longer used fails the build, so the list can't quietly rot. Budgets: agents add far more than they remove, so everything gets a ceiling. Our instruction file grew to about sixty kilobytes before it had a cap. It has one now. Typing speed has one too, sized to catch the regression that once made every keystroke take sixty-three milliseconds. Standards: every component has a written contract, so the agent builds against it instead of guessing. Visibility: benchmarks, contrast checks, and a before-and-after image posted on every pull request. And boundaries, which is the next slide.
+-->
+
+---
+
+<!-- _class: list takeaway numbered insight-our-view -->
+
+`Make it stick · Shared code`
+
+## Treat shared code like a published library.
+
+- A small public API, and a gate that stops anyone reaching past it.
+- Deprecate, don't delete: alias the old name, and fail any build still using it.
+- A written contract with conformance tests, so every consumer knows what holds.
+- A version and a changelog entry for every change.
+
+> Change a shared library on purpose, as a feature, never as a side effect.
+
+<!--
+When code is shared, treat it like a library someone outside your team depends on. Give it a small public surface, and put a check in the build that stops anyone reaching past it. Ours has five internal libraries, and each one can import only its own files. That does two things for agents. The agent reads one library's contract instead of the whole app, and a change stays inside the boundary where you made it. When a name changes, keep the old one working and point it at the new one, then let the build fail anywhere the old name is still used. Write down what the library promises, with tests that prove it. And version every change. I'll be honest about where we are: our libraries are shaped to publish, but we haven't published them, and per-library versions are the part we haven't built yet. Do these things before you need them, because adding them after other teams depend on you is much harder.
+-->
+
+---
+
 
 <!-- _class: compare-prose vertical chosen insight-our-view -->
 
