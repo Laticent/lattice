@@ -599,6 +599,19 @@
     },
     {
       "type": "component",
+      "name": "hub-spoke",
+      "path": "lib/components/chart/hub-spoke",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
       "name": "image",
       "path": "lib/components/imagery/image",
       "roles": [
