@@ -183,13 +183,22 @@ layer off.
 content box is the whole slide and `clear` removes the finish from them entirely. That is the rule
 applied faithfully: their panels already fill the slide, and there is no margin to frame.
 
-**A baked strength is a veil on every finish slide.** Fabricate's `--fin-backdrop-strength` used
-to draw as group opacity on `.backdrop`, with a baked clearance inside that group. Poppler drew
-that group as a full-strength finish; the old ellipse gave it the dark wedge. The veil
-conversion that mask classes already used now applies to every `section.finish`. On a flat
-canvas the colors are the same. Measured: the built-in preset deck (`accent-finishes`) exports
-at the same byte size, and the two decks that bake a strength (`finish-backdrops`,
-`finish-override`) are pixel-identical in poppler and Ghostscript and slightly smaller.
+**Strength: opacity without a mask, the veil with one.** Poppler mis-draws each way of dimming
+in a different case. Group opacity around a hard-edged mask draws a dark wedge, or the finish at
+full strength. A flat veil draws faint gray seams at the texture's tile boundaries and adds a
+transparency object to every page. So a strength step sets only a number
+(`--backdrop-strength-opacity`), and `--backdrop-veil-weight` picks the drawing: 1 when a mask
+is on (a `clear` or spot class, or a mask Fabricate baked, which now emits
+`--fin-backdrop-veil-weight: 1`), else 0, which falls back to plain opacity. `open` forces 0.
+
+A first cut veiled every finish slide. The checker measured the cost: gray seams on
+baked-strength pages that had printed clean, and a transparent object on every built-in finish
+page. Measured on this rule, against the commit before the content-box change:
+- Built-in and preset decks (`accent-finishes`, `finish-split-covers`, `finish-backdrops`,
+  `finish-override`, `finish-per-slide`) export at the same byte count.
+- A deck with a baked strength and no mask is byte-identical to before.
+- `backdrop: 40` with no mask no longer seams: 0 gray seam pixels at 100 dpi, down from 49,350.
+- Seams remain only on mask slides; the demo deck's count is the same before and after.
 
 **Fabricate:** a newly saved clearance emits `--fin-backdrop-clear-scrim: var(--backdrop-clear-fill)`
 instead of the ellipse. Finishes saved before this change keep their generated CSS, which names

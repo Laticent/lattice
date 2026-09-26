@@ -18,6 +18,8 @@ section.finish.finish-graph {
   --fin-edge: none;
   --fin-backdrop-strength: 0.60;
   --fin-backdrop-clear-scrim: var(--backdrop-clear-fill);
+  --fin-backdrop-veil-weight: 1;
+  --fin-backdrop-dim-scrim: var(--backdrop-veil-fill);
 }
 @media print {
   section.finish.finish-graph {

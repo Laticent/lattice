@@ -184,6 +184,12 @@ describe('finish-generate', () => {
 		const strengthOnly = generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5 } }));
 		expect(strengthOnly).toMatch(/--fin-backdrop-strength/);
 		expect(strengthOnly).not.toMatch(/--fin-backdrop-mask/);
+		// a baked mask switches strength to the veil (poppler wedge); strength alone stays opacity
+		expect(css).toMatch(/--fin-backdrop-veil-weight:\s*1/);
+		expect(css).toMatch(/--fin-backdrop-dim-scrim:\s*var\(--backdrop-veil-fill\)/);
+		expect(strengthOnly).not.toMatch(/--fin-backdrop-veil-weight/);
+		const spotOnly = generateFinishCss('x', coerceRecipe({ backdrop: { spotlight: { x: 50, y: 50, radius: 30 } } }));
+		expect(spotOnly).toMatch(/--fin-backdrop-veil-weight:\s*1/);
 		// a plain finish (no baked backdrop) emits none
 		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop/);
 		// full strength (=1) is the default → not baked

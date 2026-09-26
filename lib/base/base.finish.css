@@ -140,13 +140,14 @@ section.finish > .backdrop {
    * time and falls back to the designed plane instead of silently becoming `auto`. */
   z-index: var(--z-canvas);
   pointer-events: none;
-  /* STRENGTH — one uniform dial over the whole finish. Reads the finish's BAKED
-   * `--fin-backdrop-strength` (generateFinishCss, the 5th finish layer, which
-   * `finish-override:` regenerates), else 1. The `backdrop:` register does NOT dim through
-   * this opacity — it dims with a veil in the mask layer (§ BACKDROP REGISTER below) — and
-   * only sets `--backdrop-opacity: 1` so a register step replaces a baked dim instead of
-   * multiplying with it. */
-  opacity: var(--backdrop-opacity, var(--fin-backdrop-strength, 1));
+  /* STRENGTH — one uniform dial over the whole finish: the register's step
+   * (`--backdrop-strength-opacity`), else the finish's BAKED `--fin-backdrop-strength`
+   * (generateFinishCss, which `finish-override:` regenerates), else 1. It is drawn as this
+   * group opacity ONLY when no mask is on; with a mask the veil weight is 1, the opacity
+   * computes to 1 and the same strength draws as a flat veil in the mask layer instead
+   * (§ BACKDROP REGISTER below says why). `--backdrop-opacity` is the hard override
+   * `finish-none` uses. */
+  opacity: var(--backdrop-opacity, calc(1 - (1 - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1))) * (1 - var(--backdrop-veil-weight, var(--fin-backdrop-veil-weight, 0)))));
   background-image: var(--fin-texture, none), var(--fin-wash, none);
   background-size: var(--fin-size, auto);
   background-position: var(--fin-position, top left);
@@ -255,7 +256,7 @@ section.finish > .backdrop > .backdrop-mask {
   z-index: 2;
   /* Two layers: the SHAPE (clearance / spotlight — the register's `--backdrop-scrim` first,
    * then the finish's baked mask) over the register's flat strength VEIL. */
-  background-image: var(--backdrop-scrim, var(--fin-backdrop-mask, none)), var(--backdrop-dim-scrim, none);
+  background-image: var(--backdrop-scrim, var(--fin-backdrop-mask, none)), var(--backdrop-dim-scrim, var(--fin-backdrop-dim-scrim, none));
 }
 
 /* CLEAR BEHIND CONTENT — the frame's CONTENT BOX (masthead + stage) is clean canvas; the
@@ -936,37 +937,42 @@ section.finish.lattice-exporting {
  * outside `section.finish > .backdrop` reads these. Values are fixed steps and anchors, never
  * author text (HARD RULE #22). (engineering/decisions/2026-09-26-backdrop-register.md.)
  *
- * STRENGTH IS A VEIL, NOT AN OPACITY. A strength step lays a FLAT sheet of the canvas at
- * (100 − N)% over the whole finish, inside the mask layer. On a flat canvas that is the same
- * pixel math as `opacity: N%` on the wrapper. The difference is in the PDF: group opacity
- * wraps the finish AND its mask in a transparency group, and poppler (Evince, Okular,
- * pdftoppm) paints a hard-edged clearance mask inside such a group as a large dark wedge
- * across the slide. Measured on a minimal page: nested mask + group opacity → wedge; the
- * same mask with a flat veil and no group → identical to the clearance that already ships,
- * in poppler and PDFium alike. A flat fill is not an area-fade, so it does not gray in print.
- * `--backdrop-opacity: 1` cancels a finish's baked dim so the step replaces it. */
-/* A finish's BAKED dim (Fabricate's `--fin-backdrop-strength`) draws as the same flat veil,
- * on every finish slide: as group opacity it would wrap a baked clearance or spotlight in a
- * transparency group, which poppler draws as a dark wedge or a full-strength finish. With no
- * baked dim the percentage is 0% and the veil is transparent (built-in presets export
- * byte-identical). A strength class below overrides it. */
+ * STRENGTH: OPACITY WITHOUT A MASK, A VEIL WITH ONE. Poppler (Evince, Okular, pdftoppm)
+ * mis-draws each of the two ways to dim, in a different case, so each is used only where
+ * it is clean:
+ * - GROUP OPACITY around a hard-edged mask (a clearance, a spotlight's opaque face) draws a
+ *   large dark wedge or the finish at full strength. With no mask inside it is clean, and it
+ *   adds nothing to the PDF.
+ * - A FLAT VEIL — the canvas at (100 − N)% laid over the finish in the mask layer — is the
+ *   same pixel math on a flat canvas and survives a mask, but poppler draws faint gray seams
+ *   at the texture's tile boundaries, and it adds a transparency object to every page.
+ * So a strength class sets only the number, and the veil weight picks the drawing:
+ * `--backdrop-veil-weight` is 1 when a mask is on (a `clear` or spot class here, or a mask
+ * Fabricate baked, which emits `--fin-backdrop-veil-weight: 1`), else 0. `open` forces 0: it
+ * removes every mask. */
 section.finish {
-  --backdrop-opacity: 1;
-  --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--fin-backdrop-strength, 1) * 100%), transparent) 0 0);
+  --backdrop-veil-fill: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1)) * 100%), transparent) 0 0);
 }
-section:is(.backdrop-20, .backdrop-40, .backdrop-60, .backdrop-80, .backdrop-full) { --backdrop-opacity: 1; }
-section.backdrop-20 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 80%, transparent) 0 0); }
-section.backdrop-40 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 60%, transparent) 0 0); }
-section.backdrop-60 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 40%, transparent) 0 0); }
-section.backdrop-80 { --backdrop-dim-scrim: linear-gradient(color-mix(in srgb, var(--fin-canvas) 20%, transparent) 0 0); }
-section.backdrop-full { --backdrop-dim-scrim: none; }
+section.backdrop-20 { --backdrop-strength-opacity: 0.2; }
+section.backdrop-40 { --backdrop-strength-opacity: 0.4; }
+section.backdrop-60 { --backdrop-strength-opacity: 0.6; }
+section.backdrop-80 { --backdrop-strength-opacity: 0.8; }
+section.backdrop-full { --backdrop-strength-opacity: 1; }
 /* `open` discards a baked clearance or spotlight. `clear` switches on the content-box layer
  * and drops any baked shape (a finish's own spotlight or legacy ellipse): one mask at a time. */
-section.backdrop-open { --backdrop-scrim: none; --backdrop-scrim-opaque: none; --backdrop-clear-scrim: none; }
+section.backdrop-open {
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-clear-scrim: none;
+  --backdrop-veil-weight: 0;
+  --backdrop-dim-scrim: none;
+}
 section.backdrop-clear {
   --backdrop-scrim: none;
   --backdrop-scrim-opaque: none;
   --backdrop-clear-scrim: var(--backdrop-clear-fill);
+  --backdrop-veil-weight: 1;
+  --backdrop-dim-scrim: var(--backdrop-veil-fill);
 }
 /* SPOTLIGHT at one of nine anchors — the same two-face window Fabricate bakes
  * (finish-generate.ts `spotlightMask`): transparent inside = finish shown, the canvas
@@ -977,6 +983,8 @@ section:is(.backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr, .backdrop-spo
   --backdrop-scrim: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 42%, var(--fin-canvas) 96%);
   --backdrop-scrim-opaque: radial-gradient(ellipse 44% 44% at var(--backdrop-spot-position), transparent 70%, var(--fin-canvas) 70%);
   --backdrop-clear-scrim: none; /* a spotlight replaces a baked clearance */
+  --backdrop-veil-weight: 1;
+  --backdrop-dim-scrim: var(--backdrop-veil-fill);
 }
 section.backdrop-spot-tl { --backdrop-spot-position: 22% 26%; }
 section.backdrop-spot-t { --backdrop-spot-position: 50% 22%; }
@@ -1040,6 +1048,7 @@ section.backdrop-none {
   --backdrop-scrim: none;
   --backdrop-scrim-opaque: none;
   --backdrop-dim-scrim: none;
+  --fin-backdrop-dim-scrim: none;
   --backdrop-opacity: 1;
   --backdrop-clear-scrim: none;
   --fin-backdrop-clear-scrim: none;

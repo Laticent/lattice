@@ -91,24 +91,12 @@ test('engine: a slide\'s token evicts the deck\'s on its own axis only', () => {
 
 test('css: the compositor reads the register first, then the baked value', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
-  assert.match(css, /opacity:\s*var\(--backdrop-opacity,\s*var\(--fin-backdrop-strength,\s*1\)\)/);
-  assert.match(css, /background-image:\s*var\(--backdrop-scrim,\s*var\(--fin-backdrop-mask,\s*none\)\),\s*var\(--backdrop-dim-scrim,\s*none\)/);
-  // Strength is a VEIL, never a group opacity below 1: an opacity group around the mask is
-  // what poppler draws as a dark wedge in the PDF (see the CSS comment).
+  assert.match(css, /background-image:\s*var\(--backdrop-scrim,\s*var\(--fin-backdrop-mask,\s*none\)\),\s*var\(--backdrop-dim-scrim,\s*var\(--fin-backdrop-dim-scrim,\s*none\)\)/);
   for (const n of [20, 40, 60, 80]) {
-    const rule = css.match(new RegExp(`section\\.backdrop-${n} \\{[^}]*\\}`));
-    assert.ok(rule, `backdrop-${n} rule missing`);
-    assert.match(rule[0], new RegExp(`--backdrop-dim-scrim:[^;]*var\\(--fin-canvas\\) ${100 - n}%`));
-    assert.doesNotMatch(rule[0], /--backdrop-opacity:\s*0/);
+    assert.match(css, new RegExp(`section\\.backdrop-${n} \\{ --backdrop-strength-opacity: 0\\.${n / 10}; \\}`));
   }
-  for (const t of BACKDROP_TOKENS) {
-    assert.ok(new RegExp(`section\\.${t}\\b`).test(css), `no rule for ${t}`);
-  }
-  // The export flip must FOLLOW the class rules, or a class would win in print and ship the
-  // feathered mask, which grays in the vector PDF.
-  const lastClass = css.lastIndexOf('section.backdrop-spot-br');
-  const flip = css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); --backdrop-clear-bleed: 0px; --backdrop-clear-filter: none; }');
-  assert.ok(flip > lastClass && lastClass > 0, 'export flip must come after the class rules');
+  // The veil the masks use is (100 − N)% canvas, N from the step, else the baked strength.
+  assert.ok(css.includes('--backdrop-veil-fill: linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1)) * 100%), transparent) 0 0);'));
 });
 
 test('lint: an unknown word and a doubled axis both warn; a clean value is silent', () => {
@@ -228,10 +216,17 @@ test('css: open, spotlight and finish-none switch the clear layer off; tone slid
   assert.match(css, /tone-skip\)\.finish > \.backdrop > \.backdrop-mask::before \{\s*left: -8px;/);
 });
 
-test('css: a baked strength draws as a veil on every finish slide, never as group opacity', () => {
+test('css: strength is group opacity without a mask and the flat veil with one', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
-  const rule = css.match(/section\.finish \{\s*--backdrop-opacity: 1;\s*--backdrop-dim-scrim: linear-gradient\(color-mix\(in srgb, var\(--fin-canvas\) calc\(100% - var\(--fin-backdrop-strength, 1\) \* 100%\)/);
-  assert.ok(rule, 'section.finish must convert the baked strength into the veil');
-  // Strength classes follow it, so a register step still wins.
-  assert.ok(css.indexOf('section.backdrop-20 {') > rule.index);
+  // The compositor: a step, else the baked strength, drawn as opacity only while the veil weight is 0.
+  assert.ok(css.includes('opacity: var(--backdrop-opacity, calc(1 - (1 - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1))) * (1 - var(--backdrop-veil-weight, var(--fin-backdrop-veil-weight, 0)))));'));
+  assert.ok(css.includes('var(--backdrop-dim-scrim, var(--fin-backdrop-dim-scrim, none))'));
+  // A strength class sets only the number, so a slide with no mask gets no veil layer.
+  assert.match(css, /section\.backdrop-40 \{ --backdrop-strength-opacity: 0\.4; \}/);
+  // No rule veils every finish slide (it seamed baked-strength pages in poppler).
+  assert.doesNotMatch(css, /section\.finish \{\s*--backdrop-opacity: 1;/);
+  // Masks switch to the veil; `open` removes every mask and switches back.
+  assert.match(css.match(/section\.backdrop-clear \{[^}]*\}/)[0], /--backdrop-veil-weight: 1;[^}]*--backdrop-dim-scrim: var\(--backdrop-veil-fill\)/);
+  assert.match(css.match(/section:is\(\.backdrop-spot-tl,[^{]*\{[^}]*\}/)[0], /--backdrop-veil-weight: 1;/);
+  assert.match(css.match(/section\.backdrop-open \{[^}]*\}/)[0], /--backdrop-veil-weight: 0;[^}]*--backdrop-dim-scrim: none;/);
 });
