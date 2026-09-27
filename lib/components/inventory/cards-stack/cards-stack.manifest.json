@@ -58,7 +58,7 @@
     "reference"
   ],
   "description": "Parallel items stacked vertically, full-width cards.",
-  "purpose": "Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best (a fourth fits with the `compact` modifier).",
+  "purpose": "Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best.",
   "variants": [
     "horizontal",
     "numbered"
@@ -80,7 +80,7 @@
   "sample": "<!-- _class: cards-stack -->\n\n## The stack ranks three cards top to bottom.\n\n- Order is the argument.\n  - The stack reads as priority; the top card wins.\n- Three is the sweet spot.\n  - Bodies run a short paragraph at most.\n- Sixteen words per card.\n  - The budget that keeps rows breathing.\n",
   "stressDoc": {
     "summary": "Four rows with pills — the limit.",
-    "sample": "<!-- _class: cards-stack compact -->\n\n## Four rows with pills is the stack's ceiling.\n\n- Row one `shipped`\n  - A body at the hard budget holds two sentences; the pill carries the status so the prose does not have to.\n- Row two `on track`\n  - compact is doing quiet work here — without it, four bodies this size would crowd the footer before the last row lands.\n- Row three `at risk`\n  - Keep the densest row third; the eye expects trouble near the bottom and reads it with full attention.\n- Row four `blocked`\n  - The hard stop. A fifth row overflows; split the stack or drop to list-tabular.\n"
+    "sample": "<!-- _class: cards-stack -->\n\n## Four rows with pills is the stack's ceiling.\n\n- Row one `shipped`\n  - A body at the hard budget holds two sentences; the pill carries the status so the prose does not have to.\n- Row two `on track`\n  - Four bodies this size still fit at body size; `compact` would only close the gaps between rows.\n- Row three `at risk`\n  - Keep the densest row third; the eye expects trouble near the bottom and reads it with full attention.\n- Row four `blocked`\n  - The hard stop. A fifth row overflows; split the stack or drop to list-tabular.\n"
   },
   "whenToUse": [
     {
@@ -99,7 +99,7 @@
   "antiPatterns": [
     {
       "title": "Five or more items",
-      "body": "A fourth card fits with the `compact` modifier; past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides."
+      "body": "Past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides."
     },
     {
       "title": "One-line cards",
@@ -140,10 +140,6 @@
     {
       "mistake": "Adding a `numbered` class to the slide, expecting it to turn on corner numbers.",
       "fix": "There is no `numbered` CSS class — the ranking numbers come purely from authoring the cards as an ordered list (`1.`) instead of `-`."
-    },
-    {
-      "mistake": "Adding a fourth card without the `compact` modifier.",
-      "fix": "A fourth card at or near the density budget (16-26 words) needs `compact` to avoid overflowing the frame — the component's own stress sample demonstrates `cards-stack compact` at four full-budget rows. Four short cards can fit without it; `compact` is a density fix, not a hard card-count switch."
     }
   ],
   "variantDecisionRule": [

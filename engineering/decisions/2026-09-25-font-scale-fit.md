@@ -457,10 +457,12 @@ only, as it does everywhere else. The fallout, fixed in the same change:
   anti-patterns onto as many `cards-stack` slides as fit at body size: greedy, in order, a new
   slide past 100 words (title + body) or three cards. Measured over every component's
   anti-patterns at a wide @size: 100 words clips 0 of 107 slides, 110 clips 2, 130 clips 6. 35
-  of 71 galleries now carry the anti-patterns on two or three slides (footer "· 1 of 2"). The
+  of the 70 galleries that have anti-patterns now carry the anti-patterns on two or three slides (footer "· 1 of 2"). The
   slide also drops `cards-stretch` for the register default, which sizes each card to its
   text: stretch was there to hide an overrun that no longer happens, and on a paged slide it
-  blew a lone card up to fill the stage. Re-measured with the default: 0 of 107 clip.
+  blew a lone card up to fill the stage. Re-measured with the default: 0 of 107 clip; and again
+  at head, after #2385 added `flowchart`: 0 of 108 (35 galleries on one slide, 32 on two, 3 on
+  three).
 - **`q-and-a`'s budget** is re-measured without the shrink: bare, 4 pairs fit (short or long
   answers); with `compact`'s spacing, 5; 6 clips. `capacity` goes from sweet 4 / soft 5 /
   hard 6 to sweet 4 / soft 5 / hard 5, and its stress slide shows five pairs.

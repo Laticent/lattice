@@ -60,7 +60,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- _class: cards-stack -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · cards-stack — Four rows with pills — the limit." -->
 
@@ -69,7 +69,7 @@ Parallel items stacked vertically, full-width cards.
 - Row one `shipped`
   - A body at the hard budget holds two sentences; the pill carries the status so the prose does not have to.
 - Row two `on track`
-  - compact is doing quiet work here — without it, four bodies this size would crowd the footer before the last row lands.
+  - Four bodies this size still fit at body size; `compact` would only close the gaps between rows.
 - Row three `at risk`
   - Keep the densest row third; the eye expects trouble near the bottom and reads it with full attention.
 - Row four `blocked`
@@ -129,7 +129,7 @@ Parallel items stacked vertically, full-width cards.
 ## When NOT to reach for cards-stack.
 
 - Five or more items
-  - A fourth card fits with the `compact` modifier; past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides.
+  - Past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides.
 - One-line cards
   - If each card is a single short phrase, the stack reads as a padded list. Drop to `list` (or its `takeaway` variant) and reclaim the vertical space.
 - Forced sequence

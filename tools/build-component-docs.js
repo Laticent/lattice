@@ -699,9 +699,9 @@ function injectFooter(slide, footer) {
  * WHY A BUDGET AND NOT `compact`. The slide used to be one `cards-stack compact` slide, and
  * cards-stack's `compact` dropped the card text to `--fs-body-compact` to fit four cards. A
  * modifier may not change a type role's size (engineering/typography.md §7, "One size across
- * modifiers"), so the shrink is gone; at body size one slide clipped on 19 of 71 galleries.
+ * modifiers"), so the shrink is gone; at body size 19 of the 71 generated slides of this kind clipped.
  * 100 is measured, not chosen: every component's anti-patterns rendered this way at a wide
- * @size clip on 0 of 107 slides, where 110 clips 2 and 130 clips 6
+ * @size clip on 0 of 108 slides, where 110 clips 2 and 130 clips 6
  * (engineering/decisions/2026-09-25-font-scale-fit.md, Amendment 2026-09-27 (2)).
  */
 const ANTI_PATTERN_WORDS_PER_SLIDE = 100;
