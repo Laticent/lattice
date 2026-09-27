@@ -85,13 +85,18 @@ async function boxes(locators: Locator[]) {
 
 const shell = (page: Page) => page.locator('[data-panel-shell]');
 
+/** Resolves once the top dialog has no running animation: the sheet has finished sliding in. */
+async function slideInDone(page: Page) {
+	await expect.poll(() => topDialog(page).evaluate((e) => e.getAnimations().filter((a) => a.playState === 'running').length)).toBe(0);
+}
+
 for (const panel of PANELS) {
 	test(`the ${panel.name} shell draws its frame exactly where the panel does`, async ({ page }) => {
 		await gotoStudio(page);
 		const hold = await holdChunk(page, panel.chunk);
 		await panel.open(page);
 		await expect(shell(page)).toHaveCount(1);
-		if (panel.sheet) await page.waitForTimeout(600); // let the shell's slide-in finish before measuring
+		if (panel.sheet) await slideInDone(page); // measure the shell where it rests, not mid-slide
 		const before = await boxes(panel.frame(page));
 		await hold.release();
 		await expect(shell(page)).toHaveCount(0);
@@ -120,7 +125,8 @@ test('a cold sheet slides in once, even when its code arrives mid-slide', async 
 		requestAnimationFrame(tick);
 	});
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
-	await page.waitForTimeout(150);
+	// Release while the shell is still sliding in: the case where a naive swap would restart it.
+	await expect.poll(() => topDialog(page).evaluate((e) => e.getAnimations().some((a) => a.playState === 'running'))).toBe(true);
 	await hold.release();
 	await expect(shell(page)).toHaveCount(0);
 	await expect(topDialog(page).getByText('Present link')).toBeVisible();
