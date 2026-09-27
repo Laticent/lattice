@@ -356,7 +356,29 @@ loads portrait in a new page of the same context, and asserts the landscape rect
 storage. Measured: 20 of 20 on `npm run build` and 20 of 20 on `build:e2e`. With the aspect gate
 forced open in the built HTML it fails 3 of 3 (`shell 45 vs app 16`), so it can still catch the
 defect it names. The app-side window, a rotation followed within one frame by leaving the page, is
-logged in `followups.d/2402-p3-persist-rect-mid-rotation.md`.
+logged as a follow-up and closed in the paragraph below.
+
+**Closed (2026-09-27): `persistRect` drops a rect measured while the layout lags the viewport.**
+The media queries flip the moment the viewport rotates; `useBreakpoint` and `useLandscapePhone`
+render the change only after a `change` event and a commit. StudioShell now records the
+breakpoint and cinema state it last rendered, and at `pagehide` or `visibilitychange`,
+`persistRect` compares them with `readBreakpoint()` and `readLandscapePhone()`
+(`docs/src/lib/use-breakpoint.ts`), which read the media queries directly. When they disagree
+it removes the stored rect, the same drop a layout that is not boot-shaped already takes, so the
+next load's shell falls back to its compute path, which models cinema and portrait both. It
+removes rather than keeps the prior rect because the prior one was measured in a session that has
+since changed orientation, and the compute path models both cinema and portrait. Evidence: the "preview rect
+persistence" block in `StudioShell.test.tsx` flips the media queries without firing `change`,
+then fires `pagehide` or `visibilitychange`. Both cases fail with the check removed and pass
+with it; a control case shows an un-rotated departure still stores a rect. In real Chromium,
+`studio-instant-shell.spec.ts` › "a rotation and a pagehide in the same tick store no rect" rotates
+the cinema phone to portrait with a `change` listener that fires `pagehide`. The listener is
+registered from an init script, ahead of the app's own, because React commits the re-render in a
+microtask after each listener and a later probe would see portrait already rendered. On a build
+with the check disabled it stores `{"l":0,"t":0.37,"w":1,"h":0.2599}`, the same rect the flake
+above left behind; with the check it stores nothing, 10 of 10. "Is not replayed in portrait" stays
+20 of 20 on `npm run build`. UNVERIFIED on a real phone: the probe shows the window exists in
+Chromium and that the app now drops the rect in it, not how often an iPhone opens it.
 
 ## Warming Present, Fabricate and the reading view (2026-09-27)
 

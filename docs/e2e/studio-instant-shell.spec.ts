@@ -616,6 +616,45 @@ test.describe('cinema', () => {
 		// No bands to compare here; the SLIDE BOX is the whole surface, so it is the assertion.
 		near(shell.box, app.box, 'cinema slide box');
 	});
+
+	// Leaving the page in the frame between a rotation and React's re-render. The media queries
+	// flip with the viewport; the app leaves the cinema morph only after their `change` event and
+	// a commit. A `change` listener that fires `pagehide` runs inside that window, provided it runs
+	// BEFORE the app's own listener: React flushes the update in a microtask after each listener,
+	// so a probe registered after mount sees the portrait layout already committed. Registered
+	// from an init script, ahead of the app, it is deterministic. Before the fix, `persistRect`
+	// measured the full-bleed cinema box against the portrait viewport and stored a
+	// portrait-shaped rect (left 0), which the next load's shell replayed 16px off.
+	test('a rotation and a pagehide in the same tick store no rect', async ({ page }) => {
+		await page.addInitScript(() => {
+			const w = window as { __armRotationProbe?: boolean; __rotationProbe?: unknown };
+			window.matchMedia('(orientation: landscape) and (max-height: 500px) and (pointer: coarse)').addEventListener('change', () => {
+				if (!w.__armRotationProbe || w.__rotationProbe) return;
+				const cinemaStillRendered = document.querySelector('[data-cinema-stage]') !== null;
+				window.dispatchEvent(new Event('pagehide'));
+				w.__rotationProbe = { cinemaStillRendered, vw: window.innerWidth, stored: localStorage.getItem('lattice-studio-preview-rect-v2') };
+			});
+		});
+		await page.goto('/studio/', { waitUntil: 'commit' });
+		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+		await page.evaluate(() => document.fonts.ready);
+		await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+		expect(
+			await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2')),
+			'the settled cinema session stored no rect, so the drop below proves nothing',
+		).not.toBeNull();
+
+		await page.evaluate(() => {
+			(window as { __armRotationProbe?: boolean }).__armRotationProbe = true;
+		});
+		await page.setViewportSize({ width: 390, height: 844 });
+		const probe = await page
+			.waitForFunction(() => (window as { __rotationProbe?: unknown }).__rotationProbe, null, { timeout: 10_000 })
+			.then((h) => h.jsonValue() as Promise<{ cinemaStillRendered: boolean; vw: number; stored: string | null }>);
+		expect(probe.vw, 'the viewport had not rotated when the listener ran').toBe(390);
+		expect(probe.cinemaStillRendered, 'React had already left the cinema morph, so this case proves nothing').toBe(true);
+		expect(probe.stored, 'pagehide stored a rect measured in the cinema layout after the viewport rotated').toBeNull();
+	});
 });
 
 // ── A RAISED BROWSER MINIMUM FONT SIZE (#1496) ────────────────────────────────────────────

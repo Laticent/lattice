@@ -37,7 +37,7 @@ import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
-import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
@@ -825,10 +825,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// lines further down — and because the answer wanted is the one true when `pagehide`
 	// FIRES, not the one captured when the listener was registered.
 	const rectBootShapedRef = React.useRef(true);
+	// The layout the app last RENDERED — breakpoint and cinema — against which `persistRect` checks
+	// the viewport it is about to divide by. The media queries flip the instant the viewport does;
+	// the render follows a `change` event and a commit later. Leave the page inside that window
+	// (rotate a phone out of landscape and lock it within a frame) and the box on screen is still
+	// the full-bleed cinema one while `innerWidth`/`innerHeight` are already portrait: a
+	// portrait-shaped rect the aspect gate accepts, replayed 16px off on the next load. A layout
+	// that has not caught up describes no boot, so it takes the same DROP as one that is not
+	// boot-shaped. Set at render next to `landscapePhone`, further down.
+	const renderedLayoutRef = React.useRef<{ bp: Breakpoint; landscapePhone: boolean } | null>(null);
 	React.useEffect(() => {
 		const persistRect = () => {
 			if (presentOpen) return;
-			if (!rectBootShapedRef.current) {
+			const rendered = renderedLayoutRef.current;
+			const lagging = !rendered || rendered.bp !== readBreakpoint() || rendered.landscapePhone !== readLandscapePhone();
+			if (!rectBootShapedRef.current || lagging) {
 				try { localStorage.removeItem(PREVIEW_RECT_KEY); } catch {}
 				return;
 			}
@@ -1396,6 +1407,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// probe that diagnosed it is now the standalone Viewport-debug overlay (ViewportDebugOverlay
 	// + Workspace → Diagnostics + `?vvdebug`); it reads the `data-cinema-stage` element below.
 	// See 2026-07-20-landscape-phone-preview-lock.md §Real-device fix.
+	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
