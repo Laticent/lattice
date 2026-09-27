@@ -378,3 +378,15 @@ describe('withCompact at a venue', () => {
     for (const f of run('q-and-a compact')) assert.doesNotMatch(f.message, /designed size/);
   });
 });
+
+describe('venue-only rows count on their own axis', () => {
+  test('obligation-matrix counts table rows: 7 fit at laptop, 5 at hall', () => {
+    const v = { names: new Set(['obligation-matrix']), modifiers: new Set(), capacity: {} };
+    const rows = (n) => Array.from({ length: n }, (_, i) => `| Regime ${i + 1} | [x] | [-] | [x] | [x] | [/] |`).join('\n');
+    const deck = (venue, n) => `---\nmarp: true\n${venue ? `venue: ${venue}\n` : ''}---\n\n<!-- _class: obligation-matrix -->\n\n## H.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR |\n| --- | :-: | :-: | :-: | :-: | :-: |\n${rows(n)}\n`;
+    const run = (venue, n) => core.lintTextWith(deck(venue, n), v).filter((f) => f.rule === 'capacity-scale');
+    assert.deepEqual(run('hall', 5), []);
+    assert.equal(run('hall', 6).length, 1);
+    assert.match(run('hall', 6)[0].message, /holds about 5 rows/);
+  });
+});

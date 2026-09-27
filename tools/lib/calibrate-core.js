@@ -110,6 +110,11 @@ const BUILDERS = {
   // fixed lines: the width budget is a separate, derived number (lint-core
   // CODE_LINE_BUDGET), and a wrapped line would conflate the two.
   code: () => 'const value = compute(input);',
+  // compare-code: an element is one LINE, written into BOTH panes by BODY_WRAP, so the count
+  // this measures is lines per pane (2361-p3-venue-budget-gaps).
+  'compare-code': () => 'const value = compute(input);',
+  // obligation-matrix: a ROW is a regime label and five state markers, as the gallery writes it.
+  'obligation-matrix': (w) => `| ${cap(words(Math.min(2, Math.max(1, w))))} | [x] | [-] | [x] | [x] | [/] |`,
   pricing: (w) => `- ${cap(words(1))} \`$49 / mo\`\n  - [x] ${cap(words(2))}\n  - ${cap(words(Math.max(1, w - 4)))}.`,
   // Added for the per-venue budgets (2026-09-25-font-scale-fit.md, Amendment 2026-09-27): every
   // component with a `capacity` block gets a measured row, so these five had to be authorable.
@@ -136,6 +141,8 @@ const BUILDERS = {
 // element, this wraps the whole body once.
 const BODY_WRAP = {
   code: (body) => `\`\`\`js\n${body}\n\`\`\``,
+  'compare-code': (body) => `\`Before · one\`\n\n\`\`\`js\n${body}\n\`\`\`\n\n\`After · two\`\n\n\`\`\`js\n${body}\n\`\`\``,
+  'obligation-matrix': (body) => `| Regulation | Notice | Consent | Retention | Breach | DSAR |\n| --- | :-: | :-: | :-: | :-: | :-: |\n${body}`,
   table: (body) => `| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n${body}`,
   roadmap: (body) => {
     const cols = body.split('\n');

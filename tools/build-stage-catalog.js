@@ -381,18 +381,22 @@ function buildVenueLint() {
   const variants = {};
   const insight = {};
   const insightVariants = {};
+  // The count axis of a row whose component has no `capacity` block (lint's venue-only path).
+  const axis = {};
   let code = null;
   const row = (r) => VENUE_ORDER.map((v) => r[v]);
   for (const m of [...loadAll()].sort((a, b) => a.name.localeCompare(b.name))) {
     const vc = m.venueCapacity;
     if (!vc || vc.none) continue;
     if (vc.lines) {
-      if (m.name !== 'code') throw new Error(`[build-stage-catalog] ${m.name}: venueCapacity.lines is the code pane's shape; lint reads it for \`code\` only`);
-      code = { bare: row(vc.lines.bare), eyebrow: row(vc.lines.eyebrow) };
+      // A line budget per code pane. Lint reads `code`'s (CODE_LINES_AT_SCALE); another pane
+      // component's (compare-code) serves its docs line and pick list only.
+      if (m.name === 'code') code = { bare: row(vc.lines.bare), eyebrow: row(vc.lines.eyebrow) };
       continue;
     }
     const words = (byWords) => Object.fromEntries(Object.entries(byWords).map(([w, r]) => [w, row(r)]));
     items[m.name] = words(vc.byWords);
+    if (vc.axis && vc.axis !== 'item') axis[m.name] = vc.axis;
     for (const [tok, v] of Object.entries(vc.variants || {})) {
       variants[`${m.name} ${tok}`] = words(v.byWords);
       if (v.insight) insightVariants[`${m.name} ${tok}`] = words(v.insight.byWords);
@@ -405,7 +409,7 @@ function buildVenueLint() {
     '   per words-per-element, as [laptop, huddle, conference, hall]; code: pane lines, bare and\n' +
     '   under an eyebrow; variants: "<component> <token>" rows; insight: rows with a trailing\n' +
     '   insight callout. Rebuild: node tools/build-stage-catalog.js */\n' +
-    'module.exports = ' + JSON.stringify({ items, code, variants, insight, insightVariants }) + ';\n';
+    'module.exports = ' + JSON.stringify({ items, code, variants, insight, insightVariants, axis }) + ';\n';
   return { source, count: Object.keys(items).length + (code ? 1 : 0) };
 }
 

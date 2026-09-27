@@ -52,7 +52,9 @@ function venueDocsLine(m, noun) {
   const past = 'Past the room\'s number the slide still renders at the venue\'s size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it.';
   if (vc.lines) {
     const fmt = (r) => VENUES.map((v) => `${v} ~${r[v]}`).join(' · ');
-    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow). ${past} ${how}`;
+    // Lint reads only `code`'s line budget, so another pane component's line promises no warning.
+    const pastLines = m.name === 'code' ? past : 'Past the room\'s number the slide still renders at the venue\'s size and the pane clips its lines; the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it (`lint:deck` does not count these panes yet).';
+    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow). ${pastLines} ${how}`;
   }
   const { words, row, lengths } = authoredRow(vc);
   const cap = hardCap(m);

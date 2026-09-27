@@ -130,6 +130,21 @@
     "stack": false
   },
   "venueCapacity": {
-    "none": "Two code panes side by side; not measured per venue yet (the rig measures the single `code` pane)."
+    "axis": "line",
+    "at": "wide",
+    "lines": {
+      "bare": {
+        "laptop": 20,
+        "huddle": 17,
+        "conference": 15,
+        "hall": 13
+      },
+      "eyebrow": {
+        "laptop": 19,
+        "huddle": 16,
+        "conference": 14,
+        "hall": 11
+      }
+    }
   }
 }

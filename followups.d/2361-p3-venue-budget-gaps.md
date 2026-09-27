@@ -4,20 +4,20 @@ priority: P3
 recorded: 2026-09-27
 ---
 
-# Measure `compare-code` and `obligation-matrix` per venue
+# Venue rows that know `compact`
 
-why now   — they are the two components whose manifest `venueCapacity.none` says "not measured
-            yet" rather than "no count axis". Every other component has a measured row or a
-            reason it cannot have one (2026-09-25-font-scale-fit.md, Amendment 2026-09-27).
-also      — (2026-09-27, PR #2410 checker) the venue rows are measured bare, so they do not know
-            `compact`: a five-pair `q-and-a compact` slide fits at 1x but lint's venue row says 4.
-            Lint no longer claims a 1x clip there; a measured `withCompact` venue row would let it
-            give the right count too.
-where     — tools/lib/calibrate-core.js BUILDERS (+ BODY_WRAP): `compare-code` is two labeled
-            fences side by side (its budget is a line count per pane, like `code`'s
-            `venueCapacity.lines`); `obligation-matrix` is a state-marker table (a row builder
-            like `table`'s, with its marker cells). Then the two manifests.
-done when — both carry a measured `venueCapacity` (or a `none` that names a real reason), and
-            `lint:deck` reads the code-pane one if it becomes `lines`.
-evidence  — the `calibrate-capacity.js <c> --family wide [--scale l|xl|2xl]` runs.
-verify    — tier 0: `node --test test/unit/components/venue-capacity.test.js`.
+why now   — found by the checker on PR #2410. The per-venue rows (`venueCapacity`) are measured on
+            the bare component, so they do not know `compact`: a five-pair `q-and-a compact` slide
+            fits at 1x, but lint's venue row says 4. Lint no longer claims a 1x clip there (it drops
+            the claim for a slide its `withCompact` budget holds), but at a venue it still quotes
+            the bare count. (The original item — measure `compare-code` and `obligation-matrix` per
+            venue — shipped in #2410: 20/17/15/13 lines per pane, 19/16/14/11 under an eyebrow;
+            7/6/6/5 rows.)
+where     — tools/calibrate-capacity.js (`--variant compact` already works), the q-and-a and
+            cards-stack manifests (`venueCapacity.variants.compact`), lint-core `scaleCapacityFor`
+            (it reads a variant row when the slide carries the token — so this may need only the
+            measured rows).
+done when — `venue: huddle` + a five-pair `q-and-a compact` slide is judged by a measured compact
+            row, pinned by a unit test.
+evidence  — the calibration runs at 1 / l / xl / 2xl.
+verify    — tier 0: the unit test plus `npm run lint:deck:all`.
