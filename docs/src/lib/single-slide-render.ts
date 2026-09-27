@@ -1585,19 +1585,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// section k. `paneCounts` maps the one to the other: the shown slide's first section is
 				// `renderedBase`, the deck renders `renderedTotal`, and a split slide shows ONE of its
 				// `paneRun` pages — the one navigation asked for, else the caret's, else the one shown.
-				const paneCounts =
-					typeof opts?.slideIndex === 'number' && Array.isArray(opts.paneCounts) && opts.paneCounts.length === opts.slideCount ? opts.paneCounts : undefined;
-				const paneRun = paneCounts ? Math.max(1, paneCounts[opts?.slideIndex as number] ?? 1) : 1;
-				const renderedBase = paneCounts ? paneCounts.slice(0, opts?.slideIndex).reduce((a, b) => a + b, 0) : (opts?.slideIndex ?? 0);
-				const renderedTotal = paneCounts ? paneCounts.reduce((a, b) => a + b, 0) : opts?.slideCount;
-				let panePage = 0;
-				if (paneRun > 1) {
-					const prev = splitPageByHost.get(host);
-					const kept = prev && prev.slide === opts?.slideIndex && prev.deck === (opts?.deckId ?? '') ? prev.page : 0;
-					const asked = typeof opts?.pageIndex === 'number' ? (Number.isFinite(opts.pageIndex) ? opts.pageIndex : paneRun - 1) : null;
-					const want = asked ?? (typeof opts?.panePage === 'number' ? opts.panePage : kept);
-					panePage = Math.max(0, Math.min(Math.trunc(want), paneRun - 1));
-				}
+				// The arithmetic lives in ./pane-run, loaded only for a host that hands over a map.
+				const paneMod = opts?.paneCounts ? await import('./pane-run') : null;
+				const run = paneMod?.paneRunFor(opts ?? {}, splitPageByHost.get(host));
+				const paneCounts = run?.paneCounts;
+				const paneRun = run?.paneRun ?? 1;
+				const renderedBase = run?.renderedBase ?? opts?.slideIndex ?? 0;
+				const renderedTotal = run ? run.renderedTotal : opts?.slideCount;
+				const panePage = run?.panePage ?? 0;
 				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
@@ -1836,8 +1831,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// run, which the frame's one-page contract cannot show; the PDF still paginates it.
 					canSplit = true;
 					splitPageByHost.set(host, { deck: opts.deckId ?? '', slide: opts.slideIndex, page: panePage });
-					const printed = (out.html.match(/\sdata-lattice-pagination="([^"]+)"/) || [])[1];
-					splitPage = { index: panePage, count: paneRun, label: printed ?? String(renderedBase + panePage + 1) };
+					if (paneMod && run) splitPage = paneMod.panePageReport(out.html, run);
 				} else if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
 					// `firstSlide` is the shown slide's RENDERED number: after a split panes slide it is
 					// one past the source index, and the run's stamps must read as the PDF does.
