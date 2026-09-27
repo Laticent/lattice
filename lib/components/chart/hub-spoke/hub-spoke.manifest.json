@@ -270,5 +270,14 @@
     "landscape",
     "portrait"
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": 60,
+    "noBudget": "a hub-spoke is one top-level item, the hub, with its satellites nested under it, so a count of top-level items is not its size; its own lint (hub-spoke-crowded and the envelope rules) governs density",
+    "review": "stack 50 measured, 60 reviewed: in a band half the stage tall the satellite labels shrink to about 7px"
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  }
 }
