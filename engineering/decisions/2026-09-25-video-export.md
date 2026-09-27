@@ -313,8 +313,8 @@ measured length when it knows it.
   Firefox: **UNVERIFIED**.
 - **The caption track in a real player.** The `wvtt` track the first build muxed showed in no
   player, and was replaced by `tx3g` (§10). FFmpeg reads the new track back; **QuickTime's
-  Subtitles menu, PowerPoint and Keynote are UNVERIFIED** until the owner opens the file, and so
-  is whether QuickTime shows the captions before the viewer picks them.
+  Subtitles menu, PowerPoint and Keynote are UNVERIFIED**. On the owner's iPhone the track
+  appears; the first build showed it unasked, and the track is now flagged off until picked (§10).
 - **Other voices and encoders.** The third run used the Studio's Kokoro through its own
   constant-bitrate MP3 encoder. A hosted voice returning variable-bitrate MP3 can decode to
   different lengths in different decoders (the LTT note §5), and each voice has its own leading
@@ -459,8 +459,11 @@ existing chunk offsets stay valid, and the file on disk is only rewritten from t
 
 **What the track is.** 3GPP timed text (`tx3g`, handler `sbtl`), the format QuickTime, iOS and
 macOS use for subtitles. The sample entry is byte-for-byte the one FFmpeg's `mov_text` muxer
-writes (bottom-centered, white, font 1 "Arial"), and so are the track
-flags (enabled) and alternate group. The samples tile the whole video on a millisecond clock: a text sample
+writes (bottom-centered, white, font 1 "Arial"), and so is the alternate group. The track
+flags are not FFmpeg's: FFmpeg marks a lone subtitle track enabled, and on the owner's iPhone
+(2026-09-27) an enabled track showed its captions while the Subtitles menu read "Off", until the
+viewer picked a caption and then Off again. So the track is flagged in the movie but not enabled
+(flags 2), and stays off until the viewer picks it, which is the owner's fork 3 ruling. The samples tile the whole video on a millisecond clock: a text sample
 while each cue plays, an empty one between cues, so a caption clears when its sentence ends
 instead of lingering to the next. The `wvtt` track is gone rather than kept beside it, so a player
 that reads both does not list English twice.
@@ -474,8 +477,7 @@ that reads both does not list English twice.
 | Sample entry vs. FFmpeg's own `mov_text` output | identical bytes (FFmpeg adds an optional `btrt`) |
 | Cost | 5.2 KB on the fixture's 14 MB (a 3,289-byte `mdat` and a 1,916-byte `trak`); wall time 66 s dark and 68 s light, inside §9's 58–76 s |
 
-**Not verified.** Nothing here runs QuickTime, PowerPoint or Keynote, so whether QuickTime's
-Subtitles menu offers the track, and whether it shows the captions before the viewer picks them
-(FFmpeg's flags mark the track enabled, and a player that honors that may show captions unasked),
-are **UNVERIFIED** until the owner opens the file. The `.vtt` sidecar stays the fallback,
-and PowerPoint's own Insert Captions takes it.
+**Owner check, 2026-09-27 (iPhone, the flags-3 build):** the track appears, the captions play in
+the viewer's chosen style, and they showed unasked with the menu reading "Off", fixed as above.
+**Not verified:** the flags-2 build on the iPhone, QuickTime on a Mac, PowerPoint and Keynote.
+The `.vtt` sidecar stays the fallback, and PowerPoint's own Insert Captions takes it.

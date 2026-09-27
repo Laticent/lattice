@@ -123,12 +123,12 @@ const bodyOf = (buf, type) => {
 	return buf.subarray(at + 8, at + buf.readUInt32BE(at));
 };
 
-test('the sample entry and track header are FFmpeg mov_text\'s own bytes', () => {
+test('the sample entry is FFmpeg mov_text\'s own bytes, and the track is off until picked', () => {
 	const trak = T.tx3gTrak({ trackId: 3, samples: [{ startMs: 0, durMs: 1000, text: null }], sizes: [2], offset: 100, movieTimescale: 1000 });
 	// FFmpeg 7.0.2, `-c:s mov_text` into MP4: the tx3g body up to and including its ftab ("Arial").
 	assert.equal(bodyOf(trak, 'tx3g').toString('hex'), `${'00000000000000010000000001ff000000ff00000000000000000000000000010010ffffffff'}00000012667461620001000105417269616c`);
 	const tkhd = bodyOf(trak, 'tkhd');
-	assert.equal(tkhd.readUInt32BE(0), 3, 'version 0, flags 3: enabled and in the movie');
+	assert.equal(tkhd.readUInt32BE(0), 2, 'version 0, flags 2: in the movie but not enabled, so it is off until picked');
 	assert.equal(tkhd.readUInt16BE(34), 3, 'alternate group 3');
 	assert.equal(bodyOf(trak, 'mdhd').readUInt16BE(20), 0x15c7, "language 'eng'");
 	assert.equal(bodyOf(T.tx3gTrak({ trackId: 3, samples: [], sizes: [], offset: 0, movieTimescale: 1, language: 'EN' }), 'mdhd').readUInt16BE(20), 0x55c4, "an invalid code is 'und'");
