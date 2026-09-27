@@ -259,8 +259,7 @@ measured length when it knows it.
 3. **Captions.** *(Settled by the owner, 2026-09-25: "captions if someone enables it".)* The
    MP4 carries the captions as a track a viewer's player switches on, and the `.vtt` sidecar
    rides beside it. The frames show the player's own caption crawl only when the author
-   exported with captions on, as the HTML export does. Which subtitle format the MP4 carries
-   (`wvtt`, or `tx3g` for QuickTime) is the build's to measure: §7.
+   exported with captions on, as the HTML export does. *(Built 2026-09-27: `tx3g`, §10.)*
 4. **Where `measuredMs` comes from.** *(Recommended: both.)* The video must decode clips
    whatever else happens (§2: 5.7 s of drift otherwise). The question is whether the
    Studio's bake should also record `measuredMs` in the HTML export, so that `timeline()`
@@ -283,7 +282,8 @@ measured length when it knows it.
    no narration, and a fixed outro after the last slide, both in the video only.)* The
    live player needs neither, so the LTT's own holds stay as they are. The lengths are
    the owner's number; one second each is a starting point, not a measurement.
-8. **The Guide's gestures.** *(Recommended: bring the Guide into the exported player.)* The
+8. **The Guide's gestures.** *(**Decided by the owner, 2026-09-27: bring the Guide into the exported
+   player**; the build needs its own decision record and the adversarial trio.)* The
    owner expects the video to gesture as the Studio does (§0). Today only the Studio's Present
    view carries the Guide (`docs/src/components/studio/present-guide.ts` with Vetrina's
    stage); the exported player does not, so neither can a capture of it, and the CLI has no
@@ -292,7 +292,8 @@ measured length when it knows it.
    gestures and the video gets them for free. The cost: the player's script grows, it changes
    export bytes, and it needs its own decision record. The alternative, capturing the Studio's
    Present view headless, works only where the Studio runs and never from the CLI.
-9. **Filling a phone in landscape** (raised by the owner, 2026-09-25). *(Recommended: b.)*
+9. **Filling a phone in landscape** (raised by the owner, 2026-09-25). *(**Decided by the owner,
+   2026-09-27: b, render a second aspect.**)*
    The video is 1920×1080, 16:9, because the slides are; a phone in landscape is about
    19.5:9, so a player shows bars at the sides.
    - **a. Keep 16:9.** Right for a laptop, a projector or slide software.
@@ -304,19 +305,19 @@ measured length when it knows it.
 10. **Exporting video from the Studio** (the owner expects the Studio or the CLI). A web page
    cannot capture its own DOM without asking the viewer for screen-capture permission, so the
    browser Studio cannot run §3 by itself. The desktop (Tauri) app can run it, and so can a
-   service that renders on the author's behalf. *(Recommended: the CLI first, the desktop app
-   next through the same code, and a hosted render only if the web Studio needs it.)*
+   service that renders on the author's behalf. *(**Decided by the owner, 2026-09-27: the desktop
+   app next through the same code, and the CLI voices a deck itself** through an optional kokoro-js
+   install, so `lattice video deck.md` works without the Studio.)*
 
 ## 7. Not decided here, and not verified
 
 - **Playback beyond Chromium.** *(Owner, 2026-09-26: the fixture MP4 plays in **QuickTime**
   and on a **phone / browser**, picture and audio good and in sync.)* PowerPoint, Keynote and
   Firefox: **UNVERIFIED**.
-- **The muxed WebVTT track.** mediabunny writes a `wvtt` track, and reading the file back
-  with the same library lists only the video and audio tracks, so nothing has read the
-  track back. Many players ignore `wvtt`; QuickTime expects `tx3g`. The owner's QuickTime test
-  (2026-09-26) showed no subtitles, which fits: the track is not one a player offers yet. The
-  `.vtt` sidecar is the caption path that is known to work.
+- **The caption track in a real player.** The `wvtt` track the first build muxed showed in no
+  player, and was replaced by `tx3g` (§10). FFmpeg reads the new track back; **QuickTime's
+  Subtitles menu, PowerPoint and Keynote are UNVERIFIED**. On the owner's iPhone the track
+  appears; the first build showed it unasked, and the track is now flagged off until picked (§10).
 - **Other voices and encoders.** The third run used the Studio's Kokoro through its own
   constant-bitrate MP3 encoder. A hosted voice returning variable-bitrate MP3 can decode to
   different lengths in different decoders (the LTT note §5), and each voice has its own leading
@@ -448,3 +449,89 @@ with picture and audio good and in sync. **Not verified.** PowerPoint and Keynot
 showed no subtitles, and QuickTime expects `tx3g`, so the `.vtt` sidecar is the caption path known to work. A Chromium
 without an H.264 encoder was not available, so the probe's refusal is unexercised. Anima motion
 decks were not captured end to end.
+
+## 10. Captions a player offers: `tx3g` (2026-09-27)
+
+The owner's ask after the first build: captions a viewer can switch on in the player. The `wvtt`
+track showed in no player, so the build now writes the caption track itself.
+
+**Why not mediabunny.** mediabunny 1.60 lists one subtitle codec, `webvtt`, and muxes it only as
+`wvtt`. So `lib/export/tx3g.mjs` adds the track after mediabunny finalizes the file: the samples go
+in a second `mdat` and a rewritten `moov` follows it. No picture or sound byte moves, so the
+existing chunk offsets stay valid, and the file on disk is only rewritten from the old `moov` on.
+
+**What the track is.** 3GPP timed text (`tx3g`, handler `sbtl`), the format QuickTime, iOS and
+macOS use for subtitles. The sample entry was first byte-for-byte the one FFmpeg's `mov_text` muxer
+writes (bottom-centered, white, font 1 "Arial"); it keeps that layout and now carries the deck's
+colors (§10a). The alternate group is FFmpeg's too. The track
+flags are not FFmpeg's: FFmpeg marks a lone subtitle track enabled, and on the owner's iPhone
+(2026-09-27) an enabled track showed its captions while the Subtitles menu read "Off", until the
+viewer picked a caption and then Off again. So the track is flagged in the movie but not enabled
+(flags 2), and stays off until the viewer picks it, which is the owner's fork 3 ruling. The samples tile the whole video on a millisecond clock: a text sample
+while each cue plays, an empty one between cues, so a caption clears when its sentence ends
+instead of lingering to the next. The `wvtt` track is gone rather than kept beside it, so a player
+that reads both does not list English twice.
+
+**Measured, on the fixture deck (17 slides, Kokoro af_heart, dark and light).**
+
+| | Result |
+|---|---|
+| FFmpeg 7.0.2 (an independent reader) | lists the stream as `mov_text (tx3g)`, `eng`; decodes the whole file with no error |
+| Track vs. the `.vtt` sidecar | 62 of 62 cues, same text, start and end at 0 ms difference, dark and light |
+| Sample entry vs. FFmpeg's own `mov_text` output | identical bytes (FFmpeg adds an optional `btrt`) |
+| Cost | 5.2 KB on the fixture's 14 MB (a 3,289-byte `mdat` and a 1,916-byte `trak`); wall time 66 s dark and 68 s light, inside §9's 58–76 s |
+
+**Owner check, 2026-09-27 (iPhone, the flags-3 build):** the track appears, the captions play in
+the viewer's chosen style, and they showed unasked with the menu reading "Off", fixed as above.
+**Owner sign-off, 2026-09-27 (iPhone, the flags-2 build, dark and light):** captions stay hidden
+while the menu reads Off and show once English is picked. **Not verified:** QuickTime on a Mac,
+PowerPoint and Keynote.
+The `.vtt` sidecar stays the fallback, and PowerPoint's own Insert Captions takes it.
+
+### 10a. The on-brand caption look (owner, 2026-09-27)
+
+The owner asked for an on-brand caption style that stays on the video (real estate over a reserved
+band) with "tasteful opacity that does not diminish readability". A tx3g track can only SUGGEST a
+look: the viewer's own caption style (iOS: Settings → Accessibility → Subtitles & Captioning) decides
+what a player honors. Two variants went to the owner's iPhone as 50-second clips:
+
+- **A, chosen:** white bold text on the deck's navy at 72% opacity, the same in both modes; then
+  raised to **86%** (below).
+- **B, rejected:** in light mode, navy ink text on a white panel at 82%. On the iPhone the text
+  took our ink but the panel stayed dark, so the caption was dark on dark and unreadable. iOS
+  honored the file's text color and kept its own panel, so **dark caption text is unsafe on
+  iOS whatever panel the file asks for.**
+
+`brandCaptionStyle()` (`lib/export/tx3g.mjs`) builds A from the export's own computed tokens, read
+from the document root where the theme sets them (a slide may override them: indaco's title cover is
+navy in light mode too, and the first build read that cover's colors by mistake). The
+panel is the darker of `--bg` and `--text-heading`, the text the lighter, bold, font "Avenir Next"
+(built into iOS and macOS and the nearest to the player's Outfit, which an MP4 cannot carry). It
+checks the text clears WCAG AA against the panel composited over a white slide, the worst case under
+a translucent dark panel, and falls back to white on black when a theme's colors do not.
+
+| Measured, indaco | Text vs. panel |
+|---|---|
+| Dark (white on navy at 86%) | 11.4:1 over a white slide, 11.6:1 over the pale-blue tile, 17:1 over navy |
+| Light (white on ink at 86%) | 12.1:1 over a white slide, 12.3:1 over the tile, 18:1 over navy |
+
+**Why 86%, not 72%.** On the owner's iPhone the file's panel color and opacity were honored exactly,
+so at 72% a white slide showed through the ink panel and it read as slate gray (79, 87, 100), not the
+deck's ink. At 86% it composites to (44, 55, 70) over white; the owner compared a 50-second clip and
+chose it. The panel is a tight pill around each line, so the extra opacity costs little slide. iOS
+did not honor the file's font or bold: the viewer's caption style kept its own.
+
+**What the second checker found (2026-09-27), and what changed.** Every shipped theme (18, dark and
+light) yields light text on its dark token from the root; the lowest margin is concrete light at
+6.59:1 over a white slide. Fixed: Chromium serializes `oklch()`, `lab()` and `color()` as written,
+so each token is now painted on a 1×1 canvas and read back as sRGB, and a value that is not a color
+(a gradient) counts as missing rather than as the probe's inherited color; a translucent token is
+judged as the color it shows over white; the `style` option clamps its size, keeps the default for
+a null field, and cuts a font name to 255 UTF-8 bytes on a character boundary. Five mutants the
+tests missed (the white-slide composite, the AA threshold, a missing alpha, the font length, a lone
+token) are now caught. **A side effect to know:** FFmpeg turns a non-default style into markup, so
+`ffmpeg -i video.mp4 -map 0:s out.srt` now yields `<font face="Avenir Next"><b>…</b></font>` around
+each caption; the `.vtt` sidecar is the clean text.
+
+**Not verified:** how iOS renders the panel under each built-in viewer style (the owner saw A under
+their own setting), and QuickTime on a Mac.

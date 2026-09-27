@@ -1,5 +1,5 @@
 import { Tooltip as TooltipPrimitive } from "radix-ui"
-import type * as React from "react"
+import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -82,12 +82,7 @@ function TooltipContent({
 // accessible NAME — the tooltip is the DESCRIPTION (Radix wires aria-describedby).
 function Tip({
   label,
-  children,
-  side,
-  align,
-  sideOffset,
-  delayDuration,
-  className,
+  ...props
 }: {
   label: React.ReactNode
   children: React.ReactNode
@@ -97,10 +92,52 @@ function Tip({
   delayDuration?: number
   className?: string
 }) {
-  if (label == null || label === "") return <>{children}</>
+  if (label == null || label === "") return <>{props.children}</>
+  return <KeyboardFocusTip label={label} {...props} />
+}
+
+function KeyboardFocusTip({
+  label,
+  children,
+  side,
+  align,
+  sideOffset,
+  delayDuration,
+  className,
+}: React.ComponentProps<typeof Tip>) {
+  // ON FOCUS, ONLY A KEYBOARD FOCUS. Radix opens a tooltip on any focus that no pointer press just
+  // preceded, and that includes focus a surface hands BACK on close: a kept-mounted sheet
+  // (ui/persistent-surface.tsx) returns focus to its launcher, and after a tap on a phone the
+  // launcher's hint popped up over the toolbar. `:focus-visible` is the browser's own answer to
+  // "did this focus come from the keyboard". The open that such a focus asks for is dropped here,
+  // in the tooltip's own state, rather than by `preventDefault` on the focus event, which would also
+  // switch off the focus handling of any Radix trigger nested in the child (checker review). The
+  // test reads the element that took focus, which may be inside a wrapping span. Hover is untouched.
+  const [open, setOpen] = React.useState(false)
+  const dropOpen = React.useRef(false)
+  const onFocusCapture = React.useCallback((e: React.FocusEvent) => {
+    let keyboard = true
+    try {
+      keyboard = (e.target as Element).matches(":focus-visible")
+    } catch {
+      // An engine without `:focus-visible` keeps Radix's default.
+    }
+    if (keyboard) return
+    // Radix asks to open synchronously, from its own focus handler in this same event.
+    dropOpen.current = true
+    window.setTimeout(() => {
+      dropOpen.current = false
+    }, 0)
+  }, [])
+  const onOpenChange = React.useCallback((next: boolean) => {
+    if (next && dropOpen.current) return
+    setOpen(next)
+  }, [])
   return (
-    <Tooltip delayDuration={delayDuration}>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+    <Tooltip delayDuration={delayDuration} open={open} onOpenChange={onOpenChange}>
+      <TooltipTrigger asChild onFocusCapture={onFocusCapture}>
+        {children}
+      </TooltipTrigger>
       <TooltipContent side={side} align={align} sideOffset={sideOffset} className={className}>
         {label}
       </TooltipContent>

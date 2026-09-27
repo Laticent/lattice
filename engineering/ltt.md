@@ -403,7 +403,8 @@ Video export (step 3) is built: `lib/export/video.mjs`, run by `lattice video`
 (`engineering/pipeline.md` §6). It is a capture of the narrated HTML export's own
 player, so **it guarantees what that player shows**: narration, slide and hold
 timing, and Anima motion, because the capture includes whatever the player draws.
-The captions ride as a WebVTT track in the MP4 and a `.vtt` sidecar, laid out by
+The captions ride as a `tx3g` track in the MP4 (3GPP timed text, the subtitle format
+QuickTime reads; `lib/export/tx3g.mjs`) and a `.vtt` sidecar, both laid out by
 `timeline()` over the measured clip lengths; the caption band is not in the frame.
 **It does not guarantee** tour actions (no recorder writes a seekable run yet), the
 Guide's gestures (the exported player does not carry the Guide; the video note's

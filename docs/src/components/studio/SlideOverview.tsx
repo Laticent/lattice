@@ -1,4 +1,6 @@
 import { X } from 'lucide-react';
+import * as React from 'react';
+import { Frozen, useEverTrue } from '@/components/ui/keep-mounted';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { SLIDE_SEP } from './deck-ops';
@@ -40,7 +42,20 @@ function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid
 }
 
 export function SlideOverview({ open, onClose, options, set, frontMatter = '', current, onJump, paletteOverride, extraTheme, modeOverride, extraCss }: { open: boolean; onClose: () => void; options: SingleSlideOptions; set: string[]; frontMatter?: string; current: number; onJump: (i: number) => void; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string }) {
-	if (!open) return null;
+	// KEPT MOUNTED after the first open, hidden while closed — the same reason as Add slide's
+	// `PersistentSurface`: WebKit never frees a preview document whose frame is destroyed, and this
+	// grid's pool made 14 fresh documents on every `g` (Playwright WebKit, +260 MB over six reopens;
+	// engineering/decisions/2026-09-26-render-drift-and-unclosed-comments.md §5). Kept, a reopen
+	// re-points the frames it already has. The frames stay inside the grid's own scroller, so iOS
+	// scrolls them natively with their tiles. It lives only as long as Present does: closing Present
+	// unmounts the overlay, and this with it.
+	const ever = useEverTrue(open);
+	const scrollRef = React.useRef<HTMLDivElement>(null);
+	// A remount used to open the grid at the top; a kept one would open where the last one scrolled.
+	React.useLayoutEffect(() => {
+		if (open && scrollRef.current) scrollRef.current.scrollTop = 0;
+	}, [open]);
+	if (!ever) return null;
 	// DECK CONTEXT (see DeckPreview's `slideIndex`): every tile renders the SAME deck document and
 	// displays its own slide, so each thumbnail shows its true page number. Handing each tile one
 	// sliced-out slide printed "1" on every tile in the grid — the most visible face of the bug,
@@ -59,7 +74,14 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 	// render out of the per-host renderer — deliberately left for a follow-up.
 	const deck = frontMatter + set.join(SLIDE_SEP);
 	return (
-		<div role="dialog" aria-modal="true" aria-label="Slide overview" className="absolute inset-0 z-20 flex flex-col bg-[color-mix(in_srgb,var(--bg)_94%,transparent)] backdrop-blur-sm">
+		// A dialog only while open: closed, it is a hidden subtree that keeps its frames alive, and
+		// nothing — assistive tech, a `[role=dialog]` query — should find it as a dialog. Hidden by
+		// CLASS: the `hidden` attribute loses to `flex` in the Studio's stylesheet. It is set too, for
+		// what reads the DOM rather than the CSS.
+		<div {...(open ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Slide overview' } : {})} hidden={!open} className={cn('absolute inset-0 z-20 flex flex-col', !open && 'hidden', 'bg-[color-mix(in_srgb,var(--bg)_94%,transparent)] backdrop-blur-sm')}>
+			{/* Frozen while closed: Present re-renders on every slide change, and a hidden grid of
+			    thumbnails has nothing to show for it. It catches up on the next open. */}
+			<Frozen active={open}>
 			<div className="flex items-center gap-2 px-4 py-3 sm:px-6">
 				<span className="font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">All slides — {set.length}</span>
 				<span className="flex-1" />
@@ -70,7 +92,7 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 			    tiles natively and a slot's offset from its tile never has to be re-synced. */}
 			{/* `pt-2`: the current tile's ring sits 3px OUTSIDE the slide (an offset outline, since
 			    the tile has no card of its own), so the scroller needs room above the first row. */}
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-2 sm:px-6">
+			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-2 sm:px-6">
 				<PreviewPool>
 					<div className="grid auto-rows-min grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
 						{set.map((s, i) => (
@@ -98,6 +120,7 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 					</div>
 				</PreviewPool>
 			</div>
+			</Frozen>
 		</div>
 	);
 }

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
+import { Frozen, ScrollTopOnMount, useEverTrue, useShowCount } from '@/components/ui/keep-mounted';
 import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -95,6 +96,7 @@ import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
 import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
+import { SettingsDock } from './settings-dock';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, deckBackdrop } from './slide-provenance';
@@ -4598,6 +4600,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 	];
 
+	// THE SETTINGS PANEL IS KEPT MOUNTED once shown (settings-dock.tsx; the phone's persistent
+	// sheet), because its preset tiles are live previews and WebKit never frees a preview document
+	// whose frame is destroyed. What used to reset by remounting resets on each show instead: the
+	// show counters below key the content, and the deck scroller returns to the top
+	// (`ScrollTopOnMount`, keyed on the same counter).
+	const settingsShown = inspectorOpen && (mobile ? view === 'compose' : effectiveStop === 'craft');
+	const settingsShows = useShowCount(settingsShown);
+	const deckShows = useShowCount(settingsShown && inspectorScope === 'deck');
+	const slideShows = useShowCount(settingsShown && inspectorScope === 'slide');
+	const deckEver = useEverTrue(settingsShown && inspectorScope === 'deck');
+	const deckScrollRef = React.useRef<HTMLDivElement>(null);
+	// THE SCOPE THE PANEL SHOWS. Closed, `inspectorScope` falls back to 'slide', and the kept panel
+	// renders once more on the close (the dock before it hides, the phone sheet through its exit
+	// animation). Reading `inspectorScope` there mounted the whole Slide body into a closed panel
+	// after every Deck close (found by the checker review). The panel keeps the scope it was last
+	// shown in instead.
+	const [lastScope, setLastScope] = React.useState(inspectorScope);
+	if (settingsShown && lastScope !== inspectorScope) setLastScope(inspectorScope);
+	const panelScope = settingsShown ? inspectorScope : lastScope;
+
 	const inspectorBody = (
 		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
 		// so they stack when the PANEL is dragged narrow — not when the window is.
@@ -4612,7 +4634,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    every time the Preset row left the screen: Basic ↔ Advanced, a tab change, a search.
 			    Hoisted here, those switches only re-point the same frames. */}
 			<PreviewPool className="space-y-3">
-			<SettingsFind query={deckQuery}>
+			{/* KEYED PER SHOW, and the pool is outside the key. The panel is kept mounted between
+			    opens (SettingsDock, and the phone's persistent sheet), so without the key it would
+			    reopen with whatever was left open inside it; main remounted it. The key remounts
+			    everything the pool holds, so every open starts fresh, and the pool's frames — which
+			    WebKit never gives back once destroyed — are re-pointed at the new tiles. */}
+			<SettingsFind key={deckShows} query={deckQuery}>
 				{/* The find toolbar lives in the scope banner above this body — one field on the
 				    header row, serving whichever scope is open. The section strip is the GROUPED
 				    view's navigation: a search spans every section, and the list view has no
@@ -4655,15 +4682,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Two phrasings of the same fact: the sentence where the row can hold it, an
 	// abbreviation where it cannot. The long form is what the live region announces at
 	// every width — see the banner below.
-	const scopeLine = inspectorScope === 'deck'
+	const scopeLine = panelScope === 'deck'
 		? { full: `Set it once — all ${slides.length} slides follow`, short: `All ${slides.length} slides` }
 		: { full: `Slide ${activeFullIndex + 1} — overrides the deck`, short: `Slide ${activeFullIndex + 1} override` };
 	// Is the OPEN scope the one being searched? The banner draws one row for whichever
 	// scope is showing, and the field belongs to that scope alone.
-	const searchingHere = inspectorScope === 'deck' ? deckSearching : slideSearching;
+	const searchingHere = panelScope === 'deck' ? deckSearching : slideSearching;
 
 	const inspectorScopeContent = (
 		<>
+			{/* Keyed per show, like the deck body below: the chrome above the body starts fresh on
+			    every open, as it did when closing unmounted it. */}
+			<React.Fragment key={settingsShows}>
 			{/* Scope switch on tablet + mobile: a Slide-first segment. On desktop the
 			    activity bar's Slide/Deck icons ARE the switch, so no in-panel segment. */}
 			{compact && (
@@ -4674,7 +4704,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    text at another; now the switch looks like itself everywhere, and the
 					    banner below stops needing an icon to say which scope you are in. */}
 					{([{ k: 'slide', label: 'Slide', Icon: FileSliders }, { k: 'deck', label: 'Deck', Icon: SlidersHorizontal }] as const).map(({ k, label, Icon }) => (
-						<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
+						<button key={k} type="button" aria-pressed={panelScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', panelScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
 							<Icon className="size-4 shrink-0" />
 							{label}
 						</button>
@@ -4691,7 +4721,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    panel sets how it is configured — calling both "editing" made the two read as the
 			    same act. Both lines are active and address the author directly ("Set it once…",
 			    "What you set here…") rather than describing the panel to itself. */}
-			<div className="@container/scopebar flex min-w-0 items-center gap-1.5 border-b border-border px-3.5 py-2" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+			<div className="@container/scopebar flex min-w-0 items-center gap-1.5 border-b border-border px-3.5 py-2" style={{ background: panelScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
 				{/* ONE line, and it is the line that says something. This band used to be a
 				    title, a badge restating the title, an icon restating the scope, and a
 				    sentence restating all three — 72px of framing above a panel whose first
@@ -4714,7 +4744,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The scope ICON returns on DESKTOP only, and only because the scope switch it
 				    moved to is `compact`-gated — without it the docked banner names the scope
 				    nowhere, leaving a background tint as the sole cue between deck and slide. */}
-				{!compact && (inspectorScope === 'deck'
+				{!compact && (panelScope === 'deck'
 					? <SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
 					: <FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />)}
 				{/* …EXCEPT while the field is open, when the title yields the whole row. §8.1's
@@ -4735,23 +4765,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    the row is the field they are typing into. */}
 				{!searchingHere && (
 					<>
-						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: panelScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
 							{scopeLine.full}
 						</span>
-						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: panelScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
 							{scopeLine.short}
 						</span>
 					</>
 				)}
 				<SettingsToolbar
-					scope={inspectorScope === 'deck' ? 'Deck' : 'Slide'}
+					scope={panelScope === 'deck' ? 'Deck' : 'Slide'}
 					view={settingsView}
 					onViewChange={setSettingsView}
 					tier={settingsTier}
-					query={inspectorScope === 'deck' ? deckQuery : slideQuery}
-					onQueryChange={inspectorScope === 'deck' ? setDeckQuery : setSlideQuery}
-					searching={inspectorScope === 'deck' ? deckSearching : slideSearching}
-					onSearchingChange={inspectorScope === 'deck' ? setDeckSearching : setSlideSearching}
+					query={panelScope === 'deck' ? deckQuery : slideQuery}
+					onQueryChange={panelScope === 'deck' ? setDeckQuery : setSlideQuery}
+					searching={panelScope === 'deck' ? deckSearching : slideSearching}
+					onSearchingChange={panelScope === 'deck' ? setDeckSearching : setSlideSearching}
 					className="!pt-0 min-w-0 shrink"
 				/>
 				{/* `PanelLeftClose`, not a ✕ — this collapses the DOCKED PANEL, and the preview's
@@ -4760,17 +4790,39 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    opened: clear the field, close the field, collapse the panel, all the same
 				    mark within 100px of a 296px panel. The first two are one button now; this
 				    one says what it actually does. */}
-				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
+				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: panelScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
 			</div>
-			{inspectorScope === 'deck' ? (
-				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
-			) : (
-				<PanelLoader panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
+			</React.Fragment>
+			{/* THE DECK BODY STAYS MOUNTED once shown, hidden (and frozen) under the Slide scope,
+			    because its preview pool is in it: switching Slide → Deck used to rebuild the preset
+			    tiles' frames, and WebKit never frees one. The Slide body has no previews and mounts
+			    per switch, as before. */}
+			{deckEver && (
+				<div ref={deckScrollRef} hidden={panelScope !== 'deck'} className={cn(panelScope !== 'deck' && 'hidden', 'flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]')}>
+					<Frozen active={panelScope === 'deck'}>
+						<ScrollTopOnMount key={deckShows} target={deckScrollRef} />
+						{inspectorBody}
+					</Frozen>
+				</div>
+			)}
+			{panelScope === 'slide' && (
+				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
 					{(SlideContextBody) => <SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
 				</PanelLoader>
 			)}
 		</>
 	);
+
+	// The docked settings (desktop, tablet): the column in the split is an empty slot, and this host
+	// draws the panel over it — mounted from the first open, hidden while there is no slot.
+	const [settingsSlot, setSettingsSlot] = React.useState<HTMLDivElement | null>(null);
+	const [mainEl, setMainEl] = React.useState<HTMLElement | null>(null);
+	const settingsDockEver = useEverTrue(!!settingsSlot);
+	const settingsDock = settingsDockEver ? (
+		<SettingsDock slot={settingsSlot} container={mainEl} className="bg-background">
+			{inspectorScopeContent}
+		</SettingsDock>
+	) : null;
 
 	// ── Editor pane — shared by all breakpoints ──────────────────────────────
 	// The old `md:border-r` divider is gone: the SplitHandle's border-l IS the
@@ -6013,7 +6065,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    beside the work region, not within it. Same reasoning would apply to any
 					    future `aside` (§10-R3): there are none today, so nothing here nests a
 					    landmark inside `main`. */}
-					<main id="main-content" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1">
+					<main ref={setMainEl} id="main-content" tabIndex={-1} className="relative flex min-h-0 min-w-0 flex-1">
 						{/* The page's one H1. The Studio is a full-page app whose visible top-level label is the
 						    branded site header, not a heading — so every shell shipped with NO h1 at all, and a
 						    screen-reader user landing here got a heading outline that started at the deck's own
@@ -6021,6 +6073,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    surface deliberately has no room for a title bar. Inside <main> on purpose: outside it
 						    the heading would be page content sitting in no landmark. */}
 						<h1 className="sr-only">Lattice Studio</h1>
+						{/* Before the group on desktop, where the column is the first one; after it on
+						    tablet, where it is the last — so the tab order still follows the screen. */}
+						{desktop && settingsDock}
 					<ResizablePanelGroup
 						className="group/split min-h-0 flex-1"
 						data-studio-split=""
@@ -6037,7 +6092,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{desktop && effectiveStop === 'craft' && inspectorOpen && (
 							<>
 								<ResizablePanel id="studio-settings" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={SET_DEFAULT} className="overflow-hidden border-r border-border bg-background">
-									{inspectorScopeContent}
+									{/* Empty: the settings are drawn over this box by `settingsDock`, which outlives it. */}
+									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize settings panel" />
 							</>
@@ -6098,11 +6154,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<>
 								<ResizableHandle aria-label="Resize inspector panel" />
 								<ResizablePanel id="studio-tablet-inspector" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={296} className="overflow-hidden border-l border-border bg-background">
-									{inspectorScopeContent}
+									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
 							</>
 						)}
 					</ResizablePanelGroup>
+					{bp === 'tablet' && settingsDock}
 					</main>
 
 				</div>
@@ -6161,7 +6218,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
 					{mobile && (
-						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md">
+						// PERSISTENT for the deck body's preview pool: kept mounted between opens, as Add
+						// slide is (ui/persistent-surface.tsx), and frozen while closed.
+						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md" persistent>
+							<Frozen active={inspectorOpen}>
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
@@ -6170,6 +6230,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							{/* No outer overflow: the scope body owns its own scroll region (like the
 							    desktop column), so the sheet never nests two scrollbars. */}
 							<div className="flex min-h-0 flex-1 flex-col">{inspectorScopeContent}</div>
+							</Frozen>
 						</PanelSheet>
 					)}
 				</>
