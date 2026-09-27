@@ -5852,9 +5852,10 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
-    file: 'docs/e2e/code-packages.spec.ts', ms: 2500, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS, and they are the claim the spec exists to prove: a hostile code '
-       + 'package (unapproved, then approved) sends NOTHING to a loopback HTTP server or a UDP '
+    file: 'docs/e2e/code-packages.spec.ts', ms: 2500, count: 3,
+    why: 'THREE ABSENCE ASSERTIONS, and they are the claim the spec exists to prove: a hostile code '
+       + 'package (unapproved, then approved), and a package that reads only `slide.facts` and tries '
+       + 'to send them out (contract note §11), send NOTHING to a loopback HTTP server or a UDP '
        + 'socket (contract note 2026-09-24 §9). There is no signal for a request that must not '
        + 'arrive; a poll of an empty log goes green on its first tick. 2500ms covers the package\'s '
        + 'own load-time and per-slide attempts (fetch, WebSocket, WebRTC ICE gathering, which is '

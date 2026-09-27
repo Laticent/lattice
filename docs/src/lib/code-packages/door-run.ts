@@ -7,10 +7,26 @@
 import DOMPurify from 'dompurify';
 import { doorFinish } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
-import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
+import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { type CodePackagesStatus, codePackages, isApproved, type Renderer, report, type StudioCodePackage } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';
+
+// The palette token names every theme defines, handed to a package in its slide's facts. The theme
+// core is already a chunk of its own (import-gate.ts); this module is itself loaded only when a
+// render meets a code package, so it costs the first load nothing.
+// A load that fails (a stale chunk after a deploy) is forgotten, and its error reads "not loaded",
+// which the door treats as a failure of the moment and runs again next render; kept, it failed every
+// package in the tab until a reload (the checker).
+let tokensLoad: Promise<string[]> | null = null;
+const contractTokens = () =>
+	(tokensLoad ??= import('@/playground/theme-core.generated.js').then(
+		(m) => m.requiredTokenList() as string[],
+		() => {
+			tokensLoad = null;
+			throw new Error('the palette token list was not loaded');
+		},
+	));
 
 type DoorFinish = (doc: Document, sanitize: (html: string, filter: unknown) => string, html: string, handed: string, pkg: string) => { html: string; classes: string[] } | { error: string };
 type Claim = { i: number; pkg: string; index: number; html: string; idPrefix: string; baseUrl: string };
@@ -126,7 +142,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
 		else {
 			try {
-				const raw = await (await frameFor(p, frames)).run({ html: c.html, index: c.index, idPrefix: c.idPrefix, baseUrl: c.baseUrl }, SLIDE_MS);
+				const raw = await (await frameFor(p, frames)).run(slideInput(c, await contractTokens()), SLIDE_MS);
 				total += raw.length;
 				if (total > RENDER_OUTPUT_MAX) throw new Error(`the render's code packages returned more than ${RENDER_OUTPUT_MAX.toLocaleString('en-US')} characters in all`);
 				const done = (doorFinish as DoorFinish)(document, doorSanitizer(), raw, c.html, c.pkg);
