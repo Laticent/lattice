@@ -497,7 +497,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/measure-word-cloud-drop.mjs` | measure-word-cloud-drop.mjs — which words a word cloud LISTS and does not DRAW. |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
-| `tools/pdf-writer-parity.mjs` | PDF writer parity — the shared writer (lib/core/pdf-compose) against Chrome's printer. |
+| `tools/pdf-writer-parity.mjs` | PDF writer parity — the shared writer (lib/core/pdf-compose) against the screen or Chrome's printer: a per-page percentage plus a thin-line sweep (longest run of differing pixels) that catches a stray or missing 1px line. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/reader-extraction-probe.mjs` | Reader-mode extraction probe — re-derive the numbers behind the reader-mode work |

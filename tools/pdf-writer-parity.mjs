@@ -11,6 +11,15 @@
 // how much of each page differs, and what the writer left in the photo and why
 // (LATTICE_PDF_REPORT). Montages of the worst pages go to the output directory for a
 // human to look at: a percentage says WHERE to look, never whether it is right.
+//
+// A percentage cannot see a THIN-LINE defect: a 1px line running to the page edge moves
+// under 1% of a page, and a whole slide blanked below a broken operator ranked nowhere. So
+// each page also gets `run`, the longest line of differing pixels along any row or column
+// at the screen's own scale (96 dpi). A pixel counts only if its color falls outside the
+// range of its 3x3 neighbors on the other side AND the ink in that neighborhood differs: a
+// sub-pixel shift, or a line drawn crisper than the 1x screenshot, does not count; a line
+// present on one side only does. `summary.thin` lists the longest runs, worst first.
+// engineering/decisions/2026-09-27-studio-export-one-engine.md (the thin-line sweep).
 // engineering/decisions/2026-09-27-studio-export-one-engine.md.
 //
 // On-demand, like the regression gate — never a CI step: two Chrome renders per deck.
@@ -23,13 +32,14 @@
 //     --montages N    worst pages to montage (default 40)
 //     --out DIR       default .scratch/pdf-writer-parity
 //     --oracle screen|chrome   what to compare against (default screen)
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych } = require('./pixel-check.js');
+const { PNG } = require('pngjs');
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 
 const argv = process.argv.slice(2);
@@ -77,7 +87,57 @@ async function one(src) {
 		pages.push({ page: i, frac: d ? (d.pixels < 0 ? 1 : d.pixels / d.total) : 0, ...(d?.note ? { note: d.note } : {}), d });
 	}
 	const report = JSON.parse(fs.readFileSync(rep, 'utf8'));
+	for (const t of thinRuns(chrome, mine, name)) { const p = pages.find((q) => q.page === t.page); if (p) Object.assign(p, t); }
 	return { name, ms: Date.now() - t0, pages, report, bytes: { writer: fs.statSync(mine).size, chrome: fs.statSync(chrome).size } };
+}
+
+/** Per page: the longest run of differing pixels along a row or column, and where it is. */
+function thinRuns(oraclePdf, writerPdf, name) {
+	const T = 48;
+	const tmp = fs.mkdtempSync(path.join(OUT, `.thin-${name.slice(-40)}-`));
+	try {
+		for (const [tag, pdf] of [['a', oraclePdf], ['b', writerPdf]]) spawnSync('pdftoppm', ['-r', '96', '-png', pdf, path.join(tmp, tag)]);
+		const num = (f) => Number(f.match(/-(\d+)\.png$/)[1]);
+		const out = [];
+		for (const fa of fs.readdirSync(tmp).filter((f) => f.startsWith('a-'))) {
+			const fb = fa.replace(/^a-/, 'b-');
+			if (!fs.existsSync(path.join(tmp, fb))) continue;
+			const A = PNG.sync.read(fs.readFileSync(path.join(tmp, fa))), B = PNG.sync.read(fs.readFileSync(path.join(tmp, fb)));
+			if (A.width !== B.width || A.height !== B.height) continue;
+			const { width: w, height: h } = A;
+			const far = (P, Q, x, y) => {
+				for (let c = 0; c < 3; c++) {
+					let lo = 255, hi = 0;
+					for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+						const xx = x + dx, yy = y + dy;
+						if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+						const v = Q.data[(yy * w + xx) * 4 + c];
+						if (v < lo) lo = v;
+						if (v > hi) hi = v;
+					}
+					const v = P.data[(y * w + x) * 4 + c];
+					if (v < lo - T || v > hi + T) return true;
+				}
+				return false;
+			};
+			const ink = (P, x, y, c) => {
+				let v = 0;
+				for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) v += 255 - P.data[(Math.min(h - 1, Math.max(0, y + dy)) * w + Math.min(w - 1, Math.max(0, x + dx))) * 4 + c];
+				return v;
+			};
+			const bad = new Uint8Array(w * h);
+			for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+				bad[y * w + x] = (far(A, B, x, y) || far(B, A, x, y)) && [0, 1, 2].some((c) => Math.abs(ink(A, x, y, c) - ink(B, x, y, c)) > 2 * T) ? 1 : 0;
+			}
+			let run = 0, where = '';
+			for (let y = 0; y < h; y++) { let r = 0; for (let x = 0; x < w; x++) { r = bad[y * w + x] ? r + 1 : 0; if (r > run) { run = r; where = `row y=${y} x<=${x}`; } } }
+			for (let x = 0; x < w; x++) { let r = 0; for (let y = 0; y < h; y++) { r = bad[y * w + x] ? r + 1 : 0; if (r > run) { run = r; where = `col x=${x} y<=${y}`; } } }
+			out.push({ page: num(fa), run, where });
+		}
+		return out;
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
 }
 
 /**
@@ -139,7 +199,9 @@ const summary = {
 	bytes: { writer: sum((r) => r.bytes.writer), chrome: sum((r) => r.bytes.chrome) },
 	drawn: { words: sum((r) => r.report.words), shapes: sum((r) => r.report.shapes), images: sum((r) => r.report.images), links: sum((r) => r.report.links) },
 	leftInPhoto: refused,
+	// The thin-line sweep: the longest runs, which a percentage ranking cannot surface.
+	thin: [...allPages].filter((p) => p.run).sort((x, y) => y.run - x.run).slice(0, 40).map((p) => ({ deck: p.deck, page: p.page, run: p.run, where: p.where })),
 	worst: allPages.slice(0, 25).map((p) => ({ deck: p.deck, page: p.page, pct: +(p.frac * 100).toFixed(2), note: p.note, montage: p.montage && path.relative(ROOT, p.montage) })),
 };
 fs.writeFileSync(path.join(OUT, 'summary.json'), JSON.stringify(summary, null, 2));
-console.log(JSON.stringify({ ...summary, worst: summary.worst.slice(0, 10) }, null, 2));
+console.log(JSON.stringify({ ...summary, worst: summary.worst.slice(0, 10), thin: summary.thin.slice(0, 10) }, null, 2));
