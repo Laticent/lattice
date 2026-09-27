@@ -40,7 +40,11 @@ section.video .video-poster {
   flex: 0 1 auto;
   min-width: 0;
   border-radius: var(--radius-lg, 0.75rem);
-  background: var(--qr-ink, #14140f) center / cover no-repeat;
+  /* The surface UNDER a poster still decoding is the slide's own raised surface, not the
+   * dark video ink: a light poster used to paint near-black until its image landed, then
+   * flash to white (measured: 1.7 s of near-black with the poster held 2 s, followup
+   * 2358-p3). The dark tile belongs to the no-poster case below, which keeps it. */
+  background: var(--bg-alt, #f3f3f1) center / cover no-repeat;
   box-shadow: 0 12px 40px rgba(10, 22, 40, 0.28);
   overflow: hidden;
   text-decoration: none;

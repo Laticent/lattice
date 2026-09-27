@@ -2,3 +2,4 @@
 - The Studio preview no longer shows an image slide in a provisional layout and then jumps when its picture arrives: the first reveal waits for the picture's size, up to 4 seconds, and a later arrival fades through instead of jumping.
 - Tapping a video's poster in the Studio preview plays the clip again, on desktop and touch. The preview's gesture layer had been swallowing the tap.
 - In an exported player, a slide's web link (a video poster, a contact or closing URL) now opens in a new tab. Before, it replaced the player in the same tab and the reader lost the deck.
+- A video slide with a light poster no longer shows a near-black tile while the poster loads on a light slide: the tile under a loading poster is the slide's own surface. The no-poster placeholder keeps its dark video tile.
