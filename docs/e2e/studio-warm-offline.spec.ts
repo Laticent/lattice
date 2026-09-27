@@ -138,15 +138,17 @@ async function expectLoaded(page: Page, what: string): Promise<void> {
 
 // The SWEEP. Every surface the Studio loads on demand, opened offline in one session that never
 // opened any of them online: the six panels, Editor, Compose, Present, Fabricate and the reading
-// view (the whole `React.lazy` / `lazyPanel` set in docs/src). The cases above prove each warm-up
-// in isolation; this one is what would have caught Compose, which no single-surface case covered.
-// A new on-demand surface belongs in this list.
+// view (the whole `React.lazy` / `lazyPanel` set in docs/src). The venue clip notice is the one
+// exception: opening it needs a slide that clips at a venue, so the sweep checks only that its
+// chunk is cached. The cases above prove each warm-up in isolation; this one is what would have
+// caught Compose, which no single-surface case covered. A new on-demand surface belongs in this
+// list: `grep -rn "React.lazy(\|lazyPanel(" docs/src` is the census.
 test('every on-demand Studio surface opens offline after a session that opened none of them', async ({ page }) => {
 	test.setTimeout(300_000);
 	const { server, origin } = await serveDist();
 	try {
 		const panels = ['ShareSheet', 'WorkspaceSheet', 'SlideContext', 'ArchitectChat', 'Library', 'LensesPanel'];
-		await warmOnline(page, origin, [...panels, 'Editor', 'ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'], { fabricateUsed: true });
+		await warmOnline(page, origin, [...panels, 'Editor', 'ClipNotice', 'ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'], { fabricateUsed: true });
 		await goOffline(page, server);
 		await expect(page.locator('.cm-editor').first(), 'the Editor did not load offline').toBeVisible({ timeout: 30_000 });
 

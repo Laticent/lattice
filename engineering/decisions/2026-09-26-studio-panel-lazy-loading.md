@@ -430,7 +430,10 @@ Save-Data warms none of them. Two SWEEP cases then open every on-demand surface 
 session: all eleven (`React.lazy` and `lazyPanel`) on desktop, and every tab at phone size. The
 single-surface cases never covered Compose, which is how it reached a real phone; with the
 Compose warm-up removed, both sweeps fail at "Compose did not load offline". A new on-demand
-surface belongs in the sweep's list. Against a build without this change, the first two tests fail
+surface belongs in the sweep's list. The first one arrived with #2410 while this PR was open:
+the venue clip notice renders inside a `Suspense` with no error boundary of its own, so offline its
+failed load would have replaced the whole Studio. It is 1.7KB gz and warms for everyone, Save-Data
+included. Against a build without this change, the first two tests fail
 at the warm-up step ("the warm-up never cached PresentOverlay, ReadArticle, …").
 
 ## Delivery

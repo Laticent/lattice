@@ -26,27 +26,27 @@ afterEach(() => {
 });
 
 describe('startStudioWarmUp', () => {
-	it('warms Compose, Present and the reading view; not Fabricate for a browser that never opened it', () => {
-		expect(queueFor({})).toHaveLength(3);
+	it('warms the clip notice, Compose, Present and the reading view; not Fabricate for a browser that never opened it', () => {
+		expect(queueFor({})).toHaveLength(4);
 	});
 
 	it('adds Fabricate once this browser has opened it', () => {
-		expect(queueFor({ fabricateUsed: true })).toHaveLength(4);
+		expect(queueFor({ fabricateUsed: true })).toHaveLength(5);
 	});
 
 	it('adds the KaTeX provider for a deck with math, and fetches it without running it', async () => {
 		const fetch = vi.fn(async () => new Response(''));
 		vi.stubGlobal('fetch', fetch);
 		const queue = queueFor({ katexUrl: '/playground/v/abc/lattice-katex.js' });
-		expect(queue).toHaveLength(4);
-		await queue[3].load();
+		expect(queue).toHaveLength(5);
+		await queue[4].load();
 		expect(fetch).toHaveBeenCalledWith('/playground/v/abc/lattice-katex.js');
 	});
 
-	it('skips every new surface under Save-Data, except Fabricate for a browser that asked for it', () => {
+	it('under Save-Data keeps only the 1.7KB clip notice, plus Fabricate for a browser that asked for it', () => {
 		Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
-		expect(queueFor({ katexUrl: '/k.js' })).toHaveLength(0);
-		expect(queueFor({ fabricateUsed: true })).toHaveLength(1);
+		expect(queueFor({ katexUrl: '/k.js' })).toHaveLength(1);
+		expect(queueFor({ fabricateUsed: true })).toHaveLength(2);
 	});
 });
 

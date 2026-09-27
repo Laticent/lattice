@@ -48,6 +48,9 @@ export function warmable(loader: () => Promise<unknown>): Warmable {
 	};
 }
 
+// The venue clip notice (#2410) renders in a Suspense with no error boundary of its own, so a
+// failed load reaches the Studio-wide boundary. It is 1.7KB gz, so it warms even under Save-Data.
+const clipNoticeWarm = warmable(() => import('./ClipNotice'));
 const composeWarm = warmable(() => import('./ComposeView'));
 const presentWarm = warmable(() => Promise.all([import('./PresentOverlay'), import('./narration-projection').then((m) => m.warmNarrationProjection())]));
 const readArticleWarm = warmable(() => Promise.all([import('./ReadArticle'), import('./article-projection').then((m) => m.warmArticleProjection())]));
@@ -68,5 +71,5 @@ export function startStudioWarmUp({ warmPanels, katexUrl, fabricateUsed }: WarmU
 	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
 	if (katexUrl) katexWarm ??= warmable(() => fetch(katexUrl));
 	const surfaces = saveData ? [] : [composeWarm, presentWarm, readArticleWarm, ...(katexUrl && katexWarm ? [katexWarm] : [])];
-	return warmPanels([...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
+	return warmPanels([clipNoticeWarm, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
 }
