@@ -223,6 +223,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:theme` | Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet). |
 | `test:tokens` | Unit scope: the universal token system. |
 | `test:tools` | Unit scope: author tools (export-marp, …). |
+| `test:trama` | Unit scope: trama, the graph-chart library the flowchart is built on. |
 | `test:transform-dsl` | Unit scope: the declarative component-transform DSL and its safety validator (lib/core/transform-dsl). |
 | `test:transformers` | Unit scope: transformer registry/adapters. |
 | `test:watch` | Re-run the unit suite on file change. |
@@ -299,7 +300,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `followups` | List followups.d/ — every pending item with no issue, one line each (contract: followups.d/README.md). |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
-| `test:trama` | **TODO: describe `test:trama` in tools/build-capabilities.js (SCRIPT_META).** |
 
 ## Tools — `tools/`
 
@@ -497,7 +497,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/measure-word-cloud-drop.mjs` | measure-word-cloud-drop.mjs — which words a word cloud LISTS and does not DRAW. |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
-| `tools/pdf-writer-parity.mjs` | PDF writer parity — the shared writer (lib/core/pdf-compose) against the screen or Chrome's printer: a per-page percentage plus a thin-line sweep (longest run of differing pixels) that catches a stray or missing 1px line. |
+| `tools/pdf-writer-parity.mjs` | PDF writer parity — the shared writer (lib/core/pdf-compose) against the screen, with a thin-line sweep. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/reader-extraction-probe.mjs` | Reader-mode extraction probe — re-derive the numbers behind the reader-mode work |

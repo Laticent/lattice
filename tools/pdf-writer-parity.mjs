@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PDF writer parity — the shared writer (lib/core/pdf-compose) against Chrome's printer.
+// PDF writer parity — the shared writer (lib/core/pdf-compose) against the screen, with a thin-line sweep.
 //
 // Renders each deck through the CLI with the shared writer (the default), then compares it,
 // page by page, with an ORACLE. `--oracle screen` (the default) is what the slide looks like:

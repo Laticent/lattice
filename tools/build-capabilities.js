@@ -188,6 +188,7 @@ const SCRIPT_META = {
   'test:engine':              ['Test & verify', 'Unit scope: lattice-engine internals.'],
   'test:layout':              ['Test & verify', 'Unit scope: the layout system.'],
   'test:transformers':        ['Test & verify', 'Unit scope: transformer registry/adapters.'],
+  'test:trama':               ['Test & verify', 'Unit scope: trama, the graph-chart library the flowchart is built on.'],
   'test:adaptive':            ['Test & verify', 'Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract.'],
   'test:concepts':            ['Test & verify', 'Unit scope: the concept ontology (lib/concepts) and its drift gate against the live catalogs.'],
   'test:exemplars':           ['Test & verify', 'Unit scope: the exemplar decks and the exemplar-core bundle.'],
