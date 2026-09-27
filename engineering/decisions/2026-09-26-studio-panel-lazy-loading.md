@@ -6,7 +6,8 @@ summary: Load six Studio panels on first open instead of at startup — Share, W
 # Studio panels: load on first open, not at startup
 
 **Owner decisions (2026-09-26):** scope is all six panels; load timing is option B (on
-first open, plus an idle warm-up). Both were the recommended options below.
+first open, plus an idle warm-up). Both were the recommended options below. **2026-09-27:**
+while a panel loads, it shows a shell that looks like the panel (§"While a panel loads").
 
 ## The short version
 
@@ -102,9 +103,62 @@ I will log it in `followups.d/` instead of widening this PR.
 Follow the Present split (`StudioShell.tsx:166`): render the lazy panel only once it has
 been opened (`xOpen || xEverOpened`), so a closed panel costs nothing and a re-opened one
 keeps its state. The compact Library sheet (`StudioShell.tsx:6087`) is always mounted
-today and needs that gate added. Wrap each lazy panel in `React.Suspense`, using the panel's
-existing empty-state chrome as the fallback, not a blank. Wrap it in the existing
-`ErrorBoundary` + `messageForFailure` (`src/lib/chunk-load.ts`) so a failed load says so.
+today and needs that gate added.
+
+### While a panel loads: a shell that looks like the panel
+
+**Owner decision (2026-09-27): while a panel's code loads, show a shell that looks like the
+panel that is about to appear, not a generic spinner or gray box.**
+
+- **The shell reuses the panel's real frame.** Every one of the six is built from the shared
+  primitives in `docs/src/components/ui/` — `PanelSheet`, `PanelHeader`, `PillTabs`,
+  `PanelSearch`, the settings tier switch. Each shell renders the same primitives with the
+  same props: the same title, icon, width, tabs and search box. Only the parts that depend on
+  data (cards, messages, settings rows) are gray blocks, laid out like the loaded content.
+- **Shared text lives in one place.** Titles, tab lists and section labels that a shell and
+  its panel both show move into a small module that loads at startup (`panel-shells.tsx`).
+  The panel imports them from there, so the shell cannot drift from the panel. The module
+  must not import anything heavy, or the split recovers nothing.
+- **Accessibility** follows `ComposeSkeleton`: the gray blocks are `aria-hidden`, and one
+  `role="status"` line announces "Loading Share…".
+
+**A warmed panel shows no shell at all.** A small loader (`lazy-panel.tsx`) keeps each
+panel's promise. Once the idle warm-up has resolved it, the panel renders on its first frame:
+React 19's `use()` returns synchronously for a promise marked fulfilled. So the shell appears
+only on a click before the warm-up finishes, on a slow first visit, or after a failed load.
+
+**A cold sheet must slide in once, not twice.** `PanelSheet` animates in over 500 ms when it
+mounts (`ui/sheet.tsx`). If the real sheet replaced the shell's sheet, the slide-in would
+play a second time, or cut short mid-slide. So the loader for Share, Workspace and the
+compact Library keeps the shell up until its slide-in has finished. The real sheet then
+mounts in place with its enter animation switched off, through a context flag that
+`PanelSheet` reads. The flag clears when the sheet next closes, so later opens animate
+normally. The docked panels have no enter animation and swap straight away.
+
+**The shell is a real sheet.** Escape, a click outside and the close button all close it,
+the same as the loaded panel. The August split shipped a loading screen with no way out
+(`2026-08-23-studio-shell-decomposition.md` §4.1.2).
+
+**A failed load shows the existing chunk-load card inside the shell's frame**, through the
+shared `ErrorBoundary` (`src/components/ErrorBoundary.tsx`). That card offers Reload and
+not Retry, deliberately: the browser caches a failed `import()` for the life of the page, so
+a retry can't succeed (#1242). Because the card sits inside the frame, a sheet stays
+closable.
+
+### How the shells are vetted
+
+A shell that claims to look like its panel has to be checked against the panel. For each of
+the six panels, at 1440, 820 and 390px:
+
+1. **Side by side.** Screenshot the shell (hold the panel's chunk with a Playwright route
+   delay) and the loaded panel at the same viewport. Both go in the PR, paired.
+2. **No layout shift.** Measure the header, tabs and search box in both states with
+   `getBoundingClientRect()`. They must match exactly. A frame that moves when the content
+   arrives is the jank this design exists to avoid.
+3. **One slide-in.** For each sheet, record a cold open with the chunk delayed past 500 ms
+   and past 100 ms, and confirm the sheet slides in once in both cases.
+4. **Escape works** while the shell is showing, and focus lands inside the loaded panel
+   afterwards.
 
 None of the six panels exposes an imperative handle, and every command-palette and tour
 action that opens one is a plain state setter (Aug 23 §6). The effects inside
