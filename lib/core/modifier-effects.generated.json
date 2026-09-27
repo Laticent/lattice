@@ -156,6 +156,13 @@
         "numbered"
       ]
     },
+    "flowchart": {
+      "surfaces": [
+        "chart-marks",
+        "eyebrow",
+        "heading"
+      ]
+    },
     "funnel": {
       "surfaces": [
         "chart-marks",
