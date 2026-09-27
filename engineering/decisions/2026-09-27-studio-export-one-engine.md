@@ -283,6 +283,14 @@ Order of work, all in one PR (#2404):
     to `.lattice` long ago. It erased the deck's own tone rail and finish frame from every
     Studio image export, the photo lanes and PPTX included, while the CLI kept them. The reset
     is gone.
+- **Big screens: borders are vectors (candidate, pending the owner's pick).** At 4K a 1x photo
+  smears a 1px card border or heading rule across 5 to 6 px (measured on slide 2 of the
+  Northwind deck). Solid HTML borders are now drawn as vectors (straight sides as rectangles,
+  an even rounded border as a ring) and made transparent in the photo, and they match Chrome's
+  printed line pixel for pixel. Fills stay in the photo, because a fill drawn on top would bury
+  whatever the photo still carries inside the box. Dashed or mixed-color borders, elliptical
+  radii, and borders something paints over stay in the photo. The alternative under test is a
+  2x photo: nearly as sharp, but 500 KB against 204 KB for the dark deck.
 - **Known limits:**
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
     trades size for it.

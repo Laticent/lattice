@@ -419,6 +419,19 @@ describe('export-formats', () => {
     assert.ok(richCorner < printCorner, `the color page carries a finish there (${richCorner.toFixed(1)} vs ${printCorner.toFixed(1)}) — else this test proves nothing`);
   });
 
+  test('card borders are drawn as vectors, not left in the photo to blur on a big screen', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'cards.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\ncolor-mode: dark\n---\n\n<!-- _class: stats -->\n\n## Four cards\n\n1. $14.2M\n   - revenue\n2. 118%\n   - retention\n3. 3.1%\n   - churn\n4. 41\n   - logos\n');
+    const out = path.join(dir, 'cards.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const report = JSON.parse(fs.readFileSync(rep, 'utf8'));
+    // The slide has no SVG, so every shape is a lifted border: one ring per card at least.
+    assert.ok(report.shapes >= 4, `the four card borders are vector shapes (got ${report.shapes})`);
+    assert.deepEqual(Object.keys(report.refusedShapes || {}).filter((k) => k.startsWith('border-')), [], 'no card border is left in the photo');
+  });
+
   test('a Mermaid flowchart keeps its edges and arrowheads', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const src = path.join(dir, 'flow.md');
