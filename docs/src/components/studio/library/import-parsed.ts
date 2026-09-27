@@ -21,7 +21,7 @@ import { type ImportRename, renameAssetInSource } from '../asset-rename';
 
 export { applyImportRenames, type ImportRename } from '../asset-rename';
 
-import { codeNameRefusal } from '../../../../../lib/packages/code-door-core.mjs';
+import { codeNameRefusal } from '../../../../../lib/packages/code-shape.mjs';
 import reservedClasses from '../../../../../lib/packages/reserved-classes.generated.js';
 import { listStudioComponents, saveStudioComponent, toMeta } from '../component-library';
 import { listStudioFinishes, safeSaveSlug, saveStudioFinish } from '../finish-library';

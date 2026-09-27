@@ -24,7 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
-import { codePackagesStamp, setCodePackages } from '@/lib/code-packages/door';
+import { codePackagesStamp, setCodePackages } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
@@ -47,7 +47,6 @@ import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
-import { CodePackagesNotice } from './CodePackagesNotice';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
@@ -183,6 +182,10 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 // is not fetched at startup: it arrives with the idle warm-up (`studio-warm.ts`), or on the
 // first "Present" click if that comes first.
 const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
+
+// The code-package notice renders only once the Library holds a code package (`codeStamp` is empty
+// until then), so its chunk is not part of the Studio's first load (docs/route-budget.json).
+const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then((m) => ({ default: m.CodePackagesNotice })));
 
 
 
@@ -5011,7 +5014,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			</div>
 			)}
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
-			<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} />
+			{codeStamp && (
+				<React.Suspense fallback={null}>
+					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} />
+				</React.Suspense>
+			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
 			    here; the arrow keys do the same from the window listener above, so all
 			    three verbs work on every device. A PINCH, a ctrl/⌘+wheel and a middle-

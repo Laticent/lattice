@@ -14,7 +14,7 @@
 import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
-import { refuseCode } from '../../../../lib/packages/code-door-core.mjs';
+import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
@@ -149,7 +149,7 @@ export type ReadPackage = {
 	roles: Record<string, string>;
 	code: boolean;
 	/** For a package carrying code: why it is not the one shape a door can run, or null when it
-	 *  is (lib/packages/code-door-core.mjs `refuseCode`, the same check `lattice packages add` runs). */
+	 *  is (lib/packages/code-shape.mjs `refuseCode`, the same check `lattice packages add` runs). */
 	codeRefusal: string | null;
 	notes: string[];
 };

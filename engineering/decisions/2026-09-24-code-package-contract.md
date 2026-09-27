@@ -334,7 +334,7 @@ packages on one slide go to the first by name. Only TRANSFORM components claim: 
 `content` on ordinary sections and `content` is a shipped component, so the first run, which listed
 every shipped name, lost every slide to it.
 
-**Sanitized, keeping only what it was handed** (`lib/core/remote-ref.js` `doorFilterAttr`, applied
+**Sanitized, keeping only what it was handed** (`lib/core/door-attr.mjs` `doorFilterAttr`, applied
 by `createSlideSanitizer`'s new `filterAttr` in the same pass):
 - An ADDRESS survives only if the section the package was handed held it, byte for byte, or it is
   `data:` or a `#fragment`. The author's own image, link and background pass through, and
@@ -458,7 +458,13 @@ wall; this one does not depend on each engine inheriting it. All 29 conformance 
   (`saveStudioComponent`); the first cut dropped it on the first edit, silently (the inversion lens).
 - **The same slot, routing, splicing and attribute rule** as the CLI: two renders around the
   registry's code-packages slot, the kernel's `captureHook` / `substituteHook`, and the page's slide
-  sanitizer with `doorFinish` (`lib/core/remote-ref.js`, the function the CLI's sanitizer page runs).
+  sanitizer with `doorFinish` (`lib/core/door-attr.mjs`, the function the CLI's sanitizer page runs).
+- **Loaded only when needed.** The Studio's first load carries the front step alone
+  (`code-packages/entry.ts`): `door.ts` loads on the Library's first code package, and the part that
+  runs packages (`door-run.ts`, with the kernel, the sanitizer, `door-attr.mjs` and the runner) on
+  the first render that meets one. The Library's import check reads `lib/packages/code-shape.mjs`,
+  not the whole kernel. Loaded eagerly, the door cost the Studio 9.1 KB gz and the Playground
+  10.6 KB (the route budget, `docs/route-budget.json`); what is left is the engine's slot.
 - **The sandbox** (`runner.ts`): a hidden `<iframe sandbox="allow-scripts">` (opaque origin: no
   storage, nothing of the Studio page or the user's OpenRouter key) with the CLI's policy and
   bootstrap, the package in its worker, spoken to over `postMessage` with the frame's source checked,

@@ -2,7 +2,7 @@
  * The door for code packages, the parts that need no browser: the registry slot and its hook
  * (lib/transformers/code-packages.js), the shared kernel (lib/packages/code-door-core.mjs), the
  * CLI's capture and substitute hooks (lib/packages/code-door.js), consent (lib/packages/trust.js),
- * the gate (lib/packages/gate.js refuseCode), the attribute rule (lib/core/remote-ref.js
+ * the gate (lib/packages/gate.js refuseCode), the attribute rule (lib/core/door-attr.mjs
  * doorFilterAttr) and the OS layer's user (lib/core/os-sandbox.js). The door run through the real
  * CLI, with a network log, is test/integration/export/code-package-door.test.js.
  */
@@ -16,7 +16,7 @@ const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = re
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/packages/gate.js');
 const { unprivilegedUser } = require('../../../lib/core/os-sandbox.js');
-const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/remote-ref.js');
+const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 const engine = require('../../../lib/engine');
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lattice-door-${p}-`));
@@ -256,7 +256,7 @@ describe('doorFinish: a diagram names only the addresses a handed diagram did', 
   test('an invented image node in a Mermaid block refuses the output', async () => {
     const { JSDOM } = require('jsdom');
     const DOMPurify = require('dompurify');
-    const { doorFinish } = require('../../../lib/core/remote-ref.js');
+    const { doorFinish } = require('../../../lib/core/door-attr.mjs');
     const { createSlideSanitizer } = await import('../../../lib/core/sanitize-slide-html.mjs');
     const win = new JSDOM('').window;
     let f = () => false;

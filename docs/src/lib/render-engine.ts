@@ -25,7 +25,7 @@
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
-import { renderWithCodePackages } from './code-packages/door';
+import { renderWithCodePackages } from './code-packages/entry';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import type { LatticePlaygroundEngine } from './playground-global';

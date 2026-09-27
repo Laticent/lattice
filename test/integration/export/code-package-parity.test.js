@@ -32,7 +32,7 @@ const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.
 const { LAYOUTS } = require('../../../lib/components/chart/_chart-family/chart-registry.generated.js');
 const engine = require('../../../lib/engine');
 const { openSanitizerPage } = require('../../../lib/packages/code-door-worker.js');
-const { doorFilterAttr, handedOf } = require('../../../lib/core/remote-ref.js');
+const { doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const TIMEOUT = 600000;
@@ -353,7 +353,7 @@ describe('code packages: every shipped transform runs in the locked page and mat
   //   scene section@data-img-*    — the image markers the engine stamps (and stamps again after the
   //       door on the section's own tag, which the splice keeps), not the package's to set;
   //   journey p@data-lattice-desc — an engine-namespaced attribute the slide did not hand over;
-  //       a package names its own data-* attributes (lib/core/remote-ref.js doorFilterAttr).
+  //       a package names its own data-* attributes (lib/core/door-attr.mjs doorFilterAttr).
   //   video a@href, a@style       — the poster link and thumbnail are addresses the transform
   //       BUILT from the bullet's text; the slide held none as an address, so the door drops them.
   //   video a@target              — the slide sanitizer strips target="_blank" from every slide.

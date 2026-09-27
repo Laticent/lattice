@@ -2426,7 +2426,7 @@ function engineSlides(deckSource = rawMd) {
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
   // print-to-PDF). Read against the deck dir, the same base `![bg]` uses. It reads a file a mask
   // names, so a code package's output must never name one: the door keeps only the addresses a
-  // package was handed (lib/core/remote-ref.js doorFilterAttr; the red team read a local file into
+  // package was handed (lib/core/door-attr.mjs doorFilterAttr; the red team read a local file into
   // the export through here before that rule).
   const renderedHtml = inlineLogoMarkSvg(rendered.html, deckBaseUrl);
   // No pre-render split pass. There used to be one — it counted each collection against
