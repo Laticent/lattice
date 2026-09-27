@@ -9,8 +9,11 @@ import {
 } from 'prosemirror-markdown';
 import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
-import { MARKER_CLASS } from '../../../../lib/core/state-marks.js';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import stateMarks from '../../../../lib/core/state-marks.js';
 import { commentBlockRule, commentNodeSpec } from './comment-block';
+
+const { MARKER_CLASS } = stateMarks;
 
 // The deck-model library core — Lattice slide prose ⟷ ProseMirror document,
 // LOSSLESS. This is the foundation the Compose editor (Option B, one true

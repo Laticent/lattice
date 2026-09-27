@@ -1,7 +1,10 @@
 import { Fragment, type Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
 import { addRowAfter, goToNextCell, isInTable, selectedRect } from 'prosemirror-tables';
-import { MARKER_CLASS } from '../../../../lib/core/state-marks.js';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import stateMarks from '../../../../lib/core/state-marks.js';
+
+const { MARKER_CLASS } = stateMarks;
 
 // Pure table editing commands for Compose — no DOM, no React. Shared by the editor's keymap /
 // paste guard (ComposeView) and the divider-bar table controls (TableControls), so neither

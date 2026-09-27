@@ -1,4 +1,7 @@
-import { fenceLanguages, looksLikeShellScript, normalizeInfo, SCRIPT_TAGS, SESSION_TAGS } from '../../../../lib/core/fence-languages.js';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import fenceLanguagesCore from '../../../../lib/core/fence-languages.js';
+
+const { fenceLanguages, looksLikeShellScript, normalizeInfo, SCRIPT_TAGS, SESSION_TAGS } = fenceLanguagesCore;
 
 // The Compose language picker's CATALOG — pure, DOM-free, framework-free, so the
 // grouping and the coaching can be tested without an editor (Cadenza-shaped, like
