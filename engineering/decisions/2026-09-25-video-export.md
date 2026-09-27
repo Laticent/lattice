@@ -461,8 +461,9 @@ in a second `mdat` and a rewritten `moov` follows it. No picture or sound byte m
 existing chunk offsets stay valid, and the file on disk is only rewritten from the old `moov` on.
 
 **What the track is.** 3GPP timed text (`tx3g`, handler `sbtl`), the format QuickTime, iOS and
-macOS use for subtitles. The sample entry is byte-for-byte the one FFmpeg's `mov_text` muxer
-writes (bottom-centered, white, font 1 "Arial"), and so is the alternate group. The track
+macOS use for subtitles. The sample entry was first byte-for-byte the one FFmpeg's `mov_text` muxer
+writes (bottom-centered, white, font 1 "Arial"); it keeps that layout and now carries the deck's
+colors (§10a). The alternate group is FFmpeg's too. The track
 flags are not FFmpeg's: FFmpeg marks a lone subtitle track enabled, and on the owner's iPhone
 (2026-09-27) an enabled track showed its captions while the Subtitles menu read "Off", until the
 viewer picked a caption and then Off again. So the track is flagged in the movie but not enabled
@@ -486,3 +487,32 @@ the viewer's chosen style, and they showed unasked with the menu reading "Off", 
 while the menu reads Off and show once English is picked. **Not verified:** QuickTime on a Mac,
 PowerPoint and Keynote.
 The `.vtt` sidecar stays the fallback, and PowerPoint's own Insert Captions takes it.
+
+### 10a. The on-brand caption look (owner, 2026-09-27)
+
+The owner asked for an on-brand caption style that stays on the video (real estate over a reserved
+band) with "tasteful opacity that does not diminish readability". A tx3g track can only SUGGEST a
+look: the viewer's own caption style (iOS: Settings → Accessibility → Subtitles & Captioning) decides
+what a player honors. Two variants went to the owner's iPhone as 50-second clips:
+
+- **A, chosen:** white bold text on the deck's navy at 72% opacity, the same in both modes.
+- **B, rejected:** in light mode, navy ink text on a white panel at 82%. On the iPhone the text
+  took our ink but the panel stayed dark, so the caption was dark on dark and unreadable. iOS
+  honored the file's text color and kept its own panel, so **dark caption text is unsafe on
+  iOS whatever panel the file asks for.**
+
+`brandCaptionStyle()` (`lib/export/tx3g.mjs`) builds A from the export's own computed tokens, read
+from the document root where the theme sets them (a slide may override them: indaco's title cover is
+navy in light mode too, and the first build read that cover's colors by mistake). The
+panel is the darker of `--bg` and `--text-heading`, the text the lighter, bold, font "Avenir Next"
+(built into iOS and macOS and the nearest to the player's Outfit, which an MP4 cannot carry). It
+checks the text clears WCAG AA against the panel composited over a white slide, the worst case under
+a translucent dark panel, and falls back to white on black when a theme's colors do not.
+
+| Measured, indaco | Text vs. panel |
+|---|---|
+| Dark (white on navy at 72%) | 6.9:1 over a white slide, 7.2:1 over the pale-blue tile, 17:1 over navy |
+| Light (white on ink at 72%) | ink is darker than navy, so at least as high |
+
+**Not verified:** how iOS renders the panel under each built-in viewer style (the owner saw A under
+their own setting), and QuickTime on a Mac.

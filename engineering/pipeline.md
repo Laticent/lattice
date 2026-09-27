@@ -344,9 +344,10 @@ what the export shows and nothing `lib/export/video.mjs` decides:
    (WebCodecs) and AAC audio with `mediabunny`. The MP4 streams to disk.
 5. It adds the caption track itself (`lib/export/tx3g.mjs`), because mediabunny muxes only
    WebVTT-in-MP4, which no player the owner tried offered. The track is 3GPP timed text (`tx3g`),
-   the subtitle format QuickTime reads, with a sample entry byte-for-byte like FFmpeg's
-   `mov_text`. The caption bytes go in a second `mdat` ahead of a rewritten `moov`, so no picture
-   or sound byte moves.
+   the subtitle format QuickTime reads, laid out as FFmpeg's `mov_text` lays it out, and it
+   suggests the deck's own look: light bold text on a 72% panel of the theme's dark color
+   (`brandCaptionStyle`, note §10a). The caption bytes go in a second `mdat` ahead of a
+   rewritten `moov`, so no picture or sound byte moves.
 
 The frame's long side is 1920 px at 30 fps: a 1280×720 deck is 1920×1080, a 9:16 deck 1080×1920,
 a 4K deck 1920×1080. A silent first slide holds for `--lead-in` before Play (a voiced one gets a
