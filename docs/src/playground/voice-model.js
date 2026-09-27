@@ -30,8 +30,9 @@
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
 import { recordLatency } from './narration-latency.js';
-import { narrationCacheEnabled } from './narration-prefs.js';
+import { cheapestVoiceEnabled, narrationCacheEnabled } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
+import { pickCheapestTtsModel } from './tts-cost.js';
 
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
@@ -47,8 +48,11 @@ const OR_SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 
 // Voices are MODEL-specific (OpenAI-style alloy/nova only work with an OpenAI TTS
 // model; Kokoro uses its own af_*/am_* ids). The default is hosted Kokoro — by far
-// the cheapest OpenRouter speech model (~$0.62/M chars vs mai-voice-2's $22/M) and,
-// unlike the on-device Kokoro rung, it needs no 80 MB download so it works on mobile.
+// the cheapest OpenRouter speech model (billed ~$0.62/M chars, measured 2026-09-27;
+// gemini-3.8-flash-tts lists $0.50/M but bills ~$18.50/M once its audio-output tokens
+// are counted — see tts-cost.js) and, unlike the on-device Kokoro rung, it needs no
+// 80 MB download so it works on mobile. On desktop the on-device rung is preferred
+// over it (see pickRung).
 // `af_heart` is the same Kokoro voice the on-device rung defaults to. Both overridable
 // via the localStorage prefs below.
 const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
@@ -320,6 +324,18 @@ export function wavBlob(samples, sampleRate) {
 // else catches a mismatch except that test.
 export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 
+// The whole Gemini TTS family answers PCM only — measured 2026-09-27 on
+// google/gemini-3.8-flash-tts: `response_format:"mp3"` → 400 "Gemini TTS only supports
+// response_format=\"pcm\"". The Set above is pinned to the sample catalog's own
+// audioFormat:"wav" engines (a test holds them equal), so a live Gemini TTS model that has
+// no sample-catalog engine yet (3.8 flash, 3.8 flash-lite) would otherwise 400 on every
+// clip the moment an author picks it. Matching the family covers the next release too.
+const GEMINI_TTS = /^google\/gemini-[\w.-]*-tts(?:-[\w.-]+)?$/i;
+export function isPcmOnlyModel(model) {
+  const id = String(model || '');
+  return PCM_ONLY_MODELS.has(id) || GEMINI_TTS.test(id);
+}
+
 // Wraps raw 16-bit PCM bytes in a standard 44-byte WAV header, reading the real
 // sample rate/channels off the response's own Content-Type header (e.g.
 // "audio/pcm;rate=24000;channels=1") rather than assuming one — a per-model
@@ -394,7 +410,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
       const model = modelOverride || getModel();
-      const wantsPcm = PCM_ONLY_MODELS.has(model);
+      const wantsPcm = isPcmOnlyModel(model);
       // OpenAI-compatible speech route: POST the text, get a raw audio byte stream
       // back (mp3 for almost every model; PCM for the rare exception above, wrapped
       // into a WAV Blob below so the consumer's decodeAudioData (Suono) can play it).
@@ -681,7 +697,27 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
 
   const rungPref = () => readLS(K.RUNG) || 'auto';
   const orVoice = () => readLS(K.OR_VOICE) || DEFAULT_OR_VOICE;
-  const orModel = () => readLS(K.OR_TTS_MODEL) || DEFAULT_OR_TTS_MODEL;
+  // A model the author PICKED is stored; the default never is. That difference is the whole
+  // precedence rule: a stored pick always wins, over the cheapest-voice setting and over the
+  // desktop on-device default alike.
+  const explicitOrModel = () => readLS(K.OR_TTS_MODEL) || '';
+  // The cheapest-voice default, resolved from the live catalog the first time it is asked
+  // for with the setting on. Until the catalog answers (or when it never does), orModel()
+  // stays on DEFAULT_OR_TTS_MODEL — which is also the cheapest voice at the time of writing,
+  // so the fallback and the answer agree in the common case.
+  let cheapestModelId = null;
+  let cheapestRequested = false;
+  function cheapestModel() {
+    if (!cheapestRequested) {
+      cheapestRequested = true;
+      fetchTtsCatalog().then(({ models }) => {
+        const id = pickCheapestTtsModel(models);
+        if (id && id !== cheapestModelId) { cheapestModelId = id; emitChange(); }
+      }, () => {});
+    }
+    return cheapestModelId;
+  }
+  const orModel = () => explicitOrModel() || (cheapestVoiceEnabled() && cheapestModel()) || DEFAULT_OR_TTS_MODEL;
   const kokoroVoice = () => readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
   // A speed multiplier both rungs forward natively (OpenRouter's API param; Kokoro's
   // own generate() option) — not a client-side playbackRate hack. 1 = default pace,
@@ -850,12 +886,36 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // is the proxy for phone/tablet; the cloud voice works on every device.
   const kokoroSupported = () => !coarsePointer();
 
+  // One Kokoro load at a time. The rung's load() is not re-entrant — a second call rewires
+  // its onLoaded/onLoadErr callbacks and strands the first caller's promise — and there are
+  // now two callers that can overlap: the background desktop default and the Settings
+  // "download" button. A second caller joins the load in flight (its progress callback is
+  // not wired in; the first caller's keeps reporting).
+  let kokoroLoading = null;
+  function loadKokoroOnce(onProgress, signal) {
+    if (kokoro.ready()) return Promise.resolve(true);
+    if (!kokoroLoading) {
+      kokoroLoading = kokoro.load(onProgress, signal)
+        .then(() => { kokoroCachedFlag = true; emitChange(); return true; })
+        .finally(() => { kokoroLoading = null; });
+    }
+    return kokoroLoading;
+  }
+
+  // The DESKTOP DEFAULT: on a desktop (fine-pointer) device with the rung left on `auto`,
+  // the on-device Kokoro voice comes first — it is free per clip and works offline. It
+  // yields to a cloud model the author picked by hand (a stored OR model pref): choosing a
+  // model is choosing the cloud voice, and an explicit pick always wins.
+  const preferOnDevice = () => rungPref() === 'auto' && kokoroSupported() && !explicitOrModel();
+
   function pickRung() {
     if (rungPref() === 'off') return silentRung;
     if (injected) return injected;
     if (rungPref() === 'openrouter' && openrouter.ready()) return openrouter;
     if (rungPref() === 'kokoro' && kokoroSupported() && kokoro.ready()) return kokoro;
-    // auto ladder: connected cloud → summoned local (desktop only) → (dev) speech → silent.
+    // auto ladder: (desktop default) local → connected cloud → summoned local (desktop
+    // only) → (dev) speech → silent.
+    if (preferOnDevice() && kokoro.ready()) return kokoro;
     if (openrouter.ready()) return openrouter;
     if (kokoroSupported() && kokoro.ready()) return kokoro;
     if (speechReady()) return { name: 'speechSynthesis' };
@@ -1482,7 +1542,18 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // Summon the in-browser Kokoro model (the deliberate ~80 MB download). Mirrors
     // architect-model's summon()/loadUniversal(). Surfaces progress; never throws
     // into the caller's flow beyond an explicit reject the UI can show.
-    async loadKokoro(onProgress, signal) { await kokoro.load(onProgress, signal); kokoroCachedFlag = true; emitChange(); return true; },
+    async loadKokoro(onProgress, signal) { return loadKokoroOnce(onProgress, signal); },
+    // Start the desktop default's download in the background, if it applies and has not
+    // started. Called when a read BEGINS, never from a passive status read, so opening a
+    // panel downloads nothing. Until it lands, pickRung keeps using the cloud voice (or the
+    // captions-only floor with no key); the next read after it lands uses the local voice.
+    // Never throws; resolves true when the local voice is (now) ready.
+    summonDefaultVoice() {
+      if (!preferOnDevice() || kokoro.ready()) return Promise.resolve(kokoro.ready());
+      return loadKokoroOnce().catch(() => false);
+    },
+    preferOnDevice,
+    explicitOrModel,
     // Re-probe the on-disk cache (after Settings "Remove models", say).
     probeKokoroCache,
     // Prefs.

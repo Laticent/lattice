@@ -177,6 +177,9 @@ type VoiceModel = {
 	kokoroSupported: () => boolean;
 	probeKokoroCache: () => Promise<boolean>;
 	loadKokoro: (onProgress?: (p: VoiceLoadProgress) => void, signal?: AbortSignal) => Promise<boolean>;
+	/** Start the desktop default's (on-device Kokoro) download in the background when it applies.
+	 *  Called when a read begins; the read in progress keeps its current rung. Never rejects. */
+	summonDefaultVoice?: () => Promise<boolean>;
 	/** Synthesize the fixed sample sentence for an EXPLICIT rung/voice/model (bypassing the auto ladder)
 	 *  and return its BYTES — the caller plays them on the Suono stage (voice-model owns no playback).
 	 *  Never rejects; `{ ok:false, error }` on an unready rung / synth failure. */
@@ -921,6 +924,9 @@ export function useReadAloud(
 				return;
 			}
 			voiceRef.current = voice;
+			// On desktop the default voice is on-device Kokoro; a read is what starts its download.
+			// Fire-and-forget: THIS read keeps the rung it resolves below, the next one moves over.
+			void voice.summonDefaultVoice?.();
 			let r: string;
 			try {
 				r = voice.rung();

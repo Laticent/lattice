@@ -13,7 +13,7 @@ import { clearCrashReports, collectCrashReports, crashReportStats, OPEN_CRASH_RE
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
-import { DEFAULT_BITRATE_KBPS, lookaheadPref, narrationBitrate, narrationCacheEnabled, pacePref, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
+import { cheapestVoiceEnabled, DEFAULT_BITRATE_KBPS, lookaheadPref, narrationBitrate, narrationCacheEnabled, pacePref, setCheapestVoiceEnabled, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
@@ -265,12 +265,14 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	// change made in another tab is reflected when the sheet is next opened.
 	const [lookahead, setLookaheadState] = React.useState<string>('auto');
 	const [narrationCache, setNarrationCacheState] = React.useState(true);
+	const [cheapestVoice, setCheapestVoiceState] = React.useState(false);
 	const [narrationBitrateState, setNarrationBitrateState] = React.useState(DEFAULT_BITRATE_KBPS);
 	const [pace, setPaceState] = React.useState('natural');
 	React.useEffect(() => {
 		if (!open) return;
 		setLookaheadState(String(lookaheadPref()));
 		setNarrationCacheState(narrationCacheEnabled());
+		setCheapestVoiceState(cheapestVoiceEnabled());
 		setNarrationBitrateState(narrationBitrate());
 		setPaceState(pacePref());
 	}, [open]);
@@ -672,6 +674,13 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 									<span className="min-w-0">
 										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Keep narration on this device</span>
 										<span className="block text-[11px] text-muted-foreground">Store spoken lines in this browser so a deck you've already rehearsed presents instantly, offline, and without paying to synthesize the same words again. Held under a size budget, oldest dropped first; see and clear it under Data → Narration audio.</span>
+									</span>
+								</label>
+								<label htmlFor="ws-cheapest-voice" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<Switch id="ws-cheapest-voice" aria-label="Always use the cheapest voice" checked={cheapestVoice} onCheckedChange={(next) => { setCheapestVoiceState(next); setCheapestVoiceEnabled(next); notify(next ? 'Cloud narration now uses the cheapest voice, unless you picked one yourself.' : 'Cloud narration is back on the default voice.'); }} />
+									<span className="min-w-0">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Always use the cheapest voice</span>
+										<span className="block text-[11px] text-muted-foreground">Narrate with the lowest-cost paid cloud voice, counting what it charges for the audio it produces as well as the text you send. When two voices cost within 10% of each other, the better one wins. Free voices are skipped because their rate limits stall long decks. A voice model you pick yourself on the AI tab always wins over this.</span>
 									</span>
 								</label>
 							</div>

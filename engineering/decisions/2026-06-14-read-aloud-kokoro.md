@@ -117,6 +117,11 @@ borrow the per-device lottery.**
 
 ## Decision — a two-rung browser voice ladder
 
+> **Updated 2026-09-27:** on a desktop (fine-pointer) device, `auto` now puts on-device
+> Kokoro FIRST once it is loaded, unless the author picked a cloud model. A read starts the
+> download. A Workspace switch can also route the cloud default to the cheapest paid voice.
+> See [2026-09-27-voice-default-and-cheapest-toggle.md](2026-09-27-voice-default-and-cheapest-toggle.md).
+
 A `VoiceModel` (the playground's `docs/src/playground/voice-model.js`),
 structured as the model ladder's twin — one interface, backends behind
 capability/connection detection:

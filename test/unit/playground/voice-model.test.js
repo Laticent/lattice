@@ -641,3 +641,50 @@ test('latency: a JOINER records the request\'s age, not its own short wait', asy
   const stats = latencyStats(v.latencyKey());
   assert.ok(stats.p95 >= 100, `the reservoir reflects the REQUEST's age, not the join (p95=${stats.p95})`);
 }));
+
+// ── The desktop default: on-device Kokoro first ──────────────────────────────
+// Plain node has no matchMedia, so it reads as a desktop (fine pointer) — the case the
+// default is for. A phone is simulated by installing a coarse-pointer matchMedia.
+
+test('desktop default: a ready on-device voice beats a connected cloud voice on `auto`', async () => withLocalStorage(async () => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  assert.equal(v.rung(), 'openrouter-tts', 'on-device not loaded yet: the cloud voice reads');
+  v.__setKokoroInference(async () => ({ size: 1, type: 'audio/wav' }));
+  assert.equal(v.rung(), 'kokoro', 'on-device loaded: it is the desktop default');
+}));
+
+test('desktop default: a cloud model the author picked wins over on-device', async () => withLocalStorage(async () => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  v.__setKokoroInference(async () => ({ size: 1, type: 'audio/wav' }));
+  v.setOrModel('microsoft/mai-voice-2');
+  assert.equal(v.rung(), 'openrouter-tts');
+  assert.equal(v.preferOnDevice(), false);
+  // A fresh model with the same pin and nothing loaded: starting a read downloads nothing
+  // (a real load would construct a Worker, which plain node does not have, and throw).
+  const w = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  assert.equal(await w.summonDefaultVoice(), false, 'no download for a pinned cloud model');
+}));
+
+test('desktop default: never on a phone (coarse pointer) — the cloud voice stays first', async () => withLocalStorage(async () => {
+  globalThis.matchMedia = (q) => ({ matches: q === '(pointer: coarse)' });
+  try {
+    const { createVoiceModel } = await load();
+    const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+    assert.equal(v.preferOnDevice(), false);
+    assert.equal(v.rung(), 'openrouter-tts');
+  } finally {
+    delete globalThis.matchMedia;
+  }
+}));
+
+test('the whole Gemini TTS family is requested as PCM (measured: mp3 → 400)', async () => {
+  const { isPcmOnlyModel } = await load();
+  assert.equal(isPcmOnlyModel('google/gemini-3.1-flash-tts-preview'), true);
+  assert.equal(isPcmOnlyModel('google/gemini-3.8-flash-tts'), true);
+  assert.equal(isPcmOnlyModel('google/gemini-3.8-flash-lite-tts'), true);
+  assert.equal(isPcmOnlyModel('google/gemini-3.8-flash'), false, 'a chat model is not a TTS model');
+  assert.equal(isPcmOnlyModel('hexgrad/kokoro-82m'), false);
+  assert.equal(isPcmOnlyModel(''), false);
+});
