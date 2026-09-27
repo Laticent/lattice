@@ -209,14 +209,19 @@ first-open gates (not written yet), 820px and 390px widths, offline behavior, an
 **Bytes.** Measured as a pair on one tree: this branch's changes stashed for the `main` reading,
 and the docs build rerun for each reading.
 
-| | origin/main `91cf5e1` | this branch | change |
+| | origin/main `f38d7c9` | this branch | change |
 |---|---:|---:|---:|
-| Studio startup JS, gz | 747,912 | 614,689 | **−133,223 (−17.8%)** |
+| Studio startup JS, gz | 750,218 | 617,033 | **−133,185 (−17.8%)** |
 | startup chunks | 93 | 95 | +2 |
-| `studio/index.html` | 204,386 | 204,489 | +103 (one `modulepreload` tag per new chunk) |
+| `studio/index.html` | 204,385 | 204,488 | +103 (one `modulepreload` tag per new chunk) |
 
-The first pairing, against `133ac54`, read 747,844 → 613,650 (−134,194). `main` then moved, and
-this pairing was rerun on the rebased tree before the budget was set.
+`main` moved twice while this was in review, and each time the pairing was rerun on the rebased
+tree before the budget was set. The readings were:
+- against `133ac54`: 747,844 → 613,650 (−134,194);
+- against `91cf5e1`: 747,912 → 614,689 (−133,223);
+- against `f38d7c9`: the table above.
+
+The saving held within 1KB across all three.
 
 That is about 6KB short of the 139.4KB the prototype measured. The shells, the shared menu module and
 the loader now load at startup instead.
