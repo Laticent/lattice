@@ -116,6 +116,19 @@ test('a chart pane is built by its kernel and keeps its component classes', () =
   assert.match(html, /<svg class="cart-svg bar-svg"/);
 });
 
+test('a chart pane is framed with no heading of its own — no stand-in, no masthead', () => {
+  const html = render('## T\n\n<!-- pane: bar -->\n\n- A `4`\n- B `6`\n\n<!-- pane: list -->\n\n- x\n');
+  // The host's h2 is the slide's only heading: nothing zero-width, nothing lifted from a pane.
+  assert.equal((html.match(/<h2\b/g) || []).length, 1);
+  assert.doesNotMatch(html, /\u200b/);
+  assert.match(html, /<div class="chart-body"/);
+});
+
+test('an ordinary chart SLIDE with no heading still renders untransformed (headless is pane-only)', () => {
+  const html = render('<!-- _class: bar -->\n\n- A `4`\n- B `6`\n');
+  assert.doesNotMatch(html, /chart-frame/);
+});
+
 test('a slide without panes keeps its ids when a LATER slide has panes', () => {
   const pie = '## P\n\n<!-- _class: piechart -->\n\n- A `60%`\n- B `40%`\n';
   const panesSlide = '## Q\n\n<!-- pane: piechart -->\n\n- C `70%`\n- D `30%`\n\n<!-- pane: list -->\n\n- x\n';
@@ -515,3 +528,4 @@ test('a split page carries the whole slide\'s spot directives, wherever they wer
     assert.deepEqual(slideClassSpans(src).spans.map((sp) => sp.slideClass.split(/\s+/)), want, `${name}: the source-side map`);
   }
 });
+

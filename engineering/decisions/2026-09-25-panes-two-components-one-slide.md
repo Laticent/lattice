@@ -248,8 +248,10 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    moves. Progress bars and timeline dots thin with the pane; that is the cost of keeping the
    container the budgets were measured in.
 3. **Embed** (`panes.embed`). The pane section's body moves into
-   `<lat-pane class="<component classes>" data-family=…>` inside the host's stage. The pane's
-   stand-in masthead is dropped: the host owns the only title. The placeholder carries a nonce
+   `<lat-pane class="<component classes>" data-family=…>` inside the host's stage. A pane
+   renders with no heading of its own (the host owns the only title): the chart family's wrap
+   frames a pane's figure headless (`extractChartBody`, keyed on the pane canvas), so no
+   stand-in heading is written, and any masthead a pane still grows is dropped. The placeholder carries a nonce
    hashed from the source, so author HTML shaped like one is never filled.
 
 ### 2.1 Why the component CSS needs no copy — and the one thing it does need
@@ -624,7 +626,15 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
 6. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and
    390px and its slide strip ("text"), and Export-to-Marp, which cannot carve and should degrade to
    the two panes' content, stacked.
-7. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
+7. **Retire the chart stand-in heading** — **closed** (the pane-follow-ups PR). The chart wrap
+   accepts a heading-less body when the section is a pane (`data-pane-view`), so
+   `renderPane` writes no `## \u200b` and `dropMasthead` lost its zero-width-h2 branch. An
+   ordinary chart slide with no heading still renders untransformed. Measured render-identical:
+   `examples/panes.md` byte-identical at 16:9, 1:1 and 9:16, and every chart layout in pane A and
+   pane B with eight lead/coda variants (368 renders) identical up to a newline between two block
+   elements. Found on the way and left as it was (a visible change, owed its own deck): a chart's
+   wrap keeps only the FIRST paragraph before the figure, as its subtitle, and drops any second
+   one — on a slide and in a pane alike (`2376-p2-size-chart-viewbox-to-the-pane.md`).
 8. **The Studio's slide index and a split panes slide** — **closed** (the pane-follow-ups PR). The
    Studio still counts source chunks (`docs/src/components/studio/lint.ts` `splitSlides`), and
    those chunks are still never cut: they feed write-back (`deck-ops.ts`, `motion-sheet.ts`), so a
