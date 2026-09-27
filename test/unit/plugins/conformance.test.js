@@ -10,7 +10,8 @@
  *
  *   - the render does not throw;
  *   - `detect` is a SUPERSET of the parser: if the plugin's own rules turned the input into
- *     one of its tokens, `detect(input)` is true. It may say true more often (math's pre-scan
+ *     one of its tokens, or wrote one of its fences, `detect(input)` is true (the host's
+ *     `usesPlugin`: the plugin's own `detect`, or the probe it derives from the fence names). It may say true more often (math's pre-scan
  *     over-matches on purpose); it may never miss, because a miss ships unrendered content.
  *     KNOWN LIMIT: "the parser" here is a bare commonmark instance with only this plugin's
  *     grammar, not the engine's own parser (private behind its memo, and carrying the
@@ -20,8 +21,9 @@
  *   - with the plugin disabled, none of its rules or renderers are installed, and the render
  *     still does not throw.
  *
- * And across the registry: the fixtures file exists and has cases, every syntax token the
- * manifest declares is exercised by at least one case, and the host's fail-soft wrapper turns a
+ * And across the registry: the fixtures file exists and has cases, every syntax token, fence and
+ * fence alias the manifest declares is exercised by at least one case, a disabled plugin's fences
+ * fall back to ordinary code blocks, and the host's fail-soft wrapper turns a
  * throwing or non-string renderer into the declared degradation.
  */
 
@@ -86,15 +88,26 @@ function parseFixtures(text) {
   return cases;
 }
 
-/** Every token type the plugin's own rules emit for `src` (children included). */
+/** Every name a plugin's fences answer to — `fence:<name>`, the alias's own name for an alias. */
+function fenceClaims(plugin) {
+  return Object.entries(plugin.fences || {}).flatMap(([name, decl]) => [name, ...decl.aliases.map((a) => a.name)]);
+}
+
+/**
+ * Every token type the plugin's own rules emit for `src` (children included), and `fence:<name>`
+ * for every fence the plugin's fence table would take.
+ */
 function pluginTokens(plugin, src) {
   const md = new MarkdownIt('commonmark');
   const { installGrammar } = requireGrammarHost();
   installGrammar(md, { grammar: [plugin] });
+  const claims = new Set(fenceClaims(plugin));
   const found = new Set();
   const walk = (tokens) => {
     for (const t of tokens) {
       if (plugin.syntax[t.type]) found.add(t.type);
+      const name = (t.info || '').trim().split(/\s+/, 1)[0];
+      if (t.type === 'fence' && claims.has(name)) found.add(`fence:${name}`);
       if (t.children) walk(t.children);
     }
   };
@@ -107,6 +120,7 @@ function requireGrammarHost() {
   grammarHost ??= require('../../../lib/plugins/host-grammar.mjs');
   return grammarHost;
 }
+const usesPlugin = (plugin, src) => requireGrammarHost().usesPlugin(plugin, src);
 
 describe('plugin conformance — every in-tree plugin, from its own fixtures', () => {
   assert.ok(PLUGINS.length > 0, 'the registry lists no plugins');
@@ -134,10 +148,21 @@ describe('plugin conformance — every in-tree plugin, from its own fixtures', (
         }
       });
 
-      test('every declared syntax token is exercised by a case', () => {
+      test('every declared syntax token, fence and fence alias is exercised by a case', () => {
         const exercised = new Set(cases.flatMap((c) => [...pluginTokens(plugin, c.input)]));
         for (const token of Object.keys(plugin.syntax)) {
           assert.ok(exercised.has(token), `no fixture case produces "${token}"`);
+        }
+        for (const name of fenceClaims(plugin)) {
+          assert.ok(exercised.has(`fence:${name}`), `no fixture case writes a \`\`\`${name} fence`);
+        }
+      });
+
+      test('disabled, its fences render as ordinary code blocks', () => {
+        for (const name of fenceClaims(plugin)) {
+          const { html } = disabledEngine.render(`\`\`\`${name}\n{}\n\`\`\`\n`);
+          assert.match(html, /<pre[^>]*><code/, `a \`\`\`${name} fence did not fall back to a code block with ${plugin.name} disabled`);
+          assert.ok(!html.includes(`data-lattice-hydrate="${plugin.name}"`), `${plugin.name}'s placeholder rendered although it is disabled`);
         }
       });
 
@@ -148,10 +173,10 @@ describe('plugin conformance — every in-tree plugin, from its own fixtures', (
           for (const { op, value } of c.assertions) {
             if (op === 'renders') assert.ok(html.includes(value), `expected the render to contain ${JSON.stringify(value)}`);
             if (op === 'omits') assert.ok(!html.includes(value), `expected the render NOT to contain ${JSON.stringify(value)}`);
-            if (op === 'detect') assert.equal(plugin.detect(c.input), value === 'true', 'detect(source)');
+            if (op === 'detect') assert.equal(usesPlugin(plugin, c.input), value === 'true', 'detect(source)');
           }
-          if (tokens.size && plugin.detect) {
-            assert.equal(plugin.detect(c.input), true, `the parser emitted ${[...tokens].join(', ')} but detect() missed it`);
+          if (tokens.size) {
+            assert.equal(usesPlugin(plugin, c.input), true, `the parser emitted ${[...tokens].join(', ')} but detect() missed it`);
           }
           assert.doesNotThrow(() => disabledEngine.render(c.input), 'the render with the plugin disabled threw');
         });

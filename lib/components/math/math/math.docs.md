@@ -18,7 +18,7 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 |---|---|---|---|
 | `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
 | `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
-| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. Renders centered. |
+| `equation` | `p` | yes | Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered. |
 | `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
 ### Variant decision rule

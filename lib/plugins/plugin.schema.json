@@ -7,9 +7,9 @@
   "additionalProperties": false,
   "required": ["type", "format", "name", "api", "title", "description", "contributes"],
   "properties": {
-    "$schema": { "type": "string" },
-    "type": { "const": "plugin" },
-    "format": { "const": 1 },
+    "$schema": {"type": "string"},
+    "type": {"const": "plugin"},
+    "format": {"const": 1},
     "name": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
@@ -19,8 +19,8 @@
       "const": 1,
       "description": "The host contract this plugin is written for. A value the host does not know is a build error naming the plugin."
     },
-    "title": { "type": "string", "minLength": 1 },
-    "description": { "type": "string", "minLength": 1 },
+    "title": {"type": "string", "minLength": 1},
+    "description": {"type": "string", "minLength": 1},
     "requires": {
       "$ref": "#/$defs/pluginNames",
       "description": "Plugins this one cannot load without. A missing one, or a cycle, fails the build by name. Disabling a required plugin disables this one."
@@ -38,14 +38,38 @@
           "type": "object",
           "description": "markdown-it rules, keyed by the TOKEN TYPE each rule emits. The host installs them; the plugin's `<name>.syntax.mjs` exports each rule under its key (a named export per token type, so a bundler keeps only the rules a consumer imports) and its `<name>.render.js` a `renderers` object with the same keys.",
           "minProperties": 1,
-          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
-          "additionalProperties": { "$ref": "#/$defs/syntaxRule" }
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+          "additionalProperties": {"$ref": "#/$defs/syntaxRule"}
         },
         "diagnostics": {
           "type": "object",
           "description": "Stable IDs, namespaced `<plugin>/<id>`, and the message each reports.",
-          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$" },
-          "additionalProperties": { "type": "string", "minLength": 1 }
+          "propertyNames": {"pattern": "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$"},
+          "additionalProperties": {"type": "string", "minLength": 1}
+        },
+        "fences": {
+          "type": "object",
+          "description": "Fenced code blocks this plugin renders, keyed by the fence NAME an author writes (```name). The host owns one fence table keyed by name and alias; the plugin's `<name>.render.js` exports a `fences` object with the same keys. A name or alias two plugins claim, or one a code language already owns (a highlight.js language or alias, or a host-reserved name), fails the build by name.",
+          "minProperties": 1,
+          "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+          "additionalProperties": {"$ref": "#/$defs/fence"}
+        },
+        "hydrate": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The browser half: `<name>.hydrate.js` exports `hydrate(el, ctx)`, which turns each placeholder this plugin's fences emitted into a figure. ONE source for every browser surface — the runtime bundles it, the CLI export page runs it serialized — so the module must be self-contained: no require, no import; everything it needs arrives through `ctx`.",
+          "properties": {
+            "budgetMs": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 30000,
+              "description": "How long one placeholder may stay pending before the host settles it final with its source text. Default 4000."
+            }
+          }
+        },
+        "styles": {
+          "const": true,
+          "description": "`<name>.styles.css` exists: token-only CSS, bundled into the plugin slot of dist/lattice.css in dependency order. Every `var(--token)` it reads must be listed in `tokens`, and every listed token read."
         }
       }
     },
@@ -61,22 +85,71 @@
         "degradesTo": {
           "enum": ["source", "code-block", "hidden"],
           "description": "What the host shows when a renderer throws or returns a non-string."
+        },
+        "exec": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Where each code contribution runs.",
+          "properties": {"hydrate": {"const": "browser"}}
+        },
+        "surfaces": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "What each surface EMITS for this plugin: `placeholder` (markup a browser fills), `figure` (the drawn result), `figure-baked` (drawn, then frozen to static markup), `source` (the author's text), `none`.",
+          "properties": {
+            "engine": {"enum": ["placeholder", "figure", "figure-baked", "source", "none"]},
+            "preview": {"enum": ["placeholder", "figure", "figure-baked", "source", "none"]},
+            "pdf": {"enum": ["placeholder", "figure", "figure-baked", "source", "none"]},
+            "player": {"enum": ["placeholder", "figure", "figure-baked", "source", "none"]},
+            "marp": {"enum": ["placeholder", "figure", "figure-baked", "source", "none"]}
+          }
         }
       }
+    },
+    "payload": {
+      "type": "object",
+      "description": "Third-party files a browser surface loads for this plugin. `when: used` loads a file only for a deck that uses the plugin; the CLI export injects it, the runtime fetches it from beside itself by the file's basename.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "global", "when"],
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^npm:[@a-z0-9][a-z0-9._/@-]*\\.js$",
+            "description": "The file, as `npm:<package>/<path>` — the version package-lock.json locks, never a vendored copy."
+          },
+          "global": {
+            "type": "string",
+            "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$",
+            "description": "The window global the file defines; `ctx.lib` hands it to `hydrate`."
+          },
+          "when": {
+            "enum": ["used"],
+            "description": "Only `used` in v1: loaded when the deck uses the plugin."
+          }
+        }
+      }
+    },
+    "tokens": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^--[a-z][a-z0-9-]*$"},
+      "description": "Every design token the plugin's CSS paints with. The build holds this list one-to-one with the `var(--…)` reads in `<name>.styles.css`."
     }
   },
   "$defs": {
     "pluginNames": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}
     },
     "syntaxRule": {
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "anchor", "triggers"],
       "properties": {
-        "kind": { "enum": ["inline", "block"] },
+        "kind": {"enum": ["inline", "block"]},
         "anchor": {
           "type": "object",
           "description": "Where the host installs the rule: before or after a rule the HOST names, never another plugin's.",
@@ -84,8 +157,8 @@
           "minProperties": 1,
           "maxProperties": 1,
           "properties": {
-            "before": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-            "after": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+            "before": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+            "after": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
           }
         },
         "triggers": {
@@ -93,11 +166,38 @@
           "description": "The characters the rule starts on. Two plugins claiming one character is a build error; a character markdown-it's text rule does not stop at is refused, because the rule would never fire.",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1, "maxLength": 1 }
+          "items": {"type": "string", "minLength": 1, "maxLength": 1}
         },
         "opaque": {
           "type": "boolean",
           "description": "block only: the rule's body renders no inline Markdown, so lint-core skips it as it skips a code fence. (Every block rule, opaque or not, is also installed in the boundary parser, so the source-side slide splitter agrees with the render about where a slide starts.)"
+        }
+      }
+    },
+    "fence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body"],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+              "deprecated": {
+                "type": "boolean",
+                "description": "The alias still renders, and the render reports its replacement."
+              }
+            }
+          }
+        },
+        "body": {
+          "enum": ["json", "tex", "text"],
+          "description": "The language of the fence body, for the editor's highlighter and the docs."
         }
       }
     }

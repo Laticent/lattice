@@ -75,7 +75,8 @@
 /* Stop the slide's own TEXT / figure-row content blocks (grids, lists, stat rows)
  * from growing to fill the over-tall box, so a light slide stays compact and
  * centered. Visual/media blocks that are MEANT to fill — images and the diagram /
- * chart bodies that set their own flex:1 (mermaid, chart-body, function-plot) —
+ * chart bodies that set their own flex:1 (mermaid, chart-body, a plugin figure —
+ * `[data-lattice-hydrate]`, the plugin host's marker, so no plugin is named here) —
  * are exempted so they still fill the fluid box rather than collapsing.
  *
  * NB (P1 landscape fill): the decision doc §7 flagged scoping this to portrait,
@@ -87,7 +88,7 @@
  * deviation from §7 recorded, not silent (HARD #18). */
 :root[data-lattice-view="fluid"] section[data-lattice-slide]
   > :not(:is(header, footer, figure, img, picture, svg, canvas, video,
-             .mermaid, .mermaid-svg, .chart-body, .functionplot)) {
+             .mermaid, .mermaid-svg, .chart-body, [data-lattice-hydrate])) {
   flex-grow: 0 !important;
 }
 

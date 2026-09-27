@@ -914,6 +914,18 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(labelOf(slot(typeset('R'), 'the reals')), 'R');
   });
 
+  test('the ENGINE\'s error ink (a token, not #cc0000) is refused the same way', () => {
+    // The math plugin passes KaTeX `errorColor: 'var(--warn)'` (lib/plugins/math/math.render.js
+    // `ERROR_COLOR`), so the engine's undefined control sequence renders
+    // `<mstyle mathcolor="var(--warn)">` — and a refusal keyed on `#cc0000` alone would read it as
+    // symbols again. Rendered through the engine, so a change to the plugin's color fails here.
+    const { createEngine } = require('../../../lib/engine');
+    const html = createEngine().render('$\\dfracc{a}{b}$').html;
+    const bad = html.slice(html.indexOf('<span class="katex">'), html.lastIndexOf('</span>') + 7);
+    assert.match(bad, /mathcolor="var\(--warn\)"/, 'the engine must render the tokenized error form');
+    assert.doesNotMatch(labelOf(`<li>${bad} — a description of it</li>`), /dfracc/);
+  });
+
   test('KaTeX has TWO failure renderings and the CLASSED one has no `.katex` wrapper', () => {
     // A ParseError renders as `<span class="katex-error" style="color:#cc0000">\\frac{a</span>` —
     // no `.katex` wrapper and no MathML anywhere — so a scan for `katex` alone walked past it,

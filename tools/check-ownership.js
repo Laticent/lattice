@@ -1821,14 +1821,14 @@ const SANCTIONED_MONO_FONTS = [
     why: 'the matrix variable column — a 4em mono grid whose alignment IS the layout.',
   },
   {
-    file: 'lib/components/math/math/math.styles.css',
+    file: 'lib/plugins/function-plot/function-plot.styles.css',
     selector: 'functionplot',
     count: 2,
     why: 'function-plot axis/tick notation, and its error surface.',
   },
   {
-    file: 'lib/components/math/math/math.styles.css',
-    selector: '.math-error',
+    file: 'lib/plugins/math/math.styles.css',
+    selector: '.katex-error',
     count: 1,
     why: 'quotes the author\'s own TeX back at them verbatim.',
   },
@@ -3531,6 +3531,16 @@ const SANCTIONED_KATEX_ONLY = [
       + 'spanner that migration removed — ANY multicol counts an absolutely-positioned '
       + 'descendant as fragmentable content, and still grows the spurious empty column '
       + '(1280 -> 1872 scrollWidth, measured).',
+  },
+  {
+    file: 'lib/plugins/math/math.styles.css',
+    selector: 'section .katex-error',
+    why:
+      'KaTeX-only by design: it styles the span KaTeX writes for a formula it could not parse, '
+      + 'whose color the math plugin sets through KaTeX\'s `errorColor` option. marp-core\'s '
+      + 'MathJax draws its own error box (an SVG `merror` node, colored by MathJax), so there is '
+      + 'no HTML node to pair and a `mjx-` half would match nothing. Replaces the math '
+      + 'component\'s dead `.math-error` rule, which no code emitted.',
   },
 ];
 
@@ -7600,7 +7610,7 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  * count, so the budget ratchets down in the PR that earned it and can never silently rot upward
  * again.
  */
-const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 2, pluginTokenNames: 0 });
+const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0 });
 
 function pluginMigrationCounts(root = ROOT) {
   const read = (rel) => {

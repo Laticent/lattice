@@ -6,7 +6,7 @@
     "component": 71,
     "finish": 9,
     "motion": 0,
-    "plugin": 1
+    "plugin": 3
   },
   "packages": [
     {
@@ -1228,6 +1228,32 @@
     },
     {
       "type": "plugin",
+      "name": "anima",
+      "path": "lib/plugins/anima",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "manifest.json",
+        "render.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "function-plot",
+      "path": "lib/plugins/function-plot",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "hydrate.js",
+        "manifest.json",
+        "render.js",
+        "styles.css"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
       "name": "math",
       "path": "lib/plugins/math",
       "roles": [
@@ -1235,6 +1261,7 @@
         "fixtures.md",
         "manifest.json",
         "render.js",
+        "styles.css",
         "syntax.mjs"
       ],
       "code": true

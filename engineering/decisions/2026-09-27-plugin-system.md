@@ -397,9 +397,18 @@ which cannot carry imports.
 
 - **Runtime (Studio preview, Playground, `--fluid`):** the runtime bundle `require`s every
   in-tree `hydrate.js` through the registry.
-- **CLI export page:** `tools/build-plugin-registry.js` also compiles each `hydrate.js` with esbuild
-  into a standalone script (IIFE), marked with `ENGINE_SCRIPT_ATTR` so the player's prune step
-  treats it like the engine's own. The emulator injects it only when the deck uses the plugin.
+- **CLI export page:** ~~`tools/build-plugin-registry.js` also compiles each `hydrate.js` with
+  esbuild into a standalone script (IIFE)~~ — **as built (phase B): serialized, not compiled.** A
+  `hydrate.js` is SELF-CONTAINED (no require, no import; everything through `ctx`), and so is the
+  browser host (`host-browser.mjs`), so `lib/plugins/hydrate-script.js` writes the page's one inline
+  script from the very functions the runtime bundles, by `toString()`. The build refuses a hydrate
+  that requires or imports, and `test/unit/plugins/hydrate-host.test.js` runs both copies. Chosen
+  over esbuild because a committed esbuild bundle would go stale on every esbuild upgrade (a
+  `--check` flap on a Dependabot bump) and an uncommitted one is a build step the emulator would
+  need at render time; serialization has neither cost, and the one thing it forbids — imports — is
+  exactly what `ctx` exists to replace. The script is marked with `ENGINE_SCRIPT_ATTR` so the
+  player's prune step treats it like the engine's own, and the emulator injects it only when the
+  deck uses the plugin.
 - **HTML player:** ships no plugin code; it bakes the hydrated page.
 
 **The settle barrier.** Today's PDF is correct only because the function-plot inflater runs

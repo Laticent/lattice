@@ -1,0 +1,44 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "function-plot",
+  "api": 1,
+  "title": "Function plots",
+  "description": "Plot y = f(x), parametric and polar curves from a JSON config fence, drawn in the browser by function-plot.",
+  "contributes": {
+    "fences": {
+      "functionplot": { "aliases": [{ "name": "latticeplot", "deprecated": true }], "body": "json" }
+    },
+    "hydrate": {},
+    "styles": true,
+    "diagnostics": {
+      "function-plot/deprecated-alias": "```latticeplot is a deprecated name for ```functionplot; rename the fence."
+    }
+  },
+  "payload": {
+    "function-plot": { "from": "npm:function-plot/dist/function-plot.js", "global": "functionPlot", "when": "used" }
+  },
+  "tokens": [
+    "--accent",
+    "--border",
+    "--cat-4-mark",
+    "--cat-7-mark",
+    "--font-body",
+    "--font-mono",
+    "--fs-meta",
+    "--muted-mark",
+    "--radius-sm",
+    "--sp-sm",
+    "--text-body",
+    "--text-heading",
+    "--text-muted",
+    "--warn"
+  ],
+  "render": {
+    "exec": { "hydrate": "browser" },
+    "surfaces": { "engine": "placeholder", "preview": "figure", "pdf": "figure", "player": "figure-baked", "marp": "source" },
+    "parity": "progressive",
+    "degradesTo": "source"
+  }
+}

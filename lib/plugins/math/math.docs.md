@@ -32,6 +32,9 @@ $$
   stays text.
 - **Display:** a block that opens with `$$` and closes on a line ending `$$`. Its body is opaque
   to Markdown: a lone `=` line inside a matrix is TeX, never a heading or a slide break.
+- **Display, as a fence:** ` ```math ` … ` ``` ` is the same display equation as a `$$` block —
+  the spelling GitHub, GitLab and most Markdown editors use, so math written elsewhere typesets
+  here unchanged. With the plugin off it is an ordinary code block showing the TeX.
 - **Not supported:** `\(…\)` and `\[…\]`. A new delimiter goes in `math.syntax.mjs` (the rule
   *and* `detect`), and the plugin's fixtures prove the two agree.
 - The supported TeX is KaTeX's: <https://katex.org/docs/supported.html>.
@@ -40,9 +43,9 @@ $$
 
 | Role file | What it holds |
 |---|---|
-| `math.manifest.json` | the two syntax rules (`math_inline`, `math_block`), their `$` trigger and host anchors, and the `math` component |
-| `math.syntax.mjs` | the grammar — both markdown-it rules and `detect(source)`. Pure and KaTeX-free, so the boundary parser and the docs site's pre-scan import it without KaTeX's 76 KB gzip |
-| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/core/tex-linebreak.js`) |
+| `math.manifest.json` | the two syntax rules (`math_inline`, `math_block`), their `$` trigger and host anchors, and the `math` fence |
+| `math.syntax.mjs` | the grammar — both markdown-it rules and `detect(source)`, which also finds a ` ```math ` fence. Pure and KaTeX-free, so the boundary parser and the docs site's pre-scan import it without KaTeX's 76 KB gzip |
+| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/core/tex-linebreak.js`) — and the `math` fence renderer, which is the display renderer |
 | `math.fixtures.md` | the conformance cases the plugin harness runs |
 
 **Options** (`createEngine`): `math: false` disables the plugin (the `$` stays text);
@@ -52,8 +55,9 @@ reads the MathML annotation to label a split page's pointer, so `html` degrades 
 ## Failure behavior
 
 A malformed formula never aborts a deck. KaTeX runs with `throwOnError: false`, so a parse error
-renders KaTeX's own error markup; a missing KaTeX module, a thrown error or a non-string result
-renders the escaped source text. A display reflow that KaTeX cannot parse falls back to the
+renders KaTeX's own error markup — the source in `var(--danger)`, the theme's error ink, rather
+than KaTeX's built-in `#cc0000` — and a missing KaTeX module, a thrown error or a non-string
+result renders the escaped source text. A display reflow that KaTeX cannot parse falls back to the
 author's original TeX.
 
 ## Styling

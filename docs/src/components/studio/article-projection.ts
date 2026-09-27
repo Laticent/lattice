@@ -97,7 +97,8 @@ export const ARTICLE_ROOT = '.st-read-article';
 // The leading `\s` is required, not cosmetic: a bare `class="` also matches `data-class="`,
 // which carries the author's RAW `_class:` payload rather than the resolved list (#1358), and
 // `check-ownership.js` rejects the unguarded form.
-const RUNTIME_DRAWN = /<code[^>]*\sclass="[^"]*language-mermaid|data-fp-config/;
+// A plugin figure is found by the plugin host's own marker (lib/plugins/host.js), not by naming a plugin.
+const RUNTIME_DRAWN = /<code[^>]*\sclass="[^"]*language-mermaid|data-lattice-hydrate=/;
 
 /**
  * Bake the runtime-drawn content into the render's own markup, or return null to say

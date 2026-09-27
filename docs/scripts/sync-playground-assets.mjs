@@ -79,12 +79,16 @@ const katexProviderJs = join(pgDir, 'lattice-katex.js');
 const assets = [
   ['lattice-runtime.js', runtimeJs],
   ['lattice-dagre.js', dagreJs],
-  // function-plot, the SAME build the CLI emulator injects (the version package-lock.json locks). Staged as a sibling of
-  // lattice-runtime.js on purpose: the runtime loads it on demand by swapping its own
-  // filename (lib/runtime/index.js `ensureFunctionPlot`), so a deck with a ```functionplot
-  // fence draws on every host that loads the runtime, and no host threads a URL. A deck
-  // without a plot never fetches it.
-  ['function-plot.js', createRequire(import.meta.url).resolve('function-plot/dist/function-plot.js', { paths: [repoRoot] })],
+  // Each browser-drawn plugin's library (function-plot today), DERIVED from the plugin registry
+  // (lib/plugins/hydrate.generated.js), so a new plugin's library is staged without an edit here.
+  // The SAME build the CLI emulator injects (the version package-lock.json locks). Staged as a
+  // sibling of lattice-runtime.js on purpose: the runtime's plugin host loads it on demand by its
+  // file name, one filename over from its own URL (lib/plugins/host-browser.mjs), so a deck with a
+  // ```functionplot fence draws on every host that loads the runtime, and no host threads a URL. A
+  // deck without a plot never fetches it.
+  ...createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'hydrate.generated.js')).HYDRATORS
+    .filter((h) => h.payload)
+    .map((h) => [h.payload.file, createRequire(import.meta.url).resolve(h.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
   ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
   ['themes/lattice.css', latticeCss],

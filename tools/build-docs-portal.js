@@ -1088,7 +1088,7 @@ function renderPortalJson(manifests) {
 // ── LFM grammar projection ───────────────────────────────────────────────
 // The shared cross-component grammars. These mirror the canonical handlers in
 // lib/integrations/markdown-it/plugins.js (stateClassesFor + the verdict-grid /
-// obligation-matrix / checklist / roadmap state plugins, and functionPlotFences)
+// obligation-matrix / checklist / roadmap state plugins) and the plugin packages' fences
 // and the chart-family Mermaid registration. They are declared here — as
 // lib/authoring/lint.js declares its own modifier lists — because the plugin
 // module exports the behavior, not these vocabularies. Keep in sync if the
@@ -1118,18 +1118,35 @@ const STATE_MARKER_COMPONENTS = ['checklist', 'verdict-grid', 'obligation-matrix
 
 // Fenced sub-languages LFM recognizes (info string → degraded form). The fence
 // body is NOT Markdown — it is the config language of the library that renders
-// it, owned by that library and the component that uses it, not by LFM. Each
-// degrades to a plain code block in an LFM-unaware renderer. The fence is named
-// after its renderer (like `mermaid`), not branded — `latticeplot` is retained
-// as a DEPRECATED alias of `functionplot` for one release. `anima` is the one
-// whose renderer is ours: `animaSceneFences` (lib/integrations/markdown-it/plugins.js)
-// packs the JSON scene spec, the `scene` component carries it, and the Anima
-// host plays it — in the docs site and in the HTML export (lib/export/player-core.mjs). The entry describes that shipped behavior; it adds none.
-const FENCES = {
-  anima: { sublanguage: 'anima', body: 'json', usedBy: ['scene'], degradesTo: 'code-block' },
-  functionplot: { sublanguage: 'function-plot', body: 'json', usedBy: ['math'], deprecatedAliases: ['latticeplot'], degradesTo: 'code-block' },
-  mermaid: { sublanguage: 'mermaid', body: 'mermaid', usedBy: ['diagram'], degradesTo: 'code-block' },
-};
+// it, owned by that library, not by LFM. Each degrades to a plain code block in
+// an LFM-unaware renderer. DERIVED from the plugin packages (lib/plugins/) that
+// render them — `sublanguage` is the plugin, `usedBy` the components whose
+// manifests declare it — so a new fence plugin reaches grammar.json without an
+// edit here. Mermaid is the one fence that is not a plugin yet (plugin-system
+// phase D), so its row is still written by hand.
+function renderFences(manifests) {
+  const { PLUGIN_GRAMMAR } = require('../lib/plugins/grammar.generated.mjs');
+  const fences = {
+    mermaid: { sublanguage: 'mermaid', body: 'mermaid', usedBy: ['diagram'], degradesTo: 'code-block' },
+  };
+  for (const plugin of PLUGIN_GRAMMAR) {
+    const usedBy = manifests
+      .filter((m) => [...(m.plugins?.requires || []), ...(m.plugins?.optional || [])].includes(plugin.name))
+      .map((m) => m.name)
+      .sort();
+    for (const [name, decl] of Object.entries(plugin.fences)) {
+      const deprecated = decl.aliases.filter((a) => a.deprecated).map((a) => a.name);
+      fences[name] = {
+        sublanguage: plugin.name,
+        body: decl.body,
+        usedBy,
+        ...(deprecated.length ? { deprecatedAliases: deprecated } : {}),
+        degradesTo: 'code-block',
+      };
+    }
+  }
+  return Object.fromEntries(Object.keys(fences).sort().map((k) => [k, fences[k]]));
+}
 
 /**
  * Project the component manifests into dist/docs/grammar.json — the
@@ -1169,7 +1186,7 @@ function renderGrammarJson(manifests) {
     stateMarkers: STATE_MARKERS,
     stateMarkersNote: STATE_MARKERS_NOTE,
     stateMarkerComponents: [...STATE_MARKER_COMPONENTS].sort(),
-    fences: FENCES,
+    fences: renderFences(manifests),
     // No `count` here either — same reason as renderPortalJson above (#1594).
     components,
   };

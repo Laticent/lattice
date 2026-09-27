@@ -2,7 +2,7 @@
  * The runtime loads function-plot.js on demand, and says so honestly when it cannot.
  *
  * The docs-site hosts load only `lattice-runtime.js`, and until 2026-09-24 not one of them
- * drew a ```functionplot fence. `ensureFunctionPlot` (lib/runtime/index.js) now loads the
+ * drew a ```functionplot fence. The plugin host (lib/plugins/host-browser.mjs, in the runtime) loads the
  * library from beside the runtime's own `<script src>`. These arms drive the BUILT runtime in
  * Chromium, loaded by `src` the way the Studio frame loads it, in a page that carries a
  * function-plot placeholder:
@@ -41,14 +41,15 @@ async function probe({ sibling, config = CONFIG }) {
     if (sibling) fs.copyFileSync(FUNCTION_PLOT, path.join(dir, 'function-plot.js'));
     fs.writeFileSync(path.join(dir, 'index.html'),
       '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
-      `<section data-lattice-slide="1"><div class="functionplot" data-fp-config="${toBase64(config)}" style="width:480px;height:320px"></div></section>` +
+      // The engine's placeholder markup (lib/plugins/host.js `hydrateAttrs`).
+      `<section data-lattice-slide="1"><div class="functionplot" data-lattice-hydrate="function-plot" data-lattice-config="${toBase64(config)}" data-lattice-settle="pending" style="width:480px;height:320px"></div></section>` +
       '<script src="lattice-runtime.js"></script></body></html>');
     const page = await browser.newPage();
     try {
       await page.goto(`file://${path.join(dir, 'index.html')}`, { waitUntil: 'load' });
       await page.waitForFunction(() => {
         const d = document.querySelector('.functionplot');
-        return d.dataset.fpInflated || d.dataset.fpState;
+        return d.dataset.latticeSettle !== 'pending';
       }, { timeout: 15000 });
       // Count mutations to the PLOT over a second of idle: a settled plot makes none. Scoped to
       // the placeholder, because the runtime's other passes may touch the rest of the page.
@@ -62,7 +63,7 @@ async function probe({ sibling, config = CONFIG }) {
         const d = document.querySelector('.functionplot');
         const svg = d.querySelector('svg.function-plot');
         return {
-          inflated: d.dataset.fpInflated || '', fpState: d.dataset.fpState || '',
+          settle: d.dataset.latticeSettle || '', final: d.hasAttribute('data-lattice-final'),
           viewBox: svg ? svg.getAttribute('viewBox') : null,
           labels: [...d.querySelectorAll('text.axis-label')].map((t) => t.textContent),
           text: svg ? '' : d.textContent,
@@ -79,21 +80,21 @@ async function probe({ sibling, config = CONFIG }) {
 
 test('with function-plot.js beside the runtime, the plot draws and gets its viewBox', { skip: skipWithoutChrome(chrome), timeout: 60000 }, async () => {
   const s = await probe({ sibling: true });
-  assert.equal(s.inflated, '1');
+  assert.equal(s.settle, 'rendered');
   assert.ok(s.labels.includes('x²'), `labels: ${JSON.stringify(s.labels)}`);
   assert.match(s.viewBox || '', /^0 0 \d+(\.\d+)? \d+(\.\d+)?$/);
 });
 
 test('without it, the author gets their config as text, marked settled', { skip: skipWithoutChrome(chrome), timeout: 60000 }, async () => {
   const s = await probe({ sibling: false });
-  assert.equal(s.fpState, 'unavailable');
-  assert.equal(s.inflated, '');
+  assert.equal(s.settle, 'unavailable');
+  assert.equal(s.final, false, 'recoverable: a library that turns up later still draws');
   assert.ok(s.text.includes('"label":"x²"'), `text: ${s.text}`);
   assert.equal(s.mutations, 0, `a released plot must not keep rewriting itself (${s.mutations} mutation(s) in 1s)`);
 });
 
 test('a config that throws is marked settled, and the page goes quiet', { skip: skipWithoutChrome(chrome), timeout: 60000 }, async () => {
   const s = await probe({ sibling: true, config: '{"data":[{"fn":"x^^("}]}' });
-  assert.equal(s.inflated, 'error');
+  assert.equal(s.settle, 'error');
   assert.equal(s.mutations, 0, `the error text was rewritten ${s.mutations} time(s) in 1s`);
 });

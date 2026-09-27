@@ -109,17 +109,6 @@ section.math :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   display: block;
   text-align: center;
 }
-/* Ligatures off — this echoes the author's own TeX back at them, and the point of
- * an error surface is that the quote is retypeable (see base.elements.css). */
-section.math .math-error {
-  color: var(--warn);
-  font-family: var(--font-mono);
-  font-variant-ligatures: none;
-  font-size: 0.85em;
-  background: color-mix(in srgb, var(--warn) 10%, transparent);
-  padding: 0.1em 0.4em;
-  border-radius: var(--radius-sm);
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
  * `feature` and bare `math`.
@@ -690,7 +679,8 @@ section.math.math.form.compare[data-family="strip"] > .cell-stage > h3 {
  *   ```
  *
  * Equation + caption on the left, plot on the right. The plot child is
- * either a ```functionplot fence (function-plot, the default) or an
+ * either a ```functionplot fence (the function-plot plugin, the default;
+ * its paint is lib/plugins/function-plot/function-plot.styles.css) or an
  * `<img>` for externally-rendered SVG / PNG. */
 /* Grid-template-areas keeps equation + caption stacked in the left column
  * without a wrapper div: equation in `eq` (1fr, big), caption in `cap`
@@ -749,12 +739,18 @@ section.math.form.canvas > .cell-stage > p:not(:has(:is(.katex-display, mjx-cont
   padding: var(--sp-sm) 0 0 0;
 }
 section.math.form.canvas > .cell-stage > p:has(img),
-section.math.form.canvas > .cell-stage > :is(svg, figure, .functionplot) {
+section.math.form.canvas > .cell-stage > :is(svg, figure, [data-lattice-hydrate]) {
   grid-area: plot;
   align-self: center;
   justify-self: center;
 }
-/* THE PLOT IS SIZED AGAINST ITS CELL, NOT AGAINST THE SLIDE — and that is the migration's
+/* THE STAGE SIZES WHATEVER FIGURE IT HOLDS, through the plugin host's own marker —
+ * `[data-lattice-hydrate]`, which every browser-drawn plugin placeholder carries
+ * (lib/plugins/host.js) — so this component names no plugin (plugin-system §6). A plot is the
+ * one such figure today; the gutter reasoning below is about figures that draw their axis
+ * labels outside their own box, which is what a plot does.
+ *
+ * THE PLOT IS SIZED AGAINST ITS CELL, NOT AGAINST THE SLIDE — and that is the migration's
  * one substantive change here. The sovereign arm asked for `55cqi x 38cqi`, which resolves
  * against the SECTION: 38cqi is 486px of a 720px-tall slide, against a stage that is 438px
  * at `hd`. On the sovereign frame the section WAS the box, so it fitted; inside a stage
@@ -764,7 +760,13 @@ section.math.form.canvas > .cell-stage > :is(svg, figure, .functionplot) {
  * `100%` of the plot cell with the same 55:38 aspect ratio keeps the shape the sovereign
  * arm chose while letting the cell decide the size. `max-height: 100%` is the guard for a
  * short stage, where honouring the ratio would otherwise overflow the row. */
-section.math.form.canvas > .cell-stage > .functionplot {
+/* ONLY A FIGURE IS SIZED — a placeholder still drawing (`pending`, which is what the library
+ * measures) or drawn (`rendered`). One that settled as TEXT — an `error` message, or an
+ * `unavailable` one showing its config — is not a figure, and the plot's aspect ratio forced it
+ * into a box taller than the stage: on a broken config the dashed error surface ran past the
+ * frame and the export flagged the slide as clipped. Text keeps its placement in the `plot`
+ * area (the rule above) and its own height. */
+section.math.form.canvas > .cell-stage > [data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="rendered"]) {
   /* AXIS LABELS DRAW OUTSIDE THE PLOT AREA, so the plot asks for less than the whole cell.
    * function-plot anchors its y-tick text at `text-anchor: end`, so the digits extend LEFT
    * of the axis and out of the `<svg>`'s own box; the x-axis's last tick does the same on
@@ -1181,73 +1183,9 @@ section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"])
  * probe read the overhang as overflow — with `overCells: []`, i.e. no cell was over, which
  * is the tell that the spill was the section's and not the body's. Sized from the same
  * measurement as the horizontal gutter above. */
-section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .functionplot {
+section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"]) > .cell-stage > [data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="rendered"]) {
   width: 58%;
 }
-
-/* ── function-plot SVG styling ──
- * function-plot stamps inline `stroke="..."` attributes on its trace paths
- * (`.line-0`, `.line-1`, …) and axis chrome (`stroke="black"` on `.domain`,
- * `fill="currentColor"` on tick text). To bring it into the palette we
- * override those with !important on the inline attributes. The first
- * three traces ride the editorial accents (accent → cool → warm);
- * further traces fall back to muted so they read as supporting context. */
-section .functionplot .function-plot {
-  font-family: var(--font-mono);
-  color: var(--text-body);
-  background: transparent;
-}
-section .functionplot .function-plot .domain {
-  stroke: var(--muted-mark) !important;
-  opacity: 0.6 !important;
-}
-section .functionplot .function-plot .tick line {
-  stroke: var(--border) !important;
-}
-section .functionplot .function-plot .tick text {
-  fill: var(--text-muted) !important;
-  font-size: var(--fs-meta);
-}
-section .functionplot .function-plot .axis-label,
-section .functionplot .function-plot .x.axis-label,
-section .functionplot .function-plot .y.axis-label {
-  fill: var(--text-heading) !important;
-  font-family: var(--font-body);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-}
-section .functionplot .function-plot .line-0 {
-  stroke: var(--accent) !important;
-  stroke-width: 2.5 !important;
-}
-section .functionplot .function-plot .line-1 {
-  stroke: var(--cat-4-mark, var(--text-heading)) !important;
-  stroke-width: 2.5 !important;
-}
-section .functionplot .function-plot .line-2 {
-  stroke: var(--cat-7-mark, var(--muted-mark)) !important;
-  stroke-width: 2.5 !important;
-}
-section .functionplot .function-plot :is(.line-3, .line-4, .line-5) {
-  stroke: var(--muted-mark) !important;
-  stroke-width: 2 !important;
-}
-section .functionplot .function-plot .annotations .annotation,
-section .functionplot .function-plot .annotations text {
-  fill: var(--text-muted) !important;
-  stroke: var(--text-muted) !important;
-}
-section .functionplot-error {
-  color: var(--warn);
-  font-family: var(--font-mono);
-  /* Same reason as .math-error above: an error must quote the source literally. */
-  font-variant-ligatures: none;
-  font-size: var(--fs-meta);
-  padding: var(--sp-sm);
-  border: 1px dashed var(--warn);
-  border-radius: var(--radius-sm);
-}
-
 
 /* ── The REFLOWED display scale (#2136, lever 2) ──
  *

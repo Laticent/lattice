@@ -4,7 +4,7 @@
   "function": "evidence",
   "bucket": "math",
   "form": "canvas",
-  "plugins": { "requires": ["math"] },
+  "plugins": { "requires": ["math"], "optional": ["function-plot"] },
   "projection": {
     "figure": "bare"
   },
@@ -66,7 +66,7 @@
     "equation": {
       "selector": "p",
       "required": true,
-      "description": "Display equation wrapped in `$$…$$`. Renders centered."
+      "description": "Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered."
     },
     "legend": {
       "selector": "ul > li",
