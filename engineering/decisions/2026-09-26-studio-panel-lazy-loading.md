@@ -426,7 +426,11 @@ Present now, on the same Save-Data rule, since it is an editing surface people u
 **Evidence.** `docs/e2e/studio-warm-offline.spec.ts` serves the built site from a server it
 then closes, which is a real network cut. It checks that Present and the reading view open
 after an offline reload, that the Compose tab opens at phone size, that Fabricate opens for a browser flagged as having used it, and that
-Save-Data warms none of them. Against a build without this change, the first two tests fail
+Save-Data warms none of them. Two SWEEP cases then open every on-demand surface offline in one
+session: all eleven (`React.lazy` and `lazyPanel`) on desktop, and every tab at phone size. The
+single-surface cases never covered Compose, which is how it reached a real phone; with the
+Compose warm-up removed, both sweeps fail at "Compose did not load offline". A new on-demand
+surface belongs in the sweep's list. Against a build without this change, the first two tests fail
 at the warm-up step ("the warm-up never cached PresentOverlay, ReadArticle, …").
 
 ## Delivery

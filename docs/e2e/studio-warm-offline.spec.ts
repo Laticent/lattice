@@ -130,21 +130,86 @@ test('under Save-Data the warm-up fetches the six panels but not Present or the 
 	}
 });
 
+/** Nothing on screen says a chunk failed: no reload card, and no panel still on its shell. */
+async function expectLoaded(page: Page, what: string): Promise<void> {
+	await expect(page.locator('[data-panel-shell]'), `${what} is still on its shell`).toHaveCount(0, { timeout: 15_000 });
+	await expect(page.getByRole('alert').filter({ has: page.getByRole('button', { name: /reload/i }) }), `${what} showed the chunk-load card`).toHaveCount(0);
+}
+
+// The SWEEP. Every surface the Studio loads on demand, opened offline in one session that never
+// opened any of them online: the six panels, Editor, Compose, Present, Fabricate and the reading
+// view (the whole `React.lazy` / `lazyPanel` set in docs/src). The cases above prove each warm-up
+// in isolation; this one is what would have caught Compose, which no single-surface case covered.
+// A new on-demand surface belongs in this list.
+test('every on-demand Studio surface opens offline after a session that opened none of them', async ({ page }) => {
+	test.setTimeout(300_000);
+	const { server, origin } = await serveDist();
+	try {
+		const panels = ['ShareSheet', 'WorkspaceSheet', 'SlideContext', 'ArchitectChat', 'Library', 'LensesPanel'];
+		await warmOnline(page, origin, [...panels, 'Editor', 'ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'], { fabricateUsed: true });
+		await goOffline(page, server);
+		await expect(page.locator('.cm-editor').first(), 'the Editor did not load offline').toBeVisible({ timeout: 30_000 });
+
+		const opens: Array<[string, () => Promise<unknown>]> = [
+			['Share', () => page.getByRole('button', { name: 'Share', exact: true }).first().click()],
+			['Workspace settings', () => page.getByRole('button', { name: CHROME.workspaceSettings, exact: true }).first().click()],
+			['The Library', () => page.getByRole('button', { name: CHROME.library, exact: true }).first().click()],
+			['Chat', () => page.getByRole('button', { name: CHROME.chat, exact: true }).first().click()],
+			['Reader views', () => page.getByRole('button', { name: CHROME.lenses, exact: true }).first().click()],
+			['Slide settings', () => page.getByRole('button', { name: CHROME.slideSettings, exact: true }).first().click()],
+		];
+		for (const [what, open] of opens) {
+			await open();
+			await expectLoaded(page, what);
+			await page.keyboard.press('Escape');
+		}
+
+		await page.getByRole('button', { name: 'Compose — rich editor' }).click();
+		await expect(page.locator('.ProseMirror').first(), 'Compose did not load offline').toBeVisible({ timeout: 30_000 });
+		await expectLoaded(page, 'Compose');
+		await page.getByRole('button', { name: 'Markdown source' }).click();
+
+		await page.getByRole('button', { name: 'Present' }).first().click();
+		await expect(page.getByRole('dialog', { name: 'Present' }).getByText(/^1 \/ \d+$/)).toBeVisible({ timeout: 30_000 });
+		await page.keyboard.press('Escape');
+
+		await page.getByRole('button', { name: 'Workspace launcher' }).click();
+		await page.getByRole('menuitem', { name: 'Fabricate' }).click();
+		await expect(page.getByRole('textbox', { name: 'Theme name' })).toBeVisible({ timeout: 30_000 });
+		await expectLoaded(page, 'Fabricate');
+		await page.getByRole('button', { name: 'Back to Compose' }).click();
+
+		await page.getByRole('button', { name: CHROME.postureStops[0] }).click();
+		await page.getByRole('button', { name: CHROME.readArticle }).click();
+		await expect(page.locator('article.st-read-article h1, article.st-read-article h2').first()).toBeVisible({ timeout: 30_000 });
+		await expectLoaded(page, 'the reading view');
+	} finally {
+		server.closeAllConnections();
+		server.close();
+	}
+});
+
 // Compose is a primary tab on a phone, and before it was warmed, tapping it offline replaced the
 // whole Studio with the chunk-load card: found on a real iPhone against the PR preview, then
 // reproduced here. The phone layout is where the tab lives, so this case runs at phone size.
 test.describe('on a phone', () => {
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-	test('the Compose tab opens offline after a session that never opened it', async ({ page }) => {
-		test.setTimeout(180_000);
+	test('every tab opens offline after a session that never opened them', async ({ page }) => {
+		test.setTimeout(240_000);
 		const { server, origin } = await serveDist();
 		try {
-			await warmOnline(page, origin, ['ComposeView']);
+			await warmOnline(page, origin, ['ComposeView', 'PresentOverlay', 'ArchitectChat', 'SlideContext']);
 			await goOffline(page, server);
-			await page.locator('button:visible').filter({ hasText: /^\s*Compose\s*$/ }).first().tap();
-			await expect(page.locator('.ProseMirror').first()).toBeVisible({ timeout: 30_000 });
-			await expect(page.getByRole('button', { name: 'Reload' })).toHaveCount(0);
+			const tab = (name: string) => page.locator('button:visible').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).first();
+			for (const name of ['Source', 'Compose', 'Preview', 'Coach', 'Chat', 'Settings', 'Share', 'Present']) {
+				await tab(name).tap();
+				if (name === 'Compose') await expect(page.locator('.ProseMirror').first(), 'Compose did not load offline').toBeVisible({ timeout: 30_000 });
+				if (name === 'Present') await expect(page.getByRole('dialog', { name: 'Present' }).getByText(/^1 \/ \d+$/)).toBeVisible({ timeout: 30_000 });
+				await expectLoaded(page, `the ${name} tab`);
+				await page.keyboard.press('Escape');
+				await expect(page.getByRole('dialog')).toHaveCount(0);
+			}
 		} finally {
 			server.closeAllConnections();
 			server.close();
