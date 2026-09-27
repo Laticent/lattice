@@ -18,3 +18,8 @@ export const STUDIO_PANELS = [sharePanel, workspacePanel, slideSettingsPanel, ch
 
 /** Set by Fabricate's first open (`StudioShell.tsx`); read by the idle warm-up (`studio-warm.ts`). */
 export const FABRICATE_USED_KEY = 'lattice-studio-fabricate-used';
+
+/** Set when a deck with a diagram is on screen (`StudioShell.tsx`); read by the idle warm-up, which
+ *  then fetches the Mermaid bundle so a diagram this browser has not rendered since the last deploy
+ *  still draws offline (`studio-warm.ts`). */
+export const DIAGRAMS_USED_KEY = 'lattice-studio-diagrams-used';
