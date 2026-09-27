@@ -284,6 +284,35 @@ describe('SlideContextBody controls', () => {
 		expect(onMutate.mock.calls.at(-1)?.[0]('whatever')).toBe(orig);
 	});
 
+	// On a cold open the panel's code arrives after it was opened, and the loading shell recorded
+	// the slide at the moment of opening (panel-shells.tsx). An edit made while the shell was up
+	// must still be undone by Reset, so the panel starts from the shell's baseline, not from the
+	// slide as it is when the code lands. engineering/decisions/2026-09-26-studio-panel-lazy-loading.md
+	it("Reset reverts to the slide as it was when the panel opened, even when its code arrived after an edit", () => {
+		const orig = '<!-- _class: kpi -->\n\n# Hi';
+		const editedWhileLoading = '<!-- _class: kpi dark -->\n\n# Hi';
+		const baselineRef = { current: { slide: 1, chunk: orig } };
+		const onMutate = vi.fn();
+		render(
+			<SlideContextBody open chunk={editedWhileLoading} source={editedWhileLoading} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" baselineRef={baselineRef} />,
+		);
+		const reset = screen.getByRole('button', { name: /reset slide/i });
+		expect(reset).not.toBeDisabled();
+		fireEvent.click(reset);
+		expect(onMutate.mock.calls.at(-1)?.[0]('whatever')).toBe(orig);
+		// Taken over once: a later open cannot reuse it.
+		expect(baselineRef.current).toBeNull();
+	});
+
+	it('ignores a recorded baseline for a different slide', () => {
+		const chunk = '<!-- _class: kpi -->\n\n# Hi';
+		const baselineRef = { current: { slide: 4, chunk: '# Another slide' } };
+		render(
+			<SlideContextBody open chunk={chunk} source={chunk} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="advanced" onTierChange={vi.fn()} query="" baselineRef={baselineRef} />,
+		);
+		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
+	});
+
 	it('shows the emitted _class line', () => {
 		setup('<!-- _class: kpi dark -->\n\n# Hi');
 		expect(screen.getByText(/kpi dark/)).toBeTruthy();

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
 
 // A DeckPreview stub that surfaces the theme-wiring props as data-attributes, so a
@@ -45,7 +45,11 @@ vi.mock('./theme-library', async (orig) => {
 	};
 });
 
+import { loadStudioPanels } from '@/test/panels';
 import { saveStudioTheme } from './theme-library';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 

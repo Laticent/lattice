@@ -1,4 +1,3 @@
-import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { chunkLoadMessage, isChunkLoadError } from '@/lib/chunk-load';
@@ -14,6 +13,7 @@ import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type DeckPackages, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
+import { SHARE_HEADER, SHARE_MENU, ShareRow, type ShareRowId } from './share-menu';
 import { loadSettings, type OverflowMarker } from './studio-store';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsPanel';
@@ -22,15 +22,6 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // the rendered ARTIFACT vs hand off the SOURCE. Every row is REAL now: the source
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
-function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.ReactNode; title: string; desc: string; dev?: boolean; busy?: boolean; status?: string | null; onClick?: () => void }) {
-	return (
-		<button type="button" disabled={busy} onClick={onClick} className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-3 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:bg-[var(--accent-soft)] disabled:opacity-60">
-			<span className={`grid size-9 place-items-center rounded-lg ${dev ? 'bg-card text-muted-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]'}`}>{icon}</span>
-			<span className="min-w-0"><span className="block text-[13.5px] font-semibold text-[var(--text-heading)]">{title}</span><span className={`block truncate text-[11.5px] ${busy && status ? 'text-[var(--accent)]' : 'text-muted-foreground'}`}>{busy && status ? status : desc}</span></span>
-			{busy ? <Loader2 className="ml-auto size-4 animate-spin text-[var(--accent)]" /> : <ChevronRight className="ml-auto size-4 text-muted-foreground" />}
-		</button>
-	);
-}
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void }) {
 	const close = () => onOpenChange(false);
@@ -209,13 +200,34 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const deckCm = deckColorMode(artifactSource);
 	const deckDefaultScheme = deckCm && deckCm !== 'print' ? deckCm : mode;
 
+
+	// What each menu row does. The rows themselves (icon, title, description) live in
+	// `share-menu.tsx`, shared with the loading shell. `busy` is set only for rows that show
+	// a spinner while its export runs, and `progress` also swaps the description for the export's
+	// status line. A row with neither opens a sub-view or leaves the sheet.
+	const act: Record<ShareRowId, { onClick: () => void; busy?: boolean; progress?: boolean }> = {
+		present: { onClick: () => { close(); onPresent(); } },
+		pdf: { busy: busy === 'pdf', progress: true, onClick: () => setView('pdf') },
+		pptx: {
+			busy: busy === 'pptx',
+			progress: true,
+			onClick: () => run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
+				const reason = await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss);
+				if (reason) onDegraded(reason);
+			}),
+		},
+		images: { busy: busy === 'images', progress: true, onClick: () => setView('imageset') },
+		print: { onClick: () => setView('print') },
+		html: { busy: busy === 'html', progress: true, onClick: () => setView('html') },
+		captions: { busy: busy === 'captions', progress: true, onClick: () => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus)) },
+		lattice: { busy: busy === 'lattice', onClick: () => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now(), deckPackages)) },
+		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents)) },
+		marp: { onClick: () => setView('marp') },
+		printsrc: { onClick: () => run('printsrc', 'Print source', () => sharePrintSource(source, name)) },
+	};
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
-			<PanelHeader
-				icon={<Link2 />}
-				title={`Share “${deckTitle}”`}
-				srDescription="Hand off the rendered deck or the Markdown source."
-			/>
+			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} srDescription={SHARE_HEADER.srDescription} />
 			<PanelBody padded={false} className="space-y-6 p-5">
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
@@ -238,28 +250,14 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					) : view === 'marp' ? (
 						<MarpOptionsPanel busy={busy === 'marp'} status={progress} defaultMarker={loadSettings().overflowMarker} onBack={() => setView('menu')} onExport={exportMarpBundle} />
 					) : (
-						<>
-							<PanelSection label="Hand off the deck">
-								<p className="text-xs text-muted-foreground">The rendered, paginated deck — for your audience.</p>
-								<Row icon={<Link2 className="size-4" />} title="Present link" desc="A live, themed link that opens in Present" onClick={() => { close(); onPresent(); }} />
-								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
-								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
-									const reason = await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss);
-									if (reason) onDegraded(reason);
-								})} />
-								<Row busy={busy === 'images'} status={progress} icon={<Images className="size-4" />} title="Images (.zip)" desc="One image per slide — PNG/JPEG/WebP, thumbnails, chart SVGs" onClick={() => setView('imageset')} />
-								<Row icon={<Printer className="size-4" />} title="Print deck" desc="Pick paper &amp; color, preview, then print or save" onClick={() => setView('print')} />
-								<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />
-								<Row busy={busy === 'captions'} status={progress} icon={<Captions className="size-4" />} title="Captions (.vtt)" desc="Read-along WebVTT from your slide content — no audio, no key" onClick={() => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus))} />
-							</PanelSection>
-							<PanelSection label="Hand off the source">
-								<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
-								<Row busy={busy === 'lattice'} icon={<FileArchive className="size-4" />} title="Lattice project (.lattice)" desc="Deck, comments and its saved assets in one file — re-opens here" onClick={() => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now(), deckPackages))} />
-								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents))} />
-								<Row dev icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => setView('marp')} />
-								<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
-							</PanelSection>
-						</>
+						SHARE_MENU.map((section) => (
+								<PanelSection key={section.label} label={section.label}>
+									<p className="text-xs text-muted-foreground">{section.blurb}</p>
+									{section.rows.map((r) => (
+										<ShareRow key={r.id} icon={r.icon} title={r.title} desc={r.desc} dev={r.dev} busy={act[r.id].busy} status={act[r.id].progress ? progress : undefined} onClick={act[r.id].onClick} />
+									))}
+								</PanelSection>
+							))
 					)}
 			</PanelBody>
 		</PanelSheet>

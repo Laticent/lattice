@@ -1,9 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels, waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
 import { TOURS } from './tours';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // Most flows here exercise the FULL-density Studio against the original deck set
 // (the 6-slide "Q3 Board Review" active). Seed a returning-user state — the saved
@@ -588,6 +592,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('opens Workspace settings ("your setup") with the REAL model status + tabs', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Workspace settings' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Workspace/ }));
 		// Default tab = AI: the Model section leads with a Generation switch (Cloud /
 		// On-device) that picks the active tier. With no model in the test env, nothing is

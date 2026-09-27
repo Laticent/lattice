@@ -2,7 +2,7 @@ import DOMPurify from 'dompurify';
 import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { diffLines, sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
@@ -11,6 +11,8 @@ import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatCompl
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
+import { DiffCard } from './diff-card';
+import { CHAT_COMPOSER_FIELD, ChatEmptyCard } from './panel-shells';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
@@ -400,13 +402,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				createPortal(costReadout, costSlot)
 			) : null}
 			<div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
-				{empty && (
-					<div className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[12px] leading-relaxed text-muted-foreground">
-						<Sparkles className="mx-auto mb-1.5 size-4 text-[var(--accent)]" />
-						Ask the Architect to tighten a slide, reshape the deck, or answer a question. Proposed edits arrive as a diff you Apply or Discard.
-						{!aiReady && <span className="mt-1.5 block text-[var(--text-muted)]">Connect a model in Workspace to start.</span>}
-					</div>
-				)}
+				{empty && <ChatEmptyCard aiReady={aiReady} />}
 				{messages.map((m, i) =>
 					m.role === 'user' ? (
 						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
@@ -502,7 +498,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						rows={1}
 						placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'}
 						aria-label="Message the Architect"
-						className="block min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-[5px] text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]"
+						className={CHAT_COMPOSER_FIELD}
 					/>
 					{refDoc.attachButton}
 					<button
@@ -640,70 +636,3 @@ function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: Chat
 	);
 }
 
-// Collapse long runs of unchanged context to keep a diff readable — keep CONTEXT lines
-// around each change, replace the rest with a "⋯ N unchanged" marker.
-function collapseContext(rows: DiffRow[], context = 2): (DiffRow | { type: 'gap'; text: string })[] {
-	const keep = new Array(rows.length).fill(false);
-	rows.forEach((r, i) => {
-		if (r.type !== 'same') for (let j = Math.max(0, i - context); j <= Math.min(rows.length - 1, i + context); j++) keep[j] = true;
-	});
-	const out: (DiffRow | { type: 'gap'; text: string })[] = [];
-	let run = 0;
-	rows.forEach((r, i) => {
-		if (keep[i]) {
-			if (run > 0) {
-				out.push({ type: 'gap', text: `⋯ ${run} unchanged line${run > 1 ? 's' : ''}` });
-				run = 0;
-			}
-			out.push(r);
-		} else {
-			run++;
-		}
-	});
-	if (run > 0) out.push({ type: 'gap', text: `⋯ ${run} unchanged line${run > 1 ? 's' : ''}` });
-	return out;
-}
-
-// A compact line diff (real LCS from the engine — not a set-difference), context
-// collapsed. Exported + reused by the Coach's per-finding fix, which passes before/after;
-// the chat passes precomputed `rows` (the per-slide diff).
-export function DiffCard({ before, after, rows, onApply, onDiscard }: { before?: string; after?: string; rows?: DiffRow[]; onApply?: () => void; onDiscard?: () => void }) {
-	const diff = React.useMemo<DiffRow[]>(() => rows ?? (diffLines(before ?? '', after ?? '') as DiffRow[]), [before, after, rows]);
-	const display = React.useMemo(() => collapseContext(diff), [diff]);
-	return (
-		<div className="overflow-hidden bg-background">
-			<div className="max-h-[180px] overflow-auto px-2.5 py-1.5 font-mono text-[10.5px] leading-relaxed">
-				{display.map((r, i) =>
-					r.type === 'gap' ? (
-						// biome-ignore lint/suspicious/noArrayIndexKey: static diff snapshot.
-						<div key={i} className="select-none py-0.5 text-center text-[9.5px] uppercase tracking-wider text-muted-foreground">
-							{r.text}
-						</div>
-					) : (
-						// biome-ignore lint/suspicious/noArrayIndexKey: static diff snapshot.
-						<div key={i} className={cn('whitespace-pre-wrap', r.type === 'add' ? 'text-[var(--pass)]' : r.type === 'del' ? 'text-[var(--fail,#b3261e)] line-through opacity-70' : 'text-muted-foreground')}>
-							{r.type === 'add' ? '+ ' : r.type === 'del' ? '− ' : '  '}
-							{r.text}
-						</div>
-					),
-				)}
-			</div>
-			{(onApply || onDiscard) && (
-				<div className="flex items-center gap-1.5 border-t border-border px-2 py-1.5">
-					{onApply && (
-						<button type="button" onClick={onApply} className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground">
-							<Check className="size-3" />
-							Apply
-						</button>
-					)}
-					{onDiscard && (
-						<button type="button" onClick={onDiscard} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-							<X className="size-3" />
-							Discard
-						</button>
-					)}
-				</div>
-			)}
-		</div>
-	);
-}

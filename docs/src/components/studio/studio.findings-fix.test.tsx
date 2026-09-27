@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // Slice: the Coach panel's deterministic findings + their AI fix lifecycle. Each finding
 // is a full-width card; with a model connected it grows a "Fix ≈ $X" pill that drafts a

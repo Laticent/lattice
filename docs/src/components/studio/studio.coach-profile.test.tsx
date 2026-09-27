@@ -11,9 +11,13 @@
 //
 // This is that gate. It reads the engine's own PROFILE_NAMES rather than restating the
 // list, so adding a profile to the engine and forgetting the panel fails here.
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { loadStudioPanels } from '@/test/panels';
 import { declaredProfile, PROFILE_NAMES, PROFILES, withProfile } from '../../../../lib/authoring/deck-profiles.js';
 import { DECK_PROFILE_CHOICES } from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 describe('the Coach profile control mirrors the engine', () => {
 	it('offers exactly the profiles the engine grades', () => {

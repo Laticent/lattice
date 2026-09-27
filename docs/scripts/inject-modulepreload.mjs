@@ -58,6 +58,22 @@ const ENTRIES = [
 		// studio.astro always passes a real lintVocab). Not a conditional
 		// feature a user opts into, unlike Fabricate's lazy tab.
 		eagerDynamicImportSuffixes: ['src/playground/authoring-core.generated.js'],
+		// Modules that must NOT be in the Studio's startup closure. The six panels load on first
+		// open, and `read-along-core` marks the narration / text-to-speech stack whose last two
+		// startup holders were Share and Workspace (engineering/decisions/
+		// 2026-09-26-studio-panel-lazy-loading.md). One eager import of any of them from a module
+		// the Studio loads at startup puts it, and what it imports, straight back on every visit.
+		// The route-budget gate would catch the bytes, but only as a size, and raising a budget
+		// with a note is routine; this names the module that came back.
+		lazyOnlySuffixes: [
+			'src/components/studio/ShareSheet.tsx',
+			'src/components/studio/WorkspaceSheet.tsx',
+			'src/components/studio/ArchitectChat.tsx',
+			'src/components/studio/Library.tsx',
+			'src/components/studio/SlideContext.tsx',
+			'src/components/studio/LensesPanel.tsx',
+			'src/playground/read-along-core.generated.js',
+		],
 	},
 	// PlaygroundIsland is the StrictMode wrapper the astro-island loads; it
 	// statically imports PlaygroundApp, so the app + its deps stay covered.
@@ -202,6 +218,22 @@ function injectIntoPage(pagePath, jsChunks, cssFiles, distDir = DIST) {
  * @throws {Error} if no chunk matches `entry.sourceSuffix`, or if an injected
  *   href doesn't resolve to a real file on disk.
  */
+/**
+ * The modules in `jsChunks` whose id ends with one of `suffixes`: a lazy-only module that has
+ * leaked into an entry's startup closure. PURE, so the rule is unit-testable without a build.
+ */
+function findLazyOnlyLeaks(graph, jsChunks, suffixes = []) {
+	if (!suffixes.length) return [];
+	const leaks = new Set();
+	for (const chunk of jsChunks) {
+		for (const id of graph[chunk]?.moduleIds ?? []) {
+			const hit = suffixes.find((suffix) => id.endsWith(suffix));
+			if (hit) leaks.add(hit);
+		}
+	}
+	return [...leaks];
+}
+
 function processEntry(graph, entry, distDir = DIST) {
 	const entryFileName = findEntryChunk(graph, entry.sourceSuffix);
 	if (!entryFileName) {
@@ -212,6 +244,12 @@ function processEntry(graph, entry, distDir = DIST) {
 		throw new Error(`inject-modulepreload: no chunk found for ${entry.sourceSuffix} (${entry.page}) — did the component move, or does it no longer get its own facade chunk?`);
 	}
 	const { jsChunks, cssFiles } = resolveTransitiveDeps(graph, entryFileName, entry.eagerDynamicImportSuffixes);
+	const leaks = findLazyOnlyLeaks(graph, jsChunks, entry.lazyOnlySuffixes);
+	if (leaks.length) {
+		throw new Error(
+			`inject-modulepreload: ${entry.page} now loads ${leaks.join(', ')} at startup. These load on first open (see lazyOnlySuffixes in this file); find the eager module that imports one of them statically and make it a type-only or dynamic import.`,
+		);
+	}
 	const count = injectIntoPage(entry.page, jsChunks, cssFiles, distDir);
 	for (const f of [...jsChunks, ...cssFiles]) {
 		if (!fs.existsSync(path.join(distDir, f))) {
@@ -236,7 +274,7 @@ function main() {
 }
 
 // Export pure helpers for unit tests; only run main() as a CLI.
-export { ENTRIES, findEntryChunk, injectIntoPage, MARKER, processEntry, resolveTransitiveDeps };
+export { ENTRIES, findEntryChunk, findLazyOnlyLeaks, injectIntoPage, MARKER, processEntry, resolveTransitiveDeps };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
 	main();

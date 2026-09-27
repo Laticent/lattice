@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DeleteBtn } from './Library';
+import { DeleteBtn } from './delete-btn';
 
 // DeleteBtn is the ONE shared two-tap delete affordance (Library cards + the
 // Workspace Privacy & Data tab both use it) — it owns its own un-arm behavior

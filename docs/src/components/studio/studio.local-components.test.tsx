@@ -1,7 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels, waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // Slice: insert + render a SAVED LOCAL component. A component authored in the
 // Fabricate Layout Studio (component-library, IndexedDB) must (1) appear in the
@@ -106,6 +110,7 @@ describe('Studio — insert + render a saved local component', () => {
 		await user.click(await screen.findByText('mybox'));
 
 		await user.click(screen.getByRole('button', { name: 'Share' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		// PDF opens the Options step; Download runs the exporter.
 		await user.click(sheet.getByText('PDF'));
@@ -125,6 +130,7 @@ describe('Studio — insert + render a saved local component', () => {
 		await user.click(await screen.findByText('mybox'));
 
 		await user.click(screen.getByRole('button', { name: 'Share' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		await user.click(sheet.getByText('Markdown'));
 		const md = shareSpies.shareMarkdown.mock.calls.at(-1) as unknown[];
@@ -139,6 +145,7 @@ describe('Studio — insert + render a saved local component', () => {
 	it('hands no components to the exports when the deck uses none', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Share' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		await user.click(sheet.getByText('Markdown'));
 		const md = shareSpies.shareMarkdown.mock.calls.at(-1) as unknown[];
