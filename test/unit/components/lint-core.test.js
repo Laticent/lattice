@@ -2540,3 +2540,39 @@ describe('lint-core: list-modifier-inert reads the list the renderer reads', () 
     assert.equal(li('list principles', '````\n```\n````\n\n- One.\n- Two.').length, 1);
   });
 });
+
+// A body that opens with a separator has an empty leading group the engine does not render.
+// `splitTopLevel` drops it and its separator line; the line walk `applyFix` uses merges both into
+// slide one. The moved-empty-box rewrite carried the text chunk's line numbers, missed its line by
+// two, and `applyAllFixes` stopped there, so every later fix in the deck was skipped too.
+describe('moved-empty-box --fix on a deck whose body opens with a separator', () => {
+  const FM = '---\ntheme: indaco\n---\n\n';
+  const body = (sep) => `${sep}\n\nSetext\n======\n\n- Acme\n  - [ ] ISO\n\n<!-- _class: verdict-grid -->\n`;
+  for (const sep of ['---', '***', '___']) {
+    for (const [label, head] of [['with front matter', FM], ['without front matter', '']]) {
+      test(`\`${sep}\` ${label}: the box is rewritten`, () => {
+        const src = head + body(sep);
+        const out = core.applyAllFixes(src, vocab);
+        assert.match(out, /- \[!\] ISO/, `the fix did not apply:\n${out}`);
+        assert.doesNotMatch(out, /\[ \] ISO/);
+        assert.equal(out.replace('[!] ISO', '[ ] ISO'), src, 'nothing but the box changed');
+      });
+    }
+  }
+  // The heading split bakes a separator between the two `##` slides. Baked as `---`, it closed a
+  // "front matter block" opened by a leading `---` on a deck with none, and nothing was fixed.
+  for (const sep of ['---', '***', '___']) {
+    test(`\`${sep}\` then two headings, no front matter: both boxes are rewritten`, () => {
+      const vg = (t) => `<!-- _class: verdict-grid -->\n\n## ${t}\n\n- Acme\n  - [ ] ${t}X\n`;
+      const out = core.applyAllFixes(`${sep}\n\n${vg('A')}\n${vg('B')}`, vocab);
+      assert.match(out, /\[!\] AX/);
+      assert.match(out, /\[!\] BX/);
+    });
+  }
+  test('a later fix in the same deck still applies', () => {
+    const src = `${FM}***\n\n- Acme\n  - [ ] ISO\n\n<!-- _class: verdict-grid -->\n\n---\n\n<!-- _class: verdict-grid -->\n\n## Second\n\n- Beta\n  - [ ] SOC 2\n`;
+    const out = core.applyAllFixes(src, vocab);
+    assert.match(out, /\[!\] ISO/);
+    assert.match(out, /\[!\] SOC 2/);
+  });
+});

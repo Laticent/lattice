@@ -370,6 +370,13 @@ JavaScript. The `stripFencedCode` fix stays: the typed-glyph gate reads fences t
 and it now agrees with markdown-it on every tracked file where the two used to differ. The
 corpus test pins the bake to `bakeSplits`, text by text.
 
-**Left open.** An empty-box `--fix` fails when the body opens with a separator. That
-predates this change and is recorded in
-`followups.d/2376-p3-rewrite-slide-leading-separator.md`.
+**Closed since (the panes-continuation PR, 2026-09-27).** An empty-box `--fix` failed when the
+body opened with a separator: `splitTopLevel` drops the empty leading group and its separator
+line, the line walk `applyFix` uses merges both into slide one, and the rule reported its lines in
+the first space while `applyFix` read them in the second. `findMovedEmptyBoxes` now reports
+`rewriteSlide.lines` in the line walk's space (`chunkLeadLines`), the same space the bake map
+already used. `test/unit/components/lint-core.test.js` pins `---`, `***` and `___`, with and
+without front matter. The PR's checker found a second cause on the same path: the heading-split
+bake wrote `---` between slides, and on a deck with no front matter whose body opens with `---`
+the first one closed a "front matter block" starting at line 0. The lint bake writes `***` now,
+which every reader of the baked text splits on and which can never close front matter.
