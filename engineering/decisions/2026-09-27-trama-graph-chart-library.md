@@ -124,18 +124,40 @@ names them; none was built in #2385.
 
 ## 5. What the state chart looks like after (state chart v2)
 
+The owner settled the open questions on 2026-09-27.
+
 - **The grammar.** The flowchart's, as §14 of the flowchart note decided: a line
   names its target (`-approve-> Approved`), not `` `event => 3` ``; `:::token`
-  tints become slots or status words. A codemod migrates the repo: 64 slides in
-  20 files, 458 transitions, and 25 tints by hand. Every migrated slide is
-  re-rendered, light and dark, and looked at.
-- **The lines.** Elbows from the router, with rounded corners, instead of dagre's
-  curves. This is the visible change, and it is the point: v1's curves cross
-  boxes and each other, and v2's do not (the router's never-rules).
-- **Kept:** the inline chips variant (untouched: it is not a graph), numbered
-  badges, start and end markers, status words, the `data-anima-role` hooks the
-  motion system reads, and narration. The narrator reads the model, so it is
-  unchanged in substance and moves to the new model shape.
+  tints become slots or status words. A codemod migrates the repo: 69 slides in
+  21 files (counted 2026-09-27; §14 counted 64 in 20), 441 transitions, and 26
+  tints by hand. Every migrated slide is re-rendered, light and dark, and looked
+  at.
+- **The lines.** Elbows from the router instead of v1's own routes. This is the
+  visible change, and it is the point: v1's lines cross boxes and each other, and
+  v2's cannot (the router's never-rules).
+- **Line labels sit ON their line** (the owner's call), cut into it, as the
+  flowchart's do, so the router's label seating and its quality counts cover
+  them. v1 set them beside the line.
+- **Numbered badges stay on by default** (the owner's call): each state shows its
+  position in the list, which is the machine's reading order. A span word turns
+  them off. Transitions no longer target the numbers; they name the state.
+- **`curved` stays** (the owner's call), as generously rounded corners on the
+  router's elbows: the same soft look, with the router's guarantees. It is a paint
+  setting, so the flowchart can take the word too. 4 slides use it.
+- **A blockquote is hidden detail, in both charts: the house style** (the owner's
+  call). A `>` under a shape or a state is a description the slide never shows: it
+  appears when the shape is hovered or tapped in Present, Practice and Preview, and
+  it is narrated and folded into the speaker notes. It needs no tag; hidden is what
+  a blockquote means. This replaces two things: the state chart's prose bullets
+  (a bullet under a state now makes a group, as in the flowchart; the codemod turns
+  the existing ones into blockquotes), and the flowchart's visible note cards on a
+  dotted tether, which retire. Both charts use the chart family's existing detail
+  substrate (`data-mark` plus an inert `<template class="chart-detail">`), not a new
+  one.
+- **Kept:** the inline chips variant (untouched: it is not a graph), start and end
+  markers, status words, the `data-anima-role` hooks the motion system reads, and
+  narration. The narrator reads the model, so it is unchanged in substance and
+  moves to the new model shape.
 - **Gained:** the layout cache, one draw per keystroke, the Studio worker, and a
   sanitized model (closes the P2 census follow-up).
 
@@ -150,9 +172,12 @@ names them; none was built in #2385.
 2. **`feat(trama): start, end, the wrapping chain and a fixed-positions router`.**
    The four hooks, with unit tests, and quality counts at zero with the new kinds
    in the fuzz corpora. The flowchart is unaffected, pinned by the same hashes.
-3. **`feat(state-chart): v2 on Trama`.** The adapter, the codemod, the 64
+3. **`feat(state-chart): v2 on Trama`.** The adapter, the codemod, the 69
    slides, `dagrePositions` and the v1 pass deleted, the adoption gate reading
-   Trama, the sanitizer and census rows, docs, and the demo deck.
+   Trama, the sanitizer and census rows, docs, and the demo deck. The
+   blockquote-as-detail house style lands here for both charts, with `curved`
+   available to the flowchart; the flowchart's note cards retire, so the flowchart
+   demo deck changes in this commit too.
 
 ## 7. How it is verified
 
@@ -163,7 +188,7 @@ names them; none was built in #2385.
   and reviewed; quality counts on every one; the bench, before and after; the
   Studio typing measurement on a large state chart.
 - **Review tier: the adversarial trio** (HARD RULE #25) on the finished PR: a
-  new public library, a shared kernel and a codemod over 64 slides.
+  new public library, a shared kernel and a codemod over 69 slides.
 
 ## 8. What this does not do
 
