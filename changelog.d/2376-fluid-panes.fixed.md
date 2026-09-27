@@ -1,0 +1,1 @@
+- The `--fluid` viewer shows a panes slide's panes. Before, they collapsed to nothing and an overflowing panes slide showed only its heading. Its "Fix Me" tag also landed on the wrong pane; it now marks the pane that overflows.

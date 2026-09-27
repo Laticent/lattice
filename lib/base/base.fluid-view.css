@@ -91,6 +91,14 @@
   flex-grow: 0 !important;
 }
 
+/* A PANES host's stage is exempt too (lib/forms/cell/pane/pane.css). Each `<lat-pane>` is a
+ * SIZE container, so its content lends it no height: a pane is exactly as tall as the box it is
+ * given. Held to its content height, the host stage gave the panes nothing, both collapsed to 0,
+ * and an overflowing panes slide showed only its masthead. */
+:root[data-lattice-view="fluid"] section.lat-pane-host[data-lattice-slide] > .cell-stage {
+  flex-grow: 1 !important;
+}
+
 /* The fixed-page background canvas is sized to the px box; hide it so each
  * section's own themed background fills the fluid box edge to edge. */
 :root[data-lattice-view="fluid"] .lattice-bg { display: none !important; }

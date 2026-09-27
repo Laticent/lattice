@@ -656,8 +656,13 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    - **Fix-Me drill-down** read the host's classes, found no component, and so could never pick an
      item inside a pane; it reads the pane's component now. Not shown to change a tag on a real
      surface: in the `--fluid --overflow-marker=author` viewer no list or table picked an item on
-     an ordinary slide either, and that viewer tags the WRONG pane of an overflowing panes slide
-     (pre-existing, `2376-p3-fluid-viewer-pane-overflow.md`).
+     an ordinary slide either, and that viewer tagged the WRONG pane of an overflowing panes slide.
+     **Closed (PR #2420):** the fluid view held the host's stage to its content height, and a
+     `<lat-pane>` is a size container, so both panes were 0px tall and the watcher's culprit fell
+     on the first. `base.fluid-view.css` lets a panes host's stage grow; the panes show and the
+     culprit is the pane that overflows (test/integration/export/fluid-panes.test.js). Left: an
+     overflowing table pane clips at both ends, on the PDF too
+     (`2420-p3-overflowing-pane-clips-centered.md`).
    - **Mermaid** in a pane renders on the CLI and in the Studio and fills the pane box (measured
      544×438 in a 544×438 pane), but lays out for the HOST's orientation; that is filed with the
      chart sizing item below.
