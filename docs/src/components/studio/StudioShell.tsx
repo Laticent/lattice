@@ -43,6 +43,7 @@ import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
+import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
@@ -3451,12 +3452,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		el.textContent = pct;
 		el.setAttribute('aria-label', `Reset zoom to fit — currently ${pct}`);
 	}, []);
+	const previewTapOffRef = React.useRef<(() => void) | null>(null);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
 		previewHolderRoRef.current?.disconnect();
 		previewHolderRoRef.current = null;
 		zoomRef.current?.dispose();
 		zoomRef.current = null;
+		previewTapOffRef.current?.();
+		previewTapOffRef.current = null;
 		if (!holder || typeof ResizeObserver === 'undefined') return;
+		// A TAP ON A VIDEO POSTER. The slide box is `pointer-events-none` (see the preview pane
+		// below), so a tap never reaches the frame's own link guard and in-preview playback went
+		// dead on desktop and iOS alike (followup 2358-p2). The holder catches the click the
+		// browser synthesizes from a tap — a swipe or a pinch synthesizes none — and hit-tests it
+		// into the scaled frame. Only a poster is claimed; every other tap is left alone.
+		const onTap = (e: MouseEvent) => {
+			const frame = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+			if (frame && tapVideoAt(frame, e.clientX, e.clientY)) e.preventDefault();
+		};
+		holder.addEventListener('click', onTap);
+		previewTapOffRef.current = () => holder.removeEventListener('click', onTap);
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React
 		// `onTouchStart`/`onWheel` handlers it replaces, for two reasons that both bite

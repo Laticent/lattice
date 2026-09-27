@@ -254,9 +254,10 @@ function syncAgent(gap) {
 // hosted player (video-overlay.js sets `window.__videoPlay`). If the parent mounts
 // a player (embeddable provider) it returns true → we suppress navigation and the
 // clip plays IN PLACE. If there's no overlay, or the provider isn't embeddable, it
-// returns false/undefined and we fall through to the open-a-tab behavior. Clicks
-// reach the iframe fine on iOS (it's touch-move gestures that don't), so this hook
-// is enough — no parent hit-surface needed.
+// returns false/undefined and we fall through to the open-a-tab behavior. That holds
+// only where a tap can REACH the frame. The Studio's live preview sits in a
+// `pointer-events-none` box (its holder owns swipe and pinch), so there the parent
+// hit-tests the tap itself with `tapVideoAt` (video-overlay.js).
 //
 // Exported so the OTHER preview builders (present/stage-window.js, single-slide-render.ts)
 // that assemble their own srcdoc can inject the same

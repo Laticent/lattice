@@ -801,6 +801,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
   the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
 
+## Tapping a video poster in the Studio preview does nothing
+
+- **Symptom:** in the Studio's live preview, a tap or click on a video slide's poster
+  neither plays the clip nor opens it. The Playground's preview plays it.
+- **Cause:** the Studio's slide box is `pointer-events-none`, because its holder owns
+  swipe, wheel and pinch (`docs/src/lib/preview-zoom.ts`). No tap reaches the frame,
+  so the frame's link guard never calls `window.__videoPlay`.
+- **Fix:** the holder listens for the click the browser synthesizes from a tap (a
+  swipe or a pinch synthesizes none) and calls `tapVideoAt` in
+  `docs/src/playground/video-overlay.js`. That maps the point through `frameGeom` into
+  the scaled frame, finds `a.video-poster`, and plays it in the parent lightbox, or
+  opens a tab for a provider that cannot embed. A hidden frame is ignored. Other links
+  on a slide stay inert in the Studio preview, as before.
+- **Pinned by:** "the Studio preview plays a poster tapped at its screen position" in
+  `docs/e2e/video-overlay-provider.spec.ts`.
+
 ## A code block or a prose line after a heading is pulled into the masthead band
 
 - **Symptom:** in the engine HTML, `.masthead-lede` holds a `<pre>`, or a paragraph
