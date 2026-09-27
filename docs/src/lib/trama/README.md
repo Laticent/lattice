@@ -50,6 +50,10 @@ are cached per kernel.
   wrapped layout wins only when every simpler one sets the type more than 12% smaller; a graph that branches keeps dagre's layout
   unless the grid beats it by that margin. The grid needs **no dagre**: pass `null` and a
   chain still lays out. `geo.lines` says how many lines it chose. Groups are never gridded.
+  It is cheap: every candidate is first sized from its boxes alone (a ceiling on its type,
+  since lines only add size), dagre's layout is routed only when its ceiling could still
+  win, and the pick is often proven from the others' ceilings after routing one grid. A
+  clean chain costs one routing pass, whether or not dagre is loaded.
 - **`K.route(model, sizes, positions, opts)`** routes lines between boxes you have already
   placed (each shape's centre), with the same solver and never-rules, for a chart whose
   positions an axis fixes. No dagre. The positions set the boxes' places RELATIVE to each

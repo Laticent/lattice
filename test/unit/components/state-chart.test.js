@@ -475,6 +475,31 @@ describe('state chart — hostile names and grammar edges', () => {
   });
 });
 
+describe('wrapping is cheap — the kernel routes only what can win', () => {
+  const { graphLayoutKernel } = require('@laticent/trama');
+  require('../../../lib/core/dagre-layout.js');
+  const chain = (n) => {
+    const shapes = Array.from({ length: n }, (_, i) => ({ id: `s${i}`, name: `State ${i}`, parent: null, shape: 'box' }));
+    const edges = shapes.slice(1).map((sh, i) => ({ from: shapes[i].id, to: sh.id, dir: 'out', style: {}, label: 'go' }));
+    const sizes = Object.create(null);
+    for (const sh of shapes) sizes[sh.id] = { w: 110, h: 40 };
+    const labelSizes = Object.create(null);
+    edges.forEach((_e, i) => { labelSizes[i] = { w: 24, h: 14 }; });
+    return [{ shapes, groups: [], edges }, sizes, { wrap: true, labelSizes, stage: { w: 1152, h: 480 } }];
+  };
+  test('a clean chain routes one grid and never dagre\'s layout, with dagre loaded', () => {
+    const K = graphLayoutKernel();
+    const geo = K.layout(...chain(10), globalThis.__latticeDagre);
+    assert.ok(geo && geo.lines >= 1);
+    assert.equal(K.stats.routed, 1, 'one routing pass: the pick is proven from the others\' bounds');
+  });
+  test('the answer is the one without dagre on a chain the grid draws cleanly', () => {
+    const a = graphLayoutKernel().layout(...chain(10), globalThis.__latticeDagre);
+    const b = graphLayoutKernel().layout(...chain(10), null);
+    assert.deepEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
+  });
+});
+
 describe('graph charts — a composite\'s blockquote is never dropped', () => {
   const md = (cls) => `<!-- _class: ${cls} -->\n\n## X.\n\n- Active\n  > GROUPNOTE\n  - Draft\n    > DRAFTNOTE\n    - -> Done\n- Done\n`;
   for (const cls of ['state-chart', 'flowchart']) {
