@@ -1,13 +1,15 @@
 ---
 status: in-progress
-summary: Trama (`@laticent/trama`) is the graph-chart library. It holds the layout kernel and route solver the flowchart shipped in #2385, and the browser pipeline that measures, fits, lays out (in a worker while typing) and paints. It is a TypeScript npm workspace in docs/src/lib/trama/, shaped like Cadenza, with a boundary gate. It never sees Markdown or Lattice's CSS. A chart supplies an adapter (read the model, measure, paint), and the flowchart and the state chart are its first two adapters. It ships in one PR of three commits: Trama with the flowchart moved onto it, byte-identical; the state chart's hooks in the kernel; the state chart moved onto it (state chart v2), with the old pass and its own dagre call deleted.
+summary: Trama (`@laticent/trama`) is the graph-chart library. It holds the layout kernel and route solver the flowchart shipped in #2385, and the browser pipeline that measures, fits, lays out (in a worker while typing) and paints. It is a TypeScript npm workspace in docs/src/lib/trama/, shaped like Cadenza, with a boundary gate. It never sees Markdown or Lattice's CSS. A chart supplies an adapter (read the model, measure, paint), and the flowchart and the state chart are its first two adapters. It ships in two PRs: the first holds Trama with the flowchart moved onto it (byte-identical) and the state chart's hooks in the kernel; the second moves the state chart onto it (state chart v2) and deletes the old pass and its own dagre call.
 ---
 
 # Trama: one library for graph charts (2026-09-27)
 
 **Status: in progress.** The owner chose the shape (a workspace package, not a folder
 in `_chart-family`), the name and the slicing (one PR, three commits) on
-2026-09-27, after #2385 merged. This note is the plan that PR builds. Every
+2026-09-27, after #2385 merged. Later that day the owner split the slicing: commits 1
+and 2 ship as one PR, and commit 3 (state chart v2) ships as its own PR from `main`
+after that merges. This note is the plan that PR builds. Every
 "now" below means `main` at 133ac54.
 
 ## 1. Why
@@ -178,7 +180,10 @@ The owner settled the open questions on 2026-09-27.
 - **Gained:** the layout cache, one draw per keystroke, the Studio worker, and a
   sanitized model (closes the P2 census follow-up).
 
-## 6. The three commits
+## 6. The three commits, in two PRs
+
+Commits 1 and 2 are the first PR. Commit 3 is the second PR, cut from `main` once
+the first merges, so the codemod over 69 slides gets its own review.
 
 1. **`feat(trama): the graph-chart library; the flowchart moves onto it`.**
    Package, build, gate, README; the kernel and pipeline moved; the flowchart
@@ -204,8 +209,9 @@ The owner settled the open questions on 2026-09-27.
 - **State chart v2 (commit 3).** Every state-chart slide rendered light and dark
   and reviewed; quality counts on every one; the bench, before and after; the
   Studio typing measurement on a large state chart.
-- **Review tier: the adversarial trio** (HARD RULE #25) on the finished PR: a
-  new public library, a shared kernel and a codemod over 69 slides.
+- **Review tier.** The first PR gets maker-checker: it moves code and adds hooks,
+  pinned by byte-identical output. The second PR gets the adversarial trio (HARD
+  RULE #25): a codemod over 69 slides and a new house style for both charts.
 
 ## 8. What this does not do
 
