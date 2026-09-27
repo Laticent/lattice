@@ -1,9 +1,9 @@
 ---
 status: in-progress
-summary: A finish printed into the vector PDF as gradients, repeating patterns and transparency groups, which iOS Preview and Acrobat redraw per pixel on the CPU — about 1–2.5 s a slide, drawn in visible pieces. The CLI PDF export now bakes each finish slide's backdrop into one opaque JPEG (quality 100, at the raster export scale for the deck's size), captured from the screen face so the PDF matches the Studio; text and content stay vector. `--keep-vector-finish` opts out.
+summary: A finish printed into the vector PDF as gradients, repeating patterns and transparency groups, which iOS Preview and Acrobat redraw per pixel — about 1–2.5 s a slide, drawn in visible pieces. The CLI PDF export now rebuilds each finish backdrop as a HYBRID — the soft layers (wash, glow, clear fade, strength veil) as one tiny opaque image, the texture as plain vector lines faded in constant-opacity steps under `clear`, marks as live vector — so the PDF draws fast, matches the Studio, and stays near its old size. Print mode drops the finish. `--keep-vector-finish` opts out.
 ---
 
-# Bake the finish backdrop into the PDF
+# Rebuild the finish backdrop for fast PDF viewing
 
 **Status:** in progress 2026-09-27, pending the owner's export sign-off on device.
 
@@ -11,13 +11,14 @@ summary: A finish printed into the vector PDF as gradients, repeating patterns a
 
 The owner, reading exported decks on an iPhone (iOS Preview and Acrobat Reader), saw each
 finish slide draw progressively, about a second per slide. A slide with no finish drew at once.
+Separately, `backdrop: clear` showed a hard-edged panel in the PDF but a soft fade in the Studio.
 
 ## 2. The cause
 
 A finish reaches the vector PDF as drawing instructions, not pixels: a gradient wash, a
 texture written as a `repeating-linear-gradient` (one shading whose color function switches
 back and forth ~40 times across the page), a transparency group for the strength veil, and
-the blurred clear layer. A viewer evaluates all of it per pixel, and again at each zoom.
+the clear layer. A viewer evaluates all of it per pixel, and again at each zoom.
 
 Measured with poppler at 150 dpi, one slide:
 
@@ -26,66 +27,62 @@ Measured with poppler at 150 dpi, one slide:
 | no finish | 0.16 s |
 | atrium without its grid texture | 0.38 s |
 | atrium as shipped | 2.37 s |
-| atrium + `backdrop: 60 clear` | 2.83 s |
+| atrium + `backdrop: 60 clear` (soft edge kept by a blur) | 2.83 s |
 
-Other finishes: loom 2.6 s, halo 2.1 s, nimbus 1.6 s, meridian 1.4 s, ledger and savile 1.2 s.
+## 3. Candidates (16 finish slides: atrium, ledger, loom, savile, light and dark)
 
-## 3. Candidates
+| Candidate | Size | Poppler | Owner, on iPhone |
+|---|---|---|---|
+| Today | 197 KB | 29.6 s | slow, progressive |
+| Textures as one repeated tile | 389 KB | 8.7 s | "faster but still janky" |
+| Each grid line its own CSS rectangle | — | 2× faster, Ghostscript 17× slower; no diagonals | — |
+| Whole backdrop as one image, 1× | 1.1 MB | 10.0 s | "fast and looks good" |
+| Whole backdrop as one image, 2× JPEG 100 | 7.0 MB | 15 s | size rejected |
+| **Hybrid (this decision)** | **214 KB** | **4.9 s** | "it's fine" (prototype) |
 
-| Candidate | Result |
-|---|---|
-| Draw the straight textures as one repeated tile (branch `claude/finish-texture-tiles`) | poppler 16 slides 29.6 s → 8.7 s. Owner: "faster but still janky". Chromium flattens each tiled texture into a ~96 dpi image with an alpha channel, the glow stays a shading and the veil a transparency group |
-| Draw each grid line as its own rectangle | vector, but poppler only 2× faster and Ghostscript 17× slower; cannot draw diagonals |
-| **Bake the whole backdrop into one opaque image per slide** | Owner, on iPhone: "fast and looks good" (1× prototype) |
-
-Poppler draws the baked version no faster than the tiles (it resamples large images slowly),
-while Ghostscript draws it 2.6× faster. Neither is the owner's viewer; the device check decided.
+With `backdrop: clear` on all 16 slides the hybrid is 342 KB (today's hard-edged export: 222 KB).
+PR #2400 (keep the blur in print) was the first answer to the clear edge; it embeds a 300 ppi
+image with an alpha channel per cleared slide and is superseded by this.
 
 ## 4. Decision (owner, 2026-09-27)
 
-- **Bake by default** for every finish slide in the vector PDF; `finish-none` / `backdrop-none`
-  slides are skipped. `--keep-vector-finish` keeps the old vector drawing.
-- **Resolution follows the deck's size:** the raster export scale, `resolveRasterScale('max')`
-  (2× for HD, 1× for 4K, long edge ≤ 3840 px), the same rule the PNG, PPTX and image-set
-  exports use.
-- **Quality:** JPEG 100 ("the highest quality possible"). Chromium re-encodes each image and
-  keeps the smaller of JPEG and lossless Flate, so light slides often land as Flate; both
-  carry the same pixels.
+- Rebuild the backdrop of every finish slide in the vector PDF; keep the file near today's size.
+- `color-mode: print` carries no finish at all, on screen and in every export
+  (`base.finish.css` `section.print.finish[class]`): a finish on paper is ink with nothing to say.
+- `--keep-vector-finish` keeps the stylesheet's own drawing.
 
 ## 5. Mechanism
 
 `bakeFinishBackdropsInPage` in `lattice-emulator.js` runs just before `page.pdf()`, after the
-SVG-image rasterization pass (the same shape of fix, `2026-07-02-pdf-export-portability.md`).
-Per finish slide it fades every child but `.backdrop` to opacity 0, screenshots the backdrop's
-box, and swaps the backdrop for an `<img>` on the same box and z-index. The image resets the
-`section img` rule that rounds every slide image. A slide that fails to capture keeps its
-vector finish and warns. Gallery's frame keyline is held off during the capture: the print
-face always covered it, and on screen it strikes through the header (followup
-`2388-p3-gallery-frame-crosses-header`). `--paper` and `--raster` are skipped; they
-screenshot every slide already. The page is still in
-screen media, so the capture is the **screen face**: the soft clear edge, feathered masks and
-alpha fades that the opaque print face gave up only because vector viewers mis-draw them.
-The Studio and the PDF now show the same finish.
+SVG-image rasterization pass (`2026-07-02-pdf-export-portability.md`), while the page is still
+in screen media, so it captures the Studio's face.
 
-## 6. Costs
+- **Soft layers.** With the content, the texture, the mark and a hard edge hidden, the backdrop
+  is captured at a quarter of the slide's pixels (320 × 180 for HD) as an opaque JPEG and becomes
+  the backdrop's background. The mask's work (the clear fade, the veil) is in that image, so the
+  mask element is removed.
+- **Texture.** The finish generator publishes `--fin-texture-geo` (pattern and period) and
+  `--fin-texture-ink` (the screen face's line color). `planLiveLayers` redraws the pattern as an
+  inline SVG under the mark: grid, pinstripe, ruled, hatch, lattice and contour as 1px lines
+  placed where the CSS gradient puts them, rings as circles, dots as dots. Each line is cut into
+  3px runs, each run drawn at the nearest of 12 opacity levels given by the strength times what
+  the Studio's blurred clear layer leaves at that point. The result is at most 12 solid paths.
+- **Marks and hard edges** (`--fin-edge-kind` fold or margin-rule) stay the live pseudo-elements,
+  with their opacity set from the same function at their center.
+- **Fallback.** A texture without `--fin-texture-geo` (hand-written in a deck, or a Fabricate
+  finish saved before this change), a spotlight, or a legacy baked clearance ellipse: that slide's
+  whole backdrop becomes one image at the raster export scale (2× HD, 1× 4K).
+- A slide that fails keeps its vector finish and warns. Gallery's frame keyline is held off: the
+  print face always covered it, and on screen it strikes through the header (followup
+  `2388-p3-gallery-frame-crosses-header`). `--paper` and `--raster` screenshot every slide already
+  and are skipped.
 
-- **File size:** about 70–370 KB a slide at HD 2× (dark and busy textures cost most) and up
-  to about 1.8 MB a slide at 4K. The 16-slide test deck grows from 197 KB to 5.9 MB, a
-  121-slide savile deck from 0.5 MB to 26 MB, and `examples/backdrop-register.pdf` from 253 KB
-  to 2.1 MB.
-- **Export time:** about 0.25 s more per finish slide (121-slide deck: 3.3 s → 31 s). Each slide
-  is scrolled into view and captured alone; capturing beyond the viewport re-rasterized the
-  whole tall page per slide and took 74 s.
-- **The finish is no longer vector:** it is sharp at the deck's raster scale and softens only
-  past it. Anything that edits the PDF's vectors (Illustrator) sees one image; use
-  `--keep-vector-finish`.
-- **A finish mark with text** (a monogram or numeral ghost glyph) becomes pixels; it was
-  decoration, never read as text.
+## 6. Costs and limits
 
-## 7. What this makes moot
-
-- The export-only opaque faces (`--fin-*-opaque`) and the print flips still exist for
-  `--keep-vector-finish`, the HTML export and the Studio's own image export, but no longer
-  shape the default PDF.
-- PR #2400 (soft clear edge in print) and the tile branch are on hold at the owner's
-  request; baking delivers both results in the default PDF.
+- The soft layers are a 320-pixel image. They are smooth, so upscaling loses nothing visible; a
+  hard shape inside the wash (none of the shipped washes has one) would soften.
+- The clear fade on the texture is 12 steps. On a finish's faint 1px lines the steps are well
+  under one level of visible difference.
+- A mark's opacity is one value at its center, where the Studio fades a long mark (ledger's bar)
+  slightly along its length.
+- Export time: each finish slide adds one small screenshot.

@@ -207,7 +207,7 @@ Three more PDF delivery options:
 lattice deck.md deck.pdf --raster              # one full-page image per slide
 lattice deck.md deck.pdf --embed-source        # attach the .md inside the PDF
 lattice deck.md deck.pdf --keep-vector-images  # keep SVG images as vectors
-lattice deck.md deck.pdf --keep-vector-finish  # keep finish backdrops as vectors
+lattice deck.md deck.pdf --keep-vector-finish  # keep the finish as the stylesheet draws it
 ```
 
 `--raster` trades selectable text for maximum viewer compatibility — every page
@@ -221,12 +221,12 @@ because iOS's built-in PDF viewer mishandles the vector constructs Chromium
 prints for them; `--keep-vector-images` opts back into vectors. Inline SVG —
 Mermaid diagrams, charts, logo marks — always stays vector.
 
-A slide with a **finish** exports its backdrop (wash, texture, mark, clear fade)
-as one image, so the PDF looks like the Studio and draws quickly in iOS Preview
-and Acrobat, which redraw a vector finish slowly. The image follows the deck's
-size (2× for HD, 1× for 4K) at maximum JPEG quality; the words and everything
-else on the slide stay vector and selectable. `--keep-vector-finish` keeps the
-backdrop as vector drawing instead.
+A slide with a **finish** exports its backdrop rebuilt for speed, because iOS
+Preview and Acrobat redraw a finish's gradients slowly: the soft layers (the
+wash, the glow, the `clear` fade) become one tiny image, the texture becomes
+plain vector lines, and marks stay vector, so the PDF looks like the Studio at
+about today's size. `color-mode: print` drops the finish altogether.
+`--keep-vector-finish` keeps the stylesheet's own drawing instead.
 
 ## Render the gallery deck
 

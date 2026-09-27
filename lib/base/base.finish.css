@@ -713,6 +713,9 @@ section.finish-atrium {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-texture-geo: grid 38;
+  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 9%, transparent);
+  --fin-edge-kind: none;
 }
 
 /* ── 2 · MERIDIAN — Diagonal duotone wash + contour lines + a ghost numeral. (lib/finishes/meridian/) */
@@ -734,6 +737,9 @@ section.finish-meridian {
   --fin-mark-justify: flex-end;
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-texture-geo: contour 47;
+  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 8%, transparent);
+  --fin-edge-kind: none;
 }
 
 /* ── 3 · STRATA — Soft horizontal bands + a dot-matrix + a corner tick. (lib/finishes/strata/) */
@@ -761,6 +767,9 @@ section.finish-strata {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-texture-geo: dots 26;
+  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 15%, transparent);
+  --fin-edge-kind: none;
 }
 
 /* ── 4 · HALO — Centered spotlight + concentric rings + an inset vignette. (lib/finishes/halo/) */
@@ -779,6 +788,9 @@ section.finish-halo {
   --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
+  --fin-texture-geo: rings 57;
+  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 8%, transparent);
+  --fin-edge-kind: vignette;
 }
 
 /* ── 5 · LEDGER — Fine ruled lines + a bold left margin bar + a corner fold. (lib/finishes/ledger/) */
@@ -799,6 +811,9 @@ section.finish-ledger {
   --fin-edge-opaque: linear-gradient(225deg, color-mix(in srgb, var(--field-accent) 16%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%);
   --fin-edge-position: top right;
   --fin-edge-size: 9.4cqi 9.4cqi;
+  --fin-texture-geo: ruled 40;
+  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 10%, transparent);
+  --fin-edge-kind: fold;
 }
 
 /* ── 6 · NIMBUS — A gradient mesh of soft accent blooms + a seating vignette. (lib/finishes/nimbus/) */
@@ -825,6 +840,7 @@ section.finish-nimbus {
   --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
+  --fin-edge-kind: vignette;
 }
 
 /* ── 7 · LOOM — A woven lattice cross-hatch + a movable corner glow. (lib/finishes/loom/) */
@@ -845,6 +861,9 @@ section.finish-loom {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-texture-geo: lattice 34;
+  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 9%, transparent);
+  --fin-edge-kind: none;
 }
 
 /* ── 8 · SAVILE — A tailored vertical pinstripe + a movable monogram. (lib/finishes/savile/) */
@@ -866,6 +885,9 @@ section.finish-savile {
   --fin-mark-justify: flex-end;
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-texture-geo: pinstripe 18;
+  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 10%, transparent);
+  --fin-edge-kind: none;
 }
 
 /* ── 9 · GALLERY — A museum inset keyline frame + a spotlight + a movable numeral. (lib/finishes/gallery/) */
@@ -888,6 +910,7 @@ section.finish-gallery {
   --fin-edge: none;
   --fin-edge-opaque: none;
   --fin-frame: inset 0 0 0 calc(2.6 * var(--_sec-1cqi, 1cqi)) var(--fin-canvas), inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
+  --fin-edge-kind: frame;
 }
 
 /* ── END GENERATED FINISH PRESETS ── */
@@ -1019,6 +1042,37 @@ section.finish.lattice-exporting {
  * the ring to pink. Where the ring is drawn, the mask layer steps in by the ring's 4px. */
 section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]) > .backdrop > .backdrop-mask {
   inset: 4px;
+}
+
+/* ── PRINT MODE carries no finish ─────────────────────────────────────
+ * `color-mode: print` is the black-and-white handout, and a finish on paper is ink with
+ * nothing to say: a gray grid in every margin, a gray glow, a heavy margin bar (owner,
+ * 2026-09-27). So `section.print` zeroes every finish layer and every `backdrop:` register
+ * layer, on screen and in every export. Unlike the opt-out below it leaves the section's own
+ * `background-image` and `box-shadow` alone: print draws a tone slide's rail in that shadow
+ * list, and `--fin-frame` stays a valid list entry for the same reason. The `[class]` lifts it
+ * to (0,3,1) so it beats a Fabricate finish's own (0,2,1) rule, which a deck loads later. */
+section.print.finish[class] {
+  --fin-wash: none;
+  --fin-texture: none;
+  --fin-mark: none;
+  --fin-mark-text: "";
+  --fin-edge: none;
+  --fin-wash-opaque: none;
+  --fin-texture-opaque: none;
+  --fin-mark-opaque: none;
+  --fin-edge-opaque: none;
+  --fin-frame: 0 0 transparent;
+  --fin-backdrop-mask: none;
+  --fin-backdrop-mask-opaque: none;
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-dim-scrim: none;
+  --fin-backdrop-dim-scrim: none;
+  --backdrop-opacity: 1;
+  --backdrop-clear-scrim: none;
+  --fin-backdrop-clear-scrim: none;
+  --backdrop-clear-filter: none;
 }
 
 /* ── Per-slide opt-out ────────────────────────────────────────────────
