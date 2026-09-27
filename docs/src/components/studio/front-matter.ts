@@ -97,8 +97,10 @@ function parseFm(source: string): { pairs: [string, string][]; blocks: [string, 
 }
 
 /** A block-scalar header line: `key: |`, `key: >-`, `key: |2+`, optionally with a trailing
- *  comment. Group 1 is the indent, 2 the key, 3 the indicator (plus any comment), verbatim. */
-const BLOCK_SCALAR_RE = /^(\s*)([A-Za-z][\w-]*):[ \t]+([|>](?:[1-9][+-]?|[+-][1-9]?)?(?:[ \t]+#.*)?)[ \t]*\r?$/;
+ *  comment. Group 1 is the indent, 2 the key, 3 the indicator (plus any comment or trailing
+ *  blanks; callers trim it). The tail is an alternation so a long run of spaces cannot
+ *  backtrack quadratically; the engine's copy in lib/core/front-matter-key.js says why. */
+const BLOCK_SCALAR_RE = /^(\s*)([A-Za-z][\w-]*):[ \t]+([|>](?:[1-9][+-]?|[+-][1-9]?)?(?:[ \t]+#.*|[ \t]*))\r?$/;
 
 /** Re-emit a front-matter block from flat pairs + nested blocks (verbatim child lines),
  *  or the bare body when nothing remains. Nested blocks trail the flat keys. A block scalar
