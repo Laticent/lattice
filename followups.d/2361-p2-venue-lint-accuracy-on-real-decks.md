@@ -48,6 +48,13 @@ progress  — 2026-09-27 (2): two more measured rows. `list takeaway` with a tra
             14/3/27, hall 29/1/42. So the rows above cost nothing there, and lint still misses most
             clips on a broad deck — the target this item's `done when` sets should be scored on it
             too, not on the talk alone.
+            THREE MORE REAL DECKS, same day: examples/bloom-engineering-journey (13 pages),
+            seven-steps-problem-to-code (17), kaizen-craftsmanship (16), each forced to huddle /
+            conference / hall. Clipped 1/3/4, 1/3/7, 0/5/12. Lint, identical on main and after #2425:
+            bloom 0/0/1, 0/0/3, 0/0/4; seven-steps 0/0/1, 1/0/2, 1/0/6; kaizen 0/0/0, 3/1/2, 5/0/7.
+            By component, the 17 misses at hall: split-panel 6, compare-prose 3, premise 2, and one
+            each of matrix-grid, list-steps, content, quote, stats, cycle. split-panel has no venue
+            row at all, so it is the next row to measure.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.
