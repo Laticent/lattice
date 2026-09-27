@@ -42,6 +42,12 @@ progress  — 2026-09-27 (2): two more measured rows. `list takeaway` with a tra
             and a code slide whose two-line heading the pane row does not see (41 at conference).
             Still false: list-steps / cards-grid with a callout (5, 7, 36), long-item `list takeaway`
             (21, 28, 58), glossary (66).
+            SECOND DECK, 2026-09-27: test/integration/baseline-decks/gallery.md (116 pages, every
+            component) forced to each venue, scored the same way. Clipped 18 / 41 / 71 (laptop 0).
+            Right/false/missed, identical on main and after PR #2425: huddle 7/0/11, conference
+            14/3/27, hall 29/1/42. So the rows above cost nothing there, and lint still misses most
+            clips on a broad deck — the target this item's `done when` sets should be scored on it
+            too, not on the talk alone.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.
