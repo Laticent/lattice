@@ -203,16 +203,21 @@ test('css: clear paints the frame content box, not a central ellipse', () => {
   assert.doesNotMatch(clear, /--backdrop-clear-mask/, 'the register must not use the legacy ellipse');
 });
 
-test('css: the clear edge is soft in the exports too; neither guard zeroes the blur', () => {
+test('css: the clear edge is soft in both exports; the Studio raster masks instead of blurring', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
-  const guards = css.match(/:where\(\.lattice-exporting\) section\.finish,\s*section\.finish\.lattice-exporting \{\s*--backdrop-scrim: var\(--backdrop-scrim-opaque\);[^}]*\}/);
-  assert.ok(guards, 'exporting guard missing');
+  // The CLI's vector PDF keeps the blur: a zeroed bleed or blur is the hard-edged panel the
+  // owner rejected (decision §4.7).
   const print = css.match(/@media print \{\s*section\.finish \{[^}]*\}/);
   assert.ok(print, 'print guard missing');
-  // A zeroed bleed or blur is the hard-edged panel the owner rejected in the PDF (decision §4.7).
-  for (const guard of [guards[0], print[0]]) {
-    assert.doesNotMatch(guard, /--backdrop-clear-(bleed|blur|filter)/);
-  }
+  assert.doesNotMatch(print[0], /--backdrop-clear-(bleed|blur|filter)/);
+  // The Studio raster (html-to-image) draws the soft edge with a MASK: its blur came out as
+  // vertical stripes over a dot texture. It also keeps a spotlight's feathered scrim: the
+  // hard-edged mirror printed a solid arc.
+  const studio = css.match(/:where\(\.lattice-exporting\) section\.finish,\s*section\.finish\.lattice-exporting \{\s*--backdrop-clear-filter: none;[^}]*\}/);
+  assert.ok(studio, 'Studio raster clear rule missing');
+  assert.doesNotMatch(studio[0], /--backdrop-scrim:/, 'the Studio raster must keep the feathered spotlight');
+  assert.match(css, /section\.finish\.lattice-exporting > \.backdrop > \.backdrop-mask::before \{[^}]*mask-image: linear-gradient\(to right, var\(--backdrop-clear-ramp\)\)/);
+  assert.doesNotMatch(css, /section\.finish\.lattice-exporting \{[^}]*--fin-backdrop-mask:/, 'the Studio raster keeps a baked mask soft');
   // Never a 0px blur: Chromium still rasterizes the page for it and poppler outlines the box.
   assert.doesNotMatch(css, /--backdrop-clear-blur: 0px/);
 });

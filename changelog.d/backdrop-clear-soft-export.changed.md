@@ -1,1 +1,2 @@
-- `backdrop: clear` now fades softly in exported PDFs, HTML and images, matching the Studio. It used to end in a hard-edged panel. The fade is embedded as one image per cleared slide (about 80 KB); text and the finish stay vector.
+- `backdrop: clear` now fades softly in exported PDFs, HTML and images, matching the Studio. It used to end in a hard-edged panel. In the CLI's PDF the fade is embedded as one image per cleared slide (about 80 KB); text and the finish stay vector.
+- The Studio's PDF download draws a spotlight (`backdrop: spot-…`) with its soft edge instead of a solid arc, and draws the `clear` fade without the vertical stripes it showed over a dot texture.

@@ -243,6 +243,24 @@ no filter work in the PDF: `finish-backdrops`, `accent-finishes` and `finish-per
 the same byte count before and after. The `blur(0px)` warning in §4.6 still holds: a 0px blur
 rasterizes the page for nothing and poppler outlines the box in gray.
 
+### 4.8 The Studio download (2026-09-27)
+
+The Studio's PDF download is a different export from the CLI's: html-to-image photographs
+each slide with `.lattice-exporting` on, and a pdf-lib worker packs the pictures. The owner's
+first hard-edged PDF came from here. Measured through html-to-image on the owner's own deck:
+
+- **The switch has to stay.** Without `.lattice-exporting`, html-to-image draws the screen
+  face's `color-mix(…, transparent)` washes as solid color blobs, as `deck-export.js` warns.
+- **The spotlight** printed a solid arc: the switch swapped in the hard-edged mirror meant for
+  the vector PDF. Its feathered scrim is a transparent-to-canvas radial with no color-mix, and
+  html-to-image draws it cleanly, so the Studio switch no longer flips `--backdrop-scrim` or a
+  baked `--fin-backdrop-mask`.
+- **The clear edge.** Keeping the blur (§4.7) made it soft, but over a dot texture (strata)
+  html-to-image drew the blurred layer as vertical stripes. The Studio switch draws the same
+  falloff with a two-axis gradient MASK instead. §4.7 rejected a mask for the vector PDF because
+  Apple PDFKit can drop it; a Studio PDF is pictures, so the mask is flattened to pixels before
+  any viewer sees it.
+
 ### 4.5 `finish-override.backdrop`
 
 Keep it working. It still tunes the baked tier of a fabricated finish, and removing it would

@@ -926,14 +926,16 @@ section.finish-gallery {
  * `toPng(section)` clones only the section + its descendants — NOT its ancestors —
  * so a root-only class would be lost in the clone; drawing-board-export.js therefore
  * also stamps the class on each section it rasterizes. :where() keeps it at zero
- * specificity so a per-slide finish override still wins. */
+ * specificity so a per-slide finish override still wins.
+ * The Studio raster keeps a baked MASK's screen face: it is a transparent-to-canvas radial
+ * (no color-mix), which html-to-image draws cleanly, and its hard-edged mirror exists only
+ * for the vector PDF. The hard mirror printed a solid arc in every Studio download. */
 :where(.lattice-exporting) section.finish,
 section.finish.lattice-exporting {
   --fin-wash: var(--fin-wash-opaque, none);
   --fin-texture: var(--fin-texture-opaque, none);
   --fin-mark: var(--fin-mark-opaque, none);
   --fin-edge: var(--fin-edge-opaque, none);
-  --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
 }
 
 /* ── BACKDROP REGISTER — restraint over ANY finish ─────────────────────
@@ -1012,9 +1014,42 @@ section.backdrop-spot-br { --backdrop-spot-position: 78% 74%; }
 @media print {
   section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }
 }
+/* THE STUDIO RASTER (`.lattice-exporting`, html-to-image) is pixels, so it takes neither
+ * vector-PDF compromise. It keeps a spotlight's FEATHERED screen scrim (a transparent-to-canvas
+ * radial, which html-to-image draws cleanly; the hard mirror printed a solid arc, owner
+ * 2026-09-27). And it draws the clear layer's soft edge with a MASK instead of the blur:
+ * html-to-image renders the blurred layer over a dot texture as vertical stripes, and a mask,
+ * which Apple PDFKit can drop in a vector PDF, is flattened to pixels here before any PDF
+ * viewer sees it. The mask is the same two-axis falloff the blur makes (bleed 5cqi, sigma
+ * 2.5cqi), sampled at seven stops per side. */
 :where(.lattice-exporting) section.finish,
 section.finish.lattice-exporting {
-  --backdrop-scrim: var(--backdrop-scrim-opaque);
+  --backdrop-clear-filter: none;
+  --backdrop-clear-fade: calc(var(--_sec-1cqi, 1cqi) * 10);
+  --backdrop-clear-bleed: var(--backdrop-clear-fade);
+  --backdrop-clear-ramp:
+    rgb(0 0 0 / 0) 0, rgb(0 0 0 / 0.115) calc(var(--backdrop-clear-fade) * 0.2),
+    rgb(0 0 0 / 0.345) calc(var(--backdrop-clear-fade) * 0.4), rgb(0 0 0 / 0.5) calc(var(--backdrop-clear-fade) * 0.5),
+    rgb(0 0 0 / 0.655) calc(var(--backdrop-clear-fade) * 0.6), rgb(0 0 0 / 0.885) calc(var(--backdrop-clear-fade) * 0.8),
+    rgb(0 0 0) var(--backdrop-clear-fade), rgb(0 0 0) calc(100% - var(--backdrop-clear-fade)),
+    rgb(0 0 0 / 0.885) calc(100% - var(--backdrop-clear-fade) * 0.8), rgb(0 0 0 / 0.655) calc(100% - var(--backdrop-clear-fade) * 0.6),
+    rgb(0 0 0 / 0.5) calc(100% - var(--backdrop-clear-fade) * 0.5), rgb(0 0 0 / 0.345) calc(100% - var(--backdrop-clear-fade) * 0.4),
+    rgb(0 0 0 / 0.115) calc(100% - var(--backdrop-clear-fade) * 0.2), rgb(0 0 0 / 0) 100%;
+}
+:where(.lattice-exporting) section.finish > .backdrop > .backdrop-mask::before,
+section.finish.lattice-exporting > .backdrop > .backdrop-mask::before {
+  -webkit-mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));
+  mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-origin: content-box;
+  mask-origin: content-box;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: calc(var(--backdrop-clear-fade) * -1) calc(var(--backdrop-clear-fade) * -1);
+  mask-position: calc(var(--backdrop-clear-fade) * -1) calc(var(--backdrop-clear-fade) * -1);
+  -webkit-mask-size: calc(100% + 2 * var(--backdrop-clear-fade)) calc(100% + 2 * var(--backdrop-clear-fade));
+  mask-size: calc(100% + 2 * var(--backdrop-clear-fade)) calc(100% + 2 * var(--backdrop-clear-fade));
 }
 
 /* The overflow QA ring is an inset box-shadow on the SECTION, under `.backdrop`. The finish
