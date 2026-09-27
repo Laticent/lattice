@@ -39,8 +39,11 @@ test('Share → PDF writes real, tagged text and vector charts over one photo pe
 	const bytes = await exportPdf(page);
 	expect(warnings, 'the shared writer must run, not fall back to photos').toEqual([]);
 
-	const doc = await PDFDocument.load(bytes);
+	// updateMetadata: false, or pdf-lib stamps its own Producer over the one being checked.
+	const doc = await PDFDocument.load(bytes, { updateMetadata: false });
 	expect(doc.getPageCount()).toBe(4);
+	// Made by the shared writer, not a photo lane that stepped in after a silent failure.
+	expect(doc.getProducer()).toContain('pdf-compose');
 	// Tagged, as Chrome's printed PDF is.
 	expect(doc.catalog.lookup(PDFName.of('MarkInfo'), PDFDict).get(PDFName.of('Marked'))?.toString()).toBe('true');
 	expect(doc.catalog.get(PDFName.of('StructTreeRoot'))).toBeTruthy();

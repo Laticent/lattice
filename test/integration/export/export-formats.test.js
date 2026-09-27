@@ -419,6 +419,44 @@ describe('export-formats', () => {
     assert.ok(richCorner < printCorner, `the color page carries a finish there (${richCorner.toFixed(1)} vs ${printCorner.toFixed(1)}) — else this test proves nothing`);
   });
 
+  test('a Mermaid flowchart keeps its edges and arrowheads', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'flow.md');
+    fs.writeFileSync(src, '---\ntheme: indaco\n---\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Start] --> B[Middle] --> C[End]\n```\n');
+    // Ink on the page, 0-255 gray below 160: the edges and arrowheads are most of a small
+    // diagram's dark pixels beyond its labels. Mermaid's `stroke-dasharray: 0` once went into
+    // the PDF as `[0] 0 d`, which poppler draws as nothing, and every edge vanished.
+    const ink = (pdf) => {
+      const base = pdf.replace(/\.pdf$/, '-g');
+      execFileSync('pdftoppm', ['-gray', '-r', '48', '-f', '1', '-l', '1', pdf, base]);
+      const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+      const buf = fs.readFileSync(file);
+      const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+      return buf.subarray(buf.length - w * h).filter((v) => v < 160).length;
+    };
+    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
+    for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    }
+    const a = ink(mine), b = ink(chrome);
+    assert.ok(a >= b * 0.9, `the writer's page carries the diagram's ink (${a} dark px vs Chrome's ${b})`);
+  });
+
+  test('when the writer fails mid-compose, the Chrome fallback prints the slides whole, not hidden', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'fallback.pdf');
+    // LATTICE_PDF_TEST_FAIL=after-hide throws with every drawn word and shape hidden — the state
+    // a watchdog timeout left behind, which printed a blank deck (the checker's repro).
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_TEST_FAIL: 'after-hide' }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.match(r.stderr, /PDF writer failed[^\n]*printing with Chrome instead/, 'the fallback is announced');
+    assert.match(execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' }), /Body text stays vector/, 'the fallback PDF still carries the text');
+    assert.equal(pdfImageRows(out).filter((row) => /\bimage\s+1280\s+720\s/.test(row)).length, 0, 'and it is Chrome\'s print, with no slide photo');
+  });
+
   test('text something paints over stays hidden: not drawn on top, not in the text layer', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const src = path.join(dir, 'covered.md');

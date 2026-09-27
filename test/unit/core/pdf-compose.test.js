@@ -52,7 +52,10 @@ test('font subset: a variable face pinned to a weight draws at that weight', asy
 	// A monospace advance never moves, so compare the outline instead: a heavier M is not
 	// the same drawing. If the face is static, both pins are no-ops and this says so.
 	const pinned = light.glyphForCodePoint(77).path.toSVG() !== heavy.glyphForCodePoint(77).path.toSVG();
-	assert.ok(pinned || area(light) === area(heavy), 'pinning either changes the outline (variable) or is a no-op (static)');
+	// jetbrains-400.woff2 is VARIABLE (wght 100-800), so a working pin must change the drawing;
+	// "or the areas match" would pass a pin that did nothing (the checker's catch).
+	assert.ok(pinned, 'a heavier pin draws a different M');
+	assert.ok(area(heavy) > area(light), 'and the heavier M covers more');
 });
 
 test('writer: one page per slide, real text, vector shapes and clickable links', async () => {
@@ -101,4 +104,19 @@ test('writer: the synthetic slant is per word, not per font (upright and italic 
 	const matrices = [...ops.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) [-\d.]+ [-\d.]+ Tm/g)].map((m) => Number(m[3]));
 	assert.equal(matrices.length, 2, `two text runs, got:\n${ops.slice(0, 400)}`);
 	assert.deepEqual(matrices.map((c) => Math.abs(c) > 0.2), [false, true], 'only the italic word is slanted');
+});
+
+test('font subset: a requested feature survives (tabular figures stay tabular), ligatures do not', async () => {
+	const subset = await subsetMod.createFontSubsetter(WASM);
+	const outfit = fs.readFileSync(path.join(ROOT, 'assets/fonts/outfit-500.woff2'));
+	const advances = (fk, feats) => fk.layout('1110', feats).glyphs.map((g) => g.advanceWidth);
+	const tab = fontkit.create(await subset(outfit, '1110', { wght: 500 }, ['tnum']));
+	const t = advances(tab, { tnum: true });
+	assert.ok(t.every((a) => a === t[0]), `tnum keeps every figure one width: ${t}`);
+	const prop = fontkit.create(await subset(outfit, '1110', { wght: 500 }, []));
+	const p = advances(prop, {});
+	assert.ok(p[0] !== p[3], `without tnum the figures are proportional: ${p}`);
+	// No ligature glyph: "fi" stays two glyphs, so its text copies out as "fi".
+	const lig = fontkit.create(await subset(outfit, 'first', { wght: 500 }, []));
+	assert.equal(lig.layout('fi').glyphs.length, 2);
 });

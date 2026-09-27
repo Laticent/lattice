@@ -1745,7 +1745,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		}
 	};
 	const fetchAsset = async (url) => {
-		if (!/^(blob:|data:)/.test(url) && new URL(url, location.href).origin !== location.origin) throw new Error('web image: kept in the photo');
+		if (!/^(blob:|data:)/.test(url) && new URL(url, location.href).origin !== location.origin) throw new Error('web asset: kept in the photo');
 		const r = await fetch(url);
 		if (!r.ok) throw new Error(`image fetch ${r.status}`);
 		return new Uint8Array(await r.arrayBuffer());
@@ -1755,7 +1755,8 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		if (phase === 'photo') onStatus('Rendering slide ' + (done + 1) + ' of ' + total + '…', { current: done, total });
 		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
 	};
-	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date() });
+	// Fonts through the same guard as images: no web font is fetched from the author's machine.
+	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date() });
 	// Document properties and review comments, exactly as the photo lanes write them.
 	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });

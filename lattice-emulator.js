@@ -5461,7 +5461,10 @@ async function composePdfInPage(g, page) {
       await page.exposeFunction(ASSET_FN, async (url) => pdfAssets.asset(url));
       await page.exposeFunction(FACES_FN, async (href) => pdfAssets.fontFaceRules(href));
     }
-    const out = await g(() => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale) => {
+    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~33 s, and a
+    // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
+    const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
+    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
       // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
@@ -5483,7 +5486,7 @@ async function composePdfInPage(g, page) {
       let composed;
       try {
         const readFontFaceRules = (href) => window[facesFn](href);
-        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1 });
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide });
       } catch (e) {
         // Carry the page-side stack across CDP: puppeteer keeps only the message.
         return { error: String(e?.stack || e) };
@@ -5492,8 +5495,9 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE), 'compose pdf');
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide'), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
+    await page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); });
     if (!QUIET) {
       const r = out.report;
       const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
@@ -5506,6 +5510,14 @@ async function composePdfInPage(g, page) {
     if (process.env.LATTICE_PDF_REPORT) fs.writeFileSync(process.env.LATTICE_PDF_REPORT, JSON.stringify(out.report, null, 2));
     return Buffer.from(out.b64, 'base64');
   } catch (e) {
+    // Put the page back BEFORE Chrome prints it: the compose may have hidden every drawn word
+    // and shape (and may still be running); the export face is the Studio's, not the printer's.
+    try {
+      await page.evaluate(() => {
+        window.__latticePdfAbort?.();
+        for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting');
+      });
+    } catch {}
     // Said even under --quiet (on stderr): a silent switch of writer is a different PDF.
     console.error(`  PDF writer failed (${String(e?.message || e).split('\n')[0]}); printing with Chrome instead.`);
     if (process.env.LATTICE_PDF_DEBUG) console.error(e?.stack || e);

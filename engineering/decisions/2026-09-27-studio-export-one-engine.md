@@ -239,8 +239,9 @@ Order of work, all in one PR (#2404):
 - **Two library bugs, fixed at the root:**
   - `@pdf-lib/fontkit` reads past the end of a subset font whose last glyph is empty. The subset
     is padded with 16 zero bytes.
-  - pdf-lib loses the text of ligature glyphs ("first" copies as "rst"). Subsets keep no
-    ligatures, and each word is fitted to the width the browser measured.
+  - pdf-lib loses the text of ligature glyphs ("first" copies as "rst"). A subset keeps only the
+    OpenType features the slide asked for (so `tnum` figures stay tabular) and never a
+    ligature, and each word is fitted to the width the browser measured.
 - **Measured on the owner's 9-slide cuoio deck, CLI:** 3.1 s end to end and 237 KB. Poppler
   draws all nine slides in 1.45 s, against 13.1 s and 335 KB for Chrome's printing (best of 3,
   110 dpi). 351 words and 26 shapes drawn; nothing left in the photo.
@@ -258,6 +259,21 @@ Order of work, all in one PR (#2404):
   - **Earlier in the same pass, a regression of my own:** reading the CLI's page under print
     media brought back the hard spotlight arc, the defect this work began from. The CLI uses the
     Studio's `.lattice-exporting` face, pinned by an integration test with a control.
+  - **The independent checker** found four blocking defects, all fixed with a test:
+    - Mermaid draws edges with `stroke-dasharray: 0`, which went into the PDF as a zero dash
+      that poppler draws as nothing: every flowchart lost its edges. Dash arrays are now
+      sanitized (all zero or negative means solid; an odd list is doubled), and a shape with
+      SVG markers (arrowheads) stays in the photo.
+    - When the writer failed after hiding what it had drawn, the page reached Chrome's fallback
+      printer with its text hidden: a blank PDF. A failure now restores the page before the
+      fallback runs, and the watchdog allows 4 s a slide.
+    - Plain `http:` links were dropped; only `https:` was kept.
+    - Tabular figures (`font-variant-numeric: tabular-nums`) came out proportional, because the
+      subset kept no layout features.
+  - Should-fix items, also fixed: font weights clamped to the face's range, text cut by an
+    ellipsis left in the photo, in-deck `#slide` links become page jumps, the Studio's font
+    fetch goes through the same origin guard as its images, and the photo is capped at
+    2560 px on its long edge.
 - **Known limits:**
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
     trades size for it.
