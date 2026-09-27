@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`23 components`
+`24 components`
 
 Every chart component in one deck — the full charting surface.
 

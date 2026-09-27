@@ -2,7 +2,7 @@
 
 # chart
 
-`23 components`
+`24 components`
 
 Chart — series-substance data visualizations (SVG kernel).
 

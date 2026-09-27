@@ -221,8 +221,8 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · hub-spoke" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · hub-spoke · 1 of 2" -->
 
 ## When NOT to reach for hub-spoke.
 
@@ -230,6 +230,14 @@ Hub and spoke — one center, its satellites, and what flows between them.
   - If the point is who is biggest, or how a total splits, use `bar` or `stacked-bar`. A length compares far better than a disc, and `sized` is a supporting cue here, not the evidence.
 - A network, not a star
   - Hub-spoke draws one center and its spokes. If the satellites connect to each other, or there are several centers, use `diagram` (Mermaid) for the graph.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · hub-spoke · 2 of 2" -->
+
+## When NOT to reach for hub-spoke.
+
 - A hue per satellite
   - Satellites are neutral on purpose: each one has its name beside it, so a color per satellite adds nothing and past six it invents false groups. Group them with a pill only when the grouping is part of the claim.
 - A process in order
