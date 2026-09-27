@@ -488,8 +488,10 @@ is bounded per GRID rather than per panel: opening four different panels in turn
   so holding it and reusing it costs nothing it was not already costing — and on Chromium it is a
   real ~60-110MB that would otherwise be freed. That is a number to set deliberately rather than a
   defect to fix quietly, so it is recorded here and not done.
-  **Done since, 2026-09-27:** the frame dock keeps one set of frames for the Studio's life and
-  lends it to whichever surface is open — `2026-09-26-render-drift-and-unclosed-comments.md` §5.
+  **Done since, 2026-09-27, for Add slide:** the gallery stays mounted between opens, so its pool
+  outlives the close and a reopen re-points its frames (`ui/persistent-surface.tsx`,
+  `2026-09-26-render-drift-and-unclosed-comments.md` §5). The deck panel and Present's overview
+  still pay the per-open cost (`followups.d/2391-p3`).
 - **Moving an iframe in the DOM reloads it**, so the layer repositions frames rather than
   reparenting them — which means positions are recomputed on layout changes, not on scroll. A
   layout move the ResizeObserver cannot see would leave a frame misaligned until the next pass.

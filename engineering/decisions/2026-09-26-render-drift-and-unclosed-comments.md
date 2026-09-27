@@ -76,132 +76,94 @@ proved by reverting the fix it covers.
 **Left alone:** `chart-family.js` `proseAttr` keeps its regex — it reads a subtitle's
 *rendered* HTML, where markdown-it has already escaped any unclosed `<!--`.
 
-## 5. The WebKit reopen cost: one frame dock for the whole Studio
+## 5. The WebKit reopen cost: Add slide stays mounted between opens
 
 `followups.d/2391-p3`, confirmed on real WebKit (Playwright WebKit 26, production docs build) and
 wider than recorded. The preview pool (`2026-09-13-gallery-preview-memory.md`) stops churn
-*inside* an open grid, but the pool lived in the grid, so closing a surface destroyed its frames
+*inside* an open grid. But the pool lived in the grid, so closing a surface destroyed its frames,
 and WebKit never gives a destroyed preview document back. Add slide stranded ~45 MB per reopen
-(9 frames), the deck panel's preset tiles ~30 MB (4 frames); Present's overview and Reshape share
-the pattern. Chromium reclaims and stays flat.
+(its frames rebuilt every time), the deck panel's preset tiles ~30 MB. Chromium reclaims them and
+stays flat.
 
 ### What shipped
 
-`docs/src/components/studio/frame-dock.tsx`: ONE set of preview frames for the Studio's lifetime,
-mounted once (`FrameDockHost`) in a layer at the end of `<body>`. A pool BORROWS slots and gives
-them back on unmount with their documents intact, so the next open re-points them through
-`single-slide-render`'s patch path. A frame stays on its tile through CSS anchor positioning
-(`anchor-name` on the tile, `anchor()` / `anchor-size()` on the frame), so scrolling needs no
-script — the property the in-grid layer had, which a JS scroll sync would have lost.
+`docs/src/components/ui/persistent-surface.tsx`. Add slide (`SlidePicker.tsx`, the desktop dialog
+and the phone sheet through `PanelSheet`'s `persistent` prop) mounts on its first open and is
+only HIDDEN after that. Its pool never destroys a frame while it is mounted, so a reopen
+re-points the frames it already has. The frames stay inside the gallery's own scroller, exactly
+as on main, so iOS scrolls them natively with their tiles.
 
-Four conditions, each found by measurement, each written into the module:
+It does not use a force-mounted Radix dialog, for two reasons, both read from the Radix source.
+A Radix modal content runs `hideOthers` on mount, which would hide the whole Studio from
+assistive tech while the gallery sat closed. A non-modal content still mounts a
+`DismissableLayer`: whenever that closed layer is the highest one, it answers Escape for the
+whole page with `preventDefault()`, and the Studio's deck navigation honors `defaultPrevented`
+(`StudioShell.tsx`). So the surface renders its own dialog element and does the modal work
+itself, only while open:
 
-1. **Tree order.** An anchor resolves only if it precedes the positioned element; Radix portals a
-   dialog to the end of `<body>`, after the dock. So the dock creates `#lattice-surfaces` before
-   itself, and the pooled surfaces portal there (`container` on DialogContent / SheetContent /
-   PopoverContent / PanelSheet). Their own menus and tooltips still portal to the end.
-2. **Viewport containing block.** An anchor outside the positioned element's subtree resolves
-   only when that element's containing block is the viewport, so the frame is `position: fixed`
-   and nested `overflow: hidden` wrappers cannot clip it (they resolved nothing, both engines).
-   The clip is a `clip-path: inset()` on the slot's viewport-sized root, set to the tile's
-   clipping ancestors, the tile's own `overflow-hidden` card among them. That card moves with
-   the grid, so the clip is patched once per frame while scrolling, and again on resize and when
-   an animation starts or settles (a phone sheet measured mid-slide clipped to nothing).
-3. **No transforms.** Anchor positioning ignores transforms: Add slide's dialog, centered with
-   `translate(-50%, -50%)`, put every frame ~630 px off its tile. It is centered with
-   `inset-0 m-auto` now (same box, measured at 1440/820/390). A pool under a lasting transform —
-   Reshape's popover, which Radix positions by transform — keeps its own frames (`canDock`).
-4. **Stacking.** A slot takes the z-index of its tile's outermost stacking ancestor (Present's
-   overlay is z-102) and paints above that surface by being later in tree order. Three
-   consequences, all found by the red-team review and fixed:
-   - **Tile chrome.** The frame paints above the WHOLE surface, so Add slide's Insert bar and
-     the overview's slide numbers, which sat at `z-10` inside the tile, were hidden. A
-     `PooledThumbFace` now takes an `overlay` and portals it into its dock slot, above the frame.
-     Hover and keyboard focus on the tile's button are mirrored onto it (`data-hot`), because
-     `group-hover` cannot reach across a portal.
-   - **Two surfaces at one z.** The phone's Settings sheet and Add slide's sheet are both z-50.
-     The older one's frames showed through the newer. The host now shows only the newest
-     surface at each z, numbering surfaces in the order they open (`surfaceLayer`).
-   - **Closing.** Radix plays a surface's exit animation before the pool unmounts, and anchor
-     positioning ignores the exit transform. So the frames stayed drawn over the editor while
-     the sheet slid away. A pool now hides its frames when its surface is marked
-     `data-state="closed"`: measured between 179 ms and 249 ms into the close, where they used to
-     stay until about 800 ms.
+- the element is `role="dialog"` with `aria-modal` only while open, so a closed gallery is
+  nothing to anyone, including a `[role=dialog]` selector;
+- every other child of `<body>` is `inert` while open, which keeps keyboard focus and assistive
+  tech inside;
+- focus moves in on open and returns to the launcher on close;
+- the backdrop is a Radix `DismissableLayer`, mounted only while open. On the phone, Add slide
+  opens over the Deck sheet, which is a Radix modal. Outside Radix's layer stack, that sheet stayed
+  the top layer: Escape closed the sheet underneath instead of the gallery (measured). As the top
+  layer, the gallery takes Escape first, after any menu opened from inside it. Lower layers ignore
+  its taps, and a tap on a tile inserts the slide (7 → 8 slides, both engines, 390 px).
 
-Where anchor positioning is missing (Safari before 26, jsdom) or a pool is not placed before
-the dock, `canDock` is false and the pool keeps its frames in its own layer, exactly as before.
+It sits inside a Radix `Dialog.Root`, which renders no DOM, so the shared `DialogTitle`,
+`SheetTitle` and close pieces work unchanged; the titles take their ids from the surface.
 
-**The ceiling is two pools' worth, 56** (`frame-dock-limits.ts`). One pool never asks for more
-than its own cap of 28, but two docked pools can be up at once: the deck panel stays mounted
-while Add slide or Present's overview is open. The first cut shared ONE pool's 28 across the
-whole Studio, and review broke it twice. The independent check crashed a second grid's
-assignment pass on an undefined slot, blanking every tile in it; a docked pool now skips a
-tile the dock cannot serve instead. The inversion review measured a 40-slide deck at
-2560×2200 on WebKit: Add slide took 8 slots and the overview 24. Past the ceiling, the dock
-rebuilt a slot of the other identity on every switch, which is 4–5 new documents per reopen,
-while the `iframe.live` count stayed flat at 29–30. Frames are made on demand, so the ceiling
-bounds what can exist and costs nothing until a session needs it.
+Two pool changes came out of measuring it:
+
+- **Measure in the layer's own units.** The dialog opens with a zoom from 95%, and a hidden
+  element replays its entrance animation each time it is shown. A pass measured mid-animation
+  left every preview at 95% of its tile, shifted up and left (screenshot, WebKit, 1440 px).
+  `rectOf` now divides out the layer's scale.
+- **A shape gets its own slot.** A tile whose shape has no free slot used to rewrite a free slot
+  of another shape, and the next tile of that shape rewrote it back: two documents on every
+  traversal. The gallery's one Mermaid tile did this on every reopen. The pool now makes a new
+  slot of the tile's shape: under the ceiling, or one past it when the pool holds no slot of that
+  shape at all. It is still bounded by `HARD_MAX_SLOTS`.
 
 ### Measured
 
-Real WebKit, 1440×900, a production build, `main` and the branch on the same box:
+Real WebKit, 1440×900, production builds on the same box. The script opens Add slide, scrolls
+the whole gallery, closes it, and repeats.
 
-| | main | frame dock |
+| | main | this change |
 |---|---|---|
-| new preview documents per Add slide reopen (iframes + srcdoc writes) | 12 + 14, every cycle | **0 + 0** after the first |
-| Add slide, open + scroll all + close, RSS over baseline | +291 → +445 → +535 → +732 → +884 MB | +383 → +374 → +371 → +510 → +549 → +550 → +604 → +597 MB |
-| deck panel, 6 open/close cycles | +128 → +132 → +161 → +185 → +246 → +276 MB | +129 → +86 → +95 → +110 → +124 → +109 MB |
-| dock slots after each of 8 full-scroll cycles (Chromium) | — | 13, every time |
+| new preview documents per reopen (iframes + `srcdoc` writes) | 12 + 14, every cycle | **0 + 0** |
+| RSS over baseline after each of 6 cycles | +255, +394, +573, +771, +833, +915 MB | +346, +370, +419, +440, +468, +471 MB |
 
-Read the MB with the 09-13 note's ±200 warning; the document counts are exact. The Add slide
-row still rises ~30 MB per cycle with zero new preview documents, so that residue is something
-else — recorded, not chased here. One refinement came out of the counts: a pool with no free
-slot of a tile's SHAPE takes an exact-shape dock slot (or a new one) rather than rewriting one
-of the other shape — the gallery's Mermaid tile had cost two fresh documents per reopen.
+The dialog's box is identical to main at 1440, 820 and 390. Previews sit on their tiles after an
+open, a full scroll and a reopen, on Chromium and WebKit. Keyboard focus never leaves the
+dialog across 30 Tabs. The pool oracles (`gallery-preview-metamorphic`) count documents created,
+through `docs/e2e/preview-documents.ts`, because an element count cannot see a frame rebuilt in
+place. MR-3's "closing releases every document" is restated as what it guarded: no per-open
+residue, and a reopen that makes no documents. The WebKit-phone test asserts the reopen.
 
-Every surface checked at 1440, 820 and 390 on Chromium and WebKit: each docked frame sits on its
-tile to the pixel, clipped by its scroller. The pool oracles (`gallery-preview-budget`,
-`gallery-preview-metamorphic`, `preview-shared-sheet`) now find a surface's frames through
-`docs/e2e/pool-frames.ts`, since a docked frame is not inside the surface it serves; MR-3's
-"closing releases every document" is restated as what it guarded — no per-open residue — and the
-WebKit-phone test now asserts that a reopen mints none.
+**Scope.** Only Add slide is persistent. The deck panel's preset tiles (the inspector, and its
+phone sheet) and Present's overview still rebuild their frames on each reopen, as on main. That
+work stays in `followups.d/2391-p3`, which now has the primitive to use.
 
-Proof that the oracles can fail: a mutant dock that remounts a frame whenever it lends a
-slot out keeps the element count flat. It fails MR-3 on desktop (52 documents over two reopens)
-and the WebKit-phone test (8 on one reopen). The real code passes both.
-
-That last oracle, as first written, counted `iframe.live` elements and could not fail on the
-ceiling case above. `countDocuments` (in `pool-frames.ts`) now counts what WebKit keeps: each
-`<iframe>` created and each `srcdoc` written. MR-3 allows at most SLACK documents across
-reopens 2 and 3, and the WebKit-phone test at most one per reopen. Each close is also checked
-against the exact dock slots that surface was shown in, because once the surface is gone its
-pool ids go with it.
-
-**Unverified, and open:**
-
-- **A real iPhone or iPad.** Before the dock, the frames scrolled inside the content, on the
-  compositor. Now they follow their tiles through anchor positioning, and nothing run from this
-  sandbox can show whether WebKit's asynchronous momentum scrolling keeps them in step. The
-  same goes for the clip under pinch-zoom and the on-screen keyboard: the pool re-measures on
-  `visualViewport` resize, and that is unmeasured on a device.
-- **A transform that arrives later.** `canDock` is decided on a pool's first pass. A pool that
-  docks and then gains a lasting transform would draw its frames offset. No surface does this
-  today.
-- **Chromium keeps the dock's frames for the session**, 13 after the full-scroll Add slide
-  cycles above, where it used to free them on close. Docking only on WebKit would give that
-  back, but it would split the pool into two paths and leave the dock path uncovered by the
-  Chromium e2e projects. Kept on both engines, and recorded here as the price.
-- **Present makes one document per open**, measured by the inversion review. That is Present's
-  own stage frame, outside the dock and outside this change.
-- **A future pooled surface that forgets `container={surfacesRoot()}`** falls back to its own
-  frames and loses the WebKit fix without failing any test.
+**Unverified:** a real iPhone or iPad. The design puts the frames back where main had them, in
+the scroller, so it should scroll exactly as main does. That still needs the owner's device to
+confirm.
 
 ### Tried first, and why they failed
 
+- **A frame dock** (built, reviewed by the adversarial trio, then removed). One set of frames
+  for the whole Studio sat in a layer at the end of `<body>`, and CSS anchor positioning pinned
+  each frame to its tile. Reopens made 0 documents and deck-panel memory stayed flat. But on a
+  real iPad, the previews trailed their cards and snapped back on every fast scroll. iOS runs
+  scrolling on a separate thread, and an anchored element outside the scroller follows a beat
+  late. No setting on our side changes that. The trio's review had also found the design's
+  other costs: tile overlays hidden under the frames, one surface's frames showing through
+  another's, and frames left drawn through a close animation.
 - **Posters** (capture a settled frame into an SVG `foreignObject`, show a WebP on reopen): built
   and reverted. Each capture is itself an SVG-image decode that WebKit also keeps (~3.5 MB), so a
   scrolled gallery grew as on main (+493 → +1097 MB against +391 → +1070 MB).
 - **Parking frames between opens:** needs a state-preserving DOM move; `Element.moveBefore` is
   Chromium-only (measured absent on WebKit 26).
-- **Keeping a surface mounted but hidden:** a force-mounted Radix modal runs `hideOthers` on mount,
-  hiding the whole Studio from assistive tech while "closed", and keeps its scroll lock.
