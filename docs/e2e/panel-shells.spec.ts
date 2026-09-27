@@ -83,6 +83,27 @@ async function boxes(locators: Locator[]) {
 	return Promise.all(locators.map(async (l) => (await l.boundingBox()) ?? null));
 }
 
+/**
+ * The frame's boxes once they have stopped moving. Some pieces size themselves a frame after they
+ * mount (the Chat composer's field autosizes to its placeholder, in the shell and the panel alike),
+ * so a single read can catch the first frame. Polled, bounded: two reads a frame apart must agree.
+ */
+async function settledBoxes(page: Page, locators: Locator[]) {
+	let last = '';
+	let settled: Awaited<ReturnType<typeof boxes>> = [];
+	await expect
+		.poll(async () => {
+			settled = await boxes(locators);
+			await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+			const now = JSON.stringify(settled);
+			const same = now === last;
+			last = now;
+			return same;
+		})
+		.toBe(true);
+	return settled;
+}
+
 const shell = (page: Page) => page.locator('[data-panel-shell]');
 
 /** Resolves once the top dialog has no running animation: the sheet has finished sliding in. */
@@ -100,10 +121,10 @@ for (const panel of PANELS) {
 		await panel.open(page);
 		await expect(shell(page)).toHaveCount(1);
 		if (panel.sheet) await slideInDone(page); // measure the shell where it rests, not mid-slide
-		const before = await boxes(panel.frame(page));
+		const before = await settledBoxes(page, panel.frame(page));
 		await hold.release();
 		await expect(shell(page)).toHaveCount(0);
-		const after = await boxes(panel.frame(page));
+		const after = await settledBoxes(page, panel.frame(page));
 		for (const [i, box] of before.entries()) {
 			expect(box, `frame piece ${i} missing in the shell`).not.toBeNull();
 			expect(after[i], `frame piece ${i} missing in the loaded panel`).not.toBeNull();
