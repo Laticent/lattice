@@ -289,6 +289,13 @@ OPTIONS
                           checked fits. LATTICE_OVERFLOW_MARKER sets a standing
                           default ('off' is per-render only). The overflow warning
                           on stderr is printed at every level.
+      --keep-vector-finish
+                          Keep a finish's backdrop as vector drawing in the PDF.
+                          By default each finish slide's backdrop (wash, texture,
+                          mark, edge, strength, clear) is baked into one opaque
+                          JPEG at the raster export scale (2x HD, 1x 4K): the
+                          vector gradients took ~1-2.5 s a slide to draw in iOS
+                          Preview and Acrobat. Text and content stay vector.
       --keep-vector-images
                           Keep SVG images as vectors in the PDF. By default SVG
                           <img>/background images are rasterized to 2x PNG at
@@ -457,6 +464,7 @@ function parseArgs(argv) {
     if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
+    if (a === '--keep-vector-finish') { flags['keep-vector-finish'] = true; continue; }
     if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
     if (a === '--no-svg') { flags['no-svg'] = true; continue; }
     // --flag=value form
@@ -606,6 +614,7 @@ const ENGINE_SCRIPT_OPEN = `<script ${ENGINE_SCRIPT_ATTR}>`;
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
+const KEEP_VECTOR_FINISH = !!flags['keep-vector-finish'];
 // Who the overflow marker in the printed artifact is addressed to. Same setting,
 // same kernel and same precedence as the Marp exporter — `--overflow-marker` for
 // this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
@@ -4449,6 +4458,14 @@ async function renderBody(browser, g, closeBrowser) {
       console.log(`  SVG images: ${swapped} reference${swapped > 1 ? 's' : ''} rasterized at 2x for PDF portability (--keep-vector-images keeps vectors)`);
     }
   }
+  // BAKE THE FINISH BACKDROP — see bakeFinishBackdropsInPage. Same targets as the SVG pass
+  // above: the vector PDF (and its --paper variant); the raster paths are pixels already.
+  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !KEEP_VECTOR_FINISH) {
+    const baked = await bakeFinishBackdropsInPage(g, page, slideW, slideH);
+    if (baked && !QUIET) {
+      console.log(`  Finish: ${baked} backdrop${baked > 1 ? 's' : ''} baked to JPEG for fast PDF viewing (--keep-vector-finish keeps vectors)`);
+    }
+  }
   if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT) {
     // Render to a buffer (no `path`) so we can post-process before writing: the
     // speaker notes are attached as per-page PDF text annotations.
@@ -5386,6 +5403,86 @@ async function prunePlayerCssInPage(playerHtml) {
 // resolution #681 verified on-device), transparent background preserved. Any
 // per-image failure warns and leaves that reference vector — the deck must
 // never be lost to a portability fix. Returns the number of swapped references.
+/**
+ * Bake every finish slide's `.backdrop` into ONE opaque JPEG before the vector PDF prints.
+ *
+ * WHY. A finish prints as a stack of vector drawing: gradient washes, a texture that is a
+ * `repeating-*-gradient` (one shading whose color function switches ~40 times across the
+ * page), transparency groups for the strength veil and a blurred clear layer. A PDF viewer
+ * evaluates all of it per pixel on the CPU, again at every zoom: atrium drew in ~2.5 s a
+ * slide in poppler and visibly progressively in iOS Preview and Acrobat. One opaque JPEG is
+ * a single hardware-decoded image draw (owner check on iPhone, 2026-09-27: fast, and looks
+ * right). Text, charts, the paginator and everything else on the slide stay vector.
+ *
+ * WHAT IS CAPTURED. The SCREEN face — the page is in screen media until `page.pdf()` — so
+ * the PDF shows exactly what the Studio shows: the soft clear edge, the feathered masks and
+ * the alpha fades the opaque print face had to give up only because vector PDF viewers
+ * mis-draw them. A raster has none of those limits.
+ *
+ * HOW. Per section: fade every child but `.backdrop` to opacity 0 (opacity, not visibility,
+ * because a descendant can override visibility), screenshot the backdrop's box, then swap
+ * the backdrop for an <img> on that same box and z-index. The section's pseudos are left
+ * alone: one painted above the backdrop prints vector over its baked copy in the same place,
+ * and one painted below it is in the image, where the opaque image would otherwise hide it.
+ *
+ * SCALE follows the deck's size: the raster export scale (`resolveRasterScale('max')`, 2x HD,
+ * 1x 4K, long edge ≤ 3840 px). QUALITY is JPEG 100 (owner: the highest quality possible).
+ * Returns the number of backdrops baked. Opt out with --keep-vector-finish.
+ */
+async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
+  const count = await g(() => page.evaluate(() => {
+    let n = 0;
+    // An opted-out slide (`finish-none` / `backdrop-none`) keeps its empty wrapper and has
+    // nothing to bake; imaging it would add a full-page picture of a plain canvas.
+    for (const s of document.querySelectorAll('section.finish:not(.finish-none):not(.backdrop-none)')) {
+      if (s.querySelector(':scope > .backdrop')) s.dataset.latticeBake = String(n++);
+    }
+    if (n) {
+      const st = document.createElement('style');
+      st.id = 'lattice-bake-style';
+      st.textContent = 'section[data-lattice-baking] > :not(.backdrop) { opacity: 0 !important; transition: none !important; }';
+      document.head.appendChild(st);
+    }
+    return n;
+  }), 'find finish backdrops');
+  if (!count) return 0;
+  const scale = resolveRasterScale('max', slideW, slideH);
+  await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale }), 'bake viewport');
+  const shots = [];
+  try {
+    for (let i = 0; i < count; i++) {
+      // Capture the BACKDROP's box, not the section's: the section's top border (the
+      // spectrum bar) and a tone slide's rail sit outside it, and the image goes back on
+      // exactly this box.
+      const el = await g(() => page.$(`section[data-lattice-bake="${i}"] > .backdrop`), 'bake backdrop');
+      await g(() => el.evaluate((b) => { b.parentElement.dataset.latticeBaking = ''; }), 'bake hide content');
+      const buf = await g(() => el.screenshot({ type: 'jpeg', quality: 100, captureBeyondViewport: true }), 'bake screenshot');
+      await g(() => el.evaluate((b) => { delete b.parentElement.dataset.latticeBaking; }), 'bake show content');
+      shots.push(Buffer.from(buf).toString('base64'));
+    }
+  } finally {
+    await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 }), 'restore viewport');
+  }
+  await g(() => page.evaluate(async (shots) => {
+    const imgs = [];
+    for (const s of document.querySelectorAll('section[data-lattice-bake]')) {
+      const b = s.querySelector(':scope > .backdrop');
+      const img = document.createElement('img');
+      img.className = 'lattice-baked-backdrop';
+      img.alt = '';
+      img.src = `data:image/jpeg;base64,${shots[Number(s.dataset.latticeBake)]}`;
+      // The backdrop's own box and plane, so the image lands where the finish painted.
+      img.style.cssText = `position:absolute;left:${b.offsetLeft}px;top:${b.offsetTop}px;width:${b.offsetWidth}px;height:${b.offsetHeight}px;pointer-events:none;z-index:${getComputedStyle(b).zIndex}`;
+      b.replaceWith(img);
+      delete s.dataset.latticeBake;
+      imgs.push(img);
+    }
+    document.getElementById('lattice-bake-style')?.remove();
+    await Promise.all(imgs.map((im) => im.decode().catch(() => null)));
+  }, shots), 'swap baked backdrops');
+  return count;
+}
+
 async function rasterizeSvgImagesInPage(browser, g, page) {
   // Pass 1 — collect: every SVG image URL (absolutized) with the largest
   // placement box it occupies, measured from the real layout.

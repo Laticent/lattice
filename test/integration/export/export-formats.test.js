@@ -342,6 +342,49 @@ describe('export-formats', () => {
     assert.equal(pdfImageRows(out).length, 0, 'opt-out export should carry no raster image XObjects');
   });
 
+  // A finish deck: two finish slides and one opted out.
+  function writeFinishFixture(dir) {
+    const src = path.join(dir, 'finish.md');
+    fs.writeFileSync(src, [
+      '---', 'marp: true', 'theme: indaco', 'finish: atrium', 'backdrop: clear', '---', '',
+      '# Baked finish one', '', 'Body text stays vector.', '', '---', '',
+      '<!-- _class: finish-none -->', '', '# Opted out', '', '---', '',
+      '# Baked finish two', '',
+    ].join('\n'));
+    return src;
+  }
+
+  test('bakes each finish backdrop into one image at the raster scale; text stays vector', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // One image per FINISH slide (the finish-none slide has nothing to bake), at 2× HD.
+    const rows = pdfImageRows(out);
+    assert.equal(rows.length, 2, `expected 2 baked backdrops, got:\n${rows.join('\n')}`);
+    const pages = rows.map((row) => Number(row.trim().split(/\s+/)[0]));
+    assert.deepEqual(pages, [1, 3], 'the opted-out slide 2 must carry no baked image');
+    for (const row of rows) {
+      // 2× HD wide; the height is the backdrop's box (the 4px spectrum border sits above it).
+      assert.match(row, /\bimage\s+2560\s+14\d\d\b/, `backdrop should be the 2× HD raster: ${row}`);
+      assert.doesNotMatch(row, /\bsmask\b/, `a baked backdrop is opaque: ${row}`);
+    }
+    const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+    assert.match(text, /Body text stays vector/, 'slide text must stay selectable');
+  });
+
+  test('--keep-vector-finish prints the finish as vector drawing (opt-out)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out, '--quiet', '--keep-vector-finish'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.equal(pdfImageRows(out).filter((row) => /\bimage\s+2560\s/.test(row)).length, 0, 'opt-out export should bake nothing');
+  });
+
   test('--raster prints one full-page JPEG per slide; notes + --embed-source still apply', { timeout: TIMEOUT }, async () => {
     const dir = tmpDir();
     const src = writeSvgFixture(dir);
