@@ -3,8 +3,7 @@
   needs, a grammar module, a renderer module, docs and conformance fixtures — and the build
   freezes every plugin into one registry the engine, the boundary parser and the linter all read.
   The build fails, naming the plugin, when a manifest and its code disagree, a required plugin is
-  missing, the dependencies form a cycle, or two plugins claim one syntax trigger, token or
-  component. Math (`$…$`, `$$…$$`, the `math` slide class) moved onto it with **no change to any
+  missing, the dependencies form a cycle, or two plugins claim one syntax trigger or token. Math (`$…$`, `$$…$$`, the `math` slide class) moved onto it with **no change to any
   render**: 4,059 engine renders across every tracked deck at three slide sizes and three math
   settings, and every boundary-parser token stream, are byte-identical before and after.
   `lattice packages list --type plugin` lists it. `createEngine({ math: false, mathOutput })`

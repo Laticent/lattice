@@ -23,7 +23,10 @@ and the code-package contract ([`2026-09-24-code-package-contract.md`](2026-09-2
 ## 1. The answer
 
 A **plugin** is a folder that teaches Lattice something new: a syntax (`$…$`), a fence
-(` ```functionplot `), a slide class, or a figure that a browser draws. It carries
+(` ```functionplot `), or a figure that a browser draws — a **capability that works on any
+slide**. A component (a slide class such as `math`) is a layout that may be designed around a
+plugin, and it is the component that declares the dependency, never the plugin (§4.1). A plugin
+carries
 
 - **one manifest** that declares *what* it contributes, *whom* it depends on, *which* payload it
   loads, *which* tokens it paints with and *what* it degrades to — all readable without running
@@ -176,13 +179,36 @@ CommonJS like the rest of `lib/`.
 
 **Why a new kind rather than a bigger component manifest.** LPM put a `render` block on the
 component manifest. That fits one slide class with one transform — a chart — and does not fit
-math, which contributes syntax that works on *every* slide, a service-free engine-wide renderer,
-a font payload *and* a slide class. So a plugin is the unit of **capability**, and it may
-**contribute components**: the math plugin names the `math` component the way a VS Code extension
-contributes a view. The component folder stays where it is; `lattice packages export plugin/math`
-carries the named component folders inside the zip under `components/<name>/`, and import puts them
-back through the component door. **Charts stay components** (§5): each is one slide class, which
-is exactly what the component manifest already describes.
+math, whose syntax works on *every* slide: `$$…$$` on a plain content slide typesets exactly as it
+does on a `math` slide. So a plugin is the unit of **capability**, and a component is a **layout**.
+**Charts stay components** (§5): each is one slide class, which is exactly what the component
+manifest already describes.
+
+**Components depend on plugins; plugins never name components** (owner, 2026-09-27). The `math`
+slide class is a stage designed for equations — a legend, a derivation column, a theorem card —
+so it declares the plugin it is a stage for, in its own manifest:
+
+```jsonc
+// lib/components/math/math/math.manifest.json
+"plugins": { "requires": ["math"] }        // or "optional", for a component that works without
+```
+
+The first draft had it backwards — the math plugin listed `components: ["math"]` — and the owner
+caught it. The direction matters three ways. A plugin stays a pure capability: a later
+`derivation` component, or someone else's, can depend on math without editing the math plugin.
+The plugin package is self-contained on disk, because nothing it names lives elsewhere. And the
+declaration does work, because it is checked and it is read:
+
+- **The build fails** when a component requires a plugin that does not exist, and when a
+  component's **gallery** parses into a plugin's tokens but the manifest does not declare that
+  plugin (`tools/build-plugin-registry.js` runs each plugin's rules over each gallery). So a
+  declaration is a checked fact, not a promise. The reverse — proving a declared plugin is really
+  used — is not checked, deliberately.
+- **At render,** a slide whose component requires a plugin that is switched off still renders (the
+  layout, and the plugin's own fallback: math shows its TeX), and `render()` returns a
+  `plugin/component-needs-plugin` diagnostic naming both. A normal render carries no
+  `diagnostics` key at all, so its shape is unchanged.
+- **On export** (phase E), a user component carries the non-shipped plugins it requires.
 
 ### 4.2 The manifest
 
@@ -247,14 +273,13 @@ later `render.exec.bake`), because Mermaid runs in two places. `parity` (`equiva
 progressive`) and `degradesTo` keep LPM's meaning. `tokens` moves to the top level because it is
 about the whole plugin's CSS, not one render path.
 
-### 4.3 Contribution points — six in v1
+### 4.3 Contribution points — five in v1
 
 | Point | The author writes | The plugin supplies | Host owner |
 |---|---|---|---|
 | `syntax` | delimiters in prose (`$…$`, `$$…$$`) | a markdown-it rule, its **trigger characters**, its host anchor, and `detect(source)` | the engine's parser, **and** the boundary parser |
 | `fences` | ` ```name ` | `render(body, ctx) → html` | one host fence table |
 | `hydrate` | nothing | `hydrate(el, ctx) → Promise` over a declared selector | one host hydrator on every browser surface |
-| `components` | `<!-- _class: X -->` | the names of component folders it owns | the existing component walk |
 | `styles` | nothing | token-only CSS | `build-css.js`, in a named slot (§4.9) |
 | `diagnostics` | nothing | namespaced IDs (`<plugin>/<id>`) and messages | the diagnostic protocol (`spec/diagnostics.md`) |
 
@@ -281,7 +306,9 @@ about the whole plugin's CSS, not one render path.
   diagnostic IDs — the way `grammar.json` works) and `lint-core` reads that.
 
 This table replaces LPM's five one-per-plugin `kind`s. A real plugin has several surfaces — math has
-inline syntax, block syntax and a slide class — so the surface belongs to each *contribution*.
+inline syntax and block syntax — so the surface belongs to each *contribution*. (LPM's `component`
+kind is gone from the plugin side entirely: a component is its own package that depends on
+plugins, §4.1.)
 
 ### 4.4 Syntax: triggers, anchors and install order
 
@@ -426,7 +453,7 @@ Unchanged from `2026-09-13` §Axis 2, applied per contribution:
 | Channel | May carry | When |
 |---|---|---|
 | **In-tree** (`lib/plugins/`) | every contribution | phase A |
-| **Zip / Studio / AI-generated** (the data layer) | `components` without a transform, `styles`, `diagnostics` | phase E. **Refused:** `payload`, any `exec`, `syntax`, `hydrate` — and every script file by extension, which `lib/packages/read.js:35` already does. `fences` code through the code-package door (consent + sandbox) once it ships, §9 decision 3 |
+| **Zip / Studio / AI-generated** (the data layer) | `styles`, `diagnostics` (a component without a transform is already its own data package, and may declare the plugins it needs) | phase E. **Refused:** `payload`, any `exec`, `syntax`, `hydrate` — and every script file by extension, which `lib/packages/read.js:35` already does. `fences` code through the code-package door (consent + sandbox) once it ships, §9 decision 3 |
 | **npm** (`lattice-plugin-*`, resolved at build time) | every code contribution | phase G, after the `LICENSE-EXCEPTIONS` plugin grant (contribution model, finding 6). Discovery by an explicit list, not by name prefix, so a transitive dependency named `lattice-plugin-*` gets no code into a deck |
 
 **Names.** Shipped plugin names are reserved, per the spine's `<name>-custom` rule. A data-layer
@@ -484,7 +511,7 @@ untouched. `lattice packages check <folder>` runs the schema, the resolver and t
 
 | Plugin | Contributes | `exec` | Depends on | Moving it deletes |
 |---|---|---|---|---|
-| **math** | `syntax` (`$`, `$$`), `components: [math]`, `styles`, payload (KaTeX CSS, fonts, the browser provider) | parse-time, sync | — | the hand install in `boundary-parser.mjs`, `installMath`'s special case, `ensure-katex.ts`, two of three KaTeX CSS sources |
+| **math** | `syntax` (`$`, `$$`), `styles`, payload (KaTeX CSS, fonts, the browser provider); the `math` slide class requires it | parse-time, sync | — | the hand install in `boundary-parser.mjs`, `installMath`'s special case, `ensure-katex.ts`, two of three KaTeX CSS sources |
 | **function-plot** | `fences.functionplot`, `hydrate`, `styles`, payload | `hydrate: browser` | — (§6) | the second inflater, the fence wrapper, four hand rosters (§3.2), function-plot CSS in the math component |
 | **anima** | `fences.anima` | — | — | the last fence wrapper (phase B moves its registration into the fence table; the full move is later) |
 | **mermaid** | `fences.mermaid`, `bake` (the render worker), `hydrate` (the runtime `renderDiagrams`), `styles`, a highlight.js grammar, payload (`mermaid-v11.min.js`, 3.1 MB, `when: used`) | `bake: subprocess`, `hydrate: browser` | — | `mermaidUrl` threaded through 22 files; the capture's hand-named wait |
@@ -570,7 +597,7 @@ code. What changed because of them:
   function-valued `providers` and slot selectors (§4.10, §4.3); hydrate files would leave the #22
   census (§4.7); the token check would have failed the pilot's own manifest (§4.9); the phase-A
   manifest contradicted the phase-A plan (§4.2).
-- **Scope cut on the inversion lens's evidence:** eleven contribution points down to six;
+- **Scope cut on the inversion lens's evidence:** eleven contribution points down to six (five once the owner moved the component relationship to the component side, §9 decision 5);
   versions down to names until npm; the spec a draft until D and F; charts stay components;
   math before function-plot; a deletion ratchet against the repo's record of half-built systems.
 - **Claims corrected:** `data-fp-final` (Studio export, not runtime); math-detect parity *is*
@@ -590,6 +617,12 @@ code. What changed because of them:
    code have no sandbox boundary. §4.10's zip row gains this at phase E.
 4. **Portable-packages §7 is amended** to admit a build-time resolver over plugin names (§4.5) —
    implied by the owner's requirement that plugins may depend on plugins.
+5. **Components depend on plugins; a plugin never names a component** (owner, 2026-09-27, after
+   phase A's first review). A plugin is a capability that renders on any slide; a component is a
+   layout that may be designed around one, and it declares `plugins: { requires | optional }` in
+   its own manifest. The declaration is checked against the component's gallery and reported at
+   render when a required plugin is off (§4.1). This replaces the first draft's
+   `contributes.components`, and with it decision 1's count: five contribution points, not six.
 
 ## 10. Non-goals
 
@@ -650,6 +683,14 @@ code. What changed because of them:
   one-to-one check's reverse arm (an exported thing the manifest does not declare) now guards
   `renderers` only — an undeclared exported RULE is never installed by any path, so it cannot lie,
   and the resolver says so.
+  **The relationship flip (§9 decision 5).** The plugin schema lost `contributes.components`
+  and the component schema gained `plugins: { requires, optional }`; the math slide class
+  declares `requires: ["math"]`. The resolver fails a component that requires a missing plugin
+  and one whose gallery uses a plugin it does not declare — measured over every component gallery,
+  only `math`'s uses plugin syntax — both arms mutation-proved by deleting and misspelling the math
+  component's declaration. `registry.generated.js` exports `COMPONENT_PLUGINS`, and `render()`
+  returns a `plugin/component-needs-plugin` diagnostic when a slide's required plugin is off; a
+  normal render's result has no `diagnostics` key, so its shape is unchanged.
   **Byte identity re-taken after the rebase:** 455 files × 9 = 4,095 renders against `origin/main`
   `706847f`; every deck identical, the only differences the five Markdown docs this PR adds, moves
   or edits; the boundary-parser token streams likewise.

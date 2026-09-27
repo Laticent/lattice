@@ -23,13 +23,13 @@ const syntaxModule = (tokens, { detect = true } = {}) =>
 
 const renderModule = (tokens) => `module.exports = { renderers: { ${tokens.map((t) => `${t}: () => ''`).join(', ')} } };\n`;
 
-function writePlugin(root, name, { syntax = {}, requires, components } = {}, { detect = true } = {}) {
+function writePlugin(root, name, { syntax = {}, requires } = {}, { detect = true } = {}) {
   const dir = path.join(root, 'lib/plugins', name);
   fs.mkdirSync(dir, { recursive: true });
   const manifest = {
     type: 'plugin', format: 1, name, api: 1, title: name, description: name,
     ...(requires ? { requires } : {}),
-    contributes: { ...(Object.keys(syntax).length ? { syntax } : {}), ...(components ? { components } : {}) },
+    contributes: { ...(Object.keys(syntax).length ? { syntax } : {}) },
   };
   fs.writeFileSync(path.join(dir, `${name}.manifest.json`), JSON.stringify(manifest));
   const tokens = Object.keys(syntax);

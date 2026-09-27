@@ -4,6 +4,7 @@
   "function": "evidence",
   "bucket": "math",
   "form": "canvas",
+  "plugins": { "requires": ["math"] },
   "projection": {
     "figure": "bare"
   },

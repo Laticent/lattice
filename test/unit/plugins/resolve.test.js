@@ -18,14 +18,14 @@ let host;
 const grammarHost = () => (host ??= require('../../../lib/plugins/host-grammar.mjs'));
 
 /** A minimal valid plugin: one inline rule on `trigger`, modules exporting exactly it. */
-function plugin(name, { requires, optional, token = `${name}_tok`, trigger = '@', kind = 'inline', anchor, components, diagnostics, exports } = {}) {
+function plugin(name, { requires, optional, token = `${name}_tok`, trigger = '@', kind = 'inline', anchor, diagnostics, exports } = {}) {
   const syntax = { [token]: { kind, anchor: anchor || (kind === 'inline' ? { after: 'escape' } : { before: 'fence' }), triggers: [trigger] } };
   return {
     folder: name,
     manifest: {
       type: 'plugin', format: 1, name, api: 1, title: name, description: name,
       ...(requires ? { requires } : {}), ...(optional ? { optional } : {}),
-      contributes: { syntax, ...(components ? { components } : {}), ...(diagnostics ? { diagnostics } : {}) },
+      contributes: { syntax, ...(diagnostics ? { diagnostics } : {}) },
     },
     exports: exports || { rules: [token], renderers: [token], detect: true },
   };
@@ -108,10 +108,17 @@ describe('resolvePlugins — syntax claims', () => {
   });
 });
 
-describe('resolvePlugins — components and diagnostics', () => {
-  test('a claimed component must exist, and only one plugin may claim it', () => {
-    expectError([plugin('a', { components: ['nope'] })], /claims component "nope", which does not exist/, { componentNames: ['yes'] });
-    expectError([plugin('a', { components: ['yes'], trigger: '%' }), plugin('b', { components: ['yes'], trigger: '&' })], /both claim component "yes"/, { componentNames: ['yes'] });
+describe('resolvePlugins — components that depend on plugins, and diagnostics', () => {
+  test('a component\'s required plugin must exist', () => {
+    // The dependency points from the component to the plugin.
+    expectError([plugin('a')], /component "slide" requires plugin "ghost", which is not installed/, { components: [{ name: 'slide', requires: ['ghost'] }] });
+    assert.deepEqual(resolvePlugins([plugin('a')], { components: [{ name: 'slide', requires: ['a'], uses: ['a'] }] }).errors, []);
+  });
+  test('a component whose gallery uses a plugin must declare it — required or optional', () => {
+    expectError([plugin('a')], /component "slide"'s gallery uses the "a" plugin, but its manifest does not declare it/, { components: [{ name: 'slide', uses: ['a'] }] });
+    assert.deepEqual(resolvePlugins([plugin('a')], { components: [{ name: 'slide', optional: ['a'], uses: ['a'] }] }).errors, []);
+    // An optional dependency on a plugin that is not installed is allowed, as between plugins.
+    assert.deepEqual(resolvePlugins([plugin('a')], { components: [{ name: 'slide', optional: ['ghost'] }] }).errors, []);
   });
   test('diagnostics are namespaced to their plugin', () => {
     expectError([plugin('a', { diagnostics: { 'b/oops': 'x' } })], /outside its own namespace "a\/"/);
@@ -147,7 +154,7 @@ describe('host-grammar — install order and disabling', () => {
     return true;
   };
   const entry = (name, requires = []) => ({
-    name, requires, optional: [], degradesTo: 'source', components: [], diagnostics: {}, detect: () => true,
+    name, requires, optional: [], degradesTo: 'source', diagnostics: {}, detect: () => true,
     syntax: { [`${name}_tok`]: { kind: 'inline', anchor: { after: 'escape' }, triggers: ['%'], opaque: false, run: rule(name) } },
   });
 

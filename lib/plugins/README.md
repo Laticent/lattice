@@ -1,10 +1,11 @@
 # lib/plugins — the plugin host
 
-A **plugin** teaches Lattice something new — a syntax, a fence, a slide class — as one folder with
-a manifest. The design, the decisions behind it and the order the rest of the integrations move in
+A **plugin** teaches Lattice something new — a syntax, a fence — that works on any slide, as one
+folder with a manifest. A **component** (a slide class) may be designed around a plugin; the
+component declares that dependency, and a plugin never names a component. The design, the decisions behind it and the order the rest of the integrations move in
 are `engineering/decisions/2026-09-27-plugin-system.md`; this file is the working guide.
 
-**Shipped plugins:** `math` (`$…$`, `$$…$$`, the `math` slide class). Function-plot, Mermaid and
+**Shipped plugins:** `math` (`$…$`, `$$…$$`; the `math` slide class requires it). Function-plot, Mermaid and
 the chart family move here next, one phase at a time.
 
 ## A plugin is a folder
@@ -32,8 +33,7 @@ site's pre-scan need the grammar without the library behind it.
     "syntax": {                                       // keyed by the TOKEN TYPE each rule emits
       "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },
       "math_block":  { "kind": "block",  "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true }
-    },
-    "components": ["math"]
+    }
   },
   "render": { "parity": "equivalent", "degradesTo": "source" }
 }
@@ -54,13 +54,28 @@ family). Keep no state in closures — the engine reuses its parser across rende
 - **Install order.** The host installs every rule, in dependency order. An anchor names a
   markdown-it rule (`escape`, `fence`, …), never another plugin's.
 - **Collisions fail the build by name**: two plugins on one trigger character in one ruler, two
-  emitting one token type, two claiming one component.
+  emitting one token type.
 - **Fail-soft at render.** A renderer that throws or returns a non-string becomes the manifest's
   `degradesTo`; the rest of the deck renders.
 - **The boundary parser agrees.** Every block rule is installed there too, so a plugin block's
   body can never become a slide break.
 - **Disabling cascades.** `createEngine({ plugins: { disabled: ['x'] } })` turns `x` off and every
   plugin that `requires` it; `optional` users keep running. (`math: false` still works.)
+
+## Components that need a plugin
+
+A component designed around a plugin declares it in its **own** manifest — the plugin never names
+the component:
+
+```jsonc
+// lib/components/math/math/math.manifest.json
+"plugins": { "requires": ["math"] }     // "optional": [...] for one it works without
+```
+
+The build fails when a component requires a plugin that does not exist, and when its gallery uses
+a plugin's syntax without declaring it (the build runs every plugin's rules over every gallery).
+At render, a slide whose required plugin is switched off still renders — the layout, and the
+plugin's fallback — and `render()` returns a `plugin/component-needs-plugin` diagnostic.
 
 ## Fixtures
 

@@ -6,9 +6,10 @@ at parse time — the same call on every surface, so the CLI's PDF, the HTML pla
 and the Playground agree.
 
 This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`). It contributes the
-`$` syntax to every slide and owns the `math` slide class
-(`lib/components/math/math/math.docs.md`), whose variants arrange an equation with its legend,
-its derivation, a theorem card or a figure.
+`$` syntax to every slide — `$$…$$` on a plain content slide typesets exactly as it does on a
+`math` slide. The `math` slide class (`lib/components/math/math/math.docs.md`) is a layout built
+around it, whose variants arrange an equation with its legend, its derivation, a theorem card or a
+figure; that component declares `"plugins": { "requires": ["math"] }`, not the other way round.
 
 ## Authoring
 
