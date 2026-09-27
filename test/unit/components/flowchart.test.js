@@ -232,6 +232,8 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(t.fig().getAttribute('data-fc-drawn'), '1', 'the old drawing is up, not the tiles');
     assert.match(t.text(), /Gamma/);
     assert.equal(t.log.posts.length, 1);
+    // The flowchart asks Trama to wrap, like the state chart: a long flow goes into rows.
+    assert.equal(t.log.posts[0].opts.wrap, true);
     await settle(t);
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
     assert.match(t.text(), /Delta/);

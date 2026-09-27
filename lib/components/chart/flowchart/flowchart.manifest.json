@@ -208,7 +208,7 @@
   "variantDecisionRule": [
     {
       "variant": "default",
-      "useWhen": "Almost always. The chart lays itself out both ways and keeps whichever sets the type larger on the stage. A dense chart whose type nears the floor takes the universal `compact` modifier, which tightens the spacing."
+      "useWhen": "Almost always. The chart lays itself out both ways and keeps whichever sets the type larger on the stage. A long flow that would shrink its type on one line wraps into rows in reading order, as the state chart does; a fan-out that already reads at size keeps its shape. A dense chart whose type nears the floor takes the universal `compact` modifier, which tightens the spacing."
     },
     {
       "variant": "lr",

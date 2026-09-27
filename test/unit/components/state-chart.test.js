@@ -500,6 +500,63 @@ describe('wrapping is cheap — the kernel routes only what can win', () => {
   });
 });
 
+describe('wrapping is a Trama capability — the flowchart wraps a long flow, keeps a legible fan', () => {
+  const { graphLayoutKernel } = require('@laticent/trama');
+  require('../../../lib/core/dagre-layout.js');
+  const model = (names, extra = []) => {
+    const shapes = names.map((n, i) => ({ id: `s${i}`, name: n, parent: null, shape: 'box' }));
+    const id = (n) => shapes.find((x) => x.name === n).id;
+    const edges = [...names.slice(1).map((n, i) => [names[i], n]), ...extra].map(([a, b]) => ({ from: id(a), to: id(b), dir: 'out', style: {} }));
+    const sizes = Object.create(null);
+    for (const sh of shapes) sizes[sh.id] = { w: 120, h: 40 };
+    return [{ shapes, groups: [], edges }, sizes];
+  };
+  test('a ten-step flow on one line would shrink; wrapped it reads in rows, in order', () => {
+    const [m, sizes] = model(['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10']);
+    const opts = { wrap: true, stage: { w: 1152, h: 480 } };
+    const geo = graphLayoutKernel().layout(m, sizes, opts, globalThis.__latticeDagre);
+    const one = graphLayoutKernel().layout(m, sizes, { ...opts, wrap: false }, globalThis.__latticeDagre);
+    assert.ok(geo.lines > 1 && geo.scale > one.scale * 1.12, `wrapped ${geo.lines} lines at ${geo.scale} vs one line at ${one.scale}`);
+    // Reading order: each shape is right of, or on a later line than, the one before it.
+    const at = m.shapes.map((sh) => geo.nodes[sh.id]);
+    for (let i = 1; i < at.length; i++) assert.ok(at[i].y > at[i - 1].y + 1 || at[i].x > at[i - 1].x, `shape ${i} follows shape ${i - 1}`);
+  });
+  test('a fan-out dagre already draws at size keeps dagre\'s layout', () => {
+    // A real call, recorded from the state-chart branching slide (long transition labels).
+    // Without the WRAP_BELOW gate the two-line grid wins it at 1.24 and reads worse than
+    // dagre's fan at 1.04; a fan that dagre draws at the maxScale cap would pass either way.
+    const box = (id, name, extra = {}) => ({ id, name, parent: null, shape: 'box', ...extra });
+    const m = {
+      shapes: [
+        { id: 'sc-start', name: '', parent: null, shape: 'start' },
+        box('submitted', 'Submitted', { index: 1, start: true }),
+        box('second-review', 'Second review', { index: 2 }),
+        box('approved', 'Approved', { index: 3, status: 'done' }),
+        box('escalated', 'Escalated', { index: 4, end: true }),
+        { id: 'sc-end', name: '', parent: null, shape: 'end' },
+      ],
+      groups: [],
+      edges: [
+        { from: 'submitted', to: 'second-review', dir: 'out', label: 'needs second review', style: {} },
+        { from: 'submitted', to: 'approved', dir: 'out', label: 'auto approve', heavy: true, style: {} },
+        { from: 'second-review', to: 'escalated', dir: 'out', label: 'escalate to legal counsel', style: {} },
+        { from: 'sc-start', to: 'submitted', dir: 'out', style: {} },
+        { from: 'escalated', to: 'sc-end', dir: 'out', style: {} },
+      ],
+    };
+    const sizes = Object.assign(Object.create(null), {
+      'sc-start': { w: 14, h: 14, kind: 'start' }, submitted: { w: 127, h: 40, kind: 'box' }, 'second-review': { w: 163, h: 40, kind: 'box' },
+      approved: { w: 118, h: 40, kind: 'box' }, escalated: { w: 127, h: 40, kind: 'box' }, 'sc-end': { w: 20, h: 20, kind: 'end' },
+    });
+    const opts = { labelSizes: { 0: { w: 145, h: 16 }, 1: { w: 96, h: 16 }, 2: { w: 187, h: 16 } }, stage: { w: 1072, h: 440 }, maxScale: 1.25 };
+    const wrapped = graphLayoutKernel().layout(m, sizes, { ...opts, wrap: true }, globalThis.__latticeDagre);
+    const plain = graphLayoutKernel().layout(m, sizes, opts, globalThis.__latticeDagre);
+    assert.ok(plain.scale >= 0.8 && plain.scale < 1.25 / 1.12, `dagre draws it at ${plain.scale}: legible, and under the cap, so a grid could beat it`);
+    assert.equal(wrapped.lines ?? 1, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(wrapped.nodes)), JSON.parse(JSON.stringify(plain.nodes)));
+  });
+});
+
 describe('graph charts — a composite\'s blockquote is never dropped', () => {
   const md = (cls) => `<!-- _class: ${cls} -->\n\n## X.\n\n- Active\n  > GROUPNOTE\n  - Draft\n    > DRAFTNOTE\n    - -> Done\n- Done\n`;
   for (const cls of ['state-chart', 'flowchart']) {

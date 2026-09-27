@@ -29,7 +29,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 
 ### Variant decision rule
 
-- **default (no modifier).** Almost always. The chart lays itself out both ways and keeps whichever sets the type larger on the stage. A dense chart whose type nears the floor takes the universal `compact` modifier, which tightens the spacing.
+- **default (no modifier).** Almost always. The chart lays itself out both ways and keeps whichever sets the type larger on the stage. A long flow that would shrink its type on one line wraps into rows in reading order, as the state chart does; a fan-out that already reads at size keeps its shape. A dense chart whose type nears the floor takes the universal `compact` modifier, which tightens the spacing.
 - **`lr`.** The flow must read left to right whatever the stage shape (a pipeline, a data flow). On a portrait deck `lr` falls back to `tb`, because a row cannot fit a tall box.
 - **`tb`.** The flow must read top to bottom (an org chart, a decision tree).
 - **`curved`.** Softer, generously rounded corners fit the deck's tone better than tight elbows. A paint setting only: the lines are still the router's, and never cross a shape.

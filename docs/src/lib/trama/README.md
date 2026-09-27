@@ -54,6 +54,9 @@ are cached per kernel.
   since lines only add size), dagre's layout is routed only when its ceiling could still
   win, and the pick is often proven from the others' ceilings after routing one grid. A
   clean chain costs one routing pass, whether or not dagre is loaded.
+  A graph that branches keeps dagre's layout when it is clean and at least 0.8 scale: a
+  legible fan-out keeps its shape, and the grid only rescues a layout dagre has shrunk.
+  Both graph charts ask for `wrap`.
 - **`K.route(model, sizes, positions, opts)`** routes lines between boxes you have already
   placed (each shape's centre), with the same solver and never-rules, for a chart whose
   positions an axis fixes. No dagre. The positions set the boxes' places RELATIVE to each
