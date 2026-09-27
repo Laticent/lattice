@@ -50,7 +50,7 @@ test('narrateFunnel: speaks the heading, each stage value, and the computed conv
   assert.ok(out.includes('Activated: two thousand one hundred sixty, forty-five percent of the prior stage.'));
 });
 
-test('narrateFunnel: does not treat an indented detail sublist line as a stage, but still speaks it', () => {
+test('narrateFunnel: does not treat an indented detail sublist line as a stage, and reads it right after its stage', () => {
   const md = [
     '<!-- _class: funnel -->',
     '',
@@ -61,8 +61,8 @@ test('narrateFunnel: does not treat an indented detail sublist line as a stage, 
     '- Signups `4,800`',
   ].join('\n');
   const out = narrateFunnel(md);
-  assert.ok(out.includes('Signups: four thousand eight hundred, forty percent of the prior stage.'));
-  assert.ok(out.includes('Two-thirds arrive from inbound.'));
+  assert.ok(out.includes('Visitors: twelve thousand. Two-thirds arrive from inbound. Signups: four thousand eight hundred, forty percent of the prior stage.'), out);
+  assert.equal(out.split('Two-thirds arrive from inbound.').length, 2, 'the detail is read once');
 });
 
 test('narrateFunnel: skips a fenced code block that happens to contain stage-like syntax', () => {
@@ -192,7 +192,7 @@ test('narrateJourneyWeighted: defaults an unweighted task to volume 1', () => {
   assert.ok(out.includes('Unweighted, ten percent'));
 });
 
-test('narrateJourneyWeighted: does not treat a per-task detail sublist line as a task, but still speaks it', () => {
+test('narrateJourneyWeighted: does not treat a per-task detail sublist line as a task, and reads it right after its task', () => {
   const md = [
     '<!-- _class: journey weighted -->',
     '',
@@ -204,8 +204,8 @@ test('narrateJourneyWeighted: does not treat a per-task detail sublist line as a
     '  - Task B `@me` `:3` `+50`',
   ].join('\n');
   const out = narrateJourneyWeighted(md);
-  assert.ok(out.includes('Stage, two steps. Task A, fifty percent of the traffic. Task B, fifty percent of the traffic.'));
-  assert.ok(out.includes('Escalated after 3 retries.'));
+  assert.ok(out.includes('Stage, two steps. Task A, fifty percent of the traffic. Escalated after 3 retries. Task B, fifty percent of the traffic.'), out);
+  assert.equal(out.split('Escalated after 3 retries.').length, 2, 'the detail is read once');
 });
 
 test('narrateJourneyWeighted: keeps a qualifying phrase authored AFTER a task tokens', () => {
@@ -325,7 +325,7 @@ test('narrateRadar: reads the `quadrant` variant with all three levels — serie
   assert.ok(out.includes('Process averages five. Process: Cadence scores five.'), out);
 });
 
-test('narrateRadar: does not treat a per-axis detail sublist line as an axis, but still speaks it', () => {
+test('narrateRadar: does not treat a per-axis detail sublist line as an axis, and reads it after the sentence naming its axis', () => {
   const md = [
     '<!-- _class: radar -->',
     '',
@@ -338,8 +338,8 @@ test('narrateRadar: does not treat a per-axis detail sublist line as an axis, bu
   ].join('\n');
   const out = narrateRadar(md);
   assert.ok(out.includes('On a scale of zero to ten.'));
-  assert.ok(out.includes('Lattice is strongest on Performance, at nine. Lattice is weakest on Pricing, at seven.'), out);
-  assert.ok(out.includes('Verified in cycle 2024.'));
+  assert.ok(out.includes('Lattice is strongest on Performance, at nine. Verified in cycle 2024. Lattice is weakest on Pricing, at seven.'), out);
+  assert.equal(out.split('Verified in cycle 2024.').length, 2, 'the detail is read once');
 });
 
 test('narrateRadar: tolerates ordinary indentation variance between sibling axis lines', () => {
@@ -455,7 +455,7 @@ test('narrateQuadrant: bails when the `radar` token is also present', () => {
   assert.equal(narrateQuadrant(md), null);
 });
 
-test('narrateQuadrant: does not treat a per-item detail sublist line as an item, but still speaks it', () => {
+test('narrateQuadrant: does not treat a per-item detail sublist line as an item, and reads it right after its item', () => {
   const md = [
     '<!-- _class: quadrant -->',
     '',
@@ -469,8 +469,8 @@ test('narrateQuadrant: does not treat a per-item detail sublist line as an item,
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs zero to five.'));
   assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
-  assert.ok(out.includes('Strategic Bets, two items. Scoring model v2 is high and to the right: three across, seventy up. Per-team calibration is high and to the right: five across, eighty-five up.'), out);
-  assert.ok(out.includes('Confidence range 40, 95.'));
+  assert.ok(out.includes('Strategic Bets, two items. Scoring model v2 is high and to the right: three across, seventy up. Confidence range 40, 95. Per-team calibration is high and to the right: five across, eighty-five up.'), out);
+  assert.equal(out.split('Confidence range 40, 95.').length, 2, 'the detail is read once');
 });
 
 test('narrateQuadrant: speaks an intro paragraph between the heading and the groups', () => {
@@ -1808,7 +1808,209 @@ test('narrateDataSeries: does not read a DEEPER detail line that ends in a numbe
   assert.match(out, /North America, four point two\./);
   assert.match(out, /EMEA, three point one\./);
   assert.doesNotMatch(out, /Verified in cycle, two thousand twenty-four/);
-  assert.match(out, /Verified in cycle/); // still spoken, as leftover prose
+  // Still spoken — as its row's detail, right after the row it describes.
+  assert.match(out, /North America, four point two\. Verified in cycle 2024\. EMEA, three point one\./);
+});
+
+// ── A DETAIL IS READ WITH ITS ITEM (#2393's follow-up) ─────────────────────────
+//
+// A per-item `detail` sublist used to be read as leftover prose after the whole chart, so a
+// stacked bar said all three years and then "Services priced per seat. Services moved to
+// fixed-fee." with nothing saying which year each belonged to. Each case pins the detail right
+// after the reading of its own item, as its own sentence (the Guide matches a detail cue against
+// that mark's detail template), and read exactly once.
+const once = (out, text) => assert.equal(out.split(text).length, 2, `"${text}" is read exactly once in: ${out}`);
+
+test('detail order: bar reads each row\'s detail right after that row', () => {
+  const md = [
+    '<!-- _class: bar -->',
+    '',
+    '## Growth is concentrated in two regions.',
+    '',
+    '- North America `$4.2M`',
+    '  - Two enterprise renewals landed in Q4',
+    '- EMEA `$3.1M`',
+    '  - Three renewals landed',
+    '- APAC `$1.8M`',
+    '- LATAM `$1.2M`',
+    '  - First quarter with a local team',
+  ].join('\n');
+  const out = narrateDataSeries(md);
+  assert.ok(
+    out.endsWith(
+      'North America, four point two million dollars. Two enterprise renewals landed in Q4. EMEA, three point one million dollars. Three renewals landed. APAC, one point eight million dollars. LATAM, one point two million dollars. First quarter with a local team.',
+    ),
+    out,
+  );
+  once(out, 'Three renewals landed.');
+});
+
+test('detail order: stacked-bar reads a category\'s detail after its parts, before the next category', () => {
+  const md = [
+    '<!-- _class: stacked-bar -->',
+    '',
+    '## Services became a real line of business.',
+    '',
+    '- FY24',
+    '  - Licenses `19.1`',
+    '  - Services `9.8`',
+    '  - Services priced per seat',
+    '- FY25',
+    '  - Licenses `21.6`',
+    '  - Services `15.4`',
+    '  - Services moved to fixed-fee',
+    '- FY26',
+    '  - Licenses `24`',
+    '  - Services `18`',
+    '  - First year with a partner channel',
+  ].join('\n');
+  const out = narrateDataSeries(md);
+  assert.ok(
+    out.endsWith(
+      'FY24: Licenses, nineteen point one; Services, nine point eight. Services priced per seat. FY25: Licenses, twenty-one point six; Services, fifteen point four. Services moved to fixed-fee. FY26: Licenses, twenty-four; Services, eighteen. First year with a partner channel.',
+    ),
+    out,
+  );
+  once(out, 'Services priced per seat.');
+});
+
+test('detail order: slope dumbbell reads a row\'s detail right after its move', () => {
+  const md = [
+    '<!-- _class: slope dumbbell -->',
+    '',
+    '## Two teams moved, one slipped.',
+    '',
+    '- Platform',
+    '  - 2025 `12`',
+    '  - 2026 `19`',
+    '  - Hired two senior engineers early',
+    '- Payments',
+    '  - 2025 `15`',
+    '  - 2026 `11`',
+    '  - Lost a quarter to the processor migration',
+    '- Growth',
+    '  - 2025 `8`',
+    '  - 2026 `10`',
+  ].join('\n');
+  const out = narrateDataSeries(md);
+  assert.ok(
+    out.endsWith(
+      'Platform rose seven, from twelve to nineteen. Hired two senior engineers early. Payments fell four, from fifteen to eleven. Lost a quarter to the processor migration. Growth rose two, from eight to ten.',
+    ),
+    out,
+  );
+  once(out, 'Hired two senior engineers early.');
+});
+
+test('detail order: line reads a category\'s detail once, after that point in the first series', () => {
+  const md = [
+    '<!-- _class: line -->',
+    '',
+    '## Pipeline recovered after Feb.',
+    '',
+    '- Jan 2026',
+    '  - EMEA `4.1`',
+    '  - APAC `2.6`',
+    '- Feb 2026',
+    '  - EMEA `3.2`',
+    '  - APAC `2.4`',
+    '  - The processor outage cost two weeks',
+    '- Mar 2026',
+    '  - EMEA `4.4`',
+    '  - APAC `2.9`',
+  ].join('\n');
+  const out = narrateDataSeries(md);
+  assert.ok(out.includes('Jan 2026, four point one. Feb 2026, three point two. The processor outage cost two weeks. Mar 2026, four point four. APAC'), out);
+  assert.ok(out.endsWith('Mar 2026, two point nine.'), out);
+  once(out, 'The processor outage cost two weeks.');
+});
+
+test('detail order: a flat line reads each point\'s detail after that point', () => {
+  const out = narrateDataSeries('<!-- _class: line -->\n\n## Flat.\n\n- Jan `4`\n  - Launch month\n- Feb `5`\n- Mar `3`\n  - Outage');
+  assert.ok(out.endsWith('Jan, four. Launch month. Feb, five. Mar, three. Outage.'), out);
+});
+
+test('detail order: a summarized line names a skipped category before its detail, after the chart', () => {
+  const months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10'];
+  const vals = [5, 6, 9, 7, 7, 6, 6, 2, 4, 5];
+  const rows = months.flatMap((m, i) => [`- ${m} \`${vals[i]}\``, ...(m === 'M5' ? ['  - Pricing change'] : [])]);
+  const out = narrateDataSeries(['<!-- _class: line -->', '', '## Long.', '', ...rows].join('\n'));
+  // Ten points is past LINE_EVERY_POINT, so M5 is never read. Attached to M3's sentence, its note
+  // was heard as a remark about M3; named, it says which category it is about.
+  assert.ok(out.includes('M3, nine, the high. M8, two, the low.'), out);
+  assert.ok(out.endsWith('M5. Pricing change.'), out);
+  once(out, 'Pricing change.');
+});
+
+test('detail order: a line reads a category\'s note after the first series that HAS a point there', () => {
+  const md = [
+    '<!-- _class: line -->',
+    '',
+    '## Two regions.',
+    '',
+    '- Q1',
+    '  - EMEA `3`',
+    '  - APAC `2`',
+    '- Q2',
+    '  - EMEA `4`',
+    '  - APAC `3`',
+    '- Q3',
+    '  - APAC `5`',
+    '  - EMEA data arrived late this quarter',
+  ].join('\n');
+  const out = narrateDataSeries(md);
+  // EMEA has no Q3 point, so Q3's note follows APAC's Q3, never EMEA's Q2.
+  assert.ok(!out.includes('Q2, four. EMEA data arrived late'), out);
+  assert.ok(out.includes('Q3, five. EMEA data arrived late this quarter.'), out);
+  once(out, 'EMEA data arrived late this quarter.');
+});
+
+test('detail order: scatter, map, piechart and waterfall read each detail after its own item', () => {
+  const cases = [
+    ['scatter', '`Cost` `Adoption`\n\n## Tools.\n\n- Atlas `10` `20`\n  - Reviewed in 2024\n- Beacon `30` `15`', 'Atlas: Cost, ten; Adoption, twenty. Reviewed in 2024. Beacon: Cost, thirty; Adoption, fifteen.'],
+    ['map us', '## States.\n\n- CA `40`\n  - Largest office\n- TX `25`', 'C A, forty. Largest office. T X, twenty-five.'],
+    ['piechart', '## Mix.\n\n- Retail `45%`\n  - Mostly stores\n- Online `55%`', 'Retail, forty-five percent. Mostly stores. Online, fifty-five percent.'],
+    ['waterfall', '## Bridge.\n\n- Start `100`\n- Price `+20`\n  - List price rose\n- End `120`', 'Price, twenty. List price rose. End, one hundred twenty.'],
+  ];
+  for (const [cls, body, want] of cases) {
+    const out = narrateDataSeries(`<!-- _class: ${cls} -->\n\n${body}`);
+    assert.ok(out.endsWith(want), `${cls}: ${out}`);
+  }
+});
+
+test('detail order: radar quadrant reads an axis detail after its sector, where it used to drop it', () => {
+  const md = [
+    '<!-- _class: radar quadrant -->',
+    '',
+    '## Capability.',
+    '',
+    '- Ours',
+    '  - People',
+    '    - Hiring `4`',
+    '      - Two senior hires this year',
+    '    - Retention `3`',
+    '  - Process',
+    '    - Planning `5`',
+  ].join('\n');
+  const out = narrateRadar(md);
+  assert.ok(out.includes('People: Hiring scores four and Retention three. Two senior hires this year. Process'), out);
+  once(out, 'Two senior hires this year.');
+});
+
+test('detail order: journey reads a task\'s detail right after the task', () => {
+  const md = [
+    '<!-- _class: journey -->',
+    '',
+    '## Onboarding.',
+    '',
+    '- Sign up',
+    '  - Create account `@prospect` `:4`',
+    '    - Most finish in under a minute',
+    '  - Verify email `@prospect` `:2`',
+  ].join('\n');
+  const out = narrateJourneyMood(md);
+  assert.ok(out.includes('scores four out of five. Most finish in under a minute. Verify email'), out);
+  once(out, 'Most finish in under a minute.');
 });
 
 test('narrateDataSeries: ignores a fenced doc example of its own syntax', () => {

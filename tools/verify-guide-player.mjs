@@ -124,10 +124,14 @@ async function open(file, problems) {
 		const tick = () => {
 			const on = document.querySelector('.lp-frame.lp-active .lat-guide-undim:not(text)') || null;
 			const dimmed = document.querySelectorAll('.lp-frame.lp-active .lat-guide-dim').length;
-			const now = on && dimmed ? name(on) : null;
+			const focus = on && dimmed ? name(on) : null;
+			// The sentence being read, from the caption band: logged with the focus, so the table says
+			// what each sentence focused, not only when the focus moved.
+			const said = document.querySelector('#lp-caption .lp-cap-line.lp-now')?.textContent.replace(/\s+/g, ' ').trim() ?? '';
+			const now = `${focus}|${said}`;
 			if (now !== last) {
 				last = now;
-				window.__focusLog.push({ t: Math.round(performance.now()), slide: document.getElementById('lp-count').textContent.trim().split(/\s/)[0], focus: now, dimmed });
+				window.__focusLog.push({ t: Math.round(performance.now()), slide: document.getElementById('lp-count').textContent.trim().split(/\s/)[0], said, focus, dimmed });
 			}
 			requestAnimationFrame(tick);
 		};
@@ -152,12 +156,13 @@ const BAR = slideOf(/_class:\s*bar\b/);
 	await goTo(page, BULLETS);
 	await page.click('#lp-play');
 	const last = slidesMd.length;
-	await page.waitForFunction((n) => Number(document.getElementById('lp-count').textContent.trim().split(/\s/)[0]) >= n, last, { timeout: 240000 });
+	// It plays in real time (a tone per sentence), so the budget grows with the deck.
+	await page.waitForFunction((n) => Number(document.getElementById("lp-count").textContent.trim().split(/\s/)[0]) >= n, last, { timeout: Math.max(240000, last * 60000) });
 	await page.waitForTimeout(1500);
 	const log = await page.evaluate(() => window.__focusLog);
 	writeFileSync(path.join(OUT, 'focus-log.json'), JSON.stringify(log, null, 2));
-	console.log('\n      slide | focus (receded peers)');
-	for (const row of log) console.log(`      ${String(row.slide).padStart(5)} | ${row.focus ?? '— none —'}${row.focus ? ` (${row.dimmed})` : ''}`);
+	console.log('\n      slide | sentence being read  →  focus (receded peers)');
+	for (const row of log) if (row.said) console.log(`      ${String(row.slide).padStart(5)} | ${row.said.slice(0, 70)}  →  ${row.focus ?? '— none —'}${row.focus ? ` (${row.dimmed})` : ''}`);
 	console.log('');
 	const focused = log.filter((r) => r.focus);
 	check('sentences focused something on most narrated slides', new Set(focused.map((r) => r.slide)).size >= Math.min(4, last - BULLETS));

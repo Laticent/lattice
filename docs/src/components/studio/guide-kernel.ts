@@ -1794,6 +1794,16 @@ export type GuideBeat = { kind: 'rest' | 'resume' | 'walk' | 'idle' | 'clear' } 
 
 const chartOf = (el: Element | null): Element | null => el?.closest('.chart-body, figure.chart-frame') ?? null;
 
+/** Is `point` (a line dot) inside `band` (that category's `.line-hit` rect)? Read off the SVG's own
+ *  attributes, so it needs no layout: the dot's center lies within the band's x-range. */
+function inBand(point: Element | null, band: Element): boolean {
+	if (!point || !band.matches('rect.line-hit') || point.tagName.toLowerCase() !== 'circle') return false;
+	const cx = Number(point.getAttribute('cx'));
+	const x = Number(band.getAttribute('x'));
+	const w = Number(band.getAttribute('width'));
+	return Number.isFinite(cx) && Number.isFinite(x) && Number.isFinite(w) && cx >= x && cx <= x + w;
+}
+
 export function createGuideDirector() {
 	let aim: Element | null = null;
 	let undo: (() => void) | null = null;
@@ -1884,10 +1894,18 @@ export function createGuideDirector() {
 			if (plan.gesture.has(b.cue)) return { kind: 'moment', top: plan.top === b.cue };
 			// THE WALK: once a planned moment was a chart mark, every later sentence inside the same
 			// chart focuses in turn, as that one moment.
-			if (walk && walk.slide === b.slide && chartOf(b.aim) === walk.chart && focusUnit(b.aim)) {
-				focus(b.aim, look);
-				shown = true;
-				return { kind: 'walk' };
+			if (walk && walk.slide === b.slide && chartOf(b.aim) === walk.chart) {
+				if (focusUnit(b.aim)) {
+					focus(b.aim, look);
+					shown = true;
+					return { kind: 'walk' };
+				}
+				// A line category's detail note names that category's hit band, which the focus cannot
+				// isolate. When the point up is IN that category, the note is about it, so the focus
+				// stays (it used to lift mid-walk). Only then: every other unfocusable aim inside a chart
+				// — the chart body a sentence about the whole chart falls back to, a quadrant tint, a
+				// radar sector — still lifts the focus (checker: a broader rule held stale foci there).
+				if (undo && inBand(aim, b.aim)) return { kind: 'rest' };
 			}
 			// An unplanned sentence: a focus must not stay on the last block, which nobody is saying.
 			unmark();

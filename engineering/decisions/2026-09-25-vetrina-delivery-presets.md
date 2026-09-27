@@ -274,7 +274,10 @@ ink over a gray wash, 22–33 from restrained on all four.
 - **The walk.** Measured on the test deck: a line chart is narrated as 17 sentences (each series'
   summary, then all four points), and restrained's budget of 2 left the Guide dark for 45 seconds
   of it. Once a planned moment on a slide is a chart mark, every later sentence that lands inside
-  the same chart sparks in turn: the walk counts as that one moment.
+  the same chart sparks in turn: the walk counts as that one moment. (2026-09-27) Now that a chart reads each item's
+  detail right after the item, a line category's note lands inside the walk too; it resolves to the
+  category's hit band, which the focus cannot isolate, so the director keeps the point just read
+  in focus through it rather than lifting the walk.
 - **Points and cells.** A point sentence ("Q1 2026, four point one") resolved to the right dot but
   sparked the whole line; it now sparks the dot, with its line as context. A heatmap sentence
   ("Jan 2026 is lowest at M3, forty-four") landed on the row label `Jan 2026`, because the cell's

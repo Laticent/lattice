@@ -127,6 +127,57 @@ describe('createGuideDirector — one focus policy', () => {
 		expect(document.querySelector('.lat-guide-undim')?.getAttribute('data-label')).toBe('APAC');
 	});
 
+	it('keeps the walked point focused through a note that names only its category band', () => {
+		// A line category's detail note resolves to the category's hit band (`.line-hit`), which the
+		// focus cannot isolate. It is still about the point just read, so that point stays focused.
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
+			<path class="line-path" data-series="0" data-label="EMEA"></path>
+			<circle data-series="0" data-label="Jan 2026" data-value="4.1" cx="100" cy="50"></circle>
+			<circle data-series="0" data-label="Feb 2026" data-value="3.2" cx="300" cy="60"></circle>
+			<rect class="line-hit" data-mark="1" x="200" y="0" width="200" height="400"></rect></svg>
+			<div class="chart-details" hidden><template class="chart-detail" data-mark="1">The processor outage cost two weeks</template></div></div></section></div>`;
+		const section = document.querySelector('section') as Element;
+		const band = section.querySelector('.line-hit') as Element;
+		const texts = ['Jan 2026, four point one.', 'Feb 2026, three point two.', 'The processor outage cost two weeks.'];
+		const aimOf = (t: string) => (t === texts[2] ? band : aimIn(section)(t));
+		const d = createGuideDirector();
+		const one: GuideLook = { ...RESTRAINED, budget: 1, floor: 0 };
+		const kinds = texts.map((text, k) => {
+			const aim = aimOf(text);
+			const step = d.beat({ slide: 1, track: texts, texts, cue: k, text, aim, aimOf }, one);
+			if (step.kind === 'moment') d.land(aim, text, 1, one);
+			return step.kind;
+		});
+		expect(kinds).toEqual(['moment', 'walk', 'rest']);
+		expect(document.querySelector('circle.lat-guide-undim')?.getAttribute('data-label')).toBe('Feb 2026');
+	});
+
+	it('lifts the focus for any other unfocusable aim inside the walked chart', () => {
+		// The chart body (where a sentence about the whole chart lands), or a band of a DIFFERENT
+		// category than the point up, is not about that point: the walk lifts, as before.
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
+			<path class="line-path" data-series="0" data-label="EMEA"></path>
+			<circle data-series="0" data-label="Jan 2026" data-value="4.1" cx="100" cy="50"></circle>
+			<circle data-series="0" data-label="Feb 2026" data-value="3.2" cx="300" cy="60"></circle>
+			<rect class="line-hit" data-mark="2" x="400" y="0" width="200" height="400"></rect></svg></div></section></div>`;
+		const section = document.querySelector('section') as Element;
+		const body = section.querySelector('.chart-body') as Element;
+		const other = section.querySelector('.line-hit') as Element;
+		for (const stray of [body, other]) {
+			const texts = ['Jan 2026, four point one.', 'Feb 2026, three point two.', 'Something else entirely.'];
+			const aimOf = (t: string) => (t === texts[2] ? stray : aimIn(section)(t));
+			const d = createGuideDirector();
+			const one: GuideLook = { ...RESTRAINED, budget: 1, floor: 0 };
+			const kinds = texts.map((text, k) => {
+				const aim = aimOf(text);
+				const step = d.beat({ slide: 1, track: texts, texts, cue: k, text, aim, aimOf }, one);
+				if (step.kind === 'moment') d.land(aim, text, 1, one);
+				return step.kind;
+			});
+			expect(kinds).toEqual(['moment', 'walk', 'clear']);
+		}
+	});
+
 	it('leaves the focus to a busy hand on an unplanned sentence, lifting only the recede', () => {
 		const section = slide();
 		const d = createGuideDirector();
