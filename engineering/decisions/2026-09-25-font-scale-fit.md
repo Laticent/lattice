@@ -348,7 +348,7 @@ no venue numbers at all.
   three shapes: `byWords` — the element count at each venue (`laptop` / `huddle` /
   `conference` / `hall`), at each element length it was measured at (6 words, and the
   component's `density.soft`); `lines` — the `code` pane's line count, bare and under an
-  eyebrow; or `none` — one sentence saying why there is no count budget. **All 70 manifests
+  eyebrow; or `none` — one sentence saying why there is no count budget. **All 71 manifests
   carry one**, pinned by `test/unit/components/venue-capacity.test.js`.
 - `tools/build-stage-catalog.js` bakes the rows into
   `lib/authoring/venue-capacity.generated.js` (the `pane-lint.generated.js` pattern), and
@@ -362,8 +362,8 @@ no venue numbers at all.
   the most it tried (kanban and timeline-list at laptop; roadmap at laptop and huddle). The
   docs print it as `12+`.
 
-**What `none` covers, and why each is honest.** 38 components: charts scale their marks to
-the box instead of clipping (19), a bookend or single statement has nothing to count (6),
+**What `none` covers, and why each is honest.** 39 components: charts scale their marks to
+the box instead of clipping (20, with `flowchart`), a bookend or single statement has nothing to count (6),
 media fills its box (3), `diagram` is scaled whole by Mermaid, the connect cards are fixed
 fields (2), `content`, `citation-card`, `logo-wall` and `math` for the reasons
 `tools/lib/calibrate-core.js` `NOT_COUNT_CALIBRATABLE` already gave, and a `redline` is one
@@ -379,7 +379,7 @@ feeds the report `scaleLevelReport` itself prints. Re-measured with the fix, all
 reproduce exactly, and so does the code pane; the one difference was premise at 6 words and
 laptop, which the old run had capped at `--max 9` (now 13). The rig gained builders for
 `table`, `cycle`, `policy-recommendation`, `kanban` and `roadmap`, so every component with a
-`capacity` block now has a measured row: 32 measured, 38 `none`.
+`capacity` block now has a measured row: 32 measured, 39 `none`.
 
 **Lint, before and after.** Every component gallery plus the baseline gallery, linted at each
 venue with `main`'s linter and this one on the same source: all 412 existing findings are
