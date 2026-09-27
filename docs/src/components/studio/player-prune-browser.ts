@@ -124,7 +124,9 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 					usedSet.add(s); // an invalid selector for querySelector → keep (conservative)
 				}
 			}
-			const pruned = prunePlayerCss(target.css, (b: string) => usedSet.has(b), { legacyPseudoElements: true }) as typeof cssResult;
+			// A `delivery:` deck's export carries the Guide, whose focus rules match nothing until it runs.
+			const guided = !!doc.querySelector('#lp-app[data-lp-guide]');
+			const pruned = prunePlayerCss(target.css, (b: string) => usedSet.has(b), { legacyPseudoElements: true, guided }) as typeof cssResult;
 			cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { css: '', applied: false, totalRules: 0, keptRules: 0 };
 		}
 

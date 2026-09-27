@@ -2573,6 +2573,41 @@ test('prunePlayerCss keeps the Anima live-stage rules the static DOM never shows
 	assert.doesNotMatch(out, /scene-live-other/, 'an unrelated unused rule still prunes');
 });
 
+test('playerJs: the Guide hooks and bundle ship only in a guided export, each hook guarded', async () => {
+	const beats = { slide: 800, section: 1600, leave: 400 };
+	const plain = await playerJs('', beats, true);
+	for (const hook of ['lpGuide', 'guideCue', 'guideWord', 'guidePause', 'guideIdle', '__latticeGuide', '__lpGuide']) {
+		assert.ok(!plain.includes(hook), `an unguided script carries no \`${hook}\``);
+	}
+	const look = { name: 'somber', budget: 1, floor: 1, dim: 0.62, dimInner: 0.5, fade: 600, hold: 'aside', wordFocus: false };
+	const guided = await playerJs('', beats, true, undefined, null, { js: '/*GUIDE*/', look });
+	assert.match(guided, /\/\*GUIDE\*\/\ntry\{window\.__lpGuide=window\.__latticeGuide\.create\(\{"name":"somber"/);
+	// A throw inside any hook must not reach the transport, which calls them mid-step.
+	for (const hook of ['guideCue', 'guideWord', 'guidePause', 'guideIdle']) assert.match(guided, new RegExp(`function ${hook}\\(\\)?[^{]*\\{try\\{`), `${hook} is guarded`);
+	assert.match(guided, /nextCue[\s\S]*guideCue\(k\);/, 'a sentence start moves the focus');
+	// The Guide is inert without narration: no transport, no clock to follow.
+	assert.ok(!(await playerJs('', null, false, undefined, null, { js: '/*GUIDE*/', look })).includes('GUIDE'));
+});
+
+test('prunePlayerCss keeps the Guide focus rules only in a guided export', () => {
+	// A `delivery:` deck's export carries the Guide, whose `.lat-guide-*` classes and the
+	// section's `data-guide` exist only while it plays; the prune sees none of them. Kept only when
+	// the caller says the page is guided, so every other export's bytes stay as they were.
+	const css = [
+		'section:where(:not(section *))[data-guide]{--guide-said:red}',
+		'section:where(:not(section *))[data-guide] .lat-guide-dim{opacity:var(--guide-dim,.45)}',
+		'@media (prefers-reduced-motion:reduce){section[data-guide] :is(.lat-guide-dim,.lat-guide-undim){transition:none}}',
+		'.unused{x:1}',
+	].join('');
+	const plain = prunePlayerCss(css, () => false).css;
+	assert.doesNotMatch(plain, /data-guide/, 'an unguided export drops them, as before');
+	const guided = prunePlayerCss(css, () => false, { guided: true }).css;
+	assert.match(guided, /\[data-guide\]\{--guide-said/);
+	assert.match(guided, /\[data-guide\] \.lat-guide-dim\{/);
+	assert.match(guided, /prefers-reduced-motion/);
+	assert.doesNotMatch(guided, /\.unused/, 'an unrelated unused rule still prunes');
+});
+
 test('prunePlayerCss safelist splits compounds and functional pseudos, never substrings', () => {
 	const keep = (css, safelist) => prunePlayerCss(css, () => false, { safelist }).css;
 	// Reached inside `:where()` / `:is()` — the paren must not glue onto the class.

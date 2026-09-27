@@ -89,6 +89,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `gotchas:index:check` | Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no entry heading over the 280-character ROW_CAP. |
 | `guide-handles:build` | Generate docs/src/components/studio/guide-handles.generated.ts — the rendered part each component declares and the token that names it, scanned from every manifest's `handles` block, so the Present Guide can point at a handle instead of the whole card without holding the component catalog. |
 | `guide-handles:check` | Freshness gate for the generated Guide handle catalog. |
+| `guide-player:build` | Bundle the Guide kernel (docs/src/components/studio/guide-kernel.ts, the Studio Present's resolver, plan and focus) as an injectable string constant for the exported HTML player, which inlines it when a deck sets `delivery:`. |
+| `guide-player:check` | Freshness gate for the guide-player bundle. |
 | `hljs:build` | Build docs/public/playground/hljs/ — the 156 highlight.js grammars the preview bundle's 36-language `common` build omits, one small file each (median 1.9 KB) plus an alias manifest, fetched per deck so the Playground colors every language the CLI export does. |
 | `image-set-core:build` | Bundle the shared image-set contract (lib/export/image-set.js) for the browser — the Studio Share sheet's "Images" (image-set ZIP) export. |
 | `image-set-core:check` | Freshness gate for the image-set-core bundle. |
@@ -423,6 +425,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
 | `tools/build-gotchas-index.js` | build-gotchas-index.js — regenerate the symptom index in engineering/gotchas.md |
 | `tools/build-guide-handles.js` | Generates docs/src/components/studio/guide-handles.generated.ts — the RENDERED-part |
+| `tools/build-guide-player.js` | Bundle the Guide kernel for the exported HTML player, as one injectable IIFE string. |
 | `tools/build-hljs-languages.js` | Build the on-demand highlight.js grammars for the browser preview. |
 | `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
@@ -510,6 +513,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/us-english.js` | The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21). |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
+| `tools/verify-guide-player.mjs` | Real-surface verification for the Guide in the exported HTML player (#2371 followup, P1). |
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
 | `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player: TOUCH input (#1558) and the deck's |
 | `tools/verify-studio-syntax.js` | Verify the Studio's derived syntax ink tier against the REAL built Studio — every |

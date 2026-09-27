@@ -5250,7 +5250,9 @@ async function prunePlayerCssInPage(playerHtml) {
         return out;
       }, bases);
       const usedSet = new Set(used);
-      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b), { legacyPseudoElements: true });
+      // A `delivery:` deck's export carries the Guide, whose focus rules match nothing until it runs.
+      const guided = await scratch.evaluate(() => !!document.querySelector('#lp-app[data-lp-guide]'));
+      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b), { legacyPseudoElements: true, guided });
       cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { applied: false };
     }
 

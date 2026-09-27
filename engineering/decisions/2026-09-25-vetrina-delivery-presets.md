@@ -407,6 +407,40 @@ it, so today's exports stay byte-identical. A deck with one changes the export's
 bytes, which is the Quality Bar's export exception: dark and light renders go to
 the owner before merge.
 
+**Built (2026-09-27, step 8 with step 3).** What shipped differs from the paragraph above in two
+places, both on purpose:
+
+- **Where the kernel lives.** `docs/src/components/studio/guide-kernel.ts`, not a Vetrina subpath.
+  The resolver reads Lattice's own component handles (`GUIDE_HANDLES`) and value spellings
+  (`spokenValue`), and a framework-free library must not know about either. `present-guide.ts`
+  keeps the ink, the cursor and the frame bridge and re-exports the kernel, so no caller moved.
+- **What is shared.** Not only the resolver and `planSlide`, but the focus POLICY: a director
+  (`createGuideDirector`) owns the rest, the resume after a pause, the plan's budget, the chart walk,
+  the unplanned sentence and the aside hold. The Studio's beat effect keeps only the hand and asks
+  the director everything else, so the owner's three rounds of tuning cannot fork between surfaces.
+
+The player: `tools/build-guide-player.js` bundles `guide-player.ts` (four hooks over the director)
+into `lib/export/guide-player.generated.mjs`; `player-core.mjs` inlines it and calls the hooks from
+the narration transport — a sentence starts (`nextCue`), the word moves (the crawl clock, only with
+no caption band and only when the preset reads along), the viewer pauses, the narration leaves the
+slide. Each hook swallows its own failure, since the transport calls them mid-step. One rule differs
+from the Studio on purpose: the player's Play restarts the slide from its first sentence, so a pause
+holds no focus for a resume (a held focus could come back on a sentence that does not name it). The preset's look is resolved
+at export time from `resolve-delivery.mjs` and baked in as data. The export marks
+`#lp-app[data-lp-guide]`, and both CSS prunes (the CLI's and the Studio's) keep the `[data-guide]`
+rules only then; they match nothing until the Guide runs.
+
+Measured: the Guide bundle is **37,007 bytes (14,072 gzipped)**, smaller than Vetrina alone because
+the ink and the cursor stay in the Studio. A deck with no `delivery:` exports byte-identical player
+script and CSS (compared against `main`'s `playerJs` for four argument shapes). The player has no
+chart hover to turn off. Verified on the real surfaces: `node tools/verify-guide-player.mjs` plays an
+export in Chromium and logs every focus, and `docs/e2e/share-narrated-player.spec.ts` drives the
+production Studio's share-export. Not in the export: expressive's top-moment ink and cursor (and the
+ink fallback on an image or a figure), and somber's still caption (the player's caption still
+crawls); both are a followup. On iOS before 16.4 the bundle fails to load (Cadenza's segmenter
+builds a lookbehind regex) and the deck plays without the Guide, as a deck with no `delivery:` does;
+UNVERIFIED on a device.
+
 ## 8. Order of work
 
 Ordered by what each step unblocks. Each ships on its own branch and PR (HARD

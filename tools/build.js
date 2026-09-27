@@ -131,6 +131,10 @@ const STEPS = [
   // projection it evaluates inside its own Chromium page), so esbuild inlines it at
   // bundle time and a stale file would be baked into dist/lattice-emulator.js.
   { label: 'speech-projection bundle (engine export)', script: 'build-speech-projection-bundle.js' },
+  // Ahead of the emulator and player-core for the same reason: player-core.mjs imports
+  // lib/export/guide-player.generated.mjs (the Guide kernel a `delivery:` deck's export plays),
+  // so a stale file would be baked into both bundles.
+  { label: 'guide-player bundle (engine export)', script: 'build-guide-player.js' },
   // Trama, the graph-chart library (2026-09-27-trama-graph-chart-library.md). FOREGROUND and
   // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
   // dist/: as a background step it would be joined only at player-core, far too late.

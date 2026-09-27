@@ -5506,6 +5506,11 @@ const SANCTIONED_MARK_IDENTITY = [
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
+  // The Guide kernel bundled for the exported player (tools/build-guide-player.js). It READS
+  // `data-label` / `data-value` to match a spoken sentence to a mark, exactly as the Studio's
+  // `guide-kernel.ts` source does; the census's writer test sees the selector strings. Listed for
+  // the same honesty reason as the Anima bundle above, not as an emitter.
+  ['export/guide-player.generated.mjs', true, true],
   // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
   // component because both render paths (markdown-it and the live DOM) build cells through it.
   ['core/matrix-grid-cells.js', true, false],
@@ -7045,6 +7050,14 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + '`.gitattributes`, to export it narrated as the export sign-off artifact. The fold is '
        + 'tolerance for a locally CRLF-saved copy; the verifier asserts on what it renders, so a '
        + 'wrong palette would fail its own mode check loudly rather than ship anywhere.',
+  },
+  {
+    file: 'tools/verify-guide-player.mjs',
+    why: 'the Guide-in-the-export verifier, the sibling of verify-narrated-player.mjs. It reads '
+       + 'ONE deck (the repo-committed examples/delivery-spark.md by default, or a path passed '
+       + 'on the command line) to export it narrated and play it; the fold is tolerance for a '
+       + 'locally CRLF-saved copy. It asserts on what it renders and writes only its own '
+       + 'scratch output, so a misread front matter fails its own checks rather than shipping.',
   },
   {
     file: 'tools/spike-video-export.mjs',

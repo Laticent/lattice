@@ -110,6 +110,9 @@ const EXPECTED_PR_OWNED = new Set([
   // Measured 2026-09-20 against a timestamped tree: its whole write set is
   // lib/export/speech-projection-bundle.generated.mjs, which git tracks.
   'build-speech-projection-bundle.js', // lib/export
+  // Measured 2026-09-27 against a timestamped tree: its whole write set is
+  // lib/export/guide-player.generated.mjs, which git tracks — player-core.mjs imports it.
+  'build-guide-player.js', // lib/export
   'derive-cat-ink.js', // themes/*.css
   'derive-chart-cat-ink.js', // themes/*.css
   'build-capabilities.js', // engineering/capabilities.md

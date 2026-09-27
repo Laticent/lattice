@@ -1043,9 +1043,18 @@ follow-up.
 
 ## The `delivery:` front-matter register (how much the narrated Guide gestures)
 
-`delivery:` sets how the Studio's Present **Guide** behaves while narration plays: how many
-moments on a slide get a gesture, and how each one looks. It changes nothing in a rendered
-slide, a PDF, a PPTX or an export.
+`delivery:` sets how the **Guide** behaves while narration plays, in the Studio's Present and in
+a narrated webpage you send: how many moments on a slide get a gesture, and how each one looks. It
+changes nothing in a rendered slide, a PDF or a PPTX.
+
+**In a sent webpage.** A narrated webpage export of a deck that sets `delivery:` carries the Guide
+(about 37 KB), so the recipient sees the same focus the Studio shows while the deck plays itself.
+Pausing lifts the focus; playing again replays the slide, and each sentence brings its focus back
+as it is read. With the captions off, the word being said
+lights on the slide, as in the Studio. The export draws no cursor and no overlay ink, so
+`expressive`'s top moment focuses like any other there, and a moment the Studio marks with ink
+(an image, a figure) shows nothing. A deck with no `delivery:` line exports
+without the Guide, exactly as before.
 
 **The gesture is focus.** When the narration names a bullet, a table row, cell or column, a chart
 bar, wedge or line, that element stays exactly as it is and everything else in its group recedes:
