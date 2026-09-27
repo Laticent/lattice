@@ -19,12 +19,15 @@ import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
-import { MARKER_CLASS, stateClassesFor } from '../../../../lib/core/state-marks.js';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import stateMarks from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
 import { registerValue } from './deck-preset';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
+
+const { MARKER_CLASS, stateClassesFor } = stateMarks;
 
 // The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
 // register that colors the rendered deck's `hr` rules, table rails, and timeline spine —

@@ -1,9 +1,12 @@
 import type { Node as PMNode, ResolvedPos } from 'prosemirror-model';
 import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
-import { normalizeInfo } from '../../../../lib/core/fence-languages.js';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import fenceLanguagesCore from '../../../../lib/core/fence-languages.js';
 import { deckSchema } from './deck-doc';
 import { isEngineFence, PLAIN_FENCE } from './fence-catalog';
 import { classTokens } from './registers';
+
+const { normalizeInfo } = fenceLanguagesCore;
 
 // Pure fenced-code commands for Compose — no DOM, no React. Shared by the editor's
 // keymap (ComposeView), the divider-bar insert door and the language picker, so none

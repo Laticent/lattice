@@ -118,6 +118,17 @@ owe nothing here. See
   works in dev and the bundle/gate can go). Until then the bundle is the contract.
 - **Commit:** `fix(docs): load Architect authoring cores via an esbuild bundle so
   they work in astro dev`.
+- **The same trap, second shape: a NAMED import off a CJS leaf.** Since #2119,
+  `docs/src/plugins/vite-cjs-lib-dev.mjs` serves a CJS leaf under `lib/` (one that
+  requires nothing) with a `default` export in dev, and nothing else. So
+  `import x from '…/lib/core/state-marks.js'` works in dev and build, while
+  `import { MARKER_CLASS } from …` builds and then dies in dev with `does not provide
+  an export named 'MARKER_CLASS'`. Seen twice more: the Studio's webpage export
+  (`fromBase64` from `base64-utf8.js`) failed its diagram bake and shipped raw
+  Mermaid source, and the whole Compose view failed to load (`state-marks.js`,
+  `fence-languages.js`). **Fix:** `import x from …;` then `const { a } = x;`.
+  `docs/src/plugins/vite-cjs-lib-dev.test.ts` fails on any named or namespace
+  import from a CJS leaf in a non-test `docs/src` file.
 
 ## Every Fabricate preview is EMPTY in `astro dev` only (StrictMode disposes the renderer, and the sentinel hides it)
 

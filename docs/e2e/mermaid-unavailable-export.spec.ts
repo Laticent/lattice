@@ -116,9 +116,16 @@ async function showDiagramSlide(viewer: import('@playwright/test').Page): Promis
 	}, { timeout: 30_000 });
 }
 
-/** Cut Mermaid off at the network, for every frame this page opens. */
+/**
+ * Cut Mermaid off at the network, for every frame this page opens.
+ *
+ * The LIBRARY only — the vendored `export/mermaid-v11.min.js` (studio.astro). A bare
+ * `*mermaid*` also aborted the Studio's own `mermaid-check.ts`, which the dev server serves
+ * as its own request, so on `npm run dev` the Studio never booted and the arm failed before
+ * it tested anything.
+ */
 async function breakMermaid(page: import('@playwright/test').Page): Promise<void> {
-	await page.route('**/*mermaid*', (route) => route.abort());
+	await page.route(/\/mermaid-v\d+\.min\.js(?:[?#]|$)/, (route) => route.abort());
 }
 
 

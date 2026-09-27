@@ -30,7 +30,8 @@
 // The theme graph is DECLARED (manifest `extends`, baked into THEME_EDGES), not
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
-import { fromBase64 } from '../../../../../lib/core/base64-utf8.js';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
@@ -576,7 +577,7 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
 		// otherwise clear this text and draw, after the capture decided what it was baking.
 		div.setAttribute('data-fp-final', '');
 		try {
-			div.textContent = fromBase64(div.getAttribute('data-fp-config') || '');
+			div.textContent = base64Utf8.fromBase64(div.getAttribute('data-fp-config') || '');
 		} catch {
 			/* keep it empty */
 		}
