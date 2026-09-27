@@ -118,6 +118,25 @@ describe('image text panel — applyToDom', () => {
     assert.equal(section.querySelectorAll('.image-text .lat-pagination').length, 0);
   });
 
+  // The panel itself, one level up from the page-number arm above. The engine's string pass
+  // (`wrapImageText`) has already folded the prose into `.image-text` on every document the
+  // Studio preview, the Playground or a `--player` export loads, and the DOM pass wrapped it
+  // AGAIN: a panel inside the panel. Every `.image-text` rule is a descendant selector, so the
+  // prose took the card's padding, width cap and accent twice — in the Studio, a heading
+  // 294px wide where the export sets it 563px wide, snapping into that column a frame after
+  // each slide change. Built from a real engine render, because that is the input that bit.
+  test('an engine-wrapped panel is not wrapped again', () => {
+    const engine = require('../../../lib/engine');
+    const { html } = engine.render('<!-- _class: image -->\n\n![bg](a.jpg)\n\n## A lake view.\n\nBody prose.\n');
+    const doc = new JSDOM(html).window.document;
+    const section = doc.querySelector('section.image');
+    assert.equal(section.querySelectorAll('.image-text').length, 1, 'the engine wrapped it once');
+    const before = section.innerHTML;
+    bgImage.wrapImageTextToDom(doc);
+    assert.equal(section.querySelectorAll('.image-text').length, 1, 'no second panel inside the first');
+    assert.equal(section.innerHTML, before, 'the engine\'s panel is left as it is');
+  });
+
   test('survives a null / non-DOM root', () => {
     assert.doesNotThrow(() => bgImage.wrapImageTextToDom(null));
     assert.doesNotThrow(() => bgImage.wrapImageTextToDom({}));

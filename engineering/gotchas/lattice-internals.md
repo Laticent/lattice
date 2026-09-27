@@ -834,6 +834,17 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   one-slide swap cost 24 to 40 ms more on `examples/state-chart-stress.md` and on the
   116-slide gallery. Without them it costs about 4 ms more on the stress deck and nothing
   measurable on the gallery or `examples/data-viz-gallery.md` (Chromium, three runs each).
+- **And the text column the slide jumped TO was wrong.** The engine wraps an `image`
+  slide's prose in `.image-text` (`wrapImageText`), and the runtime's DOM mirror
+  (`wrapImageTextToDom`, lib/core/bg-image.js) wrapped it again, because it checked only its
+  own done-marker. Every `.image-text` rule is a descendant selector, so the nested panel
+  took the card's padding, width cap and accent a second time. The preview drew the heading
+  294px wide where the export draws it 563px wide, and a second accent bar mid-slide. The
+  mirror now skips a section that already has a `:scope > .image-text` panel, as the string
+  pass does. A census over every baseline deck and `examples/adaptive-image.md` (engine
+  render, then the runtime in jsdom, counting each class per slide) finds no other wrapper
+  that multiplies; against the old runtime it flags `image-text`. Pinned by the
+  "engine-wrapped panel" arm in `test/unit/core/bg-image-dom.test.js`.
 - **Pinned by:** `test/unit/runtime/host-swap-layout.test.js`. It loads the built
   runtime in jsdom, and a control arm checks that an unstamped write still waits for the
   debounce.
