@@ -120,3 +120,16 @@ test('font subset: a requested feature survives (tabular figures stay tabular), 
 	const lig = fontkit.create(await subset(outfit, 'first', { wght: 500 }, []));
 	assert.equal(lig.layout('fi').glyphs.length, 2);
 });
+
+test('path data: every SVG spelling reaches pdf-lib as finite numbers, and a broken path is caught', () => {
+	const { normalizePath, pathIsDrawable } = write;
+	// KaTeX's tall delimiters break a line after a comma before a negative number; pdf-lib
+	// read the rest of the path as NaN and a viewer stopped drawing the whole page.
+	assert.equal(normalizePath('M1,2\n-3,4'), 'M 1 2 -3 4');
+	assert.equal(normalizePath('M1.5.5L2-3'), 'M 1.5 .5 L 2 -3');
+	assert.equal(normalizePath('M1e2,3e-1z'), 'M 1e2 3e-1 z');
+	// An arc's two flags may run together with the next number.
+	assert.equal(normalizePath('M0 0a1 1 0 011 1'), 'M 0 0 a 1 1 0 0 1 1 1');
+	assert.ok(pathIsDrawable('M863,9c0,-2,-2,-5,-6,-9c-21.3,163.3,-33.3,349,\n-36,557 l0,1884z'));
+	assert.equal(pathIsDrawable('M0 0L1'), false, 'a truncated path is refused, not written');
+});

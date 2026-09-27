@@ -306,6 +306,27 @@ Order of work, all in one PR (#2404):
     while the slide is read.
   - Also fixed: inner curves use CSS's clamped radius, and a child that inherits its border
     color keeps it.
+- **The third checker pass, on the second's fixes, found two regressions in them:**
+  - Making every element hit-testable let an empty `pointer-events: none` SVG (sketch mode's
+    ink layer) "cover" the words under it; `examples/panes-sketch.md` lost 94 of 200 words from
+    its text layer. Only elements that paint a box are made hit-testable now.
+  - Clipping SVG to every overflow ancestor erased an absolutely positioned SVG that escapes
+    one. Clips follow the containing-block chain now, at the padding box. A nested `<svg>`
+    clips to its own x/y/width/height.
+- **A thin-line sweep, added because the percentage ranking missed the KaTeX bar:**
+  - **What it measures:** the longest run of differing pixels along any row or column, at
+    the screen's own scale (96 dpi). A pixel counts only if its color falls outside the range
+    of its 3x3 neighbors on the other side AND the ink in that neighborhood differs, so a
+    sub-pixel shift or a line drawn crisper than the 1x screenshot does not count.
+  - **Positive control:** the earlier run with the root-bar bug flags the bar at 1,153 px.
+  - **What it found:** a defect far worse than the bar. pdf-lib's SVG path parser misreads a
+    comma followed by a line break and a negative number (`349,\n-36`), which KaTeX's tall
+    delimiters use. It wrote `NaN` into the page's content stream, and poppler stopped drawing
+    the rest of the page: the math gallery's matrix slide was blank but for the photo. A
+    second delimiter was silently drawn with wrong coordinates. Path data is now re-spelled
+    into one token per number before pdf-lib sees it (arc flags handled). Any shape whose path
+    still does not convert to finite numbers stays in the photo, so no future parser quirk
+    can blank a page.
 - **Known limits:**
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.

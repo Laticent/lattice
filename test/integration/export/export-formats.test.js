@@ -485,6 +485,19 @@ describe('export-formats', () => {
     assert.ok(R > 150 && G < 80 && B < 80, `the escaped SVG square is drawn (rgb ${R},${G},${B})`);
   });
 
+  test('a tall KaTeX matrix bracket leaves the page drawable', { timeout: TIMEOUT }, () => {
+    // Its path data breaks a line after a comma before a negative number. pdf-lib once read
+    // that as NaN, and poppler then stopped drawing the rest of the slide: a blank page.
+    const dir = tmpDir();
+    const src = path.join(dir, 'matrix.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\nmath: katex\n---\n\n## Matrix\n\n$$X = \\begin{pmatrix} 1 & x_{11} \\\\ 1 & x_{21} \\\\ \\vdots & \\vdots \\\\ 1 & x_{n1} \\end{pmatrix}$$\n');
+    const out = path.join(dir, 'matrix.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const raster = spawnSync('pdftoppm', ['-r', '20', '-png', out, path.join(dir, 'r')], { encoding: 'utf8' });
+    assert.doesNotMatch(raster.stderr, /Error/, `poppler reads every operator on the page:\n${raster.stderr}`);
+  });
+
   test('a KaTeX square root keeps its bar inside the root, as the browser clips it', { timeout: TIMEOUT }, () => {
     // KaTeX draws the bar 400em wide and crops it with the SVG viewport and an overflow:hidden
     // span; the writer once ignored both and ran the bar to the edge of the page.
