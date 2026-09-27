@@ -274,6 +274,13 @@ WebKit-phone projects. Two reopens must make 0 documents and open at the top, an
 must not be a dialog. Against main, that spec fails: 16 documents from two deck-settings reopens,
 and documents on the overview's reopens.
 
+**On a real iPad (the owner, 2026-09-27, branch preview of `ff8c45f`):** about 20 cycles of
+opening the deck settings, scrolling them and closing them, and Safari never reloaded the tab.
+A reload is what WebKit does when a page runs out of memory, so this is the first device reading
+of the memory claim. It was read without a Mac, so there is no memory timeline, and the same run
+was not repeated on the live site as a control. It shows the fixed build survives the cycle, not
+how soon the old one would have failed.
+
 ### The residue after an Add slide reopen is a plateau, not a leak
 
 `followups.d/2398-p2` (now deleted) asked whether the RSS still rising after #2398 (+378 → +492 MB
