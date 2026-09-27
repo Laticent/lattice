@@ -409,6 +409,19 @@ directives, the token names), with the door owning the frame and every channel. 
 made the frozen surface smaller (no masthead cells, no stage), not zero. Changing the input is cheap
 until the first stranger's package exists, and not after.
 
+**Decided (owner, 2026-09-27): both, in two steps.** Real packages come in two kinds. One TWEAKS
+our slide (a stamp, a list drawn as tally marks, a restyled table) and wants the finished HTML,
+because it keeps everything the engine already did. The other DRAWS something new from the author's
+content (a Gantt chart from dates, a map from place names) and wants plain facts, because digging
+numbers out of our `<ul><li>` breaks the day that markup changes. So:
+1. **Now:** the input stays `{ html, index, idPrefix, baseUrl }`, and it is **provisional**. A tweak
+   package works today; the markup it receives may still change, and a package that depends on
+   its exact shape does so at its own risk.
+2. **Next** (`followups.d/2411-p1-code-package-plain-data-input.md`): add the slide's plain facts
+   (its text, list items, directives and token names) beside the HTML. The facts become the stable
+   promise; the HTML stays for tweaks. Adding a field breaks no package, so step 1 closes nothing.
+   Settle it before code packages are documented publicly.
+
 ## 10. Step 4: the Studio's door, and a worker in both doors (2026-09-27)
 
 **A worker, in both doors.** Building the Studio's sandbox found a hole the CLI never had to face:
