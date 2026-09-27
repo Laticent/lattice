@@ -10,7 +10,10 @@
  *     encoder's own 21 ms of priming, left uncorrected, fails this);
  *   · every slide change lands on the first frame at or after its time (a capture that noticed a
  *     change a frame late fails this);
- *   · the file carries H.264 video and AAC audio, and lasts as long as the layout.
+ *   · the file carries H.264 video and AAC audio, and lasts as long as the layout;
+ *   · its caption track is 3GPP timed text (`tx3g`, the subtitle format QuickTime reads), read
+ *     back here box by box, and every caption shows exactly while its cue plays, with the screen
+ *     cleared between cues.
  *
  * Two deck shapes. The first exercises the edges the note names: a silent title slide (the lead-in),
  * a silent slide mid-deck (a hold), a cue whose clip will not decode (rule 4: it holds its caption
@@ -76,6 +79,72 @@ after(async () => {
 	if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+/**
+ * The MP4's subtitle tracks, read box by box without the exporter's code: each track's sample entry
+ * type and handler, and for tx3g its samples as `{ startMs, endMs, text }` on a ms clock.
+ */
+function readSubtitleTracks(buf) {
+	const kids = (at, end) => {
+		const out = [];
+		while (at < end) {
+			const size = buf.readUInt32BE(at);
+			out.push({ type: buf.toString('latin1', at + 4, at + 8), at, size, body: at + 8 });
+			at += size;
+		}
+		return out;
+	};
+	const find = (list, type) => list.find((b) => b.type === type);
+	const inside = (b) => kids(b.body, b.at + b.size);
+	const moov = find(kids(0, buf.length), 'moov');
+	const tracks = [];
+	for (const trak of inside(moov).filter((b) => b.type === 'trak')) {
+		const mdia = find(inside(trak), 'mdia');
+		const handler = buf.toString('latin1', find(inside(mdia), 'hdlr').body + 8, find(inside(mdia), 'hdlr').body + 12);
+		if (handler === 'vide' || handler === 'soun') continue;
+		const mdhd = find(inside(mdia), 'mdhd').body;
+		const scale = buf.readUInt32BE(mdhd + 12);
+		const stbl = find(inside(find(inside(mdia), 'minf')), 'stbl');
+		const t = inside(stbl);
+		const entry = buf.toString('latin1', find(t, 'stsd').body + 12, find(t, 'stsd').body + 16);
+		const durs = [];
+		const stts = find(t, 'stts').body;
+		for (let i = 0; i < buf.readUInt32BE(stts + 4); i++) for (let k = 0; k < buf.readUInt32BE(stts + 8 + i * 8); k++) durs.push(buf.readUInt32BE(stts + 12 + i * 8));
+		const stsz = find(t, 'stsz').body;
+		const sizes = durs.map((_, i) => buf.readUInt32BE(stsz + 12 + i * 4));
+		const stsc = find(t, 'stsc').body;
+		assert.equal(buf.readUInt32BE(stsc + 4), 1, 'one chunk run');
+		let off = buf.readUInt32BE(find(t, 'stco').body + 8);
+		let clock = 0;
+		const samples = durs.map((d, i) => {
+			const n = buf.readUInt16BE(off);
+			const s = { startMs: (clock * 1000) / scale, endMs: ((clock + d) * 1000) / scale, text: buf.toString('utf8', off + 2, off + 2 + n) };
+			assert.equal(sizes[i], n + 2, 'a sample is its 2-byte length plus its text');
+			off += sizes[i];
+			clock += d;
+			return s;
+		});
+		tracks.push({ handler, entry, language: buf.readUInt16BE(mdhd + 20), samples });
+	}
+	return tracks;
+}
+
+/** The caption track is tx3g, tiles the whole video, and shows each cue exactly while it plays. */
+function assertCaptionTrack(buf, cues, durationMs) {
+	const subs = readSubtitleTracks(buf);
+	assert.deepEqual(subs.map((s) => `${s.handler}:${s.entry}`), ['sbtl:tx3g'], 'one subtitle track, and it is tx3g');
+	const [{ samples, language }] = subs;
+	assert.equal(language, ((5 << 10) | (14 << 5) | 7), 'tagged English');
+	assert.equal(samples[0].startMs, 0, 'the track starts with the video');
+	assert.equal(samples.at(-1).endMs, Math.round(durationMs), 'and ends with it');
+	const shown = samples.filter((s) => s.text !== '');
+	assert.deepEqual(shown.map((s) => s.text), cues.map((c) => c.text), 'every cue, in order, as plain text');
+	shown.forEach((s, n) => {
+		assert.equal(s.startMs, Math.round(cues[n].startMs), `cue ${n} shows when it starts`);
+		assert.equal(s.endMs, Math.min(Math.round(cues[n].startMs + cues[n].playedMs), Math.round(cues[n + 1]?.startMs ?? Infinity), Math.round(durationMs)), `cue ${n} clears when it ends`);
+	});
+	for (let n = 1; n < samples.length; n++) assert.ok(samples[n].text !== '' || samples[n - 1].text !== '', 'no two empty samples in a row');
+}
+
 /** Export `slides` as a narrated webpage, capture it, and decode the MP4 back independently. */
 async function capture(name, slides) {
 	const { buildPlayerHtml } = require(path.join(ROOT, 'lib/export/html-player.js'));
@@ -84,6 +153,7 @@ async function capture(name, slides) {
 	const mp4File = path.join(tmp, `${name}.mp4`);
 	const out = await exportVideo({ html, outFile: mp4File, executablePath: CHROME(), fps: FPS, leadInMs: 1000, outroMs: 1000 });
 	assert.ok(!fs.existsSync(`${mp4File}.partial`), 'the partial file was renamed into place');
+	assertCaptionTrack(fs.readFileSync(mp4File), out.cues, out.report.durationMs);
 	const check = await decoder.evaluate(async (b64) => {
 		const { Input, ALL_FORMATS, BufferSource, AudioBufferSink, VideoSampleSink } = window.MB;
 		const input = new Input({ source: new BufferSource(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))), formats: ALL_FORMATS });

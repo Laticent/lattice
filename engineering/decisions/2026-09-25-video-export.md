@@ -259,8 +259,7 @@ measured length when it knows it.
 3. **Captions.** *(Settled by the owner, 2026-09-25: "captions if someone enables it".)* The
    MP4 carries the captions as a track a viewer's player switches on, and the `.vtt` sidecar
    rides beside it. The frames show the player's own caption crawl only when the author
-   exported with captions on, as the HTML export does. Which subtitle format the MP4 carries
-   (`wvtt`, or `tx3g` for QuickTime) is the build's to measure: §7.
+   exported with captions on, as the HTML export does. *(Built 2026-09-27: `tx3g`, §10.)*
 4. **Where `measuredMs` comes from.** *(Recommended: both.)* The video must decode clips
    whatever else happens (§2: 5.7 s of drift otherwise). The question is whether the
    Studio's bake should also record `measuredMs` in the HTML export, so that `timeline()`
@@ -312,11 +311,10 @@ measured length when it knows it.
 - **Playback beyond Chromium.** *(Owner, 2026-09-26: the fixture MP4 plays in **QuickTime**
   and on a **phone / browser**, picture and audio good and in sync.)* PowerPoint, Keynote and
   Firefox: **UNVERIFIED**.
-- **The muxed WebVTT track.** mediabunny writes a `wvtt` track, and reading the file back
-  with the same library lists only the video and audio tracks, so nothing has read the
-  track back. Many players ignore `wvtt`; QuickTime expects `tx3g`. The owner's QuickTime test
-  (2026-09-26) showed no subtitles, which fits: the track is not one a player offers yet. The
-  `.vtt` sidecar is the caption path that is known to work.
+- **The caption track in a real player.** The `wvtt` track the first build muxed showed in no
+  player, and was replaced by `tx3g` (§10). FFmpeg reads the new track back; **QuickTime's
+  Subtitles menu, PowerPoint and Keynote are UNVERIFIED** until the owner opens the file, and so
+  is whether QuickTime shows the captions before the viewer picks them.
 - **Other voices and encoders.** The third run used the Studio's Kokoro through its own
   constant-bitrate MP3 encoder. A hosted voice returning variable-bitrate MP3 can decode to
   different lengths in different decoders (the LTT note §5), and each voice has its own leading
@@ -448,3 +446,36 @@ with picture and audio good and in sync. **Not verified.** PowerPoint and Keynot
 showed no subtitles, and QuickTime expects `tx3g`, so the `.vtt` sidecar is the caption path known to work. A Chromium
 without an H.264 encoder was not available, so the probe's refusal is unexercised. Anima motion
 decks were not captured end to end.
+
+## 10. Captions a player offers: `tx3g` (2026-09-27)
+
+The owner's ask after the first build: captions a viewer can switch on in the player. The `wvtt`
+track showed in no player, so the build now writes the caption track itself.
+
+**Why not mediabunny.** mediabunny 1.60 lists one subtitle codec, `webvtt`, and muxes it only as
+`wvtt`. So `lib/export/tx3g.mjs` adds the track after mediabunny finalizes the file: the samples go
+in a second `mdat` and a rewritten `moov` follows it. No picture or sound byte moves, so the
+existing chunk offsets stay valid, and the file on disk is only rewritten from the old `moov` on.
+
+**What the track is.** 3GPP timed text (`tx3g`, handler `sbtl`), the format QuickTime, iOS and
+macOS use for subtitles. The sample entry is byte-for-byte the one FFmpeg's `mov_text` muxer
+writes (bottom-centered, white, font 1 "Arial"), and so are the track
+flags (enabled) and alternate group. The samples tile the whole video on a millisecond clock: a text sample
+while each cue plays, an empty one between cues, so a caption clears when its sentence ends
+instead of lingering to the next. The `wvtt` track is gone rather than kept beside it, so a player
+that reads both does not list English twice.
+
+**Measured, on the fixture deck (17 slides, Kokoro af_heart, dark and light).**
+
+| | Result |
+|---|---|
+| FFmpeg 7.0.2 (an independent reader) | lists the stream as `mov_text (tx3g)`, `eng`; decodes the whole file with no error |
+| Track vs. the `.vtt` sidecar | 62 of 62 cues, same text, start and end at 0 ms difference, dark and light |
+| Sample entry vs. FFmpeg's own `mov_text` output | identical bytes (FFmpeg adds an optional `btrt`) |
+| Cost | 5.2 KB on the fixture's 14 MB (a 3,289-byte `mdat` and a 1,916-byte `trak`); wall time 66 s dark and 68 s light, inside §9's 58–76 s |
+
+**Not verified.** Nothing here runs QuickTime, PowerPoint or Keynote, so whether QuickTime's
+Subtitles menu offers the track, and whether it shows the captions before the viewer picks them
+(FFmpeg's flags mark the track enabled, and a player that honors that may show captions unasked),
+are **UNVERIFIED** until the owner opens the file. The `.vtt` sidecar stays the fallback,
+and PowerPoint's own Insert Captions takes it.

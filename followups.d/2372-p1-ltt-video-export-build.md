@@ -19,6 +19,11 @@ Owner test 2026-09-26: the fixture MP4 plays in QuickTime and on a phone / brows
 audio good and in sync; no subtitles showed. The owner's ask: captions a viewer can switch on in
 the player, generated from the LTT (the .vtt already is; the muxed track is what players ignore).
 
+Progress 2026-09-27: the MP4's caption track is now `tx3g` (note §10), written by
+`lib/export/tx3g.mjs` after mediabunny finalizes; FFmpeg reads all 62 fixture cues back at 0 ms
+from the sidecar. Left: the owner's QuickTime and PowerPoint check, and the ruling on the CLI
+voicing a deck itself (fork 10).
+
 why now   — the owner wants captions a viewer can enable in the player, and QuickTime showed none:
             the muxed `wvtt` track reads back as no track at all through mediabunny, and QuickTime
             expects `tx3g`. PowerPoint and Keynote playback are still unverified. And the CLI can only
