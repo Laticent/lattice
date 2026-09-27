@@ -233,9 +233,27 @@ open and are only hidden after that. The shared pieces are in `docs/src/componen
   returns focus to its launcher on close, as a Radix dialog does. Radix opens a tooltip on any
   focus that no pointer press just preceded, so after a tap on a phone the Settings button's
   hint appeared over the toolbar. main's non-persistent sheet left focus on `<body>`. `Tip`
-  (`docs/src/components/ui/tooltip.tsx`) now opens on focus only when the focus is
-  `:focus-visible`, which is the browser's own test for a keyboard focus. Tab and hover behave as
-  before. The same case was latent on Add slide's launchers.
+  (`docs/src/components/ui/tooltip.tsx`) now opens on focus only when the element that took focus
+  is `:focus-visible`, which is the browser's own test for a keyboard focus. It drops that one
+  open in its own state rather than calling `preventDefault` on the focus event, which would
+  also have switched off the focus handling of any Radix trigger nested in the child. Tab and
+  hover behave as before. The same case was latent on Add slide's launchers.
+
+**The checker review** (one independent checker, tier 1) found no blocker. Two findings were
+fixed in the PR, and two are recorded here:
+
+- Fixed: closing the panel from the Deck scope mounted the whole Slide body into the hidden dock,
+  because a closed panel's scope reads `'slide'` and the kept panel renders once more on the
+  close. The panel now keeps the scope it was last shown in (`panelScope` in StudioShell).
+  Re-probed: the closed dock holds the deck body and no Slide body.
+- Fixed: the tooltip's first cut called `preventDefault`, and it read the wrapping element, not
+  the one that took focus (see the bullet above).
+- Recorded: in WebKit, `element.focus()` after a key press is not `:focus-visible`, while in
+  Chromium it is. So in Safari, focus handed back after an Escape close no longer shows the
+  launcher's hint. Tab still does (checked on 25 triggers).
+- Recorded: the dock is `absolute z-[1]` in `<main>`, so it paints above any positioned
+  `z-index: auto` element of the split that overlaps the column. The resize handle is `z-10`
+  and still takes the grab; the checker did not enumerate every overlay.
 
 **Measured** on Playwright WebKit, 1440×900, production builds on the same box. The script
 (`.scratch/perf/webkit-panel-mem.mjs`) opens the surface, scrolls every scroller in it, closes it,
@@ -244,7 +262,7 @@ and repeats six times.
 | | main | this change |
 |---|---|---|
 | deck settings: new preview documents per reopen | 8, every cycle | **0** |
-| deck settings: RSS over baseline after each cycle | +31, +99, +91, +119, +177, +197 MB | +16, +14, +24, +39, +60, +39 MB |
+| deck settings: RSS over baseline after each cycle | +31, +99, +91, +119, +177, +197 MB | +16, +14, +24, +39, +60, +39 MB; after the checker fixes +24, +51, +28, +35, +39, +43 MB |
 | overview: new preview documents per reopen | 14, every cycle | **0** |
 | overview: RSS over baseline after each cycle | +0, +88, +135, +172, +188, +260 MB | −1, −5, −5, −4, −3, −1 MB |
 | script time typing 49 characters after one settings open and close (Chromium, 3 runs) | 0.95, 0.98, 1.06 s | 1.05, 0.99, 0.93 s |
