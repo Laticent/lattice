@@ -26,7 +26,7 @@ import { chromium, devices, webkit } from '../docs/node_modules/@playwright/test
 const require = createRequire(import.meta.url);
 const { buildPlayerHtml } = require('../lib/export/html-player.js');
 const { buildTrack } = require('@laticent/cadenza');
-const { narrateChart } = require('../lib/core/chart-narration.js');
+const { narrateChartScript } = require('../lib/core/chart-narration.js');
 const { slideToSpeech } = require('../lib/core/slide-speech.js');
 
 // `--webkit` plays it in WebKit at an iPhone 15 Pro (touch, 393 px, iOS user agent) instead of desktop
@@ -72,14 +72,17 @@ const narration = (captions) => ({
 	captions,
 	slides: slidesMd.map((md) => {
 		if (/_class:[^>]*\bsilent\b/.test(md)) return null;
-		const text = /<!--\s*caption:\s*([\s\S]*?)\s*-->/.exec(md)?.[1] ?? narrateChart(md) ?? slideToSpeech(md);
+		const caption = /<!--\s*caption:\s*([\s\S]*?)\s*-->/.exec(md)?.[1];
+		const script = caption ? null : narrateChartScript(md);
+		const text = caption ?? script?.text ?? slideToSpeech(md);
 		if (!text) return null;
 		const track = buildTrack(text);
 		const clips = track.cues.map((c) => {
 			const uri = wavDataUri(Math.max(200, c.endMs - c.startMs));
 			return { audio: uri, clip: clipHash(uri) };
 		});
-		return { text, track, clips };
+		// The chart narrator's binding rides with its text, as the Studio's bake ships it.
+		return { text, track, clips, ...(script?.refs.length ? { refs: script.refs } : {}) };
 	}),
 });
 

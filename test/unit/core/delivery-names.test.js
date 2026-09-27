@@ -5,11 +5,12 @@ const { DELIVERY_NAMES: LINT_NAMES, findUnknownDelivery } = require('../../../li
 
 let DELIVERY_NAMES;
 let DELIVERY_PRESETS;
+let DELIVERY_STYLES;
 let deliveryLine;
 let frontMatterDelivery;
 let resolveDelivery;
 test.before(async () => {
-	({ DELIVERY_NAMES, DELIVERY_PRESETS, deliveryLine, frontMatterDelivery, resolveDelivery } = await import('../../../lib/core/resolve-delivery.mjs'));
+	({ DELIVERY_NAMES, DELIVERY_PRESETS, DELIVERY_STYLES, deliveryLine, frontMatterDelivery, resolveDelivery } = await import('../../../lib/core/resolve-delivery.mjs'));
 });
 
 // The `delivery:` names live twice, for the ESM/CommonJS reason `pace-names.test.js` gives:
@@ -21,16 +22,26 @@ test('the delivery names agree between the register and the linter', () => {
 	assert.deepEqual(Object.keys(DELIVERY_PRESETS).sort(), [...DELIVERY_NAMES].sort(), 'every name has a preset, and no preset lacks a name');
 });
 
-test('the presets say what the design note §6 says', () => {
+test('the presets say what the 2026-09-27 note §4 says', () => {
 	const { restrained, expressive, somber } = DELIVERY_PRESETS;
-	assert.ok(somber.budget < restrained.budget && restrained.budget < expressive.budget, 'somber spends least, expressive most');
+	// Restrained and expressive focus every sentence that names a part; somber gestures once a slide.
+	assert.ok(restrained.budget >= 999 && expressive.budget >= 999, 'no moment budget on restrained or expressive');
+	assert.equal(somber.budget, 1, 'somber gestures once a slide');
+	assert.ok(Number.isFinite(restrained.budget), 'finite: the exported player carries the look as JSON');
 	assert.equal(somber.ink, 'none', 'somber shows no cursor and draws no ink');
 	assert.equal(restrained.ink, 'none', 'restrained focuses the element and draws no overlay');
-	assert.equal(expressive.ink, 'top', 'expressive inks its top moment only');
+	assert.equal(expressive.ink, 'all', 'expressive inks every act (owner, 2026-09-27)');
 	assert.equal(expressive.strength, 'notable');
 });
 
-test('one lever: the presets differ only in depth, tempo, hold and caption (§6)', () => {
+test('each delivery is its own style file, and the table only gathers them', () => {
+	for (const name of DELIVERY_NAMES) {
+		assert.equal(DELIVERY_PRESETS[name], DELIVERY_STYLES[name].look, `${name}: the preset IS its style file's look`);
+		assert.equal(typeof DELIVERY_STYLES[name].express, 'function', `${name}: its style file says what each act does`);
+	}
+});
+
+test('the looks: depth, tempo, hold and caption (§6)', () => {
 	const { restrained, expressive, somber } = DELIVERY_PRESETS;
 	assert.equal(restrained.dim, 0.45, "restrained recedes to the chart hover's own 0.45");
 	assert.ok(expressive.dim < restrained.dim && restrained.dim < somber.dim, 'expressive recedes deepest, somber gentlest');

@@ -1,5 +1,6 @@
-import { GUIDE_HANDLES } from '@/components/studio/guide-handles.generated.js';
+import { GUIDE_HANDLES, GUIDE_SCENES, type GuideScene } from '@/components/studio/guide-handles.generated.js';
 import { toSpokenText } from '@/lib/cadenza';
+import { keyIndex, resolveUnit } from '@/lib/scene-resolve.js';
 import { spokenValue } from '@/playground/read-along-core.generated.js';
 
 // THE GUIDE KERNEL — which element a sentence names, which moments a slide spends its focus on,
@@ -115,6 +116,9 @@ export function findTableRowTarget(root: Document | Element | null, text: string
 		.filter(Boolean);
 	if (!values.length) return null;
 	for (const table of root.querySelectorAll('table')) {
+		// A chart's hidden screen-reader table repeats the chart's data and paints nothing: a row found
+		// there would focus nothing on screen (checker, 2026-09-27; `findCueTargetIn` skips it too).
+		if (table.closest('.chart-sr-only')) continue;
 		for (const row of (table as HTMLTableElement).rows) {
 			const first = row.cells[0];
 			if (!first || loose(first.textContent ?? '') !== label) continue;
@@ -1605,6 +1609,19 @@ export function focusContent(el: Element, look: FocusLook = {}): (() => void) | 
 	const section = el.closest('section') as HTMLElement | null;
 	const found = focusUnit(el);
 	if (!section || !found) return null;
+	return focusParts(section, found, look);
+}
+
+/** The parts a focus names and recedes: the ones a bound sentence resolved (`resolveUnit`), or the
+ *  ones `focusUnit` reads off an element. */
+export type FocusParts = { unit: readonly Element[]; peers: readonly Element[]; inner: readonly Element[] };
+
+/**
+ * Focus the given parts on `section` and return the undo. `focusContent` for parts that are
+ * already known: a bound sentence's unit comes from its component's scene, not from a guess at
+ * the element's axis. The look, the classes and the crossfade are the same ones.
+ */
+export function focusParts(section: HTMLElement, found: FocusParts, look: FocusLook = {}): () => void {
 	const { dim = 0.45, dimInner = 0.3, fade = 200 } = look;
 	section.setAttribute('data-guide', '');
 	section.style?.setProperty('--guide-dim', String(dim));
@@ -1624,7 +1641,7 @@ export function focusContent(el: Element, look: FocusLook = {}): (() => void) | 
 		e.classList.add('lat-guide-dim-inner');
 	}
 	const touched = [...found.unit, ...found.peers, ...found.inner];
-	const view = el.ownerDocument?.defaultView;
+	const view = section.ownerDocument?.defaultView;
 	// Each fade-up belongs to the focus that started it: a clear left over from an OLDER focus must
 	// not strip a newer one's `-undim` mid-crossfade, which snapped the element to full (checker).
 	const token = {};
@@ -1842,6 +1859,48 @@ function inBand(point: Element | null, band: Element): boolean {
 	return Number.isFinite(cx) && Number.isFinite(x) && Number.isFinite(w) && cx >= x && cx <= x + w;
 }
 
+// ── THE SCENE — a bound sentence, expressed in the delivery's own style ─────────────────────
+//
+// A chart's narrator binds every sentence to an ACT and the UNIT it names (`narrateChartScript`);
+// the component's manifest `scene` says how the unit is found; the delivery's style file says what
+// the act does (`lib/core/delivery-styles/<name>.mjs`). Nothing here guesses from the words.
+// engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md.
+
+/** One bound span of a slide's narration: `[start, end)` over the narration text. */
+export type SceneRef = { start: number; end: number; act?: string; unit?: string; id?: Record<string, unknown>; value?: number; label?: string };
+
+/** What a delivery's style asks one act to do (`express(act, ctx)`). */
+export type SceneExpression = {
+	focus: 'unit' | 'group' | 'reset' | 'hold' | 'none';
+	ink: null | { kind: string; on: 'unit' | 'labels' | 'figure' | 'heading'; strength: 'quiet' | 'notable' };
+	cursor: 'point' | 'rest' | 'keep' | 'hide';
+};
+
+/** The context a style reads: does the sentence name a unit, is it the key beat, is there a label. */
+export type SceneContext = { named: boolean; key: boolean; afterKey: boolean; labelled: boolean };
+
+export type SceneStyle = (act: string, ctx: SceneContext) => SceneExpression;
+
+/** The scene a slide's section plays: the first of its classes that names a component with one. */
+export function sceneOf(section: Element | null): GuideScene | null {
+	if (!section) return null;
+	for (const c of section.classList) if (Object.hasOwn(GUIDE_SCENES, c)) return GUIDE_SCENES[c] ?? null;
+	return null;
+}
+
+/** The ref a cue starting at `at` falls in (the caption track's `charOffset`), or -1. */
+export function refAt(refs: readonly SceneRef[], at: number): number {
+	return refs.findIndex((r) => at >= r.start && at < r.end);
+}
+
+/** One step the scene took: the act, what the style asked, and the parts it resolved to. */
+export type SceneStep = {
+	act: string;
+	expr: SceneExpression;
+	/** The resolved parts, null when the sentence names nothing on the slide. */
+	hit: { unit: Element[]; labels: Element[]; peers: Element[]; peerLabels: Element[]; fallback: boolean; mark: Element[] } | null;
+};
+
 export function createGuideDirector() {
 	let aim: Element | null = null;
 	let undo: (() => void) | null = null;
@@ -1850,6 +1909,10 @@ export function createGuideDirector() {
 	let resume: { slide: number; aim: Element } | null = null;
 	let planned: { slide: number; track: unknown; name: string; plan: SlidePlan; charts: Set<Element> } | null = null;
 	let saidDoc: Document | null = null;
+	// THE SCENE'S STATE, per slide: the group an `enter` opened (a line's own dots stay near while
+	// its other points recede deeper), the key beat's index, and the last parts focused, so a pause
+	// on a held sentence comes back to them.
+	let scene: { slide: number; refs: readonly SceneRef[]; key: number; group: Element[] | null; parts: FocusParts | null } | null = null;
 
 	const unmark = (): void => {
 		undo?.();
@@ -1903,6 +1966,7 @@ export function createGuideDirector() {
 			aim = null;
 			shown = false;
 			walk = null;
+			scene = null;
 			unmark();
 		},
 		/**
@@ -1964,6 +2028,63 @@ export function createGuideDirector() {
 			aim = null;
 			shown = false;
 			return { kind: 'clear' };
+		},
+		/**
+		 * PLAY ONE BOUND SENTENCE. `refs` is the slide's binding (`narrateChartScript`) and `at` the
+		 * cue's `charOffset` into the same text. The delivery's `style` decides what the act does;
+		 * the component's scene (`sceneOf`) finds the unit. Returns null when the slide has no
+		 * scene or no binding, and the caller reads the words instead (`beat`).
+		 */
+		scene(b: { slide: number; section: Element | null; refs: readonly SceneRef[] | null | undefined; at: number }, look: GuideLook, style: SceneStyle): SceneStep | null {
+			const spec = sceneOf(b.section);
+			if (!spec || !b.refs?.length || !b.section) return null;
+			const section = b.section as HTMLElement;
+			if (!scene || scene.slide !== b.slide || scene.refs !== b.refs) {
+				// A new slide starts bare: nothing carries across a slide change.
+				if (scene && scene.slide !== b.slide) unmark();
+				scene = { slide: b.slide, refs: b.refs, key: keyIndex(b.refs, spec.key), group: null, parts: null };
+			}
+			resume = null;
+			const i = refAt(b.refs, b.at);
+			const ref = i >= 0 ? b.refs[i] : null;
+			const act = ref?.act ?? 'aside';
+			const hit = ref?.unit ? resolveUnit(section, spec.units, ref) : null;
+			// A binding that names a unit this render does not draw (a variant the scene does not
+			// cover yet) is not the scene's to play: the caller reads the words, as before binding,
+			// rather than leave the slide dark (checker, 2026-09-27).
+			if (ref?.unit && !hit) return null;
+			const labelled = !!(ref?.unit && spec.units[ref.unit]?.labels);
+			// An unbound sentence (an aside, leftover prose) sits AFTER the last ref that starts before
+			// it, so a pause and resume there still knows the key beat has passed.
+			let at = i;
+			if (at < 0) for (let j = 0; j < b.refs.length; j++) if ((b.refs[j]?.start ?? Infinity) <= b.at) at = j;
+			const expr = style(act, { named: !!hit, key: i >= 0 && i === scene.key, afterKey: scene.key >= 0 && at >= scene.key && i !== scene.key, labelled });
+			const apply = (parts: FocusParts): void => {
+				unmark();
+				undo = focusParts(section, parts, look);
+				aim = parts.unit[0] ?? null;
+				shown = true;
+				if (scene) scene.parts = parts;
+			};
+			if (expr.focus === 'reset') {
+				unmark();
+				aim = null;
+				shown = false;
+				scene.group = null;
+				scene.parts = null;
+			} else if ((expr.focus === 'unit' || expr.focus === 'group') && hit) {
+				const unit = [...hit.unit, ...hit.labels];
+				const others = [...hit.peers, ...hit.peerLabels];
+				// Inside an opened group, the group's other units recede deeper than the rest: the line
+				// being walked keeps its shape, and the point being read stands out on it.
+				const group = expr.focus === 'unit' && scene.group ? new Set(scene.group) : null;
+				apply({ unit, peers: group ? others.filter((e) => !group.has(e)) : others, inner: group ? others.filter((e) => group.has(e)) : [] });
+				if (expr.focus === 'group') scene.group = hit.unit;
+			} else if (expr.focus === 'hold' && !undo && scene.parts) {
+				// A pause lifted the focus on a sentence that holds: bring back what it held.
+				apply(scene.parts);
+			}
+			return { act, expr, hit };
 		},
 		/**
 		 * Land a `moment` on `el` — the element the caller confirmed it can show (the player passes

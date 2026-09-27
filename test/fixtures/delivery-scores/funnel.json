@@ -1,0 +1,248 @@
+{
+	"restrained": [
+		{
+			"said": "The funnel narrows; the width is the story.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each stage is narrower than the one above it by the share that dropped out.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Visitors: twelve thousand.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two-thirds arrive from inbound, not outbound. Paid search makes up the rest.",
+			"act": "note",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Signups: four thousand eight hundred, forty percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Activated: two thousand one hundred sixty, forty-five percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Paid: eight hundred sixty-four, forty percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Renewed: six hundred seventy, seventy-eight percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"4\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The funnel narrows; the width is the story.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each stage is narrower than the one above it by the share that dropped out.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Visitors: twelve thousand.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Two-thirds arrive from inbound, not outbound. Paid search makes up the rest.",
+			"act": "note",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		},
+		{
+			"said": "Signups: four thousand eight hundred, forty percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Activated: two thousand one hundred sixty, forty-five percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Paid: eight hundred sixty-four, forty percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Renewed: six hundred seventy, seventy-eight percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"4\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The funnel narrows; the width is the story.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each stage is narrower than the one above it by the share that dropped out.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Visitors: twelve thousand.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two-thirds arrive from inbound, not outbound. Paid search makes up the rest.",
+			"act": "note",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Signups: four thousand eight hundred, forty percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Activated: two thousand one hundred sixty, forty-five percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"2\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Paid: eight hundred sixty-four, forty percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"3\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Renewed: six hundred seventy, seventy-eight percent of the prior stage.",
+			"act": "visit",
+			"unit": "stage",
+			"select": "polygon.funnel-band[data-mark=\"4\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

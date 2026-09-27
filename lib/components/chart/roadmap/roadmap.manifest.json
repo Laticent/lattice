@@ -278,7 +278,7 @@
         "select": ".horizon-card:has(> .horizon-head[data-label=\"{horizon}\"])"
       },
       "bet": {
-        "select": "li.cell-state[data-label=\"{bet}\"]"
+        "select": ".horizon-card li[data-label=\"{bet}\"]"
       }
     },
     "key": "first"

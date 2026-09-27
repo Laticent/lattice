@@ -12,13 +12,15 @@
 // pointer on it, and the chart hover the Studio turns off while the Guide plays does not exist in
 // the player at all.
 
-import { aimTarget, createGuideDirector, findCueTarget, focusUnit, type GuideLook, wordRangeIn } from './guide-kernel';
+import { DELIVERY_STYLES } from '@/lib/resolve-delivery';
+import { aimTarget, createGuideDirector, findCueTarget, focusUnit, type GuideLook, type SceneRef, type SceneStyle, wordRangeIn } from './guide-kernel';
 
-/** The preset fields the player needs: the focus look plus the read-along switch. */
-export type PlayerLook = GuideLook & { wordFocus: boolean };
+/** The preset fields the player needs: the focus look, the read-along switch, and each slide's
+ *  binding (`guideLook` in lib/export/player-core.mjs), absent when no slide is bound. */
+export type PlayerLook = GuideLook & { wordFocus: boolean; refs?: (readonly SceneRef[] | null)[] };
 
 /** One cue of the player's LTT track, as `makeCursor(...).track()` hands it over. */
-type TrackCue = { words?: { display?: string }[] };
+type TrackCue = { words?: { display?: string }[]; charOffset?: number };
 type Track = { cues: TrackCue[] };
 
 const norm = (s: string): string => s.replace(/\s+/g, ' ').trim();
@@ -50,6 +52,12 @@ export function createPlayerGuide(look: PlayerLook) {
 				texts = track.cues.map(displayOf);
 			}
 			slideNow = slide;
+			// A BOUND SENTENCE plays its scene in the delivery's own style, as in the Studio; the ink
+			// and the cursor are the Studio's, so the player applies only the focus the style asks for.
+			const style: SceneStyle | undefined = (DELIVERY_STYLES as Record<string, { express: SceneStyle } | undefined>)[look.name]?.express;
+			const refs = look.refs?.[slide] ?? null;
+			const at = track.cues[k]?.charOffset ?? -1;
+			if (refs && style !== undefined && at >= 0 && director.scene({ slide, section, refs, at }, look, style)) return;
 			const text = texts[k] ?? '';
 			const aimOf = (t: string) => aimIn(section, t);
 			const aim = text ? aimOf(text) : null;

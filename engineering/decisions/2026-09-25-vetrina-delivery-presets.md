@@ -177,6 +177,12 @@ boardroom, where a moving highlight across the text competes with the speaker.
 
 ## 6. Presets (axis B)
 
+> **Superseded (owner, 2026-09-27):** a preset is no longer a budget and a loudness. Each delivery is
+> its own style file, and a chart's narration binds each sentence to the part it names, so no
+> budget decides which of a chart's sentences show. See
+> [`2026-09-27-delivery-styles-and-component-scenes.md`](2026-09-27-delivery-styles-and-component-scenes.md).
+> This section and §6.1 stay as the record.
+
 `tone:` is already a front-matter register (marker shape). So the proposal is a
 new deck register, **`delivery:`**, overridable per slide with `_delivery:`, and
 readable by the Studio and the exported player.

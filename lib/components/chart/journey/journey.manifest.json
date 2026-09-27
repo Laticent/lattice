@@ -285,7 +285,10 @@
   "scene": {
     "units": {
       "section": {
-        "select": "li.journey-stage[data-label=\"{section}\"]"
+        "select": [
+          "li.journey-stage[data-label=\"{section}\"]",
+          "li.journey-vstage[data-section=\"{si}\"]"
+        ]
       },
       "task": {
         "select": "[data-label=\"{task}\"]:is(li.journey-task, .journey-vtask)"

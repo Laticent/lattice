@@ -1,0 +1,428 @@
+{
+	"restrained": [
+		{
+			"said": "The journey scores each stage of the path.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each step is scored for how it feels, from one, pain, to five, delight.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Evaluate, three steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Evaluate\"], li.journey-vstage[data-section=\"0\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Read case study, by the prospect, scores five out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Read case study\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Book demo, by the prospect, scores four out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Book demo\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Live demo, by the prospect and sales, scores four out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Live demo\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Trial, two steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Trial\"], li.journey-vstage[data-section=\"1\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Trial signup, by the prospect, scores three out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Trial signup\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Workspace setup, by the user and onboarding, scores one out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Workspace setup\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Activate, two steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Activate\"], li.journey-vstage[data-section=\"2\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "First report, by the user, scores three out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"First report\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Daily use, by the user, scores five out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Daily use\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The low point is Workspace setup, at one out of five.",
+			"act": "peak",
+			"unit": "task",
+			"select": "[data-label=\"Workspace setup\"]:is(li.journey-task, .journey-vtask)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The high points are Read case study and Daily use, at five out of five.",
+			"act": "peak",
+			"unit": "task",
+			"select": "[data-label=\"Read case study\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The journey scores each stage of the path.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each step is scored for how it feels, from one, pain, to five, delight.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Evaluate, three steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Evaluate\"], li.journey-vstage[data-section=\"0\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Read case study, by the prospect, scores five out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Read case study\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Book demo, by the prospect, scores four out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Book demo\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Live demo, by the prospect and sales, scores four out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Live demo\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Trial, two steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Trial\"], li.journey-vstage[data-section=\"1\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Trial signup, by the prospect, scores three out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Trial signup\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Workspace setup, by the user and onboarding, scores one out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Workspace setup\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Activate, two steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Activate\"], li.journey-vstage[data-section=\"2\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "First report, by the user, scores three out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"First report\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Daily use, by the user, scores five out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Daily use\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "The low point is Workspace setup, at one out of five.",
+			"act": "peak",
+			"unit": "task",
+			"select": "[data-label=\"Workspace setup\"]:is(li.journey-task, .journey-vtask)",
+			"key": true,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		},
+		{
+			"said": "The high points are Read case study and Daily use, at five out of five.",
+			"act": "peak",
+			"unit": "task",
+			"select": "[data-label=\"Read case study\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The journey scores each stage of the path.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each step is scored for how it feels, from one, pain, to five, delight.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Evaluate, three steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Evaluate\"], li.journey-vstage[data-section=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Read case study, by the prospect, scores five out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Read case study\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Book demo, by the prospect, scores four out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Book demo\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Live demo, by the prospect and sales, scores four out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Live demo\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Trial, two steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Trial\"], li.journey-vstage[data-section=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Trial signup, by the prospect, scores three out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Trial signup\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Workspace setup, by the user and onboarding, scores one out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Workspace setup\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Activate, two steps.",
+			"act": "enter",
+			"unit": "section",
+			"select": "li.journey-stage[data-label=\"Activate\"], li.journey-vstage[data-section=\"2\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "First report, by the user, scores three out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"First report\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Daily use, by the user, scores five out of five.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-label=\"Daily use\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The low point is Workspace setup, at one out of five.",
+			"act": "peak",
+			"unit": "task",
+			"select": "[data-label=\"Workspace setup\"]:is(li.journey-task, .journey-vtask)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The high points are Read case study and Daily use, at five out of five.",
+			"act": "peak",
+			"unit": "task",
+			"select": "[data-label=\"Read case study\"]:is(li.journey-task, .journey-vtask)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

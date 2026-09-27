@@ -11,7 +11,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
-import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
+import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
@@ -24,7 +24,7 @@ import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, reso
 // narrates chart slides from, so a given chart slide narrates identically on both
 // surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
-import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
@@ -37,7 +37,7 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { createGuideDirector, cueDisplayText, focusUnit, type GuideDirector, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX, wordRangeIn } from './present-guide';
+import { createGuideDirector, cueDisplayText, focusUnit, type GuideDirector, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection, wordRangeIn } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
@@ -353,15 +353,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// switch invalidates the tag) the markdown flatten keeps Present off dead air and off a
 	// stale lens's narration.
 	const narrationAt = React.useCallback(
-		(i: number): { text: string; emphasis?: EmphasisSpans } => {
+		(i: number): { text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
+			const script = narrateChartScript(md);
 			const text = resolveNarration({
 				caption: getCaption(md),
 				fmCaption: fmCaptions.get((setIndices[i] ?? i) + 1), // front-matter captions[author slide number]
 				// NO NOTE RUNG. A note is the presenter's, and it reaches the presenter's own
 				// panel below — never this, which is what the room hears and reads.
-				chart: narrateChart(md),
+				chart: script?.text ?? null,
 				projected: aligned ? (projected.texts[i] ?? '') : null,
 				fallback: aligned ? null : slideToSpeech(md),
 			});
@@ -370,7 +371,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// substitution replaces it, and reusing those offsets would land a beat mid-phrase. The
 			// same identity test the CLI export applies, so the two producers agree slide for slide.
 			const emphasis = aligned && text === (projected.texts[i] ?? '') ? projected.emphasis[i] : undefined;
-			return { text, emphasis };
+			// THE BINDING, by the same identity test: the chart narrator's refs are character spans
+			// over ITS text, so they hold only while that is the text being read (a caption replaces it).
+			const refs = script?.refs.length && text === script.text ? script.refs : undefined;
+			return { text, emphasis, refs };
 		},
 		[set, setIndices, fmCaptions, projected],
 	);
@@ -396,7 +400,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// A fresh record commits on every navigation regardless of what the text says, while the
 	// `track` memo still keys on the STRING, so identical text keeps the same track object and
 	// the reader is not needlessly torn down.
-	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans }>({ idx: -1, text: '' });
+	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] }>({ idx: -1, text: '' });
 	const narrationText = narration.text;
 	const narrationEmphasis = narration.emphasis;
 	// The emphasis is compared alongside the text: a projection LANDING can resolve the same string
@@ -1210,8 +1214,6 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// decision measures every block on the slide. This effect runs once per SENTENCE and acts
 		// once per BLOCK, so on the common path — the next sentence of a paragraph already named —
 		// nothing here forces a reflow while audio is playing.
-		const aimOf = (t: string) => (onStage ? guideAimIn(slideDoc(), t) : guideAimFor(frame, t));
-		const aim = text ? aimOf(text) : null;
 		const handDown = () => {
 			guidePointRef.current?.abort();
 			guidePointRef.current = null;
@@ -1219,6 +1221,71 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			guideHandRef.current = false;
 			setGuideAiming(false);
 		};
+		// A BOUND SENTENCE plays its scene in the delivery's own style (engineering/decisions/
+		// 2026-09-27-delivery-styles-and-component-scenes.md). The narrator named the part, the
+		// component's scene finds it, and the delivery's style file says what the act does: nothing
+		// here reads the words. A slide the narrator does not bind (prose, an authored caption) falls
+		// through to the text path below.
+		const slideSection = (): Element | null => {
+			try {
+				const found = onStage ? shownSection(slideDoc() as Document) : (frame()?.contentDocument?.querySelector('section') ?? null);
+				return found && 'classList' in found ? found : null;
+			} catch {
+				return null;
+			}
+		};
+		const cueAt = activeCue >= 0 ? (reader.track.cues[activeCue]?.charOffset ?? -1) : -1;
+		const style: SceneStyle | undefined = (DELIVERY_STYLES as Record<string, { express: SceneStyle } | undefined>)[delivery.name]?.express;
+		const sceneRoot = narration.refs && style !== undefined && cueAt >= 0 ? slideSection() : null;
+		const sceneStep = sceneRoot && style !== undefined ? guide.scene({ slide: narration.idx, section: sceneRoot, refs: narration.refs, at: cueAt }, delivery, style) : null;
+		if (sceneStep && sceneRoot) {
+			const { expr, hit } = sceneStep;
+			// The cursor and the ink are the Studio's alone, and only where the delivery asks for them.
+			if (delivery.ink === 'none' || expr.cursor === 'hide') {
+				handDown();
+				return;
+			}
+			if (!expr.ink) {
+				// `rest` and `keep`: the hand stays where the last act left it.
+				return;
+			}
+			const on = expr.ink.on;
+			const els: Element[] =
+				on === 'figure'
+					? [sceneRoot.querySelector('figure.chart-frame, .chart-body, svg')].filter((e): e is Element => !!e)
+					: on === 'heading'
+						? [sceneRoot.querySelector('h1, h2, h3')].filter((e): e is Element => !!e)
+						: on === 'labels' && hit?.labels.length
+							? hit.labels
+							: (hit?.mark ?? []);
+			// A TRACE follows a LINE: a unit with no path in it (a quadrant cell's scattered dots) is
+			// bracketed instead, or the stroke would zigzag through unrelated points (checker).
+			const lined = els.some((e) => /^(path|polyline|line)$/i.test(e.tagName));
+			const kind = (expr.ink.kind === 'trace' && !lined ? 'bracket' : expr.ink.kind) as Parameters<typeof stage.gesture>[0];
+			// A TRACE is drawn through points, so it is handed the unit's POINTS: a line's dots, a slope's
+			// two ends. A unit with fewer than two (a stacked area has no dots) keeps its shape, and the
+			// stage draws a bracket around it instead.
+			const points = kind === 'trace' ? els.filter((e) => !/^(path|polyline|polygon|line)$/i.test(e.tagName)) : els;
+			const cue = els.length ? sceneCue(onStage ? null : frame, sceneRoot, points.length >= 2 ? points : els, kind, expr.ink.strength) : null;
+			if (!cue) return;
+			guidePointRef.current?.abort();
+			const ctl = new AbortController();
+			guidePointRef.current = ctl;
+			setGuideAiming(true);
+			const run = stage.gesture(cue.kind, cue.target, ctl.signal, { strength: cue.strength, clearance: POINTER_BOX / 2 + 5, rest: cue.rest });
+			if (guideHandRef.current) {
+				run.catch(() => {});
+				return;
+			}
+			run.then(() => {
+				if (ctl.signal.aborted || guideStageRef.current !== stage) return;
+				stage.setCursorVisible(true);
+				guideHandRef.current = true;
+			}).catch(() => {});
+			return;
+		}
+		const aimOf = (t: string) => (onStage ? guideAimIn(slideDoc(), t) : guideAimFor(frame, t));
+		const aim = text ? aimOf(text) : null;
 		// THE FOCUS POLICY is the director's (`guide-kernel.ts`): the rest, the resume, the plan's
 		// budget, the chart walk and the unplanned sentence. A live focus counts as resting too:
 		// expressive's top moment focuses at once but is only "shown" when its ink finishes, and the
@@ -1242,7 +1309,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// A moment nothing on the slide can focus (a figure, an image, a chart's hit area) falls back
 		// to ink. A moment with nothing BESIDE it to recede (a slide of one paragraph, a one-series
 		// line) is focused and shows no change: one lever, and the narration carries it.
-		const inks = !!cue && ((delivery.ink === 'top' && top) || !focusUnit(cue.el));
+		const inks = !!cue && (delivery.ink === 'all' || !focusUnit(cue.el));
 		// THE HOLD (the director's `land`): an ASIDE that names nothing keeps what is up, while the
 		// hand rests or the preset holds through asides; anything longer that names nothing lifts it.
 		// The hand itself holds on every preset.

@@ -278,6 +278,10 @@
       "entity": {
         "select": "[data-mark=\"{mark}\"]:is(polyline, line), circle[data-series=\"{mark}\"]",
         "labels": "text[data-mark-for=\"{mark}\"]"
+      },
+      "mark": {
+        "select": "[data-mark=\"{mark}\"]:is(polyline, line)",
+        "labels": "text[data-mark-for=\"{mark}\"]"
       }
     },
     "key": "largest"

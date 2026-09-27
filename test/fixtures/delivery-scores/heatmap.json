@@ -1,0 +1,278 @@
+{
+	"restrained": [
+		{
+			"said": "Retention decays fastest in month two.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each cell is shaded by its value, so the darkest cells are where it concentrates.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each row runs across M0, M1, M2, and M3.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Every row is highest at M0, at one hundred.",
+			"act": "peak",
+			"unit": "column",
+			"select": "rect.heatmap-cell[data-label$=\" · M0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Jan 2026 is lowest at M3, forty-four.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Jan 2026 · M3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Feb 2026 is lowest at M3, forty-one.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Feb 2026 · M3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mar 2026 is lowest at M3, fifty-five.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Mar 2026 · M3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Apr 2026 is lowest at M2, fifty-seven.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Apr 2026 · M2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Apr 2026 has no data for M3.",
+			"act": "visit",
+			"unit": "row",
+			"select": "rect.heatmap-cell[data-label^=\"Apr 2026 · \"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Retention decays fastest in month two.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each cell is shaded by its value, so the darkest cells are where it concentrates.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Each row runs across M0, M1, M2, and M3.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Every row is highest at M0, at one hundred.",
+			"act": "peak",
+			"unit": "column",
+			"select": "rect.heatmap-cell[data-label$=\" · M0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Jan 2026 is lowest at M3, forty-four.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Jan 2026 · M3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Feb 2026 is lowest at M3, forty-one.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Feb 2026 · M3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Mar 2026 is lowest at M3, fifty-five.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Mar 2026 · M3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Apr 2026 is lowest at M2, fifty-seven.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Apr 2026 · M2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Apr 2026 has no data for M3.",
+			"act": "visit",
+			"unit": "row",
+			"select": "rect.heatmap-cell[data-label^=\"Apr 2026 · \"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Retention decays fastest in month two.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each cell is shaded by its value, so the darkest cells are where it concentrates.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each row runs across M0, M1, M2, and M3.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Every row is highest at M0, at one hundred.",
+			"act": "peak",
+			"unit": "column",
+			"select": "rect.heatmap-cell[data-label$=\" · M0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Jan 2026 is lowest at M3, forty-four.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Jan 2026 · M3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Feb 2026 is lowest at M3, forty-one.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Feb 2026 · M3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mar 2026 is lowest at M3, fifty-five.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Mar 2026 · M3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Apr 2026 is lowest at M2, fifty-seven.",
+			"act": "peak",
+			"unit": "cell",
+			"select": "rect.heatmap-cell[data-label=\"Apr 2026 · M2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Apr 2026 has no data for M3.",
+			"act": "visit",
+			"unit": "row",
+			"select": "rect.heatmap-cell[data-label^=\"Apr 2026 · \"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

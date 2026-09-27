@@ -465,7 +465,12 @@ export function chooseGesture(shape: GuideShape): Gesture {
 export const POINTER_BOX = 28;
 
 const overlaps = (a: Box, b: Box): boolean => a.left < b.left + b.width && a.left + a.width > b.left && a.top < b.top + b.height && a.top + a.height > b.top;
-const boxAt = (x: number, y: number, half: number): Box => ({ left: x - half, top: y - half, width: half * 2, height: half * 2 });
+// WHERE THE ARROW'S BODY IS. Vetrina paints the cursor with the arrow's TIP at the point
+// (`paintCursorAt`: left = x, top = y), so its 28px body hangs down and to the right of it. A box
+// CENTERED on the point missed the lower half of the arrow: the hand resting under a heading was
+// scored clear while its body lay across the paragraph's first line (present-guide.spec.ts,
+// reproduced 2026-09-27). Every clearance check here uses the body where it is drawn.
+const boxAt = (x: number, y: number, half: number): Box => ({ left: x, top: y, width: half * 2, height: half * 2 });
 const inside = (b: Box, f: Box): boolean => b.left >= f.left && b.top >= f.top && b.left + b.width <= f.left + f.width && b.top + b.height <= f.top + f.height;
 
 /**
@@ -497,14 +502,15 @@ export function pointerAnchor(target: Box, frame: Box, obstacles: readonly Box[]
 	const midY = target.top + target.height / 2;
 	const nearX = target.left + Math.min(target.width / 2, pad);
 	const candidates: Array<{ x: number; y: number }> = [];
+	// Each candidate is where the TIP goes; the body hangs `2 * half` down and right of it (`boxAt`).
 	for (const gap of [5, 20, 44]) {
-		candidates.push({ x: target.left - gap - half, y: midY }); // left margin, level — the classic deictic
-		candidates.push({ x: nearX, y: target.top + target.height + gap + half }); // under the line
-		candidates.push({ x: nearX, y: target.top - gap - half }); // above it
-		candidates.push({ x: target.left + target.width + gap + half, y: midY }); // right margin, level
+		candidates.push({ x: target.left - gap - 2 * half, y: midY - half }); // left margin, level — the classic deictic
+		candidates.push({ x: nearX, y: target.top + target.height + gap }); // under the line
+		candidates.push({ x: nearX, y: target.top - gap - 2 * half }); // above it
+		candidates.push({ x: target.left + target.width + gap, y: midY - half }); // right margin, level
 	}
 	// The slide's own margins, as a last resort before giving up on clearance entirely.
-	candidates.push({ x: frame.left + pad, y: midY }, { x: frame.left + frame.width - pad, y: midY });
+	candidates.push({ x: frame.left + 5, y: midY - half }, { x: frame.left + frame.width - 5 - 2 * half, y: midY - half });
 
 	let best: { x: number; y: number } | null = null;
 	let bestScore = Number.POSITIVE_INFINITY;
@@ -522,8 +528,8 @@ export function pointerAnchor(target: Box, frame: Box, obstacles: readonly Box[]
 	if (best) return best;
 	const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 	return {
-		x: clamp(nearX, frame.left + pad, frame.left + frame.width - pad),
-		y: clamp(target.top + target.height + 5 + half, frame.top + pad, frame.top + frame.height - pad),
+		x: clamp(nearX, frame.left + 5, frame.left + frame.width - 5 - 2 * half),
+		y: clamp(target.top + target.height + 5, frame.top + 5, frame.top + frame.height - 5 - 2 * half),
 	};
 }
 
@@ -693,6 +699,17 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 	// and the cursor in the same ~2 degrees of the viewer's fovea.
 	const keepOut = anchor.role === 'phrase' ? t0 : anchor.box;
 
+	const { rest, occupied } = restFor(root, kind, keepOut, rects, frame, half, pad, anchor.role === 'marker' ? anchor.box : null);
+	return { el, kind, role: anchor.role, strength: notable ? 'notable' : 'quiet', box: keepOut, inkRange: anchor.range, rects, markerOffset: anchor.markerOffset, rest, fellBack: occupied };
+}
+
+/**
+ * WHERE THE HAND ENDS after a `kind` gesture on `keepOut`, in `root`'s coordinates: the stroke's
+ * own ending when it covers no painted word and stays on the card, else `pointerAnchor`'s search.
+ * `marker` is a marker handle's box (its hand stands off on the outside), or null.
+ * Shared by the text cue (`guideCueIn`) and a bound scene's ink (`sceneInkIn`).
+ */
+export function restFor(root: Document | Element, kind: Gesture, keepOut: Box, rects: readonly DOMRect[] | null, frame: Box, half: number, pad: number, marker: Box | null = null): { rest: { x: number; y: number } | null; occupied: boolean } {
 	// WHERE THE GESTURE WILL LEAVE THE HAND — asked, not re-derived. Geometry alone cannot know
 	// what ELSE is near: "past the block's right edge" is the slide margin on a full-width
 	// paragraph and the second column on a two-column layout. So one candidate from the stroke,
@@ -745,8 +762,8 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 	// on the far side, further into the margin the marker already lives in, which is where a
 	// presenter's hand goes and what keeps the cue and the cursor inside one fixation.
 	const natural =
-		anchor.role === 'marker' ? { x: anchor.box.left - pad, y: anchor.box.top + anchor.box.height / 2 } : gestureRest(kind, keepOut, rects?.map(boxOf) ?? null, pad);
-	const footprint = (p: { x: number; y: number }): Box => ({ left: p.x - half, top: p.y - half, width: half * 2, height: half * 2 });
+		marker ? { x: marker.left - pad - half, y: marker.top + marker.height / 2 - half } : gestureRest(kind, keepOut, rects?.map(boxOf) ?? null, pad);
+	const footprint = (p: { x: number; y: number }): Box => boxAt(p.x, p.y, half);
 	// OFF THE CARD COUNTS AS OCCUPIED. `pointerAnchor` rejects any candidate not inside the frame
 	// (a pointer half off the card reads as a bug, not a gesture); the geometry path checked only
 	// against BLOCKS, so "past the block's right edge" could run off the slide with nothing there
@@ -762,9 +779,10 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 	// and passing no rest there is what keeps the withdrawal a single continuous motion.
 	// A marker's ending is the HOST's, not the stroke's, so it is always handed back explicitly —
 	// same as `circle`, and for the same reason: the library would otherwise apply its own.
-	const rest = occupied ? pointerAnchor(keepOut, frame, obstacles, half) : kind === 'circle' || anchor.role === 'marker' ? natural : null;
-	return { el, kind, role: anchor.role, strength: notable ? 'notable' : 'quiet', box: keepOut, inkRange: anchor.range, rects, markerOffset: anchor.markerOffset, rest, fellBack: occupied };
+	const rest = occupied ? pointerAnchor(keepOut, frame, obstacles, half) : kind === 'circle' || marker ? natural : null;
+	return { rest, occupied };
 }
+
 
 /** The document behind a preview frame, or null for a frame that is gone or cross-origin. */
 const frameDoc = (getFrame: () => HTMLIFrameElement | null): Document | null => {
@@ -938,5 +956,85 @@ export function guideCueInDoc(doc: Document | null, text: string): GuideCue | nu
 		// A 2x2 box around the point, so Vetrina's `aimAt` resolves to the point itself
 		// (the same shape `innerPoint` builds on the framed path).
 		rest: cue.rest ? { getBoundingClientRect: () => (alive() ? asRect({ left: (cue.rest as { x: number; y: number }).x - 1, top: (cue.rest as { x: number; y: number }).y - 1, width: 2, height: 2 }) : GONE) } : null,
+	};
+}
+
+// ── A BOUND SCENE'S INK ──────────────────────────────────────────────────────────────────────
+//
+// A sentence the narrator bound (`narrateChartScript`) names its parts outright, and its delivery's
+// style names the stroke (`lib/core/delivery-styles/expressive.mjs`): no shape classifier, no text
+// search. What is left is geometry: the union of the parts, where the hand rests after, and the
+// frame bridge, the same way a text cue gets them.
+
+/** The union box of `els`, live; null when none of them is laid out. */
+function unionBox(els: readonly Element[]): Box | null {
+	const boxes = els.map(elBox).filter((b) => b.width > 0 && b.height > 0);
+	if (!boxes.length) return null;
+	const left = Math.min(...boxes.map((b) => b.left));
+	const top = Math.min(...boxes.map((b) => b.top));
+	return { left, top, width: Math.max(...boxes.map((b) => b.left + b.width)) - left, height: Math.max(...boxes.map((b) => b.top + b.height)) - top };
+}
+
+/** A text element's line rects (an underline follows the first, a wash every one), else its box. */
+function inkRects(els: readonly Element[]): DOMRect[] {
+	const out: DOMRect[] = [];
+	for (const el of els) {
+		const lines = rectsOf(contentRange(el));
+		if (lines?.length) out.push(...lines);
+		else {
+			const b = elBox(el);
+			if (b.width > 0 && b.height > 0) out.push(asRect(b));
+		}
+	}
+	return out;
+}
+
+/**
+ * A scene's ink on `els`, as a cue the Studio's stage can draw: the parts' union (with each part's
+ * line rects, so a wash covers the words), and the hand's resting place off every painted word.
+ * `getFrame` crosses the preview frame; pass null on the Stage, where the slide IS the document.
+ */
+export function sceneCue(getFrame: (() => HTMLIFrameElement | null) | null, root: Element, els: readonly Element[], kind: Gesture, strength: 'quiet' | 'notable'): GuideCue | null {
+	const el = els[0];
+	if (!el) return null;
+	const doc = root.ownerDocument;
+	const view = doc?.defaultView;
+	if (!view) return null;
+	const S = getFrame ? frameGeom(getFrame())?.S || 1 : 1;
+	const half = POINTER_BOX / 2 / S;
+	const box = unionBox(els);
+	if (!box) return null;
+	const fit = getFrame ? null : doc.getElementById('latt-fit');
+	const fr = fit ? fit.getBoundingClientRect() : getFrame ? doc.documentElement.getBoundingClientRect() : null;
+	const frame: Box = fr && fr.width > 0 ? { left: fr.left, top: fr.top, width: fr.width, height: fr.height } : { left: 0, top: 0, width: view.innerWidth, height: view.innerHeight };
+	const { rest } = restFor(root, kind, box, inkRects(els), frame, half, half + 5 / S);
+	const alive = () => el.isConnected;
+	const out = (b: Box): DOMRect => {
+		if (!getFrame) return asRect(b);
+		const geom = frameGeom(getFrame());
+		return geom ? (asRect(innerRectToParent(b, geom)) as DOMRect) : GONE;
+	};
+	return {
+		el,
+		kind,
+		strength,
+		target: {
+			getBoundingClientRect(): DOMRect {
+				try {
+					const b = alive() ? unionBox(els) : null;
+					return b ? out(b) : GONE;
+				} catch {
+					return GONE;
+				}
+			},
+			getClientRects(): DOMRect[] {
+				try {
+					return alive() ? inkRects(els).map((r) => out(boxOf(r))) : [];
+				} catch {
+					return [];
+				}
+			},
+		},
+		rest: rest ? (getFrame ? innerPoint(getFrame, alive, rest) : { getBoundingClientRect: () => (alive() ? asRect({ left: rest.x - 1, top: rest.y - 1, width: 2, height: 2 }) : GONE) }) : null,
 	};
 }

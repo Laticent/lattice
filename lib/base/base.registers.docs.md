@@ -1041,31 +1041,11 @@ card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
 and lines keep their own marks. Hand-drawn chart *marks* are a deferred
 follow-up.
 
-## The `delivery:` front-matter register (how much the narrated Guide gestures)
+## The `delivery:` front-matter register (how the narrated Guide gestures)
 
 `delivery:` sets how the **Guide** behaves while narration plays, in the Studio's Present and in
-a narrated webpage you send: how many moments on a slide get a gesture, and how each one looks. It
-changes nothing in a rendered slide, a PDF or a PPTX.
-
-**In a sent webpage.** A narrated webpage export of a deck that sets `delivery:` carries the Guide
-(about 37 KB), so the recipient sees the same focus the Studio shows while the deck plays itself.
-Pausing lifts the focus; playing again replays the slide, and each sentence brings its focus back
-as it is read. With the captions off, the word being said
-lights on the slide, as in the Studio. The export draws no cursor and no overlay ink, so
-`expressive`'s top moment focuses like any other there, and a moment the Studio marks with ink
-(an image, a figure) shows nothing. A deck with no `delivery:` line exports
-without the Guide, exactly as before.
-
-**The gesture is focus.** When the narration names a bullet, a table row, cell or column, a chart
-bar, wedge or line, that element stays exactly as it is and everything else in its group recedes:
-the same emphasis a viewer gets by hovering a chart mark (every other mark to 0.45). Nothing moves,
-nothing changes color, and nothing is drawn over the slide. A table's first cell names its row, a
-header cell names its column, and any other cell names itself. When the narration walks a chart
-point by point, the focus follows as one moment of the budget: on a line, the other series recede
-and, within the line, the other points recede, so the point being read stands out while the line
-keeps its shape. When the narration names something with nothing around it to recede (an image, a
-figure), the Guide draws ink there instead. Moments hand off in a single crossfade, so two things
-are never in focus at once.
+a narrated webpage you send. Each delivery is its own character: it decides how each narrated
+sentence is expressed on the slide. It changes nothing in a rendered slide, a PDF or a PPTX.
 
 ```yaml
 delivery: restrained   # the default: a boardroom, or a board member reading the file alone
@@ -1073,24 +1053,43 @@ delivery: expressive   # a sales room, a prospect, a lightning talk, a lunch-and
 delivery: somber       # bad news, a loss: nothing moves that does not have to
 ```
 
+**What a sentence names is never the delivery's call.** A chart's narration is written from the
+chart's own data, so each sentence already knows the bar, point, stage or cell it is about, and
+the component says how that part is drawn. The delivery only decides what to DO with it:
+
+| The sentence… | `restrained` | `expressive` | `somber` |
+|---|---|---|---|
+| says how to read the figure | the whole figure comes back to full | a bracket around the figure | nothing moves |
+| introduces a series, lane or group | the group stays, the rest recedes | the line is traced by the cursor | nothing moves |
+| names one part (a bar, a point, a stage) | that part and its label stay, the rest recedes | the cursor goes to it and taps it | nothing moves |
+| adds a detail about that part | holds | washes its label | nothing moves |
+| compares two values | the part stays | a bracket around it | nothing moves |
+| names the highest or lowest | the part stays | a circle around it | nothing moves |
+| is the slide's key beat (the component decides which) | as above | as above | the one gesture: that part stays, the rest recedes slowly, held to the slide's end |
+
 | | `restrained` | `expressive` | `somber` |
 |---|---|---|---|
-| Gestures per slide, at most | 2 | 4 | 1 |
-| After the first, a moment needs a signal | yes | no | yes |
+| How often | every sentence that names a part | every sentence that names a part | once a slide |
 | The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.62 |
 | A walked line's other points recede to | 0.30 | 0.20 | 0.50 |
-| Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside that names nothing ("Thank you.") |
-| Read-along on the slide (the word being said, only with captions off) | yes | yes | no |
-| Cursor and overlay ink | none | on the top moment only | none |
+| Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside ("Thank you.") |
+| Cursor and overlay ink | none | on every act, in the Studio | none |
+| Read-along on the slide (captions off) | yes | yes | no |
 | Caption | the word being said lights up | the word being said lights up | the line reads in one muted ink |
 
-**What decides which moments.** At each slide the Guide ranks everything the narration names.
-From strongest to weakest: an authored `_focus:` target (never cut, even past the budget), a
-measured figure (`$4.2M`, `18%`, `3,100`, `19 mo`, but not `Section 01` or a year), a chart
-mark, the extreme mark of a chart, author emphasis (`**strong**`), then the headline. The
-preset spends its budget from the top, and the hand stays still through everything else. A
-preset never changes the ranking: a somber deck and an expressive deck point at the same
-important numbers, and the somber one points at fewer of them.
+**Prose, bullets and tables** are matched by their words. Under `restrained` and `expressive`
+every sentence that names a block focuses it; under `somber` only the slide's top-ranked moment
+does (an authored `_focus:` target first, then a measured figure, a chart mark, author emphasis,
+then the headline).
 
-The names and presets live in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value
-(`unknown-delivery`). Design: `engineering/decisions/2026-09-25-vetrina-delivery-presets.md`.
+**In a sent webpage.** A narrated webpage export of a deck that sets `delivery:` carries the Guide
+(about 49 KB), so the recipient sees the same focus the Studio shows while the deck plays itself.
+Pausing lifts the focus; playing again brings it back. With the captions off, the word being said
+lights on the slide. The export does not draw the cursor or overlay ink yet, so an `expressive`
+deck sent as a file shows its focus but not its ink. A deck with no `delivery:` line exports
+without the Guide, exactly as before.
+
+Each delivery lives in its own file, `lib/core/delivery-styles/<name>.mjs`; the names are gathered
+in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value (`unknown-delivery`). Design:
+`engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md` (superseding the budget
+model of `2026-09-25-vetrina-delivery-presets.md`).

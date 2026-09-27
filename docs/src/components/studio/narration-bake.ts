@@ -33,7 +33,7 @@ import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } fr
 import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
-import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { narrateChart, narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { applyChartNarration, resolveNarration } from './narration-resolve';
@@ -75,7 +75,7 @@ export type NarrationBake = {
 	/** What the deck's LTT is built from (lib/core/ltt-deck.mjs), index-aligned to the deck's
 	 *  slides: the exact text handed to `buildTrack`, and the track it built. Null for a slide
 	 *  with no narration. `slides[i]` is index-aligned to `narrated[i].track.cues`. */
-	narrated: ({ text: string; track: CaptionTrack; emphasis?: EmphasisSpans } | null)[];
+	narrated: ({ text: string; track: CaptionTrack; emphasis?: EmphasisSpans; refs?: unknown[] } | null)[];
 	/** The deck-wide inputs that change timing, for the LTT's `inputs` (the maps are hashed there). */
 	inputs: { lang?: string; lexicon?: Record<string, string>; acronyms?: Record<string, string> };
 	/** What the deck was narrated with — recorded so the artifact can say so. */
@@ -628,10 +628,21 @@ export async function bakeNarration(
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { tracks, texts, emphases, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
+	const { slides: slideMds, tracks, texts, emphases, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
-	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs).
-	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...emphases[i]] } : {}) } : null));
+	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs). The chart
+	// narrator's BINDING rides beside them, by the same identity test Present applies: its refs are
+	// spans over its own text, so they hold only while that is the text being baked. The player's
+	// Guide plays a bound sentence's scene from them (engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md).
+	const refsOf = (i: number): { refs?: unknown[] } => {
+		try {
+			const script = narrateChartScript(slideMds[i] ?? '');
+			return script?.refs.length && script.text === texts[i] ? { refs: script.refs } : {};
+		} catch {
+			return {};
+		}
+	};
+	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...emphases[i]] } : {}), ...refsOf(i) } : null));
 
 	// The cue skeleton — text, estimate, breath, word timings. Identical whether or not audio
 	// ships, because it is the same delivery either way; only the clips differ.

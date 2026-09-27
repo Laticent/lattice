@@ -1,0 +1,458 @@
+{
+	"restrained": [
+		{
+			"said": "Your level is a cell, not a rung.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Wider reach runs across, from Self to Field.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Deeper cognition runs up, from Remember to Create.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Junior sits at Remember and Self.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(6) > td:nth-child(2)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Junior: Team is reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(6)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mid sits at Understand and Self.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(5) > td:nth-child(2)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mid: Team is reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(5)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Senior sits at Apply and Team.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(4) > td:nth-child(3)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Senior: Self and Org are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Staff sits at Analyze and Org.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(3) > td:nth-child(4)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Staff: Team and Field are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(3)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Principal sits at Evaluate and Org.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(2) > td:nth-child(4)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Principal: Team and Field are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(2)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Distinguished sits at Create and Field.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(1) > td:nth-child(5)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Distinguished: Team and Org are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(1)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Your level is a cell, not a rung.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Wider reach runs across, from Self to Field.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Deeper cognition runs up, from Remember to Create.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Junior sits at Remember and Self.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(6) > td:nth-child(2)",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Junior: Team is reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(6)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Mid sits at Understand and Self.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(5) > td:nth-child(2)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Mid: Team is reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(5)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Senior sits at Apply and Team.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(4) > td:nth-child(3)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Senior: Self and Org are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Staff sits at Analyze and Org.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(3) > td:nth-child(4)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Staff: Team and Field are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(3)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Principal sits at Evaluate and Org.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(2) > td:nth-child(4)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Principal: Team and Field are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(2)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Distinguished sits at Create and Field.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(1) > td:nth-child(5)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Distinguished: Team and Org are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(1)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		}
+	],
+	"somber": [
+		{
+			"said": "Your level is a cell, not a rung.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Wider reach runs across, from Self to Field.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Deeper cognition runs up, from Remember to Create.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Junior sits at Remember and Self.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(6) > td:nth-child(2)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Junior: Team is reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(6)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mid sits at Understand and Self.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(5) > td:nth-child(2)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mid: Team is reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(5)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Senior sits at Apply and Team.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(4) > td:nth-child(3)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Senior: Self and Org are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Staff sits at Analyze and Org.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(3) > td:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Staff: Team and Field are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(3)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Principal sits at Evaluate and Org.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(2) > td:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Principal: Team and Field are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(2)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Distinguished sits at Create and Field.",
+			"act": "visit",
+			"unit": "cell",
+			"select": "tbody > tr:nth-child(1) > td:nth-child(5)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Distinguished: Team and Org are reachable.",
+			"act": "note",
+			"unit": "row",
+			"select": "tbody > tr:nth-child(1)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

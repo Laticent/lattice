@@ -1,0 +1,248 @@
+{
+	"restrained": [
+		{
+			"said": "Kestrel took the lead; Northwind gave it up.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each line joins one entity's before and after, so a crossing is a change in rank.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each line runs from 2023, on the left, to 2026, on the right.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Northwind, marked failing, fell seven points, from thirty-one percent to twenty-four percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"0\"]:is(polyline, line), circle[data-series=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Kestrel Group, marked live, rose seven points, from twenty-two percent to twenty-nine percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"1\"]:is(polyline, line), circle[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage rose two points, from nineteen percent to twenty-one percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"2\"]:is(polyline, line), circle[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian Partners fell one point, from seventeen percent to sixteen percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"3\"]:is(polyline, line), circle[data-series=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Everyone else fell one point, from eleven percent to ten percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"4\"]:is(polyline, line), circle[data-series=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Kestrel took the lead; Northwind gave it up.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each line joins one entity's before and after, so a crossing is a change in rank.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Each line runs from 2023, on the left, to 2026, on the right.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Northwind, marked failing, fell seven points, from thirty-one percent to twenty-four percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"0\"]:is(polyline, line), circle[data-series=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Kestrel Group, marked live, rose seven points, from twenty-two percent to twenty-nine percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"1\"]:is(polyline, line), circle[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Vantage rose two points, from nineteen percent to twenty-one percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"2\"]:is(polyline, line), circle[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Meridian Partners fell one point, from seventeen percent to sixteen percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"3\"]:is(polyline, line), circle[data-series=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Everyone else fell one point, from eleven percent to ten percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"4\"]:is(polyline, line), circle[data-series=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Kestrel took the lead; Northwind gave it up.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each line joins one entity's before and after, so a crossing is a change in rank.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each line runs from 2023, on the left, to 2026, on the right.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Northwind, marked failing, fell seven points, from thirty-one percent to twenty-four percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"0\"]:is(polyline, line), circle[data-series=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Kestrel Group, marked live, rose seven points, from twenty-two percent to twenty-nine percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"1\"]:is(polyline, line), circle[data-series=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage rose two points, from nineteen percent to twenty-one percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"2\"]:is(polyline, line), circle[data-series=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian Partners fell one point, from seventeen percent to sixteen percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"3\"]:is(polyline, line), circle[data-series=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Everyone else fell one point, from eleven percent to ten percent.",
+			"act": "compare",
+			"unit": "entity",
+			"select": "[data-mark=\"4\"]:is(polyline, line), circle[data-series=\"4\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

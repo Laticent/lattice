@@ -163,7 +163,10 @@ export const GUIDE_SCENES: Readonly<Record<string, GuideScene>> = {
 	"journey": {
 		"units": {
 			"section": {
-				"select": "li.journey-stage[data-label=\"{section}\"]"
+				"select": [
+					"li.journey-stage[data-label=\"{section}\"]",
+					"li.journey-vstage[data-section=\"{si}\"]"
+				]
 			},
 			"task": {
 				"select": "[data-label=\"{task}\"]:is(li.journey-task, .journey-vtask)"
@@ -269,7 +272,7 @@ export const GUIDE_SCENES: Readonly<Record<string, GuideScene>> = {
 				"select": ".horizon-card:has(> .horizon-head[data-label=\"{horizon}\"])"
 			},
 			"bet": {
-				"select": "li.cell-state[data-label=\"{bet}\"]"
+				"select": ".horizon-card li[data-label=\"{bet}\"]"
 			}
 		},
 		"key": "first"
@@ -287,6 +290,10 @@ export const GUIDE_SCENES: Readonly<Record<string, GuideScene>> = {
 		"units": {
 			"entity": {
 				"select": "[data-mark=\"{mark}\"]:is(polyline, line), circle[data-series=\"{mark}\"]",
+				"labels": "text[data-mark-for=\"{mark}\"]"
+			},
+			"mark": {
+				"select": "[data-mark=\"{mark}\"]:is(polyline, line)",
 				"labels": "text[data-mark-for=\"{mark}\"]"
 			}
 		},

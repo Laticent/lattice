@@ -645,6 +645,9 @@ export async function shareHtmlPlayer(
 							track: n.track,
 							clips: (result.slides[i] ?? []).map((c) => (c.audio && c.clip ? { audio: c.audio, clip: c.clip, leadMs: c.leadMs } : null)),
 							...(n.emphasis ? { emphasis: n.emphasis } : {}),
+							// The chart narrator's binding (narration-bake.ts `refsOf`): the player's Guide plays a
+							// bound sentence's scene from it (2026-09-27-delivery-styles-and-component-scenes.md).
+							...(n.refs ? { refs: n.refs } : {}),
 						}
 					: null,
 			),
