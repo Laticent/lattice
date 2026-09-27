@@ -4458,9 +4458,9 @@ async function renderBody(browser, g, closeBrowser) {
       console.log(`  SVG images: ${swapped} reference${swapped > 1 ? 's' : ''} rasterized at 2x for PDF portability (--keep-vector-images keeps vectors)`);
     }
   }
-  // BAKE THE FINISH BACKDROP — see bakeFinishBackdropsInPage. Same targets as the SVG pass
-  // above: the vector PDF (and its --paper variant); the raster paths are pixels already.
-  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !KEEP_VECTOR_FINISH) {
+  // BAKE THE FINISH BACKDROP — see bakeFinishBackdropsInPage. The vector PDF only: --raster
+  // and --paper screenshot every slide anyway, so baking there would compress it twice.
+  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT && !KEEP_VECTOR_FINISH) {
     const baked = await bakeFinishBackdropsInPage(g, page, slideW, slideH);
     if (baked && !QUIET) {
       console.log(`  Finish: ${baked} backdrop${baked > 1 ? 's' : ''} baked to JPEG for fast PDF viewing (--keep-vector-finish keeps vectors)`);
@@ -5427,7 +5427,8 @@ async function prunePlayerCssInPage(playerHtml) {
  *
  * SCALE follows the deck's size: the raster export scale (`resolveRasterScale('max')`, 2x HD,
  * 1x 4K, long edge ≤ 3840 px). QUALITY is JPEG 100 (owner: the highest quality possible).
- * Returns the number of backdrops baked. Opt out with --keep-vector-finish.
+ * A slide that fails to capture keeps its vector finish and warns. Returns the number of
+ * backdrops baked. Opt out with --keep-vector-finish.
  */
 async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
   const count = await g(() => page.evaluate(() => {
@@ -5440,7 +5441,13 @@ async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
     if (n) {
       const st = document.createElement('style');
       st.id = 'lattice-bake-style';
-      st.textContent = 'section[data-lattice-baking] > :not(.backdrop) { opacity: 0 !important; transition: none !important; }';
+      // Hide the content while its backdrop is captured. The frame keyline (gallery's
+      // `--fin-frame`, an inset shadow on the section) is also held off: the print face's
+      // opaque backdrop always covered it, so the PDF never showed it, and on screen it runs
+      // through the header (followup 2388-p3-gallery-frame-crosses-header). The value keeps
+      // the shadow list valid, so a tone rail in the same list survives.
+      st.textContent = 'section[data-lattice-baking] > :not(.backdrop) { opacity: 0 !important; transition: none !important; }'
+        + ' section[data-lattice-baking] { --fin-frame: 0 0 transparent !important; }';
       document.head.appendChild(st);
     }
     return n;
@@ -5448,39 +5455,52 @@ async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
   if (!count) return 0;
   const scale = resolveRasterScale('max', slideW, slideH);
   await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale }), 'bake viewport');
-  const shots = [];
+  let baked = 0;
   try {
     for (let i = 0; i < count; i++) {
       // Capture the BACKDROP's box, not the section's: the section's top border (the
       // spectrum bar) and a tone slide's rail sit outside it, and the image goes back on
       // exactly this box.
-      const el = await g(() => page.$(`section[data-lattice-bake="${i}"] > .backdrop`), 'bake backdrop');
-      await g(() => el.evaluate((b) => { b.parentElement.dataset.latticeBaking = ''; }), 'bake hide content');
-      const buf = await g(() => el.screenshot({ type: 'jpeg', quality: 100, captureBeyondViewport: true }), 'bake screenshot');
-      await g(() => el.evaluate((b) => { delete b.parentElement.dataset.latticeBaking; }), 'bake show content');
-      shots.push(Buffer.from(buf).toString('base64'));
+      const sel = `section[data-lattice-bake="${i}"] > .backdrop`;
+      try {
+        const el = await g(() => page.$(sel), 'bake backdrop');
+        // Scroll the slide into the viewport and capture only the viewport: a capture
+        // beyond it re-rasterized the whole tall page for every slide, which made a
+        // 121-slide deck take 74 s.
+        await g(() => el.evaluate((b) => { b.parentElement.dataset.latticeBaking = ''; b.parentElement.scrollIntoView(); }), 'bake hide content');
+        const buf = await g(() => el.screenshot({ type: 'jpeg', quality: 100, captureBeyondViewport: false }), 'bake screenshot');
+        // Swap THIS slide now: one image per message, never the whole deck in one.
+        await g(() => el.evaluate(async (b, b64) => {
+          const img = document.createElement('img');
+          img.className = 'lattice-baked-backdrop';
+          img.alt = '';
+          img.src = `data:image/jpeg;base64,${b64}`;
+          // The backdrop's own box and plane, so the image lands where the finish painted.
+          // The resets beat `section img`, which rounds and crops every image on a slide.
+          img.style.cssText = `position:absolute;left:${b.offsetLeft}px;top:${b.offsetTop}px;`
+            + `width:${b.offsetWidth}px;height:${b.offsetHeight}px;z-index:${getComputedStyle(b).zIndex};`
+            + 'margin:0;padding:0;border:0;border-radius:0;max-width:none;max-height:none;'
+            + 'object-fit:fill;box-shadow:none;filter:none;opacity:1;pointer-events:none';
+          await img.decode().catch(() => null);
+          b.replaceWith(img);
+        }, Buffer.from(buf).toString('base64')), 'bake swap');
+        baked++;
+      } catch (err) {
+        // A slide that cannot be captured keeps its vector finish: the deck must never be
+        // lost to a speed fix (the same rule as the SVG pass below).
+        console.warn(`  ⚠ Finish: slide backdrop ${i + 1} kept vector — ${String(err?.message || err).split('\n')[0]}`);
+      } finally {
+        await page.evaluate((i) => {
+          const s = document.querySelector(`section[data-lattice-bake="${i}"]`);
+          if (s) { delete s.dataset.latticeBaking; delete s.dataset.latticeBake; }
+        }, i).catch(() => {});
+      }
     }
   } finally {
+    await page.evaluate(() => document.getElementById('lattice-bake-style')?.remove()).catch(() => {});
     await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 }), 'restore viewport');
   }
-  await g(() => page.evaluate(async (shots) => {
-    const imgs = [];
-    for (const s of document.querySelectorAll('section[data-lattice-bake]')) {
-      const b = s.querySelector(':scope > .backdrop');
-      const img = document.createElement('img');
-      img.className = 'lattice-baked-backdrop';
-      img.alt = '';
-      img.src = `data:image/jpeg;base64,${shots[Number(s.dataset.latticeBake)]}`;
-      // The backdrop's own box and plane, so the image lands where the finish painted.
-      img.style.cssText = `position:absolute;left:${b.offsetLeft}px;top:${b.offsetTop}px;width:${b.offsetWidth}px;height:${b.offsetHeight}px;pointer-events:none;z-index:${getComputedStyle(b).zIndex}`;
-      b.replaceWith(img);
-      delete s.dataset.latticeBake;
-      imgs.push(img);
-    }
-    document.getElementById('lattice-bake-style')?.remove();
-    await Promise.all(imgs.map((im) => im.decode().catch(() => null)));
-  }, shots), 'swap baked backdrops');
-  return count;
+  return baked;
 }
 
 async function rasterizeSvgImagesInPage(browser, g, page) {

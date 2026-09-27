@@ -57,16 +57,25 @@ while Ghostscript draws it 2.6× faster. Neither is the owner's viewer; the devi
 `bakeFinishBackdropsInPage` in `lattice-emulator.js` runs just before `page.pdf()`, after the
 SVG-image rasterization pass (the same shape of fix, `2026-07-02-pdf-export-portability.md`).
 Per finish slide it fades every child but `.backdrop` to opacity 0, screenshots the backdrop's
-box, and swaps the backdrop for an `<img>` on the same box and z-index. The page is still in
+box, and swaps the backdrop for an `<img>` on the same box and z-index. The image resets the
+`section img` rule that rounds every slide image. A slide that fails to capture keeps its
+vector finish and warns. Gallery's frame keyline is held off during the capture: the print
+face always covered it, and on screen it strikes through the header (followup
+`2388-p3-gallery-frame-crosses-header`). `--paper` and `--raster` are skipped; they
+screenshot every slide already. The page is still in
 screen media, so the capture is the **screen face**: the soft clear edge, feathered masks and
 alpha fades that the opaque print face gave up only because vector viewers mis-draw them.
 The Studio and the PDF now show the same finish.
 
 ## 6. Costs
 
-- **File size:** about 70–370 KB a slide at 2× (dark and busy textures cost most). The
-  16-slide test deck grows from 197 KB to 5.9 MB; `examples/backdrop-register.pdf` from 253 KB
+- **File size:** about 70–370 KB a slide at HD 2× (dark and busy textures cost most) and up
+  to about 1.8 MB a slide at 4K. The 16-slide test deck grows from 197 KB to 5.9 MB, a
+  121-slide savile deck from 0.5 MB to 26 MB, and `examples/backdrop-register.pdf` from 253 KB
   to 2.1 MB.
+- **Export time:** about 0.25 s more per finish slide (121-slide deck: 3.3 s → 31 s). Each slide
+  is scrolled into view and captured alone; capturing beyond the viewport re-rasterized the
+  whole tall page per slide and took 74 s.
 - **The finish is no longer vector:** it is sharp at the deck's raster scale and softens only
   past it. Anything that edits the PDF's vectors (Illustrator) sees one image; use
   `--keep-vector-finish`.
