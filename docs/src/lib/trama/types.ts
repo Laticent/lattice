@@ -105,6 +105,15 @@ export interface LayoutOptions {
   boundsOnly?: boolean;
   /** Internal: whether crowded shapes may grow along the flow. */
   grow?: boolean;
+  /**
+   * Also try the reading-order grid: the shapes in authored order on 1 or more lines,
+   * every line running the same way (the state chart's wrapping chain). Needs no dagre.
+   */
+  wrap?: boolean;
+  /** Internal: lay out on the grid with this many lines. */
+  grid?: number;
+  /** Internal: place each shape's centre here instead of asking dagre (see `route`). */
+  positions?: Record<string, Point>;
 }
 
 /** A routed line. */
@@ -149,6 +158,8 @@ export interface Geometry {
   tidy: { crowded: number; grazes: number };
   /** The letterbox scale this drawing gets on the stage, when `stage` was given. */
   scale?: number;
+  /** Set when the drawing is a reading-order grid: how many lines it runs on. */
+  lines?: number;
 }
 
 /** The dagre build Trama is handed: it never imports one. */
@@ -167,6 +178,8 @@ export interface KernelStats {
 export interface GraphKernel {
   layout(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null;
   layoutOnce(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | { width: number; height: number; grew: boolean } | null;
+  /** Route lines between boxes the caller placed (each shape's centre); no dagre. */
+  route(model: GraphModel, sizes: SizeMap, positions: Record<string, Point>, opts?: LayoutOptions): Geometry | null;
   simplify(pts: Point[]): Point[];
   stats: KernelStats;
 }

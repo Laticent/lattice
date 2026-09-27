@@ -84,13 +84,40 @@ export function graphLayoutKernel(): GraphKernel {
   const Q = (v: number) => Math.round(v * 2) / 2;
   const R1 = (v: number) => Math.round(v * 10) / 10;
 
-  /** Lay out one direction. Returns the geometry, or null without dagre. */
+  /**
+   * A stand-in for graphlib's Graph, for a layout whose boxes are placed without dagre
+   * (the reading-order grid, or positions the caller fixed). It keeps exactly what the
+   * rest of layoutOnce reads back: node boxes, and edges with no waypoints. So a chain-only
+   * chart lays out and routes with no dagre loaded at all.
+   */
+  function miniGraph(): DagreGraph {
+    const nodes = new Map<string, DagreNode>();
+    const edges = new Map<string, { ref: DagreEdgeRef; label: DagreEdgeLabel }>();
+    const edge = ((a: DagreEdgeRef | string, _w?: string, name?: string) => edges.get(typeof a === 'string' ? (name as string) : (a.name as string))?.label) as DagreGraph['edge'];
+    return {
+      setGraph() {},
+      setDefaultEdgeLabel() {},
+      setNode(v, label) { nodes.set(v, label as unknown as DagreNode); },
+      setParent() {},
+      setEdge(v, w, label, name) { edges.set(name, { ref: { v, w, name }, label: label as DagreEdgeLabel }); },
+      node: (v) => nodes.get(v),
+      edge,
+      nodes: () => [...nodes.keys()],
+      edges: () => [...edges.values()].map((x) => x.ref),
+    };
+  }
+
+  /** Lay out one direction. Returns the geometry, or null without dagre (or a grid that cannot hold the shapes). */
   function layoutOnce(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | Bounds | null {
-    if (!dagre?.layout || !dagre.Graph) return null;
+    // Boxes placed without dagre: the reading-order grid (`grid`, a line count), or the
+    // caller's own positions (`positions`, the fixed-positions router). Neither holds
+    // groups: a group's box comes from dagre's cluster layout.
+    const fixed = opts.grid != null || opts.positions != null;
+    if (fixed ? (model.groups || []).length > 0 : !dagre?.layout || !dagre.Graph) return null;
     const dir = opts.dir === 'tb' ? 'TB' : 'LR';
     const lr = dir === 'LR';
     const sp = opts.spacing || {};
-    const g = new dagre.Graph({ multigraph: true, compound: true }) as DagreGraph;
+    const g = fixed ? miniGraph() : new (dagre as DagreLike).Graph({ multigraph: true, compound: true }) as DagreGraph;
     g.setGraph({ rankdir: dir, nodesep: sp.node != null ? sp.node : 30, ranksep: sp.rank != null ? sp.rank : 60, edgesep: sp.edge != null ? sp.edge : 14, marginx: 0, marginy: 0 });
     g.setDefaultEdgeLabel(() => ({}));
 
@@ -172,7 +199,66 @@ export function graphLayoutKernel(): GraphKernel {
       else g.setEdge(key.get(a)!, key.get(b)!, attrs, `e${i}`);
     });
 
-    dagre.layout(g);
+    if (!fixed) (dagre as DagreLike).layout(g);
+    else if (!placeFixed()) return null;
+
+    /**
+     * Place every shape's box without dagre. `positions` is the caller's own (each box's
+     * centre). `grid` lays the shapes out in READING ORDER on that many lines, every line
+     * running the same way (the state chart's wrapping chain): cell i sits at line
+     * floor(i / per), column i % per, each column as wide as its widest box along the
+     * flow and each line as deep as its deepest box across it. The gaps leave room for the
+     * router's lanes and for the widest label, since a wrap connector and a skip both run
+     * through the channel between lines. Every line holds at least two shapes: a lone
+     * shape on the last line reads as an afterthought, not a continuation.
+     */
+    function placeFixed(): boolean {
+      // Every shape was given a node above; a missing one is a kernel bug, said by name.
+      const nodeOf = (id: string): DagreNode => {
+        const n = g.node(key.get(id) ?? '');
+        if (!n) throw new Error(`trama: no box for shape ${id}`);
+        return n;
+      };
+      if (opts.positions) {
+        for (const s of shapes) {
+          const at = opts.positions[s.id];
+          if (!at) return false;
+          const n = nodeOf(s.id);
+          n.x = at.x; n.y = at.y;
+        }
+        return true;
+      }
+      const lines = opts.grid as number;
+      const N = shapes.length;
+      if (!(lines >= 1) || N < 2) return false;
+      const per = Math.ceil(N / lines);
+      const nLines = Math.ceil(N / per);
+      if (nLines !== lines || (nLines > 1 && N - (nLines - 1) * per < Math.min(2, per))) return false;
+      let labW = 0, labH = 0;
+      for (const r of laid) if (r.label) { labW = Math.max(labW, r.label.w); labH = Math.max(labH, r.label.h); }
+      const rankGap = sp.rank != null ? sp.rank : 60;
+      const flowGap = Math.max(rankGap, labW ? (lr ? labW : labH) + 36 : 0);
+      const lineGap = Math.max(rankGap, labW ? 2 * (lr ? labH : labW) + 36 : 0);
+      const along = (n: DagreNode) => (lr ? n.width : n.height);
+      const across = (n: DagreNode) => (lr ? n.height : n.width);
+      const colA: number[] = new Array(per).fill(0), lineC: number[] = new Array(nLines).fill(0);
+      shapes.forEach((s, i) => {
+        const n = nodeOf(s.id);
+        colA[i % per] = Math.max(colA[i % per], along(n));
+        lineC[Math.floor(i / per)] = Math.max(lineC[Math.floor(i / per)], across(n));
+      });
+      const colStart: number[] = [], lineStart: number[] = [];
+      let acc = 0;
+      for (let j = 0; j < per; j++) { colStart.push(acc); acc += colA[j] + flowGap; }
+      acc = 0;
+      for (let j = 0; j < nLines; j++) { lineStart.push(acc); acc += lineC[j] + lineGap; }
+      shapes.forEach((s, i) => {
+        const n = nodeOf(s.id);
+        const u = colStart[i % per] + colA[i % per] / 2, v = lineStart[Math.floor(i / per)] + lineC[Math.floor(i / per)] / 2;
+        n.x = lr ? u : v; n.y = lr ? v : u;
+      });
+      return true;
+    }
 
     // dagre never reads a cluster's padding: a group's top gap is whatever its border rank
     // (along the flow) or its node spacing (across it) happens to give, and in a compact lr
@@ -1793,6 +1879,9 @@ export function graphLayoutKernel(): GraphKernel {
     // [hard, soft, crossings, crowded ends, grazes], compared in that order.
     const rank = (geo: Geometry) => [hard(geo), soft(geo), geo.crossings, geo.tidy.crowded, geo.tidy.grazes];
     const cmp = (a: number[], b: number[]) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+    // No dagre: a chart that wraps still lays out on the grid, which needs none (a chain
+    // ships without the dagre script; a machine that branches falls back to the grid).
+    if (opts.wrap && (!dagre || typeof dagre.layout !== 'function')) return wrapped(null);
     for (const d of dirs) {
       // A later direction wins only by beating the best so far by 3%, and its scale is at
       // most what its boxes alone allow (grown or plain; lines only add size). When that
@@ -1831,10 +1920,76 @@ export function graphLayoutKernel(): GraphKernel {
       const reach = Math.max(grown.scale!, plain.scale!);
       if (!best || reach > best.reach * 1.03) best = { geo, reach };
     }
+    if (opts.wrap) return wrapped(best);
     return best!.geo;
+
+    /**
+     * THE READING-ORDER GRID (`opts.wrap`, the state chart's rule, kept from v1). A chain
+     * on one line is the right picture until it stops fitting, and past that point dagre
+     * can only shrink it; laid out on several lines in reading order, the type keeps its
+     * size. So a chart that asks for `wrap` also gets grid candidates: every line count
+     * from 1 (a chain) or 2 (a machine that branches) to half its shapes, in each
+     * direction. The simplest candidate wins (fewest lines, then the stage's own
+     * direction) unless a more-wrapped one sets the type WRAP_GAIN larger. A chain has
+     * no two shapes on one rank, ranking only its forward lines in authored order; a
+     * machine that branches keeps dagre's layout as its one-line candidate, so it
+     * wraps only by that clear margin. Grid candidates are bounded by their boxes first,
+     * and only those that could still be picked are routed.
+     */
+    function wrapped(dagreBest: { geo: Geometry; reach: number } | null): Geometry | null {
+      const shapes = model.shapes || [];
+      if ((model.groups || []).length || shapes.length < 2) return dagreBest ? dagreBest.geo : null;
+      const WRAP_GAIN = 1.12;
+      const order = new Map(shapes.map((x, i) => [x.id, i]));
+      const at = (id: string) => order.get(id) ?? -1;
+      const rankOf = new Array(shapes.length).fill(0);
+      const fwd = (model.edges || []).filter((e) => !e.style?.loose && order.has(e.from) && order.has(e.to) && at(e.to) > at(e.from))
+        .sort((a, b) => at(a.to) - at(b.to));
+      for (const e of fwd) rankOf[at(e.to)] = Math.max(rankOf[at(e.to)], rankOf[at(e.from)] + 1);
+      const chain = new Set(rankOf).size === shapes.length;
+      const st = opts.stage;
+      const pref: 'lr' | 'tb' = dirs.length === 1 ? dirs[0] : st && st.h > st.w ? 'tb' : 'lr';
+      const cands: { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null }[] = [];
+      if (dagreBest && !chain) cands.push({ lines: 1, dir: dagreBest.geo.dir, bound: dagreBest.geo.scale ?? 0, geo: dagreBest.geo });
+      for (const d of dirs) {
+        for (let L = chain ? 1 : 2; L <= Math.ceil(shapes.length / 2); L++) {
+          const b = layoutOnce(model, sizes, { ...opts, dir: d, grid: L, grow: false, boundsOnly: true }, dagre);
+          if (b) cands.push({ lines: L, dir: d, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000, geo: null });
+        }
+      }
+      if (!cands.length) return dagreBest ? dagreBest.geo : null;
+      cands.sort((a, b) => (a.lines - b.lines) || ((a.dir === pref ? 0 : 1) - (b.dir === pref ? 0 : 1)));
+      const route = (c: (typeof cands)[number]) => {
+        if (!c.geo) {
+          const g = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false }, dagre) as Geometry | null;
+          c.geo = g ? scaled(g) : null;
+          if (c.geo) c.geo.lines = c.lines;
+        }
+        return c.geo ? c.geo.scale ?? 0 : 0;
+      };
+      // The candidate that can reach furthest sets a floor: one whose bound cannot come
+      // within WRAP_GAIN of it is never picked, so it is never routed.
+      const top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
+      const floor = route(top);
+      const live = cands.filter((c) => c === top || c.bound * WRAP_GAIN >= floor);
+      let bestScore = 0;
+      for (const c of live) bestScore = Math.max(bestScore, route(c));
+      for (const c of live) if (c.geo && (c.geo.scale ?? 0) * WRAP_GAIN >= bestScore) return c.geo;
+      return top.geo || (dagreBest ? dagreBest.geo : null);
+    }
   }
 
-  return { layout, layoutOnce, simplify, stats };
+  /**
+   * THE FIXED-POSITIONS ROUTER. Route every line between boxes the caller has already
+   * placed (each shape's centre in `positions`), with the same solver, never-rules and
+   * quality counts as `layout`: for a chart whose positions an axis fixes (a gantt's
+   * bars), where dagre must not move anything. No dagre is needed; groups are not held.
+   */
+  function route(model: GraphModel, sizes: SizeMap, positions: Record<string, Point>, opts: LayoutOptions = {}): Geometry | null {
+    return layoutOnce(model, sizes, { ...opts, positions, grow: false }, null) as Geometry | null;
+  }
+
+  return { layout, layoutOnce, route, simplify, stats };
 }
 
 

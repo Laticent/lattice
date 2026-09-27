@@ -99,7 +99,7 @@ spacing presets, paint markup) stays in `lib/components/chart/flowchart/`. The
 state chart's `state-chart.transform.js` loses its browser pass and becomes a
 build-time transform plus an adapter.
 
-## 4. The kernel's new hooks (for the state chart)
+## 4. The kernel's new hooks (for the state chart) — built in commit 2
 
 The state chart has four things the kernel lacks. §14 of the flowchart note
 names them; none was built in #2385.
@@ -121,6 +121,23 @@ names them; none was built in #2385.
    it in this PR. It is exposed because it is the grid candidate's router too.
    Gantt's dependency arrows (parsed today, never drawn) are its first outside
    user, as a later follow-up.
+
+**As built.** `layoutOnce` takes its boxes from dagre, from `opts.grid` (a line
+count), or from `opts.positions` (each shape's centre). The last two use a
+nine-method stand-in for graphlib's `Graph`, so they need no dagre. Everything after
+placement, the solver included, is unchanged. `opts.wrap` adds the grid candidates
+in `layoutFresh` under v1's rule and constant (`WRAP_GAIN` 1.12): the simplest
+candidate wins, fewest lines and then the stage's own direction, unless a more-wrapped
+one sets the type 12% larger. A graph is a chain when no two shapes share a rank,
+ranking only its forward lines in authored order, so back edges and skips keep a chain
+a chain. A graph that branches keeps dagre's layout as its one-line candidate. Each
+grid candidate is bounded by its boxes first, and only those that could still be
+picked are routed. `route(model, sizes, positions, opts)` is the fixed-positions entry.
+The start and end kinds are drawn by the pipeline's `outline`, and lines end on them as
+on a circle. Without `wrap` nothing changed: the flowchart's 21 figures still paint
+byte-identical SVG, and its bench counts are unchanged (35 calls, 16 hits, 25 routed,
+8 bounded). `test/unit/trama/kernel-hooks.test.js` holds the grid, the no-dagre path
+and the router to the never-rules.
 
 ## 5. What the state chart looks like after (state chart v2)
 

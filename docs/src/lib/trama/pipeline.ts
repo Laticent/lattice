@@ -244,6 +244,11 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       case 'square': return `<rect${a} x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}"/>`;
       case 'pill': return `<rect${a} x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="${r1(h / 2)}"/>`;
       case 'circle': return `<ellipse${a} cx="${r1(cx)}" cy="${r1(cy)}" rx="${r1(w / 2)}" ry="${r1(h / 2)}"/>`;
+      // A machine's entry and exit markers: a filled dot, and a ring around a dot (the inner
+      // dot takes the rim attributes, so a chart can paint it apart from the ring).
+      case 'start': return `<circle${a} cx="${r1(cx)}" cy="${r1(cy)}" r="${r1(Math.min(w, h) / 2)}"/>`;
+      case 'end': return `<circle${a} cx="${r1(cx)}" cy="${r1(cy)}" r="${r1(Math.min(w, h) / 2)}"/>` +
+        `<circle${rim} cx="${r1(cx)}" cy="${r1(cy)}" r="${r1(Math.min(w, h) * 0.28)}"/>`;
       case 'diamond': return `<path${a} d="M${r1(cx)} ${r1(y)}L${r1(x + w)} ${r1(cy)}L${r1(cx)} ${r1(y + h)}L${r1(x)} ${r1(cy)}Z"/>`;
       case 'io': { const s = Math.min(h * 0.35, w * 0.2); return `<path${a} d="M${r1(x + s)} ${r1(y)}L${r1(x + w)} ${r1(y)}L${r1(x + w - s)} ${r1(y + h)}L${r1(x)} ${r1(y + h)}Z"/>`; }
       case 'cylinder': {
@@ -284,14 +289,14 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     if (horiz) {
       const t = Math.min(1, Math.abs(end.y - b.cy) / hh);
       if (kind === 'diamond') depth = hw * t;
-      else if (kind === 'circle') depth = hw * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
+      else if (kind === 'circle' || kind === 'start' || kind === 'end') depth = hw * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
       else if (kind === 'pill') { const r = hh; const dy = Math.abs(end.y - b.cy); depth = r - Math.sqrt(Math.max(0, r * r - dy * dy)); }
       else if (kind === 'io') { const sl = Math.min(b.h * 0.35, b.w * 0.2); const f = (end.y - b.y) / b.h; depth = inward > 0 ? sl * (1 - f) : sl * f; }
       return { x: end.x + inward * depth, y: end.y };
     }
     const t = Math.min(1, Math.abs(end.x - b.cx) / hw);
     if (kind === 'diamond') depth = hh * t;
-    else if (kind === 'circle') depth = hh * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
+    else if (kind === 'circle' || kind === 'start' || kind === 'end') depth = hh * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
     else if (kind === 'cylinder' && inward > 0) { const ry = Math.min(b.h * 0.14, 8); depth = ry * (1 - Math.sqrt(Math.max(0, 1 - t * t))); }
     return { x: end.x, y: end.y + inward * depth };
   }

@@ -39,6 +39,20 @@ const geo = K.layout(
 type larger on `opts.stage`. Same input, same output: there is no randomness, and results
 are cached per kernel.
 
+### The reading-order grid, and routing fixed boxes
+
+- **`opts.wrap: true`** also tries laying the shapes out in authored order on one or
+  more lines, every line running the same way, the way a state machine's chain reads.
+  The simplest candidate wins (fewest lines, then the stage's own direction) unless a
+  more-wrapped one sets the type 12% larger; a graph that branches keeps dagre's layout
+  unless the grid beats it by that margin. The grid needs **no dagre**: pass `null` and a
+  chain still lays out. `geo.lines` says how many lines it chose. Groups are never gridded.
+- **`K.route(model, sizes, positions, opts)`** routes lines between boxes you have already
+  placed (each shape's centre), with the same solver and never-rules, for a chart whose
+  positions an axis fixes. No dagre.
+- Shape kinds **`start`** and **`end`** (a filled dot; a ring around a dot) are ordinary
+  small boxes to the kernel; the pipeline's `outline` draws them.
+
 ## The pipeline and adapters
 
 In a browser, `installGraphPass(document, graphLayoutKernel, myAdapter)` draws every
