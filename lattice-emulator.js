@@ -967,6 +967,24 @@ if (movedBoxes.some((f) => f.autofixable)) {
   console.error('warning: in a Lattice checkout, `npm run lint:deck -- --fix <deck>` rewrites the verdict-grid and pricing ones as `[!]`.');
 }
 
+// A STATE CHART STILL IN THE v1 GRAMMAR. State chart v2 moved to the flowchart grammar
+// (`- -event-> Target` under a state), and a v1 `event => 2` pill now reads as part of a
+// name: the machine draws with no transitions and a successful exit code. Same channel and
+// reason as the two blocks above; the detector is lint-core's (HARD RULE #7).
+const { findFlowchartIssues } = require('./lib/authoring/lint-core');
+const v1States = findFlowchartIssues(md).filter((f) => f.shapeChange);
+const v1Slides = [...new Set(v1States.map((f) => f.slide))];
+for (const n of v1Slides.slice(0, RETIRED_FORM_SHOWN)) {
+  const f = v1States.find((x) => x.slide === n);
+  console.error(`warning: slide ${n}: this state chart is in the retired v1 grammar — ${f.message}.`);
+}
+if (v1Slides.length > RETIRED_FORM_SHOWN) {
+  console.error(`warning: … and ${v1Slides.length - RETIRED_FORM_SHOWN} more v1 state-chart slide(s).`);
+}
+if (v1Slides.length) {
+  console.error('warning: in a Lattice checkout, `node tools/migrate-state-chart-v1.js --write <deck>` rewrites them; `lattice lint` names each line.');
+}
+
 // Resolve palette name from the precedence chain (CLI > env > front
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
@@ -2531,21 +2549,16 @@ const pluginHydrateScript = hasHydratedPlugins
   : '';
 
 // ── state-chart browser-measured layout bootstrap ─────────────────────────
-// state-chart emits HTML nodes + a transitions JSON attr + an empty SVG
-// overlay; the browser measures the laid-out nodes and draws the edges.
-// Only emitted if a slide actually contains a state-chart figure, and it
-// runs on DOMContentLoaded, which the navigation's `waitUntil: 'load'` covers —
-// the same pre-render-then-PDF flow function-plot uses. Its first draw is in fact
-// synchronous at parse time; the DOMContentLoaded and `fonts.ready` handlers are
-// re-draws. The `fonts.ready` one is a promise continuation no navigation wait ever
-// covered; what keeps it correct is NOT registration order — see the invariant written
-// beside the Node-side force-load below, which is the accurate account. The function body
-// is the canonical installStateChartLayout from the kernel, serialized so
-// the emulator and lattice-runtime share one implementation.
+// The state chart takes the flowchart's delivery (state-chart.layout.js, a Trama
+// adapter): an HTML measuring harness the page sizes in its own fonts, then a pass that
+// lays the machine out with Trama's kernel and paints the SVG. Emitted only when a slide
+// holds a state-chart figure. Its first draw is synchronous at parse time; the
+// DOMContentLoaded and `fonts.ready` handlers are re-draws, and what keeps the
+// `fonts.ready` one correct is the invariant written beside the Node-side force-load below.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
-// Whether any machine on any slide would actually be RE-RANKED. Kept separate
-// from `hasStateChart`, which still gates the player's SVG bake below — a chain
-// is drawn by the pass and has to be baked exactly like a fan-out.
+// Whether any machine needs dagre. Kept separate from `hasStateChart`, which still gates
+// the player's SVG bake below: a chain is drawn by the pass and baked exactly like a
+// machine that branches.
 let needsDagre = false;
 if (hasStateChart) {
   try {
@@ -2556,48 +2569,28 @@ if (hasStateChart) {
 let stateChartScript = '';
 if (hasStateChart) {
   try {
-    const { STATE_CHART_BROWSER_JS } = require('./lib/components/chart/state-chart/state-chart.transform');
-    // The pass is serialized through `.toString()`, so it carries no imports and
-    // can only reach a layout engine through a global that already exists in the
-    // document. This IIFE installs `globalThis.__latticeDagre` ahead of it.
-    // Prepended HERE rather than inside the transform because the runtime bundle
-    // imports that module too, and a top-level require there shipped the 62KB
-    // string to every reader of every deck — measured at +51KB gzipped on
-    // lattice-runtime-min.js (dagre carried twice: inlined AND as this string)
-    // against +28KB for the live library alone. Missing bundle (a clone that
-    // never ran `npm install`) → '' → the pass falls back to the numbered column.
-    //
-    // GATED ON THE MACHINE, NOT ON THE COMPONENT. dagre's answer is only ever
-    // USED when it puts two nodes in one rank, and zero of the 9 drawn machines in
-    // the shipped galleries branch — so keying this on `hasStateChart` made every
-    // one of them carry 62.2 KiB raw / 21.8 KiB gzipped for a layout the pass then
-    // discarded. `htmlNeedsDagre` runs the REAL dagre in Node over the real
-    // topology (rank assignment is topology-only, so unit boxes give the same
-    // partition the browser gets with measured ones) and answers TRUE for
-    // anything it cannot read — a false positive ships an unused engine, a false
-    // negative silently drops a branching machine back to the column.
+    const { browserJs: stateChartBrowserJs } = require('./lib/components/chart/state-chart/state-chart.layout.js');
+    // GATED ON THE MACHINE, NOT ON THE COMPONENT. Trama's kernel lays a CHAIN out on its
+    // reading-order grid with no dagre at all, and most shipped machines are chains, so
+    // the engine ships only when `htmlNeedsDagre` finds a machine that is not one. It asks
+    // Trama's own `isChain` of each figure's model, as the adapter builds it, and answers
+    // TRUE for anything it cannot read: a false positive ships an unused engine, a false
+    // negative lays a branching machine out on the grid. Missing bundle (a clone that never
+    // ran `npm install`) → '' → a branching machine falls back to the grid.
     let dagreIife = '';
     if (needsDagre) {
-      try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
+      try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* grid fallback */ }
     }
-    // WITHHELD ON PURPOSE, and the document says so. `lib/runtime/index.js` warns
-    // when a state chart is present and the engine is not, because everywhere else
-    // that means a host forgot the tag. Here it means the gate looked at the deck's
-    // own machines and found nothing to lay out, so the warning would be a false
-    // alarm — on the exact artifact it exists to protect.
-    //
-    // MEASURED SCOPE, because the case is narrower than it looks: the only export
-    // that inlines the runtime at all is `--fluid`, and there the runtime's
-    // state-chart transform does not run (the SVG is already drawn by the pass
-    // above), so the warning does not fire today with or without this marker. It is
-    // one line that makes "withheld deliberately" distinguishable from "forgotten"
-    // at the moment the export knows the difference, rather than a fix for an alarm
-    // anyone has heard.
-    const noDagreMark = hasStateChart && !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
-    stateChartScript = dagreIife
-      ? `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`
-      : `${ENGINE_SCRIPT_OPEN}\n${noDagreMark}${STATE_CHART_BROWSER_JS}\n</script>`;
-  } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
+    // WITHHELD ON PURPOSE, and the document says so. `lib/runtime/index.js` warns when a
+    // state chart that needs the engine is present and the engine is not, because
+    // everywhere else that means a host forgot the tag. Here the gate looked at the deck's
+    // own machines and found nothing that needs it.
+    const noDagreMark = !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
+    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife ? `${dagreIife}\n` : noDagreMark}${stateChartBrowserJs()}\n</script>`;
+  } catch (e) {
+    // The harness tiles show. Say so, as the flowchart does below.
+    console.warn(`  ⚠ state chart layout unavailable (${e?.message ? e.message.split('\n')[0] : e}) — state charts export as their fallback tiles.`);
+  }
 }
 
 // ── flowchart browser-measured layout bootstrap ──────────────────────────────

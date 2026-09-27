@@ -49,8 +49,12 @@ const WIDE_SOFT_BUDGET = 0;
 // worse. Then the route solver (one cost for every line, rip-up and reroute, see the
 // decision note §7) replaced the pass stack: 16, and its review round (a relax phase, an
 // order for each side's ends that crosses nothing) took it to 10. A crossing is a cost, not a defect, so this
-// is a ceiling to ratchet down.
-const CROSSING_BUDGET = 10;
+// is a ceiling to ratchet down. State chart v2 raised it to 39, on purpose: the solver had
+// been buying those crossings with JOINS, one line's corner or end lying on an unrelated line
+// (a T that reads as a transition that is not there). Measured on this corpus, main left 132
+// joins on 40 of the 1,000 charts; joins are now a never-rule (`sharesRun`, and counted in
+// `sharedRuns`), so none remain, and the 29 extra crossings are clean X's a reader can follow.
+const CROSSING_BUDGET = 39;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {

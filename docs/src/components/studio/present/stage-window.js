@@ -430,15 +430,16 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
 		// No diagram library tag: the runtime's plugin host loads Mermaid's (the plugin's
 		// payload) from beside `runtimeUrl` when the stage holds a fence.
-		// The dagre layout engine, for a stage carrying a drawn state chart. Gated on the
-		// SANITIZED html above, not on a caller flag — `data-sc-transitions` is emitted only
-		// by the DEFAULT variant, which is the only one the runtime's pass draws.
+		// The dagre layout engine, for a stage carrying a drawn graph chart. Gated on the
+		// SANITIZED html above, not on a caller flag — `data-sc-model` is emitted only by a
+		// state chart's DEFAULT variant, the only one the runtime's pass draws, and
+		// `data-fc-model` by every flowchart.
 		//
 		// BEFORE the runtime tag, which is the mechanism: both are classic scripts, so they
 		// run in document order, and the pass reads `globalThis.__latticeDagre` synchronously
-		// on its first draw. Absent → a branching machine paints as the numbered column, and
-		// the runtime says so on the console.
-		(dagreUrl && html.indexOf('data-sc-transitions') !== -1
+		// on its first draw. Absent → a branching machine lays out on the grid, and the
+		// runtime says so on the console.
+		(dagreUrl && (html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1)
 			? '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
 		// The reveal waits for this document's OWN faces, not just for one frame.

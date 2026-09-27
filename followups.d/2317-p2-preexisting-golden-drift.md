@@ -46,7 +46,7 @@ each either fixed at the source or re-blessed with the change that explains it.
 - `examples/split-decision`
 - `examples/state-chart-branching`
 - `examples/state-chart-stress`
-- `examples/state-chart-tint`
+- `examples/state-chart-paint` (was state-chart-tint)
 - `examples/state-chart`
 - `examples/state-marks`
 - `examples/svg-native-pie-legend`

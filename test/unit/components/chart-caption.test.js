@@ -24,7 +24,7 @@ const { render } = require('../../../lib/engine');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
-const chart = (caption) => `---\ntheme: indaco\n---\n\n<!-- _class: state-chart lr -->\n\n## Machine\n\n1. Draft \`start\`\n   - \`submit => 2\`\n2. Live \`done\`\n\n${caption}\n`;
+const chart = (caption) => `---\ntheme: indaco\n---\n\n<!-- _class: state-chart lr -->\n\n## Machine\n\n- Draft \`start\`\n  - -submit-> Live\n- Live \`done\`\n\n${caption}\n`;
 const captionOf = (md) => new JSDOM(render(md).html).window.document.querySelector('.chart-caption');
 
 describe('chart caption — the lift keeps the prose mark', () => {

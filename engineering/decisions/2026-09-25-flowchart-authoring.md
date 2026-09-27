@@ -214,9 +214,12 @@ and the key below):
   names `=>` "Happy path", narration says "on the happy path", not "mainly".
 - **Swatches wear the marks' paint:** a slot used by a group draws as a group
   tint, a slot on a shape as a tile.
-- **Note:** a `>` blockquote nested under a shape's item is a note pinned to that
-  shape, drawn as a note card on a dotted tether. A blockquote is a block, not a
-  sub-list, so "sub-list means group" still holds.
+- **Detail:** a `>` blockquote nested under a shape's item is that shape's HIDDEN
+  DETAIL: shown on hover or tap in Present, Practice and Preview, and folded into the
+  speaker notes, never on the slide. (It was first built as a note card on a dotted
+  tether; the owner retired the cards for this house style, shared with the state chart,
+  on 2026-09-27: `2026-09-27-trama-graph-chart-library.md` §5.) A blockquote is a block,
+  not a sub-list, so "sub-list means group" still holds.
 - **Caption:** an italic paragraph below, the chart family's `.chart-caption`.
 - **Above the outline:** reserved. A flowchart has no axes, so it does not borrow
   the axis position for anything else.

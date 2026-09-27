@@ -58,7 +58,10 @@ are cached per kernel.
   self-loops gets room for them and can shift a few units. Positions must be finite
   numbers.
 - Shape kinds **`start`** and **`end`** (a filled dot; a ring around a dot) are ordinary
-  small boxes to the kernel; the pipeline's `outline` draws them.
+  small boxes to the kernel; the pipeline's `outline` draws them. On the grid they hug the
+  shape they lead into or out of.
+- **`K.isChain(model)`** says whether a graph lays out on the grid with no dagre: no groups,
+  two or more shapes, no two shapes on one rank. A host can ask it before loading dagre.
 
 ## The pipeline and adapters
 
@@ -76,13 +79,20 @@ function returning:
 | `paint(model, measured, geo, ctx)` | the SVG's painted children, as markup |
 
 The context carries the unit scale and the helpers an adapter paints with: `rectL`,
-`textLines`, `outline`, `grow`, `toOutline`, `cut`, `rounded`, `head`, `r1`, `esc`.
+`textLines`, `outline`, `grow`, `toOutline`, `cut`, `rounded`, `head`, `r1`, `esc`, and two
+whole painters both charts use: `lines(geo, edges, kindOf, { cls, radius, labelFont })` (every
+routed line, ends on the outlines, cut under labels and titles, with heads and labels) and
+`groups(list, geo, titleFont, cls)` (the group boxes and their titles).
+
+Without dagre the pipeline still draws a chart that wraps, on the grid; one that needs dagre
+keeps its tiles, marked `data-<attr>-nolayout`.
 
 **Serialization is the contract.** The kernel, the pipeline and every adapter may each be
 shipped as `fn.toString()` source (in a page's bootstrap script, or to build the worker),
 so each one closes over nothing: they reach one another only as arguments. The
 flowchart's adapter, `lib/components/chart/flowchart/flowchart.layout.js`, is the worked
-example.
+example; the state chart's, `lib/components/chart/state-chart/state-chart.layout.js`, adds
+markers to the kernel's input and asks for the grid (`wrap`).
 
 ## When it draws
 

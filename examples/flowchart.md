@@ -18,7 +18,7 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 ---
 
 <!-- _class: flowchart -->
-<!-- _footer: "A decision flow — outlines, a status, labeled lines, a note and the key" -->
+<!-- _footer: "A decision flow — outlines, a status, labeled lines, hidden detail and the key" -->
 
 `Incident response`
 

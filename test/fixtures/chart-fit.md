@@ -385,18 +385,18 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `submit => 2`
-2. Submitted `on-track`
-   - `review => 3`
-3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `publish => 5`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 
