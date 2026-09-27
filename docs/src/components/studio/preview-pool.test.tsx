@@ -697,4 +697,41 @@ describe('PreviewPool — borrowing from the frame dock', () => {
 		again.unmount();
 		host.unmount();
 	});
+
+	it('two full pools open at once each get every frame they ask for', async () => {
+		// The deck panel stays mounted while Add slide or Present's overview is up. A ceiling of one
+		// pool's worth left the second grid blank (found by the independent check on this change).
+		const { FrameDockHost, DOCK_MAX_SLOTS } = await import('./frame-dock');
+		const host = render(<FrameDockHost />);
+		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
+		const grids = [0, 1].map(() => render(<Grid n={HARD_MAX_SLOTS} />, { container: surface() }));
+		for (const g of grids) {
+			for (let i = 0; i < HARD_MAX_SLOTS; i++) {
+				onScreen(face(g.container, i));
+				intersect(face(g.container, i), true);
+			}
+		}
+		settle();
+		expect(DOCK_MAX_SLOTS).toBeGreaterThanOrEqual(2 * HARD_MAX_SLOTS);
+		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown] [data-testid="deck-preview"]').length).toBe(2 * HARD_MAX_SLOTS);
+		for (const g of grids) g.unmount();
+		host.unmount();
+	});
+
+	it('a dry dock leaves a tile without a frame; it never throws the grid blank', async () => {
+		const { FrameDockHost, DOCK_MAX_SLOTS } = await import('./frame-dock');
+		const host = render(<FrameDockHost />);
+		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
+		const grids = [0, 1, 2].map(() => render(<Grid n={HARD_MAX_SLOTS} />, { container: surface() }));
+		for (const g of grids) {
+			for (let i = 0; i < HARD_MAX_SLOTS; i++) {
+				onScreen(face(g.container, i));
+				intersect(face(g.container, i), true);
+			}
+		}
+		settle(); // the third pass used to throw on an undefined slot, and set nothing
+		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown] [data-testid="deck-preview"]').length).toBe(DOCK_MAX_SLOTS);
+		for (const g of grids) g.unmount();
+		host.unmount();
+	});
 });

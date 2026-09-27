@@ -117,6 +117,17 @@ Four conditions, each found by measurement, each written into the module:
 Where anchor positioning is missing (Safari before 26, jsdom) or a pool is not placed before
 the dock, `canDock` is false and the pool keeps its frames in its own layer, exactly as before.
 
+**The ceiling is two pools' worth, 56** (`frame-dock-limits.ts`). One pool never asks for more
+than its own cap of 28, but two docked pools can be up at once: the deck panel stays mounted
+while Add slide or Present's overview is open. The first cut shared ONE pool's 28 across the
+whole Studio, and review broke it twice. The independent check crashed a second grid's
+assignment pass on an undefined slot, blanking every tile in it; a docked pool now skips a
+tile the dock cannot serve instead. The inversion review measured a 40-slide deck at
+2560×2200 on WebKit: Add slide took 8 slots and the overview 24. Past the ceiling, the dock
+rebuilt a slot of the other identity on every switch, which is 4–5 new documents per reopen,
+while the `iframe.live` count stayed flat at 29–30. Frames are made on demand, so the ceiling
+bounds what can exist and costs nothing until a session needs it.
+
 ### Measured
 
 Real WebKit, 1440×900, a production build, `main` and the branch on the same box:
@@ -141,8 +152,31 @@ tile to the pixel, clipped by its scroller. The pool oracles (`gallery-preview-b
 "closing releases every document" is restated as what it guarded — no per-open residue — and the
 WebKit-phone test now asserts that a reopen mints none.
 
-**Unverified:** a real iPhone. Whether anchored frames track momentum scrolling there without lag
-cannot be driven from this sandbox.
+That last oracle, as first written, counted `iframe.live` elements and could not fail on the
+ceiling case above. `countDocuments` (in `pool-frames.ts`) now counts what WebKit keeps: each
+`<iframe>` created and each `srcdoc` written. MR-3 allows at most SLACK documents across
+reopens 2 and 3, and the WebKit-phone test at most one per reopen. Each close is also checked
+against the exact dock slots that surface was shown in, because once the surface is gone its
+pool ids go with it.
+
+**Unverified, and open:**
+
+- **A real iPhone or iPad.** Before the dock, the frames scrolled inside the content, on the
+  compositor. Now they follow their tiles through anchor positioning, and nothing run from this
+  sandbox can show whether WebKit's asynchronous momentum scrolling keeps them in step. The
+  same goes for the clip under pinch-zoom and the on-screen keyboard: the pool re-measures on
+  `visualViewport` resize, and that is unmeasured on a device.
+- **A transform that arrives later.** `canDock` is decided on a pool's first pass. A pool that
+  docks and then gains a lasting transform would draw its frames offset. No surface does this
+  today.
+- **Chromium keeps the dock's frames for the session**, 13 after the full-scroll Add slide
+  cycles above, where it used to free them on close. Docking only on WebKit would give that
+  back, but it would split the pool into two paths and leave the dock path uncovered by the
+  Chromium e2e projects. Kept on both engines, and recorded here as the price.
+- **Present makes one document per open**, measured by the inversion review. That is Present's
+  own stage frame, outside the dock and outside this change.
+- **A future pooled surface that forgets `container={surfacesRoot()}`** falls back to its own
+  frames and loses the WebKit fix without failing any test.
 
 ### Tried first, and why they failed
 

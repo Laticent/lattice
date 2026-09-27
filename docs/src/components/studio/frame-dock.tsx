@@ -26,7 +26,7 @@ import { hasMermaid } from './slide-thumb';
 // a JS scroll sync. Measured in WebKit 26 and Chromium: the frame tracks a tile inside a scrolled
 // fixed-position dialog exactly.
 //
-// THREE CONDITIONS, each found by measurement:
+// FOUR CONDITIONS, each found by measurement:
 //  1. TREE ORDER. A frame only resolves its anchor when the anchor comes BEFORE it in the
 //     document (a fixed layer placed before the dialog resolved nothing, on both engines). Radix
 //     portals a dialog to the END of `<body>` when it opens, which is after anything mounted
@@ -42,8 +42,11 @@ import { hasMermaid } from './slide-thumb';
 //     absolute wrappers resolved nothing, on both engines). What does clip it is `clip-path` on
 //     the slot's viewport-sized root (measured on both engines): the root is set to the
 //     intersection of the tile's clipping ancestors, in viewport coordinates — the scrollports,
-//     which do not move when the grid scrolls, so the clip needs no per-frame update.
-//  3. STACKING. A frame must paint above its own surface and below anything opened over it.
+//     which do not move when the grid scrolls. The pool recomputes it on resize, on any scroll
+//     (a nested scroller moves its own clip), and when an animation settles.
+//  3. NO TRANSFORMS. Anchor positioning places a frame by layout and ignores transforms, so a
+//     grid under a lasting transform gets frames offset by it — see `underStaticTransform`.
+//  4. STACKING. A frame must paint above its own surface and below anything opened over it.
 //     Its root takes the z-index of the tile's outermost stacking ancestor (Present's overlay is
 //     z-102, a dialog z-50, the inspector none); being later in tree order at that z puts it just
 //     above the surface, and a later body-end overlay at the same z paints above it again.
@@ -113,7 +116,7 @@ function anchorsSupported(): boolean {
 /**
  * Whether the pool rooted at `el` may borrow from the dock: the dock is in use AND `el` comes
  * before it in the document — condition 1 above. Asked per pool, so a surface that was not routed
- * into `surfacesRoot()` (a phone sheet, a future grid) keeps its frames in its own layer instead of
+ * into `surfacesRoot()` (a future grid that forgets its `container`) keeps its frames in its own layer instead of
  * painting unanchored frames at the top-left of the page.
  */
 export function canDock(el: Element | null): boolean {
@@ -152,6 +155,10 @@ export function dockSupported(): boolean {
 let roots: { surfaces: HTMLElement; dock: HTMLElement } | null = null;
 function ensureRoots() {
 	if (roots || typeof document === 'undefined') return roots;
+	// A hot reload of this module in dev leaves the previous roots in the page; replace them rather
+	// than append a second pair with the same ids.
+	document.getElementById('lattice-surfaces')?.remove();
+	document.getElementById('lattice-frame-dock')?.remove();
 	const surfaces = document.createElement('div');
 	surfaces.id = 'lattice-surfaces';
 	const dock = document.createElement('div');
@@ -250,9 +257,21 @@ export function anchorNameOf(el: HTMLElement, prefix: string): string {
 	return n;
 }
 
+/**
+ * The box a slot root (`fixed inset-0`) fills: the viewport WITHOUT its scrollbars, so the root
+ * element's client box rather than `innerWidth`, or a page scrollbar shifts the clip's far edges.
+ * jsdom reports a 0×0 client box, hence the fallback.
+ */
+function viewportBox(): { w: number; h: number } {
+	if (typeof document === 'undefined') return { w: 0, h: 0 };
+	const r = document.documentElement;
+	return { w: r.clientWidth || window.innerWidth, h: r.clientHeight || window.innerHeight };
+}
+
 /** The part of the viewport `el`'s clipping ancestors leave visible, and the z-index of its surface. */
 export function placementOf(el: HTMLElement): { clip: Clip; z: number } {
-	const clip: Clip = { top: 0, left: 0, right: typeof window === 'undefined' ? 0 : window.innerWidth, bottom: typeof window === 'undefined' ? 0 : window.innerHeight };
+	const { w: vw, h: vh } = viewportBox();
+	const clip: Clip = { top: 0, left: 0, right: vw, bottom: vh };
 	let z = 0;
 	if (typeof getComputedStyle !== 'function') return { clip, z };
 	for (let a: HTMLElement | null = el.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
@@ -311,7 +330,7 @@ export function FrameDockHost() {
 					style={{
 						zIndex: s.z,
 						visibility: shown ? 'visible' : 'hidden',
-						clipPath: shown && c ? `inset(${c.top}px ${Math.max(0, window.innerWidth - c.right)}px ${Math.max(0, window.innerHeight - c.bottom)}px ${c.left}px)` : 'inset(50%)',
+						clipPath: shown && c ? `inset(${c.top}px ${Math.max(0, viewportBox().w - c.right)}px ${Math.max(0, viewportBox().h - c.bottom)}px ${c.left}px)` : 'inset(50%)',
 					}}
 				>
 					<div

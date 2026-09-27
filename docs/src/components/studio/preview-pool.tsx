@@ -475,7 +475,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				// render patches instead of rewriting. Never a slot of another identity, whatever the
 				// pressure: that one is not a cost, it is a wrong answer.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
-				let slot = free.find((s) => s.key === k) ?? free[0];
+				let slot: (typeof free)[number] | undefined = free.find((s) => s.key === k) ?? free[0];
 				// DOCKED, AND NO FREE SLOT OF THIS SHAPE HERE: take one of this shape from the dock — one another
 				// surface gave back, or a new one under the dock's ceiling. The gallery's one Mermaid tile used to
 				// borrow a free slot of the other shape and hand it back: two full rewrites, two fresh documents,
@@ -515,6 +515,10 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 					spare.props = null;
 					slot = spare;
 				}
+				// DOCKED AND THE DOCK IS DRY: leave this tile without a frame rather than stop the pass. The
+				// ceiling is two pools' worth (frame-dock-limits.ts), so this is a backstop; a pass that threw
+				// here would blank every tile of the grid, not one.
+				if (!slot) continue;
 				slot.tileId = t.id;
 				slot.props = t.props;
 				slot.key = k;
@@ -643,7 +647,12 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		// Re-measure when any animation or transition settles.
 		window.addEventListener('animationend', on, true);
 		window.addEventListener('transitionend', on, true);
+		// iOS: the on-screen keyboard and pinch-zoom change the visual viewport without a window
+		// `resize`. UNVERIFIED on a device — no iPhone can be driven from here.
+		const vv = window.visualViewport;
+		vv?.addEventListener('resize', on);
 		return () => {
+			vv?.removeEventListener('resize', on);
 			window.removeEventListener('scroll', on, { capture: true });
 			window.removeEventListener('resize', on);
 			window.removeEventListener('animationend', on, true);

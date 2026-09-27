@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { DOCK_MAX_SLOTS } from '../src/components/studio/frame-dock-limits';
-import { poolFrameSelector } from './pool-frames';
+import { countDocuments, documentsMade, poolFrameSelector, servingDockSlots, shownDockFrames } from './pool-frames';
 import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // METAMORPHIC oracles for the add-slide gallery's live-preview window.
@@ -364,10 +364,12 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 	test('@crosswidth MR-3 · opening and closing the gallery is idempotent', async ({ page }, testInfo) => {
 		test.setTimeout(210_000);
 		const compact = testInfo.project.name === 'mobile';
+		await countDocuments(page);
 		await gotoStudio(page);
 
 		const opened: number[] = [];
 		const closed: number[] = [];
+		const made: number[] = [];
 		for (let cycle = 0; cycle < 3; cycle++) {
 			if (cycle === 0) await openAddSlide(page, compact);
 			else await reopen(page, compact);
@@ -376,10 +378,14 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 			await quiesced(page);
 			opened.push(await mounted(page));
 
+			const served = await servingDockSlots(page, SCROLLER);
 			await page.keyboard.press('Escape');
-			await expect.poll(() => mounted(page), { timeout: 20_000, message: 'the gallery did not tear its previews down on close' }).toBe(0);
+			// Its own layer AND the dock slots it was shown in: once the surface is gone, `mounted`
+			// alone can no longer see a docked frame left on screen (./pool-frames).
+			await expect.poll(async () => (await mounted(page)) + (await shownDockFrames(page, served)), { timeout: 20_000, message: 'the gallery did not tear its previews down on close' }).toBe(0);
 			await quiesced(page);
 			closed.push(await liveFrames(page));
+			made.push(await documentsMade(page));
 		}
 
 		// THE RELATION, twice over.
@@ -399,6 +405,12 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 			expect(n, `after close #${i + 1} the page holds ${n} live preview documents`).toBeLessThanOrEqual(DOCK_MAX_SLOTS + 2);
 			expect(n, `close #${i + 1} left ${n} live preview documents against ${closed[0]} after close #1 — a per-open residue`).toBeLessThanOrEqual(closed[0] + SLACK);
 		}
+		// (c) A reopen MAKES no documents. Element counts cannot see a frame rebuilt in place or a
+		//     full `srcdoc` rewrite into a kept one (./pool-frames `countDocuments`), and each is a
+		//     document WebKit never frees. Opens 2 and 3 together may make SLACK — the dock keeps the
+		//     high-water mark, and a later traversal can need a frame or two more than the first —
+		//     but a per-open cost (4–5 each, measured past the dock's ceiling) fails.
+		expect(made[2] - made[0], `reopens #2 and #3 made ${made[2] - made[0]} preview documents`).toBeLessThanOrEqual(SLACK);
 		// (b) Opening is the SAME each time. Cycle 3 must look like cycle 1 — a window carrying
 		//     state across opens climbs here even when each individual close looks clean.
 		agree(opened[0], opened[opened.length - 1], `mounted previews after a full scroll, open #1 vs open #${opened.length}`);
@@ -576,6 +588,7 @@ async function reopen(page: Page, compact: boolean) {
 // exists at all (see playwright.config.ts).
 test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async ({ page }) => {
 	test.setTimeout(210_000);
+	await countDocuments(page);
 	await gotoStudio(page);
 	await openAddSlide(page, true);
 	await firstBandPainted(page);
@@ -597,17 +610,24 @@ test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async
 	expect(rest.seen, 'WebKit: no tile box was on screen, so nothing was checked').toBeGreaterThan(1);
 	expect(rest.blank, `WebKit: ${rest.blank} of ${rest.seen} tile boxes on screen are blank`).toBeLessThanOrEqual(2);
 
+	const served = await servingDockSlots(page, SCROLLER);
+	expect(served.length, 'WebKit: the gallery borrowed no dock frames, so this test checks nothing about the dock').toBeGreaterThan(0);
 	await page.keyboard.press('Escape');
-	await expect.poll(() => mounted(page), { timeout: 20_000, message: 'WebKit: the gallery did not tear its previews down on close' }).toBe(0);
+	await expect.poll(async () => (await mounted(page)) + (await shownDockFrames(page, served)), { timeout: 20_000, message: 'WebKit: the gallery did not tear its previews down on close' }).toBe(0);
 	await quiesced(page);
 	// Closing KEEPS the documents (hidden, in the frame dock) so the next open re-points them —
 	// the WebKit fix itself. What must hold is that they are bounded, and that a REOPEN mints
 	// none: WebKit never frees a preview document, so any new one on reopen is permanent.
 	const afterClose = await liveFrames(page);
+	const madeAtClose = await documentsMade(page);
 	expect(afterClose, `WebKit: ${afterClose} live preview documents held after closing the gallery`).toBeLessThanOrEqual(DOCK_MAX_SLOTS + 2);
 	await reopen(page, true);
 	await firstBandPainted(page);
 	await quiesced(page);
 	const afterReopen = await liveFrames(page);
 	expect(afterReopen, `WebKit: reopening the gallery minted ${afterReopen - afterClose} new preview documents`).toBeLessThanOrEqual(afterClose);
+	// The element count cannot see a frame rebuilt in place or a `srcdoc` rewrite (./pool-frames
+	// `countDocuments`); this can. One is the dock's high-water mark growing by a frame.
+	const madeOnReopen = (await documentsMade(page)) - madeAtClose;
+	expect(madeOnReopen, `WebKit: reopening the gallery created ${madeOnReopen} preview documents`).toBeLessThanOrEqual(1);
 });
