@@ -256,6 +256,23 @@ WebKit-phone projects. Two reopens must make 0 documents and open at the top, an
 must not be a dialog. Against main, that spec fails: 16 documents from two deck-settings reopens,
 and documents on the overview's reopens.
 
+### The residue after an Add slide reopen is a plateau, not a leak
+
+`followups.d/2398-p2` (now deleted) asked whether the RSS still rising after #2398 (+378 → +492 MB
+over 6 cycles, with 0 new documents) would plateau. It does. Two runs of 14 cycles on the same
+Add slide code (Playwright WebKit, 1440×900, same box):
+
+- run A: +192, +327, +379, +469, +532, +599, +447, +528, +567, +614, +549, +530, +551, +591 MB;
+- run B: +177, +913, +944, +943, +1050, +1041, +1076, +391, +476, +489, +545, +369, +435, +273 MB.
+
+New documents per reopen are 0–2 in the first four cycles, while the pool grows its slots from 13
+to 15 frames, and 0 after that. Run A levels off from cycle 5 at +450 to +610 MB. Run B climbs past
++1 GB and then WebKit gives most of it back at cycle 8, ending at +273 MB. So the growth after a
+reopen is memory WebKit reclaims later, not stranded documents. The level varies by run by
+hundreds of MB, so a 6-cycle read of it says nothing about a leak. The number to watch is the
+document count. These are Linux WPE figures: iOS Safari runs the same engine under a different
+memory manager, and the device check in `followups.d/2398-p1` is still the only read of that.
+
 ### Tried first, and why they failed
 
 - **A frame dock** (built, reviewed by the adversarial trio, then removed). One set of frames
