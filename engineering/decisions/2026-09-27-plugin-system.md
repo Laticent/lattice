@@ -409,6 +409,15 @@ which cannot carry imports.
   exactly what `ctx` exists to replace. The script is marked with `ENGINE_SCRIPT_ATTR` so the
   player's prune step treats it like the engine's own, and the emulator injects it only when the
   deck uses the plugin.
+  **Its limit, recorded so phase D does not find it mid-build** (HARD RULE #25 inversion lens):
+  serialization carries a hydrate that is one self-contained function. Function-plot's is 25
+  lines. Mermaid's browser half is ~2,160 lines of kernels (`render-diagrams`, `mermaid-theme-map`,
+  `diagram-scope`, …) that HARD RULE #1 keeps shared with the Node side, and it cannot be one
+  function. Phase D picks one of two ways out, and neither reopens this frame: (a) a manifest flag
+  marking a hydrate **runtime-only** — the CLI bakes that plugin instead (`exec.bake`, which phase
+  D adds anyway), so the resolver exempts it from the no-import rule; or (b) an esbuild IIFE built
+  into `dist/` beside `dist/lattice-emulator.js` at `prepare`, never committed, which answers this
+  paragraph's staleness objection. (a) is the likelier: Mermaid already bakes on the CLI.
 - **HTML player:** ships no plugin code; it bakes the hydrated page.
 
 **The settle barrier.** Today's PDF is correct only because the function-plot inflater runs
@@ -439,7 +448,11 @@ equality would be the wrong rule. **"Used" is transitive:** when a used plugin n
 `requires` or `optional`, the other's payload loads too.
 
 One host loader, `ensurePayload(plugin, base)`, replaces the three `ensure-*` loaders: their
-per-URL promise cache, their retry after a failure, their poll for the declared `global`. The CLI
+per-URL promise cache, their retry after a failure, their poll for the declared `global`.
+**As built (phase B):** it replaced function-plot's loader only — KaTeX's and Mermaid's move with
+their phases — and a failed load is NOT retried: it stays failed for the page's life, and the
+placeholders show their source as `unavailable`, which a later pass still recovers if the global
+turns up by other means. The global must be a function. The CLI
 emits a payload tag only when the deck uses the plugin; the player bakes; the CSP script hashes are
 computed from the assembled bytes as today (`player-core.mjs`). `from: "npm:…"` points an in-tree
 plugin at its npm dependency instead of vendoring a copy. Moving those dependencies to
@@ -731,6 +744,44 @@ code. What changed because of them:
   rules change what a plugin sees is covered only by the `renders` bullets; and the resolver's
   trigger-collision check trusts the triggers a manifest DECLARES — nothing yet proves a rule
   fires only on them. Phase C's spec work picks both up.
+
+- **Phase B, function-plot on the host: done, on its branch.** `lib/plugins/function-plot/`
+  (manifest, fence renderer, a self-contained `hydrate.js`, `styles.css`, docs, fixtures) and
+  `lib/plugins/anima/` (fence only). The host owns ONE fence table in `lib/plugins/host.js`
+  (first word of the info string, names and aliases; a name a highlight.js language owns is
+  refused), so the wrapper chain in `plugins.js` is gone and `fenceWrappers` falls 2 → 0.
+  `host-browser.mjs` is the browser half: the runtime imports it with `hydrate.generated.js`; the
+  CLI page runs it serialized (`hydrate-script.js`, §4.7 as built). The settle state is markup —
+  `pending` (engine) → `hydrating` → `rendered` / `error` / `unavailable`, `data-lattice-final`
+  terminal — and every CLI capture (initial, autosplit, rails, player) and the Studio export wait
+  on it. Math gained a ` ```math ` fence and a tokenized KaTeX `errorColor` (`var(--warn)`,
+  measured: KaTeX writes it verbatim into both failure renderings, and Chromium resolves it in
+  the MathML `mathcolor` too); `relationship.js`'s error test follows the new ink (mutation-proved).
+  The dead `.math-error` became the math plugin's `.katex-error` surface. Rosters now derived from
+  the registry: grammar.json's fences, the Marp fidelity ledger's `package` rows, the playground's
+  staged libraries, the Studio capture's wait selector, the Read pane's bake gate; the math canvas
+  and the fluid view size `[data-lattice-hydrate]`, never a plugin's class.
+  **Evidence.** Engine HTML over every tracked Markdown file (523 × 3 configurations) identical to
+  `main` but for the three decks with a plot (the placeholder's attributes) and the files this
+  phase edits; the math gallery PDFs byte-identical in light and dark; the real runtime in real
+  Chromium draws, releases and errors (`functionplot-runtime-load.test.js`); `--player` and
+  `--read` keep `x²` (`functionplot-utf8.test.js`); demo deck `examples/plugin-system-phase-b`,
+  rendered light and dark, with a before/after of the error ink.
+  **Adversarial trio (HARD RULE #25).** No blocker. Folded: the fence probes now see a fence
+  inside `>` or a list item (the Studio showed raw TeX there); the pending selector requires
+  `[data-lattice-hydrate]` (an author element with the attribute stalled every capture and was then
+  blanked) and a placeholder for an unknown plugin settles at once; `ctx.lib` must be a function
+  (`<div id="functionPlot">` was called as the library); `hydrating` is a markup state, so
+  `--fluid`'s two hosts cannot draw one figure twice; the build refuses code outside `hydrate()`
+  (a module-level `const` passed the require/import check and broke only the CLI page); every
+  hydrator runs on both surfaces over its own fixtures; the CLI warns when a used library is not
+  installed; the ratchet counts a `fence` override anywhere, in either spelling; payload files are
+  unique and never a host asset; a failing fence renderer degrades to a code block; three
+  untested resolver arms and the build's real reserved-name wiring are pinned; docs corrected
+  (`--read` never carried a plot; the CLI waits 5 s, not 4).
+  **Left, with their reason:** the serialization limit for Mermaid (§4.7, phase D's call); a
+  highlight.js upgrade that reserves a plugin fence name fails the build rather than grandfathering
+  it; `--fluid` and plain `--html` link the library by a `file://` path (predates the plugin).
 
 ## References
 

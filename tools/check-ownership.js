@@ -7597,10 +7597,11 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  * leaves two idioms where there was one. So each phase that moves an integration onto the plugin
  * host deletes what it replaces IN THE SAME PR, and this gate counts what is left:
  *
- *   fenceWrappers       assignments to `md.renderer.rules.fence` in
- *                       lib/integrations/markdown-it/plugins.js. Each is a fence renderer that
+ *   fenceWrappers       assignments to a `fence` property (`rules.fence =`, `r['fence'] =`) —
+ *                       markdown-it's fence renderer, whatever the receiver is called — anywhere under lib/, docs/src or the emulator, except
+ *                       the host's one table in lib/plugins/host.js. Each is a fence renderer that
  *                       wraps the previous one, so registration order decides who wins and
- *                       nothing checks it. The host's fence table replaces them (phase B).
+ *                       nothing checks it. The host's fence table replaced them (phase B: 0).
  *   pluginTokenNames    a plugin's token type (`math_block`, …) written in CODE outside
  *                       lib/plugins — a consumer hand-naming a plugin's output instead of reading
  *                       the registry. Derived from the generated grammar, so a new plugin's
@@ -7613,11 +7614,24 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
 const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0 });
 
 function pluginMigrationCounts(root = ROOT) {
-  const read = (rel) => {
-    const abs = path.join(root, rel);
-    return fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
-  };
-  const fenceWrappers = (stripCodeComments(read('lib/integrations/markdown-it/plugins.js')).match(/md\.renderer\.rules\.fence\s*=(?!=)/g) || []).length;
+  // EVERY override of markdown-it's fence renderer outside the host's one table, anywhere a render
+  // path lives — not just plugins.js, and in either spelling (`rules.fence =`, `rules['fence'] =`).
+  // The first cut read one file with one pattern, so a wrapper re-grown in lib/engine, or written
+  // with brackets, passed (HARD RULE #25 inversion lens). Tests are out: they install wrappers on
+  // their own parsers on purpose.
+  // Keyed on the PROPERTY, whatever the receiver is called: `const r = md.renderer.rules;
+  // r.fence = …` is the same wrapper. Nothing else in the tree assigns a `fence` property.
+  const FENCE_OVERRIDE = /(?:\.\s*fence|\[\s*(['"`])fence\1\s*\])\s*=(?!=)/g;
+  const fenceFiles = [];
+  for (const dir of ['lib', 'docs/src']) listSourceFiles(path.join(root, dir), fenceFiles);
+  fenceFiles.push(path.join(root, 'lattice-emulator.js'));
+  let fenceWrappers = 0;
+  for (const file of fenceFiles) {
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    if (rel === 'lib/plugins/host.js' || /\.test\.[cm]?[jt]s$/.test(rel) || /\.generated\.[cm]?[jt]s$/.test(rel)) continue;
+    if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
+    fenceWrappers += (stripCodeComments(fs.readFileSync(file, 'utf8')).match(FENCE_OVERRIDE) || []).length;
+  }
 
   // The token names come from the registry's DATA, never from the generated file's text: a
   // pattern tied to the generator's indentation would match nothing after a reformat and pass

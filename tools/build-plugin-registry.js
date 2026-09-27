@@ -98,8 +98,23 @@ async function readExports(folder, name, manifest) {
   }
   const hydratePath = path.join(dir, `${name}.hydrate.js`);
   if (fs.existsSync(hydratePath)) {
-    out.hasHydrate = typeof require(hydratePath).hydrate === 'function';
+    const { hydrate } = require(hydratePath);
+    out.hasHydrate = typeof hydrate === 'function';
     out.hydrateSource = fs.readFileSync(hydratePath, 'utf8');
+    // What the module holds OUTSIDE the hydrate function: its own source text (which is exactly
+    // what the CLI page receives, serialized) cut out, then comments and the one export statement.
+    // Anything left — a module-level const, a helper — is a free identifier on the CLI page, where
+    // it throws "is not defined" and the PDF prints the error instead of the figure while the
+    // runtime draws fine (the HARD RULE #25 inversion lens reproduced exactly that).
+    if (out.hasHydrate) {
+      out.hydrateModuleScope = out.hydrateSource
+        .replace(hydrate.toString(), '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '')
+        .replace(/module\.exports\s*=\s*\{\s*hydrate\s*\};?/, '')
+        .replace(/(['"])use strict\1;?/, '')
+        .trim();
+    }
   }
   const stylesPath = path.join(dir, `${name}.styles.css`);
   if (fs.existsSync(stylesPath)) {
@@ -399,4 +414,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { build };
+module.exports = { build, reservedFenceNames };

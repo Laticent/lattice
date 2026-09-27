@@ -238,7 +238,10 @@ describe('the final checker: what a later pass or the runtime acts on', () => {
     assert.equal(f('rect', 'id', 'acme-grad'), true);
     assert.equal(f('rect', 'id', '3'), true);
     assert.equal(f('rect', 'id', 'lattice-notes'), false);
-    assert.equal(f('div', 'data-fp-final', '1'), false);
+    // A package cannot forge a plugin figure's placeholder or mark one settled (lib/plugins/host-browser.mjs).
+    for (const attr of ['data-lattice-hydrate', 'data-lattice-config', 'data-lattice-settle', 'data-lattice-final']) {
+      assert.equal(f('div', attr, '1'), false, attr);
+    }
     assert.equal(f('div', 'data-mermaid-state', 'done'), true);
     assert.equal(f('div', 'data-acme-count', '3'), true, "the package's own data attributes are its own");
   });

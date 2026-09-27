@@ -118,7 +118,8 @@ describe('plugin host — asynchronous hydrate and its budget', () => {
     test(`${surface}: a hydrate inside its budget settles rendered; one past it is closed and its late draw discarded`, async () => {
       const fast = page(PLOT);
       install(fast, slow(10))();
-      assert.equal(state(placeholder(fast)), 'pending', 'pending while the hydrate runs');
+      assert.equal(state(placeholder(fast)), 'hydrating', 'hydrating — in markup, so captures keep waiting — while the hydrate runs');
+      assert.ok(fast.document.querySelector(PENDING_FIGURES), 'a capture still waits on a hydrating figure');
       await new Promise((r) => setTimeout(r, 40));
       assert.equal(state(placeholder(fast)), 'rendered');
 
@@ -169,5 +170,69 @@ describe('the CLI page gets only what a deck uses', () => {
       // Re-created from its own text, it is still a function of (el, ctx).
       assert.equal(typeof new Function(`return (${src})`)(), 'function');
     }
+  });
+});
+
+// EVERY hydrator, not just function-plot: run on both surfaces over the inputs of its own fixtures,
+// the two must reach the same settle states, and neither may fail on a free identifier. A module-
+// level helper passes the runtime and breaks only the CLI page — the PDF prints "x is not defined"
+// where the figure goes — which is the failure the serialized surface exists to catch
+// (HARD RULE #25 inversion lens). The library is a stand-in that accepts any call.
+describe('every hydrator behaves the same on both surfaces, over its own fixtures', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const inputsOf = (name) => {
+    const text = fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${name}/${name}.fixtures.md`), 'utf8');
+    return [...text.matchAll(/^(`{3,4})markdown\n([\s\S]*?)\n\1$/gm)].map((m) => m[2]);
+  };
+  for (const h of HYDRATORS) {
+    const inputs = inputsOf(h.name).filter((src) => createEngine().render(src).html.includes(`data-lattice-hydrate="${h.name}"`));
+    test(`${h.name}: ${inputs.length} fixture input(s), same states, no free identifiers`, () => {
+      assert.ok(inputs.length > 0, `${h.name} has no fixture that renders its placeholder`);
+      for (const src of inputs) {
+        const states = {};
+        for (const [surface, install] of Object.entries(SURFACES)) {
+          const win = page(src);
+          if (h.payload) win[h.payload.global] = () => {};
+          install(win, [h])();
+          const els = [...win.document.querySelectorAll(`[data-lattice-hydrate="${h.name}"]`)];
+          for (const el of els) assert.doesNotMatch(el.textContent, /is not defined/, `${surface}: ${el.textContent}`);
+          states[surface] = els.map(state);
+        }
+        const [a, b] = Object.values(states);
+        assert.deepEqual(b, a, `the surfaces disagree on ${JSON.stringify(src.slice(0, 40))}`);
+      }
+    });
+  }
+});
+
+describe('the host, against markup it did not write', () => {
+  test('an author element marked pending is not a figure: no capture waits on it, nothing erases it', async () => {
+    const win = page(`<p data-lattice-settle="pending">Author text.</p>\n\n${PLOT}`);
+    fakeLibrary(win);
+    SURFACES.runtime(win)();
+    assert.equal(await win.eval(settleBarrierScript(1000)), 0);
+    assert.equal(win.document.querySelector('p[data-lattice-settle]').textContent, 'Author text.');
+  });
+  test('a placeholder for a plugin this page has no browser half for settles with its source', () => {
+    const win = page(PLOT);
+    placeholder(win).setAttribute('data-lattice-hydrate', 'nope');
+    SURFACES.runtime(win)();
+    assert.equal(win.document.querySelector('[data-lattice-hydrate="nope"]').getAttribute('data-lattice-settle'), 'unavailable');
+  });
+  test('an element named like the library is not the library', () => {
+    const win = page(PLOT);
+    const decoy = win.document.createElement('div');
+    decoy.id = 'functionPlot';
+    win.document.body.appendChild(decoy);
+    SURFACES.runtime(win)();
+    assert.equal(state(placeholder(win)), 'unavailable', 'a <div id="functionPlot"> must not be called as the library');
+  });
+  test('a placeholder another host is drawing is left alone (the --fluid page runs two)', () => {
+    const win = page(PLOT);
+    const calls = fakeLibrary(win);
+    placeholder(win).setAttribute('data-lattice-settle', 'hydrating');
+    SURFACES.runtime(win)();
+    assert.equal(calls.length, 0);
   });
 });

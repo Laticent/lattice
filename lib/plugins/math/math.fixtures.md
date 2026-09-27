@@ -94,3 +94,21 @@ x^2 with no closer
 - renders `class="katex-display"`
 - renders `<annotation encoding="application/x-tex">\sigma(x) = \frac{1}{1 + e^{-x}}</annotation>`
 - detect true
+
+## a math fence inside a blockquote or a list item is still found
+
+````markdown
+> ```math
+> e^{i\pi} + 1 = 0
+> ```
+
+1. A step
+
+   ```math
+   x^2
+   ```
+````
+
+- renders `<annotation encoding="application/x-tex">e^{i\pi} + 1 = 0</annotation>`
+- renders `<annotation encoding="application/x-tex">x^2</annotation>`
+- detect true

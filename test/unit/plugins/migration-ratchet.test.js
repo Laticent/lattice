@@ -50,6 +50,25 @@ describe('checkPluginMigration', () => {
     }
   });
 
+  test('OVER budget: a fence wrapper re-grown ANYWHERE, in either spelling, fails — the host\'s own table does not count', () => {
+    for (const [rel, code] of [
+      ['lib/engine/planted.js', 'md.renderer.rules.fence = (t, i) => wrapped(t, i);\n'],
+      ['lib/core/planted.js', "const r = md.renderer.rules; r['fence'] = wrap(r['fence']);\n"],
+    ]) {
+      const planted = path.join(tmp, rel);
+      fs.mkdirSync(path.dirname(planted), { recursive: true });
+      fs.writeFileSync(planted, code);
+      try {
+        const errors = [];
+        checkPluginMigration(errors, PLUGIN_MIGRATION_BUDGET, tmp);
+        assert.ok(errors.some((e) => /fenceWrappers is 1, over its budget of 0/.test(e)), `${rel}: ${errors.join('\n')}`);
+      } finally {
+        fs.rmSync(planted);
+      }
+    }
+    assert.ok(fs.readFileSync(path.join(tmp, 'lib/plugins/host.js'), 'utf8').includes('md.renderer.rules.fence ='), 'the host still owns the one table');
+  });
+
   test('a token named only in a COMMENT does not count', () => {
     const planted = path.join(tmp, 'lib/core/planted.js');
     fs.writeFileSync(planted, '// the math_block token\n/* and math_inline */\nconst x = 1;\n');

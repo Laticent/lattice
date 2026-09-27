@@ -766,7 +766,7 @@ section.math.form.canvas > .cell-stage > :is(svg, figure, [data-lattice-hydrate]
  * into a box taller than the stage: on a broken config the dashed error surface ran past the
  * frame and the export flagged the slide as clipped. Text keeps its placement in the `plot`
  * area (the rule above) and its own height. */
-section.math.form.canvas > .cell-stage > [data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="rendered"]) {
+section.math.form.canvas > .cell-stage > [data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="hydrating"], [data-lattice-settle="rendered"]) {
   /* AXIS LABELS DRAW OUTSIDE THE PLOT AREA, so the plot asks for less than the whole cell.
    * function-plot anchors its y-tick text at `text-anchor: end`, so the digits extend LEFT
    * of the axis and out of the `<svg>`'s own box; the x-axis's last tick does the same on
@@ -1183,7 +1183,7 @@ section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"])
  * probe read the overhang as overflow — with `overCells: []`, i.e. no cell was over, which
  * is the tell that the spill was the section's and not the body's. Sized from the same
  * measurement as the horizontal gutter above. */
-section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"]) > .cell-stage > [data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="rendered"]) {
+section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"]) > .cell-stage > [data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="hydrating"], [data-lattice-settle="rendered"]) {
   width: 58%;
 }
 

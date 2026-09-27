@@ -2973,6 +2973,15 @@ const katexCssLink = katexCssAbsPath
 // left — rather than trusting that the draw finished before `load`.
 const pagePlugins = usedHydrators(highlightedSlides);
 const hasHydratedPlugins = pagePlugins.length > 0;
+// A used plugin whose library is not installed draws NOTHING: the host settles every placeholder
+// `unavailable` with its config shown, and nothing is left pending for the barrier to warn about.
+// So say it here, once per plugin, rather than ship a page of JSON silently (HARD RULE #25
+// inversion lens: phase F moves these libraries to optionalDependencies, where this is common).
+for (const h of pagePlugins) {
+  if (h.payload && !payloadPath(h) && !QUIET) {
+    console.warn(`  ⚠ ${h.name}: its library (${h.payload.from.replace(/^npm:/, '')}) is not installed — its figures export showing their source. npm install restores it.`);
+  }
+}
 const pluginHydrateScript = hasHydratedPlugins
   ? [
       ...pagePlugins.map(payloadPath).filter(Boolean).map((abs) => `<script ${ENGINE_SCRIPT_ATTR} src="file://${abs}"></script>`),

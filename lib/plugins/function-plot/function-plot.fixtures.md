@@ -55,3 +55,14 @@ browser half (`function-plot.hydrate.js`) is exercised by `test/unit/plugins/hyd
 - omits `<script>alert`
 - omits `onload="x`
 - detect true
+
+## a plot inside a blockquote is found
+
+````markdown
+> ```functionplot
+> { "data": [{ "fn": "x" }] }
+> ```
+````
+
+- renders `data-lattice-hydrate="function-plot"`
+- detect true

@@ -68,12 +68,33 @@ describe('resolvePlugins — hydrate, payload, styles, tokens', () => {
   test('a payload needs a hydrate to use it', () => {
     expectError([fencePlugin('a', { top: { payload: { lib: { from: 'npm:x/x.js', global: 'X', when: 'used' } } } })], /declares a payload but no hydrate/);
   });
+  test('a hydrate module with anything outside hydrate() is refused — the CLI page gets only the function', () => {
+    expectError([withHydrate({ hydrateModuleScope: 'const PAD = 4;' })], /has code outside hydrate\(\)/);
+  });
+  test('one payload file per plugin, uniquely named, and never a file the host serves', () => {
+    const lib = (from) => ({ from, global: 'X', when: 'used' });
+    expectError([withHydrate({}, { top: { payload: { a: lib('npm:x/a.js'), b: lib('npm:y/b.js') } } })], /more than one payload file/);
+    expectError([withHydrate({}, { top: { payload: { a: lib('npm:x/lattice-runtime.js') } } })], /already serves beside itself/);
+    const other = fencePlugin('b', { fences: { bfence: { body: 'json' } }, contributes: { hydrate: {} }, top: { payload: { a: lib('npm:z/dist/index.js') } }, exports: { hasHydrate: true, hydrateSource: 'function hydrate() {}' } });
+    expectError([withHydrate({}, { top: { payload: { a: lib('npm:x/index.js') } } }), other], /both load a payload file named "index.js"/);
+  });
   test('the stylesheet\'s var() reads are exactly `tokens`', () => {
     const styled = (css, tokens) => fencePlugin('a', { contributes: { styles: true }, top: { tokens }, exports: { hasStyles: true, stylesSource: css } });
     assert.deepEqual(errorsOf([styled('.x { color: var(--accent); }', ['--accent'])]), []);
     expectError([styled('.x { color: var(--accent); fill: var(--border); }', ['--accent'])], /reads --border, which its manifest's `tokens` does not list/);
     expectError([styled('.x { color: var(--accent); }', ['--accent', '--border'])], /lists token --border, which its stylesheet never reads/);
     expectError([fencePlugin('a', { contributes: { styles: true } })], /declares styles but has no a\.styles\.css/);
+    expectError([fencePlugin('a', { exports: { hasStyles: true, stylesSource: '' } })], /ships a\.styles\.css but its manifest does not declare styles/);
+    expectError([fencePlugin('a', { top: { tokens: ['--accent'] } })], /lists tokens but ships no stylesheet/);
+  });
+});
+
+describe('the reserved fence names the build really uses', () => {
+  test('are read from the installed highlight.js — json, tex and mermaid are taken; the plugin fences are free', () => {
+    const { reservedFenceNames } = require('../../../tools/build-plugin-registry.js');
+    const names = reservedFenceNames();
+    for (const taken of ['json', 'tex', 'latex', 'js', 'mermaid']) assert.ok(names.has(taken), `${taken} should be reserved`);
+    for (const free of ['functionplot', 'latticeplot', 'anima', 'math']) assert.ok(!names.has(free), `${free} is a plugin fence and must stay free`);
   });
 });
 
@@ -99,5 +120,17 @@ describe('the host fence table, on the real registry', () => {
     for (const f of ['functionplot', 'latticeplot', 'anima', 'math']) {
       assert.doesNotMatch(md.render(`\`\`\`${f}\n{}\n\`\`\`\n`), /^<pre><code class="language-/, `${f} fell through`);
     }
+  });
+});
+
+describe('a fence renderer that fails', () => {
+  test('degrades to a code block showing the body, not a flattened paragraph', () => {
+    const { failSoft } = require('../../../lib/plugins/host');
+    const token = { content: '{ "a": 1,\n  "b": 2 }\n' };
+    // What installFenceTable hands failSoft for a `degradesTo: source` plugin.
+    const out = failSoft(() => { throw new Error('boom'); }, {}, 'code-block', 'block')([token], 0, {}, {});
+    assert.equal(out, '<pre><code>{ "a": 1,\n  "b": 2 }\n</code></pre>\n');
+    const src = require('node:fs').readFileSync(require.resolve('../../../lib/plugins/host.js'), 'utf8');
+    assert.match(src, /g\.degradesTo === 'source' \? 'code-block' : g\.degradesTo/, 'the fence table maps source to code-block');
   });
 });

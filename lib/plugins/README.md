@@ -77,8 +77,9 @@ A plugin whose fence becomes a placeholder declares `contributes.hydrate` and sh
 `<name>.hydrate.js` exporting `hydrate(el, ctx)`. ONE function for every browser surface: the
 runtime bundles it (`hydrate.generated.js`), and the CLI export page — which runs without the
 runtime — gets it serialized by `hydrate-script.js`. So it must be **self-contained**: no require,
-no import, no module-level helper (the build refuses a require or import; a closure breaks on the
-CLI page alone, which `test/unit/plugins/hydrate-host.test.js` runs). `ctx` carries what it needs:
+no import, no module-level helper — the build refuses a require, an import, and anything in the
+module outside `hydrate()` itself, and `test/unit/plugins/hydrate-host.test.js` runs every hydrator
+on both surfaces over its own fixtures. A library global must be a function (`ctx.lib`). `ctx` carries what it needs:
 
 | `ctx` member | What it is |
 |---|---|
@@ -94,12 +95,16 @@ the state in markup, where any capture can read it:
 | `data-lattice-settle` | Meaning |
 |---|---|
 | `pending` | written by the ENGINE, so a capture that starts before any script ran still waits |
+| `hydrating` | a host is drawing it; every other pass — and a second host on the page — skips it |
 | `rendered` · `error` | drawn · failed, with the failure shown on the slide |
 | `unavailable` | the library never came; the author's source is shown. Recoverable |
 | + `data-lattice-final` | closed by a capture (or a budget); nothing touches it again |
 
-Every capture waits until nothing is `pending` — the CLI's PDF/PNG/PPTX and `--player`/`--read`
-bake (`settleBarrierScript`), and the Studio export (`deck-export.js`, `PENDING_FIGURES`). A layout
+Every capture waits until no placeholder is `pending` or `hydrating` — the CLI's PDF/PNG/PPTX and
+`--player` bake (`settleBarrierScript`), and the Studio export (`deck-export.js`,
+`PENDING_FIGURES`). The selector requires `[data-lattice-hydrate]`, so an author's own element
+carrying the attribute is never waited on, and a placeholder naming a plugin the page has no
+browser half for settles `unavailable` at once. A layout
 that sizes a figure selects the host's marker, `[data-lattice-hydrate]`, never a plugin's class.
 
 ## What the host guarantees, so a plugin does not have to

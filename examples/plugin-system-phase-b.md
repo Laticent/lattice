@@ -112,4 +112,4 @@ $$ \frac{a}{b $$
 
 # Every figure settles before capture
 
-`PDF · PNG · PPTX · --player · --read · the Studio export`
+`PDF · PNG · PPTX · --player · the Studio export`

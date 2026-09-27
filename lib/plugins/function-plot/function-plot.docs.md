@@ -43,9 +43,11 @@ S-shaped, with asymptotes at 0 and 1.
 | Surface | What it shows |
 |---|---|
 | Engine HTML | a placeholder, `data-lattice-settle="pending"` |
-| Studio preview, Playground, `--fluid` | the plot — the runtime loads `function-plot.js` from beside itself, only for a deck that has a plot |
+| Studio preview, Playground | the plot — the runtime loads `function-plot.js` from beside itself, only for a deck that has a plot |
 | CLI PDF / PNG / PPTX | the plot — every capture waits until no placeholder is pending |
-| HTML player, `--read` | the plot, baked to static SVG |
+| HTML player (`--player`) | the plot, baked to static SVG |
+| `--read` article | **not carried** — the article re-hosts equations, tables and charts, not plots (this predates the plugin) |
+| `--fluid`, plain `--html` | the plot, drawn by the export page's own copy of the host; its library is linked from the exporting machine's `node_modules` by a `file://` path, so a copy opened elsewhere shows the config instead |
 | Export to Marp | a code block showing the config (no Marp tool runs Lattice's plugins) |
 
 ## Failure behavior
@@ -54,8 +56,11 @@ S-shaped, with asymptotes at 0 and 1.
   `functionplot error: <message>` in the error ink, and the placeholder settles `error`.
 - **The library never arrives** (offline, blocked): the slide shows the config itself, settled
   `unavailable`. If the library turns up later, the next pass draws.
-- **A capture runs out of time** (4 s by default): the plot is closed `final` with its config
-  shown, and the CLI says so. Nothing draws over a closed plot afterwards.
+- **A capture runs out of time** — 4 s for one plot's draw (`hydrate.budgetMs`), and the CLI
+  waits up to 5 s in all (the longest draw plus a second for the library): the plot is closed
+  `final` with its config shown, and the CLI says so. Nothing draws over a closed plot afterwards.
+- **The library is not installed** (a clone that never ran `npm install`): the CLI warns once, and
+  every plot shows its config.
 
 ## What the plugin contributes
 
