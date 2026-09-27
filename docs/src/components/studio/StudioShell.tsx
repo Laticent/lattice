@@ -26,6 +26,7 @@ import { messageForFailure } from '@/lib/chunk-load';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
+import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
@@ -38,6 +39,7 @@ import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-brea
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
+import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -105,7 +107,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { chatPanel, lensesPanel, libraryPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
+import { chatPanel, FABRICATE_USED_KEY, lensesPanel, libraryPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -125,7 +127,14 @@ import { workspaceLensConfig } from './workspace-lenses';
 // `view === 'fabricate'` tab. Code-split it so its ~chunk stays out of the
 // initial Studio island payload (the heaviest thing a mobile user waits on) and
 // loads on first open. It's already mount-on-view, so this is a drop-in.
-const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
+// The first open also records that this browser uses Fabricate, which is what lets the idle
+// warm-up fetch it on later visits (`studio-warm.ts`).
+const Fabricate = React.lazy(() => {
+	try {
+		localStorage.setItem(FABRICATE_USED_KEY, '1');
+	} catch {}
+	return import('./Fabricate').then((m) => ({ default: m.Fabricate }));
+});
 
 // Read · Article — the deck as prose, in the TOP-LEVEL DOM so a reader-mode extractor
 // (Firefox's shake-to-summarize, Safari Reader, the Edge/Chrome reading modes) can
@@ -165,10 +174,12 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 // engineering/decisions/2026-08-23-studio-shell-decomposition.md §4. PresentOverlay has no
 // forwardRef/imperative handle (unlike Editor/ComposeView above) — StudioShell never holds
 // a ref into it — so this is a plain React.lazy with nothing to forward. Present is gated
-// by `presentOpen || presentEverOpened` at its render site below, so — unlike
-// Editor/ComposeView, which warm unconditionally on Studio mount because they're the
-// default pane — the chunk is not fetched until the user's first "Present" click.
+// by `presentOpen || presentEverOpened` at its render site below, so — unlike Editor,
+// which warms unconditionally on Studio mount because it is the default pane — the chunk
+// is not fetched at startup: it arrives with the idle warm-up (`studio-warm.ts`), or on the
+// first "Present" click if that comes first.
 const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
+
 
 
 // Deck Inspector pill-tab sections, ORDERED BY LIKELY REACH — the strip is read left
@@ -1280,8 +1291,31 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		import('./Editor').catch(() => {});
 	}, []);
-	// The panels, once the Studio is idle (`lazy-panel.tsx` › warmPanels).
+	// The six panels, once the Studio is idle (`lazy-panel.tsx` › warmPanels). Scheduled here at
+	// mount, as #2402 shipped it, so their offline guarantee depends on no extra download.
 	React.useEffect(() => warmPanels(STUDIO_PANELS), []);
+	// Then Compose, Present, the reading view and (if used before) Fabricate. That queue lives in
+	// its own chunk (`studio-warm.ts`) so none of it rides the startup bundle. If that chunk fails
+	// to load, those surfaces are not warmed this session; the six panels above still are.
+	React.useEffect(() => {
+		let cancel: (() => void) | undefined;
+		let dead = false;
+		import('./studio-warm')
+			.then((m) => {
+				if (dead) return;
+				let fabricateUsed = false;
+				try {
+					fabricateUsed = localStorage.getItem(FABRICATE_USED_KEY) === '1';
+				} catch {}
+				const katexUrl = sourceHasMath(sourceRef.current) ? deriveKatexProviderUrl() : null;
+				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, fabricateUsed });
+			})
+			.catch(() => {});
+		return () => {
+			dead = true;
+			cancel?.();
+		};
+	}, []);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —

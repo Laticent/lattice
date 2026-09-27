@@ -54,5 +54,5 @@ reference to item 5 still means item 5.
     `studio-reserved-slots.spec.ts:122` and `:144`, and the `minfont` project's
     `studio-shell-parity.spec.ts:160` at 1280px/Craft ("Previous slide" 21px off). The three in
     #2035 fail too. `studio-instant-shell.spec.ts:539` is flaky on both (1 of 2 on `main`, 1 of
-    4 on the branch: "shell 0 vs app 16"). WebKit and Gecko projects were not run: this sandbox
+    4 on the branch: "shell 0 vs app 16"; a test-setup race, fixed 2026-09-27 with #2070). WebKit and Gecko projects were not run: this sandbox
     has Chromium only.

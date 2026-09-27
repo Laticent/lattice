@@ -157,6 +157,9 @@ export function PanelLoader<C extends React.ComponentType<never>>({
 	return sheet ? <PanelSheetInstantCtx.Provider value={instant}>{body}</PanelSheetInstantCtx.Provider> : body;
 }
 
+/** Anything `warmPanels` can load: a `LazyPanel`, or a `warmable` chunk. `load()` never rejects. */
+export type Warmable = { load(): Promise<void> };
+
 /**
  * Load the panels in the background once the Studio is idle, so a panel opened later renders on
  * its first frame. It is also what keeps a never-opened panel working offline and across a
@@ -174,7 +177,7 @@ export function PanelLoader<C extends React.ComponentType<never>>({
  * they used to spend; it would only take away offline and after-deploy use of the panels.
  * Returns a cancel function.
  */
-export function warmPanels(panels: ReadonlyArray<LazyPanel<React.ComponentType<never>>>): () => void {
+export function warmPanels(panels: ReadonlyArray<Warmable>): () => void {
 	let cancelled = false;
 	let handle: number | undefined;
 	// Safari has no requestIdleCallback. The two handle spaces are separate, so remember which one

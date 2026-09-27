@@ -28,7 +28,35 @@
 // class contract the shared projection emits, so the markup stays one thing.
 
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
-import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
+import { buildDeckRender, type DeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';
+
+// Every module the projection loads on demand, named once so the idle warm-up fetches the same
+// set the view does (`warmArticleProjection`). A new `import()` in this file, or in
+// `buildDeckRender`, belongs in that list, or the reading view stops opening offline —
+// `docs/e2e/studio-warm-offline.spec.ts` is the check.
+const loadDeckExport = () => import('./export/deck-export.js');
+const loadRemoteRef = () => import('../../../../lib/core/remote-ref.js');
+const loadAuthoringCore = () => import('@/playground/authoring-core.generated.js');
+const loadPlayerPrune = () => import('@/playground/player-prune.generated.js');
+const loadPlayerCore = () => import('@/playground/player-core.generated.js');
+const loadSanitizeStyle = () => import('../../../../lib/core/sanitize-style-text.mjs');
+const loadSanitizeSlide = () => import('@/lib/sanitize-slide-html.js');
+
+/** Fetch the reading view's on-demand modules without rendering anything, so it opens offline
+ *  after a session that never opened it. `buildDeckRender`'s own on-demand module rides along
+ *  (`loadDeckRenderFonts`). Rejects if any module fails; `warmable` swallows that. */
+export function warmArticleProjection(): Promise<unknown> {
+	return Promise.all([
+		loadDeckRenderFonts(),
+		loadDeckExport().then((m) => m.loadFontEmbed()),
+		loadRemoteRef(),
+		loadAuthoringCore(),
+		loadPlayerPrune(),
+		loadPlayerCore(),
+		loadSanitizeStyle(),
+		loadSanitizeSlide(),
+	]);
+}
 
 export type ArticleToc = { id: string; level: number; text: string };
 export type DeckArticle = { articleHtml: string; toc: ArticleToc[] };
@@ -96,7 +124,7 @@ const RUNTIME_DRAWN = /<code[^>]*\sclass="[^"]*language-mermaid|data-fp-config/;
 async function bakeArticleSections(render: DeckRender, staticSections: string[], isStale?: () => boolean): Promise<string[] | null> {
 	if (!RUNTIME_DRAWN.test(render.html)) return null;
 	try {
-		const { bakeDeckSections } = await import('./export/deck-export.js');
+		const { bakeDeckSections } = await loadDeckExport();
 		// A view switch or a palette toggle while the bake is in flight makes this render
 		// obsolete before it finishes. Checked HERE, after the dynamic import and before the
 		// capture frame, which is the last point where abandoning costs nothing.
@@ -172,7 +200,7 @@ export async function projectDeckArticle(
 	// content-security policy, so the deck's web images and web `url()`s would load here whatever
 	// the reader chose. Rewritten three times: the render before the bake, the flat CSS the page
 	// takes in, and the projected article after it (a baked Mermaid diagram can add an image).
-	const { default: remoteRef } = (await import('../../../../lib/core/remote-ref.js')) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
+	const { default: remoteRef } = (await loadRemoteRef()) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
 	const allowed = options.webOrigins ?? [];
 	const render: DeckRender = {
 		...built,
@@ -185,7 +213,7 @@ export async function projectDeckArticle(
 	// denominator, so a miscount silently DISCARDS a good bake and hands the reader the
 	// un-baked article. `deck-export.js` documents the same trap at its own call. (The
 	// Playground's `splitSections` was that flat scan until it moved onto this same walker.)
-	const { splitSectionsCore } = (await import('@/playground/authoring-core.generated.js')) as unknown as {
+	const { splitSectionsCore } = (await loadAuthoringCore()) as unknown as {
 		splitSectionsCore: (h: string) => { type: string; openTag: string; inner: string }[];
 	};
 	const staticSections = splitSectionsCore(render.html)
@@ -224,11 +252,7 @@ export async function projectDeckArticle(
  */
 export async function scopedArticleCss(articleHtml: string, flatCss: string | undefined, mode: 'light' | 'dark'): Promise<string> {
 	if (!articleHtml || !flatCss) return '';
-	const [pruneMod, coreMod, sanitizeMod] = await Promise.all([
-		import('@/playground/player-prune.generated.js'),
-		import('@/playground/player-core.generated.js'),
-		import('../../../../lib/core/sanitize-style-text.mjs'),
-	]);
+	const [pruneMod, coreMod, sanitizeMod] = await Promise.all([loadPlayerPrune(), loadPlayerCore(), loadSanitizeStyle()]);
 	const { collectBaseSelectors, scopeReHostedCss } = pruneMod as unknown as {
 		collectBaseSelectors: (css: string, o?: { legacyPseudoElements?: boolean }) => string[];
 		scopeReHostedCss: (css: string, isUsed: (b: string) => boolean, o: { root: string; within: string; colorScheme?: string }) => { css: string; applied: boolean };
@@ -253,10 +277,7 @@ export async function scopedArticleCss(articleHtml: string, flatCss: string | un
 /** The sanitize-then-project kernel, split out so a caller holding rendered sections
  *  (the export path, a test) can project without paying for a second deck render. */
 export async function projectSectionsToArticle(sectionHtmls: string[]): Promise<DeckArticle> {
-	const [coreMod, sanitizeMod] = await Promise.all([
-		import('@/playground/player-core.generated.js'),
-		import('@/lib/sanitize-slide-html.js'),
-	]);
+	const [coreMod, sanitizeMod] = await Promise.all([loadPlayerCore(), loadSanitizeSlide()]);
 	const projectDeckToProse = (
 		coreMod as unknown as { projectDeckToProse: (s: Element[]) => DeckArticle }
 	).projectDeckToProse;

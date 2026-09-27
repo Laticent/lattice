@@ -604,6 +604,10 @@ every page the font usually wins the block period anyway. Not verified on a devi
 
 ## `is not replayed in portrait` fails ~80% here, on this branch AND on main
 
+> **Superseded 2026-09-27.** The seed was not reading a stale viewport. The reload's `pagehide`
+> overwrote the stored landscape rect with a mid-rotation portrait one, which the seed rightly
+> replayed. See `2026-09-26-studio-panel-lazy-loading.md` § What shipped, measured.
+
 Recorded because two earlier readings of it in this session were wrong in opposite directions,
 and both came from four-run samples of a coin-flip.
 

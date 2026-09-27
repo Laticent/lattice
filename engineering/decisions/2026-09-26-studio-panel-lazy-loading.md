@@ -94,9 +94,9 @@ panels someone might open offline. A warm-up with `requestIdleCallback` after fi
 puts the chunks in the cache without touching the startup path. `StudioShell.tsx:1254`
 already warms `Editor` this way; B reuses that idiom.
 
-Present, Fabricate and the reading view today behave like option A. Offline, a user who
-never opened them can't load them. That is a pre-existing gap, off the path of this change;
-I will log it in `followups.d/` instead of widening this PR.
+Present, Fabricate and the reading view behaved like option A when this plan was written.
+Offline, a user who never opened them could not load them. The follow-up PR warms them too,
+with a different rule for each; see § Warming Present, Fabricate and the reading view.
 
 ## How each panel mounts
 
@@ -342,6 +342,99 @@ orientation › is not replayed in portrait" fails intermittently against the FU
 (`npm run build`, which adds `inject-modulepreload` and `hoist-stylesheets`). It failed 6 of 8 runs
 on `main`'s full build and 4 of 8 on this branch's. It passed on both under `build:e2e`, which is
 what CI runs. `followups.d/2336-p3-packages-trio-followups.md` already tracks it, with older rates (1 of 2, 1 of 4). This PR adds a follow-up with the rates above.
+
+**Resolved in the follow-up PR (2026-09-27): a harness artifact, not the shell.** Instrumented on
+a failing run: viewport 390x844, `data-ssr-bp` mobile, cinema off, and the stored rect
+`{"l":0,"t":0.37,"w":1,"h":0.2599}`, a 16:9 box at portrait fractions. That is not the landscape
+rect the test stored. The test resized the live landscape page and reloaded at once, and the
+reload's `pagehide` ran `persistRect` (`StudioShell.tsx`) before React had re-rendered out of
+the cinema morph. It measured the full-bleed cinema box in the portrait viewport and overwrote
+the landscape rect. Being portrait-shaped, that rect passed the aspect gate, and the seed replayed
+it exactly as designed. When the app won the race, it stored a correct portrait rect, so even
+the passing runs never tested the gate. The full build only shifts the timing. The spec now
+loads portrait in a new page of the same context, and asserts the landscape rect is still in
+storage. Measured: 20 of 20 on `npm run build` and 20 of 20 on `build:e2e`. With the aspect gate
+forced open in the built HTML it fails 3 of 3 (`shell 45 vs app 16`), so it can still catch the
+defect it names. The app-side window, a rotation followed within one frame by leaving the page, is
+logged in `followups.d/2402-p3-persist-rect-mid-rotation.md`.
+
+## Warming Present, Fabricate and the reading view (2026-09-27)
+
+The follow-up to this PR (`followups.d/2402-p3-warm-present-fabricate-read-for-offline.md`).
+All three are `React.lazy` in `StudioShell.tsx`, and nothing fetched them until someone opened
+them, so a user who went offline first got the chunk-load card. The idle warm-up now fetches
+them after the six panels (`startStudioWarmUp` in `studio-warm.ts`, a module StudioShell loads
+after mount so the queue adds almost nothing to startup: about 230 bytes gz, the effect that loads
+it). A first cut that imported `studio-panels` from that module split it into a startup chunk of its
+own, +3.2KB gz to save 1.9KB, so the module imports nothing the startup bundle has and StudioShell
+passes those pieces in. The six panels stay out of that module: StudioShell still schedules
+their warm-up at mount, as #2402 shipped it, so their offline guarantee never waits on an extra
+download. If `studio-warm.ts` itself fails to load, only the new surfaces go unwarmed that
+session.
+
+**Warming a surface's chunk is not enough.** A first cut warmed the three chunks alone. On the
+built site, Present opened offline but the reading view showed "This deck could not be turned
+into an article": once open, it `import()`s `player-core` and `player-prune`, and the KaTeX
+provider loads for a deck with math. Present's narration does the same. So each surface now
+warms its whole on-demand path. `article-projection.ts` and `narration-projection.ts` name
+their dynamic imports once, as module-level loaders, and export a `warm…Projection()` that
+calls the same loaders. Both also call `loadDeckRenderFonts`, the one `import()` inside the
+shared `buildDeckRender` (`share-export.ts`). A new `import()` on either path has to join its
+list; the e2e spec below is what notices when one does not.
+
+**What each costs.** A Playwright probe on the full production build loaded the Studio, let the
+existing warm-up finish, opened one surface, and summed the gz size of every file it fetched
+that had not been fetched already. Starter deck, 1440px Chromium:
+
+| Surface | Fetched on first open, after the six-panel warm-up | Warmed for |
+|---|---|---|
+| Compose | ComposeView 105KB (ProseMirror); no further imports | everyone, unless Save-Data |
+| Present | PresentOverlay 35KB, narration 1KB, `player-core` 99KB, voice model 6KB | everyone, unless Save-Data |
+| Reading view | ReadArticle 6KB, `player-prune` 61KB, `deck-export` 13KB (used for a chart or diagram bake), font sheet 1KB (+ `player-core`, shared) | everyone, unless Save-Data |
+| KaTeX provider | 77KB, loaded by both projections for a deck with math | the same, and only when the deck on screen has math |
+| Fabricate | ~145KB of JS, plus the 877KB Mermaid bundle its Diagram specimen renders | only a browser that has opened Fabricate before |
+
+With everything warmed, the same probe finds 0 bytes left to fetch when the reading view opens,
+and only the 6KB voice model when Present opens.
+
+**Why the rules differ.**
+- *Save-Data.* The six panels warm under Save-Data because every visitor downloaded them at
+  startup before #2402, so skipping the warm-up would save those users nothing. These three
+  were never downloaded unless opened. Warming them (Compose, Present, the reading view) is ~320KB of new bytes per deploy (~400KB
+  when the deck has math), so Save-Data skips them.
+- *Fabricate.* Fabricate's JS alone is as large as Present and the reading view together, and
+  most Studio visitors never open it. The first open sets `lattice-studio-fabricate-used`, and
+  from then on the warm-up fetches it. That covers the case that matters: a deploy renames
+  every chunk, so a returning author who goes offline after a deploy still has Fabricate.
+- *Not warmed: the voice model* (`read-aloud.ts`). Neural read-aloud also needs its model
+  weights, which are far larger and not warmed, so the module alone buys nothing offline.
+- *The trade the six panels already make.* A browser caches a failed module fetch for the life
+  of the document (#1242), so a warm-up that fails on a network blip leaves Present or the
+  reading view showing the chunk-load card until a reload, where before it would have fetched on
+  the click. The warm-up runs once, after startup, on a connection that has just loaded the
+  Studio, so the blip window is small, and Reload recovers.
+- *Not warmed: Mermaid.* It is a render-engine asset that any deck with a diagram fetches, not
+  something these surfaces own. Offline, Fabricate opens and its Diagram specimen shows the
+  diagram source. Logged in `followups.d/2402-p3-mermaid-offline-for-unrendered-diagrams.md`.
+
+**Compose, found on a real phone.** The owner ran the PR preview on an iPhone in airplane mode.
+The Studio loaded, but the Compose tab stuck on its skeleton and then the chunk-load card replaced
+the whole Studio: `ComposeView` is `React.lazy` too, and nothing warmed it. A phone-width
+Playwright pass then tapped every tab offline; Compose was the only one that failed. It warms with
+Present now, on the same Save-Data rule, since it is an editing surface people use offline.
+
+**Evidence.** `docs/e2e/studio-warm-offline.spec.ts` serves the built site from a server it
+then closes, which is a real network cut. It checks that Present and the reading view open
+after an offline reload, that the Compose tab opens at phone size, that Fabricate opens for a browser flagged as having used it, and that
+Save-Data warms none of them. Two SWEEP cases then open every on-demand surface offline in one
+session: all eleven (`React.lazy` and `lazyPanel`) on desktop, and every tab at phone size. The
+single-surface cases never covered Compose, which is how it reached a real phone; with the
+Compose warm-up removed, both sweeps fail at "Compose did not load offline". A new on-demand
+surface belongs in the sweep's list. The first one arrived with #2410 while this PR was open:
+the venue clip notice renders inside a `Suspense` with no error boundary of its own, so offline its
+failed load would have replaced the whole Studio. It is 1.7KB gz and warms for everyone, Save-Data
+included. Against a build without this change, the first two tests fail
+at the warm-up step ("the warm-up never cached PresentOverlay, ReadArticle, …").
 
 ## Delivery
 
