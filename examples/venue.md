@@ -62,15 +62,15 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 ---
 
 <!-- _class: list takeaway -->
-<!-- _footer: "One size per deck · the engine never mixes sizes" -->
+<!-- _footer: "A fixed size · like desktop zoom" -->
 
 `One size per deck`
 
-## A slide too full for the room sets the size for the whole deck.
+## The room sets the size, and the deck keeps it.
 
-- Every slide renders at the rung all of them fit.
-- The export names the slides to trim for the full size.
-- Nothing is clipped, and nothing changes size between slides.
+- Every slide renders at the venue's size.
+- A slide too full for the room clips, and is named.
+- Lint, the Studio and the export all flag it.
 
 ---
 

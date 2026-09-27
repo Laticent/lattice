@@ -14,7 +14,7 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one obligation line per statute.
 
-**By venue** (`venue:`, ~16 words each) it holds laptop ~5 · huddle ~4 · conference ~4 · hall ~3 items. At ~6 words each: 5 · 4 · 4 · 3. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~16 words each) it holds laptop ~5 · huddle ~4 · conference ~4 · hall ~3 items. At ~6 words each: 5 · 4 · 4 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

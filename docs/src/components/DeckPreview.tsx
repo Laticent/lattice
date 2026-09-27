@@ -156,6 +156,13 @@ export type DeckPreviewProps = {
 	 */
 	onRender?: () => void;
 	/**
+	 * Reports whether the shown slide CLIPS — the live runtime's overflow ring (`section.overflow`
+	 * in the frame) — each time that changes, and `false` when this host unmounts. Read from the
+	 * class the runtime already toggles, never measured here. The Studio shows its clip notice and
+	 * one-click fix from it (a venue is a fixed size, so a slide too full for it clips).
+	 */
+	onOverflow?: (clipped: boolean) => void;
+	/**
 	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
 	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
 	 * landing/showcase hosts render a known static sample with no meaningful load gap.
@@ -210,6 +217,7 @@ export function DeckPreview({
 	role,
 	onFirstRender,
 	onRender,
+	onOverflow,
 	loader = false,
 	chartDetail = false,
 	specimen = false,
@@ -287,6 +295,60 @@ export function DeckPreview({
 	// enters the render closure's dependency list.
 	const onRenderRef = React.useRef(onRender);
 	onRenderRef.current = onRender;
+	// The clip report (onOverflow). One MutationObserver on the frame's document, re-attached when a
+	// full write swaps that document; it reads `section.overflow`, the runtime's own verdict.
+	const onOverflowRef = React.useRef(onOverflow);
+	onOverflowRef.current = onOverflow;
+	const overflowWatch = React.useRef<{ doc: Document | null; mo: MutationObserver | null; last: boolean | null; frame: HTMLIFrameElement | null }>({ doc: null, mo: null, last: null, frame: null });
+	const watchOverflow = React.useCallback(() => {
+		const w = overflowWatch.current;
+		if (!onOverflowRef.current) return;
+		const report = () => {
+			let clipped = false;
+			try {
+				clipped = !!w.doc?.querySelector('section[data-lattice-slide].overflow');
+			} catch {
+				clipped = false;
+			}
+			if (clipped !== w.last) {
+				w.last = clipped;
+				onOverflowRef.current?.(clipped);
+			}
+		};
+		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null;
+		if (fr !== w.frame) {
+			w.frame?.removeEventListener('load', watchOverflowRef.current);
+			w.frame = fr;
+			fr?.addEventListener('load', watchOverflowRef.current);
+		}
+		let doc: Document | null = null;
+		try {
+			doc = fr?.contentDocument ?? null;
+		} catch {
+			doc = null;
+		}
+		if (doc !== w.doc) {
+			w.mo?.disconnect();
+			w.doc = doc;
+			w.mo = null;
+			if (doc?.documentElement && typeof MutationObserver !== 'undefined') {
+				w.mo = new MutationObserver(report);
+				w.mo.observe(doc.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'], childList: true });
+			}
+		}
+		report();
+	}, []);
+	const watchOverflowRef = React.useRef(watchOverflow);
+	React.useEffect(
+		() => () => {
+			const w = overflowWatch.current;
+			w.mo?.disconnect();
+			w.frame?.removeEventListener('load', watchOverflowRef.current);
+			if (w.last) onOverflowRef.current?.(false);
+			overflowWatch.current = { doc: null, mo: null, last: null, frame: null };
+		},
+		[],
+	);
 
 	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
 	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` starts fading in.
@@ -634,6 +696,7 @@ export function DeckPreview({
 		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
 		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
 		if (status) onRenderRef.current?.();
+		if (status) watchOverflow();
 		return { heavy: status?.writePath === 'write' };
 	};
 

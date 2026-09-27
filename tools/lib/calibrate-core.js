@@ -110,6 +110,11 @@ const BUILDERS = {
   // fixed lines: the width budget is a separate, derived number (lint-core
   // CODE_LINE_BUDGET), and a wrapped line would conflate the two.
   code: () => 'const value = compute(input);',
+  // compare-code: an element is one LINE, written into BOTH panes by BODY_WRAP, so the count
+  // this measures is lines per pane (2361-p3-venue-budget-gaps).
+  'compare-code': () => 'const value = compute(input);',
+  // obligation-matrix: a ROW is a regime label and five state markers, as the gallery writes it.
+  'obligation-matrix': (w) => `| ${cap(words(Math.min(2, Math.max(1, w))))} | [x] | [-] | [x] | [x] | [/] |`,
   pricing: (w) => `- ${cap(words(1))} \`$49 / mo\`\n  - [x] ${cap(words(2))}\n  - ${cap(words(Math.max(1, w - 4)))}.`,
   // Added for the per-venue budgets (2026-09-25-font-scale-fit.md, Amendment 2026-09-27): every
   // component with a `capacity` block gets a measured row, so these five had to be authorable.
@@ -136,6 +141,8 @@ const BUILDERS = {
 // element, this wraps the whole body once.
 const BODY_WRAP = {
   code: (body) => `\`\`\`js\n${body}\n\`\`\``,
+  'compare-code': (body) => `\`Before · one\`\n\n\`\`\`js\n${body}\n\`\`\`\n\n\`After · two\`\n\n\`\`\`js\n${body}\n\`\`\``,
+  'obligation-matrix': (body) => `| Regulation | Notice | Consent | Retention | Breach | DSAR |\n| --- | :-: | :-: | :-: | :-: | :-: |\n${body}`,
   table: (body) => `| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n${body}`,
   roadmap: (body) => {
     const cols = body.split('\n');
@@ -212,27 +219,17 @@ function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false
 }
 
 /**
- * The pages an emulator log reports as not fitting: `clipped` from the `⚠ OVERFLOW` line, and
- * `stepped` from the `↓ SCALE` block. Pure, so the parse is unit-tested against the format
- * lib/core/scale-fit.js `scaleLevelReport` prints (test/unit/tools/calibrate-core-parse.test.js).
+ * The pages an emulator log reports as not fitting: the `⚠ OVERFLOW` line. A deck at a scale
+ * renders every slide at that scale and clips what does not fit (the automatic step-down was
+ * retired on 2026-09-27), so the OVERFLOW line is the whole answer at every scale. Pure, so the
+ * parse is unit-tested (test/unit/tools/calibrate-core-parse.test.js).
  */
 function parseProbeLog(log) {
   const pageNums = (list) => list.split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean);
-  // The `⚠ OVERFLOW` line itself, anchored on its glyph. A bare /OVERFLOW/ also matches
-  // the SCALE block's "(the OVERFLOW line reports them)", which comes first in the log.
+  // The `⚠ OVERFLOW` line itself, anchored on its glyph, so prose elsewhere in the log that
+  // names "the OVERFLOW line" is never read as one.
   const m = log.match(/⚠ OVERFLOW[^\n]*?pages?\s+([\d,\s]+)/);
-  const pages = m ? pageNums(m[1]) : [];
-  // A page that did not fit at the scale the deck asked for (lib/core/scale-fit.js) fits
-  // only because the engine gave the size back. For a ceiling measured AT a scale that is
-  // an overflow, so it is folded in; a rig that wants the two apart reads `stepped`. Since
-  // LEVEL (scale-fit.js rule 7) the block is two lines, and the pages are the ones its
-  // second line says to TRIM for each rung ("for 1.15x, trim page 6; for 1.3x, trim pages
-  // 4, 5, 6"). Reading only the first line measured nothing past the first rung, so every
-  // ceiling at scale-xl and scale-2xl read back as the scale-l one.
-  // Every block, not the first: a deck whose slides asked for two scales prints one per ask.
-  const stepped = [...log.matchAll(/SCALE —[^\n]*\n[^\n]*/g)]
-    .flatMap((b) => [...b[0].matchAll(/trim pages?\s+([\d,\s]+)/g)].flatMap((g) => pageNums(g[1])));
-  return { clipped: pages, stepped };
+  return { clipped: m ? pageNums(m[1]) : [] };
 }
 
 /**
@@ -268,9 +265,9 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
       const tail = log.trim().split('\n').slice(-8).join('\n');
       throw new Error(`Render failed for '${label}' (exit ${r.status}).\n${tail}`);
     }
-    const { clipped: pages, stepped } = parseProbeLog(log);
+    const { clipped: pages } = parseProbeLog(log);
     handedOver = keep;
-    return { overflowed: new Set([...pages, ...stepped]), clipped: new Set(pages), stepped: new Set(stepped), log, out, cleanup };
+    return { overflowed: new Set(pages), clipped: new Set(pages), log, out, cleanup };
   } finally {
     if (!handedOver) cleanup();
   }

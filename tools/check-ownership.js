@@ -2746,12 +2746,12 @@ function checkMarginDiscipline(errors) {
 // and the rest may not. Record: engineering/decisions/2026-09-25-font-scale-fit.md,
 // Amendment 2026-09-27 (P2).
 //
-// WHY A GATE. LEVEL (lib/core/scale-fit.js rule 7) keeps every slide of a deck on one
-// scale rung, and the owner's direction is that type size never differs from slide to
-// slide. A modifier that sets its own font size breaks that from the other side: a
+// WHY A GATE. A venue renders every slide of a deck at one fixed scale (the automatic
+// step-down was retired on 2026-09-27), and the owner's direction is that type size never
+// differs from slide to slide. A modifier that sets its own font size breaks that from the other side: a
 // `compact` q-and-a slide dropped its questions from `--fs-message` to `--fs-body` and its
 // answers to `--fs-body-compact`, so that one slide read smaller than its neighbors, which
-// is the per-slide shrink the rung exists to prevent. Nothing caught it; a grep does.
+// is the per-slide shrink the fixed venue size exists to prevent. Nothing caught it; a grep does.
 //
 // TWO ARMS, and what each deliberately leaves alone:
 //
@@ -2763,7 +2763,7 @@ function checkMarginDiscipline(errors) {
 //      and an author CAN put it on one slide (`_class: scale-xl` is a documented spot
 //      directive, typography.md §7), which then differs in size from its neighbors. That is
 //      the case the owner ruled on: a `lint:deck` warning rather than a gate
-//      (followups.d/2361-p2-lint-warns-on-spot-scale.md), so this gate exempts every rung.
+//      (lint-core `spot-scale`), so this gate exempts every rung.
 //
 //   B. A CROSS-COMPONENT MODIFIER (a token in a MODIFIER_GROUPS group other than `aliases`,
 //      which rename component variants) never sets a type size — `font-size`, the `font`

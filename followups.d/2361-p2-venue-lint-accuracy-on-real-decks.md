@@ -16,6 +16,14 @@ why now   — tested on the agentic-practices talk (PR #2399), lint vs the expor
             • MISSED: 13 of the 14 missed slides at conference carry an `insight-*` callout
               (list-steps, cards-grid, code, compare-prose, …), whose height the bare-component rows
               never saw; the rest have no count row (compare-prose, matrix-2x2 lint no count).
+progress  — 2026-09-27 (PR #2410, font-scale-fit.md Amendment (4)): interpolated word lengths,
+            a `list takeaway` row, measured callout costs (keyed on the trailing blockquote), and
+            venue-only components (compare-prose) judged. Talk, right/false/missed: huddle 16/3/1,
+            conference 25/4/6, hall 38/1/9 (was 9/10/8, 18/6/13, 29/4/18); no finding claims a
+            designed-size clip. LEFT: components with no venue row (roadmap, diagram, divider,
+            mermaid), pessimistic rows for some `list takeaway` / `glossary` slides (false 21, 28,
+            58, 66), and "length in characters, not words" (not attempted). The 11-slide test deck
+            named in the brief was not found in the tree, so it was not scored.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

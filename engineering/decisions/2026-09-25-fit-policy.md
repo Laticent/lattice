@@ -8,6 +8,11 @@ builds-on: 2026-09-25-font-scale-fit.md, 2026-09-07-overflow-guards-trim.md, 202
 
 **Status:** shipped — the owner settled all three forks on 2026-09-25 (§8).
 
+> **Amended 2026-09-27 — STEP retired.** The `fit:` register stands; STEP no longer exists,
+> so `heal` means SPLIT and `trim` means SPLIT + TRIM. Fork 2 (the cohesion rule for STEP)
+> is moot: a venue is a fixed size and every slide renders at it. See
+> `2026-09-25-font-scale-fit.md`, Amendment 2026-09-27 (3).
+
 ## 1. The ask
 
 After #2378 shipped STEP (`2026-09-25-font-scale-fit.md`), the owner asked for self-healing

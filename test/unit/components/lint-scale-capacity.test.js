@@ -10,10 +10,11 @@
  *     (the engine appends it to every section — the case the repro deck uses);
  *   · the budget read is the one measured for the slide's element LENGTH, so four
  *     one-line cards are not judged as four paragraphs;
- *   · `info` for a bare `scale-*`: the engine levels the deck and nothing is cut, and a
- *     warning would red `lint:deck:all --strict` for a slide that renders whole;
- *   · `warning` under a `venue:`: the author has said where the deck will be seen, and
- *     one slide over budget pulls the whole deck down a rung (scale-fit.js rule 6);
+ *   · both are a FIXED size the engine never shrinks to fit (owner ruling 2026-09-27), so the
+ *     message says the slide clips; `warning` under a `venue:` (the owner's "warn"), `info` for a
+ *     bare `scale-*`, whose budget still misjudges committed decks that render whole;
+ *   · the fix offers the next size down, for the whole deck, when a smaller size would help,
+ *     and only a split when the slide is over budget even at the designed size;
  *   · the code pane's line budget moves with the scale AND with an eyebrow.
  */
 const { describe, test } = require('node:test');
@@ -42,14 +43,15 @@ describe('capacity-scale — a counted component', () => {
     assert.deepEqual(lint(deck(null, slide('list-steps', 5))), []);
   });
 
-  test('past the scale-xl budget → one info finding naming both budgets', () => {
+  test('past the scale-xl budget → one info finding naming both budgets and the clip', () => {
     const out = lint(deck(null, slide('list-steps scale-xl', ceilXl + 1)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
     assert.equal(out[0].classToken, 'list-steps');
     assert.match(out[0].message, new RegExp(`at 1\\.3x 'list-steps' holds about ${ceilXl} items`));
     assert.match(out[0].message, /at the designed size/);
-    assert.match(out[0].message, /SCALE line/);
+    assert.match(out[0].message, /never shrinks one to fit, so if it does not fit, it is clipped/);
+    assert.match(out[0].fix, /(use `scale-l`|drop the `scale-\*` class) for the whole deck/);
   });
 
   test('within the budget → silent', () => {
@@ -73,7 +75,7 @@ describe('capacity-scale — a counted component', () => {
     assert.deepEqual(lint(deck('scale-xl', slide('list-steps', n, 'plans it'))), []);
   });
 
-  test('past the DESIGNED-size budget too, it says a step cannot save the slide', () => {
+  test('past the DESIGNED-size budget too, it says a smaller size cannot save the slide', () => {
     // authority-chain: measured 4 at the designed size, declared hard 6 — the gap the
     // designed column exists for.
     const row = core.SCALE_CAPACITY['authority-chain'];
@@ -85,7 +87,9 @@ describe('capacity-scale — a counted component', () => {
     const out = core.lintTextWith(src, v).filter((f) => f.rule === 'capacity-scale');
     assert.equal(out.length, 1);
     assert.match(out[0].message, /even at the designed size/);
-    assert.match(out[0].message, /cannot save it and it is clipped/);
+    assert.match(out[0].message, /clipped at 1\.3x and would be at any smaller size/);
+    assert.match(out[0].fix, /^Split the slide/);
+    assert.doesNotMatch(out[0].fix, /scale-l/);
   });
 
   test('past `hard` it is the overflow rule\'s slide, not this one', () => {
@@ -116,6 +120,7 @@ describe('capacity-scale — a code block', () => {
     const out = lint(deck('scale-xl', code(bareXl + 1)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
+    assert.match(out[0].message, /the block is clipped/);
     assert.match(out[0].message, new RegExp(`${bareXl + 1} lines \\(the pane holds about ${bareXl}\\)`));
     assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 columns`));
     assert.deepEqual(lint(deck('scale-xl', code(bareXl))), []);
@@ -125,7 +130,7 @@ describe('capacity-scale — a code block', () => {
     const out = lint(deck('scale-xl', code(30)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].message, /cannot fit it — the slide is clipped/);
+    assert.match(out[0].message, /so it is clipped at any size/);
     assert.doesNotMatch(out[0].message, /nothing is clipped/);
   });
 
@@ -164,18 +169,18 @@ describe('the fit: register in lint', () => {
     assert.match(f.fix, /fit: trim/);
   });
 
-  test('under fit: report the scale budget is a WARNING — no step will save the slide', () => {
+  test('fit: report changes nothing about the scale finding: no fit level changes the size', () => {
     const row = core.SCALE_CAPACITY['list-steps'];
     const len = Math.max(...Object.keys(row).map(Number));
     const n = row[len][2] + 1;
     if (n > 5) return; // needs a count inside `hard`
     const src = deck('scale-xl', slide('list-steps', n)).replace('marp: true', 'marp: true\nfit: report');
     const f = rules(src).find((x) => x.rule === 'capacity-scale');
-    assert.equal(f?.severity, 'warning');
-    assert.match(f.message, /fit: report/);
+    assert.equal(f?.severity, 'info');
+    assert.doesNotMatch(f.message, /fit: report/);
   });
 
-  test('a slide\'s own fit-heal overrides a report deck', () => {
+  test('a slide\'s own fit-heal changes nothing: no fit level shrinks a slide', () => {
     const row = core.SCALE_CAPACITY['list-steps'];
     const len = Math.max(...Object.keys(row).map(Number));
     const n = row[len][2] + 1;
@@ -195,7 +200,18 @@ describe('capacity-scale — under a venue', () => {
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
     assert.match(out[0].message, /at 1\.3x/);
-    assert.match(out[0].message, /every slide that asked for 1\.3x/);
+    assert.match(out[0].message, /renders every slide at 1\.3x/);
+    assert.match(out[0].fix, /set `venue: (huddle|laptop)` for the whole deck/);
+  });
+
+  test('the smaller size it names is the LARGEST whose budget holds the slide, never one that still clips', () => {
+    const row = xl[longCol]; // [designed, l, xl, 2xl]
+    const names = ['laptop', 'huddle', 'conference', 'hall'];
+    for (let n = row[3] + 1; n <= Math.min(row[0], 5); n++) {
+      const out = lint(venueDeck('hall', slide('list-steps', n)));
+      const want = names[[2, 1, 0].find((i) => n <= row[i])];
+      assert.match(out[0].fix, new RegExp(`set \`venue: ${want}\``), `${n} items at hall → ${want}`);
+    }
   });
 
   test('venue: hall reads the scale-2xl budget and asks for fewer words', () => {
@@ -242,4 +258,140 @@ describe('unknown-venue', () => {
   test('a known venue, any case, is silent', () => {
     assert.deepEqual(run('---\nmarp: true\nvenue: Conference\n---\n\n# x\n'), []);
   });
+});
+
+describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () => {
+  const venueDeck = (venue, body) => `---\nmarp: true\nvenue: ${venue}\n---\n\n${body}`;
+  const v = { names: new Set(['list', 'list-steps']), modifiers: new Set(['takeaway', 'insight-so-what']),
+    capacity: { list: { axis: 'item', min: 2, sweet: 4, soft: 5, hard: 6 }, 'list-steps': { axis: 'item', min: 3, sweet: 4, soft: 5, hard: 5 } } };
+  const run = (src) => core.lintTextWith(src, v).filter((f) => f.rule === 'capacity-scale');
+  const bullets = (n, words) => Array.from({ length: n }, () => `- ${Array.from({ length: words }, (_, i) => `w${i}`).join(' ')}`).join('\n');
+
+  test('word lengths between two measured columns are interpolated, not rounded up', () => {
+    const map = { 6: [6, 5, 5, 4], 14: [3, 3, 3, 2] };
+    assert.equal(core.wordMapAt(map, 10, 0), 4); // 6 + (3 - 6) * 4 / 8 = 4.5 → 4
+    assert.equal(core.wordMapAt(map, 6, 0), 6);
+    assert.equal(core.wordMapAt(map, 20, 3), 2);
+    assert.equal(core.wordMapAt(map, 3, 1), 5);
+  });
+
+  test('a variant with its own measured row is judged by it: list takeaway holds more than list', () => {
+    const bare = run(venueDeck('conference', `<!-- _class: list -->\n\n## H.\n\n${bullets(5, 10)}\n`));
+    const takeaway = run(venueDeck('conference', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(5, 10)}\n`));
+    assert.equal(bare.length, 1, 'bare list at 10 words holds 3 at conference');
+    assert.deepEqual(takeaway, [], 'list takeaway at 10 words holds 8 at conference');
+  });
+
+  test('an insight callout costs the slide its measured elements', () => {
+    const steps = (n) => Array.from({ length: n }, (_, i) => `${i + 1}. Step ${i + 1}\n   - reads the ticket and plans the change before anyone asks it to\n`).join('');
+    const plain = run(venueDeck('conference', `<!-- _class: list-steps -->\n\n## H.\n\n${steps(3)}`));
+    const withCallout = run(venueDeck('conference', `<!-- _class: list-steps insight-so-what -->\n\n## H.\n\n${steps(3)}\n> The line to remember.\n`));
+    assert.deepEqual(plain, [], 'three steps fit at conference');
+    assert.equal(withCallout.length, 1, 'with a callout, conference holds two');
+    assert.match(withCallout[0].message, /'list-steps with its callout' holds about 2 items/);
+  });
+
+  test('the callout is the trailing blockquote, not the insight-* class that relabels it', () => {
+    const steps = (n) => Array.from({ length: n }, (_, i) => `${i + 1}. Step ${i + 1}\n   - reads the ticket and plans the change before anyone asks it to\n`).join('');
+    assert.deepEqual(run(venueDeck('conference', `<!-- _class: list-steps insight-so-what -->\n\n## H.\n\n${steps(3)}`)), [], 'a class with no blockquote costs nothing');
+    assert.equal(run(venueDeck('conference', `<!-- _class: list-steps -->\n\n## H.\n\n${steps(3)}\n> Key insight.\n`)).length, 1, 'a bare blockquote is a callout');
+    assert.equal(core.endsWithCallout('## H.\n\n```\n> not a quote\n```\n'), false);
+    assert.equal(core.endsWithCallout('## H.\n\n<!--\n> a note\n-->'), false);
+  });
+
+  test('a component with a venue row but no capacity block is judged, and never claims a 1x clip', () => {
+    const vv = { names: new Set(['compare-prose']), modifiers: new Set(['vertical']), capacity: {} };
+    const side = (t) => `- ${t}\n  - ${Array.from({ length: 18 }, (_, i) => `w${i}`).join(' ')}.`;
+    const src = `---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: compare-prose vertical -->\n\n## H.\n\n${side('A')}\n${side('B')}\n\n> The line to remember.\n`;
+    const out = core.lintTextWith(src, vv).filter((f) => f.rule === 'capacity-scale');
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, /'compare-prose vertical with its callout'/);
+    assert.doesNotMatch(out[0].message, /designed size/);
+    assert.deepEqual(core.lintTextWith(src.replace('venue: hall\n', ''), vv).filter((f) => f.rule === 'capacity-scale'), []);
+  });
+
+  test('a variant finding names the variant row it quotes', () => {
+    const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 10)}\n`));
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, /'list takeaway' holds about 3/);
+  });
+});
+
+describe('spot-scale — a scale or venue on some slides, not the deck', () => {
+  const rules = (src) => core.lintTextWith(src, { names: new Set(['list']), modifiers: new Set() }).filter((f) => f.rule === 'spot-scale');
+  const one = (cls, fm = '') => `---\nmarp: true\n${fm}---\n\n<!-- _class: list ${cls} -->\n\n## H.\n\n- a\n\n---\n\n<!-- _class: list -->\n\n## H2.\n\n- b\n`;
+
+  test('a spot venue-* is a warning naming the front-matter fix', () => {
+    const out = rules(one('venue-conference'));
+    assert.equal(out.length, 1);
+    assert.equal(out[0].severity, 'warning');
+    assert.equal(out[0].slide, 1);
+    assert.match(out[0].fix, /venue: conference/);
+  });
+
+  test('a spot scale-* is info', () => {
+    assert.equal(rules(one('scale-xl'))[0].severity, 'info');
+  });
+
+  test('a token the deck already carries is not spot', () => {
+    assert.deepEqual(rules(one('venue-hall', 'venue: hall\n')), []);
+    assert.deepEqual(rules(one('scale-xl', 'class: scale-xl\n')), []);
+    assert.deepEqual(rules(one('')), []);
+  });
+});
+
+describe('withCompact — a budget that knows `compact` (#2361 P3)', () => {
+  const qa = require('../../../lib/components/inventory/q-and-a/q-and-a.manifest.json').capacity;
+  const v = { names: new Set(['q-and-a']), modifiers: new Set(['compact']), capacity: { 'q-and-a': qa } };
+  const pairs = (n) => Array.from({ length: n }, (_, i) => `- Question ${i + 1}?\n  - A short answer.`).join('\n');
+  const run = (cls, n) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${pairs(n)}\n`, v).filter((f) => /^capacity-/.test(f.rule));
+
+  test('a bare five-pair q-and-a is named, and the fix points at compact', () => {
+    const out = run('q-and-a', 5);
+    assert.equal(out.length, 1);
+    assert.equal(out[0].rule, 'capacity-overflow');
+    assert.match(out[0].fix, /Add `compact`.*holds 5/);
+  });
+
+  test('the same five pairs with compact are silent', () => {
+    assert.deepEqual(run('q-and-a compact', 5), []);
+  });
+
+  test('past what compact holds, the fix does not offer it', () => {
+    const out = run('q-and-a', 6);
+    assert.equal(out.length, 1);
+    assert.doesNotMatch(out[0].fix, /Add `compact`/);
+  });
+});
+
+describe('withCompact at a venue', () => {
+  const qa = require('../../../lib/components/inventory/q-and-a/q-and-a.manifest.json').capacity;
+  const v = { names: new Set(['q-and-a']), modifiers: new Set(['compact']), capacity: { 'q-and-a': qa } };
+  const pairs = (n) => Array.from({ length: n }, (_, i) => `- Question ${i + 1}?\n  - A short answer.`).join('\n');
+  const run = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: huddle\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${pairs(5)}\n`, v).filter((f) => /^capacity-/.test(f.rule));
+
+  test('the compact hint is not offered where compact would still be over the venue budget', () => {
+    for (const f of run('q-and-a')) assert.doesNotMatch(f.fix, /Add `compact`/);
+  });
+
+  test('a compact slide its compact budget holds never claims a clip at the designed size', () => {
+    for (const f of run('q-and-a compact')) assert.doesNotMatch(f.message, /designed size/);
+  });
+});
+
+describe('venue-only rows count on their own axis', () => {
+  test('obligation-matrix counts table rows: 7 fit at laptop, 5 at hall', () => {
+    const v = { names: new Set(['obligation-matrix']), modifiers: new Set(), capacity: {} };
+    const rows = (n) => Array.from({ length: n }, (_, i) => `| Regime ${i + 1} | [x] | [-] | [x] | [x] | [/] |`).join('\n');
+    const deck = (venue, n) => `---\nmarp: true\n${venue ? `venue: ${venue}\n` : ''}---\n\n<!-- _class: obligation-matrix -->\n\n## H.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR |\n| --- | :-: | :-: | :-: | :-: | :-: |\n${rows(n)}\n`;
+    const run = (venue, n) => core.lintTextWith(deck(venue, n), v).filter((f) => f.rule === 'capacity-scale');
+    assert.deepEqual(run('hall', 5), []);
+    assert.equal(run('hall', 6).length, 1);
+    assert.match(run('hall', 6)[0].message, /holds about 5 rows/);
+  });
+});
+
+test('endsWithCallout tracks comments by state, including a second comment left open on a line', () => {
+  assert.equal(core.endsWithCallout('<!-- a --> <!-- b\n> inside a comment\n-->'), false);
+  assert.equal(core.endsWithCallout('## H.\n\n<!-- note -->\n> The line.'), true);
 });

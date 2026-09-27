@@ -26,6 +26,12 @@
  * Usage:
  *   node tools/calibrate-capacity.js <component> [--family wide,square,tall,strip]
  *                                    [--words N|soft|hard] [--max N] [--scale l|xl|2xl] [--eyebrow] [--json]
+ *                                    [--variant "takeaway"] [--insight]
+ *
+ *   --variant  appends class tokens to every probe slide (`list takeaway`), so a register that
+ *              holds more or less than the bare component gets its own row.
+ *   --insight  ends every probe slide with an `insight-so-what` callout (a one-line blockquote),
+ *              the shape most real slides carry; the callout's height is what a bare row misses.
  *   node tools/calibrate-capacity.js --all [--family square]
  *
  *   node tools/calibrate-capacity.js <component>|--all --pane side|stack [--share N]
@@ -61,6 +67,8 @@ const WORDS_OVERRIDE = flag('words', null);
 // the measured ceiling and the scale-adjusted budget lint enforces there
 // (`scaledCapacity`, lib/authoring/lint-core.js) instead of comparing raw `hard`.
 const SCALE = flag('scale', null);
+const VARIANT = flag('variant', null);
+const INSIGHT = has('insight');
 if (SCALE && !['l', 'xl', '2xl'].includes(SCALE)) die(`Unknown --scale '${SCALE}'. Known: l, xl, 2xl.`);
 const TARGET_FAMILIES = flag('family', FAMILIES.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
 const PANE = flag('pane', null);
@@ -97,7 +105,7 @@ function calibratable() {
 }
 
 // A value that belongs to a flag (`--scale xl`, `--words 12`) is not a component name.
-const VALUE_FLAGS = new Set(['--family', '--words', '--max', '--scale']);
+const VALUE_FLAGS = new Set(['--family', '--words', '--max', '--scale', '--variant']);
 const named = argv.find((a, i) => !a.startsWith('--') && !FAMILIES.includes(a) && !VALUE_FLAGS.has(argv[i - 1]));
 if (!has('all') && !named) {
   die('Usage: node tools/calibrate-capacity.js <component> [--family square] [--all]');
@@ -154,8 +162,10 @@ function measure(comp, family, wordsPer, share) {
   const build = BUILDERS[comp];
   const counts = Array.from({ length: MAX }, (_, i) => i + 1);
   const body = (n) => (BODY_WRAP[comp] || ((b) => b))(Array.from({ length: n }, () => build(wordsPer)).join('\n'));
+  const cls = [comp, VARIANT, INSIGHT ? 'insight-so-what' : null].filter(Boolean).join(' ');
+  const callout = INSIGHT ? '\n\n> The one line the room should remember.\n' : '';
   const deck = gradedDeck({
-    comp,
+    comp: cls,
     size: SIZE_ALIAS[family],
     scale: SCALE,
     eyebrow: has('eyebrow'),
@@ -164,9 +174,9 @@ function measure(comp, family, wordsPer, share) {
       ? { slide: `## Calibration step — ${n} element${n === 1 ? '' : 's'}.\n\n`
           + `<!-- panes: ${PANE === 'stack' ? 'stack ' : ''}${share}/${100 - share} -->\n\n`
           + `<!-- pane: ${comp} -->\n\n${body(n)}\n\n<!-- pane: content -->\n\nOne short line.\n` }
-      : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) }),
+      : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) + callout }),
   });
-  const { overflowed } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}`);
+  const { overflowed } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`);
   let lastFit = null;
   let firstOver = null;
   for (let i = 0; i < counts.length; i++) {

@@ -261,6 +261,50 @@
         "conference": 3,
         "hall": 3
       }
+    },
+    "variants": {
+      "vertical": {
+        "byWords": {
+          "12": {
+            "laptop": 3,
+            "huddle": 2,
+            "conference": 2,
+            "hall": 2
+          },
+          "20": {
+            "laptop": 2,
+            "huddle": 2,
+            "conference": 2,
+            "hall": 1
+          }
+        },
+        "insight": {
+          "byWords": {
+            "12": {
+              "laptop": 2,
+              "huddle": 2,
+              "conference": 1,
+              "hall": 1
+            },
+            "20": {
+              "laptop": 1,
+              "huddle": 1,
+              "conference": 1,
+              "hall": 1
+            }
+          }
+        }
+      }
+    },
+    "insight": {
+      "byWords": {
+        "20": {
+          "laptop": 4,
+          "huddle": 3,
+          "conference": 2,
+          "hall": 2
+        }
+      }
     }
   }
 }

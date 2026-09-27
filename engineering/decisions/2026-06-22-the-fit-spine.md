@@ -149,6 +149,12 @@ solver's policy — there is no fifth move, and crucially **no shrink move.**
 > runs none of them, `heal` (default) runs the ones that lose no words, `trim` adds TRIM
 > (`2026-09-25-fit-policy.md`).
 
+> **Amended 2026-09-27 — STEP retired.** The owner ruled that a venue (and any `scale-*`)
+> is an intentional setting, like desktop zoom, so the deck never shrinks itself to fit.
+> STEP and LEVEL are deleted along with `lib/core/scale-fit.js`; the list is back to the
+> four moves plus TRIM, and a slide too full for its scale clips and is reported, like
+> any other overflow. `2026-09-25-font-scale-fit.md`, Amendment 2026-09-27 (3).
+
 | # | Move | Owner | Continuous or discrete | Loses content? |
 |---|---|---|---|---|
 | 1 | **Collapse** — give the Tile a narrower Cell (3-col → 1-col) | Frame slicing (CSS keyed on `data-family`) | continuous (CSS, no churn) | no |
