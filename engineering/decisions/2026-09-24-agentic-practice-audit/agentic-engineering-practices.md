@@ -975,7 +975,53 @@ Most of what we do with agents is the easy loop: try it, see the result, fix it.
   - Keep the old path working, and have a person approve the last step.
 
 <!--
-One tactic for each sign. For late feedback, build a cheap probe: try the risky part on a small, real sample before you build everything around it, and measure the real thing, never a stand-in. For a distant cause, shrink the problem until it fails every single time, then change one thing at a time. And never accept a label as a cause. "Flaky," "slow" and "weird" are descriptions; the cause is still out there. When every option costs, write down what must never happen, then pick the option that gives up the least, and say out loud what you gave up. For an unclear question, widen before you narrow: ask the agent for several framings or drafts, ask "how would this fail?", and agree on what done means before anyone builds. And when there's no way back, rehearse on a copy, stage the change, keep the old path working until the new one is proven, and have a person approve the last step. Four habits help with all five. Write down what you tried and rejected, so the next attempt doesn't repeat it. Use the stronger model and a second reviewer, which is the next slide. Time-box it, and when the box runs out, bring in a person instead of letting the agent keep guessing. And when you accept a cost, record it, so nobody mistakes it for an oversight later.
+One tactic for each sign. For late feedback, build a cheap probe: try the risky part on a small, real sample before you build everything around it, and measure the real thing, never a stand-in. For a distant cause, shrink the problem until it fails every single time, then change one thing at a time. And never accept a label as a cause. "Flaky," "slow" and "weird" are descriptions; the cause is still out there. When every option costs, write down what must never happen, then pick the option that gives up the least, and say out loud what you gave up. For an unclear question, widen before you narrow: ask the agent for several framings or drafts, ask "how would this fail?", and agree on what done means before anyone builds. And when there's no way back, rehearse on a copy, stage the change, keep the old path working until the new one is proven, and have a person approve the last step. Four habits help with all five. Write down what you tried and rejected, so the next attempt doesn't repeat it. Use the stronger model and a second reviewer, which we'll come to in a moment. Time-box it, and when the box runs out, bring in a person instead of letting the agent keep guessing. And when you accept a cost, record it, so nobody mistakes it for an oversight later.
+-->
+
+---
+
+<!-- _class: list takeaway -->
+
+`Hard problems · Borrow the science`
+
+## Before you guess, ask what the science already knows.
+
+- Perception
+  - How far people sit decides how big the type must be.
+- Color vision
+  - About one man in twelve can't tell red from green, so add a second cue.
+- Memory
+  - People hold about four things in mind at once, so group the rest.
+- Language
+  - Short lines and plain words are read faster and remembered longer.
+- Behavior
+  - Defaults and order change what people choose, so pick them on purpose.
+
+<!--
+Most problems you'll hand an agent aren't new. Somebody has already studied them, often for decades. How big text has to be depends on how far away people sit, and that's measurable. About one man in twelve can't tell red from green, so a chart that relies on color alone fails a real share of the room. People can hold about four things in mind at once, which is why long menus and dense slides lose them. Short lines and plain words read faster. And the default you set, or the order you list things in, changes what people pick. When a problem feels fuzzy, the first question is: which science already knows about this? Perception, psychology, linguistics, ergonomics, statistics. Then ask the agent. Agents have read a lot of this research, and they're good at summarizing it. One warning: agents will also invent a study that sounds right. Ask for the source, and check that it exists and says what the agent claims. Used that way, the science turns a matter of taste into a decision you can defend.
+-->
+
+---
+
+<!-- _class: list takeaway -->
+
+`Hard problems · The scientific habit`
+
+## Work like a scientist, and ask your agent to do the same.
+
+- Say what you expect first
+  - Write the prediction down before you run anything.
+- Try to prove yourself wrong
+  - Design the test that would fail if you're mistaken.
+- Compare against a baseline
+  - A number means little until you know what it was before.
+- Run it more than once
+  - One run is an anecdote. Repeat it before you believe it.
+- Update when the evidence changes
+  - Retire a rule when a better test shows it no longer holds.
+
+<!--
+The science on the last slide tells you what's already known. This slide is about how to find out what isn't. It's the scientific method, and it fits agent work well. First, say what you expect before you run anything, and ask the agent to do the same. A prediction written down in advance can be wrong, and that's what makes it useful. Second, try to prove yourself wrong. Design the test that would fail if you're mistaken, like breaking the code to see whether the test notices. Third, compare against a baseline. "It takes two seconds" means nothing until you know it took five before. Fourth, run it more than once. One run is an anecdote, especially with anything timing-related or random. And fifth, update when the evidence changes. The rules you wrote last year were based on what you knew then. When a better test says a rule no longer holds, retire it and write down why. Agents are very good at running experiments, cheaply and fast. What they don't do on their own is decide what would change their mind. That part is yours.
 -->
 
 ---
