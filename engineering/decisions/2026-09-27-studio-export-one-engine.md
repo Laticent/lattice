@@ -327,7 +327,16 @@ Order of work, all in one PR (#2404):
     into one token per number before pdf-lib sees it (arc flags handled). Any shape whose path
     still does not convert to finite numbers stays in the photo, so no future parser quirk
     can blank a page.
+  - **Reviewed by eye:** every page with a run over 55 px (164 pages), screen above and
+    writer below. Beyond the path bug the sweep found one more real defect. SVG shapes had no
+    paint-over check (images and borders did), so a diagram drawn as vectors buried the card
+    laid over it (`scene` slide 5). A shape that anything outside its SVG paints over now
+    stays in the photo. Gallery-wide that moves exactly those 2 shapes.
+  - Everything else it flags is the same line drawn crisper than the 1x screenshot, or the
+    photo's JPEG bleeding a 1px colored hairline into the next row (below).
 - **Known limits:**
+  - The photo is JPEG, which stores color at half resolution. A 1px colored hairline left in
+    the photo (the top keyline of a dark slide) bleeds a little color into the row below.
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`

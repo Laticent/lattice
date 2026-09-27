@@ -498,6 +498,28 @@ describe('export-formats', () => {
     assert.doesNotMatch(raster.stderr, /Error/, `poppler reads every operator on the page:\n${raster.stderr}`);
   });
 
+  test('a card laid over a diagram stays on top of it', { timeout: TIMEOUT }, () => {
+    // SVG shapes are drawn over the photo; one that something paints ABOVE must stay in the
+    // photo, or it buries the card (scene.gallery slide 5, found by the thin-line sweep).
+    const dir = tmpDir();
+    const src = path.join(dir, 'stack.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\n---\n\n## Stack\n\n<div style="position:relative;width:600px;height:300px"><svg width="400" height="200"><rect x="0" y="0" width="400" height="200" fill="#c00"/></svg><div style="position:absolute;left:0;top:100px;width:600px;height:200px;background:#fff"></div></div>\n');
+    const out = path.join(dir, 'stack.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const base = path.join(dir, 'p');
+    execFileSync('pdftoppm', ['-r', '96', '-singlefile', out, base]);
+    const ppm = fs.readFileSync(`${base}.ppm`);
+    const [, w, h] = ppm.toString('latin1', 0, 20).match(/P6\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+    const px = ppm.subarray(ppm.length - w * h * 3);
+    // Find the red rectangle's top-left on the page, then look 150 px below it (under the card).
+    let top = -1, left = -1;
+    for (let y = 0; y < h && top < 0; y++) for (let x = 0; x < w; x++) { const o = (y * w + x) * 3; if (px[o] > 180 && px[o + 1] < 40 && px[o + 2] < 40) { top = y; left = x; break; } }
+    assert.ok(top >= 0, 'the red rectangle is on the page');
+    const o = ((top + 150) * w + left + 50) * 3;
+    assert.ok(px[o] > 230 && px[o + 1] > 230 && px[o + 2] > 230, `the card covers the diagram (rgb ${px[o]},${px[o + 1]},${px[o + 2]})`);
+  });
+
   test('a KaTeX square root keeps its bar inside the root, as the browser clips it', { timeout: TIMEOUT }, () => {
     // KaTeX draws the bar 400em wide and crops it with the SVG viewport and an overflow:hidden
     // span; the writer once ignored both and ran the bar to the edge of the page.
