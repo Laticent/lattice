@@ -874,11 +874,15 @@ export function graphLayoutKernel(): GraphKernel {
     let strict = false; // see sharesRun
     let wide = false; // the two-lane search's last resort: more lanes, every side pair
     const boxes = new WeakMap<Point[], BBox>(); // points array -> its bounding box
+    const bboxRaw = (pts: Point[]): BBox => {
+      const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+      for (const q of pts) { b.x0 = Math.min(b.x0, q.x); b.x1 = Math.max(b.x1, q.x); b.y0 = Math.min(b.y0, q.y); b.y1 = Math.max(b.y1, q.y); }
+      return b;
+    };
     const bboxOf = (pts: Point[]) => {
       let b = boxes.get(pts);
       if (!b) {
-        b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
-        for (const q of pts) { b.x0 = Math.min(b.x0, q.x); b.x1 = Math.max(b.x1, q.x); b.y0 = Math.min(b.y0, q.y); b.y1 = Math.max(b.y1, q.y); }
+        b = bboxRaw(pts);
         boxes.set(pts, b);
       }
       return b;
@@ -907,6 +911,20 @@ export function graphLayoutKernel(): GraphKernel {
     // The part of a candidate's cost that needs no collision test: a lower bound on the
     // whole, so candidates can be sorted by it and the search stop early.
     let loads = null as Map<string, number> | null; // id|side -> ends of OTHER lines there, for the line being routed
+    // The line's own ends read the same eight counts for every candidate: looked up once per
+    // (loads, line) rather than as two string keys per candidate. `loads` is rebuilt, never
+    // edited, so its identity is the cache key.
+    let lkMap = null as Map<string, number> | null, lkRoute = null as Route | null;
+    const loadS = { R: 0, B: 0, L: 0, T: 0 } as Record<Side, number>, loadT = { R: 0, B: 0, L: 0, T: 0 } as Record<Side, number>;
+    const loadPair = (r: Route) => {
+      if (lkMap === loads && lkRoute === r) return;
+      lkMap = loads; lkRoute = r;
+      const load = sure(loads, 'side loads');
+      for (const sd of ['R', 'B', 'L', 'T'] as Side[]) {
+        loadS[sd] = load.get(`${r.from}|${sd}`) || 0;
+        loadT[sd] = load.get(`${r.to}|${sd}`) || 0;
+      }
+    };
     const loadsFor = (r: Route) => {
       const m = new Map<string, number>();
       for (const o of loops) {
@@ -930,8 +948,8 @@ export function graphLayoutKernel(): GraphKernel {
       let c = 0;
       const face = facing(S, T);
       if (face && sT !== face) c += W.arrive;
-      const load = sure(loads, 'side loads');
-      const nS = load.get(`${r.from}|${sS}`) || 0, nT = load.get(`${r.to}|${sT}`) || 0;
+      loadPair(r);
+      const nS = loadS[sS], nT = loadT[sT];
       // A side holds one end per 10 units of its length (less 8 clear at each corner); a
       // full side is not a candidate at all, so a crowd moves to another side.
       if (nS >= cap(S, sS) || nT >= cap(T, sT)) return Infinity;
@@ -958,6 +976,15 @@ export function graphLayoutKernel(): GraphKernel {
     };
     const haloed: Record<string, Rect> = Object.fromEntries(Object.entries(nodes).map(([id, b]) => [id, grown(b, HALO)]));
     const gHalo: Record<string, Rect> = Object.fromEntries(Object.entries(gboxes).map(([id, b]) => [id, grown(b, 2)]));
+    const nodeList: Box[] = Object.values(nodes);
+    // [id, box, halo] in the boxes' own order: a null-prototype map is slow to walk with
+    // for-in, and the hard-fault test walks it for every candidate.
+    const nodeEntries: [string, Box, Rect][] = Object.keys(nodes).map((id) => [id, nodes[id], haloed[id]]);
+    const everyLine: Route[] = [...work, ...loops];
+    // Can a path with this bounding box pass through the rect's interior? pathHits tests a
+    // run against the rect inset by 1 on every side, so a box that misses that inset rect
+    // cannot hit it: false here means pathHits is false, never the reverse.
+    const bboxMeets = (b: BBox, box: Rect) => b.x1 > box.x + 1 && b.x0 < box.x + box.w - 1 && b.y1 > box.y + 1 && b.y0 < box.y + box.h - 1;
     // A work budget, counted in candidate evaluations so the result is the same on every
     // machine: every corpus chart and the demo deck stay far under it (17,370 at most);
     // a dense chart past it keeps its first sweep and a spread that holds sides, and skips
@@ -980,7 +1007,7 @@ export function graphLayoutKernel(): GraphKernel {
     const seatCost = (r: Route, box: Rect) => {
       const near = { x: box.x - 4, y: box.y - 3, w: box.w + 8, h: box.h + 6 };
       let c = 0;
-      for (const id in nodes) if (overlaps(near, nodes[id])) c += overlaps(box, nodes[id]) ? W.label : 30;
+      for (const nb of nodeList) if (overlaps(near, nb)) c += overlaps(box, nb) ? W.label : 30;
       for (const id in gboxes) {
         const g = gboxes[id];
         if (overlaps(box, g) && !(box.x >= g.x && box.y >= g.y && box.x + box.w <= g.x + g.w && box.y + box.h <= g.y + g.h)) c += W.foreign;
@@ -1000,8 +1027,11 @@ export function graphLayoutKernel(): GraphKernel {
       // One passing within 8 crowds it: a small cost, so a roomier seat wins.
       const clear = { x: box.x - 3, y: box.y - 3, w: box.w + 6, h: box.h + 6 };
       const roomy = { x: box.x - 9, y: box.y - 9, w: box.w + 18, h: box.h + 18 };
-      for (const o of [...work, ...loops]) {
+      for (const o of everyLine) {
         if (o === r || (!port.has(o) && o.from !== o.to)) continue;
+        // A path cannot pass through a rect its bounding box misses (pathHits insets by 1):
+        // the test that decides nothing is skipped, which is most of them.
+        if (!bboxMeets(bboxOf(o.points), roomy)) continue;
         if (pathHits(o.points, clear)) c += W.thru + 100;
         else if (pathHits(o.points, roomy)) c += 30;
       }
@@ -1054,22 +1084,27 @@ export function graphLayoutKernel(): GraphKernel {
         const a = pts[j - 1], b = pts[j];
         if (Math.abs(a.x - b.x) > 0.05 && Math.abs(a.y - b.y) > 0.05) return Infinity;
       }
-      for (const id in nodes) {
+      // Every box's halo contains the box, so a halo the path's bounding box misses rules
+      // out both tests for that box: skip it (the result is the same, far fewer tests).
+      // (A candidate is evaluated once, so its box is computed here, not cached.)
+      const pb = bboxRaw(pts);
+      for (const [id, nb, halo] of nodeEntries) {
+        if (!bboxMeets(pb, halo)) continue;
         if (id === r.from || id === r.to) {
-          if (pathHits(pts, nodes[id])) return Infinity;
+          if (pathHits(pts, nb)) return Infinity;
           // Past its first and last runs, a line keeps its own boxes' halo too: nothing
           // may ride or circle back along its own border.
-          if (pts.length > 3 && pathHits(pts.slice(1, -1), haloed[id])) return Infinity;
+          if (pts.length > 3 && pathHits(pts.slice(1, -1), halo)) return Infinity;
           continue;
         }
-        if (pathHits(pts, haloed[id])) return Infinity;
+        if (pathHits(pts, halo)) return Infinity;
       }
       if (gboxes[r.from] && pathHits(pts, S)) return Infinity;
       if (gboxes[r.to] && pathHits(pts, T)) return Infinity;
       cur = { sS, sT };
       let c = base != null ? base : cheap(pts, r, sS, sT, offS, offT);
       // Lines whose boxes stay 12 apart cannot cross, share or crowd this one: skip them.
-      const bb = bboxOf(pts);
+      const bb = pb;
       for (const o of work) {
         if (o === r || !port.has(o)) continue;
         const ob = bboxOf(o.points);
@@ -1797,7 +1832,7 @@ export function graphLayoutKernel(): GraphKernel {
       if (last && Math.abs(last.x - p.x) < 0.05 && Math.abs(last.y - p.y) < 0.05) continue;
       out.push(p);
       while (out.length >= 3) {
-        const [a, b, c] = out.slice(-3);
+        const n = out.length, a = out[n - 3], b = out[n - 2], c = out[n - 1];
         const col = (Math.abs(a.x - b.x) < 0.05 && Math.abs(b.x - c.x) < 0.05) || (Math.abs(a.y - b.y) < 0.05 && Math.abs(b.y - c.y) < 0.05);
         if (!col) break;
         out.splice(out.length - 2, 1);
@@ -1821,8 +1856,9 @@ export function graphLayoutKernel(): GraphKernel {
         const c = q[j - 1], d = q[j];
         const hc = Math.abs(c.y - d.y) < 0.05;
         if (ha === hc) continue;
-        const [h0, h1, hy] = ha ? [Math.min(a.x, b.x), Math.max(a.x, b.x), a.y] : [Math.min(c.x, d.x), Math.max(c.x, d.x), c.y];
-        const [v0, v1, vx] = ha ? [Math.min(c.y, d.y), Math.max(c.y, d.y), c.x] : [Math.min(a.y, b.y), Math.max(a.y, b.y), a.x];
+        // Scalars, not destructured arrays: this runs for every pair of runs of every candidate.
+        const h0 = ha ? Math.min(a.x, b.x) : Math.min(c.x, d.x), h1 = ha ? Math.max(a.x, b.x) : Math.max(c.x, d.x), hy = ha ? a.y : c.y;
+        const v0 = ha ? Math.min(c.y, d.y) : Math.min(a.y, b.y), v1 = ha ? Math.max(c.y, d.y) : Math.max(a.y, b.y), vx = ha ? c.x : a.x;
         if (vx > h0 + 0.5 && vx < h1 - 0.5 && hy > v0 + 0.5 && hy < v1 - 0.5) n++;
       }
     }

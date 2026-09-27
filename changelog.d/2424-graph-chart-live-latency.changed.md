@@ -1,0 +1,2 @@
+- Typing in the Studio shows a graph chart's new text after one layout instead of three. On an 11-state machine the drawing now moves about 270 ms after a key instead of 1.3 s, and catches up 0.8–1.1 s after a burst instead of 1.6–2.3 s. The drawing that remains is the same as before.
+- The layout kernel is about a third faster on both graph charts with byte-identical layouts: it skips boxes and lines a candidate's bounding box cannot reach, walks the boxes as an array, and reads a line's end loads once per line.
