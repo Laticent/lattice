@@ -137,6 +137,10 @@ const STEPS = [
   { label: 'Trama library dist (CJS + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
+  // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same
+  // modules through Vite). dist/ only: ~1.8 MB is too large to commit. See
+  // engineering/decisions/2026-09-27-studio-export-one-engine.md.
+  { label: 'PDF writer bundle (dist/lattice-pdf-compose.min.js)', script: 'build-pdf-compose.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },
   { label: 'per-component docs', script: 'build-component-docs.js' },
   { label: 'doc portal (components.md/.json)', script: 'build-docs-portal.js', uncommitted: true },

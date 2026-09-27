@@ -3,6 +3,16 @@ import { inflateSync } from 'node:zlib';
 import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import { expect, gotoStudio, railButtons, setEditorContent, test } from './studio-fixture';
 
+/** These specs pin the PHOTO-per-page lanes, which the Studio keeps as a user choice and as
+ *  the fallback; the default Share → PDF is the shared writer (see pdf-shared-writer.spec.ts). */
+async function usePhotoLane(page: Parameters<typeof gotoStudio>[0]) {
+	await page.addInitScript(() => {
+		const k = 'lattice-studio-settings';
+		const cur = JSON.parse(localStorage.getItem(k) || '{}');
+		localStorage.setItem(k, JSON.stringify({ ...cur, pdfWriter: 'photo' }));
+	});
+}
+
 // The PDF export has two lanes that must produce the SAME deck: the worker (which
 // reads the capture's pixels and deflates them natively into a pdf-lib document) and
 // the main-thread fallback (jsPDF, which re-encodes a canvas PNG). They share no
@@ -159,6 +169,7 @@ async function exportPdf(page: Parameters<typeof gotoStudio>[0]) {
 
 test('the worker lane and the main-thread lane export the same pages', async ({ page }) => {
 	await countWorkers(page);
+	await usePhotoLane(page);
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect(railButtons(page)).toHaveCount(8);
@@ -170,6 +181,7 @@ test('the worker lane and the main-thread lane export the same pages', async ({ 
 		if (!context) throw new Error('no browser context');
 		const control = await context.newPage();
 		await countWorkers(control);
+		await usePhotoLane(control);
 		// The worker script never arrives — the failure the fallback exists for.
 		await control.route('**/pdf-export-worker*.js', (route) => route.abort());
 		await gotoStudio(control);

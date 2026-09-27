@@ -3,6 +3,16 @@ import { inflateSync } from 'node:zlib';
 import { type PDFArray, PDFDict, PDFDocument, PDFName, type PDFObject, PDFRawStream } from 'pdf-lib';
 import { expect, gotoStudio, railButtons, setEditorContent, test } from './studio-fixture';
 
+/** These specs pin the PHOTO-per-page lanes, which the Studio keeps as a user choice and as
+ *  the fallback; the default Share → PDF is the shared writer (see pdf-shared-writer.spec.ts). */
+async function usePhotoLane(page: Parameters<typeof gotoStudio>[0]) {
+	await page.addInitScript(() => {
+		const k = 'lattice-studio-settings';
+		const cur = JSON.parse(localStorage.getItem(k) || '{}');
+		localStorage.setItem(k, JSON.stringify({ ...cur, pdfWriter: 'photo' }));
+	});
+}
+
 // The exported PDF's pages are pictures of slides. This asks whether they also
 // CARRY THEIR WORDS — the thing a picture cannot do: Cmd-F, a text cursor, a screen
 // reader. The oracle reads the file the way a reader does, and only that way: it
@@ -96,6 +106,7 @@ async function exportPdf(page: Parameters<typeof gotoStudio>[0]) {
 }
 
 test('every exported page carries the words on the slide it pictures', async ({ page }) => {
+	await usePhotoLane(page);
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect(railButtons(page)).toHaveCount(MARKERS.length);
@@ -121,6 +132,7 @@ test('every exported page carries the words on the slide it pictures', async ({ 
 });
 
 test('a chart label is sized by its ink, not by its viewBox units', async ({ page }) => {
+	await usePhotoLane(page);
 	await gotoStudio(page);
 	await setEditorContent(page, CHART_DECK);
 	await expect(railButtons(page)).toHaveCount(1);

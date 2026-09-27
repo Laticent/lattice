@@ -289,6 +289,13 @@ OPTIONS
                           checked fits. LATTICE_OVERFLOW_MARKER sets a standing
                           default ('off' is per-render only). The overflow warning
                           on stderr is printed at every level.
+      --chrome-pdf        Write the PDF with Chrome's own printer (page.pdf) instead
+                          of Lattice's writer. By default the PDF is composed by the
+                          same code as the Studio's Export to PDF: each slide's
+                          background is one photo, and the words, charts and links
+                          are drawn on top as real text and vector shapes. It opens
+                          several times faster in iOS Preview and Acrobat. This flag
+                          is the fallback and the comparison oracle.
       --keep-vector-images
                           Keep SVG images as vectors in the PDF. By default SVG
                           <img>/background images are rasterized to 2x PNG at
@@ -462,6 +469,7 @@ function parseArgs(argv) {
     if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
+    if (a === '--chrome-pdf') { flags['chrome-pdf'] = true; continue; }
     if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
     if (a === '--no-svg') { flags['no-svg'] = true; continue; }
     // --flag=value form
@@ -611,6 +619,9 @@ const ENGINE_SCRIPT_OPEN = `<script ${ENGINE_SCRIPT_ATTR}>`;
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
+const CHROME_PDF = !!flags['chrome-pdf'];
+// JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
+const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || 92));
 // Who the overflow marker in the printed artifact is addressed to. Same setting,
 // same kernel and same precedence as the Marp exporter — `--overflow-marker` for
 // this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
@@ -4398,16 +4409,25 @@ async function renderBody(browser, g, closeBrowser) {
   // (Mermaid, charts, logo marks) is untouched — it prints through the page's
   // normal paint path and stays vector. Opt out with --keep-vector-images.
   // The raster paths (PPTX/PNG/--raster) screenshot pixels anyway, so skip.
+  // THE SHARED WRITER (lib/core/pdf-compose) composes the PDF in this page, with the same
+  // code as the Studio's Export to PDF; Chrome's printer is the fallback (--chrome-pdf, or
+  // the writer could not run). The SVG-image twins below serve both: the shared writer
+  // embeds a raster image at its own resolution, and an SVG image is not one until twinned.
+  let composed = null;
   if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !KEEP_VECTOR_IMAGES) {
     const swapped = await rasterizeSvgImagesInPage(browser, g, page);
     if (swapped && !QUIET) {
       console.log(`  SVG images: ${swapped} reference${swapped > 1 ? 's' : ''} rasterized at 2x for PDF portability (--keep-vector-images keeps vectors)`);
     }
   }
+  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT && !CHROME_PDF) {
+    composed = await composePdfInPage(g, page);
+  }
+
   if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT) {
     // Render to a buffer (no `path`) so we can post-process before writing: the
     // speaker notes are attached as per-page PDF text annotations.
-    const pdfBytes = await g(() => page.pdf({
+    const pdfBytes = composed || await g(() => page.pdf({
       width: `${slideW}px`, height: `${slideH}px`,
       printBackground: true,
       preferCSSPageSize: true
@@ -5341,6 +5361,118 @@ async function prunePlayerCssInPage(playerHtml) {
 // resolution #681 verified on-device), transparent background preserved. Any
 // per-image failure warns and leaves that reference vector — the deck must
 // never be lost to a portability fix. Returns the number of swapped references.
+/**
+ * Compose the vector PDF with the SHARED writer (lib/core/pdf-compose), inside this page.
+ * Returns the PDF bytes, or null when the writer could not run — the caller then prints
+ * with Chrome, exactly as before, and this says why. The page is read and photographed
+ * on its export face (`.lattice-exporting`), the same face the Studio photographs.
+ */
+/** The shared writer's local-file reader: the deck's folder and Lattice's install only. */
+const pdfAssets = require('./lib/export/pdf-asset-reader.js').createAssetReader([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
+
+async function composePdfInPage(g, page) {
+  composePdfInPage.pages ||= new WeakSet();
+  const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose.min.js');
+  if (!fs.existsSync(bundle)) {
+    if (!QUIET) console.log('  PDF writer: dist/lattice-pdf-compose.min.js is missing (run `npm run build`); printing with Chrome instead.');
+    return null;
+  }
+  try {
+    const wasm = fs.readFileSync(require.resolve('harfbuzzjs/hb-subset.wasm')).toString('base64');
+    await g(() => page.addScriptTag({ content: fs.readFileSync(bundle, 'utf8') }), 'load the PDF writer');
+    // THE CAMERA is the one piece each host supplies. Here it is Chrome itself: the page
+    // calls back into Node, which screenshots the slide as it stands (the drawn text and
+    // shapes already hidden). Chrome sees exactly what is on the slide — local images,
+    // CSS backgrounds, filters — where html-to-image would have to fetch each one from a
+    // file:// page and cannot. The Studio's camera is html-to-image, on the same face.
+    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const PHOTO_FN = '__latticePdfPhoto', ASSET_FN = '__latticePdfAsset', FACES_FN = '__latticePdfFontFaces';
+    composePdfInPage.handles = handles;
+    if (!composePdfInPage.pages.has(page)) {
+      composePdfInPage.pages.add(page);
+      await page.exposeFunction(PHOTO_FN, async (i, scale) => {
+        const h = composePdfInPage.handles[i];
+        // deviceScaleFactor changes pixel density only, never layout.
+        if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale });
+        try {
+          // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
+          // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
+          await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
+          const buf = await h.screenshot({ type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false });
+          return Buffer.from(buf).toString('base64');
+        } finally {
+          if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
+        }
+      });
+      // Image and font bytes, and a local stylesheet's @font-face rules, for the writer. The
+      // deck's own scripts can call these too: lib/export/pdf-asset-reader.js is the boundary.
+      await page.exposeFunction(ASSET_FN, async (url) => pdfAssets.asset(url));
+      await page.exposeFunction(FACES_FN, async (href) => pdfAssets.fontFaceRules(href));
+    }
+    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~33 s, and a
+    // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
+    const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
+    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide) => {
+      const L = globalThis.LatticePdfCompose;
+      const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
+      // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
+      // NOT print media: the print face still draws a spotlight's hard 70% ellipse (#2400
+      // softened it in the export face only), and a hard arc across the slide is the very
+      // defect this work began from — measured on the owner's `backdrop: "full spot-tr"` deck.
+      for (const s of secs) s.classList.add('lattice-exporting');
+      const unb64 = (b64) => {
+        const b = atob(b64);
+        const bytes = new Uint8Array(b.length);
+        for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
+        return bytes;
+      };
+      const camera = async (section, { scale = 1 } = {}) => ({ bytes: unb64(await window[fnName](secs.indexOf(section), scale)), type: 'jpeg' });
+      const fetchAsset = async (url) => unb64(await window[assetFn](url));
+      const bin = atob(wasmB64);
+      const wasmBytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) wasmBytes[i] = bin.charCodeAt(i);
+      let composed;
+      try {
+        const readFontFaceRules = (href) => window[facesFn](href);
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide });
+      } catch (e) {
+        // Carry the page-side stack across CDP: puppeteer keeps only the message.
+        return { error: String(e?.stack || e) };
+      }
+      const { bytes, report } = composed;
+      let s = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      return { b64: btoa(s), report };
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide'), 'compose pdf', composeMs);
+    if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
+    await page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); });
+    if (!QUIET) {
+      const r = out.report;
+      const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+      const refused = sum(r.refusedText) + sum(r.refusedShapes) + sum(r.refusedImages);
+      console.log(`  PDF writer: ${r.words} words, ${r.shapes} shapes and ${r.images} images drawn as vectors or originals${refused ? `, ${refused} left in the photo` : ''} (--chrome-pdf prints with Chrome instead)`);
+      // Name the slides, so an author can go and look (a system font, an emoji, a filter …).
+      for (const { slide, why } of (r.photoContent || []).slice(0, 12)) console.log(`    slide ${slide}: ${Object.entries(why).map(([k, v]) => `${v} ${k}`).join(', ')} kept in the photo`);
+      if ((r.photoContent || []).length > 12) console.log(`    … and ${r.photoContent.length - 12} more slides (LATTICE_PDF_REPORT=file.json lists them all)`);
+    }
+    if (process.env.LATTICE_PDF_REPORT) fs.writeFileSync(process.env.LATTICE_PDF_REPORT, JSON.stringify(out.report, null, 2));
+    return Buffer.from(out.b64, 'base64');
+  } catch (e) {
+    // Put the page back BEFORE Chrome prints it: the compose may have hidden every drawn word
+    // and shape (and may still be running); the export face is the Studio's, not the printer's.
+    try {
+      await page.evaluate(() => {
+        window.__latticePdfAbort?.();
+        for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting');
+      });
+    } catch {}
+    // Said even under --quiet (on stderr): a silent switch of writer is a different PDF.
+    console.error(`  PDF writer failed (${String(e?.message || e).split('\n')[0]}); printing with Chrome instead.`);
+    if (process.env.LATTICE_PDF_DEBUG) console.error(e?.stack || e);
+    return null;
+  }
+}
+
 async function rasterizeSvgImagesInPage(browser, g, page) {
   // Pass 1 — collect: every SVG image URL (absolutized) with the largest
   // placement box it occupies, measured from the real layout.

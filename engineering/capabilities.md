@@ -224,6 +224,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:theme` | Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet). |
 | `test:tokens` | Unit scope: the universal token system. |
 | `test:tools` | Unit scope: author tools (export-marp, …). |
+| `test:trama` | Unit scope: trama, the graph-chart library the flowchart is built on. |
 | `test:transform-dsl` | Unit scope: the declarative component-transform DSL and its safety validator (lib/core/transform-dsl). |
 | `test:transformers` | Unit scope: transformer registry/adapters. |
 | `test:watch` | Re-run the unit suite on file change. |
@@ -300,7 +301,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `followups` | List followups.d/ — every pending item with no issue, one line each (contract: followups.d/README.md). |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
-| `test:trama` | **TODO: describe `test:trama` in tools/build-capabilities.js (SCRIPT_META).** |
 
 ## Tools — `tools/`
 
@@ -432,6 +432,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-marp-kit.js` | build-marp-kit — assemble dist/marp-kit/, the copy-and-go folder. |
 | `tools/build-packages-core.js` | Bundle the package spine for the browser. |
 | `tools/build-packages-index.js` | build-packages-index — the ONE generated index of every shipped package |
+| `tools/build-pdf-compose.js` | Bundle the shared PDF writer (lib/core/pdf-compose) into one browser IIFE the CLI |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-plugin-registry.js` | Freezes the in-tree plugins (lib/plugins/) into the registries every render path reads, |
@@ -498,6 +499,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/measure-word-cloud-drop.mjs` | measure-word-cloud-drop.mjs — which words a word cloud LISTS and does not DRAW. |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
+| `tools/pdf-writer-parity.mjs` | PDF writer parity — the shared writer (lib/core/pdf-compose) against the screen, with a thin-line sweep. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/reader-extraction-probe.mjs` | Reader-mode extraction probe — re-derive the numbers behind the reader-mode work |

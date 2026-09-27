@@ -205,6 +205,45 @@ PPTX still ship pictures alone. Mechanism, what it deliberately leaves out,
 and why the fallback does not get it:
 `engineering/decisions/2026-09-13-pdf-export-text-layer.md`.
 
+## 4a0. How the CLI writes a PDF — the shared writer
+
+The CLI does not print its PDF with Chrome any more. It lays the deck out in its Chrome page as
+before, then runs **the same code as the Studio's Export to PDF** inside that page
+(`lib/core/pdf-compose`, bundled to `dist/lattice-pdf-compose.min.js` by
+`tools/build-pdf-compose.js`):
+
+1. **Read** each slide (`read-slide.mjs`): every word's box, font, size, color and spacing; every
+   chart shape with its matrix, gradient and clip path; every `<img>` and single-layer CSS
+   background image; every link.
+2. **Fonts** (`font-subset.mjs`): HarfBuzz cuts each web font to the characters used and pins a
+   variable font's weight, so the PDF embeds a small static font per weight.
+3. **Photograph** what is left. The drawn text, shapes and images are hidden, and the slide is
+   photographed on its export face (`.lattice-exporting`). The camera is the one piece each host
+   supplies: the CLI uses Chrome's own screenshot, the Studio uses html-to-image.
+4. **Write** (`write-pdf.mjs`, pdf-lib): the photo, then images at their original bytes, then
+   chart shapes as vectors, then every word as real text, tagged (Document › H1…/P/LI/Figure)
+   with the title and `/Lang`.
+
+Anything the writer cannot reproduce exactly stays in the photo, which is taken at 2x on a slide
+that keeps text or a raster image in it. That covers:
+
+- rotated text, a text shadow, and text or an image that something paints over;
+- a masked or filtered shape;
+- a character the deck's fonts lack (an emoji, a system-font fallback);
+- pseudo-element text (page numbers, bullets).
+
+Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
+deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size.
+
+**The CLI's file reader is a trust boundary.** The page calls back into Node for local images and
+fonts, and a deck's own scripts can call it too. So `lib/export/pdf-asset-reader.js` reads local
+files only (never http), confined by real path to the deck's folder and the Lattice install,
+regular files under 64 MB, and returns only image or font bytes. Set `LATTICE_PDF_REPORT=report.json` to see what was drawn and what
+was left in the photo, and why. `--chrome-pdf` prints with Chrome instead; the CLI also falls
+back to Chrome, and says so (on stderr, even with `--quiet`), when the bundle is missing or the
+writer fails. The reasons and the
+measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.md`.
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes — so

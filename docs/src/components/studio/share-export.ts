@@ -882,7 +882,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
 	// an image it could not load. The caller folds it into the toast; see ShareSheet.
-	return ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, annotations });
+	return ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations });
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's

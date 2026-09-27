@@ -207,6 +207,7 @@ Three more PDF delivery options:
 lattice deck.md deck.pdf --raster              # one full-page image per slide
 lattice deck.md deck.pdf --embed-source        # attach the .md inside the PDF
 lattice deck.md deck.pdf --keep-vector-images  # keep SVG images as vectors
+lattice deck.md deck.pdf --chrome-pdf          # print with Chrome instead of Lattice's writer
 ```
 
 `--raster` trades selectable text for maximum viewer compatibility — every page
@@ -219,6 +220,15 @@ the artifact). By default the exporter also **rasterizes SVG images**
 because iOS's built-in PDF viewer mishandles the vector constructs Chromium
 prints for them; `--keep-vector-images` opts back into vectors. Inline SVG —
 Mermaid diagrams, charts, logo marks — always stays vector.
+
+The PDF is written by **the same code as the Studio's Export to PDF**
+(`lib/core/pdf-compose`): each slide's background — finish, boxes, anything
+the writer does not draw — is one photo, and the words, charts, images and
+links go on top as real text, vector shapes, original images and clickable
+links, tagged for screen readers. It opens several times faster in iOS
+Preview and Acrobat than Chrome's own printing, which drew a finish's
+gradients about a second a slide. `color-mode: print` drops the finish
+altogether. `--chrome-pdf` prints with Chrome instead.
 
 ## Render the gallery deck
 

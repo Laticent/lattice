@@ -77,6 +77,10 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-marp-kit.js',
   'build-agent-kit.mjs',
   'build-dist-readme.js',
+  // Measured 2026-09-27 against a timestamped tree: its whole write set is
+  // dist/lattice-pdf-compose.min.js (the shared PDF writer the CLI injects), which
+  // .gitignore's dist/ covers. Its esbuild entry is a temp file it deletes before exiting.
+  'build-pdf-compose.js',
 ]);
 
 // Generators that write PR-owned artifacts. Listed explicitly, so that tagging

@@ -1059,6 +1059,37 @@ section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-l
   inset: 4px;
 }
 
+/* ── PRINT MODE carries no finish ─────────────────────────────────────
+ * `color-mode: print` is the black-and-white handout, and a finish on paper is ink with
+ * nothing to say: a gray grid in every margin, a gray glow, a heavy margin bar (owner,
+ * 2026-09-27). So `section.print` zeroes every finish layer and every `backdrop:` register
+ * layer, on screen and in every export. Unlike the opt-out below it leaves the section's own
+ * `background-image` and `box-shadow` alone: print draws a tone slide's rail in that shadow
+ * list, and `--fin-frame` stays a valid list entry for the same reason. The `[class]` lifts it
+ * to (0,3,1) so it beats a Fabricate finish's own (0,2,1) rule, which a deck loads later. */
+section.print.finish[class] {
+  --fin-wash: none;
+  --fin-texture: none;
+  --fin-mark: none;
+  --fin-mark-text: "";
+  --fin-edge: none;
+  --fin-wash-opaque: none;
+  --fin-texture-opaque: none;
+  --fin-mark-opaque: none;
+  --fin-edge-opaque: none;
+  --fin-frame: 0 0 transparent;
+  --fin-backdrop-mask: none;
+  --fin-backdrop-mask-opaque: none;
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-dim-scrim: none;
+  --fin-backdrop-dim-scrim: none;
+  --backdrop-opacity: 1;
+  --backdrop-clear-scrim: none;
+  --fin-backdrop-clear-scrim: none;
+  --backdrop-clear-filter: none;
+}
+
 /* ── Per-slide opt-out ────────────────────────────────────────────────
  * `<!-- _class: finish-none -->` (or the back-compat `backdrop-none`) clears a
  * deck-wide finish on one slide (a title/cover/image or a busy chart). Zeroes

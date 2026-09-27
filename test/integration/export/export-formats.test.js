@@ -335,11 +335,370 @@ describe('export-formats', () => {
     const dir = tmpDir();
     const src = writeSvgFixture(dir);
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--keep-vector-images'], {
+    // --keep-vector-images governs Chrome's printer: the shared writer always lays a photo
+    // under the page, so the raster-count assertion below is about --chrome-pdf.
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--keep-vector-images', '--chrome-pdf'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.equal(pdfImageRows(out).length, 0, 'opt-out export should carry no raster image XObjects');
+  });
+
+  // A finish deck: two finish slides and one opted out.
+  function writeFinishFixture(dir) {
+    const src = path.join(dir, 'finish.md');
+    fs.writeFileSync(src, [
+      '---', 'marp: true', 'theme: indaco', 'finish: atrium', 'backdrop: clear', '---', '',
+      '# Baked finish one', '', 'Body text stays vector.', '', '---', '',
+      '<!-- _class: finish-none -->', '', '# Opted out', '', '---', '',
+      '# Baked finish two', '',
+    ].join('\n'));
+    return src;
+  }
+
+  // Page 1 rendered to grayscale at 20 dpi: the mean of a corner region, 0 (black) to 255.
+  function cornerMean(pdf, dir, { right = true, top = true } = {}) {
+    const base = path.join(dir, `corner-${Math.random().toString(36).slice(2)}`);
+    execFileSync('pdftoppm', ['-gray', '-r', '20', '-f', '1', '-l', '1', pdf, base]);
+    const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+    const buf = fs.readFileSync(file);
+    const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+    const data = buf.subarray(buf.length - w * h);
+    let sum = 0, n = 0;
+    const x0 = right ? Math.floor(w * 0.8) : 0, y0 = top ? 0 : Math.floor(h * 0.8);
+    for (let y = y0; y < y0 + Math.floor(h * 0.2); y++) for (let x = x0; x < x0 + Math.floor(w * 0.2); x++) { sum += data[y * w + x]; n++; }
+    return sum / n;
+  }
+
+  test('composes the PDF with the shared writer: one photo per page, real tagged text on top', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.match(r.stdout, /PDF writer: \d+ words/, `the shared writer must run, not fall back to Chrome:\n${r.stdout}`);
+    // One slide-sized photo per page (the finish backdrop lives in it), opaque.
+    const rows = pdfImageRows(out);
+    assert.deepEqual(rows.map((row) => Number(row.trim().split(/\s+/)[0])), [1, 2, 3], `one photo per page:\n${rows.join('\n')}`);
+    for (const row of rows) {
+      assert.match(row, /\bimage\s+1280\s+720\b/, `a 1x slide photo: ${row}`);
+      assert.doesNotMatch(row, /\bsmask\b/, `the photo is opaque: ${row}`);
+    }
+    const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+    assert.match(text, /Body text stays vector/, 'slide text must be real, selectable text with its spaces');
+    const fonts = execFileSync('pdffonts', [out], { encoding: 'utf8' }).split('\n').slice(2).filter((l) => l.trim());
+    // Embedded (pdffonts' `emb` column). Every font is also cut to the characters used, but
+    // pdf-lib names it without the ABCDEF+ prefix, so the `sub` column cannot show it.
+    assert.ok(fonts.length > 0 && fonts.every((l) => /\byes\s+(yes|no)\s+(yes|no)\s+\d+\s+\d+\s*$/.test(l)), `every font embedded:\n${fonts.join('\n')}`);
+    const info = execFileSync('pdfinfo', [out], { encoding: 'utf8' });
+    assert.match(info, /Tagged:\s+yes/, 'the PDF is tagged, like the one Chrome prints');
+    // …and the tags say what each block is: the slide's heading reads as a heading, its
+    // body as a paragraph, in slide order.
+    const tree = execFileSync('pdfinfo', ['-struct-text', out], { encoding: 'utf8' });
+    assert.match(tree, /^Document/m, 'one Document root');
+    assert.match(tree, /^\s+H1\b[^\n]*\n\s+"Baked/m, `the first slide's title is an H1:\n${tree.slice(0, 600)}`);
+    assert.match(tree, /^\s+P\b[^\n]*\n\s+"Body/m, 'the body copy is a P');
+  });
+
+  test('print mode exports no finish at all', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = writeFinishFixture(dir);
+    const rich = path.join(dir, 'rich.pdf');
+    assert.equal(spawnSync(process.execPath, [EMULATOR, src, rich, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT }).status, 0);
+    fs.writeFileSync(src, fs.readFileSync(src, 'utf8').replace('backdrop: clear', 'backdrop: clear\ncolor-mode: print'));
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // The finish's corner glow is gone from the photo: the empty top-right corner of a
+    // print-mode page is paper white, where the color page carries the finish.
+    const printCorner = cornerMean(out, dir), richCorner = cornerMean(rich, dir);
+    assert.ok(printCorner > 250, `print mode leaves the corner paper-white, got mean ${printCorner.toFixed(1)}`);
+    assert.ok(richCorner < printCorner, `the color page carries a finish there (${richCorner.toFixed(1)} vs ${printCorner.toFixed(1)}) — else this test proves nothing`);
+  });
+
+  test('card borders are drawn as vectors, not left in the photo to blur on a big screen', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'cards.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\ncolor-mode: dark\n---\n\n<!-- _class: stats -->\n\n## Four cards\n\n1. $14.2M\n   - revenue\n2. 118%\n   - retention\n3. 3.1%\n   - churn\n4. 41\n   - logos\n');
+    const out = path.join(dir, 'cards.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const report = JSON.parse(fs.readFileSync(rep, 'utf8'));
+    // The slide has no SVG, so every shape is a lifted border: one ring per card at least.
+    assert.ok(report.shapes >= 4, `the four card borders are vector shapes (got ${report.shapes})`);
+    assert.deepEqual(Object.keys(report.refusedShapes || {}).filter((k) => k.startsWith('border-')), [], 'no card border is left in the photo');
+  });
+
+  test('a border the writer cannot draw exactly stays in the photo', { timeout: TIMEOUT }, () => {
+    // Each slide is a case the checker broke (2026-09-27): drawn over the photo, the border
+    // came out wrong, so it must be refused and left where the browser painted it.
+    const dir = tmpDir();
+    const src = path.join(dir, 'refuse.md');
+    const slides = [
+      // A see-through group: the border blends over the backdrop, not the box's own fill.
+      '<div style="background:#f00;padding:40px;width:600px"><div style="opacity:0.5"><div style="background:#fff;border:20px solid #000;height:100px"></div></div></div>',
+      // An inline box that wraps: one border piece per line, not one box around them all.
+      '<p style="font-size:40px;width:500px">Lead text and then <span style="border:3px solid #e00;padding:0 4px">a bordered inline span that wraps across several lines here</span> and more.</p>',
+      // Collapsed table borders are shared between cells.
+      '<table style="border-collapse:collapse"><tr><td style="border:6px solid #00c;padding:20px">A</td><td style="border:6px solid #00c;padding:20px">B</td></tr></table>',
+      // An overlay with pointer-events:none still paints over the border.
+      '<div style="position:relative;width:400px;height:200px"><div style="border:8px solid #0a0;width:300px;height:150px"></div><div style="position:absolute;left:0;top:0;width:400px;height:40px;background:#fc0;pointer-events:none"></div></div>',
+    ];
+    fs.writeFileSync(src, `---\ntheme: cuoio\n---\n\n${slides.map((h, i) => `## Case ${i + 1}\n\n${h}`).join('\n\n---\n\n')}\n`);
+    const out = path.join(dir, 'refuse.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const refused = JSON.parse(fs.readFileSync(rep, 'utf8')).refusedShapes || {};
+    for (const why of ['border-opacity', 'border-wrapped', 'border-collapsed-table', 'border-covered']) {
+      assert.ok(refused[why] > 0, `${why} is refused (report: ${JSON.stringify(refused)})`);
+    }
+  });
+
+  test('an empty overlay does not push text out of the text layer, and an escaped SVG is still drawn', { timeout: TIMEOUT }, () => {
+    // Two regressions from the second checker's fixes (caught by the third, 2026-09-27):
+    // making everything hit-testable let an empty pointer-events:none SVG (sketch mode's ink
+    // layer) 'cover' the words under it; and clipping SVG to every overflow ancestor, rather
+    // than its containing-block chain, erased an absolutely positioned SVG that escapes one.
+    const dir = tmpDir();
+    const src = path.join(dir, 'overlay.md');
+    fs.writeFileSync(src, [
+      '---\ntheme: cuoio\n---\n',
+      '## Overlay\n\n<div style="position:relative"><p>Quartzite halyard zephyr marmot.</p><svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></svg></div>\n',
+      '---\n\n## Escape\n\n<div style="overflow:hidden;width:200px;height:100px"><div style="position:absolute;left:600px;top:250px"><svg width="80" height="80"><rect width="80" height="80" fill="#c00"/></svg></div></div>\n',
+    ].join('\n'));
+    const out = path.join(dir, 'overlay.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const page1 = execFileSync('pdftotext', ['-f', '1', '-l', '1', out, '-'], { encoding: 'utf8' });
+    assert.match(page1, /Quartzite halyard zephyr marmot\./, 'the words under an empty overlay stay real text');
+    // The red square: its middle, on page 2, at 72 dpi (600+40, 250+40 px, scaled by 0.75).
+    const base = path.join(dir, 'p2');
+    execFileSync('pdftoppm', ['-r', '72', '-f', '2', '-l', '2', '-singlefile', out, base]);
+    const ppm = fs.readFileSync(`${base}.ppm`);
+    const [, w, h] = ppm.toString('latin1', 0, 20).match(/P6\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+    const px = ppm.subarray(ppm.length - w * h * 3);
+    const at = (x, y) => [...px.subarray((y * w + x) * 3, (y * w + x) * 3 + 3)];
+    const [R, G, B] = at(Math.round(640 * 0.75), Math.round(290 * 0.75));
+    assert.ok(R > 150 && G < 80 && B < 80, `the escaped SVG square is drawn (rgb ${R},${G},${B})`);
+  });
+
+  test('a tall KaTeX matrix bracket leaves the page drawable', { timeout: TIMEOUT }, () => {
+    // Its path data breaks a line after a comma before a negative number. pdf-lib once read
+    // that as NaN, and poppler then stopped drawing the rest of the slide: a blank page.
+    const dir = tmpDir();
+    const src = path.join(dir, 'matrix.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\nmath: katex\n---\n\n## Matrix\n\n$$X = \\begin{pmatrix} 1 & x_{11} \\\\ 1 & x_{21} \\\\ \\vdots & \\vdots \\\\ 1 & x_{n1} \\end{pmatrix}$$\n');
+    const out = path.join(dir, 'matrix.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const raster = spawnSync('pdftoppm', ['-r', '20', '-png', out, path.join(dir, 'r')], { encoding: 'utf8' });
+    assert.doesNotMatch(raster.stderr, /Error/, `poppler reads every operator on the page:\n${raster.stderr}`);
+  });
+
+  test('a card laid over a diagram stays on top of it', { timeout: TIMEOUT }, () => {
+    // SVG shapes are drawn over the photo; one that something paints ABOVE must stay in the
+    // photo, or it buries the card (scene.gallery slide 5, found by the thin-line sweep).
+    const dir = tmpDir();
+    const src = path.join(dir, 'stack.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\n---\n\n## Stack\n\n<div style="position:relative;width:600px;height:300px"><svg width="400" height="200"><rect x="0" y="0" width="400" height="200" fill="#c00"/></svg><div style="position:absolute;left:0;top:100px;width:600px;height:200px;background:#fff"></div></div>\n');
+    const out = path.join(dir, 'stack.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const base = path.join(dir, 'p');
+    execFileSync('pdftoppm', ['-r', '96', '-singlefile', out, base]);
+    const ppm = fs.readFileSync(`${base}.ppm`);
+    const [, w, h] = ppm.toString('latin1', 0, 20).match(/P6\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+    const px = ppm.subarray(ppm.length - w * h * 3);
+    // Find the red rectangle's top-left on the page, then look 150 px below it (under the card).
+    let top = -1, left = -1;
+    for (let y = 0; y < h && top < 0; y++) for (let x = 0; x < w; x++) { const o = (y * w + x) * 3; if (px[o] > 180 && px[o + 1] < 40 && px[o + 2] < 40) { top = y; left = x; break; } }
+    assert.ok(top >= 0, 'the red rectangle is on the page');
+    const o = ((top + 150) * w + left + 50) * 3;
+    assert.ok(px[o] > 230 && px[o + 1] > 230 && px[o + 2] > 230, `the card covers the diagram (rgb ${px[o]},${px[o + 1]},${px[o + 2]})`);
+  });
+
+  test('the fourth checker pass: collapsed matrices, nested SVGs, pseudo-element overlays, small badges', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'fourth.md');
+    const slides = [
+      // A nested <svg> under scale(0): its clip matrix is singular, and inverting it wrote NaN
+      // that blanked the rest of the page. The words after it must still be drawn.
+      '<svg width="200" height="100"><rect width="200" height="100" fill="#0a0"/><g transform="scale(0)"><svg width="100" height="100"><rect width="100" height="100"/></svg></g></svg>\n\nQuartzite words after the svg.',
+      // A nested <svg>: its one half-transparent rect must be drawn once, not twice.
+      '<svg width="200" height="100"><svg x="0" y="0" width="200" height="100"><rect width="200" height="100" fill="#00f" fill-opacity=".5"/></svg></svg>',
+      // An ancestor ::after bar over text: the words under it stay in the photo.
+      '<style>.ov{position:relative}.ov::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:#000}</style><div class="ov"><p>Redacted halyard marmot text.</p></div>',
+      // A badge smaller than a grid cell over a big SVG rect: the rect stays in the photo.
+      '<div style="position:relative;width:800px;height:400px"><svg width="800" height="400"><rect width="800" height="400" fill="#36c"/></svg><div style="position:absolute;left:130px;top:60px;width:40px;height:20px;background:#e00"></div></div>',
+    ];
+    fs.writeFileSync(src, `---\ntheme: cuoio\n---\n\n${slides.map((h, i) => `## Case ${i + 1}\n\n${h}`).join('\n\n---\n\n')}\n`);
+    const out = path.join(dir, 'fourth.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const raster = spawnSync('pdftoppm', ['-r', '20', '-png', out, path.join(dir, 'r')], { encoding: 'utf8' });
+    assert.doesNotMatch(raster.stderr, /Error/, `poppler reads every operator:\n${raster.stderr}`);
+    const text = (p) => execFileSync('pdftotext', ['-f', String(p), '-l', String(p), out, '-'], { encoding: 'utf8' });
+    assert.match(text(1), /Quartzite words after the svg\./, 'the page after a collapsed SVG is still drawn');
+    assert.doesNotMatch(text(3), /Redacted halyard/, 'text under an ancestor ::after bar is not drawn over it');
+    const report = JSON.parse(fs.readFileSync(rep, 'utf8'));
+    assert.ok(report.refusedShapes['bad-path'] >= 1, 'the collapsed nested SVG is refused, not written');
+    assert.ok(report.refusedShapes.covered >= 1, 'the rect under the small badge stays in the photo');
+    // Page 2 carries exactly one vector shape: the nested rect, read once.
+    const perSlide = report.photoContent || [];
+    assert.ok(!perSlide.some((p) => p.slide === 2 && p.why && p.why['bad-path']), 'the nested SVG itself is drawable');
+  });
+
+  test('a KaTeX square root keeps its bar inside the root, as the browser clips it', { timeout: TIMEOUT }, () => {
+    // KaTeX draws the bar 400em wide and crops it with the SVG viewport and an overflow:hidden
+    // span; the writer once ignored both and ran the bar to the edge of the page.
+    const dir = tmpDir();
+    const src = path.join(dir, 'root.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\nmath: katex\n---\n\n## Root\n\n$$\\sqrt{x^2+1}$$\n');
+    // Dark pixels in the right quarter of the page, where the formula does not reach.
+    const inkRight = (pdf) => {
+      const base = pdf.replace(/\.pdf$/, '-g');
+      execFileSync('pdftoppm', ['-gray', '-r', '48', '-f', '1', '-l', '1', pdf, base]);
+      const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+      const buf = fs.readFileSync(file);
+      const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+      const px = buf.subarray(buf.length - w * h);
+      let n = 0;
+      for (let y = Math.round(h * 0.2); y < Math.round(h * 0.9); y++) for (let x = Math.round(w * 0.75); x < w; x++) if (px[y * w + x] < 200) n++;
+      return n;
+    };
+    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
+    for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    }
+    assert.ok(inkRight(mine) <= inkRight(chrome) + 5, `no bar runs to the page edge (${inkRight(mine)} dark px vs Chrome's ${inkRight(chrome)})`);
+  });
+
+  test('a Mermaid flowchart keeps its edges and arrowheads', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'flow.md');
+    fs.writeFileSync(src, '---\ntheme: indaco\n---\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Start] --> B[Middle] --> C[End]\n```\n');
+    // Ink on the page, 0-255 gray below 160: the edges and arrowheads are most of a small
+    // diagram's dark pixels beyond its labels. Mermaid's `stroke-dasharray: 0` once went into
+    // the PDF as `[0] 0 d`, which poppler draws as nothing, and every edge vanished.
+    const ink = (pdf) => {
+      const base = pdf.replace(/\.pdf$/, '-g');
+      execFileSync('pdftoppm', ['-gray', '-r', '48', '-f', '1', '-l', '1', pdf, base]);
+      const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+      const buf = fs.readFileSync(file);
+      const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+      return buf.subarray(buf.length - w * h).filter((v) => v < 160).length;
+    };
+    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
+    for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    }
+    const a = ink(mine), b = ink(chrome);
+    assert.ok(a >= b * 0.9, `the writer's page carries the diagram's ink (${a} dark px vs Chrome's ${b})`);
+  });
+
+  test('when the writer fails mid-compose, the Chrome fallback prints the slides whole, not hidden', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'fallback.pdf');
+    // LATTICE_PDF_TEST_FAIL=after-hide throws with every drawn word and shape hidden — the state
+    // a watchdog timeout left behind, which printed a blank deck (the checker's repro).
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_TEST_FAIL: 'after-hide' }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.match(r.stderr, /PDF writer failed[^\n]*printing with Chrome instead/, 'the fallback is announced');
+    assert.match(execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' }), /Body text stays vector/, 'the fallback PDF still carries the text');
+    assert.equal(pdfImageRows(out).filter((row) => /\bimage\s+1280\s+720\s/.test(row)).length, 0, 'and it is Chrome\'s print, with no slide photo');
+  });
+
+  test('text something paints over stays hidden: not drawn on top, not in the text layer', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'covered.md');
+    // A redaction bar over the title band. Chrome's printer hides the title; a writer that drew
+    // every word on top of the photo would show it — and let a reader copy it out.
+    fs.writeFileSync(src, '---\nhtml: true\ntheme: indaco\n---\n\n# Classified title\n\n<div style="position:absolute;top:0;left:0;width:100%;height:150px;background:#c0392b;z-index:9"></div>\n');
+    const out = path.join(dir, 'covered.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.doesNotMatch(execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' }), /Classified/, 'covered text must not reach the text layer');
+  });
+
+  test('a spotlight backdrop fades softly in the PDF (the hard-arc bug this writer began from)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'spot.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\nfinish: nimbus\nbackdrop: "full spot-tr"\n---\n\n## A spotlight slide\n\nText.\n');
+    // The largest step between neighboring pixels below the heading, right of center, where
+    // the spotlight's edge crosses: a soft fade moves a level or two, a drawn arc jumps.
+    const maxStep = (pdf) => {
+      const base = pdf.replace(/\.pdf$/, '-g');
+      execFileSync('pdftoppm', ['-gray', '-r', '48', '-f', '1', '-l', '1', pdf, base]);
+      const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+      const buf = fs.readFileSync(file);
+      const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+      const d = buf.subarray(buf.length - w * h);
+      let max = 0;
+      for (let y = Math.floor(h * 0.3); y < Math.floor(h * 0.6); y++) for (let x = Math.floor(w * 0.6); x < w - 2; x++) max = Math.max(max, Math.abs(d[y * w + x + 1] - d[y * w + x]));
+      return max;
+    };
+    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
+    for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    }
+    // Measured 2026-09-27: 1 for the writer (the export face's feathered spotlight), 63 for
+    // Chrome's printer (the print face's hard ellipse). The Chrome render is the control that
+    // proves this measure can see an arc at all.
+    assert.ok(maxStep(chrome) > 20, 'control: Chrome\'s print face draws the hard arc');
+    assert.ok(maxStep(mine) <= 6, `the writer's spotlight fades softly, largest step ${maxStep(mine)}`);
+  });
+
+  test('an image is embedded at its own bytes unless something paints over it — on any slide', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    // A 4x4 opaque blue PNG.
+    fs.writeFileSync(path.join(dir, 'blue.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGNgYPiPhEAcTAEAAHEgD/GQJqEAAAAASUVORK5CYII=', 'base64'));
+    const src = path.join(dir, 'images.md');
+    fs.writeFileSync(src, [
+      '---', 'html: true', 'paginate: false', '---', '',
+      '## Plain image', '',
+      '<img src="blue.png" style="width:200px;height:200px">', '',
+      '---', '',
+      // The second slide is the case that matters: the CLI stacks slides vertically, and a
+      // paint-over check that samples an off-screen point would wave this image through.
+      '## Covered image', '',
+      '<div style="position:relative;width:200px;height:200px"><img src="blue.png" style="width:200px;height:200px"><div style="position:absolute;inset:0;background:rgba(255,0,0,0.5)"></div></div>', '',
+    ].join('\n'));
+    const out = path.join(dir, 'images.pdf');
+    const report = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
+    assert.equal(rep.images, 1, 'the uncovered image is embedded natively');
+    assert.equal(rep.refusedImages.covered, 1, 'the covered image stays in the photo, under its scrim');
+    // The native one is the 4x4 original; the covered slide's photo is taken at 2x.
+    const rows = pdfImageRows(out);
+    assert.ok(rows.some((row) => /\bimage\s+4\s+4\b/.test(row)), `the original 4x4 PNG is embedded:\n${rows.join('\n')}`);
+    assert.ok(rows.some((row) => /^\s*2\s.*\bimage\s+2560\s+1440\b/.test(row)), `slide 2's photo is 2x:\n${rows.join('\n')}`);
+  });
+
+  test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out, '--quiet', '--chrome-pdf'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // Chrome rasterizes the blurred `clear` layer on its own (#2400); what it never does is
+    // lay a whole-slide photo under the page, which is the shared writer's signature.
+    const photos = pdfImageRows(out).filter((row) => /\bimage\s+1280\s+720\s/.test(row));
+    assert.equal(photos.length, 0, `Chrome's printer lays no slide photo under the page:\n${photos.join('\n')}`);
+    const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+    assert.match(text, /Body text stays vector/);
   });
 
   test('--raster prints one full-page JPEG per slide; notes + --embed-source still apply', { timeout: TIMEOUT }, async () => {
@@ -1008,15 +1367,17 @@ describe('export-formats', () => {
   // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
   // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the
   // shell's <title> + <html lang>.
-  test('the exported PDF carries an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)', { timeout: TIMEOUT }, () => {
+  test('the exported PDF carries an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)', { timeout: TIMEOUT }, async () => {
     const dir = tmpDir();
     const src = path.join(dir, 'titled.md');
     fs.writeFileSync(src, '---\ntitle: Q3 Board Review\nlang: fr\ntheme: indaco\n---\n\n# Hello\n\nSome text.\n');
     const out = path.join(dir, 'titled.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
-    const bytes = fs.readFileSync(out).toString('latin1');
-    assert.match(bytes, /\/Lang ?\(fr\)/, 'PDF should carry /Lang from the deck lang: front-matter');
-    assert.match(bytes, /Q3 Board Review/, 'PDF should carry the deck title from title: front-matter');
+    // Read through a PDF parser: the shared writer packs the catalog into an object stream.
+    const { PDFDocument, PDFName } = require('pdf-lib');
+    const doc = await PDFDocument.load(fs.readFileSync(out), { updateMetadata: false });
+    assert.equal(String(doc.catalog.lookup(PDFName.of('Lang'))?.decodeText?.() ?? doc.catalog.lookup(PDFName.of('Lang'))), 'fr', 'PDF should carry /Lang from the deck lang: front-matter');
+    assert.equal(doc.getTitle(), 'Q3 Board Review', 'PDF should carry the deck title from title: front-matter');
   });
 });

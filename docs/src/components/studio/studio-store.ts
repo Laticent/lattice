@@ -683,6 +683,13 @@ export type HandleStyle = 'knob' | 'reticle';
 // mathematically lossless). A fidelity-vs-speed call that belongs to the USER,
 // so it lives here as a workspace preference rather than a hardcoded default.
 export type PdfPages = 'png' | 'jpeg';
+// `pdfWriter` — how Share → PDF builds the file. 'text' (default) is the shared writer
+// the CLI uses too (lib/core/pdf-compose): the words, charts and images are real text,
+// vectors and original images over one photo of each slide's background, so the PDF is
+// sharp at any zoom, small, and fast to open. 'photo' is one picture per page (with an
+// invisible text layer), the lane `pdfPages` then formats. A user's escape hatch, and
+// the fallback the export takes by itself if the shared writer cannot run.
+export type PdfWriter = 'text' | 'photo';
 // `overflowMarker` — who the overflow signal is addressed to in a deck you EXPORT.
 // A slide whose content exceeds the frame is clipped (not scrollable, not printed),
 // so the artifact says so; this decides in whose language. 'reader' (default) is a
@@ -781,8 +788,8 @@ export const LEGACY_ONBOARDED_POSTURE: Posture = 'craft';
 // trajectory, and every error, INCLUDING whatever a third-party library chose to put
 // in a `console.error` argument. That is not a thing to switch on for someone.
 // See `2026-08-18-crash-toast-retirement.md` §"Opt-in".
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false };
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
@@ -842,7 +849,9 @@ export function loadSettings(): StudioSettings {
 	// `crashRecordingEnabled` in lib/crash-sentinel.ts, pinned against this line by
 	// a unit test) — both must agree that anything other than `true` means no.
 	const crashReports = saved.crashReports === true;
-	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports };
+	// Only an explicit 'photo' opts out of the shared writer; anything else is the default.
+	const pdfWriter: PdfWriter = saved.pdfWriter === 'photo' ? 'photo' : 'text';
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace
