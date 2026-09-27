@@ -167,17 +167,36 @@ export function graphLayoutKernel(): GraphKernel {
     // each 10 units outside the one before it. dagre never sees loops, so the nesting's
     // room is reserved on the box, on both sides the loops reach, and taken back off
     // after layout: `loopPad` is { r, t, b } in units, keyed by shape.
-    const loopCount: Record<string, number> = {};
+    const loopCount: Record<string, number> = Object.create(null);
     for (const e of model.edges || []) if (e.from === e.to && !e.style?.loose) loopCount[e.from] = (loopCount[e.from] || 0) + 1;
-    const loopPad: Record<string, LoopPad> = {};
+    // A LABELED loop stands far enough out for its label to clear the box (see the loop's
+    // routing below: in lr the label sits on the top run, in tb on the outer vertical), and
+    // that reach is reserved too. Unreserved, a tb loop's label was seated half over its own
+    // box and painted under it ("vise" for "revise"), with nothing counting the collision.
+    const loopLabel: Record<string, Size> = Object.create(null);
+    (model.edges || []).forEach((e, i) => {
+      if (e.from !== e.to || e.style?.loose || !e.label) return;
+      const z = (opts.labelSizes || {})[i] || { w: e.label.length * 7 + 12, h: 16 };
+      const had = loopLabel[e.from];
+      loopLabel[e.from] = { w: Math.max(had ? had.w : 0, z.w), h: Math.max(had ? had.h : 0, z.h) };
+    });
+    const loopPad: Record<string, LoopPad> = Object.create(null);
     for (const [id, c] of Object.entries(loopCount)) {
       const j = 10 * (c - 1);
-      loopPad[id] = dir === 'LR' ? { r: j, t: j, b: 0 } : { r: j, t: 0, b: j };
+      const lw = loopLabel[id] ? loopLabel[id].w : 0;
+      const z = sizes[id] || { w: 96, h: 40 };
+      // How far past the box's right side the outermost loop and its label reach, beyond
+      // the 18 units the rank gap has always absorbed.
+      const reach = dir === 'LR' ? Math.max(0, z.w / -2 + lw + 8 - 18) : lw ? lw / 2 + 8 + lw / 2 + 4 - 18 : 0;
+      loopPad[id] = dir === 'LR' ? { r: j + Math.max(0, reach), t: j, b: 0 } : { r: j + Math.max(0, reach), t: 0, b: j };
     }
     for (const s of shapes) {
       const z = sizes[s.id] || { w: 96, h: 40 };
       const k = Math.max(outs.get(s.id) || 0, ins.get(s.id) || 0);
-      const need = opts.grow !== false && k >= 3 ? (k - 1) * PORT + 16 : 0; // the router keeps 8 clear at each corner
+      // A marker (a start dot, an end ring) never grows: it is painted at its own size, and
+      // its lines are meant to converge on it, as a state machine's final state gathers them.
+      const marker = s.shape === 'start' || s.shape === 'end';
+      const need = opts.grow !== false && k >= 3 && !marker ? (k - 1) * PORT + 16 : 0; // the router keeps 8 clear at each corner
       let w = z.w, h = z.h;
       if (dir === 'LR') h = Math.max(h, need); else w = Math.max(w, need);
       if (w !== z.w || h !== z.h) {
@@ -253,6 +272,15 @@ export function graphLayoutKernel(): GraphKernel {
       const per = Math.ceil(N / lines);
       const nLines = Math.ceil(N / per);
       if (nLines !== lines || (nLines > 1 && N - (nLines - 1) * per < Math.min(2, per))) return false;
+      // Every line holds at least two REAL shapes: a start dot or an end ring does not make a
+      // line. Without this a three-state chain with its two markers wrapped into a second
+      // line of one state and the ring, which read as a stray state hanging off the chain.
+      if (nLines > 1) {
+        for (let li = 0; li < nLines; li++) {
+          const real = shapes.slice(li * per, (li + 1) * per).filter((x) => x.shape !== 'start' && x.shape !== 'end').length;
+          if (real < 2) return false;
+        }
+      }
       let labW = 0, labH = 0;
       for (const r of laid) if (r.label) { labW = Math.max(labW, r.label.w); labH = Math.max(labH, r.label.h); }
       const rankGap = sp.rank != null ? sp.rank : 60;
@@ -273,7 +301,13 @@ export function graphLayoutKernel(): GraphKernel {
       for (let j = 0; j < nLines; j++) { lineStart.push(acc); acc += lineC[j] + lineGap; }
       shapes.forEach((s, i) => {
         const n = nodeOf(s.id);
-        const u = colStart[i % per] + colA[i % per] / 2, v = lineStart[Math.floor(i / per)] + lineC[Math.floor(i / per)] / 2;
+        // A machine's markers hug the state they lead into or out of: centered in a column
+        // as wide as the state under it, an entry dot stood a column's width from its line.
+        const c = i % per;
+        const u = s.shape === 'start' ? colStart[c] + colA[c] - along(n) / 2
+          : s.shape === 'end' ? colStart[c] + along(n) / 2
+            : colStart[c] + colA[c] / 2;
+        const v = lineStart[Math.floor(i / per)] + lineC[Math.floor(i / per)] / 2;
         n.x = lr ? u : v; n.y = lr ? v : u;
       });
       return true;
@@ -317,8 +351,40 @@ export function graphLayoutKernel(): GraphKernel {
       }
     }
 
+    // A MARKER sits in line with the one shape it leads into or out of, so its line is
+    // straight: dagre centers a rank's nodes, and a start dot alone in its rank came out a
+    // few units off its state's axis, which the router drew as a hook. Moved across the flow
+    // only, and only to a spot no other box is near.
+    for (const s of shapes) {
+      if (s.shape !== 'start' && s.shape !== 'end') continue;
+      const ends = laid.filter((r) => !r.loose && r.a !== r.b && (r.a === s.id || r.b === s.id));
+      if (ends.length !== 1) continue;
+      const other = ends[0].a === s.id ? ends[0].b : ends[0].a;
+      const mn = g.node(key.get(s.id) ?? ''), on = g.node(key.get(other) ?? '');
+      if (!mn || !on) continue;
+      const to = lr ? on.y : on.x;
+      const was = lr ? mn.y : mn.x;
+      if (Math.abs(to - was) < 0.05) continue;
+      const hw = mn.width / 2 + 6, hh = mn.height / 2 + 6;
+      const cx = lr ? mn.x : to, cy = lr ? to : mn.y;
+      const clash = g.nodes().some((v) => {
+        if (v === key.get(s.id) || clusters.has(v)) return false;
+        const n = g.node(v);
+        return !!n && Math.abs(n.x - cx) < n.width / 2 + hw && Math.abs(n.y - cy) < n.height / 2 + hh;
+      });
+      if (clash) continue;
+      if (lr) mn.y = to; else mn.x = to;
+      for (const ed of g.edges()) {
+        const e = g.edge(ed);
+        if (!e.points?.length || (ed.v !== key.get(s.id) && ed.w !== key.get(s.id))) continue;
+        // The marker's own line: dagre's waypoints ran to the old spot; drop them to the
+        // straight run the router will draw anyway.
+        e.points = [];
+      }
+    }
+
     const box = (gk: string): Box => { const n = sure(g.node(gk), 'laid-out node', gk); return { x: n.x - n.width / 2, y: n.y - n.height / 2, w: n.width, h: n.height, cx: n.x, cy: n.y }; };
-    const nodes: Record<string, Box> = {};
+    const nodes: Record<string, Box> = Object.create(null);
     for (const s of shapes) {
       const b = box(must(key, s.id)), lp = loopPad[s.id];
       if (lp) {
@@ -330,7 +396,7 @@ export function graphLayoutKernel(): GraphKernel {
       }
       nodes[s.id] = b;
     }
-    const gboxes: Record<string, Box> = {};
+    const gboxes: Record<string, Box> = Object.create(null);
     for (const gr of groups) gboxes[gr.id] = box(must(key, gr.id));
     // The boxes alone: a lower bound on the drawing's size (lines and labels only add to
     // it), which `layout()` uses to skip routing a direction that cannot win.
@@ -391,7 +457,7 @@ export function graphLayoutKernel(): GraphKernel {
     };
 
     const routes: Route[] = [];
-    const loopsOn: Record<string, number> = {};
+    const loopsOn: Record<string, number> = Object.create(null);
     for (const rec of laid) {
       const { e } = rec;
       // Route from the REPRESENTATIVE members, along dagre's crossing-free waypoints, and
@@ -411,7 +477,11 @@ export function graphLayoutKernel(): GraphKernel {
         const o = 10 * k;
         const ey = c > 1 ? Math.min(10, Math.max(0, (lr ? n.h / 2 + 2 : n.h / 2 - 4)) / (c - 1)) * k : 0;
         const ex = c > 1 ? Math.min(10, Math.max(0, n.w / 2 - 4) / (c - 1)) * k : 0;
-        const outX = n.x + n.w + 18 + o;
+        const lw = loopLabel[rec.a] ? loopLabel[rec.a].w : 0;
+        // Far enough out that a label clears the box: in lr the top run must hold the label
+        // between the box's center and the outer vertical; in tb the label sits on the outer
+        // vertical, so half its width must clear the box's side.
+        const outX = n.x + n.w + o + Math.max(18, lr ? n.w / -2 + lw + 8 : lw ? lw / 2 + 8 : 0);
         if (lr) {
           const endY = n.cy - 6 + ey, outY = n.y - 14 - o;
           pts = [{ x: n.x + n.w, y: endY }, { x: outX, y: endY }, { x: outX, y: outY }, { x: n.cx - ex, y: outY }, { x: n.cx - ex, y: n.y }];
@@ -532,7 +602,7 @@ export function graphLayoutKernel(): GraphKernel {
 
 
     function placeTitles(rs: Route[]): Record<string, Rect> {
-      const titles: Record<string, Rect> = {};
+      const titles: Record<string, Rect> = Object.create(null);
       const tsz = opts.groupTitleSizes || {};
       const inset = sp.titleInset != null ? sp.titleInset : 10;
       for (const gr of groups) {
@@ -754,6 +824,19 @@ export function graphLayoutKernel(): GraphKernel {
     // ends[id|side] = the routes (and which end) currently on that side of that box
     const port = new Map<Route, Ports>(); // route -> { start: {side, off}, end: {side, off} }
 
+    // Perpendicular segments ab and cd meet at an END of either (not through both
+    // interiors): a touch. Ends within half a unit count, as the drawing rounds to tenths.
+    const touches = (a: Point, b: Point, c: Point, d: Point) => {
+      const hz = Math.abs(a.y - b.y) < 0.05;
+      const [h0, h1, v0, v1] = hz ? [a, b, c, d] : [c, d, a, b];
+      const x = v0.x, y = h0.y;
+      const inH = x >= Math.min(h0.x, h1.x) - 0.5 && x <= Math.max(h0.x, h1.x) + 0.5;
+      const inV = y >= Math.min(v0.y, v1.y) - 0.5 && y <= Math.max(v0.y, v1.y) + 0.5;
+      if (!inH || !inV) return false;
+      const endH = Math.abs(x - h0.x) < 0.5 || Math.abs(x - h1.x) < 0.5;
+      const endV = Math.abs(y - v0.y) < 0.5 || Math.abs(y - v1.y) < 0.5;
+      return endH || endV;
+    };
     // Two runs within NEAR of each other, parallel, overlapping more than 10, are one line
     // to a reader. Runs that leave (or reach) the same box side are exempt until the ports
     // spread: they start at one provisional point by design.
@@ -765,13 +848,23 @@ export function graphLayoutKernel(): GraphKernel {
       const exempt = (j: number, k: number) => !!po && !(strict && ((j === 1 && (o.from === r.from ? po.start.lock : po.end.lock)) || (j === J && (o.to === r.to ? po.end.lock : po.start.lock)))) && (
         (j === 1 && ((o.from === r.from && po.start.side === sure(cur, 'side pair').sS && k === 1) || (o.to === r.from && po.end.side === sure(cur, 'side pair').sS && k === Kq))) ||
         (j === J && ((o.to === r.to && po.end.side === sure(cur, 'side pair').sT && k === Kq) || (o.from === r.to && po.start.side === sure(cur, 'side pair').sT && k === 1))));
+      const unrelated = r.from !== o.from && r.from !== o.to && r.to !== o.from && r.to !== o.to;
       for (let j = 1; j < pts.length; j++) for (let k = 1; k < q.length; k++) {
         const a = pts[j - 1], b = pts[j], c = q[k - 1], d = q[k];
         const h1 = Math.abs(a.y - b.y) < 0.05, h2 = Math.abs(c.y - d.y) < 0.05;
-        if (h1 !== h2 || Math.abs(h1 ? a.y - c.y : a.x - c.x) >= NEAR) continue;
+        // A TOUCH between lines that share no box: one line's corner or end lying on the
+        // other (a T, or two corners meeting) reads as one line feeding another. A proper
+        // crossing, through both runs' interiors, is a crossing and priced as one.
+        if (unrelated && h1 !== h2 && touches(a, b, c, d)) return true;
+        const gap = Math.abs(h1 ? a.y - c.y : a.x - c.x);
+        if (h1 !== h2 || gap >= NEAR) continue;
         const lo = Math.max(Math.min(h1 ? a.x : a.y, h1 ? b.x : b.y), Math.min(h1 ? c.x : c.y, h1 ? d.x : d.y));
         const hi = Math.min(Math.max(h1 ? a.x : a.y, h1 ? b.x : b.y), Math.max(h1 ? c.x : c.y, h1 ? d.x : d.y));
-        if (hi - lo <= 10) continue;
+        // Any run ON another line (not beside it) is a join to a reader, however short, when
+        // the two lines share no box: a 6-unit overlap between two unrelated lines read as a
+        // T-junction, one transition apparently feeding another (state chart v2's review).
+        const onTop = gap < 0.5 && hi - lo > 0.5 && unrelated;
+        if (hi - lo <= 10 && !onTop) continue;
         if (exempt(j, k)) continue;
         return true;
       }
@@ -1823,19 +1916,36 @@ export function graphLayoutKernel(): GraphKernel {
     }
     // Two lines closer than 6 units for more than a few units read as one line.
     let sharedRuns = 0;
+    // The solver's `touches`, restated here because measureQuality is its own scope.
+    const touchAt = (a: Point, b: Point, c: Point, d: Point) => {
+      const hz = Math.abs(a.y - b.y) < 0.05;
+      const [h0, h1, v0, v1] = hz ? [a, b, c, d] : [c, d, a, b];
+      const x = v0.x, y = h0.y;
+      if (x < Math.min(h0.x, h1.x) - 0.5 || x > Math.max(h0.x, h1.x) + 0.5 || y < Math.min(v0.y, v1.y) - 0.5 || y > Math.max(v0.y, v1.y) + 0.5) return false;
+      return Math.abs(x - h0.x) < 0.5 || Math.abs(x - h1.x) < 0.5 || Math.abs(y - v0.y) < 0.5 || Math.abs(y - v1.y) < 0.5;
+    };
     const segsOf = (r: Route): [Point, Point][] => r.points.slice(1).map((b, j) => [r.points[j], b]);
     for (let i = 0; i < routes.length; i++) for (let k = i + 1; k < routes.length; k++) {
       let shared = false;
+      const R = routes[i], K = routes[k];
+      const related = R.from === K.from || R.from === K.to || R.to === K.from || R.to === K.to;
       for (const [a, b] of segsOf(routes[i])) for (const [c, d] of segsOf(routes[k])) {
         if (shared) break;
         const h1 = Math.abs(a.y - b.y) < 0.05, h2 = Math.abs(c.y - d.y) < 0.05;
-        if (h1 !== h2) continue;
+        if (h1 !== h2) {
+          // A touch between unrelated lines (a corner or an end on the other line) is a join.
+          if (!related && touchAt(a, b, c, d)) shared = true;
+          continue;
+        }
         const off = h1 ? Math.abs(a.y - c.y) : Math.abs(a.x - c.x);
         if (off >= 6) continue;
         const [l1, r1] = h1 ? [Math.min(a.x, b.x), Math.max(a.x, b.x)] : [Math.min(a.y, b.y), Math.max(a.y, b.y)];
         const [l2, r2] = h1 ? [Math.min(c.x, d.x), Math.max(c.x, d.x)] : [Math.min(c.y, d.y), Math.max(c.y, d.y)];
-        // Lines out of one port share their first stub by design; only a longer run counts.
-        if (Math.min(r1, r2) - Math.max(l1, l2) > 10) shared = true;
+        // Lines out of one port share their first stub by design; only a longer run counts,
+        // except a run lying ON a line that shares no box with it, which is a join however
+        // short (the solver's `sharesRun` holds the same rule).
+        const over = Math.min(r1, r2) - Math.max(l1, l2);
+        if (over > 10 || (off < 0.5 && over > 0.5 && !related)) shared = true;
       }
       if (shared) sharedRuns++;
     }
@@ -1972,13 +2082,7 @@ export function graphLayoutKernel(): GraphKernel {
       const shapes = model.shapes || [];
       if ((model.groups || []).length || shapes.length < 2) return dagreBest ? dagreBest.geo : null;
       const WRAP_GAIN = 1.12;
-      const order = new Map(shapes.map((x, i) => [x.id, i]));
-      const at = (id: string) => order.get(id) ?? -1;
-      const rankOf = new Array(shapes.length).fill(0);
-      const fwd = (model.edges || []).filter((e) => !e.style?.loose && order.has(e.from) && order.has(e.to) && at(e.to) > at(e.from))
-        .sort((a, b) => at(a.to) - at(b.to));
-      for (const e of fwd) rankOf[at(e.to)] = Math.max(rankOf[at(e.to)], rankOf[at(e.from)] + 1);
-      const chain = new Set(rankOf).size === shapes.length;
+      const chain = isChain(model);
       const st = opts.stage;
       const pref: 'lr' | 'tb' = dirs.length === 1 ? dirs[0] : st && st.h > st.w ? 'tb' : 'lr';
       const cands: { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null }[] = [];
@@ -2003,12 +2107,48 @@ export function graphLayoutKernel(): GraphKernel {
       // within WRAP_GAIN of it is never picked, so it is never routed.
       const top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
       const floor = route(top);
-      const live = cands.filter((c) => c === top || c.bound * WRAP_GAIN >= floor);
+      let live = cands.filter((c) => c === top || c.bound * WRAP_GAIN >= floor);
+      for (const c of live) route(c);
+      // HARD FAULTS FIRST, as the direction choice ranks them: a larger type never buys a
+      // line through a box. Only the candidates with the fewest hard faults compete on type,
+      // and when every one the floor kept has a fault, the rest are routed too (a dense
+      // machine's grid can run lines through boxes where dagre's layout runs none). Then
+      // dagre's layout, already routed, joins them: routing every other grid instead cost
+      // 47 s on a 36-state stress machine, for a 13-line grid with 66 crossings.
+      const hardOf = (c: (typeof cands)[number]) => (c.geo ? hard(c.geo) : Infinity);
+      if (!live.some((c) => hardOf(c) === 0)) {
+        // (A chain never lists dagre's layout as a candidate; it joins here too, when dagre is
+        // loaded: a chain dense with skips can defeat every grid.)
+        const d = cands.find((c) => dagreBest && c.geo === dagreBest.geo)
+          || (dagreBest ? { lines: 1, dir: dagreBest.geo.dir, bound: dagreBest.geo.scale ?? 0, geo: dagreBest.geo } : null);
+        if (d && !live.includes(d)) live = [...live, d];
+      }
+      const least = Math.min(...live.map(hardOf));
+      const clean = live.filter((c) => c.geo && hardOf(c) === least);
       let bestScore = 0;
-      for (const c of live) bestScore = Math.max(bestScore, route(c));
-      for (const c of live) if (c.geo && (c.geo.scale ?? 0) * WRAP_GAIN >= bestScore) return c.geo;
+      for (const c of clean) bestScore = Math.max(bestScore, c.geo?.scale ?? 0);
+      for (const c of clean) if ((c.geo?.scale ?? 0) * WRAP_GAIN >= bestScore) return c.geo;
       return top.geo || (dagreBest ? dagreBest.geo : null);
     }
+  }
+
+  /**
+   * IS THIS GRAPH A CHAIN? True when it has no groups, at least two shapes, and no two
+   * shapes share a rank, ranking only its forward lines in authored order (so a back edge
+   * or a skip keeps a chain a chain). A chain lays out on the reading-order grid and never
+   * needs dagre, which is why a host can ask this before deciding to load dagre at all
+   * (the state chart's export gate asks it in Node, on the same kernel).
+   */
+  function isChain(model: GraphModel): boolean {
+    const shapes = model.shapes || [];
+    if ((model.groups || []).length || shapes.length < 2) return false;
+    const order = new Map(shapes.map((x, i) => [x.id, i]));
+    const at = (id: string) => order.get(id) ?? -1;
+    const rankOf = new Array(shapes.length).fill(0);
+    const fwd = (model.edges || []).filter((e) => !e.style?.loose && order.has(e.from) && order.has(e.to) && at(e.to) > at(e.from))
+      .sort((a, b) => at(a.to) - at(b.to));
+    for (const e of fwd) rankOf[at(e.to)] = Math.max(rankOf[at(e.to)], rankOf[at(e.from)] + 1);
+    return new Set(rankOf).size === shapes.length;
   }
 
   /**
@@ -2021,7 +2161,7 @@ export function graphLayoutKernel(): GraphKernel {
     return layoutOnce(model, sizes, { ...opts, positions, grow: false }, null) as Geometry | null;
   }
 
-  return { layout, layoutOnce, route, simplify, stats };
+  return { layout, layoutOnce, route, isChain, simplify, stats };
 }
 
 

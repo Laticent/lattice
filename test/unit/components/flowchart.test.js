@@ -38,8 +38,15 @@ describe('flowchart — the figure through the real engine', () => {
     assert.deepEqual(m.edges.map((e) => `${e.from}>${e.to}`), ['alert>triage', 'triage>close']);
     assert.equal(m.edges[0].heavy, true);
     assert.deepEqual(m.edges[1].style, { pattern: 'dotted' });
-    assert.deepEqual(m.notes, [{ on: 'triage', text: 'Closes itself after a day.' }]);
+    assert.equal(m.notes, undefined, 'a blockquote is hidden detail, not a painted note');
     assert.equal(m.diagnostics, undefined);
+  });
+
+  test('a blockquote is HIDDEN DETAIL: a template on the shape\'s mark, and a speaker note', () => {
+    assert.match(html, /<div class="chart-details" hidden><template class="chart-detail" data-mark="1"><li>Closes itself after a day\.<\/li><\/template><\/div>/);
+    assert.doesNotMatch(html, /fc-note/, 'no visible note card, and no note in the harness');
+    // Outside the figure: a template inside it would count as a mark.
+    assert.ok(html.indexOf('chart-details') > html.indexOf('fc-key'));
   });
 
   test('the key span is consumed and drawn as the key; the caption is left to the frame', () => {
@@ -56,6 +63,7 @@ describe('flowchart — the figure through the real engine', () => {
 describe('flowchart — untrusted text never becomes markup', () => {
   test('a name, a label and a note that look like HTML are escaped everywhere', () => {
     const html = render('- `<img>` \\<script> -a<b-> B\n- B\n  > <i>note</i>');
+    assert.match(html, /&lt;i&gt;note&lt;\/i&gt;|<li>note<\/li>/, 'the detail is escaped text');
     assert.doesNotMatch(html, /<script\b/i);
     assert.doesNotMatch(html, /<img\b/i);
     assert.doesNotMatch(html, /<i>note<\/i>/);
@@ -71,6 +79,11 @@ describe('flowchart — pass-through', () => {
   test('a slide with no list is left alone', () => {
     const inner = '<h2>Title</h2><p>No list here.</p>';
     assert.equal(transformSection(inner, { classTokens: ['flowchart'] }), inner);
+  });
+
+  test('`curved` is a paint setting on the figure', () => {
+    assert.match(render('- A -> B', 'flowchart curved'), /data-fc-style="curved"/);
+    assert.doesNotMatch(render('- A -> B'), /data-fc-style/);
   });
 
   test('`lr` pins the direction, and a portrait deck turns it to `tb`', () => {
@@ -118,7 +131,6 @@ describe('flowchart — a forged model cannot inject markup (HARD RULE #22)', ()
     ],
     groups: [{ id: 'g', name: `G${evil}`, slot: `3${evil}` }],
     edges: [{ from: 'a', to: `b${evil}`, dir: `out${evil}`, label: `L${evil}`, style: { pattern: `dotted${evil}`, slot: `4${evil}`, head: `dot${evil}` } }],
-    notes: [{ on: 'a', text: `N${evil}` }],
   };
   const attr = JSON.stringify(forged).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   const dom = new JSDOM(`<!doctype html><section class="flowchart"><div class="flowchart-figure" data-fc-model="${attr}">` +
@@ -175,7 +187,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const w = dom.window;
     w.__latticeDagre = globalThis.__latticeDagre;
     const K = graphLayoutKernel();
-    const log = { posts: [], sources: [] };
+    const log = { posts: [], sources: [], answered: 0 };
     w.URL.createObjectURL = () => 'blob:test';
     w.URL.revokeObjectURL = () => {};
     const RealBlob = w.Blob;
@@ -184,7 +196,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
       postMessage(d) {
         log.posts.push(d);
         if (mode === 'silent') return;
-        setTimeout(() => this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre))) } }), 5);
+        setTimeout(() => { log.answered++; this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre))) } }); }, 5);
       }
       terminate() {}
     };
@@ -194,7 +206,17 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     pass();
     return { w, log, edit, fig: () => w.document.querySelector('.flowchart-figure'), text: () => w.document.querySelector('svg.flowchart-svg').textContent };
   };
-  const settle = () => new Promise((r) => setTimeout(r, 60));
+  // Wait for the stand-in worker to answer every post and the figure to leave pending, not
+  // for a fixed interval: a fixed 60 ms lost the race on a loaded machine. Bounded, so a
+  // real hang still fails the test's own assertions rather than the runner's timeout.
+  const settle = async (t) => {
+    const tick = () => new Promise((r) => setTimeout(r, 10));
+    for (const end = Date.now() + 2000; Date.now() < end;) {
+      await tick();
+      if (t.log.answered === t.log.posts.length && t.fig()?.getAttribute('data-fc-pending') == null) break;
+    }
+    await tick();
+  };
 
   test('the first draw is synchronous and starts no worker', () => {
     const t = setup(true);
@@ -210,7 +232,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(t.fig().getAttribute('data-fc-drawn'), '1', 'the old drawing is up, not the tiles');
     assert.match(t.text(), /Gamma/);
     assert.equal(t.log.posts.length, 1);
-    await settle();
+    await settle(t);
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
     assert.match(t.text(), /Delta/);
     assert.doesNotMatch(t.text(), /Gamma/);
@@ -220,7 +242,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const t = setup(true);
     for (const n of ['D', 'De', 'Del', 'Delt', 'Delta']) t.edit(['Alpha', 'Beta', n]);
     assert.equal(t.log.posts.length, 1, 'the rest wait, and only the newest of them is kept');
-    await settle();
+    await settle(t);
     assert.equal(t.log.posts.length, 2);
     assert.equal(t.log.posts[1].model.shapes[2].name, 'Delta');
     assert.match(t.text(), /Delta/);
@@ -245,7 +267,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(replies.length, 1);
     assert.equal(replies[0].id, job.id);
     assert.ok(replies[0].geo?.nodes?.delta, 'a layout came back');
-    await settle();
+    await settle(t);
   });
 
   test('another slide\'s chart at the same position draws at once, never showing the last slide\'s drawing', () => {
@@ -260,11 +282,11 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
   test('a worker that answers with no layout leaves the measuring tiles, not the old drawing', async () => {
     const t = setup(true, 'null');
     t.edit(['Alpha', 'Beta', 'Delta']);
-    await settle();
+    await settle(t);
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
     assert.equal(t.fig().getAttribute('data-fc-drawn'), null);
     t.edit(['Alpha', 'Beta', 'Delta']);
-    await settle();
+    await settle(t);
     assert.equal(t.log.posts.length, 2, 'one post per edit, and none from the passes between');
   });
 
@@ -277,6 +299,20 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.match(t.text(), /Delta/);
     t.edit(['Alpha', 'Beta', 'Epsilon']);
     assert.equal(t.log.posts.length, 1, 'no worker after it failed');
+    assert.match(t.text(), /Epsilon/);
+  });
+
+  test('no dagre tag yet is asked again, not cached: the worker starts once the host adds it', async () => {
+    const t = setup(true);
+    const tag = t.w.document.querySelector('script[src]');
+    tag.remove();
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    assert.equal(t.log.posts.length, 0, 'no dagre to load into a worker, so the edit draws in place');
+    assert.match(t.text(), /Delta/);
+    t.w.document.head.appendChild(tag);
+    t.edit(['Alpha', 'Beta', 'Epsilon']);
+    assert.equal(t.log.posts.length, 1, 'the worker starts once the tag is there');
+    await settle(t);
     assert.match(t.text(), /Epsilon/);
   });
 

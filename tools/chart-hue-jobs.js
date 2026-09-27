@@ -142,7 +142,7 @@ async function main() {
       const MARK = '.wedge,.funnel-band,.bar-mark,.sbar-seg,.waterfall-bar,.scatter-dot,.scatter-bubble,'
         + '.quadrant-dot,.quadrant-bubble,.map-region--on,.gantt-bar,.radar-poly,.cell-filled,.kanban-card,'
         + '.wc-word,.line-path,.line-dot,.slope-line,.slope-dot,.timeline-dot,.progress-fill,.bullet-measure,'
-        + '.state-node,.cell-state,.journey-face';
+        + '.state-node-shape,.cell-state,.journey-face';
       const CHROME = new Set(['chart-frame', 'viz-frame', 'standard', 'dark', 'light', 'lr', 'row', 'td']);
       const median = (a) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : 0);
 

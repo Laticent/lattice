@@ -13,9 +13,11 @@ recorded: 2026-09-24
                    Today an author has one edge-style switch (`curved`) and two direction pins
                    (`lr`, `tb`); everything else is chosen by the fit.
        where     — state-chart.transform.js: STATE_CHART_VARIANTS, buildDefault (stamps
-                   data-sc-style / data-sc-fit), the routers (gridLayout, dagrePositions, the
-                   `curved` branch of the path painter); state-chart.manifest.json variants;
-                   lib/authoring/lint-core.js if a new token needs a lint (HARD RULE #7).
+                   data-sc-dir / data-sc-style); since v2 the layout is Trama's
+                   (docs/src/lib/trama/kernel.ts: `wrap`, `dir`) and the painter's corner
+                   radius is `ctx.lines` in pipeline.ts, shared with the flowchart, so a
+                   setting likely belongs to both graph charts; state-chart.manifest.json
+                   variants; lib/authoring/lint-core.js if a new token needs a lint (#7).
        done when — an author can set, per slide and without CSS, at least: the edge style
                    (orthogonal, curved, and straight point-to-point) and the flow (lr, tb, and
                    the reversed rl / bt), plus whether a long chain may wrap. The docs, gallery

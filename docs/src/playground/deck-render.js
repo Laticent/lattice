@@ -429,7 +429,9 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	// whole-sanitize check.
 	const hasDrawn = sections.some((s) => markupHasDrawnFence(s));
 	const hasKatex = sections.some((s) => s.indexOf('katex') !== -1);
-	const hasDagre = sections.some((s) => s.indexOf('data-sc-transitions') !== -1);
+	// The graph charts' model attributes: a drawn state chart (`data-sc-model`) or any flowchart
+	// (`data-fc-model`). Both are data-* attributes DOMPurify keeps.
+	const hasDagre = sections.some((s) => s.indexOf('data-sc-model') !== -1 || s.indexOf('data-fc-model') !== -1);
 	// What is shown IN A PANE: every class on every pane. The engine composes a pane twin of each
 	// rule those classes reach into the sheet it returns (lib/core/pane-css.js), and only for
 	// them, so a deck that gains a pane, or changes what a pane holds or how (a modifier), has a
@@ -441,9 +443,9 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		(hasKatex ? 'K' : '') +
 		(hasDrawn ? 'M' : '') +
 		// Third flag, same reason as the other two: buildSrcdoc injects the dagre engine
-		// only for a deck that has a drawn state chart, so a deck that GAINS or LOSES one
+		// only for a deck that has a drawn graph chart, so a deck that GAINS or LOSES one
 		// must force a full srcdoc rewrite. A section-only patch would leave a
-		// newly-typed branching machine without its engine — laid out as a column, with
+		// newly-typed branching machine without its engine — laid out on the grid, with
 		// nothing to say why.
 		(hasDagre ? 'D' : '') +
 		(paneSig ? `|P:${paneSig}` : '') +

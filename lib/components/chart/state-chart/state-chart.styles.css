@@ -1,269 +1,124 @@
-/* state-chart — native state machine diagram, browser-measured layout.
+/* state-chart — a state machine (state chart v2, on Trama).
  *
- * Build time emits HTML state nodes (the browser sizes them to their
- * content — any label, script, font), a transitions JSON data attr, and
- * an empty SVG overlay. A browser pass (installStateChartLayout, run by
- * puppeteer for the PDF and by lattice-runtime for the marp-vscode
- * preview) measures the laid-out nodes with getBoundingClientRect and
- * draws the edges + start (●) / terminal (◎) markers into the SVG.
+ * Two layers, the flowchart's model (engineering/decisions/2026-09-27-trama-graph-chart-library.md §5):
  *
- *   <div class="state-chart-figure" data-variant="default" data-sc-transitions="[…]">
- *     <ol class="state-nodes">
- *       <li class="state-node" data-index="N" [data-kind="start|terminal"] [data-s="…"]>
- *         <span class="state-index">N</span>   (the ordinal ref — always a quiet numeral)
- *         <span class="state-label">…</span>
- *       </li>
- *     </ol>
- *     <svg class="state-chart-edges">…filled by the browser pass…</svg>
+ *   <div class="state-chart-figure" data-variant="default" data-sc-model="{…}">
+ *     <div class="sc-canvas"><div class="state-chart-scale">
+ *       <div class="sc-harness">            the MEASURING HARNESS the server emits: every
+ *         <ol class="state-nodes">           state as a tile (its badge inside), every
+ *           <li class="state-node" …>        transition label and composite title as a box
+ *         <ul class="sc-elabels"> …          the browser sizes in the deck's own fonts
+ *       <svg class="state-chart-edges">      what the browser pass paints from those boxes
+ *     </div></div>                           (state-chart.layout.js, a Trama adapter)
+ *     <ol class="fc-key">…</ol>              the key, shared with the flowchart
  *   </div>
- *   <ol class="state-legend">…one swatch + label per tone; words that share a tone share a chip…</ol>
  *
- * STATUS PAINTS THE NODE, in the chart family's mark language — the same one a
- * gantt bar, a kanban card and a progress bar speak: a status tints the tile's
- * fill and inks its edge and its leading accent, and a node with NO status is a
- * quiet neutral tile with no accent at all. The status word maps onto five tones
- * by gantt's table (the status table below says where it differs from the pill
- * vocabulary), and the legend band below decodes them with chips painted from the
- * same table. Palette-blind
- * throughout — no hex literals, no !important, no :has() chains.
+ * Until the pass runs, or where it cannot, the harness is what shows: every state as a
+ * tile, in authored order.
  *
- * It used to be the opposite: every node neutral, status folded into a colored
- * disc overhanging the corner, and a plain slate stripe down every node's left
- * edge. That stripe carried no information, and it is exactly what gantt removed
- * from its unstated bars for the same reason (gantt.styles.css,
- * `.gantt-bar-accent:not([data-s])`); next to every other chart it read as a
- * different family. engineering/decisions/2026-09-24-state-chart-fit-and-paint.md
+ * STATUS PAINTS THE STATE, in the chart family's mark language (a gantt bar's, a kanban
+ * card's): a status tints the tile's fill and inks its edge and its leading accent, and a
+ * state with no status is a quiet neutral tile with no accent at all. The lines, their
+ * heads and their labels are the flowchart's house style: elbows from the router, the
+ * label sitting ON its line (the painter cuts the line under it), heavy for the main path,
+ * dashed or dotted by the span.
  *
- * Sibling implementations (three-renderer parity via the shared registry):
- *   - lib/components/chart/state-chart/state-chart.transform.js  kernel + browser fn
- *   - lib/components/chart/_chart-family/chart-family.js         dispatch
- *   - lattice-emulator.js                                        emits the bootstrap
- *   - lib/runtime/index.js → lattice-runtime.js                  preview pass
- */
+ * Palette-blind (HARD RULE #3): tiles take the status tones (`--state-*`) or the chart
+ * family's slots (`--chart-cat-N-*`), never a literal. Unlayered (HARD RULE #26), anchored
+ * on the section; no margins (HARD RULE #20). */
 
 section.state-chart {
-  --state-node-fill: var(--bg-alt);
   --state-node-ink: var(--text-heading);
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);
-  --state-edge-back: color-mix(in oklab, var(--diagram-line) 55%, transparent);
-  /* THE ORDINAL PRINTS ON THE NODE BODY, NOT ON THE CANVAS. `--text-muted` is
-   * calibrated against the slide, and the step numerals sit inside a filled
-   * state box — measured 4.02:1 on light and 4.48:1 on dark, both under 4.5:1 at
-   * 8.1px. A muted ink is the right INTENT (an ordinal is secondary) and the
-   * wrong token for a tinted surface. */
+  /* THE ORDINAL PRINTS ON THE TILE, NOT ON THE CANVAS: `--text-muted` is calibrated
+   * against the slide and measured under 4.5:1 inside a filled tile. */
   --state-index-ink: var(--text-body);
   --state-marker: var(--diagram-line);
-  --state-label-bg: var(--bg);
-  /* The TILE RAMP — how much hue a node's fill carries at its top and bottom.
-   * A neutral tile takes the chart family's fill ramp. A STATUS tile takes the
-   * pill's stops instead (18/30 light, 42/54 dark), because a state is a mark
-   * that CARRIES TEXT: the family ramp (up to 64% hue into black) is tuned for
-   * bars, and under the state's name it measured sub-AA on forty dark-mode
-   * theme pairs. The pill stops are the family's AA-vetted recipe for text on a
-   * status tint (tools/composed-contrast.js, `stateChartNode`). */
+  /* The TILE RAMP: how much hue a tile's fill carries at its top and bottom. A neutral
+   * tile takes the chart family's fill ramp; a STATUS tile takes the pill's stops (below),
+   * the family's AA-vetted recipe for text on a status tint (tools/composed-contrast.js,
+   * `stateChartNode`). */
   --state-tile-top-l: var(--chart-fill-top-l);
   --state-tile-top-d: var(--chart-fill-top-d);
   --state-tile-bottom-l: var(--chart-fill-bottom-l);
   --state-tile-bottom-d: var(--chart-fill-bottom-d);
+  /* The paints the shared key (flowchart.styles.css, "The key") reads. */
+  --fc-line-mark: var(--state-edge);
+  --fc-stroke-mark: var(--state-node-stroke);
+  --fc-tile-fill: light-dark(color-mix(in oklab, var(--muted-mark) 14%, var(--bg)), color-mix(in oklab, var(--muted-mark) 24%, var(--bg)));
 }
-
-/* THE OUTER INSET, state-chart's tuning of it (#1598). Re-homed from `.chart-body`
- * to the family's inset TOKENS (chart-family.css): a parent's padding cannot be
- * overridden by a child, so the tuning has to live where the inset now does — and
- * as a token it reaches BOTH holders (`.cell-stage` under the Form, the section on
- * the unwrapped path) from one declaration. Only the block token differs from the
- * family default, so only that one is restated.
- *
- * The values are state-chart's own, moved verbatim — and because state-chart never
- * carried the family's width calc (it already shipped `width: 100%`), its geometry
- * is unchanged to the pixel: the body box, the caption's text box, and the legend
- * band all land exactly where they did. It is the in-tree precedent that the calc
- * was never load-bearing. */
-/* THE WHOLE RULE IS GONE, both axes. The inline restatement went with the family
- * default (it existed to hold a specificity tie: as a padding this tuning sat at
- * (0,3,1) and beat the tall/strip family rule (0,2,1), so a TALL state-chart kept
- * the wide side inset; both sides of that tie are now 0, so the token that defended
- * it is noise). The block pair — `--sp-md` top and bottom, which was state-chart's
- * real tuning — went with the family's block-pair retirement.
- *
- * AN EARLIER VERSION OF THIS NOTE CLAIMED THE DIAGRAM "clips nothing" HERE, on the
- * theory that an `<svg>` letterboxes to its box and simply takes the reclaimed
- * height as drawing size. That was WRONG, and the artifact refuted it: this diagram
- * paints PAST its own box — `getBBox` runs to y = −6.4 viewBox units, 5.0px above
- * the border box at gallery scale — for the initial-state dot and the terminal `◎`.
- * The retired padding had been holding the chart clear of `.cell-stage`'s clip edge,
- * and without it BOTH ends of the machine came back sliced in half in the committed
- * gallery PDF. Caught by rasterizing that PDF against `origin/main`, which is the
- * only thing that could see it: it is a clip at the STAGE, so `check-chart-fit`'s
- * stage and viewBox arms and the overflow probe are all blind to it.
- *
- * The clearance now comes from `overflow-clip-margin` on `section.chart-frame >
- * .cell-stage` (chart-family.css), which buys the paint room without the layout
- * height — see the note there. Re-verified on the render: both markers whole. */
 
 section.state-chart.chart-frame .chart-body {
   width: 100%;
   display: flex;
-  /* The figure is the only in-flow child on the DEFAULT variant; the status legend
-   * is a SIBLING of .chart-body inside .cell-stage, not a child of it (extractChartBody
-   * wraps the figure alone). This comment used to say the legend stacked here — it
-   * does not, and the `gap` below never applied to it. The legend's band is still
-   * subtracted before the figure is sized, one level up in .cell-stage's column. */
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-sm);
-  /* Fill the stage by GROW with a ZERO basis — not `auto`, whose content-basis
-   * the absolutely-positioned scale box (its natural height can be many times the
-   * stage) confuses into collapsing the body to its padding. Basis 0 makes the
-   * body take its full flex share = the stage height, so the figure viewport below
-   * is definite and the letterbox scale has a real box to fit into. */
+  /* Fill the stage by grow with a ZERO basis: the scale box below is out of flow, so a
+   * content basis would collapse the body to its padding. */
   flex: 1 1 0;
   min-height: 0;
 }
 
-/* Figure = the flex VIEWPORT + the positioning context for the scale box. It fills
- * the available stage height (flex:1 1 auto in .chart-body's column) so the caption +
- * status legend keep their space. It must NOT size to the content — the scale box is
- * `position:absolute` (out of flow) precisely so a tall machine's natural height can't
- * flow into the flex basis and collapse the chain; the figure fills the stage by grow,
- * and draw() scales the absolute box to fit here (2026-07-16-state-chart-self-scale.md). */
+/* The figure: the drawing's viewport, then the key under it. */
 section.state-chart .state-chart-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+}
+/* The VIEWPORT the pass letterboxes the drawing into. */
+section.state-chart .sc-canvas {
   position: relative;
-  flex: 1 1 0;             /* zero basis: fill the body by grow, not by content */
+  flex: 1 1 0;
   min-height: 0;
   width: 100%;
 }
 
-/* Scale box — the NATURAL-SIZE geometry root (nodes + the absolutely-placed SVG
- * overlay), width:fit-content sized to the padded node column (the bow-gutter padding
- * is real space inside it). OUT OF FLOW (absolute, centered via top/left 50% +
- * translate) so the flex viewport above never inherits its height. draw() reads its
- * natural box, routes the edges into it, then appends `scale()` to letterbox it into
- * the viewport — like the pie's <svg>, but for HTML content. */
+/* The natural-size geometry box: out of flow and centered, so its size never feeds the
+ * viewport's. The pass sizes it to the drawing and appends the fit scale(). */
 section.state-chart .state-chart-scale {
   position: absolute;
   top: 50%;
   left: 50%;
-  /* `max-content`, not `fit-content`: fit-content CAPS at the figure's width, so
-   * a row wider than the stage overflowed its own box — the end ring painted
-   * outside the canvas and was clipped, and the fit was computed against a box
-   * narrower than the drawing. max-content always contains the column it
-   * measures; applyFit then letterboxes it, which is its job. */
   width: max-content;
   transform-origin: center center;
-  transform: translate(-50%, -50%);   /* centered; draw() appends the fit scale() */
+  transform: translate(-50%, -50%);
 }
 
-/* Node column (TB, default) — centered, content-sized HTML nodes. The
- * generous horizontal padding is the bow gutter: forward skips bow into
- * the right gutter, back-edges into the left, so they stay inside the
- * figure and never clip. Vertical padding hosts the start/terminal
- * markers. Sits above the edge layer.
- *
- * THE BLOCK PADDING HAS A FLOOR, and the floor is the marker geometry. This
- * padding is what the markers are drawn INTO, but the two were expressed in
- * different unit systems and nothing tied them: the padding is container-relative
- * (`cqi`) while `draw()` places the markers at FIXED px offsets from the node edge
- * — `markerGap 40 + startR 6 = 46` above the first node, `markerGap 40 + termOuter
- * 10 = 50` below the last (state-chart.transform.js `G_BASE`). Whenever `cqi`
- * resolves below that, the marker paints outside the scale box and is cut by
- * whatever clips next.
- *
- * Measured on the gallery: the `curved` variant padded 39.6px against a 46px
- * requirement and its start marker ran 6.4 units past the top, while the default
- * variant padded 50.4px and sat inside — the same rule, passing or failing on a
- * container size. It was invisible while `.chart-body` carried 32px of block
- * padding for the paint to land in; retiring that (#1629) exposed it, and both the
- * initial `●` and the terminal `◎` rendered sliced in half. A pre-existing
- * fragility this change tipped into failure, so it is fixed here rather than
- * filed — HARD RULE #18.
- *
- * `max()` keeps the container-relative value as the DEFAULT (it is the right
- * behavior on a big canvas, and the generous side gutters still scale) and only
- * holds the floor where the box gets small. Update the floor if `G_BASE.markerGap`,
- * `startR` or `termOuter` move. */
+/* ── The harness ──────────────────────────────────────────────────────────── */
+
 section.state-chart .state-nodes {
   list-style: none;
-  margin: 0;
-  padding: max(4.375cqi, 50px) 10cqi;  /* sanctioned: the 50px is a FLOOR, not a layout length — it matches draw()'s fixed marker geometry (G_BASE markerGap 40 + termOuter 10), which is px because the browser pass draws in px. The cqi term is still what scales; below the floor the marker paints outside its own box and is cut. */
+  padding: 0;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 2.65625cqi;
-  position: relative;
-  z-index: 1;
+  gap: var(--sp-sm) var(--sp-md);
+  max-width: 80cqi;
 }
 
-/* LR row — nodes flow left-to-right, centered on the cross (vertical) axis.
- * Horizontal padding hosts the start (left) / terminal (right) markers;
- * the larger vertical padding is the bow gutter (forward below, back
- * above). overflow-x lets long rows scroll without clipping the bows. */
-section.state-chart .state-chart-figure[data-sc-dir="lr"] .state-nodes {
-  flex-direction: row;
-  align-items: center;
-  /* Tighter horizontal gutter + gap than the comment's original 60/56: at 5
-   * nodes the row overran the slide and clipped the terminal node (a static
-   * PDF can't scroll). Narrower gutters fit the documented 4–6 node range.
-   * The SIDE gutters host the markers: on `lr` the start disc sits LEFT of the
-   * first node and the terminal ring RIGHT of the last, so the inline padding is
-   * what they paint into. `3.125cqi` alone resolved to 36px at HD against 46px
-   * (start) and 50px + stroke (terminal), and the component's own documented
-   * `lr` example rendered both markers sliced by the stage clip. The value
-   * reserves the ring's full reach at both ends of the scale: draw() multiplies
-   * G_BASE by the section's px-per-cqi, so the 50px the ring needs at HD is 150px
-   * at 4K. A px floor alone clips at 4K, and the base rule's `4.375cqi` measured
-   * 50.4px here, leaving the ring's stroke 0.3px over the edge. 56px is the
-   * ring's 50px plus air at HD; 4.6875cqi is 162px at 4K. Note the two scales
-   * read different boxes: this cqi resolves against the section's CONTENT box
-   * (0.9 of its width today), while draw()'s factor reads the full section, so
-   * the cqi term covers the ring only while the content box stays at least ~83%
-   * of the section. It costs 40px of row width at HD, which applyFit absorbs. */
-  padding: 7.8125cqi max(4.6875cqi, 56px);  /* sanctioned: the marker FLOOR (G_BASE markerGap 40 + termOuter 10, plus stroke and air), px because draw() paints in px — on the inline axis, where `lr` puts its markers. */
-  gap: 3.125cqi;
-}
-
-/* Curved (TB with bowed back-edges): a 5-state flow plus start + terminal
- * markers overran the slide height and clipped the terminal ◉ at the bottom.
- * Tighten the vertical rhythm (the wide horizontal padding stays — it hosts
- * the bowed back-edge). */
-/* The SAME marker floor as the base rule, and this variant is where its absence
- * showed: `3.4375cqi` resolved to 39.6px against a 46px start-marker requirement,
- * so `curved` was the one gallery slide whose `●` and `◎` painted outside the box.
- * The tightening is real and stays — it is the `cqi` term that shrinks — but it
- * cannot tighten past the geometry it is reserving room for. */
-section.state-chart .state-chart-figure[data-sc-style="curved"] .state-nodes {
-  padding-top: max(3.4375cqi, 50px);  /* sanctioned: same marker floor as the base rule — see there. This variant is the one that measured 39.6px against a 46px requirement. */
-  padding-bottom: max(3.4375cqi, 50px);  /* sanctioned: same marker floor as the base rule — see there. */
-  gap: 2.03125cqi;
-}
-
+/* A state's TILE. Its size is what the pass measures, so every property that changes
+ * it lives here: the font, the padding, the wrap width and the badge's room. */
 section.state-chart .state-node {
   position: relative;
-  /* A node keeps its natural box in a ROW too. In the `lr` column a long machine
-   * used to shrink its nodes to the figure's width — rewrapping their labels — so
-   * the same state measured one size as a column and another as a row. The layout
-   * pass scores BOTH directions from one measurement, so a node's box must not
-   * depend on which way its measuring column happens to run. */
-  flex-shrink: 0;
-  /* …and never narrower than its longest word. `max-width: 25cqi` below caps a
-   * node on a narrow stage, and a single word cannot wrap, so on a portrait slide
-   * "Acknowledged" painted wider than its own tile (it did on `main` too, just
-   * smaller). A min-width beats a max-width when they disagree, so the tile grows
-   * to hold the word instead. */
+  flex: 0 0 auto;
+  /* Never narrower than its longest word: a single word cannot wrap, and a tile
+   * narrower than it would paint the word past its own edge. */
   min-width: min-content;
+  max-width: 25cqi;
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-sm);
-  max-width: 25cqi;
-  /* The side padding clears the ordinal. At the chart-text floor it sits a
-   * rx-sized inset from the corner, and a 1.25cqi side left the name's last
-   * letter under it, reading as a superscript ("Draft¹"). */
-  padding: 0.78125cqi 1.5625cqi;
-  /* THE CANONICAL CHART FILL (chart-family.css). A status re-points --fill-hue
-   * and --fill-ink through the status table below; with none, the node is the
-   * family's quiet neutral tile, and it carries no leading accent. */
+  /* The side padding clears the badge in the top-right corner, so the name's last
+   * letter never sits beside it as a footnote ("Draft¹"). The badge is floored at the
+   * chart-text minimum, and the fit raises that floor by 1/k, so the right padding tracks
+   * the badge's own size (two digits of it) rather than a fixed length. */
+  padding: 0.78125cqi calc(0.78125cqi + 2 * max(var(--chart-text-min), 0.703125cqi)) 0.78125cqi 1.5625cqi;
   --fill-hue: var(--muted-mark);
   --fill-ink: var(--diagram-stroke);
   background: linear-gradient(180deg,
@@ -277,363 +132,305 @@ section.state-chart .state-node {
   font-weight: 500;
   line-height: 1.25;
 }
-
-/* The leading accent, on a node WITH a status only — the HTML twin of the SVG
- * `.state-node-accent`. Shown before the browser pass paints, and on every `inline`
- * row. */
+section.state-chart .state-node .state-label {
+  min-width: 0;
+}
+/* No badges, no room for one. */
+section.state-chart .state-chart-figure[data-sc-badges="off"] .state-node {
+  padding-right: 1.5625cqi;
+}
+/* The badge: the state's place in the list, a quiet numeral in the tile's top-right
+ * corner. The pass paints it where this box puts it, at this size. */
+section.state-chart .state-node .state-index {
+  position: absolute;
+  top: 0.15625cqi;
+  right: 0.390625cqi;
+  font-size: max(var(--chart-text-min), 0.703125cqi); /* cqi-ok: badge numeral inside a cqi-sized state tile */
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--state-index-ink);
+  pointer-events: none;
+}
+/* A state with a status has its leading accent (the SVG twin is `.state-node-accent`). */
 section.state-chart .state-node[data-s],
 section.state-chart .state-node-row[data-s] {
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
 }
 
-section.state-chart .state-node .state-label {
-  min-width: 0;
-}
-
-/* The ordinal — the state's ref, the number `=> 4` cites. A quiet numeral in
- * the node's top-right corner on EVERY node; the status is on the tile itself. */
-section.state-chart .state-node .state-index {
+/* Labels and titles are measured, never shown as HTML: out of flow and invisible, but
+ * laid out, so they have a box to read. */
+section.state-chart :is(.sc-elabels, .sc-gtitles) {
   position: absolute;
-  top: 0.15625cqi;
-  right: 0.390625cqi;
-  font-size: 0.703125cqi; /* cqi-ok: index numeral inside a cqi-sized state node */
-  font-variant-numeric: tabular-nums;
-  color: var(--state-index-ink);
-  pointer-events: none;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  list-style: none;
+  padding: 0;
+}
+section.state-chart :is(.sc-elabel, .sc-gtitle) {
+  display: block;
+  width: max-content;
+}
+section.state-chart .sc-elabel {
+  font-family: var(--font-label);
+  font-size: max(var(--chart-text-min), 0.9375cqi);
+  line-height: 1.25;
+  padding: 0 0.3cqi;
+}
+section.state-chart .sc-gtitle {
+  font-family: var(--font-label);
+  font-size: max(var(--chart-text-min), 0.859375cqi);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.2;
 }
 
-/* The inline row's neutral tile, at zero added specificity so the status table
- * below re-points it. */
-section.state-chart :where(.state-node-row) {
-  --fill-hue: var(--muted-mark);
-  --fill-ink: var(--diagram-stroke);
+/* Once drawn, the harness leaves layout. The pass removes `data-sc-drawn` before it
+ * measures, in the same synchronous draw, so the boxes are always there to read. */
+section.state-chart .state-chart-figure[data-sc-drawn="1"] .sc-harness {
+  display: none;
 }
 
-/* ── THE STATUS TABLE — one table for every mark that shows a status ────────
- * The HTML node, the inline row, the painted SVG tile, its accent and the
- * legend chip all read `--fill-hue` / `--fill-ink` from HERE, so the key cannot
- * disagree with the chart. gantt learned that the hard way with three parallel
- * tables that drifted (gantt.styles.css, the note above `.gantt-bar-accent`).
- * The word -> tone mapping is gantt's, which differs from the pill vocabulary
- * (`.chart-status`) in one word: `live` is RUNNING work and takes `info`, because
- * a chart that paints the status on the mark has to tell it from finished `done`
- * (gantt.transform.js, the note above GANTT_STATUS_FILL). The browser pass picks the
- * SVG fill gradient from the same mapping (state-chart.transform.js `STATUS_TONE`),
- * and the legend groups words by it (`LEGEND_TONE`). */
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="on-track"], [data-s="done"])
+/* ── The status table: one table for every mark that shows a status ────────
+ * The harness tile, the inline row, the painted tile and its accent all read
+ * `--fill-hue` / `--fill-ink` from here. The word -> tone mapping is gantt's: `live` is
+ * RUNNING work and takes `info`, apart from finished `done`. The browser pass picks the
+ * painted gradient from the same mapping (state-chart.layout.js `STATUS_TONE`), and the
+ * key groups words by it (graph-key.js). */
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="on-track"], [data-s="done"])
   { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="at-risk"], [data-s="warn"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="at-risk"], [data-s="warn"])
   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="blocked"], [data-s="fail"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="blocked"], [data-s="fail"])
   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
   { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
-/* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed
- * (below) — gantt's treatment, for gantt's reason: on color alone "deferred" and
- * "no status" are the same mark. */
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-dot)[data-s="deferred"]
+/* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed. */
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent)[data-s="deferred"]
   { --fill-hue: var(--muted-mark); --fill-ink: var(--text-secondary); }
-/* A status tile's stops — the pill's, see `--state-tile-*` above. Set on the
- * element that paints the HTML gradient; the SVG pass emits the same four
- * literals into its per-tone gradient (state-chart.transform.js `nodeFillDefs`). */
-section.state-chart :is(.state-node, .state-node-row, .state-dot)[data-s]:not([data-s="deferred"]) {
+/* A status tile's stops: the pill's. The pass emits the same four literals into its
+ * per-tone gradient (state-chart.layout.js `nodeDefs`). */
+section.state-chart :is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"]) {
   --state-tile-top-l: 18%;
   --state-tile-bottom-l: 30%;
   --state-tile-top-d: 42%;
   --state-tile-bottom-d: 54%;
 }
-/* The ordinal on a status tile takes the NAME's ink. `--text-body` is tuned for
- * the canvas and the neutral tile; at ~8px on a tinted one it measured as low as
- * 3.2:1. The numeral stays quiet by being small, not by being faint. */
+/* The badge on a status tile takes the NAME's ink: at ~8px on a tinted tile the body ink
+ * measured as low as 3.2:1. */
 section.state-chart :is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"]) .state-index,
 section.state-chart .state-index-t[data-s] {
   color: var(--state-node-ink);
   fill: var(--state-node-ink);
 }
 
-/* The legend chip is a tiny NODE — the same fill ramp and ink edge a state of
- * that status wears — so the key shows the chart's own mark rather than a
- * look-alike. It used to be the pill recipe on a round dot, which matched the
- * retired corner badge and nothing on the chart today. */
-section.state-chart .state-dot {
-  --fill-hue: var(--muted-mark);
-  --fill-ink: var(--text-secondary);
-  flex: 0 0 auto;
-  width: 1.4cqi;
-  height: 0.95cqi;
-  border-radius: var(--chart-mark-radius);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid var(--fill-ink);
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
-}
-section.state-chart .state-dot[data-s="deferred"] {
-  background: color-mix(in oklab, var(--muted-mark) 18%, var(--bg));
-  border-style: dashed;
-  border-left-style: solid;
-}
+/* A SLOT (`:c1`…`:c8`) paints a state with a chart palette slot. A status wins over a slot
+ * (the key names the status), as it does on the flowchart; a deferred status takes the slot. */
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="1"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-1-hue); --fill-ink: var(--chart-cat-1-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="2"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-2-hue); --fill-ink: var(--chart-cat-2-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="3"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-3-hue); --fill-ink: var(--chart-cat-3-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="4"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-4-hue); --fill-ink: var(--chart-cat-4-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="5"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-5-hue); --fill-ink: var(--chart-cat-5-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="6"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-6-hue); --fill-ink: var(--chart-cat-6-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="7"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-7-hue); --fill-ink: var(--chart-cat-7-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="8"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-8-hue); --fill-ink: var(--chart-cat-8-ink); }
+/* One channel only: `:border-cN` inks the edge, `:text-cN` the name. (`:fill-cN` is the
+ * gradient the pass picks.) */
+section.state-chart .state-node-shape[data-border="1"] { stroke: var(--chart-cat-1-ink); }
+section.state-chart .state-node-shape[data-border="2"] { stroke: var(--chart-cat-2-ink); }
+section.state-chart .state-node-shape[data-border="3"] { stroke: var(--chart-cat-3-ink); }
+section.state-chart .state-node-shape[data-border="4"] { stroke: var(--chart-cat-4-ink); }
+section.state-chart .state-node-shape[data-border="5"] { stroke: var(--chart-cat-5-ink); }
+section.state-chart .state-node-shape[data-border="6"] { stroke: var(--chart-cat-6-ink); }
+section.state-chart .state-node-shape[data-border="7"] { stroke: var(--chart-cat-7-ink); }
+section.state-chart .state-node-shape[data-border="8"] { stroke: var(--chart-cat-8-ink); }
+section.state-chart .state-node-group[data-text="1"] .state-label-t { fill: var(--chart-cat-1-ink); }
+section.state-chart .state-node-group[data-text="2"] .state-label-t { fill: var(--chart-cat-2-ink); }
+section.state-chart .state-node-group[data-text="3"] .state-label-t { fill: var(--chart-cat-3-ink); }
+section.state-chart .state-node-group[data-text="4"] .state-label-t { fill: var(--chart-cat-4-ink); }
+section.state-chart .state-node-group[data-text="5"] .state-label-t { fill: var(--chart-cat-5-ink); }
+section.state-chart .state-node-group[data-text="6"] .state-label-t { fill: var(--chart-cat-6-ink); }
+section.state-chart .state-node-group[data-text="7"] .state-label-t { fill: var(--chart-cat-7-ink); }
+section.state-chart .state-node-group[data-text="8"] .state-label-t { fill: var(--chart-cat-8-ink); }
 
-/* Status legend band — a centered row of dot + label, decoding the node dots.
- * Same shape as journey's .journey-legend (flex-wrap key band). */
-section.state-chart .state-legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--sp-xs) var(--sp-lg);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: var(--fs-body-compact);
-  color: var(--text-secondary, var(--text-body));
-}
-section.state-chart .state-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-xs);
-}
-section.state-chart .state-legend-label {
-  font-family: var(--pill-font);
-  letter-spacing: var(--pill-tracking);
-}
+/* ── The painted chart ───────────────────────────────────────────────────── */
 
-/* Start / terminal redundancy cues alongside the SVG ●/◎ glyphs: the start node
- * wears a heavier edge, the terminal an outline ring. The start node used to be
- * told apart by a WIDER left stripe, which only worked because every node had a
- * stripe; a status-less start node now has none, so the cue is the edge. */
-section.state-chart .state-node[data-kind="start"] {
-  border-width: max(var(--chart-hairline), 0.15625cqi);
-}
-
-section.state-chart .state-node[data-kind="terminal"] {
-  outline: 0.1171875cqi solid var(--state-node-stroke);
-  outline-offset: 0.15625cqi;
-}
-
-/* SVG edge overlay — covers the whole figure; the browser pass sets its
- * viewBox to the figure's measured pixel box so 1 unit == 1px. Behind the
- * node column so node fills hide any sub-pixel edge overhang. */
 section.state-chart .state-chart-edges {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
   overflow: visible;
-  z-index: 0;
+  pointer-events: none;
+}
+section.state-chart .state-chart-figure:not([data-sc-drawn="1"]) .state-chart-edges {
+  display: none;
 }
 
-/* ── The `:::token` tint channel ──────────────────────────────────────────────
- * The edge GROUP resolves one inherited custom property and the path, arrowhead
- * and label all read it. That is one join instead of fourteen (the layout pass
- * has fourteen `<path class="state-edge">` emit sites), and it puts the
- * forward/back default in ONE place.
- *
- * Deliberately an assignment, NOT `var(--edge-tint, var(--state-edge-back))`:
- * `--state-edge-back` declares no role in its name, so `checkTokenContracts`
- * cannot compare its contract inside a fallback chain and fails the build. An
- * author's `:::token` arrives as an inline style on the same group, and inline
- * beats stylesheet, so it overrides both defaults without !important.
- *
- * THE DEFAULT IS DECLARED ON THE SECTION, NOT ON THE GROUP, and that is not
- * tidiness. `.state-edge-arrow` reads `--edge-tint`, and not every arrowhead is
- * inside an edge group: `startMarker` emits one into `<g class="state-marker">`.
- * Declared on the group, `var(--edge-tint)` was invalid at computed-value time
- * there, so `fill` fell to the SVG initial and every start arrowhead painted
- * rgb(0,0,0) instead of rgb(26,26,26) — on every machine, chains included, and
- * invisible against a dark canvas. Measured in real Chromium against the shipped
- * export. The commit that introduced it certified "all 52 edges paint identical
- * arrow fill" by enumerating `.state-edge-group` descendants, which is exactly
- * the set that could not fail. */
-section.state-chart { --edge-tint: var(--state-edge); }
-section.state-chart .state-edge-group[data-dir="back"] { --edge-tint: var(--state-edge-back); }
+/* Composite states: a quiet tint of their slot, or of the neutral mark. Nested ones stack
+ * the translucent tint, so depth reads without a second rule. */
+section.state-chart .state-group {
+  --state-group-hue: var(--muted-mark);
+  fill: light-dark(color-mix(in oklab, var(--state-group-hue) 8%, transparent), color-mix(in oklab, var(--state-group-hue) 16%, transparent));
+  stroke: light-dark(color-mix(in oklab, var(--state-group-hue) 38%, transparent), color-mix(in oklab, var(--state-group-hue) 52%, transparent));
+}
+section.state-chart .state-group[data-slot="1"] { --state-group-hue: var(--chart-cat-1-hue); }
+section.state-chart .state-group[data-slot="2"] { --state-group-hue: var(--chart-cat-2-hue); }
+section.state-chart .state-group[data-slot="3"] { --state-group-hue: var(--chart-cat-3-hue); }
+section.state-chart .state-group[data-slot="4"] { --state-group-hue: var(--chart-cat-4-hue); }
+section.state-chart .state-group[data-slot="5"] { --state-group-hue: var(--chart-cat-5-hue); }
+section.state-chart .state-group[data-slot="6"] { --state-group-hue: var(--chart-cat-6-hue); }
+section.state-chart .state-group[data-slot="7"] { --state-group-hue: var(--chart-cat-7-hue); }
+section.state-chart .state-group[data-slot="8"] { --state-group-hue: var(--chart-cat-8-hue); }
+/* Stronger on a dark canvas: a 12% wash of a slot hue over near-black read as no tint. */
+section.state-chart .state-group[data-slot] {
+  fill: light-dark(color-mix(in oklab, var(--state-group-hue) 12%, transparent), color-mix(in oklab, var(--state-group-hue) 24%, transparent));
+  stroke: light-dark(color-mix(in oklab, var(--state-group-hue) 50%, transparent), color-mix(in oklab, var(--state-group-hue) 64%, transparent));
+}
+section.state-chart .state-group-title {
+  fill: var(--text-secondary);
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
+/* Transitions. The group carries the line's color, so its path, head and label agree. */
+section.state-chart .state-edge-group { --edge-tint: var(--state-edge); }
+section.state-chart .state-edge-group[data-slot="1"] { --edge-tint: var(--chart-cat-1-ink); }
+section.state-chart .state-edge-group[data-slot="2"] { --edge-tint: var(--chart-cat-2-ink); }
+section.state-chart .state-edge-group[data-slot="3"] { --edge-tint: var(--chart-cat-3-ink); }
+section.state-chart .state-edge-group[data-slot="4"] { --edge-tint: var(--chart-cat-4-ink); }
+section.state-chart .state-edge-group[data-slot="5"] { --edge-tint: var(--chart-cat-5-ink); }
+section.state-chart .state-edge-group[data-slot="6"] { --edge-tint: var(--chart-cat-6-ink); }
+section.state-chart .state-edge-group[data-slot="7"] { --edge-tint: var(--chart-cat-7-ink); }
+section.state-chart .state-edge-group[data-slot="8"] { --edge-tint: var(--chart-cat-8-ink); }
 section.state-chart .state-edge {
   fill: none;
   stroke: var(--edge-tint);
-  stroke-width: 0.109375cqi;
+  stroke-width: 1.3px;
   stroke-linecap: round;
-}
-
-/* ── Box-local portrait fill (tall/narrow box) ───────────────────────────────
- * The default machine is ALREADY vertical (top-to-bottom column), so a tall box
- * needs no reflow — but the inter-node gap is `cqi` (a share of WIDTH), so on a
- * narrow portrait box it shrinks and the chain strands itself in the middle with
- * dead space above and below. Let the node column take the full height and
- * distribute the states down it; the browser edge-pass re-measures the laid-out
- * positions, so the arrows follow. (An `lr` machine is already flipped back to
- * this vertical default at build time — see state-chart.transform.js.) Keyed on
- * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
- * 2026-06-19-chart-adaptive-sizing.md §10. */
-/* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
- * take the full height so `.state-nodes { height:100% }` below resolves against a
- * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's
- * default auto height collapses the fill (the node column strands in the middle).
- * At full height the natural column ≈ the viewport, so the landscape self-scale is
- * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
-/* NOT the inline variant. This rule exists for `.state-nodes { height: 100% }` below, which
- * only the DEFAULT variant emits — and pinning the scale box to the figure's height makes
- * `applyFit`'s height ratio exactly 1 by construction, so an over-tall INLINE machine is
- * letterboxed on width alone and still shears its last row on a portrait deck. Measured on a
- * 7-state portrait fixture: 933px of rows scaled by 0.7 (width-only) into a 678px figure,
- * last row cut through the middle — #1360's symptom, surviving #1360's fix. The inline
- * variant has no `.state-nodes` and no `space-evenly` fill to serve, so it wants its natural
- * height here. (HARD RULE #25 red team.) */
-section.state-chart:where([data-family="tall"], [data-family="strip"]):not(.inline):not(.horizontal) .state-chart-scale { height: 100%; }
-section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-nodes {
-  height: 100%;
-  justify-content: space-evenly;
-}
-
-
-section.state-chart .state-edge[data-dir="back"] {
-  /* stroke now comes from the group's `--edge-tint`; the dash is what this rule
-   * still owns. */
-  stroke-dasharray: 4 3;
-}
-
-section.state-chart .state-edge[data-self="true"] {
-  stroke-width: 0.1015625cqi;
-}
-
-section.state-chart .state-edge-arrow {
-  fill: var(--edge-tint);
-  stroke: none;
-}
-
-
-
-/* Edge labels sit ON the line at its midpoint (centered). The halo is a
- * background-colored stroke painted UNDER the glyphs (paint-order:stroke),
- * knocking out the edge behind the text so the line visibly breaks around
- * the label with a clear gap on each side. */
-section.state-chart .state-edge-label {
-  fill: var(--state-node-ink);
-  /* Ligatures off. Authors write transition labels as literals — `approve -> ship`,
-   * `>= 3 days` — and mono would render those as arrow/relational GLYPHS. This is an
-   * SVG <text>, so base.elements.css's code/pre/kbd/samp rule cannot reach it. */
-  font-variant-ligatures: none;
-  /* Floored — but the floor is NOT the whole story here, and this rule must not
-   * be read as a legibility guarantee.
-   *
-   * `max()` raises the declared size to `--chart-text-min` on a narrow box.
-   * state-chart, though, is a SELF-SCALING chart (2026-07-16-state-chart-self-
-   * scale.md): `draw()` letterbox-scales `.state-chart-scale` by
-   * k = min(viewH/natH, viewW/natW), and that transform multiplies EVERYTHING
-   * afterwards — including this text. Measured on the gallery machine, with the
-   * floor in place at 11px declared:
-   *
-   *     landscape  k=0.593  →  6.52px effective   ← worst case, NOT portrait
-   *     portrait   k=1.000  → 11.00px effective
-   *     square     k=0.771  →  8.48px effective
-   *
-   * So the floor helps (it lifted landscape from ~5.5px to 6.5px) but on its own
-   * cannot pin an effective minimum: the only lever that would is k, and squeezing
-   * to fit is the whole point of the self-scale decision — which explicitly accepts
-   * that an over-stuffed machine "just gets cramped."
-   *
-   * THAT GUARANTEE NOW EXISTS, and this comment described the world before it.
-   * #1213 is closed: `applyFit` raises the DECLARED `--chart-text-min` by 1/k
-   * whenever it scales down, in `draw()`, where k is known — which is exactly the
-   * fix this paragraph asked for. So the numbers above are the pre-fix measurement,
-   * kept because they are why the fix was needed. Measured on the real render after
-   * it, `examples/state-chart.md` slide 3: k=0.4240, declared 25.942px on the
-   * geometry, 11.00px effective on the figure. Charts scaled UP (k > 1) are
-   * untouched. The floor is therefore a real minimum now, not a best effort — read
-   * `applyFit`, not this declaration, for how. */
-  font-size: max(var(--chart-text-min), 0.859375cqi);
-  font-family: var(--font-label);
-  paint-order: stroke;
-  /* `--edge-label-bg` is the second `:::` slot (`:::edge-token/label-bg-token`).
-   * `--state-label-bg` ends in `-bg`, a declared surface role, so this one CAN
-   * sit in a fallback chain without tripping the contract gate. */
-  stroke: var(--edge-label-bg, var(--state-label-bg));
-  stroke-width: 0.46875cqi;
   stroke-linejoin: round;
-  stroke-linecap: round;
+}
+section.state-chart .state-edge-group[data-heavy="1"] .state-edge { stroke-width: 2.6px; }
+section.state-chart .state-edge-group[data-pattern="dashed"] .state-edge { stroke-dasharray: 6px 4px; }
+section.state-chart .state-edge-group[data-pattern="dotted"] .state-edge { stroke-dasharray: 0.5px 4px; stroke-width: 1.8px; }
+section.state-chart .state-edge-arrow { fill: var(--edge-tint); stroke: var(--edge-tint); stroke-linejoin: round; stroke-linecap: round; }
+section.state-chart .state-edge-arrow:is([data-head="open"], [data-head="cross"]) { fill: none; }
+/* The label sits ON its line, which the pass cuts under it: no halo, no background. */
+section.state-chart .state-edge-label {
+  fill: var(--text-body);
+  font-family: var(--font-label);
+  /* Ligatures off: authors write transition labels as literals (`>= 3 days`), and a
+   * ligating face would turn them into glyphs. */
+  font-variant-ligatures: none;
   pointer-events: none;
 }
 
+/* The machine's entry and its end: a filled dot, and a ring around a dot. */
 section.state-chart .state-marker-disc {
   fill: var(--state-marker);
   stroke: none;
 }
-
 section.state-chart .state-marker-ring {
   fill: none;
   stroke: var(--state-marker);
-  stroke-width: 0.1171875cqi;
+  stroke-width: 1.6px;
 }
 
-section.state-chart .state-marker-line {
+/* The painted tile. SVG `fill` cannot take a CSS gradient, so the pass emits the canonical
+ * chart fill as an inline `<linearGradient>` per tone (`nodeDefs`) and points the tile at
+ * it; the edge is styled here. The painted tile is the HIT TARGET for the detail popover:
+ * the overlay is `pointer-events: none`, so the tile turns them back on. */
+section.state-chart .state-node-shape {
+  pointer-events: auto;
+  --fill-hue: var(--muted-mark);
+  stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  stroke-width: var(--chart-edge);
+}
+/* A status or a slot inks the whole edge, as it does a gantt bar's. */
+section.state-chart .state-node-shape:is([data-s], [data-slot]) {
+  stroke: var(--fill-ink);
+}
+section.state-chart .state-node-shape[data-s="deferred"] {
+  fill-opacity: 0.18;
+  stroke-dasharray: 4 2.5;
+}
+/* The leading accent: only on a state with a status or a slot, inked from the table. */
+section.state-chart .state-node-accent {
+  fill: var(--fill-ink);
+}
+section.state-chart .state-label-t {
+  fill: var(--state-node-ink);
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+/* The badge's size and place come from the harness (the pass paints it where the tile
+ * put it), so there is no size here. */
+section.state-chart .state-index-t {
+  fill: var(--state-index-ink);
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+/* The ends keep distinct redundancy cues besides their markers: the start state reads
+ * heavier, the end state wears a second ring. */
+section.state-chart .state-node-shape[data-kind="start"] {
+  stroke-width: var(--chart-edge-strong);
+}
+section.state-chart .state-node-shape[data-kind="start"]:not([data-s]):not([data-slot]) {
+  stroke: var(--state-node-stroke);
+}
+section.state-chart .state-node-shape[data-kind="terminal"] {
+  stroke-width: var(--chart-edge-strong);
+}
+section.state-chart .state-node-shape[data-kind="terminal"]:not([data-s]):not([data-slot]) {
+  stroke: var(--state-node-stroke);
+}
+section.state-chart .state-node-ring {
   fill: none;
-  stroke: var(--state-edge);
-  stroke-width: 0.109375cqi;
-  stroke-linecap: round;
+  stroke: var(--state-node-stroke);
+  stroke-width: 1;
 }
 
-/* ── Inline variant (HTML chips, no SVG) ─────────────────────────────── */
+/* Reveal focus cue: the reveal layer toggles .chart-mark-active on the focused mark. A
+ * hue edge, not a filter (a filter would rasterize the tile in the PDF path). */
+section.state-chart .state-node-shape.chart-mark-active {
+  stroke: var(--accent);
+  stroke-width: var(--chart-edge-strong);
+}
 
-/* The figure keeps the base `width: 100%` — it is the positioning context for the absolute
- * scale box, which would collapse it to zero under a shrink-to-fit width — and keeps the CAP.
- * The scale box below is `width: max-content`, so an abspos box is capped by its containing
- * block anyway: same rendered width as the old `width: auto` on the figure, but now out of
- * flow and therefore fittable (#1360). (An earlier version of this note named a
- * `max-width: 100%` on the scale box; no such declaration exists — the cap comes from the
- * figure. Corrected by the HARD RULE #25 red team.) */
+/* ── Inline variant (HTML rows, no SVG) ────────────────────────────────── */
+
 section.state-chart.inline .state-chart-figure,
 section.state-chart.horizontal .state-chart-figure {
+  position: relative;
   max-width: 59.375cqi;
 }
-
-/* `max-content`, NOT the base `fit-content`. A row's transition chips wrap, so a
- * shrink-to-fit width is self-defeating here: the box narrows, the chips wrap onto
- * extra lines, and the natural height GROWS (measured: 342x520 at fit-content
- * against 342x434 in flow) — the letterbox then pays for wrapping nobody asked for.
- * max-content pins the rows at their unwrapped width and lets applyFit() letterbox
- * both axes, which is what the default variant already does. */
+/* The fit (state-chart.layout.js `fitInline`) letterboxes the rows into the figure. */
 section.state-chart.inline .state-chart-scale,
 section.state-chart.horizontal .state-chart-scale {
   width: max-content;
 }
 
-/* THE CARD LIST IS A TABLE: numeral | name | transitions. Every row is a SUBGRID
- * of one three-column grid, so the three columns line up down the whole list —
- * the names start at one x, the chips start at one x, the numerals sit in one
- * right-aligned column. It used to be a flex row per card with the chips pushed
- * right by `space-between`: a row with three chips started them after the name
- * and a row with one floated it to the far edge, so no two rows agreed. The
- * numeral used to be pinned into the top-right corner at 2px from the edge; a
- * list reads its ordinal first, and the `→ 2` on a chip cites that column. */
-section.state-chart.inline .state-rows,
-section.state-chart.horizontal .state-rows {
+/* THE CARD LIST IS A TABLE: numeral | name | transitions. Every row is a SUBGRID of one
+ * three-column grid, so the three columns line up down the whole list, and the `→ 2` on
+ * a chip cites the numeral column. */
+section.state-chart .state-rows {
   list-style: none;
-  margin: 0;
   display: grid;
   grid-template-columns: max-content max-content max-content;
   column-gap: var(--sp-md);
-  /* A card's gap is a third of its vertical padding — close enough that the list
-   * reads as one machine, open enough that each card reads as a card. The old
-   * 0.3125cqi (4px) put the tiles edge to edge and the end state's ring touched
-   * the card above it. */
   row-gap: var(--sp-sm);
   padding: var(--sp-xs) 0;
 }
-
-section.state-chart.inline .state-node-row,
-section.state-chart.horizontal .state-node-row {
+section.state-chart .state-node-row {
   position: relative;
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: subgrid;
   align-items: center;
   padding: var(--sp-sm) var(--sp-md);
-  /* Same canonical tile as the SVG-variant nodes above. The neutral defaults sit
-   * in a `:where()` rule below, NOT here: at this rule's specificity they beat the
-   * status table (same weight, later in the file), so a `live` row painted as a
-   * plain tile while its legend chip was green. */
   background: linear-gradient(180deg,
     light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
                color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
@@ -643,33 +440,26 @@ section.state-chart.horizontal .state-node-row {
   color: var(--state-node-ink);
   border-radius: var(--chart-mark-radius);
 }
-/* Rows take the status table above like the default variant's nodes. */
-
-/* The row's own `border` shorthand above resets the status accent the shared
- * rule set, so the card list restates it. */
-section.state-chart.inline .state-node-row[data-s],
-section.state-chart.horizontal .state-node-row[data-s] {
+/* The neutral tile, at zero added specificity so the status table re-points it. */
+section.state-chart :where(.state-node-row) {
+  --fill-hue: var(--muted-mark);
+  --fill-ink: var(--diagram-stroke);
+}
+/* The row's own `border` shorthand resets the accent the shared rule set. */
+section.state-chart .state-node-row[data-s] {
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
 }
-
-/* A deferred card is hollow and dashed, like the SVG tile and the legend chip. */
-section.state-chart.inline .state-node-row[data-s="deferred"],
-section.state-chart.horizontal .state-node-row[data-s="deferred"] {
+section.state-chart .state-node-row[data-s="deferred"] {
   background: color-mix(in oklab, var(--muted-mark) 18%, var(--bg));
   border-style: dashed;
   border-left-style: solid;
 }
-
-section.state-chart.inline .state-node-row[data-kind="start"],
-section.state-chart.horizontal .state-node-row[data-kind="start"] {
+section.state-chart .state-node-row[data-kind="start"] {
   border-width: max(var(--chart-hairline), 0.15625cqi);
 }
-
-/* The end state's double ring is drawn INSIDE the card. As an outline it stood
- * 0.27cqi proud of the list on every side, so the last card was wider than the
- * rest and the column's edges broke on the one row that ends the machine. */
-section.state-chart.inline .state-node-row[data-kind="terminal"]::after,
-section.state-chart.horizontal .state-node-row[data-kind="terminal"]::after {
+/* The end state's double ring is drawn INSIDE the card, so the last card is no wider
+ * than the rest. */
+section.state-chart .state-node-row[data-kind="terminal"]::after {
   content: "";
   position: absolute;
   inset: 0.234375cqi;
@@ -677,45 +467,28 @@ section.state-chart.horizontal .state-node-row[data-kind="terminal"]::after {
   border-radius: max(0px, calc(var(--chart-mark-radius) - 0.234375cqi));
   pointer-events: none;
 }
-
-section.state-chart.inline .state-node-row .state-label,
-section.state-chart.horizontal .state-node-row .state-label {
+section.state-chart .state-node-row .state-label {
   grid-column: 2;
   font-weight: 500;
 }
-
-/* The badge is LARGER on the inline variant than on the default, and the difference is
- * the letterbox. At the shared 0.703125cqi it computes to ~8.1px here — 1.125% of slide
- * height against a 1.00% legibility floor, i.e. 11% of headroom — so ANY fit below
- * k = 0.888 pushed it under, and `examples/state-chart.md` p6 (k = 0.8233) landed at
- * 6.67px the moment this variant learned to scale. The default variant does not scale
- * its own badge into that corner the same way, so it keeps the smaller value.
- * The numeral is not decoration: the transition chips read "→ 2", which is a reference
- * to it, so it has to survive the shrink that its own labels survive. */
-section.state-chart.inline .state-node-row .state-index,
-section.state-chart.horizontal .state-node-row .state-index {
+/* The numeral is not decoration here: the chips read "→ 2", a reference to it, so it has
+ * to survive the letterbox its own labels survive. */
+section.state-chart .state-node-row .state-index {
   grid-column: 1;
   grid-row: 1;
   justify-self: end;
-  position: static;
-  font-size: max(var(--chart-text-min), 0.9375cqi); /* cqi-ok: index numeral inside a cqi-sized state node */
+  font-size: max(var(--chart-text-min), 0.9375cqi); /* cqi-ok: index numeral inside a cqi-sized state row */
   font-variant-numeric: tabular-nums;
   color: var(--state-index-ink);
 }
-
-/* Inline LR (lr inline, or the horizontal alias) flows the chip rows
- * left-to-right; keyed on the figure's resolved direction. */
+/* Inline `lr` flows the cards left to right; a row of cards has no shared columns. */
 section.state-chart .state-chart-figure[data-variant="inline"][data-sc-dir="lr"] .state-rows {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  overflow-x: auto;
   gap: var(--sp-sm);
   padding: var(--sp-sm) 0;
 }
-
-/* A row of cards has no shared columns to line up, so each card lays its own
- * three parts out in a line again. */
 section.state-chart .state-chart-figure[data-variant="inline"][data-sc-dir="lr"] .state-node-row {
   flex: 0 0 auto;
   min-width: 10.9375cqi;
@@ -725,18 +498,14 @@ section.state-chart .state-chart-figure[data-variant="inline"][data-sc-dir="lr"]
 section.state-chart .state-chart-figure[data-variant="inline"][data-sc-dir="lr"] .state-node-row .state-index {
   order: -1;
 }
-
-section.state-chart.inline .state-transitions,
-section.state-chart.horizontal .state-transitions {
+section.state-chart .state-transitions {
   grid-column: 3;
   display: inline-flex;
   flex-wrap: wrap;
   gap: var(--sp-xs);
   align-items: center;
 }
-
-section.state-chart.inline .state-chip,
-section.state-chart.horizontal .state-chip {
+section.state-chart .state-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -750,155 +519,42 @@ section.state-chart.horizontal .state-chip {
   padding: var(--pill-pad-y) var(--pill-pad-x);
   border: var(--chart-hairline) solid var(--state-node-stroke);
   border-radius: var(--pill-radius);
-  background: color-mix(in oklab, var(--state-node-fill) 60%, transparent);
+  background: color-mix(in oklab, var(--bg-alt) 60%, transparent);
 }
-
-section.state-chart.inline .state-chip[data-dir="back"],
-section.state-chart.horizontal .state-chip[data-dir="back"] {
+section.state-chart .state-chip[data-dir="back"] {
   border-style: dashed;
 }
-
-section.state-chart.inline .state-chip-event,
-section.state-chart.horizontal .state-chip-event {
+section.state-chart .state-chip-event {
   font-family: var(--font-label);
-  /* Same author-written transition string as .state-edge-label above — `approve ->
-   * ship`, `>= 3 days` — so ligatures off for the same reason. It does not ligate
-   * TODAY only because the chip carries letter-spacing, which suppresses ligature
-   * formation in Chromium; that is an unrelated coincidence, not a guarantee, and
-   * it evaporates the moment someone sets letter-spacing to 0. */
   font-variant-ligatures: none;
 }
-
-section.state-chart.inline .state-chip-arrow,
-section.state-chart.horizontal .state-chip-arrow {
+section.state-chart .state-chip-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15625cqi;
   color: var(--state-index-ink);
   font-variant-numeric: tabular-nums;
 }
-
-/* ── Dark canvas ─────────────────────────────────────────────────────────
- * section.dark sets color-scheme:dark, flipping every light-dark() token
- * this component consumes (--bg-alt, --text-heading, --diagram-line, --bg,
- * --text-muted, and chart-family's --pass/--warn/--fail) automatically. */
-
-/* ── SVG-native nodes (2026-07-26) ───────────────────────────────────────────
- * The state-chart lays its nodes out as HTML on purpose: a string transform
- * cannot measure text, so the browser sizes each node to its real content. That
- * is the whole reason installStateChartLayout exists — and it is also why the
- * chart used to be un-animatable: chart motion addresses marks inside the first
- * <svg>, and the states were <li>s outside it.
- *
- * The measuring pass now PAINTS those measured boxes into the same overlay it
- * already drew the edges into. So the geometry is still real metrics (never the
- * guessed glyph widths this architecture replaced), but the whole chart is one
- * SVG and every state, connector and label is an addressable node.
- *
- * The HTML column stays in the layout as the measuring harness and is hidden
- * once the SVG exists — `visibility:hidden`, NOT `display:none`, because the
- * boxes must keep occupying space for the next re-measure (resize, font load).
- * Until the pass runs (or if it never does) the HTML nodes are what you see, so
- * this degrades to the previous rendering rather than to nothing. */
-section.state-chart .state-chart-figure[data-sc-svg="1"] .state-nodes {
-  visibility: hidden;
+/* The arrow is a drawn shape (HARD RULE #29): color from the chip, shape from the token.
+ * A self-transition turns back on itself. `font-size` is the em BASIS for the box. */
+section.state-chart .state-chip-mark {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  background-color: currentColor;
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
-/* While the layout pass has pinned the scale box to the DRAWING (a grid or dagre
- * layout), the measuring column leaves layout entirely: the pin, not the column,
- * sizes the box, and a hidden column taller than a wide drawing hung its last
- * numerals past the stage's clip (a false CONTENT CLIPPED). The pass removes
- * `data-sc-pinned` before it measures, in the same synchronous draw, so the
- * boxes are always there to be measured and never painted. */
-section.state-chart .state-chart-figure[data-sc-svg="1"][data-sc-pinned="1"] .state-nodes {
-  display: none;
+section.state-chart .state-chip[data-dir="self"] .state-chip-mark {
+  -webkit-mask: var(--shape-refresh) var(--shape-paint);
+          mask: var(--shape-refresh) var(--shape-paint);
 }
-
-/* The node tile — the SVG twin of the .state-node card. Same canonical chart
- * fill, and because SVG `fill` cannot take a CSS gradient, the layout pass
- * emits it as an inline `<linearGradient>` per node and points the rect at
- * `fill="url(#…)"`. So the gradient DEFS are generated in JS
- * (state-chart.transform.js `nodeFillDefs`, one ramp per tone present) and only
- * the edge is styled here. */
-/* The painted node is the HIT TARGET for the mark-detail popover. The overlay
- * is `pointer-events: none` (it must not swallow clicks meant for the slide),
- * and the measuring column is `visibility: hidden`, which also makes it
- * un-hit-testable — so without re-enabling pointer events HERE,
- * `elementFromPoint` finds nothing carrying `data-mark` and the popover never
- * opens on a state. It is the rect that carries the mark, so it is the rect
- * that must be hittable. */
-section.state-chart .state-node-shape {
-  pointer-events: auto;
-  /* The FILL is the canonical chart gradient, emitted inline by the layout pass
-   * (SVG fill cannot take a CSS gradient). What stays here is the edge. */
-  --fill-hue: var(--muted-mark);
-  stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
-  stroke-width: var(--chart-edge);
-}
-/* A status inks the whole edge, as it does a gantt bar's — the hue at full
- * strength is what separates the mark from its wash. */
-section.state-chart .state-node-shape[data-s] {
-  stroke: var(--fill-ink);
-}
-/* DEFERRED IS HOLLOW AND DASHED — gantt's `deferred`, for its reason: the tone is
- * the neutral one, so without this a deferred state and a state with no status
- * paint the same tile. The dash is in CSS px (the family's non-scaling stroke). */
-section.state-chart .state-node-shape[data-s="deferred"] {
-  fill-opacity: 0.18;
-  stroke-dasharray: 4 2.5;
-}
-
-/* The node's leading accent — emitted ONLY for a node with a status (see
- * `accentPath`), and inked from the status table, never re-derived here. */
-section.state-chart .state-node-accent {
-  fill: var(--fill-ink);
-}
-
-section.state-chart .state-label-t {
-  fill: var(--state-node-ink);
-  font-family: var(--font-body);
-  font-weight: 500;
-}
-
-/* The ordinal — a quiet numeral on every node (the status is on the tile). Its
- * SIZE and PLACE come from the layout pass (`nodeShape`): at least the legibility
- * floor after the letterbox, at most a third of the tile, anchored to the tile's
- * corner. A CSS size here would override that `font-size` attribute, so there is
- * none. (An earlier cut floored it here via `--chart-text-min`; at a low k that
- * pushed the numeral out of its tile.) */
-section.state-chart .state-index-t {
-  fill: var(--state-index-ink);
-  font-family: var(--font-body);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Start and terminal keep DISTINCT redundancy cues, as the HTML card did — the
- * start node reads heavier at its leading edge, the terminal wears an outline
- * ring. Collapsing both into one identical rule (an earlier cut) made the two
- * ends of a machine visually indistinguishable, which is the one distinction a
- * state diagram must never lose. */
-/* A start or terminal node with no status of its own takes the diagram stroke;
- * with one, it keeps its status ink and only gains the weight. */
-section.state-chart .state-node-shape[data-kind="start"] {
-  stroke-width: var(--chart-edge-strong);
-}
-section.state-chart .state-node-shape[data-kind="start"]:not([data-s]) {
-  stroke: var(--state-node-stroke);
-}
-/* The terminal ring: SVG has no `outline`, so the layout pass emits a second,
- * offset rect behind the node — the same doubled edge the HTML outline drew. */
-section.state-chart .state-node-shape[data-kind="terminal"] {
-  stroke-width: var(--chart-edge-strong);
-}
-section.state-chart .state-node-shape[data-kind="terminal"]:not([data-s]) {
-  stroke: var(--state-node-stroke);
-}
-section.state-chart .state-node-ring {
-  fill: none;
-  stroke: var(--state-node-stroke);
-  stroke-width: 1;
-}
-
-/* Reveal focus cue — the shared reveal layer toggles .chart-mark-active on the
- * focused mark and dims the rest. A hue edge, not a filter: a filter would
- * rasterize the node in the PDF path. */
-section.state-chart .state-node-shape.chart-mark-active {
-  stroke: var(--accent);
-  stroke-width: var(--chart-edge-strong);
+/* A composite's name heads its states in the rows. */
+section.state-chart .state-group-row {
+  grid-column: 1 / -1;
+  padding: var(--sp-xs) 0 0;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  letter-spacing: var(--pill-tracking);
+  color: var(--text-muted);
 }

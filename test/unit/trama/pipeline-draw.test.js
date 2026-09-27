@@ -33,7 +33,7 @@ const adapter = () => ({
   paint(_model, m) { return `<text font-size="${m.floor}">a</text>`; },
 });
 
-function setup({ fonts } = {}) {
+function setup({ fonts, base = 400, perPx = 60 } = {}) {
   const dom = new JSDOM('<!doctype html><body><div class="g-figure" data-g-model="1"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></body>', { runScripts: 'outside-only' });
   const w = dom.window;
   const fig = w.document.querySelector('.g-figure');
@@ -44,7 +44,7 @@ function setup({ fonts } = {}) {
   const kernel = () => ({
     layout(_model, sizes) {
       log.layouts.push(sizes.a.w);
-      return { width: 400 + 60 * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] };
+      return { width: base + perPx * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] };
     },
   });
   const pass = w.eval(`(${installGraphPass.toString()})`);
@@ -141,6 +141,26 @@ describe('trama pipeline — the fit and the type floor, solved on the first dra
     assert.ok(Math.abs(painted - 11 / k) / (11 / k) < 0.01, `painted at ${painted}px, the fit asks for ${(11 / k).toFixed(2)}px`);
     // Plain iteration would have stopped at 12.1px after three rounds, under a floor of 12.9.
     assert.deepEqual(t.log.layouts.map((x) => Math.round(x * 100) / 100), [11, 11.66, 12.94]);
+  });
+
+  // Under half size a chart still settles when its fit contracts: the text is a small part
+  // of its size, so lifting the floor converges and the secant step lands it.
+  test('a contracting chart under half size still reaches the floor', () => {
+    const t = setup({ base: 1800, perPx: 40 });
+    t.run();
+    const k = Number(t.fig.querySelector('.g-box').getAttribute('data-fit-k'));
+    const painted = Number(/font-size="([\d.]+)"/.exec(t.fig.querySelector('svg').innerHTML)[1]);
+    assert.ok(k < 0.5, `fit ${k}`);
+    assert.ok(Math.abs(painted - 11 / k) / (11 / k) < 0.01, `painted at ${painted}px, the fit asks for ${(11 / k).toFixed(2)}px`);
+  });
+
+  // When the text drives the size faster than the lift, there is no fixed point: each round
+  // only shrinks the chart. Two rounds measure that slope, and the fit stops there.
+  test('a chart under half size whose fit cannot settle stops at the second layout', () => {
+    const t = setup({ base: 400, perPx: 120 });
+    t.run();
+    assert.equal(t.log.layouts.length, 2, `layouts ${t.log.layouts}`);
+    assert.ok(Number(t.fig.querySelector('.g-box').getAttribute('data-fit-k')) < 0.5);
   });
 
   test('the next draw starts from the fit it left, and lays out once', () => {

@@ -58,7 +58,41 @@ export interface GraphContext {
   toOutline(end: Point, prev: Point, b: Box, kind: string | null): Point;
   cut(pts: Point[], boxes: Rect[]): Point[][];
   rounded(pts: Point[], rad: number): string;
-  head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string): string;
+  head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string, extra?: string): string;
+  /** Every routed line as markup: ends on outlines, cut under labels and titles, rounded, with heads and labels. */
+  lines(geo: Geometry, edges: LineEdge[], kindOf: (id: string) => string | null, o: LineOptions): string;
+  /** The group boxes (`under`, before the lines) and their titles (`over`, after them). */
+  groups(list: LineGroup[], geo: Geometry, titleFont: number, cls: { box: string; title: string }): { under: string; over: string };
+}
+
+/** A line as the `lines` painter reads it (the chart's model edge, or one it added). */
+export interface LineEdge {
+  dir?: string;
+  label?: string;
+  heavy?: boolean;
+  back?: boolean;
+  /** A note's tether: no head. */
+  tether?: boolean;
+  style?: { slot?: number | string; pattern?: string; head?: string; [extra: string]: unknown };
+  [extra: string]: unknown;
+}
+
+/** How `lines` paints: the chart's class names, the corner radius and the label size. */
+export interface LineOptions {
+  cls: { group: string; path: string; head: string; label: string };
+  radius: number;
+  labelFont: number;
+  /** Extra attributes on every path and every head, e.g. ` data-anima-role="bar"`. */
+  pathAttrs?: string;
+  headAttrs?: string;
+}
+
+/** A group as the `groups` painter reads it. */
+export interface LineGroup {
+  id: string;
+  name: string;
+  parent?: string | null;
+  slot?: number | string;
 }
 
 /** What an adapter's `measure` returns: the kernel's input, plus anything its paint needs. */
@@ -148,7 +182,10 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       if (!w || typeof w.Worker !== 'function' || typeof w.Blob !== 'function' || !w.URL?.createObjectURL) return null;
       let dagreSrc = '';
       for (const el of doc.querySelectorAll<HTMLScriptElement>('script[src]')) if (/lattice-dagre(-min)?\.js(\?|#|$)/.test(el.src)) { dagreSrc = el.src; break; }
-      if (!dagreSrc) return null;
+      // No dagre tag YET is not a verdict: a host adds it once a chart appears (the Studio's
+      // `ensureDagre`), and a pass can run first. Ask again next time, rather than caching a
+      // null that would keep every later layout on the editor's thread for the frame's life.
+      if (!dagreSrc) { D[key('Worker')] = undefined; return null; }
       const src = `importScripts(${JSON.stringify(dagreSrc)});var K=(${kernelFactory.toString()})();` +
         'onmessage=function(e){var d=e.data,geo=null;try{geo=K.layout(d.model,d.sizes,d.opts,self.__latticeDagre)}catch(_x){}postMessage({id:d.id,geo:geo})};';
       const url = w.URL.createObjectURL(new w.Blob([src], { type: 'text/javascript' }));
@@ -353,14 +390,80 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     return d;
   }
   /** A head at `tip`, pointing along (dx, dy). Drawn, never typed (HARD RULE #29). */
-  function head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string): string {
+  function head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string, extra = ''): string {
     const L = Math.hypot(dx, dy) || 1;
     const ux = dx / L, uy = dy / L, px = -uy, py = ux;
     const at = (a: number, b: number) => `${r1(tip.x - ux * a + px * b)} ${r1(tip.y - uy * a + py * b)}`;
-    if (kind === 'dot') return `<circle class="${cls}" data-head="dot" cx="${r1(tip.x - ux * size * 0.45)}" cy="${r1(tip.y - uy * size * 0.45)}" r="${r1(size * 0.4)}"/>`;
-    if (kind === 'open') return `<path class="${cls}" data-head="open" d="M${at(size, size * 0.55)}L${at(0, 0)}L${at(size, -size * 0.55)}"/>`;
-    if (kind === 'cross') return `<path class="${cls}" data-head="cross" d="M${at(size * 1.1, size * 0.5)}L${at(size * 0.1, -size * 0.5)}M${at(size * 1.1, -size * 0.5)}L${at(size * 0.1, size * 0.5)}"/>`;
-    return `<path class="${cls}" data-head="arrow" d="M${at(0, 0)}L${at(size, size * 0.5)}L${at(size, -size * 0.5)}Z"/>`;
+    if (kind === 'dot') return `<circle class="${cls}"${extra} data-head="dot" cx="${r1(tip.x - ux * size * 0.45)}" cy="${r1(tip.y - uy * size * 0.45)}" r="${r1(size * 0.4)}"/>`;
+    if (kind === 'open') return `<path class="${cls}"${extra} data-head="open" d="M${at(size, size * 0.55)}L${at(0, 0)}L${at(size, -size * 0.55)}"/>`;
+    if (kind === 'cross') return `<path class="${cls}"${extra} data-head="cross" d="M${at(size * 1.1, size * 0.5)}L${at(size * 0.1, -size * 0.5)}M${at(size * 1.1, -size * 0.5)}L${at(size * 0.1, size * 0.5)}"/>`;
+    return `<path class="${cls}"${extra} data-head="arrow" d="M${at(0, 0)}L${at(size, size * 0.5)}L${at(size, -size * 0.5)}Z"/>`;
+  }
+
+  /**
+   * Every routed line as markup, the way both graph charts draw them: each end carried on
+   * to its shape's outline, the stroke backed off a head's tip, the path cut where it
+   * passes under a label or a group title (so a label sits ON its line), corners rounded
+   * by `o.radius`, and the label centered in its seat. The class names come from the chart.
+   */
+  function lines(geo: Geometry, edges: LineEdge[], kindOf: (id: string) => string | null, o: LineOptions): string {
+    const parts: string[] = [];
+    const holes: Rect[] = [];
+    for (const r of geo.routes) if (r.labelAt && r.labelSize) holes.push({ x: r.labelAt.x - r.labelSize.w / 2, y: r.labelAt.y - r.labelSize.h / 2, w: r.labelSize.w, h: r.labelSize.h });
+    for (const t of Object.values(geo.titles || {})) holes.push({ x: t.x - 3, y: t.y, w: t.w + 6, h: t.h });
+    const HEAD = 7;
+    for (const r of geo.routes) {
+      const e = edges[r.index];
+      if (!e || r.points.length < 2) continue;
+      const st = e.style || {};
+      const endHead = e.tether ? null : e.dir === 'out' || e.dir === 'both' ? (st.head || 'arrow') : null;
+      const startHead = e.tether ? null : e.dir === 'in' || e.dir === 'both' ? (st.head || 'arrow') : null;
+      const P = r.points.map((p) => ({ ...p }));
+      const nb = (id: string) => geo.nodes[id];
+      if (nb(r.from) && P.length > 1) P[0] = toOutline(P[0], P[1], nb(r.from), kindOf(r.from));
+      if (nb(r.to) && P.length > 1) P[P.length - 1] = toOutline(P[P.length - 1], P[P.length - 2], nb(r.to), kindOf(r.to));
+      // Back the stroke off the tip so it never pokes through the head.
+      const pts = P.map((p) => ({ ...p }));
+      const back = (i: number, j: number, by: number) => { const a = pts[i], b = pts[j]; const L = Math.hypot(a.x - b.x, a.y - b.y); if (L > by + 1) { a.x -= ((a.x - b.x) / L) * by; a.y -= ((a.y - b.y) / L) * by; } };
+      const n = pts.length;
+      if (endHead === 'arrow') back(n - 1, n - 2, HEAD * 0.8);
+      if (startHead === 'arrow') back(0, 1, HEAD * 0.8);
+      const attrs = `${e.heavy ? ' data-heavy="1"' : ''}${st.pattern ? ` data-pattern="${esc(st.pattern)}"` : ''}${st.slot ? ` data-slot="${esc(st.slot)}"` : ''}${e.back ? ' data-back="1"' : ''}${e.tether ? ' data-tether="1"' : ''}`;
+      const runs = cut(pts, holes);
+      let g = `<g class="${o.cls.group}" data-edge="${r.index}"${attrs}>`;
+      const pa = o.pathAttrs || '';
+      for (const run of runs) g += `<path class="${o.cls.path}"${pa} d="${rounded(run, o.radius)}"/>`;
+      const ha = o.headAttrs || '';
+      if (endHead) g += head(endHead, P[P.length - 1], P[P.length - 1].x - P[P.length - 2].x, P[P.length - 1].y - P[P.length - 2].y, HEAD * (e.heavy ? 1.25 : 1), o.cls.head, ha);
+      if (startHead) g += head(startHead, P[0], P[0].x - P[1].x, P[0].y - P[1].y, HEAD * (e.heavy ? 1.25 : 1), o.cls.head, ha);
+      if (r.labelAt && e.label) g += `<text class="${o.cls.label}" x="${r1(r.labelAt.x)}" y="${r1(r.labelAt.y)}" font-size="${r1(o.labelFont)}" text-anchor="middle" dominant-baseline="central">${esc(e.label)}</text>`;
+      parts.push(`${g}</g>`);
+    }
+    return parts.join('');
+  }
+
+  /**
+   * The groups as markup: a box per group, outer ones first (`under`, painted before the
+   * lines), and each group's title in the seat the kernel kept for it (`over`, painted
+   * after them). The class names come from the chart.
+   */
+  function groups(list: LineGroup[], geo: Geometry, titleFont: number, cls: { box: string; title: string }): { under: string; over: string } {
+    const all = list || [];
+    const depth = (gid: string) => { let d = 0; let p = all.find((g) => g.id === gid)?.parent; while (p) { d++; const q: string | null | undefined = p; p = all.find((g) => g.id === q)?.parent; } return d; };
+    const sorted = all.slice().sort((a, b) => depth(a.id) - depth(b.id));
+    let under = '';
+    let over = '';
+    for (const g of sorted) {
+      const b = geo.groups[g.id];
+      if (!b) continue;
+      under += `<rect class="${cls.box}" data-group="${esc(g.id)}"${g.slot ? ` data-slot="${esc(g.slot)}"` : ''} data-depth="${depth(g.id)}" x="${r1(b.x)}" y="${r1(b.y)}" width="${r1(b.w)}" height="${r1(b.h)}" rx="10"/>`;
+    }
+    for (const g of sorted) {
+      const t = geo.titles?.[g.id];
+      if (!t) continue;
+      over += `<text class="${cls.title}" data-group="${esc(g.id)}"${g.slot ? ` data-slot="${esc(g.slot)}"` : ''} x="${r1(t.x)}" y="${r1(t.y + t.h / 2)}" font-size="${r1(titleFont)}" dominant-baseline="central">${esc(g.name)}</text>`;
+    }
+    return { under, over };
   }
 
   // The letterbox scale a drawing of natW by natH gets in `port`; null when unmeasurable.
@@ -399,8 +502,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     const parts = A.parts(fig);
     if (!parts) return;
     const { box, harness, svg } = parts;
-    if (!dagre) { fig.setAttribute(`data-${P}-nolayout`, '1'); return; }
-    fig.removeAttribute(`data-${P}-nolayout`);
+    // No dagre is not the end: a chart that wraps (the state chart's chain) lays out on the
+    // kernel's reading-order grid without it. Whatever still needs dagre comes back null
+    // below and keeps its measuring tiles, marked `data-<prefix>-nolayout`.
     // A figure mid-reveal (the docs Drawing Board tilts it) measures foreshortened.
     try { const t = getComputedStyle(fig).transform; if (t && t !== 'none') return; } catch (_e) { /* measure anyway */ }
     let read: M | null;
@@ -413,16 +517,21 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // forces a page layout per read. Its inputs are cheap to read, so skip it when they
     // match the last completed draw.
     const port0 = parts.port;
-    const sigNow = () => [...A.signature(fig, harness), sec ? sec.offsetWidth : 0, port0.clientWidth, port0.clientHeight, doc.fonts ? doc.fonts.status : ''].join('\u0001');
+    const sigNow = () => [...A.signature(fig, harness), sec ? sec.offsetWidth : 0, port0.clientWidth, port0.clientHeight, doc.fonts ? doc.fonts.status : '', dagre ? 1 : 0].join('\u0001');
     const sig = sigNow();
     if (F[key('Sig')] === sig && fig.getAttribute(`data-${P}-drawn`)) return;
     // A live layout for exactly these inputs is already in flight.
     if (F[key('PendingSig')] === sig) return;
     // ...or it answered, with no layout for exactly these inputs.
     if (F[key('NoLayoutSig')] === sig) return;
+    // A viewport laid out with a width but no height (a stage collapsed at a narrow
+    // viewport) has nothing to fit into: a layout into a zero-height stage tries every
+    // candidate for nothing (52 s on a dense machine). The resize observer draws it once it
+    // has a height. (A document that lays nothing out, jsdom, reads 0 for both and draws.)
+    if (port0.clientWidth > 0 && !(port0.clientHeight > 0)) return;
     readVis(sec);
     const S = sec && sec.offsetWidth > 0 ? sec.offsetWidth / HD : 1;
-    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, r1, esc, outline, grow, toOutline, cut, rounded, head };
+    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
 
     // Measure with the harness laid out and the box unscaled.
     const unlay = () => {
@@ -460,6 +569,15 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // The last round's [lift guessed, lift it came out at], for the secant step.
     let last: [number, number] | null = null;
     // Another round only while the floor the new fit implies moves by more than 1%.
+    // A CHART UNDER HALF SIZE STOPS ONLY WHEN IT CANNOT SETTLE. Lifting the floor by 1/k grows
+    // the text, which grows the layout and lowers k again. When the text drives the size
+    // faster than the lift (slope 1 or more), there is no fixed point: a 36-state machine went
+    // k 0.10, 0.04, 0.01 over three rounds of 7-13 s each, and every round only made it
+    // smaller. A contracting chart under half size DOES settle, and the secant step lands it
+    // (a chart at k 0.45 whose floor must reach 35 px gets there in three rounds). Two rounds
+    // give the slope, so an over-budget chart stops at the second round when that slope is
+    // 0.9 or more (where the secant step gives up) or negative; the TYPE FLOOR report says so.
+    const OVER_BUDGET = 0.5;
     const settled = (geo: Geometry) => {
       const kNow = fitOf(port0, geo.width * S, geo.height * S);
       if (kNow == null || Math.abs(lift(kNow) - lift(kGuess)) / lift(kGuess) < 0.01) return true;
@@ -470,6 +588,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         // extrapolated (0 to 0.9, so at most 9 steps' worth); anything else iterates plainly.
         const b = (ln - last[1]) / (lg - last[0]);
         if (b >= 0 && b <= 0.9) { const L = (ln - b * lg) / (1 - b); next = L > 1 ? 1 / L : 1; }
+        else if (kNow < OVER_BUDGET) return true;
       }
       last = [lg, ln];
       kGuess = next;
@@ -516,7 +635,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     for (let round = 0; round < ROUNDS; round++) {
       m = measure();
       m.geo = K.layout(m.args[0], m.args[1], m.args[2], dagre);
-      if (!m.geo) return;
+      if (!m.geo) { if (!dagre) fig.setAttribute(`data-${P}-nolayout`, '1'); F[key('NoLayoutSig')] = sig; return; }
       if (settled(m.geo)) break;
       floorFor(kGuess);
     }
@@ -524,6 +643,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
 
     function finish(m: Measured & { geo: Geometry }) {
       const geo = m.geo;
+      fig.removeAttribute(`data-${P}-nolayout`);
       const drawn = A.paint(model, m, geo, ctx);
       const vb = `0 0 ${r1(geo.width)} ${r1(geo.height)}`;
       writeSvg(drawn, vb);

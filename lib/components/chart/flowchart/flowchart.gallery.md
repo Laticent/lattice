@@ -65,6 +65,22 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
+<!-- _class: flowchart curved -->
+<!-- _footer: "Curved · flowchart curved — Generously rounded corners on the router's lines." -->
+
+## Every page reaches a human within 15 minutes.
+
+- Alert fires `:pill` => Auto-triage => Severity?
+- Severity? `:diamond`
+  - -SEV1-> Page on-call
+  - -SEV2-> Open ticket
+- Page on-call `fail`
+  - -ack-> Mitigate
+- Open ticket -> Mitigate
+
+
+---
+
 <!-- _class: flowchart -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · flowchart — Three groups, a group-to-shape line and a disconnected shape." -->
@@ -177,7 +193,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 `Related components`
 
-- `state-chart` — a finite-state machine: numbered states, events between them, a start and an end
+- `state-chart` — a finite-state machine: states, the events between them, a start and an end
 - `diagram` — you need Mermaid's full grammar: sequence, class or entity diagrams, or a flowchart with subgraph directions and styles this grammar does not cover
 - `list-steps` — a linear procedure with no branching and no lines worth drawing
 - `roadmap` — parallel workstreams across phases, where time is the axis

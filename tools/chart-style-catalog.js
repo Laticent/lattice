@@ -34,7 +34,7 @@ const MARKS = {
   bar:'.bar-mark', 'stacked-bar':'.sbar-seg', line:'.line-dot', scatter:'.scatter-dot',
   bullet:'.bullet-measure', slope:'.slope-dot', waterfall:'.waterfall-bar', funnel:'.funnel-band',
   piechart:'.wedge', quadrant:'.quadrant-tint', radar:'.radar-poly', gantt:'.gantt-bar',
-  progress:'.progress-fill', 'state-chart':'.state-node', kanban:'.kanban-card',
+  progress:'.progress-fill', 'state-chart':'.state-node-shape', kanban:'.kanban-card',
   'matrix-grid':'.cell-filled', roadmap:'.cell-state', map:'.map-region--on',
   journey:'.journey-stage', 'word-cloud':'.wc-word', 'timeline-list':'.timeline-dot',
 };
