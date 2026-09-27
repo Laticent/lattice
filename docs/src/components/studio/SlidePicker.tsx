@@ -1,6 +1,6 @@
 import { ChevronDown, Layers, LayoutGrid, Plus, Rows3 } from 'lucide-react';
 import * as React from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { DialogCloseButton, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -122,7 +122,15 @@ export type SlidePickerProps = {
 	onInsert: (item: PickerItem) => void;
 };
 
-export function SlidePicker({ open, onOpenChange, items, options, frontMatter, paletteOverride, extraTheme, modeOverride, recent = [], onInsert }: SlidePickerProps) {
+/**
+ * The gallery stays mounted between opens (see the return below), so without this every Studio
+ * change — each keystroke in the editor — re-rendered 71 hidden tiles. Measured on Chromium by the
+ * adversarial review: typing 49 characters took 1.10 s of script against 0.69 s on main. A closed
+ * gallery skips the render; it catches up on the next open, and its frames patch in place.
+ */
+export const SlidePicker = React.memo(SlidePickerImpl, (prev, next) => !prev.open && !next.open);
+
+function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, paletteOverride, extraTheme, modeOverride, recent = [], onInsert }: SlidePickerProps) {
 	const bp = useBreakpoint();
 	const compact = bp === 'mobile';
 	const [query, setQuery] = React.useState('');
@@ -130,6 +138,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const [detail, setDetail] = React.useState<PickerItem | null>(null);
 	const [expanded, setExpanded] = React.useState<string | null>(null); // component name whose looks are open
 	const searchRef = React.useRef<HTMLInputElement>(null);
+	const scrollRef = React.useRef<HTMLDivElement>(null);
 	// Grid or list. Read from storage LAZILY (never during module init) so the server
 	// render and the first client render agree — `loadPickerView` touches localStorage,
 	// which does not exist during SSR.
@@ -159,6 +168,9 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		setFacet(null);
 		setDetail(null);
 		setExpanded(null);
+		// The gallery stays mounted between opens (PersistentSurface), so a reopen would land where
+		// the last one scrolled to; it used to remount at the top.
+		if (scrollRef.current) scrollRef.current.scrollTop = 0;
 		if (!compact) requestAnimationFrame(() => searchRef.current?.focus());
 	}, [open, compact]);
 
@@ -338,7 +350,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 				</p>
 			)}
 
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
+			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
 				{/* POOLED PREVIEWS. The frames live in one layer inside this scroll content rather than one
 				    per tile, so they are re-pointed instead of destroyed as you scroll — which is what stops
 				    WebKit retaining a document per tile browsed. See preview-pool.tsx. The grid itself is
@@ -412,49 +424,52 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		</ToggleGroup>
 	);
 
-	if (compact) {
-		// The sixth surface the mobile drawer opens ("Add slide", on the Edit
-		// pane) — so it wears the same shell as the other five (#1211). It was the one
-		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
-		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
-		return (
-			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg">
-				{/* `title` — one name for one door. This sheet and the desktop dialog below share
-				    it, and so do all five launchers (rail, editor header, this drawer row, the
-				    command palette, the Compose divider): "Add a slide" / "Add slide" (#1654).
-				    Same class of defect as the "Reader views" row landing on a panel headed
-				    LENSES, one card over (#1211) — a launcher must agree with what it opens. */}
-				<PanelHeader icon={<Plus />} title={title} srDescription={description} />
-				{body}
-				{/* Phone: search docks above the keyboard. */}
-				<PanelDock>{searchField}</PanelDock>
-			</PanelSheet>
-		);
-	}
+	// PERSISTENT, and ONE HOST for both layouts: mounted on the first open and only hidden after
+	// that, so the gallery's preview frames — and their documents — survive a close. WebKit never
+	// frees a preview document once its frame is destroyed; remounting this gallery stranded ~45 MB
+	// on every reopen on Safari and iPad (ui/persistent-surface.tsx). The frames stay in the gallery's
+	// own scroller, so iOS scrolls them natively with their tiles.
+	//
+	// The phone sheet and the desktop dialog are the same `PanelSheet`, and the children are KEYED,
+	// so crossing the breakpoint (a phone rotated, an iPad in Split View) re-dresses the gallery
+	// rather than swapping components — which would destroy every frame it keeps. `body` keeps its
+	// key in both layouts; only the chrome around it changes.
+	//
+	// The phone sheet is the sixth surface the mobile drawer opens ("Add slide", on the Edit pane), so
+	// it wears the same shell as the other five (#1211); 85dvh leaves ~717px of gallery on a 390×844
+	// phone. The dialog's `sm:max-w-[1120px]` is the width this gallery is drawn for, and it must
+	// carry the `sm:` modifier: DIALOG_BOX's `sm:max-w-lg` only yields to a same-modifier override
+	// under tailwind-merge (#1657).
+	//
+	// `title` — "Add a slide" — on BOTH layouts, from the one `title` const (#1654): a launcher must
+	// agree with what it opens.
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			{/* `sm:max-w-[1120px]`, NOT `max-w-[1120px]` — the width this gallery is drawn for.
-			    DialogContent's shadcn base carries `sm:max-w-lg`, and tailwind-merge keys its
-			    conflict groups on the responsive modifier, so an UNPREFIXED override is not a
-			    conflict: both classes survived and `sm:max-w-lg` won on source order at every
-			    width above 640px. The dialog had been rendering at 512px — under half its
-			    intended width — which is what shrank the previews to ~93px and truncated every
-			    name to three characters. Match the modifier and the override lands (#1657). */}
-			<DialogContent className="flex h-[min(84vh,760px)] sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
-				{/* `title` — "Add a slide" — on BOTH transports, from the one `title` const. Keep
-				    it that way: a previous pass renamed the phone sheet and left the desktop
-				    dialog saying something else, so the very defect being fixed survived on the
-				    surface most people use. One name, one place. */}
-				{/* `pr-24` clears BOTH the view toggle and the dialog's own absolutely-positioned
-				    close button, which sits at `top-4 right-4`. */}
-				<div className="flex items-center justify-between gap-3 px-4 pt-4 pr-24 sm:px-5 sm:pr-24">
-					<DialogTitle className="text-[15px]">{title}</DialogTitle>
-					{viewToggle}
-				</div>
-				<DialogDescription className="sr-only">{description}</DialogDescription>
-				{body}
-			</DialogContent>
-		</Dialog>
+		<PanelSheet
+			open={open}
+			onOpenChange={onOpenChange}
+			width="lg"
+			persistent
+			phone={compact}
+			dialogClassName="flex h-[min(84vh,760px)] sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0"
+		>
+			{[
+				compact ? (
+					<PanelHeader key="sheet-header" icon={<Plus />} title={title} srDescription={description} />
+				) : (
+					<React.Fragment key="dialog-header">
+						{/* `pr-24` clears BOTH the view toggle and the corner close button. */}
+						<div className="flex items-center justify-between gap-3 px-4 pt-4 pr-24 sm:px-5 sm:pr-24">
+							<DialogTitle className="text-[15px]">{title}</DialogTitle>
+							{viewToggle}
+						</div>
+						<DialogDescription className="sr-only">{description}</DialogDescription>
+					</React.Fragment>
+				),
+				<React.Fragment key="body">{body}</React.Fragment>,
+				/* Phone: search docks above the keyboard. */
+				compact ? <PanelDock key="sheet-dock">{searchField}</PanelDock> : <DialogCloseButton key="dialog-close" />,
+			]}
+		</PanelSheet>
 	);
 }
 

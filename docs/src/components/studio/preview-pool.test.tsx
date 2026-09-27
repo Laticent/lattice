@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // remount is exactly the teardown WebKit does not reclaim, so the count IS the contract.
 let mounts = 0;
 let unmounts = 0;
+/** A frame whose Mermaid flag CHANGED — a full `srcdoc` rewrite, a fresh document on WebKit. */
+let reshapes = 0;
 vi.mock('@/components/DeckPreview', async () => {
 	const React = await import('react');
 	return {
@@ -21,6 +23,11 @@ vi.mock('@/components/DeckPreview', async () => {
 					unmounts++;
 				};
 			}, []);
+			const shape = React.useRef(props.mermaid);
+			if (shape.current !== props.mermaid) {
+				shape.current = props.mermaid;
+				reshapes++;
+			}
 			return <figure data-testid="deck-preview" data-sample={String(props.sample)} data-specimen={props.specimen ? 'yes' : 'no'} />;
 		},
 	};
@@ -648,5 +655,68 @@ describe('PooledThumbFace — the tile box', () => {
 		settle();
 		expect(spec.container.querySelector('[data-testid="deck-preview"]')?.getAttribute('data-specimen'), 'a catalog specimen was not silenced').toBe('yes');
 		spec.unmount();
+	});
+});
+
+describe('PreviewPool — a tile of another shape', () => {
+	it('gets a new slot of its own shape under the ceiling, never a rewrite of a free one', () => {
+		// The Add slide gallery stays mounted between opens, so every rewrite it repeats is repeated on
+		// every reopen. Its one Mermaid tile took a free slot of the plain shape — two `srcdoc` writes
+		// per reopen on WebKit (measured) — until the pool gave it one of its own.
+		reshapes = 0;
+		const samples = ['# 0', '# 1', '```mermaid\ngraph TD\n```'];
+		const { container } = render(
+			<PreviewPool>
+				{samples.map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>,
+		);
+		for (const i of [0, 1]) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		for (const i of [0, 1]) {
+			offScreen(face(container, i));
+			intersect(face(container, i), false);
+		}
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		onScreen(face(container, 2));
+		intersect(face(container, 2), true);
+		settle();
+		expect(showing(container)).toContain(samples[2]);
+		expect(reshapes, 'a free slot of the plain shape was rewritten for the Mermaid tile').toBe(0);
+	});
+
+	it('at the ceiling, still gives a shape the pool holds no slot of its own one', () => {
+		reshapes = 0;
+		const samples = [...Array.from({ length: BASE_SLOTS }, (_, i) => `# ${i}`), '```mermaid\ngraph TD\n```'];
+		const { container } = render(
+			<PreviewPool>
+				{samples.map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>,
+		);
+		for (let i = 0; i < BASE_SLOTS; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		for (let i = 0; i < BASE_SLOTS; i++) {
+			offScreen(face(container, i));
+			intersect(face(container, i), false);
+		}
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		onScreen(face(container, BASE_SLOTS));
+		intersect(face(container, BASE_SLOTS), true);
+		settle();
+		expect(showing(container)).toContain(samples[BASE_SLOTS]);
+		expect(reshapes, 'a full pool rewrote a plain slot for the one Mermaid tile').toBe(0);
 	});
 });

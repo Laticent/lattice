@@ -93,7 +93,10 @@ describe('Studio — insert + render a saved local component', () => {
 		// A success toast confirms the insert, and the preview now carries the
 		// component's CSS (the deck uses `.mybox`, so usedLocalCss → extraCss).
 		expect(await screen.findByText(/Inserted/)).toBeInTheDocument();
-		const preview = await screen.findByTestId('deck-preview');
+		// The Studio's own preview. The closed gallery stays mounted and keeps its tiles' previews
+		// (ui/persistent-surface.tsx), so a page-wide lookup now finds those too.
+		const preview = (await screen.findAllByTestId('deck-preview')).find((el) => !el.closest('[data-slot="persistent-surface"]'));
+		if (!preview) throw new Error("the Studio's own preview is missing");
 		expect(preview.getAttribute('data-extra-css')).toContain('section.mybox');
 	});
 

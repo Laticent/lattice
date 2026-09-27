@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { countDocuments, documentsMade } from './preview-documents';
 import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // METAMORPHIC oracles for the add-slide gallery's live-preview window.
@@ -35,7 +36,9 @@ import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 //   · the retained set SATURATES — it stops growing, rather than never growing;
 //   · the VISIBLE set is path-independent — what you can actually see is a function of the
 //     offset alone, whatever route took you there;
-//   · state does not survive a close;
+//   · state does not survive a close — the gallery stays MOUNTED between opens (its frames are
+//     kept, because WebKit never frees a preview document; ui/persistent-surface.tsx), but it
+//     is hidden, and a reopen makes no new documents;
 //   · a recycled tile comes back correct.
 // Measured shape of the current implementation, for whoever reads a failure here: at
 // 390x844 the gallery shows 3 tiles and settles at ~13 mounted, at 820x1180 it shows 6 and
@@ -52,6 +55,13 @@ import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 // device claim is unreachable from this sandbox and is marked UNVERIFIED.
 
 const SCROLLER = 'div.overflow-y-auto.overscroll-contain';
+
+/** Whether the gallery is on screen at all. A closed gallery stays mounted, hidden. */
+const galleryShown = (page: Page) =>
+	page.evaluate((sel) => {
+		const sc = document.querySelector(sel);
+		return !!sc && sc.getClientRects().length > 0;
+	}, SCROLLER);
 
 /** Live engine preview documents mounted anywhere in the page. */
 const liveFrames = (page: Page) => page.evaluate(() => document.querySelectorAll('iframe.live').length);
@@ -360,10 +370,12 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 	test('@crosswidth MR-3 · opening and closing the gallery is idempotent', async ({ page }, testInfo) => {
 		test.setTimeout(210_000);
 		const compact = testInfo.project.name === 'mobile';
+		await countDocuments(page);
 		await gotoStudio(page);
 
 		const opened: number[] = [];
 		const closed: number[] = [];
+		const made: number[] = [];
 		for (let cycle = 0; cycle < 3; cycle++) {
 			if (cycle === 0) await openAddSlide(page, compact);
 			else await reopen(page, compact);
@@ -373,19 +385,31 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 			opened.push(await mounted(page));
 
 			await page.keyboard.press('Escape');
-			await expect.poll(() => mounted(page), { timeout: 20_000, message: 'the gallery did not tear its previews down on close' }).toBe(0);
+			await expect.poll(() => galleryShown(page), { timeout: 20_000, message: 'the gallery stayed on screen after close' }).toBe(false);
 			await quiesced(page);
 			closed.push(await liveFrames(page));
+			made.push(await documentsMade(page));
 		}
 
-		// THE RELATION, twice over.
-		// (a) Closing RELEASES. Every gallery preview is gone; what remains is the Studio's own
-		//     preview, which is not ours to count. This is the one that matters most to a user,
+		// THE RELATION, three times over.
+		// (a) Closing leaves NO PER-OPEN RESIDUE. This is the one that matters most to a user,
 		//     because they open this gallery once per slide they add — a per-open residue is the
-		//     shape that ends a session in a tab discard.
+		//     shape that ends a session in a tab discard. It used to read "closing releases every
+		//     preview document" (≤ 2 left, the Studio's own preview). The gallery now stays mounted
+		//     and KEEPS its frames, hidden, so the next open re-points them: WebKit never frees a
+		//     destroyed one. So the relation is stated as what it always guarded — the count after
+		//     every close is the same, within SLACK for MR-1's reason (a later traversal can settle a
+		//     frame or two higher than the first).
 		for (const [i, n] of closed.entries()) {
-			expect(n, `after close #${i + 1} the page still holds ${n} live preview documents`).toBeLessThanOrEqual(2);
+			expect(n, `close #${i + 1} left ${n} live preview documents against ${closed[0]} after close #1 — a per-open residue`).toBeLessThanOrEqual(closed[0] + SLACK);
+			// And an absolute ceiling: the pool's HARD_MAX_SLOTS (28, preview-pool.tsx) plus the
+			// Studio's own preview and one spare. A level count at a runaway height is not a pass.
+			expect(n, `close #${i + 1} holds ${n} live preview documents, past the pool's hard ceiling`).toBeLessThanOrEqual(30);
 		}
+		// (c) A reopen MAKES no documents. Element counts cannot see a frame rebuilt in place or a
+		//     full `srcdoc` rewrite into a kept one (./preview-documents), and each is a document
+		//     WebKit never frees.
+		expect(made[2] - made[0], `reopens #2 and #3 made ${made[2] - made[0]} preview documents`).toBeLessThanOrEqual(SLACK);
 		// (b) Opening is the SAME each time. Cycle 3 must look like cycle 1 — a window carrying
 		//     state across opens climbs here even when each individual close looks clean.
 		agree(opened[0], opened[opened.length - 1], `mounted previews after a full scroll, open #1 vs open #${opened.length}`);
@@ -526,6 +550,35 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		expect(await panelFrames(page), 'the looks panel kept previews on screen after it was collapsed').toBe(0);
 		agree(beforeVisible, await visible(page), 'visible previews before expanding a looks panel vs after collapsing it');
 	});
+	test('MR-7 · crossing the phone breakpoint keeps the gallery and its documents', async ({ page }, testInfo) => {
+		// A rotated phone or an iPad in Split View crosses the breakpoint. The gallery's phone sheet
+		// and desktop dialog were two components, so the crossing unmounted one and every frame with
+		// it: 14 fresh documents on the next open (measured by the adversarial review). They are one
+		// persistent host now, re-dressed at the breakpoint.
+		test.skip(testInfo.project.name !== 'desktop', 'drives its own viewport sizes');
+		test.setTimeout(150_000);
+		await countDocuments(page);
+		await gotoStudio(page);
+		await openAddSlide(page, false);
+		await firstBandPainted(page);
+		await quiesced(page);
+		await page.keyboard.press('Escape');
+		await expect.poll(() => galleryShown(page), { timeout: 20_000 }).toBe(false);
+		const before = await documentsMade(page);
+		const size = page.viewportSize() ?? { width: 1440, height: 900 };
+		// Wait on the gallery's own re-dress, not a clock: the kept box draws the phone sheet
+		// (`bottom-0`) or the centered dialog (`top-[50%]`).
+		const dressedAs = () => page.evaluate(() => document.querySelector('[data-slot="persistent-surface-box"]')?.className.includes('top-[50%]') ? 'dialog' : 'sheet');
+		await page.setViewportSize({ width: 390, height: 844 });
+		await expect.poll(dressedAs, { message: 'the gallery was not re-dressed as the phone sheet' }).toBe('sheet');
+		await page.setViewportSize(size);
+		await expect.poll(dressedAs, { message: 'the gallery was not re-dressed as the dialog' }).toBe('dialog');
+		await reopen(page, false);
+		await firstBandPainted(page);
+		await quiesced(page);
+		const made = (await documentsMade(page)) - before;
+		expect(made, `a breakpoint crossing cost ${made} preview documents on the next open`).toBeLessThanOrEqual(SLACK);
+	});
 });
 
 /** Reopen the picker from whatever state the Studio was left in after a close. On a phone the
@@ -563,6 +616,7 @@ async function reopen(page: Page, compact: boolean) {
 // exists at all (see playwright.config.ts).
 test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async ({ page }) => {
 	test.setTimeout(210_000);
+	await countDocuments(page);
 	await gotoStudio(page);
 	await openAddSlide(page, true);
 	await firstBandPainted(page);
@@ -585,8 +639,20 @@ test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async
 	expect(rest.blank, `WebKit: ${rest.blank} of ${rest.seen} tile boxes on screen are blank`).toBeLessThanOrEqual(2);
 
 	await page.keyboard.press('Escape');
-	await expect.poll(() => mounted(page), { timeout: 20_000, message: 'WebKit: the gallery did not tear its previews down on close' }).toBe(0);
+	await expect.poll(() => galleryShown(page), { timeout: 20_000, message: 'WebKit: the gallery stayed on screen after close' }).toBe(false);
 	await quiesced(page);
-	const afterClose = await liveFrames(page);
-	expect(afterClose, `WebKit: ${afterClose} live preview documents survived closing the gallery`).toBeLessThanOrEqual(2);
+	// Closing KEEPS the gallery's documents, hidden, so the next open re-points them — the WebKit
+	// fix itself (ui/persistent-surface.tsx). What must hold is that a REOPEN mints none: WebKit
+	// never frees a preview document, so any new one on reopen is permanent. One is the pool's
+	// high-water mark growing by a frame.
+	const madeAtClose = await documentsMade(page);
+	await reopen(page, true);
+	await firstBandPainted(page);
+	await quiesced(page);
+	// Reachable by ROLE, not only by sight: on the phone the reopen goes through the drawer, a Radix
+	// modal whose `hideOthers` marked the kept gallery aria-hidden (ui/persistent-surface.tsx). A
+	// gallery a screen reader cannot find passed every check above.
+	await expect(page.getByRole('dialog', { name: 'Add a slide' }), 'WebKit: the reopened gallery is hidden from assistive tech').toBeVisible();
+	const madeOnReopen = (await documentsMade(page)) - madeAtClose;
+	expect(madeOnReopen, `WebKit: reopening the gallery created ${madeOnReopen} preview documents`).toBeLessThanOrEqual(1);
 });
