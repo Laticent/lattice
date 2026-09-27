@@ -611,6 +611,14 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    counted from text length (§2). It does not see a theme with a taller masthead, a font that
    sets wider than the measured words, or an image that changes the coda. The runtime should
    re-stamp each pane from its laid-out box.
+   **Measured (2026-09-27), and narrowed** (`2376-p3-chart-pane-canvas-…`). The family is never
+   wrong: 0 of 86 panes, over four slide sizes, a stress deck of masthead and layout variants,
+   and nine themes, carry a `data-family` that differs from their measured box, so a runtime
+   re-stamp would change nothing. The SIZE is off under a long headline: a chart pane's canvas
+   comes out up to 20% wider than its box, because one-line headlines run to 76 characters and
+   two-line ones start at 57, and no characters-per-line constant separates them. Fixing it means
+   measuring in the browser and re-laying out the chart there, a design decision about shipping
+   the chart kernels in the runtime.
 2. **Finish sizing charts to the pane** (`2376-p2-size-chart-…`). The SVG chart kernels draw for
    the pane's canvas now (§2). Still open: Mermaid, which lays itself out and scales into the pane;
    the HTML-drawn charts' reflow in a small box; a TYPE FLOOR probe that flags an unreadable chart
