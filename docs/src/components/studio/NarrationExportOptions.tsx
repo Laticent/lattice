@@ -68,7 +68,7 @@ export function NarrationExportOptions({
 	/** Non-null when narration cannot be offered at all (today: notes are being stripped). */
 	blockedReason?: string | null;
 	/** The sentences a previous attempt could not prepare, so the refusal names them. */
-	failures?: { slide: number; text: string; reason: string }[] | null;
+	failures?: { slide: number; text: string; reason: string; bookend?: string }[] | null;
 	/** Re-run the export accepting those sentences as silent. Rendered only alongside a
 	 *  refusal that already named them. */
 	onExportAnyway?: () => void;
@@ -566,7 +566,7 @@ export function NarrationExportOptions({
 							<ul className="mt-1.5 space-y-1 text-muted-foreground">
 								{failures.slice(0, 5).map((f) => (
 									<li key={`${f.slide}:${f.text}`}>
-										<span className="font-mono">Slide {f.slide}</span> — “{truncate(f.text)}” ({f.reason})
+										<span className="font-mono">{failureWhere(f)}</span> — “{truncate(f.text)}” ({f.reason})
 									</li>
 								))}
 								{failures.length > 5 && <li>…and {failures.length - 5} more.</li>}
@@ -618,6 +618,14 @@ function Line({ term, detail }: { term: string; detail: string }) {
  */
 function captionBytes(m: NarrationMeasure): number {
 	return Math.round(m.totalChars * 2.2);
+}
+
+/** Where a failed sentence sits, in the author's words: a slide, the greeting (which variant),
+ *  or the closing. A row with neither is a summary line and names no place. */
+function failureWhere(f: { slide: number; bookend?: string }): string {
+	if (f.bookend === 'closing') return 'Closing';
+	if (f.bookend?.startsWith('greeting-')) return `Greeting (${f.bookend.slice('greeting-'.length)})`;
+	return f.slide ? `Slide ${f.slide}` : 'Deck';
 }
 
 function truncate(s: string, n = 60): string {

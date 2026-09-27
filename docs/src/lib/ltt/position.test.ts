@@ -97,3 +97,38 @@ describe('timeline', () => {
 		expect(() => timeline({ ...tour.ltt, seekable: false })).toThrow(/not seekable/);
 	});
 });
+
+describe('bookends on the timeline', () => {
+	const f = fixtures.find((x) => x.ltt.source.kind === 'deck' && x.ltt.seekable) as Fixture;
+	const H = `sha256:${'ab'.repeat(32)}`;
+	const track = (display: string, ms: number) => ({ cues: [{ display, words: [{ display, spoken: display, startMs: 0, endMs: ms, charOffset: 0 }], startMs: 0, endMs: ms, charOffset: 0 }], durationMs: ms });
+	const line = (id: string, ms: number, holdMs: number, tailMs: number) => ({ id, kind: 'bookend' as const, hash: H, basis: 'estimate' as const, holdMs, track: track(id, ms), tailMs });
+	const ltt: Ltt = {
+		...f.ltt,
+		bookends: {
+			greeting: { morning: line('greeting-morning', 1000, 0, 600), afternoon: line('greeting-afternoon', 1100, 0, 600), evening: line('greeting-evening', 1200, 0, 600), neutral: line('greeting-neutral', 500, 0, 600) },
+			closing: line('closing', 800, 600, 0),
+		},
+	};
+
+	it('lays a bookend out as a slide: hold, cues, tail', () => {
+		const p = positionAt(ltt.bookends?.closing as never, 0);
+		expect(p.waitMs).toBe(600);
+		expect(p.lengthMs).toBe(600 + 800);
+		expect(p.phase).toBe('hold');
+	});
+
+	it('puts the greeting at 0, shifts every slide by it, and ends with the closing', () => {
+		const plain = timeline(f.ltt);
+		const tl = timeline(ltt, { greeting: 'afternoon' });
+		expect(tl.greeting).toEqual({ id: 'greeting-afternoon', startMs: 0, lengthMs: 1700 });
+		expect(tl.segments.map((s) => s.startMs)).toEqual(plain.segments.map((s) => s.startMs + 1700));
+		expect(tl.closing).toEqual({ id: 'closing', startMs: plain.durationMs + 1700, lengthMs: 1400 });
+		expect(tl.durationMs).toBe(plain.durationMs + 1700 + 1400);
+	});
+
+	it('defaults to the neutral greeting, and can leave the bookends out', () => {
+		expect(timeline(ltt).greeting?.id).toBe('greeting-neutral');
+		expect(timeline(ltt, { bookends: false })).toEqual(timeline(f.ltt));
+	});
+});

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`. Each takes `true` or custom text with a `{greeting}` placeholder. The viewer's local clock picks "Good morning", "Good afternoon" or "Good evening". Each plays at most once per page load, in the Studio's Present view and in the exported Player. The Player cannot synthesize speech, so the Studio export records four greetings (three periods plus a neutral "Hello") and the Player picks one at playback, with video always taking the neutral one. The timing track carries a new top-level `bookends` section outside its one-segment-per-slide table, and the track stays at version 1.0. Lattice is pre-GA, so no older player needs to keep working.
 ---
 
@@ -57,7 +57,7 @@ closing: "Thank you. Questions are welcome."
 
 ## 4. Time of day
 
-One pure kernel, `lib/core/greeting-period.js` (HARD RULE #1), takes an hour from 0 to 23
+One pure function, `greetingPeriod` in `lib/core/resolve-bookends.mjs` (HARD RULE #1), takes an hour from 0 to 23
 and returns `morning`, `afternoon` or `evening`:
 
 | Local hour | Period |
@@ -236,7 +236,7 @@ reader, the export bake, and the CLI captions path. That gives one reading of th
 
 | Area | Files |
 |---|---|
-| Kernels | `lib/core/greeting-period.js`, `lib/core/resolve-bookends.mjs` + unit tests |
+| Kernels | `lib/core/resolve-bookends.mjs` (the parse and `greetingPeriod`) + unit tests |
 | Timing track | `lib/core/ltt-deck.mjs`, `docs/src/lib/ltt/{types,validate,encode,position}.ts`, the generated schema (`npm run ltt-schema:build`), the `@laticent/ltt` built output, `engineering/ltt.md` §Bookends |
 | Studio | `PresentOverlay.tsx` (both end-of-deck paths), `read-aloud.ts`, `narration-bake.ts` (four greeting clips + closing), `share-export.ts` |
 | Player | `player-core.mjs`: `narrationPayload` (keyed bookend blocks), `narrationJs` (hooks, `clipUri`, neutral under `__lpRender`), the kernel inlined by `.toString()`; rerun `tools/build-player-core.js`, since its `--check` is a freshness gate. The CSP hash needs no step, because `caps.sha256(js)` computes it at every export (~:2857) |
@@ -264,3 +264,34 @@ reader, the export bake, and the CLI captions path. That gives one reading of th
   still says "Good morning". The lint should suggest custom text when `lang:` is not
   English.
 - An `{audience}` or `{title}` placeholder. Custom text already covers it.
+
+## 11. What the build changed (2026-09-27)
+
+The build followed this plan, with five adjustments found while writing it:
+
+- **One kernel file, not two.** `greetingPeriod` lives in `lib/core/resolve-bookends.mjs`
+  beside the parse. It is self-contained, so the player still inlines it by `.toString()`.
+- **A bookend carries `holdMs` as well as `tailMs`**, exactly like a slide. The greeting's
+  hold is 0 and its tail is the gap before slide 1. The closing's hold is the gap after the
+  last slide and its tail is 0. Without a hold, the pause before the closing had no place in
+  `timeline()`, and video export would have disagreed with the player about when the
+  closing starts.
+- **"Once" in the Studio means once per Present session.** The Studio stays loaded for
+  hours of editing, so "once per page load" would greet an author only on the first
+  rehearsal. Opening Present starts a new delivery and greets again. The exported player
+  keeps "once per page load".
+- **Pause during a bookend differs by surface, as Pause already does.** The exported player
+  restarts the current slide on Play (transport rule 5), so a paused greeting is used up. The
+  Studio's reader resumes where it paused, so a paused greeting finishes. Neither repeats.
+- **The Studio needed no `spokeAny` flag** (§7 planned one). `greetedRef` is set by the first
+  Play wherever it starts, which already answers "has anything been spoken yet". It did need a
+  `bookendGap` state: over a silent title slide, the empty-slide skip must wait for the
+  greeting's gap to end before it advances, or slide 2 starts before its own arrival beat. A
+  maker-checker pass found this; `studio.present-bookends.test.tsx` pins it.
+- **An apostrophe needs double quotes.** The shared front-matter scalar rule ends a
+  single-quoted value at its first `'`, and YAML's `''` escape is not honored anywhere in
+  front matter. The docs say to use double quotes.
+
+`.vtt` downloads (CLI `--captions` and the Studio's Captions download) carry the neutral
+greeting and the closing. `cadenza/vtt.ts` needed no change, because both producers shape the
+deck-level file in `lib/core/read-along-vtt.js`.

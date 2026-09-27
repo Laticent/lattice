@@ -5,7 +5,7 @@
 // "CaptionTrack → canonical" is no conversion at all, and a producer drops its track in as-is.
 //
 // PACKED is what the HTML export embeds, where every byte is paid by the recipient. It changes
-// ONE thing: each segment's `track` becomes tuples, with times relative to the cue and the rare
+// ONE thing: each segment's `track` (and each bookend's) becomes tuples, with times relative to the cue and the rare
 // fields only when present. Every other key of the file and of each segment rides through
 // untouched, so a layer added later survives a round trip without this file hearing of it.
 //
@@ -32,7 +32,25 @@ export type PackedTrack = [number, PackedCue[]];
 
 /** An LTT in the packed encoding: the canonical file with `encoding: "packed"` and every
  *  segment's `track` in tuples. */
-export type PackedLtt = Omit<Ltt, 'segments'> & { encoding: 'packed'; segments: Array<Record<string, unknown>> };
+export type PackedLtt = Omit<Ltt, 'segments' | 'bookends'> & {
+	encoding: 'packed';
+	segments: Array<Record<string, unknown>>;
+	bookends?: BookendMap;
+};
+
+/** Apply `fn` to the track of every bookend, keeping every other key as it is. */
+type BookendMap = { greeting?: Record<string, Record<string, unknown>>; closing?: Record<string, unknown> };
+function mapBookends(b: BookendMap, fn: (track: unknown) => unknown): BookendMap {
+	const one = (x: Record<string, unknown>) => ({ ...x, track: fn(x.track) });
+	const out: BookendMap = { ...b };
+	if (b.greeting) {
+		const g: Record<string, Record<string, unknown>> = {};
+		for (const v of Object.keys(b.greeting)) g[v] = one(b.greeting[v]);
+		out.greeting = g;
+	}
+	if (b.closing) out.closing = one(b.closing);
+	return out;
+}
 
 function packWord(w: Word, cue: Cue): PackedWord {
 	const extra: PackedWordExtra = {};
@@ -96,11 +114,12 @@ export function unpackTrack(packed: PackedTrack): CaptionTrack {
 
 /** Canonical → packed. Every key but `track` passes through unchanged. */
 export function pack(ltt: Ltt): PackedLtt {
-	const { segments, ...rest } = ltt;
+	const { segments, bookends, ...rest } = ltt;
 	return {
 		...rest,
 		encoding: 'packed',
 		segments: segments.map((seg) => ('track' in seg ? { ...seg, track: packTrack(seg.track) } : { ...seg })),
+		...(bookends ? { bookends: mapBookends(bookends as unknown as BookendMap, (t) => packTrack(t as CaptionTrack)) } : {}),
 	};
 }
 
@@ -108,9 +127,10 @@ export function pack(ltt: Ltt): PackedLtt {
  *  from a track's shape would turn a corrupt canonical file into a wrong one. */
 export function unpack(packed: PackedLtt): Ltt {
 	if (!packed || packed.encoding !== 'packed') throw new TypeError('unpack: this file is not in the packed encoding (encoding !== "packed")');
-	const { encoding: _encoding, segments, ...rest } = packed;
+	const { encoding: _encoding, segments, bookends, ...rest } = packed;
 	return {
 		...rest,
 		segments: segments.map((seg) => ('track' in seg ? { ...seg, track: unpackTrack(seg.track as PackedTrack) } : { ...seg })),
+		...(bookends ? { bookends: mapBookends(bookends, (t) => unpackTrack(t as PackedTrack)) } : {}),
 	} as Ltt;
 }

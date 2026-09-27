@@ -158,3 +158,24 @@ test('a sound deck is byte-identical to what it was before validation was added'
 	assert.match(readAlongToVtt(sound), /00:00:01\.800 --> 00:00:02\.800/);
 	assert.equal(readAlongToVttParts(sound).length, 2);
 });
+
+test('readAlongToVtt: the greeting leads and the closing follows; the per-slide parts carry neither', () => {
+	const hello = track(700, [cue('Hello.', 0, 700, [{ display: 'Hello.', spoken: 'Hello.', startMs: 0, endMs: 700, charOffset: 0 }])]);
+	const thanks = track(500, [cue('Thanks.', 0, 500, [{ display: 'Thanks.', spoken: 'Thanks.', startMs: 0, endMs: 500, charOffset: 0 }])]);
+	const readAlong = { slides: [{ index: 0, track: slide0 }, { index: 1, track: slide1 }], bookends: { greeting: { track: hello }, closing: { track: thanks } } };
+	const vtt = readAlongToVtt(readAlong);
+	assert.match(vtt, /00:00:00\.000 --> 00:00:00\.700\nHello\./);
+	assert.match(vtt, /00:00:00\.700 --> 00:00:02\.500/, 'slide 1 follows the greeting');
+	assert.match(vtt, /00:00:03\.500 --> 00:00:04\.000\nThanks\./, 'the closing ends the file');
+	assert.deepEqual(readAlongToVttParts(readAlong).map((p) => p.index), [0, 1]);
+});
+
+test('buildReadAlong: bookends only when some slide narrates', () => {
+	const { buildReadAlong } = require('../../../lib/core/read-along-build.js');
+	const voice = { model: 'm', voice: 'v', speed: 1 };
+	const on = buildReadAlong(['Slide one speaks.'], { voice, bookends: { greeting: 'Hello.', closing: 'Thank you.' } });
+	assert.equal(on.bookends.greeting.track.cues[0].display, 'Hello.');
+	assert.equal(on.bookends.closing.track.cues[0].display, 'Thank you.');
+	assert.equal('bookends' in buildReadAlong([''], { voice, bookends: { greeting: 'Hello.' } }), false);
+	assert.equal('bookends' in buildReadAlong(['x.'], { voice }), false, 'no key when the deck sets none');
+});

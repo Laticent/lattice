@@ -329,5 +329,43 @@ function check(ltt: unknown, out: string[]): string[] {
 	});
 
 	if (kind === 'deck' && ltt.seekable !== true) out.push('a deck is always seekable — every segment is a hold plus a track of known length');
+	if ('bookends' in ltt) checkBookends(ltt.bookends, kind, ids, out);
 	return out;
+}
+
+const GREETING_VARIANTS = ['morning', 'afternoon', 'evening', 'neutral'];
+
+/** The greeting and closing a deck says outside its slides (engineering/ltt.md §Bookends). Each is
+ *  laid out as a narrated slide with no arrival hold, so it carries the same core, hash and audio
+ *  layer a slide does. Its id shares the file's id space, because a transport or a render log may
+ *  name either. */
+function checkBookends(bookends: unknown, kind: unknown, ids: Set<string>, out: string[]): void {
+	if (!isRec(bookends)) {
+		out.push('bookends is not an object');
+		return;
+	}
+	if (kind === 'tour') out.push('bookends is a deck field; a tour does not carry it');
+	const one = (b: unknown, where: string): void => {
+		if (!isRec(b)) {
+			out.push(`${where} is not an object`);
+			return;
+		}
+		if (!isStr(b.id) || !b.id) out.push(`${where}.id is empty`);
+		else if (ids.has(b.id)) out.push(`${where}.id "${b.id}" repeats — ids are unique in a file`);
+		else ids.add(b.id);
+		if (b.kind !== 'bookend') out.push(`${where}.kind is ${q(b.kind)}; want "bookend"`);
+		for (const f of ['at', 'after', 'waitedMs', 'actions']) if (f in b) out.push(`${where}.${f} does not belong on a bookend, which is no slide`);
+		if (!isMs(b.holdMs)) out.push(`${where}.holdMs is not a whole, non-negative number of ms — the pause before the line`);
+		if (!isMs(b.tailMs)) out.push(`${where}.tailMs is not a whole, non-negative number of ms — the breath after the line`);
+		checkHash(b.hash, `${where}.hash`, out);
+		checkEnum(b.basis, BASES, `${where}.basis`, out);
+		checkCore(b.track, where, out);
+		if ('audio' in b) checkAudio(b.audio, b.track, where, out);
+	};
+	if ('greeting' in bookends) {
+		const g = bookends.greeting;
+		if (!isRec(g)) out.push('bookends.greeting is not an object');
+		else for (const v of GREETING_VARIANTS) one(g[v], `bookends.greeting.${v}`);
+	}
+	if ('closing' in bookends) one(bookends.closing, 'bookends.closing');
 }

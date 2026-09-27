@@ -6715,6 +6715,14 @@ const SANCTIONED_FM_SCALAR_READERS = [
       + 'in render-engine.ts. Mirrors the rule inline and is covered by the same '
       + '`front-matter-scalar-parity` test.',
   },
+  {
+    file: 'lib/core/resolve-bookends.mjs',
+    why:
+      'Same ESM/Rollup constraint as resolve-pace.mjs — the docs site imports it directly '
+      + '(PresentOverlay and narration-bake via docs/src/lib/resolve-bookends.js). Sync-gated by '
+      + '`front-matter-scalar-parity` in test/unit/core/resolve-bookends.test.js, which drives '
+      + 'this parse and frontMatterScalar over the same shapes.',
+  },
 ];
 
 function checkFrontMatterReaders(errors) {

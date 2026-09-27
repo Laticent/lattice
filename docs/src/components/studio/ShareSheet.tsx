@@ -55,7 +55,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// re-measuring to "this export bills the whole deck" — and the "Export anyway" button from
 	// the old refusal was still on screen, authorizing an unbounded partial set in a voice
 	// nothing had ever been refused in.
-	const [narrationFailures, setNarrationFailures] = React.useState<{ failures: { slide: number; text: string; reason: string }[]; voice: { model: string; voice: string; speed: number; rung?: string } } | null>(null);
+	const [narrationFailures, setNarrationFailures] = React.useState<{ failures: { slide: number; text: string; reason: string; bookend?: string }[]; voice: { model: string; voice: string; speed: number; rung?: string } } | null>(null);
 	// The run's abort controller lives HERE, not in the options panel, because this component
 	// outlives it: the panel unmounts when the sheet closes or the author steps back to the
 	// format menu, and a controller that went with it left a bake synthesizing and billing with
@@ -168,10 +168,10 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// a line, so the LIST goes back to the panel, where the author can read it against
 				// the deck. Duck-typed rather than `instanceof` so this file does not pull the bake
 				// module (and Cadenza behind it) into the sheet's own bundle.
-				const failures = (e as { name?: string; failures?: { slide: number; text: string; reason: string }[] })?.failures;
+				const failures = (e as { name?: string; failures?: { slide: number; text: string; reason: string; bookend?: string }[] })?.failures;
 				// A TERMINAL refusal (revoked key, no credit, dead host) carries no override, so it
 				// is not stored as one — the toast says what to fix and the panel offers nothing.
-				const err = e as { name?: string; failures?: { slide: number; text: string; reason: string }[]; terminal?: string; voice?: { model: string; voice: string; speed: number; rung?: string } };
+				const err = e as { name?: string; failures?: { slide: number; text: string; reason: string; bookend?: string }[]; terminal?: string; voice?: { model: string; voice: string; speed: number; rung?: string } };
 				if (err?.name === 'BakeIncompleteError' && failures && !err.terminal) setNarrationFailures({ failures, voice: err.voice ?? choice.narration.voice });
 				throw e;
 			}

@@ -159,6 +159,27 @@ function exporters(): Promise<ExportMod> {
 // place of the Node ones — no engine byte lives twice (HARD RULE #1).
 
 /** Escape text for an HTML text node / attribute value. */
+/** The bake's bookends in the shape `narrationPayload` takes (lib/export/player-core.mjs): the
+ *  greeting's four variants under `greeting`, the closing under `closing`. A greeting missing a
+ *  variant is left out whole, as the LTT producer would drop it anyway. */
+function bookendsPayload(baked: Record<string, { text: string; track: unknown; cues: { audio: string | null; clip?: string; leadMs?: number }[] }> | undefined) {
+	if (!baked) return null;
+	const one = (b: (typeof baked)[string] | undefined) =>
+		b ? { text: b.text, track: b.track, clips: b.cues.map((c) => (c.audio && c.clip ? { audio: c.audio, clip: c.clip, leadMs: c.leadMs } : null)) } : null;
+	const variants = ['morning', 'afternoon', 'evening', 'neutral'] as const;
+	const greeting = variants.every((v) => baked[`greeting-${v}`]) ? Object.fromEntries(variants.map((v) => [v, one(baked[`greeting-${v}`])])) : null;
+	const closing = one(baked.closing);
+	return greeting || closing ? { ...(greeting ? { greeting } : {}), ...(closing ? { closing } : {}) } : null;
+}
+
+/** A deck's bookends as caption text: the neutral greeting, and the closing. */
+function captionBookends(
+	ends: { greeting: { template: string } | null; closing: { text: string } | null },
+	greetingText: (template: string, variant: 'morning' | 'afternoon' | 'evening' | 'neutral') => string,
+) {
+	return { greeting: ends.greeting ? greetingText(ends.greeting.template, 'neutral') : null, closing: ends.closing?.text ?? null };
+}
+
 function escHtml(s: string): string {
 	return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -648,6 +669,7 @@ export async function shareHtmlPlayer(
 						}
 					: null,
 			),
+			bookends: bookendsPayload(result.bookends),
 		};
 		readAlongVoice = result.voice;
 	}
@@ -992,6 +1014,8 @@ type ReadAlongCore = {
 			lang?: string;
 			/** Per-slide emphasis spans, parallel to `texts` — see lib/core/read-along-build.js. */
 			emphasis?: readonly (readonly { start: number; end: number; weight: number }[] | undefined)[];
+			/** The neutral greeting and the closing, as spoken text (lib/core/resolve-bookends.mjs). */
+			bookends?: { greeting?: string | null; closing?: string | null };
 		},
 	) => { slides: { index: number }[] };
 	/** The ONE identity rule shared by all four narration producers — see read-along-build.js. */
@@ -1042,13 +1066,14 @@ export async function shareCaptions(
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading notes + projecting slides…');
-	const [authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod] = await Promise.all([
+	const [authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod, bookendsMod] = await Promise.all([
 		import('@/playground/authoring-core.generated.js'),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
 		import('@/lib/resolve-captions'),
 		import('./narration-resolve'),
 		import('./lint'),
+		import('@/lib/resolve-bookends'),
 	]);
 	const { splitSlides } = lintMod;
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
@@ -1121,6 +1146,9 @@ export async function shareCaptions(
 		acronyms,
 		lexicon,
 		lang: lang ?? undefined,
+		// The NEUTRAL greeting and the closing: a caption file has no viewer clock. The same key
+		// reading and the same text as the CLI's sidecar (lib/core/resolve-bookends.mjs).
+		bookends: captionBookends(bookendsMod.resolveBookends(source), bookendsMod.greetingText),
 	});
 	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no captions and no projectable slide content (a speaker note is never narrated)');
 

@@ -1002,3 +1002,37 @@ describe('the bake-time compressor is wired in, not merely present', () => {
 		expect(bake.slides.flat().filter((c) => c.audio).length).toBe(2);
 	});
 });
+
+describe('bakeNarration — the greeting and the closing (2026-09-27-narration-bookends.md)', () => {
+	const BOOKENDED = DECK.replace('theme: indaco', 'theme: indaco\ngreeting: "{greeting}, and welcome."\nclosing: Thank you.');
+
+	it('records all four greetings and the closing, and keeps the slides index-aligned', async () => {
+		for (const t of [S1, S2, 'Good morning, and welcome.', 'Good afternoon, and welcome.', 'Good evening, and welcome.', 'Hello, and welcome.', 'Thank you.']) script.set(t, [10_000]);
+		const bake = await bakeNarration(BOOKENDED, PROJECTED, { voice: VOICE, audio: true });
+		expect(bake.slides).toHaveLength(2);
+		expect(bake.narrated).toHaveLength(2);
+		expect(Object.keys(bake.bookends).sort()).toEqual(['closing', 'greeting-afternoon', 'greeting-evening', 'greeting-morning', 'greeting-neutral']);
+		expect(bake.bookends['greeting-morning'].text).toBe('Good morning, and welcome.');
+		expect(bake.bookends['greeting-neutral'].text).toBe('Hello, and welcome.');
+		expect(bake.bookends.closing.text).toBe('Thank you.');
+		expect(Object.values(bake.bookends).every((b) => b.cues.every((c) => c.audio?.startsWith('data:')))).toBe(true);
+		// Every line the export carries is billed and counted: 2 slide sentences, 4 greetings, 1 closing.
+		expect(bake.total).toBe(7);
+		expect(attempts).toEqual(expect.arrayContaining(['Good afternoon, and welcome.', 'Thank you.']));
+	});
+
+	it('the quote counts the bookends the bake will record', async () => {
+		const m = await measureNarration(BOOKENDED, PROJECTED, VOICE, 1);
+		expect(m.total).toBe(7);
+	});
+
+	it('a deck that narrates nothing says no hello', async () => {
+		const bake = await bakeNarration(BOOKENDED, ['', ''], { voice: VOICE, audio: false });
+		expect(bake.bookends).toEqual({});
+	});
+
+	it('a failed bookend line is reported without a slide number', async () => {
+		script.set('Thank you.', ['refused']);
+		await expect(withFastBackoff(() => bakeNarration(BOOKENDED, PROJECTED, { voice: VOICE, audio: true }))).rejects.toMatchObject({ failures: expect.arrayContaining([expect.objectContaining({ slide: 0, text: 'Thank you.' })]) });
+	});
+});

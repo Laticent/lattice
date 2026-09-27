@@ -6151,12 +6151,16 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
   let lexicon; // author `lexicon:` — a token (glyph or word) → spoken; beats the built-in commons
   let fmCaptions;
   let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
+  let bookends; // `greeting:` / `closing:` — a caption file has no viewer clock, so the NEUTRAL greeting
   try {
     const { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } = await import('./lib/core/resolve-captions.mjs');
     acronyms = acronymSpokenMap(rawMd);
     lexicon = lexiconMap(rawMd);
     fmCaptions = frontMatterCaptions(rawMd);
     lang = frontMatterLang(rawMd);
+    const { resolveBookends, greetingText } = await import('./lib/core/resolve-bookends.mjs');
+    const ends = resolveBookends(rawMd);
+    bookends = { greeting: ends.greeting ? greetingText(ends.greeting.template, 'neutral') : null, closing: ends.closing?.text ?? null };
   } catch (e) {
     if (!QUIET) console.warn(`  note: narration front-matter parse failed (${e?.message})`);
   }
@@ -6303,6 +6307,7 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
     emphasis,
     lexicon,
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
+    bookends,
   });
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no caption overrides, no projectable slide prose) — no .vtt written');

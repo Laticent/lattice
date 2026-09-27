@@ -1085,3 +1085,51 @@ important numbers, and the somber one points at fewer of them.
 
 The names and presets live in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value
 (`unknown-delivery`). Design: `engineering/decisions/2026-09-25-vetrina-delivery-presets.md`.
+
+## The `greeting:` / `closing:` front-matter registers (what a narrated deck says first and last)
+
+`greeting:` sets a line the narrator says **before slide 1**, and `closing:` a line it says
+**after the last slide**. They play only when the deck plays with narration, in the Studio's
+Present view and in an exported player. They change nothing in a rendered slide, a PDF or a
+PPTX. Both are off unless the deck sets them.
+
+```yaml
+greeting: true                                         # "Good morning." (or afternoon / evening)
+greeting: "{greeting}, and welcome to the Q3 review."  # custom text; {greeting} is the salutation
+closing: true                                          # "Thank you."
+closing: "Thank you. Questions are welcome."           # custom text, spoken as written
+```
+
+**`{greeting}` follows the listener's clock.** It becomes "Good morning" from 04:00, "Good
+afternoon" from 12:00 and "Good evening" from 17:00, by the local time where the deck is
+**played**, not where it was written. It never says "good night", which is a farewell. An
+exported player carries all three greetings and picks one when Play is pressed. A video
+export, which has no listener clock, says "Hello". So does a downloaded `.vtt`.
+
+**Each plays at most once.**
+- The greeting plays only when narration starts on slide 1. Starting anywhere else uses it
+  up. Pause and Play, or going back to slide 1, does not repeat it.
+- The closing plays when narration reaches the end of the deck on its own. That includes
+  autoplay arriving on a silent last slide, such as a "Thank you" slide. Clicking through to
+  the last slide by hand does not trigger it.
+- An exported player resets when the file is reopened. The Studio resets each time Present
+  opens.
+
+| Value | Means |
+|---|---|
+| `true`, `yes`, `on` | The default line: `{greeting}.` for the greeting, `Thank you.` for the closing |
+| `false`, `no`, `off`, `none`, or empty | Off (the same as leaving the key out) |
+| any other text | Spoken as written. Quote it when it contains a `:` or `#`, and use double quotes when it contains an apostrophe |
+
+A deck that narrates no slide says neither line. The greeting and the closing are English
+unless you write them yourself, so a deck whose `lang:` is not English should use custom
+text.
+
+The linter flags three mistakes, as warnings:
+- `greeting-hardcoded-period`: a greeting that says "good morning" itself.
+- `unknown-bookend-placeholder`: a `{…}` the voice would read aloud as written. Only the
+  greeting has one, `{greeting}`.
+- `greeting-not-english`: `{greeting}` in a deck whose `lang:` is not English.
+
+The parse and the clock live in `lib/core/resolve-bookends.mjs`. Design:
+`engineering/decisions/2026-09-27-narration-bookends.md`.

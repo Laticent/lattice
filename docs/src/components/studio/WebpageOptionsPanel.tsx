@@ -51,7 +51,7 @@ export function WebpageOptionsPanel({
 	/** The sentences the last attempt could not prepare, so the refusal names them. */
 	/** The last refusal AND the voice it was earned under — the override is scoped to that
 	 *  identity, so changing the narrator withdraws it. */
-	narrationFailures?: { failures: { slide: number; text: string; reason: string }[]; voice: { model: string; voice: string; speed: number; rung?: string } } | null;
+	narrationFailures?: { failures: { slide: number; text: string; reason: string; bookend?: string }[]; voice: { model: string; voice: string; speed: number; rung?: string } } | null;
 	onBack: () => void;
 	onExport: (choice: WebpageExportChoice) => void;
 	/** Stop a bake in progress. Owned by the sheet, not this panel — see `launch`. */
