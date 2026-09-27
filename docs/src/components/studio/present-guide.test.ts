@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	aimTarget,
 	anchorFor,
@@ -11,6 +11,8 @@ import {
 	findParaphraseTarget,
 	findSpanningTarget,
 	findValueLedMark,
+	focusContent,
+	focusUnit,
 	type GuideShape,
 	guideAimFor,
 	guideCueFor,
@@ -19,13 +21,13 @@ import {
 	hasOwnBoundary,
 	headerRange,
 	isAside,
-	markContent,
 	markerBox,
 	POINTER_BOX,
 	planSlide,
 	pointerAnchor,
 	salience,
 	sentenceRange,
+	wordRangeIn,
 } from './present-guide';
 
 // THE GUIDE RUNG's target resolution (#1397).
@@ -332,57 +334,230 @@ describe('planSlide — the salience budget', () => {
 	});
 });
 
-describe('markContent — the live content gesture', () => {
-	it('spotlights the top-level item a nested bullet belongs to, and undoes itself cleanly', () => {
-		const d = doc('<ul><li>One<ul><li>detail</li></ul></li><li>Two</li><li>Three</li></ul>');
-		const sec = d.querySelector('section') as Element;
-		const [one, detail, two, three] = [...d.querySelectorAll('li')];
-		const undo = markContent(detail);
-		expect(one.classList.contains('lat-focus')).toBe(true);
-		expect([two, three].every((li) => li.classList.contains('lat-recede'))).toBe(true);
-		expect(detail.classList.length).toBe(0);
-		expect(sec.getAttribute('data-focus-axis')).toBe('item');
-		expect(sec.getAttribute('data-focus-style')).toBe('spotlight');
-		undo();
-		expect([one, two, three].some((li) => li.className)).toBe(false);
-		expect(sec.hasAttribute('data-focus-resolved')).toBe(false);
-		// The live scope stays so the peers fade back instead of snapping.
-		expect(sec.hasAttribute('data-focus-live')).toBe(true);
+describe('focusContent — one lever: the named thing stays, the rest recedes', () => {
+	const dimmed = (d: Document) => [...d.querySelectorAll('.lat-guide-dim')];
+
+	it('recedes a bullet\'s siblings and leaves the bullet itself untouched', () => {
+		const d = doc('<ul><li>One</li><li>Two</li><li>Three</li></ul>');
+		const [one, two, three] = [...d.querySelectorAll('li')];
+		focusContent(two);
+		expect(dimmed(d)).toEqual([one, three]);
+		expect(two.classList.contains('lat-guide-dim')).toBe(false);
+		// Never the deck's own `_focus` classes.
+		expect(d.querySelectorAll('.lat-focus, .lat-recede').length).toBe(0);
 	});
 
-	it('rings a table body row, as `_focus: row` would', () => {
-		const d = doc('<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>r1</td></tr><tr><td>r2</td></tr></tbody></table>');
-		const [r1, r2] = [...d.querySelectorAll('tbody tr')];
-		markContent(r2.querySelector('td') as Element);
-		expect(r2.classList.contains('lat-focus')).toBe(true);
-		expect(r1.classList.contains('lat-recede')).toBe(true);
-		expect(d.querySelector('section')?.getAttribute('data-focus-style')).toBe('ring');
+	it('recedes a nested bullet\'s siblings and its card\'s siblings', () => {
+		const d = doc('<ul><li>Card A<ul><li>a1</li><li>a2</li></ul></li><li>Card B</li></ul>');
+		const [cardA, a1, a2, cardB] = [...d.querySelectorAll('li')];
+		focusContent(a1);
+		expect(dimmed(d)).toEqual([a2, cardB]);
+		expect(cardA.classList.contains('lat-guide-dim')).toBe(false);
 	});
 
-	it('marks every twin of a chart mark and recedes the other marks', () => {
-		const d = doc(`<div class="chart-body"><svg><rect data-mark="0"/><rect data-mark="1"/><rect data-mark="2"/></svg>
-			<template class="chart-detail" data-mark="1"></template></div>`);
-		const [a, b, c] = [...d.querySelectorAll('rect')];
-		markContent(b);
-		expect(b.classList.contains('lat-focus')).toBe(true);
-		expect([a, c].every((r) => r.classList.contains('lat-recede'))).toBe(true);
+	it('names a row by its label, a cell by itself, and a column by its header — the rest recedes', () => {
+		const d = doc('<table><thead><tr><th>Seg</th><th>Q3</th><th>Q4</th></tr></thead><tbody><tr><td>SMB</td><td>7%</td><td>9%</td></tr><tr><td>Mid</td><td>4%</td><td>5%</td></tr></tbody></table>');
+		const cells = [...d.querySelectorAll('tbody td')];
+		const row = focusUnit(cells[0]);
+		expect(row?.axis).toBe('row');
+		expect(row?.peers).toEqual(cells.slice(3));
+		expect(focusUnit(cells[2])?.peers.length).toBe(5);
+		const col = focusUnit(d.querySelectorAll('thead th')[2]);
+		expect(col?.axis).toBe('col');
+		expect(col?.unit.map((c) => c.textContent)).toEqual(['Q4', '9%', '5%']);
+		// The row labels stay legible: a column is read against them.
+		expect(col?.peers.map((c) => c.textContent)).toEqual(['7%', '4%']);
+	});
+
+	it('recedes a table with a spanned cell around the one cell only', () => {
+		const d = doc('<table><thead><tr><th colspan="2">Group</th><th>Total</th></tr></thead><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>');
+		expect(focusUnit(d.querySelectorAll('thead th')[1])?.axis).toBe('cell');
+	});
+
+	it('recedes the other marks of the SAME chart, never a template or another chart', () => {
+		const d = doc(`<figure class="chart-frame"><svg><rect data-mark="0"/><rect data-mark="1"/><text data-mark="1">EMEA</text></svg>
+			<template class="chart-detail" data-mark="1"></template></figure><figure class="chart-frame"><svg><rect data-mark="0"/></svg></figure>`);
+		const [a, b] = [...d.querySelectorAll('rect')];
+		focusContent(b);
+		expect(dimmed(d)).toEqual([a]);
 		expect(d.querySelector('template')?.className).toBe('chart-detail');
-		expect(d.querySelector('section')?.getAttribute('data-focus-axis')).toBe('mark');
 	});
 
-	it('leaves a slide the deck already focused alone', () => {
-		const d = doc('<ul><li class="lat-focus">One</li><li class="lat-recede">Two</li></ul>');
+	it('recedes a peer mark\'s own labels with it, where the chart links them', () => {
+		const d = doc(`<div class="chart-body"><svg><path data-mark="0"/><path data-mark="1"/>
+			<text class="chart-key-label" data-mark-for="0">New</text><text class="chart-key-label" data-mark-for="1">Maint</text></svg></div>`);
+		focusContent(d.querySelectorAll('path')[1]);
+		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.textContent || e.getAttribute('data-mark'))).toEqual(['0', 'New']);
+	});
+
+	it('a bar\'s category name focuses its bar, and the other bars\' names and values recede', () => {
+		const d = doc(`<div class="chart-body"><svg><rect class="bar-mark" data-mark="0" data-label="EMEA"/><rect class="bar-mark" data-mark="1" data-label="APAC"/>
+			<text class="cart-cat" data-label="EMEA" data-mark-for="0">EMEA</text><text class="cart-cat" data-label="APAC" data-mark-for="1">APAC</text>
+			<text class="cart-value" data-mark-for="0">$6.8M</text><text class="cart-value" data-mark-for="1">$2.9M</text></svg></div>`);
+		const name = d.querySelector('text.cart-cat') as Element;
+		const u = focusUnit(name);
+		expect(u?.axis).toBe('mark');
+		expect(u?.unit.map((e) => e.getAttribute('data-mark') ?? e.textContent)).toEqual(['0', 'EMEA', '$6.8M']);
+		focusContent(name);
+		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.getAttribute('data-mark') ?? e.textContent)).toEqual(['1', 'APAC', '$2.9M']);
+	});
+
+	it('any linked label focuses its mark: a pie legend row focuses its wedge', () => {
+		const d = doc(`<div class="chart-body"><svg><path class="wedge" data-mark="0" data-label="New"/><path class="wedge" data-mark="1" data-label="Maint"/>
+			<text class="chart-key-label" data-mark-for="0">New</text><text class="chart-key-label" data-mark-for="1">Maint</text><text data-mark-for="5">Orphan</text></svg></div>`);
+		const [newRow, , orphan] = [...d.querySelectorAll('text')];
+		expect(focusUnit(newRow)?.unit.map((e) => e.getAttribute('data-mark') ?? e.textContent)).toEqual(['0', 'New']);
+		// A label linked to no drawn mark names only itself, as before.
+		expect(focusUnit(orphan)).toEqual({ unit: [orphan], peers: [], inner: [], axis: 'block' });
+	});
+
+	it('a line\'s name and end value recede with it when another line is focused', () => {
+		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0"/><path class="line-path" data-series="1"/>
+			<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/>
+			<text class="line-series" data-series-for="0">Enterprise</text><text class="line-series" data-series-for="1">Services</text>
+			<text class="line-endvalue" data-series-for="1">3.1</text></svg></div>`);
+		focusContent(d.querySelector('path[data-series="0"]') as Element);
+		expect([...d.querySelectorAll('.lat-guide-dim')].map((e) => e.textContent || e.getAttribute('data-series'))).toEqual(['1', 'Services', '3.1']);
+		// A point focus recedes the other series' labels too; its own line's name stays.
+		const p = focusUnit(d.querySelector('circle') as Element);
+		expect(p?.peers.map((e) => e.textContent || e.getAttribute('data-series'))).toEqual(['1', 'Services', '3.1']);
+	});
+
+	it('walks a line: the other series recede, and the line\'s other points recede gently', () => {
+		const d = doc(`<div class="chart-body"><svg><path class="line-path" data-series="0"/><path class="line-path" data-series="1"/>
+			<circle class="line-dot" data-series="0" data-label="Q1" data-value="4.1"/><circle class="line-dot" data-series="0" data-label="Q2" data-value="4.4"/>
+			<circle class="line-dot" data-series="1" data-label="Q1" data-value="2.6"/><rect class="line-hit" data-mark="0"/></svg></div>`);
+		const [q1, q2, other] = [...d.querySelectorAll('circle')];
+		const u = focusUnit(q1);
+		expect(u?.axis).toBe('point');
+		expect(u?.peers.map((e) => e.getAttribute('data-series'))).toEqual(['1', '1']);
+		expect(u?.inner).toEqual([q2]);
+		focusContent(q1);
+		expect(q2.classList.contains('lat-guide-dim-inner')).toBe(true);
+		expect(other.classList.contains('lat-guide-dim')).toBe(true);
+		// The line itself stays whole, and so does the point being read.
+		expect(d.querySelector('path[data-series="0"]')?.getAttribute('class')).toBe('line-path');
+		expect(focusUnit(d.querySelector('rect.line-hit') as Element)).toBeNull();
+	});
+
+	it('recedes a paragraph\'s sibling blocks, and nothing on a slide of one paragraph', () => {
+		const d = doc('<h2>Title</h2><p>First <strong>point</strong>.</p><p>Second point.</p>');
+		const [p1, p2] = [...d.querySelectorAll('p')];
+		expect(focusUnit(d.querySelector('strong') as Element)?.unit).toEqual([p1]);
+		// The headline frames the slide; it never recedes as a paragraph's peer.
+		expect(focusUnit(p1)?.peers).toEqual([p2]);
+		const one = doc('<p>Only this.</p>');
+		expect(focusUnit(one.querySelector('p') as Element)?.peers).toEqual([]);
+		expect(focusUnit(one.querySelector('section') as Element)).toBeNull();
+	});
+
+	it('hands off as one swap: a shared peer stays down, the old focus fades down, the new fades up', () => {
+		const d = doc('<ul><li>One</li><li>Two</li><li>Three</li></ul>');
+		const [one, two, three] = [...d.querySelectorAll('li')];
+		const undo = focusContent(one);
+		undo?.();
+		focusContent(two);
+		expect(three.classList.contains('lat-guide-dim')).toBe(true);
+		expect(one.classList.contains('lat-guide-dim')).toBe(true);
+		expect(two.classList.contains('lat-guide-dim')).toBe(false);
+		expect(two.classList.contains('lat-guide-undim')).toBe(true);
+		// Never two foci: exactly one item is un-dimmed.
+		expect([one, two, three].filter((li) => !li.classList.contains('lat-guide-dim'))).toEqual([two]);
+	});
+
+	it('clears the fade-up class after the crossfade, except where a later focus dimmed again', () => {
+		vi.useFakeTimers();
+		try {
+			document.body.innerHTML = '<section><ul><li>One</li><li>Two</li><li>Three</li></ul></section>';
+			const [one, two, three] = [...document.querySelectorAll('li')];
+			focusContent(one, { fade: 200 })?.();
+			vi.advanceTimersByTime(300);
+			expect([one, two, three].every((li) => li.className === '')).toBe(true);
+			focusContent(one, { fade: 200 })?.();
+			focusContent(three, { fade: 200 });
+			vi.advanceTimersByTime(300);
+			expect(one.className).toBe('lat-guide-dim');
+			// Still in focus: never dimmed (its fade-up class belongs to its own focus, not an old clear).
+			expect(three.classList.contains('lat-guide-dim')).toBe(false);
+		} finally {
+			vi.useRealTimers();
+			document.body.innerHTML = '';
+		}
+	});
+
+	it('leaves a group the deck already spotlit to the author\'s own depths', () => {
+		const d = doc('<ul><li class="lat-focus">One</li><li class="lat-recede">Two</li><li class="lat-recede">Three</li></ul>');
 		d.querySelector('section')?.setAttribute('data-focus-resolved', '');
-		const two = d.querySelectorAll('li')[1];
-		markContent(two)();
-		expect(two.className).toBe('lat-recede');
-		expect(d.querySelector('li')?.className).toBe('lat-focus');
+		const [one, two] = [...d.querySelectorAll('li')];
+		focusContent(two);
+		focusContent(one);
+		expect(d.querySelectorAll('.lat-guide-dim').length).toBe(0);
+		expect(focusUnit(two)?.peers).toEqual([]);
 	});
 
-	it('does nothing to a plain paragraph', () => {
-		const d = doc('<h2>Title</h2><p>Growth held.</p>');
-		markContent(d.querySelector('p') as Element)();
-		expect(d.querySelector('section')?.hasAttribute('data-focus-live')).toBe(false);
+	it('never lets an older focus\'s clear end a newer fade-up mid-crossfade', () => {
+		vi.useFakeTimers();
+		try {
+			document.body.innerHTML = '<section><ul><li>A</li><li>B</li><li>C</li><li>E</li></ul></section>';
+			const [a, b, c, e] = [...document.querySelectorAll('li')];
+			const undoA = focusContent(a, { fade: 200 });
+			undoA?.();
+			const undoB = focusContent(b, { fade: 200 }); // E stays a peer, dimmed
+			vi.advanceTimersByTime(100);
+			undoB?.();
+			focusContent(e, { fade: 200 }); // E fades UP now, owned by this focus
+			vi.advanceTimersByTime(140); // A's clear fires (at 240 ms) while E is mid-fade
+			expect(e.classList.contains('lat-guide-undim')).toBe(true);
+			expect(c.classList.contains('lat-guide-dim')).toBe(true);
+		} finally {
+			vi.useRealTimers();
+			document.body.innerHTML = '';
+		}
+	});
+
+	it('carries the preset on the section', () => {
+		const d = doc('<ul><li>One</li><li>Two</li></ul>');
+		const sec = d.querySelector('section') as HTMLElement;
+		focusContent(d.querySelector('li') as Element, { dim: 0.62, dimInner: 0.5, fade: 600 });
+		expect(sec.hasAttribute('data-guide')).toBe(true);
+		expect(sec.style.getPropertyValue('--guide-dim')).toBe('0.62');
+		expect(sec.style.getPropertyValue('--guide-fade')).toBe('600ms');
+	});
+});
+
+describe('read-along and chart addressing', () => {
+	it('lands a heatmap sentence on its cell, not on the row label that also leads it', () => {
+		const d = doc(`<div class="chart-body"><svg><text class="cart-cat" data-label="Jan 2026">Jan 2026</text>
+			<rect class="heatmap-cell" data-mark="3" data-label="Jan 2026 · M3" data-value="44"/>
+			<rect class="heatmap-cell" data-mark="2" data-label="Jan 2026 · M2" data-value="48"/></svg></div>`);
+		expect(findMarkTarget(d, 'Jan 2026 is lowest at M3, forty-four.')?.getAttribute('data-mark')).toBe('3');
+		expect(findMarkTarget(d, 'Jan 2026 is lowest at M2, forty-four.')?.getAttribute('data-mark')).not.toBe('2');
+	});
+
+	it('finds the spoken word inside the element, in order, across inline markup', () => {
+		const d = doc('<ul><li>ARR closed at <strong>$48.6M</strong>, ahead of plan, ahead of the board.</li></ul>');
+		const li = d.querySelector('li') as Element;
+		const words = ['ARR', 'closed', 'at', '$48.6M,', 'ahead', 'of', 'plan,', 'ahead'];
+		expect(wordRangeIn(li, words, 3)?.toString()).toBe('$48.6M');
+		expect(wordRangeIn(li, ['forty-eight'], 0)).toBeNull();
+	});
+
+	it('matches whole words only, and anchors on the sentence being read', () => {
+		const d = doc('<p>Northeast grew. North fell hard. North then recovered.</p>');
+		const p = d.querySelector('p') as Element;
+		expect(wordRangeIn(p, ['North', 'fell', 'hard.'], 0)?.toString()).toBe('North');
+		const r = wordRangeIn(p, ['North', 'then', 'recovered.'], 0) as Range;
+		const before = d.createRange();
+		before.setStart(p, 0);
+		before.setEnd(r.startContainer, r.startOffset);
+		expect(before.toString()).toBe('Northeast grew. North fell hard. ');
+	});
+
+	it('never reads along inside a card\'s nested list', () => {
+		const d = doc('<ul><li>Churn doubled<ul><li>the team has a plan</li></ul></li></ul>');
+		const card = d.querySelector('li') as Element;
+		expect(wordRangeIn(card, ['Churn', 'has', 'doubled.'], 1)).toBeNull();
+		expect(wordRangeIn(card, ['Churn', 'has', 'doubled.'], 2)?.toString()).toBe('doubled');
 	});
 });
 
@@ -400,20 +575,11 @@ describe('the checker round (#2371)', () => {
 		const d = doc('<ul><li>We met the team.</li><li>We toured the site.</li><li>We had lunch.</li></ul>');
 		const [a, , c] = [...d.querySelectorAll('li')];
 		expect(salience(a)).toBe(0);
-		markContent(a);
+		focusContent(a);
 		expect(salience(a)).toBe(0);
 		const plan = planSlide(['We met the team.', 'We toured the site.', 'We had lunch.'], (t) => findCueTarget(d, t), 1, 0);
 		expect(plan.top).toBe(0);
 		expect(salience(c)).toBe(0);
-	});
-
-	it('does not take radar\'s container, which counts series, for a series', () => {
-		const d = doc(`<div class="chart-body radar-figure" data-series="2"><svg>
-			<polygon data-series="0"/><polygon data-series="1"/><text class="key">Enterprise tier</text></svg></div>`);
-		const undo = markContent(d.querySelector('text') as Element);
-		expect(d.querySelector('.radar-figure')?.classList.contains('lat-focus')).toBe(false);
-		expect(d.querySelectorAll('.lat-recede').length).toBe(0);
-		undo();
 	});
 
 	it('skips the paraphrase tier on a deck in another language', () => {

@@ -172,18 +172,43 @@ section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
   paint-order: stroke;
 }
 
-/* ── the live mark — the Present Guide's content gesture ───────────────────── */
-/* The Guide applies the classes above while narration names a list item, a row,
- * a chart mark or a series, and scopes the section `data-focus-live` so the change
- * FADES instead of snapping. No render path writes that attribute, so a PDF, a
- * PPTX and an exported slide are unchanged. */
-section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) {
-  transition: opacity 320ms ease-out, stroke-width 320ms ease-out;
+/* ── the Guide's focus — one lever: the rest recedes ───────────────────────── */
+/* While narration names a bullet, a table row, cell or column, a chart mark, a
+ * line or one of its points, the Guide leaves that element exactly as it is and
+ * tags everything else in its group `.lat-guide-dim`: the rest recedes to
+ * `--guide-dim`. It is the chart hover's emphasis (`chart-interact.js`: every
+ * other mark to 0.45 over 200 ms), so a deck speaks one language whether a
+ * viewer hovers or the narration names. On a walked line the other POINTS take
+ * `.lat-guide-dim-inner`, deeper: the line's own stroke stays whole and carries
+ * the shape, so the point being read stands out.
+ *
+ * Opacity is the whole lever: it changes no box (nothing moves), it animates on
+ * the compositor, and it interpolates as a number — no theme color is ever
+ * animated, the path where Chromium painted `oklab(1 200 229)` (pure yellow).
+ *
+ * THE HANDOFF IS A STRICT SWAP. A peer released by the last focus takes
+ * `.lat-guide-undim` and fades up over the same `--guide-fade` while the next
+ * focus's peers fade down, in the same frame: never two foci. The section
+ * carries the preset (`--guide-dim`, `--guide-dim-inner`, `--guide-fade`). No
+ * render path writes any of it, so a PDF, a PPTX and an export render exactly as
+ * before: these rules ship in the bundle and match nothing there. */
+section[data-guide] {
+  --guide-said: color-mix(in srgb, var(--accent) 30%, transparent);
 }
+section[data-guide] .lat-guide-dim {
+  opacity: var(--guide-dim, 0.45);
+  transition: opacity var(--guide-fade, 200ms) ease;
+}
+section[data-guide] .lat-guide-dim-inner {
+  opacity: var(--guide-dim-inner, 0.3);
+  transition: opacity var(--guide-fade, 200ms) ease;
+}
+section[data-guide] .lat-guide-undim { transition: opacity var(--guide-fade, 200ms) ease; }
 @media (prefers-reduced-motion: reduce) {
-  section[data-focus-live] :is(li, tr, td, th, [data-mark], [data-series]) { transition: none; }
+  section[data-guide] :is(.lat-guide-dim, .lat-guide-dim-inner, .lat-guide-undim) { transition: none; }
 }
-/* No weight change live. Bold text is wider, so a list item or an auto-layout
- * table column would rewrap and move in front of the audience mid-sentence;
- * opacity and the ring carry the mark on their own, and neither moves a box. */
-section[data-focus-live][data-focus-resolved] :is(.lat-focus, .lat-focus > td, .lat-focus > th) { font-weight: inherit; }
+/* THE READ-ALONG. With the captions off, the word being spoken inside the focused
+ * text takes a soft wash, as a CSS Highlight (`lat-said`): the slide's markup is
+ * never rewritten (HARD RULE #22), and a word split across inline markup still
+ * lights as one word. The Guide sets it from the caption's clock. */
+::highlight(lat-said) { background-color: var(--guide-said); }
