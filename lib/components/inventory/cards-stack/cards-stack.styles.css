@@ -94,26 +94,18 @@ section.cards-stack .card > ul > li, section.cards-stack .card > ol > li {
 section.cards-stack > .cell-stage > ol { counter-reset:stack var(--lat-split-offset, 0); }
 section.cards-stack > .cell-stage > ol > li {
   counter-increment:stack;
-  position:relative; padding-top:calc(var(--sp-xs) + 1.875cqi);
+  --card-tag-gap: var(--sp-xs);   /* a stack row's own top padding; reserve in base.card-tag.css */
 }
 section.cards-stack > .cell-stage > ol > li::before {
-  content:counter(stack);
-  position:absolute; top:0; left:0;
-  padding:0.46875cqi 1.09375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0;
-  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
-  color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
+  content:counter(stack);   /* geometry + color: lib/base/base.card-tag.css */
 }
 section.cards-stack .cards-stack-inner--ordered { counter-reset:stack var(--lat-split-offset, 0); }
 section.cards-stack .cards-stack-inner--ordered > .card {
   counter-increment:stack;
-  position:relative; padding-top:calc(var(--sp-xs) + 1.875cqi);
+  --card-tag-gap: var(--sp-xs);   /* a stack row's own top padding; reserve in base.card-tag.css */
 }
 section.cards-stack .cards-stack-inner--ordered > .card::before {
-  content:counter(stack);
-  position:absolute; top:0; left:0;
-  padding:0.46875cqi 1.09375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0;
-  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
-  color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
+  content:counter(stack);   /* geometry + color: lib/base/base.card-tag.css */
 }
 
 

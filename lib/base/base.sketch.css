@@ -364,30 +364,15 @@ section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
  * flush chips a wobbled corner. Banner headers keep their straight full-width
  * strip (the card's overflow clips it to the card's own hand corners) and only
  * switch font, so the radius wobble is scoped to the non-banner chips. */
-section.sketch.cards-grid > :is(ul, ol) > li::before,
-section.sketch.cards-grid .card::before,
-section.sketch.cards-grid > .cell-stage > :is(ul, ol) > li::before,
-section.sketch.cards-stack > :is(ul, ol) > li::before,
-section.sketch.cards-stack .card::before,
-section.sketch.cards-stack > .cell-stage > :is(ul, ol) > li::before {
-  font-family: var(--sketch-font-display);
-  border-radius: 15px 2px 12px 3px / 3px 12px 2px 15px;
-}
-/* The font-family half of this override is GONE. It carried an !important
-   because the decision / compare-prose lifted-label rules use a
-   `:has(> strong:first-child)` selector (0,3,4) that outranks this sketch
-   override (0,3,3) on element count — so the chip reverted to the mono face.
-   Those component rules now name --font-label themselves, and re-pointing a
-   token beats any selector contest: custom-property inheritance decides the
-   VALUE the winning rule resolves, so specificity never enters into it. The
-   radius !important below stays load-bearing (geometry is not a token, so it
-   still loses the specificity contest without it). */
-section.sketch.decision:not(.banner-tag) > :is(ul, ol) > li > strong:first-child,
-section.sketch.decision:not(.banner-tag) > .cell-stage > :is(ul, ol) > li > strong:first-child,
-section.sketch.compare-prose:not(.banner-tag) > :is(ul, ol) > li > strong:first-child,
-section.sketch.compare-prose:not(.banner-tag) > .cell-stage > :is(ul, ol) > li > strong:first-child,
-section.sketch.compare-prose:not(.banner-tag) .compare-prose-inner .card > strong:first-child {
-  border-radius: 15px 2px 12px 3px / 3px 12px 2px 15px !important;
+/* Both halves are token re-points now, not selector overrides: the one tag kernel
+ * (lib/base/base.card-tag.css) reads --card-tag-radius and --card-tag-num-font, so
+ * every card tag — numbered, labeled, the split-compare verdict — takes the wobble,
+ * and no selector contest (the old `:has()` specificity fight that needed an
+ * !important here) can put a crisp corner back. A `banner-tag` band sets its own
+ * radius to 0 and is clipped by the card's hand corners, so it stays straight. */
+section.sketch {
+  --card-tag-num-font: var(--sketch-font-display);
+  --card-tag-radius: 15px 2px 12px 3px / 3px 12px 2px 15px;
 }
 
 /* ── HAND-DRAWN RULES — the structures that draw their OWN lines ──────────
