@@ -155,10 +155,18 @@ describe('a fenced code block cannot swallow the axis', () => {
   });
 
   test('many fences stay linear rather than quadratic', () => {
-    const many = (n) => '<pre><code>x</code></pre>\n'.repeat(n) + p('[A, B]') + TABLE;
-    const run = (n) => { const t = process.hrtime.bigint(); liftBracketSpans(many(n), { bodyTags: ['<table'] }); return Number(process.hrtime.bigint() - t) / 1e6; };
-    run(200);
-    assert.ok(run(800) < run(200) * 12, 'growth must not square');
+    // NO axis paragraph: with one, the old `<p[^>]*>` made a single match that
+    // swallowed every fence and ran linear, so this arm passed with the fix
+    // reverted. Without one, every `<pre>` start scans to the end and fails.
+    const many = (n) => '<pre><code>x</code></pre>\n'.repeat(n) + TABLE;
+    // The fastest of several runs at sizes well above timer noise: one ~1 ms
+    // sample per size let a single GC pause under full-suite load decide it.
+    // 8x the input is ~8x the time when linear and ~64x when quadratic.
+    const once = (html) => { const t = process.hrtime.bigint(); liftBracketSpans(html, { bodyTags: ['<table'] }); return Number(process.hrtime.bigint() - t) / 1e6; };
+    const best = (n) => { const html = many(n); once(html); return Math.min(...Array.from({ length: 7 }, () => once(html))); };
+    const small = best(500);
+    const large = best(4000);
+    assert.ok(large < small * 24, `growth must not square: ${small.toFixed(3)}ms at 500, ${large.toFixed(3)}ms at 4000`);
   });
 });
 
