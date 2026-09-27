@@ -31,7 +31,7 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
-import { RESET_SLIDE_BUTTON } from './panel-shells';
+import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
 import { getCaption, setCaption } from './slide-caption';
@@ -94,6 +94,8 @@ export type SlideContextBodyProps = {
 	 *  carried across a scope switch hides most of the panel for a reason the author has
 	 *  already forgotten. */
 	query: string;
+	/** The baseline the loading shell recorded when this panel opened (`panel-shells.tsx`). Taken over once, then cleared. */
+	baselineRef?: React.MutableRefObject<SlideBaseline | null>;
 };
 
 // ── Small local controls, styled to match the Inspector vocabulary ─────────────
@@ -271,7 +273,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query, baselineRef } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -344,9 +346,25 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// controls) to the original. Snapshot on open / slide change only, NOT on edit, so
 	// the baseline stays fixed while the author experiments. A restore replaces the
 	// slide wholesale (bytes-identical to the original), preserving every token.
-	const originalRef = React.useRef(chunk);
+	// On a cold open this component mounts only once its code has arrived; the loading shell
+	// recorded the slide at the moment the panel opened, so start from that (then clear it, so a
+	// later open cannot reuse it). Read here, cleared in the effect below: an initializer must stay pure.
+	const [shellBaseline] = React.useState(() => {
+		const b = baselineRef?.current;
+		return b && b.slide === slideNumber ? b.chunk : null;
+	});
+	const originalRef = React.useRef(shellBaseline ?? chunk);
+	const baselineTaken = React.useRef(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: capture the baseline on open/slide change, not on every edit.
-	React.useEffect(() => { originalRef.current = chunk; }, [slideNumber, open]);
+	React.useEffect(() => {
+		if (!baselineTaken.current) {
+			// First run: keep the shell's baseline if there was one, and consume it.
+			baselineTaken.current = true;
+			if (baselineRef) baselineRef.current = null;
+			if (shellBaseline !== null) return;
+		}
+		originalRef.current = chunk;
+	}, [slideNumber, open]);
 	const dirty = chunk !== originalRef.current;
 	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setCaptionDraft(getCaption(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
 

@@ -84,7 +84,7 @@ import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
-import { ChatShell, LensesShell, LibraryShell, ShareShell, SlideSettingsShell, WorkspaceShell } from './panel-shells';
+import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
@@ -634,6 +634,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
 	const shareMounted = useLatch(shareOpen);
+	// Where Slide settings' loading shell records the slide as it was when the panel opened, so
+	// "Reset slide" reverts to that even when the panel's code arrives after an edit (panel-shells.tsx).
+	const slideBaseline = React.useRef<SlideBaseline | null>(null);
 	const libraryMounted = useLatch(libraryOpen);
 	const workspaceMounted = useLatch(workspaceOpen);
 	// Sessions that ended without a clean unload — the crash sentinel's harvest
@@ -4655,8 +4658,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
 			) : (
-				<PanelLoader panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier}>{body}</SlideSettingsShell>}>
-					{(SlideContextBody) => <SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} />}
+				<PanelLoader panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
+					{(SlideContextBody) => <SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
 				</PanelLoader>
 			)}
 		</>

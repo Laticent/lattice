@@ -59,7 +59,7 @@ export function ShareShell({ open, onOpenChange, deckTitle, children }: { open: 
 								<PanelSection key={section.label} label={section.label}>
 									<p className="text-xs text-muted-foreground">{section.blurb}</p>
 									{section.rows.map((r) => (
-										<ShareRow key={r.id} icon={r.icon} title={r.title} desc={r.desc} dev={r.dev} />
+										<ShareRow key={r.id} icon={r.icon} title={r.title} desc={r.desc} dev={r.dev} pending />
 									))}
 								</PanelSection>
 							))}
@@ -317,8 +317,38 @@ function SettingRowBlock() {
 	);
 }
 
+/**
+ * The slide as it was when Slide settings opened: the baseline "Reset slide" reverts to. On a
+ * cold open the panel mounts only when its code arrives, so the shell records the baseline at the
+ * moment of opening, and the loaded panel takes it over once (`SlideContext.tsx`). Without this,
+ * an edit made while the shell was up would become part of the baseline and survive a Reset.
+ */
+export type SlideBaseline = { slide: number; chunk: string };
+
 /** The slide scope's body, under the scope bar the Studio draws. Opens on a clean slide, so the first row is real text. */
-export function SlideSettingsShell({ tier, children }: { tier: 'basic' | 'advanced'; children?: React.ReactNode }) {
+export function SlideSettingsShell({
+	tier,
+	baseline,
+	slideNumber,
+	chunk,
+	children,
+}: {
+	tier: 'basic' | 'advanced';
+	baseline: React.MutableRefObject<SlideBaseline | null>;
+	slideNumber: number;
+	chunk: string;
+	children?: React.ReactNode;
+}) {
+	// On mount and on a slide change, not on an edit: the same rule the panel's own baseline follows.
+	// Cleared when the shell goes, so a shell closed before the code arrived leaves no stale baseline.
+	// Safe on the swap: the loaded panel reads it during render, before this cleanup runs.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the baseline moves with the slide, never with an edit.
+	React.useEffect(() => {
+		baseline.current = { slide: slideNumber, chunk };
+		return () => {
+			baseline.current = null;
+		};
+	}, [slideNumber]);
 	return (
 		<div className={cn('min-w-0 flex-1 overflow-hidden px-4', SETTING_SCOPE)}>
 			{children ?? (
