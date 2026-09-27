@@ -1,0 +1,700 @@
+---
+// Trama — a standalone, framework-free showcase driven by the REAL library
+// (docs/src/lib/trama, the `@laticent/trama` workspace): graphLayoutKernel() lays a typed
+// list of rows out with dagre and routes every line as an elbow; `route()` re-routes the
+// lines between boxes the reader drags. No React, no slide engine: the honest proof the
+// kernel is a self-contained library. dagre is passed in, never imported, exactly as the
+// README says: the page loads the site's own `lattice-dagre.js` (the build every drawn
+// state chart uses), which installs `globalThis.__latticeDagre`. A guided storyboard: type
+// a row, flip the direction, wrap a chain, drag a box, watch the quality counters hold at
+// zero. Reached at /trama.
+import { joinBase } from '../lib/base-url.mjs';
+import { assetBase } from '../playground/asset-version.mjs';
+
+const url = (p: string) => joinBase(import.meta.env.BASE_URL, p);
+const dagreUrl = url(assetBase() + 'lattice-dagre.js');
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Trama — graph charts, woven</title>
+		<link rel="icon" href="/trama-mark-min.svg" type="image/svg+xml" />
+		<!-- Global (unscoped): the drawing, the rows' counters and the beats are built in JS at
+		     runtime, so Astro's element-scoped hashes would never match them. -->
+		<style is:global>
+			:root {
+				--paper: #faf6f1; --stage: #f3ebe3; --ink: #2a1f19; --muted: #7a685d; --line: #e5d8cc;
+				--accent: #a0522d; --accent-ink: #fff; --glow: #b5860f; --glow-ink: #8a6509; --glow-bg: #f6e8c6;
+				--panel: #fffcf8; --thread: #8a5a42; --ring: #4a1f0c; --shadow: 0 1px 2px rgba(42,31,25,.06), 0 8px 24px rgba(42,31,25,.06);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) {
+					--paper: #121010; --stage: #1a1614; --ink: #efe5dd; --muted: #a39185; --line: #2f2723;
+					--accent: #e0916a; --accent-ink: #1c0f08; --glow: #e8bd4f; --glow-ink: #e8bd4f; --glow-bg: #2f2816;
+					--panel: #171311; --thread: #c9a08a; --ring: #1c0f08; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					color-scheme: dark;
+				}
+			}
+			:root[data-theme="dark"] {
+				--paper: #121010; --stage: #1a1614; --ink: #efe5dd; --muted: #a39185; --line: #2f2723;
+				--accent: #e0916a; --accent-ink: #1c0f08; --glow: #e8bd4f; --glow-ink: #e8bd4f; --glow-bg: #2f2816;
+				--panel: #171311; --thread: #c9a08a; --ring: #1c0f08; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				color-scheme: dark;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1080px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			.logo .t-pri { stroke: var(--accent); }
+			.logo .t-warm { stroke: var(--glow); }
+			.logo .t-hub { fill: var(--accent); }
+			.logo .t-halo { fill: var(--paper); }
+			.logo .t-ring { stroke: var(--ring); }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+			.home:hover { color: var(--accent); }
+			.home svg, .theme svg { width: 12px; height: 12px; }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+			.sub { color: var(--muted); font-size: 14px; max-width: 70ch; margin: 6px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
+				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
+			.theme:hover { color: var(--accent); border-color: var(--accent); }
+
+			/* The stage: the rows on the left, the drawing on the right; stacked below 820px. */
+			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(14px, 3vw, 26px); display: grid;
+				grid-template-columns: minmax(220px, 290px) minmax(0, 1fr); gap: 18px; }
+			@media (max-width: 820px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+			.rows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+			.rows label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+			textarea { width: 100%; min-height: 220px; flex: 1; resize: vertical; border: 1px solid var(--line); border-radius: 12px;
+				background: var(--panel); color: var(--ink); font-family: var(--mono); font-size: 13px; line-height: 1.65;
+				padding: 12px 13px; tab-size: 2; }
+			@media (max-width: 820px) { textarea { min-height: 150px; } }
+			textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+			/* iOS Safari zooms the page when a focused text control computes under 16px. This page
+			   does not load landing.css, whose coarse-pointer net covers the other standalone pages,
+			   so it carries the same floor (engineering/gotchas/browser-engine.md). */
+			@media (pointer: coarse) { textarea, input:not([type='checkbox'], [type='radio'], [type='range'], [type='button']), select { font-size: max(16px, 1em); } }
+			.syntax { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.6; }
+			.syntax code { white-space: nowrap; font-family: var(--mono); font-size: 11.5px; color: var(--ink); background: var(--panel);
+				border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+			.syntax .gold { color: var(--glow-ink); border-color: color-mix(in srgb, var(--glow) 45%, var(--line)); }
+
+			.view { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+			.controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+			.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); padding: 3px; gap: 2px; }
+			.seg button { border: 0; background: none; color: var(--muted); font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+				border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+			.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+			.switch { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--panel);
+				color: var(--ink); font-family: var(--sans); font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 6px 13px 6px 7px; cursor: pointer; }
+			.switch .knob { width: 28px; height: 16px; border-radius: 999px; background: var(--line); position: relative; flex-shrink: 0; transition: background .15s ease; }
+			.switch .knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+				background: var(--panel); transition: transform .15s ease; }
+			.switch[aria-pressed="true"] .knob { background: var(--accent); }
+			.switch[aria-pressed="true"] .knob::after { transform: translateX(12px); }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: transform .08s ease; white-space: nowrap; }
+			.btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+			.canvas { position: relative; height: clamp(320px, 40vw, 460px); border: 1px solid var(--line); border-radius: 14px;
+				background: var(--panel); background-image: radial-gradient(circle, color-mix(in srgb, var(--line) 85%, transparent) 1px, transparent 1.2px);
+				background-size: 18px 18px; display: grid; place-items: center; overflow: hidden; }
+			@media (max-width: 820px) { .canvas { height: 400px; } }
+			.canvas svg { display: block; overflow: visible; }
+			.canvas .empty { color: var(--muted); font-size: 13px; }
+
+			/* The drawing (layout units; the SVG scales them). */
+			.g-edge { fill: none; stroke: var(--thread); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+			.g-edge.heavy { stroke: var(--glow); stroke-width: 3; }
+			.g-head { fill: var(--thread); }
+			.g-head.heavy { fill: var(--glow); }
+			.g-label-bg { fill: var(--panel); }
+			.g-label { fill: var(--muted); font-family: var(--sans); font-size: 12.5px; font-weight: 600; }
+			.g-node { cursor: grab; touch-action: none; outline: none; }
+			.g-node .box { fill: var(--panel); stroke: var(--accent); stroke-width: 1.6; }
+			.g-node .txt { fill: var(--ink); font-family: var(--sans); font-size: 15px; font-weight: 600; pointer-events: none; }
+			.g-node:hover .box, .g-node:focus-visible .box { stroke-width: 2.6; }
+			.g-node:focus-visible .box { stroke: var(--glow); }
+			.g-node.dragging { cursor: grabbing; }
+			.g-node.dragging .box { fill: color-mix(in srgb, var(--accent) 10%, var(--panel)); stroke-width: 2.6; }
+			.canvas.settling .g-edge, .canvas.settling .g-head { transition: none; }
+
+			.status { display: flex; gap: 8px 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.status b { color: var(--ink); font-weight: 600; }
+			.status .mode { color: var(--accent); font-weight: 700; }
+			.hint { margin: 0; font-size: 12.5px; color: var(--muted); min-height: 19px; }
+
+			/* The quality counters: the kernel's own fault counts, every one of them. */
+			.quality { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+			.quality-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+			.quality-head h2 { font-family: var(--stage-serif); font-size: 17px; margin: 0; font-weight: 600; }
+			.quality-head .sum { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.quality-head .sum b { color: var(--accent); }
+			.quality-head .sum[data-bad="true"] b { color: var(--glow-ink); }
+			.counters { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 6px; }
+			@media (max-width: 520px) { .counters { gap: 4px; } .counter { padding: 5px 10px; } }
+			.counter { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px;
+				font-size: 12.5px; transition: background .2s ease, border-color .2s ease; min-width: 0; }
+			.counter .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+			.counter .k { color: var(--muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.counter .v { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+			.counter[data-bad="true"] { background: var(--glow-bg); border-color: color-mix(in srgb, var(--glow) 50%, var(--line)); }
+			.counter[data-bad="true"] .dot { background: var(--glow); }
+			.quality.flash { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+			.rail { margin-top: 26px; }
+			.rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.rail-head h2 { font-family: var(--stage-serif); font-size: 18px; margin: 0; font-weight: 600; }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px;
+				cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; font-family: var(--sans); }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line);
+				color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beat .bt { display: block; font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
+			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); overflow-wrap: anywhere; }
+
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { overflow-wrap: anywhere; font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.foot a { color: var(--accent); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			.g-node:focus-visible { outline: none; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+		<!-- dagre, handed to the kernel (Trama never imports it). A classic script, so it has
+		     installed globalThis.__latticeDagre before the deferred module below runs. -->
+		<script is:inline src={dagreUrl}></script>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<!-- The mark, inline so it follows this page's theme toggle as well as the OS
+					     (docs/public/trama-mark.svg is the same geometry). -->
+					<svg class="logo" viewBox="0 0 128 128" fill="none" aria-hidden="true">
+						<g stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+							<path class="t-pri" d="M38 112 L38 74.6" /><path class="t-pri" d="M38 53.4 L38 38 L79.8 38" />
+							<path class="t-pri" d="M90 16 L90 53.4" /><path class="t-pri" d="M90 74.6 L90 90 L48.2 90" />
+						</g>
+						<g stroke-width="6.8" stroke-linecap="round">
+							<path class="t-warm" d="M16 64 L49 64" /><path class="t-warm" d="M79 64 L112 64" />
+						</g>
+						<circle cx="64" cy="64" r="15" class="t-halo" /><circle cx="64" cy="64" r="12.2" class="t-hub" />
+						<circle cx="64" cy="64" r="7.6" class="t-ring" stroke-width="1.8" opacity="0.6" />
+					</svg>
+					<h1>Trama</h1><span class="tag">graph charts</span>
+				</div>
+				<div style="display:flex; gap:14px; align-items:center;">
+					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
+					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
+				</div>
+			</header>
+			<p class="sub">
+				Trama lays out a graph with dagre and routes every line as an elbow that <b>never runs through a
+				box or along another line</b>. Type rows below and the page runs the <b>real kernel</b> on every
+				keystroke. Drag a box and <b>route()</b> weaves the lines again around it.
+			</p>
+
+			<div class="stage">
+				<div class="rows">
+					<label for="rows">Rows</label>
+					<textarea id="rows" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+					<p class="syntax">
+						One line per row: <code>A -&gt; B</code> draws a line, <code class="gold">A =&gt; B</code> marks the
+						main path, <code>: label</code> labels the last line, and a name ending in <code>?</code> is a decision.
+					</p>
+				</div>
+				<div class="view">
+					<div class="controls">
+						<div class="seg" role="group" aria-label="Direction" id="dirSeg">
+							<button type="button" data-dir="auto" aria-pressed="true">Auto</button>
+							<button type="button" data-dir="lr" aria-pressed="false">Across</button>
+							<button type="button" data-dir="tb" aria-pressed="false">Down</button>
+						</div>
+						<button class="switch" id="wrapBtn" type="button" aria-pressed="false"><span class="knob"></span>Wrap the chain</button>
+						<button class="btn" id="relayBtn" type="button">Lay out again</button>
+					</div>
+					<div class="canvas" id="canvas"></div>
+					<div class="status" id="status" role="status" aria-live="polite"></div>
+					<p class="hint" id="hint">Drag any box, or focus one and use the arrow keys.</p>
+				</div>
+			</div>
+
+			<section class="quality" id="quality" aria-label="Quality counters">
+				<div class="quality-head">
+					<h2>The quality counters</h2>
+					<span class="sum" id="qsum"></span>
+				</div>
+				<div class="counters" id="counters"></div>
+			</section>
+
+			<div class="rail">
+				<div class="rail-head">
+					<h2>The storyboard</h2>
+					<button class="btn primary" id="tourBtn" type="button">Play all five</button>
+				</div>
+				<div class="beats" id="beats"></div>
+			</div>
+
+			<p class="foot">
+				Driven by the real library (<code>@laticent/trama</code>, <code>docs/src/lib/trama</code>):
+				<code>graphLayoutKernel().layout(model, sizes, opts, dagre)</code> places the boxes and routes the
+				lines, and <code>route(model, sizes, positions, opts)</code> routes them between boxes you placed
+				yourself, with the same solver and the same never-rules. It prices crossings first, then side
+				middles and symmetry, then turns, then length, and counts every fault it could not avoid in
+				<code>geo.quality</code>. dagre is handed in, never imported: this page passes the site's own
+				build, the one every drawn state chart uses. A plain DOM page with no framework, which is the
+				proof the kernel stands alone. <a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/trama">Read the README</a>.
+			</p>
+		</div>
+
+		<script>
+			import { graphLayoutKernel } from '@/lib/trama';
+			import type { Geometry, GraphEdge, GraphModel, GraphShape, Point, Quality, SizeMap } from '@/lib/trama';
+
+			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector(s) as T;
+			const root = document.documentElement;
+			const rowsEl = $<HTMLTextAreaElement>('#rows');
+			const canvas = $('#canvas'), statusEl = $('#status'), hintEl = $('#hint');
+			const countersEl = $('#counters'), qsumEl = $('#qsum'), qualityEl = $('#quality');
+			const beatsEl = $('#beats'), wrapBtn = $('#wrapBtn'), dirSeg = $('#dirSeg');
+			const SVGNS = 'http://www.w3.org/2000/svg';
+
+			// ── Theme (the key the docs site uses; `system` follows the OS) ──
+			const THEME_LS = 'lattice-docs-mode';
+			const osDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+			const applyTheme = (t: string | null) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			try { const t = localStorage.getItem(THEME_LS); applyTheme(t === 'light' || t === 'dark' ? t : osDark() ? 'dark' : 'light'); } catch { /* storage blocked */ }
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme') || (osDark() ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch { /* storage blocked */ }
+			});
+
+			// ── The kernel, and the dagre build the page loaded ──
+			const K = graphLayoutKernel();
+			const dagre = (globalThis as unknown as { __latticeDagre?: { layout(g: unknown): void; Graph: new (o?: Record<string, unknown>) => unknown } }).__latticeDagre ?? null;
+
+			// ── Samples ──
+			const FLOW = [
+				'Order placed => In stock?',
+				'In stock? => Pick & pack : yes',
+				'In stock? -> Back-order : no',
+				'Back-order -> Pick & pack : restocked',
+				'Pick & pack => Ship',
+			].join('\n');
+			const CHAIN = ['Draft => Review', 'Review => Approve', 'Approve => Build', 'Build => Test', 'Test => Stage', 'Stage => Release', 'Release => Monitor'].join('\n');
+
+			// ── Rows → model. Names become ids; `?` makes a decision (a diamond). ──
+			const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x';
+			function parse(text: string): GraphModel {
+				const shapes: GraphShape[] = [];
+				const edges: GraphEdge[] = [];
+				const seen = new Map<string, string>();
+				const shape = (raw: string) => {
+					const name = raw.trim().slice(0, 28);
+					if (!name) return null;
+					const id = slug(name);
+					if (!seen.has(id)) {
+						if (shapes.length >= 24) return null;
+						seen.set(id, name);
+						shapes.push({ id, name, shape: name.endsWith('?') ? 'diamond' : 'rect' });
+					}
+					return id;
+				};
+				for (const line of text.split('\n')) {
+					if (!line.trim() || line.trim().startsWith('#')) continue;
+					let body = line, label = '';
+					const colon = line.lastIndexOf(' : ') >= 0 ? line.lastIndexOf(' : ') : line.lastIndexOf(':');
+					if (colon > 0 && /(->|=>)/.test(line.slice(0, colon))) { body = line.slice(0, colon); label = line.slice(colon + 1).replace(/^:\s*/, '').trim().slice(0, 24); }
+					const parts = body.split(/\s*(=>|->)\s*/);
+					let prev = shape(parts[0]);
+					for (let i = 1; i + 1 < parts.length; i += 2) {
+						const next = shape(parts[i + 1]);
+						if (prev && next && edges.length < 40) {
+							const e: GraphEdge = { from: prev, to: next, heavy: parts[i] === '=>' };
+							if (label && i + 2 >= parts.length) e.label = label;
+							edges.push(e);
+						}
+						prev = next;
+					}
+				}
+				return { shapes, edges };
+			}
+
+			// ── Measure in the fonts the SVG draws with (layout units = CSS px at scale 1) ──
+			const ctx = document.createElement('canvas').getContext('2d')!;
+			const sansStack = getComputedStyle(root).getPropertyValue('--sans').trim() || 'system-ui, sans-serif';
+			const textW = (s: string, px: number) => { ctx.font = `600 ${px}px ${sansStack}`; return ctx.measureText(s).width; };
+			function measure(model: GraphModel) {
+				const sizes: SizeMap = {};
+				for (const s of model.shapes) {
+					const w = textW(String(s.name), 15);
+					sizes[s.id] = s.shape === 'diamond' ? { w: Math.ceil(w + 70), h: 66 } : { w: Math.ceil(Math.max(78, w + 34)), h: 42 };
+				}
+				const labelSizes: Record<number, { w: number; h: number }> = {};
+				(model.edges || []).forEach((e, i) => { if (e.label) labelSizes[i] = { w: Math.ceil(textW(e.label, 12.5) + 12), h: 20 }; });
+				return { sizes, labelSizes };
+			}
+
+			// ── State ──
+			let dirPick: 'auto' | 'lr' | 'tb' = 'auto';
+			let wrap = false;
+			let model: GraphModel = { shapes: [], edges: [] };
+			let sizes: SizeMap = {};
+			let labelSizes: Record<number, { w: number; h: number }> = {};
+			let base: Geometry | null = null;      // the last full layout: fixes the frame
+			let geo: Geometry | null = null;       // what is drawn now (base, or a route() after a drag)
+			let offset = { x: 0, y: 0 };           // route() returns a normalized drawing: where it sits in the frame
+			let scale = 1;
+			let frame = { w: 0, h: 0 };            // the whole canvas, in layout units: where a box may be dragged
+			let home = { x: 0, y: 0 };             // where the fresh layout sits, centered in the frame
+			let dragged = false;
+			let lastMs = 0;
+
+			function stageSize() {
+				const r = canvas.getBoundingClientRect();
+				return { w: Math.max(200, r.width - 36), h: Math.max(160, r.height - 36) };
+			}
+
+			function relayout() {
+				model = parse(rowsEl.value);
+				({ sizes, labelSizes } = measure(model));
+				dragged = false;
+				offset = { x: 0, y: 0 };
+				if (!model.shapes.length) { base = geo = null; paint(); return; }
+				const stage = stageSize();
+				const t0 = performance.now();
+				base = K.layout(model, sizes, { stage, labelSizes, wrap, ...(dirPick === 'auto' ? {} : { dir: dirPick }) }, dagre);
+				lastMs = performance.now() - t0;
+				geo = base;
+				if (base) {
+					scale = Math.min(1.2, stage.w / base.width, stage.h / base.height);
+					frame = { w: canvas.clientWidth / scale, h: canvas.clientHeight / scale };
+					home = { x: (frame.w - base.width) / 2, y: (frame.h - base.height) / 2 };
+					offset = { ...home };
+				}
+				paint();
+			}
+
+			// Centers of the boxes as drawn now, in the frame of `base`.
+			function centers(): Record<string, Point> {
+				const out: Record<string, Point> = {};
+				if (!geo) return out;
+				for (const [id, b] of Object.entries(geo.nodes)) out[id] = { x: b.cx + offset.x, y: b.cy + offset.y };
+				return out;
+			}
+
+			function reroute(positions: Record<string, Point>, anchor: string) {
+				if (!base) return;
+				const t0 = performance.now();
+				const g = K.route(model, sizes, positions, { labelSizes, dir: base.dir });
+				lastMs = performance.now() - t0;
+				if (!g || !g.nodes[anchor]) return;
+				geo = g;
+				offset = { x: positions[anchor].x - g.nodes[anchor].cx, y: positions[anchor].y - g.nodes[anchor].cy };
+				dragged = true;
+				paint();
+			}
+
+			// ── Paint ──
+			const r1 = (n: number) => Math.round(n * 10) / 10;
+			function roundedPath(pts: Point[], rad: number) {
+				let d = `M${r1(pts[0].x)} ${r1(pts[0].y)}`;
+				for (let j = 1; j < pts.length; j++) {
+					const p = pts[j];
+					if (j === pts.length - 1) { d += `L${r1(p.x)} ${r1(p.y)}`; break; }
+					const a = pts[j - 1], b = pts[j + 1];
+					const la = Math.hypot(p.x - a.x, p.y - a.y), lb = Math.hypot(b.x - p.x, b.y - p.y);
+					const r = Math.min(rad, la / 2, lb / 2);
+					if (r < 0.5) { d += `L${r1(p.x)} ${r1(p.y)}`; continue; }
+					const p1 = { x: p.x - ((p.x - a.x) / la) * r, y: p.y - ((p.y - a.y) / la) * r };
+					const p2 = { x: p.x + ((b.x - p.x) / lb) * r, y: p.y + ((b.y - p.y) / lb) * r };
+					d += `L${r1(p1.x)} ${r1(p1.y)}Q${r1(p.x)} ${r1(p.y)} ${r1(p2.x)} ${r1(p2.y)}`;
+				}
+				return d;
+			}
+			function arrow(tip: Point, from: Point, size: number) {
+				const dx = tip.x - from.x, dy = tip.y - from.y, L = Math.hypot(dx, dy) || 1;
+				const ux = dx / L, uy = dy / L, px = -uy, py = ux;
+				const at = (a: number, b: number) => `${r1(tip.x - ux * a + px * b)} ${r1(tip.y - uy * a + py * b)}`;
+				return `M${at(0, 0)}L${at(size, size * 0.52)}L${at(size, -size * 0.52)}Z`;
+			}
+			const el = (tag: string, attrs: Record<string, string | number>) => {
+				const n = document.createElementNS(SVGNS, tag);
+				for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
+				return n;
+			};
+
+			function paint() {
+				canvas.replaceChildren();
+				if (!base || !geo) {
+					const p = document.createElement('p');
+					p.className = 'empty';
+					p.textContent = model.shapes.length ? 'The kernel returned no drawing.' : 'Type a row, such as Order -> Ship.';
+					canvas.appendChild(p);
+					renderStatus(); renderQuality(null);
+					return;
+				}
+				const svg = el('svg', { viewBox: `0 0 ${r1(frame.w)} ${r1(frame.h)}`, width: r1(frame.w * scale), height: r1(frame.h * scale), role: 'img',
+					'aria-label': `${model.shapes.length} shapes and ${(model.edges || []).length} lines, laid out ${geo.dir === 'lr' ? 'across' : 'down'}` });
+				const g = el('g', { transform: `translate(${r1(offset.x)} ${r1(offset.y)})` });
+				svg.appendChild(g);
+				const edges = model.edges || [];
+				// Lines under boxes; the main path over the rest of the lines.
+				const order = [...geo.routes].sort((a, b) => Number(!!edges[a.index]?.heavy) - Number(!!edges[b.index]?.heavy));
+				for (const r of order) {
+					const e = edges[r.index];
+					if (!e || r.points.length < 2) continue;
+					const heavy = !!e.heavy;
+					const P = r.points.map((p) => ({ ...p }));
+					const n = P.length, size = heavy ? 10 : 8.5;
+					const tip = P[n - 1], prev = P[n - 2];
+					const segL = Math.hypot(tip.x - prev.x, tip.y - prev.y) || 1;
+					// Stop the stroke short of the tip so the round cap never pokes past the arrowhead.
+					const cut = Math.min(size * 0.8, segL - 0.5);
+					P[n - 1] = { x: tip.x - ((tip.x - prev.x) / segL) * cut, y: tip.y - ((tip.y - prev.y) / segL) * cut };
+					g.appendChild(el('path', { class: `g-edge${heavy ? ' heavy' : ''}`, d: roundedPath(P, 9) }));
+					g.appendChild(el('path', { class: `g-head${heavy ? ' heavy' : ''}`, d: arrow(tip, prev, size) }));
+				}
+				for (const r of geo.routes) {
+					const e = edges[r.index];
+					if (!e?.label || !r.labelAt || !r.labelSize) continue;
+					const { w, h } = r.labelSize;
+					g.appendChild(el('rect', { class: 'g-label-bg', x: r1(r.labelAt.x - w / 2), y: r1(r.labelAt.y - h / 2), width: r1(w), height: r1(h), rx: 5 }));
+					const t = el('text', { class: 'g-label', x: r1(r.labelAt.x), y: r1(r.labelAt.y), 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+					t.textContent = e.label;
+					g.appendChild(t);
+				}
+				for (const s of model.shapes) {
+					const b = geo.nodes[s.id];
+					if (!b) continue;
+					const node = el('g', { class: 'g-node', tabindex: 0, 'data-id': s.id, role: 'button',
+						'aria-label': `${s.name}: drag, or use the arrow keys, to move it` });
+					if (s.shape === 'diamond') {
+						node.appendChild(el('path', { class: 'box', d: `M${r1(b.cx)} ${r1(b.y)}L${r1(b.x + b.w)} ${r1(b.cy)}L${r1(b.cx)} ${r1(b.y + b.h)}L${r1(b.x)} ${r1(b.cy)}Z`, 'stroke-linejoin': 'round' }));
+					} else {
+						node.appendChild(el('rect', { class: 'box', x: r1(b.x), y: r1(b.y), width: r1(b.w), height: r1(b.h), rx: 9 }));
+					}
+					const t = el('text', { class: 'txt', x: r1(b.cx), y: r1(b.cy), 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+					t.textContent = String(s.name);
+					node.appendChild(t);
+					g.appendChild(node);
+				}
+				canvas.appendChild(svg);
+				if (dragId) svg.querySelector(`[data-id="${CSS.escape(dragId)}"]`)?.classList.add('dragging');
+				if (focusId) (svg.querySelector(`[data-id="${CSS.escape(focusId)}"]`) as SVGGElement | null)?.focus({ preventScroll: true });
+				renderStatus(); renderQuality(geo.quality);
+			}
+
+			function renderStatus() {
+				if (!geo) { statusEl.textContent = ''; return; }
+				const parts = [
+					`<span class="mode">${dragged ? 'route()' : 'layout()'}</span>`,
+					`dir <b>${geo.dir}</b>`,
+					`crossings <b>${geo.crossings}</b>`,
+					geo.lines ? `lines <b>${geo.lines}</b>` : '',
+					`type <b>${Math.round(scale * 100)}%</b>`,
+					`<b>${lastMs < 1 ? '<1' : Math.round(lastMs)}</b> ms`,
+				].filter(Boolean);
+				statusEl.innerHTML = parts.join('<span aria-hidden="true">·</span>');
+			}
+
+			const QUALITY_NAMES: [keyof Quality, string][] = [
+				['linesThroughShapes', 'lines through shapes'], ['linesThroughEnds', 'lines through ends'],
+				['shapeOverlaps', 'shape overlaps'], ['labelsOffLine', 'labels off their line'],
+				['labelCollisions', 'label collisions'], ['sharedRuns', 'shared runs'],
+				['endsOffBox', 'ends off their box'], ['linesThroughTitles', 'lines through titles'],
+				['labelsAcrossBorders', 'labels across borders'], ['titlesUnderShapes', 'titles under shapes'],
+			];
+			function renderQuality(q: Quality | null) {
+				countersEl.replaceChildren();
+				let total = 0;
+				for (const [k, name] of QUALITY_NAMES) {
+					const v = q ? q[k] || 0 : 0;
+					total += v;
+					const c = document.createElement('div');
+					c.className = 'counter'; c.dataset.bad = String(v > 0); c.title = `geo.quality.${k}`;
+					const dot = document.createElement('span'); dot.className = 'dot';
+					const kEl = document.createElement('span'); kEl.className = 'k'; kEl.textContent = name;
+					const vEl = document.createElement('span'); vEl.className = 'v'; vEl.textContent = String(v);
+					c.append(dot, kEl, vEl);
+					countersEl.appendChild(c);
+				}
+				qsumEl.dataset.bad = String(total > 0);
+				qsumEl.innerHTML = q ? (total ? `<b>${total}</b> ${total === 1 ? 'fault' : 'faults'}: move the box off its neighbor` : `<b>0</b> faults across all ten`) : '';
+			}
+
+			// ── Drag a box: route() re-weaves the lines around where you put it ──
+			let dragId: string | null = null;
+			let focusId: string | null = null;
+			let grab = { x: 0, y: 0 };
+			let raf = 0;
+			let pending: Record<string, Point> | null = null;
+			const toUnits = (ev: PointerEvent) => {
+				const svg = canvas.querySelector('svg')!;
+				const r = svg.getBoundingClientRect();
+				return { x: (ev.clientX - r.left) / scale, y: (ev.clientY - r.top) / scale };
+			};
+			function clampCenter(id: string, p: Point): Point {
+				const b = geo!.nodes[id];
+				return {
+					x: Math.min(frame.w - b.w / 2 - 6, Math.max(b.w / 2 + 6, p.x)),
+					y: Math.min(frame.h - b.h / 2 - 6, Math.max(b.h / 2 + 6, p.y)),
+				};
+			}
+			function moveTo(id: string, p: Point) {
+				const pos = centers();
+				pos[id] = clampCenter(id, p);
+				pending = pos;
+				if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (pending) { const q = pending; pending = null; reroute(q, id); } });
+			}
+			canvas.addEventListener('pointerdown', (ev) => {
+				const node = (ev.target as Element).closest('.g-node') as SVGGElement | null;
+				if (!node || !geo) return;
+				ev.preventDefault();
+				dragId = node.dataset.id!;
+				focusId = null;
+				const c = centers()[dragId];
+				const u = toUnits(ev);
+				grab = { x: u.x - c.x, y: u.y - c.y };
+				node.classList.add('dragging');
+				canvas.setPointerCapture(ev.pointerId);
+				stopTour();
+			});
+			// A touch that starts on a box drags it rather than scrolling the page. `touch-action`
+			// is not honored on SVG shapes, so the scroll is refused here instead; a swipe that
+			// starts anywhere else in the canvas still scrolls.
+			canvas.addEventListener('touchstart', (ev) => { if ((ev.target as Element).closest?.('.g-node')) ev.preventDefault(); }, { passive: false });
+			canvas.addEventListener('pointermove', (ev) => {
+				if (!dragId) return;
+				const u = toUnits(ev);
+				moveTo(dragId, { x: u.x - grab.x, y: u.y - grab.y });
+			});
+			const endDrag = () => {
+				if (!dragId) return;
+				dragId = null;
+				canvas.querySelector('.dragging')?.classList.remove('dragging');
+			};
+			canvas.addEventListener('pointerup', endDrag);
+			canvas.addEventListener('pointercancel', endDrag);
+			canvas.addEventListener('keydown', (ev) => {
+				const node = (ev.target as Element).closest?.('.g-node') as SVGGElement | null;
+				const step = ev.shiftKey ? 40 : 12;
+				const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[ev.key];
+				if (!node || !d || !geo) return;
+				ev.preventDefault();
+				const id = node.dataset.id!;
+				focusId = id;
+				const c = centers()[id];
+				moveTo(id, { x: c.x + d[0], y: c.y + d[1] });
+			});
+
+			// ── Controls ──
+			function setDir(d: 'auto' | 'lr' | 'tb') {
+				dirPick = d;
+				dirSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dir === d)));
+				relayout();
+			}
+			function setWrap(on: boolean) { wrap = on; wrapBtn.setAttribute('aria-pressed', String(on)); relayout(); }
+			dirSeg.addEventListener('click', (ev) => {
+				const b = (ev.target as Element).closest('button');
+				if (b) { stopTour(); setDir(b.dataset.dir as 'auto' | 'lr' | 'tb'); }
+			});
+			wrapBtn.addEventListener('click', () => { stopTour(); setWrap(!wrap); });
+			$('#relayBtn').addEventListener('click', () => { stopTour(); relayout(); });
+			let typing = 0;
+			rowsEl.addEventListener('input', () => { if (!typing) stopTour(); cancelAnimationFrame(typing); typing = requestAnimationFrame(() => { typing = 0; relayout(); }); });
+			let resizeT = 0;
+			new ResizeObserver(() => { clearTimeout(resizeT); resizeT = window.setTimeout(() => { if (!dragged) relayout(); }, 120); }).observe(canvas);
+
+			// ── Storyboard ──
+			let timers: number[] = [];
+			const after = (ms: number, fn: () => void) => { timers.push(window.setTimeout(fn, ms)); };
+			const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+			function load(text: string, opts: { dir?: 'auto' | 'lr' | 'tb'; wrap?: boolean } = {}) {
+				rowsEl.value = text;
+				wrap = !!opts.wrap; wrapBtn.setAttribute('aria-pressed', String(wrap));
+				setDir(opts.dir ?? 'auto');
+			}
+			function typeRow(row: string) {
+				const start = rowsEl.value.replace(/\n*$/, '') + '\n';
+				rowsEl.value = start;
+				[...row].forEach((_, i) => after(60 + i * 70, () => { rowsEl.value = start + row.slice(0, i + 1); relayout(); }));
+				return 60 + row.length * 70;
+			}
+			function glideBox(id: string, dx: number, dy: number, ms: number) {
+				if (!geo || !geo.nodes[id]) return;
+				const c0 = centers()[id];
+				const steps = Math.max(8, Math.round(ms / 40));
+				for (let i = 1; i <= steps; i++) {
+					after((ms * i) / steps, () => {
+						const t = i / steps, e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+						const pos = centers();
+						pos[id] = clampCenter(id, { x: c0.x + dx * e, y: c0.y + dy * e });
+						reroute(pos, id);
+					});
+				}
+			}
+			function flashQuality() { qualityEl.classList.add('flash'); after(1400, () => qualityEl.classList.remove('flash')); qualityEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+			const BEATS = [
+				{ id: 'type', t: 'Type a row', d: 'Each keystroke is one kernel call: the boxes are measured in the page font, placed, and every line routed.',
+					api: 'layout(model, sizes, opts, dagre)', run: () => { load(FLOW); typeRow('Ship => Delivered : signed'); } },
+				{ id: 'dir', t: 'Flip the direction', d: 'Auto lays both directions out and keeps whichever sets the type larger. Pin one and the other is never tried.',
+					api: "opts.dir = 'lr' | 'tb'", run: () => { load(FLOW, { dir: 'lr' }); after(1300, () => setDir('tb')); after(2600, () => setDir('auto')); } },
+				{ id: 'wrap', t: 'Wrap the chain', d: 'A long chain on one line shrinks its type. With wrap on, the kernel also tries the chain on several lines in reading order.',
+					api: 'opts.wrap = true', run: () => { load(CHAIN); after(1300, () => setWrap(true)); } },
+				{ id: 'drag', t: 'Drag a box', d: 'route() keeps every box where you put it and routes the lines again, with the same solver and never-rules.',
+					api: 'route(model, sizes, positions)', run: () => { load(FLOW, { dir: 'lr' }); after(400, () => { const c = centers()['back-order']; if (c) glideBox('back-order', 0, (frame.h - c.y) * 0.6, 1400); }); } },
+				{ id: 'zero', t: 'The counters hold at zero', d: 'The kernel counts every fault it could not avoid. The unit gallery holds all ten to zero; so does everything above.',
+					api: 'geo.quality', run: () => { if (!base) load(FLOW); flashQuality(); } },
+			];
+			function setCurrent(id: string | null) { [...beatsEl.children].forEach((b) => b.setAttribute('aria-current', String((b as HTMLElement).dataset.id === id))); }
+			BEATS.forEach((b, i) => {
+				const btn = document.createElement('button');
+				btn.className = 'beat'; btn.type = 'button'; btn.dataset.id = b.id;
+				btn.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
+				btn.addEventListener('click', () => { stopTour(); clearTimers(); setCurrent(b.id); b.run(); });
+				beatsEl.appendChild(btn);
+			});
+			let tourTimer = 0;
+			const tourBtn = $('#tourBtn');
+			function stopTour() { if (!tourTimer) return; clearInterval(tourTimer); tourTimer = 0; clearTimers(); tourBtn.textContent = 'Play all five'; }
+			tourBtn.addEventListener('click', () => {
+				if (tourTimer) { stopTour(); return; }
+				let i = 0; tourBtn.textContent = 'Stop the tour';
+				const step = () => {
+					if (i >= BEATS.length) { stopTour(); return; }
+					clearTimers();
+					const b = BEATS[i++]; setCurrent(b.id); b.run();
+				};
+				step(); tourTimer = window.setInterval(step, 4200);
+			});
+
+			// ── Boot ──
+			if (!dagre) hintEl.textContent = 'dagre did not load, so only a wrapped chain can lay out (the grid needs no dagre).';
+			rowsEl.value = FLOW;
+			relayout();
+		</script>
+	</body>
+</html>

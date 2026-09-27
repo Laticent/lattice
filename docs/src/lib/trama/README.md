@@ -14,6 +14,8 @@ It has **no dependencies**. dagre is passed in, never imported, and nothing in T
 knows about Markdown, a grammar or a stylesheet: an adapter reads its own model and paints
 its own markup. The design contract is
 [`engineering/decisions/2026-09-27-trama-graph-chart-library.md`](../../../../engineering/decisions/2026-09-27-trama-graph-chart-library.md).
+**See it run:** the [`/trama` demo](https://lattice.style/trama) drives this kernel live: type
+rows, flip the direction, wrap a chain, drag a box and watch `route()` weave the lines again.
 **Not yet on npm:** no workflow publishes the workspace libraries today
 (`followups.d/2360-p3-publish-workspace-libraries.md`).
 

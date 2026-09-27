@@ -132,8 +132,8 @@ it is load-bearing.
 ### Active — proposed · in-progress · blocked
 
 - ◐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
-- ◐ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ◐ [2026-09-27-guide-in-the-exported-player.md](2026-09-27-guide-in-the-exported-player.md) — The owner ruled on 2026-09-27 (video note §6, fork 8) that the Guide goes into the exported player, so a narrated HTML export and the video…
+- ◐ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ◐ [2026-09-27-plugin-system.md](2026-09-27-plugin-system.md) — The plugin system, designed whole and hardened by the adversarial trio before any code.
 - ◐ [2026-09-27-studio-export-one-engine.md](2026-09-27-studio-export-one-engine.md) — The owner wants the Studio's Export to PDF to produce "option 1" — a background photo with real, sharp text and shapes on top — through one…
 - ◐ [2026-09-27-trama-graph-chart-library.md](2026-09-27-trama-graph-chart-library.md) — Trama (`@laticent/trama`) is the graph-chart library.

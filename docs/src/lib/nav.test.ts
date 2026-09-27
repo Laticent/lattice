@@ -55,6 +55,11 @@ describe('nav model', () => {
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
 
+	it('lists every workspace library that ships a demo page, Trama included', () => {
+		expect(labels(librariesNav(url))).toEqual(['Suono', 'Lente', 'Cadenza', 'Vetrina', 'Trama']);
+		expect(librariesActive('/lattice/trama/', url)).toBe(true);
+	});
+
 	it('lights the Libraries disclosure only from a library route', () => {
 		expect(librariesActive('/lattice/suono/', url)).toBe(true);
 		expect(librariesActive('/lattice/studio/', url)).toBe(false);

@@ -71,6 +71,7 @@ export function librariesNav(url) {
 		{ label: 'Lente', href: url('lente'), match: ['lente'], desc: 'Reader lenses, human-approved' },
 		{ label: 'Cadenza', href: url('cadenza'), match: ['cadenza'], desc: 'Caption + timeline engine' },
 		{ label: 'Vetrina', href: url('vetrina'), match: ['vetrina'], desc: 'Self-driving walkthrough' },
+		{ label: 'Trama', href: url('trama'), match: ['trama'], desc: 'Graph layout + elbow routing' },
 	];
 }
 

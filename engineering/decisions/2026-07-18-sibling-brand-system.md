@@ -11,7 +11,7 @@ summary: >
   centered base-gap = the tuned breath, the ringed hub = the owned clock), on a locked GREEN palette
   that matches the /suono demo. Assets: `docs/public/suono-{mark,mark-min,lockup}.svg`. This doc is
   the template the family follows; the fan-out (2026-07-18) then built marks + lockups for Lente,
-  Vetrina, and Cadenza on it — Anima stays staged (WIP).
+  Vetrina, and Cadenza on it — Anima stays staged (WIP). Trama (the weft; terracotta + gold) joined on 2026-09-27.
 companion:
   - ./2026-07-12-suono-audio-library.md
   - ./2026-07-08-library-shape-cadenza-vetrina.md
@@ -103,6 +103,37 @@ each on the DNA above with its own metaphor + accent. Assets: `docs/public/<name
   arc-sweep around the hub; "information a still frame cannot carry." Its mark lands with its build.
 
 All four demos are surfaced in the site's **Libraries** nav group (`nav.mjs` `librariesNav`).
+
+## Trama — the weft (built 2026-09-27)
+
+Trama (the graph-chart library, `docs/src/lib/trama`) joined the family after the fan-out. *Trama*
+is Italian for the **weft**, the thread a loom carries across the warp, and its job is to route
+lines as right-angled elbows that never run through a box or along another line. The mark says
+both:
+
+- **two right-angled terracotta threads**, each an elbow, interlock around the hub: each passes
+  OVER the other once and UNDER it once, the gap in the under-thread doing the weaving (no casing
+  stroke, so the mark reads on any background);
+- **the gold thread** runs straight through the hub and over both: the **main path**, which Trama
+  weights 4 in dagre to keep straight, and the one color the reader's eye follows;
+- **the ringed hub** sits on the main path, the family tie.
+
+The min mark keeps the same four elbows, thickened (11 units, gaps 6.5) and pushed wider, so the
+frame, the gold bar and the hub still read at 16px. Assets: `docs/public/trama-mark.svg`,
+`trama-mark-min.svg` (favicon), `trama-lockup.svg`; the `/trama` header draws the same geometry
+inline so it follows the page's own theme toggle. The generator was kept out of tree
+(`.scratch/trama-brand/gen-trama-mark.py`), as Suono's was.
+
+**Locked palette** (the owner's pick, 2026-09-27; one system with the `/trama` demo page):
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| thread (`pri`) | `#a0522d` | `#e0916a` | the woven threads (terracotta) |
+| main path (`warm`) | `#b5860f` | `#e8bd4f` | the gold weft |
+| hub | `#a0522d` | `#e0916a` | the hub node |
+| ring | `#4a1f0c` | `#1c0f08` | the hub's inner ring |
+| halo | `#f6f3ec` | `#121012` | paper (separation) |
+| ink (wordmark) | `#241f1b` | `#e6e2dd` | Fraunces "Trama" |
 
 ## How the marks are produced
 

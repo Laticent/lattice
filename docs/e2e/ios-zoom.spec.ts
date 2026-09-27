@@ -75,3 +75,14 @@ test('@mobile playground: the editor and its controls hold the 16px floor', asyn
 	const offenders = controls.filter((c) => c.size < MIN);
 	expect(offenders, `sub-16px text controls would trigger iOS focus-zoom: ${JSON.stringify(offenders)}`).toEqual([]);
 });
+
+test('@mobile trama: the demo page rows editor holds the 16px floor', async ({ page }) => {
+	// A standalone page that does not load landing.css, so it carries its own net.
+	await page.goto('/trama/', { waitUntil: 'domcontentloaded' });
+	expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+	await expect(page.locator('#rows')).toBeAttached();
+	const controls = await sweepTextControls(page);
+	expect(controls.length).toBeGreaterThan(0);
+	const offenders = controls.filter((c) => c.size < MIN);
+	expect(offenders, `sub-16px text controls would trigger iOS focus-zoom: ${JSON.stringify(offenders)}`).toEqual([]);
+});
