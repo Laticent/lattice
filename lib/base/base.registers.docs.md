@@ -898,7 +898,7 @@ hierarchy/bands/preemption/lane forms, the `list-steps` column variants (`vertic
 A **card tag** is the small label that names a card: the number on a `cards-grid` or
 `cards-stack` card written as `1. … 2. …`, the slot label on a `compare-prose` or `decision`
 card (and its `banner-tag` band), the split-compare verdict, and the list-steps `STEP 01`
-label. All of them are drawn by one recipe, `lib/base/base.card-tag.css`, and `tag:` sets
+label and `capsule` pill. All of them are drawn by one recipe, `lib/base/base.card-tag.css`, and `tag:` sets
 how they look. It takes up to two words, one per axis, in any order:
 
 | Axis | Deck value | Per-slide class | Effect |
@@ -907,6 +907,11 @@ how they look. It takes up to two words, one per axis, in any order:
 | Color | `plain` | `tag-plain` | A neutral pill: page fill, body ink, a hairline edge. For a deck where color is already busy |
 | Color | `none` | `tag-none` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
 | Size | `small` `regular` `large` | `tag-small` … | The tag at 0.85×, 1× or 1.2×. Its padding and the space above the card body follow |
+
+`large` costs room: every tagged card reserves the bigger tag's height above its body, and the
+capacity figures in each component's docs assume the regular size. On a dense slide at a large
+`venue:` that can tip the slide over its frame; the export's fit check names the slide when it
+does.
 
 ```markdown
 ---

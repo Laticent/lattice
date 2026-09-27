@@ -1,4 +1,5 @@
-- The `tag:` front-matter register sets how every card tag looks: the numbers on `cards-grid` and `cards-stack`, the slot labels and `banner-tag` bands on `compare-prose` and `decision`, the `split-compare` verdict, and the list-steps `STEP` label. Two words, one per axis, in any order:
+- The `tag:` front-matter register sets how every card tag looks: the numbers on `cards-grid` and `cards-stack`, the slot labels and `banner-tag` bands on `compare-prose` and `decision`, the `split-compare` verdict, and the list-steps `STEP` label and `capsule` pill. Two words, one per axis, in any order:
   - color: `color` (the component's own, the default), `plain` (a neutral pill) or `none` (bare text; the label is never hidden);
   - size: `small`, `regular` or `large`.
 - A slide overrides one axis with `tag-plain`, `tag-large` and so on, and keeps the deck's word on the other. `lint:deck` flags an unknown word as `unknown-tag`, and says so when a placement word (corner, band, …) is not available yet. See `lib/base/base.registers.docs.md` § `tag:`.
+- `lint:deck` also flags two words on one axis on a slide (`tag-plain tag-none`, and `backdrop-20 backdrop-40`) as `conflicting-variants`, and no longer reads a comment-only `tag:` or `backdrop:` value as unknown words.

@@ -113,6 +113,32 @@ test('css: the register re-points tokens only, and sets the pair on the tag itse
   assert.match(none[2], /--card-tag-ink:\s*var\(--text-secondary\)/);
 });
 
+test('lint: a comment-only value is silent (tag: and backdrop: alike)', () => {
+  const found = (fm) => lintText(deck(fm)).filter((f) => f.rule === 'unknown-tag' || f.rule === 'unknown-backdrop');
+  assert.deepEqual(found(['tag: # todo', 'backdrop: # todo']), []);
+});
+
+test('lint: two words on one axis on a slide conflict; one word per axis is clean', () => {
+  const conflicts = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- _class: cards-grid ${cls} -->\n\n## A\n\n1. B\n   - c\n`)
+    .filter((f) => f.rule === 'conflicting-variants').map((f) => f.classToken);
+  assert.deepEqual(conflicts('tag-plain tag-none'), ['tag-none']);
+  assert.deepEqual(conflicts('tag-small tag-large'), ['tag-large']);
+  assert.deepEqual(conflicts('tag-plain tag-large'), []);
+});
+
+test('css: list-steps capsule reads the card-tag pair and size, so the register reaches it', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/components/progression/list-steps/list-steps.styles.css'), 'utf8');
+  const pill = css.match(/section\.list-steps\.capsule ol > li::before\s*\{([^}]*)\}/);
+  assert.ok(pill, 'the capsule pill rule exists');
+  assert.match(pill[1], /background:\s*var\(--card-tag-fill/);
+  assert.match(pill[1], /color:\s*var\(--card-tag-ink/);
+  assert.match(pill[1], /font-size:\s*var\(--card-tag-fs\)/);
+  // The categorical cycle sets the pair on the CARD (so a register word on the pill wins),
+  // never on the pill itself.
+  assert.doesNotMatch(css, /capsule ol > li:nth-child\([^)]*\)::before\s*\{[^}]*background/);
+  assert.match(css, /capsule ol > li:nth-child\(8n\+1\)\s*\{\s*--card-tag-fill:\s*var\(--cat-1-fill\)/);
+});
+
 /* ── The runtime's own mirror, from a baked block (the export path) ──────────────────── */
 
 const RUNTIME_BUNDLE = path.join(ROOT, 'dist', 'lattice-runtime.js');

@@ -50,6 +50,7 @@ describe('core: which registers ride a split page', () => {
     'spectrum-trim': spectrum.SPECTRUM_TRIM_TOKENS, corners: CORNERS_TOKENS, guards: GUARDS_TOKENS,
     rule: RULE_TOKENS, eyebrow: EYEBROW_TOKENS, 'inline-code': INLINE_CODE_TOKENS,
     headline: HEADLINE_TOKENS, lift: LIFT_TOKENS,
+    tag: require('../../../lib/core/resolve-card-tag').CARD_TAG_TOKENS,
   };
 
   test('every token of every surface register rides', () => {
