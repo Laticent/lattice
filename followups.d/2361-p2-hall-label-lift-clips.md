@@ -13,7 +13,7 @@ why now   — found testing the agentic-practices talk on PR #2399. At `venue: h
             (lib/core/scale-fit.js) lower only `--fs-scale`. Rendered alone at hall, those six clip;
             with the lift forced to 1 they fit at 1x. So a hall deck can clip slides that fit at
             laptop. Came in with #2390 (the lift and LEVEL), not #2399.
-where     — lib/core/scale-fit.js (STEP / LEVEL), lib/base/base.modifiers.css (the venue rules),
+where     — lib/authoring/lint-core.js (`capacity-scale`), lib/base/base.modifiers.css (the lift),
             engineering/typography.md §7 "Venue", the decision note's lift rationale.
 how       — the owner ruled on PR #2399 (2026-09-27): (c) keep the lift and let lint warn. Hall
             labels stay large for legibility; the author trims. So: teach `capacity-scale` (or a
@@ -25,4 +25,4 @@ how       — the owner ruled on PR #2399 (2026-09-27): (c) keep the lift and le
 done when — `lint:deck` at `venue: hall` warns on each of the talk's six clipping pages (4, 6, 27,
             45, 47, 57) with a fix line, and warns on no slide that fits at hall.
 evidence  — the talk rendered at hall before/after; the 6-slide deck with and without the lift.
-verify    — tier 1 checker: engine kernel.
+verify    — tier 1 checker: shared lint kernel (#7).
