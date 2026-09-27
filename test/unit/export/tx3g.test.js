@@ -175,3 +175,28 @@ test('a theme whose colors would not read falls back to white on black; missing 
 	const none = T.brandCaptionStyle({});
 	assert.deepEqual([none.text, none.background], [[255, 255, 255, 255], [0, 0, 0, 219]]);
 });
+
+test('readability is judged over a white slide, at AA: a gray that passes opaque falls back', () => {
+	// White on rgb(100,100,100) is 5.9:1 opaque, but 4.4:1 once an 86% panel lets a white slide through.
+	const s = T.brandCaptionStyle({ bg: 'rgb(100, 100, 100)', heading: 'rgb(255, 255, 255)' });
+	assert.deepEqual([s.text, s.background], [[255, 255, 255, 255], [0, 0, 0, 219]]);
+});
+
+test('one token alone, or a translucent one, is never flattered', () => {
+	assert.deepEqual(T.brandCaptionStyle({ bg: 'rgb(0, 29, 51)' }).background, [0, 0, 0, 219], 'a lone token falls back');
+	// 10% black shows as near-white over the page, so it is no dark panel.
+	const s = T.brandCaptionStyle({ bg: 'rgba(0, 0, 0, 0.1)', heading: 'rgb(255, 255, 255)' });
+	assert.deepEqual(s.background, [0, 0, 0, 219]);
+	assert.deepEqual(T.brandCaptionStyle({ bg: 'rgb(0 29 51 / 100%)', heading: 'rgb(255 255 255)' }).background, [0, 29, 51, 219], 'space syntax');
+});
+
+test('the style API is forgiving: missing alpha, null fields, an oversize font size, a long non-ASCII name', () => {
+	const e = bodyOf(T.tx3gTrak({ trackId: 3, samples: [], sizes: [], offset: 0, movieTimescale: 1000, style: { text: [1, 2, 3], background: null, size: 300, font: 'é'.repeat(200) } }), 'tx3g');
+	assert.deepEqual([...e.subarray(34, 38)], [1, 2, 3, 255], 'a missing alpha is opaque');
+	assert.deepEqual([...e.subarray(14, 18)], [0, 0, 0, 255], 'a null background keeps the default');
+	assert.equal(e[33], 255, 'size clamps instead of wrapping');
+	const ftab = e.indexOf(Buffer.from('ftab'));
+	const n = e[ftab + 4 + 4];
+	assert.equal(e.readUInt32BE(ftab - 4), 8 + 2 + 2 + 1 + n, 'the ftab box holds exactly its declared name');
+	assert.ok(n <= 255 && !e.subarray(ftab + 9, ftab + 9 + n).toString('utf8').includes('�'), 'cut on a character boundary');
+});

@@ -521,5 +521,17 @@ deck's ink. At 86% it composites to (44, 55, 70) over white; the owner compared 
 chose it. The panel is a tight pill around each line, so the extra opacity costs little slide. iOS
 did not honor the file's font or bold: the viewer's caption style kept its own.
 
+**What the second checker found (2026-09-27), and what changed.** Every shipped theme (18, dark and
+light) yields light text on its dark token from the root; the lowest margin is concrete light at
+6.59:1 over a white slide. Fixed: Chromium serializes `oklch()`, `lab()` and `color()` as written,
+so each token is now painted on a 1×1 canvas and read back as sRGB, and a value that is not a color
+(a gradient) counts as missing rather than as the probe's inherited color; a translucent token is
+judged as the color it shows over white; the `style` option clamps its size, keeps the default for
+a null field, and cuts a font name to 255 UTF-8 bytes on a character boundary. Five mutants the
+tests missed (the white-slide composite, the AA threshold, a missing alpha, the font length, a lone
+token) are now caught. **A side effect to know:** FFmpeg turns a non-default style into markup, so
+`ffmpeg -i video.mp4 -map 0:s out.srt` now yields `<font face="Avenir Next"><b>…</b></font>` around
+each caption; the `.vtt` sidecar is the clean text.
+
 **Not verified:** how iOS renders the panel under each built-in viewer style (the owner saw A under
 their own setting), and QuickTime on a Mac.
