@@ -624,6 +624,10 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    the HTML-drawn charts' reflow in a small box; a TYPE FLOOR probe that flags an unreadable chart
    pane; and `tools/calibrate-capacity.js --pane` measuring a chart's ceiling, so the chart budgets
    can turn `measured` instead of editorial.
+   **Part closed (2026-09-27):** a Mermaid flowchart in a tall pane turns top-to-bottom on both
+   render paths (`engine.paneOrientations` for the CLI, the pane's own stamp in the runtime), and
+   the type-floor probe was measured reading a pane's SVG chart already. What is left is in the
+   follow-up file.
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the
