@@ -429,7 +429,7 @@ One size per deck holds only if nothing on a single slide changes a type role's 
 - A role token (`--fs-*`, and the label lift `--venue-meta-lift`) is declared only on
   `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung (`section.venue-*`,
   `section.scale-*`). The rung is the one carve-out: a spot `_class: scale-xl` (above) still
-  sets one slide apart; `lint:deck` is to warn on it (followups.d/2361-p2-lint-warns-on-spot-scale.md).
+  sets one slide apart; `lint:deck` names it (`spot-scale`: a warning for a spot `venue-*`, a note for a spot `scale-*`).
 - A cross-component modifier (`compact`, `claim-*`, `accent`, a mood, tone or state stamp)
   sets no type size on content. `claim-hero` tightens the frame; it does not shrink the text.
   Pseudo-elements (a state stamp's label, a drawn mark) are chrome and are exempt.

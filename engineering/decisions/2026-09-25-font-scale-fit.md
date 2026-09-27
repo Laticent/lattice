@@ -470,7 +470,7 @@ only, as it does everywhere else. The fallout, fixed in the same change:
   slides of two, and `examples/q-and-a.md`'s five-pair `compact` slide drops its eyebrow and
   shortens its answers so five pairs still fit.
 
-**The spot `scale-*` carve-out** goes to `followups.d/2361-p2-lint-warns-on-spot-scale.md`: the
+**The spot `scale-*` carve-out** (shipped 2026-09-27 as lint-core `spot-scale`: a `warning` for a spot `venue-*`, `info` for a spot `scale-*`, whose only corpus use is the ladder specimen `examples/font-scale.md`) was recorded as a follow-up: the
 owner chose a `lint:deck` warning when a slide asks for a scale the deck does not.
 
 **The dense-cell step** (`--fs-body-compact` for table, glossary and ledger cells) the owner

@@ -316,3 +316,26 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
     assert.match(out[0].message, /'list takeaway' holds about 3/);
   });
 });
+
+describe('spot-scale — a scale or venue on some slides, not the deck', () => {
+  const rules = (src) => core.lintTextWith(src, { names: new Set(['list']), modifiers: new Set() }).filter((f) => f.rule === 'spot-scale');
+  const one = (cls, fm = '') => `---\nmarp: true\n${fm}---\n\n<!-- _class: list ${cls} -->\n\n## H.\n\n- a\n\n---\n\n<!-- _class: list -->\n\n## H2.\n\n- b\n`;
+
+  test('a spot venue-* is a warning naming the front-matter fix', () => {
+    const out = rules(one('venue-conference'));
+    assert.equal(out.length, 1);
+    assert.equal(out[0].severity, 'warning');
+    assert.equal(out[0].slide, 1);
+    assert.match(out[0].fix, /venue: conference/);
+  });
+
+  test('a spot scale-* is info', () => {
+    assert.equal(rules(one('scale-xl'))[0].severity, 'info');
+  });
+
+  test('a token the deck already carries is not spot', () => {
+    assert.deepEqual(rules(one('venue-hall', 'venue: hall\n')), []);
+    assert.deepEqual(rules(one('scale-xl', 'class: scale-xl\n')), []);
+    assert.deepEqual(rules(one('')), []);
+  });
+});

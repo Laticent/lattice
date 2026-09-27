@@ -782,7 +782,8 @@ offers a one-click fix (split the slide, or move the deck to the next venue down
 the export's `⚠ OVERFLOW` line lists it. In the Studio, pick the venue in deck settings
 (**Look → Venue**), or switch it live on the Present stage without editing the deck.
 `unknown-venue` catches a typo. A
-per-slide `_class: venue-*` overrides the deck's venue. The derivation — the viewing
+per-slide `_class: venue-*` overrides the deck's venue, but that slide then differs in size from its
+neighbors, so `lint:deck` warns (`spot-scale`) — set the room once, in the front matter. The derivation — the viewing
 angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
 "Venue". Resolver: `lib/core/resolve-venue.js`.
 
