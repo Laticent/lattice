@@ -609,8 +609,8 @@ code. What changed because of them:
   parser), the engine host (`host.js`), and `math/` — manifest, `math.syntax.mjs` (the inline and
   block rules and `detect`, merged from `lib/engine/math.js`, `lib/core/math-block-rule.mjs` and
   `lib/engine/math-detect.mjs`), `math.render.js` (KaTeX, moved from `lib/engine/math.js`),
-  docs and fixtures. `tools/build-plugin-registry.js` writes `grammar.generated.mjs` and
-  `registry.generated.js` and is a `build:check` step. `lib/engine/index.js` names no plugin;
+  docs and fixtures. `tools/build-plugin-registry.js` writes `grammar.generated.mjs`,
+  `registry.generated.js` and `blocks.generated.mjs` and is a `build:check` step. `lib/engine/index.js` names no plugin;
   `createEngine({ math, mathOutput })` map onto `plugins: { disabled, options }` in
   `pluginConfigFor`, whose key replaces the old math fields in both parser memo keys.
   `lint-core` reads `OPAQUE_BLOCK_TOKENS` instead of naming `math_block`. `plugin` is the
@@ -627,9 +627,20 @@ code. What changed because of them:
   that misses inline math fails the superset arm; a hand-named `math_block` in `lib/core` fails
   the migration ratchet, and so does a budget left above the real count; a `innerHTML` write in
   a plugin folder is caught by `checkRuntimeMarkupSinks`.
-  **Cost.** The Studio's startup JavaScript grows 584 bytes gzip (618,145 → 618,729, measured as
-  a pair): the grammar host, the frozen registry and math's inline rule ride the
-  `slide-boundaries` chunk. `docs/route-budget.json` records the pair.
+  **Cost, and how it was brought down.** The first cut grew the Studio's startup JavaScript by
+  584 bytes gzip, and after a rebase onto `706847f` by 1,427 (618,220 → 619,647, a pair): the
+  boundary parser ships TWICE at startup — its own `slide-boundaries` chunk and the lint
+  bundle's copy — and each copy carried the generic grammar host, every plugin's data and math's
+  inline rule, none of which it uses. `main` had just set that budget at the owner's pick
+  (618,500), so raising it was not this PR's call. Two changes gave the bytes back: the build now
+  writes `blocks.generated.mjs`, a straight-line installer of the block rules in the host's order,
+  which the boundary parser imports instead of the host (a unit test holds the two to one
+  sequence); and a syntax module exports each rule under its token type instead of in one `rules`
+  object, so a bundler keeps only what a consumer imports. Measured as a pair after both:
+  618,220 → **618,330 (+110 bytes)**, inside the budget, which is unchanged.
+  **Byte identity re-taken after the rebase:** 455 files × 9 = 4,095 renders against `origin/main`
+  `706847f`; every deck identical, the only differences the five Markdown docs this PR adds, moves
+  or edits; the boundary-parser token streams likewise.
   **The ratchet's starting counts:** 2 fence wrappers (function-plot, anima), 0 plugin token
   names in code outside `lib/plugins`.
   **Maker-checker (HARD RULE #25).** An independent checker read the phase and confirmed the

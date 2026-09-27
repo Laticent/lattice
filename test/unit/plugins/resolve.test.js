@@ -177,3 +177,21 @@ describe('host-grammar — install order and disabling', () => {
     assert.deepEqual(grammarHost().activePlugins([], grammar).map((p) => p.name), ['a', 'b', 'c', 'd']);
   });
 });
+
+describe('the boundary parser\'s generated block installer agrees with the host', () => {
+  // blocks.generated.mjs is a straight-line copy of the host's block install order, written by
+  // the build so the Studio's startup bundle carries no generic host. If the two ever disagree,
+  // the render and the source-side slide splitter disagree about where a slide starts.
+  test('same rules, same order, same functions, same opaque set', async () => {
+    const blocks = await import('../../../lib/plugins/blocks.generated.mjs');
+    const viaHost = new MarkdownIt('commonmark');
+    grammarHost().installGrammar(viaHost, { kinds: ['block'] });
+    const viaGenerated = new MarkdownIt('commonmark');
+    blocks.installPluginBlocks(viaGenerated);
+    const rules = (md) => md.block.ruler.__rules__.map((r) => [r.name, r.fn]);
+    assert.deepEqual(rules(viaGenerated), rules(viaHost));
+    const { PLUGIN_GRAMMAR } = await import('../../../lib/plugins/grammar.generated.mjs');
+    const opaque = PLUGIN_GRAMMAR.flatMap((p) => Object.entries(p.syntax).filter(([, r]) => r.kind === 'block' && r.opaque).map(([t]) => t));
+    assert.deepEqual([...blocks.OPAQUE_BLOCK_TOKENS], opaque);
+  });
+});

@@ -462,7 +462,8 @@ guide `lib/plugins/README.md`). A plugin is a `type: "plugin"` package — the s
 that contributes syntax, renderers and components. Its manifest declares **what**; its
 `<name>.syntax.mjs` (grammar, pure) and `<name>.render.js` (renderers, may load a library) say
 **how**; `tools/build-plugin-registry.js` checks the two agree, resolves `requires`/`optional`,
-and freezes `grammar.generated.mjs` and `registry.generated.js`.
+and freezes `grammar.generated.mjs`, `registry.generated.js` and `blocks.generated.mjs` (the
+boundary parser's straight-line block installer).
 
 | File | Job |
 |---|---|

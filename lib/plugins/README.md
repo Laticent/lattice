@@ -39,10 +39,11 @@ site's pre-scan need the grammar without the library behind it.
 }
 ```
 
-`<name>.syntax.mjs` exports `rules` (one per declared token) and `detect(source)`;
-`<name>.render.js` exports `renderers` (one per declared token). The build checks the three agree
-one-to-one, so a manifest cannot claim a rule the code lacks, or the code carry one the manifest
-hides.
+`<name>.syntax.mjs` exports each rule **under the token type it emits**
+(`export { mathBlockRule as math_block }`) plus `detect(source)`; `<name>.render.js` exports
+`renderers`, one per declared token. The build checks that every declared token has both, and
+that `renderers` holds nothing the manifest does not declare. Named rule exports let a bundler
+keep only the rules a consumer imports — the boundary parser takes the block rules alone.
 
 A renderer is `(token, ctx, env) → string`. `ctx` is frozen: `ctx.name`, `ctx.options` (this
 plugin's `createEngine({ plugins: { options: { <name>: … } } })`), `ctx.family` (the deck's box
@@ -86,6 +87,8 @@ committed files — never edit them:
 
 - `grammar.generated.mjs` — manifests + grammar, in dependency order (ESM; no renderer library)
 - `registry.generated.js` — the grammar plus the renderers (what the engine installs)
+- `blocks.generated.mjs` — the block rules as a straight-line installer, for the boundary parser
+  (it ships in the Studio's startup JavaScript, so it skips the generic host)
 
 `npm run build:check` fails when they are stale, and `checkPluginMigration` in
 `tools/check-ownership.js` fails when code outside `lib/plugins` hand-names a plugin's token, or a

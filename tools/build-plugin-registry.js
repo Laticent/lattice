@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Freezes the in-tree plugins (lib/plugins/) into the two registries every render path reads,
+ * Freezes the in-tree plugins (lib/plugins/) into the registries every render path reads,
  * after the resolver checks them (engineering/decisions/2026-09-27-plugin-system.md §1, §4.5).
  *
  *   lib/plugins/grammar.generated.mjs   ESM. Each plugin's manifest data plus its syntax module's
@@ -9,6 +9,13 @@
  *                                        and the docs site's pre-scan can import it.
  *   lib/plugins/registry.generated.js   CommonJS. The grammar plus each plugin's
  *                                        `<name>.render.js` — what the engine installs.
+ *   lib/plugins/blocks.generated.mjs    ESM. The BLOCK rules only, as a fixed install sequence
+ *                                        in the resolver's order, for the boundary parser. That
+ *                                        parser ships in the Studio's startup JavaScript twice
+ *                                        (its own chunk and the lint bundle's copy), so it takes
+ *                                        a few named imports and a straight-line installer
+ *                                        rather than the generic host and every plugin's data.
+ *                                        test/unit/plugins/resolve.test.js holds it to the host.
  *
  * GENERATED, NOT SCANNED AT RUN TIME, for the reason the chart registry is: a bundler cannot
  * follow `require(templateLiteral)`, and the runtime should pay nothing to find its plugins. Both
@@ -20,7 +27,7 @@
  * dependencies present and acyclic, anchors that name host rules, trigger and token claims that
  * do not collide, components that exist — and a failure names the plugin and exits non-zero.
  *
- *   node tools/build-plugin-registry.js            write both files
+ *   node tools/build-plugin-registry.js            write all three files
  *   node tools/build-plugin-registry.js --check    freshness + resolver gate
  *   node tools/build-plugin-registry.js --root <dir>   resolve another tree (tests)
  */
@@ -39,6 +46,7 @@ const ROOT = rootArg >= 0 ? path.resolve(argv[rootArg + 1]) : path.resolve(__dir
 const PLUGINS_DIR = path.join(ROOT, 'lib', 'plugins');
 const GRAMMAR_FILE = path.join(PLUGINS_DIR, 'grammar.generated.mjs');
 const REGISTRY_FILE = path.join(PLUGINS_DIR, 'registry.generated.js');
+const BLOCKS_FILE = path.join(PLUGINS_DIR, 'blocks.generated.mjs');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -57,15 +65,20 @@ function listPlugins() {
     });
 }
 
-/** The export keys of a plugin's role modules — what the one-to-one check compares. */
-async function readExports(folder, name) {
+/**
+ * The export keys of a plugin's role modules — what the one-to-one check compares. A syntax
+ * module exports each rule under the token type it emits (so a bundler can keep one rule and
+ * drop the rest); an exported function under an UNdeclared name is simply never installed, so
+ * only the declared → exported direction needs checking on that side.
+ */
+async function readExports(folder, name, manifest) {
   const dir = path.join(PLUGINS_DIR, folder);
   const out = { rules: [], renderers: [], detect: false, hasSyntax: false, hasRender: false };
   const syntaxPath = path.join(dir, `${name}.syntax.mjs`);
   if (fs.existsSync(syntaxPath)) {
     const mod = await import(pathToFileURL(syntaxPath).href);
     out.hasSyntax = true;
-    out.rules = Object.keys(mod.rules || {});
+    out.rules = Object.keys(manifest.contributes?.syntax || {}).filter((t) => typeof mod[t] === 'function');
     out.detect = typeof mod.detect === 'function';
   }
   const renderPath = path.join(dir, `${name}.render.js`);
@@ -97,7 +110,11 @@ const ident = (name) => `p_${name.replace(/-/g, '_')}`;
 function renderGrammar(ordered, exportsByName) {
   const imports = ordered
     .filter((p) => exportsByName.get(p.manifest.name).hasSyntax)
-    .map((p) => `import * as ${ident(p.manifest.name)} from './${p.folder}/${p.manifest.name}.syntax.mjs';`);
+    .map((p) => {
+      // Sorted, as the repo's formatter sorts named imports.
+      const names = [...Object.keys(p.manifest.contributes.syntax || {}), 'detect'].sort();
+      return `import { ${names.map((n) => `${n} as ${ident(p.manifest.name)}__${n}`).join(', ')} } from './${p.folder}/${p.manifest.name}.syntax.mjs';`;
+    });
   const entries = ordered.map((p) => {
     const m = p.manifest;
     const mod = exportsByName.get(p.manifest.name).hasSyntax ? ident(p.manifest.name) : null;
@@ -107,7 +124,7 @@ function renderGrammar(ordered, exportsByName) {
         `anchor: Object.freeze(${JSON.stringify(rule.anchor)})`,
         `triggers: Object.freeze(${JSON.stringify(rule.triggers)})`,
         `opaque: ${rule.opaque === true}`,
-        `run: ${mod}.rules.${token}`,
+        `run: ${mod}__${token}`,
       ];
       return `      ${token}: Object.freeze({ ${fields.join(', ')} }),`;
     });
@@ -120,7 +137,7 @@ function renderGrammar(ordered, exportsByName) {
       `    components: Object.freeze(${JSON.stringify(m.contributes.components || [])}),`,
       `    diagnostics: Object.freeze(${JSON.stringify(m.contributes.diagnostics || {})}),`,
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
-      `    detect: ${mod ? `${mod}.detect` : 'null'},`,
+      `    detect: ${mod ? `${mod}__detect` : 'null'},`,
       '  }),',
     ].join('\n');
   });
@@ -130,6 +147,37 @@ ${imports.join('\n')}
 export const PLUGIN_GRAMMAR = Object.freeze([
 ${entries.join('\n')}
 ]);
+`;
+}
+
+/**
+ * The block rules as a straight-line installer. The order is the host's (host-grammar.mjs):
+ * `before` anchors in dependency order, `after` anchors in reverse, so markdown-it's insertion
+ * leaves them running in dependency order. Every plugin's block rules are installed — the
+ * boundary parser never disables one, because it reads the source, not a render.
+ */
+function renderBlocks(ordered) {
+  const entries = ordered.flatMap((p) =>
+    Object.entries(p.manifest.contributes.syntax || {})
+      .filter(([, rule]) => rule.kind === 'block')
+      .map(([token, rule]) => ({ plugin: p, token, rule })));
+  // One import line per plugin, names sorted, as the repo's formatter writes them.
+  const byPlugin = new Map();
+  for (const { plugin, token } of entries) byPlugin.set(plugin, [...(byPlugin.get(plugin) || []), token]);
+  const imports = [...byPlugin].map(([plugin, tokens]) => `import { ${tokens.sort().join(', ')} } from './${plugin.folder}/${plugin.manifest.name}.syntax.mjs';`);
+  const calls = [
+    ...entries.filter((e) => e.rule.anchor.before).map((e) => `  md.block.ruler.before(${JSON.stringify(e.rule.anchor.before)}, ${JSON.stringify(e.token)}, ${e.token});`),
+    ...[...entries].reverse().filter((e) => e.rule.anchor.after).map((e) => `  md.block.ruler.after(${JSON.stringify(e.rule.anchor.after)}, ${JSON.stringify(e.token)}, ${e.token});`),
+  ];
+  const opaque = entries.filter((e) => e.rule.opaque).map((e) => e.token);
+  return `${HEADER('Every plugin BLOCK rule, as the boundary parser installs it. Straight-line on purpose: it ships in the Studio\'s startup JavaScript.')}
+${imports.join('\n')}${imports.length ? '\n' : ''}
+/** Install every plugin block rule on \`md\`, in dependency order. */
+export function installPluginBlocks(md) {
+${calls.join('\n')}${calls.length ? '\n' : ''}}
+
+/** Plugin block tokens whose body renders no inline Markdown (lint-core skips them). */
+export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
 `;
 }
 
@@ -154,7 +202,7 @@ module.exports = { PLUGINS };
 async function build() {
   const listed = listPlugins();
   const exportsByName = new Map();
-  for (const p of listed) exportsByName.set(p.manifest.name, await readExports(p.folder, p.manifest.name));
+  for (const p of listed) exportsByName.set(p.manifest.name, await readExports(p.folder, p.manifest.name, p.manifest));
   const { errors, order } = resolvePlugins(
     listed.map((p) => ({ manifest: p.manifest, folder: p.folder, exports: exportsByName.get(p.manifest.name) })),
     { componentNames: componentNames() },
@@ -168,6 +216,7 @@ async function build() {
     files: [
       [GRAMMAR_FILE, renderGrammar(ordered, exportsByName)],
       [REGISTRY_FILE, renderRegistry(ordered, exportsByName)],
+      [BLOCKS_FILE, renderBlocks(ordered)],
     ],
   };
 }
@@ -187,7 +236,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks}.generated.*\n`);
 }
 
 if (require.main === module) {
