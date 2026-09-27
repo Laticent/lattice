@@ -626,8 +626,26 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    twinned — each pane's own component (the first class of its `<lat-pane>`, `paneComponents`)
    now counts; and a component used only in a pane was not "used", so its CSS never shipped
    (`referencedComponents` and the Studio's saved-component set read pane markers now).
-4. **Audit the runtime's section-keyed passes** (`2376-p2-audit-…`) — about 17 in `lib/runtime`,
-   plus sketch's rough-ink pass; Mermaid in a pane is untested.
+4. **Audit the runtime's section-keyed passes** — **closed** (the pane-follow-ups PR). Every pass
+   in `lib/runtime/index.js` and `fluid-view-policy.js` that keys on a slide's component was
+   checked against a rendered pane. The component mirrors (verdict-grid and pricing badges,
+   obligation-matrix states, checklist states, slot labels, table row labels, inline pills, prose
+   code, matrix-grid cells, glossary, the shared transformer registry) miss a pane and need not
+   reach it: `renderPane` runs the same transforms at render time, confirmed in the output
+   (`span.badge`, `li.state`, `lat-row-label`, `li > strong`). Logo, backdrop, form stamp,
+   orientation, tiles and the fluid-view clean-up are slide-level. The overflow watcher already
+   reads a pane's stage. Three did need a pane, and got one:
+   - **Sketch ink.** `rough-ink.js` enrolled only a slide's own table, ledger or principles list,
+     so a table pane was never inked — and once the host's masthead ink landed, the host's
+     handover rules (`base.sketch.css`, descendant `table`) took the pane table's fallback frame
+     away: no frame and no rules at all. The structures gained pane twins (the overlay still
+     lands on the host section) and the handover rules stop at a pane and key on the pane's own
+     component. `examples/panes-sketch.md`, CLI PDF and Studio.
+   - **Fix-Me drill-down** read the host's classes, found no component, and tagged the whole pane
+     stage; it reads the pane's now.
+   - **Mermaid** in a pane renders on the CLI and in the Studio and fills the pane box (measured
+     544×438 in a 544×438 pane), but lays out for the HOST's orientation; that is filed with the
+     chart sizing item below.
 5. **A shape family for stacked bands** (`2376-p3-band-…`): a line chart letterboxes, stat tiles
    need ~45% of the stage.
 6. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and

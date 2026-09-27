@@ -573,15 +573,32 @@ section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:
  *   · the borders go TRANSPARENT, never `none`/`0` — they are in the box
  *     model, and dropping their width would resize the very structure whose
  *     measurements the overlay was built from. Re-measuring after the switch
- *     would then find a different box, repaint, and shift it again. */
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):has(> svg[data-lattice-rough-ink]) td::after,
+ *     would then find a different box, repaint, and shift it again.
+ *
+ * PANES. A pane (`<lat-pane>`, lib/core/panes.js) never holds the overlay: the ink for its table
+ * or ledger is painted on the HOST section, like every other ink on the slide. So the host rules
+ * stop at a pane (`:not(lat-pane …)`) — a descendant `table` reached a pane the ink pass had not
+ * drawn and took its frame away — and the pane rules below key on the host's overlay and the
+ * pane's OWN component, mirroring the enrollment in lib/core/rough-ink.js.
+ *
+ * They name the component by the pane's `data-pane` attribute, not by a class, and they live in
+ * the shipped sheet on purpose. A `lat-pane.<component>` arm is a component TWIN, which only a
+ * panes deck's composed sheet carries (lib/core/pane-css.js), so Export-to-Marp and every other
+ * deck read this sheet unchanged; a twin cannot express "the HOST holds the overlay and the PANE
+ * holds the table". Without a `<lat-pane>` in the document these rules match nothing. (A pane
+ * never carries the `principles` modifier, so the principles ledger needs no pane rule.) */
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):has(> svg[data-lattice-rough-ink]) td:not(lat-pane td)::after,
+section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"]):not([data-pane="glossary"])) > .cell-stage > table td::after,
+section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol > li::after,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol > li::after,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after,
 section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > ol > li::after,
 section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after {
   display: none;
 }
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) table,
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) table:not(lat-pane table),
+section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"])) > .cell-stage > table,
+section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol,
 section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol {
   border-color: transparent;
@@ -610,7 +627,8 @@ section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > o
  * the same ink as every other rule in the table. That is the point — a person
  * ruling a table by hand uses ONE pen, and the header row stays distinct
  * through its label-voice type, not through a second color of line. */
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) thead tr {
+section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) thead tr:not(lat-pane tr),
+section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"])) > .cell-stage > table thead tr {
   background-image: none;
 }
 

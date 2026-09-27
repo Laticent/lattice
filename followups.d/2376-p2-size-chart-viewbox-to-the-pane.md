@@ -13,6 +13,10 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
             fitKeyToPane). Three things still shrink or go unreported:
             - Mermaid lays itself out and its SVG scales into the pane, so a flowchart in a
               60% pane draws its node labels small, with no warning (the owner's review deck).
+              It also lays out for the HOST slide's orientation: the runtime's `fenceJob`
+              (lib/runtime/index.js) reads `closest('section')`, and the CLI reorients from the
+              deck size in source (`preprocessMermaid`), so a portrait-shaped pane gets a
+              landscape layout.
             - The HTML-drawn charts reflow in the pane box but were not audited at 25%.
             - Radar scales into its pane: its axis labels live in the diagram, so the key-fitting
               pie/map/quadrant use would shrink them. It needs its labels counted as text
