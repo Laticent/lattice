@@ -282,7 +282,8 @@ measured length when it knows it.
    no narration, and a fixed outro after the last slide, both in the video only.)* The
    live player needs neither, so the LTT's own holds stay as they are. The lengths are
    the owner's number; one second each is a starting point, not a measurement.
-8. **The Guide's gestures.** *(Recommended: bring the Guide into the exported player.)* The
+8. **The Guide's gestures.** *(**Decided by the owner, 2026-09-27: bring the Guide into the exported
+   player**; the build needs its own decision record and the adversarial trio.)* The
    owner expects the video to gesture as the Studio does (§0). Today only the Studio's Present
    view carries the Guide (`docs/src/components/studio/present-guide.ts` with Vetrina's
    stage); the exported player does not, so neither can a capture of it, and the CLI has no
@@ -291,7 +292,8 @@ measured length when it knows it.
    gestures and the video gets them for free. The cost: the player's script grows, it changes
    export bytes, and it needs its own decision record. The alternative, capturing the Studio's
    Present view headless, works only where the Studio runs and never from the CLI.
-9. **Filling a phone in landscape** (raised by the owner, 2026-09-25). *(Recommended: b.)*
+9. **Filling a phone in landscape** (raised by the owner, 2026-09-25). *(**Decided by the owner,
+   2026-09-27: b, render a second aspect.**)*
    The video is 1920×1080, 16:9, because the slides are; a phone in landscape is about
    19.5:9, so a player shows bars at the sides.
    - **a. Keep 16:9.** Right for a laptop, a projector or slide software.
@@ -303,8 +305,9 @@ measured length when it knows it.
 10. **Exporting video from the Studio** (the owner expects the Studio or the CLI). A web page
    cannot capture its own DOM without asking the viewer for screen-capture permission, so the
    browser Studio cannot run §3 by itself. The desktop (Tauri) app can run it, and so can a
-   service that renders on the author's behalf. *(Recommended: the CLI first, the desktop app
-   next through the same code, and a hosted render only if the web Studio needs it.)*
+   service that renders on the author's behalf. *(**Decided by the owner, 2026-09-27: the desktop
+   app next through the same code, and the CLI voices a deck itself** through an optional kokoro-js
+   install, so `lattice video deck.md` works without the Studio.)*
 
 ## 7. Not decided here, and not verified
 
@@ -479,5 +482,7 @@ that reads both does not list English twice.
 
 **Owner check, 2026-09-27 (iPhone, the flags-3 build):** the track appears, the captions play in
 the viewer's chosen style, and they showed unasked with the menu reading "Off", fixed as above.
-**Not verified:** the flags-2 build on the iPhone, QuickTime on a Mac, PowerPoint and Keynote.
+**Owner sign-off, 2026-09-27 (iPhone, the flags-2 build, dark and light):** captions stay hidden
+while the menu reads Off and show once English is picked. **Not verified:** QuickTime on a Mac,
+PowerPoint and Keynote.
 The `.vtt` sidecar stays the fallback, and PowerPoint's own Insert Captions takes it.
