@@ -5,8 +5,8 @@ summary: Lattice draws a label on a card six different ways. Four are copies of 
 
 # One card tag — an audit, a design and a plan
 
-**Status:** proposed 2026-09-27. Nothing is built. The owner settled Q1–Q4 on 2026-09-27
-(§7); Q5 is open and gates phase 4 only.
+**Status:** proposed 2026-09-27. Nothing is built. The owner settled all five questions on
+2026-09-27 (§7).
 
 ## 1. The problem in one example
 
@@ -61,7 +61,7 @@ categorical mark, categorical fill) plus bare ink.
 | Status pills: `.chart-status` (progress, kanban, gantt, slope, timeline-list), `regulatory-update priority`, `kpi` status pill | They encode a state (pass, warn, fail) with their own semantic color vocabulary |
 | The universal trailing pill (`li > code:last-child`, `base.modifiers.css:456-482`), `list-tabular register` stamp, `roadmap` header meta pill | They carry metadata about a card. The card's name lives elsewhere |
 | Row numerals: `list`, `list-tabular`, `q-and-a`, `premise`, `principles`, `agenda cards` | They number rows in a gutter, not cards |
-| Inline eyebrows: `citation-card`, `statute-stack`, `authority-chain`, `split-panel proof`, `redline` labels | These name a card, but as an eyebrow in the text flow, which is the `inline` placement below. They are phase-4 candidates, not phase-1 migrations (§6) |
+| Inline eyebrows: `citation-card`, `statute-stack`, `authority-chain`, `split-panel proof`, `redline` labels | These label a card as an eyebrow in the text flow, or as the card's own structure (authority-chain's tier column). The owner ruled them out after seeing them rendered (§7 Q5) |
 | `journey` mood badge, `state-chart` chip, `list-steps chevron` column, `converge` and `ghost` titles | They are data readouts, edge labels or title styles |
 
 ### 2.3 What is wrong today
@@ -246,7 +246,7 @@ and renders every shipped deck unchanged unless the phase says otherwise.
 | **1. Kernel** | The `card-tag` element on every render path, `base.card-tag.css`, the tokens, and the migration of the seven qualifying recipes onto it at their current look. The `--on-accent` and `plain` contrast pins | Only the drift fixes: one padding, one tracking, one reserve, `sketch` everywhere | Pixel diff of the six galleries before and after, with every changed slide listed and explained |
 | **2. Register** | `resolve-card-tag.js`, `tag:` and `tag-*` on all paths, lint, docs | None unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine and the runtime bundle. Demo deck, light and dark |
 | **3. Placements and equal height** | `foot`, `notch`, `band` on every qualifying layout, `inline`, text alignment, size, and the measure pass | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
-| **4. Aliases and adopters** | `banner-tag` and `capsule` as aliases with lint hints. The inline-eyebrow layouts (`citation-card`, `statute-stack`, `authority-chain`) opt in with `inline` as native, if the owner wants them in (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
+| **4. Aliases** | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
 | **5. Studio** | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |
 
 Export sign-off applies from phase 1: moving a tag from a pseudo-element to a real
@@ -263,8 +263,9 @@ Settled 2026-09-27. The owner took the recommendation on each:
 3. **`none`:** bare text with no box. It never hides the label.
 4. **capsule:** moves to the saturated `--cat-N-mark` tier with every other categorical tag.
 
-Still open, and it gates phase 4 only:
-
-5. **Scope of phase 4.** Bring the inline-eyebrow legal layouts (`citation-card`,
-   `statute-stack`, `authority-chain`) under the register, or keep the register to the
-   seven recipes in §2.1.
+5. **Phase 4 scope:** the register stays with the seven recipes in §2.1. The owner looked
+   at renders of the three inline-eyebrow legal layouts beside `decision` and ruled them
+   out. `statute-stack`'s jurisdiction word is an eyebrow that already reads well,
+   `authority-chain`'s tier column is the card's structure rather than a label on it, and
+   `citation-card`'s label heads a callout, not one of several sibling cards. No `side`
+   placement is added.
