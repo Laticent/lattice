@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { PREVIEW_CHROME, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_PANEL_IDS } from '../src/components/studio/preview-rect';
 import { expect, test } from './studio-fixture';
 
@@ -536,31 +537,47 @@ test('a boot-shaped rect IS replayed, and lands where the app re-measures', asyn
 test.describe('a rect from another orientation', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
 
-	test('is not replayed in portrait', async ({ page }) => {
+	// The portrait load is a NEW PAGE, not a resize + reload of the landscape one. The reload's
+	// `pagehide` makes the still-running app store its rect again, measured in the new viewport
+	// before React has re-rendered out of the cinema morph: a full-bleed 390x219 box at left 0.
+	// That rect is portrait-shaped, so the seed rightly replays it, and the test failed "left:
+	// shell 0 vs app 16" whenever the reload won that race (5 of 8 on the full production build,
+	// where hydration timing differs). When the app settled first, the rect it stored was a
+	// portrait one, so the passing runs never exercised the aspect gate either. A fresh page in
+	// the same context keeps the landscape rect in storage, which is the case the gate exists for:
+	// a landscape session, then a later portrait visit.
+	test('is not replayed in portrait', async ({ page, context }) => {
 		// Held from the FIRST load: a reload can serve the engine from cache, so a route
 		// registered later never fires and the shell is gone before it can be measured.
-		await page.route('**/lattice-playground.js', async (route) => {
-			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-			await route.continue();
-		});
+		const holdEngine = (p: Page) =>
+			p.route('**/lattice-playground.js', async (route) => {
+				await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
+				await route.continue();
+			});
+		await holdEngine(page);
 		await page.goto('/studio/', { waitUntil: 'commit' });
 		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await page.evaluate(() => document.fonts.ready);
 		await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
-		expect(
-			await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2')),
-			'the cinema session stored no rect, so this case proves nothing',
-		).not.toBeNull();
+		const landscapeRect = await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2'));
+		expect(landscapeRect, 'the cinema session stored no rect, so this case proves nothing').not.toBeNull();
+		await page.close({ runBeforeUnload: false });
 
-		await page.setViewportSize({ width: 390, height: 844 });
-		await page.reload({ waitUntil: 'commit' });
-		await page.locator('#ssr-slidebox').waitFor({ state: 'attached' });
-		await page.evaluate(() => document.fonts.ready);
-		const shell = await page.evaluate(READ_SHELL);
+		const portrait = await context.newPage();
+		await portrait.setViewportSize({ width: 390, height: 844 });
+		await holdEngine(portrait);
+		await portrait.goto('/studio/', { waitUntil: 'commit' });
+		await portrait.locator('#ssr-slidebox').waitFor({ state: 'attached' });
+		expect(
+			await portrait.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2')),
+			'the rect in storage is not the landscape one, so this case proves nothing',
+		).toBe(landscapeRect);
+		await portrait.evaluate(() => document.fonts.ready);
+		const shell = await portrait.evaluate(READ_SHELL);
 		expect(shell.box?.[2], 'the shell was dismissed before it could be measured').toBeGreaterThan(1);
-		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
-		await page.evaluate(() => document.fonts.ready);
-		const app = await page.evaluate(READ_APP, shell.titleText);
+		await portrait.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+		await portrait.evaluate(() => document.fonts.ready);
+		const app = await portrait.evaluate(READ_APP, shell.titleText);
 		near(shell.box, app.box, 'portrait slide box after a landscape session');
 	});
 });
