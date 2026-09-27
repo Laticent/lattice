@@ -381,6 +381,7 @@ that had not been fetched already. Starter deck, 1440px Chromium:
 
 | Surface | Fetched on first open, after the six-panel warm-up | Warmed for |
 |---|---|---|
+| Compose | ComposeView 105KB (ProseMirror); no further imports | everyone, unless Save-Data |
 | Present | PresentOverlay 35KB, narration 1KB, `player-core` 99KB, voice model 6KB | everyone, unless Save-Data |
 | Reading view | ReadArticle 6KB, `player-prune` 61KB, `deck-export` 13KB (used for a chart or diagram bake), font sheet 1KB (+ `player-core`, shared) | everyone, unless Save-Data |
 | KaTeX provider | 77KB, loaded by both projections for a deck with math | the same, and only when the deck on screen has math |
@@ -392,8 +393,8 @@ and only the 6KB voice model when Present opens.
 **Why the rules differ.**
 - *Save-Data.* The six panels warm under Save-Data because every visitor downloaded them at
   startup before #2402, so skipping the warm-up would save those users nothing. These three
-  were never downloaded unless opened. Warming them is ~215KB of new bytes per deploy (~290KB when the
-  deck has math), so Save-Data skips them.
+  were never downloaded unless opened. Warming them (Compose, Present, the reading view) is ~320KB of new bytes per deploy (~400KB
+  when the deck has math), so Save-Data skips them.
 - *Fabricate.* Fabricate's JS alone is as large as Present and the reading view together, and
   most Studio visitors never open it. The first open sets `lattice-studio-fabricate-used`, and
   from then on the warm-up fetches it. That covers the case that matters: a deploy renames
@@ -409,10 +410,16 @@ and only the 6KB voice model when Present opens.
   something these surfaces own. Offline, Fabricate opens and its Diagram specimen shows the
   diagram source. Logged in `followups.d/2402-p3-mermaid-offline-for-unrendered-diagrams.md`.
 
+**Compose, found on a real phone.** The owner ran the PR preview on an iPhone in airplane mode.
+The Studio loaded, but the Compose tab stuck on its skeleton and then the chunk-load card replaced
+the whole Studio: `ComposeView` is `React.lazy` too, and nothing warmed it. A phone-width
+Playwright pass then tapped every tab offline; Compose was the only one that failed. It warms with
+Present now, on the same Save-Data rule, since it is an editing surface people use offline.
+
 **Evidence.** `docs/e2e/studio-warm-offline.spec.ts` serves the built site from a server it
 then closes, which is a real network cut. It checks that Present and the reading view open
-after an offline reload, that Fabricate opens for a browser flagged as having used it, and that
-Save-Data warms none of the three. Against a build without this change, the first two tests fail
+after an offline reload, that the Compose tab opens at phone size, that Fabricate opens for a browser flagged as having used it, and that
+Save-Data warms none of them. Against a build without this change, the first two tests fail
 at the warm-up step ("the warm-up never cached PresentOverlay, ReadArticle, …").
 
 ## Delivery

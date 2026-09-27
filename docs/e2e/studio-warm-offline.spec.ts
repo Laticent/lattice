@@ -2,8 +2,8 @@ import { expect, type Page, test } from '@playwright/test';
 import { serveDist } from './serve-dist';
 import { CHROME, waitForStudioPaint } from './studio-fixture';
 
-// Present, the reading view and Fabricate open OFFLINE after an online visit that never opened
-// them. They are React.lazy, and the service worker caches a /_astro/ chunk only once it has been
+// Compose, Present, the reading view and Fabricate open OFFLINE after an online visit that never
+// opened them. They are React.lazy, and the service worker caches a /_astro/ chunk only once it has been
 // fetched (docs/public/sw.js has no precache list), so without the idle warm-up
 // (StudioShell.tsx › studioWarmQueue) an offline open shows the chunk-load card. Fabricate warms
 // only for a browser that has opened it before, so the first test also pins that a visitor who
@@ -122,10 +122,32 @@ test('under Save-Data the warm-up fetches the six panels but not Present or the 
 	try {
 		// The last of the six panels, so the queue has reached the point where Present would start.
 		await warmOnline(page, origin, ['LensesPanel'], { saveData: true });
-		const surfaces = [...['PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX];
+		const surfaces = [...['ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX];
 		expect(hits.filter((p) => surfaces.some((re) => re.test(p))), 'Save-Data warmed a surface no visitor downloaded before').toEqual([]);
 	} finally {
 		server.closeAllConnections();
 		server.close();
 	}
+});
+
+// Compose is a primary tab on a phone, and before it was warmed, tapping it offline replaced the
+// whole Studio with the chunk-load card: found on a real iPhone against the PR preview, then
+// reproduced here. The phone layout is where the tab lives, so this case runs at phone size.
+test.describe('on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+	test('the Compose tab opens offline after a session that never opened it', async ({ page }) => {
+		test.setTimeout(180_000);
+		const { server, origin } = await serveDist();
+		try {
+			await warmOnline(page, origin, ['ComposeView']);
+			await goOffline(page, server);
+			await page.locator('button:visible').filter({ hasText: /^\s*Compose\s*$/ }).first().tap();
+			await expect(page.locator('.ProseMirror').first()).toBeVisible({ timeout: 30_000 });
+			await expect(page.getByRole('button', { name: 'Reload' })).toHaveCount(0);
+		} finally {
+			server.closeAllConnections();
+			server.close();
+		}
+	});
 });

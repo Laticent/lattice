@@ -169,7 +169,8 @@ const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Edi
 // this is the same drop-in the Fabricate and Editor splits were. A React.lazy over a
 // forwardRef component still forwards `ref` in React 19, so `composeRef` reaches its
 // useImperativeHandle. See engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.4.
-const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ default: m.ComposeView })));
+const loadComposeView = () => import('./ComposeView');
+const ComposeView = React.lazy(() => loadComposeView().then((m) => ({ default: m.ComposeView })));
 
 // Split out of the #1751 StudioShell-coupling spike — full measurement (-23.8KB gz, -2
 // chunks, 29 real e2e tests green) in
@@ -183,22 +184,24 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 const loadPresent = () => import('./PresentOverlay');
 const PresentOverlay = React.lazy(() => loadPresent().then((m) => ({ default: m.PresentOverlay })));
 
-// The idle warm-up fetches these three after the six panels (`warmPanels`), because the service
-// worker caches a chunk only once it has been fetched: without it, a user who goes offline before
-// opening Present or the reading view gets the chunk-load card. Each warms the surface's WHOLE
+// The idle warm-up fetches Compose, Present, the reading view and Fabricate after the six panels
+// (`warmPanels`), because the service worker caches a chunk only once it has been fetched: without
+// it, a user who goes offline before opening one gets the chunk-load card — for Compose, which is
+// a primary tab on a phone, over the whole Studio. Each warms the surface's WHOLE
 // on-demand path, not just its chunk, because both do more `import()`s once open: Present's
 // narration and the reading view load player-core and player-prune, and the KaTeX provider for
 // a deck with math (fetched, not run, and only when the deck on screen at startup has math).
 // Measured costs per surface are in the decision note below.
 // Not warmed: the voice model (`read-aloud.ts`). Neural read-aloud needs its weights too, which
 // are far larger, and without them the module offline does nothing the browser voice cannot.
-// Present and the reading view warm for everyone EXCEPT under Save-Data: unlike the six panels,
+// Compose, Present and the reading view warm for everyone EXCEPT under Save-Data: unlike the six panels,
 // no visitor downloaded them at startup before, so these are new bytes, and Save-Data is a
 // request not to spend them. Fabricate warms only for a browser that has opened it before: a
 // visitor who never fabricates never pays for it, and one who does can still open it offline
 // after a deploy renames its chunks.
 // See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md § Warming Present, Fabricate and the reading view.
 const FABRICATE_USED_KEY = 'lattice-studio-fabricate-used';
+const composeWarm = warmable(loadComposeView);
 const presentWarm = warmable(() => Promise.all([loadPresent(), import('./narration-projection').then((m) => m.warmNarrationProjection())]));
 const readArticleWarm = warmable(() => Promise.all([loadReadArticle(), import('./article-projection').then((m) => m.warmArticleProjection())]));
 const fabricateWarm = warmable(() => Promise.all([loadFabricate(), import('./library/gallery-gate')]));
@@ -212,7 +215,7 @@ function studioWarmQueue(deckHasMath: boolean) {
 		fabricateUsed = localStorage.getItem(FABRICATE_USED_KEY) === '1';
 	} catch {}
 	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
-	const surfaces = saveData ? [] : [presentWarm, readArticleWarm, ...(deckHasMath ? [katexWarm] : [])];
+	const surfaces = saveData ? [] : [composeWarm, presentWarm, readArticleWarm, ...(deckHasMath ? [katexWarm] : [])];
 	return [...STUDIO_PANELS, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])];
 }
 
