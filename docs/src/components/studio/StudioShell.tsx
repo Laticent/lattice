@@ -40,7 +40,6 @@ import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { AcronymEditor } from './AcronymEditor';
-import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
@@ -72,9 +71,9 @@ import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
-import { LensesPanel, type TagChange } from './LensesPanel';
+import type { TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
-import { Library } from './Library';
+import { lazyPanel, PanelLoader, useLatch, warmPanels } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
@@ -85,12 +84,11 @@ import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
+import { ChatShell, LensesShell, LibraryShell, ShareShell, SlideSettingsShell, WorkspaceShell } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
-import { ShareSheet } from './ShareSheet';
-import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
 import { listStudioScenes, type StudioScene } from './scene-library';
@@ -113,7 +111,6 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 import { TOURS } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { WebImagesNotice } from './WebImagesNotice';
-import { WorkspaceSheet } from './WorkspaceSheet';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
@@ -125,6 +122,20 @@ import { workspaceLensConfig } from './workspace-lenses';
 // `view === 'fabricate'` tab. Code-split it so its ~chunk stays out of the
 // initial Studio island payload (the heaviest thing a mobile user waits on) and
 // loads on first open. It's already mount-on-view, so this is a drop-in.
+// The six panels that load on first open, each behind a shell that looks like it
+// (`panel-shells.tsx`) — none of them is on screen when the Studio starts, and together they
+// were ~139KB gz of its startup JavaScript. Share and Workspace are the last two holders of the
+// narration / text-to-speech stack, so splitting both is what releases it. The idle warm-up
+// below loads them all once the Studio is usable, so a later open renders on its first frame.
+// See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md.
+const sharePanel = lazyPanel('Share', () => import('./ShareSheet').then((m) => m.ShareSheet));
+const workspacePanel = lazyPanel('Workspace settings', () => import('./WorkspaceSheet').then((m) => m.WorkspaceSheet));
+const slideSettingsPanel = lazyPanel('Slide settings', () => import('./SlideContext').then((m) => m.SlideContextBody));
+const chatPanel = lazyPanel('Chat', () => import('./ArchitectChat').then((m) => m.ArchitectChat));
+const libraryPanel = lazyPanel('The Library', () => import('./Library').then((m) => m.Library));
+const lensesPanel = lazyPanel('Reader views', () => import('./LensesPanel').then((m) => m.LensesPanel));
+const WARM_PANELS = [sharePanel, workspacePanel, slideSettingsPanel, chatPanel, libraryPanel, lensesPanel];
+
 const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
 
 // Read · Article — the deck as prose, in the TOP-LEVEL DOM so a reader-mode extractor
@@ -622,6 +633,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [shareOpen, setShareOpen] = React.useState(false);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
+	const shareMounted = useLatch(shareOpen);
+	const libraryMounted = useLatch(libraryOpen);
+	const workspaceMounted = useLatch(workspaceOpen);
 	// Sessions that ended without a clean unload — the crash sentinel's harvest
 	// (lib/crash-sentinel.ts). Collected once on mount, BEFORE anything else can
 	// write to storage.
@@ -1253,6 +1267,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		import('./Editor').catch(() => {});
 	}, []);
+	// The panels, once the Studio is idle (`lazy-panel.tsx` › warmPanels).
+	React.useEffect(() => warmPanels(WARM_PANELS), []);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —
@@ -3990,18 +4006,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<p className="px-1.5 pb-2.5 text-[13px] leading-snug text-[var(--text-muted)]">
 				A subset of this deck for one reader — you approve exactly what they see.
 			</p>
-			<LensesPanel
-				slides={slides}
-				registry={lensReg}
-				catalog={lensCatalog}
-				activeLens={composeLens}
-				workspace={wsLenses}
-				onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
-				onWriteRegistry={writeRegistry}
-				onTag={writeTags}
-				onRemoveLens={removeLensWrite}
-				{...(hosted ? { adding: lensAdding, onAddingChange: setLensAdding } : {})}
-			/>
+			<PanelLoader panel={lensesPanel} shell={(body) => <LensesShell>{body}</LensesShell>}>
+				{(LensesPanel) => (
+					<LensesPanel
+						slides={slides}
+						registry={lensReg}
+						catalog={lensCatalog}
+						activeLens={composeLens}
+						workspace={wsLenses}
+						onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
+						onWriteRegistry={writeRegistry}
+						onTag={writeTags}
+						onRemoveLens={removeLensWrite}
+						{...(hosted ? { adding: lensAdding, onAddingChange: setLensAdding } : {})}
+					/>
+				)}
+			</PanelLoader>
 		</div>
 	);
 
@@ -4024,7 +4044,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// A FACTORY, not one element: the docked column wants the chat to render its own header
 	// row (title left, cost right — see ChatCost), while the mobile sheet already has
 	// PanelHeader and only wants the cost.
-	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />;
+	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
+		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
+			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+		</PanelLoader>
+	);
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	// The six sections, as DATA — the list view and search render all of them and the
@@ -4631,7 +4655,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
 			) : (
-				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} />
+				<PanelLoader panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier}>{body}</SlideSettingsShell>}>
+					{(SlideContextBody) => <SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} />}
+				</PanelLoader>
 			)}
 		</>
 	);
@@ -5926,7 +5952,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{libraryOpen && (
-										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} />
+										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} />}
+										</PanelLoader>
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -6033,13 +6061,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
+			{shareMounted && (
+				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />}
+				</PanelLoader>
+			)}
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →
 			    Diagnostics via the `lattice:open-crash-report` event. */}
 			{crashReports.length > 0 && <CrashReportSheet open={crashOpen} onOpenChange={setCrashOpen} reports={crashReports} onDismiss={dismissCrash} />}
-			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} />
+			{workspaceMounted && (
+				<PanelLoader panel={workspacePanel} sheet open={workspaceOpen} shell={(body) => <WorkspaceShell open={workspaceOpen} onOpenChange={setWorkspaceOpen}>{body}</WorkspaceShell>}>
+					{(WorkspaceSheet) => <WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} />}
+				</PanelLoader>
+			)}
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector
 			    (which is now settings-only). Restore stays always-visible (not hover-only)
@@ -6083,22 +6119,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    docked in the assistant slot instead (above), so the sheet is compact-only.
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
 			    floats over the full-screen Fabricate surface. */}
-			{compact && view === 'compose' && (
-				<Library
-					open={libraryOpen}
-					onOpenChange={setLibraryOpen}
-					options={options}
-					activePalette={palette}
-					activeFinish={finish}
-					initialFilter={libInitialFilter}
-					onApplyTheme={applyPalette}
-					onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}
-					onEditTheme={editTheme}
-					onEditComponent={editComponent}
-					onEditFinish={editFinish}
-					onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
-				/>
+			{compact && view === 'compose' && libraryMounted && (
+				<PanelLoader panel={libraryPanel} sheet open={libraryOpen} shell={(body) => <LibraryShell open={libraryOpen} onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
+					{(Library) => (
+						<Library
+							open={libraryOpen}
+							onOpenChange={setLibraryOpen}
+							options={options}
+							activePalette={palette}
+							activeFinish={finish}
+							initialFilter={libInitialFilter}
+							onApplyTheme={applyPalette}
+							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
+							onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}
+							onEditTheme={editTheme}
+							onEditComponent={editComponent}
+							onEditFinish={editFinish}
+							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
+						/>
+					)}
+				</PanelLoader>
 			)}
 			{(presentOpen || presentEverOpened) && (
 				<React.Suspense

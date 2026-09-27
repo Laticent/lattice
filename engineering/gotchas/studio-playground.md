@@ -1554,3 +1554,19 @@ never turn "passed in headless" into "works on iOS."
   reloads at once and raises its sticky notice after the reload, on the restored Studio
   (`workspace-backup-meta.ts` `stashRestoreReport`). Found and measured in Chromium on
   2026-09-25 by `docs/e2e/workspace-restore-gate.spec.ts`.
+
+## A Studio test can't find the panel it just opened, or clicks a row that does nothing
+
+- **Symptom** — a jsdom test clicks Share, Workspace settings, Chat, Library, Reader views or
+  Slide settings, then `getByText` on the panel's content fails. Or `within(dialog)` finds
+  the Share rows, the click lands, and no exporter is ever called.
+- **Cause** — those six panels load on first open (`docs/src/components/studio/lazy-panel.tsx`,
+  `engineering/decisions/2026-09-26-studio-panel-lazy-loading.md`). Until the code arrives, the
+  Studio shows a look-alike shell. Its controls are `inert`, and a sheet's shell is a
+  **different dialog element** from the loaded sheet, held for the 500 ms slide-in. So a handle
+  taken on the shell's dialog goes stale when the real sheet replaces it.
+- **Fix** — `await waitForPanels()` (`docs/src/test/panels.ts`) right after the click that opens
+  the panel, then query. It waits until no `[data-panel-shell]` is on the page. In Playwright,
+  wait for the panel's own content, or for `[data-panel-shell]` to detach; a service worker
+  fetches the chunk out of `page.route()`'s sight, so a test that holds chunks must block
+  service workers (`serviceWorkers: 'block'`).

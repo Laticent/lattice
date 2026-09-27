@@ -397,6 +397,15 @@ const PanelSheetCtx = React.createContext(false);
 // and strips the dialog's accessible name. They answer different questions.
 const PanelPhoneCtx = React.createContext(false);
 
+/**
+ * True while a sheet is replacing the look-alike shell that was already on screen
+ * (`studio/lazy-panel.tsx`): the shell has finished sliding in, so the real sheet mounts
+ * in place with its enter animation OFF — otherwise a cold open slides in twice. The
+ * exit animation is untouched, and the loader clears this at the next close.
+ */
+export const PanelSheetInstantCtx = React.createContext(false);
+const NO_ENTER = 'data-[state=open]:animate-none!';
+
 // WHERE the phone's back chevron says it goes. A destination, not a direction: the
 // StudioDrawer already argued this and was right — "a chevron plus the literal name
 // of where it goes, not an icon you have to interpret".
@@ -517,6 +526,7 @@ export function PanelSheet({
 	const isPhone = useIsPhone();
 	const mobile = phone ?? isPhone;
 	const nav = React.useContext(PanelNavCtx);
+	const instant = React.useContext(PanelSheetInstantCtx);
 	useKeyboardInset(mobile && open);
 	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
 	// only — a pointer surface has no back gesture, and binding history there would be
@@ -555,6 +565,7 @@ export function PanelSheet({
 			<SheetContent
 				side={mobile ? 'bottom' : side}
 				overlay={overlay}
+				overlayClassName={instant ? NO_ENTER : undefined}
 				showCloseButton={false}
 				// Tapping the scrim is "take me to what I can see", not "go back a level".
 				// On a phone the scrim IS the deck (the 54px band this sheet leaves above
@@ -565,6 +576,7 @@ export function PanelSheet({
 				className={cn(
 					'flex w-full flex-col gap-0 p-0',
 					mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width],
+					instant && NO_ENTER,
 					className,
 				)}
 			>

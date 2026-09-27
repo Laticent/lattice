@@ -1,4 +1,4 @@
-import { Check, Download, FileBox, FileText, Package, Pencil, Plus,  Share2, Trash2, Upload } from 'lucide-react';
+import { Check, Download, FileBox, FileText, Package, Pencil, Plus,  Share2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
@@ -11,11 +11,13 @@ import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
+import { DeleteBtn } from './delete-btn';
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
+import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
@@ -28,7 +30,7 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 // actions (apply a theme, insert a component) delegate to the shell; storage ops
 // (delete, import) run here, then `onChanged` refreshes the shell's topbar/insert lists.
 
-type Filter = 'all' | 'theme' | 'component' | 'finish' | 'motion' | 'refdoc';
+type Filter = LibraryFilter;
 
 function download(blob: Blob, filename: string) {
 	const url = URL.createObjectURL(blob);
@@ -635,7 +637,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			value={query}
 			onChange={setQuery}
 			onClear={() => setQuery('')}
-			placeholder="Search themes, components, finishes & files…"
+			placeholder={LIBRARY_HEADER.searchPlaceholder}
 			label="Search library"
 			className={phone ? undefined : 'ml-1 flex-1'}
 		/>
@@ -663,9 +665,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// the 44px one every other panel now gets on a phone (#1211).
 	const header = (
 		<PanelHeader
-			icon={<FileBox />}
-			title="Library"
-			srDescription="Saved themes, components, finishes, and files — search, filter, apply, or drop a file in."
+			icon={LIBRARY_HEADER.icon}
+			title={LIBRARY_HEADER.title}
+			srDescription={LIBRARY_HEADER.srDescription}
 			actions={headerControls}
 			onClose={docked ? () => onOpenChange(false) : undefined}
 			showClose={!docked}
@@ -689,10 +691,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						ariaLabel="Library sections"
 						value={filter}
 						onValueChange={(v) => setFilter(v as Filter)}
-						tabs={(['all', 'theme', 'component', 'finish', 'motion', 'refdoc'] as Filter[]).map((f) => ({
-							value: f,
-							label: f === 'all' ? 'All' : f === 'refdoc' ? 'Files' : f === 'finish' ? 'Finishes' : f === 'motion' ? 'Motions' : `${f[0].toUpperCase()}${f.slice(1)}s`,
-						}))}
+						tabs={LIBRARY_FILTERS}
 					/>
 					{/* The count MOVED to the status bar at the foot of the panel (#1655). It sat
 					    here competing with the filters for the same row, which is why it had to
@@ -876,42 +875,5 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				onRestored={() => { reload(); onChanged(); }}
 			/>
 		</LibraryFrame>
-	);
-}
-
-// Two-tap delete (matches the slide-toolbar pattern) — first tap arms, second
-// confirms. Exported so other Studio surfaces (the Workspace Privacy & Data tab)
-// reuse the same delete affordance instead of re-styling their own (HARD RULE #15).
-//
-// Owns its own un-arm behavior rather than leaning on each caller to remember
-// it: a "Sure?" left alone is a footgun waiting for an accidental later click
-// to land as a real delete. It reverts on whichever comes first — ~3s of
-// inactivity (matching StudioShell's RailOp slide-toolbar delete) or a
-// pointerdown anywhere outside this button, captured at the document level so
-// another component's stopPropagation can't swallow it first.
-export function DeleteBtn({ armed, onArm, onConfirm, onCancel, label, labelClass }: { armed: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void; label: string;
-	/** Classes for the armed button's "Sure?" word. Defaults to always-visible.
-	 *
-	 *  It is a PROP rather than a container query baked in here because this button is
-	 *  shared — `WorkspaceSheet` renders it outside any size container, where a bare
-	 *  `@[…]` would never match and would leave the confirm permanently wordless. */
-	labelClass?: string }) {
-	const ref = React.useRef<HTMLButtonElement>(null);
-	React.useEffect(() => {
-		if (!armed) return;
-		const timer = setTimeout(onCancel, 3000);
-		const onPointerDown = (e: PointerEvent) => {
-			if (!ref.current?.contains(e.target as Node)) onCancel();
-		};
-		document.addEventListener('pointerdown', onPointerDown, true);
-		return () => {
-			clearTimeout(timer);
-			document.removeEventListener('pointerdown', onPointerDown, true);
-		};
-	}, [armed, onCancel]);
-	return armed ? (
-		<button ref={ref} type="button" onClick={onConfirm} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /><span className={labelClass}>Sure?</span></button>
-	) : (
-		<button type="button" onClick={onArm} aria-label={`Delete ${label}`} className="grid place-items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /></button>
 	);
 }

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: Load six Studio panels on first open instead of at startup — Share, Workspace, Chat, Library, slide settings and Lenses — for a measured −139KB gz (−18.8%) of the Studio's startup JavaScript. Most of the win (−117KB) comes from splitting Share and Workspace TOGETHER, because they are now the last two holders of the narration/TTS stack; either alone recovers only ~25KB. Coach, the deck-settings body and the views stay as they are. Revises the "leave the rest alone" call in 2026-08-23-studio-shell-decomposition.md §7.
 ---
 
@@ -123,9 +123,11 @@ panel that is about to appear, not a generic spinner or gray box.**
   `role="status"` line announces "Loading Share…".
 
 **A warmed panel shows no shell at all.** A small loader (`lazy-panel.tsx`) keeps each
-panel's promise. Once the idle warm-up has resolved it, the panel renders on its first frame:
-React 19's `use()` returns synchronously for a promise marked fulfilled. So the shell appears
-only on a click before the warm-up finishes, on a slow first visit, or after a failed load.
+panel's load state in a tiny store and reads it with `useSyncExternalStore`. Once the idle
+warm-up has loaded a panel, it renders on its first frame. `React.lazy` would not do: it
+suspends on its first render even when the module is already in memory, so a warmed panel
+would still flash its fallback. The shell therefore appears only on a click before the
+warm-up finishes, on a slow first visit, or after a failed load.
 
 **A cold sheet must slide in once, not twice.** `PanelSheet` animates in over 500 ms when it
 mounts (`ui/sheet.tsx`). If the real sheet replaced the shell's sheet, the slide-in would
@@ -201,6 +203,61 @@ These checks ran against the uncommitted prototype of all six splits, built as t
 
 Still open, because the checks above could not reach them: the idle warm-up and the
 first-open gates (not written yet), 820px and 390px widths, offline behavior, and the tours.
+
+## What shipped, measured (2026-09-27)
+
+**Bytes.** Measured as a pair on one tree: this branch's changes stashed for the `main` reading,
+and the docs build rerun for each reading.
+
+| | origin/main `133ac54` | this branch | change |
+|---|---:|---:|---:|
+| Studio startup JS, gz | 747,844 | 613,650 | **−134,194 (−17.9%)** |
+| startup chunks | 93 | 96 | +3 |
+| `studio/index.html` | 204,385 | 204,548 | +163 (one `modulepreload` tag per new chunk) |
+
+That is 5KB short of the 139.4KB the prototype measured. The shells, the shared menu module and
+the loader now load at startup instead.
+
+**Shells against the loaded panels.** A Playwright harness drove the real built site in Chromium,
+at 1440, 820 and 390px, for all six panels: 18 runs. For each run it turned off the warm-up
+(Save-Data), held the panel's chunk, and screenshotted and measured the shell. It then released
+the chunk and did the same for the loaded panel.
+
+- **Frame position:** identical in all 18. The header, title, tabs, search box and composer
+  are within 0.5px in both states. The first run found the Chat composer 36px short at 1440px,
+  and 4.9px short at 390px, where a touch screen forces fields to 16px. The shell now renders the
+  same `Textarea` with the same props.
+- **One slide-in:** 0 second slide-ins across the 8 sheet runs, where the chunk arrived after
+  800 ms, and 4 more runs (Share and Workspace at 1440 and 390px) where it arrived during the
+  slide-in: released at 150 ms, the swap waited until 483–518 ms.
+- **Escape** did the same in the shell as in the loaded sheet in every sheet run. On a phone,
+  the Library opens from the Menu drawer, and Escape steps back to the drawer in both.
+- **Focus** was inside the loaded sheet after every swap.
+- **Warmed:** in all 18 runs, a panel opened after the idle warm-up never showed its shell.
+- **Offline:** after the warm-up, with the network cut, all six panels rendered fully.
+- **Failed load:** with the chunk blocked, Share shows the chunk-load card inside its sheet,
+  still closable with Escape, and Chat shows it inside its column.
+
+Changes the vetting made to the shells: the Chat shell shows the real first-run card (shared as
+`ChatEmptyCard`), or message blocks when the deck has a saved thread. Workspace shows its real
+headings (shared `WorkspaceGroupLabel`) and the tier switch's labels. The Library shell leaves
+its body blank rather than drawing cards: the Library reads its shelf from storage after it
+mounts, so nothing can know whether it opens on cards or on "No saved assets yet".
+
+**Tests.** 10 unit tests for the loader (`lazy-panel.test.tsx`). Two rules were checked by
+breaking them on purpose: "no shell once warmed" and "hold the shell for the whole slide-in".
+The hold test first passed against a broken loader, because fake timers never fire a 0 ms
+timeout. It now also fakes `performance` and checks the shell is still up at 499 ms. Five
+existing jsdom tests opened a panel and read it immediately; they now `await waitForPanels()`
+(`src/test/panels.ts`). Docs unit suite: 5,162 passed. Playwright, on this branch's build:
+113 of 114 desktop tests passed across 17 panel and tour specs, and 12 of 12 on the tablet and
+mobile projects.
+
+**One pre-existing flake, not this PR's.** `studio-instant-shell.spec.ts` › "a rect from another
+orientation › is not replayed in portrait" fails intermittently against the FULL production build
+(`npm run build`, which adds `inject-modulepreload` and `hoist-stylesheets`). It failed 6 of 8 runs
+on `main`'s full build and 4 of 8 on this branch's. It passed on both under `build:e2e`, which is
+what CI runs. It is logged in `followups.d/` rather than fixed here.
 
 ## Delivery
 

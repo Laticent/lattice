@@ -31,6 +31,7 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
+import { RESET_SLIDE_BUTTON } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
 import { getCaption, setCaption } from './slide-caption';
@@ -942,7 +943,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							type="button"
 							onClick={resetSlide}
 							disabled={!dirty}
-							className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+							className={RESET_SLIDE_BUTTON}
 						>
 							<RotateCcw className="size-3" />Reset slide
 						</button></Tip>

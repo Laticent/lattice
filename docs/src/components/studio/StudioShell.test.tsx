@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
 import { TOURS } from './tours';
 
@@ -588,6 +589,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('opens Workspace settings ("your setup") with the REAL model status + tabs', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Workspace settings' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Workspace/ }));
 		// Default tab = AI: the Model section leads with a Generation switch (Cloud /
 		// On-device) that picks the active tier. With no model in the test env, nothing is

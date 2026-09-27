@@ -103,5 +103,5 @@ export function ChatCodeBlock({ code, lang }: { code: string; lang: string }) {
 }
 
 // Shared visual language for an inline mini-diff/apply surface reused across chat +
-// coach. Kept here so both import one implementation. (See DiffCard in ArchitectChat.)
+// coach. Kept here so both import one implementation. (See DiffCard in diff-card.tsx.)
 export const codeBlockClass = cn('rounded-lg border border-border');

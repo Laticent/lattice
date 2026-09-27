@@ -22,13 +22,14 @@ import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_A
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
+import { DeleteBtn } from './delete-btn';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { LanguageSelect } from './LanguageSelect';
-import { DeleteBtn } from './Library';
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
+import { WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, type WorkspaceTab } from './panel-shells';
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
 import {
@@ -71,8 +72,8 @@ const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max
 // inherits — so it lives under General, and cloud/on-device share it rather than each
 // carrying their own. Spend + Instructions used to be their own tabs; they're facets of
 // the AI model, so they live as sections under AI rather than as sibling tabs.
-const TABS = ['General', 'AI', 'Data'] as const;
-type Tab = (typeof TABS)[number];
+const TABS = WORKSPACE_TABS;
+type Tab = WorkspaceTab;
 type GenView = 'cloud' | 'ondevice';
 
 const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
@@ -81,16 +82,12 @@ const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
 // treatments across the drawers. Now a thin shim over `PanelSection`'s head so this
 // surface shares the one grammar; kept as a named component because ~20 call sites
 // pass `{icon}` + children rather than a `label` string.
-function GroupLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-	return <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold leading-normal text-[var(--text-heading)] [&_svg]:size-3.5">{icon}{children}</h3>;
-}
+const GroupLabel = WorkspaceGroupLabel;
 
 // A secondary section inside the AI tab (Spend, Instructions) — each sits below the Model
 // section behind a hairline divider + top space, so the long scroll reads as distinct
 // regions rather than one undifferentiated column.
-function AiSection({ children }: { children: React.ReactNode }) {
-	return <div className="mt-6 border-t border-border pt-5">{children}</div>;
-}
+const AiSection = WorkspaceAiSection;
 
 // A single Data-tab row — one storage category, its stat line, and the same
 // two-tap DeleteBtn the Library uses (HARD RULE #15: one delete affordance,
@@ -179,7 +176,7 @@ function HandlePreview({ kind }: { kind: HandleStyle }) {
 }
 
 export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-	const [tab, setTab] = React.useState<Tab>('AI');
+	const [tab, setTab] = React.useState<Tab>(WORKSPACE_DEFAULT_TAB);
 	const [dedup, setDedup] = React.useState(true);
 	React.useEffect(() => { setDedup(readDedupEnabled()); }, []);
 	const [caching, setCaching] = React.useState(true);
@@ -515,11 +512,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			    `PanelHeader`'s own (never-used) `eyebrow` slot did not support. The panel is
 			    launched from a control labeled "Workspace settings"; the title does not need
 			    to re-explain itself in a treatment no other header uses. */}
-			<PanelHeader
-				icon={<Cloud />}
-				title="Workspace"
-				srDescription="Your workspace setup — preferences and app install under General; the AI model, spend, and standing instructions under AI; where decks live, backup, storage, and deletion under Data."
-			/>
+			<PanelHeader icon={WORKSPACE_HEADER.icon} title={WORKSPACE_HEADER.title} srDescription={WORKSPACE_HEADER.srDescription} />
 			<PanelBody padded={false} className="p-5">
 					<PillTabs
 						className="mb-4"
