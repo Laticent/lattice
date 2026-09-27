@@ -1565,8 +1565,11 @@ never turn "passed in headless" into "works on iOS."
   Studio shows a look-alike shell. Its controls are `inert`, and a sheet's shell is a
   **different dialog element** from the loaded sheet, held for the 500 ms slide-in. So a handle
   taken on the shell's dialog goes stale when the real sheet replaces it.
-- **Fix** — `await waitForPanels()` (`docs/src/test/panels.ts`) right after the click that opens
-  the panel, then query. It waits until no `[data-panel-shell]` is on the page. In Playwright,
+- **Fix** — in a jsdom file that renders the Studio, `beforeAll(loadStudioPanels)`
+  (`docs/src/test/panels.ts`): it loads the six panels up front, as a warmed Studio would, so a
+  test never sees a shell. Without it the test races the load, and it passes locally and fails on
+  a slower CI runner: two Share tests did exactly that. To test the shell itself, skip the helper
+  and `await waitForPanels()` after the click, which waits until no `[data-panel-shell]` is left. In Playwright,
   wait for the panel's own content, or for `[data-panel-shell]` to detach; a service worker
   fetches the chunk out of `page.route()`'s sight, so a test that holds chunks must block
   service workers (`serviceWorkers: 'block'`).

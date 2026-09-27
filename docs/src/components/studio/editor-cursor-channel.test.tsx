@@ -1,7 +1,11 @@
 import { render } from '@testing-library/react';
 import { StrictMode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { loadStudioPanels } from '@/test/panels';
 import { Editor } from './Editor';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // THE DECK EDITOR RUNS A REAL CODEMIRROR IN THIS TIER — measured, not assumed:
 // `textarea: false, .cm-content: true`. `Editor.tsx` does carry a `<textarea>` fallback for

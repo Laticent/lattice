@@ -73,7 +73,7 @@ import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
-import { lazyPanel, PanelLoader, useLatch, warmPanels } from './lazy-panel';
+import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
@@ -105,6 +105,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
+import { chatPanel, lensesPanel, libraryPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -116,19 +117,6 @@ import type { WebImageSummary } from './web-images';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
-// The six panels that load on first open, each behind a shell that looks like it
-// (`panel-shells.tsx`). None of them is on screen when the Studio starts, and together they
-// were ~130KB gz of its startup JavaScript (-17.8%). Share and Workspace are the last two
-// holders of the narration / text-to-speech stack, so splitting both is what releases it. The
-// idle warm-up below loads them all once the Studio is usable, so a later open renders on its
-// first frame. See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md.
-const sharePanel = lazyPanel('Share', () => import('./ShareSheet').then((m) => m.ShareSheet));
-const workspacePanel = lazyPanel('Workspace settings', () => import('./WorkspaceSheet').then((m) => m.WorkspaceSheet));
-const slideSettingsPanel = lazyPanel('Slide settings', () => import('./SlideContext').then((m) => m.SlideContextBody));
-const chatPanel = lazyPanel('Chat', () => import('./ArchitectChat').then((m) => m.ArchitectChat));
-const libraryPanel = lazyPanel('The Library', () => import('./Library').then((m) => m.Library));
-const lensesPanel = lazyPanel('Reader views', () => import('./LensesPanel').then((m) => m.LensesPanel));
-const WARM_PANELS = [sharePanel, workspacePanel, slideSettingsPanel, chatPanel, libraryPanel, lensesPanel];
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
@@ -1271,7 +1259,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		import('./Editor').catch(() => {});
 	}, []);
 	// The panels, once the Studio is idle (`lazy-panel.tsx` › warmPanels).
-	React.useEffect(() => warmPanels(WARM_PANELS), []);
+	React.useEffect(() => warmPanels(STUDIO_PANELS), []);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —

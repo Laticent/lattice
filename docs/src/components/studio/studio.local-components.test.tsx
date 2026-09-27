@@ -1,8 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { waitForPanels } from '@/test/panels';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels, waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // Slice: insert + render a SAVED LOCAL component. A component authored in the
 // Fabricate Layout Studio (component-library, IndexedDB) must (1) appear in the
