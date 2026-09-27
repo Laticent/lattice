@@ -295,3 +295,21 @@ The build followed this plan, with five adjustments found while writing it:
 `.vtt` downloads (CLI `--captions` and the Studio's Captions download) carry the neutral
 greeting and the closing. `cadenza/vtt.ts` needed no change, because both producers shape the
 deck-level file in `lib/core/read-along-vtt.js`.
+
+## 12. Owner ruling: a bookend the slides already say is skipped (2026-09-27)
+
+The owner tested the build and heard the closing repeat a "Thank you" slide ("Thank you." then
+"Thank you for listening."). A title slide that says "Welcome to…" repeats a greeting the same
+way. The owner chose to **skip the bookend automatically** over a lint warning (coaching only) or
+both.
+
+- `alreadyGreets(text)`: slide 1's narration opens with "good morning / afternoon / evening /
+  day", "hello", "hi", "hey", "greetings" or "welcome".
+- `alreadyThanks(text)`: the last slide's narration says "thank you" or "thanks" anywhere.
+- `withoutRedundantBookends(ends, slideTexts)` applies both, in `lib/core/resolve-bookends.mjs`.
+  The export bake, Studio Present, the CLI `--captions` sidecar and the Studio's Captions download
+  all call it, so every surface skips the same lines. The exported player needs no change: the
+  bake leaves a skipped bookend out of the file.
+- The slide's own words win because they are on screen, and the captions must match them.
+- No lint rule was added. A warning would cost about 0.25 KB of the Studio's eager JavaScript
+  (the lint core loads eagerly), against about 0.35 KB of budget headroom.

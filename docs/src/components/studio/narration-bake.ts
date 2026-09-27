@@ -29,7 +29,7 @@
 // in the same voice starts from what the first one paid for.
 
 import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
-import { GREETING_VARIANTS, greetingText, resolveBookends } from '@/lib/resolve-bookends';
+import { GREETING_VARIANTS, greetingText, resolveBookends, withoutRedundantBookends } from '@/lib/resolve-bookends';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
@@ -446,7 +446,8 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 	// clock picks one where the file plays (2026-09-27-narration-bookends.md §5).
 	const bookendKeys: string[] = [];
 	if (texts.some(Boolean)) {
-		const ends = resolveBookends(source);
+		// A line the deck's own first or last slide already says is not said twice.
+		const ends = withoutRedundantBookends(resolveBookends(source), texts);
 		if (ends.greeting) {
 			for (const v of GREETING_VARIANTS) {
 				bookendKeys.push(`greeting-${v}`);

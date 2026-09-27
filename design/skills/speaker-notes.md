@@ -192,7 +192,7 @@ closing: "Thank you. Questions are welcome."
 ```
 
 `{greeting}` follows the listener's own clock, so never write "good morning" into the
-text. Each line plays at most once per delivery, and they appear in the caption band
+text. A line your first or last slide already says ("Welcome…", "Thank you") is skipped rather than said twice. Each line plays at most once per delivery, and they appear in the caption band
 and the `.vtt` like any other line. The full rules are in
 `lib/base/base.registers.docs.md` § `greeting:` / `closing:`.
 

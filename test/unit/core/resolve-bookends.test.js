@@ -86,3 +86,16 @@ test('lint-parse-parity: lint-core reads greeting:/closing: exactly as the resol
 	}
 	assert.deepEqual(readBookendKeys('﻿---\r\ngreeting: true\r\n---\r\n# S'), m.resolveBookends('﻿---\r\ngreeting: true\r\n---\r\n# S'), 'BOM and CRLF');
 });
+
+test('a line the deck already says is not said twice: alreadyGreets / alreadyThanks / withoutRedundantBookends', () => {
+	for (const t of ['Welcome to the Q3 review.', 'Good morning, everyone.', 'Hello!', '“Hi there.”', 'Greetings from the team.']) assert.equal(m.alreadyGreets(t), true, t);
+	for (const t of ['Revenue grew.', 'High margins held.', 'Our welcome pack shipped.', '']) assert.equal(m.alreadyGreets(t), false, t);
+	for (const t of ['Thank you', 'Thanks to everyone who shipped this.', 'Questions? Thank you.']) assert.equal(m.alreadyThanks(t), true, t);
+	for (const t of ['Thankful for growth.', 'Next steps.', '']) assert.equal(m.alreadyThanks(t), false, t);
+
+	const ends = { greeting: { template: '{greeting}.' }, closing: { text: 'Thank you for listening.' } };
+	assert.deepEqual(m.withoutRedundantBookends(ends, ['Welcome to the review.', 'Middle.', 'Thank you']), { greeting: null, closing: null });
+	assert.deepEqual(m.withoutRedundantBookends(ends, ['Quarterly review.', 'Middle.', 'Next steps.']), ends, 'nothing repeats, nothing is dropped');
+	assert.deepEqual(m.withoutRedundantBookends(ends, ['', 'Middle.', '']), ends, 'silent first and last slides say nothing');
+	assert.deepEqual(m.withoutRedundantBookends({ greeting: null, closing: null }, ['Hello.']), { greeting: null, closing: null });
+});

@@ -6151,16 +6151,15 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
   let lexicon; // author `lexicon:` — a token (glyph or word) → spoken; beats the built-in commons
   let fmCaptions;
   let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
-  let bookends; // `greeting:` / `closing:` — a caption file has no viewer clock, so the NEUTRAL greeting
+  let bookends; // the `greeting:` / `closing:` kernel (lib/core/resolve-bookends.mjs); a caption file has no viewer clock, so it takes the NEUTRAL greeting
   try {
     const { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } = await import('./lib/core/resolve-captions.mjs');
     acronyms = acronymSpokenMap(rawMd);
     lexicon = lexiconMap(rawMd);
     fmCaptions = frontMatterCaptions(rawMd);
     lang = frontMatterLang(rawMd);
-    const { resolveBookends, greetingText } = await import('./lib/core/resolve-bookends.mjs');
-    const ends = resolveBookends(rawMd);
-    bookends = { greeting: ends.greeting ? greetingText(ends.greeting.template, 'neutral') : null, closing: ends.closing?.text ?? null };
+    const bookendsMod = await import('./lib/core/resolve-bookends.mjs');
+    bookends = bookendsMod; // resolved against the slides' narration below, once it is known
   } catch (e) {
     if (!QUIET) console.warn(`  note: narration front-matter parse failed (${e?.message})`);
   }
@@ -6299,6 +6298,9 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
   // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was
   // mutated in place above.
   const emphasis = emphasisForResolved(slideTexts, projectedForEmphasis, projectedEmphasis);
+  // `greeting:` / `closing:`, minus any line the first or last slide already says.
+  const ends = bookends ? bookends.withoutRedundantBookends(bookends.resolveBookends(rawMd), slideTexts) : null;
+  const bookendTexts = ends ? { greeting: ends.greeting ? bookends.greetingText(ends.greeting.template, 'neutral') : null, closing: ends.closing?.text ?? null } : undefined;
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
@@ -6307,7 +6309,7 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
     emphasis,
     lexicon,
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
-    bookends,
+    bookends: bookendTexts,
   });
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no caption overrides, no projectable slide prose) — no .vtt written');

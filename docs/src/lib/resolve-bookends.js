@@ -4,6 +4,8 @@
 // clock read the keys and pick the period identically. This re-export gives the docs a clean
 // `@/lib/resolve-bookends` import, for the reason `resolve-pace.js` gives.
 export {
+	alreadyGreets,
+	alreadyThanks,
 	BOOKEND_GAP_MS,
 	DEFAULT_CLOSING,
 	DEFAULT_GREETING,
@@ -13,4 +15,5 @@ export {
 	greetingVariants,
 	resolveBookends,
 	SALUTATIONS,
+	withoutRedundantBookends,
 } from '../../../lib/core/resolve-bookends.mjs';

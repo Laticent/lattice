@@ -1121,6 +1121,12 @@ export, which has no listener clock, says "Hello". So does a downloaded `.vtt`.
 | `false`, `no`, `off`, `none`, or empty | Off (the same as leaving the key out) |
 | any other text | Spoken as written. Quote it when it contains a `:` or `#`, and use double quotes when it contains an apostrophe |
 
+**A line the deck already says is not said twice.** If slide 1's narration already opens with
+a greeting ("Good morning…", "Hello…", "Hi…", "Welcome…"), the greeting is skipped. If the last
+slide's narration already says "thank you" or "thanks", as a "Thank you" closing slide does, the
+closing is skipped. The slide's own words win, because they are what the audience reads on
+screen.
+
 A deck that narrates no slide says neither line. The greeting and the closing are English
 unless you write them yourself, so a deck whose `lang:` is not English should use custom
 text.

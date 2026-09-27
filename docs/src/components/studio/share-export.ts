@@ -1148,7 +1148,7 @@ export async function shareCaptions(
 		lang: lang ?? undefined,
 		// The NEUTRAL greeting and the closing: a caption file has no viewer clock. The same key
 		// reading and the same text as the CLI's sidecar (lib/core/resolve-bookends.mjs).
-		bookends: captionBookends(bookendsMod.resolveBookends(source), bookendsMod.greetingText),
+		bookends: captionBookends(bookendsMod.withoutRedundantBookends(bookendsMod.resolveBookends(source), slideTexts), bookendsMod.greetingText),
 	});
 	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no captions and no projectable slide content (a speaker note is never narrated)');
 

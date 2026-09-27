@@ -1036,3 +1036,18 @@ describe('bakeNarration — the greeting and the closing (2026-09-27-narration-b
 		await expect(withFastBackoff(() => bakeNarration(BOOKENDED, PROJECTED, { voice: VOICE, audio: true }))).rejects.toMatchObject({ failures: expect.arrayContaining([expect.objectContaining({ slide: 0, text: 'Thank you.' })]) });
 	});
 });
+
+describe('bakeNarration — a bookend the slides already say is not recorded', () => {
+	it('drops the closing when the last slide already thanks, and the greeting when slide 1 already greets', async () => {
+		const deck = ['---', 'greeting: true', 'closing: true', '---', '', '# One', '', 'Welcome to the review.', '', '---', '', '# Two', '', 'Thank you all.', ''].join('\n');
+		const bake = await bakeNarration(deck, ['Welcome to the review.', 'Thank you all.'], { voice: VOICE, audio: false });
+		expect(bake.bookends).toEqual({});
+		expect(bake.total).toBe(2);
+	});
+
+	it('keeps a bookend the slides do not already say', async () => {
+		const deck = ['---', 'greeting: true', 'closing: true', '---', '', '# One', '', 'Revenue grew.', '', '---', '', '# Two', '', 'Thank you all.', ''].join('\n');
+		const bake = await bakeNarration(deck, ['Revenue grew.', 'Thank you all.'], { voice: VOICE, audio: false });
+		expect(Object.keys(bake.bookends).sort()).toEqual(['greeting-afternoon', 'greeting-evening', 'greeting-morning', 'greeting-neutral']);
+	});
+});

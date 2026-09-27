@@ -66,4 +66,24 @@ describe('Present — greeting and closing', () => {
 		await waitFor(() => expect(said()).toContain('Two speaks.'), { timeout: 5_000 });
 		expect(said()).not.toContain('Good afternoon');
 	}, 20_000);
+
+	it('does not repeat what the slides already say: no greeting after "Welcome", no closing after "Thank you"', async () => {
+		const user = userEvent.setup();
+		const slides = [spoken('One', 'Welcome to the review.'), spoken('Two', 'Thank you all.')];
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={FM} />);
+		// Sample the band through the whole run: a closing that played and cleared before the last
+		// assertion would otherwise leave no trace.
+		const seen: string[] = [];
+		const sample = setInterval(() => seen.push(said()), 25);
+		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
+		await waitFor(() => expect(said()).toContain('Welcome to the review.'), { timeout: 5_000 });
+		expect(said()).not.toContain('Good afternoon');
+		await waitFor(() => expect(screen.getByText('2 / 2')).toBeInTheDocument(), { timeout: 10_000 });
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Play the presentation' })).toBeInTheDocument(), { timeout: 10_000 });
+		// Let a closing that would follow the gap have its chance to appear.
+		await new Promise((r) => setTimeout(r, 1500));
+		clearInterval(sample);
+		expect(seen.some((t) => t.includes('Thank you, and goodbye.'))).toBe(false);
+		expect(seen.some((t) => t.includes('Good afternoon'))).toBe(false);
+	}, 30_000);
 });

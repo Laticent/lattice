@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
-import { BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
+import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
@@ -696,6 +696,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const startClosing = (): boolean => {
 		const c = bookendsRef.current.closing;
 		if (!c || closedRef.current) return false;
+		// The last slide already thanked the room: saying it again sounds like a stutter.
+		if (alreadyThanks(narrationAtRef.current(countRef.current - 1).text)) return false;
 		closedRef.current = true;
 		bookendCueRef.current = { waitMs: BOOKEND_GAP_MS };
 		setBookend({ kind: 'closing', text: c.text });
@@ -1540,7 +1542,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			if (!greetedRef.current) {
 				greetedRef.current = true;
 				const g = bookendsRef.current.greeting;
-				if (g && clampedRef.current === 0 && anyNarrationRef.current()) {
+				if (g && clampedRef.current === 0 && anyNarrationRef.current() && !alreadyGreets(narrationAtRef.current(0).text)) {
 					bookendCueRef.current = { waitMs: 0 };
 					setBookend({ kind: 'greeting', text: greetingText(g.template, greetingPeriod(new Date().getHours())) });
 					return;
