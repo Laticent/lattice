@@ -200,10 +200,12 @@ The plugin package is self-contained on disk, because nothing it names lives els
 declaration does work, because it is checked and it is read:
 
 - **The build fails** when a component requires a plugin that does not exist, and when a
-  component's **gallery** parses into a plugin's tokens but the manifest does not declare that
-  plugin (`tools/build-plugin-registry.js` runs each plugin's rules over each gallery). So a
-  declaration is a checked fact, not a promise. The reverse — proving a declared plugin is really
-  used — is not checked, deliberately.
+  component's **own gallery** (`<name>.gallery.md`) parses into a plugin's tokens but the manifest
+  does not declare that plugin (`tools/build-plugin-registry.js` runs each plugin's rules over each
+  gallery). So a declaration is checked against the one deck every component ships. It is not
+  checked against the bucket galleries or the baseline decks, and the reverse — proving a declared
+  plugin is really used — is not checked, deliberately. Both are for in-tree components; a user
+  component's declaration joins with the data layer (phase E).
 - **At render,** a slide whose component requires a plugin that is switched off still renders (the
   layout, and the plugin's own fallback: math shows its TeX), and `render()` returns a
   `plugin/component-needs-plugin` diagnostic naming both. A normal render carries no

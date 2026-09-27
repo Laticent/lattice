@@ -48,8 +48,13 @@ describe('components depend on plugins', () => {
     assert.equal(createEngine({ plugins: { disabled: ['math'] } }).render(MATH_SLIDE).diagnostics.length, 1);
   });
 
+  test('an author\'s own <section class="math"> inside a slide is not a math slide', () => {
+    const out = createEngine({ math: false }).render('# Hi\n\n<section class="math">x</section>\n');
+    assert.equal('diagnostics' in out, false);
+  });
+
   test('one diagnostic per component and plugin, however many slides use it', () => {
-    const html = '<section class="math feature"></section><section id="x" class="math"></section>';
+    const html = '<section data-form="2d" class="math feature"></section><section data-form="2d" id="x" class="math"></section>';
     assert.equal(componentPluginDiagnostics(html, ['math']).length, 1);
     assert.deepEqual(componentPluginDiagnostics(html, []), []);
   });

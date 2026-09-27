@@ -92,8 +92,8 @@ async function readExports(folder, name, manifest) {
 }
 
 /**
- * Every component's `plugins` block, and the plugins its gallery USES — found by parsing the
- * gallery with each plugin's own rules, on a fresh markdown-it per plugin. That is what lets the
+ * Every component's `plugins` block, and the plugins its OWN gallery (`<name>.gallery.md`) USES —
+ * found by parsing that gallery with each plugin's own rules, on a fresh markdown-it per plugin. That is what lets the
  * resolver fail a component that uses a plugin without declaring it, so the declaration is a
  * checked fact rather than a promise.
  *
@@ -248,8 +248,9 @@ ${lines.join('\n')}
 
 const PLUGINS = Object.freeze(PLUGIN_GRAMMAR.map((g) => Object.freeze({ ...g, renderers: RENDERERS[g.name] })));
 
-// Components that REQUIRE a plugin, keyed by the component's slide class. The engine reads it to
-// report a slide whose required plugin is switched off.
+// In-tree components that REQUIRE a plugin, keyed by component name — which is the slide class an
+// author writes (\`_class: math\`). The engine reads it to report a slide whose required plugin is
+// switched off. A user component's declaration joins with the data layer (plugin-system phase E).
 const COMPONENT_PLUGINS = Object.freeze(${JSON.stringify(Object.fromEntries(components.filter((c) => c.requires.length).map((c) => [c.name, c.requires])))});
 
 module.exports = { PLUGINS, COMPONENT_PLUGINS };

@@ -72,8 +72,9 @@ the component:
 "plugins": { "requires": ["math"] }     // "optional": [...] for one it works without
 ```
 
-The build fails when a component requires a plugin that does not exist, and when its gallery uses
-a plugin's syntax without declaring it (the build runs every plugin's rules over every gallery).
+The build fails when a component requires a plugin that does not exist, and when its own gallery
+(`<name>.gallery.md`) uses a plugin's syntax without declaring it (the build runs every plugin's
+rules over every component gallery).
 At render, a slide whose required plugin is switched off still renders — the layout, and the
 plugin's fallback — and `render()` returns a `plugin/component-needs-plugin` diagnostic.
 
