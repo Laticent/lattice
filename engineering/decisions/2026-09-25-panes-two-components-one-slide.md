@@ -611,11 +611,23 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    counted from text length (§2). It does not see a theme with a taller masthead, a font that
    sets wider than the measured words, or an image that changes the coda. The runtime should
    re-stamp each pane from its laid-out box.
+   **Measured (2026-09-27), and narrowed** (`2376-p3-chart-pane-canvas-…`). The family is never
+   wrong: 0 of 86 panes, over four slide sizes, a stress deck of masthead and layout variants,
+   and nine themes, carry a `data-family` that differs from their measured box, so a runtime
+   re-stamp would change nothing. The SIZE is off under a long headline: a chart pane's canvas
+   comes out up to 20% wider than its box, because one-line headlines run to 76 characters and
+   two-line ones start at 57, and no characters-per-line constant separates them. Fixing it means
+   measuring in the browser and re-laying out the chart there, a design decision about shipping
+   the chart kernels in the runtime.
 2. **Finish sizing charts to the pane** (`2376-p2-size-chart-…`). The SVG chart kernels draw for
    the pane's canvas now (§2). Still open: Mermaid, which lays itself out and scales into the pane;
    the HTML-drawn charts' reflow in a small box; a TYPE FLOOR probe that flags an unreadable chart
    pane; and `tools/calibrate-capacity.js --pane` measuring a chart's ceiling, so the chart budgets
    can turn `measured` instead of editorial.
+   **Part closed (2026-09-27):** a Mermaid flowchart in a tall pane turns top-to-bottom on both
+   render paths (`engine.paneOrientations` for the CLI, the pane's own stamp in the runtime), and
+   the type-floor probe was measured reading a pane's SVG chart already. What is left is in the
+   follow-up file.
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the
@@ -644,8 +656,13 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    - **Fix-Me drill-down** read the host's classes, found no component, and so could never pick an
      item inside a pane; it reads the pane's component now. Not shown to change a tag on a real
      surface: in the `--fluid --overflow-marker=author` viewer no list or table picked an item on
-     an ordinary slide either, and that viewer tags the WRONG pane of an overflowing panes slide
-     (pre-existing, `2376-p3-fluid-viewer-pane-overflow.md`).
+     an ordinary slide either, and that viewer tagged the WRONG pane of an overflowing panes slide.
+     **Closed (PR #2420):** the fluid view held the host's stage to its content height, and a
+     `<lat-pane>` is a size container, so both panes were 0px tall and the watcher's culprit fell
+     on the first. `base.fluid-view.css` lets a panes host's stage grow; the panes show and the
+     culprit is the pane that overflows (test/integration/export/fluid-panes.test.js). Left: an
+     overflowing table pane clips at both ends, on the PDF too
+     (`2420-p3-overflowing-pane-clips-centered.md`).
    - **Mermaid** in a pane renders on the CLI and in the Studio and fills the pane box (measured
      544×438 in a 544×438 pane), but lays out for the HOST's orientation; that is filed with the
      chart sizing item below.
@@ -654,6 +671,13 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
 6. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and
    390px and its slide strip ("text"), and Export-to-Marp, which cannot carve and should degrade to
    the two panes' content, stacked.
+   **Mostly closed (PR #2420).** The player's Read · Article view projects each pane as the slide
+   it would be alone (`lib/transformers/prose-projection.mjs`), so a chart pane is a styled
+   `chart-frame` figure. The Studio's Present steps through a split panes slide's pages and sizes
+   its frame to the deck's shape (a fixed 16:9 frame cropped every portrait slide below its
+   heading, panes or not). The slide strip names a panes slide "panes". Export-to-Marp drops the
+   markers Marp would keep as speaker notes and degrades each panes slide to its panes, stacked
+   (`stripPaneMarkers`, lib/core/bake-splits.js; `2026-06-13-export-to-marp.md` §11).
 7. **Retire the chart stand-in heading** — **closed** (the pane-follow-ups PR). The chart wrap
    accepts a heading-less body when the section is a pane (`data-pane-view`), so
    `renderPane` writes no `## \u200b` and `dropMasthead` lost its zero-width-h2 branch. An
@@ -677,8 +701,8 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    splits, so an unsplit 16:9 panes deck keeps its position. Present and the narration bake fold the split slide's two projected scripts back onto
    the one source slide (`foldPaneSplits`), so one split no longer costs the deck its projected
    narration. Pinned by `docs/e2e/pane-split-index.spec.ts` at 820 and 390px, on the real Studio.
-   Still open, and filed with the surfaces item above: Present shows a split panes slide's first
-   pane only, because its own navigation has no page step.
+   Present now steps through the pages too (PR #2420); autoplay still advances slide by slide,
+   showing a split slide's first page while it reads both panes.
 9. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
    spec (`docs/src/content/docs/spec/lfm.md`) — once the syntax is no longer experimental.
 

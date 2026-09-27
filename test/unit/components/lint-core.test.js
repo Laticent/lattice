@@ -13,6 +13,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/lint-core');
 
+const { splitTopLevel } = require('../../../lib/authoring/slide-split');
 const FM = '---\nmarp: true\ntheme: indaco\n---\n\n';
 // A fixed, manifest-independent vocab — every component name used below so the
 // unknown-class rule (rule 1) doesn't add noise to the targeted assertions.
@@ -1715,14 +1716,18 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // would also pass "no false warnings"; it would not pass this. The counts move
     // with the alphabet, so they are a reviewed diff rather than a discovery.
     assert.equal(degenerate, 23955, 'shapes the engine applies degenerately');
-    assert.equal(silent, 21423, 'of those, the ones the subset rule declines');
+    // 21423 -> 21523 when lint began reading the slides the engine cuts: with the `## H`
+    // line the engine opens a second slide, the directive lands on it, and that slide is
+    // not a `topic` (the section reads data-frame="standard"), so the rule rightly passes.
+    assert.equal(silent, 21523, 'of those, the ones the subset rule declines');
     // Split by directive count. Almost all the silence is the multi-directive
     // half, where a declined later directive makes the answer unknowable and the
     // rule voids the slide. The one-directive half is the ordinary deck: 1077 /
     // 657, which moved from 1002 / 582 only because the bare deck-wide forms are
     // now generated as a  value and count as one-directive shapes too.
     assert.equal(deg1, 1077, 'one-directive shapes the engine applies degenerately');
-    assert.equal(sil1, 657, 'of those, the ones the subset rule declines');
+    // 657 -> 677: twenty of the hundred `## H` shapes above carry one directive.
+    assert.equal(sil1, 677, 'of those, the ones the subset rule declines');
     // Split by directive count. Almost all the silence is the multi-directive
     // half, where a declined later directive makes last-wins unknowable and the
     // rule voids the slide. The one-directive half is the ordinary deck, and it
@@ -2284,9 +2289,9 @@ describe('lint-core: `--fix` migrates a moved empty box, and only where the mean
     assert.equal(fixed(src), src);
   });
 
-  test('slide numbers count RENDERED slides under heading splits', () => {
+  test('over a baked deck (the CLI\'s render warning), slide numbers count RENDERED slides', () => {
     const deck = '---\nmarp: true\n---\n\n# Intro\n\nHello.\n\n<!-- _class: verdict-grid -->\n\n## Vendors\n\n- Acme\n  - [ ] ISO\n  - Why.\n';
-    const [f] = core.findMovedEmptyBoxes(deck);
+    const [f] = core.findMovedEmptyBoxes(core.bakeHeadingChunks(deck).baked);
     assert.equal(f.slide, 2, 'the verdict-grid is the second rendered slide, though it shares a chunk with the first');
   });
 
@@ -2373,39 +2378,106 @@ describe('lint-core: typed crosses point at `[!]`, not the open box', () => {
   });
 });
 
-describe('lint-core: its heading-split mirror agrees with the engine', () => {
-  // lint-core does not parse markdown, so `headingSubSlides` mirrors
-  // lib/core/heading-split-core.js on lines. This pins the two together on every committed
-  // deck: the rendered slide count from the mirror must equal the count of the engine's
-  // own baked split. Measured 334 of 334 when the mirror landed.
-  test('every committed deck counts the same rendered slides both ways', () => {
+describe('lint-core: the heading split lint reads agrees with the engine', () => {
+  // `bakeHeadingChunks` is what every rule reads. It calls the engine's `headingSplitPoints`
+  // one chunk at a time, so this pins the per-chunk answer to lib/core/bake-splits.js (the
+  // engine's split over the whole body) on every committed Markdown file, prose included,
+  // slide by slide and TEXT by text. Comparing counts over decks alone missed three gaps in
+  // the line mirror this replaced; the prose found them.
+  test('every committed Markdown file splits into the same slides both ways', () => {
     const fs = require('node:fs');
     const path = require('node:path');
     const { execSync } = require('node:child_process');
     const { bakeSplits } = require('../../../lib/core/bake-splits');
-    const { splitTopLevel } = require('../../../lib/authoring/slide-split');
     const ROOT = path.resolve(__dirname, '../../..');
-    const fmCount = (src) => (/^---\n[\s\S]*?\n---\n/.test(src) ? 2 : 0);
-    const decks = execSync("git ls-files '*.md'", { cwd: ROOT, encoding: 'utf8' }).split('\n')
-      .filter((f) => /^(examples|exemplars|kit|test\/integration\/baseline-decks|lib\/components)\//.test(f)
-        && !/\.docs\.md$|README/.test(f));
+    const fmCount = (src) => (/^---\n[\s\S]*?\n---/.test(src) ? 2 : 0);
+    const files = execSync("git ls-files '*.md'", { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 })
+      .split('\n').filter(Boolean);
     const off = [];
-    let checked = 0;
-    for (const f of decks) {
-      let src = fs.readFileSync(path.join(ROOT, f), 'utf8');
-      if (!/^\uFEFF?---\r?\n/.test(src)) continue;
-      src = src.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
-      const fm = fmCount(src);
-      const headings = core.splitsOnHeadings(src);
-      let mine = 0;
-      splitTopLevel(src).forEach((chunk, i) => { if (i >= fm) mine += headings ? core.headingSubSlides(chunk).length : 1; });
+    for (const f of files) {
+      const src = fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+      const bake = core.bakeHeadingChunks(src);
+      const mineSrc = bake ? bake.baked : src;
+      const mine = splitTopLevel(mineSrc).slice(fmCount(mineSrc)).map((s) => s.trim());
       const baked = bakeSplits(src);
-      const theirs = splitTopLevel(baked).length - fmCount(baked);
-      checked++;
-      if (mine !== theirs) off.push(`${f}: mirror ${mine}, engine ${theirs}`);
+      const theirs = splitTopLevel(baked).slice(fmCount(baked)).map((s) => s.trim());
+      if (mine.length !== theirs.length) off.push(`${f}: bake ${mine.length}, engine ${theirs.length}`);
+      else if (mine.some((m, i) => m !== theirs[i])) off.push(`${f}: bake slide ${mine.findIndex((m, i) => m !== theirs[i]) + 1} differs`);
     }
-    assert.ok(checked > 100, `expected the committed corpus, found ${checked} decks`);
+    assert.ok(files.length > 1000, `expected the committed corpus, found ${files.length} files`);
     assert.deepEqual(off, []);
+  });
+});
+
+describe('lint-core: rules read the slides the engine cuts, findings keep the author\'s coordinates', () => {
+  // `split: headings` is the default, so a second h1/h2 in a `---` chunk opens a new
+  // rendered slide and takes its lead-in `_class` with it. Every rule reads that slide;
+  // every finding still names the `---` chunk, because `applyFix`, the Studio rail and the
+  // per-finding AI edit all index chunks.
+  const TWO = (fm = '') => `---\ntheme: indaco\n${fm}---\n\n## A\n\n- **One.** body text\n\n`
+    + '## B\n\n<!-- _class: cards-grid -->\n\n- **Two.** body text\n\n---\n\n'
+    + '## C\n\n<!-- _class: cards-grid -->\n\n- **Three.** body text\n';
+  const inline = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'card-style-inline-title')
+    .map((f) => [f.slide, f.line]);
+
+  test('the class lands on the slide the engine gives it, and the finding names the chunk', () => {
+    const { render } = require('../../../lib/engine');
+    const html = render(TWO(), {}).html;
+    assert.equal((html.match(/<section\b/g) || []).length, 3, 'the engine renders three slides from two chunks');
+    // Before, lint read chunk 1 as one `cards-grid` slide: it flagged `One` (a plain slide)
+    // and missed `Two` (the cards-grid).
+    assert.deepEqual(inline(TWO()), [[1, '- **Two.** body text'], [2, '- **Three.** body text']]);
+  });
+
+  test('`--fix` rewrites the line on the split slide and leaves its neighbor alone', () => {
+    const out = core.applyAllFixes(TWO(), vocab);
+    assert.match(out, /- \*\*One\.\*\* body text/);
+    assert.match(out, /- Two\n {2}- body text/);
+    assert.match(out, /- Three\n {2}- body text/);
+  });
+
+  test('`split: rule` keeps the chunk as one slide, as the engine does', () => {
+    // One slide, one `cards-grid`, and the rule reports a slide once, at its first line.
+    assert.deepEqual(inline(TWO('split: rule\n')), [[1, '- **One.** body text'], [2, '- **Three.** body text']]);
+  });
+
+  test('a slide-scoped rewrite is mapped back to the chunk and its lines', () => {
+    const deck = '---\nmarp: true\n---\n\n# Intro\n\nHello.\n\n<!-- _class: verdict-grid -->\n\n## Vendors\n\n- Acme\n  - [ ] ISO\n  - Why.\n';
+    const [f] = core.lintTextWith(deck, vocab).filter((x) => x.rule === 'moved-empty-box');
+    assert.equal(f.slide, 1, 'the chunk the Studio rail shows, not the rendered slide');
+    assert.equal(f.rewriteSlide.chunk, 2);
+    const chunk = splitTopLevel(deck)[2].split('\n');
+    assert.deepEqual(f.rewriteSlide.lines.map((k) => chunk[k]), ['  - [ ] ISO']);
+    assert.match(core.applyFix(deck, f), / {2}- \[!\] ISO/);
+  });
+
+  test('two slides of one chunk carrying the SAME line: the fix and the finding stay on the right one', () => {
+    // The checker's case: a plain slide and a cards-grid slide share a line verbatim. The
+    // finding says where its slide starts (`chunkLine`), and `applyFix` looks from there.
+    const dup = '---\ntheme: indaco\n---\n\n## A\n\n- **Same.** body\n\n<!-- _class: cards-grid -->\n\n## B\n\n- **Same.** body\n';
+    const [f] = core.lintTextWith(dup, vocab).filter((x) => x.rule === 'card-style-inline-title');
+    assert.equal(f.slide, 1);
+    assert.equal(f.chunkLine, 5, 'the lead-in `_class` line, where the engine opens slide B');
+    const out = core.applyAllFixes(dup, vocab);
+    assert.match(out, /## A\n\n- \*\*Same\.\*\* body/, 'slide A is not a cards-grid and keeps its line');
+    assert.match(out, /## B\n\n- Same\n {2}- body/);
+  });
+
+  test('the split is the ENGINE\'s: shapes a line mirror misreads', () => {
+    const FMI = '---\ntheme: indaco\n---\n\n';
+    const lines = (src) => inline(src).map(([, line]) => line);
+    // A heading inside an HTML block is not a heading: one slide, and its class governs it.
+    assert.deepEqual(lines(`${FMI}<!-- _class: cards-grid -->\n\n# A\n\n<div>\n## B\n</div>\n\n- **One.** body\n`), ['- **One.** body']);
+    // A setext heading opens a slide as an ATX one does.
+    assert.deepEqual(lines(`${FMI}## A\n\n- **One.** body\n\n<!-- _class: cards-grid -->\n\nB\n===\n\n- **Two.** body\n`), ['- **Two.** body']);
+    // CRLF: the eyebrow and the `_class` still travel with the heading.
+    const crlf = `${FMI}## A\n\n- **One.** body\n\n\`eyebrow\`\n<!-- _class: cards-grid -->\n## B\n\n- **Two.** body\n`.replace(/\n/g, '\r\n');
+    assert.deepEqual(lines(crlf), ['- **Two.** body']);
+  });
+
+  test('a deck with nothing to split is linted exactly as written', () => {
+    assert.equal(core.bakeHeadingChunks('---\nmarp: true\n---\n\n## A\n\n---\n\n## B\n'), null);
+    assert.equal(core.bakeHeadingChunks('---\nsplit: rule\n---\n\n## A\n\n## B\n'), null);
   });
 });
 

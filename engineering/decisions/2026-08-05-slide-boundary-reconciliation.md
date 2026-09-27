@@ -315,3 +315,61 @@ caller's section and refuses only when the markup cannot be walked at all.
 Counting also moved from a `/<section\b/g` tally to `sectionsOf`: the tally counted the
 string inside an HTML comment, so `<!-- <section> -->` in author content scored 2 against 1
 real section and refused a working slide.
+
+## Amendment (2026-09-27) — lint reads the heading split too
+
+`lint:deck` was the last authoring surface blind to `split: headings` (followup
+`2376-p2-lint-ignores-split-headings`). A `---` chunk holding `## A … ## B` is two rendered
+slides, and a `_class` written above `## B` belongs to the second. Lint read the chunk as one
+slide under that class, so it judged slide A's lines against slide B's component and missed
+slide B's own.
+
+**Rules read rendered slides, and findings keep chunk coordinates.** `lintTextWith`
+(`lib/authoring/lint-core.js`) now bakes the split before any rule runs:
+`bakeHeadingChunks` writes a blank-bracketed `---` at every boundary the engine's own
+`headingSplitPoints` finds, over the engine's own parser, one chunk at a time. Only a
+chunk with two heading-shaped lines is parsed. The rules run on that baked copy unchanged.
+Each finding then maps back:
+
+- `slide` names the author's `---` chunk;
+- a `rewriteSlide` names that chunk, with lines relative to it;
+- `chunkLine` says where in the chunk the finding's slide starts. `applyFix` and the
+  editor's squiggle look a quoted line up from there, so a line that appears on both
+  slides of one chunk is fixed and underlined on the slide the finding judged.
+
+The coordinates stay chunk-based on purpose. `applyFix`, the Studio rail and the
+per-finding AI edit (`sliceSlide`) all index chunks, and renumbering findings to rendered
+slides would have sent each of those to the wrong slide. A deck with nothing to split
+returns `null` from the bake and is linted exactly as before.
+
+**Why the parser, and why the line mirror is gone.** The first cut baked with
+`headingSubSlides`, a line-level mirror of the split that lint-core carried for one rule
+(`findMovedEmptyBoxes`). Its test compared slide COUNTS over the committed decks and passed.
+Comparing slide TEXT over every tracked `.md`, prose included, found three gaps. Each cut a
+slide the engine does not:
+
+- a line holding one code span that CONTINUES a paragraph was read as an eyebrow;
+- a `<!--` inside an inline code span was read as an unclosed comment, which hid the rest of
+  the chunk;
+- `stripFencedCode` (`lib/core/shape-glyphs.js`) closed a fence on a line with an info
+  string (```` ```js ```` inside a ```` ```markdown ```` sample), and opened one on prose
+  that starts with three backticks and quotes code later. CommonMark allows neither.
+
+The independent checker then fuzzed 3,000 random decks and found 75 more disagreements that
+no committed file happens to contain: a heading inside an HTML block, a setext heading, a
+comment opened mid-paragraph, and an eyebrow on a CRLF line. The first of those made the
+change a regression: lint dropped a finding it used to report. A mirror keeps losing to
+shapes like these, and the parser was already in the bundle, so the bake asks the parser.
+The same fuzz reads 0 of 3,000 after the change.
+
+With every rule reading baked slides, the mirror had one job left: the CLI's render-time
+warning, which calls `findMovedEmptyBoxes` directly for slide numbers that match the PDF.
+That caller now lints the baked copy too (its chunks ARE the rendered slides), so the mirror
+is deleted rather than kept in step. That also gave back 452 bytes of the Studio's eager
+JavaScript. The `stripFencedCode` fix stays: the typed-glyph gate reads fences through it,
+and it now agrees with markdown-it on every tracked file where the two used to differ. The
+corpus test pins the bake to `bakeSplits`, text by text.
+
+**Left open.** An empty-box `--fix` fails when the body opens with a separator. That
+predates this change and is recorded in
+`followups.d/2376-p3-rewrite-slide-leading-separator.md`.

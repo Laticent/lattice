@@ -55,6 +55,16 @@ export function isCaptionBody(body: string): boolean {
 	return /^caption\s*:/i.test(String(body).trim());
 }
 
+/** True when the comment body is a PANES marker — `pane: list` or the `panes: 35/65` layout line
+ *  (lib/core/pane-spec.js `PANE_RE` / `PANES_RE`). Structure, not a speaker note: read as one, the
+ *  presenter's notes showed "panes: 35/65", and setting a note on the slide stripped every marker
+ *  and turned the panes slide back into one component. Not in DIRECTIVE_KEYS, which is the
+ *  engine's directive list; the carve reads these before directives are applied. */
+export function isPaneMarkerBody(body: string): boolean {
+	const t = String(body).trim();
+	return /^pane:\s*[a-z][\w-]*$/.test(t) || /^panes:[^<>\n]*$/.test(t);
+}
+
 // ── Fence awareness ──────────────────────────────────────────────────────────
 // A `---` or a `<!-- … -->` INSIDE a fenced code block is content, not structure.
 // The old splitter (lint.ts) and note transform were fence-blind, so a mermaid

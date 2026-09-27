@@ -28,6 +28,7 @@ beforeEach(() => {
 	(window as unknown as { LatticePlayground: unknown }).LatticePlayground = {
 		marp: {
 			bakeSplits: (s: string) => s,
+			stripPaneMarkers: (s: string) => s,
 			appendAutoGlossary: (s: string) => s,
 			liftImageBgImages: (s: string) => s,
 			withRuntimeScripts: (s: string) => s,
@@ -130,6 +131,27 @@ describe('exportMarp — the bundle carries the saved components the deck uses',
 		const md = await (await bundle()).file('deck/deck.md')?.async('string');
 		expect(md).toContain('section.mybox{padding:1rem}');
 		expect(md).toMatch(/^---\ntheme: indaco\n---\n/);
+	});
+});
+
+describe('exportMarp — a panes deck', () => {
+	it('bakes the pane markers out after the split bake (bake-splits.js stripPaneMarkers)', async () => {
+		// The engine half is stubbed to identity above, so this swaps in stubs that leave a mark:
+		// the deck must go through BOTH, split bake first, or a marker Marp would keep as a speaker
+		// note reaches the bundle.
+		const PG = (window as unknown as { LatticePlayground: { marp: Record<string, (s: string) => string> } }).LatticePlayground;
+		const seen: string[] = [];
+		const { bakeSplits, stripPaneMarkers } = PG.marp;
+		PG.marp.bakeSplits = (s) => { seen.push('split'); return s; };
+		PG.marp.stripPaneMarkers = (s) => { seen.push('panes'); return s.replace(/<!-- pane: \w+ -->\n/g, ''); };
+		try {
+			await exportMarp('## T\n\n<!-- pane: list -->\n- a\n\n<!-- pane: list -->\n- b\n', 'deck', 'indaco', BASE, { includeAgent: false });
+			const md = await (await bundle()).file('deck/deck.md')?.async('string');
+			expect(seen).toEqual(['split', 'panes']);
+			expect(md).not.toContain('<!-- pane:');
+		} finally {
+			Object.assign(PG.marp, { bakeSplits, stripPaneMarkers });
+		}
 	});
 });
 

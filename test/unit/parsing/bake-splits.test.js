@@ -100,3 +100,43 @@ function forceHeadings(src) {
   const body = m[1].replace(/^\s*split:.*$/m, '').replace(/\n{2,}/g, '\n').trim();
   return `---\n${body}\nsplit: headings\n---\n${src.slice(m[0].length)}`;
 }
+
+// ── stripPaneMarkers: Export-to-Marp's pane bake ──
+// Marp cannot carve a pane, and it reads every HTML comment that is not its own directive as a
+// SPEAKER NOTE, so a panes deck exported with its markers put "pane: list" in the presenter's
+// notes. The bake drops the markers the carve would read and nothing else.
+describe('stripPaneMarkers', () => {
+  const { stripPaneMarkers } = require('../../../lib/core/bake-splits');
+  const deck = [
+    '---', 'theme: indaco', '---', '',
+    '## Title', '', '<!-- panes: 35/65 -->', '<!-- pane: list -->', '', '- one', '',
+    '<!-- pane: table -->', '', '| a |', '|---|', '| 1 |', '',
+    '```md', '<!-- pane: list -->', '```', '', '- <!-- pane: list -->', '',
+  ].join('\n');
+
+  test('drops every top-level marker and layout line, and keeps both panes\' content, stacked', () => {
+    const out = stripPaneMarkers(deck);
+    assert.doesNotMatch(out.split('```md')[0], /<!--\s*panes?:/);
+    assert.match(out, /- one\n[\s\S]*\| a \|/);
+    assert.match(out, /^---\ntheme: indaco\n---\n/, 'front matter untouched');
+  });
+
+  test('keeps the panes apart: two lists stay two lists (a dropped marker was their separator)', () => {
+    const lists = '## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: list -->\n\n- b\n';
+    const out = stripPaneMarkers(lists);
+    assert.equal((out.match(/<!-- markdownlint-capture -->/g) || []).length, 2, 'one inert comment per run of markers');
+    const MarkdownIt = require('markdown-it');
+    assert.equal((new MarkdownIt({ html: true }).render(out).match(/<ul>/g) || []).length, 2);
+  });
+
+  test('leaves a marker quoted in a code sample or a list item as written', () => {
+    const out = stripPaneMarkers(deck);
+    assert.match(out, /```md\n<!-- pane: list -->\n```/);
+    assert.match(out, /- <!-- pane: list -->/);
+  });
+
+  test('is the identity on a deck without panes', () => {
+    const plain = '---\ntheme: indaco\n---\n\n## A\n\n<!-- _class: kpi -->\n';
+    assert.equal(stripPaneMarkers(plain), plain);
+  });
+});

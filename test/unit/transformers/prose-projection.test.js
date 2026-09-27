@@ -1724,3 +1724,45 @@ test("state-chart: the chart's caption follows the placeholder, once", async () 
 	assert.equal(articleHtml.split(cap).length - 1, 1, articleHtml);
 	assert.ok(articleHtml.indexOf('lp-figure-note') < articleHtml.indexOf(cap), 'the caption follows the placeholder card');
 });
+
+// ── projectDeckToProse: a PANES slide projects each pane as the slide it would be alone ──
+// From a REAL engine render (lib/core/panes.js). The host carries no component; each pane
+// is a `<lat-pane>` with its component's class and its own stage. A chart pane used to reach
+// the article as a bare SVG in a class-less figure: no `chart-frame`, so none of its colors
+// resolved and it drew black bars with its labels at the SVG's own type size.
+test('a panes slide: the chart pane re-hosts as a chart-frame figure, the list pane as prose', () => {
+	const engine = require('../../../lib/engine');
+	const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs');
+	const src = [
+		'---', 'theme: indaco', '---', '',
+		'## Revenue by region.', '', '<!-- panes: 55/45 -->', '<!-- pane: bar -->', '',
+		'- EMEA `42`', '- APAC `28`', '', '<!-- pane: list -->', '', '- Americas leads', '- APAC is flat', '',
+		'> The mix shift is structural.', '',
+	].join('\n');
+	const html = sectionsOf(engine.render(src, '').html).join('');
+	const { articleHtml } = project(sections(html));
+	const doc = new JSDOM(`<body>${articleHtml}</body>`).window.document;
+	const fig = doc.querySelector('figure');
+	assert.ok(fig, 'the chart pane reaches the article as a figure');
+	assert.match(fig.className, /\bchart-frame\b/, 'and carries chart-frame, so its colors resolve');
+	assert.ok(fig.querySelector('svg'), 'with its drawing');
+	const text = doc.body.textContent;
+	assert.match(text, /Americas leads/, 'the list pane follows');
+	assert.ok(text.indexOf('Americas leads') > text.indexOf('Revenue by region'), 'in pane order, after the heading');
+});
+
+test('a panes slide keeps DOM order: an intro the host keeps above the panes stays above them', () => {
+	// The checker's case. The carve leaves blocks written before the first marker on the host,
+	// above the panes; projecting the panes first and the host after moved the intro below them,
+	// while narration still read it first.
+	const engine = require('../../../lib/engine');
+	const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs');
+	const src = ['---', 'theme: indaco', '---', '', '## Lede order.', '', 'This intro paragraph comes before the panes.', '',
+		'<!-- pane: list -->', '', '- alpha item', '', '<!-- pane: bar -->', '', '- A `3`', '- B `5`', ''].join('\n');
+	const { articleHtml } = project(sections(sectionsOf(engine.render(src, '').html).join('')));
+	const at = (s) => articleHtml.indexOf(s);
+	assert.ok(at('This intro paragraph') > -1 && at('alpha item') > -1 && at('<figure') > -1);
+	assert.ok(at('This intro paragraph') < at('alpha item'), 'the intro before pane A');
+	assert.ok(at('alpha item') < at('<figure'), 'pane A before pane B');
+	assert.equal(articleHtml.split('This intro paragraph').length - 1, 1, 'said once');
+});

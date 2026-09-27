@@ -1,15 +1,21 @@
 // Canonical slide-size → aspect-ratio map. SINGLE SOURCE OF TRUTH shared by the running
-// app (StudioShell's `previewRatio`) AND the pre-hydration instant shell (the `studio.astro`
-// seed, which injects these values into its inline script). Slides have an author-chosen
-// size — the skeleton must honor it, never assume 16:9. Mirrors the @size table in
-// lib/_theme.css. `4k` is 16:9 (a resolution, not a shape).
+// app (StudioShell's `previewRatio`, Present's frame) AND the pre-hydration instant shell (the
+// `studio.astro` seed, which injects these values into its inline script). Slides have an
+// author-chosen size — the skeleton must honor it, never assume 16:9.
+//
+// EXACTLY the engine's names (lib/engine/sizes.js `SIZES`), matched exactly, because a name the
+// engine does not register renders at 16:9: `size: 4:3`, `size: STORY` and `size: Square` all
+// render 1280x720. This table used to accept all three (a `4:3` alias and a case-folding lookup),
+// so the preview and Present drew a 4:3, 9:16 or square frame around a 16:9 slide and left an empty
+// band beside it. `4k` is 16:9 (a resolution, not a shape). Pinned against the engine by
+// slide-size.test.ts.
 export const SIZE_RATIO: Record<string, [number, number]> = {
 	'16:9': [16, 9],
 	hd: [16, 9],
+	HD: [16, 9],
 	'4k': [16, 9],
 	'4K': [16, 9],
 	standard: [4, 3],
-	'4:3': [4, 3],
 	square: [1, 1],
 	'1:1': [1, 1],
 	portrait: [4, 5],
@@ -24,7 +30,7 @@ export const SIZE_RATIO: Record<string, [number, number]> = {
 // `getFrontMatter(source,'size') || '16:9'`) — a documented fallback, not an assumption
 // imposed on a deck whose size IS known.
 export function sizeRatio(size: string): [number, number] {
-	return SIZE_RATIO[size] ?? SIZE_RATIO[(size || '').toLowerCase()] ?? [16, 9];
+	return Object.hasOwn(SIZE_RATIO, size) ? SIZE_RATIO[size] : [16, 9];
 }
 
 // Read the `size:` directive from a deck source's leading `---` front-matter block. A

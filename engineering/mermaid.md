@@ -440,6 +440,33 @@ no-op: the emulator's pre-pass matches fences only
 SVG *target* it inserts itself (`lib/runtime/index.js`). Earlier advice here to
 prefer that div over a fence was wrong; use the fence.
 
+## 5.1b A flowchart turns for a tall box — a portrait slide, or a tall pane
+
+A `flowchart LR` (or `RL`) on a portrait slide is rewritten to `TB` (or `BT`) before Mermaid
+lays it out, so a wide graph flows down the tall frame instead of shrinking into a strip
+(`lib/integrations/mermaid/reorient.js`). Every other diagram keeps its source.
+
+A fence in a PANE turns for the pane's box, not the slide's. The engine stamps each
+`<lat-pane>` with its own orientation, and both render paths read that stamp:
+
+- the CLI bakes fences before the engine renders, so `preprocessMermaid` asks the engine
+  (`engine.paneOrientations`, the same carve and box `renderPane` uses). The answer carries
+  each pane's SOURCE LINES, and a fence takes the orientation of the pane whose lines hold it.
+  A slide index would not do: `_focusSteps` renders one slide as several sections, and a first
+  cut that joined on slide index turned a wide pane's flowchart below one;
+- the browser runtime (`fenceJob`) reads `data-orientation` off the fence's own `<lat-pane>`.
+  The engine's stamp is the answer there too: the runtime re-stamps a SECTION from its
+  measured shape (`stampOrientation`), never a pane, so a pane's fence does not follow a
+  section re-stamp.
+
+**Few panes are tall.** A diagram pane cannot go below 35% (a narrower one splits the slide),
+and a 35% pane is portrait only under a bare headline: an eyebrow or a subtitle makes it
+square, and a Key Insight, or an eyebrow and a subtitle together, make it landscape. The
+direction follows the BOX's shape, not the diagram's, so a long chain in a near-square pane
+stays small either way; a pane's diagram also still scales into its box, so its labels run
+smaller than on a full slide (`followups.d/2376-p2-size-chart-viewbox-to-the-pane.md`). Demo:
+`examples/panes-mermaid.md`.
+
 ## 5.2 Node Shapes Reference
 
 | Syntax     | Shape             | Use For             |

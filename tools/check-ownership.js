@@ -6894,10 +6894,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
   },
   {
     file: 'lib/engine/index.js',
-    count: 2,
-    why: 'render() AND geometry() — the engine\'s two public doors. Both parse front matter, so '
-       + 'both must agree; #1357 measured the divergence when only render() normalized. The '
-       + 'count is pinned because a door added later would inherit the old bug silently.',
+    count: 3,
+    why: 'render(), geometry() AND paneOrientations() — the engine\'s three public doors. All '
+       + 'three parse front matter, so all must agree; #1357 measured the divergence when only '
+       + 'render() normalized. paneOrientations (the CLI asks it where each pane\'s Mermaid fence '
+       + 'lays out) folds the same way so its sections line up with render()\'s. The count is '
+       + 'pinned because a door added later would inherit the old bug silently.',
   },
   {
     file: 'lattice-emulator.js',

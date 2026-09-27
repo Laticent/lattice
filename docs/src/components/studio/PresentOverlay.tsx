@@ -43,6 +43,7 @@ import { cueDisplayText,
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { sizeFromSource, sizeRatio } from './slide-size';
 import { deckVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 
 /** Emphasis spans over a slide's narration text — char offsets from the shared projection. */
@@ -170,7 +171,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// rendered with `open` already true in some hosts (and in tests), so a transition-only hook would
 	// never fire and the deck default would be silently ignored on first open.
 	const [lens, setLens] = React.useState<PresentLens>(() => landingLens);
-	const [idx, setIdx] = React.useState(() => (landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0));
+	const [idx, setIdxRaw] = React.useState(() => (landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0));
+	// The page of a split panes slide that is shown (see `paneCounts` below). EVERY move of the
+	// slide index — a jump, the rail, the overview, a lens pick, a reopen, autoplay — starts the
+	// slide on its first page, so the setter resets it; only the page step (`goNext`/`goPrev`)
+	// writes a page, and it goes through `setIdxRaw`. Keyed to the slide's TEXT as well as its
+	// index, so an edit or a lens that puts another slide at the same index starts it on page 0.
+	const [pageAt, setPageAt] = React.useState({ idx: -1, page: 0, slide: '' });
+	const setIdx = React.useCallback((next: React.SetStateAction<number>) => {
+		setPageAt((p) => (p.idx === -1 ? p : { idx: -1, page: 0, slide: '' }));
+		setIdxRaw(next);
+	}, []);
 	// Start Present on the slide you were editing (full lens), set SYNCHRONOUSLY on the
 	// open transition — DURING RENDER, not in an effect — so the first present slide IS
 	// the cursor slide. `idx` state persists across open/close (this component stays
@@ -273,6 +284,28 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const count = set.length;
 	const clamped = Math.min(idx, Math.max(0, count - 1));
 	const cur = set[clamped] ?? '';
+	// A split PANES slide (a square, portrait or story deck splits every panes slide into one
+	// slide per pane, lib/core/panes.js) is one presented slide and several rendered ones. The map
+	// (./pane-pages, loaded only for a deck that has a pane marker) says how many; `page` is the one
+	// shown, and next/previous spend a split slide's pages before they leave it, as the editor's
+	// preview does.
+	const hasPaneMarker = React.useMemo(() => set.some((s) => /<!--\s*pane\s*:/.test(s)), [set]);
+	const [paneMod, setPaneMod] = React.useState<typeof import('./pane-pages') | null>(null);
+	React.useEffect(() => {
+		if (!hasPaneMarker || paneMod) return;
+		let live = true;
+		import('./pane-pages').then((m) => { if (live) setPaneMod(m); }).catch(() => {});
+		return () => { live = false; };
+	}, [hasPaneMarker, paneMod]);
+	const paneCounts = React.useMemo(() => (paneMod ? paneMod.paneSplitCounts(set, frontMatter + set.join(SLIDE_SEP)) : undefined), [paneMod, set, frontMatter]);
+	const pages = Math.max(1, paneCounts?.[clamped] ?? 1);
+	const page = pageAt.idx === clamped && pageAt.slide === cur ? Math.min(pageAt.page, pages - 1) : 0;
+	// The RENDERED section on screen: the Stage shows section n of the whole presented deck, and
+	// after a split slide that is no longer the presented index.
+	const shownSection = (paneCounts ? paneCounts.slice(0, clamped).reduce((a, b) => a + b, 0) : clamped) + page;
+	// The ends of the deck count pages: a one-slide deck whose slide splits still has a second page.
+	const atStart = clamped === 0 && page === 0;
+	const atEnd = clamped >= count - 1 && page >= pages - 1;
 
 	// Component-aware DOM narration for the presented set — the SAME shared projection
 	// the CLI export uses (`projectDeckToSpeech`), run in-browser, so live read-aloud
@@ -453,6 +486,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const countRef = React.useRef(0);
 	const curRef = React.useRef('');
 	clampedRef.current = clamped;
+	const shownRef = React.useRef(0);
+	shownRef.current = shownSection;
 	countRef.current = count;
 	curRef.current = cur;
 	const notifyRef = React.useRef(notify);
@@ -466,7 +501,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	if (!stageRef.current) {
 		stageRef.current = createStageController({
 			getDoc: () => stageDocRef.current,
-			getIndex: () => clampedRef.current,
+			getIndex: () => shownRef.current,
 			// A FRESH OBJECT every time, deliberately. `onChange` fires on each `ready`,
 			// and a rewrite (a lens switch, a palette change) replaces the whole document
 			// — so the host ELEMENTS the portals target are new nodes even though the
@@ -583,7 +618,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the list's value, not its identity.
 	const overviewOptions = React.useMemo(() => ({ ...options, webOrigins }), [options, webKey]);
 	// Keep the room's slide in step with the console's.
-	React.useEffect(() => { stageRef.current?.show(clamped); }, [clamped]);
+	React.useEffect(() => { stageRef.current?.show(shownSection); }, [shownSection]);
 	// A SITE PALETTE CHANGE HAS TO REACH THE ROOM, and it could not.
 	//
 	// The chrome's palette is baked into the Stage document when it is BUILT, which is the
@@ -757,7 +792,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		} else {
 			setAutoplay(false);
 		}
-	}, [autoplay, reader.track.cues.length, clamped, count]);
+	}, [autoplay, reader.track.cues.length, clamped, count, setIdx]);
 	// Warm-ahead: keep a WINDOW of upcoming slides synthesized in the background, so a
 	// slide transition never pays a cold first-sentence round trip. The within-slide
 	// scheduler only ever runs ahead of a slide's OWN remaining sentences, never across a
@@ -1462,6 +1497,21 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const presentSample = React.useMemo(() => (unavailable ? null : frontMatter + set.join(SLIDE_SEP)), [unavailable, frontMatter, set]);
 	// Alignment fallback — the presented slide alone (see DeckPreview's `slideMarkdown`).
 	const presentSlideAlone = React.useMemo(() => frontMatter + cur, [frontMatter, cur]);
+	// The frame takes the DECK's shape. It was a fixed 16:9 box, so a portrait, square or story
+	// deck's slide overflowed it: a 9:16 section 2,020px tall in a 640px frame, with everything
+	// below the heading cut off. Contained the way the editor's preview is (StudioShell
+	// `previewRatio`): as wide as the stage allows, and no taller than it.
+	const deckFrame = React.useMemo(() => {
+		const [w, h] = sizeRatio(sizeFromSource(frontMatter));
+		return { aspectRatio: `${w} / ${h}`, width: `min(100cqw, calc(100cqh * ${w} / ${h}))` };
+	}, [frontMatter]);
+	// The presenter's "next" tile, in the same shape. A landscape tile spans the column; a portrait
+	// one would too, and a 9:16 tile the column's width is 560px tall, leaving the speaker notes
+	// under it about 85px. Held to 40% of the column's height instead, its width following.
+	const nextTile = React.useMemo(() => {
+		const [w, h] = sizeRatio(sizeFromSource(frontMatter));
+		return w >= h ? { aspectRatio: `${w} / ${h}`, width: '100%' } : { aspectRatio: `${w} / ${h}`, height: '40%', width: 'auto' };
+	}, [frontMatter]);
 	const presentMermaid = unavailable ? false : hasMermaid(presentSample || '');
 	// ── THE CONSOLE'S OWN INSTRUMENTS (2026-08-24-stage-console-split.md §4) ─────
 	//
@@ -1473,7 +1523,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// A ≥ lg affordance. It is not gated on a Stage being open: notes are just as useful
 	// on a laptop with nothing plugged in, and the panel only has to earn the width it
 	// takes. Below `lg` the console is the slide alone, exactly as it was.
-	const nextIdx = clamped + 1 < count ? clamped + 1 : -1;
+	// On a split panes slide with a page still to show, "next" is that page of the same slide.
+	const nextPage = page < pages - 1 ? page + 1 : 0;
+	const nextIdx = nextPage ? clamped : clamped + 1 < count ? clamped + 1 : -1;
 	const nextSlide = nextIdx >= 0 ? (set[nextIdx] ?? '') : '';
 	const nextSlideAlone = React.useMemo(() => frontMatter + nextSlide, [frontMatter, nextSlide]);
 	// Paragraphs, split on blank lines — the shape the popup's notes pane used, kept so a
@@ -1575,10 +1627,22 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		setShowHint(false);
 		try { window.localStorage.setItem('lattice-present-hint', '1'); } catch {}
 	}, []);
-	const goNext = React.useCallback(() => { dismissHint(); setIdx((i) => Math.min(i + 1, count - 1)); }, [count, dismissHint]);
-	const goPrev = React.useCallback(() => { dismissHint(); setIdx((i) => Math.max(i - 1, 0)); }, [dismissHint]);
-	const goFirst = React.useCallback(() => { dismissHint(); setIdx(0); }, [dismissHint]);
-	const goLast = React.useCallback(() => { dismissHint(); setIdx(Math.max(count - 1, 0)); }, [count, dismissHint]);
+	const goNext = React.useCallback(() => {
+		dismissHint();
+		if (page < pages - 1) setPageAt({ idx: clamped, page: page + 1, slide: cur });
+		else setIdx((i) => Math.min(i + 1, count - 1));
+	}, [count, dismissHint, page, pages, clamped, cur, setIdx]);
+	const goPrev = React.useCallback(() => {
+		dismissHint();
+		if (page > 0) return setPageAt({ idx: clamped, page: page - 1, slide: cur });
+		const to = Math.max(clamped - 1, 0);
+		if (to === clamped) return;
+		// Arriving from the slide after it, a split slide opens on its LAST page.
+		setIdxRaw(to);
+		setPageAt({ idx: to, page: Math.max(1, paneCounts?.[to] ?? 1) - 1, slide: set[to] ?? '' });
+	}, [dismissHint, page, clamped, cur, paneCounts, set]);
+	const goFirst = React.useCallback(() => { dismissHint(); setIdx(0); }, [dismissHint, setIdx]);
+	const goLast = React.useCallback(() => { dismissHint(); setIdx(Math.max(count - 1, 0)); }, [count, dismissHint, setIdx]);
 	// The kernel's action names → this overlay's movers, so the shared keymap drives
 	// navigation instead of a hand-written key list that drifts from every other surface.
 	const NAV = React.useMemo<Record<string, () => void>>(() => ({ next: goNext, prev: goPrev, first: goFirst, last: goLast }), [goNext, goPrev, goFirst, goLast]);
@@ -2108,11 +2172,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			    makes a flex item's cross size definite, which beats `aspect-ratio` per spec
 			    and would flatten the card. Centering the card removes the stretch. */}
 			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', bandCls)}>
-				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
+				<button type="button" onClick={goPrev} disabled={atStart} className={arrowCls(atStart)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
 				<div className="flex min-h-0 w-full min-w-0 items-center justify-center self-stretch [container-type:size]">
 					{unavailable ? (
 						// Fail-closed: a withheld lens NEVER renders deck content — it renders why it's withheld.
-						<div role="status" className="relative flex aspect-video w-[min(100cqw,calc(100cqh*16/9))] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+						<div role="status" style={deckFrame} className="relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<EyeOff className="size-8 text-muted-foreground" />
 							<div className="text-[15px] font-semibold text-[var(--text-heading)]">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).title}</div>
 							<p className="max-w-[420px] text-[13px] leading-relaxed text-muted-foreground">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).body}</p>
@@ -2132,15 +2196,15 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						// adds only the lift shadow. A fixed
 						// `rounded-2xl` here was 16px against a rounded slide's 1.5% of its width, and
 						// on a desktop Present the two disagreed at every corner (#1649).
-						<div ref={cardRef} data-slide-frame style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), ...slideFrameStyle('stage') }} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden">
-							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+						<div ref={cardRef} data-slide-frame style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), ...slideFrameStyle('stage'), ...deckFrame }} className="pointer-events-none relative overflow-hidden">
+							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? page : undefined} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={!guidePlaying} />
 						</div>
 					)}
 				</div>
-				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={cn('self-center', arrowCls(clamped >= count - 1))} aria-label="Next slide"><ChevronRight className="size-5" /></button>
+				<button type="button" onClick={goNext} disabled={atEnd} className={cn('self-center', arrowCls(atEnd))} aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				{/* The presenter's side column — NEXT above, NOTES below, the proportions the
 				    speaker view had. `w-[clamp(...)]` rather than a fraction so a wide display
 				    gives the slide the extra room, not the panel. Hidden below `lg`: the slide
@@ -2150,14 +2214,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						<div className="text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-muted-foreground">Next</div>
 						{/* A slide frame while it shows a slide; the "End of the deck" note is app
 						    chrome, not a slide, so the note carries a card of its own. */}
-						<div className="relative aspect-video w-full shrink-0 overflow-hidden" data-slide-frame style={nextIdx >= 0 ? slideFrameStyle('tile') : undefined}>
+						<div className="relative shrink-0 self-center overflow-hidden" data-slide-frame style={{ ...nextTile, ...(nextIdx >= 0 ? slideFrameStyle('tile') : {}) }}>
 							{nextIdx >= 0 ? (
 								// The SAME engine render as the main card, one slide on. `active` is tied
 								// to Present being open so a closed overlay is not paying for a second
 								// engine frame, and `coalesce` keeps a same-deck navigation a patch rather
 								// than a remount — this frame re-renders on every slide change, which is
 								// the one place a full rebuild per step would be felt.
-								<DeckPreview options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} slideMarkdown={nextSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
+								<DeckPreview options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? nextPage : undefined} slideMarkdown={nextSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
 							) : (
 								<div className="grid size-full place-items-center rounded-xl border border-border bg-card px-3 text-center text-[12px] text-muted-foreground">End of the deck</div>
 							)}
@@ -2254,9 +2318,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				    clipped; `justify-center` keeps both rows centered under the slide. */}
 				<div className="flex max-w-full flex-wrap items-center justify-center gap-2">
 					<div className="flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-2 shadow-[0_8px_24px_rgba(10,22,40,.10)] sm:gap-3">
-						<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
+						<button type="button" onClick={goPrev} disabled={atStart} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
 						<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : delivering ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : delivering) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
-						<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
+						<button type="button" onClick={goNext} disabled={atEnd} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
 						<span className="h-5 w-px shrink-0 bg-border" />
 						<span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-[var(--text-heading)]">{clamped + 1} / {count}</span>
 						{/* THE TALK CLOCK — how long you have been talking, which the retired second
