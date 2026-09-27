@@ -306,6 +306,154 @@ jobs:
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
 
+  # THE SANDBOX SPECS, ON THEIR OWN, ON ALL THREE ENGINES. Two specs hold the Studio's
+  # security claims with a network log and a control, against a real loopback server:
+  # code-packages.spec.ts (a stranger's code runs only after consent, in a worker in a sandboxed
+  # frame, and reaches nothing) and web-images.spec.ts (a deck's web images stay blocked until the
+  # reader loads them). Which requests leave is ENGINE behavior, so each runs on Chromium
+  # (desktop), Gecko and WebKit (webkit-tablet); both specs title a twin per engine.
+  #
+  # WHY A JOB OF ITS OWN. The `e2e` job above runs the whole suite, which overran its 45-minute
+  # step on 5 of 6 scheduled runs (2026-09-20..25), so the specs a leak would fail may never be
+  # reached. This job runs two specs, 6 tests, in about 3 minutes including browser installs
+  # (run 36339723453), so it always finishes. Owner's pick (2026-09-27, PR #2411): nightly and
+  # non-blocking, with its own rolling issue, rather than a per-PR gate. The CLI's door is
+  # gated per PR already (test/integration/export/code-package-door.test.js, `integration`).
+  #
+  # `--retries=0`: a leak that shows on one try in three is still a leak, and a retry would let
+  # it pass as `1 flaky`.
+  security:
+    # No `spec` filter: it runs on every dispatch too (about 3 minutes), so a hand-run probe of a
+    # branch proves this job as well. Its issue steps file only for `main`.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+
+      # Same reason as the e2e job above — the webServer needs the root deps (#1498).
+      - name: Install root deps (engine deps the docs build imports)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+
+      - name: Install Playwright browsers (pinned to @playwright/test)
+        run: npx playwright install --with-deps chromium webkit firefox
+        working-directory: docs
+
+      # web-images.spec.ts reads the exported PDF's text layer.
+      - name: Install poppler-utils (pdftotext)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
+      # Same shape as the `e2e` job's run step: keep the STEP green on a spec failure so the alarm
+      # always runs, carry the verdict in an output, and time the step out below the job.
+      - name: Run the sandbox specs on Chromium, Gecko and WebKit
+        id: security
+        timeout-minutes: 20
+        run: |
+          set -uo pipefail
+          if npm run test:e2e -- e2e/code-packages.spec.ts e2e/web-images.spec.ts \
+            --project=desktop --project=gecko --project=webkit-tablet --retries=0 2>&1 \
+            | tee "$GITHUB_WORKSPACE/studio-security-report.txt"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: docs
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report + trace/video artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-security-${{ github.run_id }}
+          path: |
+            docs/playwright-report/**
+            docs/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Its OWN rolling title: a sandbox leak must not arrive as one more comment on the whole
+      # suite's thread, which already reads as "the slow nightly".
+      - name: Open / append regression issue
+        if: always() && (steps.security.outputs.failed == 'true' || steps.security.outcome != 'success') && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TITLE='[studio-security-e2e] Studio sandbox specs failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-security-report.txt"
+          BODY="$GITHUB_WORKSPACE/studio-security-body.md"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          [ -f "$REPORT" ] || echo '(the run step produced no report — it was killed before writing one)' > "$REPORT"
+          {
+            echo "The Studio sandbox specs failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.security.outcome }}). These hold the claim that a code package and a blocked web image reach no server; treat a failure as a possible leak until the report says otherwise."
+            echo ""
+            echo '```'
+            grep -E '^\s+[0-9]+\) |✘|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ failed|[0-9]+ passed' \
+              "$REPORT" 2>/dev/null | head -c 20000 || echo '(no test markers — the suite likely never started; see the tail below)'
+            echo '```'
+            echo ""
+            echo "<details><summary>Last 120 lines</summary>"
+            echo ""
+            echo '```'
+            tail -n 120 "$REPORT" 2>/dev/null | head -c 20000 || true
+            echo '```'
+            echo "</details>"
+            echo ""
+            echo "_Run: ${RUN_URL}._"
+          } > "$BODY"
+          # The exact-title lookup the `e2e` job documents (never `--search "in:title …"`).
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create --title "$TITLE" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # COMMENTS, never closes: one clean night does not prove an intermittent leak is gone. The
+      # three conditions are the `e2e` job's, for the reasons documented there.
+      - name: Report a passing run on the rolling issue
+        if: always() && steps.security.outcome == 'success' && steps.security.outputs.failed == 'false' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          TITLE='[studio-security-e2e] Studio sandbox specs failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-security-report.txt"
+          if [ ! -f "$REPORT" ] || ! grep -qE '[1-9][0-9]* passed' "$REPORT"; then
+            echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
+            exit 0
+          fi
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
+          {
+            echo "Measured green on \`main@${{ github.sha }}\`: the Studio sandbox specs passed on Chromium, Gecko and WebKit (${PASSED}, no retries)."
+            echo ""
+            echo "**Left open deliberately.** A leak that shows intermittently can pass one night. Check what changed and close by hand; a recurrence appends here."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+
   # The AI-assisted scenario tier (docs/e2e/scenarios/ai-architect.spec.ts):
   # drives the Architect against a LIVE OpenRouter model and asserts a real
   # productivity outcome (source changed + checkpoint saved). A separate job so

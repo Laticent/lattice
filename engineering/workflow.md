@@ -698,11 +698,11 @@ a mistake somebody already made:
   a recovered alarm from one somebody quietly triaged away.
 - **Prove the check actually RAN.** `ai-architect.spec.ts` opens with `test.skip(!LIVE_KEY, …)`,
   so with the secret unset Playwright skips every test, prints "N skipped" and **exits 0** —
-  outcome and output both say green while nothing was tested. Both `studio-e2e-nightly.yml` jobs
+  outcome and output both say green while nothing was tested. All three `studio-e2e-nightly.yml` jobs
   therefore require a non-zero passed count in the report before they will close anything.
 
-**Whether a green night licenses a CLOSE depends on the check, and only two of the eight jobs
-qualify.** This is the part a first cut got wrong, in the direction that matters.
+**Whether a green night licenses a CLOSE depends on the check, and only three of the ten jobs
+qualify** (the lists in `nightly-alarm-contract.test.js` are the count). This is the part a first cut got wrong, in the direction that matters.
 
 - **Absolute** — scored against the commit in front of it, with nothing in the tree that could be
   edited to make it pass. The gallery paints or it does not (`preview-e2e`); an island is covered
@@ -716,6 +716,10 @@ qualify.** This is the part a first cut got wrong, in the direction that matters
   (`studio-e2e`). Blessing turns the check green without fixing anything, and **the run cannot
   tell the two apart** — so a green night means "the tree matches the baseline", not "the finding
   is fixed". These comment and leave the thread open.
+- **Absolute but intermittent** — `studio-e2e`'s `security` job runs the two sandbox specs
+  (`code-packages`, `web-images`) on three engines with no retries against a live loopback
+  server. Nothing can be blessed, but a leak can show on one night in three, so one clean night
+  does not prove it gone. It comments and leaves the thread open.
 - **Differential** — `perf-nightly` compares head against a base ~24h old, so a regression landing
   on day 0 fires on night 1 (the base predates it) and comes back clean on night 2 (the base
   carries it too), on a still-broken site. `engine-perf` closes only a thread whose LATEST FIRING
