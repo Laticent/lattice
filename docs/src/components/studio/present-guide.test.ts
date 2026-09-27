@@ -542,6 +542,14 @@ describe('read-along and chart addressing', () => {
 		expect(wordRangeIn(li, ['forty-eight'], 0)).toBeNull();
 	});
 
+	it('lights a word SPLIT across inline markup as one word', () => {
+		// The read-along followup's last clause (#2371): `<strong>$48</strong>.6M` is one spoken word.
+		const d = doc('<ul><li>ARR closed at <strong>$48</strong>.6M today.</li><li>Re<em>venue</em> grew.</li></ul>');
+		const [a, b] = [...d.querySelectorAll('li')];
+		expect(wordRangeIn(a, ['ARR', 'closed', 'at', '$48.6M', 'today.'], 3)?.toString()).toBe('$48.6M');
+		expect(wordRangeIn(b, ['Revenue', 'grew.'], 0)?.toString()).toBe('Revenue');
+	});
+
 	it('matches whole words only, and anchors on the sentence being read', () => {
 		const d = doc('<p>Northeast grew. North fell hard. North then recovered.</p>');
 		const p = d.querySelector('p') as Element;
