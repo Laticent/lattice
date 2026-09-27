@@ -77,7 +77,10 @@ function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) 
  */
 function observerCallbackSrc() {
   const at = RUNTIME_SRC.indexOf('replayCachedFences();\n        adoptOutgoingDiagrams(records);');
-  return at === -1 ? null : RUNTIME_SRC.slice(at, at + 400);
+  // To the end of the callback, not a fixed length: a comment or a call added inside it must
+  // not push a later call out of the slice this reads.
+  const end = at === -1 ? -1 : RUNTIME_SRC.indexOf('.observe(', at);
+  return end === -1 ? null : RUNTIME_SRC.slice(at, end);
 }
 
 /**

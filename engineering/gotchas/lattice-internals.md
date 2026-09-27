@@ -811,6 +811,33 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
   the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
 
+## A slide's heading jumps into place just after a slide change in the preview
+
+- **Symptom:** on each slide change in the Studio preview, the text paints in one spot
+  and moves about a tenth of a second later. It shows on any slide the runtime rearranges,
+  and most on an `image` slide. Measured in WebKit at iPhone size: the heading drew at
+  x=102, 563 wide, on the first frame, and at x=205, 294 wide, about 110 ms later.
+- **Cause:** a host that swaps a slide in (`patchSlideBody` in
+  `docs/src/lib/single-slide-render.ts`, and the Playground filmstrip in
+  `docs/src/playground/deck-preview.js`) writes raw engine HTML. The runtime's content
+  transforms are what place its text: the Form stamp, masthead-lift's cells, and the
+  `image` text column. They ran only on the observer's 150 ms debounce, so the raw slide
+  painted first. The photos had nothing to do with it; they only made the move bigger.
+- **Fix:** both hosts stamp `data-lattice-swap` on `.lattice` before they write. When the
+  stamp is there, the runtime's observer in `lib/runtime/index.js` now runs
+  `runAllContentTransforms()` in its own microtask, before the frame paints. Mermaid
+  rendering stays on the debounce, and the transforms are idempotent, so the debounced
+  pass repeats them as a no-op. A write without the stamp keeps the old schedule.
+- **Keep the chart redraw out of that pass.** The swap pass (`swapMicrotaskPass`)
+  skips the whole-document state-chart and flowchart installs; `drawFreshStateCharts` draws
+  the fresh figures and the debounced pass does the rest. With the installs in, a
+  one-slide swap cost 24 to 40 ms more on `examples/state-chart-stress.md` and on the
+  116-slide gallery. Without them it costs about 4 ms more on the stress deck and nothing
+  measurable on the gallery or `examples/data-viz-gallery.md` (Chromium, three runs each).
+- **Pinned by:** `test/unit/runtime/host-swap-layout.test.js`. It loads the built
+  runtime in jsdom, and a control arm checks that an unstamped write still waits for the
+  debounce.
+
 ## Tapping a video poster in the Studio preview does nothing
 
 - **Symptom:** in the Studio's live preview, a tap or click on a video slide's poster
