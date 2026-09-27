@@ -1,11 +1,14 @@
 import { ChevronLeft, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
+import { DIALOG_BOX } from '@/components/ui/dialog';
+import { PersistentSurface } from '@/components/ui/persistent-surface';
 import {
 	Sheet,
 	SheetClose,
 	SheetContent,
 	SheetDescription,
 	SheetTitle,
+	sheetBox,
 } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { useIsPhone } from '@/lib/use-breakpoint';
@@ -484,6 +487,9 @@ export function PanelSheet({
 	width = 'md',
 	overlay = true,
 	modal = true,
+	persistent = false,
+	phone,
+	dialogClassName,
 	className,
 	children,
 }: {
@@ -495,10 +501,21 @@ export function PanelSheet({
 	/** Non-modal (page behind stays live + un-scroll-locked) — the Playground /
 	 *  MetricDetail pattern that dodges the iOS Safari scroll-lock lingering bug. */
 	modal?: boolean;
+	/** Stay mounted after the first open, hidden while closed — for a surface of live slide
+	 *  previews, whose documents WebKit never frees (`PersistentSurface`). Always modal. */
+	persistent?: boolean;
+	/** Override the phone test (`useIsPhone`) with the caller's own breakpoint. */
+	phone?: boolean;
+	/** Persistent only: off the phone, draw a centered dialog box with these classes instead of a
+	 *  side sheet. One host for both layouts, so crossing the breakpoint — a phone rotated, an iPad
+	 *  in Split View — does not swap the component and destroy what it keeps (found by the
+	 *  adversarial review of the persistent surface). */
+	dialogClassName?: string;
 	className?: string;
 	children: React.ReactNode;
 }) {
-	const mobile = useIsPhone();
+	const isPhone = useIsPhone();
+	const mobile = phone ?? isPhone;
 	const nav = React.useContext(PanelNavCtx);
 	useKeyboardInset(mobile && open);
 	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
@@ -509,6 +526,30 @@ export function PanelSheet({
 	// safe-area reservation fell into one PR ago).
 	const close = React.useCallback(() => onOpenChange(false), [onOpenChange]);
 	useOverlayBack(mobile && open, close);
+	const inner = (
+		<PanelSheetCtx.Provider value={true}>
+			<PanelPhoneCtx.Provider value={mobile}>{children}</PanelPhoneCtx.Provider>
+		</PanelSheetCtx.Provider>
+	);
+	if (persistent) {
+		return (
+			<PersistentSurface
+				open={open}
+				onOpenChange={onOpenChange}
+				onInteractOutside={() => nav.onLeave?.()}
+				// Never `hidden`: a persistent sheet is always modal, and a backdrop that is not there leaves
+				// the page blocked with nothing to click away on. Transparent keeps the click.
+				overlayClassName={overlay ? undefined : 'bg-transparent'}
+				className={
+					!mobile && dialogClassName
+						? cn(DIALOG_BOX, dialogClassName)
+						: cn(sheetBox(mobile ? 'bottom' : side), 'flex w-full flex-col gap-0 p-0', mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width], className)
+				}
+			>
+				{inner}
+			</PersistentSurface>
+		);
+	}
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
 			<SheetContent
@@ -527,9 +568,7 @@ export function PanelSheet({
 					className,
 				)}
 			>
-				<PanelSheetCtx.Provider value={true}>
-					<PanelPhoneCtx.Provider value={mobile}>{children}</PanelPhoneCtx.Provider>
-				</PanelSheetCtx.Provider>
+				{inner}
 			</SheetContent>
 		</Sheet>
 	);

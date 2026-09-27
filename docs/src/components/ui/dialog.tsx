@@ -4,6 +4,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import type * as React from "react"
 import { Button } from "@/components/ui/button"
+import { usePersistentIds } from "@/components/ui/persistent-surface"
 import { cn } from "@/lib/utils"
 
 function Dialog({
@@ -46,6 +47,30 @@ function DialogOverlay({
   )
 }
 
+/** The box every centered dialog draws — shared with the persistent Add slide dialog. */
+export const DIALOG_BOX =
+  "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg"
+
+/** The corner close control, shared with the persistent Add slide dialog. */
+export function DialogCloseButton() {
+  return (
+      <DialogPrimitive.Close
+        data-slot="dialog-close"
+        // DEVIATION from the vendored shadcn base (like `sonner.tsx`'s two, marked
+        // in place). The base is `absolute top-4 right-4` around a bare 16px glyph —
+        // a 16×16 hit area, well under the 44px touch floor the rest of the chrome
+        // holds, on EVERY dialog in the app. On a coarse pointer the button becomes a
+        // 44×44 grid and its inset drops 16px→2px, which leaves the glyph's center
+        // exactly where it was (24px from each edge) while the target reaches the
+        // floor. Fine pointers keep the base verbatim. (#1211)
+        className="absolute top-3 right-3 grid size-6 place-items-center rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground pointer-coarse:top-0.5 pointer-coarse:right-0.5 pointer-coarse:grid pointer-coarse:size-11 pointer-coarse:place-items-center [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+      >
+        <XIcon />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+  )
+}
+
 function DialogContent({
   className,
   children,
@@ -63,28 +88,13 @@ function DialogContent({
           // lx-ui carries the scoped reset (tailwind.css) into the Radix portal,
           // which mounts outside the island root. Keep first.
           "lx-ui",
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          DIALOG_BOX,
           className
         )}
         {...props}
       >
         {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            // DEVIATION from the vendored shadcn base (like `sonner.tsx`'s two, marked
-            // in place). The base is `absolute top-4 right-4` around a bare 16px glyph —
-            // a 16×16 hit area, well under the 44px touch floor the rest of the chrome
-            // holds, on EVERY dialog in the app. On a coarse pointer the button becomes a
-            // 44×44 grid and its inset drops 16px→2px, which leaves the glyph's center
-            // exactly where it was (24px from each edge) while the target reaches the
-            // floor. Fine pointers keep the base verbatim. (#1211)
-            className="absolute top-3 right-3 grid size-6 place-items-center rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground pointer-coarse:top-0.5 pointer-coarse:right-0.5 pointer-coarse:grid pointer-coarse:size-11 pointer-coarse:place-items-center [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
+        {showCloseButton && <DialogCloseButton />}
       </DialogPrimitive.Content>
     </DialogPortal>
   )
@@ -131,8 +141,11 @@ function DialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  const persistentIds = usePersistentIds()
   return (
     <DialogPrimitive.Title
+      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
+      {...(persistentIds ? { id: persistentIds.titleId } : {})}
       data-slot="dialog-title"
       className={cn("text-lg leading-none font-semibold", className)}
       {...props}
@@ -144,8 +157,11 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
+  const persistentIds = usePersistentIds()
   return (
     <DialogPrimitive.Description
+      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
+      {...(persistentIds ? { id: persistentIds.descriptionId } : {})}
       data-slot="dialog-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
