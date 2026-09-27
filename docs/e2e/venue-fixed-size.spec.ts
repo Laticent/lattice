@@ -47,13 +47,24 @@ test('every slide renders at the venue size in the preview and in Present; nothi
 	await setEditorContent(page, deck(7));
 
 	// 1 — the editor preview, slide by slide: 1.3x everywhere, the over-full slide included.
-	const headers = new Set<string | null>();
+	const headers = new Map<string, string | null>();
 	for (const text of ['First slide', 'Binding slide', 'Third slide']) {
 		await cursorTo(page, text);
-		await expect.poll(async () => (await shown(live(page))).scale, { ...opts, message: `${text}: the venue size` }).toBe('1.3');
-		headers.add((await shown(live(page))).header);
+		// ONE sample holds both values. The preview can swap in a fresh document between two reads
+		// (a full write), and a document that has not painted yet computes an empty font-size ("")
+		// — not a size at all. Reading scale and header separately raced that swap on a cold start
+		// (3 runs in 10); this polls until a single sample is painted at the venue size.
+		let sample: Shown | null = null;
+		await expect
+			.poll(async () => {
+				const s = await shown(live(page));
+				if (s.scale === '1.3' && /px$/.test(s.header ?? '')) sample = s;
+				return sample ? 'painted at 1.3' : `${s.scale} / ${s.header}`;
+			}, { ...opts, message: `${text}: painted at the venue size` })
+			.toBe('painted at 1.3');
+		headers.set(text, (sample as Shown | null)?.header ?? null);
 	}
-	expect(headers.size, 'the running header is one size on every slide').toBe(1);
+	expect(new Set(headers.values()).size, `the running header is one size on every slide: ${JSON.stringify([...headers])}`).toBe(1);
 	await cursorTo(page, 'Binding slide');
 	await expect.poll(async () => (await shown(live(page))).overflow, { ...opts, message: 'the over-full slide clips and is ringed' }).toBe(true);
 	await expect(notice(page)).toBeVisible(opts);
