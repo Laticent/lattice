@@ -615,6 +615,8 @@ const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
+// JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
+const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || 92));
 // Who the overflow marker in the printed artifact is addressed to. Same setting,
 // same kernel and same precedence as the Marp exporter — `--overflow-marker` for
 // this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
@@ -5415,8 +5417,11 @@ async function prunePlayerCssInPage(playerHtml) {
  * Compose the vector PDF with the SHARED writer (lib/core/pdf-compose), inside this page.
  * Returns the PDF bytes, or null when the writer could not run — the caller then prints
  * with Chrome, exactly as before, and this says why. The page is read and photographed
- * under print media, the face Chrome's printer drew it with.
+ * on its export face (`.lattice-exporting`), the same face the Studio photographs.
  */
+/** The shared writer's local-file reader: the deck's folder and Lattice's install only. */
+const pdfAssets = require('./lib/export/pdf-asset-reader.js').createAssetReader([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
+
 async function composePdfInPage(g, page) {
   composePdfInPage.pages ||= new WeakSet();
   const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose.min.js');
@@ -5445,45 +5450,25 @@ async function composePdfInPage(g, page) {
           // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
-          const buf = await h.screenshot({ type: 'jpeg', quality: 92, captureBeyondViewport: false });
+          const buf = await h.screenshot({ type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false });
           return Buffer.from(buf).toString('base64');
         } finally {
           if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
         }
       });
-      // Image bytes for the writer. A file:// page cannot fetch file:// URLs, so Node reads
-      // them. The deck's own scripts can call this too, so it returns ONLY PNG or JPEG bytes:
-      // a file:// page can already DISPLAY any local image, and Chrome's printer would put it
-      // in the PDF, so that grants nothing new. Anything else is refused before it crosses.
-      await page.exposeFunction(ASSET_FN, async (url) => {
-        let buf;
-        if (url.startsWith('file:')) buf = fs.readFileSync(require('node:url').fileURLToPath(url));
-        else if (/^https?:/i.test(url)) buf = Buffer.from(await (await fetch(url)).arrayBuffer());
-        else throw new Error('unsupported asset URL');
-        // Images (PNG, JPEG) and web fonts (WOFF, WOFF2, TrueType, OpenType — a KaTeX face
-        // loads from file:// too): the formats the page itself already loaded to display.
-        const magic = buf.length > 4 ? buf.readUInt32BE(0) : 0;
-        const png = magic === 0x89504e47;
-        const jpeg = buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-        const font = magic === 0x774f4646 || magic === 0x774f4632 || magic === 0x00010000 || magic === 0x4f54544f || magic === 0x74727565;
-        if (!png && !jpeg && !font) throw new Error('not an image or a font');
-        return buf.toString('base64');
-      });
-      // The @font-face rules of a local stylesheet the page links but cannot read (KaTeX's).
-      // Only a .css file, and only its @font-face blocks cross back: nothing else in it does.
-      await page.exposeFunction(FACES_FN, async (href) => {
-        if (!href.startsWith('file:') || !/\.css$/i.test(new URL(href).pathname)) throw new Error('not a local stylesheet');
-        const css = fs.readFileSync(require('node:url').fileURLToPath(href), 'utf8');
-        return (css.match(/@font-face\s*\{[^}]*\}/g) || []).join('\n');
-      });
+      // Image and font bytes, and a local stylesheet's @font-face rules, for the writer. The
+      // deck's own scripts can call these too: lib/export/pdf-asset-reader.js is the boundary.
+      await page.exposeFunction(ASSET_FN, async (url) => pdfAssets.asset(url));
+      await page.exposeFunction(FACES_FN, async (href) => pdfAssets.fontFaceRules(href));
     }
-    // THE FACE: print media, the face Chrome's printer always drew the CLI's PDF with — the
-    // `@media print` half of the export face; the Studio uses its `.lattice-exporting` half.
-    // The reader measures and the camera photographs under it, then screen media returns.
-    await g(() => page.emulateMediaType('print'), 'print media');
-    const out = await g(() => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn) => {
+    const out = await g(() => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
+      // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
+      // NOT print media: the print face still draws a spotlight's hard 70% ellipse (#2400
+      // softened it in the export face only), and a hard arc across the slide is the very
+      // defect this work began from — measured on the owner's `backdrop: "full spot-tr"` deck.
+      for (const s of secs) s.classList.add('lattice-exporting');
       const unb64 = (b64) => {
         const b = atob(b64);
         const bytes = new Uint8Array(b.length);
@@ -5498,7 +5483,7 @@ async function composePdfInPage(g, page) {
       let composed;
       try {
         const readFontFaceRules = (href) => window[facesFn](href);
-        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs) });
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1 });
       } catch (e) {
         // Carry the page-side stack across CDP: puppeteer keeps only the message.
         return { error: String(e?.stack || e) };
@@ -5507,18 +5492,22 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN), 'compose pdf').finally(() => page.emulateMediaType(null));
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE), 'compose pdf');
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     if (!QUIET) {
       const r = out.report;
       const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
       const refused = sum(r.refusedText) + sum(r.refusedShapes) + sum(r.refusedImages);
       console.log(`  PDF writer: ${r.words} words, ${r.shapes} shapes and ${r.images} images drawn as vectors or originals${refused ? `, ${refused} left in the photo` : ''} (--chrome-pdf prints with Chrome instead)`);
+      // Name the slides, so an author can go and look (a system font, an emoji, a filter …).
+      for (const { slide, why } of (r.photoContent || []).slice(0, 12)) console.log(`    slide ${slide}: ${Object.entries(why).map(([k, v]) => `${v} ${k}`).join(', ')} kept in the photo`);
+      if ((r.photoContent || []).length > 12) console.log(`    … and ${r.photoContent.length - 12} more slides (LATTICE_PDF_REPORT=file.json lists them all)`);
     }
     if (process.env.LATTICE_PDF_REPORT) fs.writeFileSync(process.env.LATTICE_PDF_REPORT, JSON.stringify(out.report, null, 2));
     return Buffer.from(out.b64, 'base64');
   } catch (e) {
-    if (!QUIET) console.log(`  PDF writer failed (${String(e?.message || e).split('\n')[0]}); printing with Chrome instead.`);
+    // Said even under --quiet (on stderr): a silent switch of writer is a different PDF.
+    console.error(`  PDF writer failed (${String(e?.message || e).split('\n')[0]}); printing with Chrome instead.`);
     if (process.env.LATTICE_PDF_DEBUG) console.error(e?.stack || e);
     return null;
   }

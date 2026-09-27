@@ -393,6 +393,12 @@ describe('export-formats', () => {
     assert.ok(fonts.length > 0 && fonts.every((l) => /\byes\s+(yes|no)\s+(yes|no)\s+\d+\s+\d+\s*$/.test(l)), `every font embedded:\n${fonts.join('\n')}`);
     const info = execFileSync('pdfinfo', [out], { encoding: 'utf8' });
     assert.match(info, /Tagged:\s+yes/, 'the PDF is tagged, like the one Chrome prints');
+    // …and the tags say what each block is: the slide's heading reads as a heading, its
+    // body as a paragraph, in slide order.
+    const tree = execFileSync('pdfinfo', ['-struct-text', out], { encoding: 'utf8' });
+    assert.match(tree, /^Document/m, 'one Document root');
+    assert.match(tree, /^\s+H1\b[^\n]*\n\s+"Baked/m, `the first slide's title is an H1:\n${tree.slice(0, 600)}`);
+    assert.match(tree, /^\s+P\b[^\n]*\n\s+"Body/m, 'the body copy is a P');
   });
 
   test('print mode exports no finish at all', { timeout: TIMEOUT }, () => {
@@ -411,6 +417,47 @@ describe('export-formats', () => {
     const printCorner = cornerMean(out, dir), richCorner = cornerMean(rich, dir);
     assert.ok(printCorner > 250, `print mode leaves the corner paper-white, got mean ${printCorner.toFixed(1)}`);
     assert.ok(richCorner < printCorner, `the color page carries a finish there (${richCorner.toFixed(1)} vs ${printCorner.toFixed(1)}) — else this test proves nothing`);
+  });
+
+  test('text something paints over stays hidden: not drawn on top, not in the text layer', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'covered.md');
+    // A redaction bar over the title band. Chrome's printer hides the title; a writer that drew
+    // every word on top of the photo would show it — and let a reader copy it out.
+    fs.writeFileSync(src, '---\nhtml: true\ntheme: indaco\n---\n\n# Classified title\n\n<div style="position:absolute;top:0;left:0;width:100%;height:150px;background:#c0392b;z-index:9"></div>\n');
+    const out = path.join(dir, 'covered.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.doesNotMatch(execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' }), /Classified/, 'covered text must not reach the text layer');
+  });
+
+  test('a spotlight backdrop fades softly in the PDF (the hard-arc bug this writer began from)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'spot.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\nfinish: nimbus\nbackdrop: "full spot-tr"\n---\n\n## A spotlight slide\n\nText.\n');
+    // The largest step between neighboring pixels below the heading, right of center, where
+    // the spotlight's edge crosses: a soft fade moves a level or two, a drawn arc jumps.
+    const maxStep = (pdf) => {
+      const base = pdf.replace(/\.pdf$/, '-g');
+      execFileSync('pdftoppm', ['-gray', '-r', '48', '-f', '1', '-l', '1', pdf, base]);
+      const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+      const buf = fs.readFileSync(file);
+      const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+      const d = buf.subarray(buf.length - w * h);
+      let max = 0;
+      for (let y = Math.floor(h * 0.3); y < Math.floor(h * 0.6); y++) for (let x = Math.floor(w * 0.6); x < w - 2; x++) max = Math.max(max, Math.abs(d[y * w + x + 1] - d[y * w + x]));
+      return max;
+    };
+    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
+    for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    }
+    // Measured 2026-09-27: 1 for the writer (the export face's feathered spotlight), 63 for
+    // Chrome's printer (the print face's hard ellipse). The Chrome render is the control that
+    // proves this measure can see an arc at all.
+    assert.ok(maxStep(chrome) > 20, 'control: Chrome\'s print face draws the hard arc');
+    assert.ok(maxStep(mine) <= 6, `the writer's spotlight fades softly, largest step ${maxStep(mine)}`);
   });
 
   test('an image is embedded at its own bytes unless something paints over it — on any slide', { timeout: TIMEOUT }, () => {

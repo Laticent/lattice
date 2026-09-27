@@ -244,4 +244,24 @@ Order of work, all in one PR (#2404):
 - **Measured on the owner's 9-slide cuoio deck, CLI:** 3.1 s end to end and 237 KB. Poppler
   draws all nine slides in 1.45 s, against 13.1 s and 335 KB for Chrome's printing (best of 3,
   110 dpi). 351 words and 26 shapes drawn; nothing left in the photo.
+- **Adversarial review, and what it changed.**
+  - **The red team** found two real breaks:
+    - The CLI's page-to-Node file reader could fetch any http(s) URL, and read image or font
+      files anywhere on disk. It is now local-only and confined to the deck's folder and the
+      install (`lib/export/pdf-asset-reader.js`, with its own tests).
+    - Text under an overlay (a redaction bar) was drawn over it, and copied out. Covered text
+      now stays in the photo.
+  - **The inversion** judged the chart gradients "washed out" against Chrome's printer. Measured
+    against the screen, the writer is right and the printer is not (it drops `fill-opacity` on
+    gradient-filled shapes), so `tools/pdf-writer-parity.mjs` now compares against the screen by
+    default.
+  - **Earlier in the same pass, a regression of my own:** reading the CLI's page under print
+    media brought back the hard spotlight arc, the defect this work began from. The CLI uses the
+    Studio's `.lattice-exporting` face, pinned by an integration test with a control.
+- **Known limits:**
+  - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
+    trades size for it.
+  - Pseudo-element text, emoji and system-font characters stay in the (2x) photo.
+  - The photo is Chrome's own raster, so the PDF is byte-reproducible on one machine but not
+    across machines — the same as before for anything Chrome rasterized.
 

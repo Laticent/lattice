@@ -222,11 +222,24 @@ before, then runs **the same code as the Studio's Export to PDF** inside that pa
    chart shapes as vectors, then every word as real text, tagged (Document › H1…/P/LI/Figure)
    with the title and `/Lang`.
 
-Anything the writer cannot reproduce exactly — rotated text, a text shadow, a masked or filtered
-shape, an image something else paints over — stays in the photo, which is taken at 2x on a slide
-that keeps a raster image. Set `LATTICE_PDF_REPORT=report.json` to see what was drawn and what
+Anything the writer cannot reproduce exactly stays in the photo, which is taken at 2x on a slide
+that keeps text or a raster image in it. That covers:
+
+- rotated text, a text shadow, and text or an image that something paints over;
+- a masked or filtered shape;
+- a character the deck's fonts lack (an emoji, a system-font fallback);
+- pseudo-element text (page numbers, bullets).
+
+Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
+deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size.
+
+**The CLI's file reader is a trust boundary.** The page calls back into Node for local images and
+fonts, and a deck's own scripts can call it too. So `lib/export/pdf-asset-reader.js` reads local
+files only (never http), confined by real path to the deck's folder and the Lattice install,
+regular files under 64 MB, and returns only image or font bytes. Set `LATTICE_PDF_REPORT=report.json` to see what was drawn and what
 was left in the photo, and why. `--chrome-pdf` prints with Chrome instead; the CLI also falls
-back to Chrome, and says so, when the bundle is missing or the writer fails. The reasons and the
+back to Chrome, and says so (on stderr, even with `--quiet`), when the bundle is missing or the
+writer fails. The reasons and the
 measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.md`.
 
 ## 4a. CLI PDF output is byte-reproducible
