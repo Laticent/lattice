@@ -37,7 +37,7 @@ describe('lattice-file', () => {
 		expect(back.packages.refused).toEqual([]);
 	});
 
-	it('a carried package with code is refused by name, and the deck still opens', async () => {
+	it('a carried package with code in the wrong shape is refused by name, and the deck still opens', async () => {
 		const bars = { type: 'component' as const, name: 'bars', files: { 'bars.manifest.json': JSON.stringify({ name: 'bars', type: 'component', format: 1 }), 'bars.styles.css': 'section.bars {}', 'bars.gallery.md': '<!-- _class: bars -->', 'bars.transform.js': 'module.exports = () => ""' } };
 		const back = await readLatticeFile(await exportLatticeBlob(SRC, 'My deck', COMMENTS, 99, [bars]));
 		expect(back.source).toBe(SRC);

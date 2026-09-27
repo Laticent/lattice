@@ -120,7 +120,9 @@ Installed via npm, the same binary is `npx lattice`.
 installed packages, `~/.lattice/packages/<type>/<name>/` (or `$LATTICE_HOME/packages`,
 or `--packages <dir>` for one run). Install one with `lattice packages add
 <studio-export>.zip`; the gates are the Studio's import gates, so a theme that reaches
-off the device or a package that carries JavaScript is refused by name. A deck naming
+off the device is refused by name. A component that carries JavaScript (a code package)
+runs only after the user approves its code at its SHA-256, in the registry's code-packages
+slot, sandboxed (`lib/packages/code-door.js`; `2026-09-24-code-package-contract.md` §9). A deck naming
 a theme that is neither shipped nor installed fails with that name and the `add`
 command; it never falls back to another theme. A slide class that is not shipped,
 embedded or installed renders unstyled, so the render warns with the class name and the

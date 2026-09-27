@@ -181,3 +181,17 @@ test('ADD_TAGS keeps the pane Cell element and still filters its attributes', ()
 	assert.match(out, /<lat-pane class="list form" data-pane="list"><ul>/);
 	assert.doesNotMatch(out, /onclick/);
 });
+
+test('filterAttr drops, rewrites or keeps each attribute in the same pass, and only when a caller passes it', async () => {
+	const DOMPurify = (await import('dompurify')).default;
+	const { JSDOM } = await import('jsdom');
+	const filterAttr = (_tag, name, value) => (name === 'src' && value.startsWith('https:') ? false : name === 'class' ? value.replace(/\blattice-notes\b/, '').trim() : true);
+	const door = mod.createSlideSanitizer(DOMPurify, new JSDOM('').window, { filterAttr });
+	const html = '<div><img src="https://e.test/i" alt="a"><img src="local.png"><aside class="lattice-notes x">n</aside></div>';
+	assert.equal(door(html), '<div><img alt="a"><img src="local.png"><aside class="x">n</aside></div>');
+	// Without the option the ordinary sanitizer keeps an author's remote image and every class.
+	assert.match(sani(html), /src="https:\/\/e\.test\/i"/);
+	assert.match(sani(html), /class="lattice-notes x"/);
+	// An attribute the allowlist already removed never reaches the filter to be kept.
+	assert.doesNotMatch(mod.createSlideSanitizer(DOMPurify, new JSDOM('').window, { filterAttr: () => true })('<img src=x onerror=alert(1)>'), /onerror/);
+});

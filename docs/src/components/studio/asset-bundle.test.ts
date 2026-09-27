@@ -301,16 +301,23 @@ describe('asset-bundle — a lattice-asset/1 zip gets no looser a door', () => {
 });
 
 describe('asset-bundle — package zips from elsewhere', () => {
-	it('refuses a code package by name instead of importing it without its transform', async () => {
+	it('imports a code package in the export shape with its transform; refuses any other shape by name', async () => {
 		const { default: JSZip } = await import('jszip');
-		const zip = new JSZip();
-		zip.file('bar/bar.manifest.json', JSON.stringify({ name: 'bars', type: 'component', format: 1 }));
-		zip.file('bar/bar.styles.css', 'section.bars{}');
-		zip.file('bar/bar.gallery.md', '<!-- _class: bars -->');
-		zip.file('bar/bar.transform.js', 'export default () => "<svg/>"');
-		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
-		expect(round.components).toHaveLength(0);
-		expect(round.refused).toEqual([{ name: 'bars', why: expect.stringMatching(/carries code/) }]);
+		const pkg = (transform: string) => {
+			const zip = new JSZip();
+			zip.file('bar/bar.manifest.json', JSON.stringify({ name: 'bars', type: 'component', format: 1 }));
+			zip.file('bar/bar.styles.css', 'section.bars{}');
+			zip.file('bar/bar.gallery.md', '<!-- _class: bars -->');
+			zip.file('bar/bar.transform.js', transform);
+			return zip.generateAsync({ type: 'blob' });
+		};
+		const ok = await unpackBundle(await pkg('function t(s){return s.html}export{t as default};'));
+		expect(ok.refused).toEqual([]);
+		expect(ok.components.map((c) => [c.name, c.pkg?.files?.['transform.js']])).toEqual([['bars', 'function t(s){return s.html}export{t as default};']]);
+		// Not the one ES-module shape the runner takes: refused by name, never imported without its code.
+		const bad = await unpackBundle(await pkg('export default () => "<svg/>"'));
+		expect(bad.components).toHaveLength(0);
+		expect(bad.refused).toEqual([{ name: 'bars', why: expect.stringMatching(/does not end in `export \{ name as default \}`/) }]);
 	});
 
 	it('trusts the manifest, not the file names: a renamed folder imports under its manifest name', async () => {

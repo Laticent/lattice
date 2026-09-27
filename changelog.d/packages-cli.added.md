@@ -4,7 +4,8 @@
   but the CLI doesn't render them by name yet. Packages live in
   `~/.lattice/packages`, or `$LATTICE_HOME/packages`, or the folder `--packages <dir>`
   names for one run. `add` runs the Studio's import checks, so CSS that loads from
-  the network or a package that carries JavaScript is refused by name.
+  the network is refused by name. A component that carries JavaScript installs only in
+  the one form a code package takes, and runs only after you approve its code.
 - **Changed: a deck naming a theme Lattice doesn't have fails with that name.** The
   error prints the `lattice packages add` command that fixes it.
 - **Added: a `.lattice` project carries the saved theme, components and finishes the
