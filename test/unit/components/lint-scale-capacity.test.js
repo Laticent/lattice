@@ -390,3 +390,8 @@ describe('venue-only rows count on their own axis', () => {
     assert.match(run('hall', 6)[0].message, /holds about 5 rows/);
   });
 });
+
+test('endsWithCallout tracks comments by state, including a second comment left open on a line', () => {
+  assert.equal(core.endsWithCallout('<!-- a --> <!-- b\n> inside a comment\n-->'), false);
+  assert.equal(core.endsWithCallout('## H.\n\n<!-- note -->\n> The line.'), true);
+});
