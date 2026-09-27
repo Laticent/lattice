@@ -71,7 +71,7 @@ function leadsWord(hay: string, sub: string): boolean {
 }
 
 
-export const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, th, td, code';
+const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, th, td, code';
 
 /**
  * The element inside `frameDoc` that a spoken sentence came from, or null.
@@ -698,7 +698,7 @@ export function findChartTextTarget(root: Document | Element | null, text: strin
 }
 
 /** Chart text nothing paints: the inert detail payload, screen-reader-only text, descriptions. */
-const UNPAINTED = 'template, [hidden], .chart-sr-only, [data-lattice-desc], title, desc';
+export const UNPAINTED = 'template, [hidden], .chart-sr-only, [data-lattice-desc], title, desc';
 
 /** An element's text, less every descendant `UNPAINTED` names. */
 function paintedText(el: Element): string {
