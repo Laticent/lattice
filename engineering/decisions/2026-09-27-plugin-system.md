@@ -632,6 +632,23 @@ code. What changed because of them:
   `slide-boundaries` chunk. `docs/route-budget.json` records the pair.
   **The ratchet's starting counts:** 2 fence wrappers (function-plot, anima), 0 plugin token
   names in code outside `lib/plugins`.
+  **Maker-checker (HARD RULE #25).** An independent checker read the phase and confirmed the
+  render path sound — rules byte-identical to the files they came from, anchors unchanged,
+  `math: false` and `mathOutput` equivalent, no KaTeX reachable from the boundary parser or the
+  pre-scan in an esbuild metafile, the registry regenerating from a missing or corrupt grammar.
+  It found six things, all fixed here: `capabilities.md` stale after the `test:plugins` script
+  (a red `build:check`); a changelog bullet that told deep importers to "update the path" when
+  `installMath` no longer exists (now a **Breaking:** bullet naming `installPlugins`); the
+  migration ratchet reading token names by the generated file's indentation, so a reformat made
+  it pass with nothing checked (now read from the registry's data, failing on an empty registry,
+  with six tests); a fixture parser that skipped a malformed bullet and split cases inside
+  fences; and engine options read once but copied shallowly, with a string `disabled` silently
+  spread into characters (now deep-copied, frozen, and type-checked).
+  **Known limits, recorded rather than fixed:** the harness's detect-superset arm parses with a
+  bare commonmark instance, not the engine's private parser, so a case where the engine's other
+  rules change what a plugin sees is covered only by the `renders` bullets; and the resolver's
+  trigger-collision check trusts the triggers a manifest DECLARES — nothing yet proves a rule
+  fires only on them. Phase C's spec work picks both up.
 
 ## References
 

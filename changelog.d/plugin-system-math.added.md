@@ -11,8 +11,10 @@
   keeps working; `createEngine({ plugins: { disabled, options } })` is the general form. Design
   and roadmap (function-plot, Mermaid and the chart family next):
   `engineering/decisions/2026-09-27-plugin-system.md`.
-- **Moved:** `lib/engine/math.js` → `lib/plugins/math/math.render.js`, and
-  `lib/engine/math-detect.mjs` + `lib/core/math-block-rule.{js,mjs}` →
-  `lib/plugins/math/math.syntax.mjs` (`sourceHasMath`, `hasDisplayMath` and `hasInlineMath` keep
-  their names). A consumer that imported one of those files through the `./lib/*` export updates
-  the path.
+- **Breaking:** math's internals moved into the math plugin. `lib/engine/math.js` is now
+  `lib/plugins/math/math.render.js` and no longer exports `installMath`: install math (and every
+  other plugin) on a markdown-it instance with `installPlugins(md, { family, options, disabled })`
+  from `lib/plugins/host.js`. `lib/engine/math-detect.mjs` and `lib/core/math-block-rule.{js,mjs}`
+  are now `lib/plugins/math/math.syntax.mjs`, which keeps the `sourceHasMath`, `hasDisplayMath`,
+  `hasInlineMath` and `mathBlockRule` exports. Only code that deep-imports these files through the
+  `./lib/*` export is affected; `@laticent/lattice/engine` and `createEngine` are unchanged.

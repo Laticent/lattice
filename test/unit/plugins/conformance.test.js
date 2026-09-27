@@ -11,7 +11,12 @@
  *   - the render does not throw;
  *   - `detect` is a SUPERSET of the parser: if the plugin's own rules turned the input into
  *     one of its tokens, `detect(input)` is true. It may say true more often (math's pre-scan
- *     over-matches on purpose); it may never miss, because a miss ships unrendered content;
+ *     over-matches on purpose); it may never miss, because a miss ships unrendered content.
+ *     KNOWN LIMIT: "the parser" here is a bare commonmark instance with only this plugin's
+ *     grammar, not the engine's own parser (private behind its memo, and carrying the
+ *     LATTICE_PLUGINS and `html: true`). A case where the engine's other rules change what this
+ *     plugin sees can slip between the two; the `renders` bullets, which DO go through the
+ *     engine, are what cover it;
  *   - with the plugin disabled, none of its rules or renderers are installed, and the render
  *     still does not throw.
  *
@@ -31,21 +36,52 @@ const { PLUGINS, failSoft, installPlugins } = require('../../../lib/plugins/host
 
 const PLUGINS_DIR = path.join(__dirname, '../../../lib/plugins');
 
-/** Parse a fixtures file into cases: `{ title, input, assertions: [{ op, value }] }`. */
+/**
+ * Parse a fixtures file into cases: `{ title, input, assertions: [{ op, value }] }`.
+ *
+ * Strict on purpose, because a fixture that silently asserts less than it reads is worse than
+ * none: a `## ` line splits cases only OUTSIDE a fence (so an input may hold slide headings), and
+ * any line that looks like an assertion — a bullet or a `renders` / `omits` / `detect` word at
+ * the start — must parse exactly, or the file fails.
+ */
 function parseFixtures(text) {
   const cases = [];
-  for (const block of text.split(/^## /m).slice(1)) {
-    const title = block.slice(0, block.indexOf('\n')).trim();
-    const fence = block.match(/^```markdown\n([\s\S]*?)^```$/m);
-    assert.ok(fence, `fixture case "${title}" has no \`\`\`markdown input fence`);
-    const assertions = [];
-    for (const line of block.slice(fence.index + fence[0].length).split('\n')) {
-      const m = line.match(/^- (renders|omits) `(.+)`\s*$/) || line.match(/^- (detect) (true|false)\s*$/);
-      if (m) assertions.push({ op: m[1], value: m[2] });
-      else if (/^- /.test(line)) assert.fail(`fixture case "${title}": unreadable assertion ${JSON.stringify(line)}`);
+  let current = null;
+  let fence = null; // the opening fence's backticks while inside one
+  let input = null;
+  for (const line of text.split('\n')) {
+    if (fence) {
+      if (line.trim() === fence) {
+        fence = null;
+        if (input) {
+          current.input = input.join('\n');
+          input = null;
+        }
+      } else if (input) input.push(line);
+      continue;
     }
-    assert.ok(assertions.length, `fixture case "${title}" asserts nothing`);
-    cases.push({ title, input: fence[1], assertions });
+    const open = line.match(/^(`{3,})(\S*)\s*$/);
+    if (open) {
+      fence = open[1];
+      if (current && open[2] === 'markdown' && current.input === undefined) input = [];
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      current = { title: line.slice(3).trim(), input: undefined, assertions: [] };
+      cases.push(current);
+      continue;
+    }
+    if (!current) continue;
+    const m = line.match(/^- (renders|omits) `(.+)`\s*$/) || line.match(/^- (detect) (true|false)\s*$/);
+    if (m) current.assertions.push({ op: m[1], value: m[2] });
+    else if (/^\s*[-*+]\s|^\s*(renders|omits|detect)\b/.test(line)) {
+      assert.fail(`fixture case "${current.title}": unreadable assertion ${JSON.stringify(line)} — write "- renders \`…\`", "- omits \`…\`" or "- detect true|false"`);
+    }
+  }
+  assert.equal(fence, null, 'a fixtures file ends inside an unclosed fence');
+  for (const c of cases) {
+    assert.ok(c.input !== undefined, `fixture case "${c.title}" has no \`\`\`markdown input fence`);
+    assert.ok(c.assertions.length, `fixture case "${c.title}" asserts nothing`);
   }
   return cases;
 }

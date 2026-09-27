@@ -217,6 +217,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:parsing` | Unit scope: source-parse, splitter, slot-label-lift, marp plugins. |
 | `test:perf` | node:test SCALING guards in test/benchmark/ — they assert a complexity RATIO (4x the input costs ~4x the time, not ~16x), never a wall clock, so they mean the same thing on any machine. On-demand, not in `npm test` and not a blocking CI gate: a wall-clock arm in a suite node --test runs in parallel is a flake generator. Reach for it after touching a scanner or a hot-path regex. |
 | `test:playground` | Unit scope: the playground bundle/core. |
+| `test:plugins` | Unit scope: the plugin host — resolver, install order, and every plugin's conformance fixtures. |
 | `test:release` | Unit scope: the release tooling. |
 | `test:runtime` | Unit scope: lib/runtime/* — the pure decisions behind the in-page runtime (fluid-view policy, the diagram queue, per-slide mermaid bands, the axis DOM catalog). |
 | `test:tap` | The unit suite as a TAP stream, for anything that parses test output rather than reading the exit code. `npm test` reports as dots (557x cheaper to capture); reach for this when you need per-test records. |

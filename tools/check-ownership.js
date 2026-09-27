@@ -7598,8 +7598,15 @@ function pluginMigrationCounts(root = ROOT) {
   };
   const fenceWrappers = (stripCodeComments(read('lib/integrations/markdown-it/plugins.js')).match(/md\.renderer\.rules\.fence\s*=(?!=)/g) || []).length;
 
-  const grammar = read('lib/plugins/grammar.generated.mjs');
-  const tokens = [...grammar.matchAll(/^ {6}([a-z][a-z0-9_]*): Object\.freeze\(\{ kind:/gm)].map((m) => m[1]);
+  // The token names come from the registry's DATA, never from the generated file's text: a
+  // pattern tied to the generator's indentation would match nothing after a reformat and pass
+  // with nothing checked (found by the HARD RULE #25 checker). A tree that has plugins with syntax
+  // but yields no token names is a failure, not a pass.
+  const grammarFile = path.join(root, 'lib/plugins/grammar.generated.mjs');
+  const grammar = fs.existsSync(grammarFile) ? require(grammarFile).PLUGIN_GRAMMAR : [];
+  const tokens = grammar.flatMap((p) => Object.keys(p.syntax || {}));
+  const declared = listPluginManifests(root).some((m) => Object.keys(m.contributes?.syntax || {}).length);
+  if (declared && !tokens.length) throw new Error('plugin migration: plugins declare syntax, but lib/plugins/grammar.generated.mjs yields no token names — run node tools/build-plugin-registry.js');
   const hits = [];
   if (tokens.length) {
     const re = new RegExp(`\\b(?:${tokens.join('|')})\\b`, 'g');
@@ -7618,8 +7625,23 @@ function pluginMigrationCounts(root = ROOT) {
   return { fenceWrappers, pluginTokenNames: hits.length, hits };
 }
 
+function listPluginManifests(root) {
+  const dir = path.join(root, 'lib', 'plugins');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith('_'))
+    .flatMap((e) => fs.readdirSync(path.join(dir, e.name)).filter((f) => f.endsWith('.manifest.json'))
+      .map((f) => JSON.parse(fs.readFileSync(path.join(dir, e.name, f), 'utf8'))));
+}
+
 function checkPluginMigration(errors, budget = PLUGIN_MIGRATION_BUDGET, root = ROOT) {
-  const counts = pluginMigrationCounts(root);
+  let counts;
+  try {
+    counts = pluginMigrationCounts(root);
+  } catch (e) {
+    errors.push(e.message);
+    return;
+  }
   for (const [key, allowed] of Object.entries(budget)) {
     const n = counts[key];
     if (n > allowed) {
