@@ -25,11 +25,11 @@ Put these three slides in one deck:
 ```
 
 The first card gets a solid accent block reading `1`. The second gets a categorical block
-reading `BUILD`, tracked 0.08em. The third gets no block at all: plain gray `STEP 01` text,
-tracked 0.12em. All three do the same job, which is naming a card, and an author can
-change none of them from the deck. If `BUILD` were `WHY NOT DELAY THE LAUNCH`, the tag
-would wrap to a second line and run into the card's body, because the space reserved
-above the body holds one line.
+reading `BUILD`, tracked 0.08em. The third gets no block at all: bare `STEP 01` text in the
+theme's label ink, tracked 0.12em. All three do the same job, which is naming a card, and an author can
+change none of them from the deck. Give a decision card a long label and the tag wraps: at
+two lines it barely clears the body text, and at three it covers the body's first line,
+because the space reserved above the body is sized for one (rendered, §2.3.2).
 
 ## 2. Audit — every card marker in the tree
 
@@ -41,16 +41,16 @@ what qualifies.
 
 | Where | Trigger | Placement | Color · ink | Drift from the cards-grid recipe |
 |---|---|---|---|---|
-| `cards-grid` (`cards-grid.styles.css:82`, `:94`, `:141`, three copies) | `ol` source, `::before counter(card)` | Flush top-left, absolute | `--accent` · `--on-accent` | The reference. No re-peg for square, tall or strip decks. `sketch` leaves it crisp |
+| `cards-grid` (`cards-grid.styles.css:83`, `:95`, `:142`, three copies) | `ol` source, `::before counter(card)` | Flush top-left, absolute | `--accent` · `--on-accent` | The reference. No re-peg for square, tall or strip decks |
 | `cards-stack` (`cards-stack.styles.css:99`, `:111`) | `ol` source, `::before counter(stack)` | Flush top-left | `--accent` · `--on-accent` | Reserves `--sp-xs + 1.875cqi` above the body where cards-grid reserves `--sp-sm + 2.34375cqi` for the same tag |
-| `compare-prose` and `decision` (`compare-prose.styles.css:223-267`) | Lifted `<strong>` slot label (`lib/core/slot-label-lift.js`) | Flush top-left | compare-prose: `--accent` · `--on-accent`. decision: `--cat-N-mark` 8-slot cycle · `--cat-on-mark` | Uppercase at 0.08em. The only tag re-pegged per deck shape and the only one `sketch` roughens. decision's own `strong` rule (`decision.styles.css:100-109`) is outranked and dead |
+| `compare-prose` and `decision` (`compare-prose.styles.css:217-267`) | Lifted `<strong>` slot label (`lib/core/slot-label-lift.js`) | Flush top-left | compare-prose: `--accent` · `--on-accent`. decision: `--cat-N-mark` 8-slot cycle · `--cat-on-mark` | Uppercase at 0.08em. The only tag re-pegged per deck shape. decision's own `strong` rule (`decision.styles.css:100-109`) is outranked for the lifted label |
 | `banner-tag` modifier (`compare-prose.styles.css:284-336`) | `_class: … banner-tag`, decision and compare-prose only | Full-width band across the card top, in flow | As above | A wrapped band is taller than its neighbors' |
 | `split-compare` verdict (`split-compare.styles.css:88`) | Always, text from `--insight-label` | Flush top-left | `--accent` · `--on-accent` with no fallback | Smaller padding (`0.3125/0.9375cqi`), 0.12em tracking, `sketch` leaves it crisp |
-| `list-steps` default (`list-steps.styles.css:41`) | `ol` source, `STEP 01` via `--step-prefix` | In flow above the title, no box | No fill · `--text-label` | Not called a tag. No `nowrap`, so `MILESTONE 01` can wrap in a narrow card |
+| `list-steps` default (`list-steps.styles.css:41`) | `ol` source, a literal `STEP ` prefix (`phase`, `stage`, `milestone`, `rank`, `tier` swap it through `--step-prefix`) | In flow above the title, no box | No fill · `--text-label` (brand-tinted in most themes) | Not called a tag. No `nowrap`, so `MILESTONE 01` can wrap in a narrow card |
 | `list-steps capsule` (`list-steps.styles.css:144-189`) | `capsule` modifier | Floating pill centered above the title | `--cat-N-fill` cycle · `--cat-on-fill` | Pads with `--sp-*`. The `--accent-soft` fill at `:149-150` never applies, because the cycle overrides it |
 
 That is **five recipes** (flush corner, band, bare text, pill, and the verdict's own flush
-corner) spread over **seven components**, with **three** color semantics (accent,
+corner) spread over **six components** (two of the recipes are modifiers), with **three** color semantics (accent,
 categorical mark, categorical fill) plus bare ink.
 
 ### 2.2 These do not qualify, and why
@@ -68,19 +68,28 @@ categorical mark, categorical fill) plus bare ink.
 
 1. **Copies, not a kernel.** Four hand-copied corner recipes, already disagreeing on
    padding (`0.47/1.09cqi` vs `0.31/0.94cqi`), tracking (0.08em vs 0.12em), the space
-   reserved above the body (three different sums) and the ink fallback.
-2. **Wrapping breaks the card.** Absolute tags reserve one line, so a second line runs
-   into the body. In-flow tags (band, list-steps) grow only their own card, so siblings
-   differ in height. No marker equalizes.
-3. **Venue does not reach the box.** `--fs-meta` grows with `venue:` (up to 1.95x at
-   `hall`), but the padding and the reserve are fixed `cqi`, so at `hall` the text
-   outgrows its own box and the reserve beneath it.
+   reserved above the body (three sums at landscape, and a fourth on compare-prose and
+   decision in square, tall and strip decks) and the ink fallback.
+2. **Wrapping breaks the card.** Rendered on `decision` (indaco, laptop): absolute tags
+   reserve one line, and the tag sets `line-height: 1`, so a two-line tag is cramped and
+   barely clears the body, and a **three-line tag covers the body's first line**. A
+   wrapped `banner-tag` band makes its card's body start lower than its siblings'. No
+   marker equalizes.
+3. **Venue reaches the text but not the padding.** `--fs-meta` grows with `venue:` (up
+   to 1.95x at `hall`), and the tag box grows with it. The padding is fixed `cqi`, so at
+   `hall` the tag reads tighter than at `laptop`. Rendered `cards-grid` and `decision` at
+   `hall`: nothing overflows and the body still clears the tag, so this is a proportion
+   issue, not a collision.
 4. **Author levers are per-component and partial.** `banner-tag` works on two layouts,
    `capsule` on one, and nothing works deck-wide.
-5. **No contrast pin for the main pair.** Tests pin `--cat-on-mark` on `--cat-N-mark` and
-   `--cat-on-fill` on `--cat-N-fill` per theme and mode (`test/unit/palette/contrast.test.js`),
-   but nothing pins `--on-accent` on `--accent` outside the print pair.
-6. **`sketch` roughens two of the five recipes.**
+5. **The existing color pairs are pinned; a neutral one does not exist.** Tests pin
+   `--cat-on-mark` on `--cat-N-mark` and `--cat-on-fill` on `--cat-N-fill`
+   (`test/unit/palette/contrast.test.js`), and `--on-accent` on `--accent` on every theme
+   (`tools/contrast-audit.js:230`, asserted by `test/unit/palette/theme-surface-aa.test.js`).
+   There is no neutral tag pair, because no tag is neutral today.
+6. **`sketch` roughens some tags and not others.** It roughens the cards-grid and
+   cards-stack corners (`base.sketch.css:367-375`) and the compare-prose/decision corner
+   (`:385-391`); the split-compare verdict and the list-steps markers stay crisp.
 
 ## 3. The design
 
@@ -139,8 +148,8 @@ cycle.
 | Axis | Words | Effect |
 |---|---|---|
 | **Color** | `color` | The component's native color: accent for a sequence (cards-grid, compare-prose), the categorical cycle for independent slots (decision, capsule). **The default** |
-| | `plain` | Neutral: a `--bg-alt` fill with `--text-label` ink, for decks where color is already busy |
-| | `none` | No fill and no box. The label stays, as bare `--text-label` ink (today's list-steps look) |
+| | `plain` | Neutral: a `--bg-alt` fill with `--text-secondary` ink, for decks where color is already busy. Not `--text-label`, which most themes tint with the brand |
+| | `none` | No fill and no box. The label stays, as bare `--text-secondary` ink |
 | **Placement** (relative to the card) | `corner` | Flush into the top-left corner. **The default for card grids** |
 | | `foot` | Flush into the bottom-left corner |
 | | `notch` | A tab inset from the corner that straddles the card's top edge, half outside it |
@@ -193,10 +202,10 @@ or will get, a contrast test:
 
 | Word | Fill | Ink | Contrast pin |
 |---|---|---|---|
-| `color`, sequence | `--accent` | `--on-accent` | **New** — AA per theme and mode, added in phase 1 (gap 2.3.5) |
+| `color`, sequence | `--accent` | `--on-accent` | Exists: `tools/contrast-audit.js:230` via `theme-surface-aa.test.js`. Phase 1 confirms it covers dark mode on every theme |
 | `color`, categorical | `--cat-N-mark` | `--cat-on-mark` | Exists: `contrast.test.js:156` |
-| `plain` | `--bg-alt` | `--text-label` | **New**, same test |
-| `none` | transparent | `--text-label` on the card's own surface | Covered by the text-tier tests |
+| `plain` | `--bg-alt` | `--text-secondary` | **New**, added to the same audit in phase 1 |
+| `none` | transparent | `--text-secondary` on the card's own surface | Covered by the text-tier tests |
 
 `capsule` today uses the pale `--cat-N-fill` with `--cat-on-fill`. Under this design the
 categorical cycle uses the saturated mark tier for every tag, so capsule moves from pale
@@ -206,9 +215,9 @@ to saturated. That is a visible change (§7 Q4).
 
 The font size is `--fs-meta × --card-tag-scale`, and `--fs-meta` already carries the
 venue lift. Because padding is in em, the box grows with the text, and because the
-reserve is measured (§3.4), the body clears the tag at every venue. That fixes gap 2.3.3
-for tags. The same fixed-cqi fault in rail nodes and status pills is out of scope and
-goes to a follow-up.
+reserve is measured (§3.4), the body clears the tag at every venue. That keeps the tag's
+proportions the same at every venue (gap 2.3.3). Rail nodes and status pills may have the
+same fixed-cqi boxes; that is unrendered and out of scope, logged in `followups.d/`.
 
 ## 4. What does not change
 
@@ -243,7 +252,7 @@ and renders every shipped deck unchanged unless the phase says otherwise.
 
 | Phase | What lands | Visible change | Proof |
 |---|---|---|---|
-| **1. Kernel** | The `card-tag` element on every render path, `base.card-tag.css`, the tokens, and the migration of the seven qualifying recipes onto it at their current look. The `--on-accent` and `plain` contrast pins | Only the drift fixes: one padding, one tracking, one reserve, `sketch` everywhere | Pixel diff of the six galleries before and after, with every changed slide listed and explained |
+| **1. Kernel** | The `card-tag` element on every render path, `base.card-tag.css`, the tokens, and the migration of the seven qualifying recipes onto it at their current look. The `plain` contrast pin, and a dark-mode check on the existing `--on-accent` pin | Only the drift fixes: one padding, one tracking, one reserve, `sketch` everywhere | Pixel diff of the six galleries before and after, with every changed slide listed and explained |
 | **2. Register** | `resolve-card-tag.js`, `tag:` and `tag-*` on all paths, lint, docs | None unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine and the runtime bundle. Demo deck, light and dark |
 | **3. Placements and equal height** | `foot`, `notch`, `band` on every qualifying layout, `inline`, text alignment, size, and the measure pass | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
 | **4. Aliases** | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
@@ -269,3 +278,18 @@ Settled 2026-09-27. The owner took the recommendation on each:
    `authority-chain`'s tier column is the card's structure rather than a label on it, and
    `citation-card`'s label heads a callout, not one of several sibling cards. No `side`
    placement is added.
+
+## 8. How this note was checked
+
+- **Rendered, not only read.** Two scratch decks through the CLI (indaco, laptop and
+  `hall`): a decision row with one-, two- and three-line tags, the same row as
+  `banner-tag`, list-steps `milestone` in five cards, and numbered `cards-grid` and
+  `decision` at `hall`. They confirmed §2.3.2, softened §2.3.3 from "overflows" to "reads
+  tighter", and showed that `MILESTONE 01` fits in five cards at laptop (wrapping needs a
+  narrower card than that).
+- **Independent fact-check.** A fact-checker agent verified the file:line and token claims:
+  24 confirmed; three refuted (the `sketch` coverage, the "no `--on-accent` pin" claim, and a
+  component count) and six imprecise (line offsets, the `STEP` prefix mechanism, the
+  brand-tinted `--text-label`, a fourth reserve sum, and "dead" for decision's rule). All
+  nine are corrected above. The `--text-label` finding moved `plain` and `none` to
+  `--text-secondary`.
