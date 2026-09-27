@@ -48,6 +48,8 @@ test('Share → PDF writes real, tagged text and vector charts over one photo pe
 	expect(doc.catalog.lookup(PDFName.of('MarkInfo'), PDFDict).get(PDFName.of('Marked'))?.toString()).toBe('true');
 	expect(doc.catalog.get(PDFName.of('StructTreeRoot'))).toBeTruthy();
 	for (const pg of doc.getPages()) {
+		// The slide's own size, 1280x720px: the reader must not measure the preview's FIT scale.
+		expect(pg.getSize()).toEqual({ width: 960, height: 540 });
 		const res = pg.node.Resources();
 		const xobjects = res?.lookup(PDFName.of('XObject'), PDFDict);
 		const fonts = res?.lookup(PDFName.of('Font'), PDFDict);
@@ -71,4 +73,23 @@ test('Share → PDF writes real, tagged text and vector charts over one photo pe
 	const svg = join(tmpdir(), `shared-writer-${Date.now()}.svg`);
 	execFileSync('pdftocairo', ['-svg', '-f', '4', '-l', '4', file, svg]);
 	expect((readFileSync(svg, 'utf8').match(/<path /g) || []).length).toBeGreaterThan(3);
+});
+
+test('Share → PDF keeps the deck’s own section box-shadow (the tone rail), as the CLI does', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '<!-- _class: tone-warn -->\n\n## Churn is the risk\n');
+	await expect(railButtons(page)).toHaveCount(1);
+	const file = join(tmpdir(), `shared-writer-rail-${Date.now()}.pdf`);
+	writeFileSync(file, await exportPdf(page));
+	// The rail is an inset box-shadow down the left edge. The capture once reset every
+	// section's box-shadow to strip a preview shadow that no longer lives there, and erased it.
+	const base = file.replace(/\.pdf$/, '');
+	execFileSync('pdftoppm', ['-r', '36', '-singlefile', file, base]);
+	const ppm = readFileSync(`${base}.ppm`);
+	const [, w, h] = ppm.toString('latin1', 0, 20).match(/P6\s+(\d+)\s+(\d+)\s+255\s/)!.map(Number);
+	const px = ppm.subarray(ppm.length - w * h * 3);
+	// Mean color of one pixel column, and how far the left edge sits from the page's middle.
+	const colAt = (x: number) => [0, 1, 2].map((c) => { let v = 0; for (let y = 0; y < h; y++) v += px[(y * w + x) * 3 + c]; return v / h; });
+	const [edge, mid] = [colAt(1), colAt(Math.round(w / 2))];
+	expect(edge.reduce((d, v, c) => d + Math.abs(v - mid[c]), 0), 'a colored rail down the left edge').toBeGreaterThan(90);
 });

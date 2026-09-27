@@ -274,6 +274,15 @@ Order of work, all in one PR (#2404):
     ellipsis left in the photo, in-deck `#slide` links become page jumps, the Studio's font
     fetch goes through the same origin guard as its images, and the photo is capped at
     2560 px on its long edge.
+- **The owner's sign-off render found two Studio-only defects**, both fixed with an e2e test that
+  fails without the fix:
+  - The reader measured each slide at the preview's FIT scale (1208px for a 1280px slide), so the
+    page came out 906 x 510 pt with the photo overhanging it. The Studio's `withSlide` now clears
+    the fit transform while the slide is read.
+  - The Studio's capture reset every section's `box-shadow` to strip a preview shadow that moved
+    to `.lattice` long ago. It erased the deck's own tone rail and finish frame from every
+    Studio image export, the photo lanes and PPTX included, while the CLI kept them. The reset
+    is gone.
 - **Known limits:**
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
     trades size for it.

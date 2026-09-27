@@ -1114,8 +1114,11 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 		// No `borderRadius` here: it is set on the SECTION in withCaptureFixups, which is
 		// the only place that knows whether this corner is being kept or squared. A blanket
 		// reset at this layer is what used to flatten the preview chrome's 6px AND the
-		// deck's own corner indiscriminately — see the note there.
-		style: { transform: 'none', margin: '0', boxShadow: 'none', outline: 'none' },
+		// deck's own corner indiscriminately — see the note there. No `boxShadow` either: the
+		// preview's lift rides `.lattice` now (deck-preview.js, THE SLIDE FRAME), and a section's
+		// box-shadow is the DECK's — the tone rail (`tone-warn`) and the finish frame — which a
+		// blanket `none` erased from every Studio image export while the CLI kept it.
+		style: { transform: 'none', margin: '0', outline: 'none' },
 		filter: (n) => !(n.classList?.contains('db-active')),
 	};
 }
@@ -1737,9 +1740,20 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		const restore = forceSectionVisibleForCapture(section);
 		const had = section.classList.contains('lattice-exporting');
 		if (!had) section.classList.add('lattice-exporting');
+		// The FIT agent scales each section to its pane with an inline transform. The camera
+		// undoes it (captureOptions: transform:none); the reader measures the live layout, so
+		// it must see the slide at its own size too, or every word and the page itself come out
+		// at the fit ratio (a 1280px slide written as a 1208px page, the photo overhanging it).
+		const fit = { transform: section.style.transform, origin: section.style.transformOrigin, mb: section.style.marginBottom };
+		section.style.transform = 'none';
+		section.style.transformOrigin = '';
+		section.style.marginBottom = '0';
 		try {
 			return fn();
 		} finally {
+			section.style.transform = fit.transform;
+			section.style.transformOrigin = fit.origin;
+			section.style.marginBottom = fit.mb;
 			if (!had) section.classList.remove('lattice-exporting');
 			restore();
 		}
