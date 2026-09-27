@@ -63,7 +63,8 @@ export function PersistentSurface({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** The dialog box itself — position, size, animation. `data-state` is `open` or `closed`. */
+  /** The dialog box itself — position, size, animation. `data-state` is `open` or `closed`; a
+   *  `data-[state=closed]` exit animation plays before the box is hidden. */
   className?: string
   overlayClassName?: string
   /** Called on a backdrop click, before the close — `PanelSheet`'s "take me to what I can see". */
@@ -76,6 +77,22 @@ export function PersistentSurface({
   const ids = React.useMemo(() => ({ titleId, descriptionId }), [titleId, descriptionId])
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
+  // CLOSING: from the close until the exit animation ends, the box stays drawn and stays a
+  // dialog, as a Radix dialog does until its Presence unmounts it. Hiding at once dropped main's
+  // fade-and-zoom out, and it let a test's "wait until the dialog is gone" pass before the insert
+  // it had just made reached the editor.
+  const [closing, setClosing] = React.useState(false)
+  const [lastOpen, setLastOpen] = React.useState(open)
+  if (lastOpen !== open) {
+    setLastOpen(open)
+    setClosing(!open)
+  }
+  React.useEffect(() => {
+    if (!closing) return
+    // No exit animation to wait for (reduced motion, a class without one): don't strand it drawn.
+    const t = window.setTimeout(() => setClosing(false), 400)
+    return () => window.clearTimeout(t)
+  }, [closing])
 
   React.useEffect(() => {
     if (!open) return
@@ -95,6 +112,7 @@ export function PersistentSurface({
 
   if (!ever || typeof document === "undefined") return null
   const state = open ? "open" : "closed"
+  const drawn = open || closing
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       {createPortal(
@@ -119,20 +137,34 @@ export function PersistentSurface({
               )}
             />
           )}
+          {closing && (
+            <div
+              aria-hidden
+              data-state="closed"
+              className={cn(
+                "pointer-events-none fixed inset-0 z-50 bg-black/50 animate-out fade-out-0",
+                overlayClassName
+              )}
+            />
+          )}
           <div
             ref={boxRef}
             // A dialog only while open. Closed, it is a hidden subtree that merely keeps its frames
             // alive — nothing should find it as a dialog, including a `[role=dialog]` selector.
             data-slot="persistent-surface-box"
-            {...(open
+            {...(drawn
               ? { role: "dialog", "aria-modal": true, "aria-labelledby": titleId, "aria-describedby": descriptionId }
               : {})}
             tabIndex={-1}
             data-state={state}
+            data-hidden={drawn ? undefined : ""}
+            onAnimationEnd={(e) => {
+              if (!open && e.target === e.currentTarget) setClosing(false)
+            }}
             // `auto`: the layer above sets `pointer-events: none` on <body> while open, as every
             // Radix modal does, and this box is not inside the layer's own element.
             style={open ? { pointerEvents: "auto" } : undefined}
-            className={cn("lx-ui outline-none data-[state=closed]:hidden", className)}
+            className={cn("lx-ui outline-none data-[hidden]:hidden", className)}
           >
             <IdsCtx.Provider value={ids}>{children}</IdsCtx.Provider>
           </div>

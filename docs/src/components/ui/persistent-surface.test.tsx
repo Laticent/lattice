@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DismissableLayer } from 'radix-ui/internal';
 import * as React from 'react';
 import { describe, expect, it } from 'vitest';
@@ -52,7 +52,6 @@ describe('PersistentSurface', () => {
 		expect(dialog()?.getAttribute('data-state')).toBe('open');
 		fireEvent.click(screen.getByText('close'));
 		expect(dialog()?.getAttribute('data-state'), 'a closed surface was torn down').toBe('closed');
-		expect(document.querySelector('[role="dialog"]'), 'a closed surface still answers as a dialog').toBeNull();
 		fireEvent.click(screen.getByText('launch'));
 		expect(mounts).toBe(1);
 		expect(unmounts, 'closing unmounted the content — every frame in it would be a fresh document on reopen').toBe(0);
@@ -145,5 +144,14 @@ describe('PersistentSurface', () => {
 		const backdrop = document.querySelector('[data-slot="persistent-surface"] > [aria-hidden][data-state]') as HTMLElement;
 		fireEvent.click(backdrop);
 		expect(dialog()?.getAttribute('data-state')).toBe('closed');
+	});
+
+	it('plays its exit, then is nothing to anyone: hidden, and no longer a dialog', async () => {
+		render(<Harness initial />);
+		fireEvent.click(screen.getByText('close'));
+		expect(dialog()?.getAttribute('role'), 'the dialog vanished before its exit animation').toBe('dialog');
+		expect(dialog()?.hasAttribute('data-hidden')).toBe(false);
+		await waitFor(() => expect(dialog()?.hasAttribute('data-hidden')).toBe(true));
+		expect(document.querySelector('[role="dialog"]'), 'a closed surface still answers as a dialog').toBeNull();
 	});
 });
