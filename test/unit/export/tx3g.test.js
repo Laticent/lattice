@@ -153,25 +153,25 @@ test('a zero-size box inside moov is refused, not looped on', () => {
 });
 
 test('a suggested style lands in the sample entry: colors, bold, font', () => {
-	const trak = T.tx3gTrak({ trackId: 3, samples: [], sizes: [], offset: 0, movieTimescale: 1000, style: { text: [10, 22, 40, 255], background: [0, 29, 51, 184], bold: true, font: 'Avenir Next' } });
+	const trak = T.tx3gTrak({ trackId: 3, samples: [], sizes: [], offset: 0, movieTimescale: 1000, style: { text: [10, 22, 40, 255], background: [0, 29, 51, 219], bold: true, font: 'Avenir Next' } });
 	const e = bodyOf(trak, 'tx3g');
-	assert.deepEqual([...e.subarray(14, 18)], [0, 29, 51, 184], 'background-color-rgba');
+	assert.deepEqual([...e.subarray(14, 18)], [0, 29, 51, 219], 'background-color-rgba');
 	assert.equal(e[32], 1, 'bold face flag');
 	assert.deepEqual([...e.subarray(34, 38)], [10, 22, 40, 255], 'text-color-rgba');
 	assert.ok(e.includes(Buffer.from('Avenir Next')), 'font name in ftab');
 });
 
-test('the brand caption style: light text on the deck\'s dark color at 72%, in either mode', () => {
+test('the brand caption style: light text on the deck\'s dark color at 86%, in either mode', () => {
 	// indaco dark: --bg navy, --text-heading white.
-	assert.deepEqual(T.brandCaptionStyle({ bg: 'rgb(0, 29, 51)', heading: 'rgb(255, 255, 255)' }), { text: [255, 255, 255, 255], background: [0, 29, 51, 184], bold: true, font: 'Avenir Next', size: 16 });
+	assert.deepEqual(T.brandCaptionStyle({ bg: 'rgb(0, 29, 51)', heading: 'rgb(255, 255, 255)' }), { text: [255, 255, 255, 255], background: [0, 29, 51, 219], bold: true, font: 'Avenir Next', size: 16 });
 	// indaco light: --bg white, --text-heading ink; the ink becomes the panel, the page the text.
 	const light = T.brandCaptionStyle({ bg: 'rgb(255, 255, 255)', heading: 'rgba(10, 22, 40, 1)' });
-	assert.deepEqual([light.text, light.background], [[255, 255, 255, 255], [10, 22, 40, 184]]);
+	assert.deepEqual([light.text, light.background], [[255, 255, 255, 255], [10, 22, 40, 219]]);
 });
 
 test('a theme whose colors would not read falls back to white on black; missing tokens too', () => {
 	const pale = T.brandCaptionStyle({ bg: 'rgb(200, 200, 200)', heading: 'rgb(230, 230, 230)' });
-	assert.deepEqual([pale.text, pale.background], [[255, 255, 255, 255], [0, 0, 0, 184]]);
+	assert.deepEqual([pale.text, pale.background], [[255, 255, 255, 255], [0, 0, 0, 219]]);
 	const none = T.brandCaptionStyle({});
-	assert.deepEqual([none.text, none.background], [[255, 255, 255, 255], [0, 0, 0, 184]]);
+	assert.deepEqual([none.text, none.background], [[255, 255, 255, 255], [0, 0, 0, 219]]);
 });

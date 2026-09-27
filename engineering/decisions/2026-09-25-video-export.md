@@ -495,7 +495,8 @@ band) with "tasteful opacity that does not diminish readability". A tx3g track c
 look: the viewer's own caption style (iOS: Settings → Accessibility → Subtitles & Captioning) decides
 what a player honors. Two variants went to the owner's iPhone as 50-second clips:
 
-- **A, chosen:** white bold text on the deck's navy at 72% opacity, the same in both modes.
+- **A, chosen:** white bold text on the deck's navy at 72% opacity, the same in both modes; then
+  raised to **86%** (below).
 - **B, rejected:** in light mode, navy ink text on a white panel at 82%. On the iPhone the text
   took our ink but the panel stayed dark, so the caption was dark on dark and unreadable. iOS
   honored the file's text color and kept its own panel, so **dark caption text is unsafe on
@@ -511,8 +512,14 @@ a translucent dark panel, and falls back to white on black when a theme's colors
 
 | Measured, indaco | Text vs. panel |
 |---|---|
-| Dark (white on navy at 72%) | 6.9:1 over a white slide, 7.2:1 over the pale-blue tile, 17:1 over navy |
-| Light (white on ink at 72%) | ink is darker than navy, so at least as high |
+| Dark (white on navy at 86%) | 11.4:1 over a white slide, 11.6:1 over the pale-blue tile, 17:1 over navy |
+| Light (white on ink at 86%) | 12.1:1 over a white slide, 12.3:1 over the tile, 18:1 over navy |
+
+**Why 86%, not 72%.** On the owner's iPhone the file's panel color and opacity were honored exactly,
+so at 72% a white slide showed through the ink panel and it read as slate gray (79, 87, 100), not the
+deck's ink. At 86% it composites to (44, 55, 70) over white; the owner compared a 50-second clip and
+chose it. The panel is a tight pill around each line, so the extra opacity costs little slide. iOS
+did not honor the file's font or bold: the viewer's caption style kept its own.
 
 **Not verified:** how iOS renders the panel under each built-in viewer style (the owner saw A under
 their own setting), and QuickTime on a Mac.

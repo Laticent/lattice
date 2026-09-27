@@ -135,8 +135,8 @@ function assertCaptionTrack(buf, cues, durationMs) {
 	const subs = readSubtitleTracks(buf);
 	assert.deepEqual(subs.map((s) => `${s.handler}:${s.entry}`), ['sbtl:tx3g'], 'one subtitle track, and it is tx3g');
 	const [{ samples, language, look }] = subs;
-	// The deck's own colors (indaco dark: white on its navy), bold, the panel at 72% (owner, 2026-09-27).
-	assert.deepEqual(look, { background: [0, 29, 51, 184], bold: true, text: [255, 255, 255, 255] }, 'the on-brand caption look');
+	// The deck's own colors (indaco dark: white on its navy), bold, the panel at 86% (owner, 2026-09-27).
+	assert.deepEqual(look, { background: [0, 29, 51, 219], bold: true, text: [255, 255, 255, 255] }, 'the on-brand caption look');
 	assert.equal(language, ((5 << 10) | (14 << 5) | 7), 'tagged English');
 	assert.equal(samples[0].startMs, 0, 'the track starts with the video');
 	assert.equal(samples.at(-1).endMs, Math.round(durationMs), 'and ends with it');
