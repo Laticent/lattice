@@ -158,31 +158,40 @@ export function PanelLoader<C extends React.ComponentType<never>>({
 }
 
 /**
- * Load the panels in the background once the Studio is idle, one per idle slot, so the parse
- * never lands on the startup path and a panel opened later renders on its first frame. It is
- * also what makes a never-opened panel work offline: the service worker caches `/_astro/`
- * chunks only once they have been fetched (`docs/public/sw.js`). Skipped under Save-Data, where
- * the user has asked us not to fetch what they have not asked for. Returns a cancel function.
+ * Load the panels in the background once the Studio is idle, so a panel opened later renders on
+ * its first frame. It is also what keeps a never-opened panel working offline and across a
+ * deploy: the service worker caches `/_astro/` chunks only once they have been fetched
+ * (`docs/public/sw.js`), and a deploy removes the old hashes a stale tab still references.
+ *
+ * ONE wait for idle, then back to back. The first load waits for the Studio to settle, so the
+ * warm-up never competes with startup. After that, each panel starts as soon as the one before
+ * it has loaded, with only a short yield between them. An earlier cut waited 1.5 s between
+ * panels on Safari (no requestIdleCallback), which left a ~9 s window in which a tab put in the
+ * background and restored after a deploy could not open a panel it had never opened.
+ *
+ * NOT skipped under Save-Data. Before these panels were split out, every visitor downloaded all
+ * of them at startup, Save-Data or not. Skipping the warm-up would not save those users bytes
+ * they used to spend; it would only take away offline and after-deploy use of the panels.
+ * Returns a cancel function.
  */
 export function warmPanels(panels: ReadonlyArray<LazyPanel<React.ComponentType<never>>>): () => void {
-	const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { connection?: { saveData?: boolean } });
-	if (nav?.connection?.saveData) return () => {};
 	let cancelled = false;
 	let handle: number | undefined;
 	// Safari has no requestIdleCallback. The two handle spaces are separate, so remember which one
 	// issued the handle: clearing the wrong one could cancel an unrelated timer with the same id.
 	const hasIdle = typeof window.requestIdleCallback === 'function';
-	const idle = (fn: () => void) => {
-		handle = hasIdle ? window.requestIdleCallback(fn, { timeout: 5000 }) : window.setTimeout(fn, 1500);
+	const schedule = (fn: () => void, first: boolean) => {
+		if (hasIdle) handle = window.requestIdleCallback(fn, { timeout: first ? 3000 : 500 });
+		else handle = window.setTimeout(fn, first ? 1000 : 50);
 	};
 	const queue = [...panels];
 	const next = () => {
 		if (cancelled) return;
 		const p = queue.shift();
 		if (!p) return;
-		void p.load().then(() => idle(next));
+		void p.load().then(() => schedule(next, false));
 	};
-	idle(next);
+	schedule(next, true);
 	return () => {
 		cancelled = true;
 		if (handle === undefined) return;

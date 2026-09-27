@@ -152,14 +152,28 @@ describe('warmPanels', () => {
 		expect(loader).not.toHaveBeenCalled();
 	});
 
-	it('fetches nothing under Save-Data', async () => {
+	it('still warms under Save-Data: those users downloaded every panel at startup before the split', async () => {
 		vi.useFakeTimers();
 		const loader = vi.fn(async () => Real);
 		Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
 		warmPanels([lazyPanel('A', loader)]);
 		await act(async () => vi.runAllTimersAsync());
-		expect(loader).not.toHaveBeenCalled();
+		expect(loader).toHaveBeenCalledTimes(1);
 		Object.defineProperty(navigator, 'connection', { value: undefined, configurable: true });
+	});
+
+	it('waits for idle once, then loads the rest back to back', async () => {
+		vi.useFakeTimers();
+		const order: string[] = [];
+		const mk = (n: string) => lazyPanel(n, async () => { order.push(n); return Real; });
+		warmPanels([mk('a'), mk('b'), mk('c')]);
+		await act(async () => vi.advanceTimersByTimeAsync(999));
+		expect(order).toEqual([]);
+		await act(async () => vi.advanceTimersByTimeAsync(1));
+		expect(order).toEqual(['a']);
+		// The rest follow within a short yield each, not another full idle wait.
+		await act(async () => vi.advanceTimersByTimeAsync(100));
+		expect(order).toEqual(['a', 'b', 'c']);
 	});
 });
 
