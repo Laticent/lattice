@@ -641,8 +641,11 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
      away: no frame and no rules at all. The structures gained pane twins (the overlay still
      lands on the host section) and the handover rules stop at a pane and key on the pane's own
      component. `examples/panes-sketch.md`, CLI PDF and Studio.
-   - **Fix-Me drill-down** read the host's classes, found no component, and tagged the whole pane
-     stage; it reads the pane's now.
+   - **Fix-Me drill-down** read the host's classes, found no component, and so could never pick an
+     item inside a pane; it reads the pane's component now. Not shown to change a tag on a real
+     surface: in the `--fluid --overflow-marker=author` viewer no list or table picked an item on
+     an ordinary slide either, and that viewer tags the WRONG pane of an overflowing panes slide
+     (pre-existing, `2376-p3-fluid-viewer-pane-overflow.md`).
    - **Mermaid** in a pane renders on the CLI and in the Studio and fills the pane box (measured
      544×438 in a 544×438 pane), but lays out for the HOST's orientation; that is filed with the
      chart sizing item below.
