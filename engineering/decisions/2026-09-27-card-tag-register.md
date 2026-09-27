@@ -5,8 +5,8 @@ summary: Lattice draws a label on a card six different ways. Four are copies of 
 
 # One card tag — an audit, a design and a plan
 
-**Status:** proposed 2026-09-27. Nothing is built. §7 holds the questions the owner has to
-answer before phase 1 starts.
+**Status:** proposed 2026-09-27. Nothing is built. The owner settled Q1–Q4 on 2026-09-27
+(§7); Q5 is open and gates phase 4 only.
 
 ## 1. The problem in one example
 
@@ -254,16 +254,17 @@ element changes the bytes of every exported deck that has one, so phase 1's demo
 to the owner in light and dark before merge. Maker-checker applies to phases 1 and 3,
 which touch the shared kernel and the runtime.
 
-## 7. Questions for the owner
+## 7. Owner decisions
 
-1. **The name.** `tag:` and `tag-*` (short; recommended), or `card-tag:` and
-   `card-tag-*` (says exactly what it styles; longer on every slide class).
-2. **The size axis.** One `small`/`regular`/`large` axis that moves font and padding
-   together (recommended: one lever, and em padding already keeps them in proportion), or
-   two independent axes for font scale and padding.
-3. **`none`.** Bare text with no box (recommended, never drops words), or hide the tag
-   entirely.
-4. **capsule's color.** Move it to the saturated mark tier with every other categorical
-   tag (recommended, one family), or keep the pale fill tier as a native exception.
-5. **Scope of phase 4.** Bring the inline-eyebrow legal layouts under the register, or
-   leave them as they are and keep the register to the seven recipes in §2.1.
+Settled 2026-09-27. The owner took the recommendation on each:
+
+1. **Name:** `tag:` and `tag-*`. Tokens stay under `--card-tag-*`.
+2. **Size:** one `small`/`regular`/`large` axis that moves font and padding together.
+3. **`none`:** bare text with no box. It never hides the label.
+4. **capsule:** moves to the saturated `--cat-N-mark` tier with every other categorical tag.
+
+Still open, and it gates phase 4 only:
+
+5. **Scope of phase 4.** Bring the inline-eyebrow legal layouts (`citation-card`,
+   `statute-stack`, `authority-chain`) under the register, or keep the register to the
+   seven recipes in §2.1.
