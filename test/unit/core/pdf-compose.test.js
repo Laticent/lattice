@@ -58,7 +58,7 @@ test('font subset: a variable face pinned to a weight draws at that weight', asy
 test('writer: one page per slide, real text, vector shapes and clickable links', async () => {
 	const subset = await subsetMod.createFontSubsetter(WASM);
 	const ttf = await subset(FONT, 'Hello', { wght: 400 });
-	const fonts = new Map([['k', { ttf, synthItalic: false }]]);
+	const fonts = new Map([['k', { ttf }]]);
 	const slide = {
 		w: 1280, h: 720,
 		words: [{ t: 'Hello', fontKey: 'k', x: 100, top: 100, w: 60, h: 24, size: 20, ls: 0, color: [20, 30, 40, 1], op: 1 }],
@@ -82,4 +82,23 @@ test('fontMetrics: USE_TYPO_METRICS picks the typo ascender, else hhea', () => {
 	assert.deepEqual(hhea, { asc: 0.9, desc: 0.3 });
 	const typo = write.fontMetrics({ unitsPerEm: 1000, ascent: 900, descent: -300, 'OS/2': { fsSelection: 0x80, typoAscender: 800, typoDescender: -200 } });
 	assert.deepEqual(typo, { asc: 0.8, desc: 0.2 });
+});
+
+test('writer: the synthetic slant is per word, not per font (upright and italic share a face)', async () => {
+	const zlib = require('node:zlib');
+	const subset = await subsetMod.createFontSubsetter(WASM);
+	const ttf = await subset(FONT, 'Upright Slanted', { wght: 400 });
+	const fonts = new Map([['k', { ttf }]]);
+	const word = (t, x, synthItalic) => ({ t, fontKey: 'k', x, top: 100, w: 90, h: 24, size: 20, ls: 0, color: [0, 0, 0, 1], op: 1, synthItalic });
+	// The upright word comes FIRST: a slant decided per font would take its answer from it.
+	const slide = { w: 1280, h: 720, words: [word('Upright', 100, false), word('Slanted', 300, true)], shapes: [], links: [] };
+	const { bytes } = await write.writeDeckPdf({ slides: [slide], fonts });
+	const doc = await pdfLib.PDFDocument.load(bytes);
+	const contents = doc.getPage(0).node.Contents();
+	const streams = contents instanceof pdfLib.PDFArray ? contents.asArray().map((r) => doc.context.lookup(r)) : [contents];
+	const ops = streams.map((st) => zlib.inflateSync(Buffer.from(st.getContents())).toString('latin1')).join('\n');
+	// pdf-lib writes a slanted run's text matrix with tan(14.04°) = 0.25 in the c slot.
+	const matrices = [...ops.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) [-\d.]+ [-\d.]+ Tm/g)].map((m) => Number(m[3]));
+	assert.equal(matrices.length, 2, `two text runs, got:\n${ops.slice(0, 400)}`);
+	assert.deepEqual(matrices.map((c) => Math.abs(c) > 0.2), [false, true], 'only the italic word is slanted');
 });

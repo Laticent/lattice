@@ -5411,8 +5411,8 @@ async function prunePlayerCssInPage(playerHtml) {
 /**
  * Compose the vector PDF with the SHARED writer (lib/core/pdf-compose), inside this page.
  * Returns the PDF bytes, or null when the writer could not run — the caller then prints
- * with Chrome, exactly as before, and this says why. The slides switch to their EXPORT
- * face (`.lattice-exporting`) first, the same face the Studio download photographs.
+ * with Chrome, exactly as before, and this says why. The page is read and photographed
+ * under print media, the face Chrome's printer drew it with.
  */
 async function composePdfInPage(g, page) {
   composePdfInPage.pages ||= new WeakSet();
@@ -5430,7 +5430,7 @@ async function composePdfInPage(g, page) {
     // CSS backgrounds, filters — where html-to-image would have to fetch each one from a
     // file:// page and cannot. The Studio's camera is html-to-image, on the same face.
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
-    const PHOTO_FN = '__latticePdfPhoto', ASSET_FN = '__latticePdfAsset';
+    const PHOTO_FN = '__latticePdfPhoto', ASSET_FN = '__latticePdfAsset', FACES_FN = '__latticePdfFontFaces';
     composePdfInPage.handles = handles;
     if (!composePdfInPage.pages.has(page)) {
       composePdfInPage.pages.add(page);
@@ -5457,16 +5457,30 @@ async function composePdfInPage(g, page) {
         if (url.startsWith('file:')) buf = fs.readFileSync(require('node:url').fileURLToPath(url));
         else if (/^https?:/i.test(url)) buf = Buffer.from(await (await fetch(url)).arrayBuffer());
         else throw new Error('unsupported asset URL');
-        const png = buf.length > 8 && buf.readUInt32BE(0) === 0x89504e47;
+        // Images (PNG, JPEG) and web fonts (WOFF, WOFF2, TrueType, OpenType — a KaTeX face
+        // loads from file:// too): the formats the page itself already loaded to display.
+        const magic = buf.length > 4 ? buf.readUInt32BE(0) : 0;
+        const png = magic === 0x89504e47;
         const jpeg = buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-        if (!png && !jpeg) throw new Error('not a PNG or JPEG image');
+        const font = magic === 0x774f4646 || magic === 0x774f4632 || magic === 0x00010000 || magic === 0x4f54544f || magic === 0x74727565;
+        if (!png && !jpeg && !font) throw new Error('not an image or a font');
         return buf.toString('base64');
       });
+      // The @font-face rules of a local stylesheet the page links but cannot read (KaTeX's).
+      // Only a .css file, and only its @font-face blocks cross back: nothing else in it does.
+      await page.exposeFunction(FACES_FN, async (href) => {
+        if (!href.startsWith('file:') || !/\.css$/i.test(new URL(href).pathname)) throw new Error('not a local stylesheet');
+        const css = fs.readFileSync(require('node:url').fileURLToPath(href), 'utf8');
+        return (css.match(/@font-face\s*\{[^}]*\}/g) || []).join('\n');
+      });
     }
-    const out = await g(() => page.evaluate(async (wasmB64, fnName, assetFn, epochMs) => {
+    // THE FACE: print media, the face Chrome's printer always drew the CLI's PDF with — the
+    // `@media print` half of the export face; the Studio uses its `.lattice-exporting` half.
+    // The reader measures and the camera photographs under it, then screen media returns.
+    await g(() => page.emulateMediaType('print'), 'print media');
+    const out = await g(() => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
-      for (const s of secs) s.classList.add('lattice-exporting');
       const unb64 = (b64) => {
         const b = atob(b64);
         const bytes = new Uint8Array(b.length);
@@ -5480,7 +5494,8 @@ async function composePdfInPage(g, page) {
       for (let i = 0; i < bin.length; i++) wasmBytes[i] = bin.charCodeAt(i);
       let composed;
       try {
-        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, harfbuzzWasm: wasmBytes, date: new Date(epochMs) });
+        const readFontFaceRules = (href) => window[facesFn](href);
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs) });
       } catch (e) {
         // Carry the page-side stack across CDP: puppeteer keeps only the message.
         return { error: String(e?.stack || e) };
@@ -5489,7 +5504,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000), 'compose pdf');
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN), 'compose pdf').finally(() => page.emulateMediaType(null));
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     if (!QUIET) {
       const r = out.report;
