@@ -84,7 +84,6 @@ import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
-import { paneMarkerComponents, panePageOfCaret, paneSplitCounts } from './pane-pages';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
@@ -1226,14 +1225,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// deck that renders a saved component here keeps its styling on the recipient's
 	// machine. One derivation feeds both, so preview and export can't disagree about
 	// which components the deck uses.
+	// PANES support (pane-pages.ts) loads only for a deck that carries a pane marker: the Studio's
+	// eager bundle is budgeted (docs/route-budget.json), and every other deck needs none of it.
+	// Until it lands, a panes deck previews as it did before the map existed (the slide alone,
+	// fail-closed) — one render at most.
+	const hasPaneMarker = source.includes('pane:');
+	const [paneMod, setPaneMod] = React.useState<typeof import('./pane-pages') | null>(null);
+	React.useEffect(() => {
+		if (!hasPaneMarker || paneMod) return;
+		let live = true;
+		import('./pane-pages').then((m) => { if (live) setPaneMod(m); }).catch(() => {});
+		return () => { live = false; };
+	}, [hasPaneMarker, paneMod]);
 	const usedLocalComponents = React.useMemo(() => {
 		if (!localComponents.length) return [];
 		// A component used only in a pane counts: its CSS must reach the pane (pane-pages.ts).
-		const used = new Set([...usedComponents(source), ...paneMarkerComponents(source)]);
+		const used = new Set([...usedComponents(source), ...(paneMod ? paneMod.paneMarkerComponents(source) : [])]);
 		// A record saved under a shipped name before saves were guarded is skipped: its
 		// CSS would restyle the shipped component on every slide that uses it.
 		return localComponents.filter((c) => used.has(c.name) && c.css && !RESERVED_COMPONENT_NAMES.has(c.name)).map((c) => ({ name: c.name, css: c.css }));
-	}, [localComponents, source]);
+	}, [localComponents, source, paneMod]);
 	const usedLocalCss = React.useMemo(() => usedLocalComponents.map((c) => c.css).join('\n\n') || undefined, [usedLocalComponents]);
 	// `validation` is an editor preference (persisted in settings). The deck-level
 	// Look controls (size / page numbers / header+footer) are NOT separate state —
@@ -3522,11 +3533,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renders exactly as before. The caret's pane picks which page of a split slide the preview
 	// shows, the way the caret picks a structural split's page. Source chunks are untouched: they
 	// feed write-back, so the rail, the caret and lint keep counting the slides the author wrote.
-	const editorPaneCounts = React.useMemo(() => paneSplitCounts(viewSlides, editorSample), [viewSlides, editorSample]);
+	const editorPaneCounts = React.useMemo(() => paneMod?.paneSplitCounts(viewSlides, editorSample), [paneMod, viewSlides, editorSample]);
 	paneDeckRef.current = !!editorPaneCounts?.some((c) => c > 1);
 	const editorPanePage = React.useMemo(
-		() => ((editorPaneCounts?.[viewIndex] ?? 1) > 1 ? panePageOfCaret(slide, editorSample, caretText) : undefined),
-		[editorPaneCounts, viewIndex, slide, editorSample, caretText],
+		() => ((editorPaneCounts?.[viewIndex] ?? 1) > 1 ? paneMod?.panePageOfCaret(slide, editorSample, caretText) : undefined),
+		[paneMod, editorPaneCounts, viewIndex, slide, editorSample, caretText],
 	);
 	// THE DECK IDENTITY THE PREVIEW COMPARES, which is the deck AND the reader lens.
 	// `viewSlides` is the lens's set, so the lens is part of what "this deck" means here: two

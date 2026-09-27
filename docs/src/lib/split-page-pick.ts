@@ -22,25 +22,11 @@
  * editor already reports the plain text.
  */
 
+import { caretProbe } from './caret-probe';
+
+export { caretProbe };
+
 const MIN_CHARS = 3;
-const PROBE_CHARS = 48;
-
-/** Normalize to comparable text: lower-case, collapsed whitespace, no markdown syntax. */
-export function caretProbe(line: string): string {
-	return String(line || '')
-		.replace(/<!--[\s\S]*?-->/g, ' ')
-		.replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX-]\]\s+)?/, '') // list marker (+ task box)
-		.replace(/^\s*>+\s?/, '') // blockquote
-		.replace(/^\s*#{1,6}\s+/, '') // heading
-		.replace(/\*\*|__|`|~~/g, '') // emphasis / code / strike
-		.replace(/(^|\s)[*_](?=\S)|(?<=\S)[*_](?=\s|$)/g, '$1') // single-char emphasis
-		.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links and images → their text
-		.replace(/\s+/g, ' ')
-		.trim()
-		.toLowerCase()
-		.slice(0, PROBE_CHARS);
-}
-
 // Split CHROME is not the page's content: the forward pill names the NEXT row, the rail and the
 // footer repeat on every page. Left in, a row's title matched its own page AND the page before it.
 const CHROME = '.lat-split-rel, .lat-split-rail, .cell-footer, .marker-rail, .fixme-tab, .overflow-tab, .illegible-tab';

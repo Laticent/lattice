@@ -19,7 +19,7 @@
 // disagree about where a slide ends. `authoring-core.generated.js` is already in the Studio's
 // eager chunk (architect.ts imports it statically), so this import adds no route bytes.
 
-import { caretProbe } from '@/lib/split-page-pick';
+import { caretProbe } from '@/lib/caret-probe';
 import { lintCore } from '@/playground/authoring-core.generated.js';
 
 const core = lintCore as unknown as { paneSplitLine: (slide: string, source: string) => number };
