@@ -7,8 +7,8 @@ source: https://github.com/Laticent/lattice/pull/2398
 # Find what WebKit still keeps per Add slide open, with no new preview documents
 
 why now   — After #2398 an Add slide open + full scroll + close on WebKit creates zero preview
-            documents, yet RSS still rises: +346, +370, +419, +440, +468, +471 MB over 6 cycles
-            (main: +255 → +915). The step shrinks toward the end, so it may plateau; it has not
+            documents, yet RSS still rises: +378, +384, +428, +453, +470, +492 MB over 6 cycles
+            (main: +239 → +905). The step shrinks toward the end, so it may plateau; it has not
             been run long enough to say.
 where     — `.scratch/perf/webkit-scroll-mem.mjs` reproduces the cycle (rebuild it from §5 of
             `engineering/decisions/2026-09-26-render-drift-and-unclosed-comments.md` if the

@@ -13,8 +13,10 @@ why now   — #2398 keeps Add slide mounted between opens so WebKit stops strand
             back. That this one does not has not yet been seen on a device.
 where     — the deployed Studio. Open Add slide from the Edit pane's drawer, fling-scroll hard,
             close with the back gesture and with the Deck button, reopen, fling again; tap a tile
-            and confirm it inserts. With VoiceOver on, confirm the gallery is announced as a
-            dialog and the Studio behind it is not reachable.
+            and confirm it inserts. Rotate the phone with the gallery open and closed. With
+            VoiceOver on, open it twice from the drawer and confirm it is announced as a dialog
+            both times and the Studio behind it is not reachable. Touch-scroll the gallery while
+            the drawer's Radix scroll lock may still be active beneath it.
             Record: engineering/decisions/2026-09-26-render-drift-and-unclosed-comments.md §5.
 done when — no preview trails its card during a fling, a reopen starts at the top with every
             preview on its tile, the back gesture closes only the gallery, and Safari's Web

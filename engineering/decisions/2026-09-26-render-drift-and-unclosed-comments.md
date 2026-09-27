@@ -115,12 +115,33 @@ itself, only while open:
 It sits inside a Radix `Dialog.Root`, which renders no DOM, so the shared `DialogTitle`,
 `SheetTitle` and close pieces work unchanged; the titles take their ids from the surface.
 
+The adversarial trio reviewed it, and three of its findings changed the design:
+
+- **One host for both layouts.** The phone sheet and the desktop dialog were two components, so
+  crossing the breakpoint unmounted one. A phone rotated, or an iPad in Split View, destroyed
+  every frame, and the next open minted 12–14 documents. `PanelSheet` now draws the centered
+  dialog off the phone (`dialogClassName`), the chrome around the grid is keyed, and the grid
+  stays mounted through the crossing. MR-7 pins it.
+- **Seen again after a Radix modal.** The drawer's `hideOthers` marks every `<body>` child
+  `aria-hidden`, and from the second open on, that includes the kept gallery. VoiceOver found no
+  dialog while it was on screen. The surface lifts that mark while open and restores it on close.
+  Its own `inert` also spares `[aria-live]` regions, as `hideOthers` does, so a toast raised
+  while it is open is still announced. The WebKit-phone test checks the reopened gallery by role.
+- **No re-render while closed.** The kept tree re-rendered 71 tiles on every keystroke in the
+  editor: 1.10 s of script for 49 characters, against 0.69 s on main (Chromium). `SlidePicker`
+  skips the render while it stays closed and catches up when it opens.
+
+The surface also plays main's zoom-and-fade exit before it hides. Hiding at once dropped the
+animation and let a Compose smoke test's "wait until the dialog is gone" pass before the insert
+reached the editor.
+
 Two pool changes came out of measuring it:
 
 - **Measure in the layer's own units.** The dialog opens with a zoom from 95%, and a hidden
   element replays its entrance animation each time it is shown. A pass measured mid-animation
   left every preview at 95% of its tile, shifted up and left (screenshot, WebKit, 1440 px).
-  `rectOf` now divides out the layer's scale.
+  `rectOf` now divides out the layer's scale, read against its computed CSS size, which ignores
+  transforms.
 - **A shape gets its own slot.** A tile whose shape has no free slot used to rewrite a free slot
   of another shape, and the next tile of that shape rewrote it back: two documents on every
   traversal. The gallery's one Mermaid tile did this on every reopen. The pool now makes a new
@@ -135,7 +156,9 @@ the whole gallery, closes it, and repeats.
 | | main | this change |
 |---|---|---|
 | new preview documents per reopen (iframes + `srcdoc` writes) | 12 + 14, every cycle | **0 + 0** |
-| RSS over baseline after each of 6 cycles | +255, +394, +573, +771, +833, +915 MB | +346, +370, +419, +440, +468, +471 MB |
+| RSS over baseline after each of 6 cycles | +239, +385, +568, +664, +815, +905 MB | +378, +384, +428, +453, +470, +492 MB |
+| a reopen after crossing the phone breakpoint and back (Chromium, WebKit) | the gallery remounts | **0** documents |
+| script time typing 49 characters after one open and close (Chromium, 3 runs) | 0.66, 0.73, 0.68 s | 0.79, 0.69, 0.72 s |
 
 The dialog's box is identical to main at 1440, 820 and 390. Previews sit on their tiles after an
 open, a full scroll and a reopen, on Chromium and WebKit. Keyboard focus never leaves the
@@ -147,6 +170,12 @@ residue, and a reopen that makes no documents. The WebKit-phone test asserts the
 **Scope.** Only Add slide is persistent. The deck panel's preset tiles (the inspector, and its
 phone sheet) and Present's overview still rebuild their frames on each reopen, as on main. That
 work stays in `followups.d/2391-p3`, which now has the primitive to use.
+
+**Open, recorded, not fixed here:**
+- Hidden frames keep their event loops running (the inversion review measured rAF at full rate).
+  That is idle today, but an animated preview would burn CPU all session.
+- On Chromium, a reopen shows no previews for 60–200 ms while the pool re-points them, because the
+  hidden tiles all left the band. No documents are made.
 
 **Unverified:** a real iPhone or iPad. The design puts the frames back where main had them, in
 the scroller, so it should scroll exactly as main does. That still needs the owner's device to
