@@ -8774,6 +8774,10 @@ const SANCTIONED_GESTURES = {
   wash: '"these words" — a highlighter band per line rect of a phrase inside a longer block (deictic)',
   bracket: '"this whole block" — a soft outline just outside a multi-line block or card (deictic)',
   tap: '"this one" — a ripple on something small and discrete, where a ring would be a dot (deictic)',
+  // Added 2026-09-27 for the expressive delivery's `enter` act (engineering/decisions/
+  // 2026-09-27-delivery-styles-and-component-scenes.md §7): no rect-built stroke can say "this line
+  // moved like this" about a chart series, and bracketing a line names its box, not its shape.
+  trace: '"follow this line" — a stroke drawn through a series\' points in order, the hand riding it (deictic)',
 };
 
 function checkSanctionedGestures(errors) {
