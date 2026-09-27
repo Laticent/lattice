@@ -182,9 +182,13 @@ work stays in `followups.d/2391-p3`, which now has the primitive to use.
 - On Chromium, a reopen shows no previews for 60–200 ms while the pool re-points them, because the
   hidden tiles all left the band. No documents are made.
 
-**Unverified:** a real iPhone or iPad. The design puts the frames back where main had them, in
-the scroller, so it should scroll exactly as main does. That still needs the owner's device to
-confirm.
+**On a real iPad (the owner, 2026-09-27):** fast scrolling shows no bounce, and closing shows
+no flash. Both were checked against the preview deploy of `bbe4b31`.
+
+**Still unverified on a device:** the memory itself, read from Safari's Web Inspector across
+reopens; VoiceOver on the phone's second open; and a rotation with the gallery open. The WebKit
+figures above come from Playwright's WebKit on Linux, the same engine as iOS Safari but a
+different memory manager.
 
 ### Tried first, and why they failed
 
