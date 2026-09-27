@@ -363,3 +363,18 @@ describe('withCompact — a budget that knows `compact` (#2361 P3)', () => {
     assert.doesNotMatch(out[0].fix, /Add `compact`/);
   });
 });
+
+describe('withCompact at a venue', () => {
+  const qa = require('../../../lib/components/inventory/q-and-a/q-and-a.manifest.json').capacity;
+  const v = { names: new Set(['q-and-a']), modifiers: new Set(['compact']), capacity: { 'q-and-a': qa } };
+  const pairs = (n) => Array.from({ length: n }, (_, i) => `- Question ${i + 1}?\n  - A short answer.`).join('\n');
+  const run = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: huddle\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${pairs(5)}\n`, v).filter((f) => /^capacity-/.test(f.rule));
+
+  test('the compact hint is not offered where compact would still be over the venue budget', () => {
+    for (const f of run('q-and-a')) assert.doesNotMatch(f.fix, /Add `compact`/);
+  });
+
+  test('a compact slide its compact budget holds never claims a clip at the designed size', () => {
+    for (const f of run('q-and-a compact')) assert.doesNotMatch(f.message, /designed size/);
+  });
+});
