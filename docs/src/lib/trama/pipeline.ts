@@ -5,6 +5,9 @@
  * adapter selects. The adapter is the chart: it reads and sanitizes its model, measures
  * its own harness, and paints its own markup. This file owns everything that is the same
  * for every graph chart:
+ *   - the font wait: no layout while the page's fonts are loading (a 2 s deadline, and a
+ *     `document.__latticeGraphFlush` hook a capturing host calls), so a chart is drawn
+ *     once, in its own fonts;
  *   - the redraw signature, so a pass with nothing new costs no layout;
  *   - the fit and the type floor, solved as one fixed point in one draw;
  *   - the per-position fit memory, since a live preview replaces the element on each edit;
@@ -131,10 +134,11 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
   // out in a worker, so a keystroke never waits on dagre and the router: measured on a
   // 17-shape flowchart, a synchronous draw held every key 70-250 ms. The figure keeps its
   // last drawing meanwhile, and only the newest request for a chart is ever painted (a
-  // worker cannot be interrupted, so at most one more waits behind the one in flight). The
-  // first draw of a chart stays synchronous, and no export sets the flag, so nothing that
-  // captures a page can capture a drawing still in flight. Without a Worker, or without
-  // dagre's script URL to load into it, every draw stays synchronous.
+  // worker cannot be interrupted, so at most one more waits behind the one in flight). No
+  // export sets the flag, so no capture waits on a worker. A first draw can still wait for
+  // the page's fonts (FONT_DEADLINE below), so a capturing host calls `__latticeGraphFlush`
+  // first. Without a Worker, or without dagre's script URL to load into it, every draw
+  // stays synchronous.
   const live = Boolean(opts?.live) || Boolean(doc.documentElement?.hasAttribute?.('data-lattice-live-layout'));
   function liveWorker(): Bag | null {
     if (D[key('Worker')] !== undefined) return D[key('Worker')];
@@ -433,7 +437,17 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // 4 to 7 full layouts per keystroke in the Studio, each a cache miss. So it is solved
     // here, in one draw: start from the scale this chart had last (kept per chart position,
     // since a live preview replaces the element on every edit), measure and lay out, and go
-    // again only while the floor that scale implies moves by more than 1% (3 rounds at most).
+    // again only while the floor that scale implies moves by more than 1% (ROUNDS at most).
+    //
+    // THE FIRST DRAW has no scale to start from, so it starts at 1, and a chart the fit
+    // shrinks hard converges slowly from there: the typing deck's 17-shape chart asks for a
+    // floor lift of 1, 1.63, 1.90, 2.05, 2.13 ... 2.25, each step ~0.57 of the last. Stopped
+    // at the third round, it painted text measured at a 2.05 lift under a 2.21 fit, 10.2px
+    // against the 11px floor. So from the third round on the guess is the SECANT step: the
+    // lift is close to affine in itself (the chart's text-driven share grows with it, the rest
+    // does not), so two rounds give its slope and the point where the line meets itself.
+    // The first two rounds are unchanged, so a chart that settles in two draws the same bytes.
+    const ROUNDS = 4;
     const floorFor = (k: number) => {
       if (k < 1) box.style.setProperty('--chart-text-min', `${(readTextMin(fig, 11) / k).toFixed(3)}px`);
       else box.style.removeProperty('--chart-text-min');
@@ -443,11 +457,22 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     if (!D[key('Fit')]) D[key('Fit')] = new Map();
     let kGuess: number = D[key('Fit')].get(fitKey) ?? 1;
     const measure = (): Measured & { geo: Geometry | null } => ({ ...A.measure(model, ctx), geo: null });
+    // The last round's [lift guessed, lift it came out at], for the secant step.
+    let last: [number, number] | null = null;
     // Another round only while the floor the new fit implies moves by more than 1%.
     const settled = (geo: Geometry) => {
       const kNow = fitOf(port0, geo.width * S, geo.height * S);
       if (kNow == null || Math.abs(lift(kNow) - lift(kGuess)) / lift(kGuess) < 0.01) return true;
-      kGuess = kNow;
+      const lg = lift(kGuess), ln = lift(kNow);
+      let next = kNow;
+      if (last && lg !== last[0]) {
+        // The slope of lift-out against lift-in. Only a contracting, same-direction step is
+        // extrapolated (0 to 0.9, so at most 9 steps' worth); anything else iterates plainly.
+        const b = (ln - last[1]) / (lg - last[0]);
+        if (b >= 0 && b <= 0.9) { const L = (ln - b * lg) / (1 - b); next = L > 1 ? 1 / L : 1; }
+      }
+      last = [lg, ln];
+      kGuess = next;
       return false;
     };
     if (!D[key('Prev')]) D[key('Prev')] = new Map();
@@ -478,7 +503,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
           // drawing standing in for a chart that no longer looks like it.
           if (!geo) { unlay(); fig.removeAttribute(`data-${P}-pending`); F[key('PendingSig')] = null; F[key('NoLayoutSig')] = sigNow(); return; }
           m.geo = geo;
-          if (r < 2 && !settled(geo)) { round(r + 1); return; }
+          if (r < ROUNDS - 1 && !settled(geo)) { round(r + 1); return; }
           finish(m as Measured & { geo: Geometry });
         });
       };
@@ -488,7 +513,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     unlay();
     floorFor(kGuess);
     let m: (Measured & { geo: Geometry | null }) | null = null;
-    for (let round = 0; round < 3; round++) {
+    for (let round = 0; round < ROUNDS; round++) {
       m = measure();
       m.geo = K.layout(m.args[0], m.args[1], m.args[2], dagre);
       if (!m.geo) return;
@@ -554,8 +579,60 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     if (rafPending) w.cancelAnimationFrame(rafPending);
     rafPending = w.requestAnimationFrame(() => { rafPending = 0; drawAll(); });
   }
-  function drawAll(freshOnly?: boolean) {
+  // WAIT FOR THE FONTS. A chart is measured in its own fonts, so a draw while the page's
+  // faces are still loading measures fallback metrics and is thrown away when they land:
+  // on a cold load of a 7-chart deck that was 2 of every 3 layouts (32 layouts, 21 paints,
+  // ~720 ms). So while `document.fonts.status` is `loading` a pass draws nothing; the
+  // harness tiles show, and one waiter per document draws when the faces are in. A face
+  // that never loads must not strand a chart, so the waiter also draws at FONT_DEADLINE
+  // (the same 2 s bound settleFonts gives the runtime's boot sweep), and again once the
+  // faces do land, since the status then changes the redraw signature.
+  const FONT_DEADLINE = 2000;
+  function fontsLoading(): boolean {
+    const fonts = doc.fonts;
+    if (!fonts || typeof fonts.status !== 'string') return false;
+    // A face is requested only when text using it is first laid out, so before any layout
+    // the status reads `loaded` with nothing in flight. The draw forces this layout anyway.
+    try { void doc.documentElement?.offsetHeight; } catch (_e) { /* read the status as is */ }
+    return fonts.status === 'loading';
+  }
+  function waitForFonts(): Bag | null {
+    if (D[key('FontWait')]) return D[key('FontWait')];
+    const fonts = doc.fonts;
+    const w = doc.defaultView || (typeof window !== 'undefined' ? window : null);
+    // Nothing to wait on, or no clock to bound the wait with: draw now.
+    if (!fonts?.ready || typeof fonts.ready.then !== 'function' || !w || typeof w.setTimeout !== 'function') return null;
+    const wait: Bag = { timer: 0, expired: false };
+    D[key('FontWait')] = wait;
+    wait.timer = w.setTimeout(() => {
+      if (D[key('FontWait')] !== wait) return;
+      wait.timer = 0;
+      wait.expired = true;
+      drawAll(false, true);
+    }, FONT_DEADLINE);
+    // `ready` settles when the faces in flight do, but a face requested meanwhile starts a
+    // new round with a new promise; follow it until the status really leaves `loading`.
+    const onReady = () => {
+      if (D[key('FontWait')] !== wait) return;
+      if (fonts.status === 'loading') { fonts.ready.then(onReady, onReady); return; }
+      if (wait.timer) w.clearTimeout(wait.timer);
+      D[key('FontWait')] = null;
+      drawAll();
+    };
+    fonts.ready.then(onReady, onReady);
+    return wait;
+  }
+  // `force` draws whatever the fonts are doing: the deadline, and a host about to capture
+  // the page (the CLI export calls `document.__latticeGraphFlush` before it measures and
+  // prints, so no capture can take a chart still waiting on its fonts).
+  function drawAll(freshOnly?: boolean, force?: boolean) {
+    // Past the deadline a pass draws in whatever fonts there are (a figure patched in
+    // meanwhile included); the waiter still redraws when the faces land.
     const figs = doc.querySelectorAll<HTMLElement>(A.selector);
+    // No chart, no fonts question: reading the status forces a layout, which a document
+    // with nothing to draw should not pay on every transform pass.
+    if (!figs.length) return;
+    if (!force && fontsLoading()) { const wait = waitForFonts(); if (wait && !wait.expired) return; }
     for (const f of figs) {
       if (freshOnly === true && f.getAttribute(`data-${P}-drawn`)) continue;
       try { draw(f); } catch (_e) { /* one figure must not strand the rest */ }
@@ -567,6 +644,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     for (const f of doc.querySelectorAll(A.figure)) ro.observe(f);
   }
 
+  // The capture hook, one entry per chart kind: draw now, fonts or not.
+  const flush = ((D.__latticeGraphFlush as Bag | undefined) || (D.__latticeGraphFlush = {})) as Bag;
+  flush[P] = () => drawAll(false, true);
   drawAll(onlyFresh);
   if (D[key('LayoutInstalled')]) { observeAll(); return; }
   D[key('LayoutInstalled')] = true;

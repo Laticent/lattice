@@ -3698,11 +3698,19 @@ async function renderBody(browser, g, closeBrowser) {
   // resolves SLOWLY rather than failing or resolving locally — still leaves a face `unloaded`
   // here, still replaces `document.fonts.ready`, and still orphans the redraw. Tracked in the
   // cost assessment's §8 rather than guarded here.
+  //
+  // THE GRAPH CHARTS DRAW HERE TOO. Trama's pass (`installGraphPass`, the flowchart today)
+  // lays nothing out while `document.fonts.status` is `loading`: it waits for `ready`, or a
+  // 2 s deadline, so a chart is measured once, in its own fonts. Its first draw is therefore
+  // a promise continuation, and `document.__latticeGraphFlush` is how this capture stops
+  // depending on continuation order: each entry draws its charts NOW, fonts or not (a no-op
+  // for a chart already drawn with these inputs). Called after every font settle below.
   await g(() => page.evaluate(async () => {
     try {
       await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
       await document.fonts.ready;
     } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
+    for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
   }), 'load fonts');
   await settleDeferredMedia('');
   await awaitPluginFigures('');
@@ -3863,6 +3871,7 @@ async function renderBody(browser, g, closeBrowser) {
       await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (autosplit)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+        for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
       }), 'load fonts (autosplit)');
       await settleDeferredMedia(' (autosplit)');
       await awaitPluginFigures(' (autosplit)');
@@ -3889,6 +3898,7 @@ async function renderBody(browser, g, closeBrowser) {
       await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (rails)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+        for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
       }), 'load fonts (rails)');
       await settleDeferredMedia(' (rails)');
       await awaitPluginFigures(' (rails)');

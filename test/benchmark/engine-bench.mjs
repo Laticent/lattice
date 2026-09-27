@@ -440,10 +440,12 @@ async function editTier() {
 
 // ── FLOWCHART LAYOUT TIER ────────────────────────────────────────────────────
 //
-// The flowchart's browser pass calls Trama's `graphLayoutKernel().layout()` for every chart on
-// load, again when fonts arrive, and on resize. This tier replays the exact calls one
-// Chromium render of examples/flowchart.md made (test/benchmark/fixtures/
-// flowchart-deck-layouts.json) through a fresh kernel, the way a page does, and a second
+// The flowchart's browser pass calls Trama's `graphLayoutKernel().layout()` for every chart
+// once the page's fonts have loaded (or at a 2 s deadline), once per round of the fit and
+// type-floor fixed point, and again on a resize. This tier replays the exact calls one cold
+// Chromium load of examples/flowchart.md made (test/benchmark/fixtures/
+// flowchart-deck-layouts.json), fit rounds included, through a fresh kernel, the way a
+// page does, and a second
 // time with a fresh kernel per call, which is the shape before the kernel cached its
 // results: the gap between the two rows is the cache's share, re-measured in the same
 // run on the same machine (HARD RULE #19).

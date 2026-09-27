@@ -154,19 +154,19 @@
     }
   },
   "flowchartDatasets": {
-    "flowchart · demo deck page (35 calls)": {
-      "calls": 35,
-      "routed": 25,
-      "bounded": 8,
-      "hits": 16,
-      "ms": 435.05
+    "flowchart · demo deck page (10 calls)": {
+      "calls": 10,
+      "routed": 12,
+      "bounded": 3,
+      "hits": 1,
+      "ms": 212.25
     },
     "flowchart · same calls, no cache": {
-      "calls": 35,
-      "routed": 50,
-      "bounded": 11,
+      "calls": 10,
+      "routed": 14,
+      "bounded": 3,
       "hits": 0,
-      "ms": 843.36
+      "ms": 256.17
     }
   }
 }

@@ -31,7 +31,16 @@ const SCRIPT = path.join(REPO, 'tools', 'wait-for.sh');
 // Locks live outside .scratch on purpose: that directory is throwaway, and
 // wiping it mid-wait would let a second waiter make a fresh inode and take
 // the lock. Logs stay there; correctness state does not.
-const LOCK_ROOT = path.join(REPO, '.git', 'lattice-waits');
+// The same directory the script resolves (`git rev-parse --absolute-git-dir`): in a linked
+// worktree `.git` is a FILE naming the real git dir, so `REPO/.git/lattice-waits` did not
+// exist there and every lock assertion in this file failed.
+const LOCK_ROOT = path.join(
+  (() => {
+    const r = spawnSync('git', ['-C', REPO, 'rev-parse', '--absolute-git-dir'], { encoding: 'utf8' });
+    return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : path.join(REPO, '.git');
+  })(),
+  'lattice-waits',
+);
 
 /** Run the helper to completion and hand back its exit code plus streams. */
 const run = (args, opts = {}) => {

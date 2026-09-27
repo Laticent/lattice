@@ -16,6 +16,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+// A scratch repo must not reach the REAL one. A git hook exports GIT_DIR and GIT_INDEX_FILE,
+// and in a linked worktree both are absolute, so the sandbox's `git init` and `git add -A`
+// acted on this checkout's own repo (they emptied the commit's index). Scrub them for every
+// child process.
+for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_PREFIX', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete process.env[k];
 
 // A git hook exports GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE) to everything it runs, and this
 // file builds throwaway repos with `git init` + `git config`. With GIT_DIR inherited, those calls
