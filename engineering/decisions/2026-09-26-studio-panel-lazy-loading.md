@@ -377,8 +377,9 @@ registered from an init script, ahead of the app's own, because React commits th
 microtask after each listener and a later probe would see portrait already rendered. On a build
 with the check disabled it stores `{"l":0,"t":0.37,"w":1,"h":0.2599}`, the same rect the flake
 above left behind; with the check it stores nothing, 10 of 10. "Is not replayed in portrait" stays
-20 of 20 on `npm run build`. UNVERIFIED on a real phone: the probe shows the window exists in
-Chromium and that the app now drops the rect in it, not how often an iPhone opens it.
+20 of 20 on `npm run build`. On a real iPhone (2026-09-28, the owner, against lattice.style after
+#2432 deployed): rotating out of landscape and leaving at once, then reloading, showed no jump at
+hand-off. That check was reported, not recorded, so it carries no artifact.
 
 ## Warming Present, Fabricate and the reading view (2026-09-27)
 
@@ -505,8 +506,21 @@ the editor and requires `data-mermaid-state="rendered"`. On a build with the war
 fails at "the warm-up never cached … mermaid-v11.min.js", and with the wait removed the diagram
 reads `unavailable` offline. With the warm-up it passes 10 of 10. The first test now also asserts a
 browser with neither flag never fetches Mermaid, the Fabricate test that opening Fabricate alone
-warms it, and the Save-Data test, flagged as a diagram user, that Save-Data skips it. UNVERIFIED in
-WebKit: the spec runs in Chromium, and iOS Safari is where the Compose gap above was found.
+warms it, and the Save-Data test, flagged as a diagram user, that Save-Data skips it.
+
+**On the live site (2026-09-28).** Two surfaces beyond the built-site spec:
+- *Chromium against lattice.style*, with a throwaway script. It shows a diagram, deletes the
+  cached bundle (the state a new `/playground/v/<hash>/` leaves), reloads with a diagram-free
+  deck, and waits for the warm-up to cache it again. It then cuts the network and types a
+  diagram, which draws. Without the flag, the warm-up does not fetch the bundle. With nothing
+  cached, the same cut leaves a diagram `unavailable`, which shows the cut is real. 9 of 9 checks
+  passed, twice. One trap in doing this: Playwright's `context.route` and `setOffline` do not stop
+  a service worker's own fetches unless `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` is set,
+  so without it an "offline" run proves nothing. The script caught this through its own
+  negative case.
+- *A real iPhone*, by the owner: in airplane mode, a diagram met offline drew. This covers iOS
+  Safari's service worker, where the Compose gap above was found. It was reported, not recorded,
+  so it carries no artifact.
 
 ## Delivery
 
