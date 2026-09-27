@@ -676,7 +676,9 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    the two panes' content, stacked.
    **Mostly closed (PR #2420).** The player's Read · Article view projects each pane as the slide
    it would be alone (`lib/transformers/prose-projection.mjs`), so a chart pane is a styled
-   `chart-frame` figure. The Studio's Present steps through a split panes slide's pages and sizes
+   `chart-frame` figure. The host's Key Insight and below-note follow the panes, and a pane's own
+   coda follows that pane (the panes-continuation PR; before it, the article dropped every coda,
+   panes or not). The Studio's Present steps through a split panes slide's pages and sizes
    its frame to the deck's shape (a fixed 16:9 frame cropped every portrait slide below its
    heading, panes or not). The slide strip names a panes slide "panes". Export-to-Marp drops the
    markers Marp would keep as speaker notes and degrades each panes slide to its panes, stacked

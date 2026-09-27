@@ -285,6 +285,15 @@ the same way, still agree, and pass. The whole 7,201-test suite passed with the 
 inside the stage and outside it. What pins it now is one STRUCTURAL assertion per arm
 (`test/unit/transformers/masthead-lift.test.js`), each verified to fail on a revert.
 
+**The readers had to learn this too.** A projection that walks `.cell-stage` never sees the
+coda, because the coda is the stage's sibling. The speech projection learned it first
+(`speakCoda`). The article projection (`projectDeckToProse`, which feeds Read · Article in the
+player, the `--read` export and the Studio) learned it in the panes-continuation PR (2026-09-27):
+`withCoda` prints a host's direct-child coda after its body, and a pane's own coda after that
+pane. A layout that claims its trailing block keeps it inside the stage and gets no coda cell,
+so the body walk prints it once. Pinned on the engine's render by
+`test/integration/export/article-keeps-coda.test.js`.
+
 
 ## 8. What the adversarial trio found, and what it cost
 
