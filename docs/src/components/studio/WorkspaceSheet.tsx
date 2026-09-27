@@ -1,4 +1,4 @@
-import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -42,6 +42,7 @@ import {
 	markBackupTaken,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	type PdfPages,
+	type PdfWriter,
 	type Posture,
 	type StandingOverflowMarker,
 	saveInstructions,
@@ -133,6 +134,11 @@ const HANDLE_CHOICES: { value: HandleStyle; title: string; blurb: string }[] = [
 // 3.3 MB against JPEG 4.8 s / 7.4 MB — the flat color and hard type of a slide
 // deck is what PNG compresses well and JPEG does not. JPEG still wins on a
 // photo-heavy deck, which is the case it is offered for.
+const PDF_WRITER_CHOICES: { value: PdfWriter; title: string; blurb: string }[] = [
+	{ value: 'text', title: 'Text & vectors', blurb: 'Real text, sharp at any zoom, small and fast to open — the default' },
+	{ value: 'photo', title: 'Photo per page', blurb: 'One picture per slide, with copyable text underneath' },
+];
+
 const PDF_PAGE_CHOICES: { value: PdfPages; title: string; blurb: string }[] = [
 	{ value: 'png', title: 'Lossless', blurb: 'PNG pages — pixel-perfect, the default' },
 	{ value: 'jpeg', title: 'Photographic', blurb: 'JPEG pages — smaller when slides are mostly photos' },
@@ -296,6 +302,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
 	// Share → PDF page-image format (lossless PNG / fast JPEG).
 	const [pdfPages, setPdfPages] = React.useState<PdfPages>(() => loadSettings().pdfPages);
+	const [pdfWriter, setPdfWriter] = React.useState<PdfWriter>(() => loadSettings().pdfWriter);
 	const [overflowMarker, setOverflowMarker] = React.useState<StandingOverflowMarker>(() => loadSettings().overflowMarker);
 	// Whether decks inherit the workspace default reader views (the curated two — Bottom line + The evidence).
 	const [lensDefaults, setLensDefaults] = React.useState(() => loadSettings().lensDefaults);
@@ -670,8 +677,44 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							</div>
 
 							<div className="mt-6">
-								<GroupLabel icon={<Download className="size-3.5" />}>PDF export pages</GroupLabel>
-								<p className="mb-3 text-xs text-muted-foreground">How Share → PDF embeds each slide's page image. Lossless is pixel-perfect and, on a typical slide deck, also the smaller file. Photographic accepts slight JPEG compression (rarely visible), which pays off when your slides are mostly photos.</p>
+								<GroupLabel icon={<Download className="size-3.5" />}>PDF export</GroupLabel>
+								<p className="mb-3 text-xs text-muted-foreground">How Share → PDF builds the file. Text &amp; vectors is the same writer the command line uses: words, charts and images stay real, over one picture of each slide's background.</p>
+								<div className="grid grid-cols-2 gap-2.5">
+									{PDF_WRITER_CHOICES.map((c) => {
+										const active = pdfWriter === c.value;
+										return (
+											<label
+												key={c.value}
+												className={cn('flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-center transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)]', active ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'border-border bg-background hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+											>
+												<input
+													type="radio"
+													name="pdf-writer"
+													value={c.value}
+													checked={active}
+													onChange={() => { setPdfWriter(c.value); saveSettings({ pdfWriter: c.value }); notify(`PDF export: ${c.title.toLowerCase()}.`); }}
+													className="sr-only"
+												/>
+												<span className="grid size-8 place-items-center">
+													{c.value === 'text'
+														? <Type className="size-5" style={{ color: 'var(--accent)' }} />
+														: <ImageIcon className="size-5" style={{ color: 'var(--accent)' }} />}
+												</span>
+												<span className="flex flex-col gap-0.5">
+													<span className="text-[13px] font-semibold text-[var(--text-heading)]">{c.title}</span>
+													<span className="text-[11px] leading-snug text-muted-foreground">{c.blurb}</span>
+												</span>
+											</label>
+										);
+									})}
+								</div>
+								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to Share → PDF in this Studio; PowerPoint and Print are unaffected.</p>
+							</div>
+
+							{pdfWriter === 'photo' && (
+							<div className="mt-6">
+								<GroupLabel icon={<ImageIcon className="size-3.5" />}>Photo page format</GroupLabel>
+								<p className="mb-3 text-xs text-muted-foreground">How a photo-per-page PDF embeds each slide's picture. Lossless is pixel-perfect and, on a typical slide deck, also the smaller file. Photographic accepts slight JPEG compression (rarely visible), which pays off when your slides are mostly photos.</p>
 								<div className="grid grid-cols-2 gap-2.5">
 									{PDF_PAGE_CHOICES.map((c) => {
 										const active = pdfPages === c.value;
@@ -701,8 +744,8 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 										);
 									})}
 								</div>
-								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to Share → PDF in this Studio; PowerPoint and Print are unaffected.</p>
 							</div>
+							)}
 
 							<div className="mt-6">
 								<GroupLabel icon={<Download className="size-3.5" />}>Overflow marker on export</GroupLabel>

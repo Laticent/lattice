@@ -5483,7 +5483,7 @@ async function composePdfInPage(g, page) {
         composed = await L.composeDeckPdf(secs, { camera, fetchAsset, harfbuzzWasm: wasmBytes, date: new Date(epochMs) });
       } catch (e) {
         // Carry the page-side stack across CDP: puppeteer keeps only the message.
-        return { error: String(e && e.stack || e) };
+        return { error: String(e?.stack || e) };
       }
       const { bytes, report } = composed;
       let s = '';
@@ -5500,8 +5500,8 @@ async function composePdfInPage(g, page) {
     if (process.env.LATTICE_PDF_REPORT) fs.writeFileSync(process.env.LATTICE_PDF_REPORT, JSON.stringify(out.report, null, 2));
     return Buffer.from(out.b64, 'base64');
   } catch (e) {
-    if (!QUIET) console.log(`  PDF writer failed (${String(e && e.message || e).split('\n')[0]}); printing with Chrome instead.`);
-    if (process.env.LATTICE_PDF_DEBUG) console.error(e && e.stack || e);
+    if (!QUIET) console.log(`  PDF writer failed (${String(e?.message || e).split('\n')[0]}); printing with Chrome instead.`);
+    if (process.env.LATTICE_PDF_DEBUG) console.error(e?.stack || e);
     return null;
   }
 }

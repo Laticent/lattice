@@ -1678,6 +1678,16 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
 		await recordUnreachableAssets(sections, log);
+		// THE SHARED WRITER first: the same code as the CLI's PDF (lib/core/pdf-compose) —
+		// real text, vector charts and original images over one photo per slide. The
+		// image-per-page lanes below stay as the fallback, so a deck is never lost to it.
+		if (opts?.writer !== 'photo') {
+			try {
+				return await buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log);
+			} catch (e) {
+				console.warn('[lattice-export] shared PDF writer failed (' + (e?.message || e) + ') — falling back to one photo per page.');
+			}
+		}
 		if (canUsePdfWorker()) {
 			try {
 				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log);
@@ -1690,6 +1700,95 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	} finally {
 		dispose();
 	}
+}
+
+/**
+ * The Studio host of the shared PDF writer (lib/core/pdf-compose, the CLI's writer too).
+ * What differs from the CLI is supplied here and nowhere else:
+ *   · the CAMERA — html-to-image under the same capture fixups every Studio raster uses
+ *     (export face, lazy slides forced visible, web images swept to the placeholder);
+ *   · `withSlide` — the same preparation while each slide is MEASURED, so the reader
+ *     sees what the camera will;
+ *   · `fetchAsset` — same-origin, data: and blob: images only. A web image outside the
+ *     deck's allow-list is never fetched from the author's machine: it stays in the photo,
+ *     where `sweepWebRefsForCapture` already replaces it;
+ *   · document properties and comment sticky notes, as the photo lanes write them.
+ */
+async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log) {
+	const [{ composeDeckPdf }, { default: hbUrl }, { toJpeg }, pdfLib, { stickyNotePlacements }] = await Promise.all([
+		import('../../../../../lib/core/pdf-compose/compose.mjs'),
+		import('harfbuzzjs/hb-subset.wasm?url'),
+		import('html-to-image'),
+		import('pdf-lib'),
+		import('../../../playground/pdf-sticky-notes.js'),
+	]);
+	const wasm = await (await fetch(hbUrl)).arrayBuffer();
+	const list = [...sections];
+	const camera = async (section, { scale = 1 } = {}) => {
+		let url;
+		try {
+			url = await withCaptureFixups(section, (w, h, pr) => toJpeg(section, { ...captureOptions(w, h, pr, fontEmbedCSS, log), quality: 0.92 }), scale, 'pdf');
+		} catch (e) {
+			throw captureError(e);
+		}
+		return { bytes: dataUrlBytes(url), type: 'jpeg' };
+	};
+	const withSlide = (section, fn) => {
+		const restore = forceSectionVisibleForCapture(section);
+		const had = section.classList.contains('lattice-exporting');
+		if (!had) section.classList.add('lattice-exporting');
+		try {
+			return fn();
+		} finally {
+			if (!had) section.classList.remove('lattice-exporting');
+			restore();
+		}
+	};
+	const fetchAsset = async (url) => {
+		if (!/^(blob:|data:)/.test(url) && new URL(url, location.href).origin !== location.origin) throw new Error('web image: kept in the photo');
+		const r = await fetch(url);
+		if (!r.ok) throw new Error(`image fetch ${r.status}`);
+		return new Uint8Array(await r.arrayBuffer());
+	};
+	const onProgress = (done, total, phase) => {
+		if (!onStatus) return;
+		if (phase === 'photo') onStatus('Rendering slide ' + (done + 1) + ' of ' + total + '…', { current: done, total });
+		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
+	};
+	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date() });
+	// Document properties and review comments, exactly as the photo lanes write them.
+	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
+	const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+	const props = pdfProps(name, meta, list.length);
+	if (props.title) doc.setTitle(props.title, { showInWindowTitleBar: true });
+	if (props.subject) doc.setSubject(props.subject);
+	if (props.author) doc.setAuthor(props.author);
+	if (props.creator) doc.setCreator(props.creator);
+	if (props.keywords) doc.setKeywords(String(props.keywords).split('; ').filter(Boolean));
+	if (annotations) {
+		doc.getPages().forEach((page, i) => {
+			const { width, height } = page.getSize();
+			const pxW = width / 0.75, pxH = height / 0.75;
+			for (const note of stickyNotePlacements(annotations[i], pxW, pxH)) {
+				const x0 = note.x * 0.75, x1 = (note.x + note.w) * 0.75, y1 = height - note.y * 0.75, y0 = height - (note.y + note.h) * 0.75;
+				const ref = doc.context.register(doc.context.obj({
+					Type: 'Annot', Subtype: 'Text', Name: 'Comment', Rect: [x0, y0, x1, y1],
+					T: PDFHexString.fromText(note.title), Contents: PDFHexString.fromText(note.contents), Open: false, F: 4, P: page.ref,
+				}));
+				const annots = page.node.lookup(PDFName.of('Annots'));
+				if (annots) annots.push(ref);
+				else page.node.set(PDFName.of('Annots'), doc.context.obj([ref]));
+			}
+		});
+	}
+	return new Blob([await doc.save({ useObjectStreams: true })], { type: 'application/pdf' });
+}
+
+function dataUrlBytes(url) {
+	const bin = atob(url.slice(url.indexOf(',') + 1));
+	const out = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+	return out;
 }
 
 /** Render a deck to PDF bytes (Blob) without downloading — for embedding (zips). */

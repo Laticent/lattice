@@ -207,6 +207,14 @@ Order of work, all in one PR (#2404):
 - **The kernel** lives in `lib/core/pdf-compose/`: `read-slide.mjs` (the in-page reader),
   `font-subset.mjs` (HarfBuzz instancing, WOFF2 via `woff2-encoder`), `write-pdf.mjs` (pdf-lib)
   and `compose.mjs` (the orchestrator both hosts call).
+- **The Studio's Share → PDF uses it by default** (`buildPdfBlobShared` in
+  `docs/src/components/studio/export/deck-export.js`). Its camera is html-to-image under the
+  capture fixups every Studio raster already uses. It fetches only same-origin, `data:` and
+  `blob:` images; a web image stays in the photo, where the capture sweeps it to the
+  placeholder. A new Workspace preference, **PDF export: Text & vectors / Photo per page**,
+  keeps the old lanes one tap away, and they remain the automatic fallback. Verified on the
+  built docs site: `docs/e2e/pdf-shared-writer.spec.ts` exports a deck through the real Share
+  dialog and reads back tagged, real text and a vector chart.
 - **The CLI's `.pdf` uses it by default.** `--chrome-pdf` keeps Chrome's printer, as the fallback
   and the comparison oracle.
 - **#2404's hybrid bake is removed** (`2026-09-27-bake-finish-backdrop.md`, superseded), with its
