@@ -1,5 +1,6 @@
 import { ChevronLeft, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
+import { DIALOG_BOX } from '@/components/ui/dialog';
 import { PersistentSurface } from '@/components/ui/persistent-surface';
 import {
 	Sheet,
@@ -487,6 +488,8 @@ export function PanelSheet({
 	overlay = true,
 	modal = true,
 	persistent = false,
+	phone,
+	dialogClassName,
 	className,
 	children,
 }: {
@@ -501,10 +504,18 @@ export function PanelSheet({
 	/** Stay mounted after the first open, hidden while closed — for a surface of live slide
 	 *  previews, whose documents WebKit never frees (`PersistentSurface`). Always modal. */
 	persistent?: boolean;
+	/** Override the phone test (`useIsPhone`) with the caller's own breakpoint. */
+	phone?: boolean;
+	/** Persistent only: off the phone, draw a centered dialog box with these classes instead of a
+	 *  side sheet. One host for both layouts, so crossing the breakpoint — a phone rotated, an iPad
+	 *  in Split View — does not swap the component and destroy what it keeps (found by the
+	 *  adversarial review of the persistent surface). */
+	dialogClassName?: string;
 	className?: string;
 	children: React.ReactNode;
 }) {
-	const mobile = useIsPhone();
+	const isPhone = useIsPhone();
+	const mobile = phone ?? isPhone;
 	const nav = React.useContext(PanelNavCtx);
 	useKeyboardInset(mobile && open);
 	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
@@ -526,8 +537,14 @@ export function PanelSheet({
 				open={open}
 				onOpenChange={onOpenChange}
 				onInteractOutside={() => nav.onLeave?.()}
-				overlayClassName={overlay ? undefined : 'hidden'}
-				className={cn(sheetBox(mobile ? 'bottom' : side), 'flex w-full flex-col gap-0 p-0', mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width], className)}
+				// Never `hidden`: a persistent sheet is always modal, and a backdrop that is not there leaves
+				// the page blocked with nothing to click away on. Transparent keeps the click.
+				overlayClassName={overlay ? undefined : 'bg-transparent'}
+				className={
+					!mobile && dialogClassName
+						? cn(DIALOG_BOX, dialogClassName)
+						: cn(sheetBox(mobile ? 'bottom' : side), 'flex w-full flex-col gap-0 p-0', mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width], className)
+				}
 			>
 				{inner}
 			</PersistentSurface>

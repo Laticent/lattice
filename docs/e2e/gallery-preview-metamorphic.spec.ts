@@ -402,6 +402,9 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		//     frame or two higher than the first).
 		for (const [i, n] of closed.entries()) {
 			expect(n, `close #${i + 1} left ${n} live preview documents against ${closed[0]} after close #1 — a per-open residue`).toBeLessThanOrEqual(closed[0] + SLACK);
+			// And an absolute ceiling: the pool's HARD_MAX_SLOTS (28, preview-pool.tsx) plus the
+			// Studio's own preview and one spare. A level count at a runaway height is not a pass.
+			expect(n, `close #${i + 1} holds ${n} live preview documents, past the pool's hard ceiling`).toBeLessThanOrEqual(30);
 		}
 		// (c) A reopen MAKES no documents. Element counts cannot see a frame rebuilt in place or a
 		//     full `srcdoc` rewrite into a kept one (./preview-documents), and each is a document
@@ -547,6 +550,35 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		expect(await panelFrames(page), 'the looks panel kept previews on screen after it was collapsed').toBe(0);
 		agree(beforeVisible, await visible(page), 'visible previews before expanding a looks panel vs after collapsing it');
 	});
+	test('MR-7 · crossing the phone breakpoint keeps the gallery and its documents', async ({ page }, testInfo) => {
+		// A rotated phone or an iPad in Split View crosses the breakpoint. The gallery's phone sheet
+		// and desktop dialog were two components, so the crossing unmounted one and every frame with
+		// it: 14 fresh documents on the next open (measured by the adversarial review). They are one
+		// persistent host now, re-dressed at the breakpoint.
+		test.skip(testInfo.project.name !== 'desktop', 'drives its own viewport sizes');
+		test.setTimeout(150_000);
+		await countDocuments(page);
+		await gotoStudio(page);
+		await openAddSlide(page, false);
+		await firstBandPainted(page);
+		await quiesced(page);
+		await page.keyboard.press('Escape');
+		await expect.poll(() => galleryShown(page), { timeout: 20_000 }).toBe(false);
+		const before = await documentsMade(page);
+		const size = page.viewportSize() ?? { width: 1440, height: 900 };
+		// Wait on the gallery's own re-dress, not a clock: the kept box draws the phone sheet
+		// (`bottom-0`) or the centered dialog (`top-[50%]`).
+		const dressedAs = () => page.evaluate(() => document.querySelector('[data-slot="persistent-surface-box"]')?.className.includes('top-[50%]') ? 'dialog' : 'sheet');
+		await page.setViewportSize({ width: 390, height: 844 });
+		await expect.poll(dressedAs, { message: 'the gallery was not re-dressed as the phone sheet' }).toBe('sheet');
+		await page.setViewportSize(size);
+		await expect.poll(dressedAs, { message: 'the gallery was not re-dressed as the dialog' }).toBe('dialog');
+		await reopen(page, false);
+		await firstBandPainted(page);
+		await quiesced(page);
+		const made = (await documentsMade(page)) - before;
+		expect(made, `a breakpoint crossing cost ${made} preview documents on the next open`).toBeLessThanOrEqual(SLACK);
+	});
 });
 
 /** Reopen the picker from whatever state the Studio was left in after a close. On a phone the
@@ -617,6 +649,10 @@ test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async
 	await reopen(page, true);
 	await firstBandPainted(page);
 	await quiesced(page);
+	// Reachable by ROLE, not only by sight: on the phone the reopen goes through the drawer, a Radix
+	// modal whose `hideOthers` marked the kept gallery aria-hidden (ui/persistent-surface.tsx). A
+	// gallery a screen reader cannot find passed every check above.
+	await expect(page.getByRole('dialog', { name: 'Add a slide' }), 'WebKit: the reopened gallery is hidden from assistive tech').toBeVisible();
 	const madeOnReopen = (await documentsMade(page)) - madeAtClose;
 	expect(madeOnReopen, `WebKit: reopening the gallery created ${madeOnReopen} preview documents`).toBeLessThanOrEqual(1);
 });

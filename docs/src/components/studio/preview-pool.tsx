@@ -318,11 +318,13 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		// zoom: a pass measured mid-animation left every preview at 95% of its tile, shifted up and
 		// left, until something moved the layout. Dividing by the layer's own scale makes the
 		// measurement right at any point of the animation.
-		// `offsetWidth` is a whole number, so an unscaled layer of fractional width reads a hair off 1;
-		// only a real scale is divided out.
-		const scale = (shown: number, laid: number) => (laid && Math.abs(shown / laid - 1) > 0.01 ? shown / laid : 1);
-		const sx = scale(b.width, layer.offsetWidth);
-		const sy = scale(b.height, layer.offsetHeight);
+		// The laid-out size comes from the computed style, which is fractional and ignores transforms,
+		// so the ratio is exact: 1 unscaled, 0.995 in the last frames of the zoom.
+		const cs = getComputedStyle(layer);
+		const laidW = Number.parseFloat(cs.width);
+		const laidH = Number.parseFloat(cs.height);
+		const sx = laidW > 0 && b.width > 0 ? b.width / laidW : 1;
+		const sy = laidH > 0 && b.height > 0 ? b.height / laidH : 1;
 		return {
 			top: (a.top - b.top) / sy,
 			left: (a.left - b.left) / sx,

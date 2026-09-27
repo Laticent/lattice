@@ -46,6 +46,32 @@ export function usePersistentIds() {
   return React.useContext(IdsCtx)
 }
 
+/**
+ * Make everything outside `keep` inert, except live regions — the toaster among them — which stay
+ * reachable so a toast raised while the surface is open is still announced. That is the rule Radix's
+ * own `hideOthers` follows for `aria-hidden`. The walk goes down only along the path to a kept node
+ * and marks that path's siblings, so an element that merely CONTAINS a live region is not marked
+ * whole. Returns what it marked, to be unmarked on close.
+ */
+function inertOthers(keep: Element): Element[] {
+  const kept = [keep, ...document.querySelectorAll("[aria-live]")].filter((el) => !keep.contains(el) || el === keep)
+  const onPath = new Set<Element>()
+  for (const k of kept) for (let n: Element | null = k; n && n !== document.body; n = n.parentElement) onPath.add(n)
+  const marked: Element[] = []
+  const walk = (parent: Element) => {
+    for (const child of parent.children) {
+      if (kept.includes(child)) continue
+      if (onPath.has(child)) walk(child)
+      else if (!child.hasAttribute("inert")) {
+        child.setAttribute("inert", "")
+        marked.push(child)
+      }
+    }
+  }
+  walk(document.body)
+  return marked
+}
+
 /** True from the first render where `open` is true, for the rest of the component's life. */
 function useEverOpened(open: boolean): boolean {
   const [ever, setEver] = React.useState(open)
@@ -77,6 +103,7 @@ export function PersistentSurface({
   const ids = React.useMemo(() => ({ titleId, descriptionId }), [titleId, descriptionId])
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
+  const returnTo = React.useRef<HTMLElement | null>(null)
   // CLOSING: from the close until the exit animation ends, the box stays drawn and stays a
   // dialog, as a Radix dialog does until its Presence unmounts it. Hiding at once dropped main's
   // fade-and-zoom out, and it let a test's "wait until the dialog is gone" pass before the insert
@@ -99,20 +126,42 @@ export function PersistentSurface({
     const root = rootRef.current
     const box = boxRef.current
     if (!root || !box) return
-    const returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const others = [...document.body.children].filter((el) => el !== root && !el.hasAttribute("inert"))
-    for (const el of others) el.setAttribute("inert", "")
+    returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    // SEEN AGAIN, if a Radix modal hid it. A Radix modal opened after this surface first mounted —
+    // the phone's drawer, which is how Add slide is reached there — runs `hideOthers` and marks
+    // every child of <body> `aria-hidden`, this root included, because a closed surface is still in
+    // the page. Its snapshot is not revisited, so on the second open the gallery was on screen and
+    // absent to VoiceOver: `getByRole('dialog', { name: 'Add a slide' })` found nothing (measured by
+    // the inversion review). Lift the mark while open and put it back on close, so the modal's own
+    // bookkeeping still balances when it closes.
+    const hiddenBy = root.getAttribute("aria-hidden")
+    if (hiddenBy !== null) root.removeAttribute("aria-hidden")
+    const others = inertOthers(root)
     // Into the dialog, unless the caller already put focus somewhere inside it.
     if (!box.contains(document.activeElement)) box.focus({ preventScroll: true })
     return () => {
       for (const el of others) el.removeAttribute("inert")
-      if (returnTo?.isConnected) returnTo.focus({ preventScroll: true })
+      if (hiddenBy !== null && root.isConnected) root.setAttribute("aria-hidden", hiddenBy)
     }
   }, [open])
 
+  const drawn = open || closing
+  // FOCUS GOES BACK once the box is hidden, as Radix does when its Presence unmounts — and only
+  // if nothing else took it meanwhile. An insert moves the caret into the new slide a frame after
+  // the close; returning focus to the launcher as the close STARTED pulled it back to the old
+  // slide, and Compose's view of the deck fell behind the insert (three Compose e2e tests).
+  React.useEffect(() => {
+    if (drawn) return
+    const to = returnTo.current
+    returnTo.current = null
+    const box = boxRef.current
+    const active = document.activeElement
+    const unclaimed = !active || active === document.body || (box?.contains(active) ?? false)
+    if (to?.isConnected && unclaimed) to.focus({ preventScroll: true })
+  }, [drawn])
+
   if (!ever || typeof document === "undefined") return null
   const state = open ? "open" : "closed"
-  const drawn = open || closing
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       {createPortal(

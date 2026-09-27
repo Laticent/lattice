@@ -64,7 +64,7 @@ describe('PersistentSurface', () => {
 		expect(dialog()?.getAttribute('aria-modal')).toBe('true');
 	});
 
-	it('makes the rest of the page inert only while open, and returns focus', () => {
+	it('makes the rest of the page inert only while open, and returns focus', async () => {
 		render(<Harness />);
 		const launch = screen.getByText('launch');
 		launch.focus();
@@ -74,7 +74,26 @@ describe('PersistentSurface', () => {
 		expect(dialog()?.contains(document.activeElement)).toBe(true);
 		fireEvent.click(screen.getByText('close'));
 		expect(page.hasAttribute('inert'), 'the page stayed inert after close').toBe(false);
-		expect(document.activeElement).toBe(launch);
+		await waitFor(() => expect(document.activeElement).toBe(launch));
+	});
+
+	it('does not take focus back from something that claimed it during the close', async () => {
+		// An insert moves the caret into the new slide a frame after the close. Returning focus to
+		// the launcher over it pulled the author back to the old slide.
+		render(
+			<>
+				<Harness />
+				<input data-testid="new-slide" />
+			</>,
+		);
+		const launch = screen.getByText('launch');
+		launch.focus();
+		fireEvent.click(launch);
+		fireEvent.click(screen.getByText('close'));
+		const caret = screen.getByTestId('new-slide');
+		caret.focus();
+		await waitFor(() => expect(dialog()?.hasAttribute('data-hidden')).toBe(true));
+		expect(document.activeElement, 'focus was taken back from the new slide').toBe(caret);
 	});
 
 	it('closes on Escape, but a Radix layer opened from inside takes Escape first', () => {
@@ -153,5 +172,31 @@ describe('PersistentSurface', () => {
 		expect(dialog()?.hasAttribute('data-hidden')).toBe(false);
 		await waitFor(() => expect(dialog()?.hasAttribute('data-hidden')).toBe(true));
 		expect(document.querySelector('[role="dialog"]'), 'a closed surface still answers as a dialog').toBeNull();
+	});
+
+	it('lifts an aria-hidden a Radix modal left on it while it is open, and puts it back on close', () => {
+		// The phone reaches Add slide through the drawer, a Radix modal whose `hideOthers` marks every
+		// <body> child aria-hidden — the closed surface's root included, from the second open on.
+		render(<Harness />);
+		const launch = screen.getByText('launch');
+		fireEvent.click(launch);
+		fireEvent.click(screen.getByText('close'));
+		const root = document.querySelector('[data-slot="persistent-surface"]') as HTMLElement;
+		root.setAttribute('aria-hidden', 'true'); // what hideOthers does when the drawer opens again
+		fireEvent.click(launch);
+		expect(root.hasAttribute('aria-hidden'), 'the open gallery is hidden from assistive tech').toBe(false);
+		fireEvent.click(screen.getByText('close'));
+		expect(root.getAttribute('aria-hidden'), "the drawer's mark was not restored").toBe('true');
+	});
+
+	it('leaves a live region reachable, so a toast raised while open is still announced', () => {
+		const island = document.body.appendChild(document.createElement('div'));
+		const other = island.appendChild(document.createElement('div'));
+		const live = island.appendChild(document.createElement('section'));
+		live.setAttribute('aria-live', 'polite');
+		render(<Harness initial />);
+		expect(live.closest('[inert]'), 'the toaster went inert').toBeNull();
+		expect(other.hasAttribute('inert'), 'the rest of that island stayed reachable').toBe(true);
+		island.remove();
 	});
 });
