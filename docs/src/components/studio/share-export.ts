@@ -123,7 +123,7 @@ export async function buildDeckRender(
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
 	const out = await renderMarkdown(PG, source, theme, styles === 'flat' ? { styles } : undefined);
-	const { previewFontFaceCss } = await import('@/playground/font-embed.js');
+	const { previewFontFaceCss } = await loadDeckRenderFonts();
 	return {
 		html: out.html,
 		// Saved local-component CSS (extraCss) rides last so the deck's `.<name>`
@@ -141,6 +141,10 @@ export async function buildDeckRender(
 			: {}),
 	};
 }
+
+/** `buildDeckRender`'s one on-demand module. Exported so a surface's idle warm-up
+ *  (`warmArticleProjection`, `warmNarrationProjection`) fetches it with the rest of its path. */
+export const loadDeckRenderFonts = () => import('@/playground/font-embed.js');
 
 type ExportMod = typeof import('@/components/studio/export/deck-export.js');
 function exporters(): Promise<ExportMod> {

@@ -94,9 +94,9 @@ panels someone might open offline. A warm-up with `requestIdleCallback` after fi
 puts the chunks in the cache without touching the startup path. `StudioShell.tsx:1254`
 already warms `Editor` this way; B reuses that idiom.
 
-Present, Fabricate and the reading view today behave like option A. Offline, a user who
-never opened them can't load them. That is a pre-existing gap, off the path of this change;
-I will log it in `followups.d/` instead of widening this PR.
+Present, Fabricate and the reading view behaved like option A when this plan was written.
+Offline, a user who never opened them could not load them. The follow-up PR warms them too,
+with a different rule for each; see § Warming Present, Fabricate and the reading view.
 
 ## How each panel mounts
 
@@ -342,6 +342,63 @@ orientation › is not replayed in portrait" fails intermittently against the FU
 (`npm run build`, which adds `inject-modulepreload` and `hoist-stylesheets`). It failed 6 of 8 runs
 on `main`'s full build and 4 of 8 on this branch's. It passed on both under `build:e2e`, which is
 what CI runs. `followups.d/2336-p3-packages-trio-followups.md` already tracks it, with older rates (1 of 2, 1 of 4). This PR adds a follow-up with the rates above.
+
+## Warming Present, Fabricate and the reading view (2026-09-27)
+
+The follow-up to this PR (`followups.d/2402-p3-warm-present-fabricate-read-for-offline.md`).
+All three are `React.lazy` in `StudioShell.tsx`, and nothing fetched them until someone opened
+them, so a user who went offline first got the chunk-load card. The idle warm-up now fetches
+them after the six panels (`studioWarmQueue` in `StudioShell.tsx`).
+
+**Warming a surface's chunk is not enough.** A first cut warmed the three chunks alone. On the
+built site, Present opened offline but the reading view showed "This deck could not be turned
+into an article": once open, it `import()`s `player-core` and `player-prune`, and the KaTeX
+provider loads for a deck with math. Present's narration does the same. So each surface now
+warms its whole on-demand path. `article-projection.ts` and `narration-projection.ts` name
+their dynamic imports once, as module-level loaders, and export a `warm…Projection()` that
+calls the same loaders. Both also call `loadDeckRenderFonts`, the one `import()` inside the
+shared `buildDeckRender` (`share-export.ts`). A new `import()` on either path has to join its
+list; the e2e spec below is what notices when one does not.
+
+**What each costs.** A Playwright probe on the full production build loaded the Studio, let the
+existing warm-up finish, opened one surface, and summed the gz size of every file it fetched
+that had not been fetched already. Starter deck, 1440px Chromium:
+
+| Surface | Fetched on first open, after the six-panel warm-up | Warmed for |
+|---|---|---|
+| Present | PresentOverlay 35KB, narration 1KB, `player-core` 99KB, voice model 6KB | everyone, unless Save-Data |
+| Reading view | ReadArticle 6KB, `player-prune` 61KB, `deck-export` 13KB (used for a chart or diagram bake), font sheet 1KB (+ `player-core`, shared) | everyone, unless Save-Data |
+| KaTeX provider | 77KB, loaded by both projections for a deck with math | the same, and only when the deck on screen has math |
+| Fabricate | ~145KB of JS, plus the 877KB Mermaid bundle its Diagram specimen renders | only a browser that has opened Fabricate before |
+
+With everything warmed, the same probe finds 0 bytes left to fetch when the reading view opens,
+and only the 6KB voice model when Present opens.
+
+**Why the rules differ.**
+- *Save-Data.* The six panels warm under Save-Data because every visitor downloaded them at
+  startup before #2402, so skipping the warm-up would save those users nothing. These three
+  were never downloaded unless opened. Warming them is ~215KB of new bytes per deploy (~290KB when the
+  deck has math), so Save-Data skips them.
+- *Fabricate.* Fabricate's JS alone is as large as Present and the reading view together, and
+  most Studio visitors never open it. The first open sets `lattice-studio-fabricate-used`, and
+  from then on the warm-up fetches it. That covers the case that matters: a deploy renames
+  every chunk, so a returning author who goes offline after a deploy still has Fabricate.
+- *Not warmed: the voice model* (`read-aloud.ts`). Neural read-aloud also needs its model
+  weights, which are far larger and not warmed, so the module alone buys nothing offline.
+- *The trade the six panels already make.* A browser caches a failed module fetch for the life
+  of the document (#1242), so a warm-up that fails on a network blip leaves Present or the
+  reading view showing the chunk-load card until a reload, where before it would have fetched on
+  the click. The warm-up runs once, after startup, on a connection that has just loaded the
+  Studio, so the blip window is small, and Reload recovers.
+- *Not warmed: Mermaid.* It is a render-engine asset that any deck with a diagram fetches, not
+  something these surfaces own. Offline, Fabricate opens and its Diagram specimen shows the
+  diagram source. Logged in `followups.d/2402-p3-mermaid-offline-for-unrendered-diagrams.md`.
+
+**Evidence.** `docs/e2e/studio-warm-offline.spec.ts` serves the built site from a server it
+then closes, which is a real network cut. It checks that Present and the reading view open
+after an offline reload, that Fabricate opens for a browser flagged as having used it, and that
+Save-Data warms none of the three. Against a build without this change, the first two tests fail
+at the warm-up step ("the warm-up never cached PresentOverlay, ReadArticle, …").
 
 ## Delivery
 

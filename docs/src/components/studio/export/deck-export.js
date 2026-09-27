@@ -736,6 +736,10 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 	}
 }
 
+/** The capture frame's font sheet, as its own loader so the Studio's idle warm-up can fetch it
+ *  (`article-projection.ts` › warmArticleProjection) without running a capture. */
+export const loadFontEmbed = () => import('../../../playground/font-embed.js');
+
 async function sectionsOf(frame) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
@@ -746,7 +750,7 @@ async function sectionsOf(frame) {
 	// with their fonts already resolved instead of racing the lazy loader.
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
-	const { buildFontEmbedCss, ensureFontsLoaded } = await import('../../../playground/font-embed.js');
+	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
 	const fontEmbedCSS = await buildFontEmbedCss();
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	await flattenChartSvgs(frame, sections);

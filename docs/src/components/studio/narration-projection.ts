@@ -21,7 +21,20 @@ import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { paneSplitCounts } from './pane-pages';
-import { buildDeckRender, type ExtraTheme } from './share-export';
+import { buildDeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';
+
+// The modules the projection loads on demand, named once so the idle warm-up fetches the same set
+// Present does (`warmNarrationProjection`), with `buildDeckRender`'s own (`loadDeckRenderFonts`).
+// A new `import()` here, or in `buildDeckRender`, belongs in that list too.
+const loadDeckPreview = () => import('@/playground/deck-preview.js');
+const loadPlayerCore = () => import('@/playground/player-core.generated.js');
+const loadSanitizeSlide = () => import('@/lib/sanitize-slide-html.js');
+
+/** Fetch Present's narration modules without projecting anything, so read-aloud works offline
+ *  after a session that never presented. */
+export function warmNarrationProjection(): Promise<unknown> {
+	return Promise.all([loadDeckRenderFonts(), loadDeckPreview(), loadPlayerCore(), loadSanitizeSlide()]);
+}
 
 /**
  * Render the whole deck once and project each slide's DOM to natural narration
@@ -66,7 +79,7 @@ export async function projectDeckScript(
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
 	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
-	const { splitSections } = (await import('@/playground/deck-preview.js')) as unknown as {
+	const { splitSections } = (await loadDeckPreview()) as unknown as {
 		splitSections: (h: string) => string[];
 	};
 	const sections = splitSections(html);
@@ -159,10 +172,7 @@ export async function projectSectionsToSpeech(sectionHtmls: string[]): Promise<s
  *  EMPTY script at its index rather than dropping, for the same reason: dropping would misalign
  *  every later slide's narration with its slide. */
 export async function projectSectionsToScript(sectionHtmls: string[]): Promise<SlideScript[]> {
-	const [coreMod, sanitizeMod] = await Promise.all([
-		import('@/playground/player-core.generated.js'),
-		import('@/lib/sanitize-slide-html.js'),
-	]);
+	const [coreMod, sanitizeMod] = await Promise.all([loadPlayerCore(), loadSanitizeSlide()]);
 	const projectDeckToScript = (coreMod as unknown as { projectDeckToScript: (s: Element[]) => SlideScript[] }).projectDeckToScript;
 	const sanitize = sanitizeMod.sanitizeSlideHtml;
 	const parser = new DOMParser();

@@ -26,6 +26,7 @@ import { messageForFailure } from '@/lib/chunk-load';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
+import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
@@ -38,6 +39,7 @@ import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-brea
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
+import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -73,7 +75,7 @@ import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
-import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
+import { PanelLoader, useLatch, warmable, warmPanels } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
@@ -125,7 +127,15 @@ import { workspaceLensConfig } from './workspace-lenses';
 // `view === 'fabricate'` tab. Code-split it so its ~chunk stays out of the
 // initial Studio island payload (the heaviest thing a mobile user waits on) and
 // loads on first open. It's already mount-on-view, so this is a drop-in.
-const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
+// The first open also records that this browser uses Fabricate, which is what lets the idle
+// warm-up fetch it on later visits (`fabricateWarm` below).
+const loadFabricate = () => import('./Fabricate');
+const Fabricate = React.lazy(() => {
+	try {
+		localStorage.setItem(FABRICATE_USED_KEY, '1');
+	} catch {}
+	return loadFabricate().then((m) => ({ default: m.Fabricate }));
+});
 
 // Read · Article — the deck as prose, in the TOP-LEVEL DOM so a reader-mode extractor
 // (Firefox's shake-to-summarize, Safari Reader, the Edge/Chrome reading modes) can
@@ -134,7 +144,8 @@ const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default:
 // render and the player-core bundle, and the /studio route has no eager budget to spare.
 // The clip notice and its split helper load the first time a slide clips at a venue (ClipNotice.tsx).
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
-const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
+const loadReadArticle = () => import('./ReadArticle');
+const ReadArticle = React.lazy(() => loadReadArticle().then((m) => ({ default: m.ReadArticle })));
 
 // Editor (CodeMirror) is the single largest passenger on the cold hydration path —
 // ~196KB gz that, statically imported, bundled into the client:only StudioShell island
@@ -167,8 +178,43 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 // a ref into it — so this is a plain React.lazy with nothing to forward. Present is gated
 // by `presentOpen || presentEverOpened` at its render site below, so — unlike
 // Editor/ComposeView, which warm unconditionally on Studio mount because they're the
-// default pane — the chunk is not fetched until the user's first "Present" click.
-const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
+// default pane — the chunk is not fetched at startup: it arrives with the idle warm-up
+// below, or on the first "Present" click if that comes first.
+const loadPresent = () => import('./PresentOverlay');
+const PresentOverlay = React.lazy(() => loadPresent().then((m) => ({ default: m.PresentOverlay })));
+
+// The idle warm-up fetches these three after the six panels (`warmPanels`), because the service
+// worker caches a chunk only once it has been fetched: without it, a user who goes offline before
+// opening Present or the reading view gets the chunk-load card. Each warms the surface's WHOLE
+// on-demand path, not just its chunk, because both do more `import()`s once open: Present's
+// narration and the reading view load player-core and player-prune, and the KaTeX provider for
+// a deck with math (fetched, not run, and only when the deck on screen at startup has math).
+// Measured costs per surface are in the decision note below.
+// Not warmed: the voice model (`read-aloud.ts`). Neural read-aloud needs its weights too, which
+// are far larger, and without them the module offline does nothing the browser voice cannot.
+// Present and the reading view warm for everyone EXCEPT under Save-Data: unlike the six panels,
+// no visitor downloaded them at startup before, so these are new bytes, and Save-Data is a
+// request not to spend them. Fabricate warms only for a browser that has opened it before: a
+// visitor who never fabricates never pays for it, and one who does can still open it offline
+// after a deploy renames its chunks.
+// See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md § Warming Present, Fabricate and the reading view.
+const FABRICATE_USED_KEY = 'lattice-studio-fabricate-used';
+const presentWarm = warmable(() => Promise.all([loadPresent(), import('./narration-projection').then((m) => m.warmNarrationProjection())]));
+const readArticleWarm = warmable(() => Promise.all([loadReadArticle(), import('./article-projection').then((m) => m.warmArticleProjection())]));
+const fabricateWarm = warmable(() => Promise.all([loadFabricate(), import('./library/gallery-gate')]));
+const katexWarm = warmable(async () => {
+	const url = deriveKatexProviderUrl();
+	if (url) await fetch(url);
+});
+function studioWarmQueue(deckHasMath: boolean) {
+	let fabricateUsed = false;
+	try {
+		fabricateUsed = localStorage.getItem(FABRICATE_USED_KEY) === '1';
+	} catch {}
+	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+	const surfaces = saveData ? [] : [presentWarm, readArticleWarm, ...(deckHasMath ? [katexWarm] : [])];
+	return [...STUDIO_PANELS, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])];
+}
 
 
 // Deck Inspector pill-tab sections, ORDERED BY LIKELY REACH — the strip is read left
@@ -1280,8 +1326,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		import('./Editor').catch(() => {});
 	}, []);
-	// The panels, once the Studio is idle (`lazy-panel.tsx` › warmPanels).
-	React.useEffect(() => warmPanels(STUDIO_PANELS), []);
+	// The panels, then Present, the reading view and (if used before) Fabricate, once the Studio
+	// is idle (`lazy-panel.tsx` › warmPanels, `studioWarmQueue` above).
+	React.useEffect(() => warmPanels(studioWarmQueue(sourceHasMath(sourceRef.current))), []);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —

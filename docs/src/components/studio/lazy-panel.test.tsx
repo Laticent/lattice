@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PanelSheetInstantCtx } from '@/components/ui/panel';
-import { lazyPanel, PanelLoader, SHEET_ENTER_MS, SHEET_EXIT_MS, useLatch, warmPanels } from './lazy-panel';
+import { lazyPanel, PanelLoader, SHEET_ENTER_MS, SHEET_EXIT_MS, useLatch, warmable, warmPanels } from './lazy-panel';
 
 function Real({ label }: { label: string }) {
 	const instant = React.useContext(PanelSheetInstantCtx);
@@ -174,6 +174,20 @@ describe('warmPanels', () => {
 		// The rest follow within a short yield each, not another full idle wait.
 		await act(async () => vi.advanceTimersByTimeAsync(100));
 		expect(order).toEqual(['a', 'b', 'c']);
+	});
+});
+
+describe('warmable', () => {
+	it('loads once, and a failure neither rejects nor stops the warm-up', async () => {
+		vi.useFakeTimers();
+		const failing = vi.fn(() => Promise.reject(new Error('offline')));
+		const after = vi.fn(async () => ({}));
+		const w = warmable(failing);
+		warmPanels([w, warmable(after)]);
+		await act(async () => vi.runAllTimersAsync());
+		await expect(w.load()).resolves.toBeUndefined();
+		expect(failing).toHaveBeenCalledTimes(1);
+		expect(after).toHaveBeenCalledTimes(1);
 	});
 });
 
