@@ -74,6 +74,8 @@ export function useLatch(on: boolean): boolean {
 
 /** How long `PanelSheet`'s enter animation runs (`ui/sheet.tsx`: `data-[state=open]:duration-500`). */
 export const SHEET_ENTER_MS = 500;
+/** How long its exit animation runs (`data-[state=closed]:duration-300`). */
+export const SHEET_EXIT_MS = 300;
 
 function Rethrow({ error }: { error: unknown }): never {
 	throw error;
@@ -104,28 +106,44 @@ export function PanelLoader<C extends React.ComponentType<never>>({
 	const ready = state.status === 'fulfilled';
 	// Decided once, at mount: a panel already loaded goes straight to live and never shows its shell.
 	const [live, setLive] = React.useState(ready);
-	const shellShownAt = React.useRef<number | null>(null);
-	if (!live && shellShownAt.current === null) shellShownAt.current = performance.now();
 	const [instant, setInstant] = React.useState(false);
+	// When the shell's current motion ends: its slide-in, or its close if it was dismissed while
+	// loading. Restarted on every open and close, so a reopen or an Escape mid-load is timed from
+	// its own motion, not from the first one.
+	const motionEnds = React.useRef<number | null>(null);
+	if (!live && motionEnds.current === null) motionEnds.current = performance.now() + (open ? SHEET_ENTER_MS : 0);
+	const wasOpen = React.useRef(open);
+
+	// Declared BEFORE the swap effect on purpose: effects run in order, so the swap reads the
+	// motion this open or close just started.
+	React.useEffect(() => {
+		if (wasOpen.current === open) return;
+		wasOpen.current = open;
+		if (!live) motionEnds.current = performance.now() + (open ? SHEET_ENTER_MS : SHEET_EXIT_MS);
+		// The instant swap is for the open the shell started. The next open animates normally.
+		if (!open) setInstant(false);
+	}, [open, live]);
 
 	React.useEffect(() => {
 		if (live || !ready) return;
-		if (!sheet || !open) {
+		if (!sheet) {
 			setLive(true);
 			return;
 		}
-		const wait = Math.max(0, (shellShownAt.current ?? 0) + SHEET_ENTER_MS - performance.now());
-		const t = window.setTimeout(() => {
-			setInstant(true);
+		// Swap once the shell has stopped moving. Open: the real sheet takes its place with the
+		// enter animation off. Closed: the real sheet mounts closed, so there is nothing to animate.
+		const swap = () => {
+			setInstant(open);
 			setLive(true);
-		}, wait);
+		};
+		const wait = (motionEnds.current ?? 0) - performance.now();
+		if (wait <= 0) {
+			swap();
+			return;
+		}
+		const t = window.setTimeout(swap, wait);
 		return () => window.clearTimeout(t);
 	}, [live, ready, sheet, open]);
-
-	// The instant swap is for the one open the shell started. The next open animates normally.
-	React.useEffect(() => {
-		if (!open) setInstant(false);
-	}, [open]);
 
 	if (state.status === 'rejected') {
 		return shell(

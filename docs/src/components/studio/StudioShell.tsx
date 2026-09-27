@@ -116,18 +116,12 @@ import type { WebImageSummary } from './web-images';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
-// The Fabricate studio (theme / component / finish fabrication) is a large,
-// self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
-// completion, and its own big lucide-icon set — reached only via the
-// `view === 'fabricate'` tab. Code-split it so its ~chunk stays out of the
-// initial Studio island payload (the heaviest thing a mobile user waits on) and
-// loads on first open. It's already mount-on-view, so this is a drop-in.
 // The six panels that load on first open, each behind a shell that looks like it
-// (`panel-shells.tsx`) — none of them is on screen when the Studio starts, and together they
-// were ~139KB gz of its startup JavaScript. Share and Workspace are the last two holders of the
-// narration / text-to-speech stack, so splitting both is what releases it. The idle warm-up
-// below loads them all once the Studio is usable, so a later open renders on its first frame.
-// See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md.
+// (`panel-shells.tsx`). None of them is on screen when the Studio starts, and together they
+// were ~130KB gz of its startup JavaScript (-17.8%). Share and Workspace are the last two
+// holders of the narration / text-to-speech stack, so splitting both is what releases it. The
+// idle warm-up below loads them all once the Studio is usable, so a later open renders on its
+// first frame. See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md.
 const sharePanel = lazyPanel('Share', () => import('./ShareSheet').then((m) => m.ShareSheet));
 const workspacePanel = lazyPanel('Workspace settings', () => import('./WorkspaceSheet').then((m) => m.WorkspaceSheet));
 const slideSettingsPanel = lazyPanel('Slide settings', () => import('./SlideContext').then((m) => m.SlideContextBody));
@@ -136,6 +130,12 @@ const libraryPanel = lazyPanel('The Library', () => import('./Library').then((m)
 const lensesPanel = lazyPanel('Reader views', () => import('./LensesPanel').then((m) => m.LensesPanel));
 const WARM_PANELS = [sharePanel, workspacePanel, slideSettingsPanel, chatPanel, libraryPanel, lensesPanel];
 
+// The Fabricate studio (theme / component / finish fabrication) is a large,
+// self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
+// completion, and its own big lucide-icon set — reached only via the
+// `view === 'fabricate'` tab. Code-split it so its ~chunk stays out of the
+// initial Studio island payload (the heaviest thing a mobile user waits on) and
+// loads on first open. It's already mount-on-view, so this is a drop-in.
 const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
 
 // Read · Article — the deck as prose, in the TOP-LEVEL DOM so a reader-mode extractor

@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PanelSheetInstantCtx } from '@/components/ui/panel';
-import { lazyPanel, PanelLoader, SHEET_ENTER_MS, useLatch, warmPanels } from './lazy-panel';
+import { lazyPanel, PanelLoader, SHEET_ENTER_MS, SHEET_EXIT_MS, useLatch, warmPanels } from './lazy-panel';
 
 function Real({ label }: { label: string }) {
 	const instant = React.useContext(PanelSheetInstantCtx);
@@ -65,6 +65,40 @@ describe('PanelLoader', () => {
 		expect(screen.getByTestId('real')).toHaveAttribute('data-instant', 'true');
 		// The next close clears the flag, so the next open animates normally.
 		rerender(<PanelLoader panel={panel} sheet open={false} shell={shell}>{(P) => <P label="sheet" />}</PanelLoader>);
+		expect(screen.getByTestId('real')).toHaveAttribute('data-instant', 'false');
+	});
+
+	it('times the hold from a reopen, not from the first open', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+		const d = deferred<typeof Real>();
+		const panel = lazyPanel('Test', () => d.promise);
+		const view = (open: boolean) => <PanelLoader panel={panel} sheet open={open} shell={shell}>{(P) => <P label="sheet" />}</PanelLoader>;
+		const { rerender } = render(view(true));
+		await act(async () => vi.advanceTimersByTime(100));
+		rerender(view(false));
+		await act(async () => vi.advanceTimersByTime(600));
+		rerender(view(true)); // reopened at 700 ms: this slide-in runs to 1200 ms
+		await act(async () => vi.advanceTimersByTime(200));
+		await act(async () => d.resolve(Real)); // loaded at 900 ms, mid-slide
+		await act(async () => vi.advanceTimersByTime(299));
+		expect(screen.getByTestId('shell')).toBeInTheDocument();
+		await act(async () => vi.advanceTimersByTime(1));
+		expect(screen.getByTestId('real')).toHaveAttribute('data-instant', 'true');
+	});
+
+	it('lets a shell closed mid-load finish its close before swapping', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+		const d = deferred<typeof Real>();
+		const panel = lazyPanel('Test', () => d.promise);
+		const view = (open: boolean) => <PanelLoader panel={panel} sheet open={open} shell={shell}>{(P) => <P label="sheet" />}</PanelLoader>;
+		const { rerender } = render(view(true));
+		await act(async () => vi.advanceTimersByTime(100));
+		rerender(view(false)); // Escape at 100 ms: the close runs to 400 ms
+		await act(async () => vi.advanceTimersByTime(100));
+		await act(async () => d.resolve(Real)); // loaded at 200 ms, mid-close
+		await act(async () => vi.advanceTimersByTime(SHEET_EXIT_MS - 101));
+		expect(screen.getByTestId('shell')).toBeInTheDocument();
+		await act(async () => vi.advanceTimersByTime(1));
 		expect(screen.getByTestId('real')).toHaveAttribute('data-instant', 'false');
 	});
 

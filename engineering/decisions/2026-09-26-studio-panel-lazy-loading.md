@@ -209,13 +209,16 @@ first-open gates (not written yet), 820px and 390px widths, offline behavior, an
 **Bytes.** Measured as a pair on one tree: this branch's changes stashed for the `main` reading,
 and the docs build rerun for each reading.
 
-| | origin/main `133ac54` | this branch | change |
+| | origin/main `91cf5e1` | this branch | change |
 |---|---:|---:|---:|
-| Studio startup JS, gz | 747,844 | 613,650 | **−134,194 (−17.9%)** |
-| startup chunks | 93 | 96 | +3 |
-| `studio/index.html` | 204,385 | 204,548 | +163 (one `modulepreload` tag per new chunk) |
+| Studio startup JS, gz | 747,912 | 614,689 | **−133,223 (−17.8%)** |
+| startup chunks | 93 | 95 | +2 |
+| `studio/index.html` | 204,386 | 204,489 | +103 (one `modulepreload` tag per new chunk) |
 
-That is 5KB short of the 139.4KB the prototype measured. The shells, the shared menu module and
+The first pairing, against `133ac54`, read 747,844 → 613,650 (−134,194). `main` then moved, and
+this pairing was rerun on the rebased tree before the budget was set.
+
+That is about 6KB short of the 139.4KB the prototype measured. The shells, the shared menu module and
 the loader now load at startup instead.
 
 **Shells against the loaded panels.** A Playwright harness drove the real built site in Chromium,
@@ -253,11 +256,30 @@ existing jsdom tests opened a panel and read it immediately; they now `await wai
 113 of 114 desktop tests passed across 17 panel and tour specs, and 12 of 12 on the tablet and
 mobile projects.
 
+**Independent checker.** It found nothing blocking. It raised two timing gaps in the loader, and
+both were real:
+- The hold was timed from the shell's FIRST open. A reopen while the load was still pending
+  could therefore swap mid-slide.
+- A shell closed mid-load could vanish before its close animation finished.
+
+The loader now restarts the hold on every open and close (`motionEnds`), and waits out the 300 ms
+close too. Two tests cover these cases, and both fail when the reset is removed.
+On the built site, a sheet reopened 600 ms after being closed, with its chunk released mid-slide,
+swapped 497 ms (Share) and 520 ms (Workspace) after the reopen, with no second slide-in.
+
+**A tradeoff the warm-up adds, accepted.** If the network drops during the background warm-up,
+that panel's `import()` rejects. The browser caches that rejection for the life of the page, so
+the panel shows the chunk-load card, with Reload, the first time it is opened, even though the
+user never opened it offline. Eager loading could not fail this way: the same drop would have
+failed the whole Studio load instead. A retry cannot help, because the module map re-throws
+without a request (#1242). The warm-up runs after the Studio is usable and fetches only six
+chunks, so the window is small, and Reload recovers.
+
 **One pre-existing flake, not this PR's.** `studio-instant-shell.spec.ts` › "a rect from another
 orientation › is not replayed in portrait" fails intermittently against the FULL production build
 (`npm run build`, which adds `inject-modulepreload` and `hoist-stylesheets`). It failed 6 of 8 runs
 on `main`'s full build and 4 of 8 on this branch's. It passed on both under `build:e2e`, which is
-what CI runs. It is logged in `followups.d/` rather than fixed here.
+what CI runs. `followups.d/2336-p3-packages-trio-followups.md` already tracks it, with older rates (1 of 2, 1 of 4). This PR adds a follow-up with the rates above.
 
 ## Delivery
 
