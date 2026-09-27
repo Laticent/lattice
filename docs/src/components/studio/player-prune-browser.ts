@@ -124,7 +124,10 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 					usedSet.add(s); // an invalid selector for querySelector → keep (conservative)
 				}
 			}
-			const pruned = prunePlayerCss(target.css, (b: string) => usedSet.has(b), { legacyPseudoElements: true }) as typeof cssResult;
+			// The Guide's focus rules match nothing until Play: kept only in a player that carries the
+			// Guide, whose switch sits in the bar (lib/export/player-prune.js `keepGuide`).
+			const keepGuide = !!doc.querySelector('body > #lp-bar > #lp-guide');
+			const pruned = prunePlayerCss(target.css, (b: string) => usedSet.has(b), { legacyPseudoElements: true, keepGuide }) as typeof cssResult;
 			cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { css: '', applied: false, totalRules: 0, keptRules: 0 };
 		}
 

@@ -696,10 +696,11 @@ export function findDetailTarget(root: Document | Element | null, text: string):
 			return hay.includes(needle) && needle.length * 2 >= hay.length;
 		})) continue;
 		const chart = tpl.closest('.chart-body') ?? tpl.parentElement?.parentElement ?? root;
-		const mark = tpl.getAttribute('data-mark');
-		const el =
-			chart.querySelector(`[data-mark="${mark}"][data-label]:not(template)`) ??
-			chart.querySelector(`[data-mark="${mark}"]:not(template)`);
+		const mark = tpl.getAttribute('data-mark') ?? '';
+		// The value is deck HTML: matched by comparison, never spliced into a selector, where a quote
+		// in it threw (the red team).
+		const same = [...chart.querySelectorAll('[data-mark]:not(template)')].filter((e) => e.getAttribute('data-mark') === mark);
+		const el = same.find((e) => e.hasAttribute('data-label')) ?? same[0] ?? null;
 		if (el) {
 			figureHit += 1;
 			return el;
@@ -2720,11 +2721,21 @@ export function guideStillShown(el: Element | null): boolean {
 	const view = el.ownerDocument?.defaultView;
 	if (!view) return sec.style.visibility !== 'hidden';
 	const cs = view.getComputedStyle(sec);
-	return cs.display !== 'none' && cs.visibility !== 'hidden';
+	if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+	// A section can be `display: flex` inside a frame that is `display: none`: the exported player
+	// hides every slide but the shown one on its `.lp-frame` wrapper, so the section's own style
+	// says "shown" for every slide of the deck. `checkVisibility` asks the whole ancestor chain.
+	return typeof (sec as HTMLElement & { checkVisibility?: () => boolean }).checkVisibility === 'function' ? (sec as HTMLElement & { checkVisibility: () => boolean }).checkVisibility() : true;
 }
 
 export function guideAimIn(doc: Document | null, text: string, prev?: string): Element | null {
-	const block = findCueTarget(shownSection(doc), text, prev);
+	return guideAimInRoot(shownSection(doc), text, prev);
+}
+
+/** `guideAimIn` for a host that already knows which slide is shown — the exported player, whose
+ *  shown slide is its `.lp-frame.lp-active` section rather than the Stage's unhidden one. */
+export function guideAimInRoot(root: Document | Element | null, text: string, prev?: string): Element | null {
+	const block = findCueTarget(root, text, prev);
 	return block ? aimTarget(block, text).el : null;
 }
 
@@ -2744,6 +2755,17 @@ export function guideAimIn(doc: Document | null, text: string, prev?: string): E
  * its box straight back rather than mapping it.
  */
 export function guideCueInDoc(doc: Document | null, text: string, prev?: string): GuideCue | null {
+	if (!doc) return null;
+	return guideCueInRoot(shownSection(doc) ?? doc, doc.getElementById('latt-fit'), text, prev);
+}
+
+/**
+ * The same decision for a host that knows its shown slide and the box it is painted in: the
+ * exported player passes its active section for both, since the section itself carries the fit
+ * transform there (`.lp-frame.lp-active section`), so its client rect IS the painted slide.
+ */
+export function guideCueInRoot(root: Document | Element, fit: Element | null, text: string, prev?: string): GuideCue | null {
+	const doc = (root as Document).defaultView ? (root as Document) : root.ownerDocument;
 	const view = doc?.defaultView;
 	if (!doc || !view) return null;
 	const half = POINTER_BOX / 2;
@@ -2755,10 +2777,9 @@ export function guideCueInDoc(doc: Document | null, text: string, prev?: string)
 	// with the caption band up — the same content classifying differently on the Stage than
 	// on the console. `#latt-fit` is the slide's own painted box; the window is only the
 	// clamp the cursor may come to rest inside.
-	const fit = doc.getElementById('latt-fit');
 	const box = fit ? fit.getBoundingClientRect() : null;
 	const frame = box && box.width > 0 ? { left: box.left, top: box.top, width: box.width, height: box.height } : { left: 0, top: 0, width: view.innerWidth, height: view.innerHeight };
-	const cue = guideCueIn(shownSection(doc) ?? doc, text, frame, half, half + 5, prev);
+	const cue = guideCueIn(root, text, frame, half, half + 5, prev);
 	if (!cue) return null;
 
 	const { el, inkRange, markerOffset, role } = cue;

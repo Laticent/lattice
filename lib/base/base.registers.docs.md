@@ -1045,7 +1045,11 @@ follow-up.
 
 `delivery:` sets how the Studio's Present **Guide** behaves while narration plays: how many
 moments on a slide get a gesture, and how each one looks. It changes nothing in a rendered
-slide, a PDF, a PPTX or an export.
+slide, a PDF or a PPTX. **It also turns the Guide on in a narrated HTML export**, and so in a
+`lattice video` of it: the export carries the Guide only when the deck declares `delivery:`,
+even `delivery: restrained`, the preset Present uses without the line. A deck that leaves the
+line out exports and records without the Guide
+(`engineering/decisions/2026-09-27-guide-in-the-exported-player.md`).
 
 **The gesture is focus.** When the narration names a bullet, a table row, cell or column, a chart
 bar, wedge or line, that element stays exactly as it is and everything else in its group recedes:

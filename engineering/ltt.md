@@ -453,9 +453,10 @@ timing, and Anima motion, because the capture includes whatever the player draws
 The captions ride as a `tx3g` track in the MP4 (3GPP timed text, the subtitle format
 QuickTime reads; `lib/export/tx3g.mjs`) and a `.vtt` sidecar, both laid out by
 `timeline()` over the measured clip lengths; the caption band is not in the frame.
-**It does not guarantee** tour actions (no recorder writes a seekable run yet), the
-Guide's gestures (the exported player does not carry the Guide; the video note's
-fork 8), or the cursor's position mid-travel.
+The Guide's focus and gestures are in the frame when the deck declares `delivery:`,
+because the export then carries the Guide
+(`decisions/2026-09-27-guide-in-the-exported-player.md`). **It does not guarantee**
+tour actions (no recorder writes a seekable run yet).
 
 **Render mode** is the player's one hook for the capture (`window.__lpRender`, set
 only by the capture). Media does not play on the capture's clock, so rule 3 cannot

@@ -5270,7 +5270,10 @@ async function prunePlayerCssInPage(playerHtml) {
         return out;
       }, bases);
       const usedSet = new Set(used);
-      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b), { legacyPseudoElements: true });
+      // The Guide's focus rules match nothing until Play, so the prune keeps them only in a player
+      // that carries the Guide (its switch is in the bar; lib/export/player-prune.js).
+      const keepGuide = /<button id="lp-guide"/.test(playerHtml);
+      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b), { legacyPseudoElements: true, keepGuide });
       cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { applied: false };
     }
 
