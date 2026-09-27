@@ -103,6 +103,10 @@ const STEPS = [
   // file is a docs-site build error rather than a degraded feature.
   { label: 'guide handles (docs studio)', script: 'build-guide-handles.js' },
   { label: 'chart dispatch registry (lib/components/chart)', script: 'build-chart-registry.js' },
+  // Ahead of the bundles for the same reason: lib/engine requires the plugin registry, and the
+  // boundary parser imports its grammar, so esbuild inlines both into every engine bundle.
+  // engineering/decisions/2026-09-27-plugin-system.md.
+  { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // Also ahead of the bundles: lib/export/image-set.js and lib/authoring/scorecard.js
   // `require()` this catalog and both are inlined by esbuild, and three docs-site
   // modules import it. It replaces nine hand-maintained rosters — see

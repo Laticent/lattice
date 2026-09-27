@@ -326,7 +326,7 @@ function formsSlicingCss() {
 // pointed at stylesheet-relative `fonts/<file>.woff2`. Math renders with zero
 // network, same as the text faces. (woff2 is universally supported on every
 // render path we target, so the woff/ttf fallbacks in KaTeX's src list are
-// dropped rather than shipped.) See lib/integrations/katex/katex.docs.md.
+// dropped rather than shipped.) See lib/plugins/math/math.docs.md.
 function katexFontFiles() {
   try {
     const dir = path.dirname(require.resolve('katex/dist/katex.min.css'));

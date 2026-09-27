@@ -186,6 +186,7 @@ const SCRIPT_META = {
   'test:cli':                 ['Test & verify', 'Unit scope: the CLI.'],
   'test:playground':          ['Test & verify', 'Unit scope: the playground bundle/core.'],
   'test:engine':              ['Test & verify', 'Unit scope: lattice-engine internals.'],
+  'test:plugins':             ['Test & verify', 'Unit scope: the plugin host — resolver, install order, and every plugin\'s conformance fixtures.'],
   'test:layout':              ['Test & verify', 'Unit scope: the layout system.'],
   'test:transformers':        ['Test & verify', 'Unit scope: transformer registry/adapters.'],
   'test:adaptive':            ['Test & verify', 'Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract.'],

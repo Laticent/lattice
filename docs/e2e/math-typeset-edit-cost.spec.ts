@@ -6,7 +6,7 @@ import { appendToEditor, expect, gotoStudio, setEditorContent, test, waitForStud
 /**
  * WHAT A KEYSTROKE COSTS IN TYPESETS, MEASURED IN THE REAL STUDIO.
  *
- * The typeset memo (`lib/engine/math.js`) was landed on Node-side numbers: 90
+ * The typeset memo (`lib/plugins/math/math.render.js`) was landed on Node-side numbers: 90
  * `katex.renderToString` calls per keystroke before, 0 after, on
  * `math.gallery.md`. Those came from a harness that RECONSTRUCTS what the
  * Studio's render route hands the engine — it never drove the Studio. Under

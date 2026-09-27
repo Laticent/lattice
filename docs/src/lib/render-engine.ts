@@ -15,7 +15,7 @@
 // `katex` import to lib/engine/katex-browser-stub.js, so lattice-playground.js
 // no longer bundles KaTeX at all — a separate on-demand bundle
 // (lib/playground/katex-provider.js → lattice-katex.js) carries it instead,
-// loaded here only when a pre-scan (lib/engine/math-detect.mjs's
+// loaded here only when a pre-scan (lib/plugins/math/math.syntax.mjs's
 // sourceHasMath, KaTeX-free by construction) finds math syntax in the source.
 //
 // (The Drawing Board used to carry an un-migrated `PG.render()` call site here,
@@ -24,7 +24,7 @@
 // exemption is moot and every remaining call site goes through this module.)
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
-import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
+import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';

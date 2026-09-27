@@ -1,9 +1,9 @@
 /**
- * Unit: lib/engine/math-detect.mjs — the KaTeX-free math-syntax pre-scan.
+ * Unit: lib/plugins/math/math.syntax.mjs — the KaTeX-free math-syntax pre-scan.
  *
- * The predicate mirrors math.js's own inline/block delimiter guards
- * independently (no shared implementation — see math-detect.mjs's header), so
- * this suite is the drift guard: every fixture is cross-checked against what
+ * `detect` scans the raw source with its own code, independently of the
+ * markdown-it rules beside it (see math.syntax.mjs's header for why), so
+ * this suite is a drift guard: every fixture is cross-checked against what
  * the REAL engine (createEngine().render()) actually renders as
  * `class="katex"`, not just against the predicate's own logic.
  */
@@ -14,7 +14,7 @@ const { createEngine } = require('../../../lib/engine');
 
 let sourceHasMath, hasDisplayMath, hasInlineMath;
 test.before(async () => {
-  ({ sourceHasMath, hasDisplayMath, hasInlineMath } = await import('../../../lib/engine/math-detect.mjs'));
+  ({ sourceHasMath, hasDisplayMath, hasInlineMath } = await import('../../../lib/plugins/math/math.syntax.mjs'));
 });
 
 function engineRendersMath(src) {

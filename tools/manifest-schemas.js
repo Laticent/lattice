@@ -120,6 +120,12 @@ const FAMILIES = Object.freeze([
     dir: 'lib/forms/tile',
     ext: '.manifest.json',
   },
+  {
+    family: 'plugin',
+    schema: 'lib/plugins/plugin.schema.json',
+    dir: 'lib/plugins',
+    ext: '.manifest.json', // lib/plugins/<name>/<name>.manifest.json
+  },
 ]);
 
 /**

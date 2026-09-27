@@ -27,7 +27,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const MarkdownIt = require('markdown-it');
-const { installMath } = require('../../../lib/engine/math');
+const { installPlugins } = require('../../../lib/plugins/host');
 const { installSlidePipeline } = require('../../../lib/engine/slides');
 const { createBoundaryParser, boundaryParser, normalizeSource } = require('../../../lib/core/boundary-parser');
 
@@ -40,14 +40,14 @@ const { createBoundaryParser, boundaryParser, normalizeSource } = require('../..
  * OPTIONS, and those are what a reviewer diffs when `buildMd` changes.
  *
  * The pieces omitted are the ones that do not install a block rule: the
- * `highlight` callback (renderer), `registerMermaidHljs` (renderer), and the 15
+ * `highlight` callback (renderer), `registerMermaidHljs` (renderer), and the 19
  * `LATTICE_PLUGINS` (core rulers, which run after block parsing).
  */
 function engineLikeParser() {
   const md = new MarkdownIt('commonmark', { html: true, breaks: true });
   md.enable(['table', 'strikethrough']);
   installSlidePipeline(md, {}, {});
-  installMath(md, {});
+  installPlugins(md);
   return md;
 }
 

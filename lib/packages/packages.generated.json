@@ -5,7 +5,8 @@
     "theme": 33,
     "component": 71,
     "finish": 9,
-    "motion": 0
+    "motion": 0,
+    "plugin": 1
   },
   "packages": [
     {
@@ -1224,6 +1225,19 @@
         "manifest.json",
         "recipe.json"
       ]
+    },
+    {
+      "type": "plugin",
+      "name": "math",
+      "path": "lib/plugins/math",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "manifest.json",
+        "render.js",
+        "syntax.mjs"
+      ],
+      "code": true
     }
   ]
 }

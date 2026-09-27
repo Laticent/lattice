@@ -1,6 +1,6 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/state-marks.js';
-import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
+import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
 import { fenceRanges } from '../../components/studio/slide-directives';
