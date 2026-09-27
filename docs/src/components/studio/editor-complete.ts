@@ -159,7 +159,7 @@ export const VOCAB_VALUE_FIELDS: Record<string, string> = {
 	headline: 'headlineNames',
 	lift: 'liftNames',
 	backdrop: 'backdropNames',
-	tag: 'cardTagNames',
+	tag: 'tagNames',
 	venue: 'venueNames',
 	preset: 'presetNames',
 	delivery: 'deliveryNames',
