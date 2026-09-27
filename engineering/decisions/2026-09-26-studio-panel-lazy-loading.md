@@ -275,6 +275,63 @@ failed the whole Studio load instead. A retry cannot help, because the module ma
 without a request (#1242). The warm-up runs after the Studio is usable and fetches only six
 chunks, so the window is small, and Reload recovers.
 
+**Adversarial trio (2026-09-27).** The owner asked for very high confidence, so the red team and
+the Munger inversion ran as well as the checker. Neither found anything blocking. Together they
+found three regressions against `main`, all fixed:
+- **Save-Data.** The warm-up skipped Save-Data users, so Share and Workspace stopped working for
+  them offline and after a deploy. On `main` they downloaded every panel at startup, so the skip
+  saved them nothing. The warm-up now runs for everyone.
+- **The Safari warm-up window.** Without `requestIdleCallback`, the warm-up waited 1.5 s between
+  panels. That left a ~9 s window in which a tab restored after a deploy could not open a panel it
+  had never opened. It now waits for idle once, then loads each panel as soon as the one before it
+  has loaded.
+- **Reset slide.** A cold open moved Slide settings' Reset baseline from the moment the panel
+  opened to the moment its code arrived. The shell now records the slide as it was when opened,
+  and the loaded panel takes that over once.
+
+The review also led to three guards:
+- A visible pending cue on the Share shell's rows: the arrow is a spinner, at the same size.
+- A build failure when a lazy panel or the narration stack re-enters the Studio's startup closure,
+  naming the module (`lazyOnlySuffixes` in `docs/scripts/inject-modulepreload.mjs`). A deliberate
+  static import of `ShareSheet` made it fail and name both `ShareSheet.tsx` and `read-along-core`.
+- The vetting harness's checks committed as `docs/e2e/panel-shells.spec.ts`. It covers frame
+  parity, one slide-in, Escape and the failed load. The sheet tests are tagged `@crosswidth
+  @webkit-phone`, so the nightly runs them on mobile and on real WebKit.
+
+**The full end-to-end suite, run locally on desktop, tablet and mobile:** 669 of 692 passed. Of the
+12 that failed:
+- 3 were the panel-shells spec's own races, since fixed. Two had the chunk hold installed after
+  the warm-up had fetched the chunk. One read the Chat composer a frame before it autosized.
+  The spec now passes 70/70 across desktop and mobile, 5 repeats.
+- 8 fail the same way on `main` `91cf5e1`, in all 16 runs (2 each):
+  - `inline-grammar-marp-mirror`
+  - `playground-stress` search
+  - `split` auto-expand
+  - `status-pill` exit window
+  - `theme-import-style-sink` ×2
+  - `webpage-export` ×2
+- 1 is the `studio-instant-shell` flake below, measured separately on `main`.
+
+**WebKit and Gecko.** The nightly Studio workflow was dispatched on the branch with the
+panel-touching specs. Its WebKit phone, WebKit tablet and Gecko projects passed all 25 of their
+runs, including crash-sentinel, back-gesture, and workspace backup and restore.
+
+**Main-thread cost of the warm-up.** 4× CPU throttle, typing from 2 s after load, first 15 s,
+medians of 5 runs each:
+
+| | `main` | this branch |
+|---|---:|---:|
+| blocking time, all long tasks | 3,961 ms | 3,560 ms |
+| blocking time while typing | 1,724 ms | 1,468 ms |
+| longest task while typing | 172 ms | 164 ms |
+
+The warm-up moves the panels' evaluation later, but it adds no jank: the branch reads slightly
+better, within run-to-run noise.
+
+**Accepted and not changed.** The inversion argued that splitting only Share and Workspace would
+have taken 88% of the win without four of the shells. The owner chose all six, and this record
+keeps that choice. The narration stack alone was not measured as a split of its own.
+
 **One pre-existing flake, not this PR's.** `studio-instant-shell.spec.ts` › "a rect from another
 orientation › is not replayed in portrait" fails intermittently against the FULL production build
 (`npm run build`, which adds `inject-modulepreload` and `hoist-stylesheets`). It failed 6 of 8 runs
