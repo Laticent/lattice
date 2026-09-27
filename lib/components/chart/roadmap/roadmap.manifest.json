@@ -271,5 +271,16 @@
         "hall": 9
       }
     }
+  },
+  "scene": {
+    "units": {
+      "horizon": {
+        "select": ".horizon-card:has(> .horizon-head[data-label=\"{horizon}\"])"
+      },
+      "bet": {
+        "select": "li.cell-state[data-label=\"{bet}\"]"
+      }
+    },
+    "key": "first"
   }
 }

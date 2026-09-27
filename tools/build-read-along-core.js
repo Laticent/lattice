@@ -49,7 +49,7 @@ const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./read-
 const { readAlongToVtt, readAlongToVttParts } = require('./read-along-vtt.js');
 const { slideToSpeech } = require('./slide-speech.js');
 const {
-  narrateChart, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
+  narrateChart, narrateChartScript, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,
   narrateBullet, narrateWordCloud, narrateDataSeries,
 } = require('./chart-narration.js');
@@ -57,7 +57,7 @@ const { spokenValue } = require('./chart-values.js');
 export {
   buildReadAlong, emphasisForResolved, mergeNarration, readAlongToVtt, readAlongToVttParts,
   slideToSpeech,
-  narrateChart, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
+  narrateChart, narrateChartScript, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,
   narrateBullet, narrateWordCloud, narrateDataSeries,
   spokenValue,

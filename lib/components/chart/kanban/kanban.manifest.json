@@ -235,5 +235,16 @@
         "hall": 3
       }
     }
+  },
+  "scene": {
+    "units": {
+      "column": {
+        "select": ".kanban-column[data-label=\"{column}\"]"
+      },
+      "card": {
+        "select": ".kanban-card[data-label=\"{card}\"]"
+      }
+    },
+    "key": "largest"
   }
 }
