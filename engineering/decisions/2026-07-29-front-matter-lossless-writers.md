@@ -125,6 +125,16 @@ of this change (HARD RULE #18), and it is logged as a follow-up rather than left
 unrecorded — see the module header in `front-matter.ts`, which names the gap at the
 place someone would otherwise assume the whole module is lossless.
 
+**Amended 2026-09-27 (block scalars).** The flat reader and `frontMatterKeySpan` used to read
+the indented lines of a `style: |` or `header: >` block scalar as flat pairs. So a CSS line
+named like a register (`  lift: on`) read as that register, and a write, a removal or a preset
+Reset of it rewrote the author's CSS. Both now treat a block-scalar header as one pair (value
+`|`, `>-`, …) and skip its body. The two nested writers above now re-emit that body verbatim;
+before, they flattened it into stray top-level keys. They still normalize everything else
+around it. The engine's own loose reader (`frontMatterValue` in
+`lib/core/front-matter-key.js`) still reads an indented line as a key; that is logged in
+`followups.d/`.
+
 ## Behavior differences the migration introduces
 
 The splice is not a drop-in for the rebuild in three observable ways; each is an

@@ -471,3 +471,47 @@ describe('every deck-scope directive writes losslessly (#1256)', () => {
 		expect(offenders).toEqual([]);
 	});
 });
+
+describe('block scalars — `style: |` lines are body, never directives (followups.d/2391-p3)', () => {
+	// The CSS lines here are named like registers on purpose. Before, the reader read them as
+	// `lift` and `rule`, and a write or removal of either rewrote the author's CSS.
+	const DECK = '---\ntheme: indaco\nstyle: |\n  lift: on\n  rule: short\n\n  section { color: red; }\nfooter: Q4\n---\n\n# Hi\n';
+
+	it('the reader does not read a body line as a directive, and still reads the header and the keys after it', () => {
+		expect(getFrontMatter(DECK, 'lift')).toBeUndefined();
+		expect(getFrontMatter(DECK, 'rule')).toBeUndefined();
+		expect(getFrontMatter(DECK, 'style')).toBe('|');
+		expect(getFrontMatter(DECK, 'footer')).toBe('Q4');
+	});
+
+	it('removing a key the body names leaves the body untouched', () => {
+		expect(writeFrontMatterLine(DECK, 'lift', null)).toBe(DECK);
+		expect(writeFrontMatterLine(DECK, 'rule', null)).toBe(DECK);
+	});
+
+	it('writing a key the body names adds a top-level line and never edits the body', () => {
+		const out = writeFrontMatterLine(DECK, 'lift', 'off');
+		expect(out).toBe('---\ntheme: indaco\nstyle: |\n  lift: on\n  rule: short\n\n  section { color: red; }\nfooter: Q4\nlift: off\n---\n\n# Hi\n');
+		expect(getFrontMatter(out, 'lift')).toBe('off');
+		// …and the key after the block is still reachable for a splice.
+		expect(writeFrontMatterLine(DECK, 'footer', 'Q1')).toBe(DECK.replace('footer: Q4', 'footer: Q1'));
+	});
+
+	it('reads the other indicators too (`>`, `|-`, `>+2`, a trailing comment), and CRLF', () => {
+		for (const head of ['>', '|-', '>+2', '|  # deck css']) {
+			const src = DECK.replace('style: |', `style: ${head}`);
+			expect(getFrontMatter(src, 'lift'), head).toBeUndefined();
+			expect(writeFrontMatterLine(src, 'rule', null), head).toBe(src);
+		}
+		const crlf = DECK.replace(/\n/g, '\r\n');
+		expect(getFrontMatter(crlf, 'lift')).toBeUndefined();
+		expect(writeFrontMatterLine(crlf, 'lift', null)).toBe(crlf);
+	});
+
+	it('a nested-block writer re-emits the scalar verbatim instead of flattening its body', () => {
+		const out = setFrontMatterBlock(DECK, 'lexicon', [['α', 'alpha']]);
+		expect(out).toContain('style: |\n  lift: on\n  rule: short\n\n  section { color: red; }\n');
+		expect(out).not.toContain('style: "|"');
+		expect(setFrontMatterAcronyms(DECK, [['CRO', { expansion: 'chief revenue officer' }]])).toContain('style: |\n  lift: on\n');
+	});
+});

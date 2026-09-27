@@ -23,3 +23,12 @@ done when — candidates rendered side by side with today's looks and one picked
             per preset and the Reset / "N changes" count covers it.
 evidence  — side-by-side renders of each candidate in light and dark, title and cards slides.
 verify    — tier 2: preset-register.test.js plus a rendered PDF of examples/deck-presets.md.
+
+Status 2026-09-27: candidates rendered and sent to the owner; nothing changes until the owner
+picks. Today's Editorial (ledger) and Brand-forward (strata) against A: brand + atrium + `backdrop:
+clear`, B: brand + nimbus + clear, C: editorial + savile + clear, D: editorial + meridian + clear,
+E: brand + atrium with no backdrop, F: editorial + savile with no backdrop. Light and dark, title and
+cards-grid slides. Finding: with `backdrop: clear`, A–D read QUIETER than today, because the clear
+mask removes the finish from the middle of the slide, where the content sits. So "a bolder finish,
+kept off the words by `clear`" does not produce a bolder look. E and F are the bolder options. The
+decks are reproducible from `.scratch/preset-finish/gen.sh` (untracked scratch; regenerate if gone).
