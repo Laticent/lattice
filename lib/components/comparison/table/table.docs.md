@@ -27,7 +27,7 @@ Use when the table IS the slide. A plain markdown table on any slide already get
 
 - **Writing a vague or duplicate first column, assuming it's just another data column.** When the table overflows a narrow box, the Fit Ladder reshapes it into row-cards (column headers become in-card labels) instead of clipping — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row. This happens automatically and needs no opt-in.
 - **Expecting the first column's `**bold**` to show when the column is already emphasized as a row label.** The row-label emphasis sets the same weight and ink `**bold**` would, so bolding inside it is a no-op. `no-row-label` turns the emphasis off and hands the column back to you.
-- **Reaching for a CSS override to make a short table fill the slide.** `table-fill` is the switch — it grows the table AND centers each cell in its band. The default hugs the rows and centers the block, so a three-row table reads as three rows rather than three rows stretched over a screen.
+- **Reaching for a CSS override to make a short table fill the slide.** `table-fill` is the switch — it grows the table AND centers each cell in its band. The default hugs the rows and centers the block, so a three-row table reads as three rows rather than three rows stretched over a screen. The centering is `safe`: a table too long for its slide or pane keeps its header row at the top and clips at the bottom, never at both ends.
 
 ## When to use
 

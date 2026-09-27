@@ -146,7 +146,7 @@
     },
     {
       "mistake": "Reaching for a CSS override to make a short table fill the slide.",
-      "fix": "`table-fill` is the switch — it grows the table AND centers each cell in its band. The default hugs the rows and centers the block, so a three-row table reads as three rows rather than three rows stretched over a screen."
+      "fix": "`table-fill` is the switch — it grows the table AND centers each cell in its band. The default hugs the rows and centers the block, so a three-row table reads as three rows rather than three rows stretched over a screen. The centering is `safe`: a table too long for its slide or pane keeps its header row at the top and clips at the bottom, never at both ends."
     }
   ],
   "specimenVoice": true,
