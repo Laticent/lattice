@@ -696,14 +696,14 @@ section.print[data-split-role="cover"] {
 /* ── 1 · ATRIUM — Corner glow + a fine grid + a left margin rule. (lib/finishes/atrium/) */
 section.finish-atrium {
   --fin-texture:
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 38px),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 38px);
+    linear-gradient(0deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px);
   --fin-texture-opaque:
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 38px),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 38px);
+    linear-gradient(0deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px);
   --fin-wash: radial-gradient(ellipse 120% 90% at 100% 0%, color-mix(in srgb, var(--field-accent) 13%, transparent) 0%, transparent 60%);
   --fin-wash-opaque: radial-gradient(ellipse 120% 90% at 100% 0%, color-mix(in srgb, var(--field-accent) 10%, var(--fin-canvas)) 0%, var(--fin-canvas) 55%);
-  --fin-size: auto, auto, cover;
+  --fin-size: 38px 38px, 38px 38px, cover;
   --fin-position: top left, top left, top left;
   --fin-repeat: repeat, repeat, no-repeat;
   --fin-mark: linear-gradient(var(--field-accent), var(--field-accent));
@@ -783,11 +783,11 @@ section.finish-halo {
 
 /* ── 5 · LEDGER — Fine ruled lines + a bold left margin bar + a corner fold. (lib/finishes/ledger/) */
 section.finish-ledger {
-  --fin-texture: repeating-linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 10%, transparent) 39px 40px);
-  --fin-texture-opaque: repeating-linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 39px 40px);
+  --fin-texture: linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 10%, transparent) 39px);
+  --fin-texture-opaque: linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 39px);
   --fin-wash: none;
   --fin-wash-opaque: none;
-  --fin-size: auto, auto;
+  --fin-size: 40px 40px, auto;
   --fin-position: top left, top left;
   --fin-repeat: repeat, no-repeat;
   --fin-mark: linear-gradient(var(--field-accent), var(--field-accent));
@@ -830,14 +830,14 @@ section.finish-nimbus {
 /* ── 7 · LOOM — A woven lattice cross-hatch + a movable corner glow. (lib/finishes/loom/) */
 section.finish-loom {
   --fin-texture:
-    repeating-linear-gradient(45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 34px),
-    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 34px);
+    linear-gradient(45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 0.5px, transparent 0.5px calc(50% - 0.5px), color-mix(in srgb, var(--field-accent) 9%, transparent) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px) calc(100% - 0.5px), color-mix(in srgb, var(--field-accent) 9%, transparent) calc(100% - 0.5px)),
+    linear-gradient(-45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 0.5px, transparent 0.5px calc(50% - 0.5px), color-mix(in srgb, var(--field-accent) 9%, transparent) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px) calc(100% - 0.5px), color-mix(in srgb, var(--field-accent) 9%, transparent) calc(100% - 0.5px));
   --fin-texture-opaque:
-    repeating-linear-gradient(45deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 34px),
-    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 1px, transparent 1px 34px);
+    linear-gradient(45deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 0.5px, transparent 0.5px calc(50% - 0.5px), color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px) calc(100% - 0.5px), color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) calc(100% - 0.5px)),
+    linear-gradient(-45deg, color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) 0 0.5px, transparent 0.5px calc(50% - 0.5px), color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px) calc(100% - 0.5px), color-mix(in srgb, var(--field-accent) 7%, var(--fin-canvas)) calc(100% - 0.5px));
   --fin-wash: radial-gradient(ellipse 120% 90% at 0% 0%, color-mix(in srgb, var(--field-accent) 14%, transparent) 0%, transparent 60%);
   --fin-wash-opaque: radial-gradient(ellipse 120% 90% at 0% 0%, color-mix(in srgb, var(--field-accent) 11%, var(--fin-canvas)) 0%, var(--fin-canvas) 55%);
-  --fin-size: auto, auto, cover;
+  --fin-size: 48px 48px, 48px 48px, cover;
   --fin-position: top left, top left, top left;
   --fin-repeat: repeat, repeat, no-repeat;
   --fin-mark: none;
@@ -849,11 +849,11 @@ section.finish-loom {
 
 /* ── 8 · SAVILE — A tailored vertical pinstripe + a movable monogram. (lib/finishes/savile/) */
 section.finish-savile {
-  --fin-texture: repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 10%, transparent) 0 1px, transparent 1px 18px);
-  --fin-texture-opaque: repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0 1px, transparent 1px 18px);
+  --fin-texture: linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 10%, transparent) 0 1px, transparent 1px);
+  --fin-texture-opaque: linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0 1px, transparent 1px);
   --fin-wash: none;
   --fin-wash-opaque: none;
-  --fin-size: auto, auto;
+  --fin-size: 18px 18px, auto;
   --fin-position: top left, top left;
   --fin-repeat: repeat, no-repeat;
   --fin-mark: none;

@@ -1,0 +1,1 @@
+- The atrium, ledger, loom and savile finishes now draw their texture as a repeated tile, so exported PDFs draw each slide about 3× faster (poppler). The texture itself is embedded at screen resolution; text and the rest of the finish stay vector.
