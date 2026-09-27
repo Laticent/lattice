@@ -15,10 +15,14 @@ why now   — found testing the agentic-practices talk on PR #2399. At `venue: h
             laptop. Came in with #2390 (the lift and LEVEL), not #2399.
 where     — lib/core/scale-fit.js (STEP / LEVEL), lib/base/base.modifiers.css (the venue rules),
             engineering/typography.md §7 "Venue", the decision note's lift rationale.
-how       — the owner's call: (a) step the lift down with the rung (lift only at the venue's full
-            size), (b) scale it in proportion (1 + (lift - 1) · (rung - 1) / (ask - 1)), or (c) keep
-            it and let lint warn. Measure each against the talk and the 70 galleries at hall.
-done when — the talk at `venue: hall` clips nothing that fits at laptop, or the owner has ruled
-            that it may and lint says so.
+how       — the owner ruled on PR #2399 (2026-09-27): (c) keep the lift and let lint warn. Hall
+            labels stay large for legibility; the author trims. So: teach `capacity-scale` (or a
+            sibling rule in lib/authoring/lint-core.js) that at `venue: hall` / `conference` a slide
+            carrying lifted labels (insight callout, compare-prose vertical) needs room for the lift,
+            and name the slide with a fix line. Calibrate the threshold on the talk's six pages and
+            the 70 galleries at hall. Options (a) step down with the rung and (b) scale in proportion
+            were declined.
+done when — `lint:deck` at `venue: hall` warns on each of the talk's six clipping pages (4, 6, 27,
+            45, 47, 57) with a fix line, and warns on no slide that fits at hall.
 evidence  — the talk rendered at hall before/after; the 6-slide deck with and without the lift.
 verify    — tier 1 checker: engine kernel.
