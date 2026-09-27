@@ -1213,7 +1213,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		let live = true;
 		const withCode = localComponents.filter((c) => typeof c.pkg?.files?.['transform.js'] === 'string').map((c) => ({ name: c.name, code: c.pkg?.files?.['transform.js'] as string }));
-		setCodePackages(withCode).then(() => { if (live) setCodeStamp(codePackagesStamp()); });
+		setCodePackages(withCode).then(
+			() => { if (live) setCodeStamp(codePackagesStamp()); },
+			// The door's chunk did not load (offline before it was ever fetched, or a renamed chunk):
+			// no package runs, and the next Library change tries again.
+			(e) => console.warn('lattice: the code-package door did not load', e),
+		);
 		return () => { live = false; };
 	}, [localComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);

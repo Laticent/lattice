@@ -1,6 +1,6 @@
 // The door's front step (entry.ts): with no code package it loads nothing and renders exactly as the
 // engine does; the first package loads the door, and the door takes over the render.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { codePackagesStamp, renderWithCodePackages, setCodePackages } from './entry';
 
 const code = 'function t(s){return s.html}\nexport { t as default };\n';
@@ -36,5 +36,16 @@ describe('the code-package door loads on the first package', () => {
 		expect(typeof (opts[0] as { codePackages?: unknown }).codePackages).toBe('function');
 		await setCodePackages([]);
 		expect(codePackagesStamp()).toBe('');
+	});
+
+	it('a removal made while the door is loading wins over the list before it', async () => {
+		// A fresh module, so the door has not loaded yet: the Library held a package, then dropped
+		// it before the door's chunk arrived (the checker's race, PR #2411).
+		vi.resetModules();
+		const fresh = await import('./entry');
+		const first = fresh.setCodePackages([{ name: 'acme', code }]);
+		const second = fresh.setCodePackages([]);
+		await Promise.all([first, second]);
+		expect(fresh.codePackagesStamp()).toBe('');
 	});
 });

@@ -11,16 +11,31 @@ type Door = typeof import('./door');
 let door: Door | null = null;
 let loading: Promise<Door> | null = null;
 const load = () => {
-	loading ??= import('./door').then((m) => {
-		door = m;
-		return m;
-	});
+	loading ??= import('./door').then(
+		(m) => {
+			door = m;
+			// Fetch the running half now too: the service worker caches a chunk only once it has been
+			// fetched, so a browser that holds a code package keeps the whole door for offline use.
+			import('./door-run').catch(() => {});
+			return m;
+		},
+		(e) => {
+			// A failed load (offline, a deploy that renamed the chunk) is tried again on the next call.
+			loading = null;
+			throw e;
+		},
+	);
 	return loading;
 };
 
-/** The Library's code packages (door.ts `setCodePackages`); an empty list loads nothing. */
+/**
+ * The Library's code packages (door.ts `setCodePackages`). An empty list loads nothing, unless a
+ * load is already under way: then it must still reach the door, whose sequence number is what lets
+ * the LATEST list win. Returning early there let an earlier, non-empty list land after it, so a
+ * package the Library had just removed stayed live with no notice (the checker, PR #2411).
+ */
 export async function setCodePackages(list: { name: string; code: string }[]): Promise<void> {
-	if (!list.length && !door) return;
+	if (!list.length && !door && !loading) return;
 	await (await load()).setCodePackages(list);
 }
 
