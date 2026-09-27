@@ -37,7 +37,7 @@ import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
-import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
@@ -110,7 +110,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { chatPanel, FABRICATE_USED_KEY, lensesPanel, libraryPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
+import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -825,10 +825,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// lines further down — and because the answer wanted is the one true when `pagehide`
 	// FIRES, not the one captured when the listener was registered.
 	const rectBootShapedRef = React.useRef(true);
+	// The layout the app last RENDERED — breakpoint and cinema — against which `persistRect` checks
+	// the viewport it is about to divide by. The media queries flip the instant the viewport does;
+	// the render follows a `change` event and a commit later. Leave the page inside that window
+	// (rotate a phone out of landscape and lock it within a frame) and the box on screen is still
+	// the full-bleed cinema one while `innerWidth`/`innerHeight` are already portrait: a
+	// portrait-shaped rect the aspect gate accepts, replayed 16px off on the next load. A layout
+	// that has not caught up describes no boot, so it takes the same DROP as one that is not
+	// boot-shaped. Set at render next to `landscapePhone`, further down.
+	const renderedLayoutRef = React.useRef<{ bp: Breakpoint; landscapePhone: boolean } | null>(null);
 	React.useEffect(() => {
 		const persistRect = () => {
 			if (presentOpen) return;
-			if (!rectBootShapedRef.current) {
+			const rendered = renderedLayoutRef.current;
+			const lagging = !rendered || rendered.bp !== readBreakpoint() || rendered.landscapePhone !== readLandscapePhone();
+			if (!rectBootShapedRef.current || lagging) {
 				try { localStorage.removeItem(PREVIEW_RECT_KEY); } catch {}
 				return;
 			}
@@ -1328,18 +1339,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			.then((m) => {
 				if (dead) return;
 				let fabricateUsed = false;
+				let diagramsUsed = false;
 				try {
 					fabricateUsed = localStorage.getItem(FABRICATE_USED_KEY) === '1';
+					diagramsUsed = localStorage.getItem(DIAGRAMS_USED_KEY) === '1';
 				} catch {}
 				const katexUrl = sourceHasMath(sourceRef.current) ? deriveKatexProviderUrl() : null;
-				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, fabricateUsed });
+				// Fabricate's gallery carries a Diagram specimen, so opening Fabricate counts too.
+				const mermaidUrl = (diagramsUsed || fabricateUsed) && options?.mermaidUrl ? options.mermaidUrl : null;
+				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, mermaidUrl, fabricateUsed });
 			})
 			.catch(() => {});
 		return () => {
 			dead = true;
 			cancel?.();
 		};
-	}, []);
+		// `options` comes from the page and never changes, so this runs once; the warmables are
+		// memoized, so a re-run would fetch nothing twice.
+	}, [options?.mermaidUrl]);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —
@@ -1396,6 +1413,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// probe that diagnosed it is now the standalone Viewport-debug overlay (ViewportDebugOverlay
 	// + Workspace → Diagnostics + `?vvdebug`); it reads the `data-cinema-stage` element below.
 	// See 2026-07-20-landscape-phone-preview-lock.md §Real-device fix.
+	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
@@ -2928,6 +2946,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// invites the model to discuss diagrams that don't exist.
 		setDiagramErrors(null);
 		if (!diagramSignature) return;
+		// This browser draws diagrams, so the idle warm-up keeps the Mermaid bundle cached for it.
+		try {
+			localStorage.setItem(DIAGRAMS_USED_KEY, '1');
+		} catch {}
 		// Read the deck through the ref, so the DIAGRAM TEXT is the only trigger — depending
 		// on `source` would re-parse on every prose keystroke for no change in the answer.
 		const id = setTimeout(() => {

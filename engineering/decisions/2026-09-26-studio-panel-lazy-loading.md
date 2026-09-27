@@ -356,7 +356,29 @@ loads portrait in a new page of the same context, and asserts the landscape rect
 storage. Measured: 20 of 20 on `npm run build` and 20 of 20 on `build:e2e`. With the aspect gate
 forced open in the built HTML it fails 3 of 3 (`shell 45 vs app 16`), so it can still catch the
 defect it names. The app-side window, a rotation followed within one frame by leaving the page, is
-logged in `followups.d/2402-p3-persist-rect-mid-rotation.md`.
+logged as a follow-up and closed in the paragraph below.
+
+**Closed (2026-09-27): `persistRect` drops a rect measured while the layout lags the viewport.**
+The media queries flip the moment the viewport rotates; `useBreakpoint` and `useLandscapePhone`
+render the change only after a `change` event and a commit. StudioShell now records the
+breakpoint and cinema state it last rendered, and at `pagehide` or `visibilitychange`,
+`persistRect` compares them with `readBreakpoint()` and `readLandscapePhone()`
+(`docs/src/lib/use-breakpoint.ts`), which read the media queries directly. When they disagree
+it removes the stored rect, the same drop a layout that is not boot-shaped already takes, so the
+next load's shell falls back to its compute path, which models cinema and portrait both. It
+removes rather than keeps the prior rect because the prior one was measured in a session that has
+since changed orientation, and the compute path models both cinema and portrait. Evidence: the "preview rect
+persistence" block in `StudioShell.test.tsx` flips the media queries without firing `change`,
+then fires `pagehide` or `visibilitychange`. Both cases fail with the check removed and pass
+with it; a control case shows an un-rotated departure still stores a rect. In real Chromium,
+`studio-instant-shell.spec.ts` › "a rotation and a pagehide in the same tick store no rect" rotates
+the cinema phone to portrait with a `change` listener that fires `pagehide`. The listener is
+registered from an init script, ahead of the app's own, because React commits the re-render in a
+microtask after each listener and a later probe would see portrait already rendered. On a build
+with the check disabled it stores `{"l":0,"t":0.37,"w":1,"h":0.2599}`, the same rect the flake
+above left behind; with the check it stores nothing, 10 of 10. "Is not replayed in portrait" stays
+20 of 20 on `npm run build`. UNVERIFIED on a real phone: the probe shows the window exists in
+Chromium and that the app now drops the rect in it, not how often an iPhone opens it.
 
 ## Warming Present, Fabricate and the reading view (2026-09-27)
 
@@ -392,7 +414,8 @@ that had not been fetched already. Starter deck, 1440px Chromium:
 | Present | PresentOverlay 35KB, narration 1KB, `player-core` 99KB, voice model 6KB | everyone, unless Save-Data |
 | Reading view | ReadArticle 6KB, `player-prune` 61KB, `deck-export` 13KB (used for a chart or diagram bake), font sheet 1KB (+ `player-core`, shared) | everyone, unless Save-Data |
 | KaTeX provider | 77KB, loaded by both projections for a deck with math | the same, and only when the deck on screen has math |
-| Fabricate | ~145KB of JS, plus the 877KB Mermaid bundle its Diagram specimen renders | only a browser that has opened Fabricate before |
+| Fabricate | ~145KB of JS, plus the 856KB Mermaid bundle its Diagram specimen renders | only a browser that has opened Fabricate before |
+| Mermaid bundle | 856KB, `export/mermaid-v11.min.js` | only a browser that has shown a diagram or opened Fabricate, and never under Save-Data |
 
 With everything warmed, the same probe finds 0 bytes left to fetch when the reading view opens,
 and only the 6KB voice model when Present opens.
@@ -413,9 +436,7 @@ and only the 6KB voice model when Present opens.
   reading view showing the chunk-load card until a reload, where before it would have fetched on
   the click. The warm-up runs once, after startup, on a connection that has just loaded the
   Studio, so the blip window is small, and Reload recovers.
-- *Not warmed: Mermaid.* It is a render-engine asset that any deck with a diagram fetches, not
-  something these surfaces own. Offline, Fabricate opens and its Diagram specimen shows the
-  diagram source. Logged in `followups.d/2402-p3-mermaid-offline-for-unrendered-diagrams.md`.
+- *Mermaid: warmed only for a browser that draws diagrams.* See the next section.
 
 **Compose, found on a real phone.** The owner ran the PR preview on an iPhone in airplane mode.
 The Studio loaded, but the Compose tab stuck on its skeleton and then the chunk-load card replaced
@@ -435,6 +456,57 @@ the venue clip notice renders inside a `Suspense` with no error boundary of its 
 failed load would have replaced the whole Studio. It is 1.7KB gz and warms for everyone, Save-Data
 included. Against a build without this change, the first two tests fail
 at the warm-up step ("the warm-up never cached PresentOverlay, ReadArticle, …").
+
+## Warming Mermaid for diagrams met offline (2026-09-27)
+
+The follow-up logged by the section above. The Mermaid bundle
+(`/playground/v/<hash>/export/mermaid-v11.min.js`, 876,604 bytes gz at level 6, the route budget's
+measure: 856KB, which the follow-up's "877KB" counted in decimal kB) loads only when something first
+needs it, and the service worker caches it only then. Offline, a diagram this browser has not
+rendered since the last deploy renders as `data-mermaid-state="unavailable"` and shows its source.
+
+**Where the gap actually is.** A deck on screen with a diagram already loads the bundle at startup:
+StudioShell's diagram check (`mermaid-check.ts` › `checkDiagrams`) parses every fence 900ms after
+mount, and the preview frame loads the same URL. So the KaTeX rule, "warm when the deck on screen
+needs it", would warm nothing that is not already on its way. The gap is a diagram met LATER in an
+offline session: another deck opened, a diagram typed, or Fabricate's Diagram specimen. None of
+the built-in decks has a diagram, so a new visitor never needs the bundle.
+
+**The rule.** The warm-up fetches the bundle, without running it, for a browser that has shown a
+diagram (`lattice-studio-diagrams-used`, set by the diagram check whenever the deck on screen has
+one) or opened Fabricate (`lattice-studio-fabricate-used`, since its gallery carries the Diagram
+specimen), and never under Save-Data. It queues after KaTeX and before Fabricate.
+
+**The bytes.** 856KB gz is more than Compose, Present and the reading view together (~320KB), so
+warming it for everyone would nearly quadruple what the warm-up costs a visitor per deploy, for a
+feature most Studio visitors never touch. A browser that has shown a diagram pays the same 856KB
+the first time it renders one after each deploy anyway; the warm-up moves that fetch to idle time
+at startup. The price is a session where that browser shows no diagram at all: it downloads the
+bundle for nothing, once per deploy. That is the trade Fabricate's rule already makes, for the same
+population: people who have used the feature. Save-Data opts out, as it does for every surface
+that no visitor downloaded before.
+
+One more cost, accepted: when a diagram user's deck on screen has a diagram, the diagram check
+starts the same download 900ms after mount. If that download is still in flight when the warm-up
+reaches Mermaid (a slow link), the service worker misses its cache and fetches a second copy. Not
+queueing Mermaid for such a deck would need the diagram detector in the warm-up's input, and the
+Studio's startup budget has 7 bytes of headroom after this PR; the preview frame and the diagram
+check already race each other for the same file.
+
+**Startup cost.** The flag, the key and the extra warm-up input add bytes to StudioShell's startup
+chunk; the bundle fetch itself lives in `studio-warm.ts`. Measured with the route-budget rule on
+`npm run build`, this PR's two items together take Studio startup JS from 621,965 to 622,143 bytes
+gz (+178), inside the 622,150 budget.
+
+**Evidence.** `studio-warm-offline.spec.ts` › "a diagram never rendered online draws offline, for a
+browser that has shown one before": flagged as a diagram user, the online session shows the starter
+deck (no diagram), so only the warm-up can fetch Mermaid; offline, the test types a flowchart into
+the editor and requires `data-mermaid-state="rendered"`. On a build with the warm-up disabled it
+fails at "the warm-up never cached … mermaid-v11.min.js", and with the wait removed the diagram
+reads `unavailable` offline. With the warm-up it passes 10 of 10. The first test now also asserts a
+browser with neither flag never fetches Mermaid, the Fabricate test that opening Fabricate alone
+warms it, and the Save-Data test, flagged as a diagram user, that Save-Data skips it. UNVERIFIED in
+WebKit: the spec runs in Chromium, and iOS Safari is where the Compose gap above was found.
 
 ## Delivery
 

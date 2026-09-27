@@ -1,0 +1,1 @@
+- **Studio:** leaving the Studio within a frame of rotating a phone out of landscape no longer stores a preview box measured in the old layout, so the next load's instant shell no longer draws the slide 16px off and jumps when the app takes over.

@@ -1729,3 +1729,56 @@ describe('StudioShell — navigation regressions found in review', () => {
 	});
 });
 
+
+// The preview-rect persistence must not store a box measured while the rendered layout still lags
+// the viewport. Rotating a phone out of landscape flips the media queries at once, but the cinema
+// morph leaves only after a `change` event and a React commit; a `pagehide` inside that window
+// measured the full-bleed cinema box against portrait `innerWidth`/`innerHeight` and stored a
+// portrait-shaped rect the next load's shell replayed 16px off (#2402 follow-up). jsdom cannot
+// rotate, so the media queries flip WITHOUT firing `change` — exactly the lagging state.
+describe('StudioShell — preview rect persistence', () => {
+	const RECT_KEY = 'lattice-studio-preview-rect-v2';
+	let landscape = true;
+	const realRect = HTMLElement.prototype.getBoundingClientRect;
+	beforeEach(() => {
+		landscape = true;
+		// An 844x390 phone: the width sits in the tablet band, and the cinema query matches while
+		// `landscape` holds. No `change` listener ever fires, so the hooks keep what they read at mount.
+		window.matchMedia = ((q: string) =>
+			({
+				get matches() {
+					if (q.includes('orientation: landscape')) return landscape;
+					if (q.includes('1099')) return landscape;
+					if (q.includes('699')) return !landscape;
+					return false;
+				},
+				media: q,
+				onchange: null,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+				addListener: () => {},
+				removeListener: () => {},
+				dispatchEvent: () => false,
+			})) as unknown as typeof window.matchMedia;
+		// jsdom has no layout; give every box a real size so the measure clears its 40px floor.
+		HTMLElement.prototype.getBoundingClientRect = () =>
+			({ x: 0, y: 0, left: 0, top: 0, width: 800, height: 450, right: 800, bottom: 450, toJSON: () => ({}) }) as DOMRect;
+	});
+	afterEach(() => {
+		HTMLElement.prototype.getBoundingClientRect = realRect;
+	});
+
+	it('stores the rect when the rendered cinema layout matches the viewport', () => {
+		render(<StudioShell options={options} />);
+		fireDeparture('pagehide');
+		expect(localStorage.getItem(RECT_KEY), 'the control case stored nothing, so the drop case below proves nothing').not.toBeNull();
+	});
+
+	it.each(['pagehide', 'visibilitychange'])('a %s in the same tick as a rotation out of cinema drops the rect', (evt) => {
+		render(<StudioShell options={options} />);
+		localStorage.setItem(RECT_KEY, JSON.stringify({ l: 0, t: 0, w: 1, h: 0.5 }));
+		landscape = false; // the viewport has rotated; React has not re-rendered yet
+		fireDeparture(evt);
+		expect(localStorage.getItem(RECT_KEY), 'a rect measured in the lagging cinema layout was kept').toBeNull();
+	});
+});

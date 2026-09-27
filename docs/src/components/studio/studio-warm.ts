@@ -19,6 +19,11 @@ import type { Warmable } from './lazy-panel';
 // math (fetched, not run, and only when the deck on screen at startup has math). The projections
 // name those imports once and export the warm functions used here.
 //
+// Mermaid (856KB gz, more than Compose, Present and the reading view together) warms only for a
+// browser that has shown a diagram or opened Fabricate, and never under Save-Data. Fetched, not run,
+// like KaTeX. A deck on screen with a diagram loads the bundle anyway (the diagram check), so what
+// this adds is a diagram met LATER: another deck opened offline, or Fabricate's Diagram specimen.
+//
 // Not warmed: the voice model (`read-aloud.ts`). Neural read-aloud needs its weights too, which are
 // far larger, and without them the module offline does nothing the browser voice cannot.
 //
@@ -56,20 +61,26 @@ const presentWarm = warmable(() => Promise.all([import('./PresentOverlay'), impo
 const readArticleWarm = warmable(() => Promise.all([import('./ReadArticle'), import('./article-projection').then((m) => m.warmArticleProjection())]));
 const fabricateWarm = warmable(() => Promise.all([import('./Fabricate'), import('./library/gallery-gate')]));
 let katexWarm: Warmable | null = null;
+let mermaidWarm: Warmable | null = null;
 
 export type WarmUpInputs = {
 	/** `lazy-panel.tsx` › warmPanels: the idle scheduling. */
 	warmPanels: (queue: ReadonlyArray<Warmable>) => () => void;
 	/** The KaTeX provider's URL when the deck on screen has math, else null. */
 	katexUrl: string | null;
+	/** The Mermaid bundle's URL when this browser has shown a diagram or opened Fabricate, else null. */
+	mermaidUrl: string | null;
 	/** Whether Fabricate has been opened in this browser (`FABRICATE_USED_KEY`). */
 	fabricateUsed: boolean;
 };
 
 /** Start the warm-up. Returns a cancel function. */
-export function startStudioWarmUp({ warmPanels, katexUrl, fabricateUsed }: WarmUpInputs): () => void {
+export function startStudioWarmUp({ warmPanels, katexUrl, mermaidUrl, fabricateUsed }: WarmUpInputs): () => void {
 	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
 	if (katexUrl) katexWarm ??= warmable(() => fetch(katexUrl));
-	const surfaces = saveData ? [] : [composeWarm, presentWarm, readArticleWarm, ...(katexUrl && katexWarm ? [katexWarm] : [])];
+	if (mermaidUrl) mermaidWarm ??= warmable(() => fetch(mermaidUrl));
+	const surfaces = saveData
+		? []
+		: [composeWarm, presentWarm, readArticleWarm, ...(katexUrl && katexWarm ? [katexWarm] : []), ...(mermaidUrl && mermaidWarm ? [mermaidWarm] : [])];
 	return warmPanels([clipNoticeWarm, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
 }

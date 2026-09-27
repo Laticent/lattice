@@ -16,6 +16,7 @@ test.use({ serviceWorkers: 'allow' });
 
 const chunk = (name: string) => new RegExp(`^/_astro/${name}\\.[\\w-]+\\.js$`);
 const KATEX = /^\/playground\/v\/[0-9a-f]+\/lattice-katex\.js$/;
+const MERMAID = /^\/playground\/v\/[0-9a-f]+\/export\/mermaid-v11\.min\.js$/;
 
 async function cachedPaths(page: Page): Promise<string[]> {
 	return page.evaluate(async () => {
@@ -27,16 +28,22 @@ async function cachedPaths(page: Page): Promise<string[]> {
 }
 
 /** Load the Studio controlled by the worker, and wait until the warm-up has cached `names`. */
-async function warmOnline(page: Page, origin: string, names: Array<string | RegExp>, { fabricateUsed = false, saveData = false } = {}): Promise<void> {
+async function warmOnline(
+	page: Page,
+	origin: string,
+	names: Array<string | RegExp>,
+	{ fabricateUsed = false, diagramsUsed = false, saveData = false } = {},
+): Promise<void> {
 	await page.addInitScript(
-		([used, save]) => {
+		([used, diagrams, save]) => {
 			try {
 				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
 				if (used) localStorage.setItem('lattice-studio-fabricate-used', '1');
+				if (diagrams) localStorage.setItem('lattice-studio-diagrams-used', '1');
 			} catch {}
 			if (save) Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
 		},
-		[fabricateUsed, saveData],
+		[fabricateUsed, diagramsUsed, saveData],
 	);
 	await page.goto(`${origin}/studio/`, { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => navigator.serviceWorker.ready);
@@ -78,6 +85,7 @@ test('Present and the reading view open offline after a session that never opene
 		// reading view import player-core and player-prune once open.
 		await warmOnline(page, origin, ['PresentOverlay', 'ReadArticle', 'narration-projection', 'player-core\\.generated', 'player-prune\\.generated', KATEX]);
 		expect(hits.filter((p) => chunk('Fabricate').test(p)), 'Fabricate warmed for a browser that never opened it').toEqual([]);
+		expect(hits.filter((p) => MERMAID.test(p)), 'Mermaid warmed for a browser that never showed a diagram').toEqual([]);
 
 		await goOffline(page, server);
 
@@ -104,7 +112,8 @@ test('Fabricate opens offline after a deploy-fresh session, for a browser that h
 	test.setTimeout(180_000);
 	const { server, origin } = await serveDist();
 	try {
-		await warmOnline(page, origin, ['Fabricate', 'gallery-gate'], { fabricateUsed: true });
+		// Mermaid too: Fabricate's gallery carries a Diagram specimen.
+		await warmOnline(page, origin, ['Fabricate', 'gallery-gate', MERMAID], { fabricateUsed: true });
 		await goOffline(page, server);
 
 		await page.getByRole('button', { name: 'Workspace launcher' }).click();
@@ -116,13 +125,40 @@ test('Fabricate opens offline after a deploy-fresh session, for a browser that h
 	}
 });
 
+// A diagram this browser has never rendered since the last deploy — here, one typed into a deck
+// offline — draws from the Mermaid bundle the warm-up cached, because the browser has shown a
+// diagram before. Without the warm-up the fence stays source text. The starter deck on screen
+// during the online session has no diagram, so nothing but the warm-up can have fetched Mermaid.
+test('a diagram never rendered online draws offline, for a browser that has shown one before', async ({ page }) => {
+	test.setTimeout(180_000);
+	const { server, origin } = await serveDist();
+	try {
+		await warmOnline(page, origin, [MERMAID], { diagramsUsed: true });
+		await goOffline(page, server);
+
+		const editor = page.locator('.cm-content').first();
+		await editor.click();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.insertText('# Flow\n\n```mermaid\nflowchart LR\n  A[Draft] --> B[Review]\n```\n');
+		const preview = page.locator('[aria-label="Live deck preview"] iframe.live').contentFrame();
+		await expect(preview.locator('pre[data-mermaid-state]').first(), 'the diagram did not render offline').toHaveAttribute('data-mermaid-state', 'rendered', {
+			timeout: 30_000,
+		});
+		await expect(preview.locator('svg').filter({ hasText: 'Review' }).first()).toBeAttached();
+	} finally {
+		server.closeAllConnections();
+		server.close();
+	}
+});
+
 test('under Save-Data the warm-up fetches the six panels but not Present or the reading view', async ({ page }) => {
 	test.setTimeout(180_000);
 	const { server, origin, hits } = await serveDist();
 	try {
 		// The last of the six panels, so the queue has reached the point where Present would start.
-		await warmOnline(page, origin, ['LensesPanel'], { saveData: true });
-		const surfaces = [...['ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX];
+		// Flagged as a diagram user, so skipping Mermaid is Save-Data's doing, not the flag's.
+		await warmOnline(page, origin, ['LensesPanel'], { saveData: true, diagramsUsed: true });
+		const surfaces = [...['ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX, MERMAID];
 		expect(hits.filter((p) => surfaces.some((re) => re.test(p))), 'Save-Data warmed a surface no visitor downloaded before').toEqual([]);
 	} finally {
 		server.closeAllConnections();

@@ -6,7 +6,7 @@ import { startStudioWarmUp, warmable } from './studio-warm';
 // handed. What each surface actually loads, and that it opens offline, is
 // docs/e2e/studio-warm-offline.spec.ts on the built site.
 
-function queueFor(inputs: { katexUrl?: string | null; fabricateUsed?: boolean }): ReadonlyArray<Warmable> {
+function queueFor(inputs: { katexUrl?: string | null; mermaidUrl?: string | null; fabricateUsed?: boolean }): ReadonlyArray<Warmable> {
 	let queue: ReadonlyArray<Warmable> = [];
 	startStudioWarmUp({
 		warmPanels: (q) => {
@@ -14,6 +14,7 @@ function queueFor(inputs: { katexUrl?: string | null; fabricateUsed?: boolean })
 			return () => {};
 		},
 		katexUrl: inputs.katexUrl ?? null,
+		mermaidUrl: inputs.mermaidUrl ?? null,
 		fabricateUsed: inputs.fabricateUsed ?? false,
 	});
 	return queue;
@@ -43,9 +44,18 @@ describe('startStudioWarmUp', () => {
 		expect(fetch).toHaveBeenCalledWith('/playground/v/abc/lattice-katex.js');
 	});
 
+	it('adds the Mermaid bundle when StudioShell passes its URL, and fetches it without running it', async () => {
+		const fetch = vi.fn(async () => new Response(''));
+		vi.stubGlobal('fetch', fetch);
+		const queue = queueFor({ mermaidUrl: '/playground/v/abc/export/mermaid-v11.min.js' });
+		expect(queue).toHaveLength(5);
+		await queue[4].load();
+		expect(fetch).toHaveBeenCalledWith('/playground/v/abc/export/mermaid-v11.min.js');
+	});
+
 	it('under Save-Data keeps only the 1.7KB clip notice, plus Fabricate for a browser that asked for it', () => {
 		Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
-		expect(queueFor({ katexUrl: '/k.js' })).toHaveLength(1);
+		expect(queueFor({ katexUrl: '/k.js', mermaidUrl: '/m.js' })).toHaveLength(1);
 		expect(queueFor({ fabricateUsed: true })).toHaveLength(2);
 	});
 });

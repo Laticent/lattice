@@ -8,20 +8,26 @@ import * as React from 'react';
 // `window` always exists at render; tests polyfill matchMedia → 'desktop').
 export type Breakpoint = 'desktop' | 'tablet' | 'mobile';
 
-export function useBreakpoint(): Breakpoint {
-	const read = React.useCallback((): Breakpoint => {
-		if (typeof window === 'undefined' || !window.matchMedia) return 'desktop';
-		if (window.matchMedia('(max-width: 699px)').matches) return 'mobile';
-		if (window.matchMedia('(max-width: 1099px)').matches) return 'tablet';
-		return 'desktop';
-	}, []);
+/**
+ * The breakpoint the viewport is at RIGHT NOW, read straight from the media queries. The hook
+ * below renders this value, but only after a `change` event and a React commit; a caller that
+ * must know whether the rendered layout has caught up with the viewport (the Studio's
+ * preview-rect persistence at `pagehide`) compares the two.
+ */
+export function readBreakpoint(): Breakpoint {
+	if (typeof window === 'undefined' || !window.matchMedia) return 'desktop';
+	if (window.matchMedia('(max-width: 699px)').matches) return 'mobile';
+	if (window.matchMedia('(max-width: 1099px)').matches) return 'tablet';
+	return 'desktop';
+}
 
-	const [bp, setBp] = React.useState<Breakpoint>(read);
+export function useBreakpoint(): Breakpoint {
+	const [bp, setBp] = React.useState<Breakpoint>(readBreakpoint);
 
 	React.useEffect(() => {
 		const mqMobile = window.matchMedia('(max-width: 699px)');
 		const mqTablet = window.matchMedia('(max-width: 1099px)');
-		const update = () => setBp(read());
+		const update = () => setBp(readBreakpoint());
 		update();
 		mqMobile.addEventListener('change', update);
 		mqTablet.addEventListener('change', update);
@@ -29,7 +35,7 @@ export function useBreakpoint(): Breakpoint {
 			mqMobile.removeEventListener('change', update);
 			mqTablet.removeEventListener('change', update);
 		};
-	}, [read]);
+	}, []);
 
 	return bp;
 }
@@ -65,18 +71,20 @@ export function hasFinePointer(): boolean {
 // window. A small tablet in landscape (iPad mini ~744px tall) clears max-height and
 // keeps the full layout. Width-independent by design: the phone's landscape WIDTH
 // varies (667–932px) but its landscape HEIGHT is reliably ≤ ~430px.
-export function useLandscapePhone(): boolean {
-	const query = '(orientation: landscape) and (max-height: 500px) and (pointer: coarse)';
-	const read = React.useCallback((): boolean => {
-		if (typeof window === 'undefined' || !window.matchMedia) return false;
-		return window.matchMedia(query).matches;
-	}, []);
+const LANDSCAPE_PHONE_QUERY = '(orientation: landscape) and (max-height: 500px) and (pointer: coarse)';
 
-	const [is, setIs] = React.useState<boolean>(read);
+/** The landscape-phone state RIGHT NOW — see `readBreakpoint` for why a caller wants it raw. */
+export function readLandscapePhone(): boolean {
+	if (typeof window === 'undefined' || !window.matchMedia) return false;
+	return window.matchMedia(LANDSCAPE_PHONE_QUERY).matches;
+}
+
+export function useLandscapePhone(): boolean {
+	const [is, setIs] = React.useState<boolean>(readLandscapePhone);
 
 	React.useEffect(() => {
 		if (typeof window === 'undefined' || !window.matchMedia) return;
-		const mq = window.matchMedia(query);
+		const mq = window.matchMedia(LANDSCAPE_PHONE_QUERY);
 		const update = () => setIs(mq.matches);
 		update();
 		mq.addEventListener('change', update);
