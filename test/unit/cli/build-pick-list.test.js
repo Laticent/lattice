@@ -176,8 +176,8 @@ describe('components.pick.md', () => {
   test('every row has a purpose, and it stays one line', () => {
     for (const m of manifests) {
       const c = cells(rowFor(m.name));
-      assert.ok(c[8].length > 0, `${m.name}: empty purpose`);
-      assert.ok(c[8].length <= 170, `${m.name}: purpose cell is ${c[8].length} chars, not a one-liner`);
+      assert.ok(c[9].length > 0, `${m.name}: empty purpose`);
+      assert.ok(c[9].length <= 170, `${m.name}: purpose cell is ${c[9].length} chars, not a one-liner`);
     }
   });
 
@@ -186,10 +186,10 @@ describe('components.pick.md', () => {
   // head-first ("Use for X…") and tail-last ("…for Y, use `Z` instead"), so the clamp
   // ate the discriminating half of every row while rendering as a complete claim.
   test('most rows are a COMPLETE sentence, not a truncation', () => {
-    const truncated = manifests.filter((m) => cells(rowFor(m.name))[8].endsWith('…'));
+    const truncated = manifests.filter((m) => cells(rowFor(m.name))[9].endsWith('…'));
     assert.ok(truncated.length <= 8, `${truncated.length} rows truncated — the cap should be a backstop, not the mechanism`);
     for (const m of manifests) {
-      const purpose = cells(rowFor(m.name))[8];
+      const purpose = cells(rowFor(m.name))[9];
       assert.ok(/[.!?]$/.test(purpose) || purpose.endsWith('…'), `${m.name}: purpose neither ends a sentence nor marks a cut: ${purpose}`);
     }
   });
@@ -250,7 +250,7 @@ describe('components.pick.md', () => {
     for (const [label, input] of cases) {
       test(`${label} keeps the row intact and renders verbatim`, () => {
         const { count, purpose } = renderedPurpose(input);
-        assert.equal(count, 9, `${label}: the row must still have exactly 9 cells`);
+        assert.equal(count, 10, `${label}: the row must still have exactly 10 cells`);
         assert.equal(purpose, input, `${label}: the reader must see what the manifest wrote`);
       });
     }
@@ -282,5 +282,34 @@ describe('components.pick.md', () => {
   test('it points at the per-component docs for authoring, per HARD RULE #6', () => {
     assert.match(md, /\.docs\.md/);
     assert.match(md, /components\.json/, 'it should say what the full record is for');
+  });
+});
+
+// A component's `plugins` block reaches both machine surfaces an agent picks from, so choosing
+// `math` shows that it depends on a plugin (engineering/decisions/2026-09-27-plugin-system.md §4.1).
+describe('a component\'s plugins, projected', () => {
+  const { renderPortalJson } = require('../../../tools/build-docs-portal');
+  const json = JSON.parse(renderPortalJson(manifests));
+  const entry = (name) => json.components.find((c) => c.name === name);
+
+  test('every declared plugins block reaches components.json — and only a declared one', () => {
+    const declared = manifests.filter((m) => m.plugins?.requires?.length || m.plugins?.optional?.length);
+    assert.ok(declared.length > 0, 'expected a component that declares plugins (guard against a vacuous pass)');
+    for (const m of manifests) {
+      const want = declared.includes(m)
+        ? {
+            ...(m.plugins.requires?.length ? { requires: m.plugins.requires } : {}),
+            ...(m.plugins.optional?.length ? { optional: m.plugins.optional } : {}),
+          }
+        : undefined;
+      assert.deepEqual(entry(m.name).plugins, want, `${m.name}: plugins projection`);
+    }
+  });
+
+  test('math requires the math plugin and lists function-plot as optional, on both surfaces', () => {
+    assert.deepEqual(entry('math').plugins, { requires: ['math'], optional: ['function-plot'] });
+    assert.equal(cells(rowFor('math'))[8], 'math; optional function-plot');
+    assert.equal(cells(rowFor('scene'))[8], 'anima');
+    assert.equal(cells(rowFor('content'))[8], '', 'a component with no plugin has an empty cell');
   });
 });

@@ -28,3 +28,7 @@
   function-plot placeholder carries `data-lattice-hydrate` / `data-lattice-config` /
   `data-lattice-settle` instead of `data-fp-config` / `data-fp-inflated` / `data-fp-state` /
   `data-fp-final`.
+- **Added: a component's plugins in `components.json` and the pick list.** A component that is
+  designed around a plugin now carries `plugins: { requires, optional }` in
+  `dist/docs/components.json`, and `components.pick.md` has a `plugins` column — so an agent
+  choosing `math` sees that it needs the math plugin (and can use function-plot).

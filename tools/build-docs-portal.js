@@ -1028,6 +1028,10 @@ function renderPortalJson(manifests) {
     ...(m.venueCapacity ? { venueCapacity: m.venueCapacity } : {}),
     // How it behaves in a PANE (lib/core/panes.js): fit, pane form, stack flag and budget.
     ...(m.pane ? { pane: m.pane } : {}),
+    // The plugins this layout is designed around (lib/plugins/): `requires` — the slide
+    // renders without them only as a fallback, and render() reports it; `optional` — used when
+    // present. Present only when the manifest declares one, so every other entry keeps its shape.
+    ...pluginsEntry(m),
     slots: m.slots || {},
     // The OPTIONAL editorial blocks this layout actually renders, in document
     // order (#1651). `slots` describe a component's own anatomy; these are the two
@@ -1237,6 +1241,26 @@ function capacityCell(m) {
 }
 
 /**
+ * A component's `plugins` block, as published: `{ plugins: { requires, optional } }` with only
+ * the non-empty lists, or nothing at all when the manifest declares none
+ * (engineering/decisions/2026-09-27-plugin-system.md §4.1 — a component names the plugins it is
+ * designed around; a plugin never names a component).
+ */
+function pluginsEntry(m) {
+  const requires = Array.isArray(m.plugins?.requires) ? m.plugins.requires : [];
+  const optional = Array.isArray(m.plugins?.optional) ? m.plugins.optional : [];
+  if (!requires.length && !optional.length) return {};
+  return { plugins: { ...(requires.length ? { requires: [...requires] } : {}), ...(optional.length ? { optional: [...optional] } : {}) } };
+}
+
+/** The pick list's `plugins` cell: `math; optional function-plot`, or empty. */
+function pluginsCell(m) {
+  const p = pluginsEntry(m).plugins;
+  if (!p) return '';
+  return [...(p.requires || []), ...(p.optional || []).map((n) => `optional ${n}`)].join('; ');
+}
+
+/**
  * Project the manifests into dist/docs/components.pick.md — the PICK surface: one line
  * per component, the whole catalog in ~3.5k tokens.
  *
@@ -1309,6 +1333,7 @@ function renderPickMd(manifests) {
       cell(escalate.join(', ')),
       cell((Array.isArray(m.tags) ? m.tags : []).join(' ')),
       cell(related.join(' ')),
+      cell(pluginsCell(m)),
       summarize(cell(m.purpose || m.description)),
     ];
   });
@@ -1318,7 +1343,7 @@ function renderPickMd(manifests) {
   const bucketRank = new Map(BUCKETS.map((b, i) => [b, i]));
   rows.sort((a, b) => (bucketRank.get(a[1]) ?? 99) - (bucketRank.get(b[1]) ?? 99) || a[0].localeCompare(b[0], 'en'));
 
-  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'by venue', 'escalates to', 'tags', 'see also', 'purpose'];
+  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'by venue', 'escalates to', 'tags', 'see also', 'plugins', 'purpose'];
   const table = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((r) => `| ${r.join(' | ')} |`)];
 
   return `# Component pick list
@@ -1343,6 +1368,10 @@ half telling you when NOT to use a component is deliberately not on this surface
 is in the component’s \`.docs.md\`, which HARD RULE #6 requires you to open before
 writing the slide anyway. Check the \`see also\` column before committing. A \`…\` marks
 a first sentence long enough to be cut as well.
+
+**The \`plugins\` column names the plugins a layout is designed around** (\`lib/plugins/\`):
+a bare name is one it needs — with that plugin switched off the slide renders a fallback and
+the render reports it — and \`optional x\` is one it uses when present. Empty for most rows.
 
 **\`capacity\`** is \`axis:sweet/soft/hard\` — the ideal count, the count past which it
 crowds, and the count past which it overflows. **Count your content before committing
@@ -1437,6 +1466,7 @@ module.exports = {
   renderGrammarJson,
   renderPickMd,
   capacityEntry,
+  pluginsEntry,
   resolvePalettes,
   listBasePalettes,
   paletteCss,
