@@ -2041,7 +2041,6 @@ export function graphLayoutKernel(): GraphKernel {
   }
   function layoutFresh(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null {
     const dirs: ('lr' | 'tb')[] = opts.dir === 'lr' || opts.dir === 'tb' ? [opts.dir] : ['lr', 'tb'];
-    let best: { geo: Geometry; reach: number } | null = null;
     const scaleOf = (w: number, h: number) => {
       const st = opts.stage || { w, h };
       return Math.min(opts.maxScale != null ? opts.maxScale : 1.2, st.w / Math.max(1, w), st.h / Math.max(1, h));
@@ -2059,47 +2058,83 @@ export function graphLayoutKernel(): GraphKernel {
     // No dagre: a chart that wraps still lays out on the grid, which needs none (a chain
     // ships without the dagre script; a machine that branches falls back to the grid).
     if (opts.wrap && (!dagre || typeof dagre.layout !== 'function')) return wrapped(null);
-    for (const d of dirs) {
-      // A later direction wins only by beating the best so far by 3%, and its scale is at
-      // most what its boxes alone allow (grown or plain; lines only add size). When that
-      // bound cannot win, the direction is never routed: the answer is the same, cheaper.
-      if (best) {
-        // (A scale is rounded to 3 places, so the cap it can reach is the cap rounded.)
-        if (best.reach * 1.03 >= Math.round((opts.maxScale != null ? opts.maxScale : 1.2) * 1000) / 1000) continue;
+    // DAGRE'S LAYOUT, ON DEMAND. A chart that wraps also has the reading-order grid, and the
+    // grid usually wins by a margin dagre cannot close; routing dagre's layout first anyway
+    // cost a third of every such call (~100 ms of ~300 on an 11-state machine). So dagre's
+    // layout is routed only when its CEILING says it could still matter (`wrapped` asks),
+    // and that ceiling costs one bounds pass per direction. Same answer: `dagreCeil` is at
+    // least any scale `dagreBest` can return, since a routed layout's scale is at most what
+    // its boxes alone allow, grown or plain (lines only add size).
+    const FAIL = { fail: true } as const;
+    let dBest: { geo: Geometry; reach: number } | null | typeof FAIL | undefined;
+    const dagreBest = (): { geo: Geometry; reach: number } | null | typeof FAIL => {
+      if (dBest !== undefined) return dBest;
+      dBest = runDirs();
+      return dBest;
+    };
+    const dagreCeil = (): number | typeof FAIL => {
+      let ub = 0;
+      for (const d of dirs) {
         const gb = layoutOnce(model, sizes, { ...opts, dir: d, boundsOnly: true }, dagre);
-        if (!gb) return null;
-        let bound = scaleOf(gb.width, gb.height);
+        if (!gb) return FAIL;
+        let b = scaleOf(gb.width, gb.height);
         if (gb.grew) {
           const pb = layoutOnce(model, sizes, { ...opts, dir: d, grow: false, boundsOnly: true }, dagre);
-          const b = sure(pb, 'plain bounds', d);
-          bound = Math.max(bound, scaleOf(b.width, b.height));
+          const p = sure(pb, 'plain bounds', d);
+          b = Math.max(b, scaleOf(p.width, p.height));
         }
-        if (Math.round(bound * 1000) / 1000 <= best.reach * 1.03) continue;
+        ub = Math.max(ub, b);
       }
-      // Growing a fanning shape moves dagre's placement too, which can cost a crossing
-      // elsewhere; so each direction is laid out both ways. The grown one is kept only when
-      // it is no worse on hard faults, soft faults and crossings, and either buys something
-      // (fewer of any of those, or fewer crowded ends or grazes) or costs no type at all. A
-      // growth that buys nothing and shrinks the type must not tip the direction choice
-      // below: its 3% and that 3% used to add up.
-      const first = layoutOnce(model, sizes, { ...opts, dir: d }, dagre) as Geometry | null;
-      if (!first) return null;
-      const grown = scaled(first);
-      // Nothing grew: the second run would repeat the first.
-      const plain = grown.grew ? scaled(layoutOnce(model, sizes, { ...opts, dir: d, grow: false }, dagre) as Geometry) : grown;
-      const rg = rank(grown), rp = rank(plain);
-      const noWorse = rg[0] <= rp[0] && rg[1] <= rp[1] && rg[2] <= rp[2];
-      const buys = cmp(rg, rp) < 0;
-      const geo = grown === plain || (noWorse && (buys ? grown.scale >= plain.scale * 0.97 : grown.scale >= plain.scale)) ? grown : plain;
-      // Ties go to the first direction in preference order: a hair of difference must not
-      // flip a chart between edits. Each direction is judged by the best type it can reach,
-      // grown or plain, so a growth kept for its ports cannot tip the direction by the few
-      // percent it cost.
-      const reach = Math.max(grown.scale, plain.scale);
-      if (!best || reach > best.reach * 1.03) best = { geo, reach };
+      // A routed scale is rounded to 3 places, which can land a hair above its bound.
+      return ub + 0.001;
+    };
+    if (opts.wrap) return wrapped({ best: dagreBest, ceil: dagreCeil, FAIL });
+    const only = runDirs();
+    return only === FAIL || !only ? null : (only as { geo: Geometry; reach: number }).geo;
+
+    function runDirs(): { geo: Geometry; reach: number } | null | typeof FAIL {
+      let best: { geo: Geometry; reach: number } | null = null;
+      for (const d of dirs) {
+        // A later direction wins only by beating the best so far by 3%, and its scale is at
+        // most what its boxes alone allow (grown or plain; lines only add size). When that
+        // bound cannot win, the direction is never routed: the answer is the same, cheaper.
+        if (best) {
+          // (A scale is rounded to 3 places, so the cap it can reach is the cap rounded.)
+          if (best.reach * 1.03 >= Math.round((opts.maxScale != null ? opts.maxScale : 1.2) * 1000) / 1000) continue;
+          const gb = layoutOnce(model, sizes, { ...opts, dir: d, boundsOnly: true }, dagre);
+          if (!gb) return FAIL;
+          let bound = scaleOf(gb.width, gb.height);
+          if (gb.grew) {
+            const pb = layoutOnce(model, sizes, { ...opts, dir: d, grow: false, boundsOnly: true }, dagre);
+            const p = sure(pb, 'plain bounds', d);
+            bound = Math.max(bound, scaleOf(p.width, p.height));
+          }
+          if (Math.round(bound * 1000) / 1000 <= best.reach * 1.03) continue;
+        }
+        // Growing a fanning shape moves dagre's placement too, which can cost a crossing
+        // elsewhere; so each direction is laid out both ways. The grown one is kept only when
+        // it is no worse on hard faults, soft faults and crossings, and either buys something
+        // (fewer of any of those, or fewer crowded ends or grazes) or costs no type at all. A
+        // growth that buys nothing and shrinks the type must not tip the direction choice
+        // below: its 3% and that 3% used to add up.
+        const first = layoutOnce(model, sizes, { ...opts, dir: d }, dagre) as Geometry | null;
+        if (!first) return FAIL;
+        const grown = scaled(first);
+        // Nothing grew: the second run would repeat the first.
+        const plain = grown.grew ? scaled(layoutOnce(model, sizes, { ...opts, dir: d, grow: false }, dagre) as Geometry) : grown;
+        const rg = rank(grown), rp = rank(plain);
+        const noWorse = rg[0] <= rp[0] && rg[1] <= rp[1] && rg[2] <= rp[2];
+        const buys = cmp(rg, rp) < 0;
+        const geo = grown === plain || (noWorse && (buys ? grown.scale >= plain.scale * 0.97 : grown.scale >= plain.scale)) ? grown : plain;
+        // Ties go to the first direction in preference order: a hair of difference must not
+        // flip a chart between edits. Each direction is judged by the best type it can reach,
+        // grown or plain, so a growth kept for its ports cannot tip the direction by the few
+        // percent it cost.
+        const reach = Math.max(grown.scale, plain.scale);
+        if (!best || reach > best.reach * 1.03) best = { geo, reach };
+      }
+      return best;
     }
-    if (opts.wrap) return wrapped(best);
-    return sure(best, 'layout').geo;
 
     /**
      * THE READING-ORDER GRID (`opts.wrap`, the state chart's rule, kept from v1). A chain
@@ -2114,24 +2149,58 @@ export function graphLayoutKernel(): GraphKernel {
      * wraps only by that clear margin. Grid candidates are bounded by their boxes first,
      * and only those that could still be picked are routed.
      */
-    function wrapped(dagreBest: { geo: Geometry; reach: number } | null): Geometry | null {
+    function wrapped(lazy: { best: () => { geo: Geometry; reach: number } | null | { fail: true }; ceil: () => number | { fail: true }; FAIL: { fail: true } } | null): Geometry | null {
+      // dagre's layout, routed only when asked (and never without dagre). `undefined` means
+      // the layout failed, which fails the whole call as it always has.
+      let failed = false;
+      const dagreNow = (): { geo: Geometry; reach: number } | null => {
+        if (!lazy) return null;
+        const r = lazy.best();
+        if (r === lazy.FAIL) { failed = true; return null; }
+        return r as { geo: Geometry; reach: number } | null;
+      };
       const shapes = model.shapes || [];
-      if ((model.groups || []).length || shapes.length < 2) return dagreBest ? dagreBest.geo : null;
+      if ((model.groups || []).length || shapes.length < 2) { const d = dagreNow(); return failed ? null : d ? d.geo : null; }
       const WRAP_GAIN = 1.12;
       const chain = isChain(model);
       const st = opts.stage;
       const pref: 'lr' | 'tb' = dirs.length === 1 ? dirs[0] : st && st.h > st.w ? 'tb' : 'lr';
-      const cands: { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null }[] = [];
-      if (dagreBest && !chain) cands.push({ lines: 1, dir: dagreBest.geo.dir, bound: dagreBest.geo.scale ?? 0, geo: dagreBest.geo });
+      type Cand = { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null; dagre?: boolean; ceil?: number };
+      const cands: Cand[] = [];
+      // A machine that branches keeps dagre's layout as its one-line candidate. Its bound is
+      // its routed scale; until routed, only its ceiling is known (see dagreCeil).
+      let dCand: (Cand & { ceil: number }) | null = null;
+      if (lazy && !chain) {
+        const ceil = lazy.ceil();
+        if (ceil === lazy.FAIL) return null;
+        dCand = { lines: 1, dir: pref, bound: ceil as number, geo: null, dagre: true, ceil: ceil as number };
+        cands.push(dCand);
+      }
+      const resolveD = (): boolean => {
+        if (!dCand || dCand.geo) return true;
+        const d = dagreNow();
+        if (failed) return false;
+        // Unreachable with a working dagre (runDirs returns FAIL or a layout); kept so a
+        // dagre that answers nothing drops out rather than competing unrouted.
+        // The early-proof loop below checks `dCand` after calling this, because the splice
+        // shifts its indices: it stops and hands the pick to the full procedure.
+        if (!d) { cands.splice(cands.indexOf(dCand), 1); dCand = null; return true; }
+        dCand.geo = d.geo; dCand.dir = d.geo.dir; dCand.bound = d.geo.scale ?? 0;
+        return true;
+      };
       for (const d of dirs) {
         for (let L = chain ? 1 : 2; L <= Math.ceil(shapes.length / 2); L++) {
           const b = layoutOnce(model, sizes, { ...opts, dir: d, grid: L, grow: false, boundsOnly: true }, dagre);
           if (b) cands.push({ lines: L, dir: d, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000, geo: null });
         }
       }
-      if (!cands.length) return dagreBest ? dagreBest.geo : null;
+      const gridMax = cands.reduce((m, c) => (c.dagre ? m : Math.max(m, c.bound)), -Infinity);
+      // dagre's layout is the top candidate when its scale is at least every grid bound (it
+      // sorts first, and ties go to the first): if its ceiling says it could be, route it.
+      if (dCand && dCand.ceil >= gridMax && !resolveD()) return null;
+      if (!cands.length) { const d = dagreNow(); return failed ? null : d ? d.geo : null; }
       cands.sort((a, b) => (a.lines - b.lines) || ((a.dir === pref ? 0 : 1) - (b.dir === pref ? 0 : 1)));
-      const route = (c: (typeof cands)[number]) => {
+      const route = (c: Cand) => {
         if (!c.geo) {
           const g = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false }, dagre) as Geometry | null;
           c.geo = g ? scaled(g) : null;
@@ -2140,23 +2209,55 @@ export function graphLayoutKernel(): GraphKernel {
         return c.geo ? c.geo.scale ?? 0 : 0;
       };
       // The candidate that can reach furthest sets a floor: one whose bound cannot come
-      // within WRAP_GAIN of it is never picked, so it is never routed.
+      // within WRAP_GAIN of it is never picked, so it is never routed. (An unrouted dagre
+      // candidate never reaches here as top: its ceiling was below some grid bound.)
       const top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
+      // THE PICK, PROVEN EARLY. Walk the candidates in preference order and route only those
+      // surely live (their bound within WRAP_GAIN of the top's, which the floor cannot
+      // exceed). The first one with no hard fault whose scale is within WRAP_GAIN of every
+      // candidate's ceiling, and that no earlier candidate can beat (a hard fault, or a
+      // ceiling that cannot reach its scale), is the one the full procedure below would
+      // pick: it is live, the least hard fault is 0, and nothing clean can outscore it by
+      // WRAP_GAIN. Most calls end here without routing the top only to learn the floor. When
+      // the proof does not close, the full procedure runs on the same routings.
+      const ceilOf = (c: Cand) => (c.geo ? c.geo.scale ?? 0 : c.dagre ? (c.ceil ?? c.bound) : c.bound);
+      for (let i = 0; i < cands.length; i++) {
+        const c = cands[i];
+        if (c.dagre && !c.geo) continue;
+        if (!(c === top || c.bound * WRAP_GAIN >= top.bound)) continue;
+        route(c);
+        if (!c.geo || hard(c.geo) !== 0) continue;
+        const sc = c.geo.scale ?? 0;
+        if (cands.some((o) => o !== c && ceilOf(o) > sc * WRAP_GAIN)) break;
+        let beaten = false;
+        for (let j = 0; j < i && !beaten; j++) {
+          const e = cands[j];
+          if (e.dagre && !e.geo && (e.ceil ?? e.bound) * WRAP_GAIN >= sc) { if (!resolveD()) return null; if (!dCand) { beaten = true; break; } }
+          if (!e.geo) { if (e.bound * WRAP_GAIN >= sc) beaten = true; continue; }
+          if (hard(e.geo) === 0 && (e.geo.scale ?? 0) * WRAP_GAIN >= sc) beaten = true;
+        }
+        if (beaten) break;
+        return c.geo;
+      }
       const floor = route(top);
-      let live = cands.filter((c) => c === top || c.bound * WRAP_GAIN >= floor);
+      // dagre's layout is live when its scale comes within WRAP_GAIN of the floor; its
+      // ceiling decides whether that is possible before it costs a routing.
+      if (dCand && !dCand.geo && dCand.ceil * WRAP_GAIN >= floor && !resolveD()) return null;
+      let live = cands.filter((c) => c === top || (!(c.dagre && !c.geo) && c.bound * WRAP_GAIN >= floor));
       for (const c of live) route(c);
       // HARD FAULTS FIRST, as the direction choice ranks them: a larger type never buys a
       // line through a box. Only the candidates with the fewest hard faults compete on type,
       // and when every one the floor kept has a fault, the rest are routed too (a dense
       // machine's grid can run lines through boxes where dagre's layout runs none). Then
-      // dagre's layout, already routed, joins them: routing every other grid instead cost
-      // 47 s on a 36-state stress machine, for a 13-line grid with 66 crossings.
-      const hardOf = (c: (typeof cands)[number]) => (c.geo ? hard(c.geo) : Infinity);
+      // dagre's layout, routed now if it was not, joins them: routing every other grid
+      // instead cost 47 s on a 36-state stress machine, for a 13-line grid with 66 crossings.
+      const hardOf = (c: Cand) => (c.geo ? hard(c.geo) : Infinity);
       if (!live.some((c) => hardOf(c) === 0)) {
         // (A chain never lists dagre's layout as a candidate; it joins here too, when dagre is
         // loaded: a chain dense with skips can defeat every grid.)
-        const d = cands.find((c) => dagreBest && c.geo === dagreBest.geo)
-          || (dagreBest ? { lines: 1, dir: dagreBest.geo.dir, bound: dagreBest.geo.scale ?? 0, geo: dagreBest.geo } : null);
+        let d: Cand | null = null;
+        if (dCand) { if (!resolveD()) return null; d = dCand; }
+        else { const db = dagreNow(); if (failed) return null; if (db) d = { lines: 1, dir: db.geo.dir, bound: db.geo.scale ?? 0, geo: db.geo }; }
         if (d && !live.includes(d)) live = [...live, d];
       }
       const least = Math.min(...live.map(hardOf));
@@ -2164,7 +2265,9 @@ export function graphLayoutKernel(): GraphKernel {
       let bestScore = 0;
       for (const c of clean) bestScore = Math.max(bestScore, c.geo?.scale ?? 0);
       for (const c of clean) if ((c.geo?.scale ?? 0) * WRAP_GAIN >= bestScore) return c.geo;
-      return top.geo || (dagreBest ? dagreBest.geo : null);
+      if (top.geo) return top.geo;
+      const d = dagreNow();
+      return failed ? null : d ? d.geo : null;
     }
   }
 

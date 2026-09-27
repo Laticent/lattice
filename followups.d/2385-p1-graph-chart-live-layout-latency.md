@@ -24,7 +24,10 @@ recorded: 2026-09-27
                    visible 1,346 -> ~270 ms) and the kernel is ~34% faster with identical
                    layouts (bench: state chart tier 1,747 -> 1,152 ms). Still open: the last
                    key of a 50 ms/key burst lands ~0.8-1.0 s later on the 11-state chart, and
-                   one layout still costs ~300 ms in Node.
+                   one layout still costs ~300 ms in Node. Commit 4 made wrapping cheap (routes 77 -> 30 on the stress deck, 1,152 -> 533 ms, identical output); the 11-state chart now routes 1-2 grids, ~110-190 ms warm, and one routing pass (~100 ms) is the remaining floor.
+                   Measured on the real Studio after commits 3-5 (2 runs): key to visible
+                   207-236 ms, last key of a 50 ms/key burst drawn 316-464 ms later, worker
+                   104-111 ms per layout, 0 long tasks.
        where     — docs/src/lib/trama/kernel.ts: `costOf` (~35% of self time), `cheap`,
                    `build`, `crossings`, `seatCost`, `sharesRun`; the fit's rounds in
                    pipeline.ts (the secant step in the cold-load PR cuts them).
