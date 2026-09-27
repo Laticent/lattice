@@ -982,9 +982,9 @@ One tactic for each sign. For late feedback, build a cheap probe: try the risky 
 
 <!-- _class: list takeaway -->
 
-`Hard problems · Borrow the science`
+`Hard problems · Scientists and experts`
 
-## Before you guess, ask what the science already knows.
+## Before you guess, ask what scientists and experts already know.
 
 - Perception
   - How far people sit decides how big the type must be.
@@ -998,7 +998,7 @@ One tactic for each sign. For late feedback, build a cheap probe: try the risky 
   - Defaults and order change what people choose, so pick them on purpose.
 
 <!--
-Most problems you'll hand an agent aren't new. Somebody has already studied them, often for decades. How big text has to be depends on how far away people sit, and that's measurable. About one man in twelve can't tell red from green, so a chart that relies on color alone fails a real share of the room. People can hold about four things in mind at once, which is why long menus and dense slides lose them. Short lines and plain words read faster. And the default you set, or the order you list things in, changes what people pick. When a problem feels fuzzy, the first question is: which science already knows about this? Perception, psychology, linguistics, ergonomics, statistics. Then ask the agent. Agents have read a lot of this research, and they're good at summarizing it. One warning: agents will also invent a study that sounds right. Ask for the source, and check that it exists and says what the agent claims. Used that way, the science turns a matter of taste into a decision you can defend.
+Most problems you'll hand an agent aren't new. Somebody has already studied them, often for decades. How big text has to be depends on how far away people sit, and that's measurable. About one man in twelve can't tell red from green, so a chart that relies on color alone fails a real share of the room. People can hold about four things in mind at once, which is why long menus and dense slides lose them. Short lines and plain words read faster. And the default you set, or the order you list things in, changes what people pick. When a problem feels fuzzy, the first question is: who already knows about this? A science, like perception, psychology, linguistics, ergonomics or statistics, and the experts who practice it: a typographer, an accessibility specialist, a statistician, a security engineer. If you can reach a real expert, ask them. Then ask the agent, in two ways. Ask what the research says, because agents have read a lot of it and summarize it well. And ask it to review your work as that expert: "review this chart as a color-vision scientist would," or "read this page as a linguist." Naming the field changes what it notices. One warning: agents will also invent a study that sounds right. Ask for the source, and check that it exists and says what the agent claims. Used that way, the science turns a matter of taste into a decision you can defend.
 -->
 
 ---
