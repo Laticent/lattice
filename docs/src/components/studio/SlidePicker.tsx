@@ -1,7 +1,8 @@
 import { ChevronDown, Layers, LayoutGrid, Plus, Rows3 } from 'lucide-react';
 import * as React from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { DIALOG_BOX, DialogCloseButton, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
+import { PersistentSurface } from '@/components/ui/persistent-surface';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedHitsFor } from '@/lib/component-search';
@@ -9,7 +10,6 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
-import { surfacesRoot } from './frame-dock';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { componentLooks, type VariantAxis, variantSample } from './slide-variants';
 import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePickerView } from './studio-store';
@@ -131,6 +131,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const [detail, setDetail] = React.useState<PickerItem | null>(null);
 	const [expanded, setExpanded] = React.useState<string | null>(null); // component name whose looks are open
 	const searchRef = React.useRef<HTMLInputElement>(null);
+	const scrollRef = React.useRef<HTMLDivElement>(null);
 	// Grid or list. Read from storage LAZILY (never during module init) so the server
 	// render and the first client render agree — `loadPickerView` touches localStorage,
 	// which does not exist during SSR.
@@ -160,6 +161,9 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		setFacet(null);
 		setDetail(null);
 		setExpanded(null);
+		// The gallery stays mounted between opens (PersistentSurface), so a reopen would land where
+		// the last one scrolled to; it used to remount at the top.
+		if (scrollRef.current) scrollRef.current.scrollTop = 0;
 		if (!compact) requestAnimationFrame(() => searchRef.current?.focus());
 	}, [open, compact]);
 
@@ -339,7 +343,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 				</p>
 			)}
 
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
+			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
 				{/* POOLED PREVIEWS. The frames live in one layer inside this scroll content rather than one
 				    per tile, so they are re-pointed instead of destroyed as you scroll — which is what stops
 				    WebKit retaining a document per tile browsed. See preview-pool.tsx. The grid itself is
@@ -419,7 +423,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
 		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
 		return (
-			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg" container={surfacesRoot()}>
+			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg" persistent>
 				{/* `title` — one name for one door. This sheet and the desktop dialog below share
 				    it, and so do all five launchers (rail, editor header, this drawer row, the
 				    command palette, the Compose divider): "Add a slide" / "Add slide" (#1654).
@@ -432,8 +436,13 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			</PanelSheet>
 		);
 	}
+	// PERSISTENT, on both transports: mounted on the first open and only hidden after that, so the
+	// gallery's preview frames — and their documents — survive a close. WebKit never frees a
+	// preview document once its frame is destroyed; remounting this gallery stranded ~45 MB on
+	// every reopen on Safari and iPad (ui/persistent-surface.tsx). The frames stay in the gallery's
+	// own scroller, so iOS scrolls them natively with their tiles.
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<PersistentSurface open={open} onOpenChange={onOpenChange} className={cn(DIALOG_BOX, 'flex h-[min(84vh,760px)] sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0')}>
 			{/* `sm:max-w-[1120px]`, NOT `max-w-[1120px]` — the width this gallery is drawn for.
 			    DialogContent's shadcn base carries `sm:max-w-lg`, and tailwind-merge keys its
 			    conflict groups on the responsive modifier, so an UNPREFIXED override is not a
@@ -441,10 +450,6 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			    width above 640px. The dialog had been rendering at 512px — under half its
 			    intended width — which is what shrank the previews to ~93px and truncated every
 			    name to three characters. Match the modifier and the override lands (#1657). */}
-			{/* Centered with `inset-0 m-auto`, not the primitive's `translate(-50%, -50%)`: the frame dock
-			    places each preview by anchor positioning, which ignores transforms, so a translated dialog
-			    got every frame ~630 px off its tile (frame-dock.tsx). Same box, same place. */}
-			<DialogContent container={surfacesRoot()} className="inset-0 m-auto flex h-[min(84vh,760px)] translate-x-0 translate-y-0 sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
 				{/* `title` — "Add a slide" — on BOTH transports, from the one `title` const. Keep
 				    it that way: a previous pass renamed the phone sheet and left the desktop
 				    dialog saying something else, so the very defect being fixed survived on the
@@ -457,8 +462,8 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 				</div>
 				<DialogDescription className="sr-only">{description}</DialogDescription>
 				{body}
-			</DialogContent>
-		</Dialog>
+				<DialogCloseButton />
+		</PersistentSurface>
 	);
 }
 
@@ -534,23 +539,14 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 
 	// The preview face — identical in both views; only its box differs. The box carries no
 	// radius or border: the pool draws the slide frame, so the tile shows the deck's corner.
-	// Insert affordance on hover/focus, drawn over the preview — decorative; the button owns the
-	// click. Over a live preview it is the face's OVERLAY: a docked frame paints above the whole
-	// dialog, so a bar left in the tile would sit under it (preview-pool.tsx `FaceOverlay`).
-	const insertBar = (show: string) => (
-		<span className={cn('pointer-events-none absolute z-10 flex items-center justify-center gap-1 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity', isList ? 'inset-0 bg-[color-mix(in_srgb,var(--accent)_88%,#000)]' : 'inset-x-2 bottom-2 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5', show)}>
-			<Plus className="size-3.5" /> Insert
-		</span>
-	);
 	const preview = isBlank ? (
-		<span className="relative grid aspect-video w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)] text-muted-foreground">
+		<span className="grid aspect-video w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)] text-muted-foreground">
 			<Plus className={isList ? 'size-5' : 'size-7'} />
-			{insertBar('group-hover:opacity-100 group-focus-visible:opacity-100')}
 		</span>
 	) : (
 		// pointer-events-none: the render is a separate-document iframe that would
 		// otherwise swallow the tile's click.
-		<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" overlay={insertBar('group-data-[hot]/overlay:opacity-100')} />
+		<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
 	);
 
 	// Line 3 in grid, the trailing cluster in list. Rendered OUTSIDE the insert button in
@@ -578,6 +574,12 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				<button {...insertProps} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
 					<span className={cn('relative w-[184px] shrink-0', isBlank && 'overflow-hidden rounded-lg border border-border')}>
 						{preview}
+						{/* Insert affordance on hover/focus — decorative; the button owns the click.
+						    `z-10` because the pooled preview layer paints ABOVE the grid (see
+						    preview-pool.tsx) — without it this overlay is hidden behind the frame. */}
+						<span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+							<Plus className="size-3.5" /> Insert
+						</span>
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{item.name}</span>
@@ -597,6 +599,11 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				    deck look rounded here (docs/src/lib/slide-frame.ts). */}
 				<span className="relative block px-2 pt-2">
 					{preview}
+					{/* Insert affordance on hover/focus — decorative; the button owns the click.
+					    `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx). */}
+					<span className="pointer-events-none absolute inset-x-4 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+						<Plus className="size-3.5" /> Insert
+					</span>
 				</span>
 				{/* Name owns a FULL line — always legible, never a hover afterthought, and no
 				    longer sharing the row with a control. */}

@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // remount is exactly the teardown WebKit does not reclaim, so the count IS the contract.
 let mounts = 0;
 let unmounts = 0;
+/** A frame whose Mermaid flag CHANGED — a full `srcdoc` rewrite, a fresh document on WebKit. */
+let reshapes = 0;
 vi.mock('@/components/DeckPreview', async () => {
 	const React = await import('react');
 	return {
@@ -21,6 +23,11 @@ vi.mock('@/components/DeckPreview', async () => {
 					unmounts++;
 				};
 			}, []);
+			const shape = React.useRef(props.mermaid);
+			if (shape.current !== props.mermaid) {
+				shape.current = props.mermaid;
+				reshapes++;
+			}
 			return <figure data-testid="deck-preview" data-sample={String(props.sample)} data-specimen={props.specimen ? 'yes' : 'no'} />;
 		},
 	};
@@ -651,173 +658,65 @@ describe('PooledThumbFace — the tile box', () => {
 	});
 });
 
-// ── THE FRAME DOCK (frame-dock.tsx) ─────────────────────────────────────────────────────
-// With CSS anchor positioning available and a FrameDockHost mounted, a pool BORROWS its frames
-// from the dock instead of owning them, and gives them back — documents intact — when its grid
-// unmounts. The WebKit contract, as a mount count: closing and reopening a surface must not mount
-// a single new DeckPreview (each mount is a preview document WebKit would never free). Where the
-// frames land on screen needs a real browser: docs/e2e/gallery-preview-metamorphic.spec.ts.
-describe('PreviewPool — borrowing from the frame dock', () => {
-	let restoreCss = () => {};
-	beforeEach(async () => {
-		const { _resetDock } = await import('./frame-dock');
-		_resetDock();
-		const had = (globalThis as { CSS?: unknown }).CSS;
-		(globalThis as { CSS?: unknown }).CSS = { supports: () => true };
-		restoreCss = () => {
-			(globalThis as { CSS?: unknown }).CSS = had;
-		};
-	});
-	afterEach(() => restoreCss());
-
-	it('a reopened grid re-points the dock frames it gave back, and mounts none', async () => {
-		const { FrameDockHost } = await import('./frame-dock');
-		const host = render(<FrameDockHost />);
-		// A surface portals into the dock's surfaces root, BEFORE the dock — the condition anchor
-		// positioning needs, and the one the pool checks before borrowing.
-		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
-		const first = render(<Grid n={2} />, { container: surface() });
-		intersect(face(first.container, 0), true);
-		intersect(face(first.container, 1), true);
-		settle();
-		expect(document.querySelectorAll('#lattice-frame-dock [data-testid="deck-preview"]').length, 'the grid did not borrow from the dock').toBe(2);
-		expect(first.container.querySelector('[data-testid="deck-preview"]'), 'a docked grid kept a frame of its own').toBeNull();
-		const mountedOnce = mounts;
-
-		first.unmount(); // the surface closes
-		settle();
-		expect(unmounts, 'closing the surface destroyed a dock frame').toBe(0);
-
-		const again = render(<Grid n={2} />, { container: surface() }); // …and reopens
-		intersect(face(again.container, 0), true);
-		intersect(face(again.container, 1), true);
-		settle();
-		expect(mounts, 'reopening minted a new preview document').toBe(mountedOnce);
-		expect([...document.querySelectorAll('#lattice-frame-dock [data-dock-shown] [data-testid="deck-preview"]')].map((f) => f.getAttribute('data-sample')).sort()).toEqual(['# 0', '# 1']);
-		again.unmount();
-		host.unmount();
-	});
-
-	it("a tile's overlay rides in its dock slot, above the frame, and comes home when the frame goes", async () => {
-		// The dock paints above the whole surface, so chrome left in the tile sat under the frame:
-		// every overview number and Insert bar hidden (found by the red team on this change).
-		const { FrameDockHost } = await import('./frame-dock');
-		const host = render(<FrameDockHost />);
-		const box = document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
-		const g = render(
+describe('PreviewPool — a tile of another shape', () => {
+	it('gets a new slot of its own shape under the ceiling, never a rewrite of a free one', () => {
+		// The Add slide gallery stays mounted between opens, so every rewrite it repeats is repeated on
+		// every reopen. Its one Mermaid tile took a free slot of the plain shape — two `srcdoc` writes
+		// per reopen on WebKit (measured) — until the pool gave it one of its own.
+		reshapes = 0;
+		const samples = ['# 0', '# 1', '```mermaid\ngraph TD\n```'];
+		const { container } = render(
 			<PreviewPool>
-				<div className="group">
-					<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample="# 0" overlay={<b data-testid="badge">1</b>} />
-				</div>
+				{samples.map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+					</div>
+				))}
 			</PreviewPool>,
-			{ container: box },
 		);
-		const tile = g.container.querySelector('.group > span') as HTMLElement;
-		onScreen(tile);
-		intersect(tile, true);
+		for (const i of [0, 1]) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
 		settle();
-		act(() => {
-			vi.advanceTimersByTime(50);
-		});
-		const badge = document.querySelector('[data-testid="badge"]');
-		expect(badge?.closest('[data-dock-overlay]'), 'the overlay stayed in the tile, under the frame').not.toBeNull();
-		expect(badge?.closest('[data-slide-frame]')?.querySelector('[data-testid="deck-preview"]'), 'the overlay is not in the slot that shows its tile').not.toBeNull();
-		intersect(tile, false);
+		for (const i of [0, 1]) {
+			offScreen(face(container, i));
+			intersect(face(container, i), false);
+		}
 		settle(RELEASE_GRACE + APPLY_MS + 50);
-		// Out of band the slot may be taken away; wherever the frame went, exactly one badge exists.
-		expect(document.querySelectorAll('[data-testid="badge"]').length).toBe(1);
-		g.unmount();
-		expect(document.querySelectorAll('[data-testid="badge"]').length).toBe(0);
-		host.unmount();
+		onScreen(face(container, 2));
+		intersect(face(container, 2), true);
+		settle();
+		expect(showing(container)).toContain(samples[2]);
+		expect(reshapes, 'a free slot of the plain shape was rewritten for the Mermaid tile').toBe(0);
 	});
 
-	it('at an equal z, only the newest surface shows its frames', async () => {
-		// The phone's Settings sheet and Add slide's sheet are both z-50; the older one's frames
-		// showed through the newer (red team, 390 px, both engines).
-		const { FrameDockHost } = await import('./frame-dock');
-		const host = render(<FrameDockHost />);
-		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
-		const older = render(<Grid n={2} />, { container: surface() });
-		for (let i = 0; i < 2; i++) {
-			onScreen(face(older.container, i));
-			intersect(face(older.container, i), true);
+	it('at the ceiling, still gives a shape the pool holds no slot of its own one', () => {
+		reshapes = 0;
+		const samples = [...Array.from({ length: BASE_SLOTS }, (_, i) => `# ${i}`), '```mermaid\ngraph TD\n```'];
+		const { container } = render(
+			<PreviewPool>
+				{samples.map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>,
+		);
+		for (let i = 0; i < BASE_SLOTS; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
 		}
 		settle();
-		const shown = () => [...document.querySelectorAll('#lattice-frame-dock [data-dock-shown]')].map((s) => s.getAttribute('data-dock-owner'));
-		const olderOwner = shown()[0];
-		expect(shown()).toHaveLength(2);
-		const newer = render(<Grid n={2} />, { container: surface() });
-		for (let i = 0; i < 2; i++) {
-			onScreen(face(newer.container, i));
-			intersect(face(newer.container, i), true);
+		for (let i = 0; i < BASE_SLOTS; i++) {
+			offScreen(face(container, i));
+			intersect(face(container, i), false);
 		}
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		onScreen(face(container, BASE_SLOTS));
+		intersect(face(container, BASE_SLOTS), true);
 		settle();
-		expect(shown(), 'the covered surface still shows its frames').toHaveLength(2);
-		expect(shown()).not.toContain(olderOwner);
-		newer.unmount();
-		settle();
-		expect(shown(), 'the uncovered surface did not get its frames back').toEqual([olderOwner, olderOwner]);
-		older.unmount();
-		host.unmount();
-	});
-
-	it('a surface playing its exit animation hides its frames at once', async () => {
-		const { FrameDockHost } = await import('./frame-dock');
-		const host = render(<FrameDockHost />);
-		const box = document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
-		box.setAttribute('data-state', 'open');
-		const g = render(<Grid n={2} />, { container: box });
-		for (let i = 0; i < 2; i++) {
-			onScreen(face(g.container, i));
-			intersect(face(g.container, i), true);
-		}
-		settle();
-		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown]')).toHaveLength(2);
-		box.setAttribute('data-state', 'closed'); // Radix, as the close starts
-		act(() => {
-			window.dispatchEvent(new Event('animationstart'));
-			vi.advanceTimersByTime(50);
-		});
-		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown]'), 'frames stayed drawn over a closing surface').toHaveLength(0);
-		g.unmount();
-		host.unmount();
-	});
-
-	it('two full pools open at once each get every frame they ask for', async () => {
-		// The deck panel stays mounted while Add slide or Present's overview is up. A ceiling of one
-		// pool's worth left the second grid blank (found by the independent check on this change).
-		const { FrameDockHost, DOCK_MAX_SLOTS } = await import('./frame-dock');
-		const host = render(<FrameDockHost />);
-		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
-		const grids = [0, 1].map(() => render(<Grid n={HARD_MAX_SLOTS} />, { container: surface() }));
-		for (const g of grids) {
-			for (let i = 0; i < HARD_MAX_SLOTS; i++) {
-				onScreen(face(g.container, i));
-				intersect(face(g.container, i), true);
-			}
-		}
-		settle();
-		expect(DOCK_MAX_SLOTS).toBeGreaterThanOrEqual(2 * HARD_MAX_SLOTS);
-		// HELD, not shown: two sibling surfaces at one z show only the newer (see the equal-z test).
-		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-owner] [data-testid="deck-preview"]').length).toBe(2 * HARD_MAX_SLOTS);
-		for (const g of grids) g.unmount();
-		host.unmount();
-	});
-
-	it('a dry dock leaves a tile without a frame; it never throws the grid blank', async () => {
-		const { FrameDockHost, DOCK_MAX_SLOTS } = await import('./frame-dock');
-		const host = render(<FrameDockHost />);
-		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
-		const grids = [0, 1, 2].map(() => render(<Grid n={HARD_MAX_SLOTS} />, { container: surface() }));
-		for (const g of grids) {
-			for (let i = 0; i < HARD_MAX_SLOTS; i++) {
-				onScreen(face(g.container, i));
-				intersect(face(g.container, i), true);
-			}
-		}
-		settle(); // the third pass used to throw on an undefined slot, and set nothing
-		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-owner] [data-testid="deck-preview"]').length).toBe(DOCK_MAX_SLOTS);
-		for (const g of grids) g.unmount();
-		host.unmount();
+		expect(showing(container)).toContain(samples[BASE_SLOTS]);
+		expect(reshapes, 'a full pool rewrote a plain slot for the one Mermaid tile').toBe(0);
 	});
 });

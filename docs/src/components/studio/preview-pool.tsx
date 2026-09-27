@@ -1,10 +1,8 @@
 import * as React from 'react';
-import { createPortal } from 'react-dom';
 import DeckPreview from '@/components/DeckPreview';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
-import { acquireSlot, anchorNameOf, canDock, dockOverlayHost, dockSlot, placementOf, releaseSlots, sameClip, surfaceLayer, updateSlots } from './frame-dock';
 import { hasMermaid } from './slide-thumb';
 
 // ── A POOL OF PREVIEW FRAMES THAT ARE NEVER DESTROYED (#1538) ───────────────────────
@@ -241,18 +239,11 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 	return null;
 }
 
-/** Whether `el` is inside a surface playing its exit animation (Radix marks it `data-state="closed"`). */
-function isClosing(el: Element | null): boolean {
-	return !!el?.closest('[data-state="closed"]');
-}
-
 type PoolApi = {
 	register: (tile: Tile) => void;
 	unregister: (id: number) => void;
 	setInBand: (id: number, inBand: boolean) => void;
 	updateProps: (id: number, props: PooledPreviewProps) => void;
-	/** Tell a tile which dock slot shows it (null: none), so its overlay can ride above the frame. */
-	watchDock: (id: number, cb: (dockId: number | null) => void) => () => void;
 };
 
 const PoolContext = React.createContext<PoolApi | null>(null);
@@ -291,30 +282,14 @@ export const RELEASE_GRACE = 600;
  * One pool per grid rather than one per app, deliberately: two grids open at once (the picker
  * and its looks panel) have different coordinate spaces, and a pool's positions are only
  * meaningful inside one of them.
- *
- * WHERE THE FRAMES LIVE. Where CSS anchor positioning is available and the grid sits before the
- * Studio's frame dock, the pool BORROWS its frames from the dock (frame-dock.tsx) instead of
- * owning them: the grid's own layer stays empty, and closing the grid hands its frames back with
- * their documents alive, so a reopen mints none — the WebKit cost this pool alone could not
- * reach. Everywhere else (no anchor positioning, a grid under a transform) the frames live in the
- * layer below, as they always did. The assignment logic is the same in both.
  */
 export function PreviewPool({ children, className }: { children: React.ReactNode; className?: string }) {
 	const layerRef = React.useRef<HTMLDivElement>(null);
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
-	/** This pool's identity with the frame dock (frame-dock.tsx). */
-	const poolId = React.useRef(0);
-	if (poolId.current === 0) poolId.current = nextPoolId++;
-	/** Whether this pool's frames come from the DOCK rather than its own layer. Decided at the
-	 *  first assignment pass, not at mount: the dock host registers in an effect, and a pool mounted
-	 *  in the same commit would otherwise read "no dock" for its whole life. Fixed once decided —
-	 *  a pool never has frames in both places. */
-	const docked = React.useRef<boolean | null>(null);
 	// slot index → the tile it currently shows, and the shape its document was last built for.
-	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number; dockId?: number }[]>([]);
+	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number }[]>([]);
 	const slotsRef = React.useRef(slots);
-	const dockWatchers = React.useRef(new Map<number, { cb: (dockId: number | null) => void; last: number | null }>());
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
 	const lastApply = React.useRef(0);
@@ -336,12 +311,24 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		// say, even where the tile itself is hidden. Stopping at the wrapper is load-bearing, not an
 		// optimization — see `visibleBox`.
 		const v = visibleBox(el, layer.parentElement, false, FRAME_BLEED);
+		// IN THE LAYER'S OWN, UNTRANSFORMED UNITS. `getBoundingClientRect` reports what is on screen,
+		// so under a scaled ancestor every box comes back scaled — and the frames, which live inside
+		// that ancestor, get scaled AGAIN when painted. Add slide opens with a zoom from 95%, and it
+		// is kept mounted between opens (ui/persistent-surface.tsx), so every reopen replays the
+		// zoom: a pass measured mid-animation left every preview at 95% of its tile, shifted up and
+		// left, until something moved the layout. Dividing by the layer's own scale makes the
+		// measurement right at any point of the animation.
+		// `offsetWidth` is a whole number, so an unscaled layer of fractional width reads a hair off 1;
+		// only a real scale is divided out.
+		const scale = (shown: number, laid: number) => (laid && Math.abs(shown / laid - 1) > 0.01 ? shown / laid : 1);
+		const sx = scale(b.width, layer.offsetWidth);
+		const sy = scale(b.height, layer.offsetHeight);
 		return {
-			top: a.top - b.top,
-			left: a.left - b.left,
-			width: a.width,
-			height: a.height,
-			clip: { top: v.top - b.top, left: v.left - b.left, width: Math.max(0, v.right - v.left), height: Math.max(0, v.bottom - v.top) },
+			top: (a.top - b.top) / sy,
+			left: (a.left - b.left) / sx,
+			width: a.width / sx,
+			height: a.height / sy,
+			clip: { top: (v.top - b.top) / sy, left: (v.left - b.left) / sx, width: Math.max(0, v.right - v.left) / sx, height: Math.max(0, v.bottom - v.top) / sy },
 		};
 	}, []);
 
@@ -409,7 +396,6 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		pending.current = window.setTimeout(() => {
 			pending.current = null;
 			lastApply.current = Date.now();
-			if (docked.current === null) docked.current = canDock(layerRef.current);
 			const now = Date.now();
 			// A tile still inside its grace window keeps its slot, so a tile that flickers across
 			// the band edge during a scroll does not cost two re-points.
@@ -483,34 +469,23 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				// A free slot of the same IDENTITY, preferring one that also matches the shape so the
 				// render patches instead of rewriting. Never a slot of another identity, whatever the
 				// pressure: that one is not a cost, it is a wrong answer.
+				//
+				// A NEW SLOT OF THIS SHAPE BEATS A FREE ONE OF ANOTHER — under the ceiling, and one past it
+				// for a shape the pool holds no slot of at all. Taking the other shape's slot is a full
+				// rewrite now and another when a tile of that shape wants it back: two fresh documents, on
+				// WebKit two permanent ones, on every traversal. Measured on the Add slide gallery, which is
+				// kept mounted between opens and fills the ceiling at 1440 px: its one Mermaid tile cost two
+				// `srcdoc` writes on every reopen. One slot of its own shape, once, costs less. Still bounded
+				// by HARD_MAX_SLOTS.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
-				let slot: (typeof free)[number] | undefined = free.find((s) => s.key === k) ?? free[0];
-				// DOCKED, AND NO FREE SLOT OF THIS SHAPE HERE: take one of this shape from the dock — one another
-				// surface gave back, or a new one under the dock's ceiling. The gallery's one Mermaid tile used to
-				// borrow a free slot of the other shape and hand it back: two full rewrites, two fresh documents,
-				// on every reopen of Add slide (measured). One extra slot of that shape, once, costs less.
-				if (docked.current && (!slot || slot.key !== k)) {
-					const ds = acquireSlot(poolId.current, idk, k, true);
-					if (ds) {
-						slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: ds.props, key: ds.key, id: ds.idk, gen: 0, dockId: ds.id };
-						next.push(slot);
-					}
+				let slot = free.find((s) => s.key === k);
+				const shapeless = !next.some((s) => s.key === k && s.id === idk);
+				if (!slot && (next.length < cap || (shapeless && next.length < HARD_MAX_SLOTS))) {
+					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
+					next.push(slot);
 				}
-				if (!slot && next.length < cap) {
-					if (docked.current) {
-						// BORROW from the dock: a slot someone gave back keeps its document, so a reopened
-						// surface re-points it instead of minting one.
-						const ds = acquireSlot(poolId.current, idk, k);
-						if (ds) {
-							slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: ds.props, key: ds.key, id: ds.idk, gen: 0, dockId: ds.id };
-							next.push(slot);
-						}
-					} else {
-						slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
-						next.push(slot);
-					}
-				}
-				if (!slot && !docked.current) {
+				slot ??= free[0];
+				if (!slot) {
 					// LAST RESORT: re-key a free slot of another identity. Bumping `gen` makes React unmount
 					// and remount it, which destroys a document — the thing this module exists to avoid — so it
 					// happens only when the alternative is a tile that can never be shown at all. Reachable only
@@ -524,10 +499,6 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 					spare.props = null;
 					slot = spare;
 				}
-				// DOCKED AND THE DOCK IS DRY: leave this tile without a frame rather than stop the pass. The
-				// ceiling is two pools' worth (frame-dock-limits.ts), so this is a backstop; a pass that threw
-				// here would blank every tile of the grid, not one.
-				if (!slot) continue;
 				slot.tileId = t.id;
 				slot.props = t.props;
 				slot.key = k;
@@ -602,105 +573,9 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				t.props = props;
 				if (t.inBand) schedule();
 			},
-			watchDock(id, cb) {
-				dockWatchers.current.set(id, { cb, last: null });
-				const s = slotsRef.current.find((x) => x.tileId === id && x.dockId !== undefined);
-				if (s?.dockId !== undefined && docked.current) {
-					dockWatchers.current.set(id, { cb, last: s.dockId });
-					cb(s.dockId);
-				}
-				return () => {
-					dockWatchers.current.delete(id);
-				};
-			},
 		}),
 		[schedule, watchNested],
 	);
-
-	// DOCKED: after each pass, point this pool's borrowed dock slots at their tiles — by ANCHOR
-	// NAME, not by rect, so the browser keeps each frame on its tile through scrolling
-	// (frame-dock.tsx). A slot with no tile is hidden, and its document stays alive.
-	React.useEffect(() => {
-		if (!docked.current) return;
-		const patches: Parameters<typeof updateSlots>[0] = [];
-		const closing = isClosing(layerRef.current);
-		const layer = surfaceLayer(layerRef.current);
-		const shows = new Map<number, number>();
-		for (const s of slots) {
-			if (s.dockId === undefined) continue;
-			const t = s.tileId === null ? null : tiles.current.get(s.tileId);
-			if (!t) {
-				patches.push({ id: s.dockId, patch: { props: s.props, key: s.key, anchor: null, clip: null } });
-				continue;
-			}
-			shows.set(t.id, s.dockId);
-			const { clip, z } = placementOf(t.el);
-			patches.push({ id: s.dockId, patch: { props: s.props, key: s.key, anchor: anchorNameOf(t.el, 'tile'), clip: closing ? null : clip, z, layer } });
-		}
-		updateSlots(patches);
-		for (const [id, w] of dockWatchers.current) {
-			const d = shows.get(id) ?? null;
-			if (d !== w.last) {
-				w.last = d;
-				w.cb(d);
-			}
-		}
-	}, [slots]);
-
-	// DOCKED: keep each frame's CLIP current. The clip is the intersection of the tile's clipping
-	// ancestors, and those include the tile's own `overflow-hidden` card, which moves with every
-	// scroll — so a scroll does patch clips, once per frame (the red team counted 538 dock style
-	// writes over 30 wheel ticks; the clip stayed on its tile, both engines). Also: a resize, an
-	// animation starting or settling, and a nested scroller (the gallery's looks panel).
-	React.useEffect(() => {
-		if (typeof window === 'undefined') return;
-		let frame = 0;
-		const refresh = () => {
-			frame = 0;
-			if (!docked.current) return;
-			const patches: Parameters<typeof updateSlots>[0] = [];
-			const closing = isClosing(layerRef.current);
-			for (const s of slotsRef.current) {
-				if (s.dockId === undefined || s.tileId === null) continue;
-				const t = tiles.current.get(s.tileId);
-				if (!t) continue;
-				const placed = placementOf(t.el);
-				const clip = closing ? null : placed.clip;
-				const z = placed.z;
-				const cur = dockSlot(s.dockId);
-				if (cur && (!sameClip(cur.clip, clip) || cur.z !== z)) patches.push({ id: s.dockId, patch: { clip, z } });
-			}
-			updateSlots(patches);
-		};
-		const on = () => {
-			if (!frame) frame = window.requestAnimationFrame(refresh);
-		};
-		window.addEventListener('scroll', on, { capture: true, passive: true });
-		window.addEventListener('resize', on);
-		// A surface that ANIMATES in (the phone sheet slides up) was measured mid-flight: its clip came
-		// out empty and stayed empty, so the preset tiles showed no preview at all (WebKit, 390 px).
-		// Re-measure when any animation or transition settles.
-		window.addEventListener('animationend', on, true);
-		window.addEventListener('transitionend', on, true);
-		// A surface CLOSING: Radix marks it `data-state="closed"` and plays its exit animation
-		// before the pool unmounts. Anchor positioning ignores the exit transform and fade, so the
-		// frames would sit fully drawn over the editor while the sheet slid away (measured by the red
-		// team: 4 frames at y=437 with the sheet's top at 733 px, on WebKit). Hide them as it starts.
-		window.addEventListener('animationstart', on, true);
-		// iOS: the on-screen keyboard and pinch-zoom change the visual viewport without a window
-		// `resize`. UNVERIFIED on a device — no iPhone can be driven from here.
-		const vv = window.visualViewport;
-		vv?.addEventListener('resize', on);
-		return () => {
-			vv?.removeEventListener('resize', on);
-			window.removeEventListener('scroll', on, { capture: true });
-			window.removeEventListener('resize', on);
-			window.removeEventListener('animationend', on, true);
-			window.removeEventListener('animationstart', on, true);
-			window.removeEventListener('transitionend', on, true);
-			if (frame) window.cancelAnimationFrame(frame);
-		};
-	}, []);
 
 	// The layout moving is the ONLY thing that invalidates a position, so it is the only thing
 	// that recomputes one. Covers a resize, a column-count change, a filter shortening the grid
@@ -714,8 +589,6 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	React.useEffect(
 		() => () => {
 			alive.current = false;
-			// Give the borrowed frames back to the dock. Their documents stay; the next open re-points them.
-			if (docked.current) releaseSlots(poolId.current);
 			if (pending.current !== null) window.clearTimeout(pending.current);
 			pending.current = null;
 			if (raf.current) window.cancelAnimationFrame(raf.current);
@@ -736,12 +609,12 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 
 	return (
 		<PoolContext.Provider value={api}>
-			<div className={cn('relative', className)} data-preview-pool={poolId.current}>
+			<div className={cn('relative', className)}>
 				{children}
 				{/* The frames. `aria-hidden` and `pointer-events-none`: every tile's chrome is a real
 				    button in `children` above, and this layer must never take a click or a tab stop. */}
 				<div ref={layerRef} aria-hidden className="pointer-events-none absolute inset-0">
-					{docked.current ? null : slots.map((s, i) => {
+					{slots.map((s, i) => {
 						// TWO BOXES, and the outer one is what stops a frame painting where its tile is
 						// hidden. The OUTER box is the visible part of the tile (`rect.clip`) and clips;
 						// the INNER box is the tile's WHOLE rect, offset back into place. The frame has to
@@ -774,7 +647,6 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 }
 
 let nextTileId = 1;
-let nextPoolId = 1;
 
 /**
  * A tile's preview box. Renders NOTHING but an empty box of the right size — the pixels come
@@ -784,86 +656,11 @@ let nextPoolId = 1;
  * Outside a `PreviewPool` it renders the placeholder and no preview rather than throwing, so a
  * caller that has not been wrapped yet degrades to an empty tile instead of a crash.
  */
-/**
- * A tile's own chrome drawn OVER its preview — Add slide's Insert bar, the overview's slide number.
- *
- * Positioned against the tile's box. Where the tile's frame is docked, it is portaled into that dock
- * slot, above the frame: the dock paints above the whole surface, so chrome left in the tile would
- * sit under the frame whatever its z-index. `hot` mirrors the tile control's hover and keyboard focus
- * onto the portaled copy, since `group-hover` cannot reach across the portal: style with
- * `group-data-[hot]/overlay:`.
- */
-function FaceOverlay({ children, hot }: { children: React.ReactNode; hot: boolean }) {
-	return (
-		<span data-hot={hot ? '' : undefined} className="group/overlay pointer-events-none absolute inset-0">
-			{children}
-		</span>
-	);
-}
-
-/** Hover or keyboard focus on the nearest `.group` control around `el` — the tile's button. */
-function useHot(ref: React.RefObject<HTMLElement | null>, on: boolean): boolean {
-	const [hot, setHot] = React.useState(false);
-	React.useEffect(() => {
-		const control = on ? ref.current?.closest<HTMLElement>('.group') : null;
-		if (!control) return;
-		let hovered = false;
-		let focused = false;
-		const sync = () => setHot(hovered || focused);
-		const enter = () => {
-			hovered = true;
-			sync();
-		};
-		const leave = () => {
-			hovered = false;
-			sync();
-		};
-		// Keyboard focus on the control that CONTAINS this face — the tile's own button — not on a
-		// sibling control in the same card (the looks toggle).
-		const focus = (e: FocusEvent) => {
-			const t = e.target as Element | null;
-			focused = !!t && !!ref.current && t.contains(ref.current) && t.matches(':focus-visible');
-			sync();
-		};
-		const blur = () => {
-			focused = false;
-			sync();
-		};
-		control.addEventListener('pointerenter', enter);
-		control.addEventListener('pointerleave', leave);
-		control.addEventListener('focusin', focus);
-		control.addEventListener('focusout', blur);
-		return () => {
-			control.removeEventListener('pointerenter', enter);
-			control.removeEventListener('pointerleave', leave);
-			control.removeEventListener('focusin', focus);
-			control.removeEventListener('focusout', blur);
-		};
-	}, [ref, on]);
-	return hot;
-}
-
-export function PooledThumbFace({ className, overlay, ...props }: PooledPreviewProps & { className?: string; overlay?: React.ReactNode }) {
+export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { className?: string }) {
 	const pool = React.useContext(PoolContext);
 	const ref = React.useRef<HTMLDivElement>(null);
 	const id = React.useRef(0);
 	if (id.current === 0) id.current = nextTileId++;
-	// WHICH DOCK SLOT SHOWS THIS TILE, so the overlay can ride above the frame (see `FaceOverlay`).
-	const [dockId, setDockId] = React.useState<number | null>(null);
-	const hasOverlay = !!overlay;
-	React.useEffect(() => {
-		if (!pool || !hasOverlay) return;
-		return pool.watchDock(id.current, setDockId);
-	}, [pool, hasOverlay]);
-	const host = dockId === null ? null : dockOverlayHost(dockId);
-	// The slot's element can trail the assignment by a render; look again on the next frame.
-	const [, retry] = React.useReducer((n: number) => n + 1, 0);
-	React.useEffect(() => {
-		if (dockId === null || host) return;
-		const r = window.requestAnimationFrame(retry);
-		return () => window.cancelAnimationFrame(r);
-	}, [dockId, host]);
-	const hot = useHot(ref, hasOverlay);
 	// The observer reports band membership; the POOL decides what that earns. Kept separate from
 	// the props effect below so a prop change does not re-subscribe the observer.
 	React.useEffect(() => {
@@ -909,11 +706,5 @@ export function PooledThumbFace({ className, overlay, ...props }: PooledPreviewP
 		if (pool) pool.updateProps(id.current, propsRef.current);
 	});
 
-	if (!overlay) return <span ref={ref} className={cn('block', className)} />;
-	const face = <FaceOverlay hot={hot}>{overlay}</FaceOverlay>;
-	return (
-		<span ref={ref} className={cn('relative block', className)}>
-			{host ? createPortal(face, host) : face}
-		</span>
-	);
+	return <span ref={ref} className={cn('block', className)} />;
 }

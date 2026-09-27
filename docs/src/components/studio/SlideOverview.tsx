@@ -31,11 +31,10 @@ function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid
 			    An empty box; the pixels arrive from a pooled frame positioned over it. The frame is
 			    pointer-events:none either way — it is a separate document that would otherwise
 			    swallow this button's click. */}
-			<PooledThumbFace options={options} sample={sample} slideIndex={slideIndex} slideCount={slideCount} slideMarkdown={slideMarkdown} mermaid={mermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full"
-				// The slide number, as the face's OVERLAY: a docked frame paints above the whole overlay
-				// surface, so a number left in the tile would sit under it (preview-pool.tsx `FaceOverlay`).
-				overlay={<span className="absolute bottom-1.5 left-1.5 z-10 rounded-md bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--text-heading)] backdrop-blur-sm">{label.replace('Slide ', '')}</span>}
-			/>
+			<PooledThumbFace options={options} sample={sample} slideIndex={slideIndex} slideCount={slideCount} slideMarkdown={slideMarkdown} mermaid={mermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full" />
+			{/* The slide number. `z-10` because the pooled preview layer paints above the grid
+			    (preview-pool.tsx) — without it the number is behind the frame. */}
+			<span className="absolute bottom-1.5 left-1.5 z-10 rounded-md bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--text-heading)] backdrop-blur-sm">{label.replace('Slide ', '')}</span>
 		</button>
 	);
 }

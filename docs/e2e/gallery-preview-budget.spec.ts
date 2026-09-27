@@ -1,5 +1,4 @@
 import { markersSettled, paintedMarkers } from './marker-chrome';
-import { poolFrameSelector } from './pool-frames';
 import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // #1463 — scrolling the add-slide gallery used to accumulate one live engine iframe per
@@ -129,15 +128,13 @@ test('@crosswidth no add-slide gallery tile paints an authoring alarm', async ({
 	// page-wide `page.frames()` sweep also picks up the Studio's own full-size preview
 	// behind the dialog, which is an authoring surface and MUST still read `author`;
 	// asserting `off` over that set fails for the right reason on the wrong frame.
-	// The grid's frames wherever they live — its own layer or the frame dock (./pool-frames).
-	const tileSel = await poolFrameSelector(page, 'div.overflow-y-auto.overscroll-contain');
-	const tileFrames = page.locator(tileSel);
+	const tileFrames = scroller.locator('iframe.live');
 	const n = await tileFrames.count();
 	let inspected = 0;
 	const marked: string[] = [];
 	for (let i = 0; i < n; i += 1) {
-		const found = await page
-			.frameLocator(`${tileSel} >> nth=${i}`)
+		const found = await scroller
+			.frameLocator('iframe.live >> nth=' + i)
 			.locator('body')
 			// `chrome` counts PAINTED markers, not marker ELEMENTS. The three tabs are
 			// part of every rendered slide now (lib/core/fit-berth.js), so the old
@@ -227,15 +224,14 @@ test("Present's slide overview keeps the authoring signal — those are the auth
 	await overview.waitFor();
 	await markersSettled(page, 'iframe.live'); // fonts, then the re-measure settling — see #1526
 
-	const overviewSel = await poolFrameSelector(page, '[aria-label="Slide overview"]');
-	const tiles = page.locator(overviewSel);
+	const tiles = overview.locator('iframe.live');
 	const n = await tiles.count();
 	expect(n, 'no overview tile rendered, so nothing was checked').toBeGreaterThan(1);
 
 	const levels: (string | null)[] = [];
 	for (let i = 0; i < n; i += 1) {
-		const level = await page
-			.frameLocator(`${overviewSel} >> nth=${i}`)
+		const level = await overview
+			.frameLocator('iframe.live >> nth=' + i)
 			.locator('section[data-lattice-slide]')
 			.first()
 			.getAttribute('data-lattice-overflow-marker')
