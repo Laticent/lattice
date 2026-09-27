@@ -1,11 +1,11 @@
 ---
-status: proposed
+status: in-progress
 summary: Lattice draws a label on a card six different ways. Four are copies of one flush top-left "corner tag" recipe that have already drifted apart, list-steps draws a fifth kind under another name ("STEP 01"), and none of them keeps sibling tags the same height when one wraps. This note audits every card marker in the tree, says which qualify as card tags, and proposes one shared tag kernel plus a `tag:` front-matter register and `tag-*` slide classes packed the way `backdrop:` packs its axes, covering color (plain, color, none), placement on the card, text alignment and size. It also lists the phases to get there.
 ---
 
 # One card tag — an audit, a design and a plan
 
-**Status:** proposed 2026-09-27. Nothing is built. The owner settled all five questions on
+**Status:** in progress. Phase 1 (the CSS kernel) is built; phases 2–5 are not. The owner settled all six questions on
 2026-09-27 (§7).
 
 ## 1. The problem in one example
@@ -94,6 +94,15 @@ categorical mark, categorical fill) plus bare ink.
 ## 3. The design
 
 ### 3.1 One element, one kernel
+
+**Phase order (2026-09-27):** the kernel CSS lands first on the tags as they are (§6
+phase 1); the element described here lands in phase 3, beside the measurement that
+needs it. A code map for phase 1 found three costs the element carries and the CSS
+does not: list-steps' number formats (`upper-alpha`, `upper-roman`, `--step-prefix`)
+and the verdict word (`--insight-label`) are resolved in CSS, so the element keeps a
+`::before` for its text; eight component sheets and three runtime checks key on the
+lifted label being `strong:first-child`, so a label tag is the `<strong>` itself with
+the class, not a wrapper; and a page with no runtime needs a CSS fallback.
 
 Every qualifying tag becomes **one real element**, `<span class="card-tag">`, emitted by
 the shared kernel on every render path (HARD RULE #1). Today three of the recipes draw
@@ -252,9 +261,9 @@ and renders every shipped deck unchanged unless the phase says otherwise.
 
 | Phase | What lands | Visible change | Proof |
 |---|---|---|---|
-| **1. Kernel** | The `card-tag` element on every render path, `base.card-tag.css`, the tokens, and the migration of the seven qualifying recipes onto it at their current look. The `plain` contrast pin, and a dark-mode check on the existing `--on-accent` pin | Only the drift fixes: one padding, one tracking, one reserve, `sketch` everywhere | Pixel diff of the six galleries before and after, with every changed slide listed and explained |
+| **1. Kernel (CSS only)** | `base.card-tag.css` and the `--card-tag-*` tokens; the seven recipes move onto it at their current look, each component keeping only its counter or label and which fill/ink pair it wears; `sketch` reaches every tag through two token re-points; a light-and-dark pin for the `--on-accent` pair. **No markup changes** (owner decision, §7 Q6) | The drift fixes: one padding (in em, so it follows venue and orientation), one tracking, one reserve formula, `sketch` everywhere. A two- and three-line corner label now clears the body | Pixel diff of the affected galleries before and after, with every changed slide listed and explained |
 | **2. Register** | `resolve-card-tag.js`, `tag:` and `tag-*` on all paths, lint, docs | None unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine and the runtime bundle. Demo deck, light and dark |
-| **3. Placements and equal height** | `foot`, `notch`, `band` on every qualifying layout, `inline`, text alignment, size, and the measure pass | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
+| **3. The element, placements and equal height** | The real `card-tag` element on every render path (§3.1, with a CSS fallback for script-less pages), then `foot`, `notch`, `band` on every qualifying layout, `inline`, text alignment, size, and the measure pass | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
 | **4. Aliases** | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
 | **5. Studio** | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |
 
@@ -278,6 +287,7 @@ Settled 2026-09-27. The owner took the recommendation on each:
    `authority-chain`'s tier column is the card's structure rather than a label on it, and
    `citation-card`'s label heads a callout, not one of several sibling cards. No `side`
    placement is added.
+6. **Phase 1 is CSS only.** The element moves to phase 3 with the measure pass (§3.1).
 
 ## 8. How this note was checked
 

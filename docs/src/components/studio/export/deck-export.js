@@ -203,7 +203,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -235,7 +235,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	dir.file(
 		`${slug}.md`,
 		withRuntimeScripts(
-			liftImageBgImages(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components))), undefined),
+			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
+			// carve a pane and would read each marker as a speaker note.
+			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components)))), undefined),
 			{ localAssets: false, overflowMarker },
 		),
 	);

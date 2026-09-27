@@ -592,7 +592,10 @@ Authors don't carry presentational markup.
 
 - Tag chrome matches the numbered corner tag — accent fill, white mono
   text, flush top-left geometry. The labeled and numbered variants are
-  visually a family.
+  one family, drawn by one recipe: `lib/base/base.card-tag.css` (with the
+  split-compare verdict and the list-steps `STEP 01` label). Padding is in
+  em of the tag's own text, so the tag keeps its proportions at every
+  `venue:`. See `engineering/decisions/2026-09-27-card-tag-register.md`.
 - `compare-prose` uses the unified accent fill (its slots have semantic
   ordering — before/after via `transition`, or A/B). `decision` is the
   categorical case: each slot is an independent reason, so the tag and

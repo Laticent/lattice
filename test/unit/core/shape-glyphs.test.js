@@ -153,6 +153,15 @@ describe('shape-glyphs — stripFencedCode', () => {
     assert.deepEqual(findShapeGlyphs(out).map((h) => [h.glyph, h.line]), [['✓', 1], ['→', 5]]);
   });
 
+  test('reads fences the way CommonMark does: a closer has no info string, an opener no backtick in it', () => {
+    // A ```js line inside a ```markdown sample is sample content, so the sample runs on.
+    const nested = '```markdown\n```js\nx →\n```\nafter →';
+    assert.deepEqual(findShapeGlyphs(stripFencedCode(nested)).map((h) => h.line), [5]);
+    // Prose that opens with three backticks and quotes `code` later is not a fence.
+    const prose = '```js — the `code` layout →\nnext →';
+    assert.deepEqual(findShapeGlyphs(stripFencedCode(prose)).map((h) => h.line), [1, 2]);
+  });
+
   test('leaves INLINE code in scope', () => {
     // A backticked eyebrow is set on the slide, so a glyph in it is seen.
     assert.equal(findShapeGlyphs(stripFencedCode('`Effort 0–10 → Reach 0–100`')).length, 1);

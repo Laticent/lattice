@@ -133,6 +133,7 @@ it is load-bearing.
 
 - ☐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
 - ◐ [2026-09-27-studio-export-one-engine.md](2026-09-27-studio-export-one-engine.md) — The owner wants the Studio's Export to PDF to produce "option 1" — a background photo with real, sharp text and shapes on top — through one…
+- ◐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
 - ◐ [2026-09-27-plugin-system.md](2026-09-27-plugin-system.md) — The plugin system, designed whole and hardened by the adversarial trio before any code.
 - ◐ [2026-09-27-trama-graph-chart-library.md](2026-09-27-trama-graph-chart-library.md) — Trama (`@laticent/trama`) is the graph-chart library.
 - ◐ [2026-09-26-backdrop-register.md](2026-09-26-backdrop-register.md) — Backdrop restraint (strength, clear-behind-content, spotlight) works only on a fabricated finish, only deck-wide, and only in the Studio…

@@ -36,3 +36,28 @@ describe('slide-notes', () => {
 		expect(getNote('<!-- _class: title -->\n\n# Hi\n\n<!-- remember to smile -->')).toBe('remember to smile');
 	});
 });
+
+describe('a panes slide — its markers are structure, not the note', () => {
+	const PANES = '## Title\n\n<!-- panes: 35/65 -->\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| a |\n|---|\n| 1 |';
+	it('reads no marker as the speaker note', () => {
+		expect(getNote(PANES)).toBe('');
+		expect(getNote(`${PANES}\n\n<!-- note: say the total -->`)).toBe('say the total');
+	});
+	it('setting a note keeps every marker, so the slide stays a panes slide', () => {
+		const out = setNote(PANES, 'say the total');
+		expect(out).toContain('<!-- panes: 35/65 -->');
+		expect(out).toContain('<!-- pane: list -->');
+		expect(out).toContain('<!-- pane: table -->');
+		expect(getNote(out)).toBe('say the total');
+		expect(setNote(out, '')).toContain('<!-- pane: table -->');
+	});
+});
+
+describe('a tooling comment is not the note', () => {
+	it('skips markdownlint / prettier magic comments, as the engine does', () => {
+		// Export-to-Marp writes `markdownlint-capture` where a panes deck's markers were.
+		expect(getNote('## T\n\n<!-- markdownlint-capture -->\n\n- a')).toBe('');
+		expect(getNote('## T\n\n<!-- prettier-ignore -->\n\n<!-- say it -->')).toBe('say it');
+		expect(setNote('## T\n\n<!-- markdownlint-capture -->\n\n- a', 'hi')).toContain('<!-- markdownlint-capture -->');
+	});
+});

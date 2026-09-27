@@ -242,6 +242,14 @@ describe('findingsToDiagnostics', () => {
 		expect(d2.lineAt(diag.from).text).toBe('- foo'); // not the earlier `- foobar baz`
 	});
 
+	it('starts at `chunkLine`, so a finding on a heading-split slide skips the same line above it', () => {
+		// One `---` chunk, two rendered slides (split: headings), the same line on both.
+		const d3 = doc('## A\n\n- **Same.** body\n\n<!-- _class: cards-grid -->\n\n## B\n\n- **Same.** body\n');
+		const f = { slide: 1, rule: 'r', severity: 'warning', line: '- **Same.** body', message: 'm' } as const;
+		expect(d3.lineAt(findingsToDiagnostics(d3, [f])[0].from).number).toBe(3);
+		expect(d3.lineAt(findingsToDiagnostics(d3, [{ ...f, chunkLine: 4 }])[0].from).number).toBe(9);
+	});
+
 	it('falls back to the slide start when a finding has no line', () => {
 		const [diag] = findingsToDiagnostics(d, [{ slide: 1, rule: 'r', severity: 'warning', message: 'm' }]);
 		expect(d.lineAt(diag.from).number).toBe(1);

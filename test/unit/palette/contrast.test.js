@@ -153,6 +153,18 @@ describe('contrast', () => {
         assert.deepEqual(failures, [], `WCAG AA failures in ${name} (${mode}):\n  ${failures.join('\n  ')}`);
       });
 
+      // The card tag's default pair (lib/base/base.card-tag.css): accent fill, on-accent
+      // ink. tools/contrast-audit.js pins it on each theme's DEFAULT side only; a card
+      // tag renders in both, so the dark side is pinned here.
+      test(`contrast: ${name} (${mode}) the card-tag pair --on-accent on --accent clears AA`, () => {
+        const vars = loadPaletteWithImports(name, mode);
+        const fill = vars['accent'];
+        const text = vars['on-accent'];
+        assert.ok(fill && text, `accent (${fill}) or on-accent (${text}) not resolved`);
+        const ratio = contrastRatio(fill, text);
+        assert.ok(ratio >= AA_THRESHOLD, `${name} (${mode}): on-accent (${text}) on accent (${fill}) = ${ratio.toFixed(2)}:1 (< ${AA_THRESHOLD})`);
+      });
+
       test(`contrast: ${name} (${mode}) every --cN-dark / --cat-on-mark pair clears AA`, () => {
         const vars = loadPaletteWithImports(name, mode);
         const failures = [];

@@ -895,10 +895,11 @@ if (retiredForm.length > RETIRED_FORM_SHOWN) {
 // so, on the same channel and for the same reason as the retired Form opt-outs above.
 // The detector is lint rule 16 (HARD RULE #7); it already stays silent on a slide that
 // uses `[!]` or `[?]`, so a deck written for the six markers is not warned.
-// The rule counts RENDERED slides, heading splits included (lint-core's
-// `headingSubSlides`), so these slide numbers match the PDF.
-const { findMovedEmptyBoxes } = require('./lib/authoring/lint-core');
-const movedBoxes = findMovedEmptyBoxes(md).filter((f) => f.shapeChange);
+// The rule reads the deck with its heading splits baked into `---` (lint-core's
+// `bakeHeadingChunks`, the engine's own `headingSplitPoints`), so each chunk is one RENDERED
+// slide and these slide numbers match the PDF.
+const { findMovedEmptyBoxes, bakeHeadingChunks } = require('./lib/authoring/lint-core');
+const movedBoxes = findMovedEmptyBoxes(bakeHeadingChunks(md)?.baked ?? md).filter((f) => f.shapeChange);
 for (const f of movedBoxes.slice(0, RETIRED_FORM_SHOWN)) {
   console.error(`warning: slide ${f.slide}: ${f.message} ${f.short}`);
 }
@@ -1883,6 +1884,18 @@ function preprocessMermaid(source) {
   // because `narrateDiagram` states the invariant that it reads the same fence this renders —
   // and it used to carry its own copy of the same regex, backticks only. Widening only one of
   // them would draw a `~~~mermaid` diagram the voice could not read.
+  // A fence in a PANE lays out for the pane, not the deck: a 35% side pane on a 16:9 slide is
+  // a tall box, and a left-to-right flowchart kept wide there shrank to unreadable labels. The
+  // engine answers each pane's orientation from the same carve and box `renderPane` uses, with
+  // the source lines the pane came from (`paneOrientations`), so a fence finds its pane by its
+  // own line: no slide count or marker count to get wrong.
+  const paneBoxes = source.includes('pane:') ? require('./lib/engine').paneOrientations(source) : [];
+  const orientationAt = (offset) => {
+    if (!paneBoxes.length) return orientation;
+    const line = source.slice(0, offset).split('\n').length - 1;
+    const pane = paneBoxes.find((p) => p.lines.some(([a, b]) => line >= a && line < b));
+    return pane ? pane.orientation : orientation;
+  };
   const fences = [];
   for (const m of matchMermaidFences(source)) {
     const slideIndex = Math.max(0, slideIndexAt(spans, m.start));
@@ -1891,7 +1904,7 @@ function preprocessMermaid(source) {
       matchEnd: m.end,
       slideIndex,
       slideClass: slideClassAt(spans, m.start),
-      source: reorientMermaidForPortrait(m.body.trim(), orientation),
+      source: reorientMermaidForPortrait(m.body.trim(), orientationAt(m.start)),
     });
   }
   if (fences.length === 0) return source;
