@@ -28,7 +28,7 @@ const core = lintCore as unknown as { paneSplitLine: (slide: string, source: str
 const PANE_PROBE = /<!--\s*pane\s*:/;
 
 /** A pane marker alone on its line (lib/core/pane-spec.js `PANE_RE`). */
-const PANE_MARKER = /^<!--\s*pane:\s*[a-z][\w-]*\s*-->$/;
+const PANE_MARKER = /^<!--\s*pane:\s*([a-z][\w-]*)\s*-->$/;
 
 /** The 0-based line of `chunk` that starts its second rendered slide, or -1 when it renders as
  *  one. `deck` is the whole document the engine renders (front matter included), for its size. */
@@ -88,3 +88,14 @@ export function panePageOfCaret(chunk: string, deck: string, caretText: string):
 	return pages.size === 1 ? [...pages][0] : undefined;
 }
 
+/** The components a deck puts in a pane (`<!-- pane: X -->`), unique, in order. A saved component
+ *  used ONLY in a pane is still used: its CSS has to reach the preview and the export, or the
+ *  pane renders unstyled (lib/layout/bridge.js `referencedComponents` reads the same markers). */
+export function paneMarkerComponents(src: string): string[] {
+	const out = new Set<string>();
+	for (const line of String(src ?? '').split('\n')) {
+		const m = PANE_MARKER.exec(line.trim());
+		if (m) out.add(m[1]);
+	}
+	return [...out];
+}

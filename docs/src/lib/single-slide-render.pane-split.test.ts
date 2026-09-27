@@ -134,3 +134,31 @@ describe('slice render through a split panes slide', () => {
 		expect(mock().mock.calls[0][3]).toMatchObject({ page: { offset: 3, total: 4 } });
 	});
 });
+
+describe('author CSS reaches a pane (extraCss)', () => {
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const paneCss = require('../../../lib/core/pane-css.js') as {
+		widenForPanes: (css: string, classes: string[], components?: string[]) => string;
+		paneClasses: (html: string) => string[];
+		paneComponents: (html: string) => string[];
+	};
+	// The playground bundle's `widenPaneCss`, built from the same kernel.
+	const widenPaneCss = (css: string, html: string) => {
+		const classes = paneCss.paneClasses(html);
+		return classes.length ? paneCss.widenForPanes(css, classes, paneCss.paneComponents(html)) : css;
+	};
+	const PANED = `<article class="lattice">\n<section class="lat-pane-host"><div class="cell-stage"><lat-pane class="my-card form"><ul><li>a</li></ul></lat-pane></div></section>\n</article>`;
+
+	it('a saved component\'s rule gains its pane twin in the frame; a deck without panes keeps it as written', async () => {
+		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { hasTheme: () => false, addThemes: () => {}, widenPaneCss };
+		mock().mockImplementation(async (_pg: unknown, md: string) => ({ html: md === 'PANES' ? PANED : DECK4, css: '' }));
+		const css = 'section.my-card li { letter-spacing: 1px; }';
+		const host = mountHost();
+		await createSingleSlideRenderer(opts).renderInto(host, 'PANES', false, undefined, undefined, undefined, css);
+		expect(srcdocOf(host)).toContain('section.my-card li, section lat-pane.my-card li{');
+		const plainHost = mountHost();
+		await createSingleSlideRenderer(opts).renderInto(plainHost, 'PLAIN', false, undefined, undefined, undefined, css);
+		expect(srcdocOf(plainHost)).toContain(css);
+		expect(srcdocOf(plainHost)).not.toContain('lat-pane.my-card');
+	});
+});

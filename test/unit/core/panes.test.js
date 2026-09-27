@@ -529,3 +529,69 @@ test('a split page carries the whole slide\'s spot directives, wherever they wer
   }
 });
 
+// ── Author and package CSS reach a pane (the pane-follow-ups PR) ─────────────────────────────
+// A component this repo does not ship — an installed package, a Studio saved component — is a
+// component when a pane IS one. Without it, `section.<pkg> li` styled a <pkg> slide and silently
+// skipped a <pkg> pane.
+const paneCss = require('../../../lib/core/pane-css.js');
+
+test('paneComponents reads each real pane\'s component (its first class), not a quoted one', () => {
+  const html = '<lat-pane class="my-card form"></lat-pane><lat-pane class="list form"></lat-pane><!-- <lat-pane class="ghost form"> -->';
+  assert.deepEqual(paneCss.paneComponents(html), ['list', 'my-card']);
+  assert.deepEqual(paneCss.paneComponents('<section>no panes</section>'), []);
+});
+
+test('a package component\'s rule is twinned for its pane; a modifier every pane carries is not', () => {
+  const classes = ['form', 'my-card'];
+  const css = 'section.my-card li { color: red } section.form { padding: 0 } section.other li { a: b }';
+  const wide = widenForPanes(css, classes, ['my-card']);
+  assert.match(wide, /section\.my-card li, section lat-pane\.my-card li\{/);
+  assert.match(wide, /section\.form \{ padding: 0 \}/); // never twinned: `form` is no pane's component
+  assert.doesNotMatch(wide, /lat-pane\.other/);
+  // Without the pane's component the package rule is left alone — the bug this closes.
+  assert.equal(widenForPanes('section.my-card li { a: b }', classes), 'section.my-card li { a: b }');
+});
+
+test('widenStyleBlocks widens a document\'s <style> blocks and re-sanitizes what it writes (#22)', () => {
+  const doc = '<section><style>section.my-card li { a: b }</style><lat-pane class="my-card form"></lat-pane></section>';
+  const out = paneCss.widenStyleBlocks(doc, ['form', 'my-card'], ['my-card']);
+  assert.match(out, /<style>section\.my-card li, section lat-pane\.my-card li\{ a: b \}<\/style>/);
+  // A block that needs no twin is left byte for byte, and a document with no pane is untouched.
+  assert.equal(paneCss.widenStyleBlocks('<style>p{}</style>', ['form'], []), '<style>p{}</style>');
+  const plain = '<section><style>section.my-card li{}</style></section>';
+  assert.equal(paneCss.widenStyleBlocks(plain, ['my-card'], ['my-card']), plain);
+});
+
+test('an installed package component\'s CSS, embedded in the deck, reaches a pane of it', () => {
+  const { embedComponentsInMarkdown } = require('../../../lib/layout/bridge.js');
+  const deck = embedComponentsInMarkdown(
+    '---\ntheme: indaco\n---\n\n## T\n\n<!-- pane: my-card -->\n\n- one\n- two\n\n<!-- pane: list -->\n\n- x\n',
+    [{ name: 'my-card', css: 'section.my-card li { letter-spacing: 1px; }' }],
+  );
+  const html = render(deck);
+  assert.match(html, /<lat-pane class="my-card/);
+  assert.match(html, /section\.my-card li, section lat-pane\.my-card li\{/);
+});
+
+test('widenStyleBlocks reads only real style elements: a comment or a raw-text element is text', () => {
+  const lp = '<lat-pane class="bar form"></lat-pane>';
+  // What a comment hides stays hidden: nothing inside it is copied into live markup.
+  const hidden = `<!-- <style>section.bar <img src=x onerror=1> --> {color:red}</style> -->${lp}`;
+  assert.equal(paneCss.widenStyleBlocks(hidden, ['bar', 'form'], []), hidden);
+  const raw = `<textarea><style>section.bar li{}</style></textarea>${lp}`;
+  assert.equal(paneCss.widenStyleBlocks(raw, ['bar', 'form'], []), raw);
+  // A real block after a comment that merely mentions `<style>` is still widened.
+  assert.match(paneCss.widenStyleBlocks(`<!-- a <style> -->x<style>section.bar li{a:b}</style>${lp}`, ['bar', 'form'], []),
+    /<style>section\.bar li, section lat-pane\.bar li\{a:b\}<\/style>/);
+});
+
+test('widenStyleBlocks is linear: 20k unclosed <style openers do not rescan the document', () => {
+  const doc = `<lat-pane class="bar form"></lat-pane>${'a <style>'.repeat(20000)}`;
+  const t = process.hrtime.bigint();
+  assert.equal(paneCss.widenStyleBlocks(doc, ['bar'], []), doc);
+  assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 200);
+});
+
+test('a modifier written as a pane\'s component is not a component (its slide rules stay off the pane)', () => {
+  assert.deepEqual(paneCss.paneComponents('<lat-pane class="print form"></lat-pane><lat-pane class="finish-halo form"></lat-pane><lat-pane class="my-card form"></lat-pane>'), ['my-card']);
+});

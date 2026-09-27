@@ -1909,7 +1909,7 @@ function renderMermaid(definition, mode, look, hand = false) {
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor } = require('./lib/engine/css');
-const { widenForPanes, paneClasses } = require('./lib/core/pane-css');
+const { widenForPanes, paneClasses, paneComponents } = require('./lib/core/pane-css');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // The one pattern that says "this is a Mermaid fence", shared with the narrator (#1).
 const { matchMermaidFences } = require('./lib/core/mermaid-fences');
@@ -2520,8 +2520,11 @@ const slidesAsAuthored = engineSlides();
 // components its panes actually hold. Every other deck inlines exactly the stylesheet it
 // always did, so its bytes do not move.
 const DECK_PANE_CLASSES = paneClasses(slidesAsAuthored.join('\n'));
+// Each pane's component, so a front-matter `style:` rule keyed to a component the engine does
+// not ship (an installed package) reaches its pane too.
+const DECK_PANE_COMPONENTS = paneComponents(slidesAsAuthored.join('\n'));
 const DECK_HAS_PANES = DECK_PANE_CLASSES.length > 0;
-const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLASSES) : css);
+const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLASSES, DECK_PANE_COMPONENTS) : css);
 
 // ── Speaker notes ──────────────────────────────────────────────────────────
 // A non-directive HTML comment on a slide is that slide's speaker note
@@ -3119,7 +3122,7 @@ const deckTitle =
 // A panes deck's sheet carries pane twins for the components its panes hold. The engine
 // composes them before it packs the sheet, so they take the same flat shape as every other
 // rule; widening the packed sheet afterwards would find no `section.<component>` to twin.
-const deckSheet = cliDeckSheet(CLI_THEMES, { theme: paletteName, sizeName: deckSizeName, covered: COVERED_FAMILIES, panes: DECK_PANE_CLASSES });
+const deckSheet = cliDeckSheet(CLI_THEMES, { theme: paletteName, sizeName: deckSizeName, covered: COVERED_FAMILIES, panes: DECK_PANE_CLASSES, paneComponents: DECK_PANE_COMPONENTS });
 if (deckSheet.refused && !QUIET) {
   console.warn(`  ⚠ ${deckSheet.refused} @font-face rule(s) in the deck sheet could not be`
     + ' verified as whole rules and were left in place. They will fail to load; the export is'

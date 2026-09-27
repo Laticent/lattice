@@ -84,7 +84,7 @@ import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
-import { panePageOfCaret, paneSplitCounts } from './pane-pages';
+import { paneMarkerComponents, panePageOfCaret, paneSplitCounts } from './pane-pages';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
@@ -1228,7 +1228,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// which components the deck uses.
 	const usedLocalComponents = React.useMemo(() => {
 		if (!localComponents.length) return [];
-		const used = new Set(usedComponents(source));
+		// A component used only in a pane counts: its CSS must reach the pane (pane-pages.ts).
+		const used = new Set([...usedComponents(source), ...paneMarkerComponents(source)]);
 		// A record saved under a shipped name before saves were guarded is skipped: its
 		// CSS would restyle the shipped component on every slide that uses it.
 		return localComponents.filter((c) => used.has(c.name) && c.css && !RESERVED_COMPONENT_NAMES.has(c.name)).map((c) => ({ name: c.name, css: c.css }));

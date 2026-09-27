@@ -616,9 +616,16 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    the HTML-drawn charts' reflow in a small box; a TYPE FLOOR probe that flags an unreadable chart
    pane; and `tools/calibrate-capacity.js --pane` measuring a chart's ceiling, so the chart budgets
    can turn `measured` instead of editorial.
-3. **Author and package CSS in a pane** (`2376-p2-author-css-…`). A panes deck widens the shipped
-   sheet, the theme and the CLI's front-matter `style:`; installed packages and the Studio's
-   `extraCss` are not widened yet, so their `section.<component>` rules skip a pane.
+3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
+   panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
+   front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the
+   CLI embeds, a block an author wrote: `widenStyleBlocks`, which re-sanitizes what it writes,
+   HARD RULE #22), and the Studio's `extraCss` (saved components, a saved finish: the engine
+   bundle's `widenPaneCss`, before `styleElementText`). Two gaps closed with it: `pane-css.js`
+   knew only the components this repo ships, so a package's `section.my-card li` was never
+   twinned — each pane's own component (the first class of its `<lat-pane>`, `paneComponents`)
+   now counts; and a component used only in a pane was not "used", so its CSS never shipped
+   (`referencedComponents` and the Studio's saved-component set read pane markers now).
 4. **Audit the runtime's section-keyed passes** (`2376-p2-audit-…`) — about 17 in `lib/runtime`,
    plus sketch's rough-ink pass; Mermaid in a pane is untested.
 5. **A shape family for stacked bands** (`2376-p3-band-…`): a line chart letterboxes, stat tiles

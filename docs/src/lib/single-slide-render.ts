@@ -1867,6 +1867,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						}
 					}
 				}
+				// AUTHOR CSS REACHES A PANE. `extraCss` (saved components, a saved finish) is appended
+				// after the theme as written, so a `section.<component>` rule styled that component's
+				// slide and skipped a pane of it. Widened here, against the one slide the frame now
+				// holds, it gains a `section lat-pane.<component>` twin for exactly the panes shown
+				// (lib/core/pane-css.js, through the engine bundle). A frame with no pane gets it back
+				// unchanged, so every other deck's frame signature and bytes stay as they were. The
+				// result still reaches the frame only through `styleElementText` (HARD RULE #22).
+				if (extraCss && PG.widenPaneCss) extraCss = PG.widenPaneCss(extraCss, out.html);
 				// PREVIEW FIDELITY report — free, and only while the overlay is subscribed.
 				// Everything published here was already computed to make the render happen: which
 				// path this deck took, which registry facts forced it, and what position (if any) was
