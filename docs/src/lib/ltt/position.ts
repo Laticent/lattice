@@ -11,7 +11,7 @@
 // minified output too. The same idiom as `keyAction`'s keymap default (lib/export/player-core.mjs).
 
 import { type Cursor, makeCursor } from './cursor.js';
-import type { LttAction, LttSegment } from './types.js';
+import type { LttAction, LttBookend, LttGreeting, LttSegment } from './types.js';
 
 /** What a segment is doing at a moment. */
 export type LttPhase = 'wait' | 'hold' | 'cue' | 'gap' | 'end';
@@ -55,6 +55,8 @@ export interface LttPosition {
  *    through the rest of the floor;
  *  - then the breath after the cue: the track's gap to the next cue, and after a slide's last cue,
  *    its `tailMs`. A stretch has no tail.
+ *  - a BOOKEND (the greeting or the closing) lays out exactly as a slide: `holdMs`, its cues,
+ *    then its `tailMs`.
  *
  * `cursor` is the caller's own cursor over this segment's track, already re-timed to whatever
  * clips it has decoded (`cursor.align`). Pass it when you have one; a player must (see this file's
@@ -64,12 +66,12 @@ export interface LttPosition {
  * transport arms its timers from THIS function rather than restating the rules. The exported player
  * does: its only timing of its own is the clip's end (rule 3).
  */
-export function positionAt(segment: LttSegment, localMs: number, cursor?: Cursor): LttPosition {
+export function positionAt(segment: LttSegment | LttBookend, localMs: number, cursor?: Cursor): LttPosition {
 	const t = Number.isFinite(localMs) && localMs > 0 ? localMs : 0;
 	if (segment.kind === 'hold') {
 		return { phase: t < segment.holdMs ? 'hold' : 'end', cueIndex: -1, wordIndex: -1, trackMs: 0, onsets: [], played: [], gaps: [], waitMs: segment.holdMs, lengthMs: segment.holdMs, due: [] };
 	}
-	const lead = segment.kind === 'slide' ? segment.holdMs : segment.waitedMs || 0;
+	const lead = segment.kind === 'stretch' ? segment.waitedMs || 0 : segment.holdMs;
 	const clips = (segment.audio?.clips) || [];
 	const byCue: Record<number, { measuredMs?: number; leadMs?: number }> = {};
 	for (let c = 0; c < clips.length; c++) byCue[clips[c].cue] = clips[c];
@@ -94,13 +96,13 @@ export function positionAt(segment: LttSegment, localMs: number, cursor?: Cursor
 		const d = cues[k].endMs - cues[k].startMs;
 		onsets.push(at);
 		played.push(byCue[k] ? d : d === 0 ? 900 : Math.max(300, d));
-		gaps.push(k < n - 1 ? Math.max(0, cues[k + 1].startMs - cues[k].endMs) : segment.kind === 'slide' ? segment.tailMs : 0);
+		gaps.push(k < n - 1 ? Math.max(0, cues[k + 1].startMs - cues[k].endMs) : segment.kind === 'slide' || segment.kind === 'bookend' ? segment.tailMs : 0);
 		at += played[k] + gaps[k];
 	}
 	const length = at;
-	const actions = segment.actions || [];
+	const actions = ('actions' in segment && segment.actions) || [];
 	if (t < lead || !n) {
-		return { phase: !n ? 'end' : segment.kind === 'slide' ? 'hold' : 'wait', cueIndex: -1, wordIndex: -1, trackMs: n ? cues[0].startMs : 0, onsets: onsets, played: played, gaps: gaps, waitMs: lead, lengthMs: length, due: [] };
+		return { phase: !n ? 'end' : segment.kind === 'stretch' ? 'wait' : 'hold', cueIndex: -1, wordIndex: -1, trackMs: n ? cues[0].startMs : 0, onsets: onsets, played: played, gaps: gaps, waitMs: lead, lengthMs: length, due: [] };
 	}
 	let i = 0;
 	while (i < n - 1 && onsets[i + 1] <= t) i++;
@@ -132,22 +134,46 @@ export interface LttTimelineEntry {
 	lengthMs: number;
 }
 
+/** Which greeting variant a timeline lays out. */
+export type LttGreetingVariant = keyof LttGreeting;
+
 /**
  * Lay a seekable file's segments end to end. With `positionAt`, this answers "what is on screen
  * at 0:42.300": find the entry whose span holds the time, then ask `positionAt` for
  * `time − startMs` inside it.
  *
+ * A deck's BOOKENDS ride outside `segments`, so `segments[i]` stays slide i + 1: when the file has
+ * a greeting, `greeting` is its entry at 0 and every slide starts that much later; when it has a
+ * closing, `closing` is its entry after the last slide. `opts.greeting` picks the variant to lay
+ * out, `neutral` by default, because a timeline is for a surface with no viewer clock (a video).
+ * `opts.bookends: false` lays out the slides alone.
+ *
  * Throws on a file that is not seekable, because a wait of unknown length has no place on a
  * timeline, and guessing one would put every later segment at the wrong time.
  */
-export function timeline(ltt: { seekable: boolean; segments: LttSegment[] }): { durationMs: number; segments: LttTimelineEntry[] } {
+export function timeline(
+	ltt: { seekable: boolean; segments: LttSegment[]; bookends?: { greeting?: LttGreeting; closing?: LttBookend } },
+	opts: { greeting?: LttGreetingVariant; bookends?: boolean } = {},
+): { durationMs: number; segments: LttTimelineEntry[]; greeting?: LttTimelineEntry; closing?: LttTimelineEntry } {
 	if (!ltt || ltt.seekable !== true) throw new TypeError('timeline: this file is not seekable — some wait has no recorded length (engineering/ltt.md §seekable)');
 	const segments: LttTimelineEntry[] = [];
+	const ends = opts.bookends === false ? undefined : ltt.bookends;
+	const hello = ends?.greeting ? ends.greeting[opts.greeting || 'neutral'] : undefined;
 	let at = 0;
+	let greeting: LttTimelineEntry | undefined;
+	if (hello) {
+		greeting = { id: hello.id, startMs: 0, lengthMs: positionAt(hello, 0).lengthMs };
+		at = greeting.lengthMs;
+	}
 	for (const seg of ltt.segments) {
 		const lengthMs = positionAt(seg, 0).lengthMs;
 		segments.push({ id: seg.id, startMs: at, lengthMs });
 		at += lengthMs;
 	}
-	return { durationMs: at, segments };
+	let closing: LttTimelineEntry | undefined;
+	if (ends?.closing) {
+		closing = { id: ends.closing.id, startMs: at, lengthMs: positionAt(ends.closing, 0).lengthMs };
+		at += closing.lengthMs;
+	}
+	return { durationMs: at, segments, ...(greeting ? { greeting } : {}), ...(closing ? { closing } : {}) };
 }

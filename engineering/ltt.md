@@ -144,6 +144,44 @@ Each segment has a unique `id`, a `kind` and an `at`.
 - **`basis`** says how far to trust a segment's numbers: `estimate` (Cadenza's
   calculation from text alone) or `measured` (re-timed to a real clip).
 
+## Bookends
+
+A deck can say one line before slide 1 and one after the last slide: its
+`greeting:` and `closing:` (`lib/core/resolve-bookends.mjs`,
+`engineering/decisions/2026-09-27-narration-bookends.md`). Neither is a slide, so
+neither is a segment. They sit in an optional top-level `bookends` object, and
+`segments[i]` stays slide i + 1.
+
+```jsonc
+"bookends": {
+  "greeting": { "morning": {…}, "afternoon": {…}, "evening": {…}, "neutral": {…} },
+  "closing": {…}
+}
+```
+
+- **Each bookend is laid out exactly as a narrated slide:** `id`, `kind:
+  "bookend"`, `hash`, `basis`, `holdMs`, `track`, `tailMs` and an optional
+  `audio` layer. `positionAt` reads it like a slide. Its `id` shares the file's id
+  space.
+- **The greeting comes in four variants.** A player picks one from the viewer's
+  local hour (`greetingPeriod`): morning from 04:00, afternoon from 12:00,
+  evening from 17:00. `neutral` ("Hello") is for a surface with no viewer clock:
+  a video render, a `.vtt`. A file ships a greeting only with all four variants.
+- **The greeting's `holdMs` is 0** (Play speaks it at once), and its `tailMs` is
+  the gap before slide 1. **The closing's `holdMs` is the gap after the last
+  slide**, and its `tailMs` is 0.
+- **Audio blocks** for a bookend are keyed by its `id` (`greeting-morning`, …,
+  `closing`) rather than a slide index. A clip `src` is `#lp-audio/<id>/<n>`.
+- **`timeline(ltt, { greeting })`** puts the chosen greeting (default `neutral`)
+  at 0, starts every slide that much later, and appends the closing. It returns
+  them as `greeting` and `closing` entries beside `segments`, so `segments[i]` is
+  still slide i + 1. `{ bookends: false }` lays out the slides alone.
+- **Where it sits under G4 (§Layers).** It is not a segment layer, since
+  `positionAt` of every segment is unchanged. It changes the deck's timeline, so
+  it has its own record: the decision note above, approved by the owner on
+  2026-09-27. `version` stays `"1.0"`. Lattice is pre-GA, so no older reader had
+  to be kept working.
+
 ## The core
 
 A `slide` or `stretch` segment's `track` is exactly a Cadenza `CaptionTrack`:
@@ -228,8 +266,8 @@ One data model, two encodings. Conversion is lossless both ways.
 - **Canonical** — named keys, every field. This is what tools read and write,
   and what `*.ltt.json` holds. A producer drops Cadenza's track in as-is.
 - **Packed** — what the HTML export embeds. The file gains `"encoding":
-  "packed"`, and each segment's `track` becomes tuples. Every other key rides
-  through unchanged.
+  "packed"`, and each segment's `track` becomes tuples, as does each bookend's.
+  Every other key rides through unchanged.
 
 ```
 PackedTrack = [durationMs, PackedCue[]]
@@ -344,7 +382,10 @@ decides **when to move between segments**. These rules are normative; the HTML
 player (`lib/export/player-core.mjs`) implements them today, and any second
 player, including the video export's capture of that player, must follow them.
 
-1. **Play** speaks the current slide at once, with no hold.
+1. **Play** speaks the current slide at once, with no hold. **The first Play of a
+   page load on slide 1** speaks the greeting first, when the file has one, then
+   holds its `tailMs` and speaks slide 1. The first Play uses the greeting up
+   wherever it starts, so it never plays later in that page load.
 2. When a slide's narration ends, the player **advances first, then holds on the
    slide that arrived, then speaks it**. The hold is the section or slide hold
    of the arriving slide. A slide with no narration that the player advanced to is on
@@ -368,7 +409,8 @@ player, including the video export's capture of that player, must follow them.
    both signals a decode failure sends, the element's `error` event and a
    `play()` rejection that is not `NotAllowedError`, and falls back once. Only
    `NotAllowedError`, an autoplay refusal, stops narration.
-5. **Pause restarts the slide** rather than resuming mid-word.
+5. **Pause restarts the slide** rather than resuming mid-word. Pausing during a
+   bookend ends it: Play then speaks the slide, and the bookend does not repeat.
 6. **Manual navigation re-anchors** on the chosen slide and speaks it with no
    hold. **Onto a slide with no narration, the player stays** (owner ruling,
    2026-09-25): narration remains armed, nothing is said, and the next manual move
@@ -396,6 +438,11 @@ player, including the video export's capture of that player, must follow them.
    MP3's length, and a seek then makes it end the clip at once, skipping the
    sentence in silence (measured on WebKitGTK 2.52). A player anchors on
    `durationchange` when the length arrives late.
+8. **The closing** plays when narration reaches the end of the deck by itself:
+   the last slide ran out of cues, or the player advanced onto a silent last slide
+   (rule 2). It waits its `holdMs`, speaks, holds its `tailMs`, and narration
+   ends. It plays at most once per page load. A silent last slide reached by
+   manual navigation ends narration under rule 6 and never gets a closing.
 
 ## What video export guarantees (G5)
 

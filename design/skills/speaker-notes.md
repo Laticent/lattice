@@ -183,6 +183,19 @@ of the voice (a lagging highlight is the error to avoid). `.vtt` is a sidecar
 inline comments and the map, leaving the generated captions. `--strip-notes` is a
 separate channel and does not touch captions at all.
 
+**Opening and closing lines.** Narration can open with a greeting and end with a
+closing that belong to no slide, set once in front matter:
+
+```yaml
+greeting: "{greeting}, and welcome to the Q3 review."  # {greeting} → Good morning / afternoon / evening
+closing: "Thank you. Questions are welcome."
+```
+
+`{greeting}` follows the listener's own clock, so never write "good morning" into the
+text. A line your first or last slide already says ("Welcome…", "Thank you") is skipped rather than said twice. Each line plays at most once per delivery, and they appear in the caption band
+and the `.vtt` like any other line. The full rules are in
+`lib/base/base.registers.docs.md` § `greeting:` / `closing:`.
+
 **Great caption:** written to be spoken and understood — acronyms expanded, numbers
 allowed to read as words. Use an inline `caption:` override only when the spoken line
 should differ from the on-slide prose. A live caption is a

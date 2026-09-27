@@ -148,3 +148,10 @@ test('player-core.mjs parses — no template literal is terminated early', () =>
 		);
 	}
 });
+
+test('greetingPeriod survives being inlined into an empty scope, and still works', async () => {
+	// The exported player picks the greeting's variant with it (narrationJs, bookendFor).
+	const { greetingPeriod } = await import('../../../lib/core/resolve-bookends.mjs');
+	const inlined = inlineIntoEmptyScope(greetingPeriod, 'greetingPeriod');
+	assert.deepEqual([4, 12, 17, 3, Number.NaN].map(inlined), ['morning', 'afternoon', 'evening', 'evening', 'neutral']);
+});

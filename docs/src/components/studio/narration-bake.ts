@@ -29,6 +29,7 @@
 // in the same voice starts from what the first one paid for.
 
 import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
+import { GREETING_VARIANTS, greetingText, resolveBookends, withoutRedundantBookends } from '@/lib/resolve-bookends';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
@@ -88,9 +89,18 @@ export type NarrationBake = {
 	/** How many sentences had to be synthesized (the rest came from the device). */
 	synthesized: number;
 	/** Empty on a complete bake. Non-empty ONLY when the author explicitly overrode the
-	 *  refusal — those sentences ship as captions with no sound. */
-	failures: { slide: number; text: string; reason: string }[];
+	 *  refusal — those sentences ship as captions with no sound. A bookend's row has `slide` 0 and
+	 *  names itself in `bookend` (`greeting-morning`, …, `closing`). */
+	failures: { slide: number; text: string; reason: string; bookend?: string }[];
+	/** What the deck says before slide 1 and after the last slide (`greeting:` / `closing:`),
+	 *  keyed as the LTT and the player's audio blocks key them: `greeting-morning`,
+	 *  `greeting-afternoon`, `greeting-evening`, `greeting-neutral`, `closing`. Empty when the
+	 *  deck sets neither, or narrates no slide. */
+	bookends: Record<string, BakedBookend>;
 };
+
+/** One bookend line, baked: the text Cadenza timed, its track, and its cues with their clips. */
+export type BakedBookend = { text: string; track: CaptionTrack; cues: BakedCue[] };
 
 /** The pre-flight: what a bake would cost, with no audio read and nothing synthesized. */
 export type NarrationMeasure = {
@@ -172,7 +182,7 @@ export class BakeTooLargeError extends Error {
 /** The refusal. Carries the sentences that could not be prepared, so the panel can say which
  *  ones rather than "something went wrong". */
 export class BakeIncompleteError extends Error {
-	readonly failures: { slide: number; text: string; reason: string }[];
+	readonly failures: { slide: number; text: string; reason: string; bookend?: string }[];
 	/** The voice/rung/model/speed this refusal was produced UNDER. The panel offers its
 	 *  override only while the current pick still matches: a refusal earned by one moderation
 	 *  block in one voice must not authorize an unbounded partial set in another. */
@@ -181,7 +191,7 @@ export class BakeIncompleteError extends Error {
 	 *  NOT overridable: the author cannot consent to "everything after sentence N" from a list
 	 *  that names one failure and a summary row. Fix the account and re-run. */
 	readonly terminal?: string;
-	constructor(failures: { slide: number; text: string; reason: string }[], terminal?: string, voice?: BakeVoice) {
+	constructor(failures: { slide: number; text: string; reason: string; bookend?: string }[], terminal?: string, voice?: BakeVoice) {
 		const n = failures.length;
 		super(
 			terminal
@@ -428,7 +438,29 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 	// caption rung can win over either — both replace the string, and stale offsets would land a beat
 	// mid-phrase. The same identity test Present and the CLI export apply, so all three producers
 	// bake, play and export the identical beats.
-	const emphases = texts.map((t, i) => (t && t === projected?.[i] ? projectedEmphasis?.[i] : undefined));
+	const emphases: (EmphasisSpans | undefined)[] = texts.map((t, i) => (t && t === projected?.[i] ? projectedEmphasis?.[i] : undefined));
+	// THE BOOKENDS ride as extra ROWS after the slides, so the quote counts them, the store is
+	// read and billed for them, and a repeated line is synthesized once — by the same machinery,
+	// with nothing restated. `bookendKeys[k]` names row `slides.length + k`. A deck that narrates
+	// no slide says no hello either. All four greeting variants are recorded, because the viewer's
+	// clock picks one where the file plays (2026-09-27-narration-bookends.md §5).
+	const bookendKeys: string[] = [];
+	if (texts.some(Boolean)) {
+		// A line the deck's own first or last slide already says is not said twice.
+		const ends = withoutRedundantBookends(resolveBookends(source), texts);
+		if (ends.greeting) {
+			for (const v of GREETING_VARIANTS) {
+				bookendKeys.push(`greeting-${v}`);
+				texts.push(greetingText(ends.greeting.template, v));
+				emphases.push(undefined);
+			}
+		}
+		if (ends.closing) {
+			bookendKeys.push('closing');
+			texts.push(ends.closing.text);
+			emphases.push(undefined);
+		}
+	}
 	const tracks = texts.map((t, i) => (t ? buildTrack(t, { acronyms, emphasis: emphases[i], lang, lexicon }) : null));
 	const perSlide = tracks.map((track) => (track ? track.cues.map((c) => c.words.map((w) => w.spoken).join(' ')) : []));
 	// "A projection was SUPPLIED", not "was used". A misaligned one is stood down, but the
@@ -441,6 +473,8 @@ function resolveDeck(source: string, projected?: readonly string[], projectedEmp
 		texts,
 		emphases,
 		perSlide,
+		slideCount: slides.length,
+		bookendKeys,
 		projectionUsed: Array.isArray(projected),
 		inputs: {
 			...(lang ? { lang } : {}),
@@ -628,10 +662,20 @@ export async function bakeNarration(
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { tracks, texts, emphases, perSlide, inputs } = resolveDeck(source, projected, opts.projectedEmphasis);
+	const { tracks, texts, emphases, perSlide, inputs, slideCount, bookendKeys } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
-	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs).
-	const narrated = tracks.map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...emphases[i]] } : {}) } : null));
+	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs). Only the
+	// SLIDE rows: the bookend rows after them are split out below.
+	const narrated = tracks.slice(0, slideCount).map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...(emphases[i] as EmphasisSpans)] } : {}) } : null));
+	/** The rows past the slides, as the bookends the export ships. */
+	const splitBookends = (rows: BakedCue[][]): Record<string, BakedBookend> => {
+		const out: Record<string, BakedBookend> = {};
+		bookendKeys.forEach((key, k) => {
+			const track = tracks[slideCount + k];
+			if (track) out[key] = { text: texts[slideCount + k], track, cues: rows[slideCount + k] ?? [] };
+		});
+		return out;
+	};
 
 	// The cue skeleton — text, estimate, breath, word timings. Identical whether or not audio
 	// ships, because it is the same delivery either way; only the clips differ.
@@ -658,7 +702,7 @@ export async function bakeNarration(
 
 	if (!audio || !total) {
 		onProgress?.({ done: total, total, synthesized: 0, phase: 'assembling' });
-		return { slides, narrated, inputs, voice: audio ? voice : null, covered: 0, total, bytes: 0, synthesized: 0, failures: [] };
+		return { slides: slides.slice(0, slideCount), narrated, inputs, voice: audio ? voice : null, covered: 0, total, bytes: 0, synthesized: 0, failures: [], bookends: splitBookends(slides) };
 	}
 
 	const keys = await bakeClipKeys(perSlide, voice);
@@ -692,7 +736,7 @@ export async function bakeNarration(
 		}
 	}
 
-	const failures: { slide: number; text: string; reason: string }[] = [];
+	const failures: { slide: number; text: string; reason: string; bookend?: string }[] = [];
 	/** Set by the first worker to hit an error that retrying cannot fix; stops the whole run. */
 	let terminal = '';
 	/** Set when the accumulated payload crosses PAYLOAD_MAX_BYTES — see `attach`. */
@@ -831,7 +875,7 @@ export async function bakeNarration(
 					break;
 				}
 			}
-			if (reason) for (const at of [{ i: job.i, j: job.j }, ...job.twins]) failures.push({ slide: at.i + 1, text: job.text, reason });
+			if (reason) for (const at of [{ i: job.i, j: job.j }, ...job.twins]) failures.push(at.i < slideCount ? { slide: at.i + 1, text: job.text, reason } : { slide: 0, bookend: bookendKeys[at.i - slideCount], text: job.text, reason });
 		}
 	};
 
@@ -897,7 +941,7 @@ export async function bakeNarration(
 	// error pushes ONE summary row standing for N unreached sentences, so subtracting rows
 	// counted six silent sentences as covered: the field documented as "sentences shipped"
 	// reported the inverse of the truth on the one path where it mattered.
-	return { slides, narrated, inputs, voice, covered: done, total, bytes, synthesized, failures };
+	return { slides: slides.slice(0, slideCount), narrated, inputs, voice, covered: done, total, bytes, synthesized, failures, bookends: splitBookends(slides) };
 }
 
 /** An abortable pause. Resolves early on abort so the worker's own guard decides what to do,

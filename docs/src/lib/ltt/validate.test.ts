@@ -344,3 +344,41 @@ describe('the third checker pass (PR #2347)', () => {
 		expect(validateTrack(track).join('\n')).toMatch(/could not be read: Invalid array length/);
 	});
 });
+
+describe('bookends (engineering/ltt.md §Bookends)', () => {
+	const line = (id: string, text: string, holdMs: number, tailMs: number) => ({ id, kind: 'bookend' as const, hash: H, basis: 'estimate' as const, holdMs, track: buildTrack(text), tailMs });
+	function withBookends(): Ltt {
+		const ltt = deck();
+		ltt.bookends = {
+			greeting: {
+				morning: line('greeting-morning', 'Good morning.', 0, 600),
+				afternoon: line('greeting-afternoon', 'Good afternoon.', 0, 600),
+				evening: line('greeting-evening', 'Good evening.', 0, 600),
+				neutral: line('greeting-neutral', 'Hello.', 0, 600),
+			},
+			closing: line('closing', 'Thank you.', 600, 0),
+		};
+		return ltt;
+	}
+
+	it('accepts a deck with a greeting and a closing', () => expect(validateLtt(withBookends())).toEqual([]));
+
+	it('names what is wrong with a bookend', () => {
+		const ltt: Mut = withBookends();
+		delete ltt.bookends.greeting.evening;
+		ltt.bookends.closing.holdMs = -1;
+		ltt.bookends.closing.at = { slide: 4 };
+		ltt.bookends.greeting.neutral.id = 'd1'; // collides with slide 1's segment
+		const problems = validateLtt(ltt);
+		expect(problems).toContain('bookends.greeting.evening is not an object');
+		expect(problems.some((p) => p.startsWith('bookends.closing.holdMs'))).toBe(true);
+		expect(problems.some((p) => p.startsWith('bookends.closing.at does not belong'))).toBe(true);
+		expect(problems.some((p) => p.includes('"d1" repeats'))).toBe(true);
+	});
+
+	it('refuses bookends on a tour', () => {
+		const t: Mut = tour();
+		t.bookends = {};
+		expect(validateLtt(t)).toContain('bookends is a deck field; a tour does not carry it');
+	});
+});

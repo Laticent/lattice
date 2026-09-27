@@ -563,6 +563,88 @@
         }
       ]
     },
+    "LttBookend": {
+      "description": "A spoken line that belongs to no slide: the greeting before slide 1, or the closing after the last slide (a deck's `greeting:` / `closing:`, lib/core/resolve-bookends.mjs). It is laid out exactly like a narrated slide: `holdMs`, its track, then `tailMs`. A player plays it at most once per page load (engineering/ltt.md §Bookends).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "bookend"
+        },
+        "hash": {
+          "description": "Hash of the spoken text plus the file's `inputs`.",
+          "$ref": "#/$defs/LttHash"
+        },
+        "basis": {
+          "$ref": "#/$defs/LttBasis"
+        },
+        "holdMs": {
+          "description": "The pause before the line. 0 on a greeting, which Play speaks at once; on a closing, the gap after the last slide.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "track": {
+          "$ref": "#/$defs/CaptionTrack"
+        },
+        "tailMs": {
+          "description": "The breath after the line's last cue. On a greeting, the gap before slide 1; 0 on a closing, after which the deck is over.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "audio": {
+          "$ref": "#/$defs/LttAudio"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "hash",
+        "basis",
+        "holdMs",
+        "track",
+        "tailMs"
+      ]
+    },
+    "LttGreeting": {
+      "description": "The greeting, once per period of the viewer's day. A player picks one from its local clock; `neutral` (\"Hello\") is for a surface with no viewer clock, such as a video.",
+      "type": "object",
+      "properties": {
+        "morning": {
+          "$ref": "#/$defs/LttBookend"
+        },
+        "afternoon": {
+          "$ref": "#/$defs/LttBookend"
+        },
+        "evening": {
+          "$ref": "#/$defs/LttBookend"
+        },
+        "neutral": {
+          "$ref": "#/$defs/LttBookend"
+        }
+      },
+      "required": [
+        "morning",
+        "afternoon",
+        "evening",
+        "neutral"
+      ]
+    },
+    "LttBookends": {
+      "description": "What a deck says outside its slides. Decks only.",
+      "type": "object",
+      "properties": {
+        "greeting": {
+          "$ref": "#/$defs/LttGreeting"
+        },
+        "closing": {
+          "$ref": "#/$defs/LttBookend"
+        }
+      }
+    },
     "Ltt": {
       "description": "A Lattice Timing Track, in its canonical encoding (`*.ltt.json`).",
       "type": "object",
@@ -588,6 +670,10 @@
           "items": {
             "$ref": "#/$defs/LttSegment"
           }
+        },
+        "bookends": {
+          "description": "Decks only: the greeting before slide 1 and the closing after the last slide.",
+          "$ref": "#/$defs/LttBookends"
         }
       },
       "required": [

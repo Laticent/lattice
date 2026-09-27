@@ -245,6 +245,43 @@ export type LttBeatIndex = number;
 
 export type LttSegment = LttSlideSegment | LttHoldSegment | LttStretchSegment;
 
+// ── Bookends ────────────────────────────────────────────────────────────────────────────────
+
+/** A spoken line that belongs to no slide: the greeting before slide 1, or the closing after the
+ *  last slide (a deck's `greeting:` / `closing:`, lib/core/resolve-bookends.mjs). It is laid out
+ *  exactly like a narrated slide: `holdMs`, its track, then `tailMs`. A player plays it at most
+ *  once per page load (engineering/ltt.md §Bookends). */
+export interface LttBookend {
+	id: string;
+	kind: 'bookend';
+	/** Hash of the spoken text plus the file's `inputs`. */
+	hash: LttHash;
+	basis: LttBasis;
+	/** The pause before the line. 0 on a greeting, which Play speaks at once; on a closing, the
+	 *  gap after the last slide. @integer @minimum 0 */
+	holdMs: number;
+	track: CaptionTrack;
+	/** The breath after the line's last cue. On a greeting, the gap before slide 1; 0 on a
+	 *  closing, after which the deck is over. @integer @minimum 0 */
+	tailMs: number;
+	audio?: LttAudio;
+}
+
+/** The greeting, once per period of the viewer's day. A player picks one from its local clock;
+ *  `neutral` ("Hello") is for a surface with no viewer clock, such as a video. */
+export interface LttGreeting {
+	morning: LttBookend;
+	afternoon: LttBookend;
+	evening: LttBookend;
+	neutral: LttBookend;
+}
+
+/** What a deck says outside its slides. Decks only. */
+export interface LttBookends {
+	greeting?: LttGreeting;
+	closing?: LttBookend;
+}
+
 // ── The file ────────────────────────────────────────────────────────────────────────────────
 
 /** A Lattice Timing Track, in its canonical encoding (`*.ltt.json`). */
@@ -256,4 +293,6 @@ export interface Ltt {
 	/** True when every segment's length is known, so the segments lay end to end on one timeline. */
 	seekable: boolean;
 	segments: LttSegment[];
+	/** Decks only: the greeting before slide 1 and the closing after the last slide. */
+	bookends?: LttBookends;
 }

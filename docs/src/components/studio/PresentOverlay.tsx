@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
+import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
@@ -378,6 +379,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	);
 	const narrationAtRef = React.useRef(narrationAt);
 	narrationAtRef.current = narrationAt;
+	// Does ANY slide say something? A deck that narrates nothing says no hello either, which is
+	// the export's rule too (narration-bake.ts). Asked once, on the first Play.
+	const anyNarrationRef = React.useRef<() => boolean>(() => false);
+	anyNarrationRef.current = () => set.some((_md, i) => !!narrationAt(i).text.trim());
 
 	// The text the reader actually speaks — a STATE, not a live derivation, so the
 	// async fallback→projection upgrade never tears the reader down mid-read. A real
@@ -399,8 +404,25 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// `track` memo still keys on the STRING, so identical text keeps the same track object and
 	// the reader is not needlessly torn down.
 	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans }>({ idx: -1, text: '' });
-	const narrationText = narration.text;
-	const narrationEmphasis = narration.emphasis;
+	// THE BOOKENDS (2026-09-27-narration-bookends.md): the deck's `greeting:` before slide 1 and
+	// `closing:` after the last slide. While one speaks, the reader reads IT instead of the slide —
+	// the same reader, caption band and voice, so a bookend sounds and looks like the deck. Each
+	// plays at most once per Present session (`greetedRef` / `closedRef`, reset when Present closes).
+	// A fresh record per start, for the reason `narration` is a record: two bookends with the same
+	// words must still commit. `bookendCueRef` is the pause the effect below waits before playing.
+	const [bookend, setBookend] = React.useState<{ kind: 'greeting' | 'closing'; text: string } | null>(null);
+	const bookendRef = React.useRef(bookend);
+	bookendRef.current = bookend;
+	const bookendCueRef = React.useRef<{ waitMs: number } | null>(null);
+	// True while the greeting's gap runs before slide 1 speaks. STATE, not a ref, because the
+	// empty-slide skip below must wait for it and then run: over a silent title slide the reader
+	// has nothing to say the moment the greeting ends, and without this the skip advanced at once
+	// and the gap's timer then started slide 2 before its own arrival beat (checker, 2026-09-27).
+	const [bookendGap, setBookendGap] = React.useState(false);
+	const greetedRef = React.useRef(false);
+	const closedRef = React.useRef(false);
+	const narrationText = bookend ? bookend.text : narration.text;
+	const narrationEmphasis = bookend ? undefined : narration.emphasis;
 	// The emphasis is compared alongside the text: a projection LANDING can resolve the same string
 	// it already had while newly carrying spans, and a text-only guard would keep the unweighted
 	// record forever on those slides.
@@ -428,6 +450,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	React.useEffect(() => {
 		const next = narrationAtRef.current(clamped);
 		setNarration((n) => (n.idx === clamped && n.text === next.text && n.emphasis === next.emphasis ? n : { idx: clamped, ...next }));
+		// Moving the deck ends a bookend that is speaking, or waiting to: the presenter chose a
+		// slide, and the greeting or closing does not come back (it has been used up).
+		if (bookendRef.current) {
+			bookendCueRef.current = null;
+			setBookend(null);
+		}
 	}, [clamped, set]);
 	// Projection-landing upgrade: swap the CURRENT slide's fallback narration for the
 	// richer DOM-projection text once it resolves — but ONLY when the slide is idle and
@@ -658,6 +686,25 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// lexicon + number/period say-as so read-aloud doesn't inject English into it (#919) —
 	// threaded into the reader AND the warm-ahead prefetch so both agree with the export.
 	const lang = React.useMemo(() => frontMatterLang(frontMatter) ?? undefined, [frontMatter]);
+	// The deck's `greeting:` / `closing:` (lib/core/resolve-bookends.mjs), read through a ref by the
+	// once-bound onFinish and the transport.
+	const bookends = React.useMemo(() => resolveBookends(frontMatter), [frontMatter]);
+	const bookendsRef = React.useRef(bookends);
+	bookendsRef.current = bookends;
+	/** Start the closing, once: the gap after the last slide, then the line. False when there is none
+	 *  to say (the deck sets no `closing:`, or it has already been said). */
+	const startClosing = (): boolean => {
+		const c = bookendsRef.current.closing;
+		if (!c || closedRef.current) return false;
+		// The last slide already thanked the room: saying it again sounds like a stutter.
+		if (alreadyThanks(narrationAtRef.current(countRef.current - 1).text)) return false;
+		closedRef.current = true;
+		bookendCueRef.current = { waitMs: BOOKEND_GAP_MS };
+		setBookend({ kind: 'closing', text: c.text });
+		return true;
+	};
+	const startClosingRef = React.useRef(startClosing);
+	startClosingRef.current = startClosing;
 
 	const reader = useReadAloud(
 		narrationText,
@@ -670,11 +717,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			debug: readAloudDebug,
 			debugLabel: `slide ${clamped + 1}/${count}`,
 			onFinish: () => {
+				// A bookend finished. After the greeting, the slide it leads into speaks, once the
+				// greeting's gap has passed; after the closing, the delivery is over.
+				const b = bookendRef.current;
+				if (b) {
+					if (b.kind === 'greeting') bookendCueRef.current = { waitMs: BOOKEND_GAP_MS };
+					else setAutoplay(false);
+					setBookend(null);
+					return;
+				}
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
 					autoAdvanceRef.current = true; // play the next slide once it mounts
 					setIdx((i) => Math.min(i + 1, countRef.current - 1));
-				} else {
+				} else if (!startClosingRef.current()) {
 					setAutoplay(false); // walked off the last slide — autoplay is done
 				}
 			},
@@ -781,18 +837,57 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			setHolding(false);
 		};
 	}, [narration]);
+	// A BOOKEND CHANGED — one started, or the greeting ended and hands over to the slide. Keyed on
+	// the bookend record for the reason the advance effect above is keyed on the narration record:
+	// it commits in the same pass that rebuilds the reader for the new text, so the reader is ready
+	// when this plays it. The pause before it is a between-slide beat in every way that matters —
+	// shown as `holding`, and canceled by the transport through `beatTimerRef`.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `bookend` is the signal; the reader and intent are read via ref by design.
+	React.useEffect(() => {
+		const cue = bookendCueRef.current;
+		bookendCueRef.current = null;
+		if (!cue) return;
+		// A silent slide has nothing to play: the skip below takes it once the gap is over.
+		const go = () => {
+			if (autoplayRef.current && !readerRef.current.playing && readerRef.current.track.cues.length > 0) readerRef.current.play();
+		};
+		if (cue.waitMs <= 0) {
+			go();
+			return;
+		}
+		// Only after the greeting: the closing's own pause is guarded by `bookend` being set.
+		const handover = !bookendRef.current;
+		setHolding(true);
+		if (handover) setBookendGap(true);
+		const id = window.setTimeout(() => {
+			// Clear the shared handle only if it is still OURS — another beat may have taken it.
+			if (beatTimerRef.current === id) beatTimerRef.current = 0;
+			setHolding(false);
+			setBookendGap(false);
+			go();
+		}, cue.waitMs);
+		beatTimerRef.current = id;
+		return () => {
+			window.clearTimeout(id);
+			if (beatTimerRef.current === id) beatTimerRef.current = 0;
+			setHolding(false);
+			setBookendGap(false);
+		};
+	}, [bookend]);
 	// A slide with no readable prose never fires onFinish (nothing to read), which
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
-	// the next (or end the run if it's the last).
+	// the next (or, on the last, say the closing or end the run). This is the SECOND way a
+	// delivery reaches the end of the deck: a silent "Thank you" slide ends here, never in
+	// onFinish, and is exactly where a closing belongs.
 	React.useEffect(() => {
-		if (!autoplay || reader.track.cues.length > 0) return;
+		if (!autoplay || bookend || bookendGap || reader.track.cues.length > 0) return;
 		if (clamped < count - 1) {
 			autoAdvanceRef.current = true;
 			setIdx((i) => Math.min(i + 1, count - 1));
-		} else {
+		} else if (!startClosingRef.current()) {
 			setAutoplay(false);
 		}
-	}, [autoplay, reader.track.cues.length, clamped, count, setIdx]);
+	}, [autoplay, bookend, bookendGap, reader.track.cues.length, clamped, count, setIdx]);
 	// Warm-ahead: keep a WINDOW of upcoming slides synthesized in the background, so a
 	// slide transition never pays a cold first-sentence round trip. The within-slide
 	// scheduler only ever runs ahead of a slide's OWN remaining sentences, never across a
@@ -1431,6 +1526,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			window.clearTimeout(beatTimerRef.current);
 			beatTimerRef.current = 0;
 			setHolding(false);
+			setBookendGap(false); // a canceled greeting gap must not hold the empty-slide skip forever
 			setAutoplay(false);
 			return;
 		}
@@ -1440,6 +1536,18 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// auto-skip from resurrecting playback when you navigate onto a divider after Pause.
 		} else {
 			setAutoplay(true);
+			// THE GREETING: only on the first Play of this Present session, and only from slide 1.
+			// Starting anywhere else uses it up, so a presenter who began mid-deck is never greeted
+			// later. The salutation is the presenter's local hour, read now.
+			if (!greetedRef.current) {
+				greetedRef.current = true;
+				const g = bookendsRef.current.greeting;
+				if (g && clampedRef.current === 0 && anyNarrationRef.current() && !alreadyGreets(narrationAtRef.current(0).text)) {
+					bookendCueRef.current = { waitMs: 0 };
+					setBookend({ kind: 'greeting', text: greetingText(g.template, greetingPeriod(new Date().getHours())) });
+					return;
+				}
+			}
 			readerRef.current.play();
 		}
 	}, []);
@@ -1558,6 +1666,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// is the one failure mode of a second window that a room actually notices.
 	React.useEffect(() => {
 		if (!open) { setRehearse(false); setElapsed(0); setPlaying(false); setAutoplay(false); setNotesOpen(false); stageRef.current?.close(); }
+		// A new Present session greets, and closes, afresh.
+		if (!open) {
+			greetedRef.current = false;
+			closedRef.current = false;
+			bookendCueRef.current = null;
+			setBookend(null);
+		}
 	}, [open]);
 	// THE TALK CLOCK. It counts from the moment the deck starts being delivered, which is
 	// what the retired second window's clock was for and is not the same instrument as the
