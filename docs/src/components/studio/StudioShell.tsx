@@ -84,6 +84,7 @@ import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
+import { panePageOfCaret, paneSplitCounts } from './pane-pages';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
@@ -439,6 +440,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// identity, and whether that deck's box can split at all. Before the first report (the engine
 	// still loading, or nothing rendering) no step ever waits: the verbs move as they always did.
 	const reportedRef = React.useRef<{ slide: number; deck: string; canSplit: boolean } | null>(null);
+	// The viewed deck carries panes (pane-pages.ts): a slide in it may be a split panes slide, so
+	// a step into a slide waits for its render as it does on a deck whose box can split.
+	const paneDeckRef = React.useRef(false);
 	// Pages are stepped only while the live preview is on screen: with it collapsed (or on a
 	// phone's Source tab) a step would be invisible, and "next" would spend the hidden pages
 	// before it moved the editor on.
@@ -3246,7 +3250,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// step waits for it (see `waitingStepRef`). A second one while one waits is dropped. Bounded:
 		// past 1.5 s the step goes ahead, so a render that never reports cannot freeze the verbs.
 		const reported = reportedRef.current;
-		if (!resumed && visible && asked && reported?.deck === deckKey && reported.canSplit && reported.slide !== cur && Date.now() - asked.at < 1500) {
+		if (!resumed && visible && asked && reported?.deck === deckKey && (reported.canSplit || paneDeckRef.current) && reported.slide !== cur && Date.now() - asked.at < 1500) {
 			if (!waitingStepRef.current) waitingStepRef.current = { action, opts, slide: cur, deck: deckKey };
 			return;
 		}
@@ -3511,6 +3515,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// deck, where one authored slide becomes several sections and an index cannot name the shown
 	// slide. Then the preview renders this instead: the right slide, honestly numbered 1 of 1.
 	const editorSlideAlone = React.useMemo(() => previewFm + slide, [previewFm, slide]);
+	// THROUGH A SPLIT PANES SLIDE (pane-pages.ts). A panes slide the engine splits renders as one
+	// slide per pane, so the viewed index is no longer the section index after it. The map says how
+	// many rendered slides each viewed slide is; `undefined` for every deck without one, which then
+	// renders exactly as before. The caret's pane picks which page of a split slide the preview
+	// shows, the way the caret picks a structural split's page. Source chunks are untouched: they
+	// feed write-back, so the rail, the caret and lint keep counting the slides the author wrote.
+	const editorPaneCounts = React.useMemo(() => paneSplitCounts(viewSlides, editorSample), [viewSlides, editorSample]);
+	paneDeckRef.current = !!editorPaneCounts?.some((c) => c > 1);
+	const editorPanePage = React.useMemo(
+		() => ((editorPaneCounts?.[viewIndex] ?? 1) > 1 ? panePageOfCaret(slide, editorSample, caretText) : undefined),
+		[editorPaneCounts, viewIndex, slide, editorSample, caretText],
+	);
 	// THE DECK IDENTITY THE PREVIEW COMPARES, which is the deck AND the reader lens.
 	// `viewSlides` is the lens's set, so the lens is part of what "this deck" means here: two
 	// lenses whose sets differ only AT the shown position would key identically, because the
@@ -4892,7 +4908,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail liveLayout />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>

@@ -11,7 +11,11 @@ why now   — the proof was verified on the CLI PDF and the Studio at 1440px onl
             Marp cannot render a pane at all (marp-core has no carve); it should degrade to
             the two panes' content, stacked.
 where     — lattice-emulator.js (pptx/imageset/player), lib/core/marp-bundle.js, the Studio
-            at 820/390px, and the Studio slide strip, which labels a panes slide "text".
+            at 820/390px, and the Studio slide strip, which labels a panes slide "text". Also the
+            Studio's Present overlay (PresentOverlay.tsx): on a deck that splits a panes slide it
+            shows that slide's FIRST pane only, because its navigation has no page step. The
+            editor preview's map (docs/src/components/studio/pane-pages.ts `paneSplitCounts`)
+            and its page step (StudioShell `stepDeck`) are the pieces to reuse.
 done when — each surface renders examples/panes.md legibly (or degrades as stated), with an
             artifact per surface (HARD RULE #23).
 evidence  — decision note §4 "Not verified"; PR #2376 card.

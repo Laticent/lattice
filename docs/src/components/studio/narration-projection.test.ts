@@ -75,3 +75,28 @@ describe('projectSectionsToSpeech — project ALREADY-rendered sections (no seco
 		expect(out[2]).toContain('Closer');
 	});
 });
+
+describe('projectDeckSpeech through a split panes slide (the REAL engine render)', () => {
+	// A portrait deck splits its panes slide into one slide per pane, so the render has one more
+	// section than the deck has source slides. Present and the narration bake index by source slide
+	// and used to refuse the whole projection on that mismatch; `foldPaneSplits` folds the split
+	// back so the deck keeps projecting.
+	it('projects one script per SOURCE slide, the split slide narrating both panes, its title once', async () => {
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const engine = require('../../../../lib/engine/index.js') as { render: (md: string, theme: string) => { html: string } };
+		const title = 'EMEA carried the quarter while APAC held flat.';
+		const source = [
+			'---\nsize: 9:16\n---\n\n# Opening',
+			`## ${title}\n\n<!-- pane: list -->\n\n- EMEA closed three late deals\n- APAC renewals slipped\n\n<!-- pane: table -->\n\n| Region | Q3 |\n|---|---|\n| EMEA | 5.3 |`,
+			'## After the split\n\nThe slide after it.',
+		].join('\n\n---\n\n');
+		html.current = engine.render(source, 'lattice').html;
+		expect((html.current.match(/<section\b/g) || []).length).toBe(4); // the engine did split
+		const out = await projectDeckSpeech(opts, source);
+		expect(out).toHaveLength(3);
+		expect(out[1]).toContain('EMEA closed three late deals');
+		expect(out[1]).toContain('5.3');
+		expect(out[1].split(title.replace(/\.$/, '')).length - 1).toBe(1);
+		expect(out[2]).toContain('The slide after it');
+	});
+});

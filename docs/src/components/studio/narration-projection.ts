@@ -18,6 +18,9 @@
 // same way the presenter stage doc does, for consistency.
 
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
+import { stripFrontMatter } from './front-matter';
+import { splitSlides } from './lint';
+import { paneSplitCounts } from './pane-pages';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
 /**
@@ -66,7 +69,75 @@ export async function projectDeckScript(
 	const { splitSections } = (await import('@/playground/deck-preview.js')) as unknown as {
 		splitSections: (h: string) => string[];
 	};
-	return projectSectionsToScript(splitSections(html));
+	const sections = splitSections(html);
+	const scripts = await projectSectionsToScript(sections);
+	// A split panes slide repeats its masthead on every page; the fold says it once, and needs each
+	// page's masthead AS NARRATED to know exactly which words those are.
+	const counts = paneSplitCounts(splitSlides(stripFrontMatter(source)), source);
+	const mastheads = counts?.some((c) => c > 1) ? await projectMastheads(sections) : undefined;
+	return foldPaneSplits(scripts, source, mastheads);
+}
+
+/** Each section's MASTHEAD (its `.cell-masthead`: eyebrow, title, subtitle) narrated alone, through
+ *  the same kernel as the whole section, index-aligned; '' for a section without one. */
+async function projectMastheads(sectionHtmls: string[]): Promise<string[]> {
+	const parser = new DOMParser();
+	const alone = sectionHtmls.map((h) => {
+		const section = parser.parseFromString(h, 'text/html').querySelector('section');
+		const masthead = section?.querySelector('.cell-masthead');
+		if (!section || !masthead) return '';
+		const shell = section.cloneNode(false) as Element;
+		shell.appendChild(masthead.cloneNode(true));
+		return shell.outerHTML;
+	});
+	const scripts = await projectSectionsToScript(alone.map((h) => h || '<section></section>'));
+	return scripts.map((x, i) => (alone[i] ? x.text : ''));
+}
+
+/**
+ * Fold the scripts of a split panes slide back onto the ONE source slide it came from.
+ *
+ * The projection is per rendered SECTION, and every caller indexes it by source slide — Present
+ * and the narration bake refuse it outright when the two counts differ, and fall back to the
+ * markdown flatten. A panes slide the engine splits (pane-pages.ts) is two sections for one
+ * slide, so without this a single split slide cost the whole deck its projected narration.
+ * Folded, the split slide narrates its two pages in order, as one slide, and every later slide
+ * keeps its own projection. The emphasis spans of the second page shift by the text before them.
+ * `mastheads` (each section's masthead as narrated, index-aligned with `scripts`) says which words a
+ * later page repeats; without it nothing is cut.
+ *
+ * Folds ONLY when the map accounts for the section count exactly; any other expansion
+ * (`_focusSteps`, `split: headings`) leaves the scripts as they were, for the callers' own guard.
+ */
+export function foldPaneSplits(scripts: SlideScript[], source: string, mastheads?: readonly string[]): SlideScript[] {
+	const slides = splitSlides(stripFrontMatter(source));
+	const counts = paneSplitCounts(slides, source);
+	if (!counts || counts.reduce((a, b) => a + b, 0) !== scripts.length) return scripts;
+	const out: SlideScript[] = [];
+	let at = 0;
+	for (const n of counts) {
+		const run = scripts.slice(at, at + n);
+		at += n;
+		let text = '';
+		const emphasis: { start: number; end: number; weight: number }[] = [];
+		for (let k = 0; k < run.length; k++) {
+			const part = run[k];
+			// The slide's masthead (its title, eyebrow, subtitle) rides EVERY page of the split, so a
+			// later page opens with it again: say it once. Only that page's OWN masthead text is cut,
+			// and only when the page really opens with it, so a word two panes happen to share is
+			// never dropped. No masthead text, no cut.
+			const lead = k > 0 && text ? (mastheads?.[at - n + k] ?? '').trim() : '';
+			let cut = lead && part.text.startsWith(lead) ? lead.length : 0;
+			while (cut && cut < part.text.length && /\s/.test(part.text[cut])) cut++;
+			const rest = part.text.slice(cut);
+			if (!rest.trim()) continue;
+			const shift = (text ? text.length + 1 : 0) - cut;
+			text = text ? `${text} ${rest}` : rest;
+			for (const e of part.emphasis) if (e.start >= cut) emphasis.push({ ...e, start: e.start + shift, end: e.end + shift });
+		}
+		out.push({ text, emphasis });
+	}
+	return out;
 }
 
 /**

@@ -1454,6 +1454,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			 *  host's own navigation: a swipe, an arrow key, the ‹ › buttons. It wins over the caret
 			 *  while the host passes it. Ignored for an unsplit slide, and without `caretText`. */
 			pageIndex?: number;
+			/** How many rendered slides each of the caller's slides becomes, index-aligned with them
+			 *  (length `slideCount`), passed only when one becomes more than one: a panes slide the
+			 *  engine SPLITS into one slide per pane (docs/src/components/studio/pane-pages.ts). With
+			 *  it the whole-deck render narrows to the right SECTION after a split instead of failing
+			 *  alignment, and a split panes slide shows one page at a time, like a structural split.
+			 *  A map whose length is not `slideCount` is ignored. */
+			paneCounts?: number[];
+			/** The page of the shown slide's pane split that holds the caret, or absent to keep the
+			 *  page shown. `pageIndex` wins over it, as it wins over the caret for a structural split. */
+			panePage?: number;
 			/** Marks THE preview the author is looking at — the one the fidelity overlay may describe.
 			 *  Opt-IN, and it fails closed: see the report gate below. */
 			focused?: boolean;
@@ -1570,7 +1580,25 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// only the diagnostic's compare closure reads, and only on a button press. So the slice
 				// route computes it directly (the short-circuit it always had) and the counterfactual
 				// asks for it when someone actually presses the button.
-				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount) : undefined;
+				// THROUGH A SPLIT PANES SLIDE (pane-pages.ts). The caller counts SOURCE slides; the engine
+				// renders a split panes slide as one slide per pane, so after one, source slide k is not
+				// section k. `paneCounts` maps the one to the other: the shown slide's first section is
+				// `renderedBase`, the deck renders `renderedTotal`, and a split slide shows ONE of its
+				// `paneRun` pages — the one navigation asked for, else the caret's, else the one shown.
+				const paneCounts =
+					typeof opts?.slideIndex === 'number' && Array.isArray(opts.paneCounts) && opts.paneCounts.length === opts.slideCount ? opts.paneCounts : undefined;
+				const paneRun = paneCounts ? Math.max(1, paneCounts[opts?.slideIndex as number] ?? 1) : 1;
+				const renderedBase = paneCounts ? paneCounts.slice(0, opts?.slideIndex).reduce((a, b) => a + b, 0) : (opts?.slideIndex ?? 0);
+				const renderedTotal = paneCounts ? paneCounts.reduce((a, b) => a + b, 0) : opts?.slideCount;
+				let panePage = 0;
+				if (paneRun > 1) {
+					const prev = splitPageByHost.get(host);
+					const kept = prev && prev.slide === opts?.slideIndex && prev.deck === (opts?.deckId ?? '') ? prev.page : 0;
+					const asked = typeof opts?.pageIndex === 'number' ? (Number.isFinite(opts.pageIndex) ? opts.pageIndex : paneRun - 1) : null;
+					const want = asked ?? (typeof opts?.panePage === 'number' ? opts.panePage : kept);
+					panePage = Math.max(0, Math.min(Math.trunc(want), paneRun - 1));
+				}
+				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
 				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
@@ -1684,9 +1712,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// one the gate intended: on a 1→N deck the gate says "whole deck" and the author is
 				// looking at a slice.
 				let fellBackToSlice = false;
+				// Whether the frame now holds one page of a split panes slide, as the map said it
+				// would: set only where a narrowing through the map actually succeeded. A map the
+				// render disagrees with (a deck the map misread) reports no run, so the pill cannot
+				// promise a second page the frame does not have.
+				let paneShown = false;
 				if (wantsContext && typeof opts?.slideIndex === 'number') {
-					const narrowed = narrowToSlide(out.html, opts.slideIndex, opts.slideCount);
-					if (narrowed !== null) out.html = narrowed;
+					const narrowed = narrowToSlide(out.html, renderedBase + panePage, renderedTotal);
+					if (narrowed !== null) {
+						out.html = narrowed;
+						paneShown = paneRun > 1;
+					}
 					else if (opts.slideMarkdown) {
 						fellBackToSlice = true;
 						// The engine's sections do not correspond 1:1 to the caller's slides (a
@@ -1762,7 +1798,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					if (walkable && framed.length > 1) {
 						// Walkable: keep the first section and drop its siblings, preserving the
 						// wrapper/inter-section text exactly as `narrowToSlide` does.
-						const narrowed = narrowToSlide(out.html, 0, framed.length);
+						// A split panes slide rendered alone is its `paneRun` pages: keep the one asked for.
+						const keep = paneRun > 1 && framed.length === paneRun ? panePage : 0;
+						if (paneRun > 1 && framed.length === paneRun) paneShown = true;
+						const narrowed = narrowToSlide(out.html, keep, framed.length);
 						if (narrowed !== null) out.html = narrowed;
 					} else if (!walkable && opens > 1) {
 						// Unwalkable AND multi-section: we cannot say which markup is slide one, and
@@ -1789,8 +1828,20 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// the audience's surface. They keep the whole slide, as before.
 				let splitPage: RenderStatus['page'];
 				let canSplit = false;
-				if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
-					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: opts.slideIndex + 1 });
+				if (paneShown && typeof opts?.slideIndex === 'number') {
+					// A SPLIT PANES SLIDE is a run of pages too, reported the same way so the host's
+					// ‹ › verbs step through it and its pill reads "5 · 2 of 2". The frame already holds
+					// the one page (both routes narrowed above). The structural split below does not
+					// run on it: a pane page that would paginate AGAIN at this size is a run inside a
+					// run, which the frame's one-page contract cannot show; the PDF still paginates it.
+					canSplit = true;
+					splitPageByHost.set(host, { deck: opts.deckId ?? '', slide: opts.slideIndex, page: panePage });
+					const printed = (out.html.match(/\sdata-lattice-pagination="([^"]+)"/) || [])[1];
+					splitPage = { index: panePage, count: paneRun, label: printed ?? String(renderedBase + panePage + 1) };
+				} else if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
+					// `firstSlide` is the shown slide's RENDERED number: after a split panes slide it is
+					// one past the source index, and the run's stamps must read as the PDF does.
+					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: renderedBase + 1 });
 					canSplit = r.applies === true;
 					if (r.changed) {
 						const pages = sectionsOf(r.html);
@@ -1857,7 +1908,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										// all is what separates "the fail-closed guard refused" from every other
 										// residual, and inferring that from the rendered "1 of 1" pagination
 										// mis-attributes a supplied-but-wrong position to a guard that is working.
-										const comparePage = supplyablePosition(markdown, slideIndex, slideCount);
+										const comparePage = supplyablePosition(markdown, slideIndex, slideCount, paneCounts);
 										const [sliceOut, deckOut] = await Promise.all([
 											// The COUNTERFACTUAL fast route, rendered the way the fast route would
 											// really render it — including the position it would really supply. Passing
@@ -1883,14 +1934,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										// the argument for reconciling the two slide splitters, logged in the decision
 										// note rather than widened here.)
 										const sections = sectionsOf(deckOut.html);
-										const why = alignmentFailure(deckOut.html, sections, slideCount, slideIndex);
+										// Through a split panes slide the shown page is RENDERED section
+										// `renderedBase + panePage` of `renderedTotal` (the map above), not the source index.
+										const why = alignmentFailure(deckOut.html, sections, renderedTotal, renderedBase + panePage);
 										if (why) return { equal: null, why };
-										const want = sections[slideIndex];
+										const want = sections[renderedBase + panePage];
 										// Hide only what NO shipped repair closes. A wrong page number or rail is
 										// precisely what an author turns this on to find, so those stay visible —
 										// and the headless sweep now hides them no longer either, because it
 										// supplies the same position this compare does. One set, both surfaces.
-										const a = normalizeSection(sectionsOf(sliceOut.html)[0] ?? '', RESIDUAL_NEUTRALIZERS);
+										const sliced = sectionsOf(sliceOut.html);
+										const a = normalizeSection(sliced[paneRun > 1 && sliced.length === paneRun ? panePage : 0] ?? '', RESIDUAL_NEUTRALIZERS);
 										const b = normalizeSection(want, RESIDUAL_NEUTRALIZERS);
 										if (a === b) return { equal: true };
 										// Hand over the WHOLE sections. Cutting a character window here left the panel

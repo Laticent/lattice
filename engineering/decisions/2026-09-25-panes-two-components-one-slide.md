@@ -625,13 +625,22 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    390px and its slide strip ("text"), and Export-to-Marp, which cannot carve and should degrade to
    the two panes' content, stacked.
 7. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
-8. **The Studio's slide index and a split panes slide** (`2376-p2-studio-index-…`). The Studio
-   counts source chunks (`docs/src/components/studio/lint.ts` `splitSlides`), and the engine
-   renders a split panes slide as two, so after one the caret and the rail are a slide apart and
-   the preview takes its alignment fallback (the shown slide alone), as it does for
-   `_focusSteps` and `split: headings`. It fails closed. Cutting `splitSlides` there is not the
-   fix: the chunks also feed write-back (`deck-ops.ts`, `motion-sheet.ts`), which would write the
-   cut into the author's source.
+8. **The Studio's slide index and a split panes slide** — **closed** (the pane-follow-ups PR). The
+   Studio still counts source chunks (`docs/src/components/studio/lint.ts` `splitSlides`), and
+   those chunks are still never cut: they feed write-back (`deck-ops.ts`, `motion-sheet.ts`), so a
+   cut would land in the author's source. Instead `docs/src/components/studio/pane-pages.ts` maps
+   each chunk to the rendered slides it becomes, from `lintCore.paneSplitLine` (the linter's
+   reading of the same `arrangePanes` call). The editor preview narrows the whole-deck render
+   through that map, so the slide after a split shows with the number the PDF gives it, and a
+   split panes slide is shown one page at a time like a structural split: the caret's pane picks
+   the page, ‹ › step through it, and the pill reads "3 · 2 of 2". The preview's supplied position
+   (`supplyablePosition`) offsets through the map, and refuses on a panes deck when a caller has
+   none; the Studio and the equivalence sweep hand it for every panes deck, all ones when nothing
+   splits, so an unsplit 16:9 panes deck keeps its position. Present and the narration bake fold the split slide's two projected scripts back onto
+   the one source slide (`foldPaneSplits`), so one split no longer costs the deck its projected
+   narration. Pinned by `docs/e2e/pane-split-index.spec.ts` at 820 and 390px, on the real Studio.
+   Still open, and filed with the surfaces item above: Present shows a split panes slide's first
+   pane only, because its own navigation has no page step.
 9. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
    spec (`docs/src/content/docs/spec/lfm.md`) — once the syntax is no longer experimental.
 
