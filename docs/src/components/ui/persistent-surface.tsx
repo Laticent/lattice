@@ -5,6 +5,7 @@ import { DismissableLayer } from "radix-ui/internal"
 import * as React from "react"
 import { createPortal, flushSync } from "react-dom"
 
+import { useEverTrue } from "@/components/ui/keep-mounted"
 import { cn } from "@/lib/utils"
 
 /**
@@ -72,13 +73,6 @@ function inertOthers(keep: Element): Element[] {
   return marked
 }
 
-/** True from the first render where `open` is true, for the rest of the component's life. */
-function useEverOpened(open: boolean): boolean {
-  const [ever, setEver] = React.useState(open)
-  if (open && !ever) setEver(true)
-  return ever || open
-}
-
 export function PersistentSurface({
   open,
   onOpenChange,
@@ -97,7 +91,7 @@ export function PersistentSurface({
   onInteractOutside?: () => void
   children: React.ReactNode
 }) {
-  const ever = useEverOpened(open)
+  const ever = useEverTrue(open)
   const titleId = React.useId()
   const descriptionId = React.useId()
   const ids = React.useMemo(() => ({ titleId, descriptionId }), [titleId, descriptionId])
