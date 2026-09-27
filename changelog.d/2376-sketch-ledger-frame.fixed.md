@@ -1,0 +1,1 @@
+- Under `mode: sketch`, a `list-tabular` ledger's frame hugs its rows. It used to wrap the whole slide body, leaving three rows floating mid-frame between two empty bands. Each row now carries one rule instead of a hand-drawn one beside a straight one, and the row numbers sit clear of the frame's left edge. A `list-tabular` pane looks the same.
