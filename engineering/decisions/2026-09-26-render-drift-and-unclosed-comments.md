@@ -281,6 +281,10 @@ of the memory claim. It was read without a Mac, so there is no memory timeline, 
 was not repeated on the live site as a control. It shows the fixed build survives the cycle, not
 how soon the old one would have failed.
 
+**On a real iPhone (the owner, 2026-09-27, branch preview of `5f8a9c2`):** about 20 cycles of
+opening Present's slide overview (the Slides grid button), scrolling it and closing it, and Safari
+never reloaded the tab. Same reading, same limits: no memory timeline, no live-site control.
+
 ### The residue after an Add slide reopen is a plateau, not a leak
 
 `followups.d/2398-p2` (now deleted) asked whether the RSS still rising after #2398 (+378 → +492 MB

@@ -7,7 +7,8 @@ source: https://github.com/Laticent/lattice/pull/2398
 # Finish the real-device check of Add slide after #2398: memory, VoiceOver, rotation (Safari 26+)
 
 Narrowed 2026-09-27 by #2416: the owner opened, scrolled and closed the deck settings about
-20 times on an iPad (branch preview) and Safari never reloaded the tab. What is left is below;
+20 times on an iPad (branch preview) and Safari never reloaded the tab, and did the same with
+Present's overview on an iPhone. What is left is below;
 a Mac is NOT available, so Safari's Web Inspector is not an option — use the reload test.
 
 why now   — #2398 keeps Add slide mounted between opens so WebKit stops stranding ~45 MB per
@@ -26,9 +27,9 @@ where     — the deployed Studio. Open Add slide from the Edit pane's drawer, f
             column, not in it — `settings-dock.tsx`). On the phone, close Settings with a tap and
             confirm no hint pops up over the toolbar.
             Record: engineering/decisions/2026-09-26-render-drift-and-unclosed-comments.md §5.
-done when — Safari does not reload the tab over ~20 open/scroll/close cycles of Add slide and
-            of the overview (Present → the Slides grid button), as it did not for the deck
-            settings; ideally the same run on the live site DOES reload, as the control,
+done when — Safari does not reload the tab over ~20 open/scroll/close cycles of Add slide, as
+            it did not for the deck settings and the overview; ideally the same run on the live
+            site DOES reload, as the control,
             VoiceOver announces the gallery as a dialog on the phone's second open, and a rotation
             with the gallery open keeps every preview on its tile.
 evidence  — the owner's report of the reload test per surface (and the live-site control),
