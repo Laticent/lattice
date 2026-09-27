@@ -426,23 +426,17 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::after
   display: none;
 }
 
-/* ── compact — the density escape hatch for five-plus pairs ───────────── */
-/* A pure opt-in on the ledger: the question and its index drop from message to
- * body type, the answer to compact-body, and the gaps close. */
+/* ── compact — tighter spacing, never smaller type ─────────────────────── */
+/* Closes the gaps between pairs and between a question and its answer. It does not
+ * touch the type: a modifier never changes a type role's size (engineering/typography.md
+ * §7, `checkTypeSizeModifiers`), so the question stays `--fs-message` and the answer
+ * `--fs-body` on a compact slide as on its neighbors. It used to drop both a step to fit
+ * five or six pairs; past what fits, split the slide. */
 section.q-and-a.compact {
   --qa-gap: var(--sp-sm);
-  /* re-base the token rather than overriding the counter's font-size: the index column
-     is calc'd from it, so a smaller numeral now buys back its own gutter too. */
-  --qa-index: var(--fs-body);
-}
-section.q-and-a.compact > .cell-stage > :is(ul, ol) > li {
-  font-size: var(--fs-body);
 }
 section.q-and-a.compact > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   padding-top: var(--sp-2xs);
-}
-section.q-and-a.compact > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
-  font-size: var(--fs-body-compact);
 }
 
 /* ── solo — one question, one answer, the whole slide ─────────────────── */

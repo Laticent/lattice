@@ -122,8 +122,8 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · bullet" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · bullet · 1 of 2" -->
 
 ## When NOT to reach for bullet.
 
@@ -133,6 +133,14 @@ Actual against target inside a qualitative band — one dense row per KPI.
   - A single row spends a whole slide on two numbers. Use `big-number`, or `stats` for a short row. This chart earns its density.
 - Red/amber/green range bands
   - The zones are one neutral on purpose: a traffic-light range re-states the verdict the target marker already carries.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · bullet · 2 of 2" -->
+
+## When NOT to reach for bullet.
+
 - A KPI where lower is better
   - Cost against budget, churn against a ceiling: the bar grows past the marker, so beating the target reads as missing it.
 

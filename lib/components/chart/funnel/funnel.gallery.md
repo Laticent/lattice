@@ -96,8 +96,8 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · funnel" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · funnel · 1 of 2" -->
 
 ## When NOT to reach for funnel.
 
@@ -105,6 +105,14 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
   - If a later stage can exceed an earlier one (it's a category breakdown, not a pipeline), the taper lies. Use `piechart` for parts of a whole or `progress` for independent metrics.
 - A funnel of two stages
   - Two bands is a single conversion rate dressed up as a chart. State it as a `big-number` (‘18% convert’) or a two-tile `stats` instead.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · funnel · 2 of 2" -->
+
+## When NOT to reach for funnel.
+
 - Non-monotonic values
   - Values that rise and fall make the trapezoids bulge and the conversion %s read oddly. A funnel assumes a monotonic narrowing; for an up-and-down series use a `progress` or a chart with an axis.
 

@@ -14,6 +14,8 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short label per quadrant cell.
 
+**By venue** (`venue:`, ~10 words each) it holds laptop ~4 · huddle ~4 · conference ~4 · hall ~4 items. At ~6 words each: 4 · 4 · 4 · 4. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

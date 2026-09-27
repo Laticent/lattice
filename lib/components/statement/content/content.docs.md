@@ -12,6 +12,8 @@ The catch-all for explanatory content that doesn't fit a more structured layout.
 
 **Capacity** ~5 items at a wide @size (crowds past 6, overflows past 7).
 
+**By venue** no count budget. The lead paragraph is the slide and the bullets are optional, so a bullet count measures the wrong thing.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

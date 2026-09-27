@@ -10,6 +10,8 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ## Agent contract
 
+**By venue** no count budget. One clause with its inline edits per slide; its length is prose, not a count of elements.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

@@ -10,6 +10,8 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ## Agent contract
 
+**By venue** no count budget. One number and its claim per slide, so there is no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

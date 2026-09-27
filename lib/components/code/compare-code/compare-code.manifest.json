@@ -128,5 +128,8 @@
   "pane": {
     "side": false,
     "stack": false
+  },
+  "venueCapacity": {
+    "none": "Two code panes side by side; not measured per venue yet (the rig measures the single `code` pane)."
   }
 }

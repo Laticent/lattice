@@ -231,8 +231,12 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // deliberate. Failing that is crying wolf on a component that works, which is the
     // failure mode opposite to a false clean and the more corrosive one: the next person to
     // see it stops trusting the tool. No injected CSS here; this is the shipped component.
+    // `--axis heading` pinned: this arm is about the shipped sample, and the default axis
+    // flips to `count` the moment `cycle` has a rig builder (engineering/jank.md, the
+    // `capacity.axis` trap) — which it gained for its per-venue budget (#2399). Under count
+    // the ring legitimately re-lays out as stages are added.
     const shipped = spawnSync(process.execPath,
-      [TOOL, 'cycle', '--anchor', 'ul::before', '--max', '6', '--json'],
+      [TOOL, 'cycle', '--anchor', 'ul::before', '--max', '6', '--axis', 'heading', '--json'],
       { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() } });
     assert.equal(shipped.status, 0,
       `shipped \`cycle\` reported a defect against unmodified CSS:\n${shipped.stderr}`);

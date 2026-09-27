@@ -10,11 +10,11 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic). Past six Q/A pairs the column overflows a portrait box.
+**Capacity** ~4 items (over 5 overflows) — past that, split across slides (automatic). Four pairs fit at body size and a fifth with `compact`, which tightens the spacing; past five, split the slide.
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`, or `venue: huddle` / `conference` / `hall`) it holds ~3 / ~3 / ~3 items of ~12 words at a wide @size; past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~12 words each) it holds laptop ~4 · huddle ~3 · conference ~3 · hall ~3 items. At ~6 words each: 4 · 3 · 3 · 3. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 
@@ -99,7 +99,7 @@ Pairs threaded down an accent spine.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 ```
 
 ### `rail` — rail
@@ -116,7 +116,7 @@ Numbered exhibit rows in columns.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 ```
 
 ### `tab` — tab
@@ -133,7 +133,7 @@ Underlined prompts; answers hang below.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 ```
 
 ### `grid` — grid
@@ -150,7 +150,7 @@ Four pairs in a two-by-two.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 - Why four pairs here?
   - Grids want even counts.
 ```

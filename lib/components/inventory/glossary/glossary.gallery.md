@@ -109,7 +109,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · glossary" -->
 
 ## When NOT to reach for glossary.

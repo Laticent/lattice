@@ -10,6 +10,8 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 ## Agent contract
 
+**By venue** no count budget. The image fills its box and scales, so no element count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

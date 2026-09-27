@@ -201,7 +201,7 @@ test('the plan IS the page count — galleryPlan length equals expectedGallerySl
 });
 
 test('every galleryPlan slide carries a stable kind and a caption source', () => {
-  const KIND = /^(title|default|variant:.+|stress|composition:.+|anti-patterns|see-also)$/;
+  const KIND = /^(title|default|variant:.+|stress|composition:.+|anti-patterns(?::\d+)?|see-also)$/;
   for (const m of manifests) {
     for (const s of galleryPlan(m)) {
       assert.match(s.kind, KIND, `${m.name}: bad kind ${s.kind}`);

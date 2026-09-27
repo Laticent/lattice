@@ -7,7 +7,7 @@
  *
  *     check-overflow-corpus.js  /OVERFLOW[^\n]*?pages? ([\d,\s]+)/  + a CONTENT CLIPPED twin
  *     check-family-tiers.js     /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/
- *     lib/calibrate-core.js     /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i
+ *     lib/calibrate-core.js     /⚠ OVERFLOW[^\n]*?pages?\s+([\d,\s]+)/  (line-bounded, on the glyph)
  *
  * The advisory prints page numbers, so a reword to a lowercase "overflow" or to
  * "page 3" instead of "p3" would be harvested as real clipping.
@@ -62,6 +62,7 @@ describe('the near-miss advisory (#2252)', () => {
         /CONTENT CLIPPED[^\n]*?pages? ([\d,\s]+)/,
         /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/,
         /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i,
+        /\u26a0 OVERFLOW[^\n]*?pages?\s+([\d,\s]+)/,
       ]) assert.equal(re.test(out), false, `the advisory matched ${re}:\n${out}`);
     }
   });
@@ -133,11 +134,12 @@ describe('the near-miss advisory (#2252)', () => {
     // nobody reads any more — a test that passes for the wrong reason.
     assert.match(CORPUS, /grabPages\(\/OVERFLOW\[\^\\n\]\*\?pages\? \(\[\\d,\\s\]\+\)\/\)/);
     assert.match(CORPUS, /grabPages\(\/CONTENT CLIPPED\[\^\\n\]\*\?pages\? \(\[\\d,\\s\]\+\)\/\)/);
-    for (const rel of ['tools/check-family-tiers.js', 'tools/lib/calibrate-core.js']) {
-      const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
-      assert.match(src, /OVERFLOW\[\\s\\S\]\*\?pages\?\\s\+\(\[\\d,\\s\]\+\)/,
-        `${rel} should still harvest pages the way this test assumes`);
-    }
+    const tiers = fs.readFileSync(path.join(ROOT, 'tools/check-family-tiers.js'), 'utf8');
+    assert.match(tiers, /OVERFLOW\[\\s\\S\]\*\?pages\?\\s\+\(\[\\d,\\s\]\+\)/,
+      'tools/check-family-tiers.js should still harvest pages the way this test assumes');
+    const rig = fs.readFileSync(path.join(ROOT, 'tools/lib/calibrate-core.js'), 'utf8');
+    assert.ok(rig.includes('/\u26a0 OVERFLOW[^\\n]*?pages?\\s+([\\d,\\s]+)/'),
+      'tools/lib/calibrate-core.js should still harvest pages the way this test assumes');
   });
 
   test('the floor and the tolerance come from the kernel, not from a literal here', () => {

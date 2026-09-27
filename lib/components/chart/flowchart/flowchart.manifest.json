@@ -236,5 +236,8 @@
     "side": 35,
     "stack": 60,
     "noBudget": "a flowchart scales to its box, and its list mixes shapes with connection rows, so a count of list items is not its size"
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   }
 }

@@ -137,8 +137,8 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · inventory" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · inventory · 1 of 2" -->
 
 ## When NOT to reach for inventory.
 
@@ -148,6 +148,14 @@ A parallel set of related items of similar weight — one content shape, four in
   - If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
 - Nested-bullet authoring
   - inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · inventory · 2 of 2" -->
+
+## When NOT to reach for inventory.
+
 - Lopsided density
   - Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
 

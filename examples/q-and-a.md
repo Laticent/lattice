@@ -118,21 +118,18 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 <!-- _class: q-and-a compact -->
 
-`Compact — five-plus pairs`
-
 ## Five we expect, numbered and tightened.
 
 1. Why now rather than next fiscal year?
-   1. The incentive credits expire in December; waiting forfeits $400K.
+   1. The credits expire in December.
 2. What is the rollback plan?
-   1. A one-command revert to the pinned release, rehearsed weekly in staging.
+   1. A one-command revert, rehearsed weekly.
 3. Who signs off on go-live?
-   1. The change-advisory board, the Thursday before each wave.
+   1. The change-advisory board.
 4. How does this affect the SLA?
-   1. The 99.9% target holds — the migration runs behind a feature flag.
+   1. The 99.9% target holds.
 5. What if adoption stalls?
-   1. Usage is opt-in for thirty days with a fallback, so a stall costs time, not money.
-
+   1. Opt-in for thirty days, with a fallback.
 ---
 
 <!-- _class: closing silent -->

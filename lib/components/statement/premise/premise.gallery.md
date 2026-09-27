@@ -167,8 +167,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · premise" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · premise · 1 of 2" -->
 
 ## When NOT to reach for premise.
 
@@ -176,6 +176,14 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
   - Every row must carry all four segments in the same order. A row missing its trailing note, or with a two-clause description, breaks the ledger's scan rhythm — trim or pad it to match its siblings.
 - More than eight rows
   - The categorical palette cycles at eight; past that, split into two premise slides by group rather than repeating hues.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · premise · 2 of 2" -->
+
+## When NOT to reach for premise.
+
 - The heading summarizes the rows instead of claiming something
   - "Six cognitive verbs" restates the list; "growth is a change in thinking, not title" claims why the list matters. If the heading can't be argued with, it's a caption, not a premise.
 

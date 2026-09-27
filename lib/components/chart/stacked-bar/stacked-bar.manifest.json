@@ -211,5 +211,8 @@
       "note": "Each category is a stacked bar, with its parts in a key. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
     },
     "review": "side 25 measured, 35 reviewed: the key cramps at 25%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   }
 }

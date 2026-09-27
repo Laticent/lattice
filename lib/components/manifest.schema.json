@@ -1076,6 +1076,44 @@
         }
       }
     },
+    "venueCapacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How many elements this component holds at each `venue:` (laptop 1x, huddle 1.15x, conference 1.3x, hall 1.5x), measured at a wide @size by tools/calibrate-capacity.js. `none` states why a component has no count budget. engineering/decisions/2026-09-25-font-scale-fit.md, Amendment 2026-09-27.",
+      "properties": {
+        "axis": { "type": "string", "enum": ["item", "row", "col", "line"] },
+        "at": { "type": "string", "enum": ["wide"] },
+        "byWords": {
+          "type": "object",
+          "description": "Element count per venue, keyed by the words per element it was measured at.",
+          "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/venueRow" }
+        },
+        "lines": {
+          "type": "object",
+          "description": "A code pane's line count per venue, under a one-line heading (`bare`) and under an eyebrow.",
+          "additionalProperties": false,
+          "required": ["bare", "eyebrow"],
+          "properties": {
+            "bare": { "$ref": "#/$defs/venueRow" },
+            "eyebrow": { "$ref": "#/$defs/venueRow" }
+          }
+        },
+        "atLeast": {
+          "type": "array",
+          "description": "Venues where the rig never saw the component overflow: the number there is the most it tried, a floor.",
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["laptop", "huddle", "conference", "hall"] }
+        },
+        "none": { "type": "string", "minLength": 20, "maxLength": 200, "description": "Why no count budget is published. One sentence." }
+      },
+      "oneOf": [
+        { "required": ["axis", "at", "byWords"], "not": { "anyOf": [{ "required": ["lines"] }, { "required": ["none"] }] } },
+        { "required": ["axis", "at", "lines"], "not": { "anyOf": [{ "required": ["byWords"] }, { "required": ["none"] }] } },
+        { "required": ["none"], "not": { "anyOf": [{ "required": ["axis"] }, { "required": ["at"] }, { "required": ["byWords"] }, { "required": ["lines"] }, { "required": ["atLeast"] }] } }
+      ]
+    },
     "density": {
       "type": "object",
       "additionalProperties": false,
@@ -1227,6 +1265,19 @@
           "minLength": 1,
           "description": "Maintainer note: why this recipe, its preconditions, and the decision doc that introduced it."
         }
+      }
+    }
+  },
+  "$defs": {
+    "venueRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["laptop", "huddle", "conference", "hall"],
+      "properties": {
+        "laptop": { "type": "integer", "minimum": 0 },
+        "huddle": { "type": "integer", "minimum": 0 },
+        "conference": { "type": "integer", "minimum": 0 },
+        "hall": { "type": "integer", "minimum": 0 }
       }
     }
   }

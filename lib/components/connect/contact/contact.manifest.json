@@ -85,5 +85,8 @@
     "side": 25,
     "stack": 30,
     "noBudget": "one contact card"
+  },
+  "venueCapacity": {
+    "none": "A fixed card (name, a few contact lines and a QR code), with no repeated element to count."
   }
 }

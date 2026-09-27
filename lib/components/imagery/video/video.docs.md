@@ -10,6 +10,8 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 
 ## Agent contract
 
+**By venue** no count budget. The poster fills its box and scales, so no element count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

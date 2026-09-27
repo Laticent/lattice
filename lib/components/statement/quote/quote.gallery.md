@@ -76,7 +76,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · quote" -->
 
 ## When NOT to reach for quote.

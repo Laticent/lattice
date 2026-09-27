@@ -156,8 +156,8 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · citation-card" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · citation-card · 1 of 2" -->
 
 ## When NOT to reach for citation-card.
 
@@ -167,6 +167,14 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
   - Rewriting the source? Drop the citation framing for content or a split-panel pullquote — citation-card is for verbatim language with attribution.
 - Gloss longer than the quote
   - When the gloss runs three paragraphs, the citation is no longer the focus. Trim it to one sentence plus a `What we must do` action, or use content.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · citation-card · 2 of 2" -->
+
+## When NOT to reach for citation-card.
+
 - Plain gloss under the pull-quote variant
   - The `pull-quote` variant shows only a **bold**-led `**What we must do**` action — a plain 'In plain English …' line silently vanishes. Lead with a bold label, or use the default variant.
 

@@ -12,6 +12,8 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 
 ## Agent contract
 
+**By venue** no count budget. A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

@@ -162,8 +162,8 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · logo-wall" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · logo-wall · 1 of 2" -->
 
 ## When NOT to reach for logo-wall.
 
@@ -171,6 +171,14 @@ A grid of customer, partner, or funder logos as social proof.
   - If each entity needs a role, a quote, or a metric beside it, this is the wrong layout. Use `actors` (who owns what), `cards-grid` (a short body per item), or `quote` (a single testimonial).
 - Logos nobody recognizes
   - A wall of unknown marks proves nothing and asks the audience to squint. If the names don't carry on sight, state the count as a `big-number` ('400+ teams') instead.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · logo-wall · 2 of 2" -->
+
+## When NOT to reach for logo-wall.
+
 - Mismatched raster art
   - The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; color is supplied by the palette token, not the file.
 

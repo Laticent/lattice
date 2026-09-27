@@ -178,5 +178,8 @@
     "stack": 30,
     "form": "content",
     "noBudget": "one picture, covering its cell"
+  },
+  "venueCapacity": {
+    "none": "The image fills its box and scales, so no element count marks where it stops fitting."
   }
 }

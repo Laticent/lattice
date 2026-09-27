@@ -10,6 +10,8 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 
 ## Agent contract
 
+**By venue** no count budget. A fixed card (network, password and a QR code), with no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

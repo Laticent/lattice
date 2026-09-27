@@ -12,6 +12,8 @@ Use for relational or topological visuals — flowcharts, sequence diagrams, sta
 
 ## Agent contract
 
+**By venue** no count budget. Mermaid scales the whole diagram to its box, so no node count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

@@ -217,6 +217,8 @@ describe('walk helpers', () => {
 		expect(walkChipLabel('title')).toBe('Title');
 		expect(walkChipLabel('stress')).toBe('Stress test');
 		expect(walkChipLabel('anti-patterns')).toBe('Anti-patterns');
+		expect(walkChipLabel('anti-patterns:2')).toBe('Anti-patterns 2');
+		expect(walkChipLabel('anti-patterns:3')).toBe('Anti-patterns 3');
 		expect(walkChipLabel('variant:dense', { dense: 'dense rows' })).toBe('dense rows');
 		expect(walkChipLabel('composition:dark')).toBe('+ dark');
 		for (const k of ['title', 'default', 'stress', 'see-also', 'variant:dense', 'composition:dark']) {

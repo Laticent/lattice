@@ -278,27 +278,15 @@ function terminated(t) {
 }
 
 /**
- * The component's capacity at the projection font scale (typography.md §7), from the
- * measured tables lint enforces (lib/authoring/lint-core.js SCALE_CAPACITY and
- * CODE_LINES_AT_SCALE) — printed from the same numbers so the doc and `lint:deck`
- * cannot disagree. Null for a component the tables do not cover.
+ * The component's budget per `venue:` (typography.md §7), from its manifest's `venueCapacity` —
+ * the same numbers lint-core reads through venue-capacity.generated.js, so the doc and
+ * `lint:deck` cannot disagree. A manifest that says `none` prints its reason, so an absent
+ * budget is stated rather than implied. Formatting lives in tools/lib/venue-capacity.js,
+ * shared with the pick list.
  */
 function projectionScaleLine(m, axis) {
-  const { SCALE_CAPACITY, CODE_LINES_AT_SCALE } = require('../lib/authoring/lint-core.js');
-  const tail = 'past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — '
-    + '`lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.';
-  if (m.name === 'code') {
-    const [, l, xl, xxl] = CODE_LINES_AT_SCALE.bare;
-    const [, el, exl, exxl] = CODE_LINES_AT_SCALE.eyebrow;
-    return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`, or \`venue: huddle\` / \`conference\` / \`hall\`) the pane holds ~${l} / ~${xl} / ~${xxl} lines at a wide @size (~${el} / ~${exl} / ~${exxl} under an eyebrow); ${tail}`;
-  }
-  const row = SCALE_CAPACITY[m.name];
-  if (!row) return null;
-  const lengths = Object.keys(row).map(Number).sort((a, b) => a - b);
-  const words = lengths[lengths.length - 1];
-  const [, l, xl, xxl] = row[words];
-  const noun = axisNoun(axis || 'item', 2);
-  return `**At a projection scale** (\`scale-l\` / \`scale-xl\` / \`scale-2xl\`, or \`venue: huddle\` / \`conference\` / \`hall\`) it holds ~${l} / ~${xl} / ~${xxl} ${noun} of ~${words} words at a wide @size; ${tail}`;
+  const { venueDocsLine } = require('./lib/venue-capacity.js');
+  return venueDocsLine(m, axisNoun(m.venueCapacity?.axis || axis || 'item', 2));
 }
 
 function emitAgentContract(m, lines) {
@@ -491,10 +479,10 @@ function renderDocs(m) {
  *   1. Title (dark bookend, no chrome)
  *   2. Default appearance (component's own layout with sample content)
  *   3..N+2. One slide per variant (component's layout + variant modifier)
- *   N+3. Anti-patterns (cards-stack compact meta-layout, omitted if none)
+ *   N+3. Anti-patterns (cards-stack meta-layout, one slide or more by antiPatternPages; omitted if none)
  *   N+4. Closing — related components (closing index, omitted if no related)
  *
- * The anti-patterns slide uses `cards-stack compact` and the see-also
+ * The anti-patterns slide uses `cards-stack` and the see-also
  * slide uses `closing index` as meta-layouts for documenting the component.
  * When the component being documented IS one of those, the dogfooding is
  * intentional.
@@ -656,10 +644,13 @@ ${m.description}`,
   }
 
   if (Array.isArray(m.antiPatterns) && m.antiPatterns.length) {
-    slides.push({
-      kind: 'anti-patterns',
-      caption: `When NOT to reach for ${m.name}.`,
-      md: renderAntiPatternsSlide(m),
+    const pages = antiPatternPages(m.antiPatterns);
+    pages.forEach((page, i) => {
+      slides.push({
+        kind: i ? `anti-patterns:${i + 1}` : 'anti-patterns',
+        caption: `When NOT to reach for ${m.name}.`,
+        md: renderAntiPatternsSlide(m, page, i, pages.length),
+      });
     });
   }
 
@@ -699,17 +690,49 @@ function injectFooter(slide, footer) {
   );
 }
 
-function renderAntiPatternsSlide(m) {
-  // Use `cards-stack compact` for the anti-patterns meta-slide. Each
+/**
+ * The anti-patterns, packed onto as few slides as fit at BODY size: greedy, in manifest order,
+ * a new slide once the next card would take the slide past ANTI_PATTERN_WORDS_PER_SLIDE words
+ * (title + body), and never more than three cards. A card longer than the budget gets a slide
+ * to itself.
+ *
+ * WHY A BUDGET AND NOT `compact`. The slide used to be one `cards-stack compact` slide, and
+ * cards-stack's `compact` dropped the card text to `--fs-body-compact` to fit four cards. A
+ * modifier may not change a type role's size (engineering/typography.md §7, "One size across
+ * modifiers"), so the shrink is gone; at body size 19 of the 71 generated slides of this kind clipped.
+ * 100 is measured, not chosen: every component's anti-patterns rendered this way at a wide
+ * @size clip on 0 of 108 slides, where 110 clips 2 and 130 clips 6
+ * (engineering/decisions/2026-09-25-font-scale-fit.md, Amendment 2026-09-27 (2)).
+ */
+const ANTI_PATTERN_WORDS_PER_SLIDE = 100;
+const ANTI_PATTERN_CARDS_PER_SLIDE = 3;
+function antiPatternPages(antiPatterns) {
+  const words = (p) => `${p.title} ${p.body}`.split(/\s+/).filter(Boolean).length;
+  const pages = [[]];
+  let sum = 0;
+  for (const p of antiPatterns) {
+    const w = words(p);
+    const page = pages[pages.length - 1];
+    if (page.length && (sum + w > ANTI_PATTERN_WORDS_PER_SLIDE || page.length >= ANTI_PATTERN_CARDS_PER_SLIDE)) {
+      pages.push([]);
+      sum = 0;
+    }
+    pages[pages.length - 1].push(p);
+    sum += w;
+  }
+  return pages;
+}
+
+function renderAntiPatternsSlide(m, page = m.antiPatterns, index = 0, count = 1) {
+  // Use `cards-stack` for the anti-patterns meta-slide (paged by antiPatternPages above). Each
   // anti-pattern is a title + body card, authored with the HARD RULE #5
   // nested contract (`- Title` / `  - body`) so the body renders as prose
   // and any inline code in it stays inline code — NOT promoted to a status
   // pill (the failure mode that ruled out cards-grid, whose title-trailing
-  // `code` becomes a pill). `compact` keeps the 4-item components (the
-  // catalog max) inside the frame while the 3-item norm still breathes.
+  // `code` becomes a pill).
   // Full-width stacked cards read as a cautionary ledger; the old `list`
   // register laid each <li> out as flex, so an inline-code body shattered
-  // into scattered chips and overflowed. Slide count is unchanged.
+  // into scattered chips and overflowed.
   //
   // Titles are stripped of backticks: cards-stack promotes a `code` span on
   // the title line to a right-anchored pill (no :last-child guard), which
@@ -718,17 +741,16 @@ function renderAntiPatternsSlide(m) {
   // title line, matching the old format's inline-code resilience. No shipping
   // manifest has a code-bearing title today; this keeps a future one safe.
   //
-  // `cards-stretch`: these are dense prose cards, and filling the stage is the
-  // composition they were designed in. cards-stack's register default is
-  // `center` (#2317), which sizes each card to its text; on the one gallery
-  // whose anti-patterns overrun the stage (kpi) that redistributed the
-  // overflow into visibly clipped lines. Stretch keeps every gallery's slide
-  // exactly as it rendered before the register reached cards-stack.
-  const items = m.antiPatterns.map(
+  // No `cards-stretch`: the register default (`center`, #2317) sizes each card to its text.
+  // Stretch was kept while one slide held every anti-pattern at `compact` size, because on
+  // kpi `center` turned an overrun into visibly clipped lines. Paged by antiPatternPages,
+  // no slide overruns, and a stretched lone card filled the whole stage with empty space.
+  const items = page.map(
     (p) => `- ${p.title.replace(/`/g, '')}\n  - ${escapeDeckMarkers(p.body)}`
   );
-  return `<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · ${m.name}" -->
+  const part = count > 1 ? ` · ${index + 1} of ${count}` : '';
+  return `<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · ${m.name}${part}" -->
 
 ## When NOT to reach for ${m.name}.
 
@@ -920,6 +942,8 @@ module.exports = {
   renderDocs,
   renderGallery,
   galleryPlan,
+  antiPatternPages,
+  ANTI_PATTERN_WORDS_PER_SLIDE,
   stressDocOf,
   injectFooter,
   expectedGallerySlideCount,

@@ -172,5 +172,8 @@
       "note": "Past six slices the labels crowd the wedges at any pane size. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
     },
     "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   }
 }

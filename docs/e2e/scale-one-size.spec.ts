@@ -13,6 +13,8 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 //   2. trimming that slide gives every slide 1.3x back — so a green run cannot come from the
 //      deck simply never scaling;
 //   3. a deck with no scale is never capped.
+// One more arm, added with per-venue budgets (#2399):
+//   4. the Studio's own lint warns on a slide past its venue budget and names the fix.
 
 const step = (n: number) => `${n}. Step ${n}\n   - Reads the ticket, plans the change, and writes down why before anyone asks.\n`;
 const deck = (steps: number, venue = 'venue: conference\n') =>
@@ -135,4 +137,24 @@ test('the measure reads the deck it was asked about, not the one its frame held 
 	await expect
 		.poll(async () => await shown(live(page)), { ...opts, message: "the fitting deck must not keep the capped deck's cap" })
 		.toEqual(expect.objectContaining({ scale: '1.3', cap: null }));
+});
+
+test('the Studio lint warns on a slide past its venue budget, and names the fix', async ({ page }) => {
+	test.setTimeout(90_000);
+	await gotoStudio(page);
+	// Five steps of ~13 words: list-steps holds 4 at conference (its venueCapacity) and 5 at
+	// the designed size (its hard), so this is `capacity-scale`, a warning under a venue.
+	await setEditorContent(page, deck(5));
+	const squiggle = page.locator('.cm-content .cm-lintRange-warning').first();
+	await expect(squiggle).toBeVisible({ timeout: 20_000 });
+	await squiggle.hover();
+	const tip = page.locator('.cm-tooltip-lint');
+	await expect(tip).toContainText('at 1.3x', { timeout: 10_000 });
+	await expect(tip).toContainText('holds about 4');
+	await expect(tip).toContainText('Fix:');
+	await expect(tip).toContainText('keep 4');
+
+	// The same deck with no venue: no budget to be past, so no warning.
+	await setEditorContent(page, deck(5, ''));
+	await expect(page.locator('.cm-content .cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
 });
