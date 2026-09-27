@@ -57,6 +57,7 @@ import {
 import remoteRef from '../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
+import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
@@ -385,7 +386,8 @@ export function buildSrcdoc({
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
 	// (drawing-board-export.js); the in-repo renderDeck path also pre-sanitizes
 	// for its innerHTML patch, so this is a no-op there.
-	html = sanitizeSlideHtml(remoteRef.blockWebImages(html, webOrigins).html);
+	const web = remoteRef.blockWebImages(html, webOrigins);
+	html = sanitizeSlideHtml(web.html);
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;
 	const bg = background ? background(mode) : (mode === 'dark' ? DARK_BG : LIGHT_BG);
@@ -432,7 +434,7 @@ export function buildSrcdoc({
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
-		(csp ? previewCspMeta({ katexUrl, webOrigins }) : '') +
+		(csp ? previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) : '') +
 		// BOTH conditions, and the URL half is the one that was missing. The content gate
 		// alone emitted `<link href="">` when a math deck met a caller that passed no URL —
 		// harmless in Chromium (measured: no request), but it made the note's stated safety
@@ -623,7 +625,8 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	// — locked by deck-preview.sanitize-cache.test.ts.
 	// Web images the reader has not allowed become placeholders on BOTH paths (buildSrcdoc does
 	// it for the write path; the patch path below would otherwise swap in the raw address).
-	html = remoteRef.blockWebImages(html, opts.webOrigins || []).html;
+	const web = remoteRef.blockWebImages(html, opts.webOrigins || []);
+	html = web.html;
 	const rawSections = splitSections(html);
 	const prevCache = st.sanitizeCache instanceof Map ? st.sanitizeCache : null;
 	const nextCache = new Map();
@@ -650,8 +653,10 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		// newly-typed branching machine without its engine — laid out as a column, with
 		// nothing to say why.
 		(sections.some((s) => s.indexOf('data-sc-transitions') !== -1) ? 'D' : '') +
-		// The allowed web origins live in the policy in <head>, which a patch never rewrites.
-		`|W:${[...(opts.webOrigins || [])].sort().join(' ')}`;
+		// The web half of the policy lives in <head>, which a patch never rewrites: the allowed
+		// origins AND whether each keeps its subdomain wildcard, which an edit that adds a refused
+		// subdomain reference takes away (lib/core/subresource-csp.mjs `webPolicySig`).
+		`|W:${webPolicySig([...(opts.webOrigins || [])].sort(), web.blocked)}`;
 	const canPatch =
 		!fresh &&
 		contentSig === st.frameSig &&

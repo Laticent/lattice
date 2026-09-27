@@ -3,3 +3,4 @@
 - Tapping a video's poster in the Studio preview plays the clip again, on desktop and touch. The preview's gesture layer had been swallowing the tap.
 - In an exported player, a slide's web link (a video poster, a contact or closing URL) now opens in a new tab. Before, it replaced the player in the same tab and the reader lost the deck.
 - A video slide with a light poster no longer shows a near-black tile while the poster loads on a light slide: the tile under a loading poster is the slide's own surface. The no-poster placeholder keeps its dark video tile.
+- An image from a site you allowed in the Studio no longer stays blank when that site redirects to one of its own subdomains (picsum.photos to fastly.picsum.photos, for example). A redirect to an unrelated site is still blocked.

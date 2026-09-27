@@ -26,6 +26,7 @@ import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
+import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
 import {
 	alignmentFailure,
@@ -1023,6 +1024,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// read by `srcdoc()` for the frame's policy. Part of the frame sig, so a change rewrites the
 	// frame: the policy lives in <head>, which the patch and restyle paths never touch.
 	let webAllow: string[] = [];
+	let webBlocked: Array<{ origin: string }> = [];
 
 	// PREVIEW FONTS ARE THE THEME'S, not a second supply (2026-08-17 loading audit §3, §9.5).
 	// This module used to prepend `previewFontFaceCss()` — 17 @font-face rules pointing at
@@ -1146,7 +1148,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			'><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
-			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow }) +
+			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked }) +
 			// THREE elements in cascade order — frame box, then the engine sheet (shared across
 			// every frame that wants the same bytes), then the author's CSS. Each carries an id so
 			// the RESTYLE fast path below can update it in place without rewriting the srcdoc.
@@ -1910,8 +1912,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const web = remoteRef.blockWebImages(out.html, allow);
 				out = { ...out, html: web.html };
 				webAllow = allow;
+				// The theme and author CSS reach the frame beside the markup, so their web references
+				// count too: the restyle path swaps that <style> without touching <head>.
+				webBlocked = [...web.blocked, ...remoteRef.webRefsInCss(extraCss || '', extra?.css || '')];
 				const webImagesBlocked = web.blocked.length;
-				const webSig = allow.join(' ');
+				// The policy's whole web half, not just the origins: an edit that adds a refused
+				// subdomain reference takes that host's wildcard away, and the resident <head> can only
+				// change on a full write (lib/core/subresource-csp.mjs `webPolicySig`).
+				const webSig = webPolicySig(allow, webBlocked);
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}`;
 				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
 				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.

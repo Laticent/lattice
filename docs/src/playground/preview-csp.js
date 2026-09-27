@@ -69,8 +69,10 @@ import { subresourceCspMeta } from '../../../lib/core/subresource-csp.mjs';
  *   pointing at a different mirror must not silently lose its math glyphs.
  * @param {string[]} [opts.webOrigins] web origins the reader chose to load images from for this
  *   deck (trio follow-up 11); see `subresourceCspPolicy`.
+ * @param {Array<{origin: string}>} [opts.blocked] this render's refused web references, so a
+ *   host whose subdomain the deck itself references keeps no wildcard; see `subresourceCspPolicy`.
  * @returns {string}
  */
-export function previewCspMeta({ katexUrl = '', webOrigins = [] } = {}) {
-	return subresourceCspMeta({ katexUrl, webOrigins });
+export function previewCspMeta({ katexUrl = '', webOrigins = [], blocked = [] } = {}) {
+	return subresourceCspMeta({ katexUrl, webOrigins, blocked });
 }

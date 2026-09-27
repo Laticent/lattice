@@ -81,6 +81,25 @@ summary: >
 > with a plain image, an escaped `url()` and an `image-set()`: 0 requests while blocked, in the
 > preview and in a PDF export, and requests after "Load them" (the control). What stays open is
 > in `followups.d/2336-p3-web-images-followups.md`.
+>
+> **Amended 2026-09-27 (#2412): an allowed site's own subdomains are allowed with it.** The
+> policy checks every redirect hop, and image hosts answer from a CDN subdomain:
+> `https://picsum.photos/…` 302s to `https://fastly.picsum.photos/…`. The reader tapped "Load
+> them", the strip said "Showing images from picsum.photos", and the frame refused the second hop,
+> which painted exactly like a broken image. `subresourceCspPolicy` now adds `https://*.host` for
+> each allowed origin. It widens nothing further: a subdomain belongs to the site the reader
+> chose, so no new party is named. The markup rewrite still matches the EXACT origin, so a
+> subdomain written into the deck is still placeholdered until it is allowed. Three spellings the
+> rewrite cannot reach (an escaped `url()`, an `image-set()` string, a Mermaid `img:`) are refused
+> only by the policy, so a host with a refused reference anywhere below it gets NO wildcard. The
+> test is by host, never scheme, since an `http:` source admits `https:`. `blocked` is passed by
+> all three preview builders and includes the theme and author stylesheets (`webRefsInCss`),
+> which reach the frame beside the markup. The patch paths key on `webPolicySig`, so an edit
+> that adds such a reference forces a full rewrite. The checker found that hole in the first cut; the widening now
+> covers only where an allowed server redirects. A redirect to an unrelated domain (a short link, a file
+> host, a sibling such as `source.unsplash.com` to `images.unsplash.com`) is still refused, on
+> purpose: the target cannot be read in advance without CORS, and a "registrable domain" rule
+> would need the public-suffix list, since `*.github.io` would admit every other user's site.
 
 **Date:** 2026-09-01 · **Follows:** `2026-09-01-preview-remote-subresource-posture.md` · **Status:** decided, implemented
 
