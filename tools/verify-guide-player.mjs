@@ -21,7 +21,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { chromium } from '../docs/node_modules/@playwright/test/index.mjs'; // the docs workspace owns Playwright
+import { chromium, devices, webkit } from '../docs/node_modules/@playwright/test/index.mjs'; // the docs workspace owns Playwright
 
 const require = createRequire(import.meta.url);
 const { buildPlayerHtml } = require('../lib/export/html-player.js');
@@ -29,8 +29,11 @@ const { buildTrack } = require('@laticent/cadenza');
 const { narrateChart } = require('../lib/core/chart-narration.js');
 const { slideToSpeech } = require('../lib/core/slide-speech.js');
 
-const DECK = process.argv[2] || 'examples/delivery-spark.md';
-const OUT = path.resolve('.scratch/out/guide-player');
+// `--webkit` plays it in WebKit at an iPhone 15 Pro (touch, 393 px, iOS user agent) instead of desktop
+// Chromium — the engine a board member's phone runs. WebKit here is Playwright's build, not iOS Safari.
+const WEBKIT = process.argv.includes('--webkit');
+const DECK = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'examples/delivery-spark.md';
+const OUT = path.resolve(WEBKIT ? '.scratch/out/guide-player-webkit' : '.scratch/out/guide-player');
 mkdirSync(OUT, { recursive: true });
 
 /** A real, decodable WAV of `ms` milliseconds — a quiet tone, 8 kHz mono 16-bit. */
@@ -100,14 +103,19 @@ check('a delivery: deck ships the Guide and its marker', guided.html.includes('_
 check('the focus rules ship in the export', /\[data-guide\][^{]*\.lat-guide-dim/.test(guided.html));
 console.log(`      size: the Guide adds ${((guided.html.length - plain.html.length) / 1024).toFixed(1)} KB to this export`);
 
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-await ctx.setOffline(true);
+const browser = await (WEBKIT ? webkit : chromium).launch();
+const ctx = await browser.newContext(WEBKIT ? { ...devices['iPhone 15 Pro'] } : { viewport: { width: 1280, height: 800 } });
+// Offline is the export's contract. Chromium enforces it; WebKit's offline mode refuses file:// pages
+// outright (an internal error), so there any request the page makes is recorded as a problem instead.
+if (!WEBKIT) await ctx.setOffline(true);
 
 /** Open a player and start a focus log: every change of the focused element, with the slide. */
 async function open(file, problems) {
 	const page = await ctx.newPage();
 	page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+	page.on('request', (r) => {
+		if (!r.url().startsWith('file:') && !r.url().startsWith('data:')) problems.push(`request: ${r.url().slice(0, 80)}`);
+	});
 	page.on('console', (m) => {
 		if (m.type() === 'error' || /Content Security Policy|Refused to/i.test(m.text())) problems.push(`console: ${m.text()}`);
 	});
@@ -184,7 +192,9 @@ for (const mode of ['light', 'dark']) {
 	await goTo(page, BULLETS);
 	await page.click('#lp-play');
 	await page.waitForFunction(() => document.querySelector('.lp-frame.lp-active li.lat-guide-undim') && document.querySelector('.lp-frame.lp-active li.lat-guide-dim'), null, { timeout: 20000 });
-	await page.waitForTimeout(450); // let the crossfade settle
+	// Wait for the crossfade to SETTLE on the preset's depth rather than a fixed sleep: a cold page's
+	// first transition starts a frame or two later in WebKit (measured: 0.45 reached at 200-300 ms).
+	await page.waitForFunction((sel) => [...document.querySelectorAll(sel)].some((e) => Math.abs(Number(getComputedStyle(e).opacity) - 0.45) < 0.01), '.lp-frame.lp-active li.lat-guide-dim', { timeout: 3000 }).catch(() => {});
 	const bullet = await page.evaluate(() => {
 		const on = document.querySelector('.lp-frame.lp-active li.lat-guide-undim');
 		const peer = document.querySelector('.lp-frame.lp-active li.lat-guide-dim');
@@ -209,7 +219,9 @@ for (const mode of ['light', 'dark']) {
 	check(`[${mode}] moving to a new slide leaves no focus behind`, (await page.evaluate(() => document.querySelectorAll('.lat-guide-undim, .lat-guide-dim').length)) === 0);
 	await page.click('#lp-play');
 	await page.waitForFunction(() => document.querySelector('.lp-frame.lp-active [data-mark].lat-guide-undim'), null, { timeout: 30000 });
-	await page.waitForTimeout(450);
+	// Wait for the crossfade to SETTLE on the preset's depth rather than a fixed sleep: a cold page's
+	// first transition starts a frame or two later in WebKit (measured: 0.45 reached at 200-300 ms).
+	await page.waitForFunction((sel) => [...document.querySelectorAll(sel)].some((e) => Math.abs(Number(getComputedStyle(e).opacity) - 0.45) < 0.01), '.lp-frame.lp-active [data-mark].lat-guide-dim', { timeout: 3000 }).catch(() => {});
 	const bar = await page.evaluate(() => {
 		const on = document.querySelector('.lp-frame.lp-active [data-mark].lat-guide-undim');
 		const peers = [...document.querySelectorAll('.lp-frame.lp-active [data-mark].lat-guide-dim')];
