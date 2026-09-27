@@ -48,6 +48,10 @@ export interface LatticePlaygroundEngine {
 	 *  at landscape. `changed` counts the authored slides that split. Optional, because an engine
 	 *  bundle older than this feature does not carry it. */
 	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number }) => { html: string; changed: number; applies?: boolean };
+	/** Author CSS the host appends after the theme, widened so its `section.<component>` rules
+	 *  reach a pane of the rendered `html` (lib/core/pane-css.js). Unchanged without a pane.
+	 *  Optional, because an engine bundle older than this does not carry it. */
+	widenPaneCss?: (css: string, html: string) => string;
 	languages?: {
 		has: (name: string) => boolean;
 		list: () => string[];

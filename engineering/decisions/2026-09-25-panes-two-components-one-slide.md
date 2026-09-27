@@ -248,8 +248,10 @@ decide layout and the gallery can cover every step. An out-of-range ratio falls 
    moves. Progress bars and timeline dots thin with the pane; that is the cost of keeping the
    container the budgets were measured in.
 3. **Embed** (`panes.embed`). The pane section's body moves into
-   `<lat-pane class="<component classes>" data-family=…>` inside the host's stage. The pane's
-   stand-in masthead is dropped: the host owns the only title. The placeholder carries a nonce
+   `<lat-pane class="<component classes>" data-family=…>` inside the host's stage. A pane
+   renders with no heading of its own (the host owns the only title): the chart family's wrap
+   frames a pane's figure headless (`extractChartBody`, keyed on the pane canvas), so no
+   stand-in heading is written, and any masthead a pane still grows is dropped. The placeholder carries a nonce
    hashed from the source, so author HTML shaped like one is never filled.
 
 ### 2.1 Why the component CSS needs no copy — and the one thing it does need
@@ -614,24 +616,69 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    the HTML-drawn charts' reflow in a small box; a TYPE FLOOR probe that flags an unreadable chart
    pane; and `tools/calibrate-capacity.js --pane` measuring a chart's ceiling, so the chart budgets
    can turn `measured` instead of editorial.
-3. **Author and package CSS in a pane** (`2376-p2-author-css-…`). A panes deck widens the shipped
-   sheet, the theme and the CLI's front-matter `style:`; installed packages and the Studio's
-   `extraCss` are not widened yet, so their `section.<component>` rules skip a pane.
-4. **Audit the runtime's section-keyed passes** (`2376-p2-audit-…`) — about 17 in `lib/runtime`,
-   plus sketch's rough-ink pass; Mermaid in a pane is untested.
+3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
+   panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
+   front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the
+   CLI embeds, a block an author wrote: `widenStyleBlocks`, which re-sanitizes what it writes,
+   HARD RULE #22), and the Studio's `extraCss` (saved components, a saved finish: the engine
+   bundle's `widenPaneCss`, before `styleElementText`). Two gaps closed with it: `pane-css.js`
+   knew only the components this repo ships, so a package's `section.my-card li` was never
+   twinned — each pane's own component (the first class of its `<lat-pane>`, `paneComponents`)
+   now counts; and a component used only in a pane was not "used", so its CSS never shipped
+   (`referencedComponents` and the Studio's saved-component set read pane markers now).
+4. **Audit the runtime's section-keyed passes** — **closed** (the pane-follow-ups PR). Every pass
+   in `lib/runtime/index.js` and `fluid-view-policy.js` that keys on a slide's component was
+   checked against a rendered pane. The component mirrors (verdict-grid and pricing badges,
+   obligation-matrix states, checklist states, slot labels, table row labels, inline pills, prose
+   code, matrix-grid cells, glossary, the shared transformer registry) miss a pane and need not
+   reach it: `renderPane` runs the same transforms at render time, confirmed in the output
+   (`span.badge`, `li.state`, `lat-row-label`, `li > strong`). Logo, backdrop, form stamp,
+   orientation, tiles and the fluid-view clean-up are slide-level. The overflow watcher already
+   reads a pane's stage. Three did need a pane, and got one:
+   - **Sketch ink.** `rough-ink.js` enrolled only a slide's own table, ledger or principles list,
+     so a table pane was never inked — and once the host's masthead ink landed, the host's
+     handover rules (`base.sketch.css`, descendant `table`) took the pane table's fallback frame
+     away: no frame and no rules at all. The structures gained pane twins (the overlay still
+     lands on the host section) and the handover rules stop at a pane and key on the pane's own
+     component. `examples/panes-sketch.md`, CLI PDF and Studio.
+   - **Fix-Me drill-down** read the host's classes, found no component, and so could never pick an
+     item inside a pane; it reads the pane's component now. Not shown to change a tag on a real
+     surface: in the `--fluid --overflow-marker=author` viewer no list or table picked an item on
+     an ordinary slide either, and that viewer tags the WRONG pane of an overflowing panes slide
+     (pre-existing, `2376-p3-fluid-viewer-pane-overflow.md`).
+   - **Mermaid** in a pane renders on the CLI and in the Studio and fills the pane box (measured
+     544×438 in a 544×438 pane), but lays out for the HOST's orientation; that is filed with the
+     chart sizing item below.
 5. **A shape family for stacked bands** (`2376-p3-band-…`): a line chart letterboxes, stat tiles
    need ~45% of the stage.
 6. **The remaining surfaces** (`2376-p3-panes-on-…`): PPTX, image-set, player, the Studio at 820 and
    390px and its slide strip ("text"), and Export-to-Marp, which cannot carve and should degrade to
    the two panes' content, stacked.
-7. **Retire the chart stand-in heading** (`2376-p3-retire-…`).
-8. **The Studio's slide index and a split panes slide** (`2376-p2-studio-index-…`). The Studio
-   counts source chunks (`docs/src/components/studio/lint.ts` `splitSlides`), and the engine
-   renders a split panes slide as two, so after one the caret and the rail are a slide apart and
-   the preview takes its alignment fallback (the shown slide alone), as it does for
-   `_focusSteps` and `split: headings`. It fails closed. Cutting `splitSlides` there is not the
-   fix: the chunks also feed write-back (`deck-ops.ts`, `motion-sheet.ts`), which would write the
-   cut into the author's source.
+7. **Retire the chart stand-in heading** — **closed** (the pane-follow-ups PR). The chart wrap
+   accepts a heading-less body when the section is a pane (`data-pane-view`), so
+   `renderPane` writes no `## \u200b` and `dropMasthead` lost its zero-width-h2 branch. An
+   ordinary chart slide with no heading still renders untransformed. Measured render-identical:
+   `examples/panes.md` byte-identical at 16:9, 1:1 and 9:16, and every chart layout in pane A and
+   pane B with eight lead/coda variants (368 renders) identical up to a newline between two block
+   elements. Found on the way and left as it was (a visible change, owed its own deck): a chart's
+   wrap keeps only the FIRST paragraph before the figure, as its subtitle, and drops any second
+   one — on a slide and in a pane alike (`2376-p2-size-chart-viewbox-to-the-pane.md`).
+8. **The Studio's slide index and a split panes slide** — **closed** (the pane-follow-ups PR). The
+   Studio still counts source chunks (`docs/src/components/studio/lint.ts` `splitSlides`), and
+   those chunks are still never cut: they feed write-back (`deck-ops.ts`, `motion-sheet.ts`), so a
+   cut would land in the author's source. Instead `docs/src/components/studio/pane-pages.ts` maps
+   each chunk to the rendered slides it becomes, from `lintCore.paneSplitLine` (the linter's
+   reading of the same `arrangePanes` call). The editor preview narrows the whole-deck render
+   through that map, so the slide after a split shows with the number the PDF gives it, and a
+   split panes slide is shown one page at a time like a structural split: the caret's pane picks
+   the page, ‹ › step through it, and the pill reads "3 · 2 of 2". The preview's supplied position
+   (`supplyablePosition`) offsets through the map, and refuses on a panes deck when a caller has
+   none; the Studio and the equivalence sweep hand it for every panes deck, all ones when nothing
+   splits, so an unsplit 16:9 panes deck keeps its position. Present and the narration bake fold the split slide's two projected scripts back onto
+   the one source slide (`foldPaneSplits`), so one split no longer costs the deck its projected
+   narration. Pinned by `docs/e2e/pane-split-index.spec.ts` at 820 and 390px, on the real Studio.
+   Still open, and filed with the surfaces item above: Present shows a split panes slide's first
+   pane only, because its own navigation has no page step.
 9. **Authoring surfaces and the spec** — the Studio's insert menu and Compose editor, and the LFM
    spec (`docs/src/content/docs/spec/lfm.md`) — once the syntax is no longer experimental.
 

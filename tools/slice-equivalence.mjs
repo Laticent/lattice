@@ -117,6 +117,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import lintCore from '../lib/authoring/lint-core.js';
 import {
 	classifyDivergence,
 	frontMatterOf,
@@ -238,6 +239,9 @@ export function measure() {
 		}
 
 		measured += 1;
+		// The same map the Studio hands over (pane-pages.ts `paneSplitCounts`): only for a deck that
+		// carries a pane marker, all ones when nothing in it splits.
+		const paneCounts = /<!--\s*pane\s*:/.test(src) ? chunks.map((c) => (lintCore.paneSplitLine(c, src) >= 0 ? 2 : 1)) : undefined;
 		chunks.forEach((chunk, k) => {
 			const prelude = synthesizePrelude(chunks, k, VOCAB);
 			if (prelude) preludes += 1;
@@ -246,7 +250,12 @@ export function measure() {
 			// arguments: the whole deck, the shown slide's index, and the caller's slide count. Break
 			// it and this sweep renders every slice back at "1 of 1", which — with `pagination` and
 			// `rail` no longer neutralized — is a rate collapse rather than a 0.0-point no-op.
-			const page = supplyablePosition(src, k, chunks.length);
+			// A panes deck is refused a position unless the caller says how many slides each chunk
+			// renders as (a split panes slide is two). The Studio hands over its map
+			// (docs/src/components/studio/pane-pages.ts); the sweep builds the same one from the same
+			// rule, `lintCore.paneSplitLine`, so a panes deck is measured WITH a position, as the
+			// Studio shows it, rather than joining the refusals.
+			const page = supplyablePosition(src, k, chunks.length, paneCounts);
 			if (page) positions += 1;
 			else refusalsByDeck.set(path.basename(file), (refusalsByDeck.get(path.basename(file)) || 0) + 1);
 			let got;

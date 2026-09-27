@@ -115,8 +115,9 @@ number; only the body splits. Mark where each component's body begins:
 
 Known limits while it is experimental: a Mermaid diagram scales into its pane, so it draws small
 in a narrow one and nothing warns; the pane's size is modelled from measurements of the slide's
-chrome (a theme with a taller masthead can leave a chart pane a little tall); an installed package's CSS and the
-Studio's extra CSS do not reach a pane yet (a deck's front-matter `style:` does, in the CLI export). Demo: `examples/panes.md`.
+chrome (a theme with a taller masthead can leave a chart pane a little tall). CSS written for a component reaches
+a pane of it wherever it comes from: the theme, a front-matter `style:`, an installed package, a `<style>` block in
+the deck, and the Studio's saved components and finishes. Demo: `examples/panes.md`.
 Design, audit, the measured budgets and every open gap:
 `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
 

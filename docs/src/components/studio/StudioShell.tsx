@@ -439,6 +439,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// identity, and whether that deck's box can split at all. Before the first report (the engine
 	// still loading, or nothing rendering) no step ever waits: the verbs move as they always did.
 	const reportedRef = React.useRef<{ slide: number; deck: string; canSplit: boolean } | null>(null);
+	// The viewed deck carries panes (pane-pages.ts): a slide in it may be a split panes slide, so
+	// a step into a slide waits for its render as it does on a deck whose box can split.
+	const paneDeckRef = React.useRef(false);
 	// Pages are stepped only while the live preview is on screen: with it collapsed (or on a
 	// phone's Source tab) a step would be invisible, and "next" would spend the hidden pages
 	// before it moved the editor on.
@@ -1222,13 +1225,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// deck that renders a saved component here keeps its styling on the recipient's
 	// machine. One derivation feeds both, so preview and export can't disagree about
 	// which components the deck uses.
+	// PANES support (pane-pages.ts) loads only for a deck that carries a pane marker: the Studio's
+	// eager bundle is budgeted (docs/route-budget.json), and every other deck needs none of it.
+	// Until it lands, a panes deck previews as it did before the map existed (the slide alone,
+	// fail-closed) — one render at most.
+	const hasPaneMarker = source.includes('pane:');
+	const [paneMod, setPaneMod] = React.useState<typeof import('./pane-pages') | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `deck.id` is a retry trigger, not a value the body reads.
+	React.useEffect(() => {
+		if (!hasPaneMarker || paneMod) return;
+		let live = true;
+		// A failed load (a network blip, a chunk a deploy rotated away) is retried on the next deck,
+		// not left null for the rest of the session: `deck.id` is a dependency for that reason.
+		import('./pane-pages').then((m) => { if (live) setPaneMod(m); }).catch(() => {});
+		return () => { live = false; };
+	}, [hasPaneMarker, paneMod, deck.id]);
 	const usedLocalComponents = React.useMemo(() => {
 		if (!localComponents.length) return [];
-		const used = new Set(usedComponents(source));
+		// A component used only in a pane counts: its CSS must reach the pane (pane-pages.ts).
+		const used = new Set([...usedComponents(source), ...(paneMod ? paneMod.paneMarkerComponents(source) : [])]);
 		// A record saved under a shipped name before saves were guarded is skipped: its
 		// CSS would restyle the shipped component on every slide that uses it.
 		return localComponents.filter((c) => used.has(c.name) && c.css && !RESERVED_COMPONENT_NAMES.has(c.name)).map((c) => ({ name: c.name, css: c.css }));
-	}, [localComponents, source]);
+	}, [localComponents, source, paneMod]);
 	const usedLocalCss = React.useMemo(() => usedLocalComponents.map((c) => c.css).join('\n\n') || undefined, [usedLocalComponents]);
 	// `validation` is an editor preference (persisted in settings). The deck-level
 	// Look controls (size / page numbers / header+footer) are NOT separate state —
@@ -3246,7 +3265,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// step waits for it (see `waitingStepRef`). A second one while one waits is dropped. Bounded:
 		// past 1.5 s the step goes ahead, so a render that never reports cannot freeze the verbs.
 		const reported = reportedRef.current;
-		if (!resumed && visible && asked && reported?.deck === deckKey && reported.canSplit && reported.slide !== cur && Date.now() - asked.at < 1500) {
+		if (!resumed && visible && asked && reported?.deck === deckKey && (reported.canSplit || paneDeckRef.current) && reported.slide !== cur && Date.now() - asked.at < 1500) {
 			if (!waitingStepRef.current) waitingStepRef.current = { action, opts, slide: cur, deck: deckKey };
 			return;
 		}
@@ -3511,6 +3530,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// deck, where one authored slide becomes several sections and an index cannot name the shown
 	// slide. Then the preview renders this instead: the right slide, honestly numbered 1 of 1.
 	const editorSlideAlone = React.useMemo(() => previewFm + slide, [previewFm, slide]);
+	// THROUGH A SPLIT PANES SLIDE (pane-pages.ts). A panes slide the engine splits renders as one
+	// slide per pane, so the viewed index is no longer the section index after it. The map says how
+	// many rendered slides each viewed slide is; `undefined` for every deck without one, which then
+	// renders exactly as before. The caret's pane picks which page of a split slide the preview
+	// shows, the way the caret picks a structural split's page. Source chunks are untouched: they
+	// feed write-back, so the rail, the caret and lint keep counting the slides the author wrote.
+	const editorPaneCounts = React.useMemo(() => paneMod?.paneSplitCounts(viewSlides, editorSample), [paneMod, viewSlides, editorSample]);
+	paneDeckRef.current = !!editorPaneCounts?.some((c) => c > 1);
+	const editorPanePage = React.useMemo(
+		() => ((editorPaneCounts?.[viewIndex] ?? 1) > 1 ? paneMod?.panePageOfCaret(slide, editorSample, caretText) : undefined),
+		[paneMod, editorPaneCounts, viewIndex, slide, editorSample, caretText],
+	);
 	// THE DECK IDENTITY THE PREVIEW COMPARES, which is the deck AND the reader lens.
 	// `viewSlides` is the lens's set, so the lens is part of what "this deck" means here: two
 	// lenses whose sets differ only AT the shown position would key identically, because the
@@ -4892,7 +4923,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail liveLayout />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>
