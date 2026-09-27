@@ -884,10 +884,11 @@ if (retiredForm.length > RETIRED_FORM_SHOWN) {
 // so, on the same channel and for the same reason as the retired Form opt-outs above.
 // The detector is lint rule 16 (HARD RULE #7); it already stays silent on a slide that
 // uses `[!]` or `[?]`, so a deck written for the six markers is not warned.
-// The rule counts RENDERED slides, heading splits included (lint-core's
-// `headingSubSlides`), so these slide numbers match the PDF.
-const { findMovedEmptyBoxes } = require('./lib/authoring/lint-core');
-const movedBoxes = findMovedEmptyBoxes(md).filter((f) => f.shapeChange);
+// The rule reads the deck with its heading splits baked into `---` (lint-core's
+// `bakeHeadingChunks`, the engine's own `headingSplitPoints`), so each chunk is one RENDERED
+// slide and these slide numbers match the PDF.
+const { findMovedEmptyBoxes, bakeHeadingChunks } = require('./lib/authoring/lint-core');
+const movedBoxes = findMovedEmptyBoxes(bakeHeadingChunks(md)?.baked ?? md).filter((f) => f.shapeChange);
 for (const f of movedBoxes.slice(0, RETIRED_FORM_SHOWN)) {
   console.error(`warning: slide ${f.slide}: ${f.message} ${f.short}`);
 }

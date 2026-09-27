@@ -130,6 +130,9 @@ export function findingsToDiagnostics(doc, findings, opts = {}) {
 		const startLine = clamp(starts[slide] || 1, 1, total);
 		const nextStart = starts[slide + 1] || total + 1;
 		let lineNo = startLine;
+		// A finding on the second slide of a heading-split chunk says where that slide starts
+		// (`chunkLine`), so the search starts there and cannot land on the same text above it.
+		const searchFrom = clamp(startLine + (f.chunkLine || 0), startLine, Math.max(startLine, nextStart - 1));
 		if (f.line) {
 			const raw = String(f.line);
 			const needle = raw.trim();
@@ -146,7 +149,7 @@ export function findingsToDiagnostics(doc, findings, opts = {}) {
 			let verbatim = 0;
 			let exact = 0;
 			let loose = 0;
-			for (let n = startLine; n < nextStart && n <= total; n++) {
+			for (let n = searchFrom; n < nextStart && n <= total; n++) {
 				const text = doc.line(n).text;
 				if (text === raw) {
 					verbatim = n;
