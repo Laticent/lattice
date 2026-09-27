@@ -242,3 +242,14 @@ describe('rough ink reaches a pane', () => {
     assert.equal(doc.querySelectorAll(`${sel('tabular')}, ${sel('principles')}`).length, 0);
   });
 });
+
+describe('an agenda pane keeps its own wave', () => {
+  // Its wave strip is handed over by a rule keyed on the section holding the overlay, which a pane
+  // never is — so inking an agenda pane drew a second "you are here" line over the wave.
+  const { JSDOM } = require('jsdom');
+  const doc = new JSDOM('<section class="sketch lat-pane-host"><div class="cell-stage"><lat-pane class="agenda progress-2 sketch form"><div class="cell-stage"><ol><li>a</li><li>b</li></ol></div></lat-pane></div></section>').window.document;
+  test('the agenda-active entry does not enroll a pane\'s rows', () => {
+    const sel = ROUGH_INK_STRUCTURES.find((s) => s.id === 'agenda-active').sel;
+    assert.equal(doc.querySelectorAll(sel).length, 0);
+  });
+});

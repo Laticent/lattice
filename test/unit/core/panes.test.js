@@ -595,3 +595,9 @@ test('widenStyleBlocks is linear: 20k unclosed <style openers do not rescan the 
 test('a modifier written as a pane\'s component is not a component (its slide rules stay off the pane)', () => {
   assert.deepEqual(paneCss.paneComponents('<lat-pane class="print form"></lat-pane><lat-pane class="finish-halo form"></lat-pane><lat-pane class="my-card form"></lat-pane>'), ['my-card']);
 });
+
+test('widenStyleBlocks slices the document it scans: a length-changing lower-case before a <style> costs nothing', () => {
+  // `'İ'.toLowerCase()` is two code units; offsets from a lower-cased copy shifted every slice.
+  const doc = '<p>İİİİ</p><style>section.list > .cell-stage > ul { a: b }</style><lat-pane class="list form"></lat-pane>';
+  assert.match(paneCss.widenStyleBlocks(doc, ['form', 'list'], ['list']), /<p>İİİİ<\/p><style>section\.list > \.cell-stage > ul, section lat-pane\.list > \.cell-stage > ul\{ a: b \}<\/style>/);
+});

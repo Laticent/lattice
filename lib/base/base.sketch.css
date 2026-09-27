@@ -586,7 +586,8 @@ section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:
  * panes deck's composed sheet carries (lib/core/pane-css.js), so Export-to-Marp and every other
  * deck read this sheet unchanged; a twin cannot express "the HOST holds the overlay and the PANE
  * holds the table". Without a `<lat-pane>` in the document these rules match nothing. (A pane
- * never carries the `principles` modifier, so the principles ledger needs no pane rule.) */
+ * is never ENROLLED as a principles or agenda ledger in lib/core/rough-ink.js, so it keeps its
+ * own CSS fallback and needs no pane rule here.) */
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):has(> svg[data-lattice-rough-ink]) td:not(lat-pane td)::after,
 section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"]):not([data-pane="glossary"])) > .cell-stage > table td::after,
 section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol > li::after,

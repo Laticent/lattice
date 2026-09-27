@@ -1231,12 +1231,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// fail-closed) — one render at most.
 	const hasPaneMarker = source.includes('pane:');
 	const [paneMod, setPaneMod] = React.useState<typeof import('./pane-pages') | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `deck.id` is a retry trigger, not a value the body reads.
 	React.useEffect(() => {
 		if (!hasPaneMarker || paneMod) return;
 		let live = true;
+		// A failed load (a network blip, a chunk a deploy rotated away) is retried on the next deck,
+		// not left null for the rest of the session: `deck.id` is a dependency for that reason.
 		import('./pane-pages').then((m) => { if (live) setPaneMod(m); }).catch(() => {});
 		return () => { live = false; };
-	}, [hasPaneMarker, paneMod]);
+	}, [hasPaneMarker, paneMod, deck.id]);
 	const usedLocalComponents = React.useMemo(() => {
 		if (!localComponents.length) return [];
 		// A component used only in a pane counts: its CSS must reach the pane (pane-pages.ts).
