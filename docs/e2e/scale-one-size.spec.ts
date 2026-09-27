@@ -13,10 +13,8 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 //   2. trimming that slide gives every slide 1.3x back — so a green run cannot come from the
 //      deck simply never scaling;
 //   3. a deck with no scale is never capped.
-// Two more arms, added with per-venue budgets (#2399):
-//   4. a `<!-- stress-slide -->` specimen shows the shared rung like its neighbors and never
-//      sets it (see the arm's note on what it can catch here);
-//   5. the Studio's own lint warns on a slide past its venue budget and names the fix.
+// One more arm, added with per-venue budgets (#2399):
+//   4. the Studio's own lint warns on a slide past its venue budget and names the fix.
 
 const step = (n: number) => `${n}. Step ${n}\n   - Reads the ticket, plans the change, and writes down why before anyone asks.\n`;
 const deck = (steps: number, venue = 'venue: conference\n') =>
@@ -139,50 +137,6 @@ test('the measure reads the deck it was asked about, not the one its frame held 
 	await expect
 		.poll(async () => await shown(live(page)), { ...opts, message: "the fitting deck must not keep the capped deck's cap" })
 		.toEqual(expect.objectContaining({ scale: '1.3', cap: null }));
-});
-
-// A specimen slide: overflows on purpose, so it must never pull the deck down — but it must
-// show the size the rest of the deck settled on. WHAT THIS ARM CAN AND CANNOT CATCH, measured
-// (#2399): the Studio's one-slide frame renders no speaker notes, so the `stress-slide` marker
-// never reaches the kernel here; the kernel sees an ordinary slide that fits at no rung, and
-// rule 2 plus the host cap already put that on the shared rung. So this passes on the pre-#2399
-// kernel too. It pins the Studio's behavior; the fix itself (kernel rule 5, a specimen takes the
-// shared rung) acts where the whole deck is one document — the export and the player — and is
-// pinned by test/unit/core/scale-fit.test.js and the gallery renders in the decision note.
-const specimen = (steps: number) =>
-	`\n---\n\n<!-- _class: list-steps -->\n<!-- stress-slide -->\n\n\`Specimen slide\`\n\n## The ceiling, shown on purpose.\n\n${Array.from({ length: steps }, (_, i) => step(i + 1)).join('')}`;
-
-test('a stress-slide specimen takes the shared rung, and never sets it', async ({ page }) => {
-	test.setTimeout(120_000);
-	await gotoStudio(page);
-	const opts = { timeout: 20_000 };
-
-	// The deck settles at 1x (the binding slide holds six steps); the specimen shows 1x too.
-	await setEditorContent(page, deck(6) + specimen(8));
-	for (const text of ['First slide', 'Specimen slide']) {
-		await cursorTo(page, text);
-		await expect.poll(async () => (await shown(live(page))).scale, { ...opts, message: `${text}: the shared rung` }).toBe('1');
-	}
-	await page.getByRole('button', { name: 'Present', exact: true }).click();
-	const dialog = page.getByRole('dialog', { name: 'Present' });
-	const presented = dialog.getByRole('figure', { name: 'Presented slide' }).frameLocator('iframe');
-	// Present opens on the slide the cursor is in; wait for its counter before deciding to step.
-	await expect(dialog.getByText(/^\d \/ 4$/)).toBeVisible();
-	for (let k = 0; k < 4 && !(await dialog.getByText('4 / 4', { exact: true }).isVisible()); k++) {
-		await dialog.getByRole('button', { name: 'Next slide' }).click();
-	}
-	await expect(dialog.getByText('4 / 4', { exact: true })).toBeVisible();
-	await expect.poll(async () => (await shown(presented)).scale, { ...opts, message: 'Present, the specimen: the shared rung' }).toBe('1');
-	await page.keyboard.press('Escape');
-	await expect(dialog).toBeHidden();
-
-	// Control: every real slide fits 1.3x, so the deck keeps 1.3x — the overfull specimen does
-	// not pull it down, and it shows 1.3x with the rest.
-	await setEditorContent(page, deck(3) + specimen(8));
-	for (const text of ['First slide', 'Specimen slide']) {
-		await cursorTo(page, text);
-		await expect.poll(async () => (await shown(live(page))).scale, { ...opts, message: `${text}: the full scale` }).toBe('1.3');
-	}
 });
 
 test('the Studio lint warns on a slide past its venue budget, and names the fix', async ({ page }) => {
