@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: in-progress
 summary: The plugin system, designed whole and hardened by the adversarial trio before any code. A plugin is a package (`type: "plugin"`) — one folder, one manifest that declares WHAT it contributes and whom it depends on, and role-named modules that say HOW — so the in-tree folder, the exported zip and the Studio record hold the same files. In-tree plugins are resolved at build time into one frozen code registry every render path reads; installed plugins join at render time as an interpreted data layer. Plugins stand alone or declare `requires` / `optional` on others. Math and function-plot are the pilots; Mermaid and the chart family are mapped onto the contract so it is designed for them, not retro-fitted. Reconciles LPM (2026-06-14), the plugin architecture (2026-09-13) and portable packages (2026-09-23), and amends the last one's "no dependency resolver".
 ---
 
 # The plugin system — one package shape, declared dependencies, two registry layers
 
-**Date:** 2026-09-27 · **Decision owner:** Sharmarke · **Status:** proposed; nothing built. §9 holds
-the decisions that are the owner's.
+**Date:** 2026-09-27 · **Decision owner:** Sharmarke · **Status:** in progress — the owner settled §9 on
+2026-09-27; phase A is being built.
 
 **Continues** three notes and replaces none of their shipped parts:
 [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) (**LPM**, the
@@ -46,10 +46,11 @@ The package is the same folder in the repo (`lib/plugins/<name>/`), in a zip and
 because a plugin **is** a portable package — the fifth kind row in the spine that already carries
 themes, components, finishes and motion.
 
-**The pilots are math and function-plot.** Math is the hard shape — syntax on every slide, a sync
-renderer, install options, a CSS and font payload — so it goes first and the host is shaped by
-the hardest case, not the easiest. Function-plot is the other shape — a fence, a browser renderer,
-a library loaded only when used — and it declares a dependency on math (§6 and §9 say how strong).
+**The pilots are math and function-plot, and both stand alone.** Math is the hard shape — syntax
+on every slide, a sync renderer, install options, a CSS and font payload — so it goes first and the
+host is shaped by the hardest case, not the easiest. Function-plot is the other shape — a fence, a
+browser renderer, a library loaded only when used. They share a slide layout, not a dependency
+(§6). The first real dependency edges are the 23 chart kernels on the chart family (§5).
 
 ## 2. What the owner asked for, as testable requirements
 
@@ -189,8 +190,6 @@ Function-plot's manifest as phase B ships it:
   "title": "Function plots",
   "description": "Plot y = f(x), parametric and polar curves from a JSON config fence.",
 
-  "optional": ["math"],                         // §9 decision 2; the phase-B default
-
   "contributes": {
     "fences": {
       "functionplot": { "aliases": [{ "name": "latticeplot", "deprecated": true }], "body": "json" }
@@ -302,7 +301,7 @@ dependent's rule outrank the rule it depends on. So:
 
 ```jsonc
 "requires": ["chart-family"],     // cannot load without it
-"optional": ["math"]              // uses it when present; must work without it
+"optional": ["mermaid"]           // uses it when present; must work without it
 ```
 
 **v1 checks names, presence and cycles — not version ranges.** In-tree plugins ship in lockstep
@@ -321,7 +320,7 @@ valid as "any version", so no v1 manifest changes.
 
 **What "disabled" means.** `createEngine({ math: false })` exists (`lib/engine/index.js:307`) and
 keeps working: it disables the math plugin, which disables every plugin that `requires` math and
-reports a diagnostic, while plugins with `optional: ["math"]` run without it.
+reports a diagnostic, while a plugin that lists math under `optional` runs without it.
 
 **What this costs, against portable-packages §7.** That note declined a resolver because a theme's
 `extends` was the only edge. Plugins add real edges — each chart's kernel and the family, and
@@ -419,7 +418,7 @@ Unchanged from `2026-09-13` §Axis 2, applied per contribution:
 | Channel | May carry | When |
 |---|---|---|
 | **In-tree** (`lib/plugins/`) | every contribution | phase A |
-| **Zip / Studio / AI-generated** (the data layer) | `components` without a transform, `styles`, `diagnostics` | phase E. **Refused:** `payload`, any `exec`, `syntax`, `hydrate` — and every script file by extension, which `lib/packages/read.js:35` already does. `fences` code only per §9 decision 3 |
+| **Zip / Studio / AI-generated** (the data layer) | `components` without a transform, `styles`, `diagnostics` | phase E. **Refused:** `payload`, any `exec`, `syntax`, `hydrate` — and every script file by extension, which `lib/packages/read.js:35` already does. `fences` code through the code-package door (consent + sandbox) once it ships, §9 decision 3 |
 | **npm** (`lattice-plugin-*`, resolved at build time) | every code contribution | phase G, after the `LICENSE-EXCEPTIONS` plugin grant (contribution model, finding 6). Discovery by an explicit list, not by name prefix, so a transitive dependency named `lattice-plugin-*` gets no code into a deck |
 
 **Names.** Shipped plugin names are reserved, per the spine's `<name>-custom` rule. A data-layer
@@ -477,7 +476,7 @@ untouched. `lattice packages check <folder>` runs the schema, the resolver and t
 | Plugin | Contributes | `exec` | Depends on | Moving it deletes |
 |---|---|---|---|---|
 | **math** | `syntax` (`$`, `$$`), `components: [math]`, `styles`, payload (KaTeX CSS, fonts, the browser provider) | parse-time, sync | — | the hand install in `boundary-parser.mjs`, `installMath`'s special case, `ensure-katex.ts`, two of three KaTeX CSS sources |
-| **function-plot** | `fences.functionplot`, `hydrate`, `styles`, payload | `hydrate: browser` | `optional: [math]` (§9) | the second inflater, the fence wrapper, four hand rosters (§3.2), function-plot CSS in the math component |
+| **function-plot** | `fences.functionplot`, `hydrate`, `styles`, payload | `hydrate: browser` | — (§6) | the second inflater, the fence wrapper, four hand rosters (§3.2), function-plot CSS in the math component |
 | **anima** | `fences.anima` | — | — | the last fence wrapper (phase B moves its registration into the fence table; the full move is later) |
 | **mermaid** | `fences.mermaid`, `bake` (the render worker), `hydrate` (the runtime `renderDiagrams`), `styles`, a highlight.js grammar, payload (`mermaid-v11.min.js`, 3.1 MB, `when: used`) | `bake: subprocess`, `hydrate: browser` | — | `mermaidUrl` threaded through 22 files; the capture's hand-named wait |
 | **chart family** | `extensionPoints.kernel`, the chart frame, `styles` | parse-time | — | `KERNEL_BUCKETS` and its mirror `KERNEL_BUCKETS_GATED` |
@@ -500,25 +499,26 @@ The `.katex-error` color (§3.3 defect 4) is fixed in the same phase by passing 
 `errorColor` that resolves through a token — whether KaTeX accepts `var(--…)` there is unverified
 and is the phase's first measurement — and `.math-error`'s dead rule and sanction are deleted.
 
-**Function-plot is the second shape**, and declares its relationship to math. What that
-relationship honestly is:
+**Function-plot stands alone too, and goes second.** The two were thought to be linked because
+they appear together, and they are not: neither library calls the other. On a `math canvas` slide
+the author writes the function twice in two languages — TeX for the equation KaTeX draws,
+function-plot's own calculator notation (`"fn": "1 / (1 + exp(-x))"`) for the curve — and the
+`canvas` variant places them side by side. Panes (`lib/core/panes.js`) let an author put any figure
+beside any equation, so the pairing is a layout, not a relationship. **Owner, 2026-09-27: they are
+independent.**
 
-- Function-plot **works on any slide without math**. Only math's `canvas` variant hosts it.
-- Math's canvas CSS names `.functionplot` (§3.3 defect 5). That knowledge moves into the
-  function-plot plugin, written against a class math's canvas stage owns (`.cell-stage > .figure`
-  or the like), so knowledge flows one way: the guest knows the host, never the reverse.
+What that changes in the code: math's canvas CSS names `.functionplot` (§3.3 defect 5). The
+canvas stage sizes whatever figure it holds, through a class the stage owns, and function-plot's
+own styling moves into its plugin. Neither plugin names the other.
 
-That is an **`optional`** edge. A `requires` edge would be a claim the build can never see fail.
-The first real `requires` edges are the chart kernels on the family (phase F). The resolver's
-failure arms — missing, cycle, disabled dependency — are proven in phase A with synthetic fixture
-plugins, which is exactly what fixtures are for.
+The resolver's failure arms — a missing requirement, a cycle, a disabled dependency — are proven in
+phase A with synthetic fixture plugins, which is what fixtures are for. The first real `requires`
+edges are the chart kernels on the family (phase F).
 
-**Dropped from the first draft: typesetting a plot's title with KaTeX.** The title lives inside
-the fence's JSON, so JSON escapes run before KaTeX sees it: `"$\frac{1}{x}$"` parses to a form feed
-plus `rac{1}{x}`, `\beta` to a backspace plus `eta`, and `\alpha` makes `JSON.parse` throw — the
-red team ran all three. A TeX title needs a carrier outside the JSON (a caption line after the
-fence, say) and is its own visible feature with its own demo deck (HARD RULE #9), if the owner
-wants it (§9 decision 2).
+**Dropped from the first draft: typesetting a plot's title with KaTeX.** It was invented to give the
+pair an edge, and it breaks anyway: the title lives inside the fence's JSON, so JSON escapes run
+before KaTeX sees it. `"$\frac{1}{x}$"` parses to a form feed plus `rac{1}{x}`, `\beta` to a
+backspace plus `eta`, and `\alpha` makes `JSON.parse` throw — the red team ran all three.
 
 ## 7. Order of work
 
@@ -566,22 +566,19 @@ code. What changed because of them:
   tested, on fixtures; three KaTeX CSS sources, not four; `mermaidUrl` in 22 files, not six;
   function-plot's footprint counted (43 files) instead of estimated; the video table is code.
 
-## 9. Decisions for the owner
+## 9. Owner decisions (settled 2026-09-27)
 
-1. **Scope and order**: the lean in-tree core (six contribution points, names-only dependencies,
-   a draft spec), math first, function-plot second, #287 as its own PR. *Recommended.*
-2. **Function-plot's edge to math**: `optional`, with no TeX title in the pilot. *Recommended.*
-   The alternative is to ship the TeX title as a feature — a caption line outside the JSON, rendered
-   through a math service — which makes the edge real and costs a service contribution point, a
-   demo deck and a layout change for titled plots.
-3. **Zip plugins carrying fence code.** The owner already admitted code packages behind consent and
-   the sandbox (portable-packages §9 Q4). A fence renderer is `body → html` — the same shape as a
-   package `transform.js` — so a zip plugin's `fences` could ride that door when it opens, which is
-   the one way an imported plugin can add new vocabulary. `syntax` and `hydrate` stay refused (a
-   parser rule and viewer-page code have no sandbox boundary). *Recommended:* yes, as part of
-   phase E once the code-package door ships.
-4. **Amend portable-packages §7** to admit a build-time resolver over plugin names (§4.5).
-   *Recommended.*
+1. **Scope and order: the lean in-tree core, math first.** Six contribution points, names-only
+   dependencies, a draft spec until Mermaid and the charts run on it; math, then function-plot;
+   #287 as its own PR.
+2. **Math and function-plot are independent.** No edge between them, and no TeX title (§6).
+3. **Zip plugins may carry fence code through the code-package door** once that door ships:
+   consent pinned to the code's hash, then the locked sandbox. A fence renderer is `body → html`,
+   the same shape as a package `transform.js`, so it fits the door the owner already admitted
+   (portable-packages §9 Q4). `syntax` and `hydrate` stay refused: a parser rule and viewer-page
+   code have no sandbox boundary. §4.10's zip row gains this at phase E.
+4. **Portable-packages §7 is amended** to admit a build-time resolver over plugin names (§4.5) —
+   implied by the owner's requirement that plugins may depend on plugins.
 
 ## 10. Non-goals
 
