@@ -36,3 +36,19 @@ describe('slide-notes', () => {
 		expect(getNote('<!-- _class: title -->\n\n# Hi\n\n<!-- remember to smile -->')).toBe('remember to smile');
 	});
 });
+
+describe('a panes slide — its markers are structure, not the note', () => {
+	const PANES = '## Title\n\n<!-- panes: 35/65 -->\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| a |\n|---|\n| 1 |';
+	it('reads no marker as the speaker note', () => {
+		expect(getNote(PANES)).toBe('');
+		expect(getNote(`${PANES}\n\n<!-- note: say the total -->`)).toBe('say the total');
+	});
+	it('setting a note keeps every marker, so the slide stays a panes slide', () => {
+		const out = setNote(PANES, 'say the total');
+		expect(out).toContain('<!-- panes: 35/65 -->');
+		expect(out).toContain('<!-- pane: list -->');
+		expect(out).toContain('<!-- pane: table -->');
+		expect(getNote(out)).toBe('say the total');
+		expect(setNote(out, '')).toContain('<!-- pane: table -->');
+	});
+});

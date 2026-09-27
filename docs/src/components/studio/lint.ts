@@ -104,8 +104,11 @@ export function unknownComponents(src: string, known: Iterable<string>): string[
  *  leaves behind, after which the rail used to name the slide that had just been absorbed.
  *  The kernel resolves it; this only picks the component out of the payload. */
 export function slideClass(slideSrc: string): string {
-	const found = slideClassDirectives(String(slideSrc ?? '')).filter((d) => d?.payload);
-	return found.length ? componentOf(found[found.length - 1].payload) || 'text' : 'text';
+	const src = String(slideSrc ?? '');
+	const found = slideClassDirectives(src).filter((d) => d?.payload);
+	if (found.length) return componentOf(found[found.length - 1].payload) || 'text';
+	// A panes slide (lib/core/pane-spec.js PANE_RE) is two components, neither of them the slide's.
+	return (src.match(/^<!--\s*pane:\s*[a-z][\w-]*\s*-->$/gm) || []).length >= 2 ? 'panes' : 'text';
 }
 
 const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;

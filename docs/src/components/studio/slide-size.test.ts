@@ -36,11 +36,24 @@ describe('sizeFromSource — reads the size: front-matter directive', () => {
 });
 
 describe('sizeRatio — canonical size → aspect', () => {
-	it('covers the named sizes + aliases, case-insensitively, 4k stays 16:9', () => {
+	it('covers the named sizes + aliases, 4k stays 16:9', () => {
 		expect(sizeRatio('square')).toEqual([1, 1]);
 		expect(sizeRatio('standard')).toEqual([4, 3]);
 		expect(sizeRatio('4K')).toEqual([16, 9]);
-		expect(sizeRatio('STORY')).toEqual([9, 16]);
 		expect(sizeRatio('nonsense')).toEqual([16, 9]);
+	});
+
+	it('answers exactly what the engine renders, name for name (lib/engine/sizes.js)', () => {
+		// The engine matches a size name exactly and renders an unknown one at 16:9, so `STORY`,
+		// `Square` and `4:3` are 16:9 slides. A frame drawn at the shape the name suggests left an
+		// empty band beside the slide in the preview and in Present.
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const { SIZES } = require('../../../../lib/engine/sizes.js') as { SIZES: Record<string, { width: string; height: string }> };
+		const reduce = (w: number, h: number) => { const g = (a: number, b: number): number => (b ? g(b, a % b) : a); const d = g(w, h); return [w / d, h / d]; };
+		for (const [name, geo] of Object.entries(SIZES)) {
+			const [w, h] = sizeRatio(name);
+			expect({ name, ratio: reduce(w, h) }).toEqual({ name, ratio: reduce(parseFloat(geo.width), parseFloat(geo.height)) });
+		}
+		for (const name of ['STORY', 'Square', '4:3']) expect(sizeRatio(name)).toEqual([16, 9]);
 	});
 });

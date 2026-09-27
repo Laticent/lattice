@@ -13,7 +13,7 @@ import { PresentOverlay } from './PresentOverlay';
 //
 // The rule: the card must NEVER be a stretch target. A stretched flex item gets a
 // DEFINITE cross size, and a definite height beats `aspect-ratio` per spec — so
-// `aspect-video` is silently ignored wherever the sizer's own height resolves
+// the card's `aspect-ratio` is silently ignored wherever the sizer's own height resolves
 // definite, and the slide grows out of its row, over the header and under the
 // caption crawl. `items-center` on the sizer removes that path on every engine.
 vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp" /> }));
@@ -34,7 +34,7 @@ describe('Present — slide box', () => {
 		// (passing while the real sizer goes unguarded). The marker used to be the inline
 		// `max-width` the ResizeObserver wrote; the sizing is pure CSS now, so the
 		// container declaration is what identifies it.
-		const sizer = [...dialog.querySelectorAll<HTMLElement>('[class*="container-type:size"]')].find((el) => el.querySelector('.aspect-video'));
+		const sizer = [...dialog.querySelectorAll<HTMLElement>('[class*="container-type:size"]')].find((el) => el.querySelector('[data-slide-frame]'));
 		expect(sizer).toBeTruthy();
 		// The card must be CENTERED in it, never stretched to its cross size.
 		expect(sizer?.className).toMatch(/\bitems-center\b/);
@@ -42,17 +42,27 @@ describe('Present — slide box', () => {
 		// stretches to the row's content box. Without this the card's height term is
 		// meaningless and it falls back to being width-bound everywhere.
 		expect(sizer?.className).toMatch(/\bself-stretch\b/);
-		// And the box it wraps is the 16:9 card itself, sized from the container in BOTH
-		// axes — `min(100cqw, 100cqh x 16/9)` is what makes it fill the space it is given
-		// instead of only the width (#1282).
-		const card = sizer?.querySelector<HTMLElement>('.aspect-video');
+		// And the box it wraps is the card itself, in the DECK's ratio (16:9 here), sized from
+		// the container in BOTH axes — `min(100cqw, 100cqh x ratio)` is what makes it fill the
+		// space it is given instead of only the width (#1282).
+		const card = sizer?.querySelector<HTMLElement>('[data-slide-frame]');
 		expect(card).toBeTruthy();
-		expect(card?.className).toMatch(/100cqw/);
-		expect(card?.className).toMatch(/100cqh/);
+		expect(card?.style.aspectRatio).toBe('16 / 9');
+		expect(card?.style.width).toMatch(/100cqw/);
+		// jsdom folds the calc: 100cqh x 16/9 reads back as 177.77…cqh.
+		expect(card?.style.width).toMatch(/100cqh \* 16 \/ 9|177\.7\d*cqh/);
+	});
+
+	it('takes a portrait deck\'s shape: a fixed 16:9 card cropped every 9:16 slide below its heading', () => {
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={'---\nsize: 9:16\n---\n\n'} />);
+		const dialog = screen.getByRole('dialog', { name: 'Present' });
+		const card = dialog.querySelector<HTMLElement>('[class*="container-type:size"] [data-slide-frame]');
+		expect(card?.style.aspectRatio).toBe('9 / 16');
+		expect(card?.style.width).toMatch(/100cqh \* 9 \/ 16|56\.25cqh/);
 	});
 
 	const rowOf = (dialog: HTMLElement) =>
-		[...dialog.querySelectorAll<HTMLElement>('[class*="container-type:size"]')].find((el) => el.querySelector('.aspect-video'))?.parentElement;
+		[...dialog.querySelectorAll<HTMLElement>('[class*="container-type:size"]')].find((el) => el.querySelector('[data-slide-frame]'))?.parentElement;
 
 	it('reserves the band below the slide only WHILE an overlay pill is up (#1282)', () => {
 		// A clean store means the first-run cue shows, so the band is reserved. The row's

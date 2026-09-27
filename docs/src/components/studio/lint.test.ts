@@ -119,6 +119,11 @@ describe('slideClass (fuzz)', () => {
 	// the renderer. `render()` on that exact source emits `class="quote form"`: within one
 	// slide the LAST `_class` wins. A slide "somehow carries two" whenever an author deletes
 	// a `---` to merge two slides, so the rail was naming the slide that got absorbed.
+	it('names a panes slide `panes`: its two components are the panes\', not the slide\'s', () => {
+		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| a |\n|---|\n| 1 |\n')).toBe('panes');
+		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n')).toBe('text'); // one marker carves nothing
+	});
+
 	it('reads the LAST class when a slide carries two — the one the engine applies', () => {
 		expect(slideClass('<!-- _class: kpi -->\n<!-- _class: quote -->\n\ntext\n')).toBe('quote');
 	});

@@ -13,14 +13,15 @@
 // was fence-blind (it ate `<!-- … -->` shown inside code fences). Both are fixed
 // by routing through `comments()` + `isDirectiveBody()`.
 
-import { comments, isCaptionBody, isDescriptionBody, isDirectiveBody, tidyOutsideFences } from './slide-directives';
+import { comments, isCaptionBody, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, tidyOutsideFences } from './slide-directives';
 
 /** The slide's speaker note (the first non-directive, non-description, non-caption comment),
  *  or ''. A `describe:` comment is the accessibility description and a `caption:` comment is
- *  the read-as narration text (both separate channels) — never the speaker note. */
+ *  the read-as narration text (both separate channels) — never the speaker note, and neither is a
+ *  panes marker (`isPaneMarkerBody`). */
 export function getNote(chunk: string): string {
 	for (const c of comments(chunk)) {
-		if (isDirectiveBody(c.body) || isDescriptionBody(c.body) || isCaptionBody(c.body)) continue;
+		if (isDirectiveBody(c.body) || isDescriptionBody(c.body) || isCaptionBody(c.body) || isPaneMarkerBody(c.body)) continue;
 		return c.body.trim().replace(/^note:\s*/i, '').trim();
 	}
 	return '';
@@ -39,7 +40,7 @@ export function setNote(chunk: string, note: string): string {
 	// and a `caption:` comment is the read-as narration — leave both untouched so setting
 	// the note never clobbers them.
 	const ranges = comments(text)
-		.filter((c) => !isDirectiveBody(c.body) && !isDescriptionBody(c.body) && !isCaptionBody(c.body))
+		.filter((c) => !isDirectiveBody(c.body) && !isDescriptionBody(c.body) && !isCaptionBody(c.body) && !isPaneMarkerBody(c.body))
 		.map((c) => [c.start, c.end] as [number, number]);
 	let out = text;
 	for (let i = ranges.length - 1; i >= 0; i--) out = out.slice(0, ranges[i][0]) + out.slice(ranges[i][1]);
