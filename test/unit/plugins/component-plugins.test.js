@@ -53,6 +53,21 @@ describe('components depend on plugins', () => {
     assert.equal('diagnostics' in out, false);
   });
 
+  test('the slide scan is linear on hostile deck text (CodeQL js/polynomial-redos)', () => {
+    // The first version was a regex with two lazy runs around the data-form test: 8,000 repeated
+    // `data-form=""` attributes took ~300 ms and doubling them quadrupled it. The scan must stay
+    // linear, because a shared link can hand the Studio any deck text.
+    for (const html of [
+      `<section${'\tdata-form=""'.repeat(400000)}`,
+      '<section data-form=""'.repeat(400000),
+      `${'<section data-form="x" class="'.repeat(100000)}>`,
+    ]) {
+      const t = performance.now();
+      componentPluginDiagnostics(html, ['math']);
+      assert.ok(performance.now() - t < 500, `took ${Math.round(performance.now() - t)} ms`);
+    }
+  });
+
   test('one diagnostic per component and plugin, however many slides use it', () => {
     const html = '<section data-form="2d" class="math feature"></section><section data-form="2d" id="x" class="math"></section>';
     assert.equal(componentPluginDiagnostics(html, ['math']).length, 1);

@@ -693,6 +693,13 @@ code. What changed because of them:
   component's declaration. `registry.generated.js` exports `COMPONENT_PLUGINS`, and `render()`
   returns a `plugin/component-needs-plugin` diagnostic when a slide's required plugin is off; a
   normal render's result has no `diagnostics` key, so its shape is unchanged.
+  **CodeQL caught a ReDoS in the fold of that checker's pass.** Restricting the diagnostic to
+  slide sections used one regex with two lazy `[^>]*?` runs around a `data-form` test — polynomial
+  on a tag of repeated attributes (8,000 → 299 ms, doubling quadrupled it), and deck text can come
+  from a shared link. The scan now uses the repo's one section walker (`splitSections`, a tag
+  tokenizer) and its one class reader (`readClassAttr`, #1358) — a hand-written `indexOf` scan was
+  tried first and the class-attribute gate refused it, rightly — and is pinned by a sub-500 ms test
+  on three hostile shapes that the old regex does not finish.
   **Byte identity re-taken after the rebase:** 455 files × 9 = 4,095 renders against `origin/main`
   `706847f`; every deck identical, the only differences the five Markdown docs this PR adds, moves
   or edits; the boundary-parser token streams likewise.
