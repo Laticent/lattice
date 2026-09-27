@@ -3,7 +3,7 @@
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { DismissableLayer } from "radix-ui/internal"
 import * as React from "react"
-import { createPortal } from "react-dom"
+import { createPortal, flushSync } from "react-dom"
 
 import { cn } from "@/lib/utils"
 
@@ -191,7 +191,7 @@ export function PersistentSurface({
               aria-hidden
               data-state="closed"
               className={cn(
-                "pointer-events-none fixed inset-0 z-50 bg-black/50 animate-out fade-out-0",
+                "pointer-events-none fixed inset-0 z-50 bg-black/50 animate-out fade-out-0 [animation-fill-mode:forwards]",
                 overlayClassName
               )}
             />
@@ -207,13 +207,18 @@ export function PersistentSurface({
             tabIndex={-1}
             data-state={state}
             data-hidden={drawn ? undefined : ""}
+            // THE LAST FRAME HOLDS until the box is hidden, as Radix's Presence does it. When an exit
+            // animation ends, CSS drops its end state, so for the frame or three before the hide
+            // landed, the dialog snapped back to full size and opacity and the sheet back to its open
+            // position — a flash like a TV switching off (reported on an iPad; measured on both
+            // engines). `forwards` keeps the end state, and flushSync hides the box in the same frame.
             onAnimationEnd={(e) => {
-              if (!open && e.target === e.currentTarget) setClosing(false)
+              if (!open && e.target === e.currentTarget) flushSync(() => setClosing(false))
             }}
             // `auto`: the layer above sets `pointer-events: none` on <body> while open, as every
             // Radix modal does, and this box is not inside the layer's own element.
             style={open ? { pointerEvents: "auto" } : undefined}
-            className={cn("lx-ui outline-none data-[hidden]:hidden", className)}
+            className={cn("lx-ui outline-none data-[hidden]:hidden data-[state=closed]:[animation-fill-mode:forwards]", className)}
           >
             <IdsCtx.Provider value={ids}>{children}</IdsCtx.Provider>
           </div>

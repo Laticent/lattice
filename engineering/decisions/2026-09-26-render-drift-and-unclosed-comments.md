@@ -131,7 +131,12 @@ The adversarial trio reviewed it, and three of its findings changed the design:
   editor: 1.10 s of script for 49 characters, against 0.69 s on main (Chromium). `SlidePicker`
   skips the render while it stays closed and catches up when it opens.
 
-The surface also plays main's zoom-and-fade exit before it hides. Hiding at once dropped the
+The surface also plays main's zoom-and-fade exit before it hides, and it holds the last frame
+(`animation-fill-mode: forwards`) and hides in that same frame, as Radix's Presence does. Without
+that hold, the frame or three before the hide showed the dialog back at full size and opacity,
+and the phone sheet back in its open position. On the owner's iPad that read as "a TV switching
+off". It was measured on both engines, and `e2e/add-slide-close.spec.ts` samples every frame of
+the close to pin it. Hiding at once dropped the
 animation and let a Compose smoke test's "wait until the dialog is gone" pass before the insert
 reached the editor.
 
