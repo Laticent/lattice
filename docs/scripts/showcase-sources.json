@@ -22,12 +22,12 @@
 	"cards-grid.light": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "b0e96d1faba2dfe29a6a1594d8b9f913bb03f1213b4b620edb1369cd1638a78f"
+		"srcSha256": "1b6e5a4c0d1547a2b352aeaeca5ce6b597a12d70aae3eafd4f158a754e9715b8"
 	},
 	"cards-grid.dark": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "03e2d8f68e42cd3f9a4177c9233616ab9893645f2dacdb4f4b8c6c3012f8b368"
+		"srcSha256": "a439f60d2facb6733a3e81ff2955bcefb21f4d23d38d7c6f8bb1dd717f0385cd"
 	},
 	"checklist.light": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.light.pdf",

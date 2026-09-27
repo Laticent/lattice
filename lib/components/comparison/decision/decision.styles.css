@@ -97,6 +97,13 @@ section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nt
 section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+6) { --decision-accent:var(--cat-6-mark);   --decision-accent-deep:var(--cat-6-mark); }
 section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+7) { --decision-accent:var(--cat-7-mark);  --decision-accent-deep:var(--cat-7-mark); }
 section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --decision-accent:var(--cat-8-mark);  --decision-accent-deep:var(--cat-8-mark); }
+/* The card's tag wears the categorical pair: the per-card mark and its paired ink,
+ * AA-gated per theme and mode (test/unit/palette/contrast.test.js). The tag is drawn
+ * by lib/base/base.card-tag.css, flush corner or `banner-tag` band. */
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li {
+  --card-tag-fill: var(--decision-accent-deep, var(--accent));
+  --card-tag-ink: var(--cat-on-mark);
+}
 section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > strong,
 section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > strong {
   display:block;

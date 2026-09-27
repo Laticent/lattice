@@ -12,6 +12,8 @@
  *   4. lib/_scaffold.css         section, header, footer, pagination
  *   5. (@layer declaration emitted here)
  *   6. lib/components/<a..z>/styles.css   per-component, alphabetical
+ *   6b. lib/base/base.card-tag.css  the one card-tag recipe (numbers, slot labels,
+ *                                the verdict, the STEP label)
  *   7. lib/_modifiers.css        cross-cutting modifiers (subtitle,
  *                                eyebrow, key insight, pill, dark variant,
  *                                annotation, below-note, mirror, numbered,
@@ -162,6 +164,13 @@ const HEAD_SOURCES = [
 // .overflow, .heat, KaTeX-in-non-math). Bundled AFTER per-component
 // styles so modifier defaults compose on top of components.
 const MODIFIERS_SOURCE = 'lib/base/base.modifiers.css';
+// The card tag — one recipe for the label that names a card (cards-grid /
+// cards-stack numbers, compare-prose / decision slot labels, the split-compare
+// verdict, the list-steps STEP label). Bundled IMMEDIATELY after the components
+// so it wins a specificity tie with the counter/label rules they keep, and
+// BEFORE modifiers and sketch so those still compose on top. See
+// lib/base/base.card-tag.css and engineering/decisions/2026-09-27-card-tag-register.md.
+const CARD_TAG_SOURCE = 'lib/base/base.card-tag.css';
 // highlight.js token theme — wires .hljs-* to the --hljs-* tokens.
 const SYNTAX_HIGHLIGHT_SOURCE = 'lib/integrations/highlight-js/highlight-js.css';
 // Shared chart-frame chrome + .chart-status pill vocabulary, shared
@@ -549,6 +558,11 @@ function bundle() {
   // collisions resolve to modifier defaults. Component variants that
   // want to override (e.g. citation-card.pull-quote.pull-quote > blockquote
   // ::before) bump specificity in their own component file.
+  const cardTag = readIfExists(CARD_TAG_SOURCE);
+  if (cardTag) {
+    parts.push(`/* === ${CARD_TAG_SOURCE} === */`);
+    parts.push(cardTag);
+  }
   const modifiers = readIfExists(MODIFIERS_SOURCE);
   if (modifiers) {
     parts.push(`/* === ${MODIFIERS_SOURCE} === */`);

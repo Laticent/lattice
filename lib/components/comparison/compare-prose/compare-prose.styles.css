@@ -214,57 +214,10 @@ section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * lattice-emulator.js) — authors write plain `- Label` and the structural
  * lift happens in the Marpit token layer. Wrapping `**Label**` in source
  * still works (idempotent) for authors who prefer to be explicit. */
-section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.compare-prose .compare-prose-inner .card:has(> strong:first-child) {
-  position: relative;
-  padding-top: calc(var(--sp-sm) + 2.34375cqi);
-}
-section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child {
-  position: absolute;
-  top: 0; left: 0;
-  margin: 0;
-  padding: 0.46875cqi 1.09375cqi;
-  border-radius: var(--radius-md) 0 var(--radius-sm) 0;
-  background: var(--accent);
-  color: var(--on-accent, var(--on-dark-primary));
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  line-height: 1;
-}
-/* Decision corner tag uses the per-card deep variant + on-cat ink —
- * the universal text-on-categorical recipe defined in :root. The full
- * saturation hue still anchors the card via the bottom border. */
-section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
-  background: var(--decision-accent-deep, var(--accent));
-  /* --decision-accent-deep resolves to var(--cat-N-mark) (decision.styles.css);
-   * text on the mark uses --cat-on-mark — usually light-dark(white, near-black),
-   * or a flat near-black in the vivid-mark themes (carbone) — tuned to clear AA on
-   * the mark in both modes (#1172 fixed the inverted themes). */
-  color: var(--cat-on-mark);
-}
-
-/* ── Family corner-tag legibility (2026-06-20).
-   The corner tag's font already rides --fs-meta (scale-aware), but its padding is
-   raw `cqi` (see the base rule above), so the PADDING bypasses the --canvas-scale
-   magnitude the --sp-* / --fs-* tokens carry — in a tall/portrait box the badge's
-   box doesn't grow with the frame and the label crowds it. Re-peg the padding to
-   --sp-* and reserve matching top space on the card so the badge scales with the
-   frame. Keyed on `<= 1.05` (square + tall + strip); landscape keeps the raw value,
-   so its export stays byte-identical. */
-section.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
-  padding-top: calc(var(--sp-md) + var(--fs-meta));
-}
-section.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
-  padding: var(--sp-2xs) var(--sp-sm);
-}
+/* The tag itself — corner geometry, voice, and the space the card reserves for it —
+ * is lib/base/base.card-tag.css. decision's categorical fill/ink pair is set in
+ * decision.styles.css. (The square/tall/strip padding re-peg that lived here is gone:
+ * the kernel's padding is in em of the tag's own font, so it follows the frame.) */
 
 
 /* ── corner tag, banner variant (.banner-tag modifier) ────────────────────
@@ -281,37 +234,8 @@ section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square
  *
  * Composes with the same lift infrastructure — author writes plain
  * `- Label`, lift produces the `<strong>`, this block restyles the card. */
-section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) {
-  position: static;
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  padding: 0;
-  overflow: hidden;
-  gap: 0;
-}
-section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child {
-  position: static;
-  flex: 0 0 auto;
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 0.78125cqi var(--sp-md);
-  border-radius: 0;
-  background: var(--accent);
-  color: var(--on-accent, var(--on-dark-primary));
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  line-height: 1.2;
-  box-sizing: border-box;
-}
+/* The card's column layout and the band itself: lib/base/base.card-tag.css. What
+ * stays here is the body, which fills the rest of the card. */
 section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
 section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
 section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) > :is(ul, ol) {
@@ -328,11 +252,6 @@ section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-c
   flex-direction: column;
   justify-content: center;
   box-sizing: border-box;
-}
-section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
-  background: var(--decision-accent-deep, var(--accent));
-  /* --decision-accent-deep resolves to var(--cat-N-mark); see flush-corner rule above. */
-  color: var(--cat-on-mark);
 }
 
 
@@ -475,6 +394,7 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   font-family: var(--font-body);
   font-size: var(--fs-h3);
   font-weight: 700;
+  line-height: 1;   /* the tag kernel sets --card-tag-lh; a title keeps its own */
   text-align: center;
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > strong {

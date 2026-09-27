@@ -1,0 +1,168 @@
+/* ── CARD TAG — one recipe for the label that names a card ──────────────────
+ * engineering/decisions/2026-09-27-card-tag-register.md.
+ *
+ * Six components name their cards with a small tag: cards-grid and cards-stack
+ * (the `ol` counter), compare-prose and decision (the lifted slot label, flush
+ * corner or `banner-tag` band), the split-compare verdict, and list-steps (the
+ * `STEP 01` label). Each used to carry its own copy of the corner recipe, and the
+ * copies drifted: three paddings, three trackings, four reserve sums. This file is
+ * the one copy. The components keep only what is theirs — the counter or the
+ * label text, and which fill/ink pair their tag wears.
+ *
+ * Bundled right after the component CSS (tools/build-css.js), so these rules win a
+ * specificity tie by source order, and `sketch` (later) still restyles them.
+ *
+ * Phase 1 is CSS only: every tag is still the pseudo-element or `<strong>` it was.
+ * The `tag:` register (phase 2) and the measured equal-height pass (phase 3) build
+ * on the tokens below.
+ *
+ * ── TOKENS ──
+ * Declared on `:root, section` so each resolves against the SECTION's own
+ * --fs-meta, which is where a venue-* class and the orientation scale land (the
+ * --pill-fs pattern, lib/typography/emit.js).
+ *
+ *   --card-tag-fs      font size: the meta role × --card-tag-scale
+ *   --card-tag-pad-y/x padding as a multiple of the tag's own font size, so the box
+ *                      grows with the text at every venue and orientation. 0.36 ×
+ *                      0.84 reproduces the old landscape corner tag to the pixel.
+ *   --card-tag-lh      a flush tag's line height: 1, a chip sized to its caps. A band
+ *                      (a header strip) takes 1.2 through --card-tag-band-lh.
+ *   --card-tag-track   letter-spacing. The trailing track after the last glyph is
+ *                      taken back out of the right padding, so the text centers.
+ *   --card-tag-h       the height of a ONE-line tag. A host reserves this plus
+ *                      --card-tag-gap above its body. The gap defaults to --sp-md,
+ *                      which also lets a label that wraps to TWO lines clear the body;
+ *                      a third line still reaches it until the measured pass (phase 3)
+ *                      sizes the reserve to the real tag.
+ *   --card-tag-radius  the flush-corner shape. `sketch` re-points it.
+ *   --card-tag-num-font the face a NUMBER tag uses. `sketch` re-points it to the
+ *                      hand display face; labels keep --font-label.
+ *   --card-tag-band-pad-y / --card-tag-band-lh
+ *                      the band placement's vertical padding (× font size) and line
+ *                      height — a header strip wants more air than a chip.
+ *   --card-tag-fill / --card-tag-ink
+ *                      the pair a tag wears. Unset → accent + on-accent. A
+ *                      component that wears another pair sets BOTH on the card
+ *                      (decision: --cat-N-mark + --cat-on-mark). Both pairs are
+ *                      AA-gated per theme (tools/contrast-audit.js,
+ *                      test/unit/palette/contrast.test.js).
+ */
+:root, section {
+  --card-tag-scale: 1;
+  --card-tag-fs: calc(var(--fs-meta) * var(--card-tag-scale));
+  --card-tag-pad-y: 0.36;
+  --card-tag-pad-x: 0.84;
+  --card-tag-lh: 1;
+  --card-tag-track: 0.08em;
+  --card-tag-h: calc(var(--card-tag-fs) * (var(--card-tag-lh) + 2 * var(--card-tag-pad-y)));
+  --card-tag-radius: var(--radius-md) 0 var(--radius-sm) 0;
+  --card-tag-gap: var(--sp-md);
+  --card-tag-num-font: var(--font-label);
+  --card-tag-band-pad-y: 0.6;
+  --card-tag-band-lh: 1.2;
+}
+
+/* ── The shared voice — every tag, whatever its placement ── */
+section.cards-grid > .cell-stage > ol > li::before,
+section.cards-grid .cards-grid-inner--ordered > .card::before,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section.cards-stack > .cell-stage > ol > li::before,
+section.cards-stack .cards-stack-inner--ordered > .card::before,
+section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section.split-compare .verdict::before,
+section.list-steps ol > li::before {
+  font-family: var(--font-label);
+  font-size: var(--card-tag-fs);
+  font-weight: 700;
+  letter-spacing: var(--card-tag-track);
+  text-transform: uppercase;
+}
+/* A number takes the label face too, unless a finish gives numerals their own
+ * (sketch: the hand display face). */
+section.cards-grid > .cell-stage > ol > li::before,
+section.cards-grid .cards-grid-inner--ordered > .card::before,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section.cards-stack > .cell-stage > ol > li::before,
+section.cards-stack .cards-stack-inner--ordered > .card::before {
+  font-family: var(--card-tag-num-font);
+}
+
+/* ── Placement: corner — flush into the card's top-left corner ── */
+section.cards-grid > .cell-stage > ol > li::before,
+section.cards-grid .cards-grid-inner--ordered > .card::before,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section.cards-stack > .cell-stage > ol > li::before,
+section.cards-stack .cards-stack-inner--ordered > .card::before,
+section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section.split-compare .verdict::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding:
+    calc(var(--card-tag-pad-y) * 1em)
+    calc(var(--card-tag-pad-x) * 1em - var(--card-tag-track))
+    calc(var(--card-tag-pad-y) * 1em)
+    calc(var(--card-tag-pad-x) * 1em);
+  line-height: var(--card-tag-lh);
+  border-radius: var(--card-tag-radius);
+  background: var(--card-tag-fill, var(--accent));
+  color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
+}
+/* The card clears the tag: one line of tag, then the card's own top padding. */
+section.cards-grid > .cell-stage > ol > li,
+section.cards-grid .cards-grid-inner--ordered > .card,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
+section.cards-stack > .cell-stage > ol > li,
+section.cards-stack .cards-stack-inner--ordered > .card,
+section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.compare-prose .compare-prose-inner .card:has(> strong:first-child),
+section.split-compare .verdict {
+  position: relative;
+  padding-top: calc(var(--card-tag-h) + var(--card-tag-gap));
+}
+
+/* ── Placement: band — a full-width strip across the card top (`banner-tag`) ──
+ * The card turns into a column; the band keeps its content height and the body
+ * takes the rest. Its sides line up with the body text (--sp-md), so the band is
+ * a header, not a chip. `axis` opts its label out of the tag entirely (it is the
+ * card's title there), so the band stands aside on an `axis` slide: the two rules
+ * tie on specificity and this file comes after compare-prose.styles.css. */
+section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.banner-tag.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.banner-tag.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  padding: 0;
+  overflow: hidden;
+  gap: 0;
+}
+section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.banner-tag.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.banner-tag.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child {
+  position: static;
+  flex: 0 0 auto;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding:
+    calc(var(--card-tag-band-pad-y) * 1em)
+    calc(var(--sp-md) - var(--card-tag-track))
+    calc(var(--card-tag-band-pad-y) * 1em)
+    var(--sp-md);
+  line-height: var(--card-tag-band-lh);
+  border-radius: 0;
+  background: var(--card-tag-fill, var(--accent));
+  color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
+}
+
+/* ── Placement: inline — in the text flow above the title, no box (list-steps) ──
+ * The ink is the component's; the voice is the kernel's. */

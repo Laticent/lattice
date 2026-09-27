@@ -72,32 +72,22 @@ section.cards-grid .card > code { flex:0 0 auto;
   background:var(--bg); border-color:var(--muted-mark); color:var(--text-body); }
 section.cards-grid .card > ul, section.cards-grid .card > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
 section.cards-grid .card > ul > li, section.cards-grid .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
-/* — numbered cards (ol): flush corner tag via absolute ::before — */
+/* — numbered cards (ol): the counter feeds the flush corner tag (lib/base/base.card-tag.css) — */
 /* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
    without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
 section.cards-grid > .cell-stage > ol { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid > .cell-stage > ol > li {
-  counter-increment:card;
-  position:relative; padding-top:calc(var(--sp-sm) + 2.34375cqi);
+  counter-increment:card;   /* the tag reserve: lib/base/base.card-tag.css */
 }
 section.cards-grid > .cell-stage > ol > li::before {
-  content:counter(card);
-  position:absolute; top:0; left:0;
-  padding:0.46875cqi 1.09375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0;
-  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
-  color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
+  content:counter(card);   /* geometry + color: lib/base/base.card-tag.css */
 }
 section.cards-grid .cards-grid-inner--ordered { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid .cards-grid-inner--ordered > .card {
-  counter-increment:card;
-  position:relative; padding-top:calc(var(--sp-sm) + 2.34375cqi);
+  counter-increment:card;   /* the tag reserve: lib/base/base.card-tag.css */
 }
 section.cards-grid .cards-grid-inner--ordered > .card::before {
-  content:counter(card);
-  position:absolute; top:0; left:0;
-  padding:0.46875cqi 1.09375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0;
-  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
-  color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
+  content:counter(card);   /* geometry + color: lib/base/base.card-tag.css */
 }
 
 /* ── CARDS-GRID ───────────────────────────────────────────────────────────────
@@ -136,15 +126,10 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ol > l
 /* — numbered cards (ol source, VS Code fallback) — */
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
-  counter-increment:card;
-  position:relative; padding-top:calc(var(--sp-sm) + 2.34375cqi);
+  counter-increment:card;   /* the tag reserve: lib/base/base.card-tag.css */
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before {
-  content:counter(card);
-  position:absolute; top:0; left:0;
-  padding:0.46875cqi 1.09375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0;
-  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
-  color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
+  content:counter(card);   /* geometry + color: lib/base/base.card-tag.css */
 }
 
 /* ── Cards-grid shape modifiers — appended Phase 7 ──

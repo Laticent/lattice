@@ -1,0 +1,6 @@
+- Card tags share one recipe. The numbered corner tags on `cards-grid` and `cards-stack`, the slot-label tags and `banner-tag` bands on `compare-prose` and `decision`, the `split-compare` verdict, and the list-steps `STEP 01` label now draw from `lib/base/base.card-tag.css`. What you will see:
+  - Tag padding follows the tag's own text, so a tag keeps its proportions at every `venue:` and on square, tall and strip decks. At `venue: hall` the gap between a corner tag and the card body grows from about 3px to 24px. Numbered and labeled cards reserve a little more space above the body (about 7px at 16:9, more on portrait, where the tag used to be cramped).
+  - A corner label that wraps to two lines clears the card body at the default size. A longer label, or a two-line label at a large venue, can still reach it; the equal-height pass planned next sizes the space to the real tag.
+  - One letter-spacing (0.08em) for every tag; the verdict and the `STEP` label were 0.12em.
+  - `sketch` roughens every tag, including the `split-compare` verdict, which it used to miss.
+  - `compare-prose decision` tags wear the accent pair (`--on-accent` ink). They had picked up the categorical ink meant for `decision`.
