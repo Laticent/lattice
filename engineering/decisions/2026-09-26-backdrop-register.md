@@ -261,6 +261,15 @@ first hard-edged PDF came from here. Measured through html-to-image on the owner
   Apple PDFKit can drop it; a Studio PDF is pictures, so the mask is flattened to pixels before
   any viewer sees it.
 
+**Every mask type, through html-to-image with `.lattice-exporting`** (the Studio's capture),
+light and dark, against the live Studio: `clear`, `open`, `spot-c`, `40`, `40 spot-bl`, halo and
+gallery (whose looks are spotlights) with `clear`, a Fabricate finish with a baked clearance and
+one with a baked spotlight, and a finish saved with the legacy ellipse. All draw soft. The
+Fabricate spotlight needed its own fix: `generateFinishCss` writes the finish's Studio export
+rule itself and flipped `--fin-backdrop-mask` to the hard mirror there too; it now flips it for
+print only. **A Fabricate spotlight finish saved before this change keeps the old generated rule,
+and so its hard-edged Studio download, until it is re-saved.**
+
 ### 4.5 `finish-override.backdrop`
 
 Keep it working. It still tunes the baked tier of a fabricated finish, and removing it would
