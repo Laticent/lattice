@@ -37,3 +37,9 @@
   designed around a plugin now carries `plugins: { requires, optional }` in
   `dist/docs/components.json`, and `components.pick.md` has a `plugins` column — so an agent
   choosing `math` sees that it needs the math plugin (and can use function-plot).
+- **Added: `lattice packages new plugin <name>`** writes a plugin package — a manifest, a fence
+  renderer, a token-only stylesheet, docs and two fixtures — into `lib/plugins/<name>/` (or
+  `--dir`), refusing a name a plugin, a plugin fence or a code language already owns. It builds and
+  passes the conformance harness unedited. **`spec/LPM.md`** is the first draft of the plugin
+  contract: the package, the manifest, the module shapes, the `api: 1` host API and the settle
+  protocol.

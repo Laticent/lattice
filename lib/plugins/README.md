@@ -3,7 +3,9 @@
 A **plugin** teaches Lattice something new — a syntax, a fence — that works on any slide, as one
 folder with a manifest. A **component** (a slide class) may be designed around a plugin; the
 component declares that dependency, and a plugin never names a component. The design, the decisions behind it and the order the rest of the integrations move in
-are `engineering/decisions/2026-09-27-plugin-system.md`; this file is the working guide.
+are `engineering/decisions/2026-09-27-plugin-system.md`; the contract a plugin is written against is
+`spec/LPM.md` (draft); this file is the working guide. Start a new plugin with
+`lattice packages new plugin <name>`, which writes a folder that builds and passes the harness.
 
 **Shipped plugins:** `math` (`$…$`, `$$…$$`, ` ```math `; the `math` slide class requires it),
 `function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional) and `anima`
