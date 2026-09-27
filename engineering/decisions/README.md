@@ -132,9 +132,8 @@ it is load-bearing.
 ### Active — proposed · in-progress · blocked
 
 - ◐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
-- ◐ [2026-09-27-plugin-system.md](2026-09-27-plugin-system.md) — The plugin system, designed whole and hardened by the adversarial trio before any code.
-- ☐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
 - ◐ [2026-09-27-delivery-styles-and-component-scenes.md](2026-09-27-delivery-styles-and-component-scenes.md) — Each delivery becomes its own character instead of a row of numbers (restrained focuses every part the narration names, expressive leads…
+- ◐ [2026-09-27-plugin-system.md](2026-09-27-plugin-system.md) — The plugin system, designed whole and hardened by the adversarial trio before any code.
 - ◐ [2026-09-27-trama-graph-chart-library.md](2026-09-27-trama-graph-chart-library.md) — Trama (`@laticent/trama`) is the graph-chart library.
 - ◐ [2026-09-26-backdrop-register.md](2026-09-26-backdrop-register.md) — Backdrop restraint (strength, clear-behind-content, spotlight) works only on a fabricated finish, only deck-wide, and only in the Studio…
 - ◐ [2026-09-26-studio-panel-lazy-loading.md](2026-09-26-studio-panel-lazy-loading.md) — Load six Studio panels on first open instead of at startup — Share, Workspace, Chat, Library, slide settings and Lenses — for a measured…

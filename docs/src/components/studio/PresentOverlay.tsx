@@ -37,7 +37,7 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { createGuideDirector, cueDisplayText, focusUnit, type GuideDirector, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection, wordRangeIn } from './present-guide';
+import { createGuideDirector, cueDisplayText, focusUnit, type GuideDirector, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, guideStillShown, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection, wordRangeIn } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
@@ -755,7 +755,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		autoAdvanceRef.current = true; // play the next slide once it mounts
 		setIdx((i) => Math.min(i + 1, countRef.current - 1));
 		return true;
-	}, []);
+	}, [setIdx]);
 	const leaveFrom = React.useCallback(
 		(from: number) => {
 			const name = resolvePaceName(deckPace, pace.name) as PaceName;
@@ -1228,7 +1228,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// through to the text path below.
 		const slideSection = (): Element | null => {
 			try {
-				const found = onStage ? shownSection(slideDoc() as Document) : (frame()?.contentDocument?.querySelector('section') ?? null);
+				const found = onStage ? shownSlideSection(slideDoc() as Document) : (frame()?.contentDocument?.querySelector('section') ?? null);
 				return found && 'classList' in found ? found : null;
 			} catch {
 				return null;
