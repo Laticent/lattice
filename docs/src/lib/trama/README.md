@@ -121,5 +121,6 @@ When the host document's `<html>` carries `data-lattice-live-layout` (a preview 
 types into), a redraw of a chart already drawn at that position runs in a worker built
 from the kernel's source plus the page's `lattice-dagre` script. The figure keeps its last
 drawing, marked `data-<attr>-pending`, until the answer arrives, and only the newest edit
-is painted. The first draw, and every draw without the flag, stays synchronous, so a page
+is painted. Each round of the fit paints as it lands (a chart can take three), so a key
+shows after one layout, and the last round's drawing is the one that stays. The first draw, and every draw without the flag, stays synchronous, so a page
 being captured to PDF never captures a drawing in flight.

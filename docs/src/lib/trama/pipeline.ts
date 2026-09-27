@@ -612,7 +612,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         unlay();
         floorFor(kGuess);
         const m = measure();
-        showPrev(prev);
+        // The newest drawing stands in while this round is in flight: the last keystroke's,
+        // or this keystroke's own earlier round once it has painted (below).
+        showPrev(D[key('Prev')].get(fitKey) || prev);
         // The state the figure holds while this is in flight: a pass the runtime runs
         // meanwhile (it answers every attribute change above) finds it and skips.
         F[key('PendingSig')] = sigNow();
@@ -622,7 +624,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
           // drawing standing in for a chart that no longer looks like it.
           if (!geo) { unlay(); fig.removeAttribute(`data-${P}-pending`); F[key('PendingSig')] = null; F[key('NoLayoutSig')] = sigNow(); return; }
           m.geo = geo;
-          if (r < ROUNDS - 1 && !settled(geo)) { round(r + 1); return; }
+          // PAINT EVERY ROUND. The fit's fixed point can take up to ROUNDS layouts, and a mid-size
+          // machine spends ~400 ms on each, so waiting for the last one froze the drawing for
+          // the whole burst (measured: 1.3 s from a key to anything visible on an 11-state
+          // chart). A round's drawing is already this keystroke's text, laid out; only its
+          // type floor may still move a little, and the next round repaints it. The drawing
+          // that remains is the last round's, the same as before.
+          if (r < ROUNDS - 1 && !settled(geo)) { finish(m as Measured & { geo: Geometry }); round(r + 1); return; }
           finish(m as Measured & { geo: Geometry });
         });
       };
