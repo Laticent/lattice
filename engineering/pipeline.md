@@ -341,7 +341,13 @@ what the export shows and nothing `lib/export/video.mjs` decides:
    `requestAnimationFrame`, and seeks every animation. The capture presses Play and steps that
    clock one frame at a time, taking a screenshot of the stage whenever the stage changed.
 4. It mixes each clip at the time the player logged, less its lead, and muxes H.264 video
-   (WebCodecs), AAC audio and a WebVTT caption track with `mediabunny`. The MP4 streams to disk.
+   (WebCodecs) and AAC audio with `mediabunny`. The MP4 streams to disk.
+5. It adds the caption track itself (`lib/export/tx3g.mjs`), because mediabunny muxes only
+   WebVTT-in-MP4, which no player the owner tried offered. The track is 3GPP timed text (`tx3g`),
+   the subtitle format QuickTime reads, laid out as FFmpeg's `mov_text` lays it out, and it
+   suggests the deck's own look: light bold text on an 86% panel of the theme's dark color
+   (`brandCaptionStyle`, note §10a). The caption bytes go in a second `mdat` ahead of a
+   rewritten `moov`, so no picture or sound byte moves.
 
 The frame's long side is 1920 px at 30 fps: a 1280×720 deck is 1920×1080, a 9:16 deck 1080×1920,
 a 4K deck 1920×1080. A silent first slide holds for `--lead-in` before Play (a voiced one gets a
@@ -360,8 +366,9 @@ that says so. Chrome for Testing on Linux cannot encode AAC, so `@mediabunny/aac
 (FFmpeg's LGPL encoder compiled to WebAssembly) encodes it; a Chrome that can encode AAC itself
 uses its own. The captions ride as a track and a sidecar: the player's caption band is never in
 the frame. The owner played the fixture MP4 in QuickTime and on a phone / browser (2026-09-26);
-**PowerPoint and Keynote are UNVERIFIED**, and no player offers the muxed WebVTT track yet; the `.vtt` sidecar is the caption path known to
-work. The integration test is `test/integration/export/video-export.test.js`, and the measured
+**PowerPoint and Keynote are UNVERIFIED**. FFmpeg 7.0 reads the `tx3g` track back with every cue
+at its time (2026-09-27); whether QuickTime's Subtitles menu offers it is the owner's check, and
+the `.vtt` sidecar remains the caption path for a player that ignores embedded tracks. The integration test is `test/integration/export/video-export.test.js`, and the measured
 numbers are in the decision note's §9.
 
 ## Troubleshooting
