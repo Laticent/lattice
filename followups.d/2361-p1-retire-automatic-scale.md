@@ -17,8 +17,8 @@ why now   — the owner's ruling on PR #2399 (2026-09-27): a venue is an intenti
             (48 keys → 30–48 measures, 32–52 s blocked, keys lagging 13.6 s vs 2.8 s), and every
             slide change in the preview paints the requested size for 30–150 ms before dropping
             (18 of 18 changes). Both were fixed and then stripped from #2399 on the owner's call,
-            because this retirement deletes the code they lived in (fixes kept on branch
-            `backup/venue-budgets-pre-strip`, commits `0d04238` and `1a8de05`, for reference).
+            because this retirement deletes the code they lived in (the fixes are commits `0d04238`
+            and `1a8de05`, still reachable from PR #2399's force-push history, for reference).
 where     — lib/core/scale-fit.js (STEP, LEVEL, SCALE_LEVEL_SRC), its three callers (the
             emulator's page.evaluate pass, the watcher embedded in exported .html, the live
             runtime in lib/runtime/index.js), the export's `↓ SCALE` report, docs/src/lib/scale-cap.ts
