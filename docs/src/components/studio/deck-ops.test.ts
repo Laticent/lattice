@@ -2,9 +2,10 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { addSlideAfter, canSplitSlide, deleteSlide, duplicateSlide, moveSlide, NEW_SLIDE, splitSlideInHalf } from './deck-ops';
+import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, NEW_SLIDE } from './deck-ops';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
+import { canSplitSlide, splitSlideInHalf } from './split-slide';
 
 const DECK = '<!-- _class: title -->\n\n# A\n\n---\n\n<!-- _class: kpi -->\n\n## B\n\n---\n\n<!-- _class: closing -->\n\n## C';
 const count = (s: string) => splitSlides(stripFrontMatter(s)).length;

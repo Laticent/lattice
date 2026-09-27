@@ -53,7 +53,7 @@ import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard,
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
-import { addSlideAfter, canSplitSlide, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP, splitSlideInHalf } from './deck-ops';
+import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import type { EditorHandle } from './Editor';
@@ -132,6 +132,8 @@ const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default:
 // actually see it; every other slide surface here is inside a srcdoc iframe, which those
 // tools never look into. Code-split for the same reason Fabricate is: it pulls the engine
 // render and the player-core bundle, and the /studio route has no eager budget to spare.
+// The clip notice and its split helper load the first time a slide clips at a venue (ClipNotice.tsx).
+const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
 
 // Editor (CodeMirror) is the single largest passenger on the cold hydration path —
@@ -3616,10 +3618,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const clipLint = findings.find((f) => f.rule === 'capacity-scale' && f.slide === curIndex + 1);
 	const lintRoom = clipLint?.fix?.match(/set `venue: (laptop|huddle|conference|hall)`/)?.[1] as VenueName | undefined;
 	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom) : smallerVenue(deckVenue);
-	const clipSplittable = composeLens === 'full' && canSplitSlide(slides[curIndex] ?? '');
-	const opSplitForVenue = () => {
+	const opSplitForVenue = (split: (source: string, index: number) => { source: string; active: number } | null) => {
 		const prev = sourceRef.current;
-		const r = splitSlideInHalf(prev, curIndex);
+		const r = split(prev, curIndex);
 		if (!r) return;
 		applyDeckOp(r);
 		// With an Undo, like the settings writes: one click rewrote the deck, so one click undoes it.
@@ -4199,7 +4200,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const venueNow = venueOption(deckVenue);
 	const venueField = (
-		<Field label="Venue" desc="The room it is shown in." find="venue room projector hall conference huddle laptop font scale type size distance" help={<>Sets the type size for the room: <strong>Laptop</strong> is the designed size, <strong>Huddle</strong> 1.15x, <strong>Conference</strong> 1.3x, <strong>Hall</strong> 1.5x. It is a fixed setting, like desktop zoom — every slide renders at it, and a slide too full for the room is clipped and flagged rather than shrunk. <strong>Default</strong> leaves <code>venue:</code> out. Present can switch the room live without changing the deck.</>}>
+		<Field label="Venue" desc="The room it is shown in." find="venue room projector hall conference huddle laptop scale" help={<>The type size for the room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Control aria-label="Choose deck venue">{venueNow ? `${venueNow.label} · ${venueNow.scale}x` : 'Default'} <ChevronDown className="size-3.5" /></Control>
@@ -4981,22 +4982,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</div>
 			</div>
 			{slideClipped && clipVenue && clipVenue.scale > 1 && effectiveStop !== 'read' && (
-				<div role="status" aria-label="Slide clips at this venue" className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-[color-mix(in_srgb,var(--warn)_35%,var(--border))] bg-[color-mix(in_srgb,var(--warn)_8%,var(--bg-alt))] px-3 py-2 text-[12.5px] text-[var(--text-heading)]">
-					<AlertTriangle className="size-4 shrink-0 text-[var(--warn)]" aria-hidden="true" />
-					<span className="min-w-0 flex-1">This slide is clipped at <b className="font-semibold">{clipVenue.label}</b> ({clipVenue.scale}x). The venue is a fixed size, so nothing shrinks it{clipDown ? '' : ', and a smaller room would not fit it either'}.</span>
-					<span className="flex shrink-0 items-center gap-1.5">
-						{clipSplittable && (
-							<button type="button" onClick={opSplitForVenue} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-semibold hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]">
-								<Copy className="size-3.5" aria-hidden="true" />Split slide
-							</button>
-						)}
-						{clipDown && (
-							<button type="button" onClick={opVenueDown} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-semibold hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]">
-								<ChevronDown className="size-3.5" aria-hidden="true" />Use {clipDown.label}
-							</button>
-						)}
-					</span>
-				</div>
+				<React.Suspense fallback={null}>
+					<ClipNotice venue={clipVenue} down={clipDown} slide={slides[curIndex] ?? ''} splittable={composeLens === 'full'} onSplit={opSplitForVenue} onDown={opVenueDown} />
+				</React.Suspense>
 			)}
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
 			    cinema morph (iPhone landscape): the whisper layer carries position instead. */}
