@@ -40,7 +40,7 @@ function tally(slide, kit) {
     '<svg width="4" height="4"><image href="${origin}/svgimage" width="4" height="4"></image></svg>' +
     '<span style="background-image:url(${origin}/cssurl)">x</span><a href="${origin}/link">link</a>' +
     '<aside class="lattice-notes" hidden data-slide="1">FORGED-NOTE</aside>';
-  return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '">' + marks + "</div>" + hostile) + "\\n";
+  return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '" data-rtc="' + typeof (self.RTCPeerConnection || self.webkitRTCPeerConnection) + '">' + marks + "</div>" + hostile) + "\\n";
 }
 export { tally as default };
 `;
@@ -119,6 +119,9 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			await notice.getByRole('button', { name: 'Run the code of tally' }).click();
 			await expect(preview.locator('.tally-marks[data-count="3"] .tally-mark')).toHaveCount(3, { timeout: 30_000 });
 			await expect(notice).toHaveCount(0);
+			// The package reports from INSIDE its worker whether WebRTC exists there at all. It must not:
+			// on Gecko the UDP control below cannot fire, so this is what the UDP zero rests on there.
+			await expect(preview.locator('.tally-marks')).toHaveAttribute('data-rtc', 'undefined');
 			const sandboxes = await page.evaluate(() => (window as unknown as { __sandboxes: string[] }).__sandboxes);
 			expect(sandboxes.length, 'the package ran in a sandbox frame').toBeGreaterThan(0);
 			expect(new Set(sandboxes)).toEqual(new Set(['allow-scripts']));
@@ -137,9 +140,10 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			// 3. CONTROLS: the same page reaches both listeners, so the empty logs above are refusals.
 			// Firefox's CI build gathers no loopback candidates for the page's own WebRTC, even with
 			// `media.peerconnection.ice.loopback` (two nightly runs), so on Gecko this control cannot
-			// see and is skipped, and the UDP zero there rests on the worker having no WebRTC at all.
+			// see and is skipped, and the UDP zero there rests on the worker having no WebRTC at all,
+			// which the package's own `data-rtc` report above measured.
 			if (browserName === 'firefox') {
-				test.info().annotations.push({ type: 'unverified', description: 'Gecko: no working UDP control; the UDP zero is not proven here' });
+				test.info().annotations.push({ type: 'gecko-udp', description: 'Gecko: no working page-side UDP control; the UDP zero rests on the measured absence of WebRTC in the worker' });
 			} else {
 				await page.evaluate(
 					async ({ udpPort }) => {
