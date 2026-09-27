@@ -198,6 +198,40 @@ describe('preview font gate — the agent', () => {
 	});
 });
 
+describe('preview font gate — a slow ready promise is not a late face', () => {
+	it('still announces a face that was genuinely loading at the backstop', async () => {
+		let land;
+		const ready = new Promise((r) => {
+			land = r;
+		});
+		const host = runAgent(fontGateAgent(), { fonts: { ready, status: 'loading' } });
+		const events = [];
+		host.win.dispatchEvent = (e) => events.push(e.type);
+		host.advance(PREVIEW_FONT_GATE_MS);
+		land();
+		await resolved(ready);
+		assert.deepEqual(events, ['lattice:fonts-late']);
+	});
+	it('announces nothing when every face was loaded at the backstop', async () => {
+		// WebKit holds `document.fonts.ready` until the document's other loads finish, so a slow
+		// photo kept it pending with all 17 faces loaded (Studio, WebKit 26), and its landing
+		// faded the whole frame for a relayout that never came.
+		let land;
+		const ready = new Promise((r) => {
+			land = r;
+		});
+		const host = runAgent(fontGateAgent(), { fonts: { ready, status: 'loaded' } });
+		const events = [];
+		host.win.dispatchEvent = (e) => events.push(e.type);
+		host.advance(PREVIEW_FONT_GATE_MS);
+		assert.equal(host.win.__latticeFontsSettled, true, 'the backstop revealed');
+		land();
+		await resolved(ready);
+		assert.deepEqual(events, [], 'nothing re-laid out, so nothing to fade');
+		assert.notEqual(host.win.__latticeFontsLate, true);
+	});
+});
+
 describe('preview font gate — the revealer idiom', () => {
 	it('reveals IMMEDIATELY when the agent is absent', () => {
 		// The whole reason the injection ORDER is load-bearing: a document that ships

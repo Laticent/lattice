@@ -808,6 +808,33 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   marked `data-img-provisional`, which the browser pass still measures; a late change
   fades through. A photo that will not load gets `data-img-unloaded`, and its panel draws
   the hatched stand-in a blocked web image gets instead of an empty box.
+- **The rule since: the text waits for the photo.** A remote photo's size is unknown until
+  it is fetched, and text laid out on a guess moves when the guess is corrected. So a
+  section whose photo is being measured carries `data-img-pending` (set by the runtime's
+  probe, and by `stampImageSections` on a provisional section). `image.styles.css` shows
+  the panel as a shimmering placeholder and hides `> .image-text` and `> .cell-coda`. When
+  the size is in, the layout corrects while the text is still invisible, and the text
+  fades in once, in its final place; only the placeholder changes size. The size comes
+  from the image HEADER: `naturalWidth` is set long before `onload` (a load held open 2 s:
+  Chromium had it at 17 ms, WebKit at 512 ms), so the probe polls it. A failed photo
+  shows its hatch and text at once. A hanging one shows its text on the floor at
+  `PENDING_CAP_MS` (4 s), and only then can a landing fade the frame, and only while its
+  section is still on screen. A photo already in the memory cache has its size the moment
+  `src` is set and is sized in the same task, so an edit never shows the placeholder.
+- **Only a live preview holds text back:** the runtime sets `data-img-pending` only in a
+  document with a reveal gate (`__latticeFontsSettled` is a boolean: the Studio's slide,
+  the Playground filmstrip, the Stage window). The Studio's export capture frame, the
+  player and the fluid viewer have no gate and keep the Clean floor, so their bytes are
+  unchanged; the CLI emulator stamps every image slide from the file header anyway. A
+  section this pass does not measure has any host pending stamp cleared, and the CSS
+  releases the text by itself 4.5 s in (an animation), so a runtime that never ran cannot
+  strand it hidden. The Playground's first-slide snapshot strips the attribute from its
+  clone.
+- **WebKit holds `document.fonts.ready` until the document's other loads finish.** With a
+  slow photo, the font gate's backstop fired with all 17 faces already loaded, and the
+  photo's landing announced `lattice:fonts-late` and faded the whole frame. The backstop
+  now counts as late only when `document.fonts.status` is not `loaded`
+  (`lib/core/preview-font-gate.mjs`).
 - **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
   the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
 
