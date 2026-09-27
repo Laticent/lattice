@@ -520,6 +520,37 @@ describe('export-formats', () => {
     assert.ok(px[o] > 230 && px[o + 1] > 230 && px[o + 2] > 230, `the card covers the diagram (rgb ${px[o]},${px[o + 1]},${px[o + 2]})`);
   });
 
+  test('the fourth checker pass: collapsed matrices, nested SVGs, pseudo-element overlays, small badges', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'fourth.md');
+    const slides = [
+      // A nested <svg> under scale(0): its clip matrix is singular, and inverting it wrote NaN
+      // that blanked the rest of the page. The words after it must still be drawn.
+      '<svg width="200" height="100"><rect width="200" height="100" fill="#0a0"/><g transform="scale(0)"><svg width="100" height="100"><rect width="100" height="100"/></svg></g></svg>\n\nQuartzite words after the svg.',
+      // A nested <svg>: its one half-transparent rect must be drawn once, not twice.
+      '<svg width="200" height="100"><svg x="0" y="0" width="200" height="100"><rect width="200" height="100" fill="#00f" fill-opacity=".5"/></svg></svg>',
+      // An ancestor ::after bar over text: the words under it stay in the photo.
+      '<style>.ov{position:relative}.ov::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:#000}</style><div class="ov"><p>Redacted halyard marmot text.</p></div>',
+      // A badge smaller than a grid cell over a big SVG rect: the rect stays in the photo.
+      '<div style="position:relative;width:800px;height:400px"><svg width="800" height="400"><rect width="800" height="400" fill="#36c"/></svg><div style="position:absolute;left:130px;top:60px;width:40px;height:20px;background:#e00"></div></div>',
+    ];
+    fs.writeFileSync(src, `---\ntheme: cuoio\n---\n\n${slides.map((h, i) => `## Case ${i + 1}\n\n${h}`).join('\n\n---\n\n')}\n`);
+    const out = path.join(dir, 'fourth.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const raster = spawnSync('pdftoppm', ['-r', '20', '-png', out, path.join(dir, 'r')], { encoding: 'utf8' });
+    assert.doesNotMatch(raster.stderr, /Error/, `poppler reads every operator:\n${raster.stderr}`);
+    const text = (p) => execFileSync('pdftotext', ['-f', String(p), '-l', String(p), out, '-'], { encoding: 'utf8' });
+    assert.match(text(1), /Quartzite words after the svg\./, 'the page after a collapsed SVG is still drawn');
+    assert.doesNotMatch(text(3), /Redacted halyard/, 'text under an ancestor ::after bar is not drawn over it');
+    const report = JSON.parse(fs.readFileSync(rep, 'utf8'));
+    assert.ok(report.refusedShapes['bad-path'] >= 1, 'the collapsed nested SVG is refused, not written');
+    assert.ok(report.refusedShapes.covered >= 1, 'the rect under the small badge stays in the photo');
+    // Page 2 carries exactly one vector shape: the nested rect, read once.
+    const perSlide = report.photoContent || [];
+    assert.ok(!perSlide.some((p) => p.slide === 2 && p.why && p.why['bad-path']), 'the nested SVG itself is drawable');
+  });
+
   test('a KaTeX square root keeps its bar inside the root, as the browser clips it', { timeout: TIMEOUT }, () => {
     // KaTeX draws the bar 400em wide and crops it with the SVG viewport and an overflow:hidden
     // span; the writer once ignored both and ran the bar to the edge of the page.

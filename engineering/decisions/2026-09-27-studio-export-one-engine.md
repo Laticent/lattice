@@ -334,6 +334,20 @@ Order of work, all in one PR (#2404):
     stays in the photo. Gallery-wide that moves exactly those 2 shapes.
   - Everything else it flags is the same line drawn crisper than the 1x screenshot, or the
     photo's JPEG bleeding a 1px colored hairline into the next row (below).
+- **The fourth checker pass (the last unreviewed fix commits and the #2417 merge) found:**
+  - **Blocking:** a clip whose matrix cannot be inverted (`scale(0)` above a nested `<svg>`)
+    still wrote NaN and blanked the rest of the page; only paths were checked. Matrices of
+    shapes, clips and SVG text are now checked too (`matrixIsDrawable`).
+  - Shapes in a nested `<svg>` were read twice (a 50% fill drew opaque): only the outermost
+    SVG is walked now.
+  - An overlay drawn by an ANCESTOR's `::after` was invisible to the checks, because a hit test
+    returns the host; its rect is now computed from its insets. A badge smaller than a grid cell
+    slipped between the 4x4 samples; every positioned box that paints and overlaps a shape is
+    sampled too. An SVG with nothing over it skips the per-shape checks (a 3,000-shape chart
+    cost 48,000 hit tests, about 9 s).
+  - `contain: paint` clips, and each overflow axis clips on its own.
+  - An `<svg>` no longer counts as covering text: KaTeX's root sign pushed the formula under it
+    out of the text layer.
 - **Known limits:**
   - The photo is JPEG, which stores color at half resolution. A 1px colored hairline left in
     the photo (the top keyline of a dark slide) bleeds a little color into the row below.

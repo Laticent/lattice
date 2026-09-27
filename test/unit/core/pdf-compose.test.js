@@ -132,4 +132,10 @@ test('path data: every SVG spelling reaches pdf-lib as finite numbers, and a bro
 	assert.equal(normalizePath('M0 0a1 1 0 011 1'), 'M 0 0 a 1 1 0 0 1 1 1');
 	assert.ok(pathIsDrawable('M863,9c0,-2,-2,-5,-6,-9c-21.3,163.3,-33.3,349,\n-36,557 l0,1884z'));
 	assert.equal(pathIsDrawable('M0 0L1'), false, 'a truncated path is refused, not written');
+	// pdf-lib reads an UPPERCASE exponent's sign as a new number; lowercased, it parses.
+	assert.ok(pathIsDrawable('M1E-5 0L1 1'));
+	// A collapsed or non-finite matrix cannot be inverted to restore the graphics state.
+	assert.equal(write.matrixIsDrawable([0, 0, 0, 0, 5, 5]), false);
+	assert.equal(write.matrixIsDrawable([1, 0, 0, NaN, 0, 0]), false);
+	assert.ok(write.matrixIsDrawable([2, 0, 0, 2, 10, 10]));
 });
