@@ -377,6 +377,15 @@ describe('withCompact at a venue', () => {
   test('a compact slide its compact budget holds never claims a clip at the designed size', () => {
     for (const f of run('q-and-a compact')) assert.doesNotMatch(f.message, /designed size/);
   });
+
+  test('a compact slide is judged by the measured compact row, not the bare one', () => {
+    // q-and-a bare holds 3 at huddle, compact 4 (calibrate-capacity --variant compact).
+    const out = run('q-and-a compact');
+    assert.equal(out.length, 1, 'five pairs are still one past the compact huddle row');
+    assert.match(out[0].message, /'q-and-a compact' holds about 4/);
+    const four = core.lintTextWith(`---\nmarp: true\nvenue: huddle\n---\n\n<!-- _class: q-and-a compact -->\n\n## H.\n\n${pairs(4)}\n`, v).filter((f) => f.rule === 'capacity-scale');
+    assert.deepEqual(four, [], 'four compact pairs fit at huddle, where the bare row said 3');
+  });
 });
 
 describe('venue-only rows count on their own axis', () => {

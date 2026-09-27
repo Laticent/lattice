@@ -572,3 +572,11 @@ No finding claims a clip at the designed size on the talk any more (it made 10 p
 off: components with no venue row at all (`roadmap`, `diagram`, `divider`, a mermaid slide), and
 a few `list takeaway` / `glossary` slides whose rows run pessimistic. Both stay in
 `followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md`.
+
+**Compact rows (follow-up, 2026-09-27).** `q-and-a` and `cards-stack` now carry a
+`venueCapacity.variants.compact` row, measured with `calibrate-capacity --variant compact` at the
+designed size and each rung: `q-and-a` 5 / 4 / 4 / 3 at 6 and 12 words; `cards-stack` 5 / 4 / 4 / 3
+at 6 words and 5 / 4 / 2 / 2 at 16. `scaleCapacityFor` already reads a variant row when the slide
+carries the token, so only the rows were missing: a five-pair `q-and-a compact` slide at huddle is
+judged against 4 rather than the bare 3. The docs line caps a compact row at `withCompact.hard`,
+the number lint judges a compact slide by (`cards-stack` has none, so its row stays capped at 4).

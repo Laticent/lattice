@@ -1,0 +1,1 @@
+- `lint:deck` judges a `q-and-a compact` or `cards-stack compact` slide at a venue by a measured compact row instead of the bare one: a four-pair `q-and-a compact` slide at `venue: huddle` is no longer named (compact holds 4 there, bare 3). The component docs' **By venue** line now prints the compact row.

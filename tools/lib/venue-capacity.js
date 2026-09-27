@@ -76,7 +76,9 @@ function venueDocsLine(m, noun) {
   };
   const variants = Object.entries(vc.variants || {}).map(([tok, v]) => {
     const { len, r } = at(v.byWords);
-    return ` With \`${tok}\` (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
+    // `compact` lifts the cap to `withCompact.hard` (lint-core judges a compact slide by it).
+    const vCap = tok === 'compact' && Number.isInteger(m.capacity?.withCompact?.hard) ? m.capacity.withCompact.hard : cap;
+    return ` With \`${tok}\` (~${len} words): ${VENUES.map((x) => count(vc, r, x, vCap)).join(' · ')}.`;
   }).join('');
   const insight = vc.insight
     ? (() => {
