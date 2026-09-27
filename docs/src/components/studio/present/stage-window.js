@@ -418,7 +418,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		(standalone ? STAGE_CHROME_CSS : '') + '</style>' +
 		// The font gate, in <head> — same placement rule as the other two preview
 		// builders. See lib/core/preview-font-gate.mjs.
-		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+		// `0`: no adaptive-image wait — this document holds the WHOLE deck, and one slide's slow
+		// photo must not keep every other slide hidden (lib/core/preview-font-gate.mjs).
+		'<scr' + 'ipt>' + fontGateAgent(undefined, 0) + '</scr' + 'ipt>' +
 		'</head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
 		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +

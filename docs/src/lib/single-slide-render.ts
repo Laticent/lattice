@@ -1253,13 +1253,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 * the frame the new layout paints in, then fading it back in over the same 180ms reveal
 	 * transition. A fade instead of a jump; nothing is hidden for longer than one ease.
 	 * Armed once per document.
+	 *
+	 * `lattice:layout-late` is the same case for an adaptive IMAGE: the gate holds the reveal for
+	 * the photo's aspect up to PREVIEW_IMAGE_GATE_MS, and a photo slower than that re-lays out the
+	 * card when it lands (lib/transformers/image-adaptive.js).
 	 */
 	function armLateFonts(fr: HTMLIFrameElement) {
 		try {
 			const win = fr.contentWindow as (Window & { __latticeLateArmed?: boolean }) | null;
 			if (!win || win.__latticeLateArmed) return;
 			win.__latticeLateArmed = true;
-			win.addEventListener('lattice:fonts-late', () => {
+			const fadeThrough = () => {
 				if (disposed || fr.style.opacity !== '1') return;
 				const transition = fr.style.transition;
 				fr.style.transition = 'none';
@@ -1270,7 +1274,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						fr.style.opacity = '1';
 					}),
 				);
-			});
+			};
+			win.addEventListener('lattice:fonts-late', fadeThrough);
+			win.addEventListener('lattice:layout-late', fadeThrough);
 		} catch {
 			/* a torn-down or cross-realm frame has nothing to re-fade */
 		}

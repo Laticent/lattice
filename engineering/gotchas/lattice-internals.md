@@ -780,6 +780,27 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Pinned by:** the "coda:" arms in `test/unit/transformers/prose-projection.test.js`,
   rendered through the real engine.
 
+## An image slide jumps in the Studio preview when its picture loads
+
+- **Symptom:** a slide with an adaptive `image` appears, then its picture panel
+  resizes and the heading moves once the photo arrives. Measured with the photo held
+  2.5 s: the panel went 605x504 to 552x345 and the heading moved 18px, after the slide
+  was on screen. On a fast link the photo beats the reveal, so it shows on a phone.
+- **Cause:** in a browser the photo's aspect is only known once it loads.
+  `lib/transformers/image-adaptive.js` stamps the Clean floor at once and re-stamps
+  `data-img-bucket` / `data-img-composition` when its probe loads, and the bucket
+  sizes the card. The preview's reveal gate waited for fonts, never for the probe.
+- **Fix:** each probe started before the first reveal publishes a promise that always
+  settles on `window.__latticeImageProbes`. `fontGateAgent` waits for them after the
+  faces, capped by `PREVIEW_IMAGE_GATE_MS` (4 s), armed only when a probe is pending. A
+  probe that lands past the cap fires `lattice:layout-late`, and `single-slide-render`
+  fades the frame through the relayout. A probe started after the reveal (an edit
+  re-creates the section) is neither published nor announced. The two whole-deck
+  documents (the Playground filmstrip, the Stage window) pass `0` and do not wait, so
+  one slow photo cannot hold every slide hidden.
+- **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
+  the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
+
 ## A code block or a prose line after a heading is pulled into the masthead band
 
 - **Symptom:** in the engine HTML, `.masthead-lede` holds a `<pre>`, or a paragraph

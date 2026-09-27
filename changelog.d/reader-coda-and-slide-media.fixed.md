@@ -1,1 +1,2 @@
 - Read · Article now prints a slide's closing key-insight panel and below-note, after the body: the panel as a callout, the note as a closing note. Before, 239 of the 242 slides in the committed decks that carry one lost it from the article while narration still read it.
+- The Studio preview no longer shows an image slide in a provisional layout and then jumps when its picture arrives: the first reveal waits for the picture's size, up to 4 seconds, and a later arrival fades through instead of jumping.
