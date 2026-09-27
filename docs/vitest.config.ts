@@ -20,6 +20,10 @@ export default defineConfig({
 			// stub. See src/test/react-resizable-panels.stub.tsx.
 			'react-resizable-panels': fileURLToPath(new URL('./src/test/react-resizable-panels.stub.tsx', import.meta.url)),
 		},
+		// The narration encoder lives in lib/core (the CLI voices a deck with it too), and a bare
+		// import from there would otherwise reach the ROOT node_modules copy of the MP3 encoder while
+		// a test's `vi.mock` names this project's. One copy, resolved from here, for every importer.
+		dedupe: ['@breezystack/lamejs'],
 	},
 	test: {
 		environment: 'jsdom',

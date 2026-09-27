@@ -215,6 +215,13 @@ OPTIONS
                           HTML sanitized under a strict CSP, and the deck source
                           embedded for lossless re-import. Supersedes --fluid. Can
                           also be enabled with a 'player: true' front-matter key.
+      --player-mode M     Open the --player in light, dark or system mode, over the
+                          deck's own 'color-mode:'.
+      --narrate           Voice the --player with Kokoro, the Studio's on-device
+                          voice: every narrated sentence (the --captions narration)
+                          becomes a clip, encoded as the Studio's export encodes it.
+                          Needs the optional kokoro-js (the first run downloads the
+                          ~80 MB model): npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7
       --read              Emit the .html as the deck's READING ARTICLE — the prose,
                           INSTEAD of the slide stack: real headings, paragraphs and
                           lists, with charts and tables re-hosted as figures. This is
@@ -374,10 +381,10 @@ EXIT CODES
   1  Usage error, missing file, palette not found, or render failure
 
 VIDEO
-  lattice video <narrated-export.html> [out.mp4]
-                     Render a narrated HTML export (the Studio's, with narration)
-                     to an MP4 (H.264, AAC, a caption track) and a .vtt sidecar.
-                     See lattice video --help
+  lattice video <deck.md | narrated-export.html> [out.mp4]
+                     Render a deck, voiced with Kokoro, or a narrated HTML export
+                     (the Studio's) to an MP4 (H.264, AAC, a caption track) and a
+                     .vtt sidecar. See lattice video --help
 
 EXAMPLES
   node lattice-emulator.js deck.md out.pdf
@@ -449,6 +456,8 @@ function parseArgs(argv) {
     // The package store for THIS run (lib/packages/home.js): an installed theme or component
     // the deck names is found here. Default: $LATTICE_HOME/packages, else ~/.lattice/packages.
     '--packages': 'packages',
+    // The mode the --player opens in, over the deck's own (light, dark or system).
+    '--player-mode': 'player-mode',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -462,6 +471,7 @@ function parseArgs(argv) {
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
     if (a === '--player') { flags.player = true; continue; }
+    if (a === '--narrate') { flags.narrate = true; continue; }
     if (a === '--read') { flags.read = true; continue; }
     if (a === '--present') { flags.present = true; continue; }
     if (a === '--print') { flags.print = true; continue; }
@@ -525,6 +535,19 @@ if (flags.palette) paletteArg = flags.palette;
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
 const CAPTIONS = !!flags.captions;
+// `--narrate`: voice the --player export with Kokoro, the Studio's on-device voice (optional
+// kokoro-js; lib/export/narrate-kokoro.mjs). This is how `lattice video deck.md` gets its audio.
+const NARRATE = !!flags.narrate;
+const PLAYER_MODE = flags['player-mode'] ?? null;
+// Both act on the self-contained player only; said here rather than silently ignored. (The
+// `player: true` front-matter key also enables it, so this reads the flag the CLI was given.)
+if ((NARRATE || PLAYER_MODE !== null) && !flags.player && !QUIET) {
+  console.warn(`note: ${NARRATE ? '--narrate' : '--player-mode'} applies to the --player export; it is ignored unless the deck asks for one (--player or 'player: true')`);
+}
+if (PLAYER_MODE !== null && !['light', 'dark', 'system'].includes(PLAYER_MODE)) {
+  console.error('error: --player-mode is light, dark or system');
+  process.exit(1);
+}
 // `--strip-notes`: the privacy strip for the self-contained player. Notes ride by
 // default (present-from-it), but this scrubs them from EVERY baked copy — the slide
 // DOM aside, the PDF text annotation, AND the envelope `source` (design doc §Notes
@@ -4398,7 +4421,7 @@ async function renderBody(browser, g, closeBrowser) {
   // opens is not competing with the 2x raster twins for /dev/shm.
   // `cleanDocHtml` is final here: the Fit-Spine split and the rails pass both rewrite it,
   // and both have run by this line.
-  const captionScript = CAPTIONS ? await projectDeckSpeechFromHtml(cleanDocHtml, browser, g) : [];
+  const captionScript = CAPTIONS || (NARRATE && PLAYER) ? await projectDeckSpeechFromHtml(cleanDocHtml, browser, g) : [];
 
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
   // clipped/cropped placements Chromium prints for them emit shading-pattern /
@@ -4921,6 +4944,45 @@ async function renderBody(browser, g, closeBrowser) {
   // Fluid viewer: now that the raster (which loaded the CLEAN outHtml) is done,
   // overwrite outHtml with the responsive viewer. The exported PDF/PPTX/PNG bytes
   // above are unaffected — they never saw the marker or the inlined runtime.
+  // `--narrate`: voice the player BEFORE its assembly, and outside the assembly's forgiving
+  // try/catch below. A player that fails to assemble keeps the clean sidecar and warns; a deck
+  // the author asked to hear that cannot be voiced must fail the run, or `lattice video deck.md`
+  // would capture a silent file and call it done.
+  let playerNarration;
+  if (PLAYER && NARRATE) {
+    try {
+      const pages = notesPerRenderedPage(cleanDocHtml, materializedNotes).length;
+      const { readAlong, slideTexts, emphasis, inputs } = await resolveReadAlong(pages, slideCaptions, captionScript);
+      if (!readAlong.slides.length) throw new Error('the deck has nothing to narrate (no captions and no slide prose to project)');
+      const { KOKORO, loadKokoro, voiceDeck } = await import('./lib/export/narrate-kokoro.mjs');
+      const tts = await loadKokoro(QUIET ? null : (m) => console.log(`Narrate: ${m}`));
+      let shown = -1;
+      const slides = await voiceDeck(readAlong, slideTexts, {
+        emphasis,
+        tts,
+        onClip: (done, total) => {
+          const pct = Math.floor((100 * done) / total);
+          if (!QUIET && pct !== shown && pct % 10 === 0) {
+            shown = pct;
+            console.log(`Narrate: ${done}/${total} sentences voiced`);
+          }
+        },
+      });
+      // `captions: false` — the player's caption crawl stays off, as in the Studio's default
+      // export; the words still ride as the video's caption track and the .vtt beside it.
+      playerNarration = { voice: { model: KOKORO.model, voice: KOKORO.voice, speed: KOKORO.speed }, captions: false, inputs, slides };
+      // Say whether the Guide rides along, because nothing on screen says it is missing: the export
+      // carries it only when the deck declares `delivery:` (player-core.mjs, fork 3a).
+      if (!QUIET) {
+        const { frontMatterDelivery } = await import('./lib/core/resolve-delivery.mjs');
+        const named = frontMatterDelivery(rawMd);
+        console.log(named ? `Narrate: the Guide is on (delivery: ${named})` : 'Narrate: the Guide is off: the deck declares no `delivery:` (add `delivery: restrained` to have the export and its video point along)');
+      }
+    } catch (e) {
+      console.error(`error: --narrate: ${e?.message || e}`);
+      process.exit(1);
+    }
+  }
   if (PLAYER) {
     // The self-contained player supersedes the fluid viewer when both are set. A
     // player-assembly failure must NOT fail-hard the render — the deliverable
@@ -4987,7 +5049,8 @@ async function renderBody(browser, g, closeBrowser) {
         // this same run's PDF was correct (#1577). Already resolved above for the render.
         width: slideW,
         height: slideH,
-        theme: { name: paletteName, mode: deckScheme },
+        theme: { name: paletteName, mode: PLAYER_MODE ?? deckScheme },
+        ...(playerNarration ? { narration: playerNarration } : {}),
         // The engine's shallow front-matter parse doesn't read the nested `captions:` map (it
         // surfaces as `""`), so `config` normally carries no caption text — but an inline
         // `captions: {…}` form would echo here. Under `--strip-captions` drop the key outright
@@ -6263,22 +6326,12 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
   }
 }
 
-// Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza
-// estimate tracks via the shared root producer, then derives one deck-level .vtt
-// (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
-// offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
-// EXPORT NARRATION SOURCE: the slide's own CONTENT, narrated by the component-aware
-// DOM speech projection, unless the author overrode it — an inline `<!-- caption: -->`
-// or a front-matter `captions:` entry replaces the generated line entirely. A speaker
-// note is NOT a source: it is the author's, and nothing here reads it. (It was the top
-// rung until 2026-08-24, which is how a private remark reached a recipient's caption
-// sidecar; see changelog.d/1810-notes-are-not-captions.fixed.md.)
-// `--strip-notes` does not touch this path — it scrubs the note channel, and captions
-// narrate content, so the two flags are independent.
-async function writeCaptionsSidecar(outPath, slideCount, captions = [], script = []) {
+// THE DECK'S NARRATION, resolved once for every CLI consumer: the `--captions` sidecars and the
+// `--narrate` voice (lattice video deck.md). Inline caption, then front-matter caption, then the
+// slide's own content projected to speech, with chart narration and emphasis — so the sentences a
+// voice speaks are the sentences the captions show. Returns the per-slide texts beside the tracks.
+async function resolveReadAlong(slideCount, captions = [], script = []) {
   const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./lib/core/read-along-build.js');
-  const { readAlongProblems, readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
-  const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
   // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
   // front-matter `captions:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
   // the shared resolver so both producers can't drift (#904).
@@ -6446,6 +6499,33 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
     bookends: bookendTexts,
   });
+  // `inputs` and `emphasis` are what the tracks were built with, in the shape the Studio's bake
+  // hands the player (narration-bake.ts `resolveDeck`), so a voiced player's LTT declares them and
+  // its segment hashes are the ones the Studio would write for the same text.
+  const inputs = {
+    ...(lang ? { lang } : {}),
+    ...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
+    ...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
+  };
+  return { readAlong, slideTexts, emphasis, inputs };
+}
+
+// Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza
+// estimate tracks via the shared root producer, then derives one deck-level .vtt
+// (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
+// offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
+// EXPORT NARRATION SOURCE: the slide's own CONTENT, narrated by the component-aware
+// DOM speech projection, unless the author overrode it — an inline `<!-- caption: -->`
+// or a front-matter `captions:` entry replaces the generated line entirely. A speaker
+// note is NOT a source: it is the author's, and nothing here reads it. (It was the top
+// rung until 2026-08-24, which is how a private remark reached a recipient's caption
+// sidecar; see changelog.d/1810-notes-are-not-captions.fixed.md.)
+// `--strip-notes` does not touch this path — it scrubs the note channel, and captions
+// narrate content, so the two flags are independent.
+async function writeCaptionsSidecar(outPath, slideCount, captions = [], script = []) {
+  const { readAlongProblems, readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
+  const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
+  const { readAlong } = await resolveReadAlong(slideCount, captions, script);
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no caption overrides, no projectable slide prose) — no .vtt written');
     return;

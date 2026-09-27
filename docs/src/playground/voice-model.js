@@ -29,6 +29,7 @@
 // The two on-device tiers this module writes through to. Both are plain, node-safe JS
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
+import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
 import { recordLatency } from './narration-latency.js';
 import { narrationCacheEnabled } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
@@ -289,22 +290,7 @@ const SYNTH_GRACE_MS = 60000;
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a
 // 16-bit PCM WAV Blob. Pure → unit-tested for header correctness.
-export function wavBlob(samples, sampleRate) {
-  const f32 = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
-  const n = f32.length;
-  const buf = new ArrayBuffer(44 + n * 2);
-  const dv = new DataView(buf);
-  const wstr = (off, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(off + i, str.charCodeAt(i)); };
-  wstr(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); wstr(8, 'WAVE');
-  wstr(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
-  dv.setUint32(24, sampleRate, true); dv.setUint32(28, sampleRate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
-  wstr(36, 'data'); dv.setUint32(40, n * 2, true);
-  for (let i = 0; i < n; i++) {
-    const v = Math.max(-1, Math.min(1, f32[i]));
-    dv.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true);
-  }
-  return typeof Blob !== 'undefined' ? new Blob([buf], { type: 'audio/wav' }) : buf;
-}
+export { wavBlob };
 
 // A model whose OpenRouter speech endpoint 400s on response_format:"mp3" and
 // only returns raw PCM (live-verified 2026-07-11: google/gemini-3.1-flash-tts-
