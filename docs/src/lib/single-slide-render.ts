@@ -38,7 +38,7 @@ import {
 	sectionsOf,
 	supplyablePosition,
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
-import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
+import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';

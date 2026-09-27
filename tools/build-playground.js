@@ -16,7 +16,7 @@
  *
  * KaTeX is deliberately EXCLUDED (~78.5KB gzip / see
  * engineering/decisions/2026-07-10-landing-perf-katex-defer.md §4): the
- * `katex` import inside lib/engine/math.js is aliased to
+ * `katex` import inside lib/plugins/math/math.render.js is aliased to
  * lib/engine/katex-browser-stub.js for THIS build only — a Node/CLI build of
  * the same math.js (lattice-emulator.js, the npm package) still gets the real
  * `require('katex')` untouched, since esbuild never runs there. The real

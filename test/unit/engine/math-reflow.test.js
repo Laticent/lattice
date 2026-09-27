@@ -1,5 +1,5 @@
 /**
- * Unit: the RENDER SEAM for the display-equation reflow (`displayBlock` in lib/engine/math.js).
+ * Unit: the RENDER SEAM for the display-equation reflow (`displayBlock` in lib/plugins/math/math.render.js).
  *
  * The rule itself lives in lib/core/tex-linebreak.js and is tested there. What this file pins is
  * the three things the seam owns, each of which can be wrong without the rule being wrong:
@@ -17,14 +17,15 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 
-const { installMath } = require('../../../lib/engine/math');
+const { installPlugins } = require('../../../lib/plugins/host');
 
 const FEATURE = '\\ell(\\beta) = \\sum_{i=1}^{n} \\left[ y_i \\log \\sigma(x_i^\\top \\beta) '
   + '+ (1 - y_i) \\log\\bigl(1 - \\sigma(x_i^\\top \\beta)\\bigr) \\right]';
 
+// `reflow: true` is a non-16:9 deck: the math plugin reflows at every family except `wide`.
 function render(tex, opts) {
   const md = new MarkdownIt('commonmark');
-  installMath(md, opts);
+  installPlugins(md, { family: opts.reflow ? 'tall' : 'wide' });
   return md.render(`$$\n${tex}\n$$\n`);
 }
 

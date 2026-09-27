@@ -155,6 +155,28 @@
       },
       "description": "Marks this component as a chart-family member and declares the one thing its dispatch needs — the manifest half of LPM Phase 1 (engineering/decisions/2026-06-14-plugin-extension-system.md § Rollout Phase 1, as built in 2026-09-01-manifest-driven-chart-dispatch.md). `tools/build-chart-registry.js` reads every chart manifest and freezes lib/components/chart/_chart-family/chart-registry.generated.js, and chart-family.js dispatches through that registry rather than a hard-coded map, so a chart's DISPATCH AND FRAMING need no central edit. It does not make a whole chart component registration-free — several other rosters (prose projection, image-set export, the scorecard's data layouts, the docs family picker) are still hand-maintained; see design/skills/chart-component.md. Restricted to the `chart` bucket today. NOTE the name: the ADR calls this the `render` block, but `render` had since been claimed by the render-NATURE enum above and `transform` by the (unwired) transform DSL, so the field ships as `kernel` — which is also what this repo already calls these modules."
     },
+    "plugins": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "requires": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "description": "Plugins this component cannot do its job without — the `math` slide class requires the math plugin, whose `$…$` it is a stage for. For an in-tree component, a name no plugin has fails the build. With a required plugin switched off the slide still renders (the layout, and the plugin's own fallback — math shows its TeX source), and the engine reports a diagnostic naming both."
+        },
+        "optional": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "description": "Plugins this component uses when present and works without."
+        }
+      },
+      "description": "The plugins (lib/plugins/) this component depends on. A plugin is a capability that works on any slide; a component is a layout that may be designed around one, so the dependency points FROM the component TO the plugin, never the reverse (engineering/decisions/2026-09-27-plugin-system.md §4.1). Checked, not trusted: `tools/build-plugin-registry.js` parses this component's own gallery (`<name>.gallery.md`) with every plugin's grammar and fails the build when that gallery uses a plugin this block does not name."
+    },
     "projection": {
       "type": "object",
       "additionalProperties": false,

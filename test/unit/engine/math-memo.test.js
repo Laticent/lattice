@@ -1,5 +1,5 @@
 /**
- * The math typeset memo (lib/engine/math.js).
+ * The math typeset memo (lib/plugins/math/math.render.js).
  *
  * A COUNTING TEST, not a timing one. What the memo buys is measured in
  * `test/benchmark/engine-bench.mjs`'s edit tier; what it must never do is
@@ -11,7 +11,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const mathMod = require('../../../lib/engine/math.js');
+const mathMod = require('../../../lib/plugins/math/math.render.js');
 const { renderTex, _resetMathMemo, _mathMemoStats } = mathMod;
 const { render } = require('../../../lib/engine');
 

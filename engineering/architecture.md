@@ -433,7 +433,7 @@ The palette file is resolved as `path.join(__dirname, 'themes', name + '.css')`.
 The lattice engine theme is whatever path argv[2] points to. Examples and
 other files have no fixed location requirement.
 
-## Packages: one shape for themes, components, finishes and motion
+## Packages: one shape for themes, components, finishes, motion and plugins
 
 `lib/packages/` is the package spine
 (`engineering/decisions/2026-09-23-portable-packages.md`). A package is a folder named
@@ -454,6 +454,27 @@ Themes and components are discovered through `fs.js`: `loadAll`, the theme catal
 `tools/build-packages-index.js` writes `lib/packages/packages.generated.json` from it.
 Themes are still flat files (`themes/<name>.css`), which is the `flat` layout; moving
 them into folders is phase 5 of the note.
+
+## Plugins: capabilities as packages
+
+`lib/plugins/` is the plugin host (`engineering/decisions/2026-09-27-plugin-system.md`; working
+guide `lib/plugins/README.md`). A plugin is a `type: "plugin"` package — the spine's fifth kind —
+that contributes syntax, renderers and components. Its manifest declares **what**; its
+`<name>.syntax.mjs` (grammar, pure) and `<name>.render.js` (renderers, may load a library) say
+**how**; `tools/build-plugin-registry.js` checks the two agree, resolves `requires`/`optional`,
+and freezes `grammar.generated.mjs`, `registry.generated.js` and `blocks.generated.mjs` (the
+boundary parser's straight-line block installer).
+
+| File | Job |
+|---|---|
+| `resolve.js` | every rule that fails the build by name: one-to-one, dependencies, cycles, anchors, trigger/token/component collisions |
+| `host-grammar.mjs` | installs plugin rules in dependency order (ESM, library-free) — the engine's path; the boundary parser installs the same block rules through the generated `blocks.generated.mjs`, held to this order by tests |
+| `host.js` | the engine's entry: grammar plus renderers, each wrapped fail-soft, with a frozen `ctx` |
+
+`lib/engine/index.js` calls `installPlugins` where it used to call `installMath`, and names no
+plugin; `createEngine({ math: false, mathOutput })` map onto `plugins: { disabled, options }` in
+one place (`pluginConfigFor`). **Math** is the first plugin; function-plot, Mermaid and the chart
+family follow, each phase deleting what it replaces (`checkPluginMigration` counts what is left).
 
 ## The smoke test
 

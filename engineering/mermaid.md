@@ -1177,7 +1177,7 @@ Three structural answers, in the order they close the gap:
    every off-render boundary caller (`bake-splits.js`, `section-source-split.js`,
    `slide-class-spans.js`). Each used to build its own beside a comment claiming it
    "mirrors the lib/engine parser"; a comment cannot make that true. It carries the
-   `math_block` rule (`lib/core/math-block-rule.js`, split out of the KaTeX plugin so
+   `math_block` rule (`lib/plugins/math/math.syntax.mjs`, split out of the KaTeX renderer so
    the grammar has one definition and no render dependency).
 2. **One directive grammar on the RENDER + BAND path.** `lib/core/comment-directive.js`
    owns the `<!-- key: value -->` parse; `lib/engine/slides.js` binds the engine's
