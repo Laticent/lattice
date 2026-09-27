@@ -798,6 +798,16 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   re-creates the section) is neither published nor announced. The two whole-deck
   documents (the Playground filmstrip, the Stage window) pass `0` and do not wait, so
   one slow photo cannot hold every slide hidden.
+- **The same jump on a slide CHANGE** (the patch path, which no reveal gate covers): the
+  swapped-in section painted for ~150ms with no composition at all (the panel filled the
+  whole slide), then as the Clean floor, then final. `single-slide-render` now keeps every
+  size a frame measured (`__latticeImageBuckets`), measures the deck's other allowed
+  photos ahead of time through the frame's own `Image` (so the frame's policy rules on
+  them and their redirects), and stamps each section before writing it
+  (`stampImageSections`, lib/core/image-aspect.js). An unknown photo gets the Clean floor
+  marked `data-img-provisional`, which the browser pass still measures; a late change
+  fades through. A photo that will not load gets `data-img-unloaded`, and its panel draws
+  the hatched stand-in a blocked web image gets instead of an empty box.
 - **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
   the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
 

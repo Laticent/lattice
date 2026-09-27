@@ -13,6 +13,8 @@ function makeSection({ className = 'image', orientation, bgStyle } = {}) {
     className,
     getAttribute: (k) => (k in attrs ? attrs[k] : null),
     setAttribute: (k, v) => { attrs[k] = v; },
+    hasAttribute: (k) => k in attrs,
+    removeAttribute: (k) => { delete attrs[k]; },
     querySelector: () => bg,
     _attrs: attrs,
   };
@@ -125,9 +127,10 @@ test('a probe started BEFORE the reveal that lands after it says layout-late', (
   } finally { global.Image = prev; }
 });
 
-// An edit re-creates the section (patchSlideBody), and the cached photo lands a frame later: that
-// probe starts AFTER the reveal and must not fade the preview on every keystroke.
-test('a probe started after the reveal (a patch render) is not published and stays quiet', () => {
+// A slide patched in after the reveal whose photo the host had not measured (a navigation to it):
+// the probe is not published to the gate, but a layout change fades through rather than jumps.
+// An EDIT never gets here — the host stamps an edited slide from `__latticeImageBuckets`.
+test('a probe started after the reveal is not published, and a change it makes fades through', () => {
   const prev = global.Image;
   global.Image = class { set src(_v) { this.naturalWidth = 1200; this.naturalHeight = 800; this.onload(); } };
   try {
@@ -136,7 +139,29 @@ test('a probe started after the reveal (a patch render) is not published and sta
     imageAdaptive.applyToDom(rootIn([s], view));
     assert.equal(view[imageAdaptive.PROBES], undefined, 'nothing reads the list after the reveal');
     assert.equal(s._attrs['data-img-bucket'], 'wide', 'it still resolves the composition');
-    assert.deepEqual(view.events, []);
+    assert.deepEqual(view.events, [imageAdaptive.LATE_EVENT]);
+    assert.equal(view[imageAdaptive.BUCKETS]['venue.png'], 'wide', 'the host can learn the size');
+  } finally { global.Image = prev; }
+});
+
+// A host stamps an unmeasured slide PROVISIONAL (the Clean floor, so it never paints
+// composition-less); the browser pass still measures it, and a final stamp is left alone.
+test('a provisional stamp is measured; a final one is not', () => {
+  const prev = global.Image;
+  let probes = 0;
+  global.Image = class { set src(_v) { probes++; this.naturalWidth = 800; this.naturalHeight = 1200; this.onload(); } };
+  try {
+    const provisional = makeSection({ bgStyle: "url('t.png')" });
+    provisional.setAttribute('data-img-composition', 'clean');
+    provisional.setAttribute('data-img-provisional', '');
+    const final = makeSection({ bgStyle: "url('w.png')" });
+    final.setAttribute('data-img-composition', 'clean');
+    final.setAttribute('data-img-bucket', 'wide');
+    imageAdaptive.applyToDom(rootOf([provisional, final]));
+    assert.equal(probes, 1);
+    assert.equal(provisional._attrs['data-img-composition'], 'split');
+    assert.equal('data-img-provisional' in provisional._attrs, false);
+    assert.equal(final._attrs['data-img-bucket'], 'wide');
   } finally { global.Image = prev; }
 });
 
@@ -147,5 +172,22 @@ test('a probe that changes nothing after the reveal stays quiet', () => {
     const view = fakeView(true);
     imageAdaptive.applyToDom(rootIn([makeSection({ bgStyle: "url('venue.png')" })], view));
     assert.deepEqual(view.events, []);
+  } finally { global.Image = prev; }
+});
+
+// A photo that will not load (gone, offline, or refused by the preview's policy) marks its section,
+// so the panel draws the hatched stand-in instead of an empty box that reads as broken.
+test('a photo that fails to load marks the section unloaded; a later load clears it', () => {
+  const prev = global.Image;
+  try {
+    global.Image = class { set src(_v) { this.onerror(); } };
+    const s = makeSection({ bgStyle: "url('gone.png')" });
+    imageAdaptive.applyToDom(rootOf([s]));
+    assert.equal('data-img-unloaded' in s._attrs, true);
+    global.Image = class { set src(_v) { this.naturalWidth = 1200; this.naturalHeight = 800; this.onload(); } };
+    s.setAttribute('data-img-provisional', '');
+    imageAdaptive.applyToDom(rootOf([s]));
+    assert.equal('data-img-unloaded' in s._attrs, false);
+    assert.equal(s._attrs['data-img-bucket'], 'wide');
   } finally { global.Image = prev; }
 });

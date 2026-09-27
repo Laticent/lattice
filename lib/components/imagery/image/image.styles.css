@@ -120,6 +120,18 @@ section.image .lattice-bg {
   background-size: cover;
 }
 
+/* A PHOTO THAT DID NOT LOAD. The browser pass (lib/transformers/image-adaptive.js) stamps
+ * `data-img-unloaded` when the panel's photo fails: gone, offline, or refused by the preview's
+ * policy (a redirect to a site the reader did not allow). An empty panel read as a broken
+ * slide on an iPhone (#2412), so it draws the same stand-in a blocked web image gets
+ * (base.modifiers.css): a hatched field in the deck's tokens behind a hairline edge.
+ * `!important` because the failed address sits in the panel's inline style. */
+section.image[data-img-unloaded] .lattice-bg {
+  background-color: var(--bg-alt, var(--bg));
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0 1px, transparent 1px 10px) !important;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
 /* The prose panel. Base = a centered flex column; each composition places it. */
 section.image .image-text {
   position: relative;

@@ -76,3 +76,55 @@ test('compositionFromClass: explicit author class wins; legacy aliases map', () 
   assert.equal(compositionFromClass('image'), null);               // no override → auto-resolve
   assert.equal(compositionFromClass('image mirror'), null);        // side hint, not a composition
 });
+
+// ── stampImageSections: a host stamps the final layout BEFORE a slide paints (#2412) ──
+// A live preview that swapped in an image slide painted it composition-less (the panel filled the
+// slide), then as the Clean floor, then final. A host that already knows the photo's bucket stamps
+// the section string first; one that does not stamps the floor, marked provisional.
+{
+  const { stampImageSections } = require('../../../lib/core/image-aspect');
+  const sec = (cls, url) => `<section id="2" class="${cls}"><div class="lattice-bg lattice-bg-right" style="background-image:url('${url}')"></div><div class="image-text"><h2>T</h2></div></section>`;
+  const open = (html) => html.match(/<section[^>]*>/)[0];
+
+  test('stampImageSections: a known bucket stamps the final composition', () => {
+    const out = stampImageSections(sec('image', 'https://a.test/tall.png'), () => 'tall');
+    assert.match(open(out), /data-img-bucket="tall" data-img-composition="split"/);
+    assert.doesNotMatch(open(out), /data-img-provisional/);
+  });
+
+  test('stampImageSections: a query string with & keys the cache on the WHOLE decoded address', () => {
+    const asked = [];
+    const html = sec('image', 'https://images.unsplash.com/photo-1?w=1600&amp;q=80');
+    const tag = open(stampImageSections(html, (u) => { asked.push(u); return 'wide'; }));
+    assert.deepEqual(asked, ['https://images.unsplash.com/photo-1?w=1600&q=80']);
+    assert.match(tag, /data-img-bucket="wide"/);
+  });
+
+  test('stampImageSections: entities decode once, never twice', () => {
+    const asked = [];
+    stampImageSections(sec('image', 'https://a.test/x?q=a&amp;#39;b'), (u) => { asked.push(u); return 'wide'; });
+    assert.deepEqual(asked, ["https://a.test/x?q=a&#39;b"]);
+  });
+
+  test('stampImageSections: the orientation picks the table, as the runtime does', () => {
+    assert.match(open(stampImageSections(sec('image', 'u'), () => 'wide', 'portrait')), /data-img-composition="split"/);
+    assert.match(open(stampImageSections(sec('image', 'u'), () => 'wide', 'landscape')), /data-img-composition="clean"/);
+  });
+
+  test('stampImageSections: an unknown or failed photo gets the floor, provisional', () => {
+    for (const b of [undefined, null]) {
+      const tag = open(stampImageSections(sec('image', 'u'), () => b));
+      assert.match(tag, /data-img-composition="clean" data-img-provisional=""/);
+      assert.doesNotMatch(tag, /data-img-bucket/);
+    }
+  });
+
+  test('stampImageSections: an author composition wins; a stamped or non-image section is untouched', () => {
+    assert.match(open(stampImageSections(sec('image gallery', 'u'), () => 'tall')), /data-img-bucket="tall" data-img-composition="gallery"/);
+    const stamped = sec('image', 'u').replace('<section ', '<section data-img-composition="spotlight" ');
+    assert.equal(stampImageSections(stamped, () => 'tall'), stamped);
+    const content = sec('content', 'u');
+    assert.equal(stampImageSections(content, () => 'tall'), content);
+  });
+
+}

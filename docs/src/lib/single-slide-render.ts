@@ -95,6 +95,11 @@ function loadRemoteRef(): Promise<RemoteRef> {
 	return remoteRefLoad;
 }
 
+// Adaptive image sizes, known before a slide paints: lazily loaded, off the Studio's eager
+// bundle (docs/route-budget.json). See ./image-size-memo.ts.
+let imageMemoLoad: Promise<typeof import('./image-size-memo')> | null = null;
+const loadImageMemo = () => (imageMemoLoad ??= import('./image-size-memo'));
+
 export type RenderStatus = {
 	ok: boolean;
 	slides: number;
@@ -1910,7 +1915,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const remoteRef = await loadRemoteRef();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 				const web = remoteRef.blockWebImages(out.html, allow);
-				out = { ...out, html: web.html };
+				// Stamp each image slide from what is already known of its photo, before ANY sink
+				// writes it: the first painted frame is the final layout (./image-size-memo.ts).
+				const imageMemo = await loadImageMemo();
+				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				out = { ...out, html: await imageMemo.stampKnownSizes(web.html, geom, host.querySelector<HTMLIFrameElement>('iframe.live')) };
+				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, allow, remoteRef.webOrigin);
 				webAllow = allow;
 				// The theme and author CSS reach the frame beside the markup, so their web references
 				// count too: the restyle path swaps that <style> without touching <head>.
@@ -1969,6 +1980,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const tFrame = performance.now();
 					const inPlace = swapKind();
 					if (patchSlideBody(live, safe, inPlace)) {
+						prefetchImages(live);
 						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
 						// through to the restyle path, which asks again — against an identity it had
 						// just overwritten, so the second answer was always `in-place`.
@@ -2050,6 +2062,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					themeStyleEl.textContent = styleElementText(authorStyleContent(extraCss));
 					const inPlace = swapKind();
 					if (patchSlideBody(live, safe, inPlace)) {
+						prefetchImages(live);
 						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
 						// through to the restyle path, which asks again — against an identity it had
 						// just overwritten, so the second answer was always `in-place`.
@@ -2171,6 +2184,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Parent-hosted video playback: tap a video poster in a Studio preview
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
+					// The frame is live: measure the deck's other photos through it, so the next slide
+					// the reader turns to is stamped final before it paints.
+					prefetchImages(fr);
 					const now = performance.now();
 					const rec = recordRenderSample({
 						engineMs,
