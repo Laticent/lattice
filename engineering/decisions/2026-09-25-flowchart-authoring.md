@@ -79,6 +79,11 @@ The kernel that implements this section is `lib/core/flowchart-grammar.js`.
   hyphens. (`{kyc}` was the first proposal and was dropped: braces are the inline
   pill grammar, and the engine turns `` `{kyc}:diamond` `` into a pill before any
   chart sees it.)
+- **Order is reading order.** Shapes are listed in the order the author first put them in
+  sequence: the row a shape leads, or its step in a chain row (`A => B => C`), whichever
+  comes first. A single connection (`- -approve-> Approved`) never moves its target. The
+  state chart numbers its states in this order, and a wrapped layout reads in it
+  (2026-09-27, with wrapping moving into Trama).
 - **A name must contain text.** A list item whose text is empty after its span,
   or only a list-marker-like token (`2.`, `+`, `*`), is a lint error, not a
   nameless shape.

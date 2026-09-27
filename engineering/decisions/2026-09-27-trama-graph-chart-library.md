@@ -236,6 +236,24 @@ The owner settled the open questions on 2026-09-27.
 - **Lint.** `findFlowchartIssues` reads state-chart slides with the same grammar (so a
   near-duplicate target name is named), and names the retired v1 spellings
   (`state-chart-v1-transition`, `state-chart-v1-tint`) with their fix.
+- **Wrapping is Trama's, not the state chart's (owner, 2026-09-27: "Trama should support
+  wrapping and do it efficiently").** Both charts ask for `wrap`. Three rules make it
+  cheap and safe:
+  - *Cheap.* Every candidate is sized from its boxes first, a ceiling on its type (lines
+    only add size). dagre's layout is routed only when its ceiling could still win, and
+    the pick is often proven from the others' ceilings after routing one grid. Same
+    answers on 1,916 recorded calls; the state chart's stress deck went from 77 routing
+    passes to 30 (1,152 to 533 ms).
+  - *A legible fan keeps its shape.* A branching graph whose dagre layout is clean and at
+    least 0.8 scale (`WRAP_BELOW`) keeps it. Measured on the flowchart demo, the grid
+    "won" two fans at 0.94 and 1.05 and read worse; the charts it rescues sat at 0.35
+    to 0.64. It changed one state-chart slide, for the better (the long-labels slide in
+    `state-chart-branching`).
+  - *Reading order is the author's.* A chain row (`A => B => C`) now lists its shapes in
+    that order; before, every shape leading a row came first, so a chain written on one
+    row wrapped out of order. A single connection never moves its target, and a chart
+    with no chain row keeps its order exactly. Two flowchart demo slides written with
+    chain rows changed their dagre tie-breaks (Checkout, Release train).
 
 ## 6. The three commits, in two PRs
 

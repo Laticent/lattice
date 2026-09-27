@@ -2194,6 +2194,18 @@ export function graphLayoutKernel(): GraphKernel {
           if (b) cands.push({ lines: L, dir: d, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000, geo: null });
         }
       }
+      // A LEGIBLE FAN-OUT STAYS A FAN-OUT. Wrapping a graph that branches trades its shape
+      // (a decision's fan, a hub's star) for type size, which is only worth it when dagre's
+      // layout has shrunk the type: measured on the flowchart demo, the grid "won" two fans
+      // already at 0.94 and 1.05 scale and read worse, while the charts it rescues sit at
+      // 0.35-0.64. So a branching graph whose dagre layout is clean and at least WRAP_BELOW
+      // keeps it, and the grid never competes. (A chain has no fan to lose, and wraps as
+      // before.) A ceiling below WRAP_BELOW settles it without routing dagre's layout.
+      const WRAP_BELOW = 0.8;
+      if (dCand && dCand.ceil >= WRAP_BELOW) {
+        if (!resolveD()) return null;
+        if (dCand && dCand.geo && (dCand.geo.scale ?? 0) >= WRAP_BELOW && hard(dCand.geo) === 0) return dCand.geo;
+      }
       const gridMax = cands.reduce((m, c) => (c.dagre ? m : Math.max(m, c.bound)), -Infinity);
       // dagre's layout is the top candidate when its scale is at least every grid bound (it
       // sorts first, and ties go to the first): if its ceiling says it could be, route it.

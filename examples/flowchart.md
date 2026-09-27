@@ -166,3 +166,20 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 - Monitor `live` -alert-> Fix
 
 *Every failure returns to Build; nothing reaches Release without a green Stage.*
+
+---
+
+<!-- _class: flowchart -->
+<!-- _footer: "Wrapping — a long flow keeps its type by breaking into rows in reading order" -->
+
+`Onboarding`
+
+## A long flow wraps into rows instead of shrinking.
+
+- Sign up => Verify email => Profile => Workspace => Invite team => Connect data => First report => Share => Review => Expand
+- Verify email -resend-> Verify email
+- Connect data -fails-> Workspace `:dashed`
+- Review -feedback-> First report
+
+*Ten steps on one line would set the type at a third of its size; three rows keep it readable.*
+
