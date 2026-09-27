@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 71,
+    "component": 72,
     "finish": 9,
     "motion": 0,
     "plugin": 1
@@ -588,6 +588,19 @@
       "type": "component",
       "name": "heatmap",
       "path": "lib/components/chart/heatmap",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "hub-spoke",
+      "path": "lib/components/chart/hub-spoke",
       "roles": [
         "docs.md",
         "gallery.md",
