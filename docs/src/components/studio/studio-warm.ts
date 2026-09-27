@@ -8,8 +8,9 @@ import type { Warmable } from './lazy-panel';
 // first cut imported `studio-panels` here and moved 3.2KB gz INTO startup to save 1.9KB. So
 // StudioShell hands over what it already holds (`WarmUpInputs`); only type imports appear here.
 //
-// It fetches the six panels, then Compose, Present, the reading view and Fabricate, because the
-// service worker caches a chunk only once it has been fetched (`docs/public/sw.js` has no precache
+// It fetches Compose, Present, the reading view and Fabricate (StudioShell warms the six panels
+// itself, at mount, so their warm-up never depends on this chunk arriving), because the service
+// worker caches a chunk only once it has been fetched (`docs/public/sw.js` has no precache
 // list): without the warm-up, a user who goes offline before opening one gets the chunk-load card
 // — for Compose, a primary tab on a phone, over the whole Studio.
 //
@@ -54,8 +55,6 @@ const fabricateWarm = warmable(() => Promise.all([import('./Fabricate'), import(
 let katexWarm: Warmable | null = null;
 
 export type WarmUpInputs = {
-	/** The six panels (`studio-panels.ts` › STUDIO_PANELS). */
-	panels: ReadonlyArray<Warmable>;
 	/** `lazy-panel.tsx` › warmPanels: the idle scheduling. */
 	warmPanels: (queue: ReadonlyArray<Warmable>) => () => void;
 	/** The KaTeX provider's URL when the deck on screen has math, else null. */
@@ -65,9 +64,9 @@ export type WarmUpInputs = {
 };
 
 /** Start the warm-up. Returns a cancel function. */
-export function startStudioWarmUp({ panels, warmPanels, katexUrl, fabricateUsed }: WarmUpInputs): () => void {
+export function startStudioWarmUp({ warmPanels, katexUrl, fabricateUsed }: WarmUpInputs): () => void {
 	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
 	if (katexUrl) katexWarm ??= warmable(() => fetch(katexUrl));
 	const surfaces = saveData ? [] : [composeWarm, presentWarm, readArticleWarm, ...(katexUrl && katexWarm ? [katexWarm] : [])];
-	return warmPanels([...panels, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
+	return warmPanels([...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
 }

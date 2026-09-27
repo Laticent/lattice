@@ -174,10 +174,10 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 // engineering/decisions/2026-08-23-studio-shell-decomposition.md §4. PresentOverlay has no
 // forwardRef/imperative handle (unlike Editor/ComposeView above) — StudioShell never holds
 // a ref into it — so this is a plain React.lazy with nothing to forward. Present is gated
-// by `presentOpen || presentEverOpened` at its render site below, so — unlike
-// Editor/ComposeView, which warm unconditionally on Studio mount because they're the
-// default pane — the chunk is not fetched at startup: it arrives with the idle warm-up
-// (`studio-warm.ts`), or on the first "Present" click if that comes first.
+// by `presentOpen || presentEverOpened` at its render site below, so — unlike Editor,
+// which warms unconditionally on Studio mount because it is the default pane — the chunk
+// is not fetched at startup: it arrives with the idle warm-up (`studio-warm.ts`), or on the
+// first "Present" click if that comes first.
 const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
 
 
@@ -1291,9 +1291,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		import('./Editor').catch(() => {});
 	}, []);
-	// The panels, then Compose, Present, the reading view and (if used before) Fabricate, once the
-	// Studio is idle. The queue lives in its own chunk (`studio-warm.ts`) so none of it rides the
-	// startup bundle; a failed load of that chunk only skips the warm-up.
+	// The six panels, once the Studio is idle (`lazy-panel.tsx` › warmPanels). Scheduled here at
+	// mount, as #2402 shipped it, so their offline guarantee depends on no extra download.
+	React.useEffect(() => warmPanels(STUDIO_PANELS), []);
+	// Then Compose, Present, the reading view and (if used before) Fabricate. That queue lives in
+	// its own chunk (`studio-warm.ts`) so none of it rides the startup bundle. If that chunk fails
+	// to load, those surfaces are not warmed this session; the six panels above still are.
 	React.useEffect(() => {
 		let cancel: (() => void) | undefined;
 		let dead = false;
@@ -1305,7 +1308,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					fabricateUsed = localStorage.getItem(FABRICATE_USED_KEY) === '1';
 				} catch {}
 				const katexUrl = sourceHasMath(sourceRef.current) ? deriveKatexProviderUrl() : null;
-				cancel = m.startStudioWarmUp({ panels: STUDIO_PANELS, warmPanels, katexUrl, fabricateUsed });
+				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, fabricateUsed });
 			})
 			.catch(() => {});
 		return () => {

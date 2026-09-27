@@ -367,7 +367,10 @@ them after the six panels (`startStudioWarmUp` in `studio-warm.ts`, a module Stu
 after mount so the queue adds almost nothing to startup: about 230 bytes gz, the effect that loads
 it). A first cut that imported `studio-panels` from that module split it into a startup chunk of its
 own, +3.2KB gz to save 1.9KB, so the module imports nothing the startup bundle has and StudioShell
-passes those pieces in.
+passes those pieces in. The six panels stay out of that module: StudioShell still schedules
+their warm-up at mount, as #2402 shipped it, so their offline guarantee never waits on an extra
+download. If `studio-warm.ts` itself fails to load, only the new surfaces go unwarmed that
+session.
 
 **Warming a surface's chunk is not enough.** A first cut warmed the three chunks alone. On the
 built site, Present opened offline but the reading view showed "This deck could not be turned
