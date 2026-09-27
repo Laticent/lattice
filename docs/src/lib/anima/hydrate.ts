@@ -81,13 +81,27 @@ export function toLegible(scene: Scene): Scene {
  *  whose `data-scene-spec` could otherwise be tens of MB (a client-side DoS on every rebind). */
 export const MAX_SPEC_B64 = 256 * 1024;
 
+/** base64 → UTF-8 text. The fence packs its spec with `lib/core/base64-utf8.js`'s `toBase64`,
+ *  which base64s the UTF-8 BYTES; a bare `atob` hands each byte back as its own character, so a
+ *  `pathRef` of `x²` (bytes C2 B2) came back `xÂ²`, matched no path in the drawing, and that part
+ *  never drew. This mirrors `fromBase64` there rather than importing it, because the Anima folder
+ *  imports nothing from outside itself (`checkAnimaBoundary`); `hydrate.test.ts` pins the two
+ *  against each other. */
+function utf8FromBase64(b64: string): string {
+  if (typeof atob !== 'function') return Buffer.from(b64, 'base64').toString('utf8');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
 /** Decode a base64 `data-scene-spec` and validate it. Returns the scene, or null on any
  *  fault (oversized, bad base64, non-JSON, or a scene that fails the closed-vocabulary
  *  validator) — a faulty spec simply leaves the authored poster standing. */
 export function decodeSpec(b64: string): Scene | null {
   if (typeof b64 !== 'string' || b64.length > MAX_SPEC_B64) return null;
   try {
-    const json = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('utf8');
+    const json = utf8FromBase64(b64);
     const parsed = parseScene(JSON.parse(json));
     return parsed.ok ? parsed.scene : null;
   } catch {
