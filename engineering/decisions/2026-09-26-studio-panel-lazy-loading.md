@@ -343,6 +343,21 @@ orientation › is not replayed in portrait" fails intermittently against the FU
 on `main`'s full build and 4 of 8 on this branch's. It passed on both under `build:e2e`, which is
 what CI runs. `followups.d/2336-p3-packages-trio-followups.md` already tracks it, with older rates (1 of 2, 1 of 4). This PR adds a follow-up with the rates above.
 
+**Resolved in the follow-up PR (2026-09-27): a harness artifact, not the shell.** Instrumented on
+a failing run: viewport 390x844, `data-ssr-bp` mobile, cinema off, and the stored rect
+`{"l":0,"t":0.37,"w":1,"h":0.2599}`, a 16:9 box at portrait fractions. That is not the landscape
+rect the test stored. The test resized the live landscape page and reloaded at once, and the
+reload's `pagehide` ran `persistRect` (`StudioShell.tsx`) before React had re-rendered out of
+the cinema morph. It measured the full-bleed cinema box in the portrait viewport and overwrote
+the landscape rect. Being portrait-shaped, that rect passed the aspect gate, and the seed replayed
+it exactly as designed. When the app won the race, it stored a correct portrait rect, so even
+the passing runs never tested the gate. The full build only shifts the timing. The spec now
+loads portrait in a new page of the same context, and asserts the landscape rect is still in
+storage. Measured: 20 of 20 on `npm run build` and 20 of 20 on `build:e2e`. With the aspect gate
+forced open in the built HTML it fails 3 of 3 (`shell 45 vs app 16`), so it can still catch the
+defect it names. The app-side window, a rotation followed within one frame by leaving the page, is
+logged in `followups.d/2402-p3-persist-rect-mid-rotation.md`.
+
 ## Warming Present, Fabricate and the reading view (2026-09-27)
 
 The follow-up to this PR (`followups.d/2402-p3-warm-present-fabricate-read-for-offline.md`).
