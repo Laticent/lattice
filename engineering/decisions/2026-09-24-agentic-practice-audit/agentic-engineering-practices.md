@@ -934,6 +934,52 @@ For a big, open design question, like an architecture or a data model, several i
 
 ---
 
+<!-- _class: list takeaway -->
+
+`Hard problems · The signs`
+
+## Five signs a problem is hard.
+
+- Late feedback
+  - You only learn if it works after you build it, ship it or load it.
+- A distant cause
+  - The symptom shows up far from its cause, in another file or another week.
+- Every option costs
+  - No choice is free; each one gives up something you care about.
+- An unclear question
+  - You aren't sure it's the right problem, or what "good" means.
+- No way back
+  - A mistake can't be undone, or it reaches other people first.
+
+<!--
+Most of what we do with agents is the easy loop: try it, see the result, fix it. Agents are brilliant at that loop. A problem is hard when something about it breaks the loop, and it's worth knowing the five ways that happens. Late feedback: you only find out after you've built it or put real load on it, like a query that's fast until the table grows. A distant cause: the symptom shows up somewhere else, like a test that fails one run in four, or two changes that are each fine and break together. Every option costs: speed against accuracy, scope against the date. An unclear question: nobody can say what done looks like, or the analysis rests on an assumption nobody checked. And no way back: a data migration, a release, a change to settings other people share. Most hard problems have two or three of these at once. Here's the warning sign to listen for: "this should be easy," on the third try. And here's why it matters with agents. An agent brings the easy loop to the hard problem. It takes the first fix that turns the check green, fills the gaps with confident guesses, and calls a failure flaky. On a hard problem, you slow the loop down and do the thinking yourself.
+-->
+
+---
+
+<!-- _class: list takeaway -->
+
+`Hard problems · The tactics`
+
+## Hard problems need a slower loop.
+
+- Build a cheap probe
+  - Try the risky part on a small, real sample before building the rest.
+- Shrink it until it fails every time
+  - Change one thing at a time, and never accept "flaky" as a cause.
+- Name what must never happen
+  - Then take the option that gives up the least, and write down the cost.
+- Widen before you narrow
+  - Ask for several framings, ask how it would fail, and define done first.
+- Rehearse on a copy
+  - Keep the old path working, and have a person approve the last step.
+
+<!--
+One tactic for each sign. For late feedback, build a cheap probe: try the risky part on a small, real sample before you build everything around it, and measure the real thing, never a stand-in. For a distant cause, shrink the problem until it fails every single time, then change one thing at a time. And never accept a label as a cause. "Flaky," "slow" and "weird" are descriptions; the cause is still out there. When every option costs, write down what must never happen, then pick the option that gives up the least, and say out loud what you gave up. For an unclear question, widen before you narrow: ask the agent for several framings or drafts, ask "how would this fail?", and agree on what done means before anyone builds. And when there's no way back, rehearse on a copy, stage the change, keep the old path working until the new one is proven, and have a person approve the last step. Four habits help with all five. Write down what you tried and rejected, so the next attempt doesn't repeat it. Use the stronger model and a second reviewer, which is the next slide. Time-box it, and when the box runs out, bring in a person instead of letting the agent keep guessing. And when you accept a cost, record it, so nobody mistakes it for an oversight later.
+-->
+
+---
+
 <!-- _class: compare-prose vertical chosen insight-takeaway -->
 
 `Orchestration · Cast the model`
