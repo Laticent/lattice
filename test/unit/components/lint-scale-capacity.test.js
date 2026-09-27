@@ -10,10 +10,11 @@
  *     (the engine appends it to every section — the case the repro deck uses);
  *   · the budget read is the one measured for the slide's element LENGTH, so four
  *     one-line cards are not judged as four paragraphs;
- *   · `info` for a bare `scale-*`: the engine levels the deck and nothing is cut, and a
- *     warning would red `lint:deck:all --strict` for a slide that renders whole;
- *   · `warning` under a `venue:`: the author has said where the deck will be seen, and
- *     one slide over budget pulls the whole deck down a rung (scale-fit.js rule 6);
+ *   · both are a FIXED size the engine never shrinks to fit (owner ruling 2026-09-27), so the
+ *     message says the slide clips; `warning` under a `venue:` (the owner's "warn"), `info` for a
+ *     bare `scale-*`, whose budget still misjudges committed decks that render whole;
+ *   · the fix offers the next size down, for the whole deck, when a smaller size would help,
+ *     and only a split when the slide is over budget even at the designed size;
  *   · the code pane's line budget moves with the scale AND with an eyebrow.
  */
 const { describe, test } = require('node:test');
@@ -42,14 +43,15 @@ describe('capacity-scale — a counted component', () => {
     assert.deepEqual(lint(deck(null, slide('list-steps', 5))), []);
   });
 
-  test('past the scale-xl budget → one info finding naming both budgets', () => {
+  test('past the scale-xl budget → one info finding naming both budgets and the clip', () => {
     const out = lint(deck(null, slide('list-steps scale-xl', ceilXl + 1)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
     assert.equal(out[0].classToken, 'list-steps');
     assert.match(out[0].message, new RegExp(`at 1\\.3x 'list-steps' holds about ${ceilXl} items`));
     assert.match(out[0].message, /at the designed size/);
-    assert.match(out[0].message, /SCALE line/);
+    assert.match(out[0].message, /never shrinks one to fit, so if it does not fit, it is clipped/);
+    assert.match(out[0].fix, /(use `scale-l`|drop the `scale-\*` class) for the whole deck/);
   });
 
   test('within the budget → silent', () => {
@@ -73,7 +75,7 @@ describe('capacity-scale — a counted component', () => {
     assert.deepEqual(lint(deck('scale-xl', slide('list-steps', n, 'plans it'))), []);
   });
 
-  test('past the DESIGNED-size budget too, it says a step cannot save the slide', () => {
+  test('past the DESIGNED-size budget too, it says a smaller size cannot save the slide', () => {
     // authority-chain: measured 4 at the designed size, declared hard 6 — the gap the
     // designed column exists for.
     const row = core.SCALE_CAPACITY['authority-chain'];
@@ -85,7 +87,9 @@ describe('capacity-scale — a counted component', () => {
     const out = core.lintTextWith(src, v).filter((f) => f.rule === 'capacity-scale');
     assert.equal(out.length, 1);
     assert.match(out[0].message, /even at the designed size/);
-    assert.match(out[0].message, /cannot save it and it is clipped/);
+    assert.match(out[0].message, /clipped at 1\.3x and would be at any smaller size/);
+    assert.match(out[0].fix, /^Split the slide/);
+    assert.doesNotMatch(out[0].fix, /scale-l/);
   });
 
   test('past `hard` it is the overflow rule\'s slide, not this one', () => {
@@ -116,6 +120,7 @@ describe('capacity-scale — a code block', () => {
     const out = lint(deck('scale-xl', code(bareXl + 1)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
+    assert.match(out[0].message, /the block is clipped/);
     assert.match(out[0].message, new RegExp(`${bareXl + 1} lines \\(the pane holds about ${bareXl}\\)`));
     assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 columns`));
     assert.deepEqual(lint(deck('scale-xl', code(bareXl))), []);
@@ -125,7 +130,7 @@ describe('capacity-scale — a code block', () => {
     const out = lint(deck('scale-xl', code(30)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].message, /cannot fit it — the slide is clipped/);
+    assert.match(out[0].message, /so it is clipped at any size/);
     assert.doesNotMatch(out[0].message, /nothing is clipped/);
   });
 
@@ -164,18 +169,18 @@ describe('the fit: register in lint', () => {
     assert.match(f.fix, /fit: trim/);
   });
 
-  test('under fit: report the scale budget is a WARNING — no step will save the slide', () => {
+  test('fit: report changes nothing about the scale finding: no fit level changes the size', () => {
     const row = core.SCALE_CAPACITY['list-steps'];
     const len = Math.max(...Object.keys(row).map(Number));
     const n = row[len][2] + 1;
     if (n > 5) return; // needs a count inside `hard`
     const src = deck('scale-xl', slide('list-steps', n)).replace('marp: true', 'marp: true\nfit: report');
     const f = rules(src).find((x) => x.rule === 'capacity-scale');
-    assert.equal(f?.severity, 'warning');
-    assert.match(f.message, /fit: report/);
+    assert.equal(f?.severity, 'info');
+    assert.doesNotMatch(f.message, /fit: report/);
   });
 
-  test('a slide\'s own fit-heal overrides a report deck', () => {
+  test('a slide\'s own fit-heal changes nothing: no fit level shrinks a slide', () => {
     const row = core.SCALE_CAPACITY['list-steps'];
     const len = Math.max(...Object.keys(row).map(Number));
     const n = row[len][2] + 1;
@@ -195,7 +200,18 @@ describe('capacity-scale — under a venue', () => {
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
     assert.match(out[0].message, /at 1\.3x/);
-    assert.match(out[0].message, /every slide that asked for 1\.3x/);
+    assert.match(out[0].message, /renders every slide at 1\.3x/);
+    assert.match(out[0].fix, /set `venue: (huddle|laptop)` for the whole deck/);
+  });
+
+  test('the smaller size it names is the LARGEST whose budget holds the slide, never one that still clips', () => {
+    const row = xl[longCol]; // [designed, l, xl, 2xl]
+    const names = ['laptop', 'huddle', 'conference', 'hall'];
+    for (let n = row[3] + 1; n <= Math.min(row[0], 5); n++) {
+      const out = lint(venueDeck('hall', slide('list-steps', n)));
+      const want = names[[2, 1, 0].find((i) => n <= row[i])];
+      assert.match(out[0].fix, new RegExp(`set \`venue: ${want}\``), `${n} items at hall → ${want}`);
+    }
   });
 
   test('venue: hall reads the scale-2xl budget and asks for fewer words', () => {

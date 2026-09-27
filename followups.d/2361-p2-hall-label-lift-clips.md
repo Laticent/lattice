@@ -13,6 +13,9 @@ why now   — found testing the agentic-practices talk on PR #2399. At `venue: h
             (lib/core/scale-fit.js) lower only `--fs-scale`. Rendered alone at hall, those six clip;
             with the lift forced to 1 they fit at 1x. So a hall deck can clip slides that fit at
             laptop. Came in with #2390 (the lift and LEVEL), not #2399.
+            (Updated 2026-09-27: STEP and LEVEL are retired, so these slides now simply CLIP at hall
+            and are ringed and named by the OVERFLOW line; the lint warning is still missing,
+            because `capacity-scale` does not count the lift.)
 where     — lib/authoring/lint-core.js (`capacity-scale`), lib/base/base.modifiers.css (the lift),
             engineering/typography.md §7 "Venue", the decision note's lift rationale.
 how       — the owner ruled on PR #2399 (2026-09-27): (c) keep the lift and let lint warn. Hall

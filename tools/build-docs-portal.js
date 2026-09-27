@@ -1345,8 +1345,8 @@ a big number), the component's \`.docs.md\` is the record.
 **\`by venue\`** is how many elements the component holds at each \`venue:\` —
 \`laptop/huddle/conference/hall\`, at the words per element its \`density\` asks for, at a
 wide @size, never above the \`capacity\` max. **Pick for the room before you write**: a
-slide past its venue's number holds the WHOLE deck at a smaller size (one size per deck),
-and the export names it as the slide to trim. A \`+\` means the rig tried that many and it
+slide past its venue's number still renders at the venue's size and clips (a venue is a
+fixed size, never shrunk to fit), and \`lint:deck\`, the Studio and the export name it. A \`+\` means the rig tried that many and it
 still fit. A \`—\` means no count
 budget exists — the component's \`.docs.md\` says why (a chart scales to its box; a
 title has nothing to count).

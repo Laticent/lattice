@@ -372,47 +372,40 @@ message suggests a statement, big-number or divider slide at `hall`.
 
 - the type step (the rung above);
 - the label lift (`--venue-meta-lift`, a factor on the meta role only; 1 elsewhere);
-- `capacity-scale` becomes a `warning` rather than `info`, because the author has said
-  where the deck will be seen;
-- the one-size rule below applies, as it does to any scale.
+- `capacity-scale` warns on a slide past its budget for the room;
+- the fixed-size rule below applies, as it does to any scale.
 
-### A slide too full for the scale sets the size for the whole deck
+### The scale is a setting: a slide too full for it clips
 
 Type grows with the scale and the box does not. A one-line element needs about `s` of its
 designed height, and a wrapped paragraph about `s²` (1.69x at `scale-xl`). A slide filled
 to its component's designed capacity therefore cannot hold 1.3x.
 
-The engine never clips such a slide, and it never renders it smaller than its
-neighbors either (`lib/core/scale-fit.js`). STEP finds the highest rung each slide fits by
-itself — 1.5, 1.3, 1.15, 1, never below 1. LEVEL then puts every slide that asked for the
-same scale on the lowest of those rungs, which is the highest rung all of them fit. That
-rung may be an in-between one (1.15x in a 1.3x deck): with one size per deck, the
-2026-09-25 "two sizes at most" ruling (`engineering/decisions/2026-09-25-fit-policy.md`)
-has nothing left to cap, and the owner replaced it on 2026-09-26. What you get:
+**The engine renders every slide at the size the deck asks for, whatever its content.** A
+venue is an intentional setting, like desktop zoom: the author chose the room, so nothing
+shrinks a slide, or the deck, to fit (owner ruling 2026-09-27). What you get:
 
-- **One size, deck-wide.** Body text, the running header, the eyebrow, the footer and the
-  page number are the same size on every slide. A deck whose slides alternate size pulses
-  as you click through, and a viewer reads that as broken; people notice a size change of
-  a few percent. `class: scale-xl` or `venue:` is one ask; a spot `_class: scale-xl` on two
-  slides is another, levelled on its own.
-- **Nothing is clipped by the scale.** A slide that does not fit even at 1 is left out of
-  the shared rung (size cannot save it) and clips there, so the ring and the `⚠ OVERFLOW`
-  line still report it.
-- **Every surface holds it, including the ones that show one slide at a time.** The PDF,
-  the exported `.html` and the player hold the whole deck in one document, so LEVEL sees
-  every slide. The Studio's editor preview and Present render ONE slide per document, so
-  the Studio measures the whole deck once in a hidden frame and caps each slide frame at
-  the shared rung (`data-lattice-scale-cap`, `docs/src/lib/scale-cap.ts`). Only a deck that
-  asks for a scale is measured, debounced behind edits.
-- **`fit: report` turns it off.** The deck's `fit:` setting (`lib/base/base.registers.docs.md`)
-  decides what the engine may do to make a slide fit; at `report` it neither steps nor
-  levels, and a slide too full for the scale clips and is flagged. A slide opts out alone
-  with `_class: fit-report`.
-- **The export says which slides hold the deck down.** `↓ SCALE — 1.3x was asked for and
-  all 70 slides that asked for it render at 1x … To get the size back: for 1.15x, trim
-  pages …; for 1.3x, trim pages …`. Each section carries
-  `data-lattice-scale-step="1.3>1"`, and a slide whose own fit is lower carries
-  `data-lattice-scale-fit`.
+- **One size, deck-wide, by construction.** Body text, the running header, the eyebrow, the
+  footer and the page number are the same size on every slide, on every surface — the PDF,
+  the exported `.html`, the Studio's preview and Present — because every surface renders
+  the same fixed scale. Nothing measures the whole deck, and one added line can never move
+  the deck to another size.
+- **A slide too full for the size clips, and is named three ways.** `lint:deck` warns
+  (`capacity-scale`) while you write; the Studio rings the slide and offers a one-click fix —
+  split the slide, or move the whole deck to the next venue down; the export's `⚠ OVERFLOW`
+  line lists the page.
+- **Pick the room in the Studio.** Deck settings → **Look → Venue** writes `venue:`.
+  Present has a venue switch that changes the room size live, for this showing only, without
+  editing the deck.
+
+**What was retired.** From 2026-09-25 to 2026-09-27 the engine stepped a slide that did not
+fit down the ladder (STEP) and then put every slide that asked for the scale on the lowest
+rung any of them needed (LEVEL), with a hidden whole-deck measuring frame in the Studio to
+do the same for one-slide previews. It was not deterministic (one line could move the whole
+deck to another size), it cost about 1.3 s of main-thread work per measure on an 81-slide
+deck, and it shipped two live bugs. The record, with the numbers, is
+`engineering/decisions/2026-09-25-font-scale-fit.md`, Amendment 2026-09-27 (3).
+
 - **Every component states its budget per venue.** Its manifest's `venueCapacity` holds the
   element count it fits at `laptop` / `huddle` / `conference` / `hall` (measured at a wide
   @size by `tools/calibrate-capacity.js`), or one sentence saying why it has no count budget
@@ -426,8 +419,7 @@ has nothing left to cap, and the owner replaced it on 2026-09-26. What you get:
 
 Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /
 13 / 11 / 10 lines at 1 / l / xl / 2xl (13 / 11 / 10 / 8 under an eyebrow), and
-`floor(102 / s)` columns. See `engineering/decisions/2026-09-25-font-scale-fit.md` and its
-2026-09-26 amendment.
+`floor(102 / s)` columns. See `engineering/decisions/2026-09-25-font-scale-fit.md`.
 
 ### One size across modifiers — spacing may change, a type role may not
 
@@ -457,11 +449,10 @@ slide. The audit is in `engineering/decisions/2026-09-25-font-scale-fit.md`, Ame
 
 This is a magnitude knob, not a size picker. If one element is wrong,
 fix the element's token (§2) — don't scale the whole slide to fix one
-heading. And if a slide holds the deck below the scale you asked for, it has too
+heading. And if a slide clips at the scale you asked for, it has too
 much content for that magnitude: trim it to its budget at that scale or
-split it, the same as any overflow (§4). Accepting the smaller size for
-the whole deck is also fine — that is what the engine does when you don't
-choose.
+split it, the same as any overflow (§4). Choosing a smaller venue for the
+whole deck is also fine — but it is your choice; the engine never makes it.
 
 ## 8 — Measure (line length)
 

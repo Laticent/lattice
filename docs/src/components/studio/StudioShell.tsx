@@ -53,7 +53,7 @@ import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard,
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
-import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
+import { addSlideAfter, canSplitSlide, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP, splitSlideInHalf } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import type { EditorHandle } from './Editor';
@@ -111,6 +111,7 @@ import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePick
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useStudioDemo } from './use-studio-demo';
+import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
@@ -2129,6 +2130,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const deckAiLang = getFrontMatter(source, 'ai-lang') || '';
 	const setDeckAiLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'AI language → same as deck' : `AI language → ${langDisplay(value)}`, (s) => writeFrontMatterLine(s, 'ai-lang', value === LANG_AUTO ? null : value));
 	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => writeFrontMatterLine(s, 'size', value));
+	// Venue — the room the deck is shown in (`venue:`, lib/core/resolve-venue.js). A fixed setting,
+	// like desktop zoom: every slide renders at its size and none is shrunk to fit (venue.ts).
+	// `null` is "Default": the line is removed, and the deck renders at the designed size.
+	const deckVenue = readDeckVenue(source);
+	const setDeckVenue = (value: VenueName | null) => settingsWrite(value ? `Venue → ${venueOption(value)?.label}` : 'Venue → default', (s) => withVenue(s, value));
 	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? null : 'true'));
 	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
@@ -3596,6 +3602,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const opDuplicate = () => { applyDeckOp(duplicateSlide(source, curIndex)); notify('Slide duplicated.'); };
 	const opDelete = () => { if (slides.length <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteSlide(source, curIndex)); notify('Slide deleted.'); };
 	const opMove = (dir: -1 | 1) => applyDeckOp(moveSlide(source, curIndex, curIndex + dir));
+	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
+	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
+	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
+	// notice: that is where a clip comes from the room size the author picked, and where a smaller
+	// room is a fix. Every other overflow keeps the ring it always had.
+	const [slideClipped, setSlideClipped] = React.useState(false);
+	const clipVenue = venueOption(deckVenue);
+	// Which smaller room to offer. Lint already knows the answer for a slide it has a budget for
+	// (`capacity-scale` names the largest venue that holds it, and says "Split" alone when no venue
+	// would), so the button follows lint and never offers a room the slide still clips in. With no
+	// finding for this slide (a clip lint has no budget for), it offers the next room down.
+	const clipLint = findings.find((f) => f.rule === 'capacity-scale' && f.slide === curIndex + 1);
+	const lintRoom = clipLint?.fix?.match(/set `venue: (laptop|huddle|conference|hall)`/)?.[1] as VenueName | undefined;
+	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom) : smallerVenue(deckVenue);
+	const clipSplittable = composeLens === 'full' && canSplitSlide(slides[curIndex] ?? '');
+	const opSplitForVenue = () => {
+		const prev = sourceRef.current;
+		const r = splitSlideInHalf(prev, curIndex);
+		if (!r) return;
+		applyDeckOp(r);
+		// With an Undo, like the settings writes: one click rewrote the deck, so one click undoes it.
+		showUndo('Slide split in two', prev, r.source);
+	};
+	const opVenueDown = () => {
+		if (clipDown) setDeckVenue(clipDown.value);
+	};
 	// Delete is destructive → confirm in place: first tap ARMS the button (it turns
 	// into a confirm), a second tap within 3s deletes; it disarms itself otherwise.
 	const [deleteArmed, setDeleteArmed] = React.useState(false);
@@ -4165,6 +4197,25 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			</DropdownMenu>
 		</Field>
 	);
+	const venueNow = venueOption(deckVenue);
+	const venueField = (
+		<Field label="Venue" desc="The room it is shown in." find="venue room projector hall conference huddle laptop font scale type size distance" help={<>Sets the type size for the room: <strong>Laptop</strong> is the designed size, <strong>Huddle</strong> 1.15x, <strong>Conference</strong> 1.3x, <strong>Hall</strong> 1.5x. It is a fixed setting, like desktop zoom — every slide renders at it, and a slide too full for the room is clipped and flagged rather than shrunk. <strong>Default</strong> leaves <code>venue:</code> out. Present can switch the room live without changing the deck.</>}>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Control aria-label="Choose deck venue">{venueNow ? `${venueNow.label} · ${venueNow.scale}x` : 'Default'} <ChevronDown className="size-3.5" /></Control>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="w-60">
+					<DropdownMenuItem onSelect={() => setDeckVenue(null)}>Default<span className="ml-2 text-muted-foreground">designed size</span>{deckVenue === null && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+					{VENUES.map((v) => (
+						<DropdownMenuItem key={v.value} onSelect={() => setDeckVenue(v.value)} className="gap-2">
+							<span className="flex min-w-0 flex-col"><span>{v.label} · {v.scale}x</span><span className="text-[11px] text-muted-foreground">{v.who}</span></span>
+							{deckVenue === v.value && <Check className="ml-auto size-3.5 shrink-0 text-[var(--accent)]" />}
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</Field>
+	);
 	const pageNumbersField = (
 		<Field label="Page numbers" desc="Number every slide." find="pagination paginate"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 	);
@@ -4188,6 +4239,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{presetField}
 				{colorModeField}
 				{sizeField}
+				{venueField}
 				<Field label="Mode" desc="Crisp, or hand-drawn." find="sketch boardroom hand drawn" help={<>The rendering hand: <strong>Boardroom</strong> is the clean default; <strong>Sketch</strong> draws headings, boxes and rules by hand. Separate from Finish — the two combine.</>}>
 					{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 					    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
@@ -4256,7 +4308,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
 						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? '__auto__'} onValueChange={setCardRow} className="w-full" groups={[{ options: [{ value: '__auto__', label: autoHeadLabel('each component'), icon: <AutoIcon />, title: 'Automatic — each component decides (no cards: key in the deck).' }] }, { options: catalogOptions(CARD_ROWS) }]} />
 					</Field>
-					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split step scale cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes, and renders a slide that does not fit the deck's font scale at the designed size. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
+					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
 						<CatalogSelect ariaLabel="Choose how slides fit" value={guards} onValueChange={setGuards} className="w-full" groups={[{ options: catalogOptions(GUARDS) }]} />
 					</Field>
 				</SubGroup>
@@ -4540,6 +4592,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{presetField}
 						{colorModeField}
 						{sizeField}
+						{venueField}
 						{pageNumbersField}
 						{logoField}
 						<SettingsBasicFoot onShowAll={() => setSettingsTier('advanced')} />
@@ -4923,10 +4976,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail liveLayout />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>
+			{slideClipped && clipVenue && clipVenue.scale > 1 && effectiveStop !== 'read' && (
+				<div role="status" aria-label="Slide clips at this venue" className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-[color-mix(in_srgb,var(--warn)_35%,var(--border))] bg-[color-mix(in_srgb,var(--warn)_8%,var(--bg-alt))] px-3 py-2 text-[12.5px] text-[var(--text-heading)]">
+					<AlertTriangle className="size-4 shrink-0 text-[var(--warn)]" aria-hidden="true" />
+					<span className="min-w-0 flex-1">This slide is clipped at <b className="font-semibold">{clipVenue.label}</b> ({clipVenue.scale}x). The venue is a fixed size, so nothing shrinks it{clipDown ? '' : ', and a smaller room would not fit it either'}.</span>
+					<span className="flex shrink-0 items-center gap-1.5">
+						{clipSplittable && (
+							<button type="button" onClick={opSplitForVenue} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-semibold hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]">
+								<Copy className="size-3.5" aria-hidden="true" />Split slide
+							</button>
+						)}
+						{clipDown && (
+							<button type="button" onClick={opVenueDown} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-semibold hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]">
+								<ChevronDown className="size-3.5" aria-hidden="true" />Use {clipDown.label}
+							</button>
+						)}
+					</span>
+				</div>
+			)}
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
 			    cinema morph (iPhone landscape): the whisper layer carries position instead. */}
 			{!landscapePhone && (

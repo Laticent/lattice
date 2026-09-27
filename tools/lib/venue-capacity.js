@@ -49,7 +49,7 @@ function venueDocsLine(m, noun) {
   if (!vc) return null;
   const how = 'Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.';
   if (vc.none) return `**By venue** no count budget. ${vc.none}`;
-  const past = 'Past the room\'s number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export\'s `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`).';
+  const past = 'Past the room\'s number the slide still renders at the venue\'s size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it.';
   if (vc.lines) {
     const fmt = (r) => VENUES.map((v) => `${v} ~${r[v]}`).join(' · ');
     return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow). ${past} ${how}`;

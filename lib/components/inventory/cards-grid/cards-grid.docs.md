@@ -14,7 +14,7 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 
 **Density** aim ~15 words per item; past ~24 it reads as a wall of text — a card body is one short clause, not a paragraph.
 
-**By venue** (`venue:`, ~15 words each) it holds laptop ~4 · huddle ~4 · conference ~3 · hall ~2 items. At ~6 words each: 4 · 4 · 4 · 4. No venue goes past the Capacity max of 4, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~15 words each) it holds laptop ~4 · huddle ~4 · conference ~3 · hall ~2 items. At ~6 words each: 4 · 4 · 4 · 4. No venue goes past the Capacity max of 4, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

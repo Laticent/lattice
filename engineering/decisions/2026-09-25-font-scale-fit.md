@@ -1,12 +1,12 @@
 ---
 status: shipped
-summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed.
+summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed. Amended 2026-09-27 (3): STEP, LEVEL and the Studio's hidden measuring frame are RETIRED by owner ruling — a venue (and any `scale-*`) is a fixed setting, like desktop zoom, so every slide renders at it; a slide too full for it clips and is named by `lint:deck`, the Studio's ring and clip notice (one-click Split or a smaller venue) and the export's OVERFLOW line. The Studio gains a Venue menu and a Present venue switch.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-09-07-overflow-guards-trim.md
 ---
 
 # The projection font scale must not clip a slide
 
-**Status:** shipped · **Owner:** Sharmarke · **Code:** `lib/core/scale-fit.js`,
+**Status:** shipped, then partly RETIRED (Amendment 2026-09-27 (3): STEP and LEVEL are deleted) · **Owner:** Sharmarke · **Code:** ~~`lib/core/scale-fit.js`~~ (deleted),
 `lib/authoring/lint-core.js` (`capacity-scale`), `lattice-emulator.js`, `lib/runtime/index.js`
 
 > **Amended the same day — two sizes, and a switch.** The owner ruled on the follow-up
@@ -485,3 +485,51 @@ the generated `cards-stack compact` anti-pattern slide — is the one page whose
 visibly smaller than its neighbors', which was the `cards-stack compact` shrink. `list-steps` at
 huddle levels all 20 slides to 1x ("for 1.15x, trim page 3"). This change moves no engine
 CSS; the owner's ruling above then removed the page-10 shrink.
+
+## Amendment 2026-09-27 (3) — a venue is a fixed size; STEP and LEVEL are retired
+
+**The ruling (owner, on PR #2399).** A venue is an intentional setting, like desktop zoom. The
+deck must never shrink itself to fit. Display detection is out: a browser sees the screen, not
+the room. When a slide does not fit, the answer is **warn, plus a one-click fix**.
+
+**Why the automatic step-down went.** It was not deterministic — under LEVEL one added line could
+move every slide in the deck to another size — and it was expensive where authors work. Measured
+on the real Studio before this change (81-slide talk, `venue: hall`, desktop Chromium): each
+whole-deck measure was about 1.3 s of main-thread long tasks and about 11 MB of heap; typing
+queued one measure per key (48 keys → 30–48 measures, 32–52 s blocked); and every slide change
+in the preview painted the requested size for 30–150 ms before dropping (18 of 18). Fixes for
+the last two were written and deliberately not shipped (`0d04238`, `1a8de05`), because this
+retirement deletes the code they lived in.
+
+**What changed.**
+
+| Before | After |
+|---|---|
+| `lib/core/scale-fit.js` STEP + LEVEL, injected into the export pass, the exported `.html` watcher and the live runtime | Deleted. Every surface renders the scale the deck asks for. |
+| The export's `↓ SCALE` report; `data-lattice-scale-step` / `-fit` / `-cap` | Gone. The `⚠ OVERFLOW` line names every clipped page. |
+| `docs/src/lib/scale-cap.ts`: a hidden whole-deck frame in the Studio, re-measured behind edits | Deleted. Nothing measures the whole deck. |
+| `capacity-scale`: "every slide renders at a smaller size" | "the deck renders every slide at 1.3x and never shrinks one to fit, so it is clipped". Fix: keep N, split, or the LARGEST smaller venue whose budget holds the slide (never one that still clips). `warning` under `venue:`, `info` for a bare `scale-*` (its budget misjudges committed decks that render whole — P2 follow-up). |
+| — | Studio: **Look → Venue** menu (Default / Laptop / Huddle / Conference / Hall) writes `venue:`. |
+| — | Present: a **venue switch** re-renders this showing at another room size; the deck is not edited. |
+| — | Studio: a **clip notice** under the preview when the shown slide clips at a venue above laptop, with **Split slide** (halves the main list or table; undoable) and **Use <venue>** (the venue lint names; hidden when lint says no venue would fit). |
+| — | `orderedListStart` (markdown-it kernel): an `<ol start="4">` sets `--lat-split-offset: 3`, so a continued list keeps STEP 04 in every counter layout. |
+
+`fit:` stays: `report` / `heal` / `trim` still govern SPLIT and TRIM; none of them changes the type
+size. Rules 1–7 of STEP and LEVEL above are history.
+
+**Verified.**
+
+- The agentic-practices talk (74 slides) exported at each venue: every section of the exported
+  `.html` computes `--fs-scale` 1 / 1.15 / 1.3 / 1.5 — 74 of 74 at each — with no step attribute;
+  the OVERFLOW line names 0 / 17 / 31 / 47 pages, matching the ringed sections one for one.
+- Studio typing probe (the same talk, 48 keys typed at the deck's end, desktop Chromium, built
+  site): 2,723 ms at `venue: hall` vs 2,748 ms with no venue; 0 measuring frames created.
+- `docs/e2e/venue-fixed-size.spec.ts` on the real Studio: every slide at 1.3x in the preview and
+  in Present, the over-full slide ringed with the notice, Split and Use Huddle working, the menu
+  writing `venue:`, the Present switch at 1.5x without editing the deck, and the lint tooltip.
+
+**Known gaps, recorded not fixed here.** The clip notice reads the deck's `venue:` only, so a bare
+`class: scale-*` deck or a slide's own `_class: venue-*` gets the ring without the notice. For the same reason the Present venue switch and the Venue menu set `venue:` only: a deck that also carries `class: scale-*` renders at that class, which the CSS declares after the venue rungs, whatever the switch says. A
+figure that fits itself to its box (a flowchart, a chart) shrinks its own text at a venue rather
+than clipping, so it is reported by the TYPE FLOOR check, not the ring.
+

@@ -10,7 +10,7 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 
 ## Agent contract
 
-**By venue** the pane holds laptop ~15 · huddle ~13 · conference ~11 · hall ~10 lines (laptop ~13 · huddle ~11 · conference ~10 · hall ~8 under an eyebrow). Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** the pane holds laptop ~15 · huddle ~13 · conference ~11 · hall ~10 lines (laptop ~13 · huddle ~11 · conference ~10 · hall ~8 under an eyebrow). Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 
