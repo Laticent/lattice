@@ -312,10 +312,12 @@ export async function unpackPackages(zip: any, read: (path: string | undefined) 
 	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [...refused] };
 	for (const p of packages) {
 		if (p.notes.length) out.notes.push(`${p.name}: ${p.notes.join('; ')}`);
-		// §3.5: a package carrying JavaScript needs the user's consent and a sandbox, and
-		// neither exists yet. It is refused by name, never imported without its code.
-		if (p.code) {
-			out.refused.push({ name: p.name, why: 'it carries code (a transform), and code packages are not supported yet' });
+		// §3.5: a package carrying JavaScript imports only in the one shape a door can run (the
+		// same check as `lattice packages add`), and it runs only after the user approves its
+		// code in the Studio (docs/src/lib/code-packages/). A wrong shape is refused by name,
+		// never imported without its code.
+		if (p.code && p.codeRefusal) {
+			out.refused.push({ name: p.name, why: p.codeRefusal });
 			continue;
 		}
 		if (p.type === 'theme') out.themes.push(themeFromPackage(p));

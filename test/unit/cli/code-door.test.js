@@ -122,12 +122,17 @@ describe('splicing the output back', () => {
 
   test("the engine's tag, styles and notes stay; the package gives only the classes and the body", () => {
     const clean = '<section data-lattice-slide="9" id="evil" style="--theme:x" class="tally extra"><div>drawn</div></section>';
-    assert.equal(spliced(original, clean, ['tally', 'extra', 'bad"quote']), '<section class="tally extra" id="3"><div>drawn</div><style>section.tally{gap:1em}</style><!-- a speaker note --></section>');
+    assert.equal(spliced(original, clean, ['tally', 'tally-wide', 'bad"quote'], 'tally'), '<section class="tally tally-wide" id="3"><div>drawn</div><style>section.tally{gap:1em}</style><!-- a speaker note --></section>');
+  });
+
+  test('a package adds no class outside its own name: a later pass keys on section classes', () => {
+    const clean = '<section class="tally video qr chart-frame tally-x"><div>drawn</div></section>';
+    assert.match(spliced(original, clean, ['tally', 'video', 'qr', 'chart-frame', 'tally-x'], 'tally'), /^<section class="tally tally-x" id="3">/);
   });
 
   test('whitespace around the section is not content; anything but one section throws, for the door to catch', () => {
-    assert.equal(spliced(original, '\n  <section class="tally"><b>x</b></section>\n', ['tally']), '<section class="tally" id="3"><b>x</b><style>section.tally{gap:1em}</style><!-- a speaker note --></section>');
-    assert.throws(() => spliced(original, '<div>no section</div>', ['tally']), /not one <section>/);
+    assert.equal(spliced(original, '\n  <section class="tally"><b>x</b></section>\n', ['tally'], 'tally'), '<section class="tally" id="3"><b>x</b><style>section.tally{gap:1em}</style><!-- a speaker note --></section>');
+    assert.throws(() => spliced(original, '<div>no section</div>', ['tally'], 'tally'), /not one <section>/);
   });
 
   test('a failure keeps the engine’s slide and says why, escaped, on one line', () => {
@@ -216,5 +221,57 @@ describe('the OS layer', () => {
     fs.writeFileSync(path.join(dir, 'passwd'), 'root:x:0:0::/root:/bin/sh\nnobody:x:99:98::/:/sbin/nologin\n');
     assert.deepEqual(unprivilegedUser(path.join(dir, 'passwd')), { name: 'nobody', uid: 99, gid: 98 });
     assert.deepEqual(unprivilegedUser(path.join(dir, 'missing')), { name: 'nobody', uid: 65534, gid: 65534 });
+  });
+});
+
+describe('the final checker: what a later pass or the runtime acts on', () => {
+  const { codeNameRefusal } = require('../../../lib/packages/code-door-core.mjs');
+  const filterFor = (pkg, handedAttrs = []) => doorFilterAttr(handedOf([{ localName: 'section', attributes: [{ name: 'class', value: pkg }, ...handedAttrs] }], pkg));
+
+  test('an own-name class that merely contains a runtime selector is not the package’s to add', () => {
+    assert.equal(filterFor('acme')('code', 'class', 'acme-language-mermaid acme-box'), 'acme-box');
+    assert.equal(filterFor('acme')('div', 'class', 'acme-functionplot'), false);
+  });
+
+  test('ids live in the package’s name or were handed; runtime data markers only as handed', () => {
+    const f = filterFor('acme', [{ name: 'id', value: '3' }, { name: 'data-mermaid-state', value: 'done' }]);
+    assert.equal(f('rect', 'id', 'acme-grad'), true);
+    assert.equal(f('rect', 'id', '3'), true);
+    assert.equal(f('rect', 'id', 'lattice-notes'), false);
+    assert.equal(f('div', 'data-fp-final', '1'), false);
+    assert.equal(f('div', 'data-mermaid-state', 'done'), true);
+    assert.equal(f('div', 'data-acme-count', '3'), true, "the package's own data attributes are its own");
+  });
+
+  test('a code package may not take a name that starts a class Lattice uses', () => {
+    const known = ['chart-frame', 'logo-wall', 'kpi'];
+    assert.match(codeNameRefusal('chart', known), /"chart-frame"/);
+    assert.match(codeNameRefusal('logo', known), /"logo-wall"/);
+    assert.match(codeNameRefusal('lat', known), /class stem/);
+    assert.equal(codeNameRefusal('tally', known), null);
+  });
+});
+
+describe('doorFinish: a diagram names only the addresses a handed diagram did', () => {
+  test('an invented image node in a Mermaid block refuses the output', async () => {
+    const { JSDOM } = require('jsdom');
+    const DOMPurify = require('dompurify');
+    const { doorFinish } = require('../../../lib/core/remote-ref.js');
+    const { createSlideSanitizer } = await import('../../../lib/core/sanitize-slide-html.mjs');
+    const win = new JSDOM('').window;
+    let f = () => false;
+    const sanitize = createSlideSanitizer(DOMPurify, win, { filterAttr: (a, b, c) => f(a, b, c) });
+    const withFilter = (h, filter) => {
+      f = filter;
+      try {
+        return sanitize(h);
+      } finally {
+        f = () => false;
+      }
+    };
+    const handed = '<section class="acme"><pre><code class="language-mermaid">flowchart LR\n A</code></pre></section>';
+    const out = '<section class="acme"><pre><code class="language-mermaid">flowchart LR\n A@{ img: "https://evil.example/x" }</code></pre></section>';
+    assert.match(doorFinish(win.document, withFilter, out, handed, 'acme').error, /its diagram names an address the slide did not hold/);
+    assert.equal(doorFinish(win.document, withFilter, handed, handed, 'acme').error, undefined);
   });
 });

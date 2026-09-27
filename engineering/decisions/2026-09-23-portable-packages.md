@@ -214,9 +214,10 @@ is a **code package**, and every surface treats it the same way:
 4. **Containment, per surface. Neither half is verified yet:**
    - **Studio:** a sandboxed iframe without `allow-same-origin`, so the code gets
      an opaque origin: no IndexedDB, no cookies, and no reach into the user's
-     OpenRouter OAuth key (HARD RULE #24). A `default-src 'none'` content-security
-     policy blocks network exfiltration. This is designed and still needs a proof
-     on the real Studio (HARD RULE #23).
+     OpenRouter OAuth key (HARD RULE #24), under a `default-src 'none'`
+     content-security policy, with the package itself in a worker, because a
+     sandboxed frame can still navigate itself. Built and proven on the real Studio
+     with a network log (`2026-09-24-code-package-contract.md` §10).
    - **CLI:** first designed as a child process under Node's `--permission` model.
      **Measured on our floor (Node 22.22): it blocks the filesystem and subprocesses
      but not the network** — `fetch` succeeded under `--permission`. So the owner chose

@@ -26,7 +26,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { codePackages, bundleCodePackage } = require('../../../lib/packages/code-bundle.js');
-const { launchSandboxBrowser, openSandboxPage, packageScript, runPackage } = require('../../../lib/core/code-sandbox.js');
+const { launchSandboxBrowser, openPackageSandbox, workerScript, runPackage } = require('../../../lib/core/code-sandbox.js');
 const { splitSections } = require('../../../lib/core/split-sections.js');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
 const { LAYOUTS } = require('../../../lib/components/chart/_chart-family/chart-registry.generated.js');
@@ -83,8 +83,7 @@ async function inSandbox(browser, name, slides) {
   const asked = [];
   // The page's policy refuses a request before interception would see it, and says so on the
   // console, so both are listened to: together they are everything the package tried.
-  const sandbox = await openSandboxPage(browser, {
-    script: packageScript((await bundled(name)).code),
+  const sandbox = await openPackageSandbox(browser, (await bundled(name)).code, {
     onRequest: (url) => asked.push(url),
     onConsole: (text) => /Content Security Policy/.test(text) && asked.push(text),
   });
@@ -110,6 +109,7 @@ describe('code packages: every shipped transform runs in the locked page and mat
   let nodeSanitize;
   let census;
   const losses = new Map();
+  const classTokens = new Map();
   const table = [];
   const afterDoor = { changed: 0, slides: 0 };
 
@@ -135,21 +135,25 @@ describe('code packages: every shipped transform runs in the locked page and mat
       const bump = (k) => counts.set(k, (counts.get(k) || 0) + 1);
       for (const el of tpl.content.querySelectorAll('*')) {
         bump(el.localName);
-        for (const a of el.attributes) bump(`${el.localName}@${a.name}`);
+        // Class TOKENS are counted apart (classTokens below): the door keeps a class only if the slide
+        // carried it or it is in the package's name, and our 29 were never written to that rule.
+        // Ids too: a package's ids live in its name, and our 29 mint chart ids that do not.
+        for (const a of el.attributes) if (a.name !== 'class' && a.name !== 'id') bump(`${el.localName}@${a.name}`);
       }
       return counts;
     };
-    nodeSanitize = (html, handedHtml) => {
+    nodeSanitize = (html, handedHtml, pkg) => {
       const tpl = win.document.createElement('template');
       tpl.innerHTML = handedHtml;
       const handed = tpl.content.querySelector('section');
-      filterAttr = doorFilterAttr(handedOf([handed, ...handed.querySelectorAll('*')]));
+      filterAttr = doorFilterAttr(handedOf([handed, ...handed.querySelectorAll('*')], pkg));
       return sanitize(html);
     };
   });
   test.after(async () => {
     await sanitizer?.close();
     await browser?.close();
+    if (classTokens.size) console.log(`\nclass tokens outside a package's name, dropped by the door: ${[...classTokens].filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(', ')}`);
     if (afterDoor.slides) console.log(`\nafter the door's sanitizer: ${afterDoor.slides} slides, ${afterDoor.changed} changed by it, every one equal to the export's Node sanitizer`);
 
     if (table.length) console.log(`\n${table.join('\n')}`);
@@ -168,26 +172,29 @@ describe('code packages: every shipped transform runs in the locked page and mat
     }
   });
 
-  test('the transform is handed measure() and nothing else, and measure() works in the page', async () => {
-    const probe = 'function t(s,k){return JSON.stringify([Object.keys(s),Object.keys(k),k.measure("Lattice","16px serif")>0,Object.isFrozen(k)])}export{t as default};';
-    const sandbox = await openSandboxPage(browser, { script: packageScript(probe) });
+  test('the transform is handed measure() and nothing else, in a worker with no document, and measure() works', async () => {
+    const probe = 'function t(s,k){return JSON.stringify([Object.keys(s),Object.keys(k),k.measure("Lattice","16px serif")>0,Object.isFrozen(k),typeof document,typeof location.assign])}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, probe);
     try {
-      assert.equal(await runPackage(sandbox, { html: '<section></section>', index: 0 }), JSON.stringify([['html', 'index', 'idPrefix', 'baseUrl'], ['measure'], true, true]));
+      assert.equal(await runPackage(sandbox, { html: '<section></section>', index: 0 }), JSON.stringify([['html', 'index', 'idPrefix', 'baseUrl'], ['measure'], true, true, 'undefined', 'undefined']));
     } finally {
       await sandbox.close();
     }
   });
 
   test('the runner refuses what the export never writes, and bounds a run', async () => {
-    assert.throws(() => packageScript('export default function(){}'), /export \{ name as default \}/);
+    assert.throws(() => workerScript('export default function(){}'), /export \{ name as default \}/);
     const cases = {
       'not a string': ['function t(){return 7}export{t as default};', /returned number, not a string/],
+      'an object': ['function t(){return {a:1}}export{t as default};', /returned object, not a string/],
+      'a function': ['function t(){return {toString(){return "x"}}}export{t as default};', /cannot be sent back/],
+      'too long': ['function t(){return "x".repeat(5000000)}export{t as default};', /5000000 characters, past the 4000000-character limit/],
       'a throw': ['function t(){throw new Error("nope")}export{t as default};', /nope/],
       'a run past its time': ['function t(){for(;;);}export{t as default};', /did not finish within 300 ms/],
       'a slide with no position': ['function t(s){return s.html}export{t as default};', /slide index must be a whole number/, { html: '<section></section>' }],
     };
     for (const [label, [code, expected, slide = { html: '<section></section>', index: 0 }]] of Object.entries(cases)) {
-      const sandbox = await openSandboxPage(browser, { script: packageScript(code) });
+      const sandbox = await openPackageSandbox(browser, code);
       try {
         await assert.rejects(runPackage(sandbox, slide, { timeoutMs: 300 }), expected, label);
       } finally {
@@ -196,44 +203,74 @@ describe('code packages: every shipped transform runs in the locked page and mat
     }
   });
 
-  test('a hostile bundle cannot switch the checks off: the host checks the result again', async () => {
-    // The bundle's top level runs before the runner, so it can claim `__latticeRun` first.
-    const own = (ret) => `Object.defineProperty(window,"__latticeRun",{value:()=>${ret}});function t(s){return s.html}export{t as default};`;
-    for (const [ret, expected] of [
-      ['({toString(){return "x"}})', /returned object, not a string/],
-      ['12345', /returned number, not a string/],
-      ['"x".repeat(5000000)', /5000000 characters, past the 4000000-character limit/],
-    ]) {
-      const sandbox = await openSandboxPage(browser, { script: packageScript(own(ret)) });
-      try {
-        await assert.rejects(runPackage(sandbox, { html: '<section></section>', index: 0 }), expected, ret);
-      } finally {
-        await sandbox.close();
-      }
+  test('the worker has no network constructors, and the bundle cannot put them back', async () => {
+    // The second wall (code-door-core.mjs WORKER_NETWORK): the policy's inheritance is each engine's
+    // to get right, and Firefox let EventSource out of a worker the policy covered.
+    const probe = 'try{delete self.EventSource}catch(e){}try{Object.defineProperty(self,"fetch",{value:()=>1})}catch(e){}try{self.WebSocket=function(){}}catch(e){}function t(s){return JSON.stringify(["fetch","XMLHttpRequest","WebSocket","EventSource","WebTransport","importScripts","Worker"].map((n)=>typeof self[n]))}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, probe);
+    try {
+      assert.equal(await runPackage(sandbox, { html: '<section></section>', index: 0 }), JSON.stringify(Array(7).fill('undefined')));
+    } finally {
+      await sandbox.close();
+    }
+  });
+
+  test('the bundle cannot reach the runner: it lives in another realm', async () => {
+    // The first runner shared the page with the bundle, which could claim `__latticeRun` first (the
+    // red team did). In the worker there is no such name to take, and a reply the bundle forges is
+    // held to the same checks as a real one.
+    const forge = 'try{self.__latticeRun=()=>"forged"}catch(e){}self.addEventListener("message",(e)=>postMessage({id:e.data.id,out:12345}));function t(s){return s.html}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, forge);
+    try {
+      await assert.rejects(runPackage(sandbox, { html: '<section></section>', index: 0 }), /returned number, not a string/);
+    } finally {
+      await sandbox.close();
     }
   });
 
   test('a bundle that loops at load, or a tail padded to stall the parser, is bounded', async () => {
     const t0 = Date.now();
-    assert.throws(() => packageScript(`function t(){}export{t as default}${' '.repeat(1_000_000)}x`), /must end in/);
+    assert.throws(() => workerScript(`function t(){}export{t as default}${' '.repeat(1_000_000)}x`), /must end in/);
     assert.ok(Date.now() - t0 < 1000, `the tail check took ${Date.now() - t0} ms`);
-    await assert.rejects(openSandboxPage(browser, { script: packageScript('for(;;);function t(){}export{t as default};'), loadTimeoutMs: 500 }), /timeout/i);
+    await assert.rejects(openPackageSandbox(browser, 'for(;;);function t(){}export{t as default};', { loadTimeoutMs: 500 }), /did not finish loading within 500 ms/);
   });
 
-  test('a request the bundle makes while it loads is refused by the page policy before it exists', async () => {
-    // The request log is attached before the bundle loads, but an image asked for at load never
-    // reaches it: the page's policy refuses it first, and says so on the console.
+  test('a request the bundle makes while it loads reaches nothing: it is made, and refused', async () => {
     const asked = [];
     const said = [];
-    const beacon = 'new Image().src="https://example.com/at-load";function t(s){return s.html}export{t as default};';
-    const sandbox = await openSandboxPage(browser, { script: packageScript(beacon), onRequest: (url) => asked.push(url), onConsole: (text) => said.push(text) });
+    // The package reports what its own fetch got, so the test sees the request was made and refused.
+    const beacon = 'try{fetch("https://example.com/at-load").then(()=>console.log("FETCH-OK"),(e)=>console.log("FETCH-REFUSED "+e.message))}catch(e){console.log("FETCH-REFUSED "+e.message)}function t(s){return s.html}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, beacon, { onRequest: (url) => asked.push(url), onConsole: (text) => said.push(text) });
     await new Promise((r) => setTimeout(r, 300));
+    assert.equal(await runPackage(sandbox, { html: '<section>x</section>', index: 0 }), '<section>x</section>');
     await sandbox.close();
-    assert.deepEqual(asked, []);
-    assert.ok(
-      said.some((t) => /^Refused to load the image 'https:\/\/example\.com\/at-load' because it violates the following Content Security Policy directive: "img-src data: blob:"/.test(t)),
-      `the policy must have refused the beacon: ${said.join(' | ')}`,
-    );
+    assert.deepEqual(asked, [], 'the policy refuses it before interception would see it');
+    assert.ok(said.some((t) => /^FETCH-REFUSED /.test(t)), `the fetch must have been made and refused: ${said.join(' | ')}`);
+    assert.ok(!said.includes('FETCH-OK'));
+  });
+
+  test('an error the package throws later, from a timer, does not end it', async () => {
+    const late = 'function t(s){setTimeout(()=>{throw new Error("late")},0);return s.html}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, late);
+    try {
+      for (const i of [0, 1, 2]) {
+        assert.equal(await runPackage(sandbox, { html: `<section>${i}</section>`, index: i }), `<section>${i}</section>`);
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    } finally {
+      await sandbox.close();
+    }
+  });
+
+  test('two runs at once queue: a slide waiting behind another does not spend its own time', async () => {
+    const slow = 'function t(s){const end=Date.now()+600;while(Date.now()<end);return s.html}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, slow);
+    try {
+      const outs = await Promise.all([0, 1].map((i) => runPackage(sandbox, { html: `<section>${i}</section>`, index: i }, { timeoutMs: 1000 })));
+      assert.deepEqual(outs, ['<section>0</section>', '<section>1</section>']);
+    } finally {
+      await sandbox.close();
+    }
   });
 
   test('the comparison can fail: a chart handed the wrong position differs from the deck render', async () => {
@@ -295,12 +332,14 @@ describe('code packages: every shipped transform runs in the locked page and mat
       // Again after the door's sanitizer: the same bytes as the export's own sanitizer makes of the
       // in-repo render, with the slide's own classes kept, on every slide.
       for (const [k, s] of all.entries()) {
-        const done = await sanitizer.finish(got[k], s.slide.html, 10000);
+        const done = await sanitizer.finish(got[k], s.slide.html, 10000, pkg.name);
         assert.equal(done.error, undefined, `slide ${s.slide.index + 1}: the door refused the package's output: ${done.error}`);
-        assert.equal(done.html, nodeSanitize(s.expected, s.slide.html), `slide ${s.slide.index + 1} of ${path.relative(ROOT, deck)}: the door's sanitizer differs from the export's`);
+        assert.equal(done.html, nodeSanitize(s.expected, s.slide.html, pkg.name), `slide ${s.slide.index + 1} of ${path.relative(ROOT, deck)}: the door's sanitizer differs from the export's`);
         afterDoor.slides++;
         if (done.html !== s.expected) afterDoor.changed++;
         const [before, after] = [census(s.expected), census(done.html)];
+        const tokens = (h) => (h.match(/\sclass="([^"]*)"/g) || []).reduce((n, m) => n + m.slice(8, -1).split(/\s+/).filter(Boolean).length, 0);
+        classTokens.set(pkg.name, (classTokens.get(pkg.name) || 0) + tokens(s.expected) - tokens(done.html));
         for (const [k, n] of before) if ((after.get(k) || 0) < n) losses.set(`${pkg.name} ${k}`, (losses.get(`${pkg.name} ${k}`) || 0) + n - (after.get(k) || 0));
       }
       const bundle = await bundled(pkg.name);
@@ -311,6 +350,8 @@ describe('code packages: every shipped transform runs in the locked page and mat
   // eating content a package draws (the inversion lens: comparing the door with the export's
   // sanitizer on the same input could never see that, since both remove the same thing). Each entry
   // is a loss the door means to cause:
+  //   scene section@data-img-*    — the image markers the engine stamps (and stamps again after the
+  //       door on the section's own tag, which the splice keeps), not the package's to set;
   //   journey p@data-lattice-desc — an engine-namespaced attribute the slide did not hand over;
   //       a package names its own data-* attributes (lib/core/remote-ref.js doorFilterAttr).
   //   video a@href, a@style       — the poster link and thumbnail are addresses the transform
@@ -318,6 +359,13 @@ describe('code packages: every shipped transform runs in the locked page and mat
   //   video a@target              — the slide sanitizer strips target="_blank" from every slide.
   test("the door's sanitizer removes only what it means to from the 29 packages' output", () => {
     assert.ok(afterDoor.slides > 0, 'runs after the package tests');
-    assert.deepEqual([...losses].sort(), [['journey p@data-lattice-desc', 9], ['video a@href', 7], ['video a@style', 3], ['video a@target', 7]]);
+    assert.deepEqual([...losses].sort(), [
+      ['journey p@data-lattice-desc', 9],
+      ['scene section@data-img-bucket', 10],
+      ['scene section@data-img-composition', 10],
+      ['video a@href', 7],
+      ['video a@style', 3],
+      ['video a@target', 7],
+    ]);
   });
 });

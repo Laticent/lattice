@@ -21,12 +21,17 @@ import { type ImportRename, renameAssetInSource } from '../asset-rename';
 
 export { applyImportRenames, type ImportRename } from '../asset-rename';
 
+import { codeNameRefusal } from '../../../../../lib/packages/code-door-core.mjs';
+import reservedClasses from '../../../../../lib/packages/reserved-classes.generated.js';
 import { listStudioComponents, saveStudioComponent, toMeta } from '../component-library';
 import { listStudioFinishes, safeSaveSlug, saveStudioFinish } from '../finish-library';
 import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from '../import-gate';
 import { saveStudioScene } from '../scene-library';
 import { listStudioThemes, loadThemeCore, saveStudioTheme } from '../theme-library';
 import { unreservedComponentName } from './reserved-classes';
+
+const reservedClassNames: string[] = (reservedClasses as { names: string[] }).names;
+
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES, renameComponentSelectors, unreservedName } from './reserved-names';
 
 
@@ -107,7 +112,8 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 		let why: ImportRename['why'] = 'shipped';
 		if (keepMine) {
 			const mine = mineComps.find((x) => x.name === name);
-			if (mine && mine.css === renameComponentSelectors(c.css, c.name, name)) {
+			// Unchanged means the same code too: a package whose transform changed is a new import.
+			if (mine && mine.css === renameComponentSelectors(c.css, c.name, name) && (mine.pkg?.files?.['transform.js'] ?? null) === (c.pkg?.files?.['transform.js'] ?? null)) {
 				t.unchanged++;
 				if (name !== c.name) rename({ kind: 'component', from: c.name, to: name, why });
 				continue;
@@ -119,6 +125,20 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 			usedComponentNames.add(name);
 		}
 		const moved = name !== c.name;
+		// A code package is never renamed: its transform finds its slides by its own name, so
+		// renamed it would match nothing (the inversion lens on step 2). Refused instead, as the
+		// CLI refuses it (lib/packages/cli.js prepare).
+		if (c.pkg?.files?.['transform.js'] != null) {
+			const clash = codeNameRefusal(c.name, [...reservedClassNames, ...RESERVED_COMPONENT_NAMES]);
+			if (clash) {
+				t.refused.push({ name: c.name, why: clash });
+				continue;
+			}
+		}
+		if (moved && c.pkg?.files?.['transform.js'] != null) {
+			t.refused.push({ name: c.name, why: `"${c.name}" is a name ${why === 'yours' ? 'one of your components already has' : 'Lattice uses'}, and a code package can't be renamed (its transform knows its own name)` });
+			continue;
+		}
 		// A package carries the full manifest, so a component imported from one keeps its
 		// function/form/substance/description and can be re-saved; a legacy zip carried only
 		// the bucket.

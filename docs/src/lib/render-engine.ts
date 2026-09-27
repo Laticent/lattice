@@ -25,6 +25,7 @@
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
+import { renderWithCodePackages } from './code-packages/door';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import type { LatticePlaygroundEngine } from './playground-global';
@@ -48,6 +49,9 @@ export type RenderMarkdownOpts = {
 	 *  §4). `'flat'` also returns `flatCss`, for a host that shows slide content outside any
 	 *  slide (Read · Article); `css` keeps the scoped preview shape either way. */
 	styles?: 'scoped' | 'flat';
+	/** This is the preview's own render: the code-package notice hears which packages failed in
+	 *  it (code-packages/door.ts). A scan, a gate or an export rendering on the side leaves it unset. */
+	codeStatus?: boolean;
 };
 export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 
@@ -94,5 +98,9 @@ export async function renderMarkdown(
 	// once a deck HAS a fence — `scanFences` splits the source and builds a Set — but
 	// a fence-less deck short-circuits on an `indexOf` before allocating anything.
 	await ensureFenceLanguages(rendered).catch(() => []);
-	return PG.render(rendered, theme, opts);
+	// CODE PACKAGES (contract note §9): with none saved this is exactly `PG.render`; with some, the
+	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
+	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface
+	// and every export runs them the same way.
+	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, opts);
 }

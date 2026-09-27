@@ -142,8 +142,8 @@ both places, where a Node process has nothing to measure with.
   escape; whether code packages refuse to run without the OS sandbox is open for the owner
   (`followups.d/2314-p4-code-packages.md`). Pinned by
   `test/integration/export/code-sandbox-network.test.js` (the control, each wall alone, both,
-  the literal launch list, and a check that the page still lays out text for `measure`). Still
-  UNVERIFIED: the Studio's sandboxed iframe, which phase 6 has not built.
+  the literal launch list, and a check that the page still lays out text for `measure`). The
+  Studio's sandboxed iframe is built and measured too (§10).
 
 **Recommendation: a Chromium page in the CLI, the sandboxed iframe in the Studio.**
 
@@ -241,7 +241,7 @@ that module could have minted. `baseUrl` is the one context field a shipped adap
 not (found by the inversion lens). §5's other fields (markdown, list items, directives, token
 names) join when a transform needs them; no shipped one does.
 
-**The runner** (`packageScript`, `runPackage` in lib/core/code-sandbox.js) runs the package as the
+**The runner** (as step 2 built it; §10 moved the package into a worker, and `packageScript` became `workerScript`) ran the package as the
 locked page's one script. The package is an ES module, and the page runs a classic script allowed
 by its hash, so the runner takes off the bundle's final `export { name as default }` (the only
 shape the export writes; any other is refused) and gives the bundle a function scope of its own.
@@ -286,9 +286,9 @@ only a probe exercises `measure`, and "runs with only `measure`" holds trivially
 
 ## 9. Step 3: consent and the CLI door (2026-09-27)
 
-The CLI now runs a third-party code package, after the user approves its code. The Studio still
-refuses one; its sandboxed iframe is the next step (followups.d/2314-p4-code-packages.md). The
-adversarial trio reviewed the first cut, and most of this section is what that review changed.
+The CLI now runs a third-party code package, after the user approves its code. (The Studio's door
+is §10, which also moved the package itself into a worker in both doors.) The adversarial trio
+reviewed the first cut, and most of this section is what that review changed.
 
 **Consent, pinned to the bytes and the layer** (`lib/packages/trust.js`). `lattice packages add`
 installs a code package once the gate accepts its shape, prints what the code is (file, size,
@@ -408,3 +408,112 @@ depends on, frozen. §5 first proposed plain data instead (the markdown, the lis
 directives, the token names), with the door owning the frame and every channel. Moving the slot
 made the frozen surface smaller (no masthead cells, no stage), not zero. Changing the input is cheap
 until the first stranger's package exists, and not after.
+
+## 10. Step 4: the Studio's door, and a worker in both doors (2026-09-27)
+
+**A worker, in both doors.** Building the Studio's sandbox found a hole the CLI never had to face:
+a sandboxed frame may always navigate ITSELF, and neither a `sandbox` flag nor a content-security
+policy stops `location.href = 'https://…?slide=…'`. The CLI refused that request by interception;
+the Studio has nothing to intercept with. So a package no longer runs in the frame's document at
+all. The frame's one script, `FRAME_BOOTSTRAP` (`lib/packages/code-door-core.mjs`, the same bytes
+in both doors), makes a Worker from a blob of the package's code (`workerScript`) and runs one slide
+at a time with a deadline. Measured in a sandboxed frame under the policy (`worker-src blob:` added;
+everything else `none`): fetch, WebSocket, `importScripts`, `import()`, EventSource and a nested
+worker from the worker reached nothing, `eval` is refused, `document` and `location.assign` do not
+exist, and `OffscreenCanvas` measures text for `kit.measure`. Also measured: WebRTC from a
+sandboxed frame's own document sent 4 UDP packets under `default-src 'none'` (no policy governs it,
+and Chromium ignores a `webrtc 'block'` directive); a worker has no WebRTC. The move also closed the
+first runner's weakest point, where the bundle shared the page with the runner and could redefine
+it (the red team on step 2): the runner's checks now live in a realm the package never runs in. All
+29 conformance packages still match byte for byte in the worker (`code-package-parity.test.js`), so
+none of ours needed a DOM. The contract says so now: a package gets the slide, `kit.measure`, and a
+worker's globals, and no document.
+
+**A second wall inside the worker, from Firefox.** The first nightly run of the Studio spec on
+three engines found that on Gecko an `EventSource` opened from the worker reached the loopback
+server, where fetch, WebSocket, `importScripts` and a nested worker did not, and where Chromium and
+WebKit refused all of them: the worker's inherited policy did not hold for that one API. So before
+any of a package's code runs, `workerScript` takes every network constructor off the worker's global
+(`WORKER_NETWORK`: fetch, XMLHttpRequest, WebSocket, EventSource, WebTransport, `importScripts`,
+Worker, SharedWorker, BroadcastChannel, and the cache and storage handles), non-configurable, so the
+bundle cannot put one back and has no other realm to take one from. The policy is still the first
+wall; this one does not depend on each engine inheriting it. All 29 conformance packages still match.
+
+**The Studio's door** (`docs/src/lib/code-packages/`). Every Studio render goes through
+`renderMarkdown` (`docs/src/lib/render-engine.ts`), and it goes through `door.ts`:
+- **Import** (`asset-bundle.ts`, `package-zip.ts`, `library/import-parsed.ts`): a code component
+  imports only in the shape the CLI accepts (the shared `refuseCode`), and never renamed; its
+  `transform.js` rides in the record's package carry, so it saves, lists and exports unchanged.
+- **Consent**, pinned to the SHA-256 of the code, in THIS browser's storage only
+  (`lattice-code-package-approvals`), never in a deck, a backup or a `.lattice` file, so no file can
+  grant itself consent. Until then a claimed slide renders as the engine drew it, with a note, and
+  a notice above the preview (`CodePackagesNotice.tsx`) says what the code is (size, SHA-256) and
+  what contains it, and offers "Run it". The notice reads the deck's SOURCE (class directives, front
+  matter and `pane:` markers, outside fenced code), so it names every package the deck needs, not
+  only the one on screen. The browser's own OS sandbox is on for a user's browser, so the Studio pins
+  no layer. One difference from the CLI, on purpose: the CLI refuses to render a deck with an
+  unapproved package, and the Studio renders it with the note, because the preview is where the
+  user decides. A Studio export made before approving carries that note.
+- **Editing** a code component in a faculty keeps its transform under the same name
+  (`saveStudioComponent`); the first cut dropped it on the first edit, silently (the inversion lens).
+- **The same slot, routing, splicing and attribute rule** as the CLI: two renders around the
+  registry's code-packages slot, the kernel's `captureHook` / `substituteHook`, and the page's slide
+  sanitizer with `doorFinish` (`lib/core/remote-ref.js`, the function the CLI's sanitizer page runs).
+- **The sandbox** (`runner.ts`): a hidden `<iframe sandbox="allow-scripts">` (opaque origin: no
+  storage, nothing of the Studio page or the user's OpenRouter key) with the CLI's policy and
+  bootstrap, the package in its worker, spoken to over `postMessage` with the frame's source checked,
+  one run at a time. A package's frame lives for ONE render and closes when it ends: a frame kept for
+  the session let a package carry one deck's heading into another deck's slide through its own module
+  state (the red team). A run past its time ends the worker, and the next slide gets a new frame.
+- **Bounded:** 2 s per slide; 30 s and 4 million characters of package output per render, since the
+  sanitizer runs on the Studio's main thread and twelve 3.9-million-character slides froze it for
+  10 s (the red team). A failure of time (a deadline, the budget) is tried again on the next render;
+  a throw or a bad return, which the same input repeats, is remembered with its note.
+- **Caches.** A result is remembered by what the package was handed, so typing re-runs only the
+  slides whose input changed. The package-and-approval state rides in the preview's extra CSS as an
+  inert comment (`codePackagesStamp`), because every preview and export cache keys on that CSS, so
+  a new package or approval re-renders everything that showed the old state.
+
+**Classes: the package's own name, or what the slide carried** (`doorFilterAttr`, both doors). A
+later registry pass and the viewer's runtime act on classes they know: a package that added `video`
+to its section had the `video` pass, after the door, build a poster address from a bullet the
+package wrote, and it reached the red team's server as `GET /leak?d=…` from the CLI's PDF and HTML
+with `--allow-remote`. A `mermaid` block the package invents would fetch its image nodes the same
+way. So every class in a package's output, on the section and inside it, must be one the slide it
+was handed carried, or the package's own `<name>` / `<name>-…`; any other is dropped. This is a rule
+for authors: style with `section.<name> .<name>-…`. Our 29 were not written to it, and the
+parity test logs how many class tokens the door strips from each (from 5 for `video` to 431 for
+`team-profile`), which is the measure of that, not a defect in them.
+
+**What the final checker changed** (one more independent pass, on the fixes above):
+- The runtime finds a Mermaid block by SUBSTRING (`[class*="language-mermaid"]`), so an own-name
+  class like `acme-language-mermaid` still handed it a diagram. An own-name class containing
+  `mermaid`, `language-` or `functionplot` is dropped, and a Mermaid block in the output may name only
+  the addresses a handed block named (`doorFinish`), else the output is refused.
+- A code package may not take a name that starts a class Lattice uses (`chart` would add
+  `chart-frame`, `logo` would add `logo-wall`), nor a runtime stem (`lat`, `lattice`, `mermaid`…):
+  `codeNameRefusal`, at `add`, at the Studio's import and at render.
+- An `id` lives in the package's name or is one it was handed (a deck's `url(#id)` takes the first
+  element with it), and the runtime's markers (`data-mermaid-*`, `data-fp-*`, `data-img-*`,
+  `data-pane*`) survive only as handed.
+- The Studio's 4-million-character cap counts remembered output too, and a slide refused by the cap
+  is not remembered as failed; a load that ran out of time is not retried within the same render;
+  a quoted `class: "acme"` names the package for the notice, which also lists any package the
+  preview's render found unapproved.
+
+**Measured on the real Studio** (`docs/e2e/code-packages.spec.ts`, desktop Chromium): a hostile
+package imported through the Library tries fetch, WebSocket, `importScripts`, `import()`,
+EventSource, a nested worker, WebRTC to a UDP port and a navigation, and returns a section naming a
+local server seven ways and forging a speaker note. Unapproved: the slide shows the author's content
+and the note, the notice offers the code with its SHA-256, and nothing reaches the HTTP server or
+the UDP socket. Approved: it draws, still nothing reaches either, the preview holds no reference to
+the server and no forged note, every sandbox frame the render opened carried `sandbox="allow-scripts"`,
+and none outlived its render. The
+CONTROLS: the same page reaches the UDP socket (WebRTC) and the HTTP server (an authored image after
+"Load them"). With the door's sanitizer switched off the spec fails. Gecko and WebKit are
+tagged too (`@gecko`, `@webkit-tablet`); their result is the nightly's, below the PR.
+
+**Not run by the door: a Marp export.** It renders with marp-core, with no sandbox and no approval,
+so a code package's slides show as its CSS draws the authored content (`lib/core/marp-fidelity.js`
+records the gap). The HTML player export is assembled from the already-rendered document
+(`lib/export/player-core.mjs` takes `docHtml`), so a package's drawing is baked into it.

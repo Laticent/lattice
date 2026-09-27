@@ -65,7 +65,9 @@ function tally(slide, kit) {
   var marks = "";
   for (var i = 0; i < n; i++) marks += '<span class="tally-mark">' + (i + 1) + "</span>";
   // Padded with newlines, as a template literal would be (the checker's crash).
-  return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '">' + marks + "</div>" + ${JSON.stringify(remoteMarkup(H) + localMarkup(secretFile) + forgedNote)}) + "\\n";
+  // It also adds classes: its own (kept) and "video", which would have the video pass build an
+  // address after the door (the red team; dropped).
+  return "\\n" + slide.html.replace(' class="', ' class="video tally-drawn ').replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '">' + marks + "</div>" + ${JSON.stringify(remoteMarkup(H) + localMarkup(secretFile) + forgedNote)}) + "\\n";
 }
 export { tally as default };
 `;
@@ -178,8 +180,13 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     assert.match(out, /class="tally-marks" data-count="3"><span class="tally-mark">1<\/span>/);
     assert.ok(!out.includes(`127.0.0.1:${P}`), 'no reference to the log survives in the output');
     assert.ok(!out.includes(secret), 'the local file the package named was read into the export');
-    assert.match(out, /<span class="logo-mark"><\/span><img alt="">/, 'the invented local addresses are dropped, the elements kept');
+    // The mask's address and the invented `logo-mark` class both go (a class the slide never carried
+    // is not the package's to add); the elements stay.
+    assert.match(out, /<span><\/span><img alt="">/, 'the invented local addresses are dropped, the elements kept');
     assert.doesNotMatch(out, /class="lattice-notes"[^>]*>[^<]*FORGED-NOTE/, 'a forged speaker note never reaches the presenter channel');
+    const tag = /<section\b[^>]*\bclass="[^"]*\btally\b[^"]*"/.exec(out)?.[0] ?? '';
+    assert.match(tag, /\btally-drawn\b/, "the package's own class is kept");
+    assert.doesNotMatch(tag, /\bvideo\b/, 'a class outside its name is not');
     assert.match(out, /the speaker note/);
     await settle();
     assert.deepEqual(hits, []);

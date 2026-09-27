@@ -184,8 +184,17 @@ markdown, list items, directives, token names) with the door owning the frame. C
 until the first stranger's package exists. Options: (a) keep `{ html }` at the chart slot, as
 shipped; (b) plain data in, body out, the door owns the section and every channel.
 
-**Still open:** the Studio's door (step 4): consent in the Library import, the transform in a
-sandboxed iframe, the same sanitizer and attribute rule (the shared kernel is
-`lib/packages/code-door-core.mjs`), proven with a network log on the real Studio. Until it lands the
-Studio keeps refusing a package that carries code, so the two front doors disagree about code
-packages for now: the CLI installs one the Studio refuses.
+## Step 4 done (2026-09-27): the Studio's door, and a worker in both
+
+A code package imported through the Studio's Library renders in the preview (and every export that
+goes through `renderMarkdown`) after the user approves its code from the notice above the preview,
+and not before; 0 requests to a loopback HTTP server and a UDP socket, with controls
+(`docs/e2e/code-packages.spec.ts`). Both doors now run the package in a worker inside the sandboxed
+frame, because a sandboxed frame can navigate itself and the Studio has no interception to stop it.
+The contract note's §10 has the measurements.
+
+**Still open:**
+- the Studio spec on Gecko and WebKit (it runs on desktop Chromium; tag it `@gecko` /
+  `@webkit-tablet` and run the nightly with `spec: e2e/code-packages.spec.ts`);
+- the owner's call on the input a package is handed (above);
+- a Marp export never runs a code package (no sandbox there), recorded in lib/core/marp-fidelity.js.

@@ -2070,8 +2070,10 @@ function withInstalledComponents(source) {
   const { codeDigest, readTrust } = require('./lib/packages/trust.js');
   const reservedNames = require('./lib/packages/index.js').createRegistry(require('./lib/packages/packages.generated.json'));
   const approvals = readTrust();
+  const { codeNameRefusal } = require('./lib/packages/code-door-core.mjs');
+  const knownClasses = [...require('./lib/packages/reserved-classes.generated.js').names, ...COMPONENT_NAMES];
   const installedCode = installed.filter((p) => p.pkg.code && !shippedComponents.has(p.name)).filter((p) => {
-    if (reservedNames.unreservedName('component', p.name) === p.name) return true;
+    if (reservedNames.unreservedName('component', p.name) === p.name && !codeNameRefusal(p.name, knownClasses)) return true;
     console.error(`warning: the installed code package ${p.name} has a name Lattice reserves, so it is not used`);
     return false;
   });
