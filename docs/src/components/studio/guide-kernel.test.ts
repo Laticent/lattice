@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { aimTarget, createGuideDirector, findCueTarget, type GuideLook } from './guide-kernel';
+import { aimTarget, createGuideDirector, findCueTarget, findTableRowTarget, focusContent, type GuideLook, planSlide } from './guide-kernel';
 import { createPlayerGuide } from './guide-player';
 
 // The director is the Guide's focus POLICY, shared by the Studio's Present and the exported
@@ -212,5 +212,56 @@ describe('createPlayerGuide — the exported player’s hooks', () => {
 		expect(() => g.cue(null, 0, track, 0)).not.toThrow();
 		expect(() => g.cue(slide(), 0, null, 0)).not.toThrow();
 		expect(() => g.word(null, 0, 0)).not.toThrow();
+	});
+});
+
+describe('restrained audit fixes (owner, 2026-09-27)', () => {
+	it('walks a planned chart from its FIRST named mark, not from the planned one', () => {
+		// A dumbbell's first row came before the plan's moment and stayed dark.
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
+			<line data-mark="0" data-series="0" data-label="Platform" data-value=""></line>
+			<line data-mark="1" data-series="1" data-label="Payments" data-value=""></line>
+			<line data-mark="2" data-series="2" data-label="Growth" data-value="$19M"></line></svg></div></section></div>`;
+		const section = document.querySelector('section') as Element;
+		const marks = [...section.querySelectorAll('line')];
+		const texts = ['Platform rose seven.', 'Payments fell four.', 'Growth rose to $19M.'];
+		const aimOf = (t: string) => marks[texts.indexOf(t)] ?? null;
+		// Budget 1, spent on Growth (the only measured mark, the last sentence): the chart is still
+		// walked from Platform, its first named mark.
+		const look: GuideLook = { ...RESTRAINED, budget: 1 };
+		expect([...planSlide(texts, aimOf, 1, 1).gesture]).toEqual([2]);
+		const d = createGuideDirector();
+		const kinds = texts.map((text, k) => {
+			const aim = aimOf(text);
+			const step = d.beat({ slide: 1, track: texts, texts, cue: k, text, aim, aimOf }, look);
+			if (step.kind === 'moment') d.land(aim, text, 1, look);
+			return [step.kind, document.querySelector('.lat-guide-undim')?.getAttribute('data-label') ?? null];
+		});
+		expect(kinds[0]).toEqual(['walk', 'Platform']);
+		expect(kinds.map((k) => k[1])).toEqual(['Platform', 'Payments', 'Growth']);
+	});
+
+	it('resolves a table row read as "Row — Col: value; …" to the row', () => {
+		document.body.innerHTML = `<div class="lattice"><section><table><thead><tr><th>Segment</th><th>Q3</th><th>Q4</th><th>EMEA</th></tr></thead>
+			<tbody><tr><td>Enterprise</td><td>1.2%</td><td>1.1%</td><td>0.9%</td></tr><tr><td>SMB</td><td>7.8%</td><td>9.4%</td><td>6.1%</td></tr></tbody></table></section></div>`;
+		const section = document.querySelector('section') as Element;
+		const hit = findCueTarget(section, 'SMB — Q3: 7.8%; Q4: 9.4%; EMEA: 6.1%.');
+		expect(hit?.textContent).toBe('SMB');
+		// A row that is not in the table is not found by this tier.
+		expect(findTableRowTarget(section, 'Mid-market — Q3: 3.1%.')).toBeNull();
+	});
+
+	it('keeps a line point’s category label full and recedes the other categories', () => {
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
+			<path class="line-path" data-series="0" data-label="EMEA"></path>
+			<circle data-series="0" data-label="Jan 2026" data-value="4.1" cx="100"></circle>
+			<circle data-series="0" data-label="Feb 2026" data-value="3.2" cx="300"></circle>
+			<text class="cart-cat" data-label="Jan 2026">Jan 2026</text><text class="cart-cat" data-label="Feb 2026">Feb 2026</text></svg></div></section></div>`;
+		const feb = document.querySelectorAll('circle')[1];
+		const undo = focusContent(feb, { dim: 0.45, dimInner: 0.3, fade: 0 });
+		const [jan, febLabel] = [...document.querySelectorAll('text.cart-cat')];
+		expect(febLabel.classList.contains('lat-guide-undim')).toBe(true);
+		expect(jan.classList.contains('lat-guide-dim')).toBe(true);
+		undo?.();
 	});
 });
