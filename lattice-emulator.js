@@ -289,14 +289,13 @@ OPTIONS
                           checked fits. LATTICE_OVERFLOW_MARKER sets a standing
                           default ('off' is per-render only). The overflow warning
                           on stderr is printed at every level.
-      --keep-vector-finish
-                          Keep a finish's backdrop exactly as the stylesheet
-                          draws it. By default the PDF rebuilds each finish
-                          slide's backdrop so viewers draw it fast: the soft
-                          layers (wash, glow, clear fade) become one tiny
-                          image, the texture plain vector lines, and marks
-                          stay vector. The vector gradients took ~1-2.5 s a
-                          slide to draw in iOS Preview and Acrobat.
+      --chrome-pdf        Write the PDF with Chrome's own printer (page.pdf) instead
+                          of Lattice's writer. By default the PDF is composed by the
+                          same code as the Studio's Export to PDF: each slide's
+                          background is one photo, and the words, charts and links
+                          are drawn on top as real text and vector shapes. It opens
+                          several times faster in iOS Preview and Acrobat. This flag
+                          is the fallback and the comparison oracle.
       --keep-vector-images
                           Keep SVG images as vectors in the PDF. By default SVG
                           <img>/background images are rasterized to 2x PNG at
@@ -465,7 +464,7 @@ function parseArgs(argv) {
     if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
-    if (a === '--keep-vector-finish') { flags['keep-vector-finish'] = true; continue; }
+    if (a === '--chrome-pdf') { flags['chrome-pdf'] = true; continue; }
     if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
     if (a === '--no-svg') { flags['no-svg'] = true; continue; }
     // --flag=value form
@@ -615,7 +614,7 @@ const ENGINE_SCRIPT_OPEN = `<script ${ENGINE_SCRIPT_ATTR}>`;
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
-const KEEP_VECTOR_FINISH = !!flags['keep-vector-finish'];
+const CHROME_PDF = !!flags['chrome-pdf'];
 // Who the overflow marker in the printed artifact is addressed to. Same setting,
 // same kernel and same precedence as the Marp exporter — `--overflow-marker` for
 // this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
@@ -4457,24 +4456,25 @@ async function renderBody(browser, g, closeBrowser) {
   // (Mermaid, charts, logo marks) is untouched — it prints through the page's
   // normal paint path and stays vector. Opt out with --keep-vector-images.
   // The raster paths (PPTX/PNG/--raster) screenshot pixels anyway, so skip.
+  // THE SHARED WRITER (lib/core/pdf-compose) composes the PDF in this page, with the same
+  // code as the Studio's Export to PDF; Chrome's printer is the fallback (--chrome-pdf, or
+  // the writer could not run). The SVG-image twins below serve both: the shared writer
+  // embeds a raster image at its own resolution, and an SVG image is not one until twinned.
+  let composed = null;
   if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !KEEP_VECTOR_IMAGES) {
     const swapped = await rasterizeSvgImagesInPage(browser, g, page);
     if (swapped && !QUIET) {
       console.log(`  SVG images: ${swapped} reference${swapped > 1 ? 's' : ''} rasterized at 2x for PDF portability (--keep-vector-images keeps vectors)`);
     }
   }
-  // BAKE THE FINISH BACKDROP — see bakeFinishBackdropsInPage. The vector PDF only: --raster
-  // and --paper screenshot every slide anyway, so baking there would compress it twice.
-  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT && !KEEP_VECTOR_FINISH) {
-    const baked = await bakeFinishBackdropsInPage(g, page, slideW, slideH);
-    if (baked && !QUIET) {
-      console.log(`  Finish: ${baked} backdrop${baked > 1 ? 's' : ''} rebuilt for fast PDF viewing (--keep-vector-finish keeps the stylesheet's drawing)`);
-    }
+  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT && !CHROME_PDF) {
+    composed = await composePdfInPage(g, page);
   }
+
   if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT) {
     // Render to a buffer (no `path`) so we can post-process before writing: the
     // speaker notes are attached as per-page PDF text annotations.
-    const pdfBytes = await g(() => page.pdf({
+    const pdfBytes = composed || await g(() => page.pdf({
       width: `${slideW}px`, height: `${slideH}px`,
       printBackground: true,
       preferCSSPageSize: true
@@ -5409,412 +5409,101 @@ async function prunePlayerCssInPage(playerHtml) {
 // per-image failure warns and leaves that reference vector — the deck must
 // never be lost to a portability fix. Returns the number of swapped references.
 /**
- * Rebuild every finish slide's `.backdrop` for the vector PDF so a viewer can draw it fast.
- *
- * WHY. A finish prints as a stack of vector drawing: gradient washes, a texture that is a
- * `repeating-*-gradient` (one shading whose color function switches ~40 times across the
- * page), transparency groups for the strength veil, and a blurred clear layer. A PDF viewer
- * evaluates all of it per pixel, again at every zoom: atrium drew in ~2.5 s a slide in poppler
- * and visibly in pieces in iOS Preview and Acrobat (owner, 2026-09-27). A full-resolution image
- * per slide drew fast but made the file 7-35x larger, which the owner rejected.
- *
- * THE HYBRID (engineering/decisions/2026-09-27-bake-finish-backdrop.md). Each finish is split
- * by what it looks like:
- *   - the SOFT layers (wash, glow, vignette, the clear fade and the strength veil over them)
- *     are captured as one tiny opaque JPEG, a quarter of the slide's pixels in each direction.
- *     They are smooth, so the viewer's upscale loses nothing, and the image costs a few KB;
- *   - the TEXTURE is redrawn as plain vector lines (or dots) from `--fin-texture-geo`, which the
- *     finish generator publishes, in the screen face's ink. Near the content the lines fade in
- *     LEVELS steps of constant opacity following the Studio's blurred clear layer, so there is no
- *     soft mask and no transparency group, only solid strokes;
- *   - the MARK and a HARD edge (fold, margin rule) stay the live pseudo-elements they are, with
- *     their opacity set to what the strength and the clear fade leave of them at their center.
- * A slide the hybrid cannot model falls back to one full-resolution image of its backdrop: a
- * texture with no `--fin-texture-geo` (a hand-written or pre-2026-09-27 Fabricate finish), a
- * spotlight or a legacy baked clearance ellipse.
- *
- * WHAT IS CAPTURED is the SCREEN face (the page is in screen media until `page.pdf()`), so the
- * PDF matches the Studio, soft clear edge included. Print mode carries no finish at all
- * (base.finish.css `section.print.finish`), so it is skipped. So are `finish-none` slides.
- *
- * A slide that fails keeps its vector finish and warns. Returns the number rebuilt.
- * Opt out with --keep-vector-finish.
+ * Compose the vector PDF with the SHARED writer (lib/core/pdf-compose), inside this page.
+ * Returns the PDF bytes, or null when the writer could not run — the caller then prints
+ * with Chrome, exactly as before, and this says why. The slides switch to their EXPORT
+ * face (`.lattice-exporting`) first, the same face the Studio download photographs.
  */
-async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
-  const found = await g(() => page.evaluate(() => {
-    const out = [];
-    const sel = 'section.finish:not(.finish-none):not(.backdrop-none):not(.print)';
-    for (const s of document.querySelectorAll(sel)) {
-      const bd = s.querySelector(':scope > .backdrop');
-      if (!bd) continue;
-      const cs = getComputedStyle(bd);
-      const v = (n) => cs.getPropertyValue(n).trim();
-      const texture = v('--fin-texture');
-      const geo = v('--fin-texture-geo');
-      // A shaped mask the hybrid does not model: the register's spotlight, a baked spotlight,
-      // or a legacy baked clearance ellipse. The content-box clear it does model.
-      const shaped = [v('--backdrop-scrim'), v('--fin-backdrop-mask')].some((x) => x && x !== 'none');
-      const hybrid = !shaped && (!texture || texture === 'none' || !!geo);
-      s.dataset.latticeBake = String(out.length);
-      out.push(hybrid ? 'hybrid' : 'full');
-    }
-    if (out.length) {
-      const st = document.createElement('style');
-      st.id = 'lattice-bake-style';
-      // Hide the content while its backdrop is captured. Gallery's frame keyline is held off
-      // too: the print face's opaque backdrop always covered it, and on screen it strikes
-      // through the header (followup 2388-p3-gallery-frame-crosses-header). What the hybrid
-      // redraws live is taken out of its capture per slide, inline (see planLiveLayers).
-      st.textContent = [
-        'section[data-lattice-baking] > :not(.backdrop) { opacity: 0 !important; transition: none !important; }',
-        'section[data-lattice-baking] { --fin-frame: 0 0 transparent !important; }',
-      ].join('\n');
-      document.head.appendChild(st);
-    }
-    return out;
-  }), 'find finish backdrops');
-  if (!found.length) return 0;
-  const fullScale = resolveRasterScale('max', slideW, slideH);
-  const SOFT_SCALE = 0.25;
-  let scale = 0;
-  let baked = 0;
+async function composePdfInPage(g, page) {
+  composePdfInPage.pages ||= new WeakSet();
+  const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose.min.js');
+  if (!fs.existsSync(bundle)) {
+    if (!QUIET) console.log('  PDF writer: dist/lattice-pdf-compose.min.js is missing (run `npm run build`); printing with Chrome instead.');
+    return null;
+  }
   try {
-    for (let i = 0; i < found.length; i++) {
-      const mode = found[i];
-      const want = mode === 'hybrid' ? SOFT_SCALE : fullScale;
+    const wasm = fs.readFileSync(require.resolve('harfbuzzjs/hb-subset.wasm')).toString('base64');
+    await g(() => page.addScriptTag({ content: fs.readFileSync(bundle, 'utf8') }), 'load the PDF writer');
+    // THE CAMERA is the one piece each host supplies. Here it is Chrome itself: the page
+    // calls back into Node, which screenshots the slide as it stands (the drawn text and
+    // shapes already hidden). Chrome sees exactly what is on the slide — local images,
+    // CSS backgrounds, filters — where html-to-image would have to fetch each one from a
+    // file:// page and cannot. The Studio's camera is html-to-image, on the same face.
+    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const PHOTO_FN = '__latticePdfPhoto', ASSET_FN = '__latticePdfAsset';
+    composePdfInPage.handles = handles;
+    if (!composePdfInPage.pages.has(page)) {
+      composePdfInPage.pages.add(page);
+      await page.exposeFunction(PHOTO_FN, async (i, scale) => {
+        const h = composePdfInPage.handles[i];
+        // deviceScaleFactor changes pixel density only, never layout.
+        if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale });
+        try {
+          // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
+          // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
+          await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
+          const buf = await h.screenshot({ type: 'jpeg', quality: 92, captureBeyondViewport: false });
+          return Buffer.from(buf).toString('base64');
+        } finally {
+          if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
+        }
+      });
+      // Image bytes for the writer. A file:// page cannot fetch file:// URLs, so Node reads
+      // them. The deck's own scripts can call this too, so it returns ONLY PNG or JPEG bytes:
+      // a file:// page can already DISPLAY any local image, and Chrome's printer would put it
+      // in the PDF, so that grants nothing new. Anything else is refused before it crosses.
+      await page.exposeFunction(ASSET_FN, async (url) => {
+        let buf;
+        if (url.startsWith('file:')) buf = fs.readFileSync(require('node:url').fileURLToPath(url));
+        else if (/^https?:/i.test(url)) buf = Buffer.from(await (await fetch(url)).arrayBuffer());
+        else throw new Error('unsupported asset URL');
+        const png = buf.length > 8 && buf.readUInt32BE(0) === 0x89504e47;
+        const jpeg = buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+        if (!png && !jpeg) throw new Error('not a PNG or JPEG image');
+        return buf.toString('base64');
+      });
+    }
+    const out = await g(() => page.evaluate(async (wasmB64, fnName, assetFn, epochMs) => {
+      const L = globalThis.LatticePdfCompose;
+      const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
+      for (const s of secs) s.classList.add('lattice-exporting');
+      const unb64 = (b64) => {
+        const b = atob(b64);
+        const bytes = new Uint8Array(b.length);
+        for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
+        return bytes;
+      };
+      const camera = async (section, { scale = 1 } = {}) => ({ bytes: unb64(await window[fnName](secs.indexOf(section), scale)), type: 'jpeg' });
+      const fetchAsset = async (url) => unb64(await window[assetFn](url));
+      const bin = atob(wasmB64);
+      const wasmBytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) wasmBytes[i] = bin.charCodeAt(i);
+      let composed;
       try {
-        if (want !== scale) {
-          await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: want }), 'bake viewport');
-          scale = want;
-        }
-        const el = await g(() => page.$(`section[data-lattice-bake="${i}"] > .backdrop`), 'bake backdrop');
-        // Measure the live layers BEFORE the capture hides them.
-        const plan = mode === 'hybrid' ? await g(() => el.evaluate(planLiveLayers), 'bake plan') : null;
-        await g(() => el.evaluate((b, mode, capture) => {
-          const s = b.parentElement;
-          // Leave out of the soft image what the hybrid draws live. The texture and the wash
-          // keep their LAYER COUNT (transparent stand-ins), or every later layer would take a
-          // texture layer's size and repeat from the shared --fin-size / --fin-repeat lists.
-          for (const [k, val] of Object.entries(capture || {})) s.style.setProperty(k, val, 'important');
-          s.dataset.latticeBaking = mode;
-          s.scrollIntoView();
-        }, mode, plan?.capture), 'bake hide content');
-        // Capture only the viewport: a capture beyond it re-rasterizes the whole tall page for
-        // every slide (a 121-slide deck took 74 s).
-        const buf = await g(() => el.screenshot({ type: 'jpeg', quality: 100, captureBeyondViewport: false }), 'bake screenshot');
-        const b64 = Buffer.from(buf).toString('base64');
-        await g(() => el.evaluate(async (b, b64, plan) => {
-          const src = `data:image/jpeg;base64,${b64}`;
-          if (!plan) {
-            // FULL: the whole backdrop becomes one image on the backdrop's own box and plane.
-            // The resets beat `section img`, which rounds and crops every image on a slide.
-            const img = document.createElement('img');
-            img.className = 'lattice-baked-backdrop';
-            img.alt = '';
-            img.src = src;
-            img.style.cssText = `position:absolute;left:${b.offsetLeft}px;top:${b.offsetTop}px;`
-              + `width:${b.offsetWidth}px;height:${b.offsetHeight}px;z-index:${getComputedStyle(b).zIndex};`
-              + 'margin:0;padding:0;border:0;border-radius:0;max-width:none;max-height:none;'
-              + 'object-fit:fill;box-shadow:none;filter:none;opacity:1;pointer-events:none';
-            await img.decode().catch(() => null);
-            b.replaceWith(img);
-            return;
-          }
-          // HYBRID: the image replaces the backdrop's own background; the mask's work is in it.
-          const pre = new Image();
-          pre.src = src;
-          await pre.decode().catch(() => null);
-          for (const k of Object.keys(plan.capture)) b.parentElement.style.removeProperty(k);
-          // Pin the live layers to the SCREEN face: `page.pdf()` prints, and the print flip
-          // would swap in the opaque mirror (ledger's fold would cover the texture).
-          for (const [k, val] of Object.entries(plan.pins)) b.style.setProperty(k, val, 'important');
-          b.style.setProperty('background-image', `url("${src}")`, 'important');
-          b.style.setProperty('background-size', '100% 100%', 'important');
-          b.style.setProperty('background-position', '0 0', 'important');
-          b.style.setProperty('background-repeat', 'no-repeat', 'important');
-          b.style.setProperty('opacity', '1', 'important');
-          b.style.setProperty('filter', 'none', 'important');
-          if (!plan.hardEdge) b.style.setProperty('--fin-edge', 'none');
-          const id = b.parentElement.dataset.latticeBake;
-          const rule = document.createElement('style');
-          rule.textContent = `section[data-lattice-baked="${id}"] > .backdrop::before { opacity: ${plan.markOpacity} !important; }\n`
-            + `section[data-lattice-baked="${id}"] > .backdrop::after { opacity: ${plan.edgeOpacity} !important; }`;
-          document.head.appendChild(rule);
-          b.parentElement.dataset.latticeBaked = id;
-          if (plan.svg) {
-            const t = document.createElement('template');
-            t.innerHTML = plan.svg;
-            const svg = t.content.firstElementChild;
-            // Under the mark (z 0) and over the backdrop's background, the texture's own plane.
-            svg.setAttribute('style', 'position:absolute;left:0;top:0;z-index:-1;pointer-events:none;overflow:hidden');
-            b.prepend(svg);
-          }
-          if (plan.hairline) {
-            // The wash's hard hairline strip, live and under the texture, as the wash paints it.
-            const h = document.createElement('div');
-            h.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1;pointer-events:none;`
-              + `background-image:${plan.hairline.image};background-size:${plan.hairline.size};background-repeat:no-repeat;`
-              + `background-position:0 0;opacity:${plan.hairline.opacity}`;
-            b.prepend(h);
-          }
-          // Last, now that the image and every live layer are in: the mask's work is in the image.
-          b.querySelector(':scope > .backdrop-mask')?.remove();
-        }, b64, plan), 'bake swap');
-        baked++;
-      } catch (err) {
-        // A slide that cannot be rebuilt keeps its vector finish: the deck must never be lost
-        // to a speed fix (the same rule as the SVG pass below). Undo the capture overrides.
-        await page.evaluate((i, keys) => {
-          const s = document.querySelector(`section[data-lattice-bake="${i}"]`);
-          for (const k of keys) s?.style.removeProperty(k);
-        }, i, ['--fin-texture', '--fin-wash', '--fin-mark', '--fin-mark-text', '--fin-edge']).catch(() => {});
-        console.warn(`  ⚠ Finish: slide backdrop ${i + 1} kept vector — ${String(err?.message || err).split('\n')[0]}`);
-      } finally {
-        await page.evaluate((i) => {
-          const s = document.querySelector(`section[data-lattice-bake="${i}"]`);
-          if (s) { delete s.dataset.latticeBaking; delete s.dataset.latticeBake; }
-        }, i).catch(() => {});
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, harfbuzzWasm: wasmBytes, date: new Date(epochMs) });
+      } catch (e) {
+        // Carry the page-side stack across CDP: puppeteer keeps only the message.
+        return { error: String(e && e.stack || e) };
       }
+      const { bytes, report } = composed;
+      let s = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      return { b64: btoa(s), report };
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000), 'compose pdf');
+    if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
+    if (!QUIET) {
+      const r = out.report;
+      const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+      const refused = sum(r.refusedText) + sum(r.refusedShapes) + sum(r.refusedImages);
+      console.log(`  PDF writer: ${r.words} words, ${r.shapes} shapes and ${r.images} images drawn as vectors or originals${refused ? `, ${refused} left in the photo` : ''} (--chrome-pdf prints with Chrome instead)`);
     }
-  } finally {
-    await page.evaluate(() => document.getElementById('lattice-bake-style')?.remove()).catch(() => {});
-    await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 }), 'restore viewport');
+    if (process.env.LATTICE_PDF_REPORT) fs.writeFileSync(process.env.LATTICE_PDF_REPORT, JSON.stringify(out.report, null, 2));
+    return Buffer.from(out.b64, 'base64');
+  } catch (e) {
+    if (!QUIET) console.log(`  PDF writer failed (${String(e && e.message || e).split('\n')[0]}); printing with Chrome instead.`);
+    if (process.env.LATTICE_PDF_DEBUG) console.error(e && e.stack || e);
+    return null;
   }
-  return baked;
-}
-
-/**
- * IN THE PAGE, for one `.backdrop`: the live layers of the hybrid bake. Returns the texture as
- * an SVG string, the mark and edge opacities, and whether the edge is hard (drawn live).
- * Everything is in the backdrop's own box, which is where the texture's background paints.
- */
-function planLiveLayers(b) {
-  const s = b.parentElement;
-  const cs = getComputedStyle(b);
-  const v = (n) => cs.getPropertyValue(n).trim();
-  const W = b.clientWidth;
-  const H = b.clientHeight;
-  const num = (x) => Number.parseFloat(x) || 0;
-  // The section's content box in the backdrop's coordinates (a tone slide insets the backdrop).
-  const scs = getComputedStyle(s);
-  const cx0 = num(scs.paddingLeft) - b.offsetLeft;
-  const cy0 = num(scs.paddingTop) - b.offsetTop;
-  const cx1 = s.clientWidth - num(scs.paddingRight) - b.offsetLeft;
-  const cy1 = s.clientHeight - num(scs.paddingBottom) - b.offsetTop;
-  const mask = b.querySelector(':scope > .backdrop-mask');
-  const mcs = mask && getComputedStyle(mask, '::before');
-  const clearOn = !!mcs && mcs.backgroundImage && mcs.backgroundImage !== 'none';
-  // The clear layer: a solid content box grown by the bleed and blurred (base.finish.css).
-  // `--backdrop-clear-bleed` computes to an unevaluated `calc(…)`; a probe resolves it to px.
-  let bleed = 0;
-  if (mcs) {
-    const probe = document.createElement('div');
-    probe.style.cssText = `position:absolute;visibility:hidden;width:${mcs.getPropertyValue('--backdrop-clear-bleed') || '0px'}`;
-    b.appendChild(probe);
-    bleed = probe.getBoundingClientRect().width;
-    probe.remove();
-  }
-  const sigma = mcs ? num((mcs.filter.match(/blur\(([\d.]+)px\)/) || [])[1]) : 0;
-  // The register's step wins over a baked strength; 0 is a real value (Fabricate emits 0.00).
-  const strengthRaw = v('--backdrop-strength-opacity') || v('--fin-backdrop-strength');
-  const strength = strengthRaw === '' || !Number.isFinite(Number.parseFloat(strengthRaw)) ? 1 : Math.max(0, Math.min(1, Number.parseFloat(strengthRaw)));
-  const erf = (x) => {
-    const t = 1 / (1 + 0.3275911 * Math.abs(x));
-    const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
-    return x >= 0 ? y : -y;
-  };
-  const cover1 = (d) => (sigma > 0 ? 0.5 * (1 + erf((bleed - d) / sigma / Math.SQRT2)) : (d <= bleed ? 1 : 0));
-  // How much of the finish shows at (x, y): the strength, times what the clear layer leaves.
-  const vis = (x, y) => {
-    if (!clearOn) return strength;
-    const dx = Math.max(cx0 - x, x - cx1);
-    const dy = Math.max(cy0 - y, y - cy1);
-    return strength * (1 - cover1(dx) * cover1(dy));
-  };
-  // A background-painted pseudo's first layer box [x, y, w, h], from its computed size and position.
-  const layerBox = (pcs) => {
-    const size = (pcs.backgroundSize.split(',')[0] || 'auto').trim().split(/\s+/);
-    const pos = (pcs.backgroundPosition.split(',')[0] || '0% 0%').trim().split(/\s+/);
-    const len = (t, ref, dflt) => (t.endsWith('%') ? (num(t) / 100) * ref : t.endsWith('px') ? num(t) : dflt);
-    const bw = len(size[0] || 'auto', W, W);
-    const bh = len(size[1] || size[0] || 'auto', H, H);
-    const off = (t, free) => (t.endsWith('%') ? (num(t) / 100) * free : num(t));
-    return [off(pos[0] || '0%', W - bw), off(pos[1] || pos[0] || '0%', H - bh), bw, bh];
-  };
-  // Average visibility over a box (a 5 × 5 sample), so a long or large mark gets the fade its
-  // body actually sits in, not the fade at one point.
-  const visBox = (x0, y0, w, h) => {
-    let t = 0;
-    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) t += vis(x0 + (w * (i + 0.5)) / 5, y0 + (h * (j + 0.5)) / 5);
-    return t / 25;
-  };
-  const before = getComputedStyle(b, '::before');
-  const text = before.content && before.content !== 'none' && before.content !== '""' && before.content !== 'normal';
-  let markVis;
-  if (text) {
-    // A glyph mark (monogram, numeral) is text laid out INSIDE an inset-0 pseudo by alignment
-    // and a transform, so the pseudo's box says nothing about where the glyph is. Lay the same
-    // text out in a probe carrying every computed property of the pseudo, and measure the glyph.
-    const probe = document.createElement('div');
-    for (let k = 0; k < before.length; k++) probe.style.setProperty(before[k], before.getPropertyValue(before[k]));
-    probe.style.setProperty('visibility', 'hidden');
-    let label = before.content;
-    try { label = JSON.parse(label); } catch (_e) { label = label.replace(/^["']|["']$/g, ''); }
-    probe.textContent = label;
-    b.appendChild(probe);
-    const range = document.createRange();
-    range.selectNodeContents(probe);
-    const gr = range.getBoundingClientRect();
-    const br = b.getBoundingClientRect();
-    probe.remove();
-    markVis = gr.width > 0 ? visBox(gr.left - br.left, gr.top - br.top, gr.width, gr.height) : vis(W / 2, H / 2);
-  } else {
-    const [mx, my, mw, mh] = layerBox(before);
-    markVis = visBox(mx, my, mw, mh);
-  }
-  const edgeKind = v('--fin-edge-kind');
-  const hardEdge = edgeKind === 'fold' || edgeKind === 'margin-rule';
-  const [ex, ey, ew, eh] = layerBox(getComputedStyle(b, '::after'));
-  const round = (x) => Math.round(Math.max(0, Math.min(1, x)) * 1000) / 1000;
-  // Split a background list at its top-level commas.
-  const layers = (x) => {
-    const out = [];
-    let depth = 0;
-    let cur = '';
-    for (const ch of x) {
-      if (ch === '(') depth++;
-      if (ch === ')') depth--;
-      if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
-    }
-    if (cur.trim()) out.push(cur.trim());
-    return out;
-  };
-  const CLEAR = 'linear-gradient(transparent, transparent)';
-  const texture = v('--fin-texture');
-  const wash = v('--fin-wash');
-  const hairImage = v('--fin-wash-hairline');
-  const capture = {
-    '--fin-texture': !texture || texture === 'none' ? 'none' : layers(texture).map(() => CLEAR).join(', '),
-    '--fin-mark': 'none',
-    '--fin-mark-text': '""',
-  };
-  let hairline = null;
-  if (hairImage && wash && wash !== 'none') {
-    const w = layers(wash);
-    w[0] = CLEAR;
-    capture['--fin-wash'] = w.join(', ');
-    const texCount = !texture || texture === 'none' ? 1 : layers(texture).length;
-    const size = layers(cs.backgroundSize)[texCount] || '100% 4px';
-    hairline = { image: hairImage, size, opacity: round(visBox(0, 0, W, 4)) };
-  }
-  if (hardEdge) capture['--fin-edge'] = 'none';
-  // The live layers pinned to their screen values (see the swap).
-  const pins = { '--fin-mark': v('--fin-mark') || 'none', '--fin-mark-text': v('--fin-mark-text') || '""' };
-  if (hardEdge) pins['--fin-edge'] = v('--fin-edge') || 'none';
-  const plan = { markOpacity: round(markVis), edgeOpacity: round(visBox(ex, ey, ew, eh)), hardEdge, capture, pins, hairline, svg: '' };
-
-  const [type, scaleStr] = v('--fin-texture-geo').split(/\s+/);
-  const sp = num(scaleStr);
-  const ink = v('--fin-texture-ink');
-  if (!type || !(sp > 0) || !ink) return plan;
-  // Each line is cut into STEP-px runs and each run drawn at the nearest of LEVELS opacities,
-  // so the whole texture is at most LEVELS solid paths.
-  const LEVELS = 12;
-  const STEP = 3;
-  const paths = Array.from({ length: LEVELS + 1 }, () => []);
-  const f = (x) => Math.round(x * 10) / 10;
-  // A straight input keeps only each run's two ends; a curve (rings) keeps every vertex.
-  const polyline = (pts, straight = true) => {
-    let runLvl = -1;
-    let run = [];
-    const flush = () => {
-      if (runLvl <= 0 || run.length < 2) return;
-      const keep = straight ? [run[0], run[run.length - 1]] : run;
-      paths[runLvl].push(`M${keep.map((p) => `${f(p[0])} ${f(p[1])}`).join('L')}`);
-    };
-    for (let k = 0; k < pts.length - 1; k++) {
-      const [ax, ay] = pts[k];
-      const [bx, by] = pts[k + 1];
-      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / STEP));
-      for (let j = 0; j < n; j++) {
-        const p0 = [ax + ((bx - ax) * j) / n, ay + ((by - ay) * j) / n];
-        const p1 = [ax + ((bx - ax) * (j + 1)) / n, ay + ((by - ay) * (j + 1)) / n];
-        const lvl = Math.round(vis((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2) * LEVELS);
-        if (lvl !== runLvl) { flush(); runLvl = lvl; run = [p0]; }
-        run.push(p1);
-      }
-    }
-    flush();
-  };
-  // Clip the infinite line through (px, py) along (dx, dy) to the box (Liang–Barsky).
-  const clipLine = (px, py, dx, dy) => {
-    let t0 = -1e9;
-    let t1 = 1e9;
-    for (const [p, q] of [[-dx, px], [dx, W - px], [-dy, py], [dy, H - py]]) {
-      if (p === 0) { if (q < 0) return null; continue; }
-      const r = q / p;
-      if (p < 0) t0 = Math.max(t0, r); else t1 = Math.min(t1, r);
-    }
-    return t0 < t1 ? [[px + dx * t0, py + dy * t0], [px + dx * t1, py + dy * t1]] : null;
-  };
-  // A CSS `repeating-linear-gradient(<deg>)` stripe: 1px bands every `sp` along the gradient
-  // line, the band CENTERED `mid` px from the start of each period.
-  const stripes = (deg, mid) => {
-    const a = (deg * Math.PI) / 180;
-    const dx = Math.sin(a);
-    const dy = -Math.cos(a);
-    const L = Math.abs(W * dx) + Math.abs(H * dy);
-    const sx = W / 2 - (dx * L) / 2;
-    const sy = H / 2 - (dy * L) / 2;
-    for (let t = mid; t <= L; t += sp) {
-      const seg = clipLine(sx + dx * t, sy + dy * t, -dy, dx);
-      if (seg) polyline(seg);
-    }
-  };
-  const dots = [];
-  switch (type) {
-    case 'grid': stripes(0, 0.5); stripes(90, 0.5); break;
-    case 'pinstripe': stripes(90, 0.5); break;
-    case 'ruled': stripes(180, sp - 0.5); break;
-    case 'hatch': stripes(-45, 0.5); break;
-    case 'lattice': stripes(45, 0.5); stripes(-45, 0.5); break;
-    case 'contour': stripes(-4, sp - 0.5); break;
-    case 'rings': {
-      const ox = W * 0.5;
-      const oy = H * 0.42;
-      const far = Math.hypot(Math.max(ox, W - ox), Math.max(oy, H - oy));
-      for (let r = sp - 0.5; r <= far; r += sp) {
-        const n = Math.max(24, Math.ceil((2 * Math.PI * r) / STEP));
-        const pts = [];
-        for (let k = 0; k <= n; k++) pts.push([ox + r * Math.cos((2 * Math.PI * k) / n), oy + r * Math.sin((2 * Math.PI * k) / n)]);
-        polyline(pts.map(([x, y]) => [Math.max(-1, Math.min(W + 1, x)), Math.max(-1, Math.min(H + 1, y))]), false);
-      }
-      break;
-    }
-    case 'dots':
-      for (let y = sp / 2; y < H; y += sp) {
-        for (let x = sp / 2; x < W; x += sp) {
-          const lvl = Math.round(vis(x, y) * LEVELS);
-          if (lvl > 0) dots.push([lvl, x, y]);
-        }
-      }
-      break;
-    default:
-      return plan;
-  }
-  const esc = (x) => x.replace(/"/g, '&quot;');
-  let body = '';
-  for (let l = 1; l <= LEVELS; l++) {
-    if (paths[l].length) body += `<path d="${paths[l].join('')}" style="fill:none;stroke:${esc(ink)};stroke-width:1;stroke-opacity:${(l / LEVELS).toFixed(3)}"/>`;
-  }
-  for (let l = 1; l <= LEVELS; l++) {
-    // A dot is a zero-length stroke with round caps: the same 3px disc as the CSS dot, at a
-    // quarter of the bytes of a circle path (strata has ~1,300 a slide).
-    const d = dots.filter((p) => p[0] === l).map(([, x, y]) => `M${f(x)} ${f(y)}h0`).join('');
-    if (d) body += `<path d="${d}" style="fill:none;stroke:${esc(ink)};stroke-width:3;stroke-linecap:round;stroke-opacity:${(l / LEVELS).toFixed(3)}"/>`;
-  }
-  plan.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${body}</svg>`;
-  return plan;
 }
 
 async function rasterizeSvgImagesInPage(browser, g, page) {

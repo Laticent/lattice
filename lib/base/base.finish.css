@@ -718,9 +718,6 @@ section.finish-atrium {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
-  --fin-texture-geo: grid 38;
-  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 9%, transparent);
-  --fin-edge-kind: none;
 }
 
 /* ── 2 · MERIDIAN — Diagonal duotone wash + contour lines + a ghost numeral. (lib/finishes/meridian/) */
@@ -742,9 +739,6 @@ section.finish-meridian {
   --fin-mark-justify: flex-end;
   --fin-edge: none;
   --fin-edge-opaque: none;
-  --fin-texture-geo: contour 47;
-  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 8%, transparent);
-  --fin-edge-kind: none;
 }
 
 /* ── 3 · STRATA — Soft horizontal bands + a dot-matrix + a corner tick. (lib/finishes/strata/) */
@@ -772,10 +766,6 @@ section.finish-strata {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
-  --fin-texture-geo: dots 26;
-  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 15%, transparent);
-  --fin-edge-kind: none;
-  --fin-wash-hairline: linear-gradient(90deg, var(--field-accent) 0%, color-mix(in srgb, var(--field-accent) 35%, transparent) 55%, transparent 100%);
 }
 
 /* ── 4 · HALO — Centered spotlight + concentric rings + an inset vignette. (lib/finishes/halo/) */
@@ -794,9 +784,6 @@ section.finish-halo {
   --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
-  --fin-texture-geo: rings 57;
-  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 8%, transparent);
-  --fin-edge-kind: vignette;
 }
 
 /* ── 5 · LEDGER — Fine ruled lines + a bold left margin bar + a corner fold. (lib/finishes/ledger/) */
@@ -817,9 +804,6 @@ section.finish-ledger {
   --fin-edge-opaque: linear-gradient(225deg, color-mix(in srgb, var(--field-accent) 16%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%);
   --fin-edge-position: top right;
   --fin-edge-size: 9.4cqi 9.4cqi;
-  --fin-texture-geo: ruled 40;
-  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 10%, transparent);
-  --fin-edge-kind: fold;
 }
 
 /* ── 6 · NIMBUS — A gradient mesh of soft accent blooms + a seating vignette. (lib/finishes/nimbus/) */
@@ -846,7 +830,6 @@ section.finish-nimbus {
   --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
-  --fin-edge-kind: vignette;
 }
 
 /* ── 7 · LOOM — A woven lattice cross-hatch + a movable corner glow. (lib/finishes/loom/) */
@@ -867,9 +850,6 @@ section.finish-loom {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
-  --fin-texture-geo: lattice 34;
-  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 9%, transparent);
-  --fin-edge-kind: none;
 }
 
 /* ── 8 · SAVILE — A tailored vertical pinstripe + a movable monogram. (lib/finishes/savile/) */
@@ -891,9 +871,6 @@ section.finish-savile {
   --fin-mark-justify: flex-end;
   --fin-edge: none;
   --fin-edge-opaque: none;
-  --fin-texture-geo: pinstripe 18;
-  --fin-texture-ink: color-mix(in srgb, var(--field-accent) 10%, transparent);
-  --fin-edge-kind: none;
 }
 
 /* ── 9 · GALLERY — A museum inset keyline frame + a spotlight + a movable numeral. (lib/finishes/gallery/) */
@@ -916,7 +893,6 @@ section.finish-gallery {
   --fin-edge: none;
   --fin-edge-opaque: none;
   --fin-frame: inset 0 0 0 calc(2.6 * var(--_sec-1cqi, 1cqi)) var(--fin-canvas), inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
-  --fin-edge-kind: frame;
 }
 
 /* ── END GENERATED FINISH PRESETS ── */

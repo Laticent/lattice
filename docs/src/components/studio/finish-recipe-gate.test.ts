@@ -18,11 +18,6 @@ import { generateFinishCss, PRESET_RECIPES } from './finish-generate';
 
 // vitest runs with cwd = docs/; the engine CSS is the repo's lib/base/base.finish.css.
 const baseFinishCss = readFileSync(resolve(process.cwd(), '../lib/base/base.finish.css'), 'utf8');
-// The slots the PDF EXPORT reads rather than the compositor: lattice-emulator.js
-// (bakeFinishBackdropsInPage) redraws the texture as vector lines from these and keeps a hard
-// edge live. Each must really be read there, so this list cannot outlive its reader.
-const EXPORT_READ_SLOTS = new Set(['--fin-texture-geo', '--fin-texture-ink', '--fin-edge-kind', '--fin-wash-hairline']);
-const emulatorSrc = readFileSync(resolve(process.cwd(), '../lattice-emulator.js'), 'utf8');
 
 // Every distinct `--fin-*` custom property the compositor (base.finish.css) READS via
 // var(). The generator's emitted slot names must be a subset of this.
@@ -96,10 +91,6 @@ describe('finish recipe ↔ engine gate (no silent drift)', () => {
 		for (const name of Object.keys(PRESET_RECIPES)) {
 			const emitted = emittedSlots(generateFinishCss(name, PRESET_RECIPES[name]));
 			for (const s of emitted) {
-				if (EXPORT_READ_SLOTS.has(s)) {
-					expect(emulatorSrc.includes(`'${s}'`), `${s} is sanctioned as read by the PDF export, but lattice-emulator.js never reads it`).toBe(true);
-					continue;
-				}
 				expect(reads.has(s), `generator emits ${s} but base.finish.css never reads var(${s}) — drift`).toBe(true);
 			}
 		}

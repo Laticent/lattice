@@ -1,11 +1,11 @@
 ---
-status: proposed
+status: in-progress
 summary: The owner wants the Studio's Export to PDF to produce "option 1" — a background photo with real, sharp text and shapes on top — through one export spine shared with the CLI. A browser page cannot write a real-text PDF on its own. Three routes measured - an export server (A), a Studio-only drawer (B), and one pdf-lib writer that runs in-page for both the CLI and the Studio (C, the owner's idea). A prototype of C on the owner's deck matched Chrome's text at 300 dpi, at 211-281 KB and 1.5-1.9 s to draw nine slides; recommends C.
 ---
 
 # One export engine for the Studio's Export to PDF
 
-**Status:** proposed 2026-09-27. Option C prototyped and measured the same day; waiting on the owner's go.
+**Status:** in progress 2026-09-27. The owner chose C; §7 records what is built so far.
 **Related:** [`2026-09-26-backdrop-register.md`](2026-09-26-backdrop-register.md) §4.7–4.8
 (the edge fixes, made twice), PR #2404 (the CLI's option 1),
 `followups.d/2400-p2-shared-export-face.md`.
@@ -201,3 +201,39 @@ Order of work, all in one PR (#2404):
    fallback.
 3. Close the gaps above: gradients and clip paths, pseudo-element text, and the shared camera.
 4. Add a gallery-wide comparison against Chrome, and a coverage report.
+
+## 7. What is built (2026-09-27)
+
+- **The kernel** lives in `lib/core/pdf-compose/`: `read-slide.mjs` (the in-page reader),
+  `font-subset.mjs` (HarfBuzz instancing, WOFF2 via `woff2-encoder`), `write-pdf.mjs` (pdf-lib)
+  and `compose.mjs` (the orchestrator both hosts call).
+- **The CLI's `.pdf` uses it by default.** `--chrome-pdf` keeps Chrome's printer, as the fallback
+  and the comparison oracle.
+- **#2404's hybrid bake is removed** (`2026-09-27-bake-finish-backdrop.md`, superseded), with its
+  `--keep-vector-finish` flag and its `--fin-texture-geo` family of slots: it was the second
+  spine. Print mode dropping the finish stays.
+- **The camera is a host adapter, not shared.** §4 C planned `html-to-image` in both hosts.
+  Measured instead: `html-to-image` cannot fetch a `file://` image from the CLI's `file://`
+  page, so the first CLI run fell back to Chrome on any deck with a local image. The CLI now
+  photographs with Chrome's own screenshot, on the same export face the Studio photographs. What
+  decides the PDF's look is shared: the export face, the reader, the fonts and the writer.
+- **Beyond the prototype:**
+  - SVG gradient fills and clip paths drawn as PDF shadings and clipping paths;
+    `non-scaling-stroke` honored.
+  - Raster `<img>` and single-layer CSS backgrounds embedded at their original bytes, clipped to
+    rounded corners and overflow. An image stays in the photo when something paints over it
+    (a scrim), and that slide's photo is taken at 2x.
+  - A tagged structure tree (Document › H1…H6/P/LI/Figure, with image alt text), `/Lang` and the
+    title: Chrome's PDF was tagged, so dropping it would have been a regression.
+  - Real spaces between words, so text copies and reads as sentences.
+  - Byte-reproducible output: pdf-lib's random resource names replaced by a counter, and the
+    dates taken from the CLI's pinned epoch.
+- **Two library bugs, fixed at the root:**
+  - `@pdf-lib/fontkit` reads past the end of a subset font whose last glyph is empty. The subset
+    is padded with 16 zero bytes.
+  - pdf-lib loses the text of ligature glyphs ("first" copies as "rst"). Subsets keep no
+    ligatures, and each word is fitted to the width the browser measured.
+- **Measured on the owner's 9-slide cuoio deck, CLI:** 3.1 s end to end and 237 KB. Poppler
+  draws all nine slides in 1.45 s, against 13.1 s and 335 KB for Chrome's printing (best of 3,
+  110 dpi). 351 words and 26 shapes drawn; nothing left in the photo.
+

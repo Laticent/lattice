@@ -335,7 +335,9 @@ describe('export-formats', () => {
     const dir = tmpDir();
     const src = writeSvgFixture(dir);
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--keep-vector-images'], {
+    // --keep-vector-images governs Chrome's printer: the shared writer always lays a photo
+    // under the page, so the raster-count assertion below is about --chrome-pdf.
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--keep-vector-images', '--chrome-pdf'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -354,57 +356,106 @@ describe('export-formats', () => {
     return src;
   }
 
-  test('rebuilds each finish backdrop as a tiny image plus vector texture; text stays vector', { timeout: TIMEOUT }, () => {
+  // Page 1 rendered to grayscale at 20 dpi: the mean of a corner region, 0 (black) to 255.
+  function cornerMean(pdf, dir, { right = true, top = true } = {}) {
+    const base = path.join(dir, `corner-${Math.random().toString(36).slice(2)}`);
+    execFileSync('pdftoppm', ['-gray', '-r', '20', '-f', '1', '-l', '1', pdf, base]);
+    const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+    const buf = fs.readFileSync(file);
+    const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+    const data = buf.subarray(buf.length - w * h);
+    let sum = 0, n = 0;
+    const x0 = right ? Math.floor(w * 0.8) : 0, y0 = top ? 0 : Math.floor(h * 0.8);
+    for (let y = y0; y < y0 + Math.floor(h * 0.2); y++) for (let x = x0; x < x0 + Math.floor(w * 0.2); x++) { sum += data[y * w + x]; n++; }
+    return sum / n;
+  }
+
+  test('composes the PDF with the shared writer: one photo per page, real tagged text on top', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out, '--quiet'], {
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
-    // One image per FINISH slide (the finish-none slide has nothing to bake): the soft layers
-    // at a quarter of the slide's pixels, opaque. The texture is vector, so it is no image.
+    assert.match(r.stdout, /PDF writer: \d+ words/, `the shared writer must run, not fall back to Chrome:\n${r.stdout}`);
+    // One slide-sized photo per page (the finish backdrop lives in it), opaque.
     const rows = pdfImageRows(out);
-    assert.equal(rows.length, 2, `expected 2 baked backdrops, got:\n${rows.join('\n')}`);
-    const pages = rows.map((row) => Number(row.trim().split(/\s+/)[0]));
-    assert.deepEqual(pages, [1, 3], 'the opted-out slide 2 must carry no baked image');
+    assert.deepEqual(rows.map((row) => Number(row.trim().split(/\s+/)[0])), [1, 2, 3], `one photo per page:\n${rows.join('\n')}`);
     for (const row of rows) {
-      assert.match(row, /\bimage\s+320\s+1[78]\d\b/, `the soft layers are a quarter-scale image: ${row}`);
-      assert.doesNotMatch(row, /\bsmask\b/, `a baked backdrop is opaque: ${row}`);
+      assert.match(row, /\bimage\s+1280\s+720\b/, `a 1x slide photo: ${row}`);
+      assert.doesNotMatch(row, /\bsmask\b/, `the photo is opaque: ${row}`);
     }
     const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
-    assert.match(text, /Body text stays vector/, 'slide text must stay selectable');
-    // The texture is redrawn as vector lines that fade under `clear` in constant-opacity steps:
-    // page 1 carries several distinct stroke opacities, not one.
-    const svgOut = path.join(dir, 'p1.svg');
-    execFileSync('pdftocairo', ['-svg', '-f', '1', '-l', '1', out, svgOut]);
-    const opacities = new Set(fs.readFileSync(svgOut, 'utf8').match(/stroke-opacity="[\d.]+"/g) || []);
-    assert.ok(opacities.size >= 6, `expected the grid to fade in steps, got ${opacities.size} stroke opacities`);
+    assert.match(text, /Body text stays vector/, 'slide text must be real, selectable text with its spaces');
+    const fonts = execFileSync('pdffonts', [out], { encoding: 'utf8' }).split('\n').slice(2).filter((l) => l.trim());
+    // Embedded (pdffonts' `emb` column). Every font is also cut to the characters used, but
+    // pdf-lib names it without the ABCDEF+ prefix, so the `sub` column cannot show it.
+    assert.ok(fonts.length > 0 && fonts.every((l) => /\byes\s+(yes|no)\s+(yes|no)\s+\d+\s+\d+\s*$/.test(l)), `every font embedded:\n${fonts.join('\n')}`);
+    const info = execFileSync('pdfinfo', [out], { encoding: 'utf8' });
+    assert.match(info, /Tagged:\s+yes/, 'the PDF is tagged, like the one Chrome prints');
   });
 
   test('print mode exports no finish at all', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const src = writeFinishFixture(dir);
+    const rich = path.join(dir, 'rich.pdf');
+    assert.equal(spawnSync(process.execPath, [EMULATOR, src, rich, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT }).status, 0);
     fs.writeFileSync(src, fs.readFileSync(src, 'utf8').replace('backdrop: clear', 'backdrop: clear\ncolor-mode: print'));
     const out = path.join(dir, 'deck.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
-    assert.equal(pdfImageRows(out).length, 0, 'a print-mode deck bakes nothing: the finish is off');
-    // …and prints no finish as vector either: the grid would be translucent strokes.
-    const svgOut = path.join(dir, 'p1.svg');
-    execFileSync('pdftocairo', ['-svg', '-f', '1', '-l', '1', out, svgOut]);
-    assert.doesNotMatch(fs.readFileSync(svgOut, 'utf8'), /stroke-opacity="0\./, 'no translucent texture lines in print mode');
+    // The finish's corner glow is gone from the photo: the empty top-right corner of a
+    // print-mode page is paper white, where the color page carries the finish.
+    const printCorner = cornerMean(out, dir), richCorner = cornerMean(rich, dir);
+    assert.ok(printCorner > 250, `print mode leaves the corner paper-white, got mean ${printCorner.toFixed(1)}`);
+    assert.ok(richCorner < printCorner, `the color page carries a finish there (${richCorner.toFixed(1)} vs ${printCorner.toFixed(1)}) — else this test proves nothing`);
   });
 
-  test('--keep-vector-finish prints the finish as vector drawing (opt-out)', { timeout: TIMEOUT }, () => {
+  test('an image is embedded at its own bytes unless something paints over it — on any slide', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    // A 4x4 opaque blue PNG.
+    fs.writeFileSync(path.join(dir, 'blue.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGNgYPiPhEAcTAEAAHEgD/GQJqEAAAAASUVORK5CYII=', 'base64'));
+    const src = path.join(dir, 'images.md');
+    fs.writeFileSync(src, [
+      '---', 'html: true', 'paginate: false', '---', '',
+      '## Plain image', '',
+      '<img src="blue.png" style="width:200px;height:200px">', '',
+      '---', '',
+      // The second slide is the case that matters: the CLI stacks slides vertically, and a
+      // paint-over check that samples an off-screen point would wave this image through.
+      '## Covered image', '',
+      '<div style="position:relative;width:200px;height:200px"><img src="blue.png" style="width:200px;height:200px"><div style="position:absolute;inset:0;background:rgba(255,0,0,0.5)"></div></div>', '',
+    ].join('\n'));
+    const out = path.join(dir, 'images.pdf');
+    const report = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
+    assert.equal(rep.images, 1, 'the uncovered image is embedded natively');
+    assert.equal(rep.refusedImages.covered, 1, 'the covered image stays in the photo, under its scrim');
+    // The native one is the 4x4 original; the covered slide's photo is taken at 2x.
+    const rows = pdfImageRows(out);
+    assert.ok(rows.some((row) => /\bimage\s+4\s+4\b/.test(row)), `the original 4x4 PNG is embedded:\n${rows.join('\n')}`);
+    assert.ok(rows.some((row) => /^\s*2\s.*\bimage\s+2560\s+1440\b/.test(row)), `slide 2's photo is 2x:\n${rows.join('\n')}`);
+  });
+
+  test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out, '--quiet', '--keep-vector-finish'], {
+    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out, '--quiet', '--chrome-pdf'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
-    assert.equal(pdfImageRows(out).filter((row) => /\bimage\s+320\s/.test(row)).length, 0, 'opt-out export should bake nothing');
+    // Chrome rasterizes the blurred `clear` layer on its own (#2400); what it never does is
+    // lay a whole-slide photo under the page, which is the shared writer's signature.
+    const photos = pdfImageRows(out).filter((row) => /\bimage\s+1280\s+720\s/.test(row));
+    assert.equal(photos.length, 0, `Chrome's printer lays no slide photo under the page:\n${photos.join('\n')}`);
+    const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+    assert.match(text, /Body text stays vector/);
   });
 
   test('--raster prints one full-page JPEG per slide; notes + --embed-source still apply', { timeout: TIMEOUT }, async () => {
@@ -1073,15 +1124,17 @@ describe('export-formats', () => {
   // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
   // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the
   // shell's <title> + <html lang>.
-  test('the exported PDF carries an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)', { timeout: TIMEOUT }, () => {
+  test('the exported PDF carries an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)', { timeout: TIMEOUT }, async () => {
     const dir = tmpDir();
     const src = path.join(dir, 'titled.md');
     fs.writeFileSync(src, '---\ntitle: Q3 Board Review\nlang: fr\ntheme: indaco\n---\n\n# Hello\n\nSome text.\n');
     const out = path.join(dir, 'titled.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
-    const bytes = fs.readFileSync(out).toString('latin1');
-    assert.match(bytes, /\/Lang ?\(fr\)/, 'PDF should carry /Lang from the deck lang: front-matter');
-    assert.match(bytes, /Q3 Board Review/, 'PDF should carry the deck title from title: front-matter');
+    // Read through a PDF parser: the shared writer packs the catalog into an object stream.
+    const { PDFDocument, PDFName } = require('pdf-lib');
+    const doc = await PDFDocument.load(fs.readFileSync(out), { updateMetadata: false });
+    assert.equal(String(doc.catalog.lookup(PDFName.of('Lang'))?.decodeText?.() ?? doc.catalog.lookup(PDFName.of('Lang'))), 'fr', 'PDF should carry /Lang from the deck lang: front-matter');
+    assert.equal(doc.getTitle(), 'Q3 Board Review', 'PDF should carry the deck title from title: front-matter');
   });
 });

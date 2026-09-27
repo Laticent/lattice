@@ -431,6 +431,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-marp-kit.js` | build-marp-kit — assemble dist/marp-kit/, the copy-and-go folder. |
 | `tools/build-packages-core.js` | Bundle the package spine for the browser. |
 | `tools/build-packages-index.js` | build-packages-index — the ONE generated index of every shipped package |
+| `tools/build-pdf-compose.js` | Bundle the shared PDF writer (lib/core/pdf-compose) into one browser IIFE the CLI |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-projection-catalog.js` | build-projection-catalog.js — freeze every component manifest's `projection` |

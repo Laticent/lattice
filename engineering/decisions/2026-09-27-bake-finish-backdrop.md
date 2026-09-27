@@ -1,11 +1,11 @@
 ---
-status: in-progress
-summary: A finish printed into the vector PDF as gradients, repeating patterns and transparency groups, which iOS Preview and Acrobat redraw per pixel — about 1–2.5 s a slide, drawn in visible pieces. The CLI PDF export now rebuilds each finish backdrop as a HYBRID — the soft layers (wash, glow, clear fade, strength veil) as one tiny opaque image, the texture as plain vector lines faded in constant-opacity steps under `clear`, marks as live vector — so the PDF draws fast, matches the Studio, and stays near its old size. Print mode drops the finish. `--keep-vector-finish` opts out.
+status: superseded
+summary: SUPERSEDED the same day by 2026-09-27-studio-export-one-engine.md. The CLI rebuilt each finish backdrop as a hybrid (a tiny image of the soft layers, the texture as vector lines) so iOS Preview and Acrobat drew it fast. It was a second export mechanism beside the Studio's, re-deriving the clear fade in JS; the owner asked for one spine instead, and the shared writer (lib/core/pdf-compose) replaced it. What survives is print mode dropping the finish.
 ---
 
 # Rebuild the finish backdrop for fast PDF viewing
 
-**Status:** in progress 2026-09-27, pending the owner's export sign-off on device.
+**Status:** superseded 2026-09-27 by [`2026-09-27-studio-export-one-engine.md`](2026-09-27-studio-export-one-engine.md). The hybrid bake and `--keep-vector-finish` were removed before release; print mode dropping the finish (§ print mode) shipped.
 
 ## 1. The symptom
 
