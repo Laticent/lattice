@@ -7,7 +7,7 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **342 open** items.
+only *status*. **344 open** items.
 Pending work that has no issue is not here: it lives in [`followups.d/`](followups.d/README.md)
 (`npm run followups` lists it).
 
@@ -15,7 +15,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 
 > 📐 **21 cards need definition** (missing a swimlane or an acceptance check, so nothing can pull them): [#2211](https://github.com/Laticent/lattice/issues/2211), [#2224](https://github.com/Laticent/lattice/issues/2224), [#2225](https://github.com/Laticent/lattice/issues/2225), [#2231](https://github.com/Laticent/lattice/issues/2231), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2256](https://github.com/Laticent/lattice/issues/2256), [#2265](https://github.com/Laticent/lattice/issues/2265), [#2274](https://github.com/Laticent/lattice/issues/2274), [#2275](https://github.com/Laticent/lattice/issues/2275), [#2277](https://github.com/Laticent/lattice/issues/2277), [#2278](https://github.com/Laticent/lattice/issues/2278), [#2280](https://github.com/Laticent/lattice/issues/2280), [#2282](https://github.com/Laticent/lattice/issues/2282), [#2283](https://github.com/Laticent/lattice/issues/2283), [#2284](https://github.com/Laticent/lattice/issues/2284), [#2285](https://github.com/Laticent/lattice/issues/2285), [#2286](https://github.com/Laticent/lattice/issues/2286), [#2287](https://github.com/Laticent/lattice/issues/2287), [#2288](https://github.com/Laticent/lattice/issues/2288), [#2290](https://github.com/Laticent/lattice/issues/2290), [#2295](https://github.com/Laticent/lattice/issues/2295).
 
-## Backlog (326)
+## Backlog (327)
 
 - [#1845](https://github.com/Laticent/lattice/issues/1845) [integration-nightly] render-regression tier failing on main — critical · engine
 - [#2060](https://github.com/Laticent/lattice/issues/2060) [overflow-nightly] corpus overflow ratchet above baseline on main — critical · engine
@@ -79,6 +79,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2280](https://github.com/Laticent/lattice/issues/2280) lint-core: the linter's slide model ignores `split: headings`, so every class-gated rule can name the wrong slide and the wrong defect — high · engine
 - [#2282](https://github.com/Laticent/lattice/issues/2282) check-chart-fit measures a deck the author did not write — it strips the deck's own `size:` and `autosplit:` — high · infra
 - [#2285](https://github.com/Laticent/lattice/issues/2285) `main` ships red on THREE on-demand gates, none of which runs in CI — one is invisible text on a shipped deck — high · infra
+- [#2405](https://github.com/Laticent/lattice/issues/2405) [webkit-baselines-nightly] webkit-baselines-nightly could not compare the engines — high · engine
 - [#286](https://github.com/Laticent/lattice/issues/286) refactor(css): namespace variant classes that collide with component names — medium · engine
 - [#288](https://github.com/Laticent/lattice/issues/288) feat(engine): implement the front-matter deck-config contract (vars, object background/logo, fonts, metadata, sizes) — medium · engine
 - [#289](https://github.com/Laticent/lattice/issues/289) feat(engine): implement the `$`-sigil inline-code variable interpolation grammar — medium · engine
@@ -344,7 +345,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2278](https://github.com/Laticent/lattice/issues/2278) word-cloud's SVG &lt;desc&gt; still reads counts where the caption reads rank
 - [#2337](https://github.com/Laticent/lattice/issues/2337) handoff(axis): lint body boundary from tokens, gantt window narration, over-cap lint (after #2328)
 
-## Ready (13)
+## Ready (14)
 
 - [#1437](https://github.com/Laticent/lattice/issues/1437) Configure Release Pipeline — critical · infra
 - [#287](https://github.com/Laticent/lattice/issues/287) refactor(engine): LPM Phase 1 — manifest `render` block + `transformSection` adapter; migrate the chart kernels — high · engine
@@ -353,6 +354,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#1605](https://github.com/Laticent/lattice/issues/1605) quadrant: one crowded slide sets the label size for every slide — and a name that doesn't fit is silently deleted — high · chart
 - [#1621](https://github.com/Laticent/lattice/issues/1621) fix(studio): the crash report is invisible on the browser's own post-crash reload — three designs withdrawn — high · website
 - [#2310](https://github.com/Laticent/lattice/issues/2310) handoff(canvas): make the cover half of the canvas-ownership work reachable, and close the last contrast row — high · engine
+- [#2401](https://github.com/Laticent/lattice/issues/2401) Handoff: graph charts after #2385 — shared library, state chart v2, flowchart group controls — high · chart
 - [#2213](https://github.com/Laticent/lattice/issues/2213) Finish the agent-workflow hardening swimlane: sweep the 218 grandfathered cards, and three gaps the intake bar exposed — medium · infra
 - [#2281](https://github.com/Laticent/lattice/issues/2281) guide(handles): the four surfaces the Present pointer still cannot name, and the one thing no gate can judge — medium · engine
 - [#2296](https://github.com/Laticent/lattice/issues/2296) Handoff — Compose fenced code: three off-path findings from #2289 — medium · website
