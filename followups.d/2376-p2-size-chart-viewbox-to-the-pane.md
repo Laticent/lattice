@@ -35,6 +35,29 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               renders; the pane-follow-ups PR kept the behavior to stay render-identical).
             - The chart pane budgets stay `basis: editorial`: `tools/calibrate-capacity.js --pane`
               does not measure a chart's pane ceiling yet.
+            MEASURED 2026-09-27 (panes-continuation PR, left for its own PR):
+            - Mermaid pane labels ALREADY clear the floor: examples/panes-mermaid.md measures a
+              smallest label of 13.0 / 14.2 / 11.6px on its three pane slides against a 7.2px floor
+              (label font-size x its real on-page transform, `getBoundingClientRect().height /
+              offsetHeight`). The open half is that the probe cannot SAY so.
+            - The probe's premise is wrong: `probeFigureLegibility` skips `<foreignObject>` because
+              "HTML inside a viewBox is not scaled", but Chromium does scale it, and the ratio above
+              measures the full transform. The arm is ~10 lines in the SVG loop.
+            - Its blast radius is the reason it did not ship on an agent's call: across the 233
+              example and baseline decks, 104 slides carry Mermaid labels and 4 non-pane slides fall
+              under the floor once measured (mermaid-sketch-labels #4 6.4px and #5 5.6px,
+              diagram-narration #5 7.1px, typed-diagram-narration #4 6.9px). Each would gain the
+              export's "Text too small" tag, so the change alters exported PDFs: an owner sign-off
+              (QUALITY BAR export rule), and those decks' committed PDFs rebuild with it.
+            - Radar: fixed 300x300 diagram and `FS_AXIS = 11` (radar.transform.js:79,96,141);
+              `transformSection` never passes `ctx.paneView` (:940-951). `fitKeyToPane` scores key
+              text and diagram share only, so radar needs its axis-label size added to that score.
+            - Lead paragraphs: `liftChartSubtitle` takes the first `<p>` (chart-family.js:192-195)
+              and the splice at :297 keeps only comments, so a second `<p>` is dropped. A visible
+              change: owes a deck (#9).
+            - Calibration: `BUILDERS` (tools/lib/calibrate-core.js:61) has no SVG chart, and the
+              signal is the OVERFLOW line alone (:227-233); a viewBox chart shrinks instead of
+              overflowing, so it needs a legibility signal as well as builders.
 where     — lib/integrations/mermaid/ (the render width, and a way to size foreignObject labels
             for the probe), the radar kernel, the HTML chart kernels, chart-family.js,
             tools/calibrate-capacity.js --pane.
