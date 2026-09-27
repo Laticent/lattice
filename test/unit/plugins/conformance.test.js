@@ -13,15 +13,13 @@
  *     one of its tokens, or wrote one of its fences, `detect(input)` is true (the host's
  *     `usesPlugin`: the plugin's own `detect`, or the probe it derives from the fence names). It may say true more often (math's pre-scan
  *     over-matches on purpose); it may never miss, because a miss ships unrendered content.
- *     KNOWN LIMIT: "the parser" here is a bare commonmark instance with only this plugin's
- *     grammar, not the engine's own parser (private behind its memo, and carrying the
- *     LATTICE_PLUGINS and `html: true`). A case where the engine's other rules change what this
- *     plugin sees can slip between the two; the `renders` bullets, which DO go through the
- *     engine, are what cover it;
+ *     "The parser" is BOTH a bare commonmark instance with only this plugin's grammar AND the
+ *     engine's own parser (`_tokens`), unioned — see `pluginTokens` for why neither alone does;
  *   - with the plugin disabled, none of its rules or renderers are installed, and the render
  *     still does not throw.
  *
- * And across the registry: the fixtures file exists and has cases, every syntax token, fence and
+ * And across the registry: every rule declines every character it does not declare as a trigger,
+ * the fixtures file exists and has cases, every syntax token, fence and
  * fence alias the manifest declares is exercised by at least one case, a disabled plugin's fences
  * fall back to ordinary code blocks, and the host's fail-soft wrapper turns a
  * throwing or non-string renderer into the declared degradation.
@@ -95,9 +93,25 @@ function fenceClaims(plugin) {
 
 /**
  * Every token type the plugin's own rules emit for `src` (children included), and `fence:<name>`
- * for every fence the plugin's fence table would take.
+ * for every fence the plugin's fence table would take — over TWO parses, unioned:
+ *
+ *   - a bare CommonMark instance with only this plugin's grammar, which sees what the plugin's
+ *     rules do on their own; and
+ *   - the ENGINE's own parser (`createEngine()._tokens`, the memoized markdown-it `render` uses,
+ *     with `html: true`, every other plugin and every LATTICE_PLUGINS rule), which sees what a
+ *     render sees.
+ *
+ * Neither alone is enough, and both directions were measured. The engine's parse can HIDE a token
+ * a render still typesets: a glossary slide's core rule rebuilds its cells, so `$b$` in a glossary
+ * definition renders as math and is absent from the token stream. A bare parse can see a token
+ * the engine never makes (a table header row, front matter). `detect` must cover every token
+ * EITHER finds — it may over-match, never miss — so the arm checks the union. (Until phase C this
+ * read the bare parse alone, a known limit recorded in the plugin-system note §11.)
+ * @param {object} plugin
+ * @param {string} src
+ * @param {(src: string) => object[]} [engineParse]  injectable, so the arm itself can be tested
  */
-function pluginTokens(plugin, src) {
+function pluginTokens(plugin, src, engineParse = (s) => sharedEngine()._tokens(s)) {
   const md = new MarkdownIt('commonmark');
   const { installGrammar } = requireGrammarHost();
   installGrammar(md, { grammar: [plugin] });
@@ -112,8 +126,12 @@ function pluginTokens(plugin, src) {
     }
   };
   walk(md.parse(src, {}));
+  walk(engineParse(src));
   return found;
 }
+
+let engineInstance;
+const sharedEngine = () => (engineInstance ??= createEngine());
 
 let grammarHost;
 function requireGrammarHost() {
@@ -183,6 +201,66 @@ describe('plugin conformance — every in-tree plugin, from its own fixtures', (
       }
     });
   }
+});
+
+/**
+ * THE TRIGGER-HONESTY ARM. The resolver refuses two plugins that DECLARE one trigger character —
+ * but nothing proved a rule fires only on the characters it declares, so a rule that also claimed
+ * `#` would collide with a heading, or with another plugin's rule, and pass every check
+ * (plugin-system note §11, known limit 2). Here every rule of every plugin is fed each printable
+ * ASCII character it does NOT declare, at the position it is asked about, in both silent and
+ * non-silent mode, and must decline without moving the parser.
+ */
+describe('plugin rules fire only on their declared triggers', () => {
+  const md = new MarkdownIt('commonmark');
+  const ascii = [];
+  for (let c = 0x20; c < 0x7f; c++) ascii.push(String.fromCharCode(c));
+
+  for (const plugin of PLUGINS) {
+    for (const [token, rule] of Object.entries(plugin.syntax)) {
+      test(`${plugin.name}: ${token} declines every character but ${rule.triggers.join(' ')}`, () => {
+        const claimed = [];
+        for (const ch of ascii) {
+          if (rule.triggers.includes(ch)) continue;
+          // A BLOCK rule reads a line after its indentation (`bMarks + tShift`), so a leading space
+          // is not the character at the rule's start — the `$` behind it is, and that one is declared.
+          if (rule.kind === 'block' && ch === ' ') continue;
+          // The undeclared character at the start, in shapes a rule that wrongly opened on it would
+          // go on to CLOSE: the character as its own closer, a real `$` closer, and a real `$$`
+          // block after it. (A first cut used only the last shape; a mutated inline rule that
+          // opened on `#` then saw `$$`, declined for its own reason, and passed — measured.)
+          for (const src of [`${ch}a${ch} tail`, `${ch}a$ tail`, `${ch}a b\n`, `${ch}$$x$$ $a$\n$$\nb\n$$\n`])
+          for (const silent of [true, false]) {
+            if (rule.kind === 'inline') {
+              const state = new md.inline.State(src, md, {}, []);
+              if (rule.run(state, silent) || state.pos !== 0 || state.tokens.length) claimed.push(`${JSON.stringify(ch)} (silent=${silent})`);
+            } else {
+              const state = new md.block.State(src, md, {}, []);
+              if (rule.run(state, 0, state.lineMax, silent) || state.line !== 0 || state.tokens.length) claimed.push(`${JSON.stringify(ch)} (silent=${silent})`);
+            }
+          }
+        }
+        assert.deepEqual(claimed, [], `${token} claimed characters it does not declare as triggers`);
+      });
+    }
+  }
+});
+
+describe('the detect-superset arm reads the engine\'s parse too', () => {
+  // The arm itself, on an injected "engine" that tokenizes something the bare parse does not:
+  // the union must carry it, so a `detect` that misses it fails the arm.
+  test('a token only the engine parse produces is in the set detect must cover', () => {
+    const math = PLUGINS.find((p) => p.name === 'math');
+    const src = 'plain words, nothing a bare parse calls math';
+    assert.equal(pluginTokens(math, src, () => []).size, 0);
+    const fakeEngine = () => [{ type: 'paragraph_open' }, { type: 'inline', children: [{ type: 'math_inline', content: 'x' }] }];
+    assert.deepEqual([...pluginTokens(math, src, fakeEngine)], ['math_inline']);
+  });
+  test('the default engine parse is the real one: a math fixture tokenizes through it', () => {
+    const math = PLUGINS.find((p) => p.name === 'math');
+    const onlyEngine = pluginTokens(math, 'The area is $\\pi r^2$.', (s) => sharedEngine()._tokens(s));
+    assert.ok(onlyEngine.has('math_inline'));
+  });
 });
 
 describe('plugin host — fail-soft at the render step', () => {

@@ -18,7 +18,8 @@ const { resolvePlugins } = require('../../../lib/plugins/resolve');
 const { PLUGINS } = require('../../../lib/plugins/host');
 const { main } = require('../../../lib/packages/cli');
 
-const NAME = 'sparkline';
+// A name no real plugin takes, so an author's own scaffold (the docs use `sparkline`) never collides.
+const NAME = 'zz-scaffold-probe';
 const { files } = scaffoldPlugin(NAME);
 const manifest = JSON.parse(files[`${NAME}.manifest.json`]);
 
@@ -90,7 +91,7 @@ describe('packages new plugin — the command', () => {
     assert.match(nameRefusal('math', taken), /already exists/);
     assert.match(nameRefusal('latticeplot', taken), /already a fence/);
     assert.match(nameRefusal('json', taken), /code language/);
-    assert.equal(nameRefusal('sparkline', taken), null);
+    assert.equal(nameRefusal('zz-scaffold-probe', taken), null);
   });
 
   test('writes the folder with --dir, and refuses to overwrite it', async () => {

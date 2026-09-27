@@ -743,7 +743,7 @@ code. What changed because of them:
   bare commonmark instance, not the engine's private parser, so a case where the engine's other
   rules change what a plugin sees is covered only by the `renders` bullets; and the resolver's
   trigger-collision check trusts the triggers a manifest DECLARES — nothing yet proves a rule
-  fires only on them. Phase C's spec work picks both up.
+  fires only on them. Phase C's spec work picks both up. **Both closed in phase C** (next entry).
 
 - **Phase B, function-plot on the host: done, on its branch.** `lib/plugins/function-plot/`
   (manifest, fence renderer, a self-contained `hydrate.js`, `styles.css`, docs, fixtures) and
@@ -782,6 +782,20 @@ code. What changed because of them:
   **Left, with their reason:** the serialization limit for Mermaid (§4.7, phase D's call); a
   highlight.js upgrade that reserves a plugin fence name fails the build rather than grandfathering
   it; `--fluid` and plain `--html` link the library by a `file://` path (predates the plugin).
+
+- **Phase C (partial): the scaffold, the draft spec, and the harness's two known limits.**
+  `lattice packages new plugin <name>` (`lib/packages/new-plugin.js`) writes a package that builds
+  and passes the harness unedited — proven on a clean tree: scaffold, `npm run build`,
+  `build:check`, `test:plugins` (121 of 121, the new plugin's six cases among them). `spec/LPM.md`
+  is the contract as a draft (0.1). The harness closes both limits recorded under phase A: the
+  detect-superset arm now takes the UNION of the bare plugin-only parse and the engine's own parser
+  (`createEngine()._tokens`, a test seam) — neither alone suffices, measured both ways: a glossary
+  slide's core rule rebuilds its cells, so the engine's token stream hides math the render still
+  typesets, while a bare parse sees tokens the engine never makes (table headers, front matter);
+  and every rule of every plugin is fed each printable ASCII character it does not declare, in four
+  input shapes, silent and not, and must decline without moving the parser. Both mutation-proved: a
+  `math_inline` that also opens on `#` fails the trigger arm (the first cut's single probe shape
+  missed it, so three were added), and a harness that drops the engine parse fails its own arm.
 
 ## References
 

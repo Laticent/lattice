@@ -43,3 +43,6 @@
   passes the conformance harness unedited. **`spec/LPM.md`** is the first draft of the plugin
   contract: the package, the manifest, the module shapes, the `api: 1` host API and the settle
   protocol.
+- The plugin conformance harness now also parses every fixture with the engine's own parser, and
+  proves every plugin rule declines every character it does not declare as a trigger — the two
+  limits phase A recorded.
