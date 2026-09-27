@@ -151,3 +151,12 @@ test('a zero-size box inside moov is refused, not looped on', () => {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test('a suggested style lands in the sample entry: colors, bold, font', () => {
+	const trak = T.tx3gTrak({ trackId: 3, samples: [], sizes: [], offset: 0, movieTimescale: 1000, style: { text: [10, 22, 40, 255], background: [0, 29, 51, 184], bold: true, font: 'Avenir Next' } });
+	const e = bodyOf(trak, 'tx3g');
+	assert.deepEqual([...e.subarray(14, 18)], [0, 29, 51, 184], 'background-color-rgba');
+	assert.equal(e[32], 1, 'bold face flag');
+	assert.deepEqual([...e.subarray(34, 38)], [10, 22, 40, 255], 'text-color-rgba');
+	assert.ok(e.includes(Buffer.from('Avenir Next')), 'font name in ftab');
+});
