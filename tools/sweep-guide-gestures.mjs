@@ -30,8 +30,8 @@
  *   node tools/sweep-guide-gestures.mjs --deck a.md --deck b.md --misses
  *                                                    # measure named decks only, and print
  *                                                    # every cue that resolved to nothing
- *   node tools/sweep-guide-gestures.mjs --paraphrases # print every cue the paraphrase tier
- *                                                    # answered, beside the text it named
+ *   node tools/sweep-guide-gestures.mjs --paraphrases # print every cue the paraphrase, label or
+ *                                                    # continuation tier answered, beside the text it named
  *   node tools/sweep-guide-gestures.mjs --delivery restrained --plan
  *                                                    # replay a preset's salience budget, and
  *                                                    # print every cue that still gestures
@@ -188,7 +188,7 @@ async function main() {
 
 	// Gestures per narrated slide, which is the number a preset's budget caps.
 	const perSlide = new Map();
-	const tally = { byComponent: {}, marked: 0, parted: 0, figured: 0, paraphrased: 0, valueLed: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, holds: 0, skipped: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { byComponent: {}, marked: 0, parted: 0, figured: 0, paraphrased: 0, valueLed: 0, labelled: 0, continued: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, holds: 0, skipped: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	const comps = componentNames();
 	if (!comps.length) console.error('  note: dist/docs/components.json is missing — per-component attribution will report everything as (none). Run `npm run build`.');
@@ -283,9 +283,10 @@ async function main() {
 						let prev = null;
 						// THE PLAN, replayed: only the first cue naming each of the slide's top `budget`
 						// targets gestures; the rest hold (PresentOverlay's THE PLAN).
-						const plan = budget ? G.planSlide(cues, (t) => { const b = G.findCueTarget(sec, t); return b ? G.aimTarget(b, t).el : null; }, budget, floor) : null;
+						const plan = budget ? G.planSlide(cues, (t, p) => { const b = G.findCueTarget(sec, t, p); return b ? G.aimTarget(b, t).el : null; }, budget, floor) : null;
 						for (const [ci, text] of cues.entries()) {
-							const d = G.guideCueIn(sec, text, frame, half, half + 5);
+							// The sentence before, as Present passes it: the continuation tier reads it.
+							const d = G.guideCueIn(sec, text, frame, half, half + 5, cues[ci - 1]);
 							const held = !d && prev !== null && G.isAside(text);
 							const skipped = !!d && d.el !== prev && !!plan && !plan.gesture.has(ci);
 							if (d) any = true;
@@ -305,19 +306,27 @@ async function main() {
 							// was the only tier that could answer such a cue. The MARK tier answers them
 							// too, so the proxy now books every mark hit as piecewise and voids that row's
 							// wrong-element ratio (a mark has no text, so the ratio reads 0).
-							const marked = G.resetMarkHit() > 0;
+							let marked = G.resetMarkHit() > 0;
 							// AND THE SAME AGAIN FOR THE DECLARED-PART TIER. It answers cues no block holds
 							// too, so without its own counter every one of its hits lands in the piecewise
 							// row — the exact mis-attribution the mark tier had to fix. A tier the instrument
 							// cannot tell apart cannot be measured.
-							const parted = G.resetPartHit?.() > 0;
+							let parted = G.resetPartHit?.() > 0;
 							// AND THE CHART TIERS (detail · chart text · figure), for the same reason.
-							const figured = G.resetFigureHit?.() > 0;
+							let figured = G.resetFigureHit?.() > 0;
 							// AND THE PARAPHRASE TIER: an authored caption that says the slide in other words.
-							const paraphrased = G.resetParaphraseHit?.() > 0;
+							let paraphrased = G.resetParaphraseHit?.() > 0;
 							// AND THE VALUE-LED MARK: a sentence that opens with one mark's number.
-							const valueLed = G.resetValueLedHit?.() > 0;
-							const piecewise = spanned && !marked && !parted && !figured && !paraphrased && !valueLed;
+							let valueLed = G.resetValueLedHit?.() > 0;
+							// AND THE LABEL AND CONTINUATION TIERS. A continuation re-resolves the sentence
+							// before it, which bumps THAT sentence's tier counter; the continuation is the
+							// answer for this cue, so the borrowed counters are cleared.
+							let labelled = G.resetLabelHit?.() > 0;
+							const continued = G.resetContinuedHit?.() > 0;
+							if (continued) {
+								marked = parted = figured = paraphrased = valueLed = labelled = false;
+							}
+							const piecewise = spanned && !marked && !parted && !figured && !paraphrased && !valueLed && !labelled && !continued;
 							// RESET UNCONDITIONALLY, READ CONDITIONALLY. `findSpanningTarget` bumps
 							// `spanPartial` on every entry to its partial branch — including the ones that
 							// return null and fall through to a later tier — so reading it only on a
@@ -330,7 +339,7 @@ async function main() {
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes
 							// dark", which is the question a component owner actually has.
-							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, skipped, spanned: piecewise, marked, parted, figured, paraphrased, valueLed, said: paraphrased ? (d.el.getAttribute?.('data-label') ?? d.el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) : undefined, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, held, slide: n, text });
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, skipped, spanned: piecewise, marked, parted, figured, paraphrased, valueLed, labelled, continued, said: paraphrased || labelled || continued ? (d.el.getAttribute?.('data-label') ?? d.el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) : undefined, whole: !!d.el.classList?.contains('chart-body'), slide: n, text, partial, ratio } : { comp, miss: true, held, slide: n, text });
 						}
 						out.push({ slideDone: true, any, comp, planned: plan ? plan.gesture.size : null });
 					}
@@ -378,6 +387,9 @@ async function main() {
 				if (row.figured) tally.figured += 1;
 				if (row.paraphrased) tally.paraphrased += 1;
 				if (row.valueLed) tally.valueLed += 1;
+				if (row.labelled) tally.labelled += 1;
+				if (row.continued) tally.continued += 1;
+				if ((row.labelled || row.continued) && showParaphrases) process.stderr.write(`    ${row.labelled ? 'label' : 'cont '} ${stem} #${row.slide} [${row.comp}]  ${row.text}\n          -> ${row.said}\n`);
 				// A cue the WHOLE-FIGURE tier answered is resolved, but only honestly so when the
 				// sentence is about the whole chart. Listed with the misses so that is checkable.
 				if (row.paraphrased && showParaphrases) process.stderr.write(`    para  ${stem} #${row.slide} [${row.comp}]  ${row.text}\n          -> ${row.said}\n`);
@@ -425,6 +437,8 @@ async function main() {
 	console.log(`  answered by a CHART tier (detail · chart text · whole figure)  ${tally.figured} (${pct(tally.figured, tally.resolved)})`);
 	console.log(`  answered by a PARAPHRASE (an authored caption in other words)  ${tally.paraphrased} (${pct(tally.paraphrased, tally.resolved)})`);
 	console.log(`  answered by a VALUE-LED MARK (the sentence opens with its number)  ${tally.valueLed} (${pct(tally.valueLed, tally.resolved)})`);
+	console.log(`  answered by a CARD LABEL (one word of the card's own label)  ${tally.labelled} (${pct(tally.labelled, tally.resolved)})`);
+	console.log(`  answered by a CONTINUATION ("It …" goes on about the last target)  ${tally.continued} (${pct(tally.continued, tally.resolved)})`);
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
 	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);

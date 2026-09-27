@@ -54,8 +54,8 @@ const MUTS = [
 	['guide', "\tif (box.width <= TAP_WIDTH * slideW && lines <= 1) return 'tap';", "\tif (false) return 'tap';", 'never taps a small thing'],
 	['guide', "\tif (box.width <= RING_WIDTH * slideW && box.width / Math.max(1, box.height) <= RING_ASPECT) return 'circle';", "\tif (false) return 'circle';", 'never rings a compact thing'],
 	['guide', '\t\tbox: geo?.box ?? anchor.box,', '\t\tbox: t0,', 'classifies the padded box'],
-	['guide', "\tconst inner = block.querySelector('.lat-focus');", '\tconst inner = null;', 'ignores an inner focused element'],
-	['guide', "\tif (block.classList.contains('lat-focus') || block.closest('.lat-focus')) return { el: block, notable: true };", '\tif (false) return { el: block, notable: true };', 'misses a block that IS focused'],
+	['guide', '\tconst inner = focus.inner;', '\tconst inner = null;', 'ignores an inner focused element'],
+	['guide', '\tif (focus.self) return { el: block, notable: true };', '\tif (false) return { el: block, notable: true };', 'misses a block that IS focused'],
 	['guide', "\tif (inner && inner !== block && loose(inner.textContent ?? '').includes(loose(text))) return { el: inner, notable: true };", '\tif (inner && inner !== block) return { el: inner, notable: true };', 'aims at a focused element that does not hold the words'],
 	['guide', '\twhile (end + 1 < raw.length && !/[\\s\\p{L}\\p{N}]/u.test(raw[end + 1])) end++;', '\twhile (false) end++;', 'range stops short of the full stop'],
 	['guide', '\treturn s === loose(raw) ? { s, map } : null;', '\treturn { s, map };', 'trusts an unverified reconstruction'],
@@ -67,7 +67,7 @@ const MUTS = [
 	['guide', '\t\tslideW: frame.width || 1280,', '\t\tslideW: 1280,', 'ignores the slide width'],
 	['guide', '\tif (!(t0.width > 0 && t0.height > 0)) return null;', '\tif (false) return null;', 'gestures at a zero-area element'],
 	['guide', '\tconst alive = () => el.isConnected;', '\tconst alive = () => true;', 'a detached element still reports a place'],
-	['guide', "\t\tif (!(node.textContent ?? '').trim()) continue;", '\t\tcontinue;', 'the obstacle list is never populated'],
+	['guide', "\t\tif (!(node.textContent ?? '').trim() || node.closest('.chart-sr-only')) continue;", '\t\tcontinue;', 'the obstacle list is never populated'],
 	['guide', '\t\tconst lines = rectsOf(contentRange(node));', '\t\tconst lines = null;', 'obstacles are boxes again, not the words in them'],
 	['stage', "? rects[0] : rects[rects.length - 1]) : box;", '? rects[rects.length - 1] : rects[rects.length - 1]) : box;', 'underline rest reads the wrong line'],
 	['guide', '\tconst offCard = frame.width > 0 && frame.height > 0 && !inside(footprint(natural ?? { x: 0, y: 0 }), frame);', '\tconst offCard = false;', 'a rest off the slide card is accepted'],
@@ -112,14 +112,31 @@ const MUTS = [
 	// found the lead rule was a CHARACTER prefix (`AI` led "Airlines"), corroboration was a bare
 	// substring (`8` -> "eight" satisfied "eighteen", and `N/A` -> "na" satisfied "analysis"),
 	// and BOTH sort keys could be deleted with the whole suite green.
-	['guide', '\t\tif (label.length < 2 || !leadsWord(needle, label)) continue;', '\t\tif (label.length < 2 || !needle.startsWith(label)) continue;', 'a label leads on characters, not words'],
-	['guide', '\t\tif (label.length < 2 || !leadsWord(needle, label)) continue;', '\t\tif (label.length < 1 || !leadsWord(needle, label)) continue;', 'a one-character label is allowed to lead'],
-	['guide', '\t\t\tcorroborated = containsWord(needle, spoken) || containsWord(needle, digits);', '\t\t\tcorroborated = needle.includes(spoken) || needle.includes(digits);', 'a value corroborates on a substring'],
+	['guide', '\t\tif (!compound && (label.length < 2 || !leadsWord(needle, label))) continue;', '\t\tif (!compound && (label.length < 2 || !needle.startsWith(label))) continue;', 'a label leads on characters, not words'],
+	['guide', '\t\tif (!compound && (label.length < 2 || !leadsWord(needle, label))) continue;', '\t\tif (!compound && (label.length < 1 || !leadsWord(needle, label))) continue;', 'a one-character label is allowed to lead'],
+	['guide', '\tif (valueSpellings(raw).some((v) => saysValue(needle, v))) return true;', '\tif (valueSpellings(raw).some((v) => needle.includes(v))) return true;', 'a value corroborates on a substring'],
 	['guide', '\t\t\tif (!corroborated) continue;', '', 'a mark whose value the cue never says is taken'],
 	['guide', '\tpassed.sort((a, b) => b.labelLen - a.labelLen || Number(b.corroborated) - Number(a.corroborated));', '\tpassed.sort((a, b) => b.labelLen - a.labelLen);', 'corroboration stops breaking a label-length tie'],
 	['guide', '\tpassed.sort((a, b) => b.labelLen - a.labelLen || Number(b.corroborated) - Number(a.corroborated));', '\tpassed.sort((a, b) => Number(b.corroborated) - Number(a.corroborated));', 'a short corroborated mark outranks the exact one'],
-	['guide', '\tif (next && next.labelLen === top.labelLen && next.corroborated === top.corroborated) return null;', '', 'an ambiguous pair is guessed at rather than refused'],
-	['guide', "\treturn findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text) ?? findMarkTarget(frameDoc, text);", "\treturn findMarkTarget(frameDoc, text) ?? findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text);", 'the mark tier outranks a real block'],
+	['guide', '\t\tif (!one) return null;\n\t\tmarkHit += 1;', '\t\tif (!one) {\n\t\t\tmarkHit += 1;\n\t\t\treturn top.el;\n\t\t}\n\t\tmarkHit += 1;', 'an ambiguous pair is guessed at rather than refused'],
+	['guide', '\t\tfindCueTargetIn(frameDoc, text) ??\n\t\tfindSpanningTarget(frameDoc, text) ??\n\t\tfindMarkTarget(frameDoc, text) ??', '\t\tfindMarkTarget(frameDoc, text) ??\n\t\tfindCueTargetIn(frameDoc, text) ??\n\t\tfindSpanningTarget(frameDoc, text) ??', 'the mark tier outranks a real block'],
+	// ── the paraphrase tier (findParaphraseTarget): an authored caption in other words
+	['guide', '\tconst floor = Math.max(PARAPHRASE_MIN_SHARED, cueWeight * PARAPHRASE_MIN_COVERAGE);', '\tconst floor = 1;', 'one shared word names any block'],
+	['guide', '\tif (best && !(tied && !best.contains(tied) && !tied.contains(best))) {', '\tif (best) {', 'a tie between two blocks is guessed at'],
+	['guide', "\tif (lang && !/^en\\b/i.test(lang)) return null;\n\tconst cue = contentKeys(text);\n\tif (!cue.size) return null;", '\tconst cue = contentKeys(text);\n\tif (!cue.size) return null;', 'the English stop list runs on another language'],
+	['guide', '\tif (scope.querySelector(FIGURE_SELECTOR)) return null;\n\tconst head', '\tconst head', 'a chart frame sentence claims the headline'],
+	// ── the period spellings, the label tier and the continuation tier (followups.d/2363-p3)
+	['guide', "\t\tif (w in ORDINALS && words[i + 1] === 'quarter') {", "\t\tif (false) {", '"third quarter" is not heard as Q3'],
+	['guide', "\t\tif (w === 'fiscal') {", '\t\tif (false) {', '"fiscal twenty-six" is not heard as FY26'],
+	// NOT a mutation on `if (hit) return null` in findLabelTarget: the uniqueness check below it
+	// already refuses a second label saying the word (it is painted text outside the first card), so
+	// removing the guard is EQUIVALENT except for nested labeled items, which no deck writes.
+	['guide', '\tif (!scope || scope.querySelector(FIGURE_SELECTOR)) return null;\n\tlet hit', '\tif (!scope) return null;\n\tlet hit', 'the label tier claims a chart slide\'s frame sentence'],
+	['guide', '\tif (all.size > ASIDE_MAX_WORDS) return null;\n', '', 'a long sentence names a card by one incidental word'],
+	['guide', '\t\tif (shared.some((k) => keys.has(k))) return null;', '', 'a label word the rest of the slide says still names the card'],
+	['guide', "\tif (!ANAPHOR.test(norm(text).replace(/^[^\\p{L}]+/u, ''))) return null;", '', 'a sentence with no pronoun continues the last target'],
+	['guide', '\tif (![...cue.keys()].some((k) => said.has(k))) return null;', '', 'a pronoun that shares nothing with the last target continues it'],
+	['guide', '\t\tconst el = t ? aim(t, texts[i - 1] || undefined) : null;', '\t\tconst el = t ? aim(t) : null;', 'the plan never passes the sentence before'],
 	// ── the value-led mark (findValueLedMark): a sentence that opens with one mark's number ──
 	// Each guard was found by the independent check of the first version: a prefix stem let "sent"
 	// name "sentence", `loose` let "1.2" lead "12 months", and nothing refused two marks.

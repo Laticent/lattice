@@ -5,7 +5,9 @@ import {
 	type Box,
 	chooseGesture,
 	cueDisplayText,
+	findContinuedTarget,
 	findCueTarget,
+	findLabelTarget,
 	findMarkTarget,
 	findNamedTarget,
 	findParaphraseTarget,
@@ -226,6 +228,111 @@ describe('findParaphraseTarget — an authored caption in other words', () => {
 		// The paraphrase tier runs after them, so an exact containment still names the smallest block.
 		const d = doc('<p>Growth held. Margins rose.</p><p>Growth held steady all year and margins rose.</p>');
 		expect(findCueTarget(d, 'Growth held.')).toBe(d.querySelector('p'));
+	});
+});
+
+describe('the three nameable misses (followups.d/2363-p3)', () => {
+	// The Q3 board fixture's title and decision slides, as the engine renders them.
+	const title = () =>
+		doc(`<h1>Q3 FY26: ahead on revenue, one call to make.</h1><p><code>Board review · 14 October 2026</code></p>
+			<p>Prepared for the Northwind Analytics board of directors.</p>`);
+	const decision = () =>
+		doc(`<h2>We recommend exiting SMB by June 2027.</h2><p><code>Decision requested · Q3 FY26</code></p><ul>
+			<li><strong>Exit SMB</strong><ul><li>Payback back to 14 months by Q3 FY27; nine sellers move to the segment that converts.</li></ul></li>
+			<li><strong>Why not fix it</strong><ul><li>$2.1M to reach a 20-month payback on a segment that brought in $0.5M of new ARR this quarter.</li></ul></li>
+			<li><strong>Why not wait</strong><ul><li>Every quarter we wait adds roughly 60 accounts we would later have to migrate.</li></ul></li></ul>`);
+	const card = (d: Document, i: number) => d.querySelectorAll('section > ul > li')[i];
+
+	it('hears "third-quarter … fiscal twenty-six" as the title\'s Q3 FY26', () => {
+		const d = title();
+		expect(findCueTarget(d, 'This is the third-quarter review for fiscal twenty-six.')?.tagName).toBe('H1');
+		// The other spellings of the same period meet it too.
+		expect(findParaphraseTarget(d, 'The third quarter of fiscal year 2026 closed ahead.')?.tagName).toBe('H1');
+		expect(findParaphraseTarget(doc('<h2>FY2026 in review</h2><p>Hiring held.</p>'), 'Fiscal twenty-six ran ahead of plan.')?.tagName).toBe('H2');
+	});
+
+	it('lets a heard period label the column without outweighing the cell the sentence names', () => {
+		// examples/delivery-spark.md slide 3: at a figure's weight the `Q4` header tied the 9.4% cell.
+		const d = doc(`<table><thead><tr><th>Segment</th><th>Q3</th><th>Q4</th><th>Europe</th></tr></thead><tbody>
+			<tr><td>Enterprise</td><td>1.2%</td><td>1.1%</td><td>0.9%</td></tr>
+			<tr><td>SMB</td><td>7.8%</td><td>9.4%</td><td>6.1%</td></tr></tbody></table>`);
+		expect(findCueTarget(d, 'Churn there reached 9.4% in the fourth quarter.')?.textContent).toBe('9.4%');
+	});
+
+	it('hears "third quarter" as the Q3 column when nothing else could decide', () => {
+		// No headline to fall back on, and FY26 is on both columns: only the quarter tells them apart.
+		const d = doc('<table><tr><th>Q3 FY26</th><th>Q4 FY26</th></tr><tr><td>7.8%</td><td>9.4%</td></tr></table>');
+		expect(findCueTarget(d, 'We are in the third quarter of fiscal twenty-six.')?.textContent).toBe('Q3 FY26');
+	});
+
+	it('does not hear a different period as this one', () => {
+		const d = title();
+		expect(findParaphraseTarget(d, 'The second quarter of fiscal twenty-five was flat.')).toBeNull();
+	});
+
+	it('names the card whose label the sentence says', () => {
+		const d = decision();
+		expect(findCueTarget(d, 'We did look hard at the fix.')).toBe(card(d, 1));
+		expect(findLabelTarget(d, 'Waiting was never on the table.')).toBe(card(d, 2));
+	});
+
+	it('refuses a label word the rest of the slide also says, and a tie between two labels', () => {
+		// "exit" is in the first card's label AND the headline ("exiting"), so it names neither.
+		expect(findLabelTarget(decision(), 'The exit is our call.')).toBeNull();
+		const two = doc('<ul><li><strong>Fix pricing</strong><ul><li>Raise list.</li></ul></li><li><strong>Fix churn</strong><ul><li>Save accounts.</li></ul></li></ul>');
+		expect(findLabelTarget(two, 'We can fix it.')).toBeNull();
+		// A bare item has no label: its whole text is its body, which the paraphrase tier owns.
+		expect(findLabelTarget(doc('<h2>Options</h2><ul><li>Why not fix it</li><li>Why not wait</li></ul>'), 'We did look hard at the fix.')).toBeNull();
+	});
+
+	it('does not name a card from a long sentence, a chart slide, or a word painted elsewhere', () => {
+		const d = decision();
+		// A long sentence has content of its own; one word it shares with a label is incidental.
+		expect(findLabelTarget(d, 'We fixed onboarding last spring, and churn did not move.')).toBeNull();
+		expect(findLabelTarget(d, 'Customers will wait for the new release.')).toBeNull();
+		// A frame sentence on a chart slide is about the picture (the checker's case).
+		const chart = doc(`<h2>Growth by segment</h2><div class="chart-body"><svg></svg></div>
+			<ul><li><strong>Enterprise growth</strong><ul><li>Up 31%.</li></ul></li></ul>`);
+		expect(findLabelTarget(chart, 'Growth, measured from zero.')).toBeNull();
+		// The word is on the slide outside the card, in a plain div or a mark's declared label.
+		const eyebrow = doc('<div class="eyebrow">Pricing review</div><ul><li><strong>Raise pricing</strong><ul><li>Ten percent.</li></ul></li></ul>');
+		expect(findLabelTarget(eyebrow, 'Pricing moves first.')).toBeNull();
+		const mark = doc('<svg><rect data-label="Enterprise"></rect></svg><ul><li><strong>Enterprise</strong><ul><li>Grew.</li></ul></li></ul>');
+		expect(findLabelTarget(mark, 'Enterprise led.')).toBeNull();
+	});
+
+	it('does not continue on a deck in another language', () => {
+		const d = new DOMParser().parseFromString('<html lang="it"><body><section><ul><li>Churn SMB al 9,4%.</li><li>Altro.</li></ul></section></body></html>', 'text/html');
+		expect(findContinuedTarget(d, 'Which churn preoccupa.', 'Churn SMB al 9,4%.')).toBeNull();
+	});
+
+	it('keeps "It costs more…" on the card the sentence before it named', () => {
+		const d = decision();
+		const prev = 'We did look hard at the fix.';
+		expect(findCueTarget(d, '**It costs more than the segment earns.**', prev)).toBe(card(d, 1));
+		// Without the sentence before it, "segment" is on two cards and it names nothing.
+		expect(findCueTarget(d, '**It costs more than the segment earns.**')).toBeNull();
+	});
+
+	it('does not carry a pronoun that shares nothing with the last target, or a sentence that does not open with one', () => {
+		const d = decision();
+		const prev = 'We did look hard at the fix.';
+		expect(findContinuedTarget(d, 'It was a long year for everyone.', prev)).toBeNull();
+		expect(findContinuedTarget(d, 'Honestly the segment earns too little.', prev)).toBeNull();
+		expect(findContinuedTarget(d, 'It costs more than the segment earns.', undefined)).toBeNull();
+	});
+
+	it('plans a continuation with the sentence before it', () => {
+		const d = decision();
+		const texts = ['We did look hard at the fix.', 'It costs more than the segment earns.'];
+		const plan = planSlide(texts, (t, p) => findCueTarget(d, t, p), 3, 0);
+		expect([...plan.aimed]).toEqual([0, 1]);
+	});
+
+	it('leaves the asides the owner ruled hide, hiding', () => {
+		const d = decision();
+		expect(findCueTarget(d, 'It keeps SOC 2 scope narrow.', 'It is the faster path back to a fourteen-month payback.')).toBeNull();
+		expect(findCueTarget(d, 'And it is reversible: the partner contract has a two-year buy-back clause.')).toBeNull();
 	});
 });
 
@@ -583,8 +690,10 @@ describe('the checker round (#2371)', () => {
 	});
 
 	it('skips the paraphrase tier on a deck in another language', () => {
-		const d = new DOMParser().parseFromString('<html lang="it"><body><section><h1>Il piano per crescere</h1></section></body></html>', 'text/html');
-		expect(findParaphraseTarget(d, 'Grazie per la vostra attenzione')).toBeNull();
+		// A shared word long enough to claim the headline ("mercato"), so only the language guard
+		// keeps it from doing so.
+		const d = new DOMParser().parseFromString('<html lang="it"><body><section><h1>Il piano per crescere nel mercato</h1></section></body></html>', 'text/html');
+		expect(findParaphraseTarget(d, 'Grazie, il mercato ci ascolta')).toBeNull();
 	});
 
 	it('wants a substantial shared word before it claims the headline', () => {

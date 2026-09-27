@@ -1268,11 +1268,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const onStage = !!guideRoot;
 		const slideDoc = () => stageHost?.win.document ?? null;
 		const text = activeCue >= 0 ? cueDisplayText(reader.track.cues[activeCue]) : '';
+		// The sentence before it, for the continuation tier: "It costs more…" stays on what the last
+		// sentence named (present-guide.ts `findContinuedTarget`).
+		const prev = activeCue > 0 ? cueDisplayText(reader.track.cues[activeCue - 1]) : undefined;
 		// ASK THE CHEAP QUESTION FIRST. `guideAimFor`/`guideAimIn` read no layout; the full
 		// decision measures every block on the slide. This effect runs once per SENTENCE and acts
 		// once per BLOCK, so on the common path — the next sentence of a paragraph already named —
 		// nothing here forces a reflow while audio is playing.
-		const aim = text ? (onStage ? guideAimIn(slideDoc(), text) : guideAimFor(frame, text)) : null;
+		const aim = text ? (onStage ? guideAimIn(slideDoc(), text, prev) : guideAimFor(frame, text, prev)) : null;
 		// THE REST. Same element as the last cue → the hand stays where the last gesture left it.
 		// Guarded on the cursor actually being on screen, so the first cue of a block still gets
 		// its gesture after a stretch of unresolvable narration on the same block.
@@ -1299,7 +1302,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		if (aim) {
 			let entry = guidePlanRef.current;
 			if (!entry || entry.slide !== narration.idx || entry.track !== reader.track || entry.delivery !== delivery.name || !entry.plan.aimed.has(activeCue)) {
-				const aimOf = (t: string) => (onStage ? guideAimIn(slideDoc(), t) : guideAimFor(frame, t));
+				const aimOf = (t: string, p?: string) => (onStage ? guideAimIn(slideDoc(), t, p) : guideAimFor(frame, t, p));
 				entry = { slide: narration.idx, track: reader.track, delivery: delivery.name, plan: planSlide(reader.track.cues.map(cueDisplayText), aimOf, delivery.budget, delivery.floor) };
 				guidePlanRef.current = entry;
 			}
@@ -1341,7 +1344,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				return;
 			}
 		}
-		const cue = aim ? (onStage ? guideCueInDoc(slideDoc(), text) : guideCueFor(frame, text)) : null;
+		const cue = aim ? (onStage ? guideCueInDoc(slideDoc(), text, prev) : guideCueFor(frame, text, prev)) : null;
 		// THE HOLD. An ASIDE that names nothing ("Thank you.", "No.") on a slide the hand is
 		// already resting on keeps it resting: hiding there made the pointer blink out and back
 		// between two gestures on the same slide, which reads as a glitch, not as a pause. A longer
