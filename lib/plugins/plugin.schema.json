@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lattice.laticent.io/plugin.schema.json",
+  "title": "Lattice plugin manifest",
+  "description": "A plugin teaches Lattice something new: a syntax, a fence, a slide class. The manifest declares WHAT it contributes and whom it depends on; the plugin's role modules supply HOW, and the build checks the two agree one-to-one. Closed at every level: a field a later plugin needs is a reviewed schema change, and adding one is additive. Contract: engineering/decisions/2026-09-27-plugin-system.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "format", "name", "api", "title", "description", "contributes"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "type": { "const": "plugin" },
+    "format": { "const": 1 },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "The plugin's identity. The folder name and every file's `<name>.` prefix are projections the package spine checks."
+    },
+    "api": {
+      "const": 1,
+      "description": "The host contract this plugin is written for. A value the host does not know is a build error naming the plugin."
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "requires": {
+      "$ref": "#/$defs/pluginNames",
+      "description": "Plugins this one cannot load without. A missing one, or a cycle, fails the build by name. Disabling a required plugin disables this one."
+    },
+    "optional": {
+      "$ref": "#/$defs/pluginNames",
+      "description": "Plugins this one uses when present and must work without."
+    },
+    "contributes": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "syntax": {
+          "type": "object",
+          "description": "markdown-it rules, keyed by the TOKEN TYPE each rule emits. The host installs them; the plugin's `<name>.syntax.mjs` exports a `rules` object with the same keys and its `<name>.render.js` a `renderers` object with the same keys.",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": { "$ref": "#/$defs/syntaxRule" }
+        },
+        "components": {
+          "type": "array",
+          "description": "Component folders (lib/components/<bucket>/<name>/) this plugin owns. Each must exist.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+        },
+        "diagnostics": {
+          "type": "object",
+          "description": "Stable IDs, namespaced `<plugin>/<id>`, and the message each reports.",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parity", "degradesTo"],
+      "properties": {
+        "parity": {
+          "enum": ["equivalent", "progressive"],
+          "description": "LPM's parity: every surface emits the same semantic contract (equivalent), or a static surface emits a skeleton a browser enriches (progressive)."
+        },
+        "degradesTo": {
+          "enum": ["source", "code-block", "hidden"],
+          "description": "What the host shows when a renderer throws or returns a non-string."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pluginNames": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+    },
+    "syntaxRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "anchor", "triggers"],
+      "properties": {
+        "kind": { "enum": ["inline", "block"] },
+        "anchor": {
+          "type": "object",
+          "description": "Where the host installs the rule: before or after a rule the HOST names, never another plugin's.",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "maxProperties": 1,
+          "properties": {
+            "before": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+            "after": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+          }
+        },
+        "triggers": {
+          "type": "array",
+          "description": "The characters the rule starts on. Two plugins claiming one character is a build error; a character markdown-it's text rule does not stop at is refused, because the rule would never fire.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 1 }
+        },
+        "opaque": {
+          "type": "boolean",
+          "description": "block only: the rule's body renders no inline Markdown, so lint-core skips it as it skips a code fence. (Every block rule, opaque or not, is also installed in the boundary parser, so the source-side slide splitter agrees with the render about where a slide starts.)"
+        }
+      }
+    }
+  }
+}

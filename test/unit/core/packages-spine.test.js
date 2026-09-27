@@ -36,12 +36,16 @@ const themeFiles = (name = 'harbor', directive = name) => ({
 });
 
 describe('kinds', () => {
-  test('four types, each with a manifest role', () => {
-    assert.deepEqual(TYPES, ['theme', 'component', 'finish', 'motion']);
+  test('five types, each with a manifest role', () => {
+    assert.deepEqual(TYPES, ['theme', 'component', 'finish', 'motion', 'plugin']);
     for (const t of TYPES) assert.ok(KINDS[t].required.includes('manifest.json'), t);
   });
-  test('a transform.js is the one code role', () => {
+  test('a transform.js is a component\'s one code role', () => {
     assert.deepEqual(KINDS.component.code, ['transform.js']);
+  });
+  test('a plugin\'s code roles are its grammar and its renderers (plugin-system §4.1)', () => {
+    assert.deepEqual(KINDS.plugin.code, ['syntax.mjs', 'render.js']);
+    assert.deepEqual(KINDS.plugin.required, ['manifest.json', 'docs.md', 'fixtures.md']);
   });
 });
 
@@ -236,13 +240,13 @@ describe('the build walk and the identity gate', () => {
 
 describe('the committed index', () => {
   const committed = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../lib/packages/packages.generated.json'), 'utf8'));
-  test('carries every shipped component, and flags exactly the ones with a transform', () => {
+  test('carries every shipped component, and flags exactly the ones with a transform as code', () => {
     // Derived, not pinned: adding a component must not break this test, only a
     // disagreement between the index and the tree should.
     const { loadAll } = require('../../../lib/components/index.js');
     assert.equal(committed.counts.component, loadAll().length);
     const transforms = listComponentFolders(path.join(__dirname, '../../../lib/components')).filter((f) => f.dir && fs.existsSync(path.join(f.dir, `${f.folder}.transform.js`))).length;
-    assert.equal(committed.packages.filter((p) => p.code).length, transforms);
+    assert.equal(committed.packages.filter((p) => p.type === 'component' && p.code).length, transforms);
   });
 });
 

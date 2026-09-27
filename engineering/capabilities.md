@@ -433,6 +433,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-packages-index.js` | build-packages-index — the ONE generated index of every shipped package |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
+| `tools/build-plugin-registry.js` | Freezes the in-tree plugins (lib/plugins/) into the two registries every render path reads, |
 | `tools/build-projection-catalog.js` | build-projection-catalog.js — freeze every component manifest's `projection` |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
 | `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |

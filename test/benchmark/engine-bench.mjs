@@ -29,28 +29,46 @@
 // not a vs-marp claim.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
 import latticeEngine from '../../lib/engine/index.js';
-// DEFAULT IMPORT, THEN DESTRUCTURE WITH FALLBACKS — deliberately, not laziness.
+import api from '../../lib/playground/index.js';
+
+// THE MATH MODULE IS FOUND AT RUN TIME, THEN DESTRUCTURED WITH FALLBACKS — deliberately.
 //
 // `perf-nightly.yml` copies THIS FILE into a worktree of the BASE commit and runs it
 // there (`cp test/benchmark/engine-bench.mjs /tmp/base/…`), so the harness must link
-// against a tree whose `lib/engine/math.js` predates these seams. A named ESM import
+// against a tree whose math renderer predates these seams. A named ESM import
 // of a CJS export that does not exist fails at LINK time — before any tier runs — so
 // the base arm dies, `base-bench.json` is left empty, and the comparator reports
 // "NOTHING WAS COMPARED" and files a spurious priority:high perf issue. Found by an
 // independent checker; it would have gone red on the first nightly after merge.
 //
+// WHERE the renderer lives moved too (lib/engine/math.js → lib/plugins/math/math.render.js,
+// engineering/decisions/2026-09-27-plugin-system.md), and a base worktree older than that
+// move has only the old path — so no static import can name it. The newest path is tried
+// first; a tree with neither falls through to the no-memo stubs below.
+//
 // The stats fallback returns `null` typesets rather than 0. A plausible-looking zero
 // would read as "this tree re-typesets nothing" — the exact claim the tier exists to
 // make — when the truth is that this tree has no memo to ask. The tier prints `n/a`
 // for that case instead.
-import mathModule from '../../lib/engine/math.js';
-import api from '../../lib/playground/index.js';
+const requireHere = createRequire(import.meta.url);
+function loadMathModule() {
+  for (const rel of ['../../lib/plugins/math/math.render.js', '../../lib/engine/math.js']) {
+    try {
+      return requireHere(rel);
+    } catch (_e) {
+      /* not in this tree — try the older path */
+    }
+  }
+  return {};
+}
+const mathModule = loadMathModule();
 
 const resetMathMemo = mathModule._resetMathMemo ?? (() => {});
 const mathMemoStats = mathModule._mathMemoStats ?? (() => ({ entries: 0, bytes: 0, typesets: null }));
@@ -296,7 +314,7 @@ async function renderTier() {
     // would otherwise report cache-hit speed and hide any cold-compose regression.
     main.add(d.name, () => {
       rawEngine.themes._cssCache.clear();
-      // The math typeset memo (lib/engine/math.js) is cleared for the SAME reason
+      // The math typeset memo (lib/plugins/math/math.render.js) is cleared for the SAME reason
       // and it matters most on the `math` row: leaving it warm would report
       // cache-hit speed on ~90% of that deck's cost and hide any cold regression
       // in KaTeX or in the markup the pipeline carries. Its warm win is the

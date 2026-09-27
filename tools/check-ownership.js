@@ -7567,6 +7567,70 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
   return seen;
 }
 
+
+/**
+ * THE PLUGIN MIGRATION RATCHET — the old mechanisms the plugin system replaces may only shrink
+ * (engineering/decisions/2026-09-27-plugin-system.md §7).
+ *
+ * This repo's record is systems built beside the thing they replace and never finished, which
+ * leaves two idioms where there was one. So each phase that moves an integration onto the plugin
+ * host deletes what it replaces IN THE SAME PR, and this gate counts what is left:
+ *
+ *   fenceWrappers       assignments to `md.renderer.rules.fence` in
+ *                       lib/integrations/markdown-it/plugins.js. Each is a fence renderer that
+ *                       wraps the previous one, so registration order decides who wins and
+ *                       nothing checks it. The host's fence table replaces them (phase B).
+ *   pluginTokenNames    a plugin's token type (`math_block`, …) written in CODE outside
+ *                       lib/plugins — a consumer hand-naming a plugin's output instead of reading
+ *                       the registry. Derived from the generated grammar, so a new plugin's
+ *                       tokens are covered the day it lands.
+ *
+ * Over budget fails: something re-grew the old way. UNDER budget fails too, naming the new
+ * count, so the budget ratchets down in the PR that earned it and can never silently rot upward
+ * again.
+ */
+const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 2, pluginTokenNames: 0 });
+
+function pluginMigrationCounts(root = ROOT) {
+  const read = (rel) => {
+    const abs = path.join(root, rel);
+    return fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
+  };
+  const fenceWrappers = (stripCodeComments(read('lib/integrations/markdown-it/plugins.js')).match(/md\.renderer\.rules\.fence\s*=(?!=)/g) || []).length;
+
+  const grammar = read('lib/plugins/grammar.generated.mjs');
+  const tokens = [...grammar.matchAll(/^ {6}([a-z][a-z0-9_]*): Object\.freeze\(\{ kind:/gm)].map((m) => m[1]);
+  const hits = [];
+  if (tokens.length) {
+    const re = new RegExp(`\\b(?:${tokens.join('|')})\\b`, 'g');
+    const files = [];
+    for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
+    files.push(path.join(root, 'lattice-emulator.js'));
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
+      if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
+      if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
+      const code = stripCodeComments(fs.readFileSync(file, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const m of code.matchAll(re)) hits.push(`${rel}: ${m[0]}`);
+    }
+  }
+  return { fenceWrappers, pluginTokenNames: hits.length, hits };
+}
+
+function checkPluginMigration(errors, budget = PLUGIN_MIGRATION_BUDGET, root = ROOT) {
+  const counts = pluginMigrationCounts(root);
+  for (const [key, allowed] of Object.entries(budget)) {
+    const n = counts[key];
+    if (n > allowed) {
+      const detail = key === 'pluginTokenNames' ? ` — ${counts.hits.join('; ')}` : '';
+      errors.push(`plugin migration: ${key} is ${n}, over its budget of ${allowed}${detail}. The plugin system replaces this mechanism; extend the plugin host (lib/plugins/) instead of the old path (engineering/decisions/2026-09-27-plugin-system.md §7).`);
+    } else if (n < allowed) {
+      errors.push(`plugin migration: ${key} is ${n}, under its budget of ${allowed}. Lower PLUGIN_MIGRATION_BUDGET.${key} to ${n} in tools/check-ownership.js — the ratchet only moves down.`);
+    }
+  }
+}
+
 /**
  * HARD RULE #22, FOURTH shape — POST-SANITIZE INJECTION inside the preview frame (#1246).
  *
@@ -7629,6 +7693,12 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
     const abs = path.join(root, rel);
     if (fs.existsSync(abs)) files.push(abs);
   }
+  // Every PLUGIN is found, not listed: a plugin's `hydrate` writes markup into the preview frame
+  // after the builder sanitized it — the fourth shape of HARD RULE #22 — and moving an inflater
+  // out of lib/runtime into lib/plugins must never take it out of this census
+  // (engineering/decisions/2026-09-27-plugin-system.md §4.7).
+  const pluginsDir = path.join(root, 'lib', 'plugins');
+  if (fs.existsSync(pluginsDir)) listSourceFiles(pluginsDir, files);
   for (const file of files) {
     const rel = path.relative(root, file).split(path.sep).join('/');
     if (/\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
@@ -12699,6 +12769,7 @@ function run() {
   checkLineEndingBoundaries(errors);
   checkPreviewHtmlSinks(errors);
   checkRuntimeMarkupSinks(errors);
+  checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
@@ -12912,6 +12983,9 @@ module.exports = {
   checkDocumentStyleSinks,
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
+  checkPluginMigration,
+  pluginMigrationCounts,
+  PLUGIN_MIGRATION_BUDGET,
   DOC_ASSEMBLER_MARKER,
   SANCTIONED_STYLE_SINK_EXEMPT,
   DOC_STYLE_SINK_ROOTS,

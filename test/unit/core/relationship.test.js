@@ -921,7 +921,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // chip: a rendered slide read `\\frac{a →`. `mathSafe` keys on the same scan, so the #29
     // shape-glyph guard was off for these members too.
     //
-    // `lib/engine/math.js` had ALREADY learned this — its docblock says so and it tests both. This
+    // `lib/plugins/math/math.render.js` had ALREADY learned this — its docblock says so and it tests both. This
     // file learned half of it twice: first by reading the error mirror as symbols, then by
     // refusing that mirror while leaving the classed rendering invisible.
     for (const tex of ['\\frac{a', '\\left( a', '\\begin{foo}x\\end{foo}']) {

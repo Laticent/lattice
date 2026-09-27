@@ -1,0 +1,92 @@
+# lib/plugins — the plugin host
+
+A **plugin** teaches Lattice something new — a syntax, a fence, a slide class — as one folder with
+a manifest. The design, the decisions behind it and the order the rest of the integrations move in
+are `engineering/decisions/2026-09-27-plugin-system.md`; this file is the working guide.
+
+**Shipped plugins:** `math` (`$…$`, `$$…$$`, the `math` slide class). Function-plot, Mermaid and
+the chart family move here next, one phase at a time.
+
+## A plugin is a folder
+
+```
+lib/plugins/<name>/
+  <name>.manifest.json    required — what it contributes; validated by plugin.schema.json
+  <name>.docs.md          required — the author's contract (HARD RULE #6)
+  <name>.fixtures.md      required — the conformance cases the harness runs
+  <name>.syntax.mjs       the GRAMMAR: markdown-it rules + detect(source). Pure; no library imports
+  <name>.render.js        the RENDERERS: what each token becomes. May load a library (math loads KaTeX)
+```
+
+The grammar and the renderers are separate files on purpose: the boundary parser and the docs
+site's pre-scan need the grammar without the library behind it.
+
+## The manifest says what, the modules say how
+
+```jsonc
+{
+  "type": "plugin", "format": 1, "name": "math", "api": 1,
+  "title": "Math", "description": "…",
+  "requires": [], "optional": [],                     // other plugins, by name
+  "contributes": {
+    "syntax": {                                       // keyed by the TOKEN TYPE each rule emits
+      "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },
+      "math_block":  { "kind": "block",  "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true }
+    },
+    "components": ["math"]
+  },
+  "render": { "parity": "equivalent", "degradesTo": "source" }
+}
+```
+
+`<name>.syntax.mjs` exports `rules` (one per declared token) and `detect(source)`;
+`<name>.render.js` exports `renderers` (one per declared token). The build checks the three agree
+one-to-one, so a manifest cannot claim a rule the code lacks, or the code carry one the manifest
+hides.
+
+A renderer is `(token, ctx, env) → string`. `ctx` is frozen: `ctx.name`, `ctx.options` (this
+plugin's `createEngine({ plugins: { options: { <name>: … } } })`), `ctx.family` (the deck's box
+family). Keep no state in closures — the engine reuses its parser across renders.
+
+## What the host guarantees, so a plugin does not have to
+
+- **Install order.** The host installs every rule, in dependency order. An anchor names a
+  markdown-it rule (`escape`, `fence`, …), never another plugin's.
+- **Collisions fail the build by name**: two plugins on one trigger character in one ruler, two
+  emitting one token type, two claiming one component.
+- **Fail-soft at render.** A renderer that throws or returns a non-string becomes the manifest's
+  `degradesTo`; the rest of the deck renders.
+- **The boundary parser agrees.** Every block rule is installed there too, so a plugin block's
+  body can never become a slide break.
+- **Disabling cascades.** `createEngine({ plugins: { disabled: ['x'] } })` turns `x` off and every
+  plugin that `requires` it; `optional` users keep running. (`math: false` still works.)
+
+## Fixtures
+
+````markdown
+## inline math typesets
+
+```markdown
+The area is $\pi r^2$.
+```
+
+- renders `class="katex"`
+- omits `<h1`
+- detect true
+````
+
+`test/unit/plugins/conformance.test.js` runs every case, and on every case also checks that
+`detect` finds whatever the parser turned into the plugin's tokens, and that each declared token
+is exercised by some case. `npm run test:plugins` runs the harness and the resolver tests.
+
+## The build
+
+`tools/build-plugin-registry.js` (a `npm run build` step) resolves every plugin and writes two
+committed files — never edit them:
+
+- `grammar.generated.mjs` — manifests + grammar, in dependency order (ESM; no renderer library)
+- `registry.generated.js` — the grammar plus the renderers (what the engine installs)
+
+`npm run build:check` fails when they are stale, and `checkPluginMigration` in
+`tools/check-ownership.js` fails when code outside `lib/plugins` hand-names a plugin's token, or a
+fence wrapper re-grows in `lib/integrations/markdown-it/plugins.js`.

@@ -1,0 +1,20 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "math",
+  "api": 1,
+  "title": "Math",
+  "description": "Typeset TeX on any slide: $…$ inline and $$…$$ display, drawn by KaTeX at parse time. Owns the math slide class.",
+  "contributes": {
+    "syntax": {
+      "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },
+      "math_block": { "kind": "block", "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true }
+    },
+    "components": ["math"]
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}

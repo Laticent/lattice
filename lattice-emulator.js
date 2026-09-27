@@ -960,7 +960,7 @@ const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough
 // idempotent, and returns its input BY IDENTITY when there is nothing to escape — which
 // is every real stylesheet, so exported bytes are unmoved. `require()` of an `.mjs` is
 // native on this repo's pinned engines (>=22.12) and the house idiom here (leading-is.js,
-// comment-directive.js, boundary-parser.js, math-block-rule.js all do it).
+// comment-directive.js, boundary-parser.js, lib/plugins' math grammar all do it).
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md.
 const { sanitizeStyleText } = require('./lib/core/sanitize-style-text.mjs');
 // The remote-subresource policy for the LIVE html this run writes — shared with the docs-site

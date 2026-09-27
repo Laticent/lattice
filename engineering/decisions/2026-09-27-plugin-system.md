@@ -153,7 +153,8 @@ The first slice that touches each file corrects it.
 ```
 lib/plugins/function-plot/
   function-plot.manifest.json    required — owns the name; declares type, contributions, deps
-  function-plot.syntax.js        parse time: fence renderers and markdown-it rules. Pure; Node AND browser
+  function-plot.syntax.mjs       the GRAMMAR: markdown-it rules and detect(source). Pure, library-free, ESM
+  function-plot.render.js        the RENDERERS: what each token or fence becomes. May load a library
   function-plot.hydrate.js       the browser half: turns placeholders into figures. ONE source for every surface
   function-plot.styles.css       token-only CSS
   function-plot.docs.md          what an author reads (the HARD RULE #6 contract)
@@ -162,6 +163,13 @@ lib/plugins/function-plot/
 ```
 
 Every file is `<name>.<role>.<ext>`, the spine's rule. A plugin carries only the roles it needs.
+
+**Grammar and renderers are separate roles** (found building phase A). The boundary parser needs a
+plugin's block rules and the docs site's pre-scan needs its `detect`, and neither may pull in the
+library behind the renderers — math's KaTeX is 76 KB gzip. The boundary parser is also bundled by
+the docs site's Rollup, which does no named-export interop on a CommonJS file under `lib/`, so the
+grammar is ESM (`.mjs`) and the build writes it into its own registry, `grammar.generated.mjs`,
+which imports no renderer.
 The kind row requires `manifest.json`, `docs.md` and `fixtures.md`: docs because #6 makes them the
 author's contract, fixtures because a plugin with no case cannot show it works. Role modules are
 CommonJS like the rest of `lib/`.
@@ -222,7 +230,7 @@ Function-plot's manifest as phase B ships it:
 ```
 
 **The manifest says what; the modules say how; the build checks they agree.** A fence declared in
-`contributes.fences` must have a renderer exported by `syntax.js` under the same name; a declared
+`contributes.fences` must have a renderer exported by `render.js` under the same name; a declared
 `hydrate` must have a `hydrate.js`; a diagnostic an adapter reports must be declared; and anything
 exported but not declared is an error too. That one-to-one check is what stops a manifest from
 lying — the failure mode of every hand-kept roster in §3.2.
@@ -433,7 +441,8 @@ and a render that names a slide class or fence it cannot find says which plugin 
 ### 4.11 Import and export
 
 `plugin` becomes the fifth row in `lib/packages/kinds.js` (root `lib/plugins`, layout `folder`,
-required `manifest.json`, `docs.md`, `fixtures.md`; code roles `syntax.js`, `hydrate.js`):
+required `manifest.json`, `docs.md`, `fixtures.md`; code roles `syntax.mjs`, `render.js`, and
+`hydrate.js` from phase B):
 
 - `lattice packages list --type plugin` · `add <zip|folder>` · `check` · `export plugin/<name>` ·
   `remove plugin/<name>` work through the existing CLI.
@@ -467,7 +476,7 @@ required `manifest.json`, `docs.md`, `fixtures.md`; code roles `syntax.js`, `hyd
 lattice packages new plugin sparkline
 ```
 
-writes a folder with a manifest, a `syntax.js` exporting one fence renderer, a stylesheet using two
+writes a folder with a manifest, a `render.js` exporting one fence renderer, a stylesheet using two
 tokens, a docs page, a one-slide gallery and two fixtures — and the build and the harness pass on it
 untouched. `lattice packages check <folder>` runs the schema, the resolver and the fixtures.
 
@@ -495,9 +504,11 @@ parser memo. If the host carries math without a special case, the easy shapes fo
 must be **invisible**: the evidence is byte-identical HTML for every gallery and example deck
 before and after, plus `npm run bench` before and after (§7).
 
-The `.katex-error` color (§3.3 defect 4) is fixed in the same phase by passing KaTeX an
-`errorColor` that resolves through a token — whether KaTeX accepts `var(--…)` there is unverified
-and is the phase's first measurement — and `.math-error`'s dead rule and sanction are deleted.
+The `.katex-error` color (§3.3 defect 4) moves to **phase B**, where it can ride that phase's
+export sign-off: it changes what an erroneous formula looks like, so it is not part of a move
+whose evidence is byte identity. The fix passes KaTeX an `errorColor` that resolves through a
+token (whether KaTeX accepts `var(--…)` there is the first thing to measure) and either wires
+`.math-error`'s designed error surface to it or deletes the dead rule and its sanction.
 
 **Function-plot stands alone too, and goes second.** The two were thought to be linked because
 they appear together, and they are not: neither library calls the other. On a `math canvas` slide
@@ -589,6 +600,38 @@ code. What changed because of them:
 - **No per-deck `plugins:` front matter.** A deck uses a plugin by using its syntax; an explicit
   list is a second place to keep in sync. The export's plugin record (§4.10) covers
   reproducibility.
+
+## 11. Progress
+
+- **Phase A, the host core and math: done, on this branch.** `lib/plugins/` holds the schema
+  (`plugin.schema.json`, registered as a `tools/manifest-schemas.js` family), the resolver
+  (`resolve.js`), the grammar host (`host-grammar.mjs`, shared by the engine and the boundary
+  parser), the engine host (`host.js`), and `math/` — manifest, `math.syntax.mjs` (the inline and
+  block rules and `detect`, merged from `lib/engine/math.js`, `lib/core/math-block-rule.mjs` and
+  `lib/engine/math-detect.mjs`), `math.render.js` (KaTeX, moved from `lib/engine/math.js`),
+  docs and fixtures. `tools/build-plugin-registry.js` writes `grammar.generated.mjs` and
+  `registry.generated.js` and is a `build:check` step. `lib/engine/index.js` names no plugin;
+  `createEngine({ math, mathOutput })` map onto `plugins: { disabled, options }` in
+  `pluginConfigFor`, whose key replaces the old math fields in both parser memo keys.
+  `lint-core` reads `OPAQUE_BLOCK_TOKENS` instead of naming `math_block`. `plugin` is the
+  spine's fifth kind, refused at every import door by name until phase E.
+  **Evidence.** Byte identity: every tracked Markdown file under `examples/`, `lib/`,
+  `test/integration/`, `docs/src/content/` and `spec/` (452), rendered by the engine at 16:9, 9:16
+  and 21:9 with default, `math: false` and `mathOutput: 'html'` — 4,068 renders, of which the
+  only 9 that changed are the one doc this phase moved and rewrote; the boundary parser's token
+  stream for all 452 files, identical but that one. Bench, same machine, interleaved base/branch
+  runs: the math dataset rendered in 96.2 / 96.5 ms on `main` and 94.1 / 101.5 ms on the branch
+  (noise), with 0 re-typesets per keystroke both ways. The real Studio's
+  `math-typeset-edit-cost.spec.ts` passes on the built site (5 cold typesets, 0 per keystroke).
+  Mutation-proved: installing `after` rules forwards fails the install-order arm; a `detect`
+  that misses inline math fails the superset arm; a hand-named `math_block` in `lib/core` fails
+  the migration ratchet, and so does a budget left above the real count; a `innerHTML` write in
+  a plugin folder is caught by `checkRuntimeMarkupSinks`.
+  **Cost.** The Studio's startup JavaScript grows 584 bytes gzip (618,145 → 618,729, measured as
+  a pair): the grammar host, the frozen registry and math's inline rule ride the
+  `slide-boundaries` chunk. `docs/route-budget.json` records the pair.
+  **The ratchet's starting counts:** 2 fence wrappers (function-plot, anima), 0 plugin token
+  names in code outside `lib/plugins`.
 
 ## References
 
