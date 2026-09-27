@@ -217,6 +217,8 @@ OPTIONS
                           also be enabled with a 'player: true' front-matter key.
       --player-mode M     Open the --player in light, dark or system mode, over the
                           deck's own 'color-mode:'.
+      --size NAME         Render on another registered canvas, over the deck's own
+                          'size:' (e.g. mobile-landscape, story, 4K).
       --narrate           Voice the --player with Kokoro, the Studio's on-device
                           voice: every narrated sentence (the --captions narration)
                           becomes a clip, encoded as the Studio's export encodes it.
@@ -458,6 +460,8 @@ function parseArgs(argv) {
     '--packages': 'packages',
     // The mode the --player opens in, over the deck's own (light, dark or system).
     '--player-mode': 'player-mode',
+    // Render on another canvas, over the deck's own `size:` (lib/engine/sizes.js).
+    '--size': 'size',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -863,7 +867,11 @@ const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { sheetStartMark, SHEET_END_MARK } = require('./lib/core/export-shell-marks');
 const { cliThemeStore, cliDeckSheet, katexFamilies, packAuthorCss, packInlineStyles } = require('./lib/export/cli-deck-sheet');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
-const md = WANT_PRINT ? withPrintColorMode(mdRaw) : mdRaw;
+// `--size NAME` renders the deck on another registered canvas without editing it: the same
+// front-matter rewrite as the print path, so the engine, the split gate and every reader below see
+// one `size:` (lib/engine/sizes.js `withSize`). An unknown name fails at the size check below.
+const mdSized = flags.size ? require('./lib/engine/sizes').withSize(mdRaw, flags.size) : mdRaw;
+const md = WANT_PRINT ? withPrintColorMode(mdSized) : mdSized;
 
 // A REFUSED deck-wide `class:` token says so HERE, not only in `lint:deck`.
 //

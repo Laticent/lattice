@@ -38,7 +38,7 @@ export const SPLIT_VALUES = ['rule', 'headings'];
 // in docs/src/playground/deck-sizes.js (the deck-config picker) and resolve
 // against the registry — both asserted by test/unit/playground/deck-sizes.test.js,
 // so the picker, this autocomplete, and the engine can't drift apart.
-export const SIZE_VALUES = ['hd', '4K', 'standard', 'square', 'portrait', 'story', 'mobile'];
+export const SIZE_VALUES = ['hd', '4K', 'standard', 'mobile-landscape', 'square', 'portrait', 'story', 'mobile'];
 
 // Fence info-strings worth completing: the Lattice-special focusable fences
 // (`mermaid`, `chart`) plus the languages editor.js highlights, with the common

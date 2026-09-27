@@ -250,9 +250,10 @@ section.chart-frame:not(.form) {
    * work. `--frame-x` is declared on `section.form`, so it cannot be read here;
    * `5 × --_sec-1cqi` is that token's own definition, kept in step by hand.
    * (The `4.375` bottom is the footer band. section-OWN cqi throughout: route
-   * through --_sec-1cqi for the preview self-reference.) */
+   * through --_sec-1cqi for the preview self-reference. The wide canvas's gutter
+   * rides along, as it does in `--frame-x`; it is 0 on every 16:9 canvas.) */
   padding: 0
-           calc(var(--_sec-1cqi, 1cqi) * 5 + var(--chart-inset-x))
+           calc(var(--_sec-1cqi, 1cqi) * 5 + var(--_wide-gutter, 0px) + var(--chart-inset-x))
            calc(4.375 * var(--_sec-1cqi, 1cqi));
 }
 

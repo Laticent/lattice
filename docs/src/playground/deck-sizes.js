@@ -20,6 +20,7 @@ export const SIZE_OPTIONS = [
   ['hd', 'HD · 1280×720 (16:9, default)'],
   ['4K', '4K · 3840×2160 (16:9)'],
   ['standard', 'Standard · 960×720 (4:3)'],
+  ['mobile-landscape', 'Mobile landscape · 1560×720 (19.5:9)'],
   // Portrait / square (social & mobile — #399)
   ['square', 'Square · 1080×1080 (1:1)'],
   ['portrait', 'Portrait · 1080×1350 (4:5)'],

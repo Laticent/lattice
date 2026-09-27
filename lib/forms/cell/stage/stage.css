@@ -63,7 +63,7 @@ section.form {
    * don't depend on the section's cqh; that's what lets the masthead be an
    * in-flow, content-height band instead of a fixed-height reserved one.) */
   --masthead-h: calc(var(--_sec-1cqi, 1cqi) * 11); /* nominal; the band is content-height (manifest geometry ref) */
-  --frame-x: calc(var(--_sec-1cqi, 1cqi) * 5);
+  --frame-x: calc(var(--_sec-1cqi, 1cqi) * 5 + var(--_wide-gutter, 0px)); /* + the wide canvas's gutter (base.elements.css) */
   --frame-y: calc(var(--_sec-1cqi, 1cqi) * 6.875);
   /* Footer Cell geometry. The reserve is DERIVED from the real footer Cell
    * height (baseline inset + band height + gap), not a magic number, so the

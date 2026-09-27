@@ -88,6 +88,26 @@ uses a `--fs-*` token** (a drift-guard test bans raw `cqi` font-sizes), so it
 follows its slide's orientation automatically. Full rationale + the §11 selection
 mechanism: `engineering/decisions/2026-06-20-typography-categories.md`.
 
+**Wider than 16:9 — `size: mobile-landscape`** (1560×720, ~19.5:9, a phone held sideways;
+#2372 fork 9). It is `landscape`, and the landscape scale would put every size ~22% above its HD
+value against an unchanged height, because every token is width-relative. So on a canvas wider
+than 16:9 the engine sets the slide's design unit, `--_sec-1cqi`, to the 1% of a 16:9 canvas of the
+same height (12.8 px at 720), and sets `--_wide-gutter` to half the extra width (140 px). The
+slide's insets add that gutter: the section's inline padding (`base.elements.css`), a Form's
+`--frame-x` (`stage.css`), the edge chrome's `--frame-inset-x` (`base.tokens.css`) and the
+divider's padding. So type, spacing, the content box and the chrome around it are HD's to the
+pixel, centered, and the backgrounds, split panels and full-bleed media run the full width
+(`orientationCss` in `lib/engine/css.js`, `wideFactor` in `lib/engine/sizes.js`, and the runtime's
+`patchSectionGeometry` for the live preview, which reads the factor off the section's box only
+when that box has a registered wide canvas's shape, `canvasWideFactor`). The gutter is unset on every other canvas, so the
+`var(--_wide-gutter, 0px)` terms add nothing there. A component that insets from the slide edge on
+its own must add the gutter too, the way the divider and an unwrapped `.chart-frame` do. A
+**full-bleed** frame is the exception: `split-panel`, `split-compare` and `image` zero the section's
+padding and run their panes to the edges, so there is no padded column for the chrome to follow.
+They reset `--frame-inset-x` to the 16:9 inset, where the header and footer line up with the panel
+text; with the gutter, the footer crossed the panel seam and was cut (found by the checker, gallery
+page 18).
+
 ## 2 — Author's mental model
 
 > **HTML heading**: use `--fs-h<level>`. `h1` → `fs-h1`. `h2` → `fs-h2`. …
