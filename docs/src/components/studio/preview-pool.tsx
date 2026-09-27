@@ -588,8 +588,15 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	// still armed after unmount. `alive` is what actually stops it: `schedule()` refuses to arm once
 	// the pool is gone. Without it the callback holds this pool's closures for up to APPLY_MS past
 	// unmount, in the one module whose subject is retained memory.
-	React.useEffect(
-		() => () => {
+	// The body sets `alive` back to true because StrictMode (the dev server) runs this cleanup and
+	// then re-runs the effect on the SAME refs; without that reset the pool never armed again and
+	// painted nothing on `astro dev`. It then arms one pass, because the tiles' own effects re-ran
+	// FIRST (children before parent) and their `schedule()` calls were refused while `alive` was
+	// false. `schedule` is stable (its one dependency, `rectOf`, has none), so this runs once.
+	React.useEffect(() => {
+		alive.current = true;
+		schedule();
+		return () => {
 			alive.current = false;
 			if (pending.current !== null) window.clearTimeout(pending.current);
 			pending.current = null;
@@ -597,9 +604,8 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			raf.current = 0;
 			for (const off of nested.current.values()) off();
 			nested.current.clear();
-		},
-		[],
-	);
+		};
+	}, [schedule]);
 
 	React.useEffect(() => {
 		const layer = layerRef.current;

@@ -256,7 +256,10 @@ export function DeckPreview({
 	// `options` is page-level config the Studio hands identically to both. Read once,
 	// like `options` itself — a host does not become a thumbnail mid-life.
 	const engineRef = React.useRef<SingleSlideRenderer | null>(null);
-	if (engineRef.current === null) engineRef.current = createSingleSlideRenderer(specimen || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options);
+	// The FIRST render's arguments, held so a StrictMode remount can rebuild the renderer from
+	// inside an effect (see `runRenderRef`) without reading a later render's `options`.
+	const makeEngineRef = React.useRef(() => createSingleSlideRenderer(specimen || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options));
+	if (engineRef.current === null) engineRef.current = makeEngineRef.current();
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
 	activeRef.current = active;
@@ -548,6 +551,14 @@ export function DeckPreview({
 		const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
 		if (host) host.__latticeCoalesce = coalesceRef.current || 1;
 		coalesceRef.current = 0;
+		// StrictMode (the dev server) runs the unmount cleanup, which disposes and NULLS the
+		// renderer, then re-runs the effects on the same refs — with no render body in between to
+		// rebuild it. The first mount's render is usually still in flight at that point, so it
+		// resumes against the null renderer and draws nothing; the scheduler's catch-up pass then
+		// lands here. Without this rebuild that pass draws nothing too, and a host whose props
+		// never change afterwards (a pooled preview tile) stays blank for its whole life. Only
+		// while mounted: after a real unmount `stageRef` is null.
+		if (host && engineRef.current === null) engineRef.current = makeEngineRef.current();
 		// Skip the prefetch entirely when this host renders against a RAW in-memory theme:
 		// `extraTheme.name` is not a file under `themeBase`, so the warm-up fetch is a
 		// guaranteed 404. It is swallowed (prefetchTheme catches) and the render is

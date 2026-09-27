@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DeckPreview from './DeckPreview';
 
@@ -181,6 +182,22 @@ describe('DeckPreview — teardown (leak fix)', () => {
 		// module-level scaleTargets entry would leak the parsed ~560KB theme iframe.
 		unmount();
 		expect(dispose).toHaveBeenCalledTimes(1);
+	});
+
+	it('still paints after a StrictMode remount whose props never change', async () => {
+		// StrictMode (the dev server) disposes and nulls the renderer, then re-runs the effects —
+		// the first-paint effect before the render body can rebuild it. A host whose props never
+		// change afterwards (a pooled preview tile) then painted nothing on `astro dev`
+		// (followups.d/2391-p2). The render must reach a live renderer with no second React render.
+		const { unmount } = render(
+			<StrictMode>
+				<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />
+			</StrictMode>,
+		);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		expect(dispose, 'StrictMode disposed the first renderer').toHaveBeenCalledTimes(1);
+		unmount();
+		expect(dispose, 'the rebuilt renderer is disposed on a real unmount').toHaveBeenCalledTimes(2);
 	});
 });
 

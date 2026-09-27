@@ -1,0 +1,1 @@
+- The Studio's pooled previews (the deck panel's preset picker and the Reshape picker) and the Fabricate specimens now paint on the docs dev server (`astro dev`). Two refs, the preview pool's `alive` flag and `DeckPreview`'s renderer, did not survive React StrictMode's dev remount. Production builds were never affected.

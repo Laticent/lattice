@@ -223,10 +223,12 @@ sample slide under that preset, and it went through two designs.
   - **Typing:** the Studio re-renders on every keystroke, and every render of a tile re-points
     its pooled frame. `PresetPicker` is memoized with stable callbacks, and its four sample decks
     are built once per front-matter change.
-- **Dev-server note.** On `astro dev` the pool paints no frames, for this picker and for the
-  existing Reshape picker alike; on a production build both paint. It predates this change,
-  though the preset picker only became exposed to it here. Recorded as
-  `followups.d/2391-p2-preview-pool-blank-on-astro-dev.md`.
+- **Dev-server note.** On `astro dev` the pool painted no frames, for this picker and for the
+  existing Reshape picker alike, while a production build painted both. Fixed 2026-09-27: two
+  refs did not survive React StrictMode's dev remount, the pool's `alive` flag and
+  `DeckPreview`'s renderer. Both pickers now paint on `astro dev` (1 → 5 iframes with the
+  preset panel open, 1 → 7 with Reshape open, matching production). See
+  `engineering/gotchas/docs-site.md` § Every Fabricate preview is EMPTY in `astro dev`.
 
 **Readers that stay outside the shared one, each on purpose.**
 
