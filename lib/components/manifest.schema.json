@@ -1100,6 +1100,52 @@
             "eyebrow": { "$ref": "#/$defs/venueRow" }
           }
         },
+        "variants": {
+          "type": "object",
+          "description": "Rows for a variant that holds more or less than the bare component (`list takeaway`), keyed by the variant's class token. Measured with `tools/calibrate-capacity.js --variant <token>`. Lint uses the row when a slide carries the token.",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["byWords"],
+            "properties": {
+              "byWords": {
+                "type": "object",
+                "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+                "minProperties": 1,
+                "additionalProperties": { "$ref": "#/$defs/venueRow" }
+              },
+              "insight": {
+                "type": "object",
+                "description": "This variant measured ending in a callout (`--variant <token> --insight`). Lint reads it directly for such a slide.",
+                "additionalProperties": false,
+                "required": ["byWords"],
+                "properties": {
+                  "byWords": {
+                    "type": "object",
+                    "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+                    "minProperties": 1,
+                    "additionalProperties": { "$ref": "#/$defs/venueRow" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "insight": {
+          "type": "object",
+          "description": "The same component ending in a key-insight callout (a trailing `> …` blockquote, which an `insight-*` class only relabels), measured with `tools/calibrate-capacity.js --insight`. Lint subtracts the callout's cost per venue (bare row minus this row, at the same word length) from whichever row a slide ending in a blockquote uses.",
+          "additionalProperties": false,
+          "required": ["byWords"],
+          "properties": {
+            "byWords": {
+              "type": "object",
+              "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+              "minProperties": 1,
+              "additionalProperties": { "$ref": "#/$defs/venueRow" }
+            }
+          }
+        },
         "atLeast": {
           "type": "array",
           "description": "Venues where the rig never saw the component overflow: the number there is the most it tried, a floor.",

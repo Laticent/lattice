@@ -14,7 +14,7 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a stage is a name plus one clause, not a paragraph.
 
-**By venue** (`venue:`, ~12 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~4 items. At ~6 words each: 6 · 6 · 6 · 6. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~12 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~4 items. At ~6 words each: 6 · 6 · 6 · 6. Ending in a `> …` callout (~12 words): 5 · 3 · 2 · 2. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

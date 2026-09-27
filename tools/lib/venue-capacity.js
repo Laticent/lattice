@@ -66,7 +66,24 @@ function venueDocsLine(m, noun) {
   const capped = cap != null && Object.values(vc.byWords).some((r) => VENUES.some((v) => r[v] > cap))
     ? ` No venue goes past the Capacity max of ${cap}, which holds in every room.`
     : '';
-  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${capped}${floor} ${past} ${how}`;
+  // A variant with its own row, and the cost of a trailing insight callout, when measured
+  // (lint-core `scaleCapacityFor` applies both). Each at its longest measured length.
+  const at = (byWords) => {
+    const len = Object.keys(byWords).map(Number).sort((a, b) => a - b).find((l) => l >= words) ?? Math.max(...Object.keys(byWords).map(Number));
+    return { len, r: byWords[String(len)] };
+  };
+  const variants = Object.entries(vc.variants || {}).map(([tok, v]) => {
+    const { len, r } = at(v.byWords);
+    return ` With \`${tok}\` (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
+  }).join('');
+  const insight = vc.insight
+    ? (() => {
+      const len = Object.keys(vc.insight.byWords)[0];
+      const r = vc.insight.byWords[len];
+      return ` Ending in a \`> …\` callout (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
+    })()
+    : '';
+  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${variants}${insight}${capped}${floor} ${past} ${how}`;
 }
 
 /** The pick-list cell: laptop/huddle/conference/hall at the authored length, capped by the

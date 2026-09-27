@@ -533,3 +533,42 @@ size. Rules 1–7 of STEP and LEVEL above are history.
 figure that fits itself to its box (a flowchart, a chart) shrinks its own text at a venue rather
 than clipping, so it is reported by the TYPE FLOOR check, not the ring.
 
+
+## Amendment 2026-09-27 (4) — the venue budget reads the slide a real deck writes
+
+With the step-down retired, `capacity-scale` is the early warning for a clip, so it has to be
+right on real decks. Scored against the export's OVERFLOW list on the 74-slide talk (a venue now
+clips exactly the slides that do not fit, so that list is the ground truth), it was not: every
+false warning was a `list takeaway` slide judged by the bare `list` row, and most misses ended in a
+callout the bare rows never measured. Three changes, all in
+`lib/authoring/lint-core.js` `scaleCapacityFor` and the manifests' `venueCapacity`:
+
+- **Interpolate between measured word lengths** (floored). A 10-word item used to be judged as a
+  14-word one.
+- **A variant can carry its own row** (`venueCapacity.variants`). `list takeaway` holds
+  9+ / 9+ / 8 / 3 at 10 words where bare `list` holds 6 / 5 / 3 / 2. Measured with the rig's new
+  `--variant` flag.
+- **A callout costs its measured height** (`venueCapacity.insight`, measured with `--insight`):
+  a slide ending in a `> …` blockquote (the key-insight block; an `insight-*` class only relabels
+  it) pays the bare row minus the callout row, per rung, on whichever row it uses. `list-steps`,
+  `cycle`, `cards-grid` and `list` carry one. The message names the row it quotes
+  ("'list takeaway'", "'list-steps with its callout'").
+
+- **A component with a venue row and no `capacity` block** (`compare-prose`, `matrix-2x2`, …)
+  now reaches `capacity-scale`, and only that rule. It never claims a clip at the designed size:
+  it has no count budget to stand behind one, and its rows are the rig's shape rather than the
+  author's. `compare-prose` carries a `vertical` row and a `vertical` row with its callout.
+  This closes the hall label-lift follow-up: the talk's six pages that clip at hall only because
+  the lift raises the labels (4, 6, 27, 45, 47, 57) are all named at hall, and the owner's
+  ruling (keep the lift, warn) holds.
+
+| venue | before: right / false / missed | after |
+|---|---|---|
+| huddle (17 clip) | 9 / 10 / 8 | 16 / 3 / 1 |
+| conference (31 clip) | 18 / 6 / 13 | 25 / 4 / 6 |
+| hall (47 clip) | 29 / 4 / 18 | 38 / 1 / 9 |
+
+No finding claims a clip at the designed size on the talk any more (it made 10 per venue). Still
+off: components with no venue row at all (`roadmap`, `diagram`, `divider`, a mermaid slide), and
+a few `list takeaway` / `glossary` slides whose rows run pessimistic. Both stay in
+`followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md`.

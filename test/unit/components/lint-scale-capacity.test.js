@@ -259,3 +259,60 @@ describe('unknown-venue', () => {
     assert.deepEqual(run('---\nmarp: true\nvenue: Conference\n---\n\n# x\n'), []);
   });
 });
+
+describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () => {
+  const venueDeck = (venue, body) => `---\nmarp: true\nvenue: ${venue}\n---\n\n${body}`;
+  const v = { names: new Set(['list', 'list-steps']), modifiers: new Set(['takeaway', 'insight-so-what']),
+    capacity: { list: { axis: 'item', min: 2, sweet: 4, soft: 5, hard: 6 }, 'list-steps': { axis: 'item', min: 3, sweet: 4, soft: 5, hard: 5 } } };
+  const run = (src) => core.lintTextWith(src, v).filter((f) => f.rule === 'capacity-scale');
+  const bullets = (n, words) => Array.from({ length: n }, () => `- ${Array.from({ length: words }, (_, i) => `w${i}`).join(' ')}`).join('\n');
+
+  test('word lengths between two measured columns are interpolated, not rounded up', () => {
+    const map = { 6: [6, 5, 5, 4], 14: [3, 3, 3, 2] };
+    assert.equal(core.wordMapAt(map, 10, 0), 4); // 6 + (3 - 6) * 4 / 8 = 4.5 → 4
+    assert.equal(core.wordMapAt(map, 6, 0), 6);
+    assert.equal(core.wordMapAt(map, 20, 3), 2);
+    assert.equal(core.wordMapAt(map, 3, 1), 5);
+  });
+
+  test('a variant with its own measured row is judged by it: list takeaway holds more than list', () => {
+    const bare = run(venueDeck('conference', `<!-- _class: list -->\n\n## H.\n\n${bullets(5, 10)}\n`));
+    const takeaway = run(venueDeck('conference', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(5, 10)}\n`));
+    assert.equal(bare.length, 1, 'bare list at 10 words holds 3 at conference');
+    assert.deepEqual(takeaway, [], 'list takeaway at 10 words holds 8 at conference');
+  });
+
+  test('an insight callout costs the slide its measured elements', () => {
+    const steps = (n) => Array.from({ length: n }, (_, i) => `${i + 1}. Step ${i + 1}\n   - reads the ticket and plans the change before anyone asks it to\n`).join('');
+    const plain = run(venueDeck('conference', `<!-- _class: list-steps -->\n\n## H.\n\n${steps(3)}`));
+    const withCallout = run(venueDeck('conference', `<!-- _class: list-steps insight-so-what -->\n\n## H.\n\n${steps(3)}\n> The line to remember.\n`));
+    assert.deepEqual(plain, [], 'three steps fit at conference');
+    assert.equal(withCallout.length, 1, 'with a callout, conference holds two');
+    assert.match(withCallout[0].message, /'list-steps with its callout' holds about 2 items/);
+  });
+
+  test('the callout is the trailing blockquote, not the insight-* class that relabels it', () => {
+    const steps = (n) => Array.from({ length: n }, (_, i) => `${i + 1}. Step ${i + 1}\n   - reads the ticket and plans the change before anyone asks it to\n`).join('');
+    assert.deepEqual(run(venueDeck('conference', `<!-- _class: list-steps insight-so-what -->\n\n## H.\n\n${steps(3)}`)), [], 'a class with no blockquote costs nothing');
+    assert.equal(run(venueDeck('conference', `<!-- _class: list-steps -->\n\n## H.\n\n${steps(3)}\n> Key insight.\n`)).length, 1, 'a bare blockquote is a callout');
+    assert.equal(core.endsWithCallout('## H.\n\n```\n> not a quote\n```\n'), false);
+    assert.equal(core.endsWithCallout('## H.\n\n<!--\n> a note\n-->'), false);
+  });
+
+  test('a component with a venue row but no capacity block is judged, and never claims a 1x clip', () => {
+    const vv = { names: new Set(['compare-prose']), modifiers: new Set(['vertical']), capacity: {} };
+    const side = (t) => `- ${t}\n  - ${Array.from({ length: 18 }, (_, i) => `w${i}`).join(' ')}.`;
+    const src = `---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: compare-prose vertical -->\n\n## H.\n\n${side('A')}\n${side('B')}\n\n> The line to remember.\n`;
+    const out = core.lintTextWith(src, vv).filter((f) => f.rule === 'capacity-scale');
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, /'compare-prose vertical with its callout'/);
+    assert.doesNotMatch(out[0].message, /designed size/);
+    assert.deepEqual(core.lintTextWith(src.replace('venue: hall\n', ''), vv).filter((f) => f.rule === 'capacity-scale'), []);
+  });
+
+  test('a variant finding names the variant row it quotes', () => {
+    const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 10)}\n`));
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, /'list takeaway' holds about 3/);
+  });
+});
