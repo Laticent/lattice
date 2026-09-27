@@ -782,3 +782,12 @@ describe('regions, short months and cohort columns read without an acronyms: blo
 		expect(toSpokenText('Jan 2026 Feb M1', { lang: 'fr' })).toBe('Jan 2026 Feb M1');
 	});
 });
+
+describe('the short-month context check stays linear on hostile punctuation', () => {
+	it('reads a 50,000-character run of "!" beside a month in well under a second', () => {
+		const t0 = performance.now();
+		expect(toSpokenText(`Jan${'!'.repeat(50000)} 2026`)).toContain('Jan');
+		expect(toSpokenText(`Jan 2026 Feb${'!'.repeat(50000)}`)).toContain('January');
+		expect(performance.now() - t0).toBeLessThan(1000);
+	});
+});

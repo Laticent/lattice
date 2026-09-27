@@ -665,7 +665,19 @@ const MONTH_WORD = new Set([
   ...MONTHS,
   'Jan', 'Feb', 'Mar', 'Apr', 'Jun', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec',
 ]);
-const isMonthWord = (t: string | undefined): boolean => MONTH_WORD.has(String(t ?? '').replace(/[.,;:!?]+$/, ''));
+// The trailing punctuation run of a token, by a linear reverse scan — NOT a `/[…]+$/` regex, whose
+// `+` retries at every start position (polynomial on a long run of "!" in untrusted deck text; the
+// same class `pauseAfter` in cadence.ts avoids).
+const TRAILING_PUNCT = new Set(['.', ',', '!', '?', ';', ':', '…']);
+function trailingPunct(s: string): string {
+  let i = s.length;
+  while (i > 0 && TRAILING_PUNCT.has(s[i - 1])) i--;
+  return s.slice(i);
+}
+const isMonthWord = (t: string | undefined): boolean => {
+  const s = String(t ?? '');
+  return MONTH_WORD.has(s.slice(0, s.length - trailingPunct(s).length));
+};
 
 /**
  * The spoken form of `Jan` / `Mar` / `Jun` when a neighbor makes it a date ("Jan 2026", "3 Mar",
@@ -677,7 +689,7 @@ const isMonthWord = (t: string | undefined): boolean => MONTH_WORD.has(String(t 
 export function contextualMonth(display: string, prev: string | undefined, next: string | undefined, opts: SpokenOpts = {}): string | null {
   if (!isEnglishLang(opts.lang)) return null;
   const tok = String(display ?? '').trim();
-  const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? '';
+  const punct = trailingPunct(tok);
   const core = punct ? tok.slice(0, -punct.length) : tok;
   if (!Object.hasOwn(CONTEXT_MONTHS, core)) return null;
   if (opts.acronyms?.has(tok) || opts.acronyms?.has(core) || opts.lexicon?.has(tok) || opts.lexicon?.has(core)) return null;
