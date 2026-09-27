@@ -5804,8 +5804,10 @@ function planLiveLayers(b) {
     if (paths[l].length) body += `<path d="${paths[l].join('')}" style="fill:none;stroke:${esc(ink)};stroke-width:1;stroke-opacity:${(l / LEVELS).toFixed(3)}"/>`;
   }
   for (let l = 1; l <= LEVELS; l++) {
-    const d = dots.filter((p) => p[0] === l).map(([, x, y]) => `M${f(x - 1.5)} ${f(y)}a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0`).join('');
-    if (d) body += `<path d="${d}" style="fill:${esc(ink)};fill-opacity:${(l / LEVELS).toFixed(3)}"/>`;
+    // A dot is a zero-length stroke with round caps: the same 3px disc as the CSS dot, at a
+    // quarter of the bytes of a circle path (strata has ~1,300 a slide).
+    const d = dots.filter((p) => p[0] === l).map(([, x, y]) => `M${f(x)} ${f(y)}h0`).join('');
+    if (d) body += `<path d="${d}" style="fill:none;stroke:${esc(ink)};stroke-width:3;stroke-linecap:round;stroke-opacity:${(l / LEVELS).toFixed(3)}"/>`;
   }
   plan.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${body}</svg>`;
   return plan;
