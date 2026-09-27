@@ -146,6 +146,9 @@ export interface Stage {
 export interface SequenceItemStart extends Onset {
 	/** The item's index in `items` (so a consumer never infers it from ambiguous text). */
 	index: number;
+	/** The decoded clip that just started, so a consumer can measure what is IN it — a voice's own
+	 *  leading silence, which `onsetMs` (when the clip starts) cannot tell it. */
+	clip?: Clip;
 }
 
 export interface SequenceStateEvent {
