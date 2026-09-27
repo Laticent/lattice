@@ -457,6 +457,34 @@ describe('export-formats', () => {
     }
   });
 
+  test('an empty overlay does not push text out of the text layer, and an escaped SVG is still drawn', { timeout: TIMEOUT }, () => {
+    // Two regressions from the second checker's fixes (caught by the third, 2026-09-27):
+    // making everything hit-testable let an empty pointer-events:none SVG (sketch mode's ink
+    // layer) 'cover' the words under it; and clipping SVG to every overflow ancestor, rather
+    // than its containing-block chain, erased an absolutely positioned SVG that escapes one.
+    const dir = tmpDir();
+    const src = path.join(dir, 'overlay.md');
+    fs.writeFileSync(src, [
+      '---\ntheme: cuoio\n---\n',
+      '## Overlay\n\n<div style="position:relative"><p>Quartzite halyard zephyr marmot.</p><svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></svg></div>\n',
+      '---\n\n## Escape\n\n<div style="overflow:hidden;width:200px;height:100px"><div style="position:absolute;left:600px;top:250px"><svg width="80" height="80"><rect width="80" height="80" fill="#c00"/></svg></div></div>\n',
+    ].join('\n'));
+    const out = path.join(dir, 'overlay.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const page1 = execFileSync('pdftotext', ['-f', '1', '-l', '1', out, '-'], { encoding: 'utf8' });
+    assert.match(page1, /Quartzite halyard zephyr marmot\./, 'the words under an empty overlay stay real text');
+    // The red square: its middle, on page 2, at 72 dpi (600+40, 250+40 px, scaled by 0.75).
+    const base = path.join(dir, 'p2');
+    execFileSync('pdftoppm', ['-r', '72', '-f', '2', '-l', '2', '-singlefile', out, base]);
+    const ppm = fs.readFileSync(`${base}.ppm`);
+    const [, w, h] = ppm.toString('latin1', 0, 20).match(/P6\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+    const px = ppm.subarray(ppm.length - w * h * 3);
+    const at = (x, y) => [...px.subarray((y * w + x) * 3, (y * w + x) * 3 + 3)];
+    const [R, G, B] = at(Math.round(640 * 0.75), Math.round(290 * 0.75));
+    assert.ok(R > 150 && G < 80 && B < 80, `the escaped SVG square is drawn (rgb ${R},${G},${B})`);
+  });
+
   test('a KaTeX square root keeps its bar inside the root, as the browser clips it', { timeout: TIMEOUT }, () => {
     // KaTeX draws the bar 400em wide and crops it with the SVG viewport and an overflow:hidden
     // span; the writer once ignored both and ran the bar to the edge of the page.
