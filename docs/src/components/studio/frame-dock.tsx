@@ -70,6 +70,8 @@ export type DockSlot = {
 	clip: Clip | null;
 	/** Stacking: the z-index of the tile's surface. */
 	z: number;
+	/** Which surface, in the order surfaces opened (`surfaceLayer`): at an equal z, only the newest shows. */
+	layer: number;
 	/** Bumped when the slot must be rebuilt (see preview-pool's identity partition). */
 	gen: number;
 	/** The shape and identity the slot's document was built for (preview-pool's keys). */
@@ -187,7 +189,7 @@ export function acquireSlot(owner: number, idk: string, key: string, exactOrNew 
 	if (exactOrNew) {
 		let hit = free.find((s) => s.idk === idk && s.key === key);
 		if (!hit && slots.length < DOCK_MAX_SLOTS) {
-			hit = { id: nextSlotId++, owner: null, props: null, anchor: null, clip: null, z: 0, gen: 0, key, idk };
+			hit = { id: nextSlotId++, owner: null, props: null, anchor: null, clip: null, z: 0, layer: 0, gen: 0, key, idk };
 			slots = [...slots, hit];
 		}
 		if (hit) hit.owner = owner;
@@ -195,7 +197,7 @@ export function acquireSlot(owner: number, idk: string, key: string, exactOrNew 
 	}
 	let slot = free.find((s) => s.idk === idk && s.key === key) ?? free.find((s) => s.idk === idk);
 	if (!slot && slots.length < DOCK_MAX_SLOTS) {
-		slot = { id: nextSlotId++, owner: null, props: null, anchor: null, clip: null, z: 0, gen: 0, key, idk };
+		slot = { id: nextSlotId++, owner: null, props: null, anchor: null, clip: null, z: 0, layer: 0, gen: 0, key, idk };
 		slots = [...slots, slot];
 	}
 	if (!slot) {
@@ -211,7 +213,7 @@ export function acquireSlot(owner: number, idk: string, key: string, exactOrNew 
 }
 
 /** Point a held slot at a tile (or hide it with `anchor: null`). */
-export function updateSlot(id: number, patch: Partial<Pick<DockSlot, 'props' | 'anchor' | 'clip' | 'z' | 'key'>>) {
+export function updateSlot(id: number, patch: Partial<Pick<DockSlot, 'props' | 'anchor' | 'clip' | 'z' | 'key' | 'layer'>>) {
 	const i = slots.findIndex((s) => s.id === id);
 	if (i < 0) return;
 	slots = slots.map((s) => (s.id === id ? { ...s, ...patch } : s));
@@ -224,7 +226,7 @@ export function dockSlot(id: number): DockSlot | undefined {
 }
 
 /** Several `updateSlot`s in one change, so a pass re-renders the dock once. */
-export function updateSlots(patches: { id: number; patch: Partial<Pick<DockSlot, 'props' | 'anchor' | 'clip' | 'z' | 'key'>> }[]) {
+export function updateSlots(patches: { id: number; patch: Partial<Pick<DockSlot, 'props' | 'anchor' | 'clip' | 'z' | 'key' | 'layer'>> }[]) {
 	if (!patches.length) return;
 	const byId = new Map(patches.map((p) => [p.id, p.patch]));
 	slots = slots.map((s) => (byId.has(s.id) ? { ...s, ...byId.get(s.id) } : s));
@@ -289,6 +291,38 @@ export function placementOf(el: HTMLElement): { clip: Clip; z: number } {
 	return { clip, z };
 }
 
+/**
+ * The order a surface opened in — 0 for anything not in `surfacesRoot()` (the Studio page itself).
+ *
+ * Two surfaces at the SAME z-index (the phone's Settings sheet and Add slide's sheet are both z-50)
+ * cannot be ordered by z. In `#lattice-surfaces` the newer one paints above the older, but every
+ * frame lives in the dock, above both, so the older surface's frames showed through the newer one
+ * (found by the red team at 390 px, both engines). A surface's number is fixed the first time a pool
+ * inside it asks, which is when it opens; the host shows only the newest layer at each z.
+ */
+const layers = new WeakMap<Element, number>();
+let nextLayer = 1;
+export function surfaceLayer(el: Element | null): number {
+	const surface = el?.closest('#lattice-surfaces > *');
+	if (!surface) return 0;
+	let n = layers.get(surface);
+	if (n === undefined) {
+		n = nextLayer++;
+		layers.set(surface, n);
+	}
+	return n;
+}
+
+/**
+ * The element inside dock slot `id` that a tile's overlay portals into — above the frame, clipped
+ * with it. A tile's own chrome (Add slide's Insert bar, the overview's slide number) sits inside its
+ * surface, and the dock paints above the whole surface, so a `z-10` in the tile no longer reaches
+ * over the frame (found by the red team: every overview number and every Insert bar hidden).
+ */
+export function dockOverlayHost(id: number): HTMLElement | null {
+	return document.querySelector<HTMLElement>(`#lattice-frame-dock [data-dock-overlay="${id}"]`);
+}
+
 export const sameClip = (a: Clip | null, b: Clip | null) =>
 	a === b || (!!a && !!b && a.top === b.top && a.left === b.left && a.right === b.right && a.bottom === b.bottom);
 
@@ -313,9 +347,13 @@ export function FrameDockHost() {
 		};
 	}, []);
 	if (!el) return null;
+	const placed = (s: DockSlot) => s.owner !== null && s.anchor !== null && !!s.clip && s.clip.right > s.clip.left && s.clip.bottom > s.clip.top;
+	// The newest surface at each z (see `surfaceLayer`).
+	const top = new Map<number, number>();
+	for (const s of slots) if (placed(s)) top.set(s.z, Math.max(top.get(s.z) ?? 0, s.layer));
 	return createPortal(
 		slots.map((s) => {
-			const shown = s.owner !== null && s.anchor !== null && !!s.clip && s.clip.right > s.clip.left && s.clip.bottom > s.clip.top;
+			const shown = placed(s) && s.layer === top.get(s.z);
 			const c = s.clip;
 			return (
 				<div
@@ -347,6 +385,8 @@ export function FrameDockHost() {
 						}
 					>
 						{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden /> : null}
+						{/* Always rendered, so the tree never changes shape and the frame never remounts. */}
+						<div data-dock-overlay={s.id} className="absolute inset-0" />
 					</div>
 				</div>
 			);

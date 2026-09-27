@@ -1,9 +1,10 @@
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import DeckPreview from '@/components/DeckPreview';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
-import { acquireSlot, anchorNameOf, canDock, dockSlot, placementOf, releaseSlots, sameClip, updateSlots } from './frame-dock';
+import { acquireSlot, anchorNameOf, canDock, dockOverlayHost, dockSlot, placementOf, releaseSlots, sameClip, surfaceLayer, updateSlots } from './frame-dock';
 import { hasMermaid } from './slide-thumb';
 
 // ── A POOL OF PREVIEW FRAMES THAT ARE NEVER DESTROYED (#1538) ───────────────────────
@@ -240,11 +241,18 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 	return null;
 }
 
+/** Whether `el` is inside a surface playing its exit animation (Radix marks it `data-state="closed"`). */
+function isClosing(el: Element | null): boolean {
+	return !!el?.closest('[data-state="closed"]');
+}
+
 type PoolApi = {
 	register: (tile: Tile) => void;
 	unregister: (id: number) => void;
 	setInBand: (id: number, inBand: boolean) => void;
 	updateProps: (id: number, props: PooledPreviewProps) => void;
+	/** Tell a tile which dock slot shows it (null: none), so its overlay can ride above the frame. */
+	watchDock: (id: number, cb: (dockId: number | null) => void) => () => void;
 };
 
 const PoolContext = React.createContext<PoolApi | null>(null);
@@ -306,6 +314,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	// slot index → the tile it currently shows, and the shape its document was last built for.
 	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number; dockId?: number }[]>([]);
 	const slotsRef = React.useRef(slots);
+	const dockWatchers = React.useRef(new Map<number, { cb: (dockId: number | null) => void; last: number | null }>());
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
 	const lastApply = React.useRef(0);
@@ -593,6 +602,17 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				t.props = props;
 				if (t.inBand) schedule();
 			},
+			watchDock(id, cb) {
+				dockWatchers.current.set(id, { cb, last: null });
+				const s = slotsRef.current.find((x) => x.tileId === id && x.dockId !== undefined);
+				if (s?.dockId !== undefined && docked.current) {
+					dockWatchers.current.set(id, { cb, last: s.dockId });
+					cb(s.dockId);
+				}
+				return () => {
+					dockWatchers.current.delete(id);
+				};
+			},
 		}),
 		[schedule, watchNested],
 	);
@@ -603,6 +623,9 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	React.useEffect(() => {
 		if (!docked.current) return;
 		const patches: Parameters<typeof updateSlots>[0] = [];
+		const closing = isClosing(layerRef.current);
+		const layer = surfaceLayer(layerRef.current);
+		const shows = new Map<number, number>();
 		for (const s of slots) {
 			if (s.dockId === undefined) continue;
 			const t = s.tileId === null ? null : tiles.current.get(s.tileId);
@@ -610,10 +633,18 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				patches.push({ id: s.dockId, patch: { props: s.props, key: s.key, anchor: null, clip: null } });
 				continue;
 			}
+			shows.set(t.id, s.dockId);
 			const { clip, z } = placementOf(t.el);
-			patches.push({ id: s.dockId, patch: { props: s.props, key: s.key, anchor: anchorNameOf(t.el, 'tile'), clip, z } });
+			patches.push({ id: s.dockId, patch: { props: s.props, key: s.key, anchor: anchorNameOf(t.el, 'tile'), clip: closing ? null : clip, z, layer } });
 		}
 		updateSlots(patches);
+		for (const [id, w] of dockWatchers.current) {
+			const d = shows.get(id) ?? null;
+			if (d !== w.last) {
+				w.last = d;
+				w.cb(d);
+			}
+		}
 	}, [slots]);
 
 	// DOCKED: keep each frame's CLIP current. A single scroller's scrollport does not move when it
@@ -627,11 +658,14 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			frame = 0;
 			if (!docked.current) return;
 			const patches: Parameters<typeof updateSlots>[0] = [];
+			const closing = isClosing(layerRef.current);
 			for (const s of slotsRef.current) {
 				if (s.dockId === undefined || s.tileId === null) continue;
 				const t = tiles.current.get(s.tileId);
 				if (!t) continue;
-				const { clip, z } = placementOf(t.el);
+				const placed = placementOf(t.el);
+				const clip = closing ? null : placed.clip;
+				const z = placed.z;
 				const cur = dockSlot(s.dockId);
 				if (cur && (!sameClip(cur.clip, clip) || cur.z !== z)) patches.push({ id: s.dockId, patch: { clip, z } });
 			}
@@ -647,6 +681,11 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		// Re-measure when any animation or transition settles.
 		window.addEventListener('animationend', on, true);
 		window.addEventListener('transitionend', on, true);
+		// A surface CLOSING: Radix marks it `data-state="closed"` and plays its exit animation
+		// before the pool unmounts. Anchor positioning ignores the exit transform and fade, so the
+		// frames would sit fully drawn over the editor while the sheet slid away (measured by the red
+		// team: 4 frames at y=437 with the sheet's top at 733 px, on WebKit). Hide them as it starts.
+		window.addEventListener('animationstart', on, true);
 		// iOS: the on-screen keyboard and pinch-zoom change the visual viewport without a window
 		// `resize`. UNVERIFIED on a device — no iPhone can be driven from here.
 		const vv = window.visualViewport;
@@ -656,6 +695,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			window.removeEventListener('scroll', on, { capture: true });
 			window.removeEventListener('resize', on);
 			window.removeEventListener('animationend', on, true);
+			window.removeEventListener('animationstart', on, true);
 			window.removeEventListener('transitionend', on, true);
 			if (frame) window.cancelAnimationFrame(frame);
 		};
@@ -743,11 +783,86 @@ let nextPoolId = 1;
  * Outside a `PreviewPool` it renders the placeholder and no preview rather than throwing, so a
  * caller that has not been wrapped yet degrades to an empty tile instead of a crash.
  */
-export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { className?: string }) {
+/**
+ * A tile's own chrome drawn OVER its preview — Add slide's Insert bar, the overview's slide number.
+ *
+ * Positioned against the tile's box. Where the tile's frame is docked, it is portaled into that dock
+ * slot, above the frame: the dock paints above the whole surface, so chrome left in the tile would
+ * sit under the frame whatever its z-index. `hot` mirrors the tile control's hover and keyboard focus
+ * onto the portaled copy, since `group-hover` cannot reach across the portal: style with
+ * `group-data-[hot]/overlay:`.
+ */
+function FaceOverlay({ children, hot }: { children: React.ReactNode; hot: boolean }) {
+	return (
+		<span data-hot={hot ? '' : undefined} className="group/overlay pointer-events-none absolute inset-0">
+			{children}
+		</span>
+	);
+}
+
+/** Hover or keyboard focus on the nearest `.group` control around `el` — the tile's button. */
+function useHot(ref: React.RefObject<HTMLElement | null>, on: boolean): boolean {
+	const [hot, setHot] = React.useState(false);
+	React.useEffect(() => {
+		const control = on ? ref.current?.closest<HTMLElement>('.group') : null;
+		if (!control) return;
+		let hovered = false;
+		let focused = false;
+		const sync = () => setHot(hovered || focused);
+		const enter = () => {
+			hovered = true;
+			sync();
+		};
+		const leave = () => {
+			hovered = false;
+			sync();
+		};
+		// Keyboard focus on the control that CONTAINS this face — the tile's own button — not on a
+		// sibling control in the same card (the looks toggle).
+		const focus = (e: FocusEvent) => {
+			const t = e.target as Element | null;
+			focused = !!t && !!ref.current && t.contains(ref.current) && t.matches(':focus-visible');
+			sync();
+		};
+		const blur = () => {
+			focused = false;
+			sync();
+		};
+		control.addEventListener('pointerenter', enter);
+		control.addEventListener('pointerleave', leave);
+		control.addEventListener('focusin', focus);
+		control.addEventListener('focusout', blur);
+		return () => {
+			control.removeEventListener('pointerenter', enter);
+			control.removeEventListener('pointerleave', leave);
+			control.removeEventListener('focusin', focus);
+			control.removeEventListener('focusout', blur);
+		};
+	}, [ref, on]);
+	return hot;
+}
+
+export function PooledThumbFace({ className, overlay, ...props }: PooledPreviewProps & { className?: string; overlay?: React.ReactNode }) {
 	const pool = React.useContext(PoolContext);
 	const ref = React.useRef<HTMLDivElement>(null);
 	const id = React.useRef(0);
 	if (id.current === 0) id.current = nextTileId++;
+	// WHICH DOCK SLOT SHOWS THIS TILE, so the overlay can ride above the frame (see `FaceOverlay`).
+	const [dockId, setDockId] = React.useState<number | null>(null);
+	const hasOverlay = !!overlay;
+	React.useEffect(() => {
+		if (!pool || !hasOverlay) return;
+		return pool.watchDock(id.current, setDockId);
+	}, [pool, hasOverlay]);
+	const host = dockId === null ? null : dockOverlayHost(dockId);
+	// The slot's element can trail the assignment by a render; look again on the next frame.
+	const [, retry] = React.useReducer((n: number) => n + 1, 0);
+	React.useEffect(() => {
+		if (dockId === null || host) return;
+		const r = window.requestAnimationFrame(retry);
+		return () => window.cancelAnimationFrame(r);
+	}, [dockId, host]);
+	const hot = useHot(ref, hasOverlay);
 	// The observer reports band membership; the POOL decides what that earns. Kept separate from
 	// the props effect below so a prop change does not re-subscribe the observer.
 	React.useEffect(() => {
@@ -793,5 +908,11 @@ export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { 
 		if (pool) pool.updateProps(id.current, propsRef.current);
 	});
 
-	return <span ref={ref} className={cn('block', className)} />;
+	if (!overlay) return <span ref={ref} className={cn('block', className)} />;
+	const face = <FaceOverlay hot={hot}>{overlay}</FaceOverlay>;
+	return (
+		<span ref={ref} className={cn('relative block', className)}>
+			{host ? createPortal(face, host) : face}
+		</span>
+	);
 }

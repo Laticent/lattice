@@ -698,6 +698,91 @@ describe('PreviewPool — borrowing from the frame dock', () => {
 		host.unmount();
 	});
 
+	it("a tile's overlay rides in its dock slot, above the frame, and comes home when the frame goes", async () => {
+		// The dock paints above the whole surface, so chrome left in the tile sat under the frame:
+		// every overview number and Insert bar hidden (found by the red team on this change).
+		const { FrameDockHost } = await import('./frame-dock');
+		const host = render(<FrameDockHost />);
+		const box = document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
+		const g = render(
+			<PreviewPool>
+				<div className="group">
+					<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample="# 0" overlay={<b data-testid="badge">1</b>} />
+				</div>
+			</PreviewPool>,
+			{ container: box },
+		);
+		const tile = g.container.querySelector('.group > span') as HTMLElement;
+		onScreen(tile);
+		intersect(tile, true);
+		settle();
+		act(() => {
+			vi.advanceTimersByTime(50);
+		});
+		const badge = document.querySelector('[data-testid="badge"]');
+		expect(badge?.closest('[data-dock-overlay]'), 'the overlay stayed in the tile, under the frame').not.toBeNull();
+		expect(badge?.closest('[data-slide-frame]')?.querySelector('[data-testid="deck-preview"]'), 'the overlay is not in the slot that shows its tile').not.toBeNull();
+		intersect(tile, false);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		// Out of band the slot may be taken away; wherever the frame went, exactly one badge exists.
+		expect(document.querySelectorAll('[data-testid="badge"]').length).toBe(1);
+		g.unmount();
+		expect(document.querySelectorAll('[data-testid="badge"]').length).toBe(0);
+		host.unmount();
+	});
+
+	it('at an equal z, only the newest surface shows its frames', async () => {
+		// The phone's Settings sheet and Add slide's sheet are both z-50; the older one's frames
+		// showed through the newer (red team, 390 px, both engines).
+		const { FrameDockHost } = await import('./frame-dock');
+		const host = render(<FrameDockHost />);
+		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
+		const older = render(<Grid n={2} />, { container: surface() });
+		for (let i = 0; i < 2; i++) {
+			onScreen(face(older.container, i));
+			intersect(face(older.container, i), true);
+		}
+		settle();
+		const shown = () => [...document.querySelectorAll('#lattice-frame-dock [data-dock-shown]')].map((s) => s.getAttribute('data-dock-owner'));
+		const olderOwner = shown()[0];
+		expect(shown()).toHaveLength(2);
+		const newer = render(<Grid n={2} />, { container: surface() });
+		for (let i = 0; i < 2; i++) {
+			onScreen(face(newer.container, i));
+			intersect(face(newer.container, i), true);
+		}
+		settle();
+		expect(shown(), 'the covered surface still shows its frames').toHaveLength(2);
+		expect(shown()).not.toContain(olderOwner);
+		newer.unmount();
+		settle();
+		expect(shown(), 'the uncovered surface did not get its frames back').toEqual([olderOwner, olderOwner]);
+		older.unmount();
+		host.unmount();
+	});
+
+	it('a surface playing its exit animation hides its frames at once', async () => {
+		const { FrameDockHost } = await import('./frame-dock');
+		const host = render(<FrameDockHost />);
+		const box = document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
+		box.setAttribute('data-state', 'open');
+		const g = render(<Grid n={2} />, { container: box });
+		for (let i = 0; i < 2; i++) {
+			onScreen(face(g.container, i));
+			intersect(face(g.container, i), true);
+		}
+		settle();
+		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown]')).toHaveLength(2);
+		box.setAttribute('data-state', 'closed'); // Radix, as the close starts
+		act(() => {
+			window.dispatchEvent(new Event('animationstart'));
+			vi.advanceTimersByTime(50);
+		});
+		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown]'), 'frames stayed drawn over a closing surface').toHaveLength(0);
+		g.unmount();
+		host.unmount();
+	});
+
 	it('two full pools open at once each get every frame they ask for', async () => {
 		// The deck panel stays mounted while Add slide or Present's overview is up. A ceiling of one
 		// pool's worth left the second grid blank (found by the independent check on this change).
@@ -713,7 +798,8 @@ describe('PreviewPool — borrowing from the frame dock', () => {
 		}
 		settle();
 		expect(DOCK_MAX_SLOTS).toBeGreaterThanOrEqual(2 * HARD_MAX_SLOTS);
-		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown] [data-testid="deck-preview"]').length).toBe(2 * HARD_MAX_SLOTS);
+		// HELD, not shown: two sibling surfaces at one z show only the newer (see the equal-z test).
+		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-owner] [data-testid="deck-preview"]').length).toBe(2 * HARD_MAX_SLOTS);
 		for (const g of grids) g.unmount();
 		host.unmount();
 	});
@@ -730,7 +816,7 @@ describe('PreviewPool — borrowing from the frame dock', () => {
 			}
 		}
 		settle(); // the third pass used to throw on an undefined slot, and set nothing
-		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-shown] [data-testid="deck-preview"]').length).toBe(DOCK_MAX_SLOTS);
+		expect(document.querySelectorAll('#lattice-frame-dock [data-dock-owner] [data-testid="deck-preview"]').length).toBe(DOCK_MAX_SLOTS);
 		for (const g of grids) g.unmount();
 		host.unmount();
 	});

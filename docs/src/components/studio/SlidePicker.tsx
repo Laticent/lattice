@@ -534,14 +534,23 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 
 	// The preview face — identical in both views; only its box differs. The box carries no
 	// radius or border: the pool draws the slide frame, so the tile shows the deck's corner.
+	// Insert affordance on hover/focus, drawn over the preview — decorative; the button owns the
+	// click. Over a live preview it is the face's OVERLAY: a docked frame paints above the whole
+	// dialog, so a bar left in the tile would sit under it (preview-pool.tsx `FaceOverlay`).
+	const insertBar = (show: string) => (
+		<span className={cn('pointer-events-none absolute z-10 flex items-center justify-center gap-1 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity', isList ? 'inset-0 bg-[color-mix(in_srgb,var(--accent)_88%,#000)]' : 'inset-x-2 bottom-2 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5', show)}>
+			<Plus className="size-3.5" /> Insert
+		</span>
+	);
 	const preview = isBlank ? (
-		<span className="grid aspect-video w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)] text-muted-foreground">
+		<span className="relative grid aspect-video w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)] text-muted-foreground">
 			<Plus className={isList ? 'size-5' : 'size-7'} />
+			{insertBar('group-hover:opacity-100 group-focus-visible:opacity-100')}
 		</span>
 	) : (
 		// pointer-events-none: the render is a separate-document iframe that would
 		// otherwise swallow the tile's click.
-		<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
+		<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" overlay={insertBar('group-data-[hot]/overlay:opacity-100')} />
 	);
 
 	// Line 3 in grid, the trailing cluster in list. Rendered OUTSIDE the insert button in
@@ -569,12 +578,6 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				<button {...insertProps} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
 					<span className={cn('relative w-[184px] shrink-0', isBlank && 'overflow-hidden rounded-lg border border-border')}>
 						{preview}
-						{/* Insert affordance on hover/focus — decorative; the button owns the click.
-						    `z-10` because the pooled preview layer paints ABOVE the grid (see
-						    preview-pool.tsx) — without it this overlay is hidden behind the frame. */}
-						<span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-							<Plus className="size-3.5" /> Insert
-						</span>
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{item.name}</span>
@@ -594,11 +597,6 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				    deck look rounded here (docs/src/lib/slide-frame.ts). */}
 				<span className="relative block px-2 pt-2">
 					{preview}
-					{/* Insert affordance on hover/focus — decorative; the button owns the click.
-					    `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx). */}
-					<span className="pointer-events-none absolute inset-x-4 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-						<Plus className="size-3.5" /> Insert
-					</span>
 				</span>
 				{/* Name owns a FULL line — always legible, never a hover afterthought, and no
 				    longer sharing the row with a control. */}
