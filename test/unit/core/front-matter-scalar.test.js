@@ -159,3 +159,66 @@ describe('both shared readers route through the one rule', () => {
     assert.equal(topLevelFrontMatterValue(FM, 'nope'), null);
   });
 });
+
+// A `style: |` body is CSS, not keys (followups.d/2391-p3-engine-reader-reads-block-scalar-lines).
+// The Studio's reader skips it (docs/src/components/studio/front-matter.test.ts § block scalars,
+// the same deck); the engine read `  lift: on` as the `lift` register, and `parseFrontMatter`
+// read a rule's `    color: #c00;` as the deck-wide `color` directive.
+describe('block scalars — the body is never a key', () => {
+  const DECK = '---\ntheme: indaco\nstyle: |\n  lift: on\n  rule: short\n\n  section { color: red; }\nfooter: Q4\n---\n\n# Hi\n';
+  const FM = DECK.split('---\n')[1];
+
+  test('frontMatterValue skips the body and still reads the header and the keys after it', () => {
+    assert.equal(frontMatterValue(FM, 'lift'), null);
+    assert.equal(frontMatterValue(FM, 'rule'), null);
+    assert.equal(frontMatterValue(FM, 'style'), '|');
+    assert.equal(frontMatterValue(FM, 'footer'), 'Q4');
+  });
+
+  test('parseFrontMatter skips the body too', () => {
+    const { directives } = parseFrontMatter('---\nstyle: |\n  section {\n    color: #c00;\n  }\npaginate: true\n---\n\n# Hi\n');
+    assert.equal(directives.color, undefined);
+    assert.equal(directives.style, '|');
+    assert.equal(directives.paginate, 'true');
+  });
+
+  test('the other indicators, a trailing comment, CRLF and a nested header', () => {
+    for (const head of ['>', '|-', '>+2', '|  # deck css']) {
+      assert.equal(frontMatterValue(FM.replace('style: |', `style: ${head}`), 'lift'), null, head);
+    }
+    assert.equal(frontMatterValue(FM.replace(/\n/g, '\r\n'), 'lift'), null);
+    assert.equal(frontMatterValue(FM.replace(/\n/g, '\r\n'), 'footer'), 'Q4');
+    // An indented header's body is the lines deeper than IT; a sibling at its own depth is a key.
+    const nested = 'pptx:\n  notes: |\n    lift: on\n  lift: off\n';
+    assert.equal(frontMatterValue(nested, 'lift'), 'off');
+  });
+
+  test('a `|` inside a plain value is not a block scalar', () => {
+    const fm = 'footer: a | b\n  lift: on\n';
+    assert.equal(frontMatterValue(fm, 'footer'), 'a | b');
+    assert.equal(frontMatterValue(fm, 'lift'), 'on');
+  });
+});
+
+describe('block-scalar header — linear on a long run of spaces', () => {
+  // `(?:[ \t]+#.*)?[ \t]*\r?$` let `.*` and `[ \t]*` split a run of spaces every way before
+  // failing on a character `.` cannot cross, so the header test was quadratic: 1.9 s per read
+  // at 40K spaces, ~50 s per render. 4x the input is ~4x the time when linear, ~16x when not.
+  const fm = (n) => `style: | #${' '.repeat(n)}\u2028x\nlift: on\n`;
+  test('a header ending in U+2028 after 4x the spaces takes well under 16x the time', () => {
+    const once = (src) => { const t = process.hrtime.bigint(); frontMatterValue(src, 'lift'); return Number(process.hrtime.bigint() - t) / 1e6; };
+    // A distinct suffix per call, so the last-answer cache cannot serve a repeat.
+    const best = (n) => Math.min(...Array.from({ length: 5 }, (_, i) => once(fm(n) + `k${i}: v\n`)));
+    best(1000);
+    const small = best(10000);
+    const large = best(40000);
+    assert.ok(large < small * 10, `header scan must not square: ${small.toFixed(2)}ms at 10K, ${large.toFixed(2)}ms at 40K`);
+    assert.equal(frontMatterValue(fm(10), 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
+  });
+
+  test('a header with trailing blanks or a comment still reads as a header', () => {
+    for (const head of ['|   ', '|  # css   ', '>-\t', '|\r']) {
+      assert.equal(frontMatterValue(`style: ${head}\n  lift: on\nfooter: Q4\n`, 'lift'), null, JSON.stringify(head));
+    }
+  });
+});

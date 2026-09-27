@@ -508,6 +508,15 @@ describe('block scalars — `style: |` lines are body, never directives (followu
 		expect(writeFrontMatterLine(crlf, 'lift', null)).toBe(crlf);
 	});
 
+	it('a header with trailing blanks still reads; a long run of spaces before U+2028 is linear, not a header', () => {
+		expect(getFrontMatter(DECK.replace('style: |', 'style: |   '), 'lift')).toBeUndefined();
+		// The old tail `(?:[ \t]+#.*)?[ \t]*\r?$` backtracked quadratically here (460 ms at 20K).
+		const hostile = `---\nstyle: | #${' '.repeat(40000)}\u2028x\nfooter: Q4\n---\n`;
+		const t = performance.now();
+		expect(getFrontMatter(hostile, 'footer')).toBe('Q4');
+		expect(performance.now() - t).toBeLessThan(250);
+	});
+
 	it('a nested-block writer re-emits the scalar verbatim instead of flattening its body', () => {
 		const out = setFrontMatterBlock(DECK, 'lexicon', [['α', 'alpha']]);
 		expect(out).toContain('style: |\n  lift: on\n  rule: short\n\n  section { color: red; }\n');

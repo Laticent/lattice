@@ -131,9 +131,12 @@ named like a register (`  lift: on`) read as that register, and a write, a remov
 Reset of it rewrote the author's CSS. Both now treat a block-scalar header as one pair (value
 `|`, `>-`, …) and skip its body. The two nested writers above now re-emit that body verbatim;
 before, they flattened it into stray top-level keys. They still normalize everything else
-around it. The engine's own loose reader (`frontMatterValue` in
-`lib/core/front-matter-key.js`) still reads an indented line as a key; that is logged in
-`followups.d/`.
+around it. The engine now agrees: `withoutBlockScalarBodies` in `lib/core/front-matter-key.js`
+blanks every body line with the same rule before `frontMatterValue` (every register read) and
+the engine's `parseFrontMatter` (every Marp directive) look for a key. The second reader was
+the realistic half: a multi-line rule's `    color: #c00;` set the deck-wide `color` directive
+on every section. Pinned in `test/unit/core/front-matter-scalar.test.js` § block scalars, on
+the Studio test's deck.
 
 ## Behavior differences the migration introduces
 

@@ -177,6 +177,16 @@ side-by-side renders and approved the new set before any code changed. The two b
 picked from all nine finishes rendered on the same pair of slides: the others were busier
 (`atrium`, `savile`, `meridian`) or too close to plain (`gallery`, `nimbus`).
 
+**Revisited 2026-09-27, kept as signed off.** After `backdrop:` landed (#2388), a preset could in
+principle wear one of the busier finishes and use `backdrop: clear` to keep it off the words. Six
+candidates were rendered, light and dark, title and cards: Brand-forward or Editorial on `atrium`,
+`nimbus`, `savile` or `meridian` with `backdrop: clear` (A–D), and on `atrium` or `savile` with no
+backdrop (E–F). The clear mask removes the finish from the middle of the slide, where the content
+sits, so A–D read QUIETER than today's `ledger` and `strata`, undoing the "tell the four apart"
+goal. E–F are bolder but run their lines through the headline and the cards. The owner kept
+today's presets; `backdrop` stays out of the preset family. The candidates are reproducible from
+the configs listed here.
+
 **The picker shows live previews.** The dropdown of four names became a 2×2 radiogroup
 (`docs/src/components/studio/PresetPicker.tsx`, on `ui/radio-group`). Each card renders one
 sample slide under that preset, and it went through two designs.

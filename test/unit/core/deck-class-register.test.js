@@ -200,9 +200,18 @@ describe('deck-class register — the export boundary', () => {
     // changes every register at once — see the residual note in
     // engineering/decisions/2026-08-05-deck-class-register-boundary.md.
     const { parseFrontMatter } = require('../../../lib/engine/directives');
-    const fm = 'style: |\n  class: kpi\nclass: dark';
+    const fm = 'class: kpi\nclass: dark';
     assert.equal(parseFrontMatter(`---\n${fm}\n---\n`).directives.class, 'dark', 'the engine takes the LAST');
     assert.deepEqual(deckClassTokensFromFrontMatter(fm), [], 'this reader took the FIRST (`kpi`) and refused it as a component');
+  });
+
+  test('a `class:` line inside a `style: |` body is CSS, so both readers see only the real one', () => {
+    // This arm used to pin the residual above with this shape. Both readers now skip a block
+    // scalar's body (`withoutBlockScalarBodies`, lib/core/front-matter-key.js), so it agrees.
+    const { parseFrontMatter } = require('../../../lib/engine/directives');
+    const fm = 'style: |\n  class: kpi\nclass: dark';
+    assert.equal(parseFrontMatter(`---\n${fm}\n---\n`).directives.class, 'dark');
+    assert.deepEqual(deckClassTokensFromFrontMatter(fm), ['dark']);
   });
 
   test('a body line that merely reads `class:` is not front matter and is untouched', () => {
