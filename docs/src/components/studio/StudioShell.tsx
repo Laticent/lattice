@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
+import { codePackagesStamp, setCodePackages } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
@@ -181,6 +182,10 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 // is not fetched at startup: it arrives with the idle warm-up (`studio-warm.ts`), or on the
 // first "Present" click if that comes first.
 const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
+
+// The code-package notice renders only once the Library holds a code package (`codeStamp` is empty
+// until then), so its chunk is not part of the Studio's first load (docs/route-budget.json).
+const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then((m) => ({ default: m.CodePackagesNotice })));
 
 
 
@@ -1194,12 +1199,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// async to a fresh array each call (often an empty one when IndexedDB is
 		// absent); blindly setting it would flip `localComponents` identity, churn
 		// `knownWithLocal`, and needlessly re-init the editor (wiping its doc state).
-		const same = (a: StudioComponent[], b: StudioComponent[]) => a.length === b.length && a.every((c, i) => c.id === b[i].id && c.css === b[i].css && c.skeleton === b[i].skeleton && c.name === b[i].name);
+		const same = (a: StudioComponent[], b: StudioComponent[]) => a.length === b.length && a.every((c, i) => c.id === b[i].id && c.css === b[i].css && c.skeleton === b[i].skeleton && c.name === b[i].name && c.pkg?.files?.['transform.js'] === b[i].pkg?.files?.['transform.js']);
 		listStudioComponents()
 			.then((list) => setLocalComponents((prev) => (same(prev, list) ? prev : list)))
 			.catch(() => setLocalComponents((prev) => (prev.length ? [] : prev)));
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
+	// CODE PACKAGES: every saved component carrying a transform is one the renders may run, each only
+	// once this browser approved its code (docs/src/lib/code-packages/door.ts). The stamp names that
+	// state and rides in the preview's extra CSS, which every preview and export cache keys on, so a
+	// new package or approval re-renders the slides that showed the old state.
+	const [codeStamp, setCodeStamp] = React.useState('');
+	React.useEffect(() => {
+		let live = true;
+		const withCode = localComponents.filter((c) => typeof c.pkg?.files?.['transform.js'] === 'string').map((c) => ({ name: c.name, code: c.pkg?.files?.['transform.js'] as string }));
+		setCodePackages(withCode).then(
+			() => { if (live) setCodeStamp(codePackagesStamp()); },
+			// The door's chunk did not load (offline before it was ever fetched, or a renamed chunk):
+			// no package runs, and the next Library change tries again.
+			(e) => console.warn('lattice: the code-package door did not load', e),
+		);
+		return () => { live = false; };
+	}, [localComponents]);
+	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
 	// Saved (Fabricated) FINISHES from the same shared library (kind:'finish') — a
 	// finish designed + saved in the Finish faculty lands here, becomes pickable in
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +
@@ -2140,8 +2162,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
-		() => [usedLocalCss, finishExtraCss].filter(Boolean).join('\n\n') || undefined,
-		[usedLocalCss, finishExtraCss],
+		() => [usedLocalCss, finishExtraCss, codeStamp].filter(Boolean).join('\n\n') || undefined,
+		[usedLocalCss, finishExtraCss, codeStamp],
 	);
 	// The class tokens a saved finish stamps onto every section (the engine never
 	// learned the custom name, so we add the class ourselves). Applied ONLY to the
@@ -4997,6 +5019,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			</div>
 			)}
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
+			{codeStamp && (
+				<React.Suspense fallback={null}>
+					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} />
+				</React.Suspense>
+			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
 			    here; the arrow keys do the same from the window listener above, so all
 			    three verbs work on every device. A PINCH, a ctrl/⌘+wheel and a middle-

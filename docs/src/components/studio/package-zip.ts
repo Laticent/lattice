@@ -14,6 +14,7 @@
 import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
+import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
@@ -90,6 +91,9 @@ export function componentPackage(c: StudioComponent): PackageFiles {
 	};
 	const docs = c.pkg?.files?.['docs.md'];
 	if (docs != null) files[`${n}.docs.md`] = docs;
+	// Written back as it came, so its digest, and a receiver's approval of it, survive the trip.
+	const transform = c.pkg?.files?.['transform.js'];
+	if (transform != null) files[`${n}.transform.js`] = transform;
 	return { type: 'component', name: n, files };
 }
 
@@ -144,6 +148,9 @@ export type ReadPackage = {
 	/** role → file text, after the spine rewrote every projection from the manifest */
 	roles: Record<string, string>;
 	code: boolean;
+	/** For a package carrying code: why it is not the one shape a door can run, or null when it
+	 *  is (lib/packages/code-shape.mjs `refuseCode`, the same check `lattice packages add` runs). */
+	codeRefusal: string | null;
 	notes: string[];
 };
 
@@ -217,7 +224,7 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 		// A component's images and data files (its assets) are not carried into the Studio's
 		// record yet, so they are named as left out rather than lost in silence.
 		const notes = [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(r.pkg.assets?.length ? [`left out ${r.pkg.assets.length} asset file(s): ${r.pkg.assets.join(', ')}`] : [])];
-		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, notes });
+		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? refuseCode(norm.pkg) : null, notes });
 	}
 	return { packages, refused };
 }
@@ -264,7 +271,9 @@ export function componentFromPackage(p: ReadPackage): { name: string; bucket: st
 		css: p.roles['styles.css'] ?? '',
 		skeleton: p.roles['gallery.md'] ?? '',
 		manifest: m,
-		pkg: { manifest: m, ...(p.roles['docs.md'] != null ? { files: { 'docs.md': p.roles['docs.md'] } } : {}) },
+		// A code package's transform rides in the carry, so it saves, lists and exports with the
+		// component. It runs only after the user approves it (docs/src/lib/code-packages/).
+		pkg: { manifest: m, ...(p.roles['docs.md'] != null || p.roles['transform.js'] != null ? { files: { ...(p.roles['docs.md'] != null ? { 'docs.md': p.roles['docs.md'] } : {}), ...(p.roles['transform.js'] != null ? { 'transform.js': p.roles['transform.js'] } : {}) } } : {}) },
 	};
 }
 

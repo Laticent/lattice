@@ -917,7 +917,10 @@ the root capability index that `tools/build-capabilities.js` generates.
 The Studio's real-browser e2e suite (`docs/e2e/*.spec.ts`, driven by
 `docs/playwright.config.ts`) is **nightly, off the per-PR gate**
 (`studio-e2e-nightly.yml`) — deliberately, per
-`engineering/decisions/2026-06-28-experience-gating-playwright.md`. That
+`engineering/decisions/2026-06-28-experience-gating-playwright.md`. The two
+sandbox specs, `code-packages.spec.ts` and `web-images.spec.ts`, also run in that workflow's own
+`security` job, on Chromium, Gecko and WebKit with no retries: the whole suite overran its
+45-minute step on most nights, and a leak must not wait on a suite that never reaches it. That
 asymmetry is a footgun: a change to shared Studio chrome can pass every
 PR-gating tier (unit/build/lint) while silently breaking specs that only the
 nightly runs (the #780 drift; `2026-07-06-e2e-chrome-selector-contract.md`). So

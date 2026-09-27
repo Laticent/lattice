@@ -6,7 +6,8 @@
   change still import.
 - **Changed: importing a package trusts its manifest, not its file names.** A folder
   a browser saved as `harbor (1)` imports as `harbor`, and the import message says
-  what it renamed or left out. A package that carries JavaScript is refused by name.
+  what it renamed or left out. A package that carries JavaScript imports only in the one
+  form a code package takes, and runs only after you approve its code.
 - **Fixed: a component imported from a zip keeps its manifest.** The old format
   carried only the bucket, so an imported component couldn't be re-saved until its
   function, form, substance and description were filled in again. A package carries

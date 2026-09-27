@@ -8,8 +8,9 @@
 // written in its own formatting. Without this, importing a package and exporting it
 // again rewrote those files or dropped them.
 //
-// It is DATA the export writes back verbatim, never something the Studio renders or
-// executes: a code role (`transform.js`) is refused at import and never reaches here.
+// It is DATA the export writes back verbatim. The one exception is a code package's
+// `transform.js`, which the Studio also RUNS, and only after the user approves it at its
+// SHA-256, in a sandboxed frame (docs/src/lib/code-packages/; contract note §9).
 //
 // It lasts until the record is EDITED. The faculties (Fabricate, the Finish and Motion
 // studios) save what they model and pass no carry, so the first edit drops it: a

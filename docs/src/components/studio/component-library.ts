@@ -6,7 +6,7 @@
 // persistence + record shapes are the trusted cores; this module only maps to
 // the Studio's view model and degrades gracefully when IndexedDB is unavailable.
 
-import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import { deleteAsset, getAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
 import type { PackageCarry } from '@/components/studio/library/package-carry';
 import { renameComponentSelectors } from '@/components/studio/library/reserved-names';
 import { renameAssetInSource } from './asset-rename';
@@ -109,7 +109,16 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 	if (Array.isArray(meta.tags) && meta.tags.length) manifest.tags = meta.tags;
 	if (meta.description?.trim()) manifest.description = meta.description.trim();
 	const asset = (await loadLayoutCore()).componentAsset({ name, css, skeleton, manifest });
-	const withPkg = input.pkg ? { ...asset, pkg: input.pkg } : asset;
+	// A CODE package edited in a faculty keeps its transform. The faculties pass no carry, and the
+	// first edit used to drop it, so the component silently stopped running its code (the inversion
+	// lens). Kept only under the same name: a transform finds its slides by its own name.
+	let pkg = input.pkg;
+	if (!pkg && input.id) {
+		const before = (await getAsset(input.id).catch(() => null)) as ComponentAssetRecord | null;
+		const transform = before?.pkg?.files?.['transform.js'];
+		if (typeof transform === 'string' && before?.name === name) pkg = { files: { 'transform.js': transform } };
+	}
+	const withPkg = pkg ? { ...asset, pkg } : asset;
 	const stored = (await putAsset(input.id ? { ...withPkg, id: input.id } : withPkg, opts)) as ComponentAssetRecord;
 	return toStudioComponent(stored);
 }

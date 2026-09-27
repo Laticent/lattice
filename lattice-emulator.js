@@ -356,13 +356,18 @@ PACKAGES
   Themes, components, finishes and motion made in the Studio are packages. Install one
   once and every deck can name it:
     lattice packages list   [--type theme|component|finish|motion]
-    lattice packages add    <file.zip | folder> [--replace]
+    lattice packages add    <file.zip | folder> [--replace] [--trust]
     lattice packages check  <file.zip | folder>
     lattice packages export <type>/<name> [-o file.zip]
     lattice packages remove <type>/<name>
+    lattice packages trust  component/<name> [--yes]
+    lattice packages untrust component/<name>
   The store is $LATTICE_HOME/packages (default ~/.lattice/packages); --packages <dir>
   overrides it for one run, for renders too. A deck whose theme is neither shipped nor
   installed fails with the theme's name and the command that installs it.
+  A component that carries code (a transform.js) runs only after you approve its code,
+  in a browser with no network; changed code asks again. A deck that uses one you have
+  not approved fails with its name and the trust command.
 
 EXIT CODES
   0  Success
@@ -1482,105 +1487,10 @@ function themeVarsForBand(band, hand = false) {
   return vars;
 }
 
-/** True when `p` is a regular file this process may execute — not a directory,
- *  not a non-executable file, not a dangling path. `fs.existsSync` alone answers
- *  none of those, and every one of them reaches puppeteer as `spawn … EACCES`. */
-function isLaunchableBinary(p) {
-  try {
-    if (!fs.statSync(p).isFile()) return false;
-    fs.accessSync(p, fs.constants.X_OK); // throws when it is not executable
-    return true;
-  } catch { return false; }
-}
-
-// ── Puppeteer config — chrome auto-detection ─────────────────────────────
-// Both the diagram render worker and the PDF rasterize step drive puppeteer, which
-// needs a Chrome binary; resolution order:
-//   1. PUPPETEER_EXECUTABLE_PATH env var (explicit, unconditional override)
-//   2. CHROME_PATH env var, if it names an executable file
-//   3. puppeteer's bundled copy — under $HOME/.cache/puppeteer/chrome AND under
-//      EVERY /home/<user>/.cache/puppeteer/chrome, newest build first, regardless
-//      of what HOME says. Overriding HOME therefore does NOT isolate this step.
-//   4. system Chrome / Chromium (looked up via `which`)
-// If none of these resolve, we omit executablePath and let puppeteer use
-// its default (which may download a Chrome on first run).
-//
-// STEP 2 EXISTS BECAUSE EVERYTHING AROUND US ALREADY SETS `CHROME_PATH`, and until
-// #2088 this function did not read it. The SessionStart hook exports it, AGENTS.md
-// and engineering/gotchas/ci.md tell you to set it, test/helpers/chrome.js reads it
-// first, and test/benchmark/engine-bench.mjs goes to the trouble of resolving a
-// binary and passing it down as CHROME_PATH. None of that reached the renderer.
-// It looked like it worked only because the value everyone sets is the same binary
-// step 3 finds on its own — measured: `CHROME_PATH=/nonexistent/chrome` still
-// rendered a deck fine, and, in the one case the docs were actually written for
-// (no discoverable puppeteer cache), a correct `CHROME_PATH` still failed while
-// `PUPPETEER_EXECUTABLE_PATH` to the same file rendered.
-//
-// The two steps are deliberately NOT symmetric. Step 1 stays unconditional: an
-// explicit pin that has gone missing must fail loudly, not silently render on some
-// other browser — .github/workflows/overflow-nightly.yml pins a specific Chromium
-// precisely so its baseline stays comparable. Step 2 falls through instead, so a
-// stale or decorative CHROME_PATH lands on the cache scan exactly as it did before
-// this change rather than becoming a new render failure.
-//
-// "Falls through" has to mean more than `existsSync`, and the first draft of this
-// got it wrong. A path can exist and still not be a browser: `/Applications/Google
-// Chrome.app` is a DIRECTORY, and a non-executable file is just as unlaunchable.
-// Both passed `existsSync`, and both then died in puppeteer with `spawn … EACCES`
-// on renders that had worked the day before — a regression manufactured by the very
-// guard meant to prevent one. isFile + X_OK is what the sentence above actually
-// promises.
-function detectChromeExecutable() {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
-  if (process.env.CHROME_PATH && isLaunchableBinary(process.env.CHROME_PATH)) {
-    return process.env.CHROME_PATH;
-  }
-  // Look in known puppeteer cache locations across users.
-  const possibleHomes = [];
-  if (process.env.HOME) possibleHomes.push(process.env.HOME);
-  // Many systems store puppeteer cache under /home/<user>/.cache/puppeteer
-  // even when the script runs as a different user. Check common locations.
-  try {
-    if (fs.existsSync('/home')) {
-      for (const u of fs.readdirSync('/home')) {
-        const h = path.join('/home', u);
-        if (!possibleHomes.includes(h)) possibleHomes.push(h);
-      }
-    }
-  } catch (_e) { /* ignore */ }
-  const candidates = [];
-  for (const h of possibleHomes) {
-    const cacheRoot = path.join(h, '.cache', 'puppeteer', 'chrome');
-    if (!fs.existsSync(cacheRoot)) continue;
-    try {
-      for (const dir of fs.readdirSync(cacheRoot)) {
-        const linuxBin = path.join(cacheRoot, dir, 'chrome-linux64', 'chrome');
-        if (fs.existsSync(linuxBin)) candidates.push(linuxBin);
-        const macArm = path.join(cacheRoot, dir, 'chrome-mac-arm64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing');
-        if (fs.existsSync(macArm)) candidates.push(macArm);
-        const macX64 = path.join(cacheRoot, dir, 'chrome-mac-x64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing');
-        if (fs.existsSync(macX64)) candidates.push(macX64);
-      }
-    } catch (_e) { /* skip unreadable */ }
-  }
-  if (candidates.length > 0) {
-    return candidates.sort().reverse()[0];
-  }
-  // Fall back to system chrome/chromium via PATH lookup.
-  const systemBins = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'];
-  for (const bin of systemBins) {
-    try {
-      const which = require('child_process')
-        .execSync(`which ${bin}`, { stdio: ['pipe', 'pipe', 'ignore'] })
-        .toString().trim();
-      if (which) return which;
-    } catch (_e) { /* not found, try next */ }
-  }
-  return null;
-}
-
+// The browser every Chromium launch in the CLI uses — the render, the diagram worker, and the code
+// sandbox, which must be the SAME browser `lattice packages trust` measured the OS sandbox on
+// (lib/core/chrome-exec.js has the resolution order and why).
+const { detectChromeExecutable } = require('./lib/core/chrome-exec.js');
 const CHROME_EXEC = detectChromeExecutable();
 // The engine-owned Mermaid render page, run as a child process so this synchronous
 // pre-pass can drive an async Puppeteer render. Resolved from PKG_ROOT rather than
@@ -2120,6 +2030,23 @@ const { appendAutoGlossary, glossaryEntries, resolveGlossaryMode } = require('./
 // SAME bridge the Studio's Markdown and Marp exports use (lib/layout/bridge.js), so a deck
 // renders a user component identically whether its CSS came from the store or from an
 // export (HARD RULE #1). A name the engine ships is never taken from the store.
+// Every installed code package (a component with a transform.js) the gate accepts; filled by
+// withInstalledComponents. All of them take part in routing, approved or not, so a slide an
+// unapproved package claims is refused rather than handed to the next package in line.
+let DECK_CODE_PACKAGES = [];
+/** Exit, naming each package, if any of these code packages lacks the user's approval. */
+function refuseUnapprovedCode(pkgs) {
+  if (!pkgs.length) return;
+  const { untrustedCodePackages } = require('./lib/packages/code-door.js');
+  const { printableLine } = require('./lib/packages/gate.js');
+  const untrusted = untrustedCodePackages(pkgs);
+  if (!untrusted.length) return;
+  for (const u of untrusted) {
+    console.error(printableLine(`error: the deck uses the code package ${u.name}, and you have not approved its code (sha256 ${u.sha256})`));
+    console.error(printableLine(`       to read what it runs and approve it: lattice packages trust component/${u.name}`));
+  }
+  process.exit(1);
+}
 function withInstalledComponents(source) {
   const { embedInstalledComponents, classTokens } = require('./lib/packages/render.js');
   const { refusePackage } = require('./lib/packages/gate.js');
@@ -2143,6 +2070,26 @@ function withInstalledComponents(source) {
     console.error(`         (${p.dir}). To use yours, re-add it: it installs as "${p.name}-custom".`);
   }
   if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
+  // CODE PACKAGES (contract note §9): an installed component with a `transform.js` runs only
+  // with the user's consent at exactly these bytes (lib/packages/trust.js). One the deck names
+  // without that consent fails the render with its name, before anything renders — never a silent
+  // render without its transform (portable-packages §3.5 point 1). The door checks again against
+  // the slides a package actually claims, which a class this source scan cannot see (a pane)
+  // could reach. A code package under a name Lattice reserves (a slide class such as `invert`)
+  // would claim every slide carrying that class, so it is not used (the inversion lens: a folder
+  // placed in the store by hand never went through `add`, which refuses one).
+  const { codeDigest, readTrust } = require('./lib/packages/trust.js');
+  const reservedNames = require('./lib/packages/index.js').createRegistry(require('./lib/packages/packages.generated.json'));
+  const approvals = readTrust();
+  const { codeNameRefusal } = require('./lib/packages/code-door-core.mjs');
+  const knownClasses = [...require('./lib/packages/reserved-classes.generated.js').names, ...COMPONENT_NAMES];
+  const installedCode = installed.filter((p) => p.pkg.code && !shippedComponents.has(p.name)).filter((p) => {
+    if (reservedNames.unreservedName('component', p.name) === p.name && !codeNameRefusal(p.name, knownClasses)) return true;
+    console.error(`warning: the installed code package ${p.name} has a name Lattice reserves, so it is not used`);
+    return false;
+  });
+  DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: approvals[`component/${p.name}`]?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]) }));
+  refuseUnapprovedCode(DECK_CODE_PACKAGES.filter((p) => named.has(p.name)));
   // A class the deck names that is not shipped, embedded or installed renders its slides
   // UNSTYLED — silently, unlike a missing theme. Say so, with the command that fixes it
   // (portable-packages §6). The deck linter decides what counts as known; it is loaded only
@@ -2464,10 +2411,34 @@ function engineSlides(deckSource = rawMd) {
   // the output directory (the path-bug fix —
   // engineering/decisions/2026-06-17-image-rearchitecture.md).
   const deckBaseUrl = pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href;
-  const rendered = engine.render(bgImage.liftBgImages(deckSource, deckBaseUrl), paletteName);
+  const deckMd = bgImage.liftBgImages(deckSource, deckBaseUrl);
+  // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
+  // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
+  // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
+  // A deck no installed code package claims renders once, as before.
+  let rendered;
+  if (DECK_CODE_PACKAGES.length) {
+    const { renderWithCodePackages } = require('./lib/packages/code-door.js');
+    const r = renderWithCodePackages((hook) => engine.render(deckMd, paletteName, { codePackages: hook }), {
+      packages: DECK_CODE_PACKAGES,
+      executablePath: CHROME_EXEC,
+      warn: (l) => console.error(l),
+      info: (l) => { if (!QUIET) console.log(l); },
+    });
+    if (r.refusal) {
+      for (const line of r.refusal) console.error(line);
+      process.exit(1);
+    }
+    rendered = r.rendered;
+  } else {
+    rendered = engine.render(deckMd, paletteName);
+  }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
-  // print-to-PDF). Read against the deck dir, the same base `![bg]` uses.
+  // print-to-PDF). Read against the deck dir, the same base `![bg]` uses. It reads a file a mask
+  // names, so a code package's output must never name one: the door keeps only the addresses a
+  // package was handed (lib/core/door-attr.mjs doorFilterAttr; the red team read a local file into
+  // the export through here before that rule).
   const renderedHtml = inlineLogoMarkSvg(rendered.html, deckBaseUrl);
   // No pre-render split pass. There used to be one — it counted each collection against
   // `capacity.hard` and handed every over-budget slide to the measured loop as a candidate —
